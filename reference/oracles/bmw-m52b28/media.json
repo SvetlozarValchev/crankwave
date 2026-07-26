@@ -25,6 +25,6 @@
   },
   "scenario_identity": {
     "declared_by_filename": "BMW M52B28 fifth-gear-equivalent dyno, 1500-6500 RPM",
-    "verification_status": "scenario controls and trajectory not yet independently reconstructed"
+    "verification_status": "generation chain and scenario controls recovered; see PROVENANCE.md"
   }
 }
