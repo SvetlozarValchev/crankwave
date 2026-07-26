@@ -1,0 +1,30 @@
+{
+  "schema": "engine-sim-offline.reference-media.v1",
+  "id": "bmw-m52b28.engine-sim.5th-gear-equivalent-dyno.1500-6500",
+  "role": "behavioral_listening_oracle",
+  "file": "bmw-m52b28-5th-gear-equivalent-dyno-1500-6500rpm.wav",
+  "sha256": "f62c164f9a3debca23b1459fae8d6b47a19a98a418490e2e99bcbdf8a7d972eb",
+  "byte_size": 8640302,
+  "wave": {
+    "container": "wav",
+    "codec": "pcm_s24le",
+    "sample_format": "s32",
+    "significant_bits_per_sample": 24,
+    "sample_rate_hz": 192000,
+    "channels": 1,
+    "channel_layout": "mono",
+    "sample_count": 2880000,
+    "duration_seconds": 15.0
+  },
+  "preservation": {
+    "source_path": "/home/cbethax/depot/dev/engine-sim-offline-failed/engine-sim/workspace/listening/bmw-m52b28-5th-gear-equivalent-dyno-1500-6500rpm.wav",
+    "source_modified_at": "2026-07-25T00:56:16.232194640+03:00",
+    "preserved_at": "2026-07-27",
+    "method": "filesystem copy without transcoding",
+    "byte_comparison": "identical"
+  },
+  "scenario_identity": {
+    "declared_by_filename": "BMW M52B28 fifth-gear-equivalent dyno, 1500-6500 RPM",
+    "verification_status": "scenario controls and trajectory not yet independently reconstructed"
+  }
+}
