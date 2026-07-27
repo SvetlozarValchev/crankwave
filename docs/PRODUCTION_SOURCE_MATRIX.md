@@ -1,8 +1,10 @@
 # Production offline source/render completeness matrix
 
-Status: **proposed, not frozen**
+Status: **frozen v1**
 
 Decision owner: user
+
+Approved: 2026-07-27 by explicit user confirmation in the project thread
 
 Scope: M6 canonical offline source/render evidence; first implementation is the BMW
 M52B28

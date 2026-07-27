@@ -1,14 +1,16 @@
 # BMW M52B28 reference source-completeness matrix
 
-Status: **proposed, not frozen**
+Status: **frozen v1**
 
 Decision owner: user
+
+Approved: 2026-07-27 by explicit user confirmation in the project thread
 
 Scope: M2 fixture-renderer acceptance and M3 BMW parity only
 
 This matrix defines exactly what must be present to reproduce and evaluate the liked
-engine-sim exhaust route. It does not define production-complete engine audio. Freezing
-it requires explicit user approval.
+engine-sim exhaust route. It does not define production-complete engine audio. Changing
+this frozen matrix requires another explicit user approval.
 
 ## Boundaries and isolation lanes
 
