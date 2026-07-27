@@ -1,6 +1,8 @@
 #include "determinism/renderer_determinism_envelope.hpp"
+#include "execution/linux_execution_facts.hpp"
 #include "reference/p18_reference_artifact_set.hpp"
 #include "reference/p18_reference_fixture_loader.hpp"
+#include "reference/p18_reference_manifest_completion.hpp"
 #include "reference/p18_reference_manifest_content.hpp"
 #include "reference/p18_reference_render_session.hpp"
 #include "reference/p18_reference_verification.hpp"
@@ -11,6 +13,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -67,6 +70,37 @@ determinism_error(const determinism::RendererDeterminismEnvelopeResult &result) 
     throw determinism_error(result);
 }
 
+[[nodiscard]] std::runtime_error
+execution_error(std::string_view operation,
+                const execution::LinuxExecutionFactsError &error) {
+    auto message = std::string{operation} + " rejected at " + error.component + ": " +
+                   error.message;
+    if (error.system_error != 0) {
+        message += " (system error " + std::to_string(error.system_error) + ")";
+    }
+    return std::runtime_error{std::move(message)};
+}
+
+[[nodiscard]] execution::LinuxExecutionFactsObservation require_execution_begin() {
+    auto result = execution::begin_single_job_linux_execution();
+    if (auto *observation =
+            std::get_if<execution::LinuxExecutionFactsObservation>(&result)) {
+        return std::move(*observation);
+    }
+    throw execution_error("could not begin Linux execution observation",
+                          std::get<execution::LinuxExecutionFactsError>(result));
+}
+
+[[nodiscard]] execution::ObservedExecutionFacts
+require_execution_finish(execution::LinuxExecutionFactsObservation &&observation) {
+    auto result = execution::finish_single_job_linux_execution(std::move(observation));
+    if (auto *facts = std::get_if<execution::ObservedExecutionFacts>(&result)) {
+        return std::move(*facts);
+    }
+    throw execution_error("could not finish Linux execution observation",
+                          std::get<execution::LinuxExecutionFactsError>(result));
+}
+
 [[nodiscard]] std::unique_ptr<P18ReferenceArtifactSet>
 create_artifact_set(const std::filesystem::path &root, std::string name) {
     auto result = P18ReferenceArtifactSet::create(root, std::move(name));
@@ -119,6 +153,7 @@ int run(int argc, char **argv) {
         consumers[index] = artifact_set->consumer(description.audio);
     }
 
+    auto execution_observation = require_execution_begin();
     const auto render_started = std::chrono::steady_clock::now();
     const auto stats =
         render_p18_reference_audio(fixture.audit, fixture.component_seeds.route_seeds(),
@@ -131,16 +166,17 @@ int run(int argc, char **argv) {
         require_success("could not seal P1.8 audio artifact",
                         artifact_set->seal(description.audio));
     }
+    const auto execution_facts =
+        require_execution_finish(std::move(execution_observation));
     const auto report = make_p18_reference_verification_report(
         fixture, stats, *artifact_set, render_duration, renderer_identity);
+    std::optional<std::size_t> manifest_bytes_in_memory;
     if (report.exact_reference_match) {
-        // This checkpoint constructs and validates deterministic content only.
-        // Execution facts, canonical encoding, and publication of the manifest are
-        // deliberately owned by later checkpoints. A nonmatching but complete audio
-        // candidate remains publishable for the listening gate below.
         const auto manifest_content = make_p18_reference_manifest_content(
             fixture, *artifact_set, renderer_identity);
-        static_cast<void>(manifest_content);
+        const auto completed_manifest =
+            complete_p18_reference_manifest(manifest_content, execution_facts);
+        manifest_bytes_in_memory = completed_manifest.canonical_bytes().size();
     }
     require_success(
         "could not write P1.8 verification report",
@@ -152,16 +188,23 @@ int run(int argc, char **argv) {
 
     const auto &audition =
         require_expected_audio(catalog, P18ReferenceAudioArtifact::master_audition);
-    std::cout << "publication=" << artifact_set->publication_path().string() << '\n'
-              << "audition="
-              << (artifact_set->publication_path() /
-                  std::filesystem::path{audition.expected_relative_path})
-                     .string()
-              << '\n'
-              << "exact_reference_match="
-              << (report.exact_reference_match ? "yes" : "no") << '\n'
-              << "render_seconds="
-              << std::chrono::duration<double>(render_duration).count() << '\n';
+    std::cout
+        << "publication=" << artifact_set->publication_path().string() << '\n'
+        << "audition="
+        << (artifact_set->publication_path() /
+            std::filesystem::path{audition.expected_relative_path})
+               .string()
+        << '\n'
+        << "exact_reference_match=" << (report.exact_reference_match ? "yes" : "no")
+        << '\n'
+        << "render_seconds=" << std::chrono::duration<double>(render_duration).count()
+        << '\n'
+        << "execution_seconds="
+        << std::chrono::duration<double>(execution_facts.facts().wall_elapsed).count()
+        << '\n';
+    if (manifest_bytes_in_memory.has_value()) {
+        std::cout << "manifest_bytes_in_memory=" << *manifest_bytes_in_memory << '\n';
+    }
     return 0;
 }
 

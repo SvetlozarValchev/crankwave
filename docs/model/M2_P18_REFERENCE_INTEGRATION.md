@@ -1,6 +1,7 @@
 # P1.8 isolated reference integration
 
-Status: implemented and user-accepted on 2026-07-27
+Status: audio route implemented and user-accepted on 2026-07-27; reference metadata
+integration implemented
 
 This checkpoint connects the already frozen P1.8 source stage, static IR conversion,
 fixed convolution, mastering, and WAVE encoders without changing their algorithms. It
@@ -235,12 +236,44 @@ retained. Identical sealed inputs produce identical deterministic content. A mis
 or unsealed artifact, invalid executed seed inventory, substituted comparator
 identity, or cross-record validation failure prevents successful construction.
 
-This boundary deliberately stops before run-specific work. It does not observe
+The deterministic-content boundary deliberately stops before run-specific work. It
+does not observe
 `ExecutionFacts`, complete a `RenderManifest`, call the canonical JSON encoder, write
 the manifest or sidecar, or change the existing eight-file publication transaction.
-Those operations remain separate checkpoints. It also remains absent from the public
-renderer, CLI, and M3 simulation dependency graphs, so reference replay still cannot
-impersonate a successful physics render.
+Observation, completion, and in-memory encoding are owned by the separate boundary
+below; filesystem publication remains a later checkpoint. Both boundaries remain
+absent from the public renderer, CLI, and M3 simulation dependency graphs, so
+reference replay still cannot impersonate a successful physics render.
+
+## Execution facts and complete in-memory manifest
+
+Execution observation is implemented by a generic internal Linux component, not by
+the P1.8 fixture reader. Its zero-argument production entry owns one render job and
+returns a move-only observation. Finish consumes that observation and seals
+`ObservedExecutionFacts`; its private constructor prevents caller-created facts and
+pure observer-test values from acquiring the completion type.
+
+The observation interval begins immediately before `render_p18_reference_audio()` and
+ends after all eight audio artifacts have been sealed. The observer uses kernel
+randomness for `render-run-<128-bit hex>`, `CLOCK_REALTIME` for the fixed-nanosecond
+UTC start, `CLOCK_BOOTTIME` for positive elapsed wall time, bounded `uname` and CPUID
+identity after an `ARCH_GET_CPUID` enabled-state check, `_SC_NPROCESSORS_ONLN`, a
+bounded `/proc/self/status` thread snapshot, and checked Linux `ru_maxrss` conversion.
+It preserves caller `errno`, fails closed on required observation errors, and never
+accepts a caller host, clock, topology, job count, or run ID.
+
+`complete_p18_reference_manifest()` accepts only the previously established
+`P18ReferenceManifestContent` and production-observed facts. It creates a complete
+typed `RenderManifest`, validates it against the exact retained provenance ledger and
+BMW source matrix, then invokes the already-frozen reference-v2 canonical encoder.
+The returned `P18CompletedReferenceManifest` owns the provenance, typed manifest, and
+canonical bytes as one in-memory value.
+
+No filesystem path, sink, manifest sidecar, or publication operation is accepted by
+this boundary. The existing listening transaction still publishes only its eight
+audio files and two diagnostic text reports. The public renderer and CLI dependency
+graphs remain free of the reference observer/completion path, and public `render()`
+continues to reject the otherwise valid request before touching its sink.
 
 A clean Clang 21.1.8 Release build of commit
 `7e32006d2fb4f0164757c7ea04c61902b76ff072` embedded source-closure digest

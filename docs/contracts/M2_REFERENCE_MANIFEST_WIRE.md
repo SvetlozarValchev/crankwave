@@ -125,6 +125,33 @@ The identities must be truthful at their layer:
   was not available; an unavailable measurement must not be replaced with zero or a
   guess.
 
+For the current isolated Linux reference producer, those fields have one exact
+observation meaning:
+
+- `run_id` is `render-run-` followed by 32 lowercase hexadecimal digits from one
+  16-byte Linux `getrandom` observation;
+- `started_utc` is the `CLOCK_REALTIME` value captured immediately before reference
+  DSP execution, formatted with exactly nine fractional decimal digits;
+- `wall_elapsed_ns` is the positive checked `CLOCK_BOOTTIME` difference through the
+  sealing of all eight audio files, so it includes suspension as user-visible wait
+  time but excludes preflight, manifest completion/encoding, reports, and publication;
+- `host_os` is the bounded `uname` sysname, release, and machine tuple;
+- `cpu_model` is the trimmed 48-byte x86-64 CPUID brand, observed only after
+  `ARCH_GET_CPUID` proves CPUID is enabled for the calling thread;
+- `logical_cpu_count` is the positive online count reported by
+  `_SC_NPROCESSORS_ONLN`, not an inferred cgroup quota;
+- `observed_process_threads` is the positive finish-time `Threads:` snapshot from a
+  bounded `/proc/self/status` read, not a claimed peak;
+- `concurrent_render_jobs` is exactly one because the one-shot observer is owned by
+  the single-job reference process rather than accepted as a caller integer; and
+- `peak_resident_bytes` is checked Linux `getrusage(RUSAGE_SELF).ru_maxrss * 1024` as
+  a process-lifetime high-water mark at finish, or `null` only when that observation
+  is genuinely unavailable.
+
+These Linux meanings are appropriate for the dedicated one-render process. A future
+long-lived or multi-job runtime must provide truthful session-scoped topology and
+memory observation rather than reusing these values under a different meaning.
+
 An encoder serializes recorded typed values. It must not rewrite build names,
 normalize vector order, substitute a host identity, infer missing execution facts,
 or copy identities from the oracle.

@@ -1,7 +1,7 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — deterministic P1.8 reference-manifest content complete;
-execution facts and canonical in-memory completion next
+Status: implementation — execution facts and canonical in-memory reference-manifest
+completion complete; transactional presentation session next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-28
 
@@ -32,8 +32,10 @@ copy.
 
 `P1.8` is a temporary milestone label for the frozen trace-driven BMW oracle, not a
 production audio-method name or compatibility surface. P1.8-named C++ may exist only
-in private reference tooling and tests while it is needed to isolate the baseline.
-Public APIs, M3 physics, and the final baker must not expose or depend on that label.
+in the temporary frozen-reference schema/validation path, private reference tooling,
+and tests while it is needed to isolate the baseline. Authored engine APIs, M3 physics,
+and the final baker/runtime must not expose or depend on that label. The M3 listening
+gate below retires every remaining label-specific implementation.
 
 ## 2. Product contract
 
@@ -371,7 +373,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Construct and validate deterministic BMW reference-manifest content from the
       verified lineage, actual sealed artifact records, and sealed renderer identity;
       reject expected catalog comparators as substitutes for observations.
-- [ ] Observe bounded Linux execution facts, finish and canonically encode the complete
+- [x] Observe bounded Linux execution facts, finish and canonically encode the complete
       validated reference manifest in memory, and prove public `render()` remains
       fail-closed; defer manifest publication to the transactional session checkpoint.
 - [ ] Implement the bounded transactional eight-artifact P1.8 presentation session,

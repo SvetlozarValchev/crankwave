@@ -372,6 +372,57 @@ content and provenance, while the private wrapper constructor prevents them from
 presenting an arbitrary aggregate pair as a successfully constructed
 `P18ReferenceManifestContent`.
 
+### 5.4 Observed execution and in-memory completion
+
+The P1.8-free Linux execution observer is a one-shot, two-phase boundary:
+
+```cpp
+begin_single_job_linux_execution()
+finish_single_job_linux_execution(LinuxExecutionFactsObservation &&)
+    -> ObservedExecutionFacts
+```
+
+The production begin function takes no host, clock, topology, or run-ID values from a
+caller. It owns exactly one render job. Begin captures a kernel-random 128-bit run ID,
+Linux kernel identity, the x86-64 CPUID brand only after proving CPUID is enabled for
+the calling thread, online logical-CPU count, and then the realtime UTC and boot-time
+start observations immediately before returning control to the renderer. Finish
+captures the positive boot-time difference, a bounded
+process-thread snapshot, and process peak RSS when the kernel exposes it. All reads,
+conversions, and string lengths are bounded and checked. The resulting wrapper has a
+private constructor reachable only through the zero-argument live path; pure parser
+tests and raw caller facts cannot acquire that type.
+
+The reference executable begins this interval immediately before the DSP render and
+finishes it only after all eight audio files have been sealed. Thus
+`wall_elapsed` measures DSP, streaming writes, and audio sealing. It excludes fixture
+preflight, deterministic manifest construction, canonical encoding, report creation,
+and publication. Linux `ru_maxrss` is explicitly a process-lifetime high-water mark as
+of finish, not an isolated delta for the interval. The one-render-process reference
+tool may report it truthfully; a later long-lived server will need a session-scoped
+sampler rather than silently reusing that meaning.
+
+Only `ObservedExecutionFacts` can cross the private completion boundary:
+
+```cpp
+[[nodiscard]] P18CompletedReferenceManifest
+complete_p18_reference_manifest(
+    const P18ReferenceManifestContent &,
+    const execution::ObservedExecutionFacts &);
+```
+
+Completion accepts no raw or scripted facts, copies the observed facts into a complete
+`RenderManifest`, and validates the whole value against the retained provenance ledger
+and exact BMW source matrix before calling the reference-v2 encoder. This ordering is
+required because the encoder checks wire representability, not semantic validity.
+The returned wrapper owns the exact provenance, complete typed manifest, and canonical
+bytes together.
+
+This checkpoint retains those bytes in memory only. It does not write the manifest,
+compute or write a sidecar, mutate the audio transaction, or add a second publication
+path. Transactional manifest publication belongs to the next isolated session
+checkpoint.
+
 `ExecutionFacts` continue to describe only the current run. Wall time, host, CPU,
 thread count, job count, and peak memory are excluded from deterministic content
 identity.
@@ -389,7 +440,7 @@ This split:
 - keeps the public render/result contract simulation-only; and
 - supplies the minimal context needed to validate the exact P1.8 presentation.
 
-This checkpoint constructs and validates deterministic reference-manifest content,
-but does not yet attach `ExecutionFacts`, complete a `RenderManifest`, invoke the
-canonical encoder, or publish manifest metadata. It does not admit fixture replay
-through public `render()`, alter audio, or make a new sound-quality claim.
+This checkpoint constructs deterministic content, attaches live execution facts,
+validates a complete reference manifest, and canonically encodes it in memory. It does
+not publish manifest metadata, admit fixture replay through public `render()`, alter
+audio, or make a new sound-quality claim.

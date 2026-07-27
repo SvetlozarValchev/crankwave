@@ -206,6 +206,27 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     include(cmake/RendererSourceStamp.cmake)
 
     add_library(
+        engine_sim_offline_execution
+        STATIC
+            src/execution/linux_execution_facts.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_execution
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_execution
+        PUBLIC engine_sim_offline::contract
+        PRIVATE engine_sim_offline::build_options
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_execution
+    )
+
+    add_library(
         engine_sim_offline_renderer_determinism
         STATIC
             src/determinism/loaded_runtime_identity.cpp
@@ -344,6 +365,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     add_library(
         engine_sim_offline_p18_reference_manifest
         STATIC
+            src/reference/p18_reference_manifest_completion.cpp
             src/reference/p18_reference_manifest_content.cpp
     )
 
@@ -356,10 +378,12 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     target_link_libraries(
         engine_sim_offline_p18_reference_manifest
         PUBLIC
+            engine_sim_offline_execution
             engine_sim_offline_p18_reference_artifact_set
             engine_sim_offline_p18_reference_provenance
             engine_sim_offline_renderer_determinism
         PRIVATE
+            engine_sim_offline::artifacts
             engine_sim_offline::build_options
             engine_sim_offline_p18_reference_catalog
     )
@@ -435,6 +459,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
         engine_sim_offline_p18_reference_render
         PRIVATE
             engine_sim_offline::artifacts
+            engine_sim_offline_execution
             engine_sim_offline_p18_reference_catalog
             engine_sim_offline_p18_reference_fixture
             engine_sim_offline_p18_reference_manifest
@@ -462,6 +487,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     list(
         APPEND
         _engine_sim_offline_numeric_policy_targets
+        engine_sim_offline_execution
         engine_sim_offline_renderer_determinism
         engine_sim_offline_p18_reference_artifact_set
         engine_sim_offline_p18_reference_catalog

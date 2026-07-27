@@ -12,8 +12,8 @@ and CLI shell now exist and are recorded separately in
 are recorded in [`M2_SCHEDULING.md`](M2_SCHEDULING.md). Bounded artifact encoding,
 transactional directory publication, and the focused P1.8 DSP primitives are recorded
 in [`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). None of these records claims that the
-resolver, simulator, or complete fixture-to-acoustic renderer exists yet; those are
-separate checkboxes in [`PLAN.md`](../../PLAN.md).
+resolver, simulator, or complete public simulation-to-acoustic renderer exists yet;
+those are separate checkboxes in [`PLAN.md`](../../PLAN.md).
 The manifest's complete-simulation versus isolated-reference input alternatives are
 frozen separately in [`M2_MANIFEST_INPUTS.md`](M2_MANIFEST_INPUTS.md).
 
@@ -68,7 +68,8 @@ The current contract does not supply:
 - simulation or crank/load-control execution;
 - fixture decoding or excitation generation;
 - complete DSP-route execution or capture-to-artifact orchestration;
-- a `simulation_v1` manifest wire encoder or collection of execution facts.
+- a `simulation_v1` manifest wire encoder or public simulation-route collection of
+  execution facts; the isolated reference-tool observer below is private.
 
 The concrete directory sink verifies streamed artifact payload hashes and publishes
 encoded artifacts transactionally. WAV and complete capture-telemetry byte encoders
@@ -544,7 +545,10 @@ optional so
 deterministic content can exist before execution, but validation of a completed
 `RenderManifest` requires complete, positive execution facts. Execution is excluded
 by `same_content_identity()`, so machine timing cannot change deterministic render
-identity. Automatic collection of those facts is not implemented by this checkbox.
+identity. The isolated Linux reference tool now collects those facts through a
+private, one-shot single-render-job observer and validates/encodes its complete
+manifest in memory. That observer is not linked to, and does not admit, the still
+fail-closed public render route.
 
 A content-valid manifest is still not a successful render. The public render boundary
 now rejects valid inputs with `incomplete_source_route` until later renderer/sink work

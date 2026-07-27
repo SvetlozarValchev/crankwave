@@ -1,11 +1,14 @@
 #include "artifacts/p18_audition_wav_encoder.hpp"
 #include "contract/sha256_stream.hpp"
 #include "determinism/renderer_determinism_envelope.hpp"
+#include "engine_sim_offline/artifacts/reference_manifest_encoder.hpp"
 #include "engine_sim_offline/artifacts/wav_encoder.hpp"
 #include "engine_sim_offline/contract/render_manifest.hpp"
+#include "execution/linux_execution_facts.hpp"
 #include "presentation/p18_mastering.hpp"
 #include "reference/p18_reference_artifact_set.hpp"
 #include "reference/p18_reference_fixture_loader.hpp"
+#include "reference/p18_reference_manifest_completion.hpp"
 #include "reference/p18_reference_manifest_content.hpp"
 #include "reference/p18_reference_method_identity.hpp"
 
@@ -39,10 +42,12 @@ namespace {
 using namespace engine_sim_offline;
 using namespace engine_sim_offline::artifacts;
 using namespace engine_sim_offline::determinism;
+using namespace engine_sim_offline::execution;
 using namespace engine_sim_offline::presentation;
 using namespace engine_sim_offline::reference;
 
 using ManifestContentBuilder = decltype(make_p18_reference_manifest_content);
+using ManifestCompletion = decltype(complete_p18_reference_manifest);
 using ArtifactRecordArray =
     std::array<P18ReferenceArtifactRecord, kP18ReferenceAudioArtifactCount>;
 
@@ -63,6 +68,17 @@ static_assert(!std::is_invocable_v<
 static_assert(!std::is_invocable_v<
               ManifestContentBuilder, const P18LoadedReferenceFixture &,
               const P18ReferenceArtifactSet &, const contract::DeterminismEnvelope &>);
+static_assert(!std::is_default_constructible_v<P18CompletedReferenceManifest>);
+static_assert(std::is_copy_constructible_v<P18CompletedReferenceManifest>);
+static_assert(std::is_move_constructible_v<P18CompletedReferenceManifest>);
+static_assert(!std::is_copy_assignable_v<P18CompletedReferenceManifest>);
+static_assert(!std::is_move_assignable_v<P18CompletedReferenceManifest>);
+static_assert(
+    !std::is_invocable_v<ManifestCompletion, const contract::RenderManifestContent &,
+                         const execution::ObservedExecutionFacts &>);
+static_assert(
+    !std::is_invocable_v<ManifestCompletion, const P18ReferenceManifestContent &,
+                         const contract::ExecutionFacts &>);
 
 constexpr std::size_t kIoBlockBytes = 64U * 1024U;
 constexpr std::size_t kMasterBlockFrames = 9'600;
@@ -120,6 +136,25 @@ require_artifact_set(P18ReferenceArtifactSet::CreateResult result) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
     }
     return std::move(std::get<std::unique_ptr<P18ReferenceArtifactSet>>(result));
+}
+
+[[nodiscard]] LinuxExecutionFactsObservation require_execution_begin() {
+    auto result = begin_single_job_linux_execution();
+    if (auto *observation = std::get_if<LinuxExecutionFactsObservation>(&result)) {
+        return std::move(*observation);
+    }
+    const auto &error = std::get<LinuxExecutionFactsError>(result);
+    throw std::runtime_error{error.component + ": " + error.message};
+}
+
+[[nodiscard]] ObservedExecutionFacts
+require_execution_finish(LinuxExecutionFactsObservation &&observation) {
+    auto result = finish_single_job_linux_execution(std::move(observation));
+    if (auto *facts = std::get_if<ObservedExecutionFacts>(&result)) {
+        return std::move(*facts);
+    }
+    const auto &error = std::get<LinuxExecutionFactsError>(result);
+    throw std::runtime_error{error.component + ": " + error.message};
 }
 
 void require_sink_success(const RenderSinkStatus &status, std::string_view operation) {
@@ -654,6 +689,53 @@ void test_exact_content(const P18LoadedReferenceFixture &fixture,
         "blockwise-derived audition does not match the independently observed oracle");
 }
 
+void test_completed_manifest(const P18LoadedReferenceFixture &fixture,
+                             const P18ReferenceArtifactSet &artifacts,
+                             const RendererDeterminismEnvelope &renderer_identity,
+                             const ObservedExecutionFacts &execution_facts) {
+    const auto content =
+        make_p18_reference_manifest_content(fixture, artifacts, renderer_identity);
+    const auto completed = complete_p18_reference_manifest(content, execution_facts);
+    const auto repeated = complete_p18_reference_manifest(content, execution_facts);
+    const auto &manifest = completed.manifest();
+    const auto &source_matrix = contract::bmw_m52b28_reference_source_matrix_v1();
+
+    expect(manifest.content == content.content() &&
+               manifest.execution == execution_facts.facts(),
+           "completed manifest did not retain its established inputs");
+    expect(completed.provenance().ledger() == content.provenance().ledger(),
+           "completed manifest did not retain its validation provenance");
+    expect(contract::validate(manifest, completed.provenance().ledger(), source_matrix)
+               .ok(),
+           "completed manifest is not semantically valid");
+    expect(contract::same_content_identity(manifest, repeated.manifest()),
+           "manifest completion changed deterministic content identity");
+    expect(std::ranges::equal(completed.canonical_bytes(), repeated.canonical_bytes()),
+           "identical complete manifests produced different canonical bytes");
+
+    const auto direct = encode_reference_manifest_v2(manifest);
+    const auto *direct_bytes = std::get_if<ManifestEncoding>(&direct);
+    expect(direct_bytes != nullptr &&
+               std::ranges::equal(completed.canonical_bytes(), direct_bytes->bytes),
+           "completion did not retain the canonical reference-v2 encoding");
+    expect(!completed.canonical_bytes().empty() &&
+               completed.canonical_bytes().front() == std::byte{'{'} &&
+               completed.canonical_bytes().back() == std::byte{'\n'} &&
+               completed.canonical_bytes().size() <= 4U * 1024U * 1024U,
+           "retained canonical manifest bytes have an invalid document envelope");
+
+    expect(artifacts.state() == P18ReferenceArtifactSetState::open &&
+               !artifacts.last_error().has_value(),
+           "in-memory manifest completion mutated the artifact transaction");
+    const auto staging = artifacts.staging_path();
+    expect(staging.has_value(), "exact artifact transaction lost its staging path");
+    std::error_code filesystem_error;
+    const auto manifest_path_exists =
+        std::filesystem::exists(*staging / "manifest", filesystem_error);
+    expect(!filesystem_error && !manifest_path_exists,
+           "in-memory completion wrote manifest metadata into staging");
+}
+
 void test_unsealed_and_wrong_artifacts_fail(
     const P18LoadedReferenceFixture &fixture,
     const RendererDeterminismEnvelope &renderer_identity,
@@ -757,8 +839,12 @@ int main(int argc, char **argv) {
         expect(live_identity->production_observation(),
                "zero-argument renderer identity lacked production authority");
 
+        auto execution_observation = require_execution_begin();
         const auto exact = make_exact_artifacts(temporary.path(), stems_root);
         test_exact_content(fixture, *exact, *live_identity, audition_oracle);
+        const auto execution_facts =
+            require_execution_finish(std::move(execution_observation));
+        test_completed_manifest(fixture, *exact, *live_identity, execution_facts);
         test_decoded_seed_substitution_fails(fixture, *exact, *live_identity);
         test_unsealed_and_wrong_artifacts_fail(fixture, *live_identity,
                                                temporary.path());

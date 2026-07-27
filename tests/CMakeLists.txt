@@ -679,6 +679,30 @@ add_test(
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(
+        engine_sim_offline_linux_execution_facts_tests
+        linux_execution_facts_test.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_linux_execution_facts_tests
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(
+        engine_sim_offline_linux_execution_facts_tests
+        PRIVATE engine_sim_offline_execution
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_linux_execution_facts_tests
+    )
+
+    add_test(
+        NAME execution.linux_facts
+        COMMAND engine_sim_offline_linux_execution_facts_tests
+    )
+
+    add_executable(
         engine_sim_offline_p18_reference_artifact_set_tests
         p18_reference_artifact_set_test.cpp
     )
