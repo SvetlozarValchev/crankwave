@@ -43,6 +43,9 @@ target_compile_options(
         $<$<CXX_COMPILER_ID:MSVC>:/W4;/permissive-;/fp:strict;/Zc:__cplusplus>
 )
 
+include(cmake/RendererNumericPolicy.cmake)
+engine_sim_offline_define_renderer_numeric_policy()
+
 add_library(
     engine_sim_offline_contract
     STATIC
@@ -75,6 +78,7 @@ target_link_libraries(
     engine_sim_offline_contract
     PUBLIC engine_sim_offline::build_options
 )
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_contract)
 
 add_library(
     engine_sim_offline_render
@@ -101,6 +105,7 @@ target_link_libraries(
         engine_sim_offline::contract
         engine_sim_offline::build_options
 )
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_render)
 
 add_library(
     engine_sim_offline_artifacts
@@ -139,6 +144,7 @@ target_link_libraries(
         engine_sim_offline::contract
         engine_sim_offline::build_options
 )
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_artifacts)
 
 add_library(
     engine_sim_offline_dsp
@@ -164,6 +170,7 @@ target_link_libraries(
     engine_sim_offline_dsp
     PUBLIC engine_sim_offline::build_options
 )
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_dsp)
 
 add_library(
     engine_sim_offline_presentation
@@ -193,6 +200,7 @@ target_link_libraries(
         engine_sim_offline::contract
         engine_sim_offline::dsp
 )
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_presentation)
 
 if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     include(cmake/RendererSourceStamp.cmake)
@@ -201,6 +209,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
         engine_sim_offline_renderer_determinism
         STATIC
             src/determinism/loaded_runtime_identity.cpp
+            src/determinism/renderer_numeric_environment.cpp
     )
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND
        CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
@@ -227,6 +236,9 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
             engine_sim_offline::build_options
             ${CMAKE_DL_LIBS}
     )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_renderer_determinism
+    )
 
     add_library(
         engine_sim_offline_p18_reference_catalog
@@ -245,6 +257,9 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
         PUBLIC
             engine_sim_offline::contract
             engine_sim_offline::build_options
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_p18_reference_catalog
     )
 endif()
 
@@ -320,7 +335,46 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
             engine_sim_offline_p18_reference_catalog
             engine_sim_offline::presentation
     )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_p18_reference_render
+    )
+    engine_sim_offline_finalize_renderer_numeric_policy(
+        engine_sim_offline_p18_reference_render
+    )
 endif()
+
+set(
+    _engine_sim_offline_numeric_policy_targets
+    engine_sim_offline_contract
+    engine_sim_offline_render
+    engine_sim_offline_artifacts
+    engine_sim_offline_dsp
+    engine_sim_offline_presentation
+)
+if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
+    list(
+        APPEND
+        _engine_sim_offline_numeric_policy_targets
+        engine_sim_offline_renderer_determinism
+        engine_sim_offline_p18_reference_catalog
+    )
+endif()
+if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
+    list(
+        APPEND
+        _engine_sim_offline_numeric_policy_targets
+        engine_sim_offline_p18_reference_render
+    )
+endif()
+foreach(_target IN LISTS _engine_sim_offline_numeric_policy_targets)
+    engine_sim_offline_assert_renderer_numeric_policy("${_target}")
+endforeach()
+if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
+    engine_sim_offline_assert_final_renderer_numeric_policy(
+        engine_sim_offline_p18_reference_render
+    )
+endif()
+unset(_engine_sim_offline_numeric_policy_targets)
 
 if(ENGINE_SIM_OFFLINE_BUILD_TESTS)
     enable_testing()

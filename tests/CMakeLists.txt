@@ -47,6 +47,97 @@ add_test(
     COMMAND engine_sim_offline_loaded_runtime_identity_tests
 )
 
+engine_sim_offline_renderer_numeric_policy_is_admitted(
+    _engine_sim_offline_numeric_policy_admitted
+)
+if(_engine_sim_offline_numeric_policy_admitted)
+    add_executable(
+        engine_sim_offline_renderer_numeric_environment_tests
+        renderer_numeric_environment_test.cpp
+    )
+
+    target_link_libraries(
+        engine_sim_offline_renderer_numeric_environment_tests
+        PRIVATE engine_sim_offline_renderer_determinism
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_renderer_numeric_environment_tests
+    )
+
+    add_test(
+        NAME determinism.renderer_numeric_environment
+        COMMAND engine_sim_offline_renderer_numeric_environment_tests
+    )
+endif()
+unset(_engine_sim_offline_numeric_policy_admitted)
+
+add_executable(
+    engine_sim_offline_renderer_numeric_policy_consumer_tests
+    renderer_numeric_policy_consumer_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_renderer_numeric_policy_consumer_tests
+    PRIVATE engine_sim_offline::render
+)
+
+add_test(
+    NAME determinism.renderer_numeric_policy_private
+    COMMAND engine_sim_offline_renderer_numeric_policy_consumer_tests
+)
+
+get_target_property(
+    _engine_sim_offline_numeric_flag_text
+    engine_sim_offline_renderer_numeric_policy
+    ENGINE_SIM_OFFLINE_NUMERIC_POLICY_FLAG_TEXT
+)
+set(ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_ADMITTED 0)
+set(
+    ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_FLAGS
+    "${_engine_sim_offline_numeric_flag_text}"
+)
+set(
+    _engine_sim_offline_unmarked_generated_directory
+    "${CMAKE_CURRENT_BINARY_DIR}/numeric-policy-unmarked/generated"
+)
+file(
+    MAKE_DIRECTORY
+    "${_engine_sim_offline_unmarked_generated_directory}/engine_sim_offline_generated"
+)
+configure_file(
+    "${PROJECT_SOURCE_DIR}/cmake/RendererNumericPolicyGenerated.hpp.in"
+    "${_engine_sim_offline_unmarked_generated_directory}/engine_sim_offline_generated/renderer_numeric_policy_generated.hpp"
+    @ONLY
+)
+
+add_executable(
+    engine_sim_offline_renderer_numeric_policy_unmarked_tests
+    renderer_numeric_policy_unmarked_test.cpp
+    ${PROJECT_SOURCE_DIR}/src/determinism/renderer_numeric_environment.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_renderer_numeric_policy_unmarked_tests
+    BEFORE PRIVATE
+        "${_engine_sim_offline_unmarked_generated_directory}"
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_renderer_numeric_policy_unmarked_tests
+    PRIVATE engine_sim_offline::build_options
+)
+
+add_test(
+    NAME determinism.renderer_numeric_policy_unmarked
+    COMMAND engine_sim_offline_renderer_numeric_policy_unmarked_tests
+)
+
+unset(_engine_sim_offline_numeric_flag_text)
+unset(_engine_sim_offline_unmarked_generated_directory)
+unset(ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_ADMITTED)
+unset(ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_FLAGS)
+
 set(_engine_sim_offline_sanitized FALSE)
 if(CMAKE_CXX_FLAGS MATCHES "-fsanitize=" OR
    CMAKE_CXX_FLAGS_RELEASE MATCHES "-fsanitize=" OR

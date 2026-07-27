@@ -17,9 +17,10 @@ these components are linked by the public renderer, CLI, or future M3 simulation
 A separate private renderer-determinism target records build-owned source, compiler,
 and target facts and rejects dirty or unavailable source. It also observes the actual
 loaded libstdc++, glibc libm, and libgcc_s providers without loading a missing library.
-These split checkpoints are exercised by focused tests only; they are not yet the
-complete runtime determinism identity and are not yet consumed by the reference
-executable.
+It now owns the compiled numeric policy and admits the calling thread's CPU and
+floating-point state. These split checkpoints are exercised by focused tests only;
+they are not yet one complete runtime determinism identity and are not yet consumed by
+the reference executable.
 
 ## Loaded runtime admission
 
@@ -46,6 +47,48 @@ symlink/inode mismatch, and a stable in-place byte mismatch fail closed. Hostile
 concurrent truncation of an already mapped system DSO is outside this in-process
 observer's scope; guaranteeing that case would require isolating the entire dynamic
 loader interaction in another process.
+
+## Numeric environment admission
+
+The canonical numeric build policy is
+`x86-64-v1-binary64-x87-extended-strict-v1`. CMake owns this exact private option
+tail:
+
+```text
+-march=x86-64 -mtune=generic -mfpmath=sse -mno-avx -mno-avx2 -mno-fma
+-fno-lto -fexcess-precision=standard -fno-fast-math -ffp-contract=off
+```
+
+It is applied without propagation to every first-party target in the isolated P1.8
+output closure and to the public render implementation being prepared for M3. IPO is
+disabled on each covered target and the final reference link receives `-fno-lto`.
+An embedding consumer's translation units do not inherit this ISA policy.
+
+Configure-time assertions enumerate the complete first-party closure, require the
+single exact option group, require generic and per-configuration target IPO to be
+disabled, and require the final no-LTO link option. Focused probes also compile the
+generated-zero branch and prove that the private attestation include path does not
+reach a public consumer.
+
+Only a GNU-front-end GCC or Clang build for Linux x86-64 SysV LP64 receives the
+policy. The same CMake module both attaches its options and generates a private
+attestation header. That header overrides any same-named caller macro, records only
+zero or one, and is compile-time checked against the public policy text. The tracked
+module and template are part of the renderer source digest. Unsupported builds remain
+buildable but are unmarked and cannot pass admission.
+
+Admission is read-only and local to the calling thread. Before any renderer identity
+can use it, the observer requires enabled CPUID and the x86-64-v1 feature baseline;
+IEEE-754 binary32 and binary64; the SysV 80-bit extended `long double` format;
+`FLT_EVAL_METHOD == 0`; round-to-nearest/ties-to-even; masked MXCSR exceptions with
+FTZ, DAZ, and AMD misalignment-mask mode disabled; and masked x87 exceptions with
+extended precision and nearest rounding. Sticky exception flags and extra CPU
+capabilities do not change identity. Observation and every rejection preserve the
+floating-point registers, CPUID setting, sticky status, and `errno`.
+
+This marker attests the numeric option tail, not source cleanliness or provider
+identity. The next checkpoint must require the source stamp, loaded-runtime identity,
+and numeric admission together on the render thread; none can substitute for another.
 
 Preflight opens, bounds, streams, and hashes exactly these fixed descendants of a
 caller-selected fixture root:
@@ -118,6 +161,11 @@ All three concurrent outputs also passed every exact identity. Temporary benchma
 copies were removed after verification. Both the single and concurrent Clang results
 are comfortably inside the approximately 30-second clip target; there was no measured
 concurrency collapse at three jobs.
+
+A like-for-like full-render preflight with the complete numeric option tail retained
+all eight exact identities under both compilers. GCC wall time was 20.49 s versus
+20.29 s without the tail (about 1%); Clang was 4.81 s versus 4.58 s (about 5%). Both
+remain below the 30-second target, and the audition WAVE identity did not change.
 
 ## Listening rule
 

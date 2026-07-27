@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — loaded runtime identity complete; numeric admission next
+Status: implementation — numeric admission complete; determinism envelope next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -339,7 +339,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Identify and admit the actual loaded standard-library, math-library, and compiler
       runtime providers plus the selected P1.8 math implementations; fail closed on
       static, interposed, replaced, or unsupported providers.
-- [ ] Enforce and admit the canonical compiled ISA policy, required CPU capability,
+- [x] Enforce and admit the canonical compiled ISA policy, required CPU capability,
       IEEE-754 formats, rounding, contraction, flush-to-zero, denormals-are-zero, and
       required x87 state; fail closed without modifying the calling thread's state.
 - [ ] Compose the source stamp, loaded-runtime identity, and numeric-environment

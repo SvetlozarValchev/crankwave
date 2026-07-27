@@ -1,0 +1,196 @@
+include_guard(GLOBAL)
+
+function(_engine_sim_offline_numeric_policy_configurations _output)
+    set(_configurations Debug Release RelWithDebInfo MinSizeRel)
+    if(CMAKE_CONFIGURATION_TYPES)
+        list(APPEND _configurations ${CMAKE_CONFIGURATION_TYPES})
+    endif()
+    if(NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
+        list(APPEND _configurations "${CMAKE_BUILD_TYPE}")
+    endif()
+    list(REMOVE_DUPLICATES _configurations)
+    set(${_output} "${_configurations}" PARENT_SCOPE)
+endfunction()
+
+function(engine_sim_offline_define_renderer_numeric_policy)
+    if(TARGET engine_sim_offline_renderer_numeric_policy)
+        message(FATAL_ERROR "renderer numeric policy was already defined")
+    endif()
+
+    set(
+        _policy_flags
+        -march=x86-64
+        -mtune=generic
+        -mfpmath=sse
+        -mno-avx
+        -mno-avx2
+        -mno-fma
+        -fno-lto
+        -fexcess-precision=standard
+        -fno-fast-math
+        -ffp-contract=off
+    )
+    string(JOIN " " _policy_flag_text ${_policy_flags})
+    set(_policy_admitted 0)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND
+       CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" AND
+       CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$" AND
+       CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+        set(_policy_admitted 1)
+    endif()
+
+    set(
+        _generated_directory
+        "${PROJECT_BINARY_DIR}/generated/engine_sim_offline_generated"
+    )
+    file(MAKE_DIRECTORY "${_generated_directory}")
+    set(ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_ADMITTED
+        "${_policy_admitted}")
+    set(ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_FLAGS
+        "${_policy_flag_text}")
+    configure_file(
+        "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/RendererNumericPolicyGenerated.hpp.in"
+        "${_generated_directory}/renderer_numeric_policy_generated.hpp"
+        @ONLY
+    )
+
+    add_library(engine_sim_offline_renderer_numeric_policy INTERFACE)
+    set_property(
+        TARGET engine_sim_offline_renderer_numeric_policy
+        PROPERTY ENGINE_SIM_OFFLINE_NUMERIC_POLICY_ADMITTED "${_policy_admitted}"
+    )
+    set_property(
+        TARGET engine_sim_offline_renderer_numeric_policy
+        PROPERTY ENGINE_SIM_OFFLINE_NUMERIC_POLICY_FLAG_TEXT "${_policy_flag_text}"
+    )
+    target_include_directories(
+        engine_sim_offline_renderer_numeric_policy
+        INTERFACE $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/generated>
+    )
+    if(_policy_admitted)
+        # Keep the exact set as one shell-parsed group so it remains a contiguous
+        # target-owned tail after ordinary CMake compile flags.
+        set(
+            _policy_compile_option
+            "$<$<COMPILE_LANGUAGE:CXX>:SHELL:${_policy_flag_text}>"
+        )
+        target_compile_options(
+            engine_sim_offline_renderer_numeric_policy
+            INTERFACE "${_policy_compile_option}"
+        )
+        set_property(
+            TARGET engine_sim_offline_renderer_numeric_policy
+            PROPERTY ENGINE_SIM_OFFLINE_NUMERIC_POLICY_COMPILE_OPTION
+                     "${_policy_compile_option}"
+        )
+    endif()
+endfunction()
+
+function(engine_sim_offline_renderer_numeric_policy_is_admitted _output)
+    if(NOT TARGET engine_sim_offline_renderer_numeric_policy)
+        message(FATAL_ERROR "renderer numeric policy has not been defined")
+    endif()
+    get_target_property(
+        _admitted
+        engine_sim_offline_renderer_numeric_policy
+        ENGINE_SIM_OFFLINE_NUMERIC_POLICY_ADMITTED
+    )
+    set(${_output} "${_admitted}" PARENT_SCOPE)
+endfunction()
+
+function(engine_sim_offline_enable_renderer_numeric_policy _target)
+    if(NOT TARGET "${_target}")
+        message(FATAL_ERROR "renderer numeric policy requires an existing target")
+    endif()
+    if(NOT TARGET engine_sim_offline_renderer_numeric_policy)
+        message(FATAL_ERROR "renderer numeric policy has not been defined")
+    endif()
+    target_link_libraries(
+        "${_target}"
+        PRIVATE engine_sim_offline_renderer_numeric_policy
+    )
+    set_property(
+        TARGET "${_target}"
+        PROPERTY INTERPROCEDURAL_OPTIMIZATION FALSE
+    )
+    _engine_sim_offline_numeric_policy_configurations(_configurations)
+    foreach(_configuration IN LISTS _configurations)
+        string(TOUPPER "${_configuration}" _configuration_upper)
+        set_property(
+            TARGET "${_target}"
+            PROPERTY "INTERPROCEDURAL_OPTIMIZATION_${_configuration_upper}" FALSE
+        )
+    endforeach()
+endfunction()
+
+function(engine_sim_offline_finalize_renderer_numeric_policy _target)
+    if(NOT TARGET "${_target}")
+        message(FATAL_ERROR "renderer numeric policy requires an existing target")
+    endif()
+    engine_sim_offline_renderer_numeric_policy_is_admitted(_admitted)
+    if(_admitted)
+        target_link_options("${_target}" PRIVATE -fno-lto)
+    endif()
+endfunction()
+
+function(engine_sim_offline_assert_renderer_numeric_policy _target)
+    if(NOT TARGET "${_target}")
+        message(FATAL_ERROR "required numeric-policy target '${_target}' is missing")
+    endif()
+
+    get_target_property(_links "${_target}" LINK_LIBRARIES)
+    list(FIND _links engine_sim_offline_renderer_numeric_policy _policy_index)
+    if(_policy_index EQUAL -1)
+        message(FATAL_ERROR
+                "target '${_target}' is outside the renderer numeric-policy closure")
+    endif()
+
+    get_target_property(_ipo "${_target}" INTERPROCEDURAL_OPTIMIZATION)
+    if(NOT "${_ipo}" STREQUAL "FALSE")
+        message(FATAL_ERROR "target '${_target}' did not disable IPO")
+    endif()
+    _engine_sim_offline_numeric_policy_configurations(_configurations)
+    foreach(_configuration IN LISTS _configurations)
+        string(TOUPPER "${_configuration}" _configuration_upper)
+        get_target_property(
+            _configuration_ipo
+            "${_target}"
+            "INTERPROCEDURAL_OPTIMIZATION_${_configuration_upper}"
+        )
+        if(NOT "${_configuration_ipo}" STREQUAL "FALSE")
+            message(FATAL_ERROR
+                    "target '${_target}' did not disable IPO for ${_configuration}")
+        endif()
+    endforeach()
+
+    engine_sim_offline_renderer_numeric_policy_is_admitted(_admitted)
+    get_target_property(
+        _observed_options
+        engine_sim_offline_renderer_numeric_policy
+        INTERFACE_COMPILE_OPTIONS
+    )
+    get_target_property(
+        _expected_option
+        engine_sim_offline_renderer_numeric_policy
+        ENGINE_SIM_OFFLINE_NUMERIC_POLICY_COMPILE_OPTION
+    )
+    if(_admitted AND NOT "${_observed_options}" STREQUAL "${_expected_option}")
+        message(FATAL_ERROR "renderer numeric-policy option tail changed")
+    endif()
+    if(NOT _admitted AND _observed_options)
+        message(FATAL_ERROR "unsupported build received renderer numeric options")
+    endif()
+endfunction()
+
+function(engine_sim_offline_assert_final_renderer_numeric_policy _target)
+    engine_sim_offline_assert_renderer_numeric_policy("${_target}")
+    engine_sim_offline_renderer_numeric_policy_is_admitted(_admitted)
+    if(_admitted)
+        get_target_property(_link_options "${_target}" LINK_OPTIONS)
+        list(FIND _link_options -fno-lto _no_lto_index)
+        if(_no_lto_index EQUAL -1)
+            message(FATAL_ERROR
+                    "final renderer target '${_target}' did not disable link LTO")
+        endif()
+    endif()
+endfunction()

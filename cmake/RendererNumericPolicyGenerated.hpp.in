@@ -1,0 +1,18 @@
+#pragma once
+
+#include <string_view>
+
+namespace engine_sim_offline::determinism::generated {
+
+#ifdef ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_ADMITTED
+#undef ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_ADMITTED
+#endif
+#define ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_ADMITTED \
+    @ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_ADMITTED@
+
+inline constexpr bool kRendererNumericBuildPolicyAdmitted =
+    ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_ADMITTED != 0;
+inline constexpr std::string_view kRendererNumericBuildPolicyFlags =
+    "@ENGINE_SIM_OFFLINE_RENDERER_NUMERIC_POLICY_FLAGS@";
+
+} // namespace engine_sim_offline::determinism::generated
