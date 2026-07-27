@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — reference manifest encoder complete; truthful catalog next
+Status: implementation — reference manifest encoder complete; P1.8 catalog next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -329,10 +329,15 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       input alternative rather than freezing M3 data that has never executed.
 - [x] Implement and golden-test the canonical reference-manifest encoder; reject the
       simulation alternative and every non-representable value.
-- [ ] Centralize the frozen P1.8 reference catalog and construct a truthful BMW
-      reference manifest from verified lineage, actual sealed artifacts, build-time
-      renderer identity, and observed execution facts without admitting fixture replay
-      through public `render()`.
+- [ ] Centralize the immutable frozen P1.8 catalog used by validation, preflight,
+      publication, and comparison; keep expected identities separate from values
+      observed while loading, rendering, and sealing.
+- [ ] Embed a build-owned renderer determinism identity derived from configured source,
+      compiler, target, standard-library, math-library, ISA, and floating-point state;
+      do not accept a caller-supplied revision as build evidence.
+- [ ] Construct a truthful BMW reference manifest from verified lineage, actual sealed
+      artifacts, the embedded renderer identity, and observed execution facts without
+      admitting fixture replay through public `render()`.
 - [ ] Implement the bounded transactional eight-artifact P1.8 presentation session,
       including routing and execution evidence, without linking or reading the
       fixture; rerun exact artifact hashes to prove the accepted renderer was not
