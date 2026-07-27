@@ -1,6 +1,7 @@
 # M2 manifest-input contract
 
-Status: normative typed-input contract; canonical wire encoding is not yet frozen
+Status: normative typed-input contract; reference wire encoding frozen, simulation
+encoding deliberately deferred to the concrete M3 request
 
 Applies to: the input lineage represented by `RenderManifestContent`, the isolated
 P1.8 reference-presentation route, and the public simulation-success boundary
@@ -31,8 +32,10 @@ ReferencePresentationInputsV1
   complete executed PresentationCalibration
 ```
 
-The later JSON checkpoint owns variant tags and bytes. A C++ variant index is never a
-wire identity.
+The reference JSON bytes and variant kind are frozen in
+[`M2_REFERENCE_MANIFEST_WIRE.md`](M2_REFERENCE_MANIFEST_WIRE.md). A C++ variant index
+is never a wire identity. The simulation alternative remains unencodable until its
+concrete M3 request exists and its own schema is frozen.
 
 ## 2. Simulation alternative
 

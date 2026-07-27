@@ -1,0 +1,345 @@
+; Canonical JSON shape for a completed reference-presentation RenderManifest.
+; Map-member order is serialization order. Semantic validation is additionally
+; required; in particular f64-bits must decode to a finite binary64 value and
+; both binary64 zero signs use the canonical positive-zero representation.
+
+render-manifest-reference-presentation-v1 = {
+  "wire_schema": "engine-sim-offline.render-manifest.reference-presentation.v1",
+  "content": render-manifest-content-reference-presentation-v1,
+  "execution": execution-facts
+}
+
+render-manifest-content-reference-presentation-v1 = {
+  "schema_version": 1,
+  "inputs": reference-manifest-inputs-v1,
+  "provenance": provenance-bundle-ref,
+  "determinism": determinism-envelope,
+  "rates": render-rates,
+  "randomness": random-plan,
+  "output_contract": output-contract,
+  "routes": [* route-record],
+  "output_buses": [* output-bus-record],
+  "artifacts": [* artifact-record]
+}
+
+reference-manifest-inputs-v1 = {
+  "kind": "reference_presentation_v1",
+  "value": reference-presentation-inputs-v1
+}
+
+reference-presentation-inputs-v1 = {
+  "schema_version": 1,
+  "fixture": reference-fixture-identity-v1,
+  "audit_reader": method-identity,
+  "excitation_adapter": method-identity,
+  "audit_lane_semantic_id": tstr,
+  "excitation_seam": method-identity,
+  "engine": reference-engine-context,
+  "capture": reference-capture-window,
+  "presentation": presentation-calibration
+}
+
+reference-fixture-identity-v1 = {
+  "fixture_id": tstr,
+  "fixture_schema_version": u32,
+  "manifest": reference-payload-identity,
+  "parity_evidence": reference-payload-identity,
+  "audit_input": reference-payload-identity,
+  "component_seed_input": reference-payload-identity,
+  "renderer_algorithm_record": reference-payload-identity,
+  "configured_ir_input": reference-payload-identity,
+  "kernel_oracle_comparator": reference-payload-identity
+}
+
+reference-payload-identity = {
+  "byte_count": u64-hex,
+  "payload_sha256": sha256
+}
+
+reference-engine-context = {
+  "engine_id": tstr,
+  "engine_profile_id": tstr,
+  "routes": [* reference-route-identity]
+}
+
+reference-route-identity = {
+  "route_id": stable-id,
+  "semantic_id": tstr,
+  "source_matrix_classification": source-route-kind
+}
+
+reference-capture-window = {
+  "rates": render-rates,
+  "record_count": u64-hex,
+  "consumed_start_record": u64-hex,
+  "consumed_end_record_exclusive": u64-hex,
+  "audible_start_record": u64-hex,
+  "audible_end_record_exclusive": u64-hex,
+  "block_frames": u64-hex,
+  "total_source_frames": u64-hex,
+  "audible_source_start_frame": u64-hex,
+  "audible_source_end_frame_exclusive": u64-hex,
+  "delivery_frame_count": u64-hex,
+  "public_seed": u64-hex
+}
+
+presentation-calibration = {
+  "schema_version": u32,
+  "calibration_id": tstr,
+  "engine_profile_id": resolved<tstr>,
+  "methods": presentation-methods,
+  "algorithm_record": presentation-algorithm-record,
+  "conditioning": presentation-conditioning,
+  "assets": [* audio-asset-spec],
+  "routes": [* route-presentation],
+  "publication": stem-publication,
+  "audition": audition-mix,
+  "provenance_schema_id": tstr
+}
+
+presentation-methods = {
+  "reconstruction": resolved<method-identity>,
+  "conditioning": resolved<method-identity>,
+  "impulse_response_conversion": resolved<method-identity>,
+  "convolution": resolved<method-identity>,
+  "publication": resolved<method-identity>,
+  "audition_mix": resolved<method-identity>
+}
+
+presentation-algorithm-record = {
+  "semantic_id": resolved<tstr>,
+  "evidence_source_id": resolved<tstr>,
+  "content_sha256": resolved<sha256>
+}
+
+presentation-conditioning = {
+  "jitter_scale": resolved<f64-bits>,
+  "jitter_modulation_cutoff_hz": resolved<f64-bits>,
+  "derivative_mix_01": resolved<f64-bits>,
+  "air_noise_mix_01": resolved<f64-bits>,
+  "air_noise_cutoff_hz": resolved<f64-bits>
+}
+
+audio-asset-spec = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>,
+  "evidence_source_id": resolved<tstr>,
+  "content_sha256": resolved<sha256>,
+  "media": resolved<audio-media-contract>
+}
+
+audio-media-contract = {
+  "encoding": audio-sample-encoding,
+  "channel_layout": audio-channel-layout,
+  "sample_rate": rational-rate-hz,
+  "frame_count": u64-hex
+}
+
+route-presentation = {
+  "route_id": stable-id,
+  "impulse_response_asset_id": stable-id,
+  "impulse_response_gain_linear": resolved<f64-bits>,
+  "wet_mix_01": resolved<f64-bits>
+}
+
+stem-publication = {
+  "calibration_gain_linear": resolved<f64-bits>
+}
+
+audition-mix = {
+  "selected_routes": resolved<route-id-array>,
+  "monitoring_gain_linear": resolved<f64-bits>,
+  "fade_in_duration_s": resolved<f64-bits>,
+  "fade_out_duration_s": resolved<f64-bits>
+}
+
+route-id-array = [* stable-id]
+
+provenance-bundle-ref = {
+  "id": tstr,
+  "sha256": sha256
+}
+
+determinism-envelope = {
+  "build": build-identity,
+  "instruction_set_profile": tstr,
+  "floating_point": floating-point-identity,
+  "deterministic_worker_count": u32,
+  "deterministic_reduction_topology": tstr
+}
+
+build-identity = {
+  "project_revision": tstr,
+  "source_tree_sha256": sha256,
+  "compiler_id": tstr,
+  "compiler_version": tstr,
+  "target_triple": tstr,
+  "standard_library_id": tstr,
+  "standard_library_version": tstr,
+  "math_library_id": tstr,
+  "math_library_version": tstr
+}
+
+floating-point-identity = {
+  "format": tstr,
+  "rounding": tstr,
+  "fma_contraction": bool,
+  "flush_to_zero": bool,
+  "denormals_are_zero": bool
+}
+
+render-rates = {
+  "physics": rational-rate-hz,
+  "capture": rational-rate-hz,
+  "source_processing": rational-rate-hz,
+  "acoustic": rational-rate-hz,
+  "delivery": rational-rate-hz
+}
+
+rational-rate-hz = {
+  "numerator": u64-hex,
+  "denominator": u64-hex
+}
+
+method-identity = {
+  "id": tstr,
+  "version": u32,
+  "configuration_sha256": sha256
+}
+
+random-plan = {
+  "generator": method-identity,
+  "public_seed": u64-hex,
+  "derivation": method-identity,
+  "component_seeds": [* component-seed]
+}
+
+component-seed = {
+  "kind": random-component-kind,
+  "cylinder_id": stable-id / null,
+  "route_id": stable-id / null,
+  "initial_state": u64-hex,
+  "stream": u64-hex
+}
+
+output-contract = {
+  "source_matrix_id": tstr,
+  "source_matrix_sha256": sha256,
+  "distribution": distribution-intent,
+  "required_source_routes": [* source-route-requirement],
+  "required_output_buses": [* output-bus-requirement],
+  "required_artifacts": [* artifact-requirement],
+  "declared_omissions": [* declared-omission]
+}
+
+source-route-requirement = {
+  "semantic_id": tstr,
+  "kind": source-route-kind,
+  "disposition": route-disposition,
+  "disposition_reason": tstr,
+  "artifact_roles": [* tstr]
+}
+
+output-bus-requirement = {
+  "semantic_id": tstr,
+  "kind": output-bus-kind,
+  "artifact_roles": [* tstr]
+}
+
+artifact-requirement = {
+  "role": tstr,
+  "kind": artifact-kind,
+  "audio": audio-contract / null,
+  "diagnostic": bool
+}
+
+declared-omission = {
+  "semantic_id": tstr,
+  "kind": omission-kind,
+  "rationale": tstr
+}
+
+audio-contract = {
+  "sample_rate": rational-rate-hz,
+  "frame_count": u64-hex,
+  "channel_layout_id": tstr,
+  "sample_encoding_id": tstr
+}
+
+route-record = {
+  "route_id": stable-id,
+  "semantic_id": tstr,
+  "kind": source-route-kind,
+  "disposition": route-disposition,
+  "disposition_reason": tstr,
+  "artifact_roles": [* tstr]
+}
+
+output-bus-record = {
+  "semantic_id": tstr,
+  "kind": output-bus-kind,
+  "artifact_roles": [* tstr]
+}
+
+artifact-record = {
+  "role": tstr,
+  "kind": artifact-kind,
+  "relative_path": tstr,
+  "audio": audio-contract / null,
+  "byte_count": u64-hex,
+  "payload_sha256": sha256,
+  "diagnostic": bool
+}
+
+execution-facts = {
+  "run_id": tstr,
+  "started_utc": tstr,
+  "wall_elapsed_ns": i64-nanoseconds,
+  "host_os": tstr,
+  "cpu_model": tstr,
+  "logical_cpu_count": u32,
+  "observed_process_threads": u32,
+  "concurrent_render_jobs": u32,
+  "peak_resident_bytes": u64-hex / null
+}
+
+resolved<t> = {
+  "value": t,
+  "resolution_id": tstr
+}
+
+; StableId<T> is a direct native JSON u32, not an object with a value member.
+stable-id = u32
+u32 = 0..4294967295
+sha256 = tstr .regexp "[0-9a-f]{64}"
+u64-hex = tstr .regexp "0x[0-9a-f]{16}"
+f64-bits = tstr .regexp "0x[0-9a-f]{16}"
+i64-nanoseconds = tstr .regexp "(0|-?[1-9][0-9]*)"
+
+random-component-kind =
+  "combustion" /
+  "presentation_jitter" /
+  "presentation_air_noise" /
+  "starter"
+
+source-route-kind =
+  "exhaust_outlet" /
+  "intake_inlet" /
+  "mechanical_engine" /
+  "mechanical_starter"
+
+audio-sample-encoding = "pcm_s16le" / "float32le" / "pcm_s24le"
+audio-channel-layout = "mono"
+artifact-kind = "audio" / "telemetry" / "routing_report" / "validation_report"
+distribution-intent = "local_evaluation" / "distributable"
+output-bus-kind =
+  "master_engine_raw" /
+  "master_engine_audition" /
+  "master_reference_raw" /
+  "master_reference_audition"
+route-disposition = "rendered" / "not_applicable"
+omission-kind =
+  "source_route" /
+  "external_system" /
+  "presentation_scene" /
+  "scenario_behavior"

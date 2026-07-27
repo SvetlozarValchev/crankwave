@@ -32,6 +32,9 @@ byte-exact reference container are in
 The truthful split between complete simulation inputs and isolated reference
 presentation lineage is in
 [`docs/contracts/M2_MANIFEST_INPUTS.md`](docs/contracts/M2_MANIFEST_INPUTS.md).
+The canonical reference-presentation manifest JSON bytes and deliberate simulation
+deferral are in
+[`docs/contracts/M2_REFERENCE_MANIFEST_WIRE.md`](docs/contracts/M2_REFERENCE_MANIFEST_WIRE.md).
 The exact fixture-free reconstruction, stochastic conditioning, and typed two-route
 source-stage boundary are in
 [`docs/model/M2_P18_SOURCE_STAGE.md`](docs/model/M2_P18_SOURCE_STAGE.md).

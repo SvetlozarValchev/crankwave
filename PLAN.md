@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — P1.8 renderer accepted; canonical manifest schema next
+Status: implementation — reference manifest schema frozen; encoder next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -324,7 +324,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       listening.
 - [x] Record the user's renderer acceptance, or record rejection and redesign before
       doing manifest/publication plumbing or beginning M3.
-- [ ] Freeze the canonical complete `reference_presentation_v1` `RenderManifest` wire
+- [x] Freeze the canonical complete `reference_presentation_v1` `RenderManifest` wire
       schema before implementing its encoder; reject the still-provisional simulation
       input alternative rather than freezing M3 data that has never executed.
 - [ ] Implement the canonical reference-manifest encoder and truthful frozen-BMW
