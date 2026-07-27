@@ -4,7 +4,8 @@ Status: normative interface record for the M2 telemetry/WAV sink and focused-DSP
 checkpoints
 
 Applies to: bounded byte encoding, transactional directory publication, and the
-small exact P1.8 primitives used by the source-stage and static-IR implementations
+small exact P1.8 primitives used by the source-stage, static-IR, and fixed-convolution
+implementations
 
 These focused checkpoints do not decode captured BMW audit buses, construct
 excitation, run the complete presentation route, serialize a production render
@@ -120,7 +121,7 @@ without publishing. The directory transaction protects against ordinary failures
 at-rest tampering inside its private stage. It is not a security boundary against a
 hostile same-user process racing the final identity check and rename.
 
-## 5. Focused P1.8 DSP, source-stage, and static-IR primitives
+## 5. Focused P1.8 DSP, source-stage, static-IR, and convolution primitives
 
 The DSP target contains exact P1.8 building blocks whose arithmetic is already frozen
 in `P18_PRESENTATION_RENDERER.md`:
@@ -150,7 +151,13 @@ seams, numerical envelope, bounds, and exact configured-kernel identity test are
 recorded in
 [`M2_P18_IR_CONVERSION.md`](../model/M2_P18_IR_CONVERSION.md).
 
-Fixed overlap-save convolution, crop, stems, and master remain absent. Neither a
-partial source-stage stream nor a standalone kernel is an audible candidate. The
+The DSP target additionally owns the immutable fixed 65,536-point FFT plan and
+configured-IR spectrum. The presentation target owns each route's independent causal
+overlap-save history and work storage. The exact topology, bounds, state ownership,
+and stopping boundary are recorded in
+[`M2_P18_CONVOLUTION.md`](../model/M2_P18_CONVOLUTION.md).
+
+Crop, selection, stems, and master remain absent. A partial source-stage stream,
+standalone kernel, or isolated convolution output is not an audible candidate. The
 complete unchanged route must pass its fixture/oracle hash tests before any WAV is
 offered for listening.

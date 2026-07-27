@@ -123,6 +123,8 @@ Focused verification must establish:
 8. identical results under the supported GCC and Clang numerical envelopes, with
    sanitizer-clean bounded execution.
 
-These checks prove only the decoder and static converter. Fixed-topology FFT,
-overlap-save convolution, crop, wet selection, Float32 calibration, WAV publication,
-artifact hashes, performance, and listening acceptance remain later checkpoints.
+These checks prove only the decoder and static converter. The next isolated consumer
+is specified by [`M2_P18_CONVOLUTION.md`](M2_P18_CONVOLUTION.md), but this checkpoint
+does not connect to it. Crop, wet selection, Float32 calibration, WAV publication,
+artifact hashes, complete-route performance, and listening acceptance remain later
+checkpoints.

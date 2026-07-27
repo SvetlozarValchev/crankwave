@@ -252,6 +252,27 @@ add_test(
         ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav
 )
 
+add_executable(
+    engine_sim_offline_p18_fixed_fft_convolution_tests
+    p18_fixed_fft_convolution_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_fixed_fft_convolution_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_fixed_fft_convolution_tests
+    PRIVATE engine_sim_offline::presentation
+)
+
+add_test(
+    NAME presentation.p18_fixed_fft_convolution
+    COMMAND engine_sim_offline_p18_fixed_fft_convolution_tests
+)
+
 if(TARGET engine_sim_offline_cli_shell)
     add_executable(
         engine_sim_offline_cli_tests

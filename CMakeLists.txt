@@ -132,6 +132,7 @@ target_link_libraries(
 add_library(
     engine_sim_offline_dsp
     STATIC
+        src/dsp/p18_fixed_fft.cpp
         src/dsp/p18_pcg32.cpp
         src/dsp/p18_primitives.cpp
         src/dsp/p18_reconstruction_table.cpp
@@ -158,6 +159,7 @@ add_library(
     STATIC
         src/presentation/p18_causal_reconstruction.cpp
         src/presentation/p18_conditioning.cpp
+        src/presentation/p18_overlap_save_convolver.cpp
         src/presentation/p18_pcm16_ir_decoder.cpp
         src/presentation/p18_source_stage.cpp
 )

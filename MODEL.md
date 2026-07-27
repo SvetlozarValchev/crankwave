@@ -337,6 +337,9 @@ The implemented fixture-free source-stage boundary and ownership rules are recor
 in [`M2_P18_SOURCE_STAGE.md`](docs/model/M2_P18_SOURCE_STAGE.md).
 The strict configured-IR decode and exact static conversion boundary are recorded in
 [`M2_P18_IR_CONVERSION.md`](docs/model/M2_P18_IR_CONVERSION.md).
+The isolated fixed-topology transform, immutable configured-IR spectrum, and causal
+overlap-save ownership boundary are recorded in
+[`M2_P18_CONVOLUTION.md`](docs/model/M2_P18_CONVOLUTION.md).
 Its output unit remains `engine_sim_source_unit`, not Pa or SPL.
 
 The M2 route includes the exact causal reconstruction, stochastic conditioning,

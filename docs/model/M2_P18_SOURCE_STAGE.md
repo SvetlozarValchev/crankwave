@@ -231,15 +231,17 @@ This checkpoint does not:
 - select or discard the later audible `[384000, 3264000)` source-frame interval;
 - decode PCM16 IR data, detect support, or construct the 30,071-coefficient kernel
   specified by [`M2_P18_IR_CONVERSION.md`](M2_P18_IR_CONVERSION.md);
-- convolve, perform wet selection, or create dry/configured/selected stem families;
+- convolve through the isolated implementation specified by
+  [`M2_P18_CONVOLUTION.md`](M2_P18_CONVOLUTION.md), perform wet selection, or create
+  dry/configured/selected stem families;
 - convert to Float32, apply source calibration, encode WAV, or build a master;
 - write telemetry, artifacts, manifests, or transactional directories;
 - admit the public `render()` path; or
 - establish complete or production-listenable audio.
 
-Fixture integration, crop, IR conversion, convolution, publication, and hash/listening
-acceptance remain separate checkpoints. None may feed expected output back into this
-stage.
+Fixture integration, crop, IR conversion, fixed convolution, publication, and
+hash/listening acceptance remain separate checkpoints. None may feed expected output
+back into this stage.
 
 ## 8. Verification anchors
 

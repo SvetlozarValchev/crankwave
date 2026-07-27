@@ -1,7 +1,7 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — exact P1.8 static IR conversion frozen; fixed-topology FFT
-and bounded overlap-save convolution next
+Status: implementation — exact P1.8 fixed convolution frozen; isolated BMW route
+integration and listening set next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -308,8 +308,10 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Implement strict PCM16 IR decoding, support detection, and exact static
       conversion; regenerate the frozen kernel from the pinned configured-IR asset
       without connecting audit buses, source-stage output, or convolution.
-- [ ] Implement the fixed-topology FFT and bounded overlap-save convolution with
-      transform, impulse, and continuity tests; do not claim a complete route.
+- [x] Validate and freeze the isolated 65,536-point fixed-topology FFT and bounded
+      overlap-save convolution with transform, impulse, independent-history, alias,
+      and partition-continuity tests; preserve 3,840-frame reference calls and do not
+      claim a complete route.
 - [ ] In the isolated reference target only, read and adapt the frozen audit buses,
       drive the complete unchanged renderer through a hash/WAV consumer, reproduce
       the kernel plus all six stem and two master hashes, verify production/CLI/M3
