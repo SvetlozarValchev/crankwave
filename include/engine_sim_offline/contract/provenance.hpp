@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace engine_sim_offline::contract {
@@ -122,5 +123,12 @@ template <class T> struct ResolvedValue {
 };
 
 [[nodiscard]] ValidationReport validate(const ProvenanceLedger &ledger);
+
+// Canonical SHA-256 of every ledger field except bundle.sha256 itself. The caller's
+// grammar ID is the first length-prefixed field and therefore separates independently
+// versioned ledger domains without duplicating the byte grammar.
+[[nodiscard]] Sha256Digest
+canonical_provenance_ledger_digest(const ProvenanceLedger &ledger,
+                                   std::string_view grammar_id) noexcept;
 
 } // namespace engine_sim_offline::contract
