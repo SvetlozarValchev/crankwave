@@ -324,9 +324,11 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       listening.
 - [x] Record the user's renderer acceptance, or record rejection and redesign before
       doing manifest/publication plumbing or beginning M3.
-- [x] Freeze the canonical complete `reference_presentation_v1` `RenderManifest` wire
-      schema before implementing its encoder; reject the still-provisional simulation
-      input alternative rather than freezing M3 data that has never executed.
+- [x] Freeze the initial canonical complete `reference_presentation_v1`
+      `RenderManifest` wire schema before implementing its encoder; reject the
+      still-provisional simulation input alternative rather than freezing M3 data
+      that has never executed. This initial schema is superseded by the correction
+      below after runtime admission exposed identities it could not represent.
 - [x] Implement and golden-test the canonical reference-manifest encoder; reject the
       simulation alternative and every non-representable value.
 - [x] Centralize the immutable frozen P1.8 catalog used by validation, preflight,
@@ -342,6 +344,10 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Enforce and admit the canonical compiled ISA policy, required CPU capability,
       IEEE-754 formats, rounding, contraction, flush-to-zero, denormals-are-zero, and
       required x87 state; fail closed without modifying the calling thread's state.
+- [ ] Replace the incomplete reference-manifest v1 wire, API, and artifact path with
+      v2, without a compatibility path; represent compiler-runtime ID/version and the
+      admitted numeric-policy ID explicitly, then update validation, CDDL, docs, and
+      canonical-encoding goldens.
 - [ ] Compose the source stamp, loaded-runtime identity, and numeric-environment
       admission into one complete private renderer determinism envelope with no caller
       override.
@@ -385,6 +391,13 @@ integration have different failure modes and rollback boundaries. The encoder re
 an encoding boundary: it serializes a supplied identity but never invents or
 authenticates build facts. Dirty development builds remain usable, but cannot publish
 an admissible renderer identity or truthful manifest.
+
+The first reference-manifest schema was frozen before loaded-provider and compiled
+numeric-policy admission existed. Those checkpoints exposed two build facts with no
+honest v1 field: the compiler runtime provider and the numeric policy. The correction
+is a new reviewable checkpoint because changing a frozen wire contract must not be
+hidden inside envelope composition. The project has no compatibility requirement, so
+v2 replaces v1 rather than adding aliases, optional fields, or dual encoders.
 
 The user accepted the renderer on 2026-07-27 after listening to the candidate from
 commit `9cc0cd8f1129b14de157082ad6e66407b548041c` and confirming that it was identical
