@@ -327,9 +327,12 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Freeze the canonical complete `reference_presentation_v1` `RenderManifest` wire
       schema before implementing its encoder; reject the still-provisional simulation
       input alternative rather than freezing M3 data that has never executed.
-- [ ] Implement the canonical reference-manifest encoder and truthful frozen-BMW
-      reference request without admitting fixture replay through public `render()`;
-      keep the simulation alternative unencodable until its M3 schema is frozen.
+- [ ] Implement and golden-test the canonical reference-manifest encoder; reject the
+      simulation alternative and every non-representable value.
+- [ ] Centralize the frozen P1.8 reference catalog and construct a truthful BMW
+      reference manifest from verified lineage, actual sealed artifacts, build-time
+      renderer identity, and observed execution facts without admitting fixture replay
+      through public `render()`.
 - [ ] Implement the bounded transactional eight-artifact P1.8 presentation session,
       including routing and execution evidence, without linking or reading the
       fixture; rerun exact artifact hashes to prove the accepted renderer was not
