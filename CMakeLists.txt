@@ -20,6 +20,11 @@ option(
     "Build the engine-sim-offline command-line shell"
     "${PROJECT_IS_TOP_LEVEL}"
 )
+option(
+    ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS
+    "Build isolated local-evaluation tools that can read frozen reference fixtures"
+    OFF
+)
 
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -220,6 +225,40 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     target_link_libraries(
         engine_sim_offline_cli
         PRIVATE engine_sim_offline_cli_shell
+    )
+endif()
+
+if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
+    add_executable(
+        engine_sim_offline_p18_reference_render
+        src/reference/p18_reference_artifact_set.cpp
+        src/reference/p18_reference_artifact_set_lifecycle.cpp
+        src/reference/p18_reference_artifact_set_publish.cpp
+        src/reference/p18_reference_artifact_set_write.cpp
+        src/reference/p18_reference_audit_reader.cpp
+        src/reference/p18_reference_fixture_loader.cpp
+        src/reference/p18_reference_main.cpp
+        src/reference/p18_reference_render_session.cpp
+        src/reference/p18_reference_seed_reader.cpp
+        src/reference/p18_reference_verification.cpp
+    )
+
+    set_target_properties(
+        engine_sim_offline_p18_reference_render
+        PROPERTIES OUTPUT_NAME engine-sim-offline-p18-reference-render
+    )
+
+    target_include_directories(
+        engine_sim_offline_p18_reference_render
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(
+        engine_sim_offline_p18_reference_render
+        PRIVATE
+            engine_sim_offline::artifacts
+            engine_sim_offline::presentation
     )
 endif()
 

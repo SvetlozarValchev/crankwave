@@ -347,6 +347,33 @@ add_test(
         ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/stems/exhaust-1-linear-wet-dry.wav
 )
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(
+        engine_sim_offline_p18_reference_artifact_set_tests
+        p18_reference_artifact_set_test.cpp
+        ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_artifact_set.cpp
+        ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_artifact_set_lifecycle.cpp
+        ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_artifact_set_publish.cpp
+        ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_artifact_set_write.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_p18_reference_artifact_set_tests
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(
+        engine_sim_offline_p18_reference_artifact_set_tests
+        PRIVATE engine_sim_offline::artifacts
+    )
+
+    add_test(
+        NAME reference.p18_artifact_set
+        COMMAND engine_sim_offline_p18_reference_artifact_set_tests
+    )
+endif()
+
 if(TARGET engine_sim_offline_cli_shell)
     add_executable(
         engine_sim_offline_cli_tests

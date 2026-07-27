@@ -40,6 +40,9 @@ The strict configured-IR decoder and exact static kernel regeneration boundary a
 The exact fixed-topology transform, immutable configured-IR spectrum, and independent
 overlap-save route histories are in
 [`docs/model/M2_P18_CONVOLUTION.md`](docs/model/M2_P18_CONVOLUTION.md).
+The isolated complete-route wiring, publication boundary, and measured BMW result are
+in
+[`docs/model/M2_P18_REFERENCE_INTEGRATION.md`](docs/model/M2_P18_REFERENCE_INTEGRATION.md).
 
 ## Build
 
@@ -66,3 +69,29 @@ build/engine-sim-offline render
 `render` currently exits unavailable because no serialized input loader or complete
 capture-to-artifact execution route is admitted yet. It does not create silence or a
 placeholder file.
+
+## Isolated BMW reference listening tool
+
+The frozen P1.8 fixture can be replayed only by an opt-in local-evaluation executable.
+It is not linked into the public renderer or CLI:
+
+```bash
+cmake -S . -B build-reference \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_COMPILER=clang++ \
+  -DENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS=ON \
+  -DENGINE_SIM_OFFLINE_BUILD_TESTS=OFF \
+  -DENGINE_SIM_OFFLINE_BUILD_CLI=OFF
+cmake --build build-reference
+
+build-reference/engine-sim-offline-p18-reference-render \
+  reference/fixtures/bmw-m52b28-p18 \
+  artifacts/listening \
+  bmw-m52b28-p18 \
+  "$(git rev-parse HEAD)"
+```
+
+The destination is created with no-overwrite publication. All eight WAVs and two
+small reports appear together. A complete hash mismatch is still published and
+labelled so it can be judged by ear; malformed or incomplete output is never
+published. The configured IR and its derivatives are local listening evidence only.

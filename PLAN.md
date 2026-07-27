@@ -1,7 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — exact P1.8 mastering frozen; isolated BMW route integration
-and controlled listening set next
+Status: listening hard stop — complete P1.8 BMW route is exact and awaiting user review
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -317,11 +316,12 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       code, WAV output, or public rendering.
 - [x] Implement and bit-test the fixture-free raw/audition mastering transform and exact
       audition WAVE container; keep implementation path-free and do not publish audio.
-- [ ] In the isolated reference target only, adapt the frozen audit buses, drive the
-      complete unchanged renderer through a hash/WAV consumer, reproduce the kernel
-      plus all six stem and two master hashes, verify production/CLI/M3 linkage
+- [x] In the isolated reference target only, adapt the frozen audit buses, drive the
+      complete unchanged renderer through a hash/WAV consumer, compute and compare the
+      kernel plus all six stem and two master hashes, verify production/CLI/M3 linkage
       isolation, report single-job and fixed-count concurrent performance, publish the
-      controlled oracle/candidate set, and STOP for user listening.
+      controlled oracle/candidate set even if labelled mismatched, and STOP for user
+      listening.
 - [ ] Record the user's renderer acceptance, or record rejection and redesign before
       doing manifest/publication plumbing or beginning M3.
 - [ ] Freeze the canonical complete `RenderManifest` wire schema before implementing
