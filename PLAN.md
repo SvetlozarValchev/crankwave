@@ -336,10 +336,15 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       revision, a canonical renderer-source closure digest, compiler ID/version, and
       target triple; make dirty or unavailable source state inadmissible and accept no
       caller override.
-- [ ] Admit the actual standard-library, math-library, compiled ISA, CPU capability,
-      IEEE-754 format, rounding, contraction, flush-to-zero, and denormals-are-zero
-      state; compose the source stamp into one complete private renderer determinism
-      identity and fail closed on unsupported state.
+- [ ] Identify and admit the actual loaded standard-library, math-library, and compiler
+      runtime providers plus the selected P1.8 math implementations; fail closed on
+      static, interposed, replaced, or unsupported providers.
+- [ ] Enforce and admit the canonical compiled ISA policy, required CPU capability,
+      IEEE-754 formats, rounding, contraction, flush-to-zero, denormals-are-zero, and
+      required x87 state; fail closed without modifying the calling thread's state.
+- [ ] Compose the source stamp, loaded-runtime identity, and numeric-environment
+      admission into one complete private renderer determinism envelope with no caller
+      override.
 - [ ] Remove the caller-supplied source revision from the P1.8 CLI and verification
       report; use the same build-owned renderer identity that truthful manifest
       construction will consume, and prove the audio remains byte-identical.
