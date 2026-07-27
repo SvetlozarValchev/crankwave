@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — numeric admission complete; determinism envelope next
+Status: implementation — determinism envelope complete; P1.8 identity integration next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -351,7 +351,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Retain the calling thread's raw x87 status word in numeric-environment snapshots;
       prove observation preserves it and sticky exception flags remain deliberately
       excluded from canonical identity without changing the numeric-policy ID.
-- [ ] Compose the source stamp, loaded-runtime identity, and numeric-environment
+- [x] Compose the source stamp, loaded-runtime identity, and numeric-environment
       admission into one complete private renderer determinism envelope with no caller
       override.
 - [ ] Remove the caller-supplied source revision from the P1.8 CLI and verification

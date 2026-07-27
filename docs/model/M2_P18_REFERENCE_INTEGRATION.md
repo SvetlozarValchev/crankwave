@@ -17,10 +17,10 @@ these components are linked by the public renderer, CLI, or future M3 simulation
 A separate private renderer-determinism target records build-owned source, compiler,
 and target facts and rejects dirty or unavailable source. It also observes the actual
 loaded libstdc++, glibc libm, and libgcc_s providers without loading a missing library.
-It now owns the compiled numeric policy and admits the calling thread's CPU and
-floating-point state. These split checkpoints are exercised by focused tests only;
-they are not yet one complete runtime determinism identity and are not yet consumed by
-the reference executable.
+It owns the compiled numeric policy and admits the calling thread's CPU and
+floating-point state. One sealed private envelope now requires all three identities
+together and exposes their exact reference-manifest projection. This envelope is
+exercised by focused tests only and is not yet consumed by the reference executable.
 
 ## Loaded runtime admission
 
@@ -90,8 +90,35 @@ detection, but validation deliberately excludes its sticky exception bits from t
 canonical numeric identity.
 
 This marker attests the numeric option tail, not source cleanliness or provider
-identity. The next checkpoint must require the source stamp, loaded-runtime identity,
-and numeric admission together on the render thread; none can substitute for another.
+identity. The complete private envelope below requires all three on the render thread;
+none can substitute for another.
+
+## Complete renderer identity
+
+The production identity entry point accepts no arguments and has no mutable cache.
+It first observes and admits the calling thread's numeric environment, then obtains
+the build-owned source stamp, then observes the already-loaded runtime providers.
+A source failure skips runtime observation because no successful envelope remains
+possible. Numeric preflight failure skips both later observers.
+
+After every attempted source/runtime sequence, a second raw numeric observation is the
+final observer operation. Exact before/after comparison includes CPU-query evidence,
+MXCSR, x87 control, and the complete x87 status word. Any difference returns the two
+typed snapshots and outranks a simultaneous source or runtime error because that error
+was observed under an unstable transaction. Stable failures retain the source,
+runtime-provider, or numeric observer's original typed error. The composition restores
+the caller's `errno`; it does not alter or normalize floating-point or CPUID state.
+
+Only the private composer can construct the successful immutable value. It retains
+the complete source stamp, rich loaded-provider evidence, and canonical numeric
+identity, plus one exact `contract::DeterminismEnvelope` projection. That projection
+copies the Git object ID, renderer-source closure digest, compiler and target facts,
+all three canonical provider identities, numeric-policy and ISA IDs, and strict
+floating-point facts. Execution identity is fixed to one worker and
+`serial-stable-order`. Focused tests prove the production API has zero parameters,
+the exact observer order and error precedence, sticky-status mutation detection,
+caller `errno` preservation, and rejection of a worker-local rounding change without
+changing the main thread.
 
 Preflight opens, bounds, streams, and hashes exactly these fixed descendants of a
 caller-selected fixture root:

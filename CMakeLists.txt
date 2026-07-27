@@ -209,6 +209,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
         engine_sim_offline_renderer_determinism
         STATIC
             src/determinism/loaded_runtime_identity.cpp
+            src/determinism/renderer_determinism_envelope.cpp
             src/determinism/renderer_numeric_environment.cpp
     )
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND

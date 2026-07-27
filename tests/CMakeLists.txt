@@ -51,6 +51,8 @@ engine_sim_offline_renderer_numeric_policy_is_admitted(
     _engine_sim_offline_numeric_policy_admitted
 )
 if(_engine_sim_offline_numeric_policy_admitted)
+    find_package(Threads REQUIRED)
+
     add_executable(
         engine_sim_offline_renderer_numeric_environment_tests
         renderer_numeric_environment_test.cpp
@@ -67,6 +69,32 @@ if(_engine_sim_offline_numeric_policy_admitted)
     add_test(
         NAME determinism.renderer_numeric_environment
         COMMAND engine_sim_offline_renderer_numeric_environment_tests
+    )
+
+    add_executable(
+        engine_sim_offline_renderer_determinism_envelope_tests
+        renderer_determinism_envelope_test.cpp
+    )
+
+    target_link_options(
+        engine_sim_offline_renderer_determinism_envelope_tests
+        PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--no-as-needed>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_renderer_determinism_envelope_tests
+        PRIVATE
+            engine_sim_offline_renderer_determinism
+            Threads::Threads
+            $<$<PLATFORM_ID:Linux>:m>
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_renderer_determinism_envelope_tests
+    )
+
+    add_test(
+        NAME determinism.renderer_determinism_envelope
+        COMMAND engine_sim_offline_renderer_determinism_envelope_tests
     )
 endif()
 unset(_engine_sim_offline_numeric_policy_admitted)
