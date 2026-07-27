@@ -12,6 +12,7 @@ int main() {
         run_parity_model_contract_tests();
         run_capture_contract_tests();
         run_scenario_manifest_contract_tests();
+        run_reference_manifest_contract_tests();
     } catch (const std::exception &error) {
         std::cerr << "contract test failure: " << error.what() << '\n';
         return 1;

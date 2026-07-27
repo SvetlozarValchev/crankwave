@@ -46,17 +46,17 @@ void run_scenario_manifest_contract_tests() {
 
     expect(validate(builder.provenance).ok(), "valid provenance ledger was rejected");
     expect(validate(source_matrix).ok(), "valid source matrix was rejected");
-    expect(validate(content.resolved_inputs.engine, builder.provenance).ok(),
+    expect(validate(simulation_inputs(content).engine, builder.provenance).ok(),
            "valid resolved engine was rejected");
-    expect(validate(content.resolved_inputs.scenario, builder.provenance).ok(),
+    expect(validate(simulation_inputs(content).scenario, builder.provenance).ok(),
            "valid tagged scenario was rejected");
-    auto unbounded_event_journal = content.resolved_inputs.scenario;
+    auto unbounded_event_journal = simulation_inputs(content).scenario;
     unbounded_event_journal.quality.value.event_journal_capacity_records = 0;
     expect(!validate(unbounded_event_journal, builder.provenance).ok(),
            "scenario accepted a zero event-journal transport capacity");
 
     const RationalRateHz high_rate{2'000'000'000'000ULL, 1};
-    auto discrete_audible_gap = content.resolved_inputs.scenario;
+    auto discrete_audible_gap = simulation_inputs(content).scenario;
     discrete_audible_gap.rates = {
         high_rate, high_rate, high_rate, high_rate, high_rate,
     };
@@ -69,7 +69,7 @@ void run_scenario_manifest_contract_tests() {
                          "physics.audible_interval"),
            "binary64-near audible end left an undeclared frame gap");
 
-    auto discrete_fixed_gap = content.resolved_inputs.scenario;
+    auto discrete_fixed_gap = simulation_inputs(content).scenario;
     discrete_fixed_gap.rates = discrete_audible_gap.rates;
     std::get<FixedSettling>(discrete_fixed_gap.preparation).settling_duration_s.value =
         0.9999999999995;
@@ -79,7 +79,7 @@ void run_scenario_manifest_contract_tests() {
                          "physics.preparation"),
            "binary64-near fixed preparation left an undeclared frame gap");
 
-    auto invalid_convergence_grid = content.resolved_inputs.scenario;
+    auto invalid_convergence_grid = simulation_inputs(content).scenario;
     ConvergenceSettling convergence;
     convergence.minimum_warm_up_duration_s.value = 1.0;
     convergence.minimum_settling_duration_s.value = 1.0;
@@ -92,20 +92,21 @@ void run_scenario_manifest_contract_tests() {
                          "physics.preparation"),
            "convergence frame bounds accepted a maximum below their minimum");
 
-    expect(validate_for_engine(content.resolved_inputs.scenario,
-                               content.resolved_inputs.engine)
+    expect(validate_for_engine(simulation_inputs(content).scenario,
+                               simulation_inputs(content).engine)
                .ok(),
            "valid scenario and engine pairing was rejected");
-    auto wrong_fuel_scenario = content.resolved_inputs.scenario;
+    auto wrong_fuel_scenario = simulation_inputs(content).scenario;
     wrong_fuel_scenario.fuel.lower_heating_value_j_per_kg.value += 1.0;
-    expect(
-        !validate_for_engine(wrong_fuel_scenario, content.resolved_inputs.engine).ok(),
-        "scenario fuel was allowed to contradict executable engine fuel");
+    expect(!validate_for_engine(wrong_fuel_scenario, simulation_inputs(content).engine)
+                .ok(),
+           "scenario fuel was allowed to contradict executable engine fuel");
     expect(validate(content, builder.provenance, source_matrix).ok(),
            "valid render manifest content was rejected");
 
     auto mismatched_asset_evidence = content;
-    mismatched_asset_evidence.resolved_inputs.presentation.assets[0]
+    simulation_inputs(mismatched_asset_evidence)
+        .presentation.assets[0]
         .content_sha256.value = digest(31);
     auto report =
         validate(mismatched_asset_evidence, builder.provenance, source_matrix);
@@ -114,15 +115,15 @@ void run_scenario_manifest_contract_tests() {
            "presentation asset digest was allowed to disagree with its evidence");
 
     auto mismatched_algorithm_record = content;
-    mismatched_algorithm_record.resolved_inputs.presentation.algorithm_record
-        .content_sha256.value = digest(28);
+    simulation_inputs(mismatched_algorithm_record)
+        .presentation.algorithm_record.content_sha256.value = digest(28);
     report = validate(mismatched_algorithm_record, builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "algorithm_record.content_sha256"),
            "presentation algorithm record was allowed to disagree with evidence");
 
     auto unconfigured_rendered_route = content;
-    unconfigured_rendered_route.resolved_inputs.presentation.routes.clear();
+    simulation_inputs(unconfigured_rendered_route).presentation.routes.clear();
     report = validate(unconfigured_rendered_route, builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "routes[0].disposition"),
@@ -159,8 +160,8 @@ void run_scenario_manifest_contract_tests() {
     expect(validate(first, builder.provenance, source_matrix).ok(),
            "valid completed render manifest was rejected");
     const RenderResult held_success = RenderSuccess{first, std::nullopt};
-    expect(validate(held_success, content.resolved_inputs.scenario, builder.provenance,
-                    source_matrix)
+    expect(validate(held_success, simulation_inputs(content).scenario,
+                    builder.provenance, source_matrix)
                .ok(),
            "held-speed success result was rejected");
     expect(same_content_identity(first, second),
@@ -309,8 +310,8 @@ void run_scenario_manifest_contract_tests() {
 
     InputBuilder load_builder;
     auto load_content = make_manifest_content(load_builder);
-    auto load_engine = load_content.resolved_inputs.engine;
-    auto load_scenario = load_content.resolved_inputs.scenario;
+    auto load_engine = simulation_inputs(load_content).engine;
+    auto load_scenario = simulation_inputs(load_content).scenario;
     const auto held_speed = std::get<HeldSpeed>(load_scenario.mode);
     load_scenario.mode = LoadTargetHeldCapture{
         held_speed.engine_speed_rpm,
@@ -326,7 +327,7 @@ void run_scenario_manifest_contract_tests() {
            "finite signed negative net-BMEP target was rejected");
     expect(validate_for_engine(load_scenario, load_engine).ok(),
            "complete torque model rejected a load-target capture");
-    load_content.resolved_inputs.scenario = load_scenario;
+    simulation_inputs(load_content).scenario = load_scenario;
 
     auto inverted_bounds = load_scenario;
     std::get<LoadTargetHeldCapture>(inverted_bounds.mode)
@@ -488,7 +489,7 @@ void run_scenario_manifest_contract_tests() {
         FailureTolerance{"net-bmep-pa", -100200.0, 100.0},
     };
     matching_unreachable.request = {
-        load_content.resolved_inputs,
+        simulation_inputs(load_content),
         load_builder.provenance,
         source_matrix,
         {},
@@ -523,9 +524,9 @@ void run_scenario_manifest_contract_tests() {
 
     auto wrong_mode_unreachable = matching_unreachable;
     wrong_mode_unreachable.context.profile_id =
-        content.resolved_inputs.scenario.engine_profile_id;
+        simulation_inputs(content).scenario.engine_profile_id;
     const RenderResult wrong_mode_result = wrong_mode_unreachable;
-    report = validate(wrong_mode_result, content.resolved_inputs.scenario,
+    report = validate(wrong_mode_result, simulation_inputs(content).scenario,
                       builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "unreachable"),

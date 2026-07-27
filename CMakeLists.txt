@@ -47,6 +47,7 @@ add_library(
         src/contract/parity_model.cpp
         src/contract/presentation.cpp
         src/contract/provenance.cpp
+        src/contract/reference_presentation.cpp
         src/contract/render_manifest.cpp
         src/contract/result.cpp
         src/contract/scenario.cpp

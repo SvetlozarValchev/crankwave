@@ -14,6 +14,8 @@ transactional directory publication, and the focused P1.8 DSP primitives are rec
 in [`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). None of these records claims that the
 resolver, simulator, or complete fixture-to-acoustic renderer exists yet; those are
 separate checkboxes in [`PLAN.md`](../../PLAN.md).
+The manifest's complete-simulation versus isolated-reference input alternatives are
+frozen separately in [`M2_MANIFEST_INPUTS.md`](M2_MANIFEST_INPUTS.md).
 
 The governing physical, numerical, and provenance meanings remain in
 [`MODEL.md`](../../MODEL.md). The exact BMW parity algorithm is separately fixed by
@@ -419,7 +421,7 @@ A source matrix is an independently selected policy object. It fixes:
 - local-evaluation or distributable intent;
 - required source-route identities, kinds, dispositions, and artifact roles;
 - required output-bus identities, kinds, and artifact roles;
-- required artifact kinds, audio media contracts, and diagnostic status.
+- required artifact kinds, audio media contracts, and diagnostic status;
 - typed, stable IDs and rationales for known omissions.
 
 `resolve_output_contract()` copies that policy into the manifest. Manifest validation
@@ -430,11 +432,13 @@ The built-in `bmw_m52b28_reference_source_matrix_v1()` is the typed counterpart 
 frozen M2/M3 reference matrix. It requires exactly two local-evaluation exhaust
 reference routes, their dry/configured-IR/selected stems, and raw/audition reference
 masters at the frozen delivery shape. It is intentionally not the production source
-matrix. Its typed omissions mirror the frozen reference capsule's explicit absence of
-intake, mechanical engine, starter, drivetrain, tire/road, spatial-scene, and
-non-pull-behavior evidence. They remain part of `OutputContract`, so a manifest cannot
-silently erase the limitations while claiming the approved matrix. The detailed
-evidence remains in
+matrix. For isolated fixture replay, `exhaust_outlet` is only this matrix's routing
+classification; the captured runtime buses are not asserted to be physical
+exhaust-outlet observables. Its typed omissions mirror the frozen reference capsule's
+explicit absence of intake, mechanical engine, starter, drivetrain, tire/road,
+spatial-scene, and non-pull-behavior evidence. They remain part of `OutputContract`,
+so a manifest cannot silently erase the limitations while claiming the approved
+matrix. The detailed evidence remains in
 [`SOURCE_MATRIX.md`](../../reference/oracles/bmw-m52b28/SOURCE_MATRIX.md).
 
 Production completeness remains governed by
@@ -488,7 +492,9 @@ P1.8 output; this checkbox pins the input identity but does not execute DSP.
 
 `RenderManifestContent` contains:
 
-- the complete resolved engine, presentation, and scenario inputs;
+- a tagged input alternative: either the complete resolved engine, presentation, and
+  scenario inputs, or the exact isolated P1.8 reference-presentation lineage and
+  executed presentation calibration;
 - a content-addressed provenance-bundle reference;
 - build, floating-point, instruction-set, worker, and reduction identities;
 - the resolved rate plan;
@@ -515,7 +521,11 @@ seed `0xC0FFEE`, and the four recorded route-owned presentation stream pairs in
 Their method configuration digests remain implementation-supplied content identities.
 That reference-only generator is rejected by other source matrices.
 
-Content validation cross-checks all three resolved inputs, scenario compatibility,
+Simulation-content validation cross-checks all three resolved inputs and scenario
+compatibility. Reference-content validation instead requires the exact frozen fixture
+files, minimal BMW/two-route context, reader/adapter/seam identities, capture/crop
+window, presentation record, and only the four presentation random streams executed
+now. It never fabricates the deferred physics profile. Both alternatives cross-check
 rates, public seed, source matrix, route/bus identity, artifact ownership, exact
 delivery frame count, file shape, payload presence, evidence rights, and distribution
 intent. Artifact paths must be normalized portable relative paths without traversal,
@@ -533,7 +543,9 @@ identity. Automatic collection of those facts is not implemented by this checkbo
 A content-valid manifest is still not a successful render. The public render boundary
 now rejects valid inputs with `incomplete_source_route` until later renderer/sink work
 creates payloads, computes hashes, publishes required outputs transactionally, and can
-return the manifest only on success.
+return the manifest only on success. A public `RenderSuccess` is valid only with the
+complete simulation-input alternative. The isolated reference target has its own
+result/session boundary and cannot use fixture replay to manufacture public success.
 
 ## 11. M2 contract versus M3 exact profile
 

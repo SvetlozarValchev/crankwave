@@ -34,6 +34,12 @@ request. One call is one session. The API accepts no audit file, caller-provided
 excitation, backend, callback producer, registry, or legacy implementation selector.
 There are no mutable globals or hidden worker pools.
 
+`RenderManifestContent` also has a typed reference-presentation alternative for the
+isolated M2 evaluation target, as recorded in
+[`M2_MANIFEST_INPUTS.md`](M2_MANIFEST_INPUTS.md). It is deliberately not another
+public request form. Public result validation rejects any `RenderSuccess` whose
+manifest does not contain the complete simulation inputs matching this API call.
+
 ## 2. Current behavior
 
 Preflight runs in this order:

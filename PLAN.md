@@ -1,7 +1,7 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — exact P1.8 artifact/mastering contract frozen; canonical
-manifest wire schema next
+Status: implementation — truthful simulation/reference manifest-input split frozen;
+exact P1.8 reconstruction, jitter, and conditioning next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -299,8 +299,9 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Freeze the exact local-evaluation P1.8 eight-artifact and mastering contract:
       roles, paths, media shapes, hashes, raw-master reduction, audition processing,
       and byte-exact container.
-- [ ] Freeze the canonical complete `RenderManifest` wire schema before implementing
-      its encoder.
+- [x] Split manifest inputs into complete simulation inputs and an exact isolated
+      reference-presentation alternative; keep public `RenderSuccess` simulation-only
+      and do not invent deferred physics inputs for fixture replay.
 - [ ] Implement and bit-test exact P1.8 PCG32, causal reconstruction, jitter, and
       conditioning behind the typed two-route excitation seam; do not read the
       fixture or emit WAV.
@@ -308,17 +309,21 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       conversion; prove the frozen kernel identity without connecting the fixture.
 - [ ] Implement the fixed-topology FFT and bounded overlap-save convolution with
       transform, impulse, and continuity tests; do not claim a complete route.
-- [ ] Implement the canonical complete-manifest encoder and truthful frozen-BMW
-      reference request without admitting fixture replay through public `render()`.
-- [ ] Implement the bounded transactional eight-artifact P1.8 presentation session,
-      including routing and execution evidence, without reading the fixture.
 - [ ] In the isolated reference target only, read and adapt the frozen audit buses,
-      drive the complete unchanged route through the transactional session, reproduce
+      drive the complete unchanged renderer through a hash/WAV consumer, reproduce
       the kernel plus all six stem and two master hashes, verify production/CLI/M3
       linkage isolation, report single-job and fixed-count concurrent performance,
       publish the controlled oracle/candidate set, and STOP for user listening.
-- [ ] Record the user's acceptance, or record rejection and redesign without beginning
-      M3.
+- [ ] Record the user's renderer acceptance, or record rejection and redesign before
+      doing manifest/publication plumbing or beginning M3.
+- [ ] Freeze the canonical complete `RenderManifest` wire schema before implementing
+      its encoder.
+- [ ] Implement the canonical complete-manifest encoder and truthful frozen-BMW
+      reference request without admitting fixture replay through public `render()`.
+- [ ] Implement the bounded transactional eight-artifact P1.8 presentation session,
+      including routing and execution evidence, without linking or reading the
+      fixture; rerun exact artifact hashes to prove the accepted renderer was not
+      changed.
 
 Exit: the user accepts the trace-driven renderer. A synthetic fixture makes no
 sound-quality claim, and M3 cannot begin without this acoustic acceptance.
@@ -329,11 +334,14 @@ reference-only I/O, manifest publication, and the first audible output. None of 
 pre-integration replacement checkboxes is an audible candidate or permits work to
 advance past M2. The isolated hash-parity checkbox must complete and publish all eight
 frozen reference artifacts through the unchanged route, and is itself the immediate
-listening hard stop; work does not continue while awaiting the user's decision. The
-public `render()` path remains fail-closed throughout fixture replay, and
-production/M3 targets never link the reference reader. Exact hashes establish only
-this narrow trace-driven renderer parity—not public-render success, new physics,
-production completeness, higher fidelity, distribution rights, or user acceptance.
+listening hard stop; work does not continue while awaiting the user's decision.
+Canonical serialization and transactional-publication plumbing deliberately follow
+that acceptance because they cannot validate sound. They must wrap the same accepted
+renderer and reproduce its exact hashes before M3 begins. The public `render()` path
+remains fail-closed throughout fixture replay, and production/M3 targets never link
+the reference reader. Exact hashes establish only this narrow trace-driven renderer
+parity—not public-render success, new physics, production completeness, higher
+fidelity, distribution rights, or user acceptance.
 
 ### M3 — BMW parity
 

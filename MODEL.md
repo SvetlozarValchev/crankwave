@@ -45,7 +45,9 @@ The following records have distinct authority:
 7. `docs/model/M2_P18_ARTIFACT_MASTERING.md` owns the repository-selected artifact
    paths and exact raw/audition mastering behavior derived from the frozen stems and
    oracle.
-8. This document owns model meaning and admission; the focused M2 contract records own
+8. `docs/contracts/M2_MANIFEST_INPUTS.md` owns the typed distinction between complete
+   simulation inputs and exact isolated reference-presentation lineage.
+9. This document owns model meaning and admission; the focused M2 contract records own
    concrete C++ types, schemas, and API signatures.
 
 If two authorities conflict, implementation stops and the contradiction is recorded.

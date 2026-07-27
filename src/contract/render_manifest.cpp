@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -217,6 +218,160 @@ void validate_unique_owned_roles(ValidationReport &report,
     }
 }
 
+Sha256Digest sha256_from_lower_hex(std::string_view text) {
+    const auto nibble = [](char value) -> std::uint8_t {
+        return value >= '0' && value <= '9'
+                   ? static_cast<std::uint8_t>(value - '0')
+                   : static_cast<std::uint8_t>(10 + value - 'a');
+    };
+
+    Sha256Digest digest;
+    for (std::size_t index = 0; index < digest.bytes.size(); ++index) {
+        digest.bytes[index] = static_cast<std::uint8_t>(
+            (nibble(text[index * 2]) << 4U) | nibble(text[index * 2 + 1]));
+    }
+    return digest;
+}
+
+struct FrozenReferenceArtifactIdentity {
+    std::string_view role;
+    std::string_view relative_path;
+    std::uint64_t byte_count = 0;
+    std::string_view sha256;
+};
+
+void validate_frozen_reference_artifacts(
+    ValidationReport &report, const std::vector<ArtifactRecord> &artifacts,
+    const std::unordered_map<std::string, const ArtifactRecord *> &artifact_by_role) {
+    constexpr std::array identities{
+        FrozenReferenceArtifactIdentity{
+            "exhaust.reference.0.dry",
+            "audio/exhaust.reference.0.dry.wav",
+            UINT64_C(11520058),
+            "e5a96cb5d3b9f1732e741916706a99c6a7c5e1a912e3d751cb92846d33ce6eeb",
+        },
+        FrozenReferenceArtifactIdentity{
+            "exhaust.reference.0.configured_ir",
+            "audio/exhaust.reference.0.configured-ir.wav",
+            UINT64_C(11520058),
+            "a637639a4ec85d1c6a1432a0b0df2395e3669648f5708f846ce65e83b70e6f32",
+        },
+        FrozenReferenceArtifactIdentity{
+            "exhaust.reference.0.selected",
+            "audio/exhaust.reference.0.selected.wav",
+            UINT64_C(11520058),
+            "a637639a4ec85d1c6a1432a0b0df2395e3669648f5708f846ce65e83b70e6f32",
+        },
+        FrozenReferenceArtifactIdentity{
+            "exhaust.reference.1.dry",
+            "audio/exhaust.reference.1.dry.wav",
+            UINT64_C(11520058),
+            "2ad2ed41097af30421047f3e4a6033086ec70b9731082833699caad1da9d81ea",
+        },
+        FrozenReferenceArtifactIdentity{
+            "exhaust.reference.1.configured_ir",
+            "audio/exhaust.reference.1.configured-ir.wav",
+            UINT64_C(11520058),
+            "f47b94024648f6763804fa36bd11bf230d3b5741f2289bb062a6afe7c4a8ba3d",
+        },
+        FrozenReferenceArtifactIdentity{
+            "exhaust.reference.1.selected",
+            "audio/exhaust.reference.1.selected.wav",
+            UINT64_C(11520058),
+            "f47b94024648f6763804fa36bd11bf230d3b5741f2289bb062a6afe7c4a8ba3d",
+        },
+        FrozenReferenceArtifactIdentity{
+            "master.reference.raw",
+            "audio/master.reference.raw.wav",
+            UINT64_C(11520058),
+            "2c5473cfc3836f18164bb2fc52bec11d2a2349ca9fbd550130c520baa3750146",
+        },
+        FrozenReferenceArtifactIdentity{
+            "master.reference.audition",
+            "audio/master.reference.audition.wav",
+            UINT64_C(8640302),
+            "f62c164f9a3debca23b1459fae8d6b47a19a98a418490e2e99bcbdf8a7d972eb",
+        },
+    };
+
+    detail::require(report, artifacts.size() == identities.size(),
+                    ContractIssueCode::inconsistent_shape, "artifacts",
+                    "reference presentation requires exactly the frozen eight "
+                    "audio artifacts");
+    for (std::size_t index = 0; index < identities.size(); ++index) {
+        const auto &identity = identities[index];
+        if (index < artifacts.size()) {
+            detail::require(report, artifacts[index].role == identity.role,
+                            ContractIssueCode::inconsistent_semantics,
+                            "artifacts[" + std::to_string(index) + "].role",
+                            "reference artifacts must preserve the frozen route-0, "
+                            "route-1, raw-master, audition-master order");
+        }
+        const auto artifact = artifact_by_role.find(std::string(identity.role));
+        if (artifact == artifact_by_role.end()) {
+            continue;
+        }
+        const auto &actual = *artifact->second;
+        detail::require(
+            report,
+            actual.relative_path == identity.relative_path &&
+                actual.byte_count == identity.byte_count &&
+                actual.payload_sha256 == sha256_from_lower_hex(identity.sha256),
+            ContractIssueCode::inconsistent_semantics,
+            "artifacts." + std::string(identity.role),
+            "reference artifact path, complete-file byte count, and SHA-256 must "
+            "match the frozen mastering contract");
+    }
+}
+
+struct ManifestRouteView {
+    RouteId route_id;
+    std::string_view semantic_id;
+    SourceRouteKind kind = SourceRouteKind::unspecified;
+};
+
+struct ManifestInputView {
+    const PresentationCalibration *presentation = nullptr;
+    const EngineSpec *simulation_engine = nullptr;
+    std::vector<ManifestRouteView> routes;
+    RenderRates rates;
+    std::uint64_t public_seed = 0;
+    std::optional<std::uint64_t> delivery_frame_count;
+    std::string route_validation_path;
+};
+
+ManifestInputView make_input_view(const SimulationManifestInputs &inputs) {
+    ManifestInputView view;
+    view.presentation = &inputs.resolved.presentation;
+    view.simulation_engine = &inputs.resolved.engine;
+    view.routes.reserve(inputs.resolved.engine.routes.size());
+    for (const auto &route : inputs.resolved.engine.routes) {
+        view.routes.push_back({route.id, route.semantic_id.value, route.kind.value});
+    }
+    view.rates = inputs.resolved.scenario.rates;
+    view.public_seed = inputs.resolved.scenario.public_seed.value;
+    view.delivery_frame_count =
+        resolve_frame_index(inputs.resolved.scenario.audible_duration_s.value,
+                            inputs.resolved.scenario.rates.delivery);
+    view.route_validation_path = "inputs.simulation.resolved.engine.routes";
+    return view;
+}
+
+ManifestInputView make_input_view(const ReferencePresentationInputsV1 &inputs) {
+    ManifestInputView view;
+    view.presentation = &inputs.presentation;
+    view.routes.reserve(inputs.engine.routes.size());
+    for (const auto &route : inputs.engine.routes) {
+        view.routes.push_back(
+            {route.route_id, route.semantic_id, route.source_matrix_classification});
+    }
+    view.rates = inputs.capture.rates;
+    view.public_seed = inputs.capture.public_seed;
+    view.delivery_frame_count = inputs.capture.delivery_frame_count;
+    view.route_validation_path = "inputs.reference.engine.routes";
+    return view;
+}
+
 } // namespace
 
 ValidationReport validate_render_admission(const EngineSpec &engine,
@@ -338,18 +493,30 @@ ValidationReport validate(const RenderManifestContent &content,
     using detail::require;
 
     ValidationReport report;
-    append_prefixed(report,
-                    validate_render_admission(content.resolved_inputs.engine,
-                                              content.resolved_inputs.presentation,
-                                              content.resolved_inputs.scenario,
-                                              provenance, source_matrix),
-                    "admission");
+    ManifestInputView input_view;
+    std::visit(
+        [&](const auto &inputs) {
+            using Inputs = std::decay_t<decltype(inputs)>;
+            if constexpr (std::is_same_v<Inputs, SimulationManifestInputs>) {
+                append_prefixed(report,
+                                validate_render_admission(inputs.resolved.engine,
+                                                          inputs.resolved.presentation,
+                                                          inputs.resolved.scenario,
+                                                          provenance, source_matrix),
+                                "admission");
+            } else {
+                append_prefixed(report, validate(inputs, provenance, source_matrix),
+                                "admission.reference");
+            }
+            input_view = make_input_view(inputs);
+        },
+        content.inputs);
 
-    require(report, content.schema_version > 0, ContractIssueCode::invalid_value,
-            "schema_version", "render-manifest schema version must be positive");
-    require(report, content.rates == content.resolved_inputs.scenario.rates,
+    require(report, content.schema_version == 1, ContractIssueCode::unsupported_value,
+            "schema_version", "render-manifest schema must be version 1");
+    require(report, content.rates == input_view.rates,
             ContractIssueCode::inconsistent_semantics, "rates",
-            "manifest rates must equal the resolved scenario rates");
+            "manifest rates must equal the selected input rates");
     append_prefixed(report, validate(content.rates), "rates");
 
     require(report, is_valid_semantic_id(content.provenance.id),
@@ -398,11 +565,9 @@ ValidationReport validate(const RenderManifestContent &content,
                     "randomness.generator");
     append_prefixed(report, validate(content.randomness.derivation),
                     "randomness.derivation");
-    require(report,
-            content.randomness.public_seed ==
-                content.resolved_inputs.scenario.public_seed.value,
+    require(report, content.randomness.public_seed == input_view.public_seed,
             ContractIssueCode::inconsistent_semantics, "randomness.public_seed",
-            "manifest random seed must equal the resolved scenario public seed");
+            "manifest random seed must equal the selected input public seed");
     const auto &frozen_reference = bmw_m52b28_reference_source_matrix_v1();
     constexpr std::string_view p18_generator_id = "p18_reference_pcg32_v1";
     if (source_matrix.id == frozen_reference.id) {
@@ -452,32 +617,32 @@ ValidationReport validate(const RenderManifestContent &content,
                 "random seed owner must match its component kind");
         if (seed.cylinder_id.has_value()) {
             require(report,
-                    std::ranges::any_of(content.resolved_inputs.engine.cylinders,
-                                        [&](const CylinderSpec &cylinder) {
-                                            return cylinder.id == *seed.cylinder_id;
-                                        }),
+                    input_view.simulation_engine != nullptr &&
+                        std::ranges::any_of(input_view.simulation_engine->cylinders,
+                                            [&](const CylinderSpec &cylinder) {
+                                                return cylinder.id == *seed.cylinder_id;
+                                            }),
                     ContractIssueCode::dangling_reference, path + ".cylinder_id",
-                    "combustion seed references an unknown cylinder");
+                    "combustion seed requires a simulated input and known cylinder");
         }
         if (seed.route_id.has_value()) {
-            const auto route = std::ranges::find(content.resolved_inputs.engine.routes,
-                                                 *seed.route_id, &RouteSpec::id);
-            require(report, route != content.resolved_inputs.engine.routes.end(),
+            const auto route = std::ranges::find(input_view.routes, *seed.route_id,
+                                                 &ManifestRouteView::route_id);
+            require(report, route != input_view.routes.end(),
                     ContractIssueCode::dangling_reference, path + ".route_id",
                     "presentation/starter seed references an unknown route");
-            if (route != content.resolved_inputs.engine.routes.end() &&
+            if (route != input_view.routes.end() &&
                 seed.kind == RandomComponentKind::starter) {
-                require(report,
-                        route->kind.value == SourceRouteKind::mechanical_starter,
+                require(report, route->kind == SourceRouteKind::mechanical_starter,
                         ContractIssueCode::inconsistent_semantics, path + ".route_id",
                         "starter randomness must belong to a starter route");
             }
-            if (route != content.resolved_inputs.engine.routes.end() &&
+            if (route != input_view.routes.end() &&
                 (seed.kind == RandomComponentKind::presentation_jitter ||
                  seed.kind == RandomComponentKind::presentation_air_noise)) {
                 require(report,
                         std::ranges::any_of(
-                            content.resolved_inputs.presentation.routes,
+                            input_view.presentation->routes,
                             [&](const RoutePresentation &presentation_route) {
                                 return presentation_route.route_id == *seed.route_id;
                             }),
@@ -512,26 +677,27 @@ ValidationReport validate(const RenderManifestContent &content,
             ++combustion_seed_count[seed.cylinder_id->value];
         }
     }
-    const auto &legacy_profile = std::get<LegacyLowOrderV1Profile>(
-        content.resolved_inputs.engine.physics_profile);
-    if (legacy_profile.fuel.burning_efficiency_randomness_01.value > 0.0) {
-        for (const auto &cylinder : content.resolved_inputs.engine.cylinders) {
-            require(report, combustion_seed_count[cylinder.id.value] == 1,
-                    ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
-                    "active combustion variation requires exactly one stream "
-                    "per cylinder");
+    if (input_view.simulation_engine != nullptr) {
+        const auto &legacy_profile = std::get<LegacyLowOrderV1Profile>(
+            input_view.simulation_engine->physics_profile);
+        if (legacy_profile.fuel.burning_efficiency_randomness_01.value > 0.0) {
+            for (const auto &cylinder : input_view.simulation_engine->cylinders) {
+                require(report, combustion_seed_count[cylinder.id.value] == 1,
+                        ContractIssueCode::inconsistent_shape,
+                        "randomness.component_seeds",
+                        "active combustion variation requires exactly one stream "
+                        "per cylinder");
+            }
         }
     }
-    for (const auto &route : content.resolved_inputs.presentation.routes) {
-        if (content.resolved_inputs.presentation.conditioning.jitter_scale.value >
-            0.0) {
+    for (const auto &route : input_view.presentation->routes) {
+        if (input_view.presentation->conditioning.jitter_scale.value > 0.0) {
             require(report, jitter_seed_count[route.route_id.value] == 1,
                     ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
                     "active presentation jitter requires exactly one stream per "
                     "configured route");
         }
-        if (content.resolved_inputs.presentation.conditioning.air_noise_mix_01.value >
-            0.0) {
+        if (input_view.presentation->conditioning.air_noise_mix_01.value > 0.0) {
             require(report, air_noise_seed_count[route.route_id.value] == 1,
                     ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
                     "active presentation air noise requires exactly one stream per "
@@ -539,10 +705,10 @@ ValidationReport validate(const RenderManifestContent &content,
         }
     }
     if (source_matrix.id == frozen_reference.id) {
-        for (const auto &route : content.resolved_inputs.engine.routes) {
+        for (const auto &route : input_view.routes) {
             require(report,
-                    jitter_seed_count[route.id.value] == 1 &&
-                        air_noise_seed_count[route.id.value] == 1,
+                    jitter_seed_count[route.route_id.value] == 1 &&
+                        air_noise_seed_count[route.route_id.value] == 1,
                     ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
                     "P1.8 requires exactly one jitter and one air-noise stream "
                     "per reference exhaust route");
@@ -555,20 +721,20 @@ ValidationReport validate(const RenderManifestContent &content,
                  seed.kind != RandomComponentKind::presentation_air_noise)) {
                 continue;
             }
-            const auto route = std::ranges::find(content.resolved_inputs.engine.routes,
-                                                 *seed.route_id, &RouteSpec::id);
-            if (route == content.resolved_inputs.engine.routes.end()) {
+            const auto route = std::ranges::find(input_view.routes, *seed.route_id,
+                                                 &ManifestRouteView::route_id);
+            if (route == input_view.routes.end()) {
                 continue;
             }
 
             std::optional<std::pair<std::uint64_t, std::uint64_t>> expected;
-            if (route->semantic_id.value == "exhaust.reference.0") {
+            if (route->semantic_id == "exhaust.reference.0") {
                 expected = seed.kind == RandomComponentKind::presentation_jitter
                                ? std::pair{UINT64_C(0x9e2b91cd0dc51cfc),
                                            UINT64_C(0x1ae6ee3019603abb)}
                                : std::pair{UINT64_C(0x75bc579d4c90a640),
                                            UINT64_C(0x7e4ef6200e7c70c1)};
-            } else if (route->semantic_id.value == "exhaust.reference.1") {
+            } else if (route->semantic_id == "exhaust.reference.1") {
                 expected = seed.kind == RandomComponentKind::presentation_jitter
                                ? std::pair{UINT64_C(0xdb7540a0c8b54d74),
                                            UINT64_C(0x41ddcdeb066bf214)}
@@ -584,19 +750,72 @@ ValidationReport validate(const RenderManifestContent &content,
                     "route record");
         }
     }
+    if (std::holds_alternative<ReferencePresentationInputsV1>(content.inputs)) {
+        require(report,
+                content.randomness.component_seeds.size() == 4 &&
+                    combustion_seed_count.empty(),
+                ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
+                "reference presentation must record exactly the four executed "
+                "route-owned jitter and air-noise streams");
+        require(report,
+                std::ranges::none_of(content.randomness.component_seeds,
+                                     [](const ComponentSeed &seed) {
+                                         return seed.kind ==
+                                                    RandomComponentKind::combustion ||
+                                                seed.kind ==
+                                                    RandomComponentKind::starter;
+                                     }),
+                ContractIssueCode::inconsistent_semantics, "randomness.component_seeds",
+                "reference presentation cannot claim inherited combustion or "
+                "starter streams as current execution");
+        const std::array<ComponentSeed, 4> expected_order{
+            ComponentSeed{
+                RandomComponentKind::presentation_air_noise,
+                std::nullopt,
+                RouteId{1},
+                UINT64_C(0x75bc579d4c90a640),
+                UINT64_C(0x7e4ef6200e7c70c1),
+            },
+            ComponentSeed{
+                RandomComponentKind::presentation_air_noise,
+                std::nullopt,
+                RouteId{2},
+                UINT64_C(0x208e57f73615bd95),
+                UINT64_C(0x786d92e584c43b78),
+            },
+            ComponentSeed{
+                RandomComponentKind::presentation_jitter,
+                std::nullopt,
+                RouteId{1},
+                UINT64_C(0x9e2b91cd0dc51cfc),
+                UINT64_C(0x1ae6ee3019603abb),
+            },
+            ComponentSeed{
+                RandomComponentKind::presentation_jitter,
+                std::nullopt,
+                RouteId{2},
+                UINT64_C(0xdb7540a0c8b54d74),
+                UINT64_C(0x41ddcdeb066bf214),
+            },
+        };
+        if (content.randomness.component_seeds.size() == expected_order.size()) {
+            require(
+                report,
+                std::ranges::equal(content.randomness.component_seeds, expected_order),
+                ContractIssueCode::inconsistent_semantics, "randomness.component_seeds",
+                "reference presentation stream vector must preserve frozen "
+                "air-noise route 0/1 then jitter route 0/1 order");
+        }
+    }
 
     require(report, content.output_contract == resolve_output_contract(source_matrix),
             ContractIssueCode::inconsistent_semantics, "output_contract",
             "resolved output contract must exactly match the selected source matrix");
 
-    const auto expected_frames =
-        resolve_frame_index(content.resolved_inputs.scenario.audible_duration_s.value,
-                            content.rates.delivery);
+    const auto expected_frames = input_view.delivery_frame_count;
     require(report, expected_frames.has_value() && *expected_frames > 0,
-            ContractIssueCode::inconsistent_semantics,
-            "resolved_inputs.scenario.audible_duration_s",
-            "audible duration and delivery rate must resolve to a positive integral "
-            "frame count");
+            ContractIssueCode::inconsistent_semantics, "inputs.delivery_frame_count",
+            "selected inputs must resolve a positive delivery frame count");
 
     std::unordered_map<std::string, const ArtifactRequirement *> requirement_by_role;
     for (std::size_t index = 0;
@@ -685,6 +904,10 @@ ValidationReport validate(const RenderManifestContent &content,
                 ContractIssueCode::missing_value, "artifacts",
                 "every required artifact role must have exactly one payload");
     }
+    if (std::holds_alternative<ReferencePresentationInputsV1>(content.inputs)) {
+        validate_frozen_reference_artifacts(report, content.artifacts,
+                                            artifact_by_role);
+    }
 
     std::unordered_map<std::string, const SourceRouteRequirement *>
         required_route_by_semantic_id;
@@ -692,15 +915,15 @@ ValidationReport validate(const RenderManifestContent &content,
         required_route_by_semantic_id.emplace(route.semantic_id, &route);
     }
 
-    std::unordered_map<std::uint32_t, const RouteSpec *> engine_route_by_id;
-    for (const auto &route : content.resolved_inputs.engine.routes) {
-        engine_route_by_id.emplace(route.id.value, &route);
+    std::unordered_map<std::uint32_t, const ManifestRouteView *> input_route_by_id;
+    for (const auto &route : input_view.routes) {
+        input_route_by_id.emplace(route.route_id.value, &route);
     }
     require(report,
-            content.resolved_inputs.engine.routes.size() ==
+            input_view.routes.size() ==
                 content.output_contract.required_source_routes.size(),
-            ContractIssueCode::inconsistent_shape, "resolved_inputs.engine.routes",
-            "resolved engine source routes must exactly match the selected source "
+            ContractIssueCode::inconsistent_shape, input_view.route_validation_path,
+            "manifest input source routes must exactly match the selected source "
             "matrix");
 
     std::unordered_set<std::uint32_t> manifested_route_ids;
@@ -709,11 +932,11 @@ ValidationReport validate(const RenderManifestContent &content,
     for (std::size_t index = 0; index < content.routes.size(); ++index) {
         const auto &route = content.routes[index];
         const auto path = "routes[" + std::to_string(index) + "]";
-        const auto engine_route = engine_route_by_id.find(route.route_id.value);
+        const auto input_route = input_route_by_id.find(route.route_id.value);
         require(report,
-                route.route_id.valid() && engine_route != engine_route_by_id.end(),
+                route.route_id.valid() && input_route != input_route_by_id.end(),
                 ContractIssueCode::dangling_reference, path + ".route_id",
-                "manifest route references an unknown engine source route");
+                "manifest route references an unknown input source route");
         if (!manifested_route_ids.insert(route.route_id.value).second) {
             report.add(ContractIssueCode::duplicate_identity, path + ".route_id",
                        "manifest route IDs must be unique");
@@ -731,12 +954,12 @@ ValidationReport validate(const RenderManifestContent &content,
         require(report, valid_route_disposition(route.disposition),
                 ContractIssueCode::invalid_value, path + ".disposition",
                 "manifest route disposition must be specified");
-        if (engine_route != engine_route_by_id.end()) {
+        if (input_route != input_route_by_id.end()) {
             require(report,
-                    route.semantic_id == engine_route->second->semantic_id.value &&
-                        route.kind == engine_route->second->kind.value,
+                    route.semantic_id == input_route->second->semantic_id &&
+                        route.kind == input_route->second->kind,
                     ContractIssueCode::inconsistent_semantics, path,
-                    "manifest source-route identity must match the resolved engine");
+                    "manifest source-route identity must match the selected inputs");
         }
 
         const auto required_route =
@@ -758,7 +981,7 @@ ValidationReport validate(const RenderManifestContent &content,
         }
 
         const auto presentation_configured = std::ranges::any_of(
-            content.resolved_inputs.presentation.routes,
+            input_view.presentation->routes,
             [&](const RoutePresentation &presentation_route) {
                 return presentation_route.route_id == route.route_id;
             });
@@ -766,7 +989,7 @@ ValidationReport validate(const RenderManifestContent &content,
                 presentation_configured ==
                     (route.disposition == RouteDisposition::rendered),
                 ContractIssueCode::inconsistent_semantics, path + ".disposition",
-                "exactly rendered physical routes must have a presentation "
+                "exactly rendered selected routes must have a presentation "
                 "configuration");
 
         if (route.disposition == RouteDisposition::rendered) {
@@ -792,14 +1015,13 @@ ValidationReport validate(const RenderManifestContent &content,
                     "source routes may own only emitted audio artifacts");
         }
     }
-    require(report,
-            content.routes.size() == content.resolved_inputs.engine.routes.size(),
+    require(report, content.routes.size() == input_view.routes.size(),
             ContractIssueCode::inconsistent_shape, "routes",
-            "manifest must contain exactly one record for every engine source route");
-    for (const auto &route : content.resolved_inputs.engine.routes) {
-        require(report, manifested_route_ids.contains(route.id.value),
+            "manifest must contain exactly one record for every input source route");
+    for (const auto &route : input_view.routes) {
+        require(report, manifested_route_ids.contains(route.route_id.value),
                 ContractIssueCode::missing_value, "routes",
-                "manifest must contain every resolved engine source route");
+                "manifest must contain every selected input source route");
     }
     for (const auto &required_route : content.output_contract.required_source_routes) {
         require(report,

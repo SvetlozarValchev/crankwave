@@ -693,6 +693,15 @@ inline SourceMatrixContract make_source_matrix() {
     };
 }
 
+inline ResolvedRenderInputs &simulation_inputs(RenderManifestContent &content) {
+    return std::get<SimulationManifestInputs>(content.inputs).resolved;
+}
+
+inline const ResolvedRenderInputs &
+simulation_inputs(const RenderManifestContent &content) {
+    return std::get<SimulationManifestInputs>(content.inputs).resolved;
+}
+
 inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
     const auto engine = make_engine(builder);
     const auto presentation = make_presentation(builder, engine);
@@ -701,7 +710,8 @@ inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
 
     RenderManifestContent content;
     content.schema_version = 1;
-    content.resolved_inputs = {engine, presentation, scenario};
+    content.inputs =
+        SimulationManifestInputs{ResolvedRenderInputs{engine, presentation, scenario}};
     content.provenance = builder.provenance.bundle;
     content.determinism = {
         BuildIdentity{
@@ -807,5 +817,6 @@ void run_authored_profile_contract_tests();
 void run_parity_model_contract_tests();
 void run_capture_contract_tests();
 void run_scenario_manifest_contract_tests();
+void run_reference_manifest_contract_tests();
 
 } // namespace engine_sim_offline::contract::test

@@ -29,6 +29,9 @@ DSP primitives are recorded in
 The frozen eight-artifact identities, raw-master reduction, audition arithmetic, and
 byte-exact reference container are in
 [`docs/model/M2_P18_ARTIFACT_MASTERING.md`](docs/model/M2_P18_ARTIFACT_MASTERING.md).
+The truthful split between complete simulation inputs and isolated reference
+presentation lineage is in
+[`docs/contracts/M2_MANIFEST_INPUTS.md`](docs/contracts/M2_MANIFEST_INPUTS.md).
 
 ## Build
 

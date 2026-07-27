@@ -87,9 +87,11 @@ void for_each_method(const PresentationMethods &methods, Function function) {
     function(methods.audition_mix, "presentation.methods.audition_mix");
 }
 
-const RouteSpec *find_route(const EngineSpec &engine, RouteId id) {
-    const auto iterator = std::ranges::find(engine.routes, id, &RouteSpec::id);
-    return iterator == engine.routes.end() ? nullptr : &*iterator;
+const PresentationSourceRouteContext *
+find_route(const PresentationValidationContext &context, RouteId id) {
+    const auto iterator = std::ranges::find(context.routes, id,
+                                            &PresentationSourceRouteContext::route_id);
+    return iterator == context.routes.end() ? nullptr : &*iterator;
 }
 
 const AudioAssetSpec *find_asset(const PresentationCalibration &calibration,
@@ -106,12 +108,27 @@ const EvidenceSource *find_evidence(const ProvenanceLedger &provenance,
     return iterator == provenance.evidence.end() ? nullptr : &*iterator;
 }
 
-std::string route_path(const EngineSpec &engine, RouteId id) {
-    const auto *route = find_route(engine, id);
-    if (route == nullptr || !is_valid_semantic_id(route->semantic_id.value)) {
+std::string route_path(const PresentationValidationContext &context, RouteId id) {
+    const auto *route = find_route(context, id);
+    if (route == nullptr || !is_valid_semantic_id(route->semantic_id)) {
         return "presentation.routes.unknown";
     }
-    return "presentation.routes." + route->semantic_id.value;
+    return "presentation.routes." + route->semantic_id;
+}
+
+PresentationValidationContext
+make_presentation_context(const EngineSpec &engine, const RenderScenario &scenario) {
+    PresentationValidationContext context;
+    context.engine_profile_id = engine.profile_id.value;
+    context.routes.reserve(engine.routes.size());
+    for (const auto &route : engine.routes) {
+        context.routes.push_back({route.id, route.semantic_id.value, route.kind.value});
+    }
+    context.rates = scenario.rates;
+    context.total_duration_s = scenario.total_duration_s.value;
+    context.audible_start_s = scenario.audible_start_s.value;
+    context.audible_duration_s = scenario.audible_duration_s.value;
+    return context;
 }
 
 Sha256Digest digest_from_hex(std::string_view text) {
@@ -353,7 +370,7 @@ ValidationReport validate(const AuthoredPresentationCalibration &calibration) {
 }
 
 ValidationReport validate(const PresentationCalibration &calibration,
-                          const EngineSpec &engine, const RenderScenario &scenario,
+                          const PresentationValidationContext &context,
                           const ProvenanceLedger &provenance) {
     using detail::append_prefixed;
     using detail::finite_nonnegative;
@@ -372,12 +389,10 @@ ValidationReport validate(const PresentationCalibration &calibration,
             "presentation calibration and provenance schema IDs must match");
     validate_resolved(report, calibration.engine_profile_id, provenance,
                       "presentation.engine_profile_id");
-    require(report,
-            calibration.engine_profile_id.value == engine.profile_id.value &&
-                scenario.engine_profile_id == engine.profile_id.value,
+    require(report, calibration.engine_profile_id.value == context.engine_profile_id,
             ContractIssueCode::inconsistent_semantics,
             "presentation.engine_profile_id.value",
-            "engine, scenario, and presentation profile IDs must match");
+            "render context and presentation profile IDs must match");
 
     for_each_method(
         calibration.methods, [&](const auto &method, const std::string &path) {
@@ -438,8 +453,8 @@ ValidationReport validate(const PresentationCalibration &calibration,
         }
     };
     const auto source_rate =
-        static_cast<double>(scenario.rates.source_processing.numerator) /
-        static_cast<double>(scenario.rates.source_processing.denominator);
+        static_cast<double>(context.rates.source_processing.numerator) /
+        static_cast<double>(context.rates.source_processing.denominator);
     validate_conditioning(calibration.conditioning.jitter_scale,
                           "presentation.conditioning.jitter_scale", false, 0.0);
     validate_conditioning(calibration.conditioning.jitter_modulation_cutoff_hz,
@@ -498,13 +513,13 @@ ValidationReport validate(const PresentationCalibration &calibration,
 
     std::unordered_set<std::uint32_t> configured_routes;
     for (const auto &route : calibration.routes) {
-        const auto path = route_path(engine, route.route_id);
-        const auto *engine_route = find_route(engine, route.route_id);
-        require(report, engine_route != nullptr, ContractIssueCode::dangling_reference,
+        const auto path = route_path(context, route.route_id);
+        const auto *source_route = find_route(context, route.route_id);
+        require(report, source_route != nullptr, ContractIssueCode::dangling_reference,
                 path + ".route_id", "presentation references an unknown source route");
         require(report,
-                engine_route != nullptr &&
-                    engine_route->kind.value == SourceRouteKind::exhaust_outlet,
+                source_route != nullptr &&
+                    source_route->kind == SourceRouteKind::exhaust_outlet,
                 ContractIssueCode::unsupported_value, path + ".route_id",
                 "current convolution presentation accepts exhaust routes only");
         if (!configured_routes.insert(route.route_id.value).second) {
@@ -571,16 +586,27 @@ ValidationReport validate(const PresentationCalibration &calibration,
     require(report,
             calibration.audition.fade_in_duration_s.value +
                     calibration.audition.fade_out_duration_s.value <=
-                scenario.audible_duration_s.value,
+                context.audible_duration_s,
             ContractIssueCode::inconsistent_semantics, "presentation.audition",
             "audition fades must fit inside the audible interval");
     return report;
 }
 
+ValidationReport validate(const PresentationCalibration &calibration,
+                          const EngineSpec &engine, const RenderScenario &scenario,
+                          const ProvenanceLedger &provenance) {
+    auto report =
+        validate(calibration, make_presentation_context(engine, scenario), provenance);
+    detail::require(report, scenario.engine_profile_id == engine.profile_id.value,
+                    ContractIssueCode::inconsistent_semantics,
+                    "presentation.engine_profile_id.value",
+                    "engine, scenario, and presentation profile IDs must match");
+    return report;
+}
+
 ValidationReport
 validate_p18_reference_presentation(const PresentationCalibration &calibration,
-                                    const EngineSpec &engine,
-                                    const RenderScenario &scenario) {
+                                    const PresentationValidationContext &context) {
     using detail::require;
 
     ValidationReport report;
@@ -666,23 +692,21 @@ validate_p18_reference_presentation(const PresentationCalibration &calibration,
             ContractIssueCode::inconsistent_shape, "presentation.routes",
             "P1.8 requires exactly two exhaust route presentations");
     if (calibration.routes.size() == 2) {
-        const auto *route_0 = find_route(engine, calibration.routes[0].route_id);
-        const auto *route_1 = find_route(engine, calibration.routes[1].route_id);
+        const auto *route_0 = find_route(context, calibration.routes[0].route_id);
+        const auto *route_1 = find_route(context, calibration.routes[1].route_id);
         require(report,
-                route_0 != nullptr &&
-                    route_0->semantic_id.value == "exhaust.reference.0" &&
-                    route_1 != nullptr &&
-                    route_1->semantic_id.value == "exhaust.reference.1",
+                route_0 != nullptr && route_0->semantic_id == "exhaust.reference.0" &&
+                    route_1 != nullptr && route_1->semantic_id == "exhaust.reference.1",
                 ContractIssueCode::inconsistent_semantics, "presentation.routes",
                 "P1.8 route order must be exhaust.reference.0 then "
                 "exhaust.reference.1");
     }
     for (const auto &route : calibration.routes) {
-        const auto *engine_route = find_route(engine, route.route_id);
+        const auto *source_route = find_route(context, route.route_id);
         require(report,
-                engine_route != nullptr &&
-                    (engine_route->semantic_id.value == "exhaust.reference.0" ||
-                     engine_route->semantic_id.value == "exhaust.reference.1"),
+                source_route != nullptr &&
+                    (source_route->semantic_id == "exhaust.reference.0" ||
+                     source_route->semantic_id == "exhaust.reference.1"),
                 ContractIssueCode::inconsistent_semantics, "presentation.routes",
                 "P1.8 route identity must be exhaust.reference.0 or .1");
         require(
@@ -726,22 +750,31 @@ validate_p18_reference_presentation(const PresentationCalibration &calibration,
             ContractIssueCode::inconsistent_semantics, "presentation.audition",
             "P1.8 audition gain and quarter-sine fade durations must match exactly");
     require(report,
-            scenario.rates.physics == RationalRateHz{10000, 1} &&
-                scenario.rates.capture == RationalRateHz{10000, 1} &&
-                scenario.rates.source_processing == RationalRateHz{192000, 1} &&
-                scenario.rates.acoustic == RationalRateHz{192000, 1} &&
-                scenario.rates.delivery == RationalRateHz{192000, 1},
+            context.rates.physics == RationalRateHz{10000, 1} &&
+                context.rates.capture == RationalRateHz{10000, 1} &&
+                context.rates.source_processing == RationalRateHz{192000, 1} &&
+                context.rates.acoustic == RationalRateHz{192000, 1} &&
+                context.rates.delivery == RationalRateHz{192000, 1},
             ContractIssueCode::inconsistent_semantics, "scenario.rates",
             "P1.8 requires the frozen 10 kHz to 192 kHz clock plan");
-    require(report,
-            exact_bits(scenario.total_duration_s.value,
-                       std::bit_cast<std::uint64_t>(17.0)) &&
-                exact_bits(scenario.audible_start_s.value,
-                           std::bit_cast<std::uint64_t>(2.0)) &&
-                exact_bits(scenario.audible_duration_s.value,
-                           std::bit_cast<std::uint64_t>(15.0)),
-            ContractIssueCode::inconsistent_semantics, "scenario.audible_interval",
-            "P1.8 must retain exactly [2 s, 17 s)");
+    require(
+        report,
+        exact_bits(context.total_duration_s, std::bit_cast<std::uint64_t>(17.0)) &&
+            exact_bits(context.audible_start_s, std::bit_cast<std::uint64_t>(2.0)) &&
+            exact_bits(context.audible_duration_s, std::bit_cast<std::uint64_t>(15.0)),
+        ContractIssueCode::inconsistent_semantics, "scenario.audible_interval",
+        "P1.8 must retain exactly [2 s, 17 s)");
+    return report;
+}
+
+ValidationReport
+validate_p18_reference_presentation(const PresentationCalibration &calibration,
+                                    const EngineSpec &engine,
+                                    const RenderScenario &scenario) {
+    using detail::require;
+
+    auto report = validate_p18_reference_presentation(
+        calibration, make_presentation_context(engine, scenario));
     require(report, scenario.quality.value.capture_block_capacity_frames >= 200,
             ContractIssueCode::inconsistent_semantics,
             "scenario.quality.value.capture_block_capacity_frames",

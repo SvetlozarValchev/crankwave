@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/contract/common.hpp"
+#include "engine_sim_offline/contract/engine.hpp"
 #include "engine_sim_offline/contract/provenance.hpp"
 
 #include <cstdint>
@@ -9,7 +10,6 @@
 
 namespace engine_sim_offline::contract {
 
-struct EngineSpec;
 struct RenderScenario;
 
 enum class AudioSampleEncoding : std::uint8_t {
@@ -203,15 +203,42 @@ struct PresentationCalibration {
                            const PresentationCalibration &) = default;
 };
 
+struct PresentationSourceRouteContext {
+    RouteId route_id;
+    std::string semantic_id;
+    SourceRouteKind kind = SourceRouteKind::unspecified;
+
+    friend bool operator==(const PresentationSourceRouteContext &,
+                           const PresentationSourceRouteContext &) = default;
+};
+
+struct PresentationValidationContext {
+    std::string engine_profile_id;
+    std::vector<PresentationSourceRouteContext> routes;
+    RenderRates rates;
+    double total_duration_s = 0.0;
+    double audible_start_s = 0.0;
+    double audible_duration_s = 0.0;
+
+    friend bool operator==(const PresentationValidationContext &,
+                           const PresentationValidationContext &) = default;
+};
+
 [[nodiscard]] ValidationReport
 validate(const AuthoredPresentationCalibration &calibration);
 [[nodiscard]] ValidationReport validate(const PresentationCalibration &calibration,
                                         const EngineSpec &engine,
                                         const RenderScenario &scenario,
                                         const ProvenanceLedger &provenance);
+[[nodiscard]] ValidationReport validate(const PresentationCalibration &calibration,
+                                        const PresentationValidationContext &context,
+                                        const ProvenanceLedger &provenance);
 [[nodiscard]] ValidationReport
 validate_p18_reference_presentation(const PresentationCalibration &calibration,
                                     const EngineSpec &engine,
                                     const RenderScenario &scenario);
+[[nodiscard]] ValidationReport
+validate_p18_reference_presentation(const PresentationCalibration &calibration,
+                                    const PresentationValidationContext &context);
 
 } // namespace engine_sim_offline::contract

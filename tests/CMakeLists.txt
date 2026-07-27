@@ -17,6 +17,7 @@ add_executable(
     contract_test_main.cpp
     parity_model_contract_test.cpp
     primitives_contract_test.cpp
+    reference_manifest_contract_test.cpp
     scenario_manifest_contract_test.cpp
 )
 
