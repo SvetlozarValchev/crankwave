@@ -78,12 +78,12 @@ The complete eight-file artifact set is 89,280,708 bytes, including all WAVE hea
 and metadata. Its sample payloads total 89,280,000 bytes. The later transaction uses:
 
 ```text
-manifest/render-manifest.v1.json
-manifest/render-manifest.v1.json.sha256
+manifest/render-manifest.v2.json
+manifest/render-manifest.v2.json.sha256
 ```
 
 The canonical reference-manifest encoder owns the first file's contents under
-`engine-sim-offline.render-manifest.reference-presentation.v1`.
+`engine-sim-offline.render-manifest.reference-presentation.v2`.
 `DirectoryRenderSink` owns the lowercase digest sidecar. Neither metadata path is an
 audio artifact role.
 

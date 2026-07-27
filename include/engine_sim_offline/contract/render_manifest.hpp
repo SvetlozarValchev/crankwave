@@ -17,15 +17,17 @@
 namespace engine_sim_offline::contract {
 
 struct BuildIdentity {
-    std::string project_revision;
-    Sha256Digest source_tree_sha256;
+    std::string git_commit_id;
+    Sha256Digest source_closure_sha256;
     std::string compiler_id;
     std::string compiler_version;
     std::string target_triple;
     std::string standard_library_id;
-    std::string standard_library_version;
+    std::string standard_library_identity;
     std::string math_library_id;
-    std::string math_library_version;
+    std::string math_library_identity;
+    std::string compiler_runtime_id;
+    std::string compiler_runtime_identity;
 
     friend bool operator==(const BuildIdentity &, const BuildIdentity &) = default;
 };
@@ -43,6 +45,7 @@ struct FloatingPointIdentity {
 
 struct DeterminismEnvelope {
     BuildIdentity build;
+    std::string numeric_policy_id;
     std::string instruction_set_profile;
     FloatingPointIdentity floating_point;
     std::uint32_t deterministic_worker_count = 0;

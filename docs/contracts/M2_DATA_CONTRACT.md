@@ -56,7 +56,8 @@ The current contract supplies:
 - a callback-scoped `CaptureBlockView`;
 - source-matrix, presentation, artifact, and manifest schemas;
 - generic validation and exact frozen BMW reference validation;
-- the canonical completed `reference_presentation_v1` manifest encoder.
+- the canonical completed reference-manifest v2 encoder, whose unchanged input kind
+  remains `reference_presentation_v1`.
 - the owning render-specification aggregate, fail-closed render entry point, sink
   transaction protocol, and CLI shell recorded in `M2_RENDER_API.md`.
 
@@ -497,7 +498,8 @@ P1.8 output; this checkbox pins the input identity but does not execute DSP.
   scenario inputs, or the exact isolated P1.8 reference-presentation lineage and
   executed presentation calibration;
 - a content-addressed provenance-bundle reference;
-- build, floating-point, instruction-set, worker, and reduction identities;
+- build/toolchain, loaded runtime-provider, compiled numeric-policy, floating-point,
+  instruction-set, worker, and reduction identities;
 - the resolved rate plan;
 - public seed, generator/derivation methods, and typed component-owned random streams;
 - the exact resolved output contract;
@@ -506,9 +508,12 @@ P1.8 output; this checkbox pins the input identity but does not execute DSP.
 - emitted artifact records with portable relative path, media shape, byte count, and
   payload SHA-256.
 
-The current determinism envelope requires strict IEEE-754 binary64,
-round-to-nearest/ties-to-even, no FMA contraction, and no flush-to-zero or
-denormals-are-zero. Component seeds are typed and owned by a cylinder or route
+The current reference determinism envelope requires the admitted libstdc++, glibc
+libm, and libgcc_s providers; numeric policy
+`x86-64-v1-binary64-x87-extended-strict-v1`; ISA profile `x86-64-v1`; one serial
+stable-order worker; strict IEEE-754 binary64, round-to-nearest/ties-to-even; no FMA
+contraction; and no flush-to-zero or denormals-are-zero. Component seeds are typed and
+owned by a cylinder or route
 according to their stochastic role; duplicate kind/owner streams are rejected.
 Executable method identities live once in the resolved engine, presentation,
 scenario, and random plan rather than in a second manifest inventory that could

@@ -44,7 +44,7 @@ void expect(bool condition, std::string_view message) {
     return {
         fixture.content,
         ExecutionFacts{
-            "reference-manifest-encoder-test-v1",
+            "reference-manifest-encoder-test-v2",
             "2026-07-27T12:34:56Z",
             std::chrono::nanoseconds{UINT64_C(1234567890)},
             "linux",
@@ -58,7 +58,7 @@ void expect(bool condition, std::string_view message) {
 }
 
 [[nodiscard]] std::vector<std::byte> require_encoding(const RenderManifest &manifest) {
-    auto result = encode_reference_manifest_v1(manifest);
+    auto result = encode_reference_manifest_v2(manifest);
     if (const auto *error = std::get_if<RenderSinkError>(&result)) {
         throw std::runtime_error(error->detail_code + ": " + error->message);
     }
@@ -70,7 +70,7 @@ void expect(bool condition, std::string_view message) {
 }
 
 void expect_error(const RenderManifest &manifest, std::string_view detail_code) {
-    const auto result = encode_reference_manifest_v1(manifest);
+    const auto result = encode_reference_manifest_v2(manifest);
     const auto *error = std::get_if<RenderSinkError>(&result);
     expect(error != nullptr, "invalid manifest unexpectedly encoded");
     expect(error->kind == RenderSinkErrorKind::protocol_violation,
@@ -92,13 +92,35 @@ void test_complete_golden_document() {
     expect(first == second, "identical manifests produced different bytes");
     const auto document = as_string(first);
     expect(document.starts_with("{\"wire_schema\":\"engine-sim-offline.render-manifest."
-                                "reference-presentation.v1\",\"content\":{"),
+                                "reference-presentation.v2\",\"content\":{"),
            "canonical manifest prefix changed");
     expect(document.ends_with("}}\n"), "canonical manifest suffix changed");
     expect(std::count(document.begin(), document.end(), '\n') == 1,
            "canonical manifest contains non-terminal whitespace");
     expect(document.find("\"public_seed\":\"0x0000000000c0ffee\"") != std::string::npos,
            "u64 seed encoding changed");
+    const auto source_digest_key = document.find("\"source_closure_sha256\":");
+    const auto standard_identity_key = document.find("\"standard_library_identity\":");
+    const auto math_identity_key = document.find("\"math_library_identity\":");
+    const auto compiler_runtime_id_key =
+        document.find("\"compiler_runtime_id\":\"libgcc-s\"");
+    const auto compiler_runtime_identity_key =
+        document.find("\"compiler_runtime_identity\":");
+    const auto numeric_policy_key =
+        document.find("\"numeric_policy_id\":"
+                      "\"x86-64-v1-binary64-x87-extended-strict-v1\"");
+    expect(source_digest_key != std::string::npos &&
+               standard_identity_key != std::string::npos &&
+               math_identity_key != std::string::npos &&
+               compiler_runtime_id_key != std::string::npos &&
+               compiler_runtime_identity_key != std::string::npos &&
+               numeric_policy_key != std::string::npos &&
+               source_digest_key < standard_identity_key &&
+               standard_identity_key < math_identity_key &&
+               math_identity_key < compiler_runtime_id_key &&
+               compiler_runtime_id_key < compiler_runtime_identity_key &&
+               compiler_runtime_identity_key < numeric_policy_key,
+           "runtime/numeric identities or canonical determinism-key order changed");
     expect(document.find("\"impulse_response_gain_linear\":{"
                          "\"value\":\"0x3f50624dd2f1a9fc\"") != std::string::npos,
            "binary64 bit encoding changed");
@@ -109,7 +131,7 @@ void test_complete_golden_document() {
 
     const auto actual_hash = digest_hex(sha256(first));
     constexpr std::string_view kExpectedHash =
-        "edbd7510b28feaf78881aaf540151203560de36a60837d8b9f25e111a35b3704";
+        "ccda33c6cbf976e2267c093d36db52950cfceaa0419583df4c18ad82fcd28eba";
     if (actual_hash != kExpectedHash) {
         std::cerr << "reference manifest golden hash: " << actual_hash << '\n';
         throw std::runtime_error("canonical reference manifest hash changed");
@@ -140,7 +162,39 @@ void test_fail_closed_boundaries() {
     expect_error(manifest, "reference-manifest-wire-unrepresentable");
 
     manifest = make_manifest(fixture);
-    manifest.content.schema_version = 2;
+    manifest.content.schema_version = 1;
+    expect_error(manifest, "reference-manifest-wire-unrepresentable");
+
+    manifest = make_manifest(fixture);
+    manifest.content.schema_version = 3;
+    expect_error(manifest, "reference-manifest-wire-unrepresentable");
+
+    manifest = make_manifest(fixture);
+    manifest.content.determinism.build.standard_library_id = "libcxx";
+    expect_error(manifest, "reference-manifest-wire-unrepresentable");
+
+    manifest = make_manifest(fixture);
+    manifest.content.determinism.build.math_library_id = "other-libm";
+    expect_error(manifest, "reference-manifest-wire-unrepresentable");
+
+    manifest = make_manifest(fixture);
+    manifest.content.determinism.build.compiler_runtime_id = "other-runtime";
+    expect_error(manifest, "reference-manifest-wire-unrepresentable");
+
+    manifest = make_manifest(fixture);
+    manifest.content.determinism.numeric_policy_id = "other-numeric-policy-v1";
+    expect_error(manifest, "reference-manifest-wire-unrepresentable");
+
+    manifest = make_manifest(fixture);
+    manifest.content.determinism.instruction_set_profile = "x86-64-v2";
+    expect_error(manifest, "reference-manifest-wire-unrepresentable");
+
+    manifest = make_manifest(fixture);
+    manifest.content.determinism.floating_point.flush_to_zero = true;
+    expect_error(manifest, "reference-manifest-wire-unrepresentable");
+
+    manifest = make_manifest(fixture);
+    manifest.content.determinism.deterministic_worker_count = 2;
     expect_error(manifest, "reference-manifest-wire-unrepresentable");
 
     manifest = make_manifest(fixture);

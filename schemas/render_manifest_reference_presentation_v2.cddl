@@ -3,14 +3,14 @@
 ; required; in particular f64-bits must decode to a finite binary64 value and
 ; both binary64 zero signs use the canonical positive-zero representation.
 
-render-manifest-reference-presentation-v1 = {
-  "wire_schema": "engine-sim-offline.render-manifest.reference-presentation.v1",
-  "content": render-manifest-content-reference-presentation-v1,
+render-manifest-reference-presentation-v2 = {
+  "wire_schema": "engine-sim-offline.render-manifest.reference-presentation.v2",
+  "content": render-manifest-content-reference-presentation-v2,
   "execution": execution-facts
 }
 
-render-manifest-content-reference-presentation-v1 = {
-  "schema_version": 1,
+render-manifest-content-reference-presentation-v2 = {
+  "schema_version": 2,
   "inputs": reference-manifest-inputs-v1,
   "provenance": provenance-bundle-ref,
   "determinism": determinism-envelope,
@@ -162,30 +162,33 @@ provenance-bundle-ref = {
 
 determinism-envelope = {
   "build": build-identity,
-  "instruction_set_profile": tstr,
+  "numeric_policy_id": "x86-64-v1-binary64-x87-extended-strict-v1",
+  "instruction_set_profile": "x86-64-v1",
   "floating_point": floating-point-identity,
-  "deterministic_worker_count": u32,
-  "deterministic_reduction_topology": tstr
+  "deterministic_worker_count": 1,
+  "deterministic_reduction_topology": "serial-stable-order"
 }
 
 build-identity = {
-  "project_revision": tstr,
-  "source_tree_sha256": sha256,
+  "git_commit_id": tstr,
+  "source_closure_sha256": sha256,
   "compiler_id": tstr,
   "compiler_version": tstr,
   "target_triple": tstr,
-  "standard_library_id": tstr,
-  "standard_library_version": tstr,
-  "math_library_id": tstr,
-  "math_library_version": tstr
+  "standard_library_id": "libstdcxx",
+  "standard_library_identity": tstr,
+  "math_library_id": "glibc-libm",
+  "math_library_identity": tstr,
+  "compiler_runtime_id": "libgcc-s",
+  "compiler_runtime_identity": tstr
 }
 
 floating-point-identity = {
-  "format": tstr,
-  "rounding": tstr,
-  "fma_contraction": bool,
-  "flush_to_zero": bool,
-  "denormals_are_zero": bool
+  "format": "ieee754_binary64",
+  "rounding": "nearest_ties_to_even",
+  "fma_contraction": false,
+  "flush_to_zero": false,
+  "denormals_are_zero": false
 }
 
 render-rates = {

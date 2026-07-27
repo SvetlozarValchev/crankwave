@@ -19,21 +19,32 @@ namespace {
 
 [[nodiscard]] bool write_build_identity(CanonicalJsonWriter &writer,
                                         const contract::BuildIdentity &build) {
-    return writer.begin_object() && writer.key("project_revision") &&
-           writer.string_value(build.project_revision) &&
-           writer.key("source_tree_sha256") &&
-           writer.sha256_value(build.source_tree_sha256) && writer.key("compiler_id") &&
-           writer.string_value(build.compiler_id) && writer.key("compiler_version") &&
+    if (build.standard_library_id != "libstdcxx" ||
+        build.math_library_id != "glibc-libm" ||
+        build.compiler_runtime_id != "libgcc-s") {
+        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                           "reference manifest runtime providers are not v2");
+    }
+    return writer.begin_object() && writer.key("git_commit_id") &&
+           writer.string_value(build.git_commit_id) &&
+           writer.key("source_closure_sha256") &&
+           writer.sha256_value(build.source_closure_sha256) &&
+           writer.key("compiler_id") && writer.string_value(build.compiler_id) &&
+           writer.key("compiler_version") &&
            writer.string_value(build.compiler_version) && writer.key("target_triple") &&
            writer.string_value(build.target_triple) &&
            writer.key("standard_library_id") &&
            writer.string_value(build.standard_library_id) &&
-           writer.key("standard_library_version") &&
-           writer.string_value(build.standard_library_version) &&
+           writer.key("standard_library_identity") &&
+           writer.string_value(build.standard_library_identity) &&
            writer.key("math_library_id") &&
            writer.string_value(build.math_library_id) &&
-           writer.key("math_library_version") &&
-           writer.string_value(build.math_library_version) && writer.end_object();
+           writer.key("math_library_identity") &&
+           writer.string_value(build.math_library_identity) &&
+           writer.key("compiler_runtime_id") &&
+           writer.string_value(build.compiler_runtime_id) &&
+           writer.key("compiler_runtime_identity") &&
+           writer.string_value(build.compiler_runtime_identity) && writer.end_object();
 }
 
 [[nodiscard]] bool
@@ -52,8 +63,22 @@ write_floating_point(CanonicalJsonWriter &writer,
 
 [[nodiscard]] bool write_determinism(CanonicalJsonWriter &writer,
                                      const contract::DeterminismEnvelope &determinism) {
+    const auto &floating_point = determinism.floating_point;
+    if (determinism.numeric_policy_id != "x86-64-v1-binary64-x87-extended-strict-v1" ||
+        determinism.instruction_set_profile != "x86-64-v1" ||
+        floating_point.format != "ieee754_binary64" ||
+        floating_point.rounding != "nearest_ties_to_even" ||
+        floating_point.fma_contraction || floating_point.flush_to_zero ||
+        floating_point.denormals_are_zero ||
+        determinism.deterministic_worker_count != 1 ||
+        determinism.deterministic_reduction_topology != "serial-stable-order") {
+        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                           "reference manifest determinism policy is not v2");
+    }
     return writer.begin_object() && writer.key("build") &&
            write_build_identity(writer, determinism.build) &&
+           writer.key("numeric_policy_id") &&
+           writer.string_value(determinism.numeric_policy_id) &&
            writer.key("instruction_set_profile") &&
            writer.string_value(determinism.instruction_set_profile) &&
            writer.key("floating_point") &&
@@ -158,9 +183,9 @@ template <class Id>
 
 [[nodiscard]] bool write_content(CanonicalJsonWriter &writer,
                                  const contract::RenderManifestContent &content) {
-    if (content.schema_version != 1U) {
+    if (content.schema_version != 2U) {
         return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "reference manifest content schema version is not v1");
+                           "reference manifest content schema version is not v2");
     }
     const auto *reference =
         std::get_if<contract::ReferencePresentationInputsV1>(&content.inputs);
@@ -243,7 +268,7 @@ bool write_audio_contract(CanonicalJsonWriter &writer,
 } // namespace detail
 
 ManifestEncodingResult
-encode_reference_manifest_v1(const contract::RenderManifest &manifest) {
+encode_reference_manifest_v2(const contract::RenderManifest &manifest) {
     if (!std::holds_alternative<contract::ReferencePresentationInputsV1>(
             manifest.content.inputs)) {
         return RenderSinkError{
@@ -263,7 +288,7 @@ encode_reference_manifest_v1(const contract::RenderManifest &manifest) {
         detail::CanonicalJsonWriter writer;
         std::vector<std::byte> bytes;
         const bool encoded = writer.begin_object() && writer.key("wire_schema") &&
-                             writer.string_value(kReferenceManifestWireSchemaV1) &&
+                             writer.string_value(kReferenceManifestWireSchemaV2) &&
                              writer.key("content") &&
                              detail::write_content(writer, manifest.content) &&
                              writer.key("execution") &&

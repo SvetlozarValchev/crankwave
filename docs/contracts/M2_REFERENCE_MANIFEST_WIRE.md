@@ -2,25 +2,28 @@
 
 Status: normative canonical encoding for a completed reference-presentation manifest
 
-Wire schema ID: `engine-sim-offline.render-manifest.reference-presentation.v1`
+Wire schema ID: `engine-sim-offline.render-manifest.reference-presentation.v2`
 
 Machine schema:
-[`schemas/render_manifest_reference_presentation_v1.cddl`](../../schemas/render_manifest_reference_presentation_v1.cddl)
+[`schemas/render_manifest_reference_presentation_v2.cddl`](../../schemas/render_manifest_reference_presentation_v2.cddl)
 
 Schema SHA-256:
-`7aaa135d04f4d4a7041193567ea8d95854298686f2fc759312d07bc56904ee60`
+`c41586d0d72fd0a3204f8ff0980d3026aed800b773907714bc2c225bf0094006`
 
 ## 1. Scope and admission
 
 This contract encodes one complete `RenderManifest` whose `inputs` alternative is
 `ReferencePresentationInputsV1`. It covers the common manifest content, the complete
 reference presentation input lineage, and the completed run's execution facts.
+Version 2 replaces the withdrawn version 1 design, which could not represent the
+admitted compiler runtime or numeric policy. There is no v1 encoder, alias, optional
+fallback, or dual artifact path.
 
 The root is exactly:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.render-manifest.reference-presentation.v1",
+  "wire_schema": "engine-sim-offline.render-manifest.reference-presentation.v2",
   "content": <RenderManifestContent>,
   "execution": <ExecutionFacts>
 }
@@ -108,6 +111,11 @@ The identities must be truthful at their layer:
 - `determinism.build` and the floating-point/instruction-set fields identify the
   current clean renderer that generated the artifacts, not the historical
   engine-sim capture producer;
+- `determinism.build.compiler_runtime_id` and `compiler_runtime_identity` identify the
+  admitted loaded compiler runtime separately from the compiler, standard library,
+  and math library; `determinism.numeric_policy_id` identifies the admitted compiled
+  arithmetic policy separately from the observed instruction-set and floating-point
+  fields;
 - historical capture and fixture identities remain under
   `content.inputs.value.fixture` and cover the complete frozen files named by that
   contract, including container/header bytes;
@@ -121,12 +129,51 @@ An encoder serializes recorded typed values. It must not rewrite build names,
 normalize vector order, substitute a host identity, infer missing execution facts,
 or copy identities from the oracle.
 
+For this reference-only v2 wire, the admitted provider IDs are exactly `libstdcxx`,
+`glibc-libm`, and `libgcc-s`. The numeric policy is exactly
+`x86-64-v1-binary64-x87-extended-strict-v1`, projected as ISA `x86-64-v1`, strict
+binary64 round-to-nearest/ties-to-even with contraction/FTZ/DAZ disabled, and one
+`serial-stable-order` worker. Provider versions, compiler facts, source revision, and
+source digest remain observed values rather than catalog constants.
+
+`git_commit_id` is the nonzero lowercase 40- or 64-hex-digit Git object ID embedded by
+the clean source-stamp generator. `source_closure_sha256` is the digest of that
+generator's canonical selected renderer-source closure; it is deliberately not named
+or interpreted as a Git tree. A successful envelope implies source state `clean`;
+dirty and unavailable states are typed admission failures and have no manifest form.
+The only admitted compiler tuples are `GNU` with `x86_64-linux-gnu` and `Clang` with
+`x86_64-pc-linux-gnu`, each with a canonical dotted-decimal compiler version.
+
+The three `*_identity` strings are content-identity tokens, not human version labels.
+Their exact grammar is the following, with canonical unsigned decimal (no leading
+zero), lowercase hexadecimal, nonzero file hashes/build IDs/offsets, and the symbols
+in the shown order:
+
+```text
+provider(soname) =
+  elf64le-x86_64.soname.<soname>.bytes.<decimal>.buildid.<2..128 even hex>.sha256.<64 hex>
+
+standard_library_identity =
+  release.<decimal>.headers.<decimal>.gxxabi.<decimal>.cxx11abi.<0|1>+
+  provider(libstdc++.so.6)+symbols.__cxa_throw.CXXABI_1.3.<16 hex>
+
+math_library_identity =
+  glibc.<dotted decimal>+provider(libm.so.6)+symbols.
+  ceil.GLIBC_2.2.5.<16 hex>.cos.GLIBC_2.2.5.<16 hex>.
+  floor.GLIBC_2.2.5.<16 hex>.roundl.GLIBC_2.2.5.<16 hex>.
+  sin.GLIBC_2.2.5.<16 hex>.sincos.GLIBC_2.2.5.<16 hex>.
+  tan.GLIBC_2.2.5.<16 hex>
+
+compiler_runtime_identity =
+  provider(libgcc_s.so.1)+symbols.__muldc3.GCC_4.0.0.<16 hex>
+```
+
 ## 4. Manifest file and sidecar
 
 For the P1.8 transaction, the canonical document is published at
-`manifest/render-manifest.v1.json`. `DirectoryRenderSink` computes SHA-256 over the
+`manifest/render-manifest.v2.json`. `DirectoryRenderSink` computes SHA-256 over the
 entire encoded file—starting at `{` and including its final LF—and writes
-`manifest/render-manifest.v1.json.sha256` as exactly the 64-digit lowercase digest
+`manifest/render-manifest.v2.json.sha256` as exactly the 64-digit lowercase digest
 followed by one LF.
 
 The manifest and sidecar are transaction metadata, not artifact roles. Neither is

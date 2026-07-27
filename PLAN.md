@@ -344,10 +344,10 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Enforce and admit the canonical compiled ISA policy, required CPU capability,
       IEEE-754 formats, rounding, contraction, flush-to-zero, denormals-are-zero, and
       required x87 state; fail closed without modifying the calling thread's state.
-- [ ] Replace the incomplete reference-manifest v1 wire, API, and artifact path with
-      v2, without a compatibility path; represent compiler-runtime ID/version and the
-      admitted numeric-policy ID explicitly, then update validation, CDDL, docs, and
-      canonical-encoding goldens.
+- [x] Replace the incomplete reference-manifest v1 wire, API, and artifact path with
+      v2, without a compatibility path; represent the renderer source closure,
+      compiler-runtime ID/content identity, and admitted numeric-policy ID explicitly,
+      then update validation, CDDL, docs, and canonical-encoding goldens.
 - [ ] Compose the source stamp, loaded-runtime identity, and numeric-environment
       admission into one complete private renderer determinism envelope with no caller
       override.

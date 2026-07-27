@@ -54,18 +54,18 @@ struct LibStdCppHeaderIdentity {
 
 struct LoadedRuntimeIdentity {
     std::string standard_library_id;
-    std::string standard_library_version;
+    std::string standard_library_identity;
     LibStdCppHeaderIdentity standard_library_headers;
     DynamicProviderIdentity standard_library_provider;
     VersionedSymbolIdentity standard_library_anchor;
 
     std::string math_library_id;
-    std::string math_library_version;
+    std::string math_library_identity;
     DynamicProviderIdentity math_library_provider;
     std::array<VersionedSymbolIdentity, 7> math_symbols;
 
     std::string compiler_runtime_id;
-    std::string compiler_runtime_version;
+    std::string compiler_runtime_identity;
     DynamicProviderIdentity compiler_runtime_provider;
     VersionedSymbolIdentity compiler_runtime_anchor;
 

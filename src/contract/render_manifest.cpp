@@ -16,6 +16,176 @@
 namespace engine_sim_offline::contract {
 namespace {
 
+[[nodiscard]] bool is_lower_hex(std::string_view value) noexcept {
+    return !value.empty() && std::ranges::all_of(value, [](char character) {
+        return (character >= '0' && character <= '9') ||
+               (character >= 'a' && character <= 'f');
+    });
+}
+
+[[nodiscard]] bool is_nonzero_lower_hex(std::string_view value) noexcept {
+    return is_lower_hex(value) &&
+           value.find_first_not_of('0') != std::string_view::npos;
+}
+
+[[nodiscard]] bool is_canonical_decimal(std::string_view value,
+                                        bool require_positive) noexcept {
+    if (value.empty() || (value.size() > 1 && value.front() == '0') ||
+        !std::ranges::all_of(value, [](char character) {
+            return character >= '0' && character <= '9';
+        })) {
+        return false;
+    }
+    return !require_positive || value != "0";
+}
+
+[[nodiscard]] bool consume_prefix(std::string_view &value,
+                                  std::string_view prefix) noexcept {
+    if (!value.starts_with(prefix)) {
+        return false;
+    }
+    value.remove_prefix(prefix.size());
+    return true;
+}
+
+[[nodiscard]] bool consume_decimal_until(std::string_view &value,
+                                         std::string_view delimiter,
+                                         bool require_positive) noexcept {
+    const auto position = value.find(delimiter);
+    if (position == std::string_view::npos ||
+        !is_canonical_decimal(value.substr(0, position), require_positive)) {
+        return false;
+    }
+    value.remove_prefix(position + delimiter.size());
+    return true;
+}
+
+[[nodiscard]] bool is_canonical_dotted_decimal(std::string_view value) noexcept {
+    std::size_t component_count = 0;
+    while (!value.empty()) {
+        const auto position = value.find('.');
+        const auto component = value.substr(0, position);
+        if (!is_canonical_decimal(component, false)) {
+            return false;
+        }
+        ++component_count;
+        if (position == std::string_view::npos) {
+            break;
+        }
+        if (position + 1 == value.size()) {
+            return false;
+        }
+        value.remove_prefix(position + 1);
+    }
+    return component_count >= 2;
+}
+
+[[nodiscard]] bool consume_provider_identity(std::string_view &value,
+                                             std::string_view soname) noexcept {
+    if (!consume_prefix(value, "elf64le-x86_64.soname.") ||
+        !consume_prefix(value, soname) || !consume_prefix(value, ".bytes.") ||
+        !consume_decimal_until(value, ".buildid.", true)) {
+        return false;
+    }
+    const auto build_id_end = value.find(".sha256.");
+    if (build_id_end == std::string_view::npos) {
+        return false;
+    }
+    const auto build_id = value.substr(0, build_id_end);
+    if (build_id.size() < 2 || build_id.size() > 128 || (build_id.size() % 2) != 0 ||
+        !is_nonzero_lower_hex(build_id)) {
+        return false;
+    }
+    value.remove_prefix(build_id_end + std::string_view{".sha256."}.size());
+    if (value.size() < 64 || !is_nonzero_lower_hex(value.substr(0, 64))) {
+        return false;
+    }
+    value.remove_prefix(64);
+    return true;
+}
+
+template <std::size_t Size>
+[[nodiscard]] bool
+consume_symbol_identity(std::string_view &value,
+                        const std::array<std::pair<std::string_view, std::string_view>,
+                                         Size> &symbols) noexcept {
+    if (!consume_prefix(value, "symbols")) {
+        return false;
+    }
+    for (const auto &[name, version] : symbols) {
+        if (!consume_prefix(value, ".") || !consume_prefix(value, name) ||
+            !consume_prefix(value, ".") || !consume_prefix(value, version) ||
+            !consume_prefix(value, ".") || value.size() < 16 ||
+            !is_nonzero_lower_hex(value.substr(0, 16))) {
+            return false;
+        }
+        value.remove_prefix(16);
+    }
+    return value.empty();
+}
+
+[[nodiscard]] bool
+is_canonical_standard_library_identity(std::string_view value) noexcept {
+    constexpr std::array symbols{
+        std::pair{std::string_view{"__cxa_throw"}, std::string_view{"CXXABI_1.3"}},
+    };
+    if (value.size() > 8192 || !consume_prefix(value, "release.") ||
+        !consume_decimal_until(value, ".headers.", true) ||
+        !consume_decimal_until(value, ".gxxabi.", true) ||
+        !consume_decimal_until(value, ".cxx11abi.", true) || value.size() < 2 ||
+        (value.front() != '0' && value.front() != '1') || value[1] != '+') {
+        return false;
+    }
+    value.remove_prefix(2);
+    return consume_provider_identity(value, "libstdc++.so.6") &&
+           consume_prefix(value, "+") && consume_symbol_identity(value, symbols);
+}
+
+[[nodiscard]] bool is_canonical_math_library_identity(std::string_view value) noexcept {
+    constexpr std::array symbols{
+        std::pair{std::string_view{"ceil"}, std::string_view{"GLIBC_2.2.5"}},
+        std::pair{std::string_view{"cos"}, std::string_view{"GLIBC_2.2.5"}},
+        std::pair{std::string_view{"floor"}, std::string_view{"GLIBC_2.2.5"}},
+        std::pair{std::string_view{"roundl"}, std::string_view{"GLIBC_2.2.5"}},
+        std::pair{std::string_view{"sin"}, std::string_view{"GLIBC_2.2.5"}},
+        std::pair{std::string_view{"sincos"}, std::string_view{"GLIBC_2.2.5"}},
+        std::pair{std::string_view{"tan"}, std::string_view{"GLIBC_2.2.5"}},
+    };
+    if (value.size() > 8192 || !consume_prefix(value, "glibc.")) {
+        return false;
+    }
+    const auto version_end = value.find('+');
+    if (version_end == std::string_view::npos ||
+        !is_canonical_dotted_decimal(value.substr(0, version_end))) {
+        return false;
+    }
+    value.remove_prefix(version_end + 1);
+    return consume_provider_identity(value, "libm.so.6") &&
+           consume_prefix(value, "+") && consume_symbol_identity(value, symbols);
+}
+
+[[nodiscard]] bool
+is_canonical_compiler_runtime_identity(std::string_view value) noexcept {
+    constexpr std::array symbols{
+        std::pair{std::string_view{"__muldc3"}, std::string_view{"GCC_4.0.0"}},
+    };
+    return value.size() <= 8192 && consume_provider_identity(value, "libgcc_s.so.1") &&
+           consume_prefix(value, "+") && consume_symbol_identity(value, symbols);
+}
+
+[[nodiscard]] bool is_canonical_git_commit_id(std::string_view value) noexcept {
+    return (value.size() == 40 || value.size() == 64) && is_nonzero_lower_hex(value);
+}
+
+[[nodiscard]] bool is_admitted_compiler_identity(const BuildIdentity &build) noexcept {
+    if (!is_canonical_dotted_decimal(build.compiler_version)) {
+        return false;
+    }
+    return (build.compiler_id == "GNU" && build.target_triple == "x86_64-linux-gnu") ||
+           (build.compiler_id == "Clang" &&
+            build.target_triple == "x86_64-pc-linux-gnu");
+}
+
 bool valid_artifact_kind(ArtifactKind kind) {
     switch (kind) {
     case ArtifactKind::audio:
@@ -512,8 +682,8 @@ ValidationReport validate(const RenderManifestContent &content,
         },
         content.inputs);
 
-    require(report, content.schema_version == 1, ContractIssueCode::unsupported_value,
-            "schema_version", "render-manifest schema must be version 1");
+    require(report, content.schema_version == 2, ContractIssueCode::unsupported_value,
+            "schema_version", "render-manifest schema must be version 2");
     require(report, content.rates == input_view.rates,
             ContractIssueCode::inconsistent_semantics, "rates",
             "manifest rates must equal the selected input rates");
@@ -532,16 +702,28 @@ ValidationReport validate(const RenderManifestContent &content,
 
     const auto &build = content.determinism.build;
     require(report,
-            !build.project_revision.empty() && !build.compiler_id.empty() &&
-                !build.compiler_version.empty() && !build.target_triple.empty() &&
-                !build.standard_library_id.empty() &&
-                !build.standard_library_version.empty() &&
-                !build.math_library_id.empty() && !build.math_library_version.empty(),
+            !build.git_commit_id.empty() && !build.compiler_id.empty() &&
+                !build.compiler_version.empty() && !build.compiler_runtime_id.empty() &&
+                !build.compiler_runtime_identity.empty() &&
+                !build.target_triple.empty() && !build.standard_library_id.empty() &&
+                !build.standard_library_identity.empty() &&
+                !build.math_library_id.empty() && !build.math_library_identity.empty(),
             ContractIssueCode::missing_value, "determinism.build",
             "deterministic build identity must be complete");
-    require(report, !build.source_tree_sha256.is_zero(),
-            ContractIssueCode::invalid_value, "determinism.build.source_tree_sha256",
-            "source-tree digest must be nonzero");
+    require(report, is_canonical_git_commit_id(build.git_commit_id),
+            ContractIssueCode::invalid_value, "determinism.build.git_commit_id",
+            "renderer Git commit must be a nonzero lowercase 40- or 64-digit object "
+            "ID");
+    require(report, !build.source_closure_sha256.is_zero(),
+            ContractIssueCode::invalid_value, "determinism.build.source_closure_sha256",
+            "renderer source-closure digest must be nonzero");
+    require(report, is_admitted_compiler_identity(build),
+            ContractIssueCode::unsupported_value, "determinism.build.compiler_identity",
+            "renderer compiler ID/version/target triple is outside the admitted "
+            "GNU or Clang Linux x86-64 build identity");
+    require(report, is_valid_semantic_id(content.determinism.numeric_policy_id),
+            ContractIssueCode::invalid_value, "determinism.numeric_policy_id",
+            "numeric-policy ID must be a canonical semantic ID");
     require(report, is_valid_semantic_id(content.determinism.instruction_set_profile),
             ContractIssueCode::invalid_value, "determinism.instruction_set_profile",
             "instruction-set profile must be a canonical semantic ID");
@@ -561,6 +743,38 @@ ValidationReport validate(const RenderManifestContent &content,
             ContractIssueCode::invalid_value,
             "determinism.deterministic_reduction_topology",
             "reduction-topology ID must be canonical");
+    if (std::holds_alternative<ReferencePresentationInputsV1>(content.inputs)) {
+        require(report,
+                build.standard_library_id == "libstdcxx" &&
+                    build.math_library_id == "glibc-libm" &&
+                    build.compiler_runtime_id == "libgcc-s",
+                ContractIssueCode::unsupported_value,
+                "determinism.build.runtime_providers",
+                "reference manifest v2 requires the admitted libstdc++, glibc libm, "
+                "and libgcc_s providers");
+        require(
+            report,
+            is_canonical_standard_library_identity(build.standard_library_identity) &&
+                is_canonical_math_library_identity(build.math_library_identity) &&
+                is_canonical_compiler_runtime_identity(build.compiler_runtime_identity),
+            ContractIssueCode::invalid_value, "determinism.build.runtime_identities",
+            "reference manifest v2 requires canonical content-derived runtime "
+            "identity tokens");
+        require(report,
+                content.determinism.numeric_policy_id ==
+                        "x86-64-v1-binary64-x87-extended-strict-v1" &&
+                    content.determinism.instruction_set_profile == "x86-64-v1",
+                ContractIssueCode::unsupported_value, "determinism.numeric_policy_id",
+                "reference manifest v2 requires the admitted strict x86-64-v1 "
+                "numeric policy and matching instruction-set projection");
+        require(report,
+                content.determinism.deterministic_worker_count == 1 &&
+                    content.determinism.deterministic_reduction_topology ==
+                        "serial-stable-order",
+                ContractIssueCode::unsupported_value,
+                "determinism.deterministic_execution",
+                "reference manifest v2 requires one serial stable-order worker");
+    }
     append_prefixed(report, validate(content.randomness.generator),
                     "randomness.generator");
     append_prefixed(report, validate(content.randomness.derivation),

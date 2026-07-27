@@ -272,22 +272,25 @@ struct ReferenceManifestFixture {
         const auto &source_matrix = bmw_m52b28_reference_source_matrix_v1();
         const auto inputs = make_reference_inputs(builder);
 
-        content.schema_version = 1;
+        content.schema_version = 2;
         content.inputs = inputs;
         content.provenance = builder.provenance.bundle;
         content.determinism = {
             BuildIdentity{
-                "reference-manifest-contract-test",
+                "89abcdef0123456789abcdef0123456789abcdef",
                 digest(90),
-                "gcc",
-                "test",
+                "GNU",
+                "13.3.0",
                 "x86_64-linux-gnu",
                 "libstdcxx",
-                "test",
+                test_standard_library_identity(),
                 "glibc-libm",
-                "test",
+                test_math_library_identity(),
+                "libgcc-s",
+                test_compiler_runtime_identity(),
             },
-            "x86-64-v3",
+            "x86-64-v1-binary64-x87-extended-strict-v1",
+            "x86-64-v1",
             FloatingPointIdentity{
                 "ieee754_binary64",
                 "nearest_ties_to_even",

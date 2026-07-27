@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -25,6 +26,35 @@ inline Sha256Digest digest(std::uint8_t first_byte = 1) {
 
 inline MethodIdentity method(std::string id, std::uint8_t digest_byte = 1) {
     return {std::move(id), 1, digest(digest_byte)};
+}
+
+inline std::string test_runtime_provider_identity(std::string_view soname) {
+    return "elf64le-x86_64.soname." + std::string(soname) +
+           ".bytes.4096.buildid."
+           "0100000000000000000000000000000000000000.sha256."
+           "0200000000000000000000000000000000000000000000000000000000000000";
+}
+
+inline std::string test_standard_library_identity() {
+    return "release.13.headers.20240601.gxxabi.1019.cxx11abi.1+" +
+           test_runtime_provider_identity("libstdc++.so.6") +
+           "+symbols.__cxa_throw.CXXABI_1.3.00000000000bb340";
+}
+
+inline std::string test_math_library_identity() {
+    return "glibc.2.39+" + test_runtime_provider_identity("libm.so.6") +
+           "+symbols.ceil.GLIBC_2.2.5.0000000000000001"
+           ".cos.GLIBC_2.2.5.0000000000000002"
+           ".floor.GLIBC_2.2.5.0000000000000003"
+           ".roundl.GLIBC_2.2.5.0000000000000004"
+           ".sin.GLIBC_2.2.5.0000000000000005"
+           ".sincos.GLIBC_2.2.5.0000000000000006"
+           ".tan.GLIBC_2.2.5.0000000000000007";
+}
+
+inline std::string test_compiler_runtime_identity() {
+    return test_runtime_provider_identity("libgcc_s.so.1") +
+           "+symbols.__muldc3.GCC_4.0.0.0000000000000001";
 }
 
 struct InputBuilder {
@@ -709,23 +739,26 @@ inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
     const auto source_matrix = make_source_matrix();
 
     RenderManifestContent content;
-    content.schema_version = 1;
+    content.schema_version = 2;
     content.inputs =
         SimulationManifestInputs{ResolvedRenderInputs{engine, presentation, scenario}};
     content.provenance = builder.provenance.bundle;
     content.determinism = {
         BuildIdentity{
-            "deadbeef",
+            "0123456789abcdef0123456789abcdef01234567",
             digest(12),
-            "clang",
+            "Clang",
             "21.1.8",
-            "x86_64-linux-gnu",
+            "x86_64-pc-linux-gnu",
             "libstdcxx",
-            "14",
+            test_standard_library_identity(),
             "glibc-libm",
-            "2.39",
+            test_math_library_identity(),
+            "libgcc-s",
+            test_compiler_runtime_identity(),
         },
-        "x86-64-v3",
+        "x86-64-v1-binary64-x87-extended-strict-v1",
+        "x86-64-v1",
         FloatingPointIdentity{
             "ieee754_binary64",
             "nearest_ties_to_even",

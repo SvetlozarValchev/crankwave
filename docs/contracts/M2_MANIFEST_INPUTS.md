@@ -174,7 +174,8 @@ topology or arithmetic; serializers must not apply blanket sorting.
 
 ## 5. Build and execution truthfulness
 
-The common `DeterminismEnvelope` identifies the current clean renderer build,
+The common `DeterminismEnvelope` identifies the current clean renderer build, loaded
+standard library, math library, and compiler runtime, compiled numeric policy,
 floating-point environment, worker count, and reduction topology. The old engine-sim
 capture build and observation patch remain fixture provenance; they are not copied
 into the current build identity.
@@ -186,8 +187,11 @@ count, and complete-file SHA-256 records for all tracked and untracked
 `CMakeLists.txt`, `cmake/`, `include/`, and `src/` files. Git ignore configuration
 cannot hide a renderer input. The generator runs whenever its private target builds.
 Dirty, unavailable, nested-repository, or unrepresentable source closures return typed
-errors; they never produce admissible build evidence. Standard-library, math-library,
-ISA, CPU, and floating-point admission remain the next separate checkpoint.
+errors; they never produce admissible build evidence. Separate loaded-provider and
+numeric-environment checkpoints admit the actual libstdc++, glibc libm, and libgcc_s
+providers plus the exact compiled ISA and calling-thread floating-point policy. The
+reference-manifest v2 schema represents those facts explicitly; composition into one
+private build-owned envelope remains the next checkpoint.
 
 Toolchain admission is deliberately narrower than build support: only a top-level,
 single-configuration `Release` build with empty compiler `ARG1`, global flags,

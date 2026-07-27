@@ -55,8 +55,83 @@ void test_schema_and_lineage_pins() {
     ReferenceManifestFixture fixture;
 
     auto mutated = fixture.content;
-    mutated.schema_version = 2;
-    require_rejected(validate_reference(fixture, mutated), "render-manifest schema v2");
+    mutated.schema_version = 1;
+    require_rejected(validate_reference(fixture, mutated), "render-manifest schema v1");
+
+    mutated = fixture.content;
+    mutated.determinism.build.compiler_runtime_id.clear();
+    require_rejected(validate_reference(fixture, mutated),
+                     "missing compiler-runtime ID");
+
+    mutated = fixture.content;
+    mutated.determinism.build.compiler_runtime_identity.clear();
+    require_rejected(validate_reference(fixture, mutated),
+                     "missing compiler-runtime identity");
+
+    mutated = fixture.content;
+    mutated.determinism.build.git_commit_id = "not-a-git-object";
+    require_rejected(validate_reference(fixture, mutated),
+                     "malformed renderer Git commit ID");
+
+    mutated = fixture.content;
+    mutated.determinism.build.compiler_id = "gcc";
+    require_rejected(validate_reference(fixture, mutated), "non-observer compiler ID");
+
+    mutated = fixture.content;
+    mutated.determinism.build.compiler_version = "13.3.";
+    require_rejected(validate_reference(fixture, mutated),
+                     "compiler version with trailing separator");
+
+    mutated = fixture.content;
+    mutated.determinism.build.compiler_runtime_identity = "test";
+    require_rejected(validate_reference(fixture, mutated),
+                     "malformed compiler-runtime identity");
+
+    mutated = fixture.content;
+    mutated.determinism.build.math_library_identity.insert(
+        mutated.determinism.build.math_library_identity.find('+'), ".");
+    require_rejected(validate_reference(fixture, mutated),
+                     "glibc version with trailing separator");
+
+    mutated = fixture.content;
+    mutated.determinism.numeric_policy_id = "Not A Canonical Policy";
+    require_rejected(validate_reference(fixture, mutated),
+                     "noncanonical numeric-policy ID");
+
+    mutated = fixture.content;
+    mutated.determinism.build.standard_library_id = "libcxx";
+    require_rejected(validate_reference(fixture, mutated),
+                     "unsupported standard-library provider");
+
+    mutated = fixture.content;
+    mutated.determinism.build.math_library_id = "other-libm";
+    require_rejected(validate_reference(fixture, mutated),
+                     "unsupported math-library provider");
+
+    mutated = fixture.content;
+    mutated.determinism.build.compiler_runtime_id = "other-runtime";
+    require_rejected(validate_reference(fixture, mutated),
+                     "unsupported compiler-runtime provider");
+
+    mutated = fixture.content;
+    mutated.determinism.numeric_policy_id = "other-numeric-policy-v1";
+    require_rejected(validate_reference(fixture, mutated),
+                     "unsupported numeric-policy ID");
+
+    mutated = fixture.content;
+    mutated.determinism.instruction_set_profile = "x86-64-v2";
+    require_rejected(validate_reference(fixture, mutated),
+                     "numeric-policy ISA mismatch");
+
+    mutated = fixture.content;
+    mutated.determinism.deterministic_worker_count = 2;
+    require_rejected(validate_reference(fixture, mutated),
+                     "reference worker count greater than one");
+
+    mutated = fixture.content;
+    mutated.determinism.deterministic_reduction_topology = "pairwise-stable-v1";
+    require_rejected(validate_reference(fixture, mutated),
+                     "reference reduction topology mismatch");
 
     mutated = fixture.content;
     reference_inputs(mutated).schema_version = 2;
@@ -154,6 +229,21 @@ void test_schema_and_lineage_pins() {
     std::ranges::swap(reference_inputs(mutated).engine.routes[0],
                       reference_inputs(mutated).engine.routes[1]);
     require_rejected(validate_reference(fixture, mutated), "reference route order");
+}
+
+void test_new_determinism_fields_are_content_identity() {
+    ReferenceManifestFixture fixture;
+    const RenderManifest baseline{fixture.content, std::nullopt};
+
+    auto changed_runtime = baseline;
+    changed_runtime.content.determinism.build.compiler_runtime_identity += "-changed";
+    expect(!same_content_identity(baseline, changed_runtime),
+           "compiler-runtime identity was excluded from content identity");
+
+    auto changed_policy = baseline;
+    changed_policy.content.determinism.numeric_policy_id += "-changed";
+    expect(!same_content_identity(baseline, changed_policy),
+           "numeric-policy ID was excluded from content identity");
 }
 
 void test_capture_window_pins_and_malformed_shapes() {
@@ -331,6 +421,7 @@ void test_public_contract_rejects_reference_success() {
 void run_reference_manifest_contract_tests() {
     test_exact_fixture_is_admitted();
     test_schema_and_lineage_pins();
+    test_new_determinism_fields_are_content_identity();
     test_capture_window_pins_and_malformed_shapes();
     test_default_route_classification_is_rejected_safely();
     test_random_stream_pins();

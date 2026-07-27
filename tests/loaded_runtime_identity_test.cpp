@@ -194,17 +194,17 @@ void test_live_loaded_runtime_is_complete_and_stable() {
                "libm symbol set is incomplete or not sorted");
     }
 
-    expect(first->standard_library_version.find(detail::canonical_provider_token(
+    expect(first->standard_library_identity.find(detail::canonical_provider_token(
                first->standard_library_provider)) != std::string::npos &&
-               first->math_library_version.find(detail::canonical_symbol_token(
+               first->math_library_identity.find(detail::canonical_symbol_token(
                    first->math_symbols)) != std::string::npos &&
-               first->compiler_runtime_version.find(detail::canonical_provider_token(
+               first->compiler_runtime_identity.find(detail::canonical_provider_token(
                    first->compiler_runtime_provider)) != std::string::npos,
-           "component versions are not derived from typed provider evidence");
-    expect(first->standard_library_version.find('/') == std::string::npos &&
-               first->math_library_version.find('/') == std::string::npos &&
-               first->compiler_runtime_version.find('/') == std::string::npos,
-           "component versions leaked a diagnostic provider path");
+           "component identities are not derived from typed provider evidence");
+    expect(first->standard_library_identity.find('/') == std::string::npos &&
+               first->math_library_identity.find('/') == std::string::npos &&
+               first->compiler_runtime_identity.find('/') == std::string::npos,
+           "component identities leaked a diagnostic provider path");
 }
 
 void test_preloaded_math_interposition_is_rejected() {

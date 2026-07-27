@@ -247,7 +247,7 @@ LoadedRuntimeIdentityResult loaded_runtime_identity() {
     };
     identity.standard_library_provider = standard_candidate.provider;
     identity.standard_library_anchor = standard_candidate.symbols.front();
-    identity.standard_library_version =
+    identity.standard_library_identity =
         "release." + std::to_string(identity.standard_library_headers.release) +
         ".headers." + std::to_string(identity.standard_library_headers.header_date) +
         ".gxxabi." + std::to_string(identity.standard_library_headers.gxx_abi_version) +
@@ -260,7 +260,7 @@ LoadedRuntimeIdentityResult loaded_runtime_identity() {
     identity.math_library_provider = math_candidate.provider;
     std::copy(math_candidate.symbols.begin(), math_candidate.symbols.end(),
               identity.math_symbols.begin());
-    identity.math_library_version =
+    identity.math_library_identity =
         "glibc." + std::get<std::string>(glibc_version_result) + "+" +
         detail::canonical_provider_token(identity.math_library_provider) + "+" +
         detail::canonical_symbol_token(identity.math_symbols);
@@ -268,7 +268,7 @@ LoadedRuntimeIdentityResult loaded_runtime_identity() {
     identity.compiler_runtime_id = "libgcc-s";
     identity.compiler_runtime_provider = compiler_candidate.provider;
     identity.compiler_runtime_anchor = compiler_candidate.symbols.front();
-    identity.compiler_runtime_version =
+    identity.compiler_runtime_identity =
         detail::canonical_provider_token(identity.compiler_runtime_provider) + "+" +
         detail::canonical_symbol_token(std::span(&identity.compiler_runtime_anchor, 1));
     return identity;
