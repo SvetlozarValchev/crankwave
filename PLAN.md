@@ -1,7 +1,7 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — M2 artifact sinks and focused DSP complete; exact BMW
-acoustic route next
+Status: implementation — M2 artifact sinks and focused DSP complete; exact P1.8
+mastering contract next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -296,11 +296,44 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Implement `render(spec, scenario, sink)` and the CLI shell.
 - [x] Implement deterministic scheduling and bounded streaming.
 - [x] Implement telemetry/WAV sinks and focused DSP tests.
-- [ ] Drive the complete approved acoustic route from the BMW fixture.
-- [ ] Render the fixture-based full mix against the oracle and stop for listening.
+- [ ] Freeze the exact local-evaluation P1.8 eight-artifact and mastering contract:
+      roles, paths, media shapes, hashes, raw-master reduction, audition processing,
+      and byte-exact container.
+- [ ] Freeze the canonical complete `RenderManifest` wire schema before implementing
+      its encoder.
+- [ ] Implement and bit-test exact P1.8 PCG32, causal reconstruction, jitter, and
+      conditioning behind the typed two-route excitation seam; do not read the
+      fixture or emit WAV.
+- [ ] Implement strict PCM16 IR decoding, support detection, and exact static
+      conversion; prove the frozen kernel identity without connecting the fixture.
+- [ ] Implement the fixed-topology FFT and bounded overlap-save convolution with
+      transform, impulse, and continuity tests; do not claim a complete route.
+- [ ] Implement the canonical complete-manifest encoder and truthful frozen-BMW
+      reference request without admitting fixture replay through public `render()`.
+- [ ] Implement the bounded transactional eight-artifact P1.8 presentation session,
+      including routing and execution evidence, without reading the fixture.
+- [ ] In the isolated reference target only, read and adapt the frozen audit buses,
+      drive the complete unchanged route through the transactional session, reproduce
+      the kernel plus all six stem and two master hashes, verify production/CLI/M3
+      linkage isolation, report single-job and fixed-count concurrent performance,
+      publish the controlled oracle/candidate set, and STOP for user listening.
+- [ ] Record the user's acceptance, or record rejection and redesign without beginning
+      M3.
 
 Exit: the user accepts the trace-driven renderer. A synthetic fixture makes no
 sound-quality claim, and M3 cannot begin without this acoustic acceptance.
+
+The former single “drive the complete route” checkbox was split before implementation
+because it combines independent numerical algorithms, roughly billions of operations,
+reference-only I/O, manifest publication, and the first audible output. None of the
+pre-integration replacement checkboxes is an audible candidate or permits work to
+advance past M2. The isolated hash-parity checkbox must complete and publish all eight
+frozen reference artifacts through the unchanged route, and is itself the immediate
+listening hard stop; work does not continue while awaiting the user's decision. The
+public `render()` path remains fail-closed throughout fixture replay, and
+production/M3 targets never link the reference reader. Exact hashes establish only
+this narrow trace-driven renderer parity—not public-render success, new physics,
+production completeness, higher fidelity, distribution rights, or user acceptance.
 
 ### M3 — BMW parity
 

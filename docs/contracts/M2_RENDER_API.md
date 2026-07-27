@@ -100,8 +100,8 @@ serialization are now implemented and recorded in
 [`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). Their typed publication errors map to
 `artifact_publication_failure`; a sink protocol rejection maps to
 `contract_violation`. They are not yet connected to this fail-closed public boundary:
-the next checkbox must supply the complete fixture-to-acoustic route and complete
-manifest encoder before `render()` may begin a transaction.
+the remaining split M2 route checkboxes must supply the complete fixture-to-acoustic
+route and complete manifest encoder before `render()` may begin a transaction.
 
 `RenderControl` now carries a stop token. Preflight and evidence-rights checks precede
 cancellation, so a stop cannot conceal malformed input. Cancellation is observed only
@@ -141,5 +141,6 @@ no reference-audit reader or fixture adapter.
 
 The deterministic clock/streaming and artifact/focused-DSP checkpoints are
 implemented without weakening this admission boundary or adding a second render
-path. The next M2 checkbox drives the complete approved acoustic route from the
-captured BMW fixture.
+path. The remaining M2 checkpoints build and verify the complete approved acoustic
+route from the captured BMW fixture without treating any partial stage as a listening
+candidate.

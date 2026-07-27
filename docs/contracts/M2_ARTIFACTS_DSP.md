@@ -31,9 +31,10 @@ complete RenderManifest -> explicit encoder --+
   no summary, host-ABI dump, or default placeholder representation. A missing,
   throwing, or empty manifest encoder makes commit fail closed.
 
-The complete capture-to-artifact orchestration remains the next PLAN item. Until that
-route constructs and validates a complete manifest, the public `render()` boundary
-continues to return `render-pipeline-not-admitted` without beginning a sink.
+The complete capture-to-artifact orchestration remains in the split acoustic-route
+items in PLAN. Until that route constructs and validates a complete manifest, the
+public `render()` boundary continues to return `render-pipeline-not-admitted` without
+beginning a sink.
 
 ## 2. WAV encoding
 
@@ -136,6 +137,7 @@ invalid/non-finite input.
 
 The causal 257-tap reconstruction, PCG32 streams, jitter, complete conditioning
 mixture, air-noise path, IR conversion, fixed overlap-save convolution, crop, stems,
-and master are not approximated here. They must arrive together in the next complete
-BMW acoustic-route checkpoint and pass its fixture/oracle tests before any WAV is
+and master are not approximated here. Their now-split checkpoints may add and verify
+individual exact state machines, but no partial output is an audible candidate. The
+complete unchanged route must pass its fixture/oracle hash tests before any WAV is
 offered for listening.
