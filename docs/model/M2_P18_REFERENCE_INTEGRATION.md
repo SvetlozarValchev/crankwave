@@ -1,6 +1,6 @@
 # P1.8 isolated reference integration
 
-Status: implemented; immediate user-listening hard stop
+Status: implemented and user-accepted on 2026-07-27
 
 This checkpoint connects the already frozen P1.8 source stage, static IR conversion,
 fixed convolution, mastering, and WAVE encoders without changing their algorithms. It
@@ -85,3 +85,7 @@ The main audition file is `audio/master.reference.audition.wav`; the raw coheren
 and selected route stems are published beside it. Work stops after publishing the
 controlled set. Only the user's listening decision records acceptance or rejection and
 permits the next checkpoint.
+
+The user accepted the byte-identical candidate rendered from commit
+`9cc0cd8f1129b14de157082ad6e66407b548041c`. Acceptance is limited to this downstream
+presentation route and does not claim engine-physics parity or higher fidelity.

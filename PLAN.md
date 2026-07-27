@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: listening hard stop — complete P1.8 BMW route is exact and awaiting user review
+Status: implementation — P1.8 renderer accepted; canonical manifest schema next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -322,7 +322,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       isolation, report single-job and fixed-count concurrent performance, publish the
       controlled oracle/candidate set even if labelled mismatched, and STOP for user
       listening.
-- [ ] Record the user's renderer acceptance, or record rejection and redesign before
+- [x] Record the user's renderer acceptance, or record rejection and redesign before
       doing manifest/publication plumbing or beginning M3.
 - [ ] Freeze the canonical complete `RenderManifest` wire schema before implementing
       its encoder.
@@ -352,6 +352,11 @@ throughout fixture replay, and production/M3 targets never link the reference re
 Exact hashes establish only this narrow trace-driven renderer comparison—not
 public-render success, new physics, production completeness, higher fidelity,
 distribution rights, or user acceptance.
+
+The user accepted the renderer on 2026-07-27 after listening to the candidate from
+commit `9cc0cd8f1129b14de157082ad6e66407b548041c` and confirming that it was identical
+to the liked BMW baseline. This accepts the downstream P1.8 renderer only; it does not
+accept physics that has not yet been implemented or make a higher-fidelity claim.
 
 ### M3 — BMW parity
 
