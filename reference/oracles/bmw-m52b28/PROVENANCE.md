@@ -68,6 +68,7 @@ The resulting self-contained fixture, closed manifest, independent validator, an
 observation patch are preserved at:
 
 - [`reference/fixtures/bmw-m52b28-p18`](../../fixtures/bmw-m52b28-p18/README.md)
+- [`P18_PRESENTATION_RENDERER.md`](../../fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md)
 - [`reference/tooling/p18-reference-audit.patch`](../../tooling/p18-reference-audit.patch)
 - [`tools/validate_reference_fixture.py`](../../../tools/validate_reference_fixture.py)
 
@@ -137,6 +138,12 @@ ffmpeg \
 Re-running this mastering command against the preserved input stems reproduced the
 oracle SHA-256 exactly.
 
+The reproducing tool reported `ffmpeg version 6.1.1-3ubuntu5`, built with Ubuntu
+GCC 13. Its complete `ffmpeg -version` output has SHA-256
+`5b320c97f515e79171f10a2147d875ffb6b14bd2b25681047b73c46fe0a527ee`.
+This records the byte-equivalence environment; the M2 renderer may later own this
+small deterministic mastering step directly.
+
 Input stem identities:
 
 - exhaust 0 `linear_wet_dry.wav`:
@@ -181,6 +188,12 @@ IR identity:
 - effective source support used by the baker: 6,907 samples
 - deterministic conversion to 30,071 samples at 192 kHz using the baker's
   24-tap/4,096-phase Blackman-windowed-sinc, per-source-area, DC-preserving policy
+
+The exact input, canonical converted binary64 kernel, and all six expected stems are
+preserved under
+[`reference/fixtures/bmw-m52b28-p18/presentation`](../../fixtures/bmw-m52b28-p18/presentation/).
+The headerless little-endian kernel is 240,568 bytes and has SHA-256
+`940e3f585cbdf34df6e9073db629c02b585d6e09c4d3c31a393eb3759f357598`.
 
 For this capture, `linear_wet_dry` equals `linear_configured_ir` byte-for-byte on each
 bus. The oracle is therefore a 100%-configured-IR result, not a dry engine-source
@@ -261,9 +274,10 @@ evaluation until the rights question is resolved.
 - Whether every inherited fork audio change is necessary to reproduce the liked result.
 - The historical executable's exact machine-code identity; canonical-capture behavior,
   rather than executable bytes, is what the reconstruction proof closes.
-- The two historical precursor stems and package manifests remain only in the external
-  failed tree. Their identities, the resulting oracle, newly regenerated equivalence
-  evidence, and the pre-presentation fixture are preserved here.
+- The historical package manifests remain only in the external failed tree. All six
+  freshly regenerated, byte-identical reference stems, their presentation input,
+  resolved kernel identity, the resulting oracle, and the pre-presentation fixture are
+  preserved here.
 
 The historical package alone contains only processed exhaust artifacts.
 `linear_wet_dry` is post-IR; even `linear_dry` is

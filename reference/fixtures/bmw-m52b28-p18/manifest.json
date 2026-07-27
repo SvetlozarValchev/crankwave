@@ -450,6 +450,120 @@
       "starter": ["b4ea1fd6d9786b65", "35db133a627daacd"]
     }
   },
+  "presentationReference": {
+    "status": "local_evaluation_evidence",
+    "distribution": "do_not_ship_until_smooth_39_rights_are_resolved",
+    "selfContainedForM2Replay": true,
+    "algorithmRecord": {
+      "path": "P18_PRESENTATION_RENDERER.md",
+      "byteLength": 20832,
+      "sha256": "0e6b1183d421088b4d0b49ea96545034b5ef338363e5ae2e30d81c182c96a008",
+      "sourceRevision": "9617562a7a5615c2bf84c9ec39cd5ae25c560059",
+      "classification": "evaluation_only_behavioral_specification_not_production_code"
+    },
+    "files": {
+      "presentation/smooth_39.wav": {
+        "role": "configured_impulse_response_input",
+        "format": "wav_pcm_s16le_mono",
+        "sampleRateHz": 44100,
+        "frameCount": 33705,
+        "effectiveSupportFrames": 6907,
+        "configuredVolume": 0.001,
+        "byteLength": 78602,
+        "sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc",
+        "licenseId": "unreviewed_audio_input_noassertion"
+      },
+      "presentation/smooth_39-192000hz-volume-0p001-f64le.bin": {
+        "role": "resolved_impulse_response_kernel_oracle",
+        "format": "headerless_ieee754_binary64_little_endian",
+        "sampleRateHz": 192000,
+        "coefficientCount": 30071,
+        "byteLength": 240568,
+        "sha256": "940e3f585cbdf34df6e9073db629c02b585d6e09c4d3c31a393eb3759f357598",
+        "licenseId": "derived_from_unreviewed_audio_input_noassertion"
+      },
+      "presentation/stems/exhaust-0-linear-dry.wav": {
+        "role": "exhaust.reference.0.dry",
+        "format": "wav_float32_mono",
+        "sampleRateHz": 192000,
+        "frameCount": 2880000,
+        "byteLength": 11520058,
+        "sha256": "e5a96cb5d3b9f1732e741916706a99c6a7c5e1a912e3d751cb92846d33ce6eeb",
+        "licenseId": "linear_dry_diagnostic_output"
+      },
+      "presentation/stems/exhaust-0-linear-configured-ir.wav": {
+        "role": "exhaust.reference.0.configured_ir",
+        "format": "wav_float32_mono",
+        "sampleRateHz": 192000,
+        "frameCount": 2880000,
+        "byteLength": 11520058,
+        "sha256": "a637639a4ec85d1c6a1432a0b0df2395e3669648f5708f846ce65e83b70e6f32",
+        "licenseId": "configured_ir_diagnostic_output_noassertion"
+      },
+      "presentation/stems/exhaust-0-linear-wet-dry.wav": {
+        "role": "exhaust.reference.0.selected",
+        "format": "wav_float32_mono",
+        "sampleRateHz": 192000,
+        "frameCount": 2880000,
+        "byteLength": 11520058,
+        "sha256": "a637639a4ec85d1c6a1432a0b0df2395e3669648f5708f846ce65e83b70e6f32",
+        "licenseId": "configured_ir_diagnostic_output_noassertion"
+      },
+      "presentation/stems/exhaust-1-linear-dry.wav": {
+        "role": "exhaust.reference.1.dry",
+        "format": "wav_float32_mono",
+        "sampleRateHz": 192000,
+        "frameCount": 2880000,
+        "byteLength": 11520058,
+        "sha256": "2ad2ed41097af30421047f3e4a6033086ec70b9731082833699caad1da9d81ea",
+        "licenseId": "linear_dry_diagnostic_output"
+      },
+      "presentation/stems/exhaust-1-linear-configured-ir.wav": {
+        "role": "exhaust.reference.1.configured_ir",
+        "format": "wav_float32_mono",
+        "sampleRateHz": 192000,
+        "frameCount": 2880000,
+        "byteLength": 11520058,
+        "sha256": "f47b94024648f6763804fa36bd11bf230d3b5741f2289bb062a6afe7c4a8ba3d",
+        "licenseId": "configured_ir_diagnostic_output_noassertion"
+      },
+      "presentation/stems/exhaust-1-linear-wet-dry.wav": {
+        "role": "exhaust.reference.1.selected",
+        "format": "wav_float32_mono",
+        "sampleRateHz": 192000,
+        "frameCount": 2880000,
+        "byteLength": 11520058,
+        "sha256": "f47b94024648f6763804fa36bd11bf230d3b5741f2289bb062a6afe7c4a8ba3d",
+        "licenseId": "configured_ir_diagnostic_output_noassertion"
+      }
+    },
+    "kernelGeneration": {
+      "sourceAppliedFrames": 6907,
+      "sourceRateHz": 44100,
+      "targetRateHz": 192000,
+      "configuredVolume": 0.001,
+      "configuredVolumeBinary64": "3f50624dd2f1a9fc",
+      "pcm16NormalizationDivisor": 32767,
+      "rateConversionGain": 0.22968749999999999,
+      "rateConversionGainBinary64": "3fcd666666666666",
+      "method": "blackman_windowed_sinc_24tap_4096phase_antialiased_per_source_area_binary64_v3",
+      "pcmLoaderSourceSha256": "be581bbd9f39695c526204ce233f2c8048d02c8d54651b0fe5b52901eec27d73",
+      "resamplerSourceSha256": "a5310e8d1f3d52346bb38d1991dfa6e4f82dcc194e80a8bcc59852135d0c3e45",
+      "compiler": "Clang 21.1.8",
+      "flags": [
+        "-O3",
+        "-DNDEBUG",
+        "-ffp-contract=off"
+      ],
+      "independentCheck": "GCC 13.3.0 with -O3 -DNDEBUG -ffp-contract=off produced the same canonical f64le bytes"
+    },
+    "relationships": {
+      "configuredIrEqualsSelectedRoute0": "byte_identical",
+      "configuredIrEqualsSelectedRoute1": "byte_identical",
+      "masterPath": "../../oracles/bmw-m52b28/bmw-m52b28-5th-gear-equivalent-dyno-1500-6500rpm.wav",
+      "masterSha256": "f62c164f9a3debca23b1459fae8d6b47a19a98a418490e2e99bcbdf8a7d972eb"
+    }
+  },
   "pairedPackage": {
     "rootManifestSha256": "ebad574e2b535554ce2bc3303d511a0fd24b641c872155d6dd2763c28b1a0811",
     "sourceCaptureManifestSha256": "92d0a4f6dced325e0eb0eda7dada47b91f8572e942323d40d0624591285dc3ac",

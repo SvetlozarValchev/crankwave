@@ -208,8 +208,8 @@ engine path.
 
 M1 proposes and the user explicitly approves two source-completeness matrices:
 
-- M3: the oracle's per-outlet exhaust sources and master, plus every additional route
-  proven to exist in the oracle; all known omissions are explicit;
+- M3: the oracle's two runtime reference exhaust routes and master, plus every
+  additional route proven to exist in the oracle; all known omissions are explicit;
 - production: exhaust, intake, mechanical, and master buses, with the evidence-backed
   model required to claim each one.
 
