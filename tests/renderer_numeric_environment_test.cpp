@@ -200,6 +200,8 @@ void test_live_observation_is_admitted_and_read_only() {
     expect(before.is_linux_x86_64 && before.is_sysv_lp64 &&
                before.pointer_storage_bytes == 8 && before.long_storage_bytes == 8,
            "live observer did not identify Linux x86-64 SysV LP64");
+    expect(before.x87_status_word == read_x87_status_word(),
+           "live observer did not retain the complete x87 status word");
 }
 
 void test_pure_validator_rejects_each_evidence_class() {
@@ -341,16 +343,44 @@ void test_pure_validator_rejects_each_evidence_class() {
     candidate = good;
     candidate.cpuid_leaf1_edx = 0xffffffffU;
     candidate.mxcsr |= 0x3fU;
+    candidate.x87_status_word =
+        static_cast<std::uint16_t>(candidate.x87_status_word ^ 0x003fU);
     candidate.x87_control_word =
         static_cast<std::uint16_t>(candidate.x87_control_word | 0x1000U);
     const auto extra_result = validate_renderer_numeric_environment(candidate);
     const auto *extra_identity = std::get_if<RendererNumericEnvironment>(&extra_result);
     expect(extra_identity != nullptr && *extra_identity == *good_identity,
-           "extra CPU bits, sticky MXCSR flags, or x87 IC changed identity");
+           "extra CPU bits, sticky exception flags, or x87 IC changed identity");
 
     const auto unchanged = good;
     (void)validate_renderer_numeric_environment(good);
     expect(good == unchanged, "pure validator changed its input snapshot");
+}
+
+void test_live_sticky_status_is_observed_and_preserved() {
+    {
+        ScopedNumericState restore;
+        expect(std::feclearexcept(FE_ALL_EXCEPT) == 0,
+               "could not clear live floating-point exceptions");
+        expect(std::feraiseexcept(FE_INVALID | FE_INEXACT) == 0,
+               "could not raise live floating-point exceptions");
+        errno = EBUSY;
+        const auto before = live_thread_state();
+        expect((before.x87_status_word & 0x003fU) != 0,
+               "live exception injection did not set an x87 sticky flag");
+
+        const auto snapshot = observe_current_thread_renderer_numeric_environment();
+        expect(snapshot.x87_status_word == before.x87_status_word,
+               "numeric snapshot did not retain injected x87 sticky status");
+        const auto result = validate_renderer_numeric_environment(snapshot);
+        expect(std::holds_alternative<RendererNumericEnvironment>(result),
+               "x87 sticky exception status changed numeric admission");
+
+        const auto after = live_thread_state();
+        expect(after == before,
+               "x87 sticky-status observation changed live thread state");
+    }
+    (void)admitted_live_snapshot();
 }
 
 void test_live_rounding_rejection_restores_state() {
@@ -445,5 +475,6 @@ int main() {
     test_live_rounding_rejection_restores_state();
     test_live_mxcsr_rejection_restores_state();
     test_live_x87_rejection_restores_state();
+    test_live_sticky_status_is_observed_and_preserved();
     test_live_cpuid_rejection_restores_state_when_supported();
 }

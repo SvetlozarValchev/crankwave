@@ -90,6 +90,12 @@ failure(RendererNumericEnvironmentErrorCode code, std::string_view component,
     __asm__ volatile("fnstcw %0" : "=m"(value));
     return value;
 }
+
+[[nodiscard]] std::uint16_t read_x87_status_word() noexcept {
+    std::uint16_t value = 0;
+    __asm__ volatile("fnstsw %0" : "=am"(value));
+    return value;
+}
 #endif
 
 } // namespace
@@ -115,6 +121,7 @@ observe_current_thread_renderer_numeric_environment() noexcept {
 #endif
     snapshot.mxcsr = read_mxcsr();
     snapshot.x87_control_word = read_x87_control_word();
+    snapshot.x87_status_word = read_x87_status_word();
 
     errno = 0;
     const long cpuid_setting = ::syscall(SYS_arch_prctl, ARCH_GET_CPUID, 0UL);

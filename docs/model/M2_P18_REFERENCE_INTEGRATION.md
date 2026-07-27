@@ -84,7 +84,10 @@ IEEE-754 binary32 and binary64; the SysV 80-bit extended `long double` format;
 FTZ, DAZ, and AMD misalignment-mask mode disabled; and masked x87 exceptions with
 extended precision and nearest rounding. Sticky exception flags and extra CPU
 capabilities do not change identity. Observation and every rejection preserve the
-floating-point registers, CPUID setting, sticky status, and `errno`.
+floating-point registers, CPUID setting, MXCSR plus x87 sticky status, and `errno`.
+The raw snapshot retains the complete x87 status word for before/after mutation
+detection, but validation deliberately excludes its sticky exception bits from the
+canonical numeric identity.
 
 This marker attests the numeric option tail, not source cleanliness or provider
 identity. The next checkpoint must require the source stamp, loaded-runtime identity,

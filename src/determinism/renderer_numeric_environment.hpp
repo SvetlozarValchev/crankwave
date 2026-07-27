@@ -63,6 +63,7 @@ struct RendererNumericEnvironmentSnapshot {
     std::int32_t fe_rounding_mode = -1;
     std::uint32_t mxcsr = 0;
     std::uint16_t x87_control_word = 0;
+    std::uint16_t x87_status_word = 0;
 
     friend bool operator==(const RendererNumericEnvironmentSnapshot &,
                            const RendererNumericEnvironmentSnapshot &) = default;

@@ -348,7 +348,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       v2, without a compatibility path; represent the renderer source closure,
       compiler-runtime ID/content identity, and admitted numeric-policy ID explicitly,
       then update validation, CDDL, docs, and canonical-encoding goldens.
-- [ ] Retain the calling thread's raw x87 status word in numeric-environment snapshots;
+- [x] Retain the calling thread's raw x87 status word in numeric-environment snapshots;
       prove observation preserves it and sticky exception flags remain deliberately
       excluded from canonical identity without changing the numeric-policy ID.
 - [ ] Compose the source stamp, loaded-runtime identity, and numeric-environment
