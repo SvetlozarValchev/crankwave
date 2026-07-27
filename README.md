@@ -22,7 +22,10 @@ recorded separately in
 [`docs/contracts/M2_RENDER_API.md`](docs/contracts/M2_RENDER_API.md). Integer clock
 resolution, method-owned partitioning, bounded block traversal, and deterministic
 cancellation are recorded in
-[`docs/contracts/M2_SCHEDULING.md`](docs/contracts/M2_SCHEDULING.md).
+[`docs/contracts/M2_SCHEDULING.md`](docs/contracts/M2_SCHEDULING.md). Bounded WAV and
+telemetry encoding, transactional directory publication, and the exact focused P1.8
+DSP primitives are recorded in
+[`docs/contracts/M2_ARTIFACTS_DSP.md`](docs/contracts/M2_ARTIFACTS_DSP.md).
 
 ## Build
 

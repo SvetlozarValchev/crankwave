@@ -95,6 +95,60 @@ target_link_libraries(
         engine_sim_offline::build_options
 )
 
+add_library(
+    engine_sim_offline_artifacts
+    STATIC
+        src/artifacts/directory_render_sink.cpp
+        src/artifacts/directory_render_sink_commit.cpp
+        src/artifacts/directory_render_sink_lifecycle.cpp
+        src/artifacts/secure_filesystem_support.cpp
+        src/artifacts/sha256_stream.cpp
+        src/artifacts/telemetry_encoder.cpp
+        src/artifacts/telemetry_encoder_rows.cpp
+        src/artifacts/telemetry_encoder_validation.cpp
+        src/artifacts/wav_encoder.cpp
+)
+add_library(
+    engine_sim_offline::artifacts
+    ALIAS engine_sim_offline_artifacts
+)
+
+target_include_directories(
+    engine_sim_offline_artifacts
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/artifacts>
+)
+
+target_link_libraries(
+    engine_sim_offline_artifacts
+    PUBLIC
+        engine_sim_offline::contract
+        engine_sim_offline::build_options
+)
+
+add_library(
+    engine_sim_offline_dsp
+    STATIC
+        src/dsp/p18_primitives.cpp
+)
+add_library(
+    engine_sim_offline::dsp
+    ALIAS engine_sim_offline_dsp
+)
+
+target_include_directories(
+    engine_sim_offline_dsp
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_dsp
+    PUBLIC engine_sim_offline::build_options
+)
+
 if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     add_library(
         engine_sim_offline_cli_shell

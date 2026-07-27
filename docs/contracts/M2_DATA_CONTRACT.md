@@ -9,10 +9,11 @@ This document describes the data contract implemented by the current C++ types a
 validators. The headless API, fail-closed admission boundary, transaction protocol,
 and CLI shell now exist and are recorded separately in
 [`M2_RENDER_API.md`](M2_RENDER_API.md), while integer scheduling and bounded traversal
-are recorded in [`M2_SCHEDULING.md`](M2_SCHEDULING.md). None of these records claims
-that the resolver,
-simulator, concrete renderer, or file sinks exist yet; those are separate checkboxes
-in [`PLAN.md`](../../PLAN.md).
+are recorded in [`M2_SCHEDULING.md`](M2_SCHEDULING.md). Bounded artifact encoding,
+transactional directory publication, and the focused P1.8 DSP primitives are recorded
+in [`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). None of these records claims that the
+resolver, simulator, or complete fixture-to-acoustic renderer exists yet; those are
+separate checkboxes in [`PLAN.md`](../../PLAN.md).
 
 The governing physical, numerical, and provenance meanings remain in
 [`MODEL.md`](../../MODEL.md). The exact BMW parity algorithm is separately fixed by
@@ -39,7 +40,8 @@ EngineSpec + RenderScenario + PresentationCalibration
                            |
               excitation and presentation         later M2/M3 work
                            |
-               artifacts + RenderManifest         later M2 checkbox
+              artifacts + RenderManifest         encoder/sink implemented;
+                                                   orchestration later M2
 ```
 
 The current contract supplies:
@@ -61,8 +63,13 @@ The current contract does not supply:
 - an executable capture-to-artifact route behind `render(spec, scenario, sink)`;
 - simulation or crank/load-control execution;
 - fixture decoding or excitation generation;
-- DSP execution or concrete transactional WAV/telemetry sinks;
-- manifest serialization, payload hashing, or collection of execution facts.
+- complete DSP-route execution or capture-to-artifact orchestration;
+- a production `RenderManifest` wire encoder or collection of execution facts.
+
+The concrete directory sink verifies streamed artifact payload hashes and publishes
+encoded artifacts transactionally. WAV and complete capture-telemetry byte encoders
+exist, but the current `render()` call does not invoke them until the complete route is
+admitted.
 
 A valid data object therefore means “internally consistent and admitted by this
 schema,” not “rendered successfully” or “sounds correct.”

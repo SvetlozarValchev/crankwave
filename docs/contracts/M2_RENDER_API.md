@@ -95,10 +95,13 @@ idle -> begun -> committed
   chunk span.
 - Sink callback sizes never select simulation, capture, or DSP block sizes.
 
-Concrete transaction enforcement, filesystem staging, WAV and telemetry serialization
-belong to the later sink checkbox. Its typed publication errors map to
+Concrete transaction enforcement, filesystem staging, and bounded WAV and telemetry
+serialization are now implemented and recorded in
+[`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). Their typed publication errors map to
 `artifact_publication_failure`; a sink protocol rejection maps to
-`contract_violation`.
+`contract_violation`. They are not yet connected to this fail-closed public boundary:
+the next checkbox must supply the complete fixture-to-acoustic route and complete
+manifest encoder before `render()` may begin a transaction.
 
 `RenderControl` now carries a stop token. Preflight and evidence-rights checks precede
 cancellation, so a stop cannot conceal malformed input. Cancellation is observed only
@@ -136,6 +139,7 @@ different requests. The same binding applies to typed unreachable-target results
 CLI tests cover output streams and exit codes. Production render and CLI targets link
 no reference-audit reader or fixture adapter.
 
-The deterministic clock/streaming checkpoint is now implemented without weakening
-this admission boundary or adding a second render path. The next M2 checkbox adds
-concrete telemetry/WAV sinks and focused DSP primitives.
+The deterministic clock/streaming and artifact/focused-DSP checkpoints are
+implemented without weakening this admission boundary or adding a second render
+path. The next M2 checkbox drives the complete approved acoustic route from the
+captured BMW fixture.

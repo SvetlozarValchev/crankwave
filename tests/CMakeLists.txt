@@ -66,6 +66,63 @@ add_test(
     COMMAND engine_sim_offline_schedule_tests
 )
 
+add_executable(
+    engine_sim_offline_artifact_serialization_tests
+    artifact_serialization_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_artifact_serialization_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src/artifacts
+)
+
+target_link_libraries(
+    engine_sim_offline_artifact_serialization_tests
+    PRIVATE engine_sim_offline::artifacts
+)
+
+add_test(
+    NAME artifacts.serialization
+    COMMAND engine_sim_offline_artifact_serialization_tests
+)
+
+add_executable(
+    engine_sim_offline_directory_render_sink_tests
+    directory_render_sink_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_directory_render_sink_tests
+    PRIVATE engine_sim_offline::artifacts
+)
+
+add_test(
+    NAME artifacts.directory_sink
+    COMMAND engine_sim_offline_directory_render_sink_tests
+)
+
+add_executable(
+    engine_sim_offline_dsp_primitive_tests
+    dsp_primitives_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_dsp_primitive_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_dsp_primitive_tests
+    PRIVATE engine_sim_offline::dsp
+)
+
+add_test(
+    NAME dsp.p18_primitives
+    COMMAND engine_sim_offline_dsp_primitive_tests
+)
+
 if(TARGET engine_sim_offline_cli_shell)
     add_executable(
         engine_sim_offline_cli_tests
