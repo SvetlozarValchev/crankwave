@@ -1,7 +1,7 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — exact P1.8 fixture adapters frozen; mastering and isolated
-BMW route integration next
+Status: implementation — exact P1.8 mastering frozen; isolated BMW route integration
+and controlled listening set next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -315,8 +315,8 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Implement strict reference-only decoders for the frozen audit and component-seed
       capsules; retain typed raw fixture values without connecting them to presentation
       code, WAV output, or public rendering.
-- [ ] Implement and bit-test the fixture-free raw/audition mastering transform and exact
-      audition WAVE container; do not read stems, fixtures, or publish audio.
+- [x] Implement and bit-test the fixture-free raw/audition mastering transform and exact
+      audition WAVE container; keep implementation path-free and do not publish audio.
 - [ ] In the isolated reference target only, adapt the frozen audit buses, drive the
       complete unchanged renderer through a hash/WAV consumer, reproduce the kernel
       plus all six stem and two master hashes, verify production/CLI/M3 linkage

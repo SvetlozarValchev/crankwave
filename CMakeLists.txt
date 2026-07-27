@@ -102,6 +102,7 @@ add_library(
         src/artifacts/directory_render_sink.cpp
         src/artifacts/directory_render_sink_commit.cpp
         src/artifacts/directory_render_sink_lifecycle.cpp
+        src/artifacts/p18_audition_wav_encoder.cpp
         src/artifacts/secure_filesystem_support.cpp
         src/artifacts/sha256_stream.cpp
         src/artifacts/telemetry_encoder.cpp
@@ -159,6 +160,7 @@ add_library(
     STATIC
         src/presentation/p18_causal_reconstruction.cpp
         src/presentation/p18_conditioning.cpp
+        src/presentation/p18_mastering.cpp
         src/presentation/p18_overlap_save_convolver.cpp
         src/presentation/p18_pcm16_ir_decoder.cpp
         src/presentation/p18_source_stage.cpp

@@ -321,6 +321,32 @@ add_test(
         ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/component-seeds.bin
 )
 
+add_executable(
+    engine_sim_offline_p18_mastering_tests
+    p18_mastering_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_mastering_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_mastering_tests
+    PRIVATE
+        engine_sim_offline::artifacts
+        engine_sim_offline::presentation
+)
+
+add_test(
+    NAME presentation.p18_mastering
+    COMMAND
+        engine_sim_offline_p18_mastering_tests
+        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/stems/exhaust-0-linear-wet-dry.wav
+        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/stems/exhaust-1-linear-wet-dry.wav
+)
+
 if(TARGET engine_sim_offline_cli_shell)
     add_executable(
         engine_sim_offline_cli_tests
