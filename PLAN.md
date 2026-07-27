@@ -348,6 +348,9 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       v2, without a compatibility path; represent the renderer source closure,
       compiler-runtime ID/content identity, and admitted numeric-policy ID explicitly,
       then update validation, CDDL, docs, and canonical-encoding goldens.
+- [ ] Retain the calling thread's raw x87 status word in numeric-environment snapshots;
+      prove observation preserves it and sticky exception flags remain deliberately
+      excluded from canonical identity without changing the numeric-policy ID.
 - [ ] Compose the source stamp, loaded-runtime identity, and numeric-environment
       admission into one complete private renderer determinism envelope with no caller
       override.
@@ -398,6 +401,11 @@ honest v1 field: the compiler runtime provider and the numeric policy. The corre
 is a new reviewable checkpoint because changing a frozen wire contract must not be
 hidden inside envelope composition. The project has no compatibility requirement, so
 v2 replaces v1 rather than adding aliases, optional fields, or dual encoders.
+
+The raw numeric snapshot correction is separate from envelope composition because it
+changes the evidence used to detect observer-induced thread-state mutation, while the
+status flags themselves remain intentionally outside deterministic content identity.
+It does not change arithmetic, admission policy, or audio.
 
 The user accepted the renderer on 2026-07-27 after listening to the candidate from
 commit `9cc0cd8f1129b14de157082ad6e66407b548041c` and confirming that it was identical
