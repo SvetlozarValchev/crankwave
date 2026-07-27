@@ -11,6 +11,38 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_renderer_source_stamp_tests
+    renderer_source_stamp_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_renderer_source_stamp_tests
+    PRIVATE engine_sim_offline_renderer_source_stamp
+)
+
+add_test(
+    NAME determinism.renderer_source_stamp
+    COMMAND engine_sim_offline_renderer_source_stamp_tests
+)
+
+find_package(Git QUIET)
+if(GIT_FOUND AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
+   CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$")
+    add_test(
+        NAME determinism.renderer_source_stamp_generator
+        COMMAND
+            ${CMAKE_COMMAND}
+            "-DGENERATOR_SCRIPT=${PROJECT_SOURCE_DIR}/cmake/GenerateRendererSourceStamp.cmake"
+            "-DTEST_ROOT=${PROJECT_BINARY_DIR}/tests/renderer-source-stamp-generator"
+            "-DGIT_EXECUTABLE=${GIT_EXECUTABLE}"
+            "-DTEST_COMPILER_EXECUTABLE=${CMAKE_CXX_COMPILER}"
+            "-DTEST_COMPILER_ID=${CMAKE_CXX_COMPILER_ID}"
+            "-DTEST_COMPILER_VERSION=${CMAKE_CXX_COMPILER_VERSION}"
+            -P "${PROJECT_SOURCE_DIR}/tests/renderer_source_stamp_cmake_test.cmake"
+    )
+endif()
+
+add_executable(
     engine_sim_offline_contract_tests
     authored_profile_contract_test.cpp
     capture_contract_test.cpp

@@ -194,6 +194,9 @@ target_link_libraries(
 )
 
 if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
+    include(cmake/RendererSourceStamp.cmake)
+    engine_sim_offline_add_renderer_source_stamp()
+
     add_library(
         engine_sim_offline_p18_reference_catalog
         STATIC

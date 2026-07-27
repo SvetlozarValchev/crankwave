@@ -14,6 +14,10 @@ one executable whose fixture readers, fixture preflight, render coordinator, dig
 comparison, and local publisher remain private to the reference target. Its immutable
 catalog is a private support library built only for tests or this opt-in tool; none of
 these components are linked by the public renderer, CLI, or future M3 simulation.
+A separate private renderer source-stamp target now records build-owned source,
+compiler, and target facts and rejects dirty or unavailable source. This first split
+checkpoint is exercised by focused tests only; it is not yet the complete runtime
+determinism identity and is not yet consumed by the reference executable.
 
 Preflight opens, bounds, streams, and hashes exactly these fixed descendants of a
 caller-selected fixture root:

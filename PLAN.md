@@ -332,7 +332,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Centralize the immutable frozen P1.8 catalog used by validation, preflight,
       publication, and comparison; keep expected identities separate from values
       observed while loading, rendering, and sealing.
-- [ ] Generate a private build-time renderer source/toolchain stamp from the full Git
+- [x] Generate a private build-time renderer source/toolchain stamp from the full Git
       revision, a canonical renderer-source closure digest, compiler ID/version, and
       target triple; make dirty or unavailable source state inadmissible and accept no
       caller override.

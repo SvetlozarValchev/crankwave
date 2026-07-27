@@ -179,6 +179,25 @@ floating-point environment, worker count, and reduction topology. The old engine
 capture build and observation patch remain fixture provenance; they are not copied
 into the current build identity.
 
+The private source-stamp checkpoint obtains the full Git `HEAD`, compiler ID/version,
+and effective target triple from the build itself. Its renderer-source digest is
+SHA-256 over a versioned stream of sorted, normalized relative path, decimal byte
+count, and complete-file SHA-256 records for all tracked and untracked
+`CMakeLists.txt`, `cmake/`, `include/`, and `src/` files. Git ignore configuration
+cannot hide a renderer input. The generator runs whenever its private target builds.
+Dirty, unavailable, nested-repository, or unrepresentable source closures return typed
+errors; they never produce admissible build evidence. Standard-library, math-library,
+ISA, CPU, and floating-point admission remain the next separate checkpoint.
+
+Toolchain admission is deliberately narrower than build support: only a top-level,
+single-configuration `Release` build with empty compiler `ARG1`, global flags,
+configured target, and launchers, plus the exact supported `-O3 -DNDEBUG` Release
+flags, receives a target triple. The always-run generator asks GCC for its effective
+multiarch or Clang for its machine triple using that exact supported flag set.
+Response files, caller flags, custom or multi-config builds, and other flag sets remain
+buildable but stamp as unavailable so changed code generation cannot collide under one
+renderer identity.
+
 `ExecutionFacts` continue to describe only the current run. Wall time, host, CPU,
 thread count, job count, and peak memory are excluded from deterministic content
 identity.
