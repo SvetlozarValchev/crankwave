@@ -139,6 +139,35 @@ execution identity. It no longer derives compiler text from preprocessor macros 
 prints an untrusted caller revision. This is the same build-owned value that truthful
 manifest construction will consume in the next checkpoint.
 
+## Method and provenance identity
+
+The private reference support target now pins the 11 method configuration identities
+represented by the reference manifest: audit reader, audit adapter, excitation seam,
+PCG32 generator, recorded seed derivation, reconstruction, conditioning, configured-IR
+conversion, convolution, Float32 stem publication, and audition mastering. Each
+identity retains canonical descriptor bytes, a separately pinned content digest, and
+the catalog-owned stable ID/version. Focused tests recompute every descriptor digest
+and reject drift or duplication. The seed derivation describes the origin of the
+verified seed inventory; replay reads that inventory and does not falsely claim to
+derive it again.
+
+A separate sealed provenance value can be constructed only from
+`P18VerifiedReferenceLineage`. It copies all seven observed file digests into
+repository-relative, local-evaluation-only evidence records, builds three cited
+fixture claims, and owns exactly the 28 authored resolutions required by the executed
+presentation calibration. Catalog expectations remain validation comparators and
+cannot be passed to the factory as observations.
+
+The provenance bundle digest canonically covers the complete ledger except its own
+digest field. Its versioned binary grammar uses explicit little-endian lengths and
+integers, presence tags, raw hashes, enum tags, vector order, and normalized signed
+zero for the only optional binary64 field. The real BMW fixture produces pinned bundle
+digest
+`76dfb503bc1852f1a1d11f739c612d11e4ad4c05ee0ab5c5eda873a35e04f60d`.
+This checkpoint constructs no render manifest and publishes no file.
+The complete current matrix passes 33/33 tests under GCC 13.3 Release, 33/33 under
+Clang 21.1.8 Release, and 31/31 under Clang ASan/UBSan.
+
 A clean Clang 21.1.8 Release build of commit
 `7e32006d2fb4f0164757c7ea04c61902b76ff072` embedded source-closure digest
 `25ce3ce22d661e772432988f5601195786caed45491f2656a2b97d4788785a91` and

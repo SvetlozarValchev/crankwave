@@ -7,6 +7,10 @@ and Web runtimes consume compiled results later.
 The project is intentionally narrow while the BMW M52B28 parity path is established.
 Production code does not link engine-sim or the failed experimental implementation.
 The preserved P1.8 observation patch and fixture are reference evidence only.
+`P1.8` is a temporary plan-checkpoint label, not a production method or API name.
+After the physics-generated BMW listening gate is accepted, the plan requires its
+C++ replay path and build targets to be retired; only the minimum immutable oracle
+evidence and comparison tests may remain outside the production dependency graph.
 
 The implementation plan and listening gates are in [`PLAN.md`](PLAN.md). The
 simulation architecture and admission rules are in [`MODEL.md`](MODEL.md), with the

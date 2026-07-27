@@ -625,6 +625,39 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_p18_reference_provenance_tests
+    p18_reference_provenance_test.cpp
+    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_audit_reader.cpp
+    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_fixture_loader.cpp
+    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_seed_reader.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_reference_provenance_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_reference_provenance_tests
+    PRIVATE
+        engine_sim_offline::artifacts
+        engine_sim_offline::presentation
+        engine_sim_offline_p18_reference_catalog
+        engine_sim_offline_p18_reference_provenance
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_p18_reference_provenance_tests
+)
+
+add_test(
+    NAME reference.p18_provenance
+    COMMAND
+        engine_sim_offline_p18_reference_provenance_tests
+        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18
+)
+
+add_executable(
     engine_sim_offline_p18_mastering_tests
     p18_mastering_test.cpp
 )

@@ -1,6 +1,7 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — P1.8 identity integrated; method/provenance identity next
+Status: implementation — P1.8 method/provenance identity complete; deterministic
+reference-manifest content next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -362,9 +363,11 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Remove the caller-supplied source revision from the P1.8 CLI and verification
       report; use the same build-owned renderer identity that truthful manifest
       construction will consume, and prove the audio remains byte-identical.
-- [ ] Define and pin private content-derived identities for every executed P1.8 method,
-      then construct a canonical self-digesting provenance ledger from observed
-      lineage; do not construct or publish a manifest yet.
+- [x] Define and pin private content-derived identities for every P1.8 method
+      represented by the reference manifest, distinguishing the recorded seed
+      derivation from methods executed during replay; then construct a canonical
+      self-digesting provenance ledger from observed lineage. Do not construct or
+      publish a manifest yet.
 - [ ] Construct and validate deterministic BMW reference-manifest content from the
       verified lineage, actual sealed artifact records, and sealed renderer identity;
       reject expected catalog comparators as substitutes for observations.
