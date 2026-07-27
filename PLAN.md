@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — determinism envelope complete; P1.8 identity integration next
+Status: implementation — P1.8 identity integrated; truthful reference manifest next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -354,7 +354,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Compose the source stamp, loaded-runtime identity, and numeric-environment
       admission into one complete private renderer determinism envelope with no caller
       override.
-- [ ] Remove the caller-supplied source revision from the P1.8 CLI and verification
+- [x] Remove the caller-supplied source revision from the P1.8 CLI and verification
       report; use the same build-owned renderer identity that truthful manifest
       construction will consume, and prove the audio remains byte-identical.
 - [ ] Construct a truthful BMW reference manifest from verified lineage, actual sealed

@@ -139,6 +139,15 @@ execution identity. It no longer derives compiler text from preprocessor macros 
 prints an untrusted caller revision. This is the same build-owned value that truthful
 manifest construction will consume in the next checkpoint.
 
+A clean Clang 21.1.8 Release build of commit
+`7e32006d2fb4f0164757c7ea04c61902b76ff072` embedded source-closure digest
+`25ce3ce22d661e772432988f5601195786caed45491f2656a2b97d4788785a91` and
+successfully admitted the complete identity. The following render reproduced all
+eight expected audio hashes; its audition WAVE remained byte-identical to the liked
+oracle at `f62c164f9a3debca23b1459fae8d6b47a19a98a418490e2e99bcbdf8a7d972eb`.
+The measured render-and-write time was 4.668 seconds, complete process time was 5.14
+seconds, and maximum resident memory was 35,872 KiB.
+
 Preflight opens, bounds, streams, and hashes exactly these fixed descendants of a
 caller-selected fixture root:
 
