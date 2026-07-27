@@ -2,9 +2,9 @@
 
 #include "determinism/renderer_determinism_envelope.hpp"
 #include "engine_sim_offline/contract/render_manifest.hpp"
-#include "reference/p18_reference_artifact_set.hpp"
 #include "reference/p18_reference_fixture_loader.hpp"
 #include "reference/p18_reference_provenance.hpp"
+#include "reference/p18_reference_render_session.hpp"
 
 #include <utility>
 
@@ -36,22 +36,23 @@ class P18ReferenceManifestContent final {
 
     friend P18ReferenceManifestContent make_p18_reference_manifest_content(
         const P18LoadedReferenceFixture &fixture,
-        const P18ReferenceArtifactSet &artifacts,
+        const P18SealedPresentationEvidence &evidence,
         const determinism::RendererDeterminismEnvelope &renderer_identity);
 };
 
 // The sole production factory accepts only evidence-bearing values:
 // - P18LoadedReferenceFixture couples decoded execution inputs to verified lineage;
-// - P18ReferenceArtifactSet exposes records only after actual bytes were sealed; and
+// - P18SealedPresentationEvidence proves all eight role-bound artifacts were actually
+//   streamed and sealed by one presentation session; and
 // - RendererDeterminismEnvelope carries the production mark only from live observers.
 //
-// The artifact set must still be healthy and open, with all eight audio records
-// sealed.
 // Expected catalog payload hashes are never accepted or copied as observations; they
-// compare the independently sealed records before those records are copied. Throws
-// if comparison, construction, or complete contract validation fails.
+// compare the independently sealed evidence before its actual generic artifact
+// records are copied. Throws if comparison, construction, or complete contract
+// validation fails.
 [[nodiscard]] P18ReferenceManifestContent make_p18_reference_manifest_content(
-    const P18LoadedReferenceFixture &fixture, const P18ReferenceArtifactSet &artifacts,
+    const P18LoadedReferenceFixture &fixture,
+    const P18SealedPresentationEvidence &evidence,
     const determinism::RendererDeterminismEnvelope &renderer_identity);
 
 } // namespace engine_sim_offline::reference

@@ -703,72 +703,74 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     )
 
     add_executable(
-        engine_sim_offline_p18_reference_artifact_set_tests
-        p18_reference_artifact_set_test.cpp
+        engine_sim_offline_p18_presentation_session_boundary_tests
+        p18_presentation_session_boundary_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_p18_reference_artifact_set_tests
+        engine_sim_offline_p18_presentation_session_boundary_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/src
     )
 
     target_link_libraries(
-        engine_sim_offline_p18_reference_artifact_set_tests
+        engine_sim_offline_p18_presentation_session_boundary_tests
         PRIVATE
-            engine_sim_offline::artifacts
-            engine_sim_offline_p18_reference_artifact_set
-            engine_sim_offline_p18_reference_catalog
+            engine_sim_offline_p18_presentation_session
+            $<$<PLATFORM_ID:Linux>:m>
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_p18_presentation_session_boundary_tests
     )
 
     add_test(
-        NAME reference.p18_artifact_set
-        COMMAND engine_sim_offline_p18_reference_artifact_set_tests
+        NAME reference.p18_session_boundary
+        COMMAND engine_sim_offline_p18_presentation_session_boundary_tests
     )
 
     add_executable(
-        engine_sim_offline_p18_reference_manifest_content_tests
-        p18_reference_manifest_content_test.cpp
+        engine_sim_offline_p18_reference_transaction_tests
+        p18_reference_transaction_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_p18_reference_manifest_content_tests
+        engine_sim_offline_p18_reference_transaction_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/src
     )
 
     target_link_options(
-        engine_sim_offline_p18_reference_manifest_content_tests
+        engine_sim_offline_p18_reference_transaction_tests
         PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--no-as-needed>
     )
 
     target_link_libraries(
-        engine_sim_offline_p18_reference_manifest_content_tests
+        engine_sim_offline_p18_reference_transaction_tests
         PRIVATE
             engine_sim_offline::artifacts
-            engine_sim_offline::presentation
-            engine_sim_offline_p18_reference_artifact_set
+            engine_sim_offline_p18_presentation_session
             engine_sim_offline_p18_reference_catalog
             engine_sim_offline_p18_reference_fixture
             engine_sim_offline_p18_reference_manifest
+            engine_sim_offline_p18_reference_session_adapter
+            engine_sim_offline_renderer_determinism
             $<$<PLATFORM_ID:Linux>:m>
     )
     engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_p18_reference_manifest_content_tests
+        engine_sim_offline_p18_reference_transaction_tests
     )
 
     add_test(
-        NAME reference.p18_manifest_content
+        NAME reference.p18_transactional_exact
         COMMAND
-            engine_sim_offline_p18_reference_manifest_content_tests
+            engine_sim_offline_p18_reference_transaction_tests
             ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18
-            ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/stems
-            ${PROJECT_SOURCE_DIR}/reference/oracles/bmw-m52b28/bmw-m52b28-5th-gear-equivalent-dyno-1500-6500rpm.wav
     )
     set_tests_properties(
-        reference.p18_manifest_content
+        reference.p18_transactional_exact
         PROPERTIES SKIP_RETURN_CODE 77
     )
+
 endif()
 
 if(TARGET engine_sim_offline_cli_shell)

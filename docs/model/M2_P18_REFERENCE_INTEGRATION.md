@@ -1,6 +1,6 @@
 # P1.8 isolated reference integration
 
-Status: audio route implemented and user-accepted on 2026-07-27; reference metadata
+Status: audio route user-accepted on 2026-07-27; bounded transactional reference
 integration implemented
 
 This checkpoint connects the already frozen P1.8 source stage, static IR conversion,
@@ -11,10 +11,14 @@ new engine physics or offline-fidelity replacements begin.
 ## Boundary
 
 `ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS` is off by default. When enabled it builds
-one executable whose fixture readers, fixture preflight, render coordinator, digest
-comparison, and local publisher remain private to the reference target. Its immutable
-catalog is a private support library built only for tests or this opt-in tool; none of
-these components are linked by the public renderer, CLI, or future M3 simulation.
+one executable. Fixture readers, fixture preflight, the audit-to-excitation adapter,
+the immutable comparator catalog, and reference-manifest construction remain private
+to that opt-in integration. The stateful presentation session is a separate
+fixture-free target: it accepts only typed `ExhaustExcitationBlockView` blocks,
+presentation seeds, an immutable IR kernel, and a generic `RenderSink`. It neither
+includes nor links the fixture decoder and is the accepted acoustic boundary that M3
+physics will drive. The public renderer and CLI link neither reference path while
+public `render()` remains fail-closed.
 A separate private renderer-determinism target records build-owned source, compiler,
 and target facts and rejects dirty or unavailable source. It also observes the actual
 loaded libstdc++, glibc libm, and libgcc_s providers without loading a missing library.
@@ -138,14 +142,14 @@ rejection therefore fails without creating an output tree. The executable link
 retains its selected libm provider explicitly so provider admission cannot depend on
 incidental linker reachability.
 
-The command now accepts exactly the fixture root, publication root, and publication
-name. It has no source-revision argument. The verification report receives the sealed
-identity value and writes its exact manifest projection: full Git object ID, renderer
-source-closure digest, compiler and target facts, all three runtime-provider IDs and
-content identities, numeric-policy and ISA IDs, floating-point facts, and serial
-execution identity. It no longer derives compiler text from preprocessor macros or
-prints an untrusted caller revision. This same build-owned value is the only renderer
-identity accepted by deterministic reference-manifest content construction.
+The command accepts exactly the fixture root, publication root, and publication name.
+It has no source-revision argument or alternate publisher. The sealed identity's
+exact projection—full Git object ID, renderer source-closure digest, compiler and
+target facts, all three runtime-provider identities, numeric-policy and ISA IDs,
+floating-point facts, and serial execution identity—is written into the canonical
+manifest rather than reconstructed as report text. This same build-owned value is the
+only renderer identity accepted by deterministic reference-manifest content
+construction.
 
 ## Method and provenance identity
 
@@ -186,7 +190,7 @@ the eight audio artifacts have been sealed. Its sole factory is:
 [[nodiscard]] P18ReferenceManifestContent
 make_p18_reference_manifest_content(
     const P18LoadedReferenceFixture &,
-    const P18ReferenceArtifactSet &,
+    const P18SealedPresentationEvidence &,
     const determinism::RendererDeterminismEnvelope &);
 ```
 
@@ -195,8 +199,8 @@ Those three evidence-bearing inputs supply only:
 - the verified loaded fixture, including its independently observed seven-file
   lineage and decoded component-seed inventory;
 - the build-owned `RendererDeterminismEnvelope`; and
-- the still-open `P18ReferenceArtifactSet` transaction, from which all eight sealed
-  whole-file records are queried.
+- the private-construction `P18SealedPresentationEvidence`, which owns all eight
+  actual whole-file records only after the session streamed and sink-sealed them.
 
 The factory constructs `P18ReferenceProvenance` from the fixture lineage itself.
 Successful construction returns a sealed `P18ReferenceManifestContent` that owns both
@@ -208,13 +212,11 @@ validated `P18ReferenceManifestContent`.
 
 Expected lineage and audio records in `P18ReferenceCatalogV1` remain comparators and
 authored-policy records. They are not accepted as observations. The content boundary
-also rejects a caller-created vector of `P18ReferenceArtifactRecord`; possessing that
-plain record shape does not prove that the private artifact transaction wrote,
-synchronized, verified, and sealed the corresponding file. After querying the live
-transaction, the factory compares every observed artifact size and digest with the
-frozen comparator and copies the observed record only when it matches. The
-transaction must remain healthy and open; poisoned, published, and aborted states are
-rejected.
+also rejects a caller-created vector of `ArtifactRecord`; possessing that transport
+shape does not prove that one session wrote and sealed the corresponding files. The
+factory compares every evidence record's role, path, media contract, diagnostic flag,
+size, and digest with the source matrix and frozen comparator and copies the actual
+record only when it matches. Expected hashes are never substituted for observations.
 
 The fixture identity copies the observed byte count and complete-file digest of each
 of the seven lineage files. The executed randomness copies only the four decoded
@@ -239,11 +241,11 @@ identity, or cross-record validation failure prevents successful construction.
 The deterministic-content boundary deliberately stops before run-specific work. It
 does not observe
 `ExecutionFacts`, complete a `RenderManifest`, call the canonical JSON encoder, write
-the manifest or sidecar, or change the existing eight-file publication transaction.
-Observation, completion, and in-memory encoding are owned by the separate boundary
-below; filesystem publication remains a later checkpoint. Both boundaries remain
-absent from the public renderer, CLI, and M3 simulation dependency graphs, so
-reference replay still cannot impersonate a successful physics render.
+the manifest or sidecar, or commit the output transaction. Observation, completion,
+encoding, and publication are owned by the session/integration boundary below. The
+fixture adapter and reference input alternative remain absent from public renderer,
+CLI, and M3 physics dependency graphs, so replay cannot impersonate a successful
+physics render.
 
 ## Execution facts and complete in-memory manifest
 
@@ -253,8 +255,9 @@ returns a move-only observation. Finish consumes that observation and seals
 `ObservedExecutionFacts`; its private constructor prevents caller-created facts and
 pure observer-test values from acquiring the completion type.
 
-The observation interval begins immediately before `render_p18_reference_audio()` and
-ends after all eight audio artifacts have been sealed. The observer uses kernel
+The observation interval begins after output preflight, sink begin, and all eight
+declarations, immediately before the first WAVE header is written. It ends only after
+all eight audio artifacts have been sealed. The observer uses kernel
 randomness for `render-run-<128-bit hex>`, `CLOCK_REALTIME` for the fixed-nanosecond
 UTC start, `CLOCK_BOOTTIME` for positive elapsed wall time, bounded `uname` and CPUID
 identity after an `ARCH_GET_CPUID` enabled-state check, `_SC_NPROCESSORS_ONLN`, a
@@ -269,11 +272,13 @@ BMW source matrix, then invokes the already-frozen reference-v2 canonical encode
 The returned `P18CompletedReferenceManifest` owns the provenance, typed manifest, and
 canonical bytes as one in-memory value.
 
-No filesystem path, sink, manifest sidecar, or publication operation is accepted by
-this boundary. The existing listening transaction still publishes only its eight
-audio files and two diagnostic text reports. The public renderer and CLI dependency
-graphs remain free of the reference observer/completion path, and public `render()`
-continues to reject the otherwise valid request before touching its sink.
+The owning session then requires the complete manifest's artifact and execution
+observations to equal its own sealed evidence and revalidates the whole manifest at
+the commit boundary. `DirectoryRenderSink` writes the retained canonical manifest and
+its SHA-256 sidecar beside the eight WAVs, verifies the exact ten-file staged tree,
+and performs one atomic no-replace publication. There are no diagnostic report files
+and no second transaction implementation. Public `render()` continues to reject the
+otherwise valid request before touching its sink.
 
 A clean Clang 21.1.8 Release build of commit
 `7e32006d2fb4f0164757c7ea04c61902b76ff072` embedded source-closure digest
@@ -310,12 +315,19 @@ histories but are not published. The remaining 750 blocks produce 2,880,000 fram
 for six Float32 stems, one Float32 raw master, and one PCM24 audition master. There is
 no reset at the crop and no convolution tail flush.
 
-The eight outputs are written into one private staging directory. Each encoder callback
-is offset checked and incrementally hashed. Publication requires all exact byte counts,
-sealed regular files, synchronized contents, and an exact staging inventory, then uses
-an atomic no-replace directory rename. Oracle hash mismatch is diagnostic rather than
-destructive: a complete candidate is published and clearly labelled for listening.
-Incomplete or malformed output is never published.
+The fixture-only adapter maps each already-decoded 200-frame audit block, unscaled and
+in route order, into the typed excitation seam. The session target itself never reads
+or links the fixture. Each encoder callback is offset checked and independently
+hashed by both the session evidence and sink. Cancellation is observed only before
+begin, between complete blocks, and once before finalization.
+
+The eight outputs, canonical manifest, and sidecar are written into one private
+staging directory. Publication requires exact accepted artifact hashes, all
+source-matrix routing and bus ownership, live execution facts, sealed regular files,
+synchronized contents, and the exact ten-file inventory, then uses an atomic
+no-replace directory rename. Because this checkpoint wraps the already accepted
+renderer, any oracle mismatch fails closed and publishes nothing. Incomplete,
+malformed, cancelled, or mismatched output is never published.
 
 ## Frozen result
 
@@ -334,8 +346,8 @@ offline-fidelity improvement.
 
 ## Measured performance
 
-Measurements on this PC on 2026-07-27, with Release mode, `-ffp-contract=off`, and the
-complete eight-file no-overwrite publisher:
+Earlier accepted-renderer measurements on this PC on 2026-07-27 used Release mode,
+`-ffp-contract=off`, and the predecessor eight-WAV staging path:
 
 | Measurement | Result |
 |---|---:|
@@ -364,9 +376,10 @@ remain below the 30-second target, and the audition WAVE identity did not change
 ## Listening rule
 
 The main audition file is `audio/master.reference.audition.wav`; the raw coherent sum
-and selected route stems are published beside it. Work stops after publishing the
-controlled set. Only the user's listening decision records acceptance or rejection and
-permits the next checkpoint.
+and selected route stems are published beside it. The user already accepted this
+byte-identical acoustic route. The next mandatory listening stop occurs only after M3
+replaces the trace adapter with clean-slate physics while keeping this presentation
+boundary unchanged.
 
 The user accepted the byte-identical candidate rendered from commit
 `9cc0cd8f1129b14de157082ad6e66407b548041c`. Acceptance is limited to this downstream

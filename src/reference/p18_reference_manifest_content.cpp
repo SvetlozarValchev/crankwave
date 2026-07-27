@@ -377,50 +377,47 @@ void append_routes_and_buses(contract::RenderManifestContent &content,
 }
 
 void append_observed_artifacts(contract::RenderManifestContent &content,
-                               const P18ReferenceArtifactSet &artifact_set,
+                               const P18SealedPresentationEvidence &evidence,
                                const contract::SourceMatrixContract &source_matrix,
                                const P18ReferenceCatalogV1 &catalog) {
-    if (artifact_set.state() != P18ReferenceArtifactSetState::open ||
-        artifact_set.last_error().has_value() ||
+    const auto &artifacts = evidence.artifacts();
+    if (artifacts.size() != kP18ReferenceAudioArtifactCount ||
         source_matrix.required_artifacts.size() != kP18ReferenceAudioArtifactCount ||
         catalog.expected_audio.size() != kP18ReferenceAudioArtifactCount) {
         throw std::logic_error{
-            "P1.8 manifest requires one healthy open eight-audio artifact transaction"};
+            "P1.8 manifest requires exactly eight sealed presentation artifacts"};
     }
 
     content.artifacts.reserve(kP18ReferenceAudioArtifactCount);
     for (std::size_t index = 0; index < kP18ReferenceAudioArtifactCount; ++index) {
         const auto artifact = static_cast<P18ReferenceAudioArtifact>(index);
-        const auto observed = artifact_set.record(artifact);
-        if (!observed.has_value() || observed->artifact != artifact ||
-            observed->byte_count == 0 || observed->payload_sha256.is_zero()) {
+        const auto &observed = artifacts[index];
+        if (observed.byte_count == 0 || observed.payload_sha256.is_zero()) {
             throw std::logic_error{
                 "P1.8 manifest requires all eight actual sealed artifact records"};
         }
         const auto &required = source_matrix.required_artifacts[index];
-        if (observed->role != required.role) {
-            throw std::logic_error{
-                "P1.8 sealed artifact order differs from the source matrix"};
-        }
         const auto &expected = catalog.expected_audio[index];
         if (expected.audio != artifact || expected.expected_role != required.role ||
-            expected.expected_diagnostic != required.diagnostic ||
-            observed->role != expected.expected_role ||
-            observed->relative_path != expected.expected_relative_path ||
-            observed->byte_count != expected.expected_byte_count ||
-            observed->payload_sha256 != expected.expected_sha256) {
+            expected.expected_diagnostic != required.diagnostic) {
+            throw std::logic_error{
+                "P1.8 frozen artifact comparator differs from the source matrix"};
+        }
+        if (observed.role != required.role || observed.kind != required.kind ||
+            observed.audio != required.audio ||
+            observed.diagnostic != required.diagnostic) {
+            throw std::logic_error{
+                "P1.8 sealed artifact differs from the source-matrix requirement"};
+        }
+        if (observed.role != expected.expected_role ||
+            observed.relative_path != expected.expected_relative_path ||
+            observed.diagnostic != expected.expected_diagnostic ||
+            observed.byte_count != expected.expected_byte_count ||
+            observed.payload_sha256 != expected.expected_sha256) {
             throw std::logic_error{
                 "P1.8 sealed artifact differs from the frozen reference comparator"};
         }
-        content.artifacts.push_back({
-            std::string{observed->role},
-            required.kind,
-            std::string{observed->relative_path},
-            required.audio,
-            observed->byte_count,
-            observed->payload_sha256,
-            required.diagnostic,
-        });
+        content.artifacts.push_back(observed);
     }
 }
 
@@ -448,7 +445,8 @@ const P18ReferenceProvenance &P18ReferenceManifestContent::provenance() const no
 }
 
 P18ReferenceManifestContent make_p18_reference_manifest_content(
-    const P18LoadedReferenceFixture &fixture, const P18ReferenceArtifactSet &artifacts,
+    const P18LoadedReferenceFixture &fixture,
+    const P18SealedPresentationEvidence &evidence,
     const determinism::RendererDeterminismEnvelope &renderer_identity) {
     if (!renderer_identity.production_observation()) {
         throw std::logic_error{
@@ -468,7 +466,7 @@ P18ReferenceManifestContent make_p18_reference_manifest_content(
     content.randomness = make_random_plan(fixture, inputs.capture, catalog);
     content.output_contract = contract::resolve_output_contract(source_matrix);
     append_routes_and_buses(content, source_matrix, catalog);
-    append_observed_artifacts(content, artifacts, source_matrix, catalog);
+    append_observed_artifacts(content, evidence, source_matrix, catalog);
 
     const auto report = contract::validate(content, provenance.ledger(), source_matrix);
     if (!report.ok()) {

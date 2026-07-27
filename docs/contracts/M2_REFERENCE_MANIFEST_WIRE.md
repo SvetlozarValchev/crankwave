@@ -134,7 +134,7 @@ observation meaning:
   DSP execution, formatted with exactly nine fractional decimal digits;
 - `wall_elapsed_ns` is the positive checked `CLOCK_BOOTTIME` difference through the
   sealing of all eight audio files, so it includes suspension as user-visible wait
-  time but excludes preflight, manifest completion/encoding, reports, and publication;
+  time but excludes preflight, manifest completion/encoding, and final publication;
 - `host_os` is the bounded `uname` sysname, release, and machine tuple;
 - `cpu_model` is the trimmed 48-byte x86-64 CPUID brand, observed only after
   `ARCH_GET_CPUID` proves CPUID is enabled for the calling thread;

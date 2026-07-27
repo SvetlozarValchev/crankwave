@@ -299,8 +299,9 @@ verified loaded fixture
   observed seven-file lineage + decoded executed seed inventory
 sealed renderer determinism envelope
   current clean build/runtime/numeric identity
-open reference artifact transaction
-  with eight independently measured, sealed whole-file records
+sealed presentation-session evidence
+  eight independently measured and sink-sealed generic ArtifactRecords
+  + live ObservedExecutionFacts from the same bounded session
              |
              v
 sealed manifest content
@@ -313,7 +314,7 @@ The sole factory is:
 [[nodiscard]] P18ReferenceManifestContent
 make_p18_reference_manifest_content(
     const P18LoadedReferenceFixture &,
-    const P18ReferenceArtifactSet &,
+    const P18SealedPresentationEvidence &,
     const determinism::RendererDeterminismEnvelope &);
 ```
 
@@ -327,14 +328,14 @@ and retention boundary, not a claim that C++ callers cannot copy either value.
 Expected catalog records are not observation inputs. In particular, the production
 construction boundary accepts neither `P18ExpectedLineageFile` nor
 `P18ExpectedAudioComparator`, and it does not accept an arbitrary caller-created
-vector of `P18ReferenceArtifactRecord`. The latter would be insufficient because the
-record is a transport value that a caller can assemble without completing the
-artifact-set write, synchronization, regular-file verification, and seal lifecycle.
-Construction instead queries the live `P18ReferenceArtifactSet` and requires all
-eight sealed records in canonical `P18ReferenceAudioArtifact` order. It then compares
-each observed size and digest with the frozen reference comparator before copying the
-observed record into content; the comparator never becomes the emitted observation.
-A poisoned, published, or aborted transaction is not an admissible source.
+vector of `ArtifactRecord`. The latter would be insufficient because the record is a
+transport value that a caller can assemble without streaming bytes through the
+session and completing the sink seal lifecycle. Construction instead accepts the
+private-construction `P18SealedPresentationEvidence` created only after the one
+presentation session has written and sink-sealed all eight records. It compares each
+actual role, path, media contract, diagnostic flag, size, and digest with the source
+matrix and frozen comparator before copying the actual generic record into content;
+the comparator never becomes the emitted observation.
 
 The catalog and frozen source matrix remain valid authorities for authored
 configuration and policy: stable IDs, capture/crop clocks, route topology,
@@ -396,11 +397,11 @@ tests and raw caller facts cannot acquire that type.
 The reference executable begins this interval immediately before the DSP render and
 finishes it only after all eight audio files have been sealed. Thus
 `wall_elapsed` measures DSP, streaming writes, and audio sealing. It excludes fixture
-preflight, deterministic manifest construction, canonical encoding, report creation,
-and publication. Linux `ru_maxrss` is explicitly a process-lifetime high-water mark as
-of finish, not an isolated delta for the interval. The one-render-process reference
-tool may report it truthfully; a later long-lived server will need a session-scoped
-sampler rather than silently reusing that meaning.
+preflight, deterministic manifest construction, canonical encoding, and final
+publication. Linux `ru_maxrss` is explicitly a process-lifetime high-water mark as of
+finish, not an isolated delta for the interval. The one-render-process reference tool
+may report it truthfully; a later long-lived server will need a session-scoped sampler
+rather than silently reusing that meaning.
 
 Only `ObservedExecutionFacts` can cross the private completion boundary:
 
@@ -418,10 +419,13 @@ required because the encoder checks wire representability, not semantic validity
 The returned wrapper owns the exact provenance, complete typed manifest, and canonical
 bytes together.
 
-This checkpoint retains those bytes in memory only. It does not write the manifest,
-compute or write a sidecar, mutate the audio transaction, or add a second publication
-path. Transactional manifest publication belongs to the next isolated session
-checkpoint.
+The completed wrapper retains the canonical bytes in memory. The owning presentation
+transaction then revalidates that its own sealed artifact and execution evidence are
+the manifest observations and makes one terminal `DirectoryRenderSink::commit()`
+attempt. That sink publishes those eight artifact records plus
+`manifest/render-manifest.v2.json` and its SHA-256 sidecar as one exact ten-file,
+atomic no-replace tree. There is no second artifact-set publisher or report-file
+transaction.
 
 `ExecutionFacts` continue to describe only the current run. Wall time, host, CPU,
 thread count, job count, and peak memory are excluded from deterministic content
@@ -441,6 +445,7 @@ This split:
 - supplies the minimal context needed to validate the exact P1.8 presentation.
 
 This checkpoint constructs deterministic content, attaches live execution facts,
-validates a complete reference manifest, and canonically encodes it in memory. It does
-not publish manifest metadata, admit fixture replay through public `render()`, alter
-audio, or make a new sound-quality claim.
+validates and canonically encodes the complete reference manifest, and publishes the
+eight WAVs plus its manifest and sidecar in one transaction. It does not admit fixture
+replay through public `render()`, alter the accepted audio algorithms, or make a new
+sound-quality claim.

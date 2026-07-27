@@ -1,22 +1,21 @@
 #include "determinism/renderer_determinism_envelope.hpp"
-#include "execution/linux_execution_facts.hpp"
-#include "reference/p18_reference_artifact_set.hpp"
+#include "engine_sim_offline/artifacts/directory_render_sink.hpp"
+#include "engine_sim_offline/artifacts/reference_manifest_encoder.hpp"
+#include "engine_sim_offline/contract/source_matrix.hpp"
+#include "reference/p18_reference_catalog.hpp"
 #include "reference/p18_reference_fixture_loader.hpp"
 #include "reference/p18_reference_manifest_completion.hpp"
 #include "reference/p18_reference_manifest_content.hpp"
 #include "reference/p18_reference_render_session.hpp"
-#include "reference/p18_reference_verification.hpp"
+#include "reference/p18_reference_session_adapter.hpp"
 
 #include <chrono>
 #include <cstddef>
 #include <exception>
 #include <filesystem>
 #include <iostream>
-#include <memory>
-#include <optional>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <variant>
 
@@ -24,18 +23,6 @@ namespace {
 
 using namespace engine_sim_offline;
 using namespace engine_sim_offline::reference;
-
-[[nodiscard]] std::runtime_error sink_error(std::string_view operation,
-                                            const RenderSinkError &error) {
-    return std::runtime_error{std::string(operation) + ": " + error.detail_code + ": " +
-                              error.message};
-}
-
-void require_success(std::string_view operation, const RenderSinkStatus &status) {
-    if (status.has_value()) {
-        throw sink_error(operation, *status);
-    }
-}
 
 [[nodiscard]] std::runtime_error
 determinism_error(const determinism::RendererDeterminismEnvelopeResult &result) {
@@ -70,46 +57,6 @@ determinism_error(const determinism::RendererDeterminismEnvelopeResult &result) 
     throw determinism_error(result);
 }
 
-[[nodiscard]] std::runtime_error
-execution_error(std::string_view operation,
-                const execution::LinuxExecutionFactsError &error) {
-    auto message = std::string{operation} + " rejected at " + error.component + ": " +
-                   error.message;
-    if (error.system_error != 0) {
-        message += " (system error " + std::to_string(error.system_error) + ")";
-    }
-    return std::runtime_error{std::move(message)};
-}
-
-[[nodiscard]] execution::LinuxExecutionFactsObservation require_execution_begin() {
-    auto result = execution::begin_single_job_linux_execution();
-    if (auto *observation =
-            std::get_if<execution::LinuxExecutionFactsObservation>(&result)) {
-        return std::move(*observation);
-    }
-    throw execution_error("could not begin Linux execution observation",
-                          std::get<execution::LinuxExecutionFactsError>(result));
-}
-
-[[nodiscard]] execution::ObservedExecutionFacts
-require_execution_finish(execution::LinuxExecutionFactsObservation &&observation) {
-    auto result = execution::finish_single_job_linux_execution(std::move(observation));
-    if (auto *facts = std::get_if<execution::ObservedExecutionFacts>(&result)) {
-        return std::move(*facts);
-    }
-    throw execution_error("could not finish Linux execution observation",
-                          std::get<execution::LinuxExecutionFactsError>(result));
-}
-
-[[nodiscard]] std::unique_ptr<P18ReferenceArtifactSet>
-create_artifact_set(const std::filesystem::path &root, std::string name) {
-    auto result = P18ReferenceArtifactSet::create(root, std::move(name));
-    if (const auto *error = std::get_if<RenderSinkError>(&result)) {
-        throw sink_error("could not create P1.8 artifact set", *error);
-    }
-    return std::move(std::get<std::unique_ptr<P18ReferenceArtifactSet>>(result));
-}
-
 [[nodiscard]] const P18ExpectedAudioComparator &
 require_expected_audio(const P18ReferenceCatalogV1 &catalog,
                        P18ReferenceAudioArtifact artifact) {
@@ -127,6 +74,7 @@ int run(int argc, char **argv) {
             "usage: engine-sim-offline-p18-reference-render <fixture-root> "
             "<publication-root> <publication-name>"};
     }
+    const auto command_started = std::chrono::steady_clock::now();
     const auto renderer_identity = require_renderer_identity();
     const std::filesystem::path fixture_root{argv[1]};
     const std::filesystem::path publication_root{argv[2]};
@@ -140,71 +88,68 @@ int run(int argc, char **argv) {
     }
 
     auto fixture = load_p18_reference_fixture(fixture_root);
-    auto artifact_set = create_artifact_set(publication_root, publication_name);
-    P18ReferenceAudioConsumers consumers{};
-    const auto &catalog = p18_reference_catalog_v1();
-    const auto &audio_artifacts = catalog.expected_audio;
-    for (std::size_t index = 0; index < audio_artifacts.size(); ++index) {
-        const auto &description = audio_artifacts[index];
-        if (&require_expected_audio(catalog, description.audio) != &description) {
-            throw std::logic_error{
-                "P1.8 audio catalog contains a duplicate enum identity"};
-        }
-        consumers[index] = artifact_set->consumer(description.audio);
+    auto plan = make_p18_reference_presentation_session_plan();
+    artifacts::DirectoryRenderSink sink{
+        publication_root,
+        publication_name,
+        std::string{artifacts::kReferenceManifestRelativePathV2},
+        artifacts::encode_reference_manifest_v2,
+    };
+
+    const auto render_started = std::chrono::steady_clock::now();
+    P18PresentationSession session{
+        sink,
+        std::move(plan),
+        p18_reference_presentation_seeds(fixture.component_seeds),
+        fixture.configured_ir_kernel,
+    };
+    replay_p18_reference_audit(fixture.audit, session);
+    auto evidence = session.finish();
+    const auto render_finished = std::chrono::steady_clock::now();
+
+    const auto manifest_content =
+        make_p18_reference_manifest_content(fixture, evidence, renderer_identity);
+    const auto completed_manifest =
+        complete_p18_reference_manifest(manifest_content, evidence.execution());
+    const auto &source_matrix = contract::bmw_m52b28_reference_source_matrix_v1();
+    session.commit(evidence, completed_manifest.manifest(),
+                   completed_manifest.provenance().ledger(), source_matrix);
+    const auto command_finished = std::chrono::steady_clock::now();
+
+    const auto expected_manifest_sha =
+        contract::sha256(completed_manifest.canonical_bytes());
+    if (sink.manifest_payload_sha256() !=
+        std::optional<contract::Sha256Digest>{expected_manifest_sha}) {
+        throw std::logic_error{
+            "published manifest differs from the validated canonical bytes"};
     }
 
-    auto execution_observation = require_execution_begin();
-    const auto render_started = std::chrono::steady_clock::now();
-    const auto stats =
-        render_p18_reference_audio(fixture.audit, fixture.component_seeds.route_seeds(),
-                                   fixture.configured_ir_kernel, consumers);
-    const auto render_finished = std::chrono::steady_clock::now();
+    const auto &audition = require_expected_audio(
+        p18_reference_catalog_v1(), P18ReferenceAudioArtifact::master_audition);
     const auto render_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
         render_finished - render_started);
+    const auto command_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        command_finished - command_started);
 
-    for (const auto &description : audio_artifacts) {
-        require_success("could not seal P1.8 audio artifact",
-                        artifact_set->seal(description.audio));
-    }
-    const auto execution_facts =
-        require_execution_finish(std::move(execution_observation));
-    const auto report = make_p18_reference_verification_report(
-        fixture, stats, *artifact_set, render_duration, renderer_identity);
-    std::optional<std::size_t> manifest_bytes_in_memory;
-    if (report.exact_reference_match) {
-        const auto manifest_content = make_p18_reference_manifest_content(
-            fixture, *artifact_set, renderer_identity);
-        const auto completed_manifest =
-            complete_p18_reference_manifest(manifest_content, execution_facts);
-        manifest_bytes_in_memory = completed_manifest.canonical_bytes().size();
-    }
-    require_success(
-        "could not write P1.8 verification report",
-        artifact_set->write_text_report("verification.txt", report.verification_text));
-    require_success(
-        "could not write P1.8 listening guide",
-        artifact_set->write_text_report("LISTENING.md", report.listening_markdown));
-    require_success("could not publish P1.8 listening set", artifact_set->publish());
-
-    const auto &audition =
-        require_expected_audio(catalog, P18ReferenceAudioArtifact::master_audition);
-    std::cout
-        << "publication=" << artifact_set->publication_path().string() << '\n'
-        << "audition="
-        << (artifact_set->publication_path() /
-            std::filesystem::path{audition.expected_relative_path})
-               .string()
-        << '\n'
-        << "exact_reference_match=" << (report.exact_reference_match ? "yes" : "no")
-        << '\n'
-        << "render_seconds=" << std::chrono::duration<double>(render_duration).count()
-        << '\n'
-        << "execution_seconds="
-        << std::chrono::duration<double>(execution_facts.facts().wall_elapsed).count()
-        << '\n';
-    if (manifest_bytes_in_memory.has_value()) {
-        std::cout << "manifest_bytes_in_memory=" << *manifest_bytes_in_memory << '\n';
-    }
+    std::cout << "publication=" << sink.publication_path().string() << '\n'
+              << "audition="
+              << (sink.publication_path() /
+                  std::filesystem::path{audition.expected_relative_path})
+                     .string()
+              << '\n'
+              << "exact_reference_match=yes\n"
+              << "render_seconds="
+              << std::chrono::duration<double>(render_duration).count() << '\n'
+              << "execution_seconds="
+              << std::chrono::duration<double>(
+                     evidence.execution().facts().wall_elapsed)
+                     .count()
+              << '\n'
+              << "total_command_seconds="
+              << std::chrono::duration<double>(command_duration).count() << '\n'
+              << "manifest_bytes=" << completed_manifest.canonical_bytes().size()
+              << '\n'
+              << "published_file_count=10\n";
     return 0;
 }
 

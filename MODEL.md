@@ -355,10 +355,11 @@ master. These are behavioral-reference operations. In particular:
 - passing M2 validates renderer behavior and audibility, not engine physics.
 
 The audit schema/reader and its fixture adapter exist only in a reference/test target.
-The internal renderer seam accepts the typed `ExhaustExcitationBlock` required by the
-frozen source matrix: M2's test adapter and M3's physical excitation stage both call
-that one implementation. The public `render` API, CLI, engine/scenario specification,
-and production manifest cannot accept an audit file or a caller-supplied prebuilt
+The internal renderer seam accepts the typed, callback-scoped
+`ExhaustExcitationBlockView` required by the frozen source matrix: M2's test adapter
+and M3's physical excitation stage both drive that one stateful session
+implementation. The public `render` API, CLI, engine/scenario specification, and
+production manifest cannot accept an audit file or a caller-supplied prebuilt
 excitation bus. M3 and production targets link neither the audit reader nor its
 adapter. An external comparison executable may read both sets of outputs but may not
 feed M3 from the audit lane.
@@ -798,7 +799,8 @@ the fixture and frozen source matrix. The result is uncalibrated
 production outlet radiation.
 
 M3 uses the exact renderer implementation accepted at the M2 listening stop. Its
-manifest pins that renderer's method/config identity and accepting commit/artifact.
+manifest pins that renderer's method/config identity and the actual committed
+artifact identities.
 There is no M3-specific IR, gain, normalization, DSP retune, alternate block
 partition, or alternate master. Any renderer change returns to an M2 fixture A/B and
 another listening stop before upstream work resumes.

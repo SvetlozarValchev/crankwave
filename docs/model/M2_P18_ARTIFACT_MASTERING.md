@@ -75,7 +75,8 @@ identity.
 | `master.reference.audition` | `audio/master.reference.audition.wav` | no | 8,640,302 | `f62c164f9a3debca23b1459fae8d6b47a19a98a418490e2e99bcbdf8a7d972eb` |
 
 The complete eight-file artifact set is 89,280,708 bytes, including all WAVE headers
-and metadata. Its sample payloads total 89,280,000 bytes. The later transaction uses:
+and metadata. Its sample payloads total 89,280,000 bytes. The completed transaction
+also publishes:
 
 ```text
 manifest/render-manifest.v2.json
