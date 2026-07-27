@@ -332,9 +332,17 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Centralize the immutable frozen P1.8 catalog used by validation, preflight,
       publication, and comparison; keep expected identities separate from values
       observed while loading, rendering, and sealing.
-- [ ] Embed a build-owned renderer determinism identity derived from configured source,
-      compiler, target, standard-library, math-library, ISA, and floating-point state;
-      do not accept a caller-supplied revision as build evidence.
+- [ ] Generate a private build-time renderer source/toolchain stamp from the full Git
+      revision, a canonical renderer-source closure digest, compiler ID/version, and
+      target triple; make dirty or unavailable source state inadmissible and accept no
+      caller override.
+- [ ] Admit the actual standard-library, math-library, compiled ISA, CPU capability,
+      IEEE-754 format, rounding, contraction, flush-to-zero, and denormals-are-zero
+      state; compose the source stamp into one complete private renderer determinism
+      identity and fail closed on unsupported state.
+- [ ] Remove the caller-supplied source revision from the P1.8 CLI and verification
+      report; use the same build-owned renderer identity that truthful manifest
+      construction will consume, and prove the audio remains byte-identical.
 - [ ] Construct a truthful BMW reference manifest from verified lineage, actual sealed
       artifacts, the embedded renderer identity, and observed execution facts without
       admitting fixture replay through public `render()`.
@@ -365,6 +373,13 @@ replay, and production/M3 targets never link the reference reader.
 Exact hashes establish only this narrow trace-driven renderer comparison—not
 public-render success, new physics, production completeness, higher fidelity,
 distribution rights, or user acceptance.
+
+The former single build-identity checkbox was split before implementation because a
+source/toolchain stamp, runtime numeric-environment admission, and reference-route
+integration have different failure modes and rollback boundaries. The encoder remains
+an encoding boundary: it serializes a supplied identity but never invents or
+authenticates build facts. Dirty development builds remain usable, but cannot publish
+an admissible renderer identity or truthful manifest.
 
 The user accepted the renderer on 2026-07-27 after listening to the candidate from
 commit `9cc0cd8f1129b14de157082ad6e66407b548041c` and confirming that it was identical
