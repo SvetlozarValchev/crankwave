@@ -1,7 +1,7 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — M2 artifact sinks and focused DSP complete; exact P1.8
-mastering contract next
+Status: implementation — exact P1.8 artifact/mastering contract frozen; canonical
+manifest wire schema next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -296,7 +296,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Implement `render(spec, scenario, sink)` and the CLI shell.
 - [x] Implement deterministic scheduling and bounded streaming.
 - [x] Implement telemetry/WAV sinks and focused DSP tests.
-- [ ] Freeze the exact local-evaluation P1.8 eight-artifact and mastering contract:
+- [x] Freeze the exact local-evaluation P1.8 eight-artifact and mastering contract:
       roles, paths, media shapes, hashes, raw-master reduction, audition processing,
       and byte-exact container.
 - [ ] Freeze the canonical complete `RenderManifest` wire schema before implementing

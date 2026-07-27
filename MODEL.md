@@ -42,7 +42,10 @@ The following records have distinct authority:
 5. `reference/oracles/bmw-m52b28/PROVENANCE.md` owns source lineage, rights, evidence,
    and unknowns.
 6. `P18_PRESENTATION_RENDERER.md` owns exact P1.8 reference-renderer behavior.
-7. This document owns model meaning and admission; the focused M2 contract records own
+7. `docs/model/M2_P18_ARTIFACT_MASTERING.md` owns the repository-selected artifact
+   paths and exact raw/audition mastering behavior derived from the frozen stems and
+   oracle.
+8. This document owns model meaning and admission; the focused M2 contract records own
    concrete C++ types, schemas, and API signatures.
 
 If two authorities conflict, implementation stops and the contradiction is recorded.

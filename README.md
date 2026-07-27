@@ -26,6 +26,9 @@ cancellation are recorded in
 telemetry encoding, transactional directory publication, and the exact focused P1.8
 DSP primitives are recorded in
 [`docs/contracts/M2_ARTIFACTS_DSP.md`](docs/contracts/M2_ARTIFACTS_DSP.md).
+The frozen eight-artifact identities, raw-master reduction, audition arithmetic, and
+byte-exact reference container are in
+[`docs/model/M2_P18_ARTIFACT_MASTERING.md`](docs/model/M2_P18_ARTIFACT_MASTERING.md).
 
 ## Build
 
