@@ -29,6 +29,11 @@ product document currently anticipates migration into `car-engine-studio`; later
 integration must move or consume this implementation, never create a second maintained
 copy.
 
+`P1.8` is a temporary milestone label for the frozen trace-driven BMW oracle, not a
+production audio-method name or compatibility surface. P1.8-named C++ may exist only
+in private reference tooling and tests while it is needed to isolate the baseline.
+Public APIs, M3 physics, and the final baker must not expose or depend on that label.
+
 ## 2. Product contract
 
 ```text
@@ -436,6 +441,12 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
 - [ ] Render the canonical 15-second pull.
 - [ ] Produce controlled oracle/candidate files plus routing and performance reports.
 - [ ] Stop for user listening.
+- [ ] After the user accepts the physics-generated BMW listening gate, retire every
+      P1.8-named C++ renderer/replay implementation and its build targets. Move any
+      still-needed algorithm into one generally named production implementation
+      rather than retaining a second copy, and keep only immutable oracle artifacts,
+      metadata, and the minimum comparison tests outside the production dependency
+      graph.
 
 Exit: the user accepts the rewrite as at least comparable to the oracle. No fidelity
 replacement starts before acceptance.
