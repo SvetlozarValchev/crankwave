@@ -312,11 +312,16 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       overlap-save convolution with transform, impulse, independent-history, alias,
       and partition-continuity tests; preserve 3,840-frame reference calls and do not
       claim a complete route.
-- [ ] In the isolated reference target only, read and adapt the frozen audit buses,
-      drive the complete unchanged renderer through a hash/WAV consumer, reproduce
-      the kernel plus all six stem and two master hashes, verify production/CLI/M3
-      linkage isolation, report single-job and fixed-count concurrent performance,
-      publish the controlled oracle/candidate set, and STOP for user listening.
+- [ ] Implement strict reference-only decoders for the frozen audit and component-seed
+      capsules; retain typed raw fixture values without connecting them to presentation
+      code, WAV output, or public rendering.
+- [ ] Implement and bit-test the fixture-free raw/audition mastering transform and exact
+      audition WAVE container; do not read stems, fixtures, or publish audio.
+- [ ] In the isolated reference target only, adapt the frozen audit buses, drive the
+      complete unchanged renderer through a hash/WAV consumer, reproduce the kernel
+      plus all six stem and two master hashes, verify production/CLI/M3 linkage
+      isolation, report single-job and fixed-count concurrent performance, publish the
+      controlled oracle/candidate set, and STOP for user listening.
 - [ ] Record the user's renderer acceptance, or record rejection and redesign before
       doing manifest/publication plumbing or beginning M3.
 - [ ] Freeze the canonical complete `RenderManifest` wire schema before implementing
@@ -333,18 +338,20 @@ sound-quality claim, and M3 cannot begin without this acoustic acceptance.
 
 The former single “drive the complete route” checkbox was split before implementation
 because it combines independent numerical algorithms, roughly billions of operations,
-reference-only I/O, manifest publication, and the first audible output. None of the
-pre-integration replacement checkboxes is an audible candidate or permits work to
-advance past M2. The isolated hash-parity checkbox must complete and publish all eight
-frozen reference artifacts through the unchanged route, and is itself the immediate
-listening hard stop; work does not continue while awaiting the user's decision.
-Canonical serialization and transactional-publication plumbing deliberately follow
-that acceptance because they cannot validate sound. They must wrap the same accepted
-renderer and reproduce its exact hashes before M3 begins. The public `render()` path
-remains fail-closed throughout fixture replay, and production/M3 targets never link
-the reference reader. Exact hashes establish only this narrow trace-driven renderer
-parity—not public-render success, new physics, production completeness, higher
-fidelity, distribution rights, or user acceptance.
+reference-only I/O, mastering/container behavior, and the first audible output. None
+of the pre-integration replacement checkboxes is an audible candidate or permits work
+to advance past M2. The isolated complete-route checkbox must publish all eight frozen
+reference artifacts through the unchanged route. Exact comparison remains required
+diagnostic evidence, but a mismatch does not suppress the candidate from the immediate
+listening hard stop; it must instead be reported and labelled. Work does not continue
+while awaiting the user's decision. Canonical serialization and
+transactional-publication plumbing deliberately follow that acceptance because they
+cannot validate sound. They must wrap the same accepted renderer and reproduce its
+accepted hashes before M3 begins. The public `render()` path remains fail-closed
+throughout fixture replay, and production/M3 targets never link the reference reader.
+Exact hashes establish only this narrow trace-driven renderer comparison—not
+public-render success, new physics, production completeness, higher fidelity,
+distribution rights, or user acceptance.
 
 ### M3 — BMW parity
 
