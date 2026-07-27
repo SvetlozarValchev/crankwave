@@ -90,11 +90,12 @@ cmake --build build-reference
 build-reference/engine-sim-offline-p18-reference-render \
   reference/fixtures/bmw-m52b28-p18 \
   artifacts/listening \
-  bmw-m52b28-p18 \
-  "$(git rev-parse HEAD)"
+  bmw-m52b28-p18
 ```
 
 The destination is created with no-overwrite publication. All eight WAVs and two
 small reports appear together. A complete hash mismatch is still published and
 labelled so it can be judged by ear; malformed or incomplete output is never
-published. The configured IR and its derivatives are local listening evidence only.
+published. Source, toolchain, loaded-runtime, and numeric identity are observed from
+the built renderer and cannot be supplied on the command line. The configured IR and
+its derivatives are local listening evidence only.

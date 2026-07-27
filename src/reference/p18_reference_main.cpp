@@ -1,9 +1,9 @@
+#include "determinism/renderer_determinism_envelope.hpp"
 #include "reference/p18_reference_artifact_set.hpp"
 #include "reference/p18_reference_fixture_loader.hpp"
 #include "reference/p18_reference_render_session.hpp"
 #include "reference/p18_reference_verification.hpp"
 
-#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <exception>
@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 
 namespace {
@@ -32,11 +33,37 @@ void require_success(std::string_view operation, const RenderSinkStatus &status)
     }
 }
 
-[[nodiscard]] bool valid_source_commit(std::string_view value) noexcept {
-    return value.size() >= 7 && value.size() <= 64 &&
-           std::ranges::all_of(value, [](unsigned char byte) {
-               return (byte >= '0' && byte <= '9') || (byte >= 'a' && byte <= 'f');
-           });
+[[nodiscard]] std::runtime_error
+determinism_error(const determinism::RendererDeterminismEnvelopeResult &result) {
+    if (const auto *error =
+            std::get_if<determinism::RendererNumericEnvironmentError>(&result)) {
+        return std::runtime_error{"renderer numeric environment rejected at " +
+                                  std::string(error->component) + ": " +
+                                  std::string(error->message)};
+    }
+    if (const auto *error =
+            std::get_if<determinism::RendererSourceStampError>(&result)) {
+        return std::runtime_error{"renderer source stamp rejected: " + error->message};
+    }
+    if (const auto *error = std::get_if<determinism::LoadedRuntimeError>(&result)) {
+        return std::runtime_error{"renderer runtime provider rejected at " +
+                                  error->component + "/" + error->symbol + ": " +
+                                  error->message};
+    }
+    if (std::holds_alternative<determinism::RendererThreadStateChanged>(result)) {
+        return std::runtime_error{
+            "renderer numeric environment changed while identity was observed"};
+    }
+    return std::runtime_error{"renderer identity failed without a typed rejection"};
+}
+
+[[nodiscard]] determinism::RendererDeterminismEnvelope require_renderer_identity() {
+    auto result = determinism::renderer_determinism_envelope();
+    if (auto *identity =
+            std::get_if<determinism::RendererDeterminismEnvelope>(&result)) {
+        return std::move(*identity);
+    }
+    throw determinism_error(result);
 }
 
 [[nodiscard]] std::unique_ptr<P18ReferenceArtifactSet>
@@ -60,19 +87,15 @@ require_expected_audio(const P18ReferenceCatalogV1 &catalog,
 }
 
 int run(int argc, char **argv) {
-    if (argc != 5) {
+    if (argc != 4) {
         throw std::invalid_argument{
             "usage: engine-sim-offline-p18-reference-render <fixture-root> "
-            "<publication-root> <publication-name> <source-commit>"};
+            "<publication-root> <publication-name>"};
     }
+    const auto renderer_identity = require_renderer_identity();
     const std::filesystem::path fixture_root{argv[1]};
     const std::filesystem::path publication_root{argv[2]};
     const std::string publication_name{argv[3]};
-    const std::string source_commit{argv[4]};
-    if (!valid_source_commit(source_commit)) {
-        throw std::invalid_argument{
-            "source commit must contain 7 to 64 lowercase hexadecimal characters"};
-    }
 
     std::error_code directory_error;
     std::filesystem::create_directories(publication_root, directory_error);
@@ -108,7 +131,7 @@ int run(int argc, char **argv) {
                         artifact_set->seal(description.audio));
     }
     const auto report = make_p18_reference_verification_report(
-        fixture, stats, *artifact_set, render_duration, source_commit);
+        fixture, stats, *artifact_set, render_duration, renderer_identity);
     require_success(
         "could not write P1.8 verification report",
         artifact_set->write_text_report("verification.txt", report.verification_text));

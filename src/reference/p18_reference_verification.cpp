@@ -56,16 +56,6 @@ mastering_label(P18ReferenceMasteringPayload payload) noexcept {
     return "unknown_mastering_payload";
 }
 
-[[nodiscard]] const char *compiler_identity() noexcept {
-#if defined(__clang__)
-    return "Clang " __clang_version__;
-#elif defined(__GNUC__)
-    return "GCC " __VERSION__;
-#else
-    return "unknown C++ compiler";
-#endif
-}
-
 [[nodiscard]] double seconds(std::chrono::nanoseconds duration) noexcept {
     return std::chrono::duration<double>(duration).count();
 }
@@ -82,12 +72,12 @@ void append_listening_link(std::ostringstream &output, std::string_view label,
 
 } // namespace
 
-P18ReferenceVerificationReport
-make_p18_reference_verification_report(const P18LoadedReferenceFixture &fixture,
-                                       const P18ReferenceRenderStats &render_stats,
-                                       const P18ReferenceArtifactSet &artifact_set,
-                                       std::chrono::nanoseconds render_duration,
-                                       std::string_view source_commit) {
+P18ReferenceVerificationReport make_p18_reference_verification_report(
+    const P18LoadedReferenceFixture &fixture,
+    const P18ReferenceRenderStats &render_stats,
+    const P18ReferenceArtifactSet &artifact_set,
+    std::chrono::nanoseconds render_duration,
+    const determinism::RendererDeterminismEnvelope &renderer_identity) {
     const auto &catalog = p18_reference_catalog_v1();
     std::array<P18ReferenceArtifactRecord, kP18ReferenceAudioArtifactCount> records{};
     bool artifacts_match = true;
@@ -171,34 +161,65 @@ make_p18_reference_verification_report(const P18LoadedReferenceFixture &fixture,
     const bool exact_match = kernel_matches && spectrum_matches && artifacts_match &&
                              mastering_matches && selected_matches_configured &&
                              counts_match && mastering_shape_matches;
+    const auto &determinism = renderer_identity.manifest_identity();
 
     std::ostringstream verification;
     verification << std::fixed << std::setprecision(6);
-    verification << "P1.8 BMW M52B28 reference presentation verification\n"
-                 << "claim=local-evaluation exhaust-only baseline; not a "
-                    "higher-fidelity or production-complete engine\n"
-                 << "source_commit=" << source_commit << '\n'
-                 << "compiler=" << compiler_identity() << '\n'
-                 << "exact_reference_match=" << (exact_match ? "yes" : "no") << '\n'
-                 << "preflight_seconds=" << seconds(fixture.preflight_duration) << '\n'
-                 << "render_and_write_seconds=" << seconds(render_duration) << '\n'
-                 << "input_frames=" << render_stats.input_frame_count << '\n'
-                 << "processed_blocks=" << render_stats.processed_block_count << '\n'
-                 << "warmup_blocks=" << render_stats.warmup_block_count << '\n'
-                 << "processed_source_frames="
-                 << render_stats.processed_source_frame_count << '\n'
-                 << "warmup_source_frames=" << render_stats.warmup_source_frame_count
-                 << '\n'
-                 << "published_frames=" << render_stats.published_source_frame_count
-                 << '\n'
-                 << "saturation_count=" << render_stats.saturation_count << '\n'
-                 << "faded_peak_bits=0x" << std::hex << std::setfill('0')
-                 << std::setw(8)
-                 << std::bit_cast<std::uint32_t>(render_stats.faded_absolute_peak)
-                 << std::dec << std::setfill(' ') << '\n'
-                 << "selected_equals_configured_ir="
-                 << (selected_matches_configured ? "yes" : "no") << "\n\n"
-                 << "verified_fixture_lineage\n";
+    verification
+        << "P1.8 BMW M52B28 reference presentation verification\n"
+        << "claim=local-evaluation exhaust-only baseline; not a "
+           "higher-fidelity or production-complete engine\n"
+        << "renderer_source_state=clean\n"
+        << "renderer_git_commit_id=" << determinism.build.git_commit_id << '\n'
+        << "renderer_source_closure_sha256="
+        << digest_hex(determinism.build.source_closure_sha256) << '\n'
+        << "renderer_compiler_id=" << determinism.build.compiler_id << '\n'
+        << "renderer_compiler_version=" << determinism.build.compiler_version << '\n'
+        << "renderer_target_triple=" << determinism.build.target_triple << '\n'
+        << "renderer_standard_library_id=" << determinism.build.standard_library_id
+        << '\n'
+        << "renderer_standard_library_identity="
+        << determinism.build.standard_library_identity << '\n'
+        << "renderer_math_library_id=" << determinism.build.math_library_id << '\n'
+        << "renderer_math_library_identity=" << determinism.build.math_library_identity
+        << '\n'
+        << "renderer_compiler_runtime_id=" << determinism.build.compiler_runtime_id
+        << '\n'
+        << "renderer_compiler_runtime_identity="
+        << determinism.build.compiler_runtime_identity << '\n'
+        << "renderer_numeric_policy_id=" << determinism.numeric_policy_id << '\n'
+        << "renderer_instruction_set_profile=" << determinism.instruction_set_profile
+        << '\n'
+        << "renderer_floating_point_format=" << determinism.floating_point.format
+        << '\n'
+        << "renderer_rounding=" << determinism.floating_point.rounding << '\n'
+        << "renderer_fma_contraction="
+        << (determinism.floating_point.fma_contraction ? "yes" : "no") << '\n'
+        << "renderer_flush_to_zero="
+        << (determinism.floating_point.flush_to_zero ? "yes" : "no") << '\n'
+        << "renderer_denormals_are_zero="
+        << (determinism.floating_point.denormals_are_zero ? "yes" : "no") << '\n'
+        << "renderer_deterministic_worker_count="
+        << determinism.deterministic_worker_count << '\n'
+        << "renderer_deterministic_reduction_topology="
+        << determinism.deterministic_reduction_topology << '\n'
+        << "exact_reference_match=" << (exact_match ? "yes" : "no") << '\n'
+        << "preflight_seconds=" << seconds(fixture.preflight_duration) << '\n'
+        << "render_and_write_seconds=" << seconds(render_duration) << '\n'
+        << "input_frames=" << render_stats.input_frame_count << '\n'
+        << "processed_blocks=" << render_stats.processed_block_count << '\n'
+        << "warmup_blocks=" << render_stats.warmup_block_count << '\n'
+        << "processed_source_frames=" << render_stats.processed_source_frame_count
+        << '\n'
+        << "warmup_source_frames=" << render_stats.warmup_source_frame_count << '\n'
+        << "published_frames=" << render_stats.published_source_frame_count << '\n'
+        << "saturation_count=" << render_stats.saturation_count << '\n'
+        << "faded_peak_bits=0x" << std::hex << std::setfill('0') << std::setw(8)
+        << std::bit_cast<std::uint32_t>(render_stats.faded_absolute_peak) << std::dec
+        << std::setfill(' ') << '\n'
+        << "selected_equals_configured_ir="
+        << (selected_matches_configured ? "yes" : "no") << "\n\n"
+        << "verified_fixture_lineage\n";
     for (const auto &expected : catalog.expected_lineage_files) {
         const auto &observed = fixture.verified_lineage.at(expected.file);
         verification << expected.expected_relative_path << '='

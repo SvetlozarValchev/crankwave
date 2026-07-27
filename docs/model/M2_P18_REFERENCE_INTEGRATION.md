@@ -20,7 +20,8 @@ loaded libstdc++, glibc libm, and libgcc_s providers without loading a missing l
 It owns the compiled numeric policy and admits the calling thread's CPU and
 floating-point state. One sealed private envelope now requires all three identities
 together and exposes their exact reference-manifest projection. This envelope is
-exercised by focused tests only and is not yet consumed by the reference executable.
+exercised by focused tests and consumed only by the isolated reference executable; it
+remains outside the public renderer and CLI.
 
 ## Loaded runtime admission
 
@@ -119,6 +120,24 @@ floating-point facts. Execution identity is fixed to one worker and
 the exact observer order and error precedence, sticky-status mutation detection,
 caller `errno` preservation, and rejection of a worker-local rounding change without
 changing the main thread.
+
+## Reference-tool identity integration
+
+After validating only the argument count, the isolated reference executable obtains
+the zero-argument renderer identity before it parses a fixture path, creates a
+publication root, or performs DSP. Numeric, source, provider, or state-change
+rejection therefore fails without creating an output tree. The executable link
+retains its selected libm provider explicitly so provider admission cannot depend on
+incidental linker reachability.
+
+The command now accepts exactly the fixture root, publication root, and publication
+name. It has no source-revision argument. The verification report receives the sealed
+identity value and writes its exact manifest projection: full Git object ID, renderer
+source-closure digest, compiler and target facts, all three runtime-provider IDs and
+content identities, numeric-policy and ISA IDs, floating-point facts, and serial
+execution identity. It no longer derives compiler text from preprocessor macros or
+prints an untrusted caller revision. This is the same build-owned value that truthful
+manifest construction will consume in the next checkpoint.
 
 Preflight opens, bounds, streams, and hashes exactly these fixed descendants of a
 caller-selected fixture root:

@@ -329,12 +329,19 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
             ${PROJECT_SOURCE_DIR}/src
     )
 
+    target_link_options(
+        engine_sim_offline_p18_reference_render
+        PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--no-as-needed>
+    )
+
     target_link_libraries(
         engine_sim_offline_p18_reference_render
         PRIVATE
             engine_sim_offline::artifacts
             engine_sim_offline_p18_reference_catalog
             engine_sim_offline::presentation
+            engine_sim_offline_renderer_determinism
+            $<$<PLATFORM_ID:Linux>:m>
     )
     engine_sim_offline_enable_renderer_numeric_policy(
         engine_sim_offline_p18_reference_render
