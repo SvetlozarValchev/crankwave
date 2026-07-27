@@ -193,6 +193,27 @@ target_link_libraries(
         engine_sim_offline::dsp
 )
 
+if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
+    add_library(
+        engine_sim_offline_p18_reference_catalog
+        STATIC
+            src/reference/p18_reference_catalog.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_p18_reference_catalog
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_p18_reference_catalog
+        PUBLIC
+            engine_sim_offline::contract
+            engine_sim_offline::build_options
+    )
+endif()
+
 if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     add_library(
         engine_sim_offline_cli_shell
@@ -262,6 +283,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
         engine_sim_offline_p18_reference_render
         PRIVATE
             engine_sim_offline::artifacts
+            engine_sim_offline_p18_reference_catalog
             engine_sim_offline::presentation
     )
 endif()

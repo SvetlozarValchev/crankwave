@@ -31,6 +31,15 @@ RenderSinkStatus P18ReferenceArtifactSet::Implementation::begin() {
             "P1.8 publication name must be one conservative portable path component");
     }
 
+    const auto &catalog = p18_reference_catalog_v1();
+    for (const auto &description : catalog.expected_audio) {
+        if (catalog.find_expected_audio(description.audio) != &description) {
+            return protocol_error(
+                "p18-audio-catalog-invalid",
+                "P1.8 audio catalog is not exhaustive canonical enum order");
+        }
+    }
+
 #if defined(__linux__)
     root_fd_.reset(::open(publication_root_.c_str(),
                           O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
@@ -95,12 +104,12 @@ RenderSinkStatus P18ReferenceArtifactSet::Implementation::begin() {
     stage_inode_ = static_cast<std::uintmax_t>(stage_status.st_ino);
     owns_stage_ = true;
 
-    for (std::size_t index = 0; index < p18_artifact_set_detail::kAudioArtifacts.size();
-         ++index) {
-        const auto &description = p18_artifact_set_detail::kAudioArtifacts[index];
-        reserved_paths_.emplace(description.relative_path);
+    const auto &audio_artifacts = catalog.expected_audio;
+    for (std::size_t index = 0; index < audio_artifacts.size(); ++index) {
+        const auto &description = audio_artifacts[index];
+        reserved_paths_.emplace(description.expected_relative_path);
         auto created_file = artifacts::detail::create_file_beneath(
-            stage_fd_.get(), description.relative_path);
+            stage_fd_.get(), description.expected_relative_path);
         if (auto *error = std::get_if<RenderSinkError>(&created_file)) {
             return std::move(*error);
         }

@@ -63,12 +63,14 @@ require_set(P18ReferenceArtifactSet::CreateResult result) {
 
 void test_fixed_inventory_and_identity_cleanup() {
     TemporaryDirectory temporary;
-    const auto descriptions =
-        engine_sim_offline::reference::p18_reference_audio_artifacts();
+    const auto &descriptions =
+        engine_sim_offline::reference::p18_reference_catalog_v1().expected_audio;
     expect(descriptions.size() == 8, "P1.8 audio inventory size changed");
-    expect(descriptions.front().relative_path == "audio/exhaust.reference.0.dry.wav",
+    expect(descriptions.front().expected_relative_path ==
+               "audio/exhaust.reference.0.dry.wav",
            "first P1.8 audio path changed");
-    expect(descriptions.back().relative_path == "audio/master.reference.audition.wav",
+    expect(descriptions.back().expected_relative_path ==
+               "audio/master.reference.audition.wav",
            "audition P1.8 audio path changed");
 
     auto artifact_set =
@@ -76,7 +78,7 @@ void test_fixed_inventory_and_identity_cleanup() {
     const auto staging = artifact_set->staging_path();
     expect(staging.has_value(), "open set did not expose its staging path");
     for (const auto &description : descriptions) {
-        const auto file = *staging / description.relative_path;
+        const auto file = *staging / description.expected_relative_path;
         expect(std::filesystem::is_regular_file(file),
                "fixed P1.8 audio file was not created eagerly");
         expect(std::filesystem::file_size(file) == 0,
@@ -123,21 +125,21 @@ void test_complete_publication() {
         require_set(P18ReferenceArtifactSet::create(temporary.path(), "complete"));
     std::array<std::byte, 64U * 1024U> zeros{};
     for (const auto &description :
-         engine_sim_offline::reference::p18_reference_audio_artifacts()) {
-        auto consume = artifact_set->consumer(description.artifact);
+         engine_sim_offline::reference::p18_reference_catalog_v1().expected_audio) {
+        auto consume = artifact_set->consumer(description.audio);
         std::uint64_t offset = 0;
-        while (offset < description.exact_byte_count) {
+        while (offset < description.expected_byte_count) {
             const auto count = static_cast<std::size_t>(std::min<std::uint64_t>(
-                zeros.size(), description.exact_byte_count - offset));
+                zeros.size(), description.expected_byte_count - offset));
             expect(consume(offset, std::span<const std::byte>(zeros).first(count)),
                    "complete publication rejected a bounded contiguous chunk");
             offset += count;
         }
-        expect(!artifact_set->seal(description.artifact).has_value(),
+        expect(!artifact_set->seal(description.audio).has_value(),
                "complete publication rejected an exact-size artifact");
-        const auto record = artifact_set->record(description.artifact);
+        const auto record = artifact_set->record(description.audio);
         expect(record.has_value() &&
-                   record->byte_count == description.exact_byte_count &&
+                   record->byte_count == description.expected_byte_count &&
                    !record->payload_sha256.is_zero(),
                "sealed P1.8 record did not retain size and actual digest");
     }

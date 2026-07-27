@@ -77,19 +77,25 @@ Each digest below covers the complete named file, not only an inner sample paylo
 
 | Typed field | Classification | Bytes | SHA-256 |
 |---|---|---:|---|
-| `manifest` | lineage root | 21,435 | `52d694ba6edc8771b5a4c394d5b62573c22b38e8ba4ef7e2f5bc8c8fb6decc07` |
-| `parity_evidence` | upstream validation evidence; not read by M2 | 38,080,608 | `19d351b54c8eb8b509cd72ea03061b01f92722cbfa48d27a2342ca7203ffa94c` |
+| `manifest` | verified lineage root; never an execution input | 21,435 | `52d694ba6edc8771b5a4c394d5b62573c22b38e8ba4ef7e2f5bc8c8fb6decc07` |
+| `parity_evidence` | verified upstream evidence; never an execution input | 38,080,608 | `19d351b54c8eb8b509cd72ea03061b01f92722cbfa48d27a2342ca7203ffa94c` |
 | `audit_input` | M2 execution input | 21,760,064 | `93fbaef5fe887ba229d7acc28235d63c98f9205d2fe7e426a3e501473a2643a4` |
 | `component_seed_input` | lineage and typed presentation-seed input | 216 | `ca6f9b2d56e2f6729401437a741f605069a7eea21524a85b3dce0322ec30468f` |
-| `renderer_algorithm_record` | normative method evidence | 20,832 | `0e6b1183d421088b4d0b49ea96545034b5ef338363e5ae2e30d81c182c96a008` |
+| `renderer_algorithm_record` | verified normative method evidence; never an execution input | 20,832 | `0e6b1183d421088b4d0b49ea96545034b5ef338363e5ae2e30d81c182c96a008` |
 | `configured_ir_input` | M2 execution input | 78,602 | `75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc` |
-| `kernel_oracle_comparator` | regeneration comparator; never convolution input | 240,568 | `940e3f585cbdf34df6e9073db629c02b585d6e09c4d3c31a393eb3759f357598` |
+| `kernel_oracle_comparator` | independently observed regeneration comparator; never convolution input | 240,568 | `940e3f585cbdf34df6e9073db629c02b585d6e09c4d3c31a393eb3759f357598` |
 
 The configured IR remains local-evaluation-only because its distribution rights are
 unresolved. The kernel oracle must be regenerated and compared. Reading it as the
 runtime convolution kernel would bypass the IR-conversion algorithm under test.
 Expected stems and the liked master are likewise output comparators, never renderer
 inputs.
+
+The private `P18ReferenceCatalogV1` owns these immutable expectations once for the
+reference session. Preflight returns a separately typed observed identity for every
+file only after streaming the actual bytes. Later manifest construction must copy
+those observed identities; it may not copy an expected catalog digest into an
+observed or emitted record.
 
 ### 3.2 Reader, adapter, and seam
 

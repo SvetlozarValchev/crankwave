@@ -22,39 +22,17 @@
 namespace engine_sim_offline::reference {
 namespace p18_artifact_set_detail {
 
-inline constexpr std::array<P18ReferenceAudioArtifactDescription,
-                            kP18ReferenceAudioArtifactCount>
-    kAudioArtifacts{{
-        {P18ReferenceAudioArtifact::exhaust_0_dry, "exhaust.reference.0.dry",
-         "audio/exhaust.reference.0.dry.wav", kP18ReferenceFloatWaveByteCount},
-        {P18ReferenceAudioArtifact::exhaust_0_configured_ir,
-         "exhaust.reference.0.configured_ir",
-         "audio/exhaust.reference.0.configured-ir.wav",
-         kP18ReferenceFloatWaveByteCount},
-        {P18ReferenceAudioArtifact::exhaust_0_selected, "exhaust.reference.0.selected",
-         "audio/exhaust.reference.0.selected.wav", kP18ReferenceFloatWaveByteCount},
-        {P18ReferenceAudioArtifact::exhaust_1_dry, "exhaust.reference.1.dry",
-         "audio/exhaust.reference.1.dry.wav", kP18ReferenceFloatWaveByteCount},
-        {P18ReferenceAudioArtifact::exhaust_1_configured_ir,
-         "exhaust.reference.1.configured_ir",
-         "audio/exhaust.reference.1.configured-ir.wav",
-         kP18ReferenceFloatWaveByteCount},
-        {P18ReferenceAudioArtifact::exhaust_1_selected, "exhaust.reference.1.selected",
-         "audio/exhaust.reference.1.selected.wav", kP18ReferenceFloatWaveByteCount},
-        {P18ReferenceAudioArtifact::master_raw, "master.reference.raw",
-         "audio/master.reference.raw.wav", kP18ReferenceFloatWaveByteCount},
-        {P18ReferenceAudioArtifact::master_audition, "master.reference.audition",
-         "audio/master.reference.audition.wav", kP18ReferenceAuditionWaveByteCount},
-    }};
+[[nodiscard]] inline const auto &audio_artifacts() noexcept {
+    return p18_reference_catalog_v1().expected_audio;
+}
 
-[[nodiscard]] constexpr std::optional<std::size_t>
+[[nodiscard]] inline std::optional<std::size_t>
 artifact_index(P18ReferenceAudioArtifact artifact) noexcept {
-    const auto index = static_cast<std::size_t>(artifact);
-    if (index >= kAudioArtifacts.size() ||
-        kAudioArtifacts[index].artifact != artifact) {
+    const auto &catalog = p18_reference_catalog_v1();
+    if (catalog.find_expected_audio(artifact) == nullptr) {
         return std::nullopt;
     }
-    return index;
+    return static_cast<std::size_t>(artifact);
 }
 
 inline RenderSinkError protocol_error(std::string detail_code, std::string message) {

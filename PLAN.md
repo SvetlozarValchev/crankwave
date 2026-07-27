@@ -329,7 +329,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       input alternative rather than freezing M3 data that has never executed.
 - [x] Implement and golden-test the canonical reference-manifest encoder; reject the
       simulation alternative and every non-representable value.
-- [ ] Centralize the immutable frozen P1.8 catalog used by validation, preflight,
+- [x] Centralize the immutable frozen P1.8 catalog used by validation, preflight,
       publication, and comparison; keep expected identities separate from values
       observed while loading, rendering, and sealing.
 - [ ] Embed a build-owned renderer determinism identity derived from configured source,

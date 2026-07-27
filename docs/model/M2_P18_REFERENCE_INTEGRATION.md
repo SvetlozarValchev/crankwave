@@ -11,20 +11,27 @@ new engine physics or offline-fidelity replacements begin.
 
 `ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS` is off by default. When enabled it builds
 one executable whose fixture readers, fixture preflight, render coordinator, digest
-comparison, and local publisher are compiled directly into that executable. They are
-not a library and are not linked by the public renderer, CLI, or future M3 simulation.
+comparison, and local publisher remain private to the reference target. Its immutable
+catalog is a private support library built only for tests or this opt-in tool; none of
+these components are linked by the public renderer, CLI, or future M3 simulation.
 
-The executable reads only these fixed descendants of a caller-selected fixture root:
+Preflight opens, bounds, streams, and hashes exactly these fixed descendants of a
+caller-selected fixture root:
 
+- `manifest.json`
+- `reference-parity.bin`
 - `reference-audit.bin`
 - `component-seeds.bin`
+- `P18_PRESENTATION_RENDERER.md`
 - `presentation/smooth_39.wav`
+- `presentation/smooth_39-192000hz-volume-0p001-f64le.bin`
 
-It does not read expected stems, the oracle master, `reference-parity.bin`, or a
-manifest as render inputs. The three actual fixture files must pass their frozen
-identities before rendering. The regenerated 30,071-coefficient IR and constructed
-65,536-bin spectrum are compared afterward as diagnostics: drift makes the candidate
-non-exact, but does not prevent a complete candidate from being heard.
+Only the audit, component seeds, and configured IR are retained and decoded as render
+inputs. The manifest, parity evidence, algorithm record, and kernel comparator are
+verified lineage only; their bytes are never supplied to DSP. Expected stems and the
+oracle master remain unopened output comparators. The regenerated 30,071-coefficient
+IR must equal the independently observed kernel-comparator identity, and the
+constructed 65,536-bin spectrum remains a diagnostic comparator.
 
 ## Execution
 
@@ -73,6 +80,7 @@ complete eight-file no-overwrite publisher:
 | Concurrent per-clip process wall time | 4.28–4.30 s |
 | Concurrent throughput | 0.668 clips/s |
 | GCC complete DSP plus write | 14.57 s |
+| Seven-file lineage preflight, GCC catalog checkpoint | 0.171 s |
 
 All three concurrent outputs also passed every exact identity. Temporary benchmark
 copies were removed after verification. Both the single and concurrent Clang results

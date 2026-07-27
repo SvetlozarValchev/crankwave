@@ -28,7 +28,7 @@ bool P18ReferenceArtifactSet::Implementation::write(P18ReferenceAudioArtifact ar
         return false;
     }
     auto &audio = audio_[*index];
-    const auto &description = p18_artifact_set_detail::kAudioArtifacts[*index];
+    const auto &description = p18_artifact_set_detail::audio_artifacts()[*index];
     if (audio.sealed) {
         static_cast<void>(poison(protocol_error(
             "p18-audio-artifact-sealed",
@@ -47,8 +47,8 @@ bool P18ReferenceArtifactSet::Implementation::write(P18ReferenceAudioArtifact ar
             "P1.8 audio chunk offsets must begin at zero and remain contiguous")));
         return false;
     }
-    if (byte_offset > description.exact_byte_count ||
-        bytes.size() > description.exact_byte_count - byte_offset) {
+    if (byte_offset > description.expected_byte_count ||
+        bytes.size() > description.expected_byte_count - byte_offset) {
         static_cast<void>(poison(
             protocol_error("p18-audio-byte-count-exceeded",
                            "P1.8 audio bytes exceed the frozen artifact byte count")));
@@ -86,13 +86,13 @@ P18ReferenceArtifactSet::Implementation::seal(P18ReferenceAudioArtifact artifact
                                      "unknown P1.8 audio artifact identity"));
     }
     auto &audio = audio_[*index];
-    const auto &description = p18_artifact_set_detail::kAudioArtifacts[*index];
+    const auto &description = p18_artifact_set_detail::audio_artifacts()[*index];
     if (audio.sealed) {
         return poison(
             protocol_error("p18-audio-artifact-sealed",
                            "a P1.8 audio artifact may be sealed exactly once"));
     }
-    if (audio.byte_count != description.exact_byte_count) {
+    if (audio.byte_count != description.expected_byte_count) {
         return poison(protocol_error(
             "p18-audio-byte-count-mismatch",
             "P1.8 audio artifact is incomplete or exceeds its frozen byte count"));
@@ -108,19 +108,20 @@ P18ReferenceArtifactSet::Implementation::seal(P18ReferenceAudioArtifact artifact
     struct stat status{};
     if (::fstat(audio.file.get(), &status) == -1 || !S_ISREG(status.st_mode) ||
         status.st_nlink != 1 || status.st_size < 0 ||
-        static_cast<std::uint64_t>(status.st_size) != description.exact_byte_count) {
+        static_cast<std::uint64_t>(status.st_size) != description.expected_byte_count) {
         return poison(publication_error(
             "p18-audio-file-verification-failed",
             "staged P1.8 audio is not one private regular file of the exact size"));
     }
+    const auto observed_byte_count = static_cast<std::uint64_t>(status.st_size);
     const auto digest = audio.hash.finish();
-    audio.identity = FileIdentity{std::string(description.relative_path),
-                                  description.exact_byte_count, digest,
+    audio.identity = FileIdentity{std::string(description.expected_relative_path),
+                                  observed_byte_count, digest,
                                   static_cast<std::uintmax_t>(status.st_dev),
                                   static_cast<std::uintmax_t>(status.st_ino)};
-    audio.record = P18ReferenceArtifactRecord{artifact, description.role,
-                                              description.relative_path,
-                                              description.exact_byte_count, digest};
+    audio.record = P18ReferenceArtifactRecord{artifact, description.expected_role,
+                                              description.expected_relative_path,
+                                              observed_byte_count, digest};
     audio.file.reset();
     audio.sealed = true;
     return std::nullopt;

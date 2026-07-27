@@ -23,7 +23,9 @@ add_executable(
 
 target_link_libraries(
     engine_sim_offline_contract_tests
-    PRIVATE engine_sim_offline::contract
+    PRIVATE
+        engine_sim_offline::contract
+        engine_sim_offline_p18_reference_catalog
 )
 
 add_test(
@@ -38,7 +40,9 @@ add_executable(
 
 target_link_libraries(
     engine_sim_offline_render_tests
-    PRIVATE engine_sim_offline::render
+    PRIVATE
+        engine_sim_offline::render
+        engine_sim_offline_p18_reference_catalog
 )
 
 add_test(
@@ -95,12 +99,38 @@ add_executable(
 
 target_link_libraries(
     engine_sim_offline_reference_manifest_encoder_tests
-    PRIVATE engine_sim_offline::artifacts
+    PRIVATE
+        engine_sim_offline::artifacts
+        engine_sim_offline_p18_reference_catalog
 )
 
 add_test(
     NAME artifacts.reference_manifest_encoder
     COMMAND engine_sim_offline_reference_manifest_encoder_tests
+)
+
+add_executable(
+    engine_sim_offline_p18_reference_catalog_tests
+    p18_reference_catalog_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_reference_catalog_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_reference_catalog_tests
+    PRIVATE
+        engine_sim_offline::artifacts
+        engine_sim_offline::presentation
+        engine_sim_offline_p18_reference_catalog
+)
+
+add_test(
+    NAME reference.p18_catalog
+    COMMAND engine_sim_offline_p18_reference_catalog_tests
 )
 
 add_executable(
@@ -337,6 +367,35 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_p18_reference_fixture_loader_tests
+    p18_reference_fixture_loader_test.cpp
+    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_audit_reader.cpp
+    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_fixture_loader.cpp
+    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_seed_reader.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_reference_fixture_loader_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_reference_fixture_loader_tests
+    PRIVATE
+        engine_sim_offline::artifacts
+        engine_sim_offline::presentation
+        engine_sim_offline_p18_reference_catalog
+)
+
+add_test(
+    NAME reference.p18_fixture_loader
+    COMMAND
+        engine_sim_offline_p18_reference_fixture_loader_tests
+        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18
+)
+
+add_executable(
     engine_sim_offline_p18_mastering_tests
     p18_mastering_test.cpp
 )
@@ -380,7 +439,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 
     target_link_libraries(
         engine_sim_offline_p18_reference_artifact_set_tests
-        PRIVATE engine_sim_offline::artifacts
+        PRIVATE
+            engine_sim_offline::artifacts
+            engine_sim_offline_p18_reference_catalog
     )
 
     add_test(

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <exception>
 #include <filesystem>
 #include <iostream>
@@ -47,6 +48,17 @@ create_artifact_set(const std::filesystem::path &root, std::string name) {
     return std::move(std::get<std::unique_ptr<P18ReferenceArtifactSet>>(result));
 }
 
+[[nodiscard]] const P18ExpectedAudioComparator &
+require_expected_audio(const P18ReferenceCatalogV1 &catalog,
+                       P18ReferenceAudioArtifact artifact) {
+    const auto *expected = catalog.find_expected_audio(artifact);
+    if (expected == nullptr) {
+        throw std::logic_error{
+            "P1.8 audio catalog is not exhaustive canonical enum order"};
+    }
+    return *expected;
+}
+
 int run(int argc, char **argv) {
     if (argc != 5) {
         throw std::invalid_argument{
@@ -72,9 +84,15 @@ int run(int argc, char **argv) {
     auto fixture = load_p18_reference_fixture(fixture_root);
     auto artifact_set = create_artifact_set(publication_root, publication_name);
     P18ReferenceAudioConsumers consumers{};
-    for (const auto &description : p18_reference_audio_artifacts()) {
-        consumers[static_cast<std::size_t>(description.artifact)] =
-            artifact_set->consumer(description.artifact);
+    const auto &catalog = p18_reference_catalog_v1();
+    const auto &audio_artifacts = catalog.expected_audio;
+    for (std::size_t index = 0; index < audio_artifacts.size(); ++index) {
+        const auto &description = audio_artifacts[index];
+        if (&require_expected_audio(catalog, description.audio) != &description) {
+            throw std::logic_error{
+                "P1.8 audio catalog contains a duplicate enum identity"};
+        }
+        consumers[index] = artifact_set->consumer(description.audio);
     }
 
     const auto render_started = std::chrono::steady_clock::now();
@@ -85,9 +103,9 @@ int run(int argc, char **argv) {
     const auto render_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
         render_finished - render_started);
 
-    for (const auto &description : p18_reference_audio_artifacts()) {
+    for (const auto &description : audio_artifacts) {
         require_success("could not seal P1.8 audio artifact",
-                        artifact_set->seal(description.artifact));
+                        artifact_set->seal(description.audio));
     }
     const auto report = make_p18_reference_verification_report(
         fixture, stats, *artifact_set, render_duration, source_commit);
@@ -99,10 +117,12 @@ int run(int argc, char **argv) {
         artifact_set->write_text_report("LISTENING.md", report.listening_markdown));
     require_success("could not publish P1.8 listening set", artifact_set->publish());
 
+    const auto &audition =
+        require_expected_audio(catalog, P18ReferenceAudioArtifact::master_audition);
     std::cout << "publication=" << artifact_set->publication_path().string() << '\n'
               << "audition="
               << (artifact_set->publication_path() /
-                  "audio/master.reference.audition.wav")
+                  std::filesystem::path{audition.expected_relative_path})
                      .string()
               << '\n'
               << "exact_reference_match="

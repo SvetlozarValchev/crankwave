@@ -3,6 +3,7 @@
 #include "engine_sim_offline/artifacts/wav_encoder.hpp"
 #include "engine_sim_offline/contract/common.hpp"
 #include "engine_sim_offline/render.hpp"
+#include "reference/p18_reference_catalog.hpp"
 
 #include <array>
 #include <cstddef>
@@ -17,34 +18,8 @@
 
 namespace engine_sim_offline::reference {
 
-enum class P18ReferenceAudioArtifact : std::uint8_t {
-    exhaust_0_dry,
-    exhaust_0_configured_ir,
-    exhaust_0_selected,
-    exhaust_1_dry,
-    exhaust_1_configured_ir,
-    exhaust_1_selected,
-    master_raw,
-    master_audition,
-};
-
-inline constexpr std::size_t kP18ReferenceAudioArtifactCount = 8;
-inline constexpr std::uint64_t kP18ReferenceFloatWaveByteCount = 11'520'058;
-inline constexpr std::uint64_t kP18ReferenceAuditionWaveByteCount = 8'640'302;
 inline constexpr std::size_t kP18ReferenceMaximumReportBytes = 64U * 1024U;
 inline constexpr std::size_t kP18ReferenceMaximumReportCount = 8;
-
-struct P18ReferenceAudioArtifactDescription {
-    P18ReferenceAudioArtifact artifact = P18ReferenceAudioArtifact::exhaust_0_dry;
-    std::string_view role;
-    std::string_view relative_path;
-    std::uint64_t exact_byte_count = 0;
-};
-
-// The returned descriptions are immutable and ordered by P18ReferenceAudioArtifact.
-[[nodiscard]] std::span<const P18ReferenceAudioArtifactDescription,
-                        kP18ReferenceAudioArtifactCount>
-p18_reference_audio_artifacts() noexcept;
 
 struct P18ReferenceArtifactRecord {
     P18ReferenceAudioArtifact artifact = P18ReferenceAudioArtifact::exhaust_0_dry;
@@ -64,8 +39,9 @@ enum class P18ReferenceArtifactSetState : std::uint8_t {
 };
 
 // Reference-only publication transaction for the fixed P1.8 listening set. It is
-// intentionally narrower than DirectoryRenderSink: the eight audio paths and byte
-// counts are frozen here, while manifest publication remains a later checkpoint.
+// intentionally narrower than DirectoryRenderSink: the private catalog owns the
+// eight expected audio paths and byte counts, while this transaction records actual
+// sealed identities. Manifest publication remains a later checkpoint.
 //
 // create() requires an existing real directory and a single conservative portable
 // publication-name component. It creates all eight files exclusively under one

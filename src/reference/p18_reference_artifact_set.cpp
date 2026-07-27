@@ -2,15 +2,9 @@
 
 #include <memory>
 #include <optional>
-#include <span>
 #include <utility>
 
 namespace engine_sim_offline::reference {
-
-std::span<const P18ReferenceAudioArtifactDescription, kP18ReferenceAudioArtifactCount>
-p18_reference_audio_artifacts() noexcept {
-    return p18_artifact_set_detail::kAudioArtifacts;
-}
 
 P18ReferenceArtifactSet::P18ReferenceArtifactSet(std::filesystem::path publication_root,
                                                  std::string publication_name)

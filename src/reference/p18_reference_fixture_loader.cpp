@@ -1,20 +1,21 @@
 #include "reference/p18_reference_fixture_loader.hpp"
 
+#include "artifacts/directory_render_sink_support.hpp"
+#include "artifacts/secure_filesystem_support.hpp"
+#include "artifacts/sha256_stream.hpp"
 #include "dsp/p18_static_ir_conversion.hpp"
 #include "presentation/p18_pcm16_ir_decoder.hpp"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cerrno>
 #include <complex>
-#include <cstring>
-#include <fstream>
 #include <limits>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <utility>
 #include <variant>
 
@@ -27,189 +28,170 @@
 namespace engine_sim_offline::reference {
 namespace {
 
-constexpr std::string_view kAuditSha256 =
-    "93fbaef5fe887ba229d7acc28235d63c98f9205d2fe7e426a3e501473a2643a4";
-constexpr std::string_view kSeedSha256 =
-    "ca6f9b2d56e2f6729401437a741f605069a7eea21524a85b3dce0322ec30468f";
-constexpr std::string_view kConfiguredIrSha256 =
-    "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc";
-
-[[nodiscard]] std::string digest_hex(const contract::Sha256Digest &digest) {
-    constexpr char kDigits[] = "0123456789abcdef";
-    std::string result(digest.bytes.size() * 2, '0');
-    for (std::size_t index = 0; index < digest.bytes.size(); ++index) {
-        result[index * 2] = kDigits[digest.bytes[index] >> 4U];
-        result[index * 2 + 1] = kDigits[digest.bytes[index] & 0x0fU];
-    }
-    return result;
-}
-
-void require_digest(const contract::Sha256Digest &actual, std::string_view expected,
-                    std::string_view label) {
-    const std::string actual_hex = digest_hex(actual);
-    if (actual_hex != expected) {
-        throw std::runtime_error{"P1.8 fixture preflight: " + std::string(label) +
-                                 " SHA-256 mismatch (expected " +
-                                 std::string(expected) + ", got " + actual_hex + ")"};
-    }
+[[nodiscard]] constexpr std::size_t
+lineage_index(P18ReferenceLineageFile file) noexcept {
+    return static_cast<std::size_t>(file);
 }
 
 #if defined(__linux__)
 
-class FileDescriptor {
-  public:
-    explicit FileDescriptor(int value = -1) noexcept : value_(value) {}
-    ~FileDescriptor() {
-        if (value_ >= 0) {
-            static_cast<void>(::close(value_));
-        }
-    }
-    FileDescriptor(const FileDescriptor &) = delete;
-    FileDescriptor &operator=(const FileDescriptor &) = delete;
-    FileDescriptor(FileDescriptor &&other) noexcept
-        : value_(std::exchange(other.value_, -1)) {}
-    FileDescriptor &operator=(FileDescriptor &&other) noexcept {
-        if (this != &other) {
-            if (value_ >= 0) {
-                static_cast<void>(::close(value_));
-            }
-            value_ = std::exchange(other.value_, -1);
-        }
-        return *this;
-    }
-    [[nodiscard]] int get() const noexcept {
-        return value_;
-    }
-    [[nodiscard]] bool valid() const noexcept {
-        return value_ >= 0;
-    }
+constexpr std::size_t kReadBufferBytes = 64U * 1024U;
 
-  private:
-    int value_ = -1;
-};
-
-[[nodiscard]] std::runtime_error io_error(std::string_view operation,
-                                          int error_number) {
-    return std::runtime_error{"P1.8 fixture preflight: " + std::string(operation) +
-                              ": " + std::strerror(error_number)};
+[[nodiscard]] bool retain_file_bytes(P18ReferenceLineageFile file) noexcept {
+    switch (file) {
+    case P18ReferenceLineageFile::audit_input:
+    case P18ReferenceLineageFile::component_seed_input:
+    case P18ReferenceLineageFile::configured_ir_input:
+        return true;
+    case P18ReferenceLineageFile::manifest:
+    case P18ReferenceLineageFile::parity_evidence:
+    case P18ReferenceLineageFile::renderer_algorithm_record:
+    case P18ReferenceLineageFile::kernel_oracle_comparator:
+        return false;
+    }
+    return false;
 }
 
-[[nodiscard]] FileDescriptor open_fixture_root(const std::filesystem::path &root) {
+struct ObservedRead {
+    P18ObservedLineageFileIdentity identity;
+    std::vector<std::byte> retained_bytes;
+};
+
+[[nodiscard]] std::runtime_error preflight_error(std::string_view operation,
+                                                 std::string_view detail) {
+    return std::runtime_error{"P1.8 fixture preflight: " + std::string(operation) +
+                              ": " + std::string(detail)};
+}
+
+void require_catalog_match(const P18ExpectedLineageFile &expected,
+                           const P18ObservedLineageFileIdentity &observed) {
+    if (observed.byte_count != expected.expected_byte_count) {
+        throw preflight_error(expected.expected_relative_path,
+                              "observed byte count differs from the immutable catalog");
+    }
+    if (observed.payload_sha256 != expected.expected_sha256) {
+        throw preflight_error(
+            expected.expected_relative_path,
+            "SHA-256 mismatch (expected " +
+                artifacts::detail::digest_hex(expected.expected_sha256) + ", got " +
+                artifacts::detail::digest_hex(observed.payload_sha256) + ")");
+    }
+}
+
+[[nodiscard]] artifacts::detail::FileDescriptor
+open_fixture_root(const std::filesystem::path &root) {
     const auto &native = root.native();
     if (native.empty() || native.find('\0') != std::string::npos) {
         throw std::invalid_argument{
             "P1.8 fixture preflight: fixture root path is empty or contains NUL"};
     }
-    FileDescriptor descriptor(
+    artifacts::detail::FileDescriptor descriptor(
         ::open(native.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
     if (!descriptor.valid()) {
-        throw io_error("fixture root is unavailable, not a directory, or a symlink",
-                       errno);
+        throw preflight_error(
+            "fixture root",
+            artifacts::detail::errno_message(
+                "root is unavailable, not a directory, or a symbolic link", errno));
     }
     return descriptor;
 }
 
-[[nodiscard]] FileDescriptor open_directory_at(int parent, const char *name) {
-    FileDescriptor descriptor(
-        ::openat(parent, name, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-    if (!descriptor.valid()) {
-        throw io_error(std::string("could not open fixed directory ") + name, errno);
-    }
-    return descriptor;
+[[nodiscard]] bool same_file_state(const struct stat &lhs,
+                                   const struct stat &rhs) noexcept {
+    return lhs.st_dev == rhs.st_dev && lhs.st_ino == rhs.st_ino &&
+           lhs.st_size == rhs.st_size && lhs.st_mtim.tv_sec == rhs.st_mtim.tv_sec &&
+           lhs.st_mtim.tv_nsec == rhs.st_mtim.tv_nsec &&
+           lhs.st_ctim.tv_sec == rhs.st_ctim.tv_sec &&
+           lhs.st_ctim.tv_nsec == rhs.st_ctim.tv_nsec;
 }
 
-[[nodiscard]] std::vector<std::byte> read_exact_file_at(int parent, const char *name,
-                                                        std::size_t expected_size,
-                                                        std::string_view label) {
-    FileDescriptor descriptor(
-        ::openat(parent, name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK));
-    if (!descriptor.valid()) {
-        throw io_error("could not open fixed input " + std::string(label), errno);
+[[nodiscard]] ObservedRead read_catalog_file(int root_fd,
+                                             const P18ExpectedLineageFile &expected,
+                                             bool retain_bytes) {
+    if (!artifacts::detail::valid_relative_path(expected.expected_relative_path)) {
+        throw preflight_error(expected.expected_relative_path,
+                              "catalog path is not a safe portable relative path");
+    }
+    auto opened =
+        artifacts::detail::open_file_beneath(root_fd, expected.expected_relative_path);
+    if (const auto *error = std::get_if<RenderSinkError>(&opened)) {
+        throw preflight_error(expected.expected_relative_path, error->message);
+    }
+    auto file = std::move(std::get<artifacts::detail::FileDescriptor>(opened));
+
+    struct stat before{};
+    if (::fstat(file.get(), &before) == -1) {
+        throw preflight_error(
+            expected.expected_relative_path,
+            artifacts::detail::errno_message("could not inspect fixed file", errno));
+    }
+    if (!S_ISREG(before.st_mode) || before.st_size < 0) {
+        throw preflight_error(expected.expected_relative_path,
+                              "fixed descendant is not a regular file");
+    }
+    const auto observed_size = static_cast<std::uint64_t>(before.st_size);
+    if (observed_size != expected.expected_byte_count ||
+        observed_size > std::numeric_limits<std::size_t>::max() ||
+        observed_size > static_cast<std::uint64_t>(std::numeric_limits<off_t>::max())) {
+        throw preflight_error(expected.expected_relative_path,
+                              "file size differs from the immutable catalog");
     }
 
-    struct stat status{};
-    if (::fstat(descriptor.get(), &status) != 0) {
-        throw io_error("could not inspect fixed input " + std::string(label), errno);
+    ObservedRead result;
+    result.identity.file = expected.file;
+    result.identity.byte_count = observed_size;
+    if (retain_bytes) {
+        result.retained_bytes.resize(static_cast<std::size_t>(observed_size));
     }
-    if (!S_ISREG(status.st_mode)) {
-        throw std::runtime_error{"P1.8 fixture preflight: fixed input " +
-                                 std::string(label) + " is not a regular file"};
-    }
-    if (status.st_size < 0 || static_cast<std::uintmax_t>(status.st_size) !=
-                                  static_cast<std::uintmax_t>(expected_size)) {
-        throw std::runtime_error{"P1.8 fixture preflight: fixed input " +
-                                 std::string(label) + " must contain exactly " +
-                                 std::to_string(expected_size) + " bytes"};
-    }
-
-    std::vector<std::byte> bytes(expected_size);
-    std::size_t offset = 0;
-    while (offset < bytes.size()) {
+    std::array<std::byte, kReadBufferBytes> buffer{};
+    artifacts::detail::Sha256Stream hash;
+    std::uint64_t offset = 0;
+    while (offset < observed_size) {
+        const auto request = static_cast<std::size_t>(
+            std::min<std::uint64_t>(kReadBufferBytes, observed_size - offset));
+        auto *destination =
+            retain_bytes ? result.retained_bytes.data() + offset : buffer.data();
         const auto count =
-            ::read(descriptor.get(), bytes.data() + offset, bytes.size() - offset);
+            ::pread(file.get(), destination, request, static_cast<off_t>(offset));
         if (count > 0) {
-            offset += static_cast<std::size_t>(count);
+            const auto consumed = static_cast<std::size_t>(count);
+            hash.update(std::span<const std::byte>{destination, consumed});
+            offset += static_cast<std::uint64_t>(consumed);
         } else if (count == 0) {
-            throw std::runtime_error{"P1.8 fixture preflight: fixed input " +
-                                     std::string(label) + " was truncated while read"};
+            throw preflight_error(expected.expected_relative_path,
+                                  "file was truncated while reading");
         } else if (errno != EINTR) {
-            throw io_error("could not read fixed input " + std::string(label), errno);
+            throw preflight_error(
+                expected.expected_relative_path,
+                artifacts::detail::errno_message("could not read fixed file", errno));
         }
     }
     std::byte extra{};
-    for (;;) {
-        const auto count = ::read(descriptor.get(), &extra, 1);
-        if (count == 0) {
-            break;
-        }
-        if (count > 0) {
-            throw std::runtime_error{"P1.8 fixture preflight: fixed input " +
-                                     std::string(label) + " grew while read"};
-        }
-        if (errno != EINTR) {
-            throw io_error("could not finish fixed input " + std::string(label), errno);
-        }
+    ssize_t extra_count = -1;
+    do {
+        extra_count = ::pread(file.get(), &extra, 1, static_cast<off_t>(offset));
+    } while (extra_count == -1 && errno == EINTR);
+    if (extra_count != 0) {
+        throw preflight_error(expected.expected_relative_path,
+                              extra_count > 0 ? "file grew while reading"
+                                              : "could not finish fixed-file read");
     }
-    return bytes;
+    struct stat after{};
+    if (::fstat(file.get(), &after) == -1 || !same_file_state(before, after)) {
+        throw preflight_error(expected.expected_relative_path,
+                              "file identity or state changed while reading");
+    }
+    result.identity.payload_sha256 = hash.finish();
+    require_catalog_match(expected, result.identity);
+    return result;
 }
-
-#else
-
-[[nodiscard]] std::vector<std::byte> read_exact_file(const std::filesystem::path &path,
-                                                     std::size_t expected_size,
-                                                     std::string_view label) {
-    std::error_code error;
-    const auto status = std::filesystem::symlink_status(path, error);
-    if (error || !std::filesystem::is_regular_file(status)) {
-        throw std::runtime_error{"P1.8 fixture preflight: fixed input " +
-                                 std::string(label) +
-                                 " is unavailable or not a regular file"};
-    }
-    if (std::filesystem::file_size(path, error) != expected_size || error) {
-        throw std::runtime_error{"P1.8 fixture preflight: fixed input " +
-                                 std::string(label) + " must contain exactly " +
-                                 std::to_string(expected_size) + " bytes"};
-    }
-    std::ifstream stream(path, std::ios::binary);
-    std::vector<std::byte> bytes(expected_size);
-    stream.read(reinterpret_cast<char *>(bytes.data()),
-                static_cast<std::streamsize>(bytes.size()));
-    if (stream.gcount() != static_cast<std::streamsize>(bytes.size()) ||
-        stream.peek() != std::char_traits<char>::eof()) {
-        throw std::runtime_error{"P1.8 fixture preflight: fixed input " +
-                                 std::string(label) + " changed while read"};
-    }
-    return bytes;
-}
-
-#endif
 
 [[nodiscard]] std::vector<std::byte> serialize_f64le(std::span<const double> values) {
     static_assert(sizeof(double) == sizeof(std::uint64_t));
     static_assert(std::numeric_limits<double>::is_iec559);
     std::vector<std::byte> bytes(values.size() * sizeof(double));
     for (std::size_t index = 0; index < values.size(); ++index) {
-        const std::uint64_t bits = std::bit_cast<std::uint64_t>(values[index]);
+        const auto bits = std::bit_cast<std::uint64_t>(values[index]);
         for (std::uint32_t byte_index = 0; byte_index < 8; ++byte_index) {
             bytes[index * 8 + byte_index] =
                 static_cast<std::byte>(bits >> (byte_index * 8U));
@@ -224,7 +206,7 @@ serialize_complex_f64le(std::span<const std::complex<double>> values) {
     for (std::size_t index = 0; index < values.size(); ++index) {
         const std::array pair{values[index].real(), values[index].imag()};
         for (std::size_t part = 0; part < pair.size(); ++part) {
-            const std::uint64_t bits = std::bit_cast<std::uint64_t>(pair[part]);
+            const auto bits = std::bit_cast<std::uint64_t>(pair[part]);
             for (std::uint32_t byte_index = 0; byte_index < 8; ++byte_index) {
                 bytes[(index * 2 + part) * 8 + byte_index] =
                     static_cast<std::byte>(bits >> (byte_index * 8U));
@@ -243,47 +225,57 @@ template <class Error>
                               ", byte " + std::to_string(error.byte_offset) + ")"};
 }
 
+#endif
+
 } // namespace
+
+const P18ObservedLineageFileIdentity &
+P18VerifiedReferenceLineage::at(P18ReferenceLineageFile file) const {
+    const auto index = lineage_index(file);
+    if (index >= files_.size() || files_[index].file != file) {
+        throw std::out_of_range{"P1.8 verified-lineage file identity is unavailable"};
+    }
+    return files_[index];
+}
 
 P18LoadedReferenceFixture
 load_p18_reference_fixture(const std::filesystem::path &fixture_root) {
-    const auto started = std::chrono::steady_clock::now();
-
-#if defined(__linux__)
-    const FileDescriptor root = open_fixture_root(fixture_root);
-    const auto audit_bytes =
-        read_exact_file_at(root.get(), "reference-audit.bin",
-                           kP18ReferenceAuditByteCount, "reference-audit.bin");
-    const auto seed_bytes =
-        read_exact_file_at(root.get(), "component-seeds.bin",
-                           kP18ReferenceSeedByteCount, "component-seeds.bin");
-    const FileDescriptor presentation = open_directory_at(root.get(), "presentation");
-    const auto ir_bytes = read_exact_file_at(presentation.get(), "smooth_39.wav",
-                                             kP18ReferenceConfiguredIrWaveByteCount,
-                                             "presentation/smooth_39.wav");
+#if !defined(__linux__)
+    static_cast<void>(fixture_root);
+    throw std::runtime_error{
+        "P1.8 fixture preflight is supported only on Linux because secure "
+        "descriptor-relative file opening is unavailable on this platform"};
 #else
-    const auto audit_bytes =
-        read_exact_file(fixture_root / "reference-audit.bin",
-                        kP18ReferenceAuditByteCount, "reference-audit.bin");
-    const auto seed_bytes =
-        read_exact_file(fixture_root / "component-seeds.bin",
-                        kP18ReferenceSeedByteCount, "component-seeds.bin");
-    const auto ir_bytes = read_exact_file(
-        fixture_root / "presentation" / "smooth_39.wav",
-        kP18ReferenceConfiguredIrWaveByteCount, "presentation/smooth_39.wav");
-#endif
+    const auto started = std::chrono::steady_clock::now();
+    const auto &catalog = p18_reference_catalog_v1();
+    std::array<ObservedRead, kP18ReferenceLineageFileCount> reads{};
 
-    P18ReferenceFixtureDigests digests{
-        contract::sha256(audit_bytes),
-        contract::sha256(seed_bytes),
-        contract::sha256(ir_bytes),
-        {},
-        {},
-    };
-    require_digest(digests.reference_audit, kAuditSha256, "reference-audit.bin");
-    require_digest(digests.component_seeds, kSeedSha256, "component-seeds.bin");
-    require_digest(digests.configured_ir_wave, kConfiguredIrSha256,
-                   "presentation/smooth_39.wav");
+    const auto root = open_fixture_root(fixture_root);
+    for (std::size_t index = 0; index < catalog.expected_lineage_files.size();
+         ++index) {
+        const auto &expected = catalog.expected_lineage_files[index];
+        if (lineage_index(expected.file) != index) {
+            throw std::logic_error{
+                "P1.8 lineage catalog must preserve exhaustive enum order"};
+        }
+        reads[index] =
+            read_catalog_file(root.get(), expected, retain_file_bytes(expected.file));
+    }
+
+    std::array<P18ObservedLineageFileIdentity, kP18ReferenceLineageFileCount>
+        observed_files{};
+    for (std::size_t index = 0; index < reads.size(); ++index) {
+        observed_files[index] = reads[index].identity;
+    }
+    P18VerifiedReferenceLineage lineage{std::move(observed_files)};
+    auto audit_bytes = std::move(
+        reads[lineage_index(P18ReferenceLineageFile::audit_input)].retained_bytes);
+    auto seed_bytes =
+        std::move(reads[lineage_index(P18ReferenceLineageFile::component_seed_input)]
+                      .retained_bytes);
+    auto ir_bytes =
+        std::move(reads[lineage_index(P18ReferenceLineageFile::configured_ir_input)]
+                      .retained_bytes);
 
     auto audit_result = decode_p18_reference_audit(audit_bytes);
     const auto *audit = std::get_if<P18DecodedReferenceAudit>(&audit_result);
@@ -303,36 +295,60 @@ load_p18_reference_fixture(const std::filesystem::path &fixture_root) {
         throw decode_error("configured IR",
                            std::get<presentation::P18Pcm16IrDecodeError>(ir_result));
     }
-    if (ir->samples.size() != kP18ReferenceConfiguredIrSampleCount ||
-        ir->meaningful_support_frames != kP18ReferenceConfiguredIrSupportFrames) {
-        throw std::runtime_error{
-            "P1.8 fixture preflight: configured IR must decode to 33705 samples "
-            "with 6907 meaningful-support frames"};
+    const auto &expected_ir =
+        catalog.expected_presentation.expected_configured_ir_media;
+    if (ir->samples.size() != expected_ir.expected_frame_count ||
+        ir->meaningful_support_frames !=
+            expected_ir.expected_meaningful_support_frame_count) {
+        throw preflight_error("configured IR",
+                              "decoded media shape differs from the catalog");
     }
 
+    const auto gain_bits =
+        catalog.expected_presentation.expected_scalars
+            .expected_impulse_response_gain_linear.expected_ieee754_bits;
     auto coefficients = dsp::p18_convert_static_ir(
-        ir->samples, ir->meaningful_support_frames,
-        std::bit_cast<double>(kP18ReferenceConfiguredIrGainBits));
-    if (coefficients.size() != dsp::P18FixedConvolutionKernel::coefficient_count) {
-        throw std::runtime_error{
-            "P1.8 fixture preflight: regenerated configured IR must contain "
-            "exactly 30071 coefficients"};
+        ir->samples, ir->meaningful_support_frames, std::bit_cast<double>(gain_bits));
+    if (coefficients.size() != catalog.expected_kernel.expected_coefficient_count ||
+        coefficients.size() != dsp::P18FixedConvolutionKernel::coefficient_count) {
+        throw preflight_error("configured IR",
+                              "regenerated kernel shape differs from the catalog");
     }
+
     const auto coefficient_bytes = serialize_f64le(coefficients);
-    digests.configured_ir_kernel_f64le = contract::sha256(coefficient_bytes);
+    P18ReferenceDerivedIdentities derived;
+    derived.configured_ir_kernel_f64le = {
+        static_cast<std::uint64_t>(coefficient_bytes.size()),
+        contract::sha256(coefficient_bytes),
+    };
+    const auto &observed_comparator =
+        lineage.at(P18ReferenceLineageFile::kernel_oracle_comparator);
+    if (derived.configured_ir_kernel_f64le.byte_count !=
+            observed_comparator.byte_count ||
+        derived.configured_ir_kernel_f64le.payload_sha256 !=
+            observed_comparator.payload_sha256) {
+        throw preflight_error(
+            "configured IR kernel",
+            "regenerated coefficients differ from the observed comparator file");
+    }
 
     auto kernel = std::make_shared<const dsp::P18FixedConvolutionKernel>(coefficients);
     const auto spectrum_bytes = serialize_complex_f64le(kernel->spectrum());
-    digests.configured_ir_kernel_spectrum_f64le = contract::sha256(spectrum_bytes);
+    derived.configured_ir_kernel_spectrum_f64le = {
+        static_cast<std::uint64_t>(spectrum_bytes.size()),
+        contract::sha256(spectrum_bytes),
+    };
     const auto finished = std::chrono::steady_clock::now();
     return {
         std::move(*audit),
         std::move(*seeds),
         std::move(coefficients),
         std::move(kernel),
-        digests,
+        std::move(lineage),
+        derived,
         std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started),
     };
+#endif
 }
 
 } // namespace engine_sim_offline::reference

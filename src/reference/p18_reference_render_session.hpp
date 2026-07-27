@@ -12,13 +12,6 @@
 
 namespace engine_sim_offline::reference {
 
-inline constexpr std::uint64_t kP18ReferenceProcessedBlockCount = 850;
-inline constexpr std::uint64_t kP18ReferenceWarmupBlockCount = 100;
-inline constexpr std::uint64_t kP18ReferencePublishedBlockCount = 750;
-inline constexpr std::uint64_t kP18ReferenceProcessedSourceFrameCount = 3'264'000;
-inline constexpr std::uint64_t kP18ReferenceWarmupSourceFrameCount = 384'000;
-inline constexpr std::uint64_t kP18ReferencePublishedSourceFrameCount = 2'880'000;
-
 using P18ReferenceAudioConsumers =
     std::array<artifacts::WavChunkConsumer, kP18ReferenceAudioArtifactCount>;
 
