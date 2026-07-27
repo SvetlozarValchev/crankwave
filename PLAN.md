@@ -1,7 +1,7 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — execution facts and canonical in-memory reference-manifest
-completion complete; transactional presentation session next
+Status: implementation — M2 accepted renderer and transactional reference wrapper
+complete; concrete M3 BMW request next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-28
 
@@ -376,7 +376,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Observe bounded Linux execution facts, finish and canonically encode the complete
       validated reference manifest in memory, and prove public `render()` remains
       fail-closed; defer manifest publication to the transactional session checkpoint.
-- [ ] Implement the bounded transactional eight-artifact P1.8 presentation session,
+- [x] Implement the bounded transactional eight-artifact P1.8 presentation session,
       including routing and execution evidence, without linking or reading the
       fixture; rerun exact artifact hashes to prove the accepted renderer was not
       changed.
@@ -394,13 +394,20 @@ diagnostic evidence, but a mismatch does not suppress the candidate from the imm
 listening hard stop; it must instead be reported and labelled. Work does not continue
 while awaiting the user's decision. Canonical reference serialization and
 transactional-publication plumbing deliberately follow that acceptance because they
-cannot validate sound. They must wrap the same accepted renderer and reproduce its
-accepted hashes before M3 begins. Freezing the simulation input alternative is
+cannot validate sound. The completed wrapper uses a fixture-free streaming session,
+keeps fixture decoding in one opt-in adapter, and atomically publishes exactly eight
+WAVs plus the canonical manifest and sidecar through `DirectoryRenderSink`; the former
+bespoke publisher was deleted. It reproduces every accepted artifact hash before M3
+begins. Freezing the simulation input alternative is
 deferred until a concrete M3 BMW request exists; this prevents a provisional parity
 profile from becoming a permanent wire API merely because its C++ validation types
 were written first. The public `render()` path remains fail-closed throughout fixture
 replay, and production/M3 targets never link the reference reader.
-Exact hashes establish only this narrow trace-driven renderer comparison—not
+The initial listening publisher deliberately retained a complete mismatched candidate
+for diagnosis. After the user accepted the renderer, the canonical transaction
+instead fails closed on any comparator mismatch; it cannot label changed audio as the
+accepted content identity. Exact hashes establish only this narrow trace-driven
+renderer comparison—not
 public-render success, new physics, production completeness, higher fidelity,
 distribution rights, or user acceptance.
 

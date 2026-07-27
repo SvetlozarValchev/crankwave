@@ -280,14 +280,15 @@ and performs one atomic no-replace publication. There are no diagnostic report f
 and no second transaction implementation. Public `render()` continues to reject the
 otherwise valid request before touching its sink.
 
-A clean Clang 21.1.8 Release build of commit
-`7e32006d2fb4f0164757c7ea04c61902b76ff072` embedded source-closure digest
-`25ce3ce22d661e772432988f5601195786caed45491f2656a2b97d4788785a91` and
-successfully admitted the complete identity. The following render reproduced all
-eight expected audio hashes; its audition WAVE remained byte-identical to the liked
-oracle at `f62c164f9a3debca23b1459fae8d6b47a19a98a418490e2e99bcbdf8a7d972eb`.
-The measured render-and-write time was 4.668 seconds, complete process time was 5.14
-seconds, and maximum resident memory was 35,872 KiB.
+A clean Clang 21.1.8 Release build of transactional implementation commit
+`5cad9daca18a9f1805eab4f18343187e8f6dd185` embedded source-closure digest
+`bfda2c8390e5d8059948205f1d3ee195d4c4b3f997e5db5f1dab781b7539f03a`
+and passed the complete 35-test matrix. Its exact transaction reproduced all eight
+expected audio hashes; the audition WAVE remained byte-identical to the liked oracle
+at `f62c164f9a3debca23b1459fae8d6b47a19a98a418490e2e99bcbdf8a7d972eb`.
+The live execution interval was 4.005 seconds, the complete command took 4.413
+seconds, the canonical manifest was 20,269 bytes, and maximum resident memory was
+36,068 KiB.
 
 Preflight opens, bounds, streams, and hashes exactly these fixed descendants of a
 caller-selected fixture root:
@@ -351,6 +352,10 @@ Earlier accepted-renderer measurements on this PC on 2026-07-27 used Release mod
 
 | Measurement | Result |
 |---|---:|
+| Transactional Clang DSP, eight WAV writes, and seals | 4.015 s |
+| Transactional Clang complete command | 4.413 s |
+| Transactional manifest bytes / published files | 20,269 / 10 |
+| Transactional maximum resident memory | 36,068 KiB |
 | CMake configure, clean reference build | 0.20 s |
 | Clean Clang reference target build, 3 build jobs | 12.59 s |
 | Single Clang preflight | 0.069 s |

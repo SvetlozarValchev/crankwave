@@ -97,9 +97,10 @@ build-reference/engine-sim-offline-p18-reference-render \
   bmw-m52b28-p18
 ```
 
-The destination is created with no-overwrite publication. All eight WAVs and two
-small reports appear together. A complete hash mismatch is still published and
-labelled so it can be judged by ear; malformed or incomplete output is never
-published. Source, toolchain, loaded-runtime, and numeric identity are observed from
-the built renderer and cannot be supplied on the command line. The configured IR and
-its derivatives are local listening evidence only.
+The destination is created with no-overwrite publication. Exactly eight WAVs, the
+canonical render manifest, and its SHA-256 sidecar appear as one atomic ten-file
+tree. This post-acceptance wrapper fails closed on a hash mismatch; malformed,
+incomplete, or changed output is never published under the accepted identity. Source,
+toolchain, loaded-runtime, numeric, and execution identities are observed from the
+built renderer and cannot be supplied on the command line. The configured IR and its
+derivatives are local listening evidence only.
