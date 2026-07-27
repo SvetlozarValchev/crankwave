@@ -124,6 +124,90 @@ add_test(
     COMMAND engine_sim_offline_dsp_primitive_tests
 )
 
+add_executable(
+    engine_sim_offline_p18_random_table_tests
+    p18_random_table_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_random_table_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_random_table_tests
+    PRIVATE engine_sim_offline::dsp
+)
+
+add_test(
+    NAME dsp.p18_random_table
+    COMMAND engine_sim_offline_p18_random_table_tests
+)
+
+add_executable(
+    engine_sim_offline_p18_reconstruction_tests
+    p18_causal_reconstruction_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_reconstruction_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_reconstruction_tests
+    PRIVATE engine_sim_offline::presentation
+)
+
+add_test(
+    NAME presentation.p18_reconstruction
+    COMMAND engine_sim_offline_p18_reconstruction_tests
+)
+
+add_executable(
+    engine_sim_offline_p18_conditioning_tests
+    p18_conditioning_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_conditioning_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_conditioning_tests
+    PRIVATE engine_sim_offline::presentation
+)
+
+add_test(
+    NAME presentation.p18_conditioning
+    COMMAND engine_sim_offline_p18_conditioning_tests
+)
+
+add_executable(
+    engine_sim_offline_p18_source_stage_tests
+    p18_source_stage_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_source_stage_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_source_stage_tests
+    PRIVATE engine_sim_offline::presentation
+)
+
+add_test(
+    NAME presentation.p18_source_stage
+    COMMAND engine_sim_offline_p18_source_stage_tests
+)
+
 if(TARGET engine_sim_offline_cli_shell)
     add_executable(
         engine_sim_offline_cli_tests

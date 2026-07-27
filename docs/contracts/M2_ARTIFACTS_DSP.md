@@ -4,7 +4,7 @@ Status: normative interface record for the M2 telemetry/WAV sink and focused-DSP
 checkpoint
 
 Applies to: bounded byte encoding, transactional directory publication, and the
-small exact P1.8 stateful primitives needed by the next acoustic-route checkpoint
+small exact P1.8 stateful primitives shared with the source-stage implementation
 
 This checkpoint does not decode the BMW fixture, construct excitation, run the
 complete presentation route, serialize a production render manifest, or admit render
@@ -119,25 +119,30 @@ without publishing. The directory transaction protects against ordinary failures
 at-rest tampering inside its private stage. It is not a security boundary against a
 hostile same-user process racing the final identity check and rename.
 
-## 5. Focused P1.8 DSP primitives
+## 5. Focused P1.8 DSP and source-stage primitives
 
-The DSP target currently contains only exact, stateful P1.8 building blocks whose
-arithmetic is already frozen in `P18_PRESENTATION_RENDERER.md`:
+The DSP target contains exact P1.8 building blocks whose arithmetic is already frozen
+in `P18_PRESENTATION_RENDERER.md`:
 
 - fourth-order low-pass coefficient construction and recurrence;
 - first-order DC removal;
 - backward first difference;
 - the one specified conditioned-sample subnormal cleanup;
-- binary64-to-Float32 publication followed by exact `2^-26` calibration.
+- binary64-to-Float32 publication followed by exact `2^-26` calibration;
+- PCG32 state and binary64 draw construction; and
+- the immutable 257-tap, 4,097-row causal-reconstruction coefficient table.
 
 Their names deliberately identify them as P1.8 behavioral-reference code rather than
 general production DSP. Tests pin coefficient and recurrence bit patterns, continuous
 state across caller chunk boundaries, publication order, and fail-closed handling of
 invalid/non-finite input.
 
-The causal 257-tap reconstruction, PCG32 streams, jitter, complete conditioning
-mixture, air-noise path, IR conversion, fixed overlap-save convolution, crop, stems,
-and master are not approximated here. Their now-split checkpoints may add and verify
-individual exact state machines, but no partial output is an audible candidate. The
-complete unchanged route must pass its fixture/oracle hash tests before any WAV is
-offered for listening.
+The internal presentation target composes those primitives into the exact
+shared-clock reconstruction and two independent jitter/DC/derivative/air-noise paths.
+Its typed seam, state ownership, validation, and deliberate stopping boundary are
+recorded in
+[`M2_P18_SOURCE_STAGE.md`](../model/M2_P18_SOURCE_STAGE.md).
+
+IR conversion, fixed overlap-save convolution, crop, stems, and master remain absent.
+No partial source-stage output is an audible candidate. The complete unchanged route
+must pass its fixture/oracle hash tests before any WAV is offered for listening.

@@ -34,7 +34,7 @@ target_compile_features(engine_sim_offline_build_options INTERFACE cxx_std_20)
 target_compile_options(
     engine_sim_offline_build_options
     INTERFACE
-        $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-Wall;-Wextra;-Wpedantic;-ffp-contract=off>
+        $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-Wall;-Wextra;-Wpedantic;-fno-fast-math;-ffp-contract=off>
         $<$<CXX_COMPILER_ID:MSVC>:/W4;/permissive-;/fp:strict;/Zc:__cplusplus>
 )
 
@@ -132,7 +132,9 @@ target_link_libraries(
 add_library(
     engine_sim_offline_dsp
     STATIC
+        src/dsp/p18_pcg32.cpp
         src/dsp/p18_primitives.cpp
+        src/dsp/p18_reconstruction_table.cpp
 )
 add_library(
     engine_sim_offline::dsp
@@ -148,6 +150,32 @@ target_include_directories(
 target_link_libraries(
     engine_sim_offline_dsp
     PUBLIC engine_sim_offline::build_options
+)
+
+add_library(
+    engine_sim_offline_presentation
+    STATIC
+        src/presentation/p18_causal_reconstruction.cpp
+        src/presentation/p18_conditioning.cpp
+        src/presentation/p18_source_stage.cpp
+)
+add_library(
+    engine_sim_offline::presentation
+    ALIAS engine_sim_offline_presentation
+)
+
+target_include_directories(
+    engine_sim_offline_presentation
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_presentation
+    PUBLIC
+        engine_sim_offline::build_options
+        engine_sim_offline::contract
+        engine_sim_offline::dsp
 )
 
 if(ENGINE_SIM_OFFLINE_BUILD_CLI)

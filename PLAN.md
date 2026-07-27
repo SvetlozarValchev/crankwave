@@ -1,7 +1,7 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — truthful simulation/reference manifest-input split frozen;
-exact P1.8 reconstruction, jitter, and conditioning next
+Status: implementation — exact P1.8 source stage frozen; strict PCM16 IR decoding
+and static conversion next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -302,7 +302,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Split manifest inputs into complete simulation inputs and an exact isolated
       reference-presentation alternative; keep public `RenderSuccess` simulation-only
       and do not invent deferred physics inputs for fixture replay.
-- [ ] Implement and bit-test exact P1.8 PCG32, causal reconstruction, jitter, and
+- [x] Implement and bit-test exact P1.8 PCG32, causal reconstruction, jitter, and
       conditioning behind the typed two-route excitation seam; do not read the
       fixture or emit WAV.
 - [ ] Implement strict PCM16 IR decoding, support detection, and exact static
