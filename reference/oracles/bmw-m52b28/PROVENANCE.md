@@ -38,8 +38,41 @@ Generator identity recorded by the package:
 - aggregate generator-source SHA-256:
   `b345061519e56e422f7ea135f56cd276de18f81897d655d3061f4308f87ece13`
 
-That exact executable has since been overwritten. The source snapshot is reconstructible;
-a byte-identical rerun of the baker executable is not currently guaranteed.
+That exact executable has since been overwritten. Its machine-code identity was not
+recreated, but the canonical capture's behavior has now been reconstructed and proved
+as described below.
+
+### Behavioral reconstruction proof
+
+The pinned source and submodules were rebuilt independently with Clang 21.1.8, Release
+settings, and floating-point contraction disabled. The clean reconstructed executable
+has SHA-256
+`4b1fa28c8cbf6f4ae6c2c27e601c254298459a99baeb4dcdd0a0b7f95695bc51`.
+
+An optional, compile-time-disabled observation patch then captured physical/control
+terms separately from redundant validation-only legacy excitation and bus values. Four
+canonical renders were compared:
+
+1. the clean P1.8 reconstruction;
+2. the patched build with audit support compiled out;
+3. the patched audit-capable build with capture inactive;
+4. the patched audit-capable build actively writing the fixture.
+
+All six stems and the scenario preview were byte-for-byte identical in all four runs.
+The actively observed wet stems also reproduced the preserved listening-master WAV
+byte-for-byte with the frozen FFmpeg command below. This proves that the reconstructed
+canonical trajectory matches the liked oracle and that observation did not perturb its
+audio output.
+
+The resulting self-contained fixture, closed manifest, independent validator, and exact
+observation patch are preserved at:
+
+- [`reference/fixtures/bmw-m52b28-p18`](../../fixtures/bmw-m52b28-p18/README.md)
+- [`reference/tooling/p18-reference-audit.patch`](../../tooling/p18-reference-audit.patch)
+- [`tools/validate_reference_fixture.py`](../../../tools/validate_reference_fixture.py)
+
+The fixture is the forward handoff. Subsequent renderer and simulator work no longer
+depends on the external failed tree.
 
 ### 2. Offline capture command
 
@@ -71,12 +104,15 @@ Relevant package identities:
 - source-capture manifest SHA-256:
   `6b48b7e99accc0c18703576e53c45e8061d6b406053a714e60a5f061b133829d`
 
-The external package is treated as read-only evidence under:
+The historical external package was treated as read-only evidence under:
 
 ```text
 /home/cbethax/depot/dev/engine-sim-offline-failed/engine-sim/workspace/listening/
   bmw-m52b28-fifth-equivalent-pull-package/
 ```
+
+It is not a dependency of subsequent clean-room work; its required identities and the
+new pre-presentation fixture are preserved in this repository.
 
 ### 3. Listening-master command
 
@@ -158,17 +194,18 @@ source calibration is applied afterward, before serialization and headroom check
 ## Verified scenario semantics
 
 - Scenario type: prescribed dyno RPM trajectory.
-- Requested effort/throttle: constant `0.85`.
-- Ignition and fuel delivery: on throughout capture.
+- Audible-interval requested effort/throttle: constant `0.85`.
+- Audible-interval ignition and fuel delivery: on.
 - Nominal range: 1500–6500 RPM.
-- Captured duration: 15 seconds.
+- Audible duration: 15 seconds.
+- Newly preserved fixture history: 17 seconds, including one second of bootstrap and
+  one second of loaded pre-roll before the audible interval. Exact starter, dyno,
+  ignition, fuel, and throttle intervals are closed in the fixture manifest.
 - Control interval: 20 ms; 751 recorded control points.
 - First two points: 1500 RPM.
 - Last recorded point: 6493.333333 RPM.
 - Physics clock: 10 kHz.
 - Source-processing, acoustic, delivery, and file clocks: 192 kHz.
-- Bootstrap: one second.
-- Pre-roll after bootstrap: one second.
 - Public seed: `12648430` (`0xC0FFEE`).
 
 “Fifth-gear-equivalent” is a listening label. The baker drives crank RPM directly and
@@ -222,14 +259,14 @@ evaluation until the rights question is resolved.
 - Physical provenance and accuracy of the BMW parameter values.
 - Physical meaning and provenance of `smooth_39.wav`.
 - Whether every inherited fork audio change is necessary to reproduce the liked result.
-- Byte-identical baker reproducibility without the original executable.
-- A pre-presentation per-cylinder/per-port pressure and flow trace for this take.
-- The two precursor stems and package manifests remain only in the external failed tree;
-  this repository preserves their identities and the resulting oracle, not those
-  intermediate files.
+- The historical executable's exact machine-code identity; canonical-capture behavior,
+  rather than executable bytes, is what the reconstruction proof closes.
+- The two historical precursor stems and package manifests remain only in the external
+  failed tree. Their identities, the resulting oracle, newly regenerated equivalence
+  evidence, and the pre-presentation fixture are preserved here.
 
-The package contains only processed exhaust artifacts. `linear_wet_dry` is post-IR;
-even `linear_dry` is post-jitter/DC/derivative/air-noise conditioning and exposes only
-combined exhaust scalar buses. Neither is the clean physical `CaptureBlock` fixture
-required by M2. That fixture must be newly exported or newly generated; it cannot be
-recovered from this package alone.
+The historical package alone contains only processed exhaust artifacts.
+`linear_wet_dry` is post-IR; even `linear_dry` is
+post-jitter/DC/derivative/air-noise conditioning and exposes only combined exhaust
+scalar buses. It could not supply the clean physical `CaptureBlock` boundary by itself.
+That former gap is closed by the newly observed parity and audit lanes described above.

@@ -1,0 +1,902 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8026bb1e48745b7ae8e74c93bc0fc0cd03421fca..d10e6c879a6281a3afe5d8fbfe2ed0e4945b2410 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -11,6 +11,8 @@ option(ENGINE_SIM_BUILD_OFFLINE_TESTS
+     "Register dependency-light offline audio contract and tool tests" ON)
+ option(ENGINE_SIM_NATURAL_GAS_RESONANCE
+     "Use the undamped chamber/exhaust gas dynamics from the desktop reference app" OFF)
++option(ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++    "Build the observation-only P1.8 reference fixture capture" OFF)
+ 
+ if (EMSCRIPTEN OR CMAKE_SYSTEM_NAME STREQUAL "Emscripten"
+     OR CMAKE_TOOLCHAIN_FILE MATCHES "Emscripten.cmake$")
+@@ -280,6 +282,11 @@ if (ENGINE_SIM_NATURAL_GAS_RESONANCE)
+         ENGINE_SIM_NATURAL_GAS_RESONANCE=1)
+ endif ()
+ 
++if (ENGINE_SIM_REFERENCE_AUDIT_CAPTURE)
++    target_compile_definitions(engine-sim PRIVATE
++        ENGINE_SIM_REFERENCE_AUDIT_CAPTURE=1)
++endif ()
++
+ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+     # Native/Wasm parity requires identical scalar expression boundaries. Do
+     # not permit target-dependent fused multiply-add contraction.
+@@ -357,6 +364,10 @@ if (PIRANHA_ENABLED)
+             ENGINE_SIM_BUILD_COMPILER_VERSION="${CMAKE_CXX_COMPILER_VERSION}"
+             ENGINE_SIM_BUILD_GENERATOR_SOURCE_SHA256="${ENGINE_SIM_BUILD_GENERATOR_SOURCE_SHA256}"
+             ENGINE_SIM_BUILD_NATURAL_GAS_RESONANCE=$<BOOL:${ENGINE_SIM_NATURAL_GAS_RESONANCE}>)
++        if (ENGINE_SIM_REFERENCE_AUDIT_CAPTURE)
++            target_compile_definitions(truck-audio-baker PRIVATE
++                ENGINE_SIM_REFERENCE_AUDIT_CAPTURE=1)
++        endif ()
+ 
+         target_link_libraries(truck-audio-baker
+             engine-sim-script-interpreter
+diff --git a/include/delay_filter.h b/include/delay_filter.h
+index 805b18543489abd8fe85387d06fb62f44b37c902..feb3ca7e6115b6e110e87d231592f5c856ad1998 100644
+--- a/include/delay_filter.h
++++ b/include/delay_filter.h
+@@ -43,6 +43,12 @@ public:
+         }
+     }
+ 
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++    int referenceAuditLatencySamples() const {
++        return m_latencySamples;
++    }
++#endif
++
+ protected:
+     int m_latencySamples;
+     RingBuffer<double> m_history;
+diff --git a/include/ignition_module.h b/include/ignition_module.h
+index 9682b038f365dc66a342603fa21115449d3f02f9..e5dea7071972af0299e34b94e55bb4c350c40104 100644
+--- a/include/ignition_module.h
++++ b/include/ignition_module.h
+@@ -49,6 +49,12 @@ class IgnitionModule : public Part {
+         double getRevLimitTimer() const { return m_revLimitTimer; }
+         double getLimiterDuration() const { return m_limiterDuration; }
+ 
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++        double referenceAuditFiringAngle(int index) const {
++            return m_plugs[index].angle;
++        }
++#endif
++
+         bool m_enabled;
+ 
+     protected:
+diff --git a/include/piston_engine_simulator.h b/include/piston_engine_simulator.h
+index dfc1bc266f555c2abd5d6673ba21f313d3bfdd1b..1685f35b9994342f7b4eb4813c0bc00fd829a25f 100644
+--- a/include/piston_engine_simulator.h
++++ b/include/piston_engine_simulator.h
+@@ -70,6 +70,11 @@ class PistonEngineSimulator : public Simulator {
+         double generateStarterAudio();
+         void initializeAudioTrace();
+         void finalizeAudioTrace();
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++        void initializeReferenceAuditCapture();
++        void writeReferenceAuditCapture();
++        void finalizeReferenceAuditCapture(bool requireComplete);
++#endif
+ 
+     protected:
+         DelayFilter *m_delayFilters;
+@@ -124,6 +129,16 @@ class PistonEngineSimulator : public Simulator {
+         double m_audioTraceDurationSeconds = 60.0;
+         double m_audioTraceElapsedSeconds = 0.0;
+         double m_audioTraceNextFlushSeconds = 1.0;
++
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++        FILE *m_referenceParityFile = nullptr;
++        FILE *m_referenceAuditFile = nullptr;
++        bool m_referenceAuditInitialized = false;
++        uint64_t m_referenceAuditRecords = 0;
++        double m_referenceAuditElapsedSeconds = 0.0;
++        double *m_referencePreDelay = nullptr;
++        double *m_referencePostDelay = nullptr;
++#endif
+ };
+ 
+ #endif /* ATG_ENGINE_SIM_PISTON_ENGINE_SIMULATOR_H */
+diff --git a/src/piston_engine_simulator.cpp b/src/piston_engine_simulator.cpp
+index e3d4cb6c290220ad1d22a4058ecd4a6f8185ec01..fcb55a9de65d808be0ff68df86b8cf8927d84cb5 100644
+--- a/src/piston_engine_simulator.cpp
++++ b/src/piston_engine_simulator.cpp
+@@ -4,6 +4,7 @@
+ #include "../include/units.h"
+ 
+ #include <cmath>
++#include <cfenv>
+ #include <assert.h>
+ #include <chrono>
+ #include <set>
+@@ -12,6 +13,7 @@
+ #include <cstring>
+ #include <limits>
+ #include <stdexcept>
++#include <string>
+ 
+ namespace {
+ 
+@@ -40,6 +42,80 @@ void writeLeDouble(FILE *file, double value) {
+     writeLe64(file, bits);
+ }
+ 
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++
++constexpr uint64_t ReferenceAuditExpectedRecords = UINT64_C(170000);
++constexpr uint64_t ReferenceAuditAudibleStart = UINT64_C(20000);
++
++void writeReferenceBytes(
++    FILE *file,
++    const void *data,
++    std::size_t size)
++{
++    if (std::fwrite(data, 1, size, file) != size) {
++        throw std::runtime_error(
++            "Could not write the P1.8 reference fixture");
++    }
++}
++
++void writeReferenceU8(FILE *file, uint8_t value) {
++    writeReferenceBytes(file, &value, sizeof(value));
++}
++
++void writeReferenceLe32(FILE *file, uint32_t value) {
++    const unsigned char bytes[4] = {
++        static_cast<unsigned char>(value & 0xffu),
++        static_cast<unsigned char>((value >> 8) & 0xffu),
++        static_cast<unsigned char>((value >> 16) & 0xffu),
++        static_cast<unsigned char>((value >> 24) & 0xffu)
++    };
++    writeReferenceBytes(file, bytes, sizeof(bytes));
++}
++
++void writeReferenceLe64(FILE *file, uint64_t value) {
++    unsigned char bytes[8];
++    for (int i = 0; i < 8; ++i) {
++        bytes[i] = static_cast<unsigned char>(
++            (value >> (i * 8)) & UINT64_C(0xff));
++    }
++    writeReferenceBytes(file, bytes, sizeof(bytes));
++}
++
++void writeReferenceLeDouble(FILE *file, double value) {
++    static_assert(
++        sizeof(double) == sizeof(uint64_t),
++        "P1.8 reference fixtures require binary64");
++    uint64_t bits = 0;
++    std::memcpy(&bits, &value, sizeof(bits));
++    writeReferenceLe64(file, bits);
++}
++
++std::string referenceAuditPath(const char *filename) {
++    const char *directory =
++        std::getenv("ENGINE_SIM_OFFLINE_REFERENCE_FIXTURE_DIR");
++    if (directory == nullptr || directory[0] == '\0') {
++        return {};
++    }
++    std::string path(directory);
++    if (path.back() != '/' && path.back() != '\\') {
++        path.push_back('/');
++    }
++    path += filename;
++    return path;
++}
++
++void requireReferencePathAbsent(const std::string &path) {
++    FILE *existing = std::fopen(path.c_str(), "rb");
++    if (existing != nullptr) {
++        std::fclose(existing);
++        throw std::runtime_error(
++            "Refusing to overwrite existing P1.8 reference fixture file: "
++            + path);
++    }
++}
++
++#endif
++
+ } // namespace
+ 
+ PistonEngineSimulator::PistonEngineSimulator() {
+@@ -84,6 +160,12 @@ PistonEngineSimulator::~PistonEngineSimulator() {
+     assert(m_crankshaftLinks == nullptr);
+     assert(m_exhaustFlowStagingBuffer == nullptr);
+     assert(m_delayFilters == nullptr);
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++    assert(m_referenceParityFile == nullptr);
++    assert(m_referenceAuditFile == nullptr);
++    assert(m_referencePreDelay == nullptr);
++    assert(m_referencePostDelay == nullptr);
++#endif
+ }
+ 
+ void PistonEngineSimulator::setRandomSeed(uint32_t seed) {
+@@ -105,6 +187,12 @@ void PistonEngineSimulator::setStarterRandomSeed(
+ void PistonEngineSimulator::loadSimulation(Engine *engine, Vehicle *vehicle, Transmission *transmission) {
+     finalizeAudioTrace();
+     m_audioTraceInitialized = false;
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++    finalizeReferenceAuditCapture(false);
++    m_referenceAuditInitialized = false;
++    m_referenceAuditRecords = 0;
++    m_referenceAuditElapsedSeconds = 0.0;
++#endif
+ 
+     Simulator::loadSimulation(engine, vehicle, transmission);
+ 
+@@ -470,6 +558,9 @@ void PistonEngineSimulator::endFrame() {
+ 
+ void PistonEngineSimulator::destroy() {
+     finalizeAudioTrace();
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++    finalizeReferenceAuditCapture(false);
++#endif
+     if (m_system != nullptr) m_system->reset();
+ 
+     if (m_crankConstraints != nullptr) delete[] m_crankConstraints;
+@@ -547,6 +638,456 @@ void PistonEngineSimulator::finalizeAudioTrace() {
+         static_cast<unsigned long long>(m_audioTraceRecords));
+ }
+ 
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++
++void PistonEngineSimulator::initializeReferenceAuditCapture() {
++    if (m_referenceAuditInitialized) return;
++    m_referenceAuditInitialized = true;
++
++    const std::string parityPartial =
++        referenceAuditPath("reference-parity.bin.partial");
++    if (parityPartial.empty()) return;
++
++    if (m_engine == nullptr
++        || m_engine->getName() != "BMW M52B28"
++        || m_engine->getCylinderCount() != 6
++        || m_engine->getExhaustSystemCount() != 2
++        || getSimulationFrequency() != 10000
++        || getDeliverySampleRateHz() != 192000) {
++        throw std::runtime_error(
++            "P1.8 reference capture requires the canonical BMW M52B28 "
++            "6-cylinder, 2-route, 10 kHz / 192 kHz runtime");
++    }
++    if (!std::numeric_limits<double>::is_iec559) {
++        throw std::runtime_error(
++            "P1.8 reference capture requires IEC 60559 binary64");
++    }
++    if (std::fegetround() != FE_TONEAREST) {
++        throw std::runtime_error(
++            "P1.8 reference capture requires round-to-nearest");
++    }
++
++    const std::string auditPartial =
++        referenceAuditPath("reference-audit.bin.partial");
++    const std::string parityFinal =
++        referenceAuditPath("reference-parity.bin");
++    const std::string auditFinal =
++        referenceAuditPath("reference-audit.bin");
++    requireReferencePathAbsent(parityPartial);
++    requireReferencePathAbsent(auditPartial);
++    requireReferencePathAbsent(parityFinal);
++    requireReferencePathAbsent(auditFinal);
++
++    m_referenceParityFile =
++        std::fopen(parityPartial.c_str(), "wb");
++    m_referenceAuditFile =
++        std::fopen(auditPartial.c_str(), "wb");
++    if (m_referenceParityFile == nullptr
++        || m_referenceAuditFile == nullptr) {
++        if (m_referenceParityFile != nullptr) {
++            std::fclose(m_referenceParityFile);
++            m_referenceParityFile = nullptr;
++        }
++        if (m_referenceAuditFile != nullptr) {
++            std::fclose(m_referenceAuditFile);
++            m_referenceAuditFile = nullptr;
++        }
++        throw std::runtime_error(
++            "Could not open the P1.8 reference fixture output files");
++    }
++
++    const uint32_t cylinderCount =
++        static_cast<uint32_t>(m_engine->getCylinderCount());
++    const uint32_t exhaustCount =
++        static_cast<uint32_t>(m_engine->getExhaustSystemCount());
++    const uint32_t parityHeaderBytes =
++        128u + 80u * cylinderCount;
++    const uint32_t parityRecordBytes =
++        80u + 24u * cylinderCount;
++    const uint32_t auditRecordBytes =
++        16u + 16u * cylinderCount + 8u * exhaustCount;
++
++    try {
++        writeReferenceBytes(
++            m_referenceParityFile,
++            "ESOPAR01",
++            8);
++        writeReferenceLe32(m_referenceParityFile, 1);
++        writeReferenceLe32(
++            m_referenceParityFile,
++            parityHeaderBytes);
++        writeReferenceLe32(
++            m_referenceParityFile,
++            cylinderCount);
++        writeReferenceLe32(
++            m_referenceParityFile,
++            exhaustCount);
++        writeReferenceLe32(
++            m_referenceParityFile,
++            parityRecordBytes);
++        writeReferenceLe32(
++            m_referenceParityFile,
++            getSimulationFrequency());
++        writeReferenceLe64(m_referenceParityFile, 0);
++        writeReferenceLe64(
++            m_referenceParityFile,
++            ReferenceAuditAudibleStart);
++        writeReferenceLe64(
++            m_referenceParityFile,
++            ReferenceAuditExpectedRecords);
++        writeReferenceLeDouble(
++            m_referenceParityFile,
++            units::pressure(1.0, units::atm));
++        writeReferenceLeDouble(m_referenceParityFile, 343.0);
++        writeReferenceLeDouble(m_referenceParityFile, 1600.0);
++        writeReferenceLeDouble(m_referenceParityFile, 40.0);
++        writeReferenceLeDouble(m_referenceParityFile, 1.0);
++        writeReferenceLeDouble(m_referenceParityFile, 0.1);
++        writeReferenceLeDouble(m_referenceParityFile, 0.1);
++        writeReferenceLeDouble(
++            m_referenceParityFile,
++            static_cast<double>(cylinderCount));
++        writeReferenceLeDouble(m_referenceParityFile, 2.0);
++
++        const IgnitionModule *ignition =
++            m_engine->getIgnitionModule();
++        for (uint32_t i = 0; i < cylinderCount; ++i) {
++            Piston *piston =
++                m_engine->getPiston(static_cast<int>(i));
++            CylinderBank *bank =
++                piston->getCylinderBank();
++            CylinderHead *head =
++                m_engine->getHead(bank->getIndex());
++            const int cylinderIndex =
++                piston->getCylinderIndex();
++            ExhaustSystem *exhaust =
++                head->getExhaustSystem(cylinderIndex);
++            const double firingAngle =
++                ignition->referenceAuditFiringAngle(
++                    static_cast<int>(i));
++            uint32_t firingRank = 0;
++            for (uint32_t j = 0; j < cylinderCount; ++j) {
++                const double other =
++                    ignition->referenceAuditFiringAngle(
++                        static_cast<int>(j));
++                if (other < firingAngle
++                    || (other == firingAngle && j < i)) {
++                    ++firingRank;
++                }
++            }
++            const double headerLength =
++                head->getHeaderPrimaryLength(cylinderIndex);
++            const double exhaustLength =
++                exhaust->getLength();
++
++            writeReferenceLe32(m_referenceParityFile, i);
++            writeReferenceLe32(m_referenceParityFile, i + 1u);
++            writeReferenceLe32(
++                m_referenceParityFile,
++                firingRank);
++            writeReferenceLe32(
++                m_referenceParityFile,
++                static_cast<uint32_t>(exhaust->getIndex()));
++            writeReferenceLe32(
++                m_referenceParityFile,
++                static_cast<uint32_t>(
++                    m_delayFilters[i]
++                        .referenceAuditLatencySamples()));
++            writeReferenceLe32(m_referenceParityFile, 0);
++            writeReferenceLeDouble(
++                m_referenceParityFile,
++                firingAngle);
++            writeReferenceLeDouble(
++                m_referenceParityFile,
++                headerLength);
++            writeReferenceLeDouble(
++                m_referenceParityFile,
++                exhaustLength);
++            writeReferenceLeDouble(
++                m_referenceParityFile,
++                headerLength + exhaustLength);
++            writeReferenceLeDouble(
++                m_referenceParityFile,
++                exhaust->getPrimaryTubeLength());
++            writeReferenceLeDouble(
++                m_referenceParityFile,
++                head->getSoundAttenuation(cylinderIndex));
++            writeReferenceLeDouble(
++                m_referenceParityFile,
++                exhaust->getAudioVolume());
++        }
++
++        writeReferenceBytes(
++            m_referenceAuditFile,
++            "ESOAUD01",
++            8);
++        writeReferenceLe32(m_referenceAuditFile, 1);
++        writeReferenceLe32(m_referenceAuditFile, 64);
++        writeReferenceLe32(
++            m_referenceAuditFile,
++            cylinderCount);
++        writeReferenceLe32(
++            m_referenceAuditFile,
++            exhaustCount);
++        writeReferenceLe32(
++            m_referenceAuditFile,
++            auditRecordBytes);
++        writeReferenceLe32(
++            m_referenceAuditFile,
++            getSimulationFrequency());
++        writeReferenceLe64(m_referenceAuditFile, 0);
++        writeReferenceLe64(m_referenceAuditFile, 0);
++        writeReferenceLe64(
++            m_referenceAuditFile,
++            ReferenceAuditExpectedRecords);
++        writeReferenceLe64(m_referenceAuditFile, 0);
++    }
++    catch (...) {
++        std::fclose(m_referenceParityFile);
++        std::fclose(m_referenceAuditFile);
++        m_referenceParityFile = nullptr;
++        m_referenceAuditFile = nullptr;
++        throw;
++    }
++
++    m_referencePreDelay = new double[cylinderCount];
++    m_referencePostDelay = new double[cylinderCount];
++    m_referenceAuditRecords = 0;
++    m_referenceAuditElapsedSeconds = 0.0;
++
++    std::fprintf(
++        stderr,
++        "[REFERENCE AUDIT] P1.8 fixture -> %s\n",
++        referenceAuditPath("").c_str());
++}
++
++void PistonEngineSimulator::writeReferenceAuditCapture() {
++    if (m_referenceParityFile == nullptr
++        || m_referenceAuditFile == nullptr) {
++        return;
++    }
++    if (m_referenceAuditRecords
++        >= ReferenceAuditExpectedRecords) {
++        throw std::runtime_error(
++            "P1.8 reference fixture received too many records");
++    }
++
++    const uint64_t sampleIndex =
++        m_referenceAuditRecords;
++    const uint64_t stepEnd =
++        sampleIndex + 1;
++    const double timestep = getTimestep();
++    m_referenceAuditElapsedSeconds += timestep;
++
++    writeReferenceLe64(
++        m_referenceParityFile,
++        sampleIndex);
++    writeReferenceLe64(
++        m_referenceParityFile,
++        stepEnd);
++    writeReferenceLeDouble(
++        m_referenceParityFile,
++        m_referenceAuditElapsedSeconds);
++    writeReferenceLeDouble(
++        m_referenceParityFile,
++        timestep);
++    writeReferenceLeDouble(
++        m_referenceParityFile,
++        m_engine->getRpm());
++    writeReferenceLeDouble(
++        m_referenceParityFile,
++        filteredEngineSpeed());
++    writeReferenceLeDouble(
++        m_referenceParityFile,
++        m_engine->getOutputCrankshaft()
++            ->getCycleAngle());
++    writeReferenceLeDouble(
++        m_referenceParityFile,
++        m_engine->getSpeedControl());
++    writeReferenceLeDouble(
++        m_referenceParityFile,
++        m_engine->getThrottle());
++    writeReferenceU8(
++        m_referenceParityFile,
++        m_engine->getIgnitionModule()->m_enabled
++            ? 1u
++            : 0u);
++    writeReferenceU8(
++        m_referenceParityFile,
++        m_engine->isFuelDeliveryEnabled()
++            ? 1u
++            : 0u);
++    writeReferenceU8(
++        m_referenceParityFile,
++        m_starterMotor.m_enabled
++            ? 1u
++            : 0u);
++    writeReferenceU8(
++        m_referenceParityFile,
++        m_dyno.m_enabled
++            ? 1u
++            : 0u);
++    writeReferenceLe32(m_referenceParityFile, 0);
++
++    const int cylinderCount =
++        m_engine->getCylinderCount();
++    for (int i = 0; i < cylinderCount; ++i) {
++        CombustionChamber *chamber =
++            m_engine->getChamber(i);
++        writeReferenceLeDouble(
++            m_referenceParityFile,
++            chamber->m_exhaustRunnerAndPrimary
++                .pressure());
++        writeReferenceLeDouble(
++            m_referenceParityFile,
++            chamber->m_exhaustRunnerAndPrimary
++                .dynamicPressure(1.0, 0.0));
++        writeReferenceLeDouble(
++            m_referenceParityFile,
++            chamber->m_exhaustRunnerAndPrimary
++                .dynamicPressure(-1.0, 0.0));
++    }
++
++    writeReferenceLe64(
++        m_referenceAuditFile,
++        sampleIndex);
++    writeReferenceLe64(
++        m_referenceAuditFile,
++        stepEnd);
++    for (int i = 0; i < cylinderCount; ++i) {
++        writeReferenceLeDouble(
++            m_referenceAuditFile,
++            m_referencePreDelay[i]);
++    }
++    for (int i = 0; i < cylinderCount; ++i) {
++        writeReferenceLeDouble(
++            m_referenceAuditFile,
++            m_referencePostDelay[i]);
++    }
++    for (int i = 0;
++        i < m_engine->getExhaustSystemCount();
++        ++i) {
++        writeReferenceLeDouble(
++            m_referenceAuditFile,
++            m_exhaustFlowStagingBuffer[i]);
++    }
++
++    ++m_referenceAuditRecords;
++    if (m_referenceAuditRecords
++        == ReferenceAuditExpectedRecords) {
++        finalizeReferenceAuditCapture(true);
++    }
++}
++
++void PistonEngineSimulator::finalizeReferenceAuditCapture(
++    bool requireComplete)
++{
++    if (m_referenceParityFile == nullptr
++        && m_referenceAuditFile == nullptr) {
++        delete[] m_referencePreDelay;
++        delete[] m_referencePostDelay;
++        m_referencePreDelay = nullptr;
++        m_referencePostDelay = nullptr;
++        return;
++    }
++
++    const bool complete =
++        m_referenceAuditRecords
++        == ReferenceAuditExpectedRecords;
++    bool succeeded = true;
++    if (requireComplete && !complete) {
++        succeeded = false;
++    }
++
++    if (complete) {
++        for (FILE *file : {
++            m_referenceParityFile,
++            m_referenceAuditFile,
++        }) {
++            if (file == nullptr
++                || std::fseek(file, 32, SEEK_SET) != 0) {
++                succeeded = false;
++                continue;
++            }
++            try {
++                writeReferenceLe64(
++                    file,
++                    m_referenceAuditRecords);
++            }
++            catch (...) {
++                succeeded = false;
++            }
++        }
++    }
++
++    for (FILE **file : {
++        &m_referenceParityFile,
++        &m_referenceAuditFile,
++    }) {
++        if (*file != nullptr) {
++            if (std::fflush(*file) != 0) {
++                succeeded = false;
++            }
++            if (std::fclose(*file) != 0) {
++                succeeded = false;
++            }
++            *file = nullptr;
++        }
++    }
++
++    delete[] m_referencePreDelay;
++    delete[] m_referencePostDelay;
++    m_referencePreDelay = nullptr;
++    m_referencePostDelay = nullptr;
++
++    if (!complete) {
++        std::fprintf(
++            stderr,
++            "[REFERENCE AUDIT] Incomplete fixture retained as .partial "
++            "(%llu/%llu records)\n",
++            static_cast<unsigned long long>(
++                m_referenceAuditRecords),
++            static_cast<unsigned long long>(
++                ReferenceAuditExpectedRecords));
++        if (requireComplete) {
++            throw std::runtime_error(
++                "P1.8 reference fixture ended before its required "
++                "record count");
++        }
++        return;
++    }
++    if (!succeeded) {
++        throw std::runtime_error(
++            "Could not finalize the P1.8 reference fixture");
++    }
++
++    const std::string parityPartial =
++        referenceAuditPath("reference-parity.bin.partial");
++    const std::string auditPartial =
++        referenceAuditPath("reference-audit.bin.partial");
++    const std::string parityFinal =
++        referenceAuditPath("reference-parity.bin");
++    const std::string auditFinal =
++        referenceAuditPath("reference-audit.bin");
++    if (std::rename(
++            parityPartial.c_str(),
++            parityFinal.c_str()) != 0
++        || std::rename(
++            auditPartial.c_str(),
++            auditFinal.c_str()) != 0) {
++        throw std::runtime_error(
++            "Could not publish the complete P1.8 reference fixture");
++    }
++
++    std::fprintf(
++        stderr,
++        "[REFERENCE AUDIT] Finalized %llu paired records\n",
++        static_cast<unsigned long long>(
++            m_referenceAuditRecords));
++}
++
++#endif
++
+ double PistonEngineSimulator::generateStarterAudio() {
+     const double dt = getTimestep();
+     const bool enabled = m_starterMotor.m_enabled;
+@@ -705,6 +1246,9 @@ double PistonEngineSimulator::generateStarterAudio() {
+ 
+ void PistonEngineSimulator::writeToSynthesizer() {
+     initializeAudioTrace();
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++    initializeReferenceAuditCapture();
++#endif
+ 
+     const int exhaustSystemCount = m_engine->getExhaustSystemCount();
+     for (int i = 0; i < exhaustSystemCount; ++i) {
+@@ -732,9 +1276,22 @@ void PistonEngineSimulator::writeToSynthesizer() {
+                 + 0.1 * chamber->m_exhaustRunnerAndPrimary.dynamicPressure(1.0, 0.0)
+                 + 0.1 * chamber->m_exhaustRunnerAndPrimary.dynamicPressure(-1.0, 0.0));
+ 
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++        if (m_referenceParityFile != nullptr) {
++            m_referencePreDelay[i] = exhaustFlow;
++        }
++#endif
++
+         const double delayedExhaustPulse =
+             m_delayFilters[i].fast_f(exhaustFlow);
+ 
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++        if (m_referenceParityFile != nullptr) {
++            m_referencePostDelay[i] =
++                delayedExhaustPulse;
++        }
++#endif
++
+         ExhaustSystem *exhaustSystem = head->getExhaustSystem(piston->getCylinderIndex());
+         m_exhaustFlowStagingBuffer[exhaustSystem->getIndex()] +=
+             head->getSoundAttenuation(piston->getCylinderIndex())
+@@ -784,4 +1341,7 @@ void PistonEngineSimulator::writeToSynthesizer() {
+     }
+ 
+     synthesizer().writeInput(m_exhaustFlowStagingBuffer);
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++    writeReferenceAuditCapture();
++#endif
+ }
+diff --git a/tools/truck_audio_baker.cpp b/tools/truck_audio_baker.cpp
+index 2b8b7a5b5ddb76d7851ebc0cb67339c80ae6e839..aa16cbba5353c37986be32ed753dcc65ed9944a8 100644
+--- a/tools/truck_audio_baker.cpp
++++ b/tools/truck_audio_baker.cpp
+@@ -1983,6 +1983,15 @@ void writeLe32(std::ostream &out, uint32_t value) {
+     out.write(bytes, 4);
+ }
+ 
++void writeLe64(std::ostream &out, uint64_t value) {
++    char bytes[8];
++    for (int i = 0; i < 8; ++i) {
++        bytes[i] = static_cast<char>(
++            (value >> (i * 8)) & UINT64_C(0xff));
++    }
++    out.write(bytes, 8);
++}
++
+ fs::file_status packageEntryStatus(const fs::path &path) {
+     std::error_code error;
+     const fs::file_status status = fs::symlink_status(path, error);
+@@ -2908,6 +2917,100 @@ engine_sim_random::ComponentSeeds captureComponentSeeds(
+     return result;
+ }
+ 
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++
++void writeReferenceSeedInventory(
++    const engine_sim_random::ComponentSeeds &seeds)
++{
++    const char *directory =
++        std::getenv("ENGINE_SIM_OFFLINE_REFERENCE_FIXTURE_DIR");
++    if (directory == nullptr || directory[0] == '\0') return;
++
++    const fs::path root =
++        fs::absolute(fs::path(directory)).lexically_normal();
++    std::error_code directoryError;
++    fs::create_directories(root, directoryError);
++    if (directoryError
++        || !fs::is_directory(root)) {
++        fail(
++            "Could not create P1.8 reference fixture directory "
++            + root.string());
++    }
++    const fs::path partial =
++        root / "component-seeds.bin.partial";
++    const fs::path output =
++        root / "component-seeds.bin";
++    if (fs::exists(partial) || fs::exists(output)) {
++        fail(
++            "Refusing to overwrite an existing P1.8 reference seed "
++            "inventory");
++    }
++
++    std::ofstream out(
++        partial,
++        std::ios::binary | std::ios::trunc);
++    if (!out) {
++        fail(
++            "Could not open P1.8 reference seed inventory "
++            + partial.string());
++    }
++    out.write("ESOSEED1", 8);
++    writeLe32(out, 1);
++    writeLe32(
++        out,
++        static_cast<uint32_t>(
++            seeds.combustion.size()));
++    writeLe32(
++        out,
++        static_cast<uint32_t>(
++            seeds.synthAirNoise.size()));
++    writeLe32(out, 16);
++    writeLe32(
++        out,
++        static_cast<uint32_t>(
++            seeds.combustion.size()));
++    writeLe32(
++        out,
++        static_cast<uint32_t>(
++            seeds.synthAirNoise.size()));
++    writeLe32(
++        out,
++        static_cast<uint32_t>(
++            seeds.synthJitter.size()));
++    writeLe32(out, 0);
++    const auto writeSeed =
++        [&out](const engine_sim_random::Pcg32Seed &seed) {
++            writeLe64(out, seed.initialState);
++            writeLe64(out, seed.stream);
++        };
++    for (const auto &seed : seeds.combustion) {
++        writeSeed(seed);
++    }
++    for (const auto &seed : seeds.synthAirNoise) {
++        writeSeed(seed);
++    }
++    for (const auto &seed : seeds.synthJitter) {
++        writeSeed(seed);
++    }
++    writeSeed(seeds.starter);
++    out.close();
++    if (!out) {
++        fail(
++            "Could not finish P1.8 reference seed inventory "
++            + partial.string());
++    }
++    fs::rename(partial, output, directoryError);
++    if (directoryError) {
++        fail(
++            "Could not publish P1.8 reference seed inventory "
++            + output.string()
++            + ": "
++            + directoryError.message());
++    }
++}
++
++#endif
++
+ std::string executionUnitKind(const Clip &clip) {
+     if (clip.captureRole == "bank") return "bank_cell";
+     if (clip.captureRole == "scenario") return "scenario_take";
+@@ -10478,6 +10581,32 @@ int runBaker(
+             printUsage(arguments.front());
+             return EXIT_SUCCESS;
+         }
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++        const char *referenceFixtureDirectory =
++            std::getenv(
++                "ENGINE_SIM_OFFLINE_REFERENCE_FIXTURE_DIR");
++        if (referenceFixtureDirectory != nullptr
++            && referenceFixtureDirectory[0] != '\0') {
++            constexpr const char *RequiredCapture =
++                "baked.loaded_acceleration";
++            if (cli.internalRenderCapture) {
++                if (*cli.internalRenderCapture
++                    != RequiredCapture) {
++                    fail(
++                        "P1.8 reference fixture capture is restricted "
++                        "to baked.loaded_acceleration");
++                }
++            }
++            else if (
++                cli.captureIds.size() != 1
++                || cli.captureIds.front()
++                    != RequiredCapture) {
++                fail(
++                    "P1.8 reference fixture capture requires exactly "
++                    "--capture-id baked.loaded_acceleration");
++            }
++        }
++#endif
+         for (const char *name : {
+             "ENGINE_SIM_AUDIO_WAV",
+             "ENGINE_SIM_AUDIO_WAV_SECONDS",
+@@ -10807,6 +10936,9 @@ int runBaker(
+                         .executionUnitRandomKeySha256,
+                     runtime.engine->getCylinderCount(),
+                     synth.getInputChannelCount());
++#ifdef ENGINE_SIM_REFERENCE_AUDIT_CAPTURE
++            writeReferenceSeedInventory(componentSeeds);
++#endif
+             engine_sim_random::initialize(
+                 *runtime.engine,
+                 *runtime.simulator,

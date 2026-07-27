@@ -281,7 +281,7 @@ Exit: scope, risks, ownership, and stopping rules are explicit.
 - [x] Record engine/scenario/revision/asset/license provenance and unknowns.
 - [x] Propose the reference and production source-completeness matrices.
 - [x] Stop for user review and freeze the approved matrices.
-- [ ] Capture a trustworthy BMW source/telemetry fixture at the `CaptureBlock` seam.
+- [x] Capture a trustworthy BMW source/telemetry fixture at the `CaptureBlock` seam.
 - [ ] If that fixture cannot be recovered, stop for an alternative-isolation decision.
 
 Exit: the oracle is identifiable and replayable without depending on the failed tree.

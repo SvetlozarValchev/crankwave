@@ -1,0 +1,486 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "bmw-m52b28-p18-reference-capture-v1",
+  "status": "trusted_reference_fixture",
+  "capturedOn": "2026-07-27",
+  "purpose": "M2 renderer acceptance and M3 physical-term parity for the narrow liked P1.8 BMW exhaust route",
+  "scope": {
+    "engine": "BMW M52B28",
+    "captureId": "baked.loaded_acceleration",
+    "includedSources": [
+      "two routed exhaust excitation buses"
+    ],
+    "excludedSources": [
+      "intake",
+      "mechanical",
+      "starter recording",
+      "transmission",
+      "drivetrain",
+      "road",
+      "cabin",
+      "environment",
+      "microphone"
+    ],
+    "productionComplete": false
+  },
+  "files": {
+    "reference-parity.bin": {
+      "lane": "CaptureBlock.reference_parity",
+      "byteLength": 38080608,
+      "sha256": "19d351b54c8eb8b509cd72ea03061b01f92722cbfa48d27a2342ca7203ffa94c"
+    },
+    "reference-audit.bin": {
+      "lane": "ReferenceAuditBlock",
+      "classification": "validation_only_not_a_production_input_contract",
+      "byteLength": 21760064,
+      "sha256": "93fbaef5fe887ba229d7acc28235d63c98f9205d2fe7e426a3e501473a2643a4"
+    },
+    "component-seeds.bin": {
+      "lane": "determinism_metadata",
+      "byteLength": 216,
+      "sha256": "ca6f9b2d56e2f6729401437a741f605069a7eea21524a85b3dce0322ec30468f"
+    }
+  },
+  "source": {
+    "upstreamRepository": "https://github.com/ange-yaghi/engine-sim",
+    "forkRepository": "https://github.com/SvetlozarValchev/engine-sim",
+    "effectiveForkCommit": "9617562a7a5615c2bf84c9ec39cd5ae25c560059",
+    "effectiveCommitAvailability": "captured from a local user-fork checkout; public fetchability is not asserted",
+    "piranhaCommit": "db28b8f7a8c566b777d226833cd001b6767a79bf",
+    "simple2dConstraintSolverCommit": "7ab315d7fa81dd2969ac3bf5709b8c90a7651a7a",
+    "entryScript": "assets/bmw_m52b28_offline_main.mr",
+    "entryScriptSha256": "b78978e0fab039fa3d53d902b4cfad6d36f5e6ab4095f6a453901064e54d6adf",
+    "bmwAsset": "assets/engines/bmw/M52B28.mr",
+    "bmwAssetSha256": "2c7746f82e86cc22b0ab243f61e7fb8c155c3abf1084ad7b6f8bfee3d4e875a9",
+    "engineSimEntrySha256": "699fdf93f3424854cdc14308bcf4358810ee12ec9fd6f3630cf27ad4090882e0",
+    "irLibraryScriptSha256": "ddcfb6d03d7177a8f5e9233ffd311ee81cf74b045f84a86c08071fbfac4eb815"
+  },
+  "observationPatch": {
+    "path": "../../tooling/p18-reference-audit.patch",
+    "sha256": "c4e075ffaea81364ebbf6266213ad835a88751ff5f3eb06d2a7888ad109fba22",
+    "baseCommit": "9617562a7a5615c2bf84c9ec39cd5ae25c560059",
+    "cmakeOption": "ENGINE_SIM_REFERENCE_AUDIT_CAPTURE",
+    "defaultEnabled": false,
+    "captureEnvironment": "ENGINE_SIM_OFFLINE_REFERENCE_FIXTURE_DIR",
+    "guard": "exactly one baked.loaded_acceleration capture",
+    "cleanGeneratorSourceSha256": "b345061519e56e422f7ea135f56cd276de18f81897d655d3061f4308f87ece13",
+    "patchedGeneratorSourceSha256": "bb932e8bc40d860a3019a80e2a362a3c71eae4f78695077cd8451803f9bd66b1"
+  },
+  "build": {
+    "configuration": "Release",
+    "compiler": "Clang 21.1.8",
+    "language": "GNU C++17",
+    "engineCompileFlags": [
+      "-O3",
+      "-DNDEBUG",
+      "-ffp-contract=off"
+    ],
+    "cmakeOptions": {
+      "DISCORD_ENABLED": false,
+      "DTV": false,
+      "PIRANHA_ENABLED": true,
+      "ENGINE_SIM_BUILD_APP": false,
+      "ENGINE_SIM_BUILD_BAKER": true,
+      "ENGINE_SIM_BUILD_OFFLINE_TESTS": false,
+      "ENGINE_SIM_BUILD_TESTS": false,
+      "ENGINE_SIM_BUILD_WEB": false,
+      "ENGINE_SIM_NATURAL_GAS_RESONANCE": false
+    },
+    "executables": {
+      "cleanP18Reconstruction": {
+        "byteLength": 1828728,
+        "sha256": "4b1fa28c8cbf6f4ae6c2c27e601c254298459a99baeb4dcdd0a0b7f95695bc51"
+      },
+      "patchedAuditDisabled": {
+        "byteLength": 1828728,
+        "sha256": "27fa1887f6d1ef6befac80466aee802770259c548d9cdd875a9d04738719fa66"
+      },
+      "patchedAuditEnabled": {
+        "byteLength": 1846232,
+        "sha256": "e1087e5cdb8055562eb573856f2adfdc1bcff8c2120e10172ea9f06d6a830240"
+      },
+      "historicalOracleBinary": {
+        "availability": "not_preserved",
+        "recordedSha256": "6b7c5db18756f52645a9004fafb2157fc4261992ff88798ca913b368e0360383"
+      }
+    },
+    "floatingPoint": {
+      "encoding": "IEEE-754 binary64",
+      "rounding": "round_to_nearest_asserted_at_capture",
+      "fmaContraction": false,
+      "preDspSubnormalPolicy": "no_explicit_flush; capture_observer_does_not_change_the_host_environment",
+      "serialization": "manual_little_endian_fields_never_native_structs"
+    }
+  },
+  "capture": {
+    "publicSeed": 12648430,
+    "command": [
+      "truck-audio-baker",
+      "--repo-root",
+      "<patched-p18-source>",
+      "--script",
+      "assets/bmw_m52b28_offline_main.mr",
+      "--output",
+      "<paired-package-output>",
+      "--profile",
+      "quick",
+      "--rpm-min",
+      "1500",
+      "--rpm-max",
+      "6500",
+      "--rpm-step",
+      "5000",
+      "--settle",
+      "1",
+      "--sweep-duration",
+      "15",
+      "--source-calibration-gain",
+      "1.490116119384765625e-8",
+      "--delivery-rate",
+      "192000",
+      "--no-validation",
+      "--capture-id",
+      "baked.loaded_acceleration"
+    ],
+    "environment": {
+      "ENGINE_SIM_OFFLINE_REFERENCE_FIXTURE_DIR": "<new-empty-fixture-directory>"
+    },
+    "physicsRateHz": 10000,
+    "sourceProcessingRateHz": 192000,
+    "acousticRateHz": 192000,
+    "deliveryRateHz": 192000,
+    "recordCount": 170000,
+    "recordConvention": "sample_index k is post-step state at step_end k+1; time is repeated binary64 addition of dt",
+    "historyInterval": {
+      "start": 0,
+      "endExclusive": 170000
+    },
+    "audibleInterval": {
+      "start": 20000,
+      "endExclusive": 170000,
+      "physicsRecords": 150000,
+      "deliveryFrames": 2880000
+    },
+    "segments": [
+      {
+        "steps": "[0,8000)",
+        "role": "starter_direction_acquisition",
+        "targetRpm": 600,
+        "requestedThrottle": 0.18,
+        "ignition": false,
+        "fuel": true,
+        "starter": true,
+        "dyno": false
+      },
+      {
+        "steps": "[8000,9000)",
+        "role": "starter_dyno_direction_lock",
+        "targetRpm": 600,
+        "requestedThrottle": 0.18,
+        "ignition": false,
+        "fuel": true,
+        "starter": true,
+        "dyno": true
+      },
+      {
+        "steps": "[9000,10000)",
+        "role": "ignition_handoff",
+        "targetRpm": 600,
+        "requestedThrottle": 0.12,
+        "ignition": true,
+        "fuel": true,
+        "starter": false,
+        "dyno": true
+      },
+      {
+        "steps": "[10000,20000)",
+        "role": "loaded_preroll",
+        "targetRpm": 1500,
+        "requestedThrottle": 0.85,
+        "ignition": true,
+        "fuel": true,
+        "starter": false,
+        "dyno": true
+      },
+      {
+        "steps": "[20000,170000)",
+        "role": "audible_loaded_acceleration",
+        "targetRpm": "frame-held for j=0..749 over [20000+200*j,20200+200*j): 1500 + 5000*(j*0.02/15)",
+        "lastAppliedTargetRpm": 6493.333333333333,
+        "requestedThrottle": 0.85,
+        "ignition": true,
+        "fuel": true,
+        "starter": false,
+        "dyno": true
+      }
+    ],
+    "observedWallSeconds": {
+      "patchedAuditDisabled": 10.11,
+      "patchedAuditEnabledInactive": 10.15,
+      "patchedAuditEnabledActive": 10.29,
+      "measurementNote": "three final proof renders ran concurrently on the same host"
+    }
+  },
+  "binarySchema": {
+    "endianness": "little",
+    "parity": {
+      "magic": "ESOPAR01",
+      "version": 1,
+      "headerBytes": 608,
+      "recordBytes": 224,
+      "globalRecordFields": [
+        "sample_index:u64",
+        "step_end:u64",
+        "time_s:f64",
+        "dt_s:f64",
+        "engine_speed_rpm:f64",
+        "reference_parity.filtered_engine_speed_rpm:f64",
+        "crank_angle_rad:f64",
+        "requested_throttle:f64",
+        "resolved_intake_throttle:f64",
+        "ignition:u8",
+        "fuel:u8",
+        "starter:u8",
+        "dyno:u8",
+        "reserved:u32"
+      ],
+      "perCylinderRecordFields": [
+        "exhaust_primary.static_pressure_pa_abs:f64",
+        "reference_parity.dynamic_pressure_forward_pa:f64",
+        "reference_parity.dynamic_pressure_reverse_pa:f64"
+      ]
+    },
+    "audit": {
+      "magic": "ESOAUD01",
+      "version": 1,
+      "headerBytes": 64,
+      "recordBytes": 128,
+      "recordFields": [
+        "sample_index:u64",
+        "step_end:u64",
+        "legacy_reference.excitation_pre_delay:f64[6]",
+        "legacy_reference.excitation_post_delay:f64[6]",
+        "legacy_reference.exhaust_bus_pre_dsp:f64[2]"
+      ]
+    },
+    "seeds": {
+      "magic": "ESOSEED1",
+      "version": 1,
+      "pairBytes": 16,
+      "pairFields": [
+        "initial_state:u64",
+        "stream:u64"
+      ],
+      "order": [
+        "combustion[0..5]",
+        "synth_air_noise[0..1]",
+        "synth_jitter[0..1]",
+        "starter"
+      ]
+    }
+  },
+  "referenceEquation": {
+    "referenceAtmospherePa": 101325,
+    "legacyPropagationSpeedMPerS": 343,
+    "excitationScale": 1600,
+    "filteredSpeedThresholdRpm": 40,
+    "filteredSpeedExponent": 3,
+    "pressureGains": {
+      "gaugeStatic": 1,
+      "dynamicForward": 0.1,
+      "dynamicReverse": 0.1
+    },
+    "cylinderCountDivisor": 6,
+    "inverseLengthExponent": 2,
+    "cylinderAccumulationOrder": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "delay": {
+      "rateHz": 10000,
+      "rounding": "nearest_integer_ties_away_from_zero",
+      "initialState": "empty_zero_output",
+      "semantics": "write_then_read_when_size_exceeds_delay_samples",
+      "continuousAcrossAudibleBoundary": true
+    }
+  },
+  "cylinders": [
+    {
+      "runtimeIndex": 0,
+      "stableId": 1,
+      "firingRankZeroBased": 0,
+      "firingAngleRad": 0,
+      "route": 1,
+      "headerPrimaryLengthM": 0,
+      "exhaustSystemLengthM": 6.167266379343297,
+      "totalAudioLengthM": 6.167266379343297,
+      "gasPrimaryTubeLengthMNotUsedByAudioDelay": 0.508,
+      "delaySamples": 180,
+      "soundAttenuation": 1,
+      "routeAudioVolume": 1
+    },
+    {
+      "runtimeIndex": 1,
+      "stableId": 2,
+      "firingRankZeroBased": 4,
+      "firingAngleRad": 8.377580409573333,
+      "route": 0,
+      "headerPrimaryLengthM": 0,
+      "exhaustSystemLengthM": 6.167266379343297,
+      "totalAudioLengthM": 6.167266379343297,
+      "gasPrimaryTubeLengthMNotUsedByAudioDelay": 0.508,
+      "delaySamples": 180,
+      "soundAttenuation": 1,
+      "routeAudioVolume": 0.5
+    },
+    {
+      "runtimeIndex": 2,
+      "stableId": 3,
+      "firingRankZeroBased": 2,
+      "firingAngleRad": 4.188790204786667,
+      "route": 1,
+      "headerPrimaryLengthM": 0,
+      "exhaustSystemLengthM": 6.167266379343297,
+      "totalAudioLengthM": 6.167266379343297,
+      "gasPrimaryTubeLengthMNotUsedByAudioDelay": 0.508,
+      "delaySamples": 180,
+      "soundAttenuation": 1,
+      "routeAudioVolume": 1
+    },
+    {
+      "runtimeIndex": 3,
+      "stableId": 4,
+      "firingRankZeroBased": 5,
+      "firingAngleRad": 10.471975511966667,
+      "route": 0,
+      "headerPrimaryLengthM": 0,
+      "exhaustSystemLengthM": 6.167266379343297,
+      "totalAudioLengthM": 6.167266379343297,
+      "gasPrimaryTubeLengthMNotUsedByAudioDelay": 0.508,
+      "delaySamples": 180,
+      "soundAttenuation": 1,
+      "routeAudioVolume": 0.5
+    },
+    {
+      "runtimeIndex": 4,
+      "stableId": 5,
+      "firingRankZeroBased": 1,
+      "firingAngleRad": 2.0943951023933334,
+      "route": 1,
+      "headerPrimaryLengthM": 0,
+      "exhaustSystemLengthM": 6.167266379343297,
+      "totalAudioLengthM": 6.167266379343297,
+      "gasPrimaryTubeLengthMNotUsedByAudioDelay": 0.508,
+      "delaySamples": 180,
+      "soundAttenuation": 1,
+      "routeAudioVolume": 1
+    },
+    {
+      "runtimeIndex": 5,
+      "stableId": 6,
+      "firingRankZeroBased": 3,
+      "firingAngleRad": 6.28318530718,
+      "route": 0,
+      "headerPrimaryLengthM": 0,
+      "exhaustSystemLengthM": 6.167266379343297,
+      "totalAudioLengthM": 6.167266379343297,
+      "gasPrimaryTubeLengthMNotUsedByAudioDelay": 0.508,
+      "delaySamples": 180,
+      "soundAttenuation": 1,
+      "routeAudioVolume": 0.5
+    }
+  ],
+  "routes": [
+    {
+      "runtimeIndex": 0,
+      "cylinderStableIds": [
+        2,
+        4,
+        6
+      ],
+      "audioVolume": 0.5,
+      "impulseResponse": {
+        "path": "es/sound-library/smooth/smooth_39.wav",
+        "sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc",
+        "configuredVolume": 0.001
+      }
+    },
+    {
+      "runtimeIndex": 1,
+      "cylinderStableIds": [
+        1,
+        3,
+        5
+      ],
+      "audioVolume": 1,
+      "impulseResponse": {
+        "path": "es/sound-library/smooth/smooth_39.wav",
+        "sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc",
+        "configuredVolume": 0.001
+      }
+    }
+  ],
+  "determinism": {
+    "publicSeed": 12648430,
+    "seedDerivation": "sha256_length_prefixed_capture_component_pcg32_v1",
+    "randomKeySha256": "272121adec1fe448dd149b05990e477a816a7e6191352854d7a1dafd92183f5d",
+    "randomKeyDomain": "engine-sim-offline-capture-random-key-v1",
+    "componentSeedDomain": "engine-sim-offline-capture-component-seed-v1",
+    "componentSeedsHex": {
+      "combustion": [
+        ["6ba3d060370e05fa", "3e13b1e68ef2f790"],
+        ["b1ab9b6c6217bdf3", "7681d4f9a6c78e3f"],
+        ["0c2447917cd77f40", "4c09e08d851104f5"],
+        ["fc83080b6c8b1a98", "686f68f85fd7d169"],
+        ["1f0c63f1d677237b", "3507d87731683125"],
+        ["ad811f42fb6dafa3", "50900fae5afa96cf"]
+      ],
+      "synthAirNoise": [
+        ["75bc579d4c90a640", "7e4ef6200e7c70c1"],
+        ["208e57f73615bd95", "786d92e584c43b78"]
+      ],
+      "synthJitter": [
+        ["9e2b91cd0dc51cfc", "1ae6ee3019603abb"],
+        ["db7540a0c8b54d74", "41ddcdeb066bf214"]
+      ],
+      "starter": ["b4ea1fd6d9786b65", "35db133a627daacd"]
+    }
+  },
+  "pairedPackage": {
+    "rootManifestSha256": "ebad574e2b535554ce2bc3303d511a0fd24b641c872155d6dd2763c28b1a0811",
+    "sourceCaptureManifestSha256": "92d0a4f6dced325e0eb0eda7dada47b91f8572e942323d40d0624591285dc3ac",
+    "configurationSha256": "8345c2aeda4a01f6e9009bc95cad46ca41a3ea32fcc76d38e85f51166c8de2b4",
+    "recipeKeySha256": "aba56a5c5fb493cae9153c201bb70ddd5c1a985f426f8901f1794788b77ca9b2",
+    "bakeKeySha256": "90e1fba18d212e2f2bde90dad99880913846599d996e408af6d357675fa124e4",
+    "executionKeySha256": "a50eb925d02313866abd99f1d769d43287b4b5da15cc81f91d5049088bafbfa3"
+  },
+  "equivalence": {
+    "comparison": "clean P1.8 vs patched audit-disabled vs patched audit-enabled/inactive vs patched audit-enabled/actively-writing",
+    "result": "all seven WAV files byte_identical_in_all_four_runs",
+    "sourceArtifacts": {
+      "exhaust0.linear_dry.wav": "e5a96cb5d3b9f1732e741916706a99c6a7c5e1a912e3d751cb92846d33ce6eeb",
+      "exhaust0.linear_configured_ir.wav": "a637639a4ec85d1c6a1432a0b0df2395e3669648f5708f846ce65e83b70e6f32",
+      "exhaust0.linear_wet_dry.wav": "a637639a4ec85d1c6a1432a0b0df2395e3669648f5708f846ce65e83b70e6f32",
+      "exhaust1.linear_dry.wav": "2ad2ed41097af30421047f3e4a6033086ec70b9731082833699caad1da9d81ea",
+      "exhaust1.linear_configured_ir.wav": "f47b94024648f6763804fa36bd11bf230d3b5741f2289bb062a6afe7c4a8ba3d",
+      "exhaust1.linear_wet_dry.wav": "f47b94024648f6763804fa36bd11bf230d3b5741f2289bb062a6afe7c4a8ba3d"
+    },
+    "scenarioPreviewSha256": "8467d1760c7bade88a3dd2449468b7c3e5b00e61a6d57f792f0997502f5ec57c",
+    "listeningMasterSha256": "f62c164f9a3debca23b1459fae8d6b47a19a98a418490e2e99bcbdf8a7d972eb",
+    "listeningMasterRelation": "fresh actively-instrumented wet stems reproduce the preserved oracle master byte-for-byte with the frozen FFmpeg command"
+  },
+  "isolation": {
+    "m2AuditReaderPolicy": "reference_test_target_only",
+    "m3AuditReaderPolicy": "must_not_link_or_read_reference-audit.bin",
+    "m3ExcitationPolicy": "must_construct_excitation_only_from_newly_simulated CaptureBlock physical terms through the accepted equation"
+  },
+  "licensing": {
+    "engineSim": "MIT; notice preserved in reference/oracles/bmw-m52b28/engine-sim-MIT.txt",
+    "fixtureStatus": "local_evaluation_evidence",
+    "oracleIrStatus": "smooth_39.wav distribution rights unresolved; do not ship this parity capsule as a production dependency"
+  }
+}
