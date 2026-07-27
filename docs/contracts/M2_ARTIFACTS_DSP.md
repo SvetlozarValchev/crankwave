@@ -1,15 +1,16 @@
 # M2 artifact and focused-DSP contract
 
 Status: normative interface record for the M2 telemetry/WAV sink and focused-DSP
-checkpoint
+checkpoints
 
 Applies to: bounded byte encoding, transactional directory publication, and the
-small exact P1.8 stateful primitives shared with the source-stage implementation
+small exact P1.8 primitives used by the source-stage and static-IR implementations
 
-This checkpoint does not decode the BMW fixture, construct excitation, run the
-complete presentation route, serialize a production render manifest, or admit render
-success. It therefore produces no listening candidate and makes no sound-quality
-claim.
+These focused checkpoints do not decode captured BMW audit buses, construct
+excitation, run the complete presentation route, serialize a production render
+manifest, or admit render success. The configured-IR identity test reads only its
+pinned local asset. The partial algorithms therefore produce no listening candidate
+and make no sound-quality claim.
 
 ## 1. Separation of responsibilities
 
@@ -119,7 +120,7 @@ without publishing. The directory transaction protects against ordinary failures
 at-rest tampering inside its private stage. It is not a security boundary against a
 hostile same-user process racing the final identity check and rename.
 
-## 5. Focused P1.8 DSP and source-stage primitives
+## 5. Focused P1.8 DSP, source-stage, and static-IR primitives
 
 The DSP target contains exact P1.8 building blocks whose arithmetic is already frozen
 in `P18_PRESENTATION_RENDERER.md`:
@@ -143,6 +144,13 @@ Its typed seam, state ownership, validation, and deliberate stopping boundary ar
 recorded in
 [`M2_P18_SOURCE_STAGE.md`](../model/M2_P18_SOURCE_STAGE.md).
 
-IR conversion, fixed overlap-save convolution, crop, stems, and master remain absent.
-No partial source-stage output is an audible candidate. The complete unchanged route
-must pass its fixture/oracle hash tests before any WAV is offered for listening.
+The DSP target also owns the pure exact 44.1 kHz-to-192 kHz static-IR conversion; the
+presentation target owns its strict, fixture-free PCM16 WAVE byte decoder. Their
+seams, numerical envelope, bounds, and exact configured-kernel identity test are
+recorded in
+[`M2_P18_IR_CONVERSION.md`](../model/M2_P18_IR_CONVERSION.md).
+
+Fixed overlap-save convolution, crop, stems, and master remain absent. Neither a
+partial source-stage stream nor a standalone kernel is an audible candidate. The
+complete unchanged route must pass its fixture/oracle hash tests before any WAV is
+offered for listening.

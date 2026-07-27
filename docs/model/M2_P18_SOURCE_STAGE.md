@@ -229,7 +229,8 @@ This checkpoint does not:
 - open or decode `reference-audit.bin`, `reference-parity.bin`, or any fixture path;
 - implement the reference-only audit reader or excitation adapter;
 - select or discard the later audible `[384000, 3264000)` source-frame interval;
-- decode PCM16 IR data, detect support, or construct the 30,071-coefficient kernel;
+- decode PCM16 IR data, detect support, or construct the 30,071-coefficient kernel
+  specified by [`M2_P18_IR_CONVERSION.md`](M2_P18_IR_CONVERSION.md);
 - convolve, perform wet selection, or create dry/configured/selected stem families;
 - convert to Float32, apply source calibration, encode WAV, or build a master;
 - write telemetry, artifacts, manifests, or transactional directories;

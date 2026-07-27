@@ -335,6 +335,8 @@ complete normative renderer is
 [`P18_PRESENTATION_RENDERER.md`](reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md).
 The implemented fixture-free source-stage boundary and ownership rules are recorded
 in [`M2_P18_SOURCE_STAGE.md`](docs/model/M2_P18_SOURCE_STAGE.md).
+The strict configured-IR decode and exact static conversion boundary are recorded in
+[`M2_P18_IR_CONVERSION.md`](docs/model/M2_P18_IR_CONVERSION.md).
 Its output unit remains `engine_sim_source_unit`, not Pa or SPL.
 
 The M2 route includes the exact causal reconstruction, stochastic conditioning,

@@ -35,6 +35,8 @@ presentation lineage is in
 The exact fixture-free reconstruction, stochastic conditioning, and typed two-route
 source-stage boundary are in
 [`docs/model/M2_P18_SOURCE_STAGE.md`](docs/model/M2_P18_SOURCE_STAGE.md).
+The strict configured-IR decoder and exact static kernel regeneration boundary are in
+[`docs/model/M2_P18_IR_CONVERSION.md`](docs/model/M2_P18_IR_CONVERSION.md).
 
 ## Build
 

@@ -1,7 +1,7 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — exact P1.8 source stage frozen; strict PCM16 IR decoding
-and static conversion next
+Status: implementation — exact P1.8 static IR conversion frozen; fixed-topology FFT
+and bounded overlap-save convolution next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -305,8 +305,9 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Implement and bit-test exact P1.8 PCG32, causal reconstruction, jitter, and
       conditioning behind the typed two-route excitation seam; do not read the
       fixture or emit WAV.
-- [ ] Implement strict PCM16 IR decoding, support detection, and exact static
-      conversion; prove the frozen kernel identity without connecting the fixture.
+- [x] Implement strict PCM16 IR decoding, support detection, and exact static
+      conversion; regenerate the frozen kernel from the pinned configured-IR asset
+      without connecting audit buses, source-stage output, or convolution.
 - [ ] Implement the fixed-topology FFT and bounded overlap-save convolution with
       transform, impulse, and continuity tests; do not claim a complete route.
 - [ ] In the isolated reference target only, read and adapt the frozen audit buses,

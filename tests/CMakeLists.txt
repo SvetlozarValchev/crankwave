@@ -208,6 +208,50 @@ add_test(
     COMMAND engine_sim_offline_p18_source_stage_tests
 )
 
+add_executable(
+    engine_sim_offline_p18_pcm16_ir_decoder_tests
+    p18_pcm16_ir_decoder_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_pcm16_ir_decoder_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_pcm16_ir_decoder_tests
+    PRIVATE engine_sim_offline::presentation
+)
+
+add_test(
+    NAME presentation.p18_pcm16_ir_decoder
+    COMMAND engine_sim_offline_p18_pcm16_ir_decoder_tests
+)
+
+add_executable(
+    engine_sim_offline_p18_static_ir_conversion_tests
+    p18_static_ir_conversion_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_static_ir_conversion_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_static_ir_conversion_tests
+    PRIVATE engine_sim_offline::presentation
+)
+
+add_test(
+    NAME presentation.p18_static_ir_conversion
+    COMMAND
+        engine_sim_offline_p18_static_ir_conversion_tests
+        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav
+)
+
 if(TARGET engine_sim_offline_cli_shell)
     add_executable(
         engine_sim_offline_cli_tests
