@@ -121,6 +121,13 @@ the exact observer order and error precedence, sticky-status mutation detection,
 caller `errno` preservation, and rejection of a worker-local rounding change without
 changing the main thread.
 
+The pure scripted composer retained for focused observer-order tests marks every
+successful envelope as non-production. Only the zero-argument live entry point can
+mark an envelope as a production observation, and deterministic manifest-content
+construction rejects the scripted form. Thus synthetic source/runtime/numeric
+observers can exercise error semantics without becoming an alternate publication
+identity path.
+
 ## Reference-tool identity integration
 
 After validating only the argument count, the isolated reference executable obtains
@@ -136,8 +143,8 @@ identity value and writes its exact manifest projection: full Git object ID, ren
 source-closure digest, compiler and target facts, all three runtime-provider IDs and
 content identities, numeric-policy and ISA IDs, floating-point facts, and serial
 execution identity. It no longer derives compiler text from preprocessor macros or
-prints an untrusted caller revision. This is the same build-owned value that truthful
-manifest construction will consume in the next checkpoint.
+prints an untrusted caller revision. This same build-owned value is the only renderer
+identity accepted by deterministic reference-manifest content construction.
 
 ## Method and provenance identity
 
@@ -164,9 +171,76 @@ integers, presence tags, raw hashes, enum tags, vector order, and normalized sig
 zero for the only optional binary64 field. The real BMW fixture produces pinned bundle
 digest
 `76dfb503bc1852f1a1d11f739c612d11e4ad4c05ee0ab5c5eda873a35e04f60d`.
-This checkpoint constructs no render manifest and publishes no file.
-The complete current matrix passes 33/33 tests under GCC 13.3 Release, 33/33 under
-Clang 21.1.8 Release, and 31/31 under Clang ASan/UBSan.
+The method/provenance checkpoint itself constructs no render manifest and publishes
+no file.
+At the method/provenance checkpoint, the matrix passed 33/33 tests under GCC 13.3
+Release, 33/33 under Clang 21.1.8 Release, and 31/31 under Clang ASan/UBSan.
+
+## Deterministic reference-manifest content
+
+The private reference path now has a distinct deterministic-content boundary after
+the eight audio artifacts have been sealed. Its sole factory is:
+
+```cpp
+[[nodiscard]] P18ReferenceManifestContent
+make_p18_reference_manifest_content(
+    const P18LoadedReferenceFixture &,
+    const P18ReferenceArtifactSet &,
+    const determinism::RendererDeterminismEnvelope &);
+```
+
+Those three evidence-bearing inputs supply only:
+
+- the verified loaded fixture, including its independently observed seven-file
+  lineage and decoded component-seed inventory;
+- the build-owned `RendererDeterminismEnvelope`; and
+- the still-open `P18ReferenceArtifactSet` transaction, from which all eight sealed
+  whole-file records are queried.
+
+The factory constructs `P18ReferenceProvenance` from the fixture lineage itself.
+Successful construction returns a sealed `P18ReferenceManifestContent` that owns both
+that provenance and the validated `contract::RenderManifestContent`, retaining the
+exact ledger used for validation so production session code can consume both
+together. Its const accessors return copyable contract values; the meaningful
+invariant is that an arbitrary copied pair cannot be constructed as a successfully
+validated `P18ReferenceManifestContent`.
+
+Expected lineage and audio records in `P18ReferenceCatalogV1` remain comparators and
+authored-policy records. They are not accepted as observations. The content boundary
+also rejects a caller-created vector of `P18ReferenceArtifactRecord`; possessing that
+plain record shape does not prove that the private artifact transaction wrote,
+synchronized, verified, and sealed the corresponding file. After querying the live
+transaction, the factory compares every observed artifact size and digest with the
+frozen comparator and copies the observed record only when it matches. The
+transaction must remain healthy and open; poisoned, published, and aborted states are
+rejected.
+
+The fixture identity copies the observed byte count and complete-file digest of each
+of the seven lineage files. The executed randomness copies only the four decoded
+presentation streams in canonical air-noise semantic routes 0/1 (route IDs 1/2) then
+jitter semantic routes 0/1 (route IDs 1/2) order. All 11 represented methods use the
+pinned content-derived identities. Presentation algorithm/IR leaves cite the sealed
+provenance resolutions and use the observed algorithm-record and configured-IR
+identities. The frozen source matrix supplies the output policy, route/bus ownership,
+media contracts, diagnostics, and omissions, while each artifact's role, relative
+path, byte count, and payload digest come from its actual sealed record. The
+determinism member is copied exactly from the sealed renderer envelope rather than
+reconstructed from report text or caller values. The envelope must also carry the
+production-observation mark that only the zero-argument live observer can set; the
+scripted test composer is rejected.
+
+The resulting schema-version-2 `RenderManifestContent` must validate against the
+sealed provenance ledger and the exact BMW reference source matrix before it can be
+retained. Identical sealed inputs produce identical deterministic content. A missing
+or unsealed artifact, invalid executed seed inventory, substituted comparator
+identity, or cross-record validation failure prevents successful construction.
+
+This boundary deliberately stops before run-specific work. It does not observe
+`ExecutionFacts`, complete a `RenderManifest`, call the canonical JSON encoder, write
+the manifest or sidecar, or change the existing eight-file publication transaction.
+Those operations remain separate checkpoints. It also remains absent from the public
+renderer, CLI, and M3 simulation dependency graphs, so reference replay still cannot
+impersonate a successful physics render.
 
 A clean Clang 21.1.8 Release build of commit
 `7e32006d2fb4f0164757c7ea04c61902b76ff072` embedded source-closure digest

@@ -264,6 +264,58 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     )
 
     add_library(
+        engine_sim_offline_p18_reference_artifact_set
+        STATIC
+            src/reference/p18_reference_artifact_set.cpp
+            src/reference/p18_reference_artifact_set_lifecycle.cpp
+            src/reference/p18_reference_artifact_set_publish.cpp
+            src/reference/p18_reference_artifact_set_write.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_p18_reference_artifact_set
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_p18_reference_artifact_set
+        PUBLIC
+            engine_sim_offline::artifacts
+            engine_sim_offline_p18_reference_catalog
+        PRIVATE engine_sim_offline::build_options
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_p18_reference_artifact_set
+    )
+
+    add_library(
+        engine_sim_offline_p18_reference_fixture
+        STATIC
+            src/reference/p18_reference_audit_reader.cpp
+            src/reference/p18_reference_fixture_loader.cpp
+            src/reference/p18_reference_seed_reader.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_p18_reference_fixture
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_p18_reference_fixture
+        PUBLIC
+            engine_sim_offline::artifacts
+            engine_sim_offline::presentation
+            engine_sim_offline_p18_reference_catalog
+        PRIVATE engine_sim_offline::build_options
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_p18_reference_fixture
+    )
+
+    add_library(
         engine_sim_offline_p18_reference_provenance
         STATIC
             src/reference/p18_reference_method_identity.cpp
@@ -281,11 +333,38 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
         PUBLIC
             engine_sim_offline::contract
             engine_sim_offline_p18_reference_catalog
+            engine_sim_offline_p18_reference_fixture
         PRIVATE
             engine_sim_offline::build_options
     )
     engine_sim_offline_enable_renderer_numeric_policy(
         engine_sim_offline_p18_reference_provenance
+    )
+
+    add_library(
+        engine_sim_offline_p18_reference_manifest
+        STATIC
+            src/reference/p18_reference_manifest_content.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_p18_reference_manifest
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_p18_reference_manifest
+        PUBLIC
+            engine_sim_offline_p18_reference_artifact_set
+            engine_sim_offline_p18_reference_provenance
+            engine_sim_offline_renderer_determinism
+        PRIVATE
+            engine_sim_offline::build_options
+            engine_sim_offline_p18_reference_catalog
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_p18_reference_manifest
     )
 endif()
 
@@ -331,15 +410,8 @@ endif()
 if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
     add_executable(
         engine_sim_offline_p18_reference_render
-        src/reference/p18_reference_artifact_set.cpp
-        src/reference/p18_reference_artifact_set_lifecycle.cpp
-        src/reference/p18_reference_artifact_set_publish.cpp
-        src/reference/p18_reference_artifact_set_write.cpp
-        src/reference/p18_reference_audit_reader.cpp
-        src/reference/p18_reference_fixture_loader.cpp
         src/reference/p18_reference_main.cpp
         src/reference/p18_reference_render_session.cpp
-        src/reference/p18_reference_seed_reader.cpp
         src/reference/p18_reference_verification.cpp
     )
 
@@ -364,6 +436,8 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
         PRIVATE
             engine_sim_offline::artifacts
             engine_sim_offline_p18_reference_catalog
+            engine_sim_offline_p18_reference_fixture
+            engine_sim_offline_p18_reference_manifest
             engine_sim_offline::presentation
             engine_sim_offline_renderer_determinism
             $<$<PLATFORM_ID:Linux>:m>
@@ -389,7 +463,10 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
         APPEND
         _engine_sim_offline_numeric_policy_targets
         engine_sim_offline_renderer_determinism
+        engine_sim_offline_p18_reference_artifact_set
         engine_sim_offline_p18_reference_catalog
+        engine_sim_offline_p18_reference_fixture
+        engine_sim_offline_p18_reference_manifest
         engine_sim_offline_p18_reference_provenance
     )
 endif()

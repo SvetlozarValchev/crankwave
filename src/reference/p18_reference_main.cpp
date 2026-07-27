@@ -1,6 +1,7 @@
 #include "determinism/renderer_determinism_envelope.hpp"
 #include "reference/p18_reference_artifact_set.hpp"
 #include "reference/p18_reference_fixture_loader.hpp"
+#include "reference/p18_reference_manifest_content.hpp"
 #include "reference/p18_reference_render_session.hpp"
 #include "reference/p18_reference_verification.hpp"
 
@@ -132,6 +133,15 @@ int run(int argc, char **argv) {
     }
     const auto report = make_p18_reference_verification_report(
         fixture, stats, *artifact_set, render_duration, renderer_identity);
+    if (report.exact_reference_match) {
+        // This checkpoint constructs and validates deterministic content only.
+        // Execution facts, canonical encoding, and publication of the manifest are
+        // deliberately owned by later checkpoints. A nonmatching but complete audio
+        // candidate remains publishable for the listening gate below.
+        const auto manifest_content = make_p18_reference_manifest_content(
+            fixture, *artifact_set, renderer_identity);
+        static_cast<void>(manifest_content);
+    }
     require_success(
         "could not write P1.8 verification report",
         artifact_set->write_text_report("verification.txt", report.verification_text));

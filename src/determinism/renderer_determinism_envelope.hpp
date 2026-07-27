@@ -13,8 +13,10 @@ namespace detail {
 struct RendererDeterminismEnvelopeFactory;
 }
 
-// A successfully observed renderer identity. Construction is private so callers can
-// retain or copy admitted evidence, but cannot substitute any of its components.
+// A successfully composed renderer identity. Construction is private so callers can
+// retain or copy its evidence without mutating components. Only the zero-argument
+// production observer marks an envelope as acceptable for publication; the scripted
+// composition seam exists for focused tests and is explicitly non-production.
 class RendererDeterminismEnvelope final {
   public:
     RendererDeterminismEnvelope(const RendererDeterminismEnvelope &) = default;
@@ -29,18 +31,23 @@ class RendererDeterminismEnvelope final {
     numeric_environment() const noexcept;
     [[nodiscard]] const contract::DeterminismEnvelope &
     manifest_identity() const noexcept;
+    // True only when the zero-argument production observer composed this value.
+    // The private scripted test seam deliberately produces false.
+    [[nodiscard]] bool production_observation() const noexcept;
 
   private:
     friend struct detail::RendererDeterminismEnvelopeFactory;
 
     RendererDeterminismEnvelope(RendererSourceStamp source_stamp,
                                 LoadedRuntimeIdentity loaded_runtime,
-                                RendererNumericEnvironment numeric_environment);
+                                RendererNumericEnvironment numeric_environment,
+                                bool production_observation);
 
     RendererSourceStamp source_stamp_;
     LoadedRuntimeIdentity loaded_runtime_;
     RendererNumericEnvironment numeric_environment_;
     contract::DeterminismEnvelope manifest_identity_;
+    bool production_observation_ = false;
 };
 
 // A changed snapshot means one of the other observers mutated renderer-visible

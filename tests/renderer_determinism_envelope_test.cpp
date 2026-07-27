@@ -185,6 +185,8 @@ void test_success_is_sealed_and_preserves_errno() {
     expect_calls(script, "NSRN", "successful observer order changed");
     const auto *envelope = std::get_if<RendererDeterminismEnvelope>(&result);
     expect(envelope != nullptr, "complete admitted evidence did not compose");
+    expect(!envelope->production_observation(),
+           "scripted observers were marked as a production observation");
     expect_manifest_projection(*envelope, expected_source, expected_runtime);
 }
 
@@ -265,6 +267,8 @@ void test_live_composition_is_read_only_and_fails_closed() {
     expect(after == before, "live composition changed calling-thread numeric state");
 
     if (const auto *envelope = std::get_if<RendererDeterminismEnvelope>(&result)) {
+        expect(envelope->production_observation(),
+               "zero-argument live observer was marked as scripted");
         expect_manifest_projection(*envelope, envelope->source_stamp(),
                                    envelope->loaded_runtime());
         return;

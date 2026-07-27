@@ -550,7 +550,6 @@ add_test(
 add_executable(
     engine_sim_offline_p18_reference_audit_reader_tests
     p18_reference_audit_reader_test.cpp
-    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_audit_reader.cpp
 )
 
 target_include_directories(
@@ -561,7 +560,7 @@ target_include_directories(
 
 target_link_libraries(
     engine_sim_offline_p18_reference_audit_reader_tests
-    PRIVATE engine_sim_offline::build_options
+    PRIVATE engine_sim_offline_p18_reference_fixture
 )
 
 add_test(
@@ -574,7 +573,6 @@ add_test(
 add_executable(
     engine_sim_offline_p18_reference_seed_reader_tests
     p18_reference_seed_reader_test.cpp
-    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_seed_reader.cpp
 )
 
 target_include_directories(
@@ -585,7 +583,7 @@ target_include_directories(
 
 target_link_libraries(
     engine_sim_offline_p18_reference_seed_reader_tests
-    PRIVATE engine_sim_offline::build_options
+    PRIVATE engine_sim_offline_p18_reference_fixture
 )
 
 add_test(
@@ -598,9 +596,6 @@ add_test(
 add_executable(
     engine_sim_offline_p18_reference_fixture_loader_tests
     p18_reference_fixture_loader_test.cpp
-    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_audit_reader.cpp
-    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_fixture_loader.cpp
-    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_seed_reader.cpp
 )
 
 target_include_directories(
@@ -615,6 +610,7 @@ target_link_libraries(
         engine_sim_offline::artifacts
         engine_sim_offline::presentation
         engine_sim_offline_p18_reference_catalog
+        engine_sim_offline_p18_reference_fixture
 )
 
 add_test(
@@ -627,9 +623,6 @@ add_test(
 add_executable(
     engine_sim_offline_p18_reference_provenance_tests
     p18_reference_provenance_test.cpp
-    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_audit_reader.cpp
-    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_fixture_loader.cpp
-    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_seed_reader.cpp
 )
 
 target_include_directories(
@@ -644,6 +637,7 @@ target_link_libraries(
         engine_sim_offline::artifacts
         engine_sim_offline::presentation
         engine_sim_offline_p18_reference_catalog
+        engine_sim_offline_p18_reference_fixture
         engine_sim_offline_p18_reference_provenance
 )
 engine_sim_offline_enable_renderer_numeric_policy(
@@ -687,10 +681,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(
         engine_sim_offline_p18_reference_artifact_set_tests
         p18_reference_artifact_set_test.cpp
-        ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_artifact_set.cpp
-        ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_artifact_set_lifecycle.cpp
-        ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_artifact_set_publish.cpp
-        ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_artifact_set_write.cpp
     )
 
     target_include_directories(
@@ -703,12 +693,57 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         engine_sim_offline_p18_reference_artifact_set_tests
         PRIVATE
             engine_sim_offline::artifacts
+            engine_sim_offline_p18_reference_artifact_set
             engine_sim_offline_p18_reference_catalog
     )
 
     add_test(
         NAME reference.p18_artifact_set
         COMMAND engine_sim_offline_p18_reference_artifact_set_tests
+    )
+
+    add_executable(
+        engine_sim_offline_p18_reference_manifest_content_tests
+        p18_reference_manifest_content_test.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_p18_reference_manifest_content_tests
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/src
+    )
+
+    target_link_options(
+        engine_sim_offline_p18_reference_manifest_content_tests
+        PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--no-as-needed>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_p18_reference_manifest_content_tests
+        PRIVATE
+            engine_sim_offline::artifacts
+            engine_sim_offline::presentation
+            engine_sim_offline_p18_reference_artifact_set
+            engine_sim_offline_p18_reference_catalog
+            engine_sim_offline_p18_reference_fixture
+            engine_sim_offline_p18_reference_manifest
+            $<$<PLATFORM_ID:Linux>:m>
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_p18_reference_manifest_content_tests
+    )
+
+    add_test(
+        NAME reference.p18_manifest_content
+        COMMAND
+            engine_sim_offline_p18_reference_manifest_content_tests
+            ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18
+            ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/stems
+            ${PROJECT_SOURCE_DIR}/reference/oracles/bmw-m52b28/bmw-m52b28-5th-gear-equivalent-dyno-1500-6500rpm.wav
+    )
+    set_tests_properties(
+        reference.p18_manifest_content
+        PROPERTIES SKIP_RETURN_CODE 77
     )
 endif()
 

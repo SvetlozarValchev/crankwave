@@ -54,12 +54,13 @@ make_manifest_identity(const RendererSourceStamp &source_stamp,
 
 RendererDeterminismEnvelope::RendererDeterminismEnvelope(
     RendererSourceStamp source_stamp, LoadedRuntimeIdentity loaded_runtime,
-    RendererNumericEnvironment numeric_environment)
+    RendererNumericEnvironment numeric_environment, bool production_observation)
     : source_stamp_(std::move(source_stamp)),
       loaded_runtime_(std::move(loaded_runtime)),
       numeric_environment_(numeric_environment),
-      manifest_identity_(make_manifest_identity(source_stamp_, loaded_runtime_,
-                                                numeric_environment_)) {}
+      manifest_identity_(
+          make_manifest_identity(source_stamp_, loaded_runtime_, numeric_environment_)),
+      production_observation_(production_observation) {}
 
 const RendererSourceStamp &RendererDeterminismEnvelope::source_stamp() const noexcept {
     return source_stamp_;
@@ -80,19 +81,28 @@ RendererDeterminismEnvelope::manifest_identity() const noexcept {
     return manifest_identity_;
 }
 
+bool RendererDeterminismEnvelope::production_observation() const noexcept {
+    return production_observation_;
+}
+
 namespace detail {
 
 struct RendererDeterminismEnvelopeFactory {
     [[nodiscard]] static RendererDeterminismEnvelope
     make(RendererSourceStamp source_stamp, LoadedRuntimeIdentity loaded_runtime,
-         RendererNumericEnvironment numeric_environment) {
-        return RendererDeterminismEnvelope{
-            std::move(source_stamp), std::move(loaded_runtime), numeric_environment};
+         RendererNumericEnvironment numeric_environment, bool production_observation) {
+        return RendererDeterminismEnvelope{std::move(source_stamp),
+                                           std::move(loaded_runtime),
+                                           numeric_environment, production_observation};
     }
 };
 
-RendererDeterminismEnvelopeResult
-compose_renderer_determinism_envelope(const RendererDeterminismObservers &observers) {
+} // namespace detail
+namespace {
+
+RendererDeterminismEnvelopeResult compose_renderer_determinism_envelope_impl(
+    const detail::RendererDeterminismObservers &observers,
+    bool production_observation) {
     const ErrnoRestore restore_errno;
     if (observers.numeric_environment == nullptr || observers.source_stamp == nullptr ||
         observers.loaded_runtime == nullptr) {
@@ -128,20 +138,30 @@ compose_renderer_determinism_envelope(const RendererDeterminismObservers &observ
         return std::move(*runtime_error);
     }
 
-    return RendererDeterminismEnvelopeFactory::make(
+    return detail::RendererDeterminismEnvelopeFactory::make(
         std::get<RendererSourceStamp>(std::move(source_result)),
         std::get<LoadedRuntimeIdentity>(std::move(runtime_result.value())),
-        *numeric_identity);
+        *numeric_identity, production_observation);
+}
+
+} // namespace
+namespace detail {
+
+RendererDeterminismEnvelopeResult
+compose_renderer_determinism_envelope(const RendererDeterminismObservers &observers) {
+    return compose_renderer_determinism_envelope_impl(observers, false);
 }
 
 } // namespace detail
 
 RendererDeterminismEnvelopeResult renderer_determinism_envelope() {
-    return detail::compose_renderer_determinism_envelope({
-        &observe_current_thread_renderer_numeric_environment,
-        &renderer_source_stamp,
-        &loaded_runtime_identity,
-    });
+    return compose_renderer_determinism_envelope_impl(
+        {
+            &observe_current_thread_renderer_numeric_environment,
+            &renderer_source_stamp,
+            &loaded_runtime_identity,
+        },
+        true);
 }
 
 } // namespace engine_sim_offline::determinism

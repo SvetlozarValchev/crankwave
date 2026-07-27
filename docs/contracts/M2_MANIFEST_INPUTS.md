@@ -1,7 +1,8 @@
 # M2 manifest-input contract
 
-Status: normative typed-input contract; reference wire encoding frozen, simulation
-encoding deliberately deferred to the concrete M3 request
+Status: normative typed-input and deterministic reference-content contract; reference
+wire encoding frozen, simulation encoding deliberately deferred to the concrete M3
+request
 
 Applies to: the input lineage represented by `RenderManifestContent`, the isolated
 P1.8 reference-presentation route, and the public simulation-success boundary
@@ -93,9 +94,9 @@ inputs.
 
 The private `P18ReferenceCatalogV1` owns these immutable expectations once for the
 reference session. Preflight returns a separately typed observed identity for every
-file only after streaming the actual bytes. Later manifest construction must copy
-those observed identities; it may not copy an expected catalog digest into an
-observed or emitted record.
+file only after streaming the actual bytes. Reference-manifest content construction
+copies those observed byte counts and digests; it may not copy an expected catalog
+digest into an observed or emitted record.
 
 ### 3.2 Reader, adapter, and seam
 
@@ -252,8 +253,8 @@ Every evidence locator is the stable repository-relative fixture path, every con
 digest is copied from the independently observed lineage identity, revisions are
 absent, and rights are conservatively `local_evaluation_only`. `EvidenceSource` has
 no byte-count field, so the ledger does not hide a size inside its locator or claim.
-The verified observed byte counts remain available in `P18VerifiedReferenceLineage`
-and must be copied separately into the next reference-manifest content checkpoint.
+The verified observed byte counts remain in `P18VerifiedReferenceLineage` and are
+copied separately into `ReferenceFixtureIdentityV1`.
 
 Three `reference_fixture` claims distinguish the complete seven-file fixture, the
 renderer algorithm record, and the configured IR. Exactly 28 authored resolutions
@@ -287,6 +288,90 @@ the observed BMW fixture is
 Changing evidence content, a locator, or a resolution changes the digest; changing
 only the stored bundle digest does not.
 
+### 5.3 Deterministic reference-manifest content
+
+Reference-manifest content is constructed only inside the private reference
+tools/tests closure. Its evidence boundary is deliberately narrower than the public
+`RenderManifestContent` aggregate:
+
+```text
+verified loaded fixture
+  observed seven-file lineage + decoded executed seed inventory
+sealed renderer determinism envelope
+  current clean build/runtime/numeric identity
+open reference artifact transaction
+  with eight independently measured, sealed whole-file records
+             |
+             v
+sealed manifest content
+  internally derived provenance + validated RenderManifestContent
+```
+
+The sole factory is:
+
+```cpp
+[[nodiscard]] P18ReferenceManifestContent
+make_p18_reference_manifest_content(
+    const P18LoadedReferenceFixture &,
+    const P18ReferenceArtifactSet &,
+    const determinism::RendererDeterminismEnvelope &);
+```
+
+It constructs `P18ReferenceProvenance` internally from the same fixture's verified
+lineage. The returned `P18ReferenceManifestContent` owns that sealed provenance and
+the validated `contract::RenderManifestContent`, retaining the exact ledger used by
+construction so production session code can consume the validated pair together.
+The const accessors expose copyable contract values; the wrapper is an establishment
+and retention boundary, not a claim that C++ callers cannot copy either value.
+
+Expected catalog records are not observation inputs. In particular, the production
+construction boundary accepts neither `P18ExpectedLineageFile` nor
+`P18ExpectedAudioComparator`, and it does not accept an arbitrary caller-created
+vector of `P18ReferenceArtifactRecord`. The latter would be insufficient because the
+record is a transport value that a caller can assemble without completing the
+artifact-set write, synchronization, regular-file verification, and seal lifecycle.
+Construction instead queries the live `P18ReferenceArtifactSet` and requires all
+eight sealed records in canonical `P18ReferenceAudioArtifact` order. It then compares
+each observed size and digest with the frozen reference comparator before copying the
+observed record into content; the comparator never becomes the emitted observation.
+A poisoned, published, or aborted transaction is not an admissible source.
+
+The catalog and frozen source matrix remain valid authorities for authored
+configuration and policy: stable IDs, capture/crop clocks, route topology,
+presentation scalar values, media contracts, diagnostics, and declared omissions.
+They may also compare observations. They cannot supply a lineage digest, executed
+seed pair, emitted byte count, emitted payload digest, or current renderer identity.
+
+The deterministic content fields have these authorities:
+
+| Content region | Required authority |
+|---|---|
+| `inputs.fixture` | all seven byte counts and complete-file digests from verified observed lineage |
+| input reader/adapter/seam and presentation methods | pinned content-derived method identities |
+| capture and presentation values | frozen authored policy, resolved through the sealed provenance ledger |
+| `randomness.component_seeds` | the four actually decoded route-owned seed pairs, reordered only into the frozen air-noise route IDs 1/2 then jitter route IDs 1/2 manifest order |
+| `provenance` | the exact sealed observed provenance bundle reference |
+| `determinism` | the exact projection of a live zero-argument production `RendererDeterminismEnvelope` |
+| rates, output contract, routes, and output buses | the frozen capture policy and exact BMW reference source matrix |
+| `artifacts` | role/path/byte-count/digest from each sealed artifact record, combined with its source-matrix media and diagnostic policy |
+
+The six combustion seed pairs and starter seed pair remain inherited fixture lineage
+and are not emitted as current execution. The recorded seed-derivation method
+identity remains present because it explains the verified inventory's origin; replay
+does not falsely claim to execute that derivation.
+
+Construction succeeds only when the completed value passes
+`validate(content, provenance.ledger(),
+bmw_m52b28_reference_source_matrix_v1())` and every independently sealed artifact
+matches its frozen comparator. This binds the observed values to manifest schema
+version 2, the exact reference input alternative, the exact provenance bundle, one
+sealed renderer identity, four executed streams, the frozen source matrix, and all
+eight required artifact payloads. Repeated construction from the same sealed evidence
+has the same `RenderManifestContent` identity. Callers can inspect the result's owned
+content and provenance, while the private wrapper constructor prevents them from
+presenting an arbitrary aggregate pair as a successfully constructed
+`P18ReferenceManifestContent`.
+
 `ExecutionFacts` continue to describe only the current run. Wall time, host, CPU,
 thread count, job count, and peak memory are excluded from deterministic content
 identity.
@@ -304,6 +389,7 @@ This split:
 - keeps the public render/result contract simulation-only; and
 - supplies the minimal context needed to validate the exact P1.8 presentation.
 
-The method/provenance checkpoint constructs no manifest, encodes no JSON, publishes
-nothing, and does not alter audio. It does not collect execution facts, admit public
-render success, or make a sound-quality claim.
+This checkpoint constructs and validates deterministic reference-manifest content,
+but does not yet attach `ExecutionFacts`, complete a `RenderManifest`, invoke the
+canonical encoder, or publish manifest metadata. It does not admit fixture replay
+through public `render()`, alter audio, or make a new sound-quality claim.

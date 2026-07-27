@@ -1,9 +1,9 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — P1.8 method/provenance identity complete; deterministic
-reference-manifest content next
+Status: implementation — deterministic P1.8 reference-manifest content complete;
+execution facts and canonical in-memory completion next
 Branch: `clean-room/bmw-baseline`  
-Date: 2026-07-27
+Date: 2026-07-28
 
 ## 1. Outcome
 
@@ -368,7 +368,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       derivation from methods executed during replay; then construct a canonical
       self-digesting provenance ledger from observed lineage. Do not construct or
       publish a manifest yet.
-- [ ] Construct and validate deterministic BMW reference-manifest content from the
+- [x] Construct and validate deterministic BMW reference-manifest content from the
       verified lineage, actual sealed artifact records, and sealed renderer identity;
       reject expected catalog comparators as substitutes for observations.
 - [ ] Observe bounded Linux execution facts, finish and canonically encode the complete
