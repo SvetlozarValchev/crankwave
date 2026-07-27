@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: planning gate  
+Status: implementation — M2 data contract complete; render API next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -290,7 +290,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 
 - [x] Create the minimal C++20/CMake project.
 - [x] Write `MODEL.md` before physics implementation.
-- [ ] Define authored/resolved inputs, tagged scenarios, torque/load semantics,
+- [x] Define authored/resolved inputs, tagged scenarios, torque/load semantics,
       reachability reporting, `CaptureBlock`, and `RenderManifest`.
 - [ ] Implement `render(spec, scenario, sink)` and the CLI shell.
 - [ ] Implement deterministic scheduling and bounded streaming.

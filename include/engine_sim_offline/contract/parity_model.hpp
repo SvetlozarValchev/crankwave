@@ -1,0 +1,530 @@
+#pragma once
+
+#include "engine_sim_offline/contract/common.hpp"
+#include "engine_sim_offline/contract/provenance.hpp"
+#include "engine_sim_offline/contract/torque.hpp"
+
+#include <cstdint>
+#include <string>
+#include <variant>
+#include <vector>
+
+namespace engine_sim_offline::contract {
+
+struct EngineSpec;
+
+struct AuthoredLegacyCylinderTopology {
+    AuthoredValue<std::string> cylinder_id;
+    AuthoredValue<std::string> intake_port_id;
+    AuthoredValue<std::string> exhaust_port_id;
+    AuthoredValue<std::string> intake_runner_volume_id;
+    AuthoredValue<std::string> chamber_volume_id;
+    AuthoredValue<std::string> exhaust_primary_volume_id;
+    AuthoredValue<std::string> plenum_to_runner_edge_id;
+    AuthoredValue<std::string> intake_valve_edge_id;
+    AuthoredValue<std::string> exhaust_valve_edge_id;
+    AuthoredValue<std::string> primary_to_collector_edge_id;
+    AuthoredValue<std::string> blowby_edge_id;
+    AuthoredValue<std::string> exhaust_route_id;
+
+    friend bool operator==(const AuthoredLegacyCylinderTopology &,
+                           const AuthoredLegacyCylinderTopology &) = default;
+};
+
+struct LegacyCylinderTopology {
+    CylinderId cylinder_id;
+    PortId intake_port_id;
+    PortId exhaust_port_id;
+    GasVolumeId intake_runner_volume_id;
+    GasVolumeId chamber_volume_id;
+    GasVolumeId exhaust_primary_volume_id;
+    FlowEdgeId plenum_to_runner_edge_id;
+    FlowEdgeId intake_valve_edge_id;
+    FlowEdgeId exhaust_valve_edge_id;
+    FlowEdgeId primary_to_collector_edge_id;
+    FlowEdgeId blowby_edge_id;
+    RouteId exhaust_route_id;
+
+    friend bool operator==(const LegacyCylinderTopology &,
+                           const LegacyCylinderTopology &) = default;
+};
+
+template <template <class> class Field> struct LegacyCylinderParametersT {
+    Field<double> bore_m;
+    Field<double> stroke_m;
+    Field<double> crank_radius_m;
+    Field<double> connecting_rod_length_m;
+    Field<double> deck_height_m;
+    Field<double> piston_compression_height_m;
+    Field<double> head_chamber_volume_m3;
+    Field<double> piston_displacement_term_m3;
+    Field<double> piston_mass_kg;
+    Field<double> connecting_rod_mass_kg;
+    Field<double> connecting_rod_inertia_kg_m2;
+    Field<double> journal_angle_rad;
+    Field<double> ignition_wire_angle_rad;
+    Field<double> header_primary_length_m;
+
+    friend bool operator==(const LegacyCylinderParametersT &,
+                           const LegacyCylinderParametersT &) = default;
+};
+
+using AuthoredLegacyCylinderParameters = LegacyCylinderParametersT<AuthoredValue>;
+using LegacyCylinderParameters = LegacyCylinderParametersT<ResolvedValue>;
+
+struct AuthoredLegacyCylinderAssembly {
+    AuthoredLegacyCylinderTopology topology;
+    AuthoredLegacyCylinderParameters parameters;
+
+    friend bool operator==(const AuthoredLegacyCylinderAssembly &,
+                           const AuthoredLegacyCylinderAssembly &) = default;
+};
+
+struct LegacyCylinderAssembly {
+    LegacyCylinderTopology topology;
+    LegacyCylinderParameters parameters;
+
+    friend bool operator==(const LegacyCylinderAssembly &,
+                           const LegacyCylinderAssembly &) = default;
+};
+
+template <template <class> class Field> struct LegacyCrankAssemblyT {
+    Field<double> crank_tdc_reference_rad;
+    Field<double> crankshaft_mass_kg;
+    Field<double> flywheel_mass_kg;
+    Field<double> authored_crank_inertia_kg_m2;
+    Field<double> fixed_crank_friction_magnitude_nm;
+
+    friend bool operator==(const LegacyCrankAssemblyT &,
+                           const LegacyCrankAssemblyT &) = default;
+};
+
+using AuthoredLegacyCrankAssembly = LegacyCrankAssemblyT<AuthoredValue>;
+using LegacyCrankAssembly = LegacyCrankAssemblyT<ResolvedValue>;
+
+template <class Crank, class Cylinder> struct LegacyMechanismProfileT {
+    Crank crank;
+    std::vector<Cylinder> cylinders;
+
+    friend bool operator==(const LegacyMechanismProfileT &,
+                           const LegacyMechanismProfileT &) = default;
+};
+
+using AuthoredLegacyMechanismProfile =
+    LegacyMechanismProfileT<AuthoredLegacyCrankAssembly,
+                            AuthoredLegacyCylinderAssembly>;
+using LegacyMechanismProfile =
+    LegacyMechanismProfileT<LegacyCrankAssembly, LegacyCylinderAssembly>;
+
+enum class LegacyRestrictionCalibration : std::uint8_t {
+    unspecified,
+    carb_at_1p5_inhg,
+    cfm_at_28_inh2o,
+};
+
+template <template <class> class Field> struct LegacyRestrictionT {
+    Field<LegacyRestrictionCalibration> calibration;
+    Field<double> source_rating;
+    Field<double> resolved_k;
+
+    friend bool operator==(const LegacyRestrictionT &,
+                           const LegacyRestrictionT &) = default;
+};
+
+using AuthoredLegacyRestriction = LegacyRestrictionT<AuthoredValue>;
+using LegacyRestriction = LegacyRestrictionT<ResolvedValue>;
+
+struct AuthoredLegacyIntakeTopology {
+    AuthoredValue<std::string> plenum_volume_id;
+    AuthoredValue<std::string> main_throttle_edge_id;
+    AuthoredValue<std::string> idle_bypass_edge_id;
+
+    friend bool operator==(const AuthoredLegacyIntakeTopology &,
+                           const AuthoredLegacyIntakeTopology &) = default;
+};
+
+struct LegacyIntakeTopology {
+    GasVolumeId plenum_volume_id;
+    FlowEdgeId main_throttle_edge_id;
+    FlowEdgeId idle_bypass_edge_id;
+
+    friend bool operator==(const LegacyIntakeTopology &,
+                           const LegacyIntakeTopology &) = default;
+};
+
+template <template <class> class Field> struct LegacyIntakeParametersT {
+    Field<double> plenum_volume_m3;
+    Field<double> plenum_cross_section_area_m2;
+    Field<double> runner_length_m;
+    Field<double> velocity_decay;
+    Field<double> throttle_gamma;
+    Field<double> idle_throttle_plate_position_01;
+    LegacyRestrictionT<Field> main_throttle;
+    LegacyRestrictionT<Field> idle_bypass;
+    LegacyRestrictionT<Field> plenum_to_runner;
+
+    friend bool operator==(const LegacyIntakeParametersT &,
+                           const LegacyIntakeParametersT &) = default;
+};
+
+using AuthoredLegacyIntakeParameters = LegacyIntakeParametersT<AuthoredValue>;
+using LegacyIntakeParameters = LegacyIntakeParametersT<ResolvedValue>;
+
+template <template <class> class Field> struct LegacyValveFlowPointT {
+    Field<std::string> sample_id;
+    Field<double> lift_m;
+    Field<double> source_cfm_at_28_inh2o;
+    Field<double> resolved_k;
+
+    friend bool operator==(const LegacyValveFlowPointT &,
+                           const LegacyValveFlowPointT &) = default;
+};
+
+using AuthoredLegacyValveFlowPoint = LegacyValveFlowPointT<AuthoredValue>;
+using LegacyValveFlowPoint = LegacyValveFlowPointT<ResolvedValue>;
+
+template <template <class> class Field, class FlowPoint>
+struct LegacyCylinderHeadProfileT {
+    Field<double> intake_runner_base_volume_m3;
+    Field<double> intake_runner_cross_section_area_m2;
+    Field<double> exhaust_runner_base_volume_m3;
+    Field<double> exhaust_runner_cross_section_area_m2;
+    Field<double> flow_table_triangle_radius_m;
+    std::vector<FlowPoint> intake_flow;
+    std::vector<FlowPoint> exhaust_flow;
+
+    friend bool operator==(const LegacyCylinderHeadProfileT &,
+                           const LegacyCylinderHeadProfileT &) = default;
+};
+
+using AuthoredLegacyCylinderHeadProfile =
+    LegacyCylinderHeadProfileT<AuthoredValue, AuthoredLegacyValveFlowPoint>;
+using LegacyCylinderHeadProfile =
+    LegacyCylinderHeadProfileT<ResolvedValue, LegacyValveFlowPoint>;
+
+struct AuthoredLegacyExhaustRouteTopology {
+    AuthoredValue<std::string> route_id;
+    AuthoredValue<std::string> collector_volume_id;
+    AuthoredValue<std::string> collector_outlet_edge_id;
+
+    friend bool operator==(const AuthoredLegacyExhaustRouteTopology &,
+                           const AuthoredLegacyExhaustRouteTopology &) = default;
+};
+
+struct LegacyExhaustRouteTopology {
+    RouteId route_id;
+    GasVolumeId collector_volume_id;
+    FlowEdgeId collector_outlet_edge_id;
+
+    friend bool operator==(const LegacyExhaustRouteTopology &,
+                           const LegacyExhaustRouteTopology &) = default;
+};
+
+template <template <class> class Field> struct LegacyExhaustRouteParametersT {
+    Field<double> collector_volume_m3;
+    Field<double> collector_cross_section_area_m2;
+    Field<double> exhaust_system_length_m;
+    Field<double> primary_tube_length_m;
+    Field<double> velocity_decay;
+    Field<double> audio_volume_linear;
+    LegacyRestrictionT<Field> primary_to_collector;
+    LegacyRestrictionT<Field> collector_outlet;
+
+    friend bool operator==(const LegacyExhaustRouteParametersT &,
+                           const LegacyExhaustRouteParametersT &) = default;
+};
+
+using AuthoredLegacyExhaustRouteParameters =
+    LegacyExhaustRouteParametersT<AuthoredValue>;
+using LegacyExhaustRouteParameters = LegacyExhaustRouteParametersT<ResolvedValue>;
+
+struct AuthoredLegacyExhaustRouteProfile {
+    AuthoredLegacyExhaustRouteTopology topology;
+    AuthoredLegacyExhaustRouteParameters parameters;
+
+    friend bool operator==(const AuthoredLegacyExhaustRouteProfile &,
+                           const AuthoredLegacyExhaustRouteProfile &) = default;
+};
+
+struct LegacyExhaustRouteProfile {
+    LegacyExhaustRouteTopology topology;
+    LegacyExhaustRouteParameters parameters;
+
+    friend bool operator==(const LegacyExhaustRouteProfile &,
+                           const LegacyExhaustRouteProfile &) = default;
+};
+
+template <class IntakeTopology, class IntakeParameters, class Head, class ExhaustRoute,
+          class Restriction>
+struct LegacyGasPathProfileT {
+    IntakeTopology intake_topology;
+    IntakeParameters intake;
+    Head head;
+    std::vector<ExhaustRoute> exhaust_routes;
+    Restriction piston_blowby;
+
+    friend bool operator==(const LegacyGasPathProfileT &,
+                           const LegacyGasPathProfileT &) = default;
+};
+
+using AuthoredLegacyGasPathProfile =
+    LegacyGasPathProfileT<AuthoredLegacyIntakeTopology, AuthoredLegacyIntakeParameters,
+                          AuthoredLegacyCylinderHeadProfile,
+                          AuthoredLegacyExhaustRouteProfile, AuthoredLegacyRestriction>;
+using LegacyGasPathProfile =
+    LegacyGasPathProfileT<LegacyIntakeTopology, LegacyIntakeParameters,
+                          LegacyCylinderHeadProfile, LegacyExhaustRouteProfile,
+                          LegacyRestriction>;
+
+template <template <class> class Field> struct LegacyCamShapeT {
+    Field<double> maximum_lift_m;
+    Field<double> duration_at_reference_lift_rad;
+    Field<double> exponent;
+    Field<std::uint32_t> construction_steps;
+    Field<double> advance_rad;
+    Field<double> base_radius_m;
+
+    friend bool operator==(const LegacyCamShapeT &, const LegacyCamShapeT &) = default;
+};
+
+using AuthoredLegacyCamShape = LegacyCamShapeT<AuthoredValue>;
+using LegacyCamShape = LegacyCamShapeT<ResolvedValue>;
+
+struct AuthoredLegacyCamLobe {
+    AuthoredValue<std::string> cylinder_id;
+    AuthoredValue<std::string> port_id;
+    AuthoredValue<double> crank_center_rad;
+
+    friend bool operator==(const AuthoredLegacyCamLobe &,
+                           const AuthoredLegacyCamLobe &) = default;
+};
+
+struct LegacyCamLobe {
+    CylinderId cylinder_id;
+    PortId port_id;
+    ResolvedValue<double> crank_center_rad;
+
+    friend bool operator==(const LegacyCamLobe &, const LegacyCamLobe &) = default;
+};
+
+template <class Shape, class Lobe> struct LegacyCamshaftProfileT {
+    Shape shape;
+    std::vector<Lobe> lobes;
+
+    friend bool operator==(const LegacyCamshaftProfileT &,
+                           const LegacyCamshaftProfileT &) = default;
+};
+
+using AuthoredLegacyCamshaftProfile =
+    LegacyCamshaftProfileT<AuthoredLegacyCamShape, AuthoredLegacyCamLobe>;
+using LegacyCamshaftProfile = LegacyCamshaftProfileT<LegacyCamShape, LegacyCamLobe>;
+
+template <class Camshaft> struct LegacyValvetrainProfileT {
+    Camshaft intake;
+    Camshaft exhaust;
+
+    friend bool operator==(const LegacyValvetrainProfileT &,
+                           const LegacyValvetrainProfileT &) = default;
+};
+
+using AuthoredLegacyValvetrainProfile =
+    LegacyValvetrainProfileT<AuthoredLegacyCamshaftProfile>;
+using LegacyValvetrainProfile = LegacyValvetrainProfileT<LegacyCamshaftProfile>;
+
+template <template <class> class Field> struct LegacyTimingPointT {
+    Field<std::string> sample_id;
+    Field<double> engine_speed_rpm;
+    Field<double> timing_advance_rad;
+
+    friend bool operator==(const LegacyTimingPointT &,
+                           const LegacyTimingPointT &) = default;
+};
+
+using AuthoredLegacyTimingPoint = LegacyTimingPointT<AuthoredValue>;
+using LegacyTimingPoint = LegacyTimingPointT<ResolvedValue>;
+
+struct AuthoredLegacyIgnitionProfile {
+    AuthoredValue<std::vector<std::string>> firing_order;
+    AuthoredValue<double> timing_curve_triangle_radius_rpm;
+    std::vector<AuthoredLegacyTimingPoint> timing_curve;
+    AuthoredValue<double> limiter_speed_rpm;
+    AuthoredValue<double> limiter_hold_s;
+    AuthoredValue<double> declared_redline_rpm;
+
+    friend bool operator==(const AuthoredLegacyIgnitionProfile &,
+                           const AuthoredLegacyIgnitionProfile &) = default;
+};
+
+struct LegacyIgnitionProfile {
+    ResolvedValue<std::vector<CylinderId>> firing_order;
+    ResolvedValue<double> timing_curve_triangle_radius_rpm;
+    std::vector<LegacyTimingPoint> timing_curve;
+    ResolvedValue<double> limiter_speed_rpm;
+    ResolvedValue<double> limiter_hold_s;
+    ResolvedValue<double> declared_redline_rpm;
+
+    friend bool operator==(const LegacyIgnitionProfile &,
+                           const LegacyIgnitionProfile &) = default;
+};
+
+template <template <class> class Field> struct LegacyFlameSpeedPointT {
+    Field<std::string> sample_id;
+    Field<double> turbulence;
+    Field<double> flame_speed_ratio;
+
+    friend bool operator==(const LegacyFlameSpeedPointT &,
+                           const LegacyFlameSpeedPointT &) = default;
+};
+
+using AuthoredLegacyFlameSpeedPoint = LegacyFlameSpeedPointT<AuthoredValue>;
+using LegacyFlameSpeedPoint = LegacyFlameSpeedPointT<ResolvedValue>;
+
+template <template <class> class Field, class FlamePoint> struct LegacyFuelProfileT {
+    Field<std::string> fuel_id;
+    Field<double> molecular_mass_kg_per_mol;
+    Field<double> energy_density_j_per_kg;
+    Field<double> molecular_afr;
+    Field<double> maximum_burning_efficiency_01;
+    Field<double> burning_efficiency_randomness_01;
+    Field<double> low_efficiency_attenuation_01;
+    Field<double> maximum_turbulence_effect;
+    Field<double> maximum_dilution_effect;
+    Field<double> lbv_multiplier;
+    Field<bool> compression_ignition_enabled;
+    std::vector<FlamePoint> turbulence_to_flame_speed_ratio;
+
+    friend bool operator==(const LegacyFuelProfileT &,
+                           const LegacyFuelProfileT &) = default;
+};
+
+using AuthoredLegacyFuelProfile =
+    LegacyFuelProfileT<AuthoredValue, AuthoredLegacyFlameSpeedPoint>;
+using LegacyFuelProfile = LegacyFuelProfileT<ResolvedValue, LegacyFlameSpeedPoint>;
+
+template <template <class> class Field> struct LegacyLossProfileT {
+    Field<TorqueTermMask> included_terms;
+    Field<TorqueTermMask> omitted_terms;
+
+    friend bool operator==(const LegacyLossProfileT &,
+                           const LegacyLossProfileT &) = default;
+};
+
+using AuthoredLegacyLossProfile = LegacyLossProfileT<AuthoredValue>;
+using LegacyLossProfile = LegacyLossProfileT<ResolvedValue>;
+
+template <template <class> class Field> struct LegacyExcitationPressureGainsT {
+    Field<double> gauge_static;
+    Field<double> dynamic_forward;
+    Field<double> dynamic_reverse;
+
+    friend bool operator==(const LegacyExcitationPressureGainsT &,
+                           const LegacyExcitationPressureGainsT &) = default;
+};
+
+using AuthoredLegacyExcitationPressureGains =
+    LegacyExcitationPressureGainsT<AuthoredValue>;
+using LegacyExcitationPressureGains = LegacyExcitationPressureGainsT<ResolvedValue>;
+
+struct AuthoredLegacyExcitationCylinderPath {
+    AuthoredValue<std::string> cylinder_id;
+    AuthoredValue<std::string> route_id;
+    AuthoredValue<double> header_primary_length_m;
+    AuthoredValue<double> sound_attenuation_linear;
+    AuthoredValue<std::uint32_t> resolved_delay_samples;
+
+    friend bool operator==(const AuthoredLegacyExcitationCylinderPath &,
+                           const AuthoredLegacyExcitationCylinderPath &) = default;
+};
+
+struct LegacyExcitationCylinderPath {
+    CylinderId cylinder_id;
+    RouteId route_id;
+    ResolvedValue<double> header_primary_length_m;
+    ResolvedValue<double> sound_attenuation_linear;
+    ResolvedValue<std::uint32_t> resolved_delay_samples;
+
+    friend bool operator==(const LegacyExcitationCylinderPath &,
+                           const LegacyExcitationCylinderPath &) = default;
+};
+
+struct AuthoredLegacyExcitationRoute {
+    AuthoredValue<std::string> route_id;
+    AuthoredValue<double> exhaust_system_length_m;
+    AuthoredValue<double> audio_volume_linear;
+
+    friend bool operator==(const AuthoredLegacyExcitationRoute &,
+                           const AuthoredLegacyExcitationRoute &) = default;
+};
+
+struct LegacyExcitationRoute {
+    RouteId route_id;
+    ResolvedValue<double> exhaust_system_length_m;
+    ResolvedValue<double> audio_volume_linear;
+
+    friend bool operator==(const LegacyExcitationRoute &,
+                           const LegacyExcitationRoute &) = default;
+};
+
+template <template <class> class Field, class CylinderRef, class CylinderPath,
+          class Route>
+struct LegacyReferenceExcitationProfileT {
+    Field<double> reference_atmosphere_pa_abs;
+    Field<double> legacy_propagation_speed_m_s;
+    Field<double> excitation_scale;
+    Field<double> filtered_speed_threshold_rpm;
+    Field<std::uint32_t> filtered_speed_exponent;
+    LegacyExcitationPressureGainsT<Field> pressure_gains;
+    Field<double> cylinder_count_divisor;
+    Field<double> inverse_length_exponent;
+    Field<RationalRateHz> delay_rate;
+    Field<std::vector<CylinderRef>> cylinder_accumulation_order;
+    std::vector<CylinderPath> cylinder_paths;
+    std::vector<Route> routes;
+
+    friend bool operator==(const LegacyReferenceExcitationProfileT &,
+                           const LegacyReferenceExcitationProfileT &) = default;
+};
+
+using AuthoredLegacyReferenceExcitationProfile =
+    LegacyReferenceExcitationProfileT<AuthoredValue, std::string,
+                                      AuthoredLegacyExcitationCylinderPath,
+                                      AuthoredLegacyExcitationRoute>;
+using LegacyReferenceExcitationProfile = LegacyReferenceExcitationProfileT<
+    ResolvedValue, CylinderId, LegacyExcitationCylinderPath, LegacyExcitationRoute>;
+
+struct AuthoredLegacyLowOrderV1Profile {
+    AuthoredLegacyMechanismProfile mechanism;
+    AuthoredLegacyGasPathProfile gas_path;
+    AuthoredLegacyValvetrainProfile valvetrain;
+    AuthoredLegacyIgnitionProfile ignition;
+    AuthoredLegacyFuelProfile fuel;
+    AuthoredLegacyLossProfile losses;
+    AuthoredLegacyReferenceExcitationProfile excitation;
+
+    friend bool operator==(const AuthoredLegacyLowOrderV1Profile &,
+                           const AuthoredLegacyLowOrderV1Profile &) = default;
+};
+
+struct LegacyLowOrderV1Profile {
+    LegacyMechanismProfile mechanism;
+    LegacyGasPathProfile gas_path;
+    LegacyValvetrainProfile valvetrain;
+    LegacyIgnitionProfile ignition;
+    LegacyFuelProfile fuel;
+    LegacyLossProfile losses;
+    LegacyReferenceExcitationProfile excitation;
+
+    friend bool operator==(const LegacyLowOrderV1Profile &,
+                           const LegacyLowOrderV1Profile &) = default;
+};
+
+using AuthoredExecutablePhysicsProfile = std::variant<AuthoredLegacyLowOrderV1Profile>;
+using ExecutablePhysicsProfile = std::variant<LegacyLowOrderV1Profile>;
+
+[[nodiscard]] ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
+                                        const ProvenanceLedger &provenance);
+[[nodiscard]] ValidationReport validate(const ExecutablePhysicsProfile &profile,
+                                        const EngineSpec &engine,
+                                        const ProvenanceLedger &provenance);
+
+} // namespace engine_sim_offline::contract

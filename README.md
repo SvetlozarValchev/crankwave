@@ -14,6 +14,9 @@ exact M3 BMW parity algorithm in
 [`docs/model/M3_PARITY_MODEL.md`](docs/model/M3_PARITY_MODEL.md). The frozen BMW
 reference contract is in
 [`reference/oracles/bmw-m52b28/SOURCE_MATRIX.md`](reference/oracles/bmw-m52b28/SOURCE_MATRIX.md).
+The current authored/resolved, scenario, capture, result, source, and manifest
+interfaces are recorded in
+[`docs/contracts/M2_DATA_CONTRACT.md`](docs/contracts/M2_DATA_CONTRACT.md).
 
 ## Build
 

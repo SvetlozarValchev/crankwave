@@ -299,7 +299,8 @@ Telemetry distinguishes:
 
 - instantaneous indicated gas torque;
 - pumping work/torque, derived from the declared gas-exchange portion;
-- friction/accessory torque;
+- friction/pump/accessory torque;
+- starter torque;
 - instantaneous net shaft torque;
 - cycle-mean net shaft torque;
 - actuator torque and dyno reaction.
@@ -809,7 +810,7 @@ Non-success is typed:
 | Failure | Meaning |
 |---|---|
 | invalid specification | Missing, contradictory, dimensionally invalid, or unsupported resolved input. |
-| unreachable target | A valid load/speed target cannot be reached within declared actuator/control bounds. |
+| unreachable target | A valid load/speed target cannot be reached within declared control bounds. |
 | event/schedule violation | Event ordering, interval coverage, or stable identity is invalid. |
 | nonphysical state | Required mass, energy, volume, temperature, pressure, or composition leaves its admitted domain. |
 | numerical failure | Convergence, root localization, step limit, overflow, or finite-value contract fails. |
@@ -828,9 +829,11 @@ accepted render.
 
 An unreachable target reports the deterministic nearest feasible state, signed error
 `achieved - target`, every active limiting bound, and the controller/search evidence.
-“Nearest” minimizes absolute signed error over the declared feasible actuator domain;
-equal-error candidates select lower actuator magnitude, then lower throttle, then the
-stable candidate identity. Saturation is a result, not success disguised by tolerance.
+“Nearest” minimizes absolute signed error over the declared feasible control domain.
+The current load-target contract declares a throttle interval, not an actuator-torque
+interval. Equal-error candidates select lower residual actuator magnitude, then lower
+throttle, then the stable candidate identity. Saturation is a result, not success
+disguised by tolerance.
 
 ## 13. Verification, validation, and listening
 

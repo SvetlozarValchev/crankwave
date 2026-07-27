@@ -33,6 +33,37 @@ target_compile_options(
         $<$<CXX_COMPILER_ID:MSVC>:/W4;/permissive-;/fp:strict;/Zc:__cplusplus>
 )
 
+add_library(
+    engine_sim_offline_contract
+    STATIC
+        src/contract/capture.cpp
+        src/contract/common.cpp
+        src/contract/engine.cpp
+        src/contract/parity_model.cpp
+        src/contract/presentation.cpp
+        src/contract/provenance.cpp
+        src/contract/render_manifest.cpp
+        src/contract/result.cpp
+        src/contract/scenario.cpp
+        src/contract/source_matrix.cpp
+        src/contract/torque.cpp
+)
+add_library(
+    engine_sim_offline::contract
+    ALIAS engine_sim_offline_contract
+)
+
+target_include_directories(
+    engine_sim_offline_contract
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+)
+
+target_link_libraries(
+    engine_sim_offline_contract
+    PUBLIC engine_sim_offline::build_options
+)
+
 if(ENGINE_SIM_OFFLINE_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
