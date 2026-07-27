@@ -42,7 +42,7 @@ The following records have distinct authority:
 5. `reference/oracles/bmw-m52b28/PROVENANCE.md` owns source lineage, rights, evidence,
    and unknowns.
 6. `P18_PRESENTATION_RENDERER.md` owns exact P1.8 reference-renderer behavior.
-7. This document owns model meaning and admission; the next M2 contract commit owns
+7. This document owns model meaning and admission; the focused M2 contract records own
    concrete C++ types, schemas, and API signatures.
 
 If two authorities conflict, implementation stops and the contradiction is recorded.
@@ -816,6 +816,7 @@ Non-success is typed:
 | numerical failure | Convergence, root localization, step limit, overflow, or finite-value contract fails. |
 | incomplete source route | A matrix-required route lacks its required physical/excitation model. |
 | evidence/rights failure | A required asset/model lacks the declared provenance or distribution permission for the requested output. |
+| artifact publication failure | A required sink cannot stage, seal, or atomically publish the declared output. |
 | contract violation | A forbidden reference adapter, hidden fallback, model switch, or mismatched manifest is detected. |
 
 Errors include model/profile ID, scenario time, crank angle, component identity, state
@@ -826,6 +827,14 @@ Required sinks publish transactionally. On non-success, no success manifest or f
 required artifact becomes visible. Opt-in partial diagnostics live under an explicitly
 failed run identity with failure status and hashes; they cannot be consumed as an
 accepted render.
+
+The sink lifecycle is `idle -> begun -> committed` or `idle -> begun -> aborted`.
+Preflight rejection and failed begin leave the sink idle. A pre-commit failure after
+begin is followed by abort. Commit is a terminal atomic attempt: success publishes;
+failure discards staging and is already aborted. Only successful commit may make the
+complete required artifact set and success manifest visible. Sink calls are serial and
+non-reentrant, borrowed byte views are callback-scoped, and sink chunking cannot
+determine simulation or DSP partitioning.
 
 An unreachable target reports the deterministic nearest feasible state, signed error
 `achieved - target`, every active limiting bound, and the controller/search evidence.

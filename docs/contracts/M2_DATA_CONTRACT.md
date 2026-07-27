@@ -5,10 +5,12 @@ Status: normative interface record for the current M2 data-contract checkbox
 Applies to: authored and resolved configuration, scenario ownership, simulator
 capture, typed render results, source/output completeness, and render evidence
 
-This document describes the contract implemented by the current C++ types and
-validators. It deliberately does not claim that the resolver, simulator, renderer,
-file sinks, or CLI exist yet. Those are separate checkboxes in
-[`PLAN.md`](../../PLAN.md).
+This document describes the data contract implemented by the current C++ types and
+validators. The headless API, fail-closed admission boundary, transaction protocol,
+and CLI shell now exist and are recorded separately in
+[`M2_RENDER_API.md`](M2_RENDER_API.md). Neither record claims that the resolver,
+simulator, concrete renderer, or file sinks exist yet; those are separate checkboxes
+in [`PLAN.md`](../../PLAN.md).
 
 The governing physical, numerical, and provenance meanings remain in
 [`MODEL.md`](../../MODEL.md). The exact BMW parity algorithm is separately fixed by
@@ -29,7 +31,7 @@ AuthoredEngineDefinition          AuthoredPresentationCalibration
 EngineSpec + RenderScenario + PresentationCalibration
                  resolved values + resolution IDs
                            |
-                    render session                 later M2 checkbox
+             render preflight/session boundary    implemented
                            |
               simulator publishes CaptureBlock   later M3 checkbox
                            |
@@ -48,14 +50,16 @@ The current contract supplies:
 - a callback-scoped `CaptureBlockView`;
 - source-matrix, presentation, artifact, and manifest schemas;
 - generic validation and exact frozen BMW reference validation.
+- the owning render-specification aggregate, fail-closed render entry point, sink
+  transaction protocol, and CLI shell recorded in `M2_RENDER_API.md`.
 
 The current contract does not supply:
 
 - authored-to-resolved conversion;
-- `render(spec, scenario, sink)`;
+- an executable capture-to-artifact route behind `render(spec, scenario, sink)`;
 - simulation or crank/load-control execution;
 - fixture decoding or excitation generation;
-- DSP execution, WAV/telemetry serialization, or transactional sinks;
+- DSP execution or concrete transactional WAV/telemetry sinks;
 - manifest serialization, payload hashing, or collection of execution facts.
 
 A valid data object therefore means “internally consistent and admitted by this
@@ -239,16 +243,18 @@ their inputs and results but does not calculate them yet.
 - `RenderSuccess` contains a `RenderManifest` and, for a load-target result when
   applicable, a `ReachedTarget`;
 - `UnreachableTarget` is its own typed non-success result;
-- `RenderFailure` carries every other `FailureContext`.
+- `RenderFailure` carries every other `FailureContext` plus retained input diagnostics
+  when preflight or evidence-rights validation caused the rejection.
 
 A reached target records target BMEP, achieved BMEP, signed error
 `achieved - target`, tolerance, the selected settled candidate, and search evidence.
 Its absolute error must be within tolerance.
 
 An unreachable target records the same signed relationship, the deterministic nearest
-settled feasible candidate, every active limiting bound, retained search evidence, and
-a failure context whose kind is `unreachable_target`. Its error must be outside
-tolerance. A generic `RenderFailure` is forbidden from using that failure kind.
+settled feasible candidate, every active limiting bound, retained search evidence, the
+complete request identity, and a failure context whose kind is `unreachable_target`.
+Its error must be outside tolerance. A generic `RenderFailure` is forbidden from using
+that failure kind.
 
 Result validation is request-aware: it receives the original `RenderScenario`, and a
 successful manifest must reproduce that scenario exactly. Only a load-target request
@@ -274,6 +280,12 @@ deterministic nearest ordering is:
 `FailureContext` identifies the failure class, model/profile, sample and step, scenario
 time, crank angle, optional component IDs, state summary, attempted recovery, and
 named tolerances. It provides diagnosis; it is not permission for a silent fallback.
+An `invalid_specification` or `evidence_rights_failure` must also retain a nonempty
+`ValidationReport` with recognized issue codes, paths, and messages.
+Every non-success retains the complete resolved engine/presentation/scenario,
+provenance ledger, selected source matrix, and canonical asset payload identities
+(`AudioAssetId`, byte count, actual SHA-256), so result validation cannot silently
+rebind a rejection to different inputs.
 
 ## 7. `CaptureBlockView`
 
@@ -443,7 +455,7 @@ validator does not substitute a hard-coded digest for them. Constants including 
 6,907-frame source support, 30,071-coefficient kernel identity, zero history,
 continuous crop state, and no-tail policy are fixed by the content-addressed
 [`P18_PRESENTATION_RENDERER.md`](../../reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md).
-The next renderer checkbox must implement and verify that record before it can claim
+The later fixture-renderer checkbox must implement and verify that record before it can claim
 P1.8 output; this checkbox pins the input identity but does not execute DSP.
 
 ## 10. `RenderManifest`
@@ -494,9 +506,10 @@ deterministic content can exist before execution, but validation of a completed
 by `same_content_identity()`, so machine timing cannot change deterministic render
 identity. Automatic collection of those facts is not implemented by this checkbox.
 
-A content-valid manifest is still not a successful render. Later render/sink work must
-create payloads, compute hashes, publish required outputs transactionally, and return
-the manifest only on success.
+A content-valid manifest is still not a successful render. The public render boundary
+now rejects valid inputs with `incomplete_source_route` until later renderer/sink work
+creates payloads, computes hashes, publishes required outputs transactionally, and can
+return the manifest only on success.
 
 ## 11. M2 contract versus M3 exact profile
 

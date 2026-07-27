@@ -251,6 +251,102 @@ void validate_unique_owned_roles(ValidationReport &report,
 
 } // namespace
 
+ValidationReport validate_render_admission(const EngineSpec &engine,
+                                           const PresentationCalibration &presentation,
+                                           const RenderScenario &scenario,
+                                           const ProvenanceLedger &provenance,
+                                           const SourceMatrixContract &source_matrix) {
+    using detail::append_prefixed;
+    using detail::require;
+
+    ValidationReport report;
+    append_prefixed(report, validate(provenance), "provenance");
+    append_prefixed(report, validate(source_matrix), "source_matrix");
+    append_prefixed(report, validate(engine, provenance), "engine");
+    append_prefixed(report, validate(scenario, provenance), "scenario");
+    append_prefixed(report, validate_for_engine(scenario, engine), "engine_scenario");
+    append_prefixed(report, validate(presentation, engine, scenario, provenance),
+                    "presentation");
+
+    const auto &frozen_reference = bmw_m52b28_reference_source_matrix_v1();
+    if (source_matrix.id == frozen_reference.id) {
+        require(report, source_matrix == frozen_reference,
+                ContractIssueCode::inconsistent_semantics, "source_matrix",
+                "the frozen BMW reference matrix must exactly match its built-in "
+                "approved contract");
+        append_prefixed(
+            report, validate_p18_reference_presentation(presentation, engine, scenario),
+            "presentation.p18_reference");
+    }
+
+    const auto expected_frames = integral_frame_count(scenario.audible_duration_s.value,
+                                                      scenario.rates.delivery);
+    require(report, expected_frames.has_value(),
+            ContractIssueCode::inconsistent_semantics, "scenario.audible_duration_s",
+            "audible duration and delivery rate must resolve to a positive integral "
+            "frame count");
+    for (std::size_t index = 0; index < source_matrix.required_artifacts.size();
+         ++index) {
+        const auto &requirement = source_matrix.required_artifacts[index];
+        if (!requirement.audio.has_value()) {
+            continue;
+        }
+        validate_delivery_audio_contract(
+            report, *requirement.audio, scenario.rates.delivery, expected_frames,
+            "source_matrix.required_artifacts[" + std::to_string(index) + "].audio");
+    }
+
+    require(report, engine.routes.size() == source_matrix.required_source_routes.size(),
+            ContractIssueCode::inconsistent_shape, "engine.routes",
+            "resolved engine source routes must exactly match the selected source "
+            "matrix");
+
+    for (std::size_t index = 0; index < engine.routes.size(); ++index) {
+        const auto &engine_route = engine.routes[index];
+        const auto path = "engine.routes[" + std::to_string(index) + "]";
+        const auto requirement = std::ranges::find(
+            source_matrix.required_source_routes, engine_route.semantic_id.value,
+            &SourceRouteRequirement::semantic_id);
+        require(report, requirement != source_matrix.required_source_routes.end(),
+                ContractIssueCode::inconsistent_semantics, path + ".semantic_id",
+                "resolved engine route is absent from the selected source matrix");
+        if (requirement == source_matrix.required_source_routes.end()) {
+            continue;
+        }
+        require(report, engine_route.kind.value == requirement->kind,
+                ContractIssueCode::inconsistent_semantics, path + ".kind",
+                "resolved engine route kind must match the selected source matrix");
+        const auto presentation_configured = std::ranges::any_of(
+            presentation.routes, [&](const RoutePresentation &route) {
+                return route.route_id == engine_route.id;
+            });
+        require(report,
+                presentation_configured ==
+                    (requirement->disposition == RouteDisposition::rendered),
+                ContractIssueCode::inconsistent_semantics, path,
+                "exactly rendered source-matrix routes require presentation "
+                "configuration");
+    }
+
+    for (std::size_t index = 0; index < source_matrix.required_source_routes.size();
+         ++index) {
+        const auto &required_route = source_matrix.required_source_routes[index];
+        require(report,
+                std::ranges::any_of(engine.routes,
+                                    [&](const RouteSpec &engine_route) {
+                                        return engine_route.semantic_id.value ==
+                                                   required_route.semantic_id &&
+                                               engine_route.kind.value ==
+                                                   required_route.kind;
+                                    }),
+                ContractIssueCode::missing_value,
+                "source_matrix.required_source_routes[" + std::to_string(index) + "]",
+                "selected source-matrix route is absent from the resolved engine");
+    }
+
+    return report;
+}
+
 OutputContract resolve_output_contract(const SourceMatrixContract &source_matrix) {
     return {
         source_matrix.id,
@@ -274,40 +370,15 @@ ValidationReport validate(const RenderManifestContent &content,
     using detail::require;
 
     ValidationReport report;
-    append_prefixed(report, validate(source_matrix), "source_matrix");
-
-    const auto &frozen_reference = bmw_m52b28_reference_source_matrix_v1();
-    if (source_matrix.id == frozen_reference.id ||
-        content.output_contract.source_matrix_id == frozen_reference.id) {
-        require(report, source_matrix == frozen_reference,
-                ContractIssueCode::inconsistent_semantics, "source_matrix",
-                "the frozen BMW reference matrix must exactly match its built-in "
-                "approved contract");
-    }
+    append_prefixed(report,
+                    validate_render_admission(content.resolved_inputs.engine,
+                                              content.resolved_inputs.presentation,
+                                              content.resolved_inputs.scenario,
+                                              provenance, source_matrix),
+                    "admission");
 
     require(report, content.schema_version > 0, ContractIssueCode::invalid_value,
             "schema_version", "render-manifest schema version must be positive");
-    append_prefixed(report, validate(content.resolved_inputs.engine, provenance),
-                    "resolved_inputs.engine");
-    append_prefixed(report,
-                    validate(content.resolved_inputs.presentation,
-                             content.resolved_inputs.engine,
-                             content.resolved_inputs.scenario, provenance),
-                    "resolved_inputs.presentation");
-    if (source_matrix.id == frozen_reference.id) {
-        append_prefixed(
-            report,
-            validate_p18_reference_presentation(content.resolved_inputs.presentation,
-                                                content.resolved_inputs.engine,
-                                                content.resolved_inputs.scenario),
-            "resolved_inputs.presentation.p18_reference");
-    }
-    append_prefixed(report, validate(content.resolved_inputs.scenario, provenance),
-                    "resolved_inputs.scenario");
-    append_prefixed(report,
-                    validate_for_engine(content.resolved_inputs.scenario,
-                                        content.resolved_inputs.engine),
-                    "resolved_inputs");
     require(report, content.rates == content.resolved_inputs.scenario.rates,
             ContractIssueCode::inconsistent_semantics, "rates",
             "manifest rates must equal the resolved scenario rates");
@@ -364,6 +435,7 @@ ValidationReport validate(const RenderManifestContent &content,
                 content.resolved_inputs.scenario.public_seed.value,
             ContractIssueCode::inconsistent_semantics, "randomness.public_seed",
             "manifest random seed must equal the resolved scenario public seed");
+    const auto &frozen_reference = bmw_m52b28_reference_source_matrix_v1();
     constexpr std::string_view p18_generator_id = "p18_reference_pcg32_v1";
     if (source_matrix.id == frozen_reference.id) {
         require(report,
@@ -835,18 +907,10 @@ ValidationReport validate(const RenderManifestContent &content,
         }
     }
 
-    for (const auto &evidence : provenance.evidence) {
-        if (evidence.rights == RightsDisposition::prohibited) {
-            report.add(ContractIssueCode::unsupported_value, "provenance.evidence",
-                       "prohibited evidence cannot participate in a successful render");
-        }
-        if (content.output_contract.distribution == DistributionIntent::distributable &&
-            evidence.rights != RightsDisposition::permitted) {
-            report.add(ContractIssueCode::unsupported_value,
-                       "output_contract.distribution",
-                       "distributable output requires permitted evidence and assets");
-        }
-    }
+    append_prefixed(
+        report,
+        validate_evidence_rights(provenance, content.output_contract.distribution),
+        "provenance");
 
     return report;
 }

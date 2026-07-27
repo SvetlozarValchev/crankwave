@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — M2 data contract complete; render API next
+Status: implementation — M2 render API/CLI boundary complete; deterministic scheduling next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -292,7 +292,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 - [x] Write `MODEL.md` before physics implementation.
 - [x] Define authored/resolved inputs, tagged scenarios, torque/load semantics,
       reachability reporting, `CaptureBlock`, and `RenderManifest`.
-- [ ] Implement `render(spec, scenario, sink)` and the CLI shell.
+- [x] Implement `render(spec, scenario, sink)` and the CLI shell.
 - [ ] Implement deterministic scheduling and bounded streaming.
 - [ ] Implement telemetry/WAV sinks and focused DSP tests.
 - [ ] Drive the complete approved acoustic route from the BMW fixture.

@@ -15,6 +15,11 @@ option(
     "Build the focused engine-sim-offline test targets"
     "${PROJECT_IS_TOP_LEVEL}"
 )
+option(
+    ENGINE_SIM_OFFLINE_BUILD_CLI
+    "Build the engine-sim-offline command-line shell"
+    "${PROJECT_IS_TOP_LEVEL}"
+)
 
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -63,6 +68,68 @@ target_link_libraries(
     engine_sim_offline_contract
     PUBLIC engine_sim_offline::build_options
 )
+
+add_library(
+    engine_sim_offline_render
+    STATIC
+        src/render.cpp
+)
+add_library(
+    engine_sim_offline::render
+    ALIAS engine_sim_offline_render
+)
+
+target_include_directories(
+    engine_sim_offline_render
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+)
+
+target_link_libraries(
+    engine_sim_offline_render
+    PUBLIC
+        engine_sim_offline::contract
+        engine_sim_offline::build_options
+)
+
+if(ENGINE_SIM_OFFLINE_BUILD_CLI)
+    add_library(
+        engine_sim_offline_cli_shell
+        STATIC
+            src/cli/cli_shell.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_cli_shell
+        PRIVATE
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/cli>
+    )
+
+    target_compile_definitions(
+        engine_sim_offline_cli_shell
+        PRIVATE ENGINE_SIM_OFFLINE_VERSION_LABEL="development"
+    )
+
+    target_link_libraries(
+        engine_sim_offline_cli_shell
+        PUBLIC engine_sim_offline::build_options
+    )
+
+    add_executable(
+        engine_sim_offline_cli
+        src/cli/main.cpp
+    )
+
+    set_target_properties(
+        engine_sim_offline_cli
+        PROPERTIES OUTPUT_NAME engine-sim-offline
+    )
+
+    target_link_libraries(
+        engine_sim_offline_cli
+        PRIVATE engine_sim_offline_cli_shell
+    )
+endif()
 
 if(ENGINE_SIM_OFFLINE_BUILD_TESTS)
     enable_testing()

@@ -4,6 +4,7 @@
 #include <compare>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -36,6 +37,8 @@ struct Sha256Digest {
 
     friend bool operator==(const Sha256Digest &, const Sha256Digest &) = default;
 };
+
+[[nodiscard]] Sha256Digest sha256(std::span<const std::byte> payload) noexcept;
 
 struct RationalRateHz {
     std::uint64_t numerator = 0;

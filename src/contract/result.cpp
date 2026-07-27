@@ -21,7 +21,22 @@ bool known(FailureKind value) noexcept {
     case FailureKind::numerical_failure:
     case FailureKind::incomplete_source_route:
     case FailureKind::evidence_rights_failure:
+    case FailureKind::artifact_publication_failure:
     case FailureKind::contract_violation:
+        return true;
+    }
+    return false;
+}
+
+bool known(ContractIssueCode value) noexcept {
+    switch (value) {
+    case ContractIssueCode::missing_value:
+    case ContractIssueCode::invalid_value:
+    case ContractIssueCode::duplicate_identity:
+    case ContractIssueCode::dangling_reference:
+    case ContractIssueCode::inconsistent_shape:
+    case ContractIssueCode::inconsistent_semantics:
+    case ContractIssueCode::unsupported_value:
         return true;
     }
     return false;
@@ -118,6 +133,28 @@ void validate_requested_search_interval(ValidationReport &report,
             field_path("requested_throttle_upper_bound_01"),
             "search upper throttle bound must exactly match the requested upper "
             "bound");
+}
+
+void validate_request_binding(ValidationReport &report,
+                              const RenderRequestRecord &request,
+                              const RenderScenario &requested_scenario,
+                              const ProvenanceLedger &provenance,
+                              const SourceMatrixContract &source_matrix,
+                              std::string_view path) {
+    const auto field_path = [path](std::string_view field) {
+        return std::string(path) + "." + std::string(field);
+    };
+    detail::require(report, request.resolved_inputs.scenario == requested_scenario,
+                    ContractIssueCode::inconsistent_semantics,
+                    field_path("resolved_inputs.scenario"),
+                    "result must retain the exact requested scenario");
+    detail::require(report, request.provenance == provenance,
+                    ContractIssueCode::inconsistent_semantics, field_path("provenance"),
+                    "result must retain the complete supplied provenance");
+    detail::require(report, request.source_matrix == source_matrix,
+                    ContractIssueCode::inconsistent_semantics,
+                    field_path("source_matrix"),
+                    "result must retain the complete selected source matrix");
 }
 
 } // namespace
@@ -319,6 +356,26 @@ ValidationReport validate(const RenderFailure &failure) {
     detail::require(report, failure.context.kind != FailureKind::unreachable_target,
                     ContractIssueCode::inconsistent_semantics, "context.kind",
                     "unreachable targets use the typed UnreachableTarget result");
+    const bool requires_validation =
+        failure.context.kind == FailureKind::invalid_specification ||
+        failure.context.kind == FailureKind::evidence_rights_failure;
+    detail::require(
+        report, !requires_validation || !failure.validation.ok(),
+        ContractIssueCode::missing_value, "validation",
+        "preflight and evidence-rights failures must retain their diagnostics");
+    for (std::size_t index = 0; index < failure.validation.issues.size(); ++index) {
+        const auto &issue = failure.validation.issues[index];
+        const auto path = "validation.issues[" + std::to_string(index) + "]";
+        detail::require(report, known(issue.code), ContractIssueCode::unsupported_value,
+                        path + ".code",
+                        "retained validation issue code must be recognized");
+        detail::require(report, !issue.path.empty(), ContractIssueCode::missing_value,
+                        path + ".path",
+                        "retained validation issues must identify their input path");
+        detail::require(report, !issue.message.empty(),
+                        ContractIssueCode::missing_value, path + ".message",
+                        "retained validation issues must explain the rejection");
+    }
     return report;
 }
 
@@ -372,6 +429,9 @@ ValidationReport validate(const RenderResult &result,
                 }
             } else if constexpr (std::is_same_v<T, UnreachableTarget>) {
                 append_prefixed(report, validate(outcome), "unreachable");
+                validate_request_binding(report, outcome.request, requested_scenario,
+                                         provenance, source_matrix,
+                                         "unreachable.request");
                 const auto *mode =
                     std::get_if<LoadTargetHeldCapture>(&requested_scenario.mode);
                 require(report, mode != nullptr,
@@ -396,12 +456,43 @@ ValidationReport validate(const RenderResult &result,
                         "failure profile must match the requested engine profile");
             } else {
                 append_prefixed(report, validate(outcome), "failure");
-                require(report,
-                        outcome.context.profile_id ==
-                            requested_scenario.engine_profile_id,
-                        ContractIssueCode::inconsistent_semantics,
-                        "failure.context.profile_id",
-                        "failure profile must match the requested engine profile");
+                validate_request_binding(report, outcome.request, requested_scenario,
+                                         provenance, source_matrix, "failure.request");
+                if (outcome.context.kind == FailureKind::evidence_rights_failure) {
+                    ValidationReport expected_rights;
+                    append_prefixed(expected_rights,
+                                    validate_evidence_rights(
+                                        provenance, source_matrix.distribution),
+                                    "specification.provenance");
+                    require(report, !expected_rights.ok(),
+                            ContractIssueCode::inconsistent_semantics,
+                            "failure.context.kind",
+                            "evidence-rights failure requires an inadmissible evidence "
+                            "and distribution combination");
+                    require(report, outcome.validation.issues == expected_rights.issues,
+                            ContractIssueCode::inconsistent_semantics,
+                            "failure.validation",
+                            "evidence-rights failure must retain the exact admission "
+                            "diagnostics");
+                }
+                if (is_valid_semantic_id(requested_scenario.engine_profile_id)) {
+                    require(report,
+                            outcome.context.profile_id ==
+                                requested_scenario.engine_profile_id,
+                            ContractIssueCode::inconsistent_semantics,
+                            "failure.context.profile_id",
+                            "failure profile must match the requested engine "
+                            "profile");
+                } else {
+                    require(report,
+                            outcome.context.kind ==
+                                    FailureKind::invalid_specification &&
+                                outcome.context.profile_id == "unresolved",
+                            ContractIssueCode::inconsistent_semantics,
+                            "failure.context.profile_id",
+                            "a malformed requested profile requires the canonical "
+                            "unresolved preflight identity");
+                }
             }
         },
         result);

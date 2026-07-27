@@ -16,7 +16,10 @@ reference contract is in
 [`reference/oracles/bmw-m52b28/SOURCE_MATRIX.md`](reference/oracles/bmw-m52b28/SOURCE_MATRIX.md).
 The current authored/resolved, scenario, capture, result, source, and manifest
 interfaces are recorded in
-[`docs/contracts/M2_DATA_CONTRACT.md`](docs/contracts/M2_DATA_CONTRACT.md).
+[`docs/contracts/M2_DATA_CONTRACT.md`](docs/contracts/M2_DATA_CONTRACT.md). The
+headless render boundary, transaction protocol, and deliberately narrow CLI are
+recorded separately in
+[`docs/contracts/M2_RENDER_API.md`](docs/contracts/M2_RENDER_API.md).
 
 ## Build
 
@@ -31,3 +34,15 @@ ctest --test-dir build --output-on-failure
 
 Configure with `-DENGINE_SIM_OFFLINE_BUILD_TESTS=OFF` when embedding the project
 without its tests.
+
+The current CLI shell exposes only truthful capabilities:
+
+```bash
+build/engine-sim-offline --help
+build/engine-sim-offline --version
+build/engine-sim-offline render
+```
+
+`render` currently exits unavailable because no serialized input loader or complete
+capture-to-artifact execution route is admitted yet. It does not create silence or a
+placeholder file.

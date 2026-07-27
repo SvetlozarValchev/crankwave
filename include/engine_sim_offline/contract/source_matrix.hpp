@@ -110,6 +110,9 @@ struct SourceMatrixContract {
 };
 
 [[nodiscard]] ValidationReport validate(const SourceMatrixContract &source_matrix);
+[[nodiscard]] ValidationReport
+validate_evidence_rights(const ProvenanceLedger &provenance,
+                         DistributionIntent distribution);
 
 // The immutable policy counterpart of
 // reference/oracles/bmw-m52b28/SOURCE_MATRIX.md ("frozen v1").

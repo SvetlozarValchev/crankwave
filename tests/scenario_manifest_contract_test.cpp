@@ -420,6 +420,7 @@ void run_scenario_manifest_contract_tests() {
             },
         },
         unreachable_context(),
+        {},
     };
     expect(validate(unreachable).ok(),
            "valid typed unreachable-target result was rejected");
@@ -443,6 +444,12 @@ void run_scenario_manifest_contract_tests() {
     matching_unreachable.context.profile_id = load_scenario.engine_profile_id;
     matching_unreachable.context.tolerances = {
         FailureTolerance{"net-bmep-pa", -100200.0, 100.0},
+    };
+    matching_unreachable.request = {
+        load_content.resolved_inputs,
+        load_builder.provenance,
+        source_matrix,
+        {},
     };
     const RenderResult unreachable_result = matching_unreachable;
     expect(validate(unreachable_result, load_scenario, load_builder.provenance,

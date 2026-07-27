@@ -19,6 +19,7 @@ enum class FailureKind : std::uint8_t {
     numerical_failure,
     incomplete_source_route,
     evidence_rights_failure,
+    artifact_publication_failure,
     contract_violation,
 };
 
@@ -51,6 +52,25 @@ struct FailureContext {
     std::vector<FailureTolerance> tolerances;
 
     friend bool operator==(const FailureContext &, const FailureContext &) = default;
+};
+
+struct AssetPayloadIdentity {
+    AudioAssetId id;
+    std::uint64_t byte_count = 0;
+    Sha256Digest payload_sha256;
+
+    friend bool operator==(const AssetPayloadIdentity &,
+                           const AssetPayloadIdentity &) = default;
+};
+
+struct RenderRequestRecord {
+    ResolvedRenderInputs resolved_inputs;
+    ProvenanceLedger provenance;
+    SourceMatrixContract source_matrix;
+    std::vector<AssetPayloadIdentity> asset_payloads;
+
+    friend bool operator==(const RenderRequestRecord &,
+                           const RenderRequestRecord &) = default;
 };
 
 enum class ActiveBoundKind : std::uint8_t {
@@ -113,6 +133,7 @@ struct UnreachableTarget {
     std::vector<ActiveReachabilityBound> active_bounds;
     ReachabilityEvidence search;
     FailureContext context;
+    RenderRequestRecord request;
 
     friend bool operator==(const UnreachableTarget &,
                            const UnreachableTarget &) = default;
@@ -129,6 +150,11 @@ struct RenderSuccess {
 
 struct RenderFailure {
     FailureContext context;
+    RenderRequestRecord request;
+    // Preflight and evidence failures retain the exact validation diagnostics that
+    // caused the render to be rejected. Runtime failures normally leave this empty
+    // and describe their state through FailureContext.
+    ValidationReport validation;
 };
 
 using RenderResult = std::variant<RenderSuccess, UnreachableTarget, RenderFailure>;

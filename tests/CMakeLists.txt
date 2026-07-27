@@ -29,3 +29,49 @@ add_test(
     NAME contract.data_model
     COMMAND engine_sim_offline_contract_tests
 )
+
+add_executable(
+    engine_sim_offline_render_tests
+    render_api_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_render_tests
+    PRIVATE engine_sim_offline::render
+)
+
+add_test(
+    NAME render.api
+    COMMAND engine_sim_offline_render_tests
+)
+
+if(TARGET engine_sim_offline_cli_shell)
+    add_executable(
+        engine_sim_offline_cli_tests
+        cli_shell_test.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_cli_tests
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/src/cli
+    )
+
+    target_link_libraries(
+        engine_sim_offline_cli_tests
+        PRIVATE engine_sim_offline_cli_shell
+    )
+
+    add_test(
+        NAME cli.shell
+        COMMAND engine_sim_offline_cli_tests
+    )
+
+    add_test(
+        NAME cli.process
+        COMMAND
+            ${CMAKE_COMMAND}
+            -DCLI_EXECUTABLE=$<TARGET_FILE:engine_sim_offline_cli>
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cli_process_test.cmake
+    )
+endif()

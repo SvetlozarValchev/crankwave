@@ -265,6 +265,27 @@ ValidationReport validate(const SourceMatrixContract &source_matrix) {
     return report;
 }
 
+ValidationReport validate_evidence_rights(const ProvenanceLedger &provenance,
+                                          DistributionIntent distribution) {
+    ValidationReport report;
+    for (std::size_t index = 0; index < provenance.evidence.size(); ++index) {
+        const auto &evidence = provenance.evidence[index];
+        const auto path = "evidence[" + std::to_string(index) + "].rights";
+        if (evidence.rights == RightsDisposition::prohibited) {
+            report.add(ContractIssueCode::unsupported_value, path,
+                       "prohibited evidence cannot participate in a successful "
+                       "render");
+        }
+        if (distribution == DistributionIntent::distributable &&
+            evidence.rights != RightsDisposition::permitted) {
+            report.add(ContractIssueCode::unsupported_value, path,
+                       "distributable output requires permitted evidence and "
+                       "assets");
+        }
+    }
+    return report;
+}
+
 const SourceMatrixContract &bmw_m52b28_reference_source_matrix_v1() {
     static const SourceMatrixContract source_matrix = [] {
         constexpr RationalRateHz delivery_rate{192000, 1};

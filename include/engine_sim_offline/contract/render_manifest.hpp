@@ -167,6 +167,14 @@ struct RenderManifest {
 [[nodiscard]] OutputContract
 resolve_output_contract(const SourceMatrixContract &source_matrix);
 
+// Validates the complete resolved request before a renderer or sink is admitted.
+// This includes cross-record route ownership and delivery media shape that cannot be
+// established by validating each input independently.
+[[nodiscard]] ValidationReport validate_render_admission(
+    const EngineSpec &engine, const PresentationCalibration &presentation,
+    const RenderScenario &scenario, const ProvenanceLedger &provenance,
+    const SourceMatrixContract &source_matrix);
+
 [[nodiscard]] bool same_content_identity(const RenderManifest &lhs,
                                          const RenderManifest &rhs);
 
