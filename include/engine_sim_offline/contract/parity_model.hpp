@@ -333,7 +333,7 @@ using LegacyValvetrainProfile = LegacyValvetrainProfileT<LegacyCamshaftProfile>;
 
 template <template <class> class Field> struct LegacyTimingPointT {
     Field<std::string> sample_id;
-    Field<double> engine_speed_rpm;
+    Field<double> angular_speed_rad_s;
     Field<double> timing_advance_rad;
 
     friend bool operator==(const LegacyTimingPointT &,
@@ -345,7 +345,7 @@ using LegacyTimingPoint = LegacyTimingPointT<ResolvedValue>;
 
 struct AuthoredLegacyIgnitionProfile {
     AuthoredValue<std::vector<std::string>> firing_order;
-    AuthoredValue<double> timing_curve_triangle_radius_rpm;
+    AuthoredValue<double> timing_curve_triangle_radius_rad_s;
     std::vector<AuthoredLegacyTimingPoint> timing_curve;
     AuthoredValue<double> limiter_speed_rpm;
     AuthoredValue<double> limiter_hold_s;
@@ -357,7 +357,7 @@ struct AuthoredLegacyIgnitionProfile {
 
 struct LegacyIgnitionProfile {
     ResolvedValue<std::vector<CylinderId>> firing_order;
-    ResolvedValue<double> timing_curve_triangle_radius_rpm;
+    ResolvedValue<double> timing_curve_triangle_radius_rad_s;
     std::vector<LegacyTimingPoint> timing_curve;
     ResolvedValue<double> limiter_speed_rpm;
     ResolvedValue<double> limiter_hold_s;

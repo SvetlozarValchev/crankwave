@@ -147,7 +147,7 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
     profile.valvetrain.exhaust = camshaft("exhaust-port-1");
 
     profile.ignition.firing_order = authored(std::vector<std::string>{"cylinder-1"});
-    profile.ignition.timing_curve_triangle_radius_rpm = authored(1000.0);
+    profile.ignition.timing_curve_triangle_radius_rad_s = authored(1000.0);
     profile.ignition.timing_curve = {
         {
             authored(std::string{"rpm-0"}),

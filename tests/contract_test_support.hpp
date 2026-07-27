@@ -299,13 +299,13 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
 
     profile.ignition.firing_order = builder.resolved(
         std::vector<CylinderId>{CylinderId{1}}, path("ignition.firing_order"));
-    profile.ignition.timing_curve_triangle_radius_rpm =
-        builder.resolved(1000.0, path("ignition.timing_curve_triangle_radius_rpm"));
-    const auto make_timing = [&](std::string id, double rpm) {
+    profile.ignition.timing_curve_triangle_radius_rad_s =
+        builder.resolved(1000.0, path("ignition.timing_curve_triangle_radius_rad_s"));
+    const auto make_timing = [&](std::string id, double angular_speed_rad_s) {
         const auto base = path("ignition.timing_curve." + id);
         return LegacyTimingPoint{
             builder.resolved(id, base + ".sample_id"),
-            builder.resolved(rpm, base + ".engine_speed_rpm"),
+            builder.resolved(angular_speed_rad_s, base + ".angular_speed_rad_s"),
             builder.resolved(0.1, base + ".timing_advance_rad"),
         };
     };

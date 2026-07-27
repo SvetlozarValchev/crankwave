@@ -194,7 +194,7 @@ template <class TimingPoint, class Function>
 void visit_timing_point(const TimingPoint &point, const std::string &base,
                         Function function) {
     function(point.sample_id, base + ".sample_id");
-    function(point.engine_speed_rpm, base + ".engine_speed_rpm");
+    function(point.angular_speed_rad_s, base + ".angular_speed_rad_s");
     function(point.timing_advance_rad, base + ".timing_advance_rad");
 }
 
@@ -269,8 +269,8 @@ void visit_profile_fields(const Profile &profile, Function function,
 
     function(profile.ignition.firing_order,
              std::string(root) + ".ignition.firing_order");
-    function(profile.ignition.timing_curve_triangle_radius_rpm,
-             std::string(root) + ".ignition.timing_curve_triangle_radius_rpm");
+    function(profile.ignition.timing_curve_triangle_radius_rad_s,
+             std::string(root) + ".ignition.timing_curve_triangle_radius_rad_s");
     for (const auto &point : profile.ignition.timing_curve) {
         const auto point_base =
             std::string(root) + ".ignition.timing_curve." + point.sample_id.value;
@@ -720,30 +720,32 @@ void validate_authored_domains(ValidationReport &report,
     validate_camshaft(profile.valvetrain.intake, "valvetrain.intake");
     validate_camshaft(profile.valvetrain.exhaust, "valvetrain.exhaust");
 
-    require(report,
-            finite_positive(profile.ignition.timing_curve_triangle_radius_rpm.value) &&
-                profile.ignition.timing_curve.size() >= 2 &&
-                finite_positive(profile.ignition.limiter_speed_rpm.value) &&
-                finite_positive(profile.ignition.limiter_hold_s.value) &&
-                finite_positive(profile.ignition.declared_redline_rpm.value),
-            ContractIssueCode::invalid_value, "ignition",
-            "ignition curve, limiter, or redline is invalid");
+    require(
+        report,
+        finite_positive(profile.ignition.timing_curve_triangle_radius_rad_s.value) &&
+            profile.ignition.timing_curve.size() >= 2 &&
+            finite_positive(profile.ignition.limiter_speed_rpm.value) &&
+            finite_positive(profile.ignition.limiter_hold_s.value) &&
+            finite_positive(profile.ignition.declared_redline_rpm.value),
+        ContractIssueCode::invalid_value, "ignition",
+        "ignition curve, limiter, or redline is invalid");
     validate_sample_ids(report, profile.ignition.timing_curve, "ignition.timing_curve");
     for (std::size_t index = 0; index < profile.ignition.timing_curve.size(); ++index) {
         const auto &point = profile.ignition.timing_curve[index];
         require(report,
-                finite_nonnegative(point.engine_speed_rpm.value) &&
+                finite_nonnegative(point.angular_speed_rad_s.value) &&
                     finite(point.timing_advance_rad.value),
                 ContractIssueCode::invalid_value,
                 "ignition.timing_curve." + point.sample_id.value,
                 "ignition timing sample is invalid");
         if (index != 0) {
-            require(report,
-                    point.engine_speed_rpm.value >
-                        profile.ignition.timing_curve[index - 1].engine_speed_rpm.value,
-                    ContractIssueCode::inconsistent_semantics,
-                    "ignition.timing_curve." + point.sample_id.value,
-                    "ignition speed samples must be strictly increasing");
+            require(
+                report,
+                point.angular_speed_rad_s.value >
+                    profile.ignition.timing_curve[index - 1].angular_speed_rad_s.value,
+                ContractIssueCode::inconsistent_semantics,
+                "ignition.timing_curve." + point.sample_id.value,
+                "ignition speed samples must be strictly increasing");
         }
     }
 
@@ -1520,30 +1522,32 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
                 ContractIssueCode::dangling_reference, "ignition.firing_order",
                 "firing order references an unknown cylinder");
     }
-    require(report,
-            finite_positive(profile.ignition.timing_curve_triangle_radius_rpm.value) &&
-                profile.ignition.timing_curve.size() >= 2 &&
-                finite_positive(profile.ignition.limiter_speed_rpm.value) &&
-                finite_positive(profile.ignition.limiter_hold_s.value) &&
-                finite_positive(profile.ignition.declared_redline_rpm.value),
-            ContractIssueCode::invalid_value, "ignition",
-            "ignition curve, limiter, or redline is invalid");
+    require(
+        report,
+        finite_positive(profile.ignition.timing_curve_triangle_radius_rad_s.value) &&
+            profile.ignition.timing_curve.size() >= 2 &&
+            finite_positive(profile.ignition.limiter_speed_rpm.value) &&
+            finite_positive(profile.ignition.limiter_hold_s.value) &&
+            finite_positive(profile.ignition.declared_redline_rpm.value),
+        ContractIssueCode::invalid_value, "ignition",
+        "ignition curve, limiter, or redline is invalid");
     validate_sample_ids(report, profile.ignition.timing_curve, "ignition.timing_curve");
     for (std::size_t index = 0; index < profile.ignition.timing_curve.size(); ++index) {
         const auto &point = profile.ignition.timing_curve[index];
         require(report,
-                finite_nonnegative(point.engine_speed_rpm.value) &&
+                finite_nonnegative(point.angular_speed_rad_s.value) &&
                     finite(point.timing_advance_rad.value),
                 ContractIssueCode::invalid_value,
                 "ignition.timing_curve." + point.sample_id.value,
                 "ignition timing sample is invalid");
         if (index != 0) {
-            require(report,
-                    point.engine_speed_rpm.value >
-                        profile.ignition.timing_curve[index - 1].engine_speed_rpm.value,
-                    ContractIssueCode::inconsistent_semantics,
-                    "ignition.timing_curve." + point.sample_id.value,
-                    "ignition speed samples must be strictly increasing");
+            require(
+                report,
+                point.angular_speed_rad_s.value >
+                    profile.ignition.timing_curve[index - 1].angular_speed_rad_s.value,
+                ContractIssueCode::inconsistent_semantics,
+                "ignition.timing_curve." + point.sample_id.value,
+                "ignition speed samples must be strictly increasing");
         }
     }
 
