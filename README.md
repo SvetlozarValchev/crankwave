@@ -8,8 +8,11 @@ The project is intentionally narrow while the BMW M52B28 parity path is establis
 Production code does not link engine-sim or the failed experimental implementation.
 The preserved P1.8 observation patch and fixture are reference evidence only.
 
-The implementation plan and listening gates are in [`PLAN.md`](PLAN.md). The frozen
-BMW reference contract is in
+The implementation plan and listening gates are in [`PLAN.md`](PLAN.md). The
+simulation architecture and admission rules are in [`MODEL.md`](MODEL.md), with the
+exact M3 BMW parity algorithm in
+[`docs/model/M3_PARITY_MODEL.md`](docs/model/M3_PARITY_MODEL.md). The frozen BMW
+reference contract is in
 [`reference/oracles/bmw-m52b28/SOURCE_MATRIX.md`](reference/oracles/bmw-m52b28/SOURCE_MATRIX.md).
 
 ## Build
