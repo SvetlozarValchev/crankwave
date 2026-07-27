@@ -47,7 +47,9 @@ The following records have distinct authority:
    oracle.
 8. `docs/contracts/M2_MANIFEST_INPUTS.md` owns the typed distinction between complete
    simulation inputs and exact isolated reference-presentation lineage.
-9. This document owns model meaning and admission; the focused M2 contract records own
+9. `docs/contracts/M3_BMW_REQUEST.md` owns the concrete resolved engine/scenario
+   identities, fixed-rate RPM representation, and explicit parity-scenario metadata.
+10. This document owns model meaning and admission; the focused contract records own
    concrete C++ types, schemas, and API signatures.
 
 If two authorities conflict, implementation stops and the contradiction is recorded.

@@ -15,8 +15,10 @@ evidence and comparison tests may remain outside the production dependency graph
 The implementation plan and listening gates are in [`PLAN.md`](PLAN.md). The
 simulation architecture and admission rules are in [`MODEL.md`](MODEL.md), with the
 exact M3 BMW parity algorithm in
-[`docs/model/M3_PARITY_MODEL.md`](docs/model/M3_PARITY_MODEL.md). The frozen BMW
-reference contract is in
+[`docs/model/M3_PARITY_MODEL.md`](docs/model/M3_PARITY_MODEL.md), and the concrete
+resolved engine/scenario request is fixed in
+[`docs/contracts/M3_BMW_REQUEST.md`](docs/contracts/M3_BMW_REQUEST.md). The frozen
+BMW reference contract is in
 [`reference/oracles/bmw-m52b28/SOURCE_MATRIX.md`](reference/oracles/bmw-m52b28/SOURCE_MATRIX.md).
 The current authored/resolved, scenario, capture, result, source, and manifest
 interfaces are recorded in

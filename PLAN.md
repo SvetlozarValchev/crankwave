@@ -1,7 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — M2 accepted renderer and transactional reference wrapper
-complete; concrete M3 BMW request next
+Status: implementation — M3 concrete BMW request
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-28
 
@@ -437,8 +436,15 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
 
 ### M3 — BMW parity
 
-- [ ] Construct and validate the concrete resolved BMW engine/scenario request that
-      the parity simulator will actually consume.
+- [x] Freeze the concrete BMW engine/scenario request record, including exact
+      identities, otherwise-unused scenario metadata, and the content-addressed
+      fixed-rate RPM representation.
+- [ ] Implement a strict reference-only parity-evidence decoder that can extract the
+      RPM input lane while retaining crank angle and pressure only as comparator
+      outputs.
+- [ ] Construct and exhaustively validate the sealed resolved BMW engine/scenario
+      request that the production-neutral parity simulator will actually consume;
+      keep the decoder outside the simulator dependency graph.
 - [ ] Freeze the canonical `simulation_v1` manifest-input schema from that concrete
       request before extending the encoder or admitting public render success.
 - [ ] Extend the canonical manifest encoder to `simulation_v1` and prove the encoded
