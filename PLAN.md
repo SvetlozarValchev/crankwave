@@ -1,7 +1,7 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — exact P1.8 fixed convolution frozen; isolated BMW route
-integration and listening set next
+Status: implementation — exact P1.8 fixture adapters frozen; mastering and isolated
+BMW route integration next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -312,7 +312,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       overlap-save convolution with transform, impulse, independent-history, alias,
       and partition-continuity tests; preserve 3,840-frame reference calls and do not
       claim a complete route.
-- [ ] Implement strict reference-only decoders for the frozen audit and component-seed
+- [x] Implement strict reference-only decoders for the frozen audit and component-seed
       capsules; retain typed raw fixture values without connecting them to presentation
       code, WAV output, or public rendering.
 - [ ] Implement and bit-test the fixture-free raw/audition mastering transform and exact

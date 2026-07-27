@@ -273,6 +273,54 @@ add_test(
     COMMAND engine_sim_offline_p18_fixed_fft_convolution_tests
 )
 
+add_executable(
+    engine_sim_offline_p18_reference_audit_reader_tests
+    p18_reference_audit_reader_test.cpp
+    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_audit_reader.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_reference_audit_reader_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_reference_audit_reader_tests
+    PRIVATE engine_sim_offline::build_options
+)
+
+add_test(
+    NAME reference.p18_audit_reader
+    COMMAND
+        engine_sim_offline_p18_reference_audit_reader_tests
+        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/reference-audit.bin
+)
+
+add_executable(
+    engine_sim_offline_p18_reference_seed_reader_tests
+    p18_reference_seed_reader_test.cpp
+    ${PROJECT_SOURCE_DIR}/src/reference/p18_reference_seed_reader.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_p18_reference_seed_reader_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_p18_reference_seed_reader_tests
+    PRIVATE engine_sim_offline::build_options
+)
+
+add_test(
+    NAME reference.p18_seed_reader
+    COMMAND
+        engine_sim_offline_p18_reference_seed_reader_tests
+        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/component-seeds.bin
+)
+
 if(TARGET engine_sim_offline_cli_shell)
     add_executable(
         engine_sim_offline_cli_tests
