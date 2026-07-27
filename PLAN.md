@@ -324,10 +324,12 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       listening.
 - [x] Record the user's renderer acceptance, or record rejection and redesign before
       doing manifest/publication plumbing or beginning M3.
-- [ ] Freeze the canonical complete `RenderManifest` wire schema before implementing
-      its encoder.
-- [ ] Implement the canonical complete-manifest encoder and truthful frozen-BMW
-      reference request without admitting fixture replay through public `render()`.
+- [ ] Freeze the canonical complete `reference_presentation_v1` `RenderManifest` wire
+      schema before implementing its encoder; reject the still-provisional simulation
+      input alternative rather than freezing M3 data that has never executed.
+- [ ] Implement the canonical reference-manifest encoder and truthful frozen-BMW
+      reference request without admitting fixture replay through public `render()`;
+      keep the simulation alternative unencodable until its M3 schema is frozen.
 - [ ] Implement the bounded transactional eight-artifact P1.8 presentation session,
       including routing and execution evidence, without linking or reading the
       fixture; rerun exact artifact hashes to prove the accepted renderer was not
@@ -344,11 +346,14 @@ to advance past M2. The isolated complete-route checkbox must publish all eight 
 reference artifacts through the unchanged route. Exact comparison remains required
 diagnostic evidence, but a mismatch does not suppress the candidate from the immediate
 listening hard stop; it must instead be reported and labelled. Work does not continue
-while awaiting the user's decision. Canonical serialization and
+while awaiting the user's decision. Canonical reference serialization and
 transactional-publication plumbing deliberately follow that acceptance because they
 cannot validate sound. They must wrap the same accepted renderer and reproduce its
-accepted hashes before M3 begins. The public `render()` path remains fail-closed
-throughout fixture replay, and production/M3 targets never link the reference reader.
+accepted hashes before M3 begins. Freezing the simulation input alternative is
+deferred until a concrete M3 BMW request exists; this prevents a provisional parity
+profile from becoming a permanent wire API merely because its C++ validation types
+were written first. The public `render()` path remains fail-closed throughout fixture
+replay, and production/M3 targets never link the reference reader.
 Exact hashes establish only this narrow trace-driven renderer comparison—not
 public-render success, new physics, production completeness, higher fidelity,
 distribution rights, or user acceptance.
@@ -360,6 +365,12 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
 
 ### M3 — BMW parity
 
+- [ ] Construct and validate the concrete resolved BMW engine/scenario request that
+      the parity simulator will actually consume.
+- [ ] Freeze the canonical `simulation_v1` manifest-input schema from that concrete
+      request before extending the encoder or admitting public render success.
+- [ ] Extend the canonical manifest encoder to `simulation_v1` and prove the encoded
+      request matches the exact in-memory request.
 - [ ] Implement BMW crank-slider mechanics and event scheduling.
 - [ ] Implement the required fixed-profile valvetrain.
 - [ ] Implement the minimum sourced gas, ignition, combustion, friction, and pumping
