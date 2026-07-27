@@ -4,7 +4,7 @@
 
 #include "../artifacts/directory_render_sink_support.hpp"
 #include "../artifacts/secure_filesystem_support.hpp"
-#include "../artifacts/sha256_stream.hpp"
+#include "../contract/sha256_stream.hpp"
 
 #include <algorithm>
 #include <array>
@@ -104,7 +104,7 @@ class P18ReferenceArtifactSet::Implementation {
 #if defined(__linux__)
         artifacts::detail::FileDescriptor file;
 #endif
-        artifacts::detail::Sha256Stream hash;
+        contract::detail::Sha256Stream hash;
         std::uint64_t byte_count = 0;
         bool sealed = false;
         std::optional<FileIdentity> identity;

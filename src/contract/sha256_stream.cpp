@@ -4,7 +4,7 @@
 #include <array>
 #include <cstring>
 
-namespace engine_sim_offline::artifacts::detail {
+namespace engine_sim_offline::contract::detail {
 namespace {
 
 constexpr std::array<std::uint32_t, 64> kRoundConstants{
@@ -43,7 +43,7 @@ void Sha256Stream::update(std::span<const std::byte> payload) noexcept {
     }
 }
 
-contract::Sha256Digest Sha256Stream::finish() const noexcept {
+Sha256Digest Sha256Stream::finish() const noexcept {
     auto copy = *this;
     const auto bit_length = copy.total_bytes_ * UINT64_C(8);
 
@@ -61,7 +61,7 @@ contract::Sha256Digest Sha256Stream::finish() const noexcept {
     }
     copy.transform(copy.block_);
 
-    contract::Sha256Digest digest;
+    Sha256Digest digest;
     for (std::size_t index = 0; index < copy.state_.size(); ++index) {
         digest.bytes[index * 4] = static_cast<std::uint8_t>(copy.state_[index] >> 24U);
         digest.bytes[index * 4 + 1] =
@@ -133,4 +133,4 @@ void Sha256Stream::transform(const std::array<std::byte, 64> &block) noexcept {
     state_[7] += h;
 }
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace engine_sim_offline::contract::detail

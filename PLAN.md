@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — reference manifest encoder complete; P1.8 catalog next
+Status: implementation — loaded runtime identity complete; numeric admission next
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-27
 
@@ -336,7 +336,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
       revision, a canonical renderer-source closure digest, compiler ID/version, and
       target triple; make dirty or unavailable source state inadmissible and accept no
       caller override.
-- [ ] Identify and admit the actual loaded standard-library, math-library, and compiler
+- [x] Identify and admit the actual loaded standard-library, math-library, and compiler
       runtime providers plus the selected P1.8 math implementations; fail closed on
       static, interposed, replaced, or unsupported providers.
 - [ ] Enforce and admit the canonical compiled ISA policy, required CPU capability,

@@ -17,13 +17,91 @@ add_executable(
 
 target_link_libraries(
     engine_sim_offline_renderer_source_stamp_tests
-    PRIVATE engine_sim_offline_renderer_source_stamp
+    PRIVATE engine_sim_offline_renderer_determinism
 )
 
 add_test(
     NAME determinism.renderer_source_stamp
     COMMAND engine_sim_offline_renderer_source_stamp_tests
 )
+
+add_executable(
+    engine_sim_offline_loaded_runtime_identity_tests
+    loaded_runtime_identity_test.cpp
+)
+
+target_link_options(
+    engine_sim_offline_loaded_runtime_identity_tests
+    PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--no-as-needed>
+)
+
+target_link_libraries(
+    engine_sim_offline_loaded_runtime_identity_tests
+    PRIVATE
+        engine_sim_offline_renderer_determinism
+        $<$<PLATFORM_ID:Linux>:m>
+)
+
+add_test(
+    NAME determinism.loaded_runtime_identity
+    COMMAND engine_sim_offline_loaded_runtime_identity_tests
+)
+
+set(_engine_sim_offline_sanitized FALSE)
+if(CMAKE_CXX_FLAGS MATCHES "-fsanitize=" OR
+   CMAKE_CXX_FLAGS_RELEASE MATCHES "-fsanitize=" OR
+   CMAKE_CXX_FLAGS_DEBUG MATCHES "-fsanitize=")
+    set(_engine_sim_offline_sanitized TRUE)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND
+   CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" AND
+   CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$" AND
+   NOT _engine_sim_offline_sanitized)
+    add_library(
+        engine_sim_offline_loaded_runtime_tan_interposer
+        SHARED loaded_runtime_tan_interposer.cpp
+    )
+
+    add_test(
+        NAME determinism.loaded_runtime_interposition
+        COMMAND
+            ${CMAKE_COMMAND} -E env
+            "LD_PRELOAD=$<TARGET_FILE:engine_sim_offline_loaded_runtime_tan_interposer>"
+            ENGINE_SIM_OFFLINE_TEST_EXPECT_TAN_INTERPOSITION=1
+            $<TARGET_FILE:engine_sim_offline_loaded_runtime_identity_tests>
+    )
+
+    add_executable(
+        engine_sim_offline_loaded_runtime_static_tests
+        loaded_runtime_identity_test.cpp
+    )
+
+    target_compile_definitions(
+        engine_sim_offline_loaded_runtime_static_tests
+        PRIVATE ENGINE_SIM_OFFLINE_TEST_STATIC_RUNTIME=1
+    )
+
+    target_link_options(
+        engine_sim_offline_loaded_runtime_static_tests
+        PRIVATE
+            -static-libstdc++
+            -static-libgcc
+            LINKER:--no-as-needed
+    )
+
+    target_link_libraries(
+        engine_sim_offline_loaded_runtime_static_tests
+        PRIVATE
+            engine_sim_offline_renderer_determinism
+            m
+    )
+
+    add_test(
+        NAME determinism.loaded_runtime_static_rejection
+        COMMAND engine_sim_offline_loaded_runtime_static_tests
+    )
+endif()
 
 find_package(Git QUIET)
 if(GIT_FOUND AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND

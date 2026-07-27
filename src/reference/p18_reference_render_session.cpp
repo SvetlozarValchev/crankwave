@@ -1,7 +1,7 @@
 #include "reference/p18_reference_render_session.hpp"
 
 #include "artifacts/p18_audition_wav_encoder.hpp"
-#include "artifacts/sha256_stream.hpp"
+#include "contract/sha256_stream.hpp"
 #include "dsp/p18_primitives.hpp"
 #include "presentation/exhaust_excitation_block.hpp"
 #include "presentation/p18_mastering.hpp"
@@ -268,7 +268,7 @@ void write_published_block(RenderScratch &scratch, std::uint64_t audible_frame,
                            std::array<WavEncoder, kFloatWaveCount> &encoders,
                            artifacts::P18AuditionWaveEncoder &audition,
                            const P18ReferenceAudioConsumers &consumers,
-                           std::array<artifacts::detail::Sha256Stream, 5> &hashes,
+                           std::array<contract::detail::Sha256Stream, 5> &hashes,
                            P18ReferenceRenderStats &stats) {
     for (std::size_t route = 0; route < kRouteCount; ++route) {
         const auto base = route * 3;
@@ -362,7 +362,7 @@ P18ReferenceRenderStats render_p18_reference_audio(
     };
     auto audition = make_audition_wave_encoder();
     auto scratch = std::make_unique<RenderScratch>();
-    std::array<artifacts::detail::Sha256Stream, 5> hashes{};
+    std::array<contract::detail::Sha256Stream, 5> hashes{};
     P18ReferenceRenderStats stats{};
     begin_encoders(encoders, audition, consumers);
 

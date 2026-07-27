@@ -24,7 +24,10 @@ function(_engine_sim_offline_renderer_stamp_inputs_representable _output)
     set(${_output} "${_representable}" PARENT_SCOPE)
 endfunction()
 
-function(engine_sim_offline_add_renderer_source_stamp)
+function(engine_sim_offline_add_renderer_source_stamp _target)
+    if(NOT TARGET "${_target}")
+        message(FATAL_ERROR "renderer source stamp requires an existing target")
+    endif()
     find_package(Git QUIET)
 
     set(_is_multi_config FALSE)
@@ -106,28 +109,17 @@ function(engine_sim_offline_add_renderer_source_stamp)
         VERBATIM
     )
 
-    add_library(
-        engine_sim_offline_renderer_source_stamp
-        STATIC
-            "${PROJECT_SOURCE_DIR}/src/determinism/renderer_source_stamp.cpp"
+    target_sources(
+        "${_target}"
+        PRIVATE "${PROJECT_SOURCE_DIR}/src/determinism/renderer_source_stamp.cpp"
     )
     add_dependencies(
-        engine_sim_offline_renderer_source_stamp
+        "${_target}"
         engine_sim_offline_generate_renderer_source_stamp
     )
 
     target_include_directories(
-        engine_sim_offline_renderer_source_stamp
+        "${_target}"
         BEFORE PRIVATE $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/generated>
-    )
-    target_include_directories(
-        engine_sim_offline_renderer_source_stamp
-        PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-    )
-
-    target_link_libraries(
-        engine_sim_offline_renderer_source_stamp
-        PUBLIC engine_sim_offline::contract
-        PRIVATE engine_sim_offline::build_options
     )
 endfunction()

@@ -41,7 +41,7 @@ P18ReferenceArtifactSet::Implementation::verify_file(const FileIdentity &identit
             "a sealed P1.8 file was replaced or changed before publication");
     }
 
-    artifacts::detail::Sha256Stream hash;
+    contract::detail::Sha256Stream hash;
     std::array<std::byte, 64U * 1024U> buffer{};
     std::uint64_t offset = 0;
     while (offset < identity.byte_count) {

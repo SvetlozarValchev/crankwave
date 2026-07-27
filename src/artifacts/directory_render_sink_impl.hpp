@@ -2,8 +2,8 @@
 
 #include "engine_sim_offline/artifacts/directory_render_sink.hpp"
 
+#include "contract/sha256_stream.hpp"
 #include "secure_filesystem_support.hpp"
-#include "sha256_stream.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -54,7 +54,7 @@ class DirectoryRenderSink::Implementation {
 #if defined(__linux__)
         detail::FileDescriptor file;
 #endif
-        detail::Sha256Stream hash;
+        contract::detail::Sha256Stream hash;
         std::uint64_t byte_count = 0;
         std::optional<contract::ArtifactRecord> record;
         std::optional<StagedFileIdentity> identity;

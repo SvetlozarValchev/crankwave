@@ -2,7 +2,7 @@
 
 #include "artifacts/directory_render_sink_support.hpp"
 #include "artifacts/secure_filesystem_support.hpp"
-#include "artifacts/sha256_stream.hpp"
+#include "contract/sha256_stream.hpp"
 #include "dsp/p18_static_ir_conversion.hpp"
 #include "presentation/p18_pcm16_ir_decoder.hpp"
 
@@ -144,7 +144,7 @@ open_fixture_root(const std::filesystem::path &root) {
         result.retained_bytes.resize(static_cast<std::size_t>(observed_size));
     }
     std::array<std::byte, kReadBufferBytes> buffer{};
-    artifacts::detail::Sha256Stream hash;
+    contract::detail::Sha256Stream hash;
     std::uint64_t offset = 0;
     while (offset < observed_size) {
         const auto request = static_cast<std::size_t>(

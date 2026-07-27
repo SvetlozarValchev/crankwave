@@ -318,7 +318,7 @@ RenderSinkStatus DirectoryRenderSink::Implementation::verify_staged_file(
             "a sealed staged file was replaced or changed before commit");
     }
 
-    detail::Sha256Stream hash;
+    contract::detail::Sha256Stream hash;
     std::array<std::byte, 64 * 1024> buffer{};
     std::uint64_t offset = 0;
     while (offset < identity.byte_count) {

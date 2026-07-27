@@ -203,7 +203,7 @@ P18ReferenceArtifactSet::Implementation::write_text_report(std::string relative_
             "p18-report-file-verification-failed",
             "staged P1.8 report is not one private regular file of the exact size"));
     }
-    artifacts::detail::Sha256Stream hash;
+    contract::detail::Sha256Stream hash;
     hash.update(bytes);
     reports_.push_back({std::move(relative_path),
                         static_cast<std::uint64_t>(bytes.size()), hash.finish(),

@@ -56,6 +56,7 @@ add_library(
         src/contract/render_manifest.cpp
         src/contract/result.cpp
         src/contract/scenario.cpp
+        src/contract/sha256_stream.cpp
         src/contract/source_matrix.cpp
         src/contract/torque.cpp
 )
@@ -113,7 +114,6 @@ add_library(
         src/artifacts/reference_manifest_encoder_presentation.cpp
         src/artifacts/reference_manifest_encoder_reference.cpp
         src/artifacts/secure_filesystem_support.cpp
-        src/artifacts/sha256_stream.cpp
         src/artifacts/telemetry_encoder.cpp
         src/artifacts/telemetry_encoder_rows.cpp
         src/artifacts/telemetry_encoder_validation.cpp
@@ -129,6 +129,7 @@ target_include_directories(
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/artifacts>
 )
 
@@ -195,7 +196,37 @@ target_link_libraries(
 
 if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     include(cmake/RendererSourceStamp.cmake)
-    engine_sim_offline_add_renderer_source_stamp()
+
+    add_library(
+        engine_sim_offline_renderer_determinism
+        STATIC
+            src/determinism/loaded_runtime_identity.cpp
+    )
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND
+       CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+        target_sources(
+            engine_sim_offline_renderer_determinism
+            PRIVATE
+                src/determinism/linux_loaded_provider.cpp
+                src/determinism/linux_loaded_provider_file.cpp
+        )
+    endif()
+    engine_sim_offline_add_renderer_source_stamp(
+        engine_sim_offline_renderer_determinism
+    )
+
+    target_include_directories(
+        engine_sim_offline_renderer_determinism
+        PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_renderer_determinism
+        PUBLIC engine_sim_offline::contract
+        PRIVATE
+            engine_sim_offline::build_options
+            ${CMAKE_DL_LIBS}
+    )
 
     add_library(
         engine_sim_offline_p18_reference_catalog

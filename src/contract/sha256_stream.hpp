@@ -7,14 +7,14 @@
 #include <cstdint>
 #include <span>
 
-namespace engine_sim_offline::artifacts::detail {
+namespace engine_sim_offline::contract::detail {
 
-// Bounded incremental counterpart to the public one-shot SHA-256 helper. Promote this
-// to contract/common if another subsystem needs streaming hashes; do not fork it.
+// Project-owned bounded incremental SHA-256 used by subsystems that cannot retain a
+// complete payload in memory. The public one-shot helper remains the API boundary.
 class Sha256Stream {
   public:
     void update(std::span<const std::byte> payload) noexcept;
-    [[nodiscard]] contract::Sha256Digest finish() const noexcept;
+    [[nodiscard]] Sha256Digest finish() const noexcept;
 
   private:
     void transform(const std::array<std::byte, 64> &block) noexcept;
@@ -28,4 +28,4 @@ class Sha256Stream {
     std::uint64_t total_bytes_ = 0;
 };
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace engine_sim_offline::contract::detail

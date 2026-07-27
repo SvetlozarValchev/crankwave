@@ -14,10 +14,38 @@ one executable whose fixture readers, fixture preflight, render coordinator, dig
 comparison, and local publisher remain private to the reference target. Its immutable
 catalog is a private support library built only for tests or this opt-in tool; none of
 these components are linked by the public renderer, CLI, or future M3 simulation.
-A separate private renderer source-stamp target now records build-owned source,
-compiler, and target facts and rejects dirty or unavailable source. This first split
-checkpoint is exercised by focused tests only; it is not yet the complete runtime
-determinism identity and is not yet consumed by the reference executable.
+A separate private renderer-determinism target records build-owned source, compiler,
+and target facts and rejects dirty or unavailable source. It also observes the actual
+loaded libstdc++, glibc libm, and libgcc_s providers without loading a missing library.
+These split checkpoints are exercised by focused tests only; they are not yet the
+complete runtime determinism identity and are not yet consumed by the reference
+executable.
+
+## Loaded runtime admission
+
+The supported provider envelope is Linux LP64 ELF64 little-endian x86-64 with the
+expected `libstdc++.so.6`, `libm.so.6`, and `libgcc_s.so.1` SONAMEs. Admission binds
+each provider to its in-memory GNU build ID, stable mapped inode, whole-file SHA-256,
+file size, and the provider-relative address of every selected versioned symbol. The
+identity excludes loader paths, basenames, absolute addresses, device/inode values,
+and timestamps, so ASLR and moving identical provider files do not change content
+identity.
+
+The exact selected symbols are `__cxa_throw@CXXABI_1.3`,
+`__muldc3@GCC_4.0.0`, and `ceil`, `cos`, `floor`, `roundl`, `sin`, `sincos`, and
+`tan` at `GLIBC_2.2.5`. Default, exact-version, and provider-handle lookups must agree,
+and each address must lie in the expected provider's executable load segment. Every
+non-writable loaded segment is compared with the stable opened file, while W+X or text
+relocations are rejected. Tests prove live admission, preloaded-math interposition
+rejection, and rejection when libstdc++/libgcc are statically linked. The incremental
+SHA-256 implementation now belongs to the contract foundation rather than being
+duplicated or making determinism depend on the artifact layer.
+
+Provider files must remain quiescent during admission. Atomic replacement, unlink,
+symlink/inode mismatch, and a stable in-place byte mismatch fail closed. Hostile
+concurrent truncation of an already mapped system DSO is outside this in-process
+observer's scope; guaranteeing that case would require isolating the entire dynamic
+loader interaction in another process.
 
 Preflight opens, bounds, streams, and hashes exactly these fixed descendants of a
 caller-selected fixture root:
