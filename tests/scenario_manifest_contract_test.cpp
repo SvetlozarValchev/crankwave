@@ -50,6 +50,48 @@ void run_scenario_manifest_contract_tests() {
            "valid resolved engine was rejected");
     expect(validate(content.resolved_inputs.scenario, builder.provenance).ok(),
            "valid tagged scenario was rejected");
+    auto unbounded_event_journal = content.resolved_inputs.scenario;
+    unbounded_event_journal.quality.value.event_journal_capacity_records = 0;
+    expect(!validate(unbounded_event_journal, builder.provenance).ok(),
+           "scenario accepted a zero event-journal transport capacity");
+
+    const RationalRateHz high_rate{2'000'000'000'000ULL, 1};
+    auto discrete_audible_gap = content.resolved_inputs.scenario;
+    discrete_audible_gap.rates = {
+        high_rate, high_rate, high_rate, high_rate, high_rate,
+    };
+    discrete_audible_gap.total_duration_s.value = 3.0;
+    discrete_audible_gap.audible_start_s.value = 2.0;
+    discrete_audible_gap.audible_duration_s.value = 0.9999999999995;
+    const auto audible_grid_report = validate_clock_grid(discrete_audible_gap);
+    expect(!audible_grid_report.ok() &&
+               has_issue(audible_grid_report, ContractIssueCode::inconsistent_semantics,
+                         "physics.audible_interval"),
+           "binary64-near audible end left an undeclared frame gap");
+
+    auto discrete_fixed_gap = content.resolved_inputs.scenario;
+    discrete_fixed_gap.rates = discrete_audible_gap.rates;
+    std::get<FixedSettling>(discrete_fixed_gap.preparation).settling_duration_s.value =
+        0.9999999999995;
+    const auto fixed_grid_report = validate_clock_grid(discrete_fixed_gap);
+    expect(!fixed_grid_report.ok() &&
+               has_issue(fixed_grid_report, ContractIssueCode::inconsistent_semantics,
+                         "physics.preparation"),
+           "binary64-near fixed preparation left an undeclared frame gap");
+
+    auto invalid_convergence_grid = content.resolved_inputs.scenario;
+    ConvergenceSettling convergence;
+    convergence.minimum_warm_up_duration_s.value = 1.0;
+    convergence.minimum_settling_duration_s.value = 1.0;
+    convergence.maximum_preparation_duration_s.value = 1.5;
+    invalid_convergence_grid.preparation = convergence;
+    const auto convergence_grid_report = validate_clock_grid(invalid_convergence_grid);
+    expect(!convergence_grid_report.ok() &&
+               has_issue(convergence_grid_report,
+                         ContractIssueCode::inconsistent_semantics,
+                         "physics.preparation"),
+           "convergence frame bounds accepted a maximum below their minimum");
+
     expect(validate_for_engine(content.resolved_inputs.scenario,
                                content.resolved_inputs.engine)
                .ok(),

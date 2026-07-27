@@ -4,6 +4,7 @@
 #include <compare>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -46,6 +47,14 @@ struct RationalRateHz {
 
     friend bool operator==(const RationalRateHz &, const RationalRateHz &) = default;
 };
+
+// Binary64 scenario times are resolved to integer frame indices once, at admission.
+// The bound keeps every accepted index in binary64's consecutive-integer range; all
+// scheduling after this conversion uses integers and never repeated floating addition.
+inline constexpr std::uint64_t kMaximumResolvedFrameIndex = (UINT64_C(1) << 53U) - 1U;
+
+[[nodiscard]] std::optional<std::uint64_t>
+resolve_frame_index(double time_s, const RationalRateHz &rate) noexcept;
 
 struct RenderRates {
     RationalRateHz physics;

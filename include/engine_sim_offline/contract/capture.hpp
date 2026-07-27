@@ -401,7 +401,8 @@ class CaptureBlockView {
                  detail::CallbackBorrowRange<SourceRouteRange, SourceRouteCaptureSample>
     [[nodiscard]] static CaptureBlockView borrow_for_callback(
         CaptureLayoutView layout, CaptureClock clock, std::uint32_t frame_count,
-        std::uint32_t declared_block_capacity_frames, EngineRange &&engine,
+        std::uint32_t declared_block_capacity_frames,
+        std::uint32_t declared_event_journal_capacity_records, EngineRange &&engine,
         CylinderRange &&cylinders, PortRange &&ports, GasVolumeRange &&gas_volumes,
         FlowEdgeRange &&flow_edges, SourceRouteRange &&source_routes,
         EventJournalView event_journal,
@@ -412,6 +413,7 @@ class CaptureBlockView {
             clock,
             frame_count,
             declared_block_capacity_frames,
+            declared_event_journal_capacity_records,
             detail::callback_span<EngineCaptureSample>(
                 std::forward<EngineRange>(engine)),
             detail::callback_span<CylinderCaptureSample>(
@@ -432,6 +434,8 @@ class CaptureBlockView {
     [[nodiscard]] const CaptureClock &clock() const noexcept;
     [[nodiscard]] std::uint32_t frame_count() const noexcept;
     [[nodiscard]] std::uint32_t declared_block_capacity_frames() const noexcept;
+    [[nodiscard]] std::uint32_t
+    declared_event_journal_capacity_records() const noexcept;
     [[nodiscard]] std::span<const EngineCaptureSample> engine() const noexcept;
     [[nodiscard]] std::span<const CylinderCaptureSample> cylinders() const noexcept;
     [[nodiscard]] std::span<const PortCaptureSample> ports() const noexcept;
@@ -467,6 +471,7 @@ class CaptureBlockView {
     CaptureBlockView(CaptureLayoutView layout, CaptureClock clock,
                      std::uint32_t frame_count,
                      std::uint32_t declared_block_capacity_frames,
+                     std::uint32_t declared_event_journal_capacity_records,
                      std::span<const EngineCaptureSample> engine,
                      std::span<const CylinderCaptureSample> cylinders,
                      std::span<const PortCaptureSample> ports,
@@ -480,6 +485,7 @@ class CaptureBlockView {
     CaptureClock clock_;
     std::uint32_t frame_count_;
     std::uint32_t declared_block_capacity_frames_;
+    std::uint32_t declared_event_journal_capacity_records_;
     std::span<const EngineCaptureSample> engine_;
     std::span<const CylinderCaptureSample> cylinders_;
     std::span<const PortCaptureSample> ports_;

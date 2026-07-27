@@ -16,6 +16,7 @@ bool known(FailureKind value) noexcept {
     switch (value) {
     case FailureKind::invalid_specification:
     case FailureKind::unreachable_target:
+    case FailureKind::cancelled:
     case FailureKind::event_schedule_violation:
     case FailureKind::nonphysical_state:
     case FailureKind::numerical_failure:

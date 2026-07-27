@@ -4,13 +4,26 @@
 #include "validation_support.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <limits>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_set>
+#include <utility>
 
 namespace engine_sim_offline::contract {
 namespace {
+
+bool checked_add_u64(std::uint64_t lhs, std::uint64_t rhs,
+                     std::uint64_t &result) noexcept {
+    if (rhs > std::numeric_limits<std::uint64_t>::max() - lhs) {
+        return false;
+    }
+    result = lhs + rhs;
+    return true;
+}
 
 template <class T>
 void validate_resolved(ValidationReport &report, const ResolvedValue<T> &value,
@@ -92,6 +105,162 @@ void validate_trajectory(ValidationReport &report, const ScalarTrajectory &traje
 }
 
 } // namespace
+
+ValidationReport validate_clock_grid(const RenderScenario &scenario) {
+    using detail::require;
+
+    ValidationReport report;
+    const std::array clocks{
+        std::pair{std::string_view{"physics"}, scenario.rates.physics},
+        std::pair{std::string_view{"capture"}, scenario.rates.capture},
+        std::pair{std::string_view{"source_processing"},
+                  scenario.rates.source_processing},
+        std::pair{std::string_view{"acoustic"}, scenario.rates.acoustic},
+        std::pair{std::string_view{"delivery"}, scenario.rates.delivery},
+    };
+    for (const auto &[name, rate] : clocks) {
+        if (!validate(rate).ok()) {
+            continue;
+        }
+        const auto total = resolve_frame_index(scenario.total_duration_s.value, rate);
+        const auto audible_start =
+            resolve_frame_index(scenario.audible_start_s.value, rate);
+        const auto audible_count =
+            resolve_frame_index(scenario.audible_duration_s.value, rate);
+        const auto path = std::string{name};
+        require(report, total.has_value() && *total > 0,
+                ContractIssueCode::inconsistent_semantics, path + ".total_duration_s",
+                "total duration must resolve to a positive integral frame count");
+        require(report, audible_start.has_value(),
+                ContractIssueCode::inconsistent_semantics, path + ".audible_start_s",
+                "audible start must resolve to an integral frame index");
+        require(report, audible_count.has_value() && *audible_count > 0,
+                ContractIssueCode::inconsistent_semantics, path + ".audible_duration_s",
+                "audible duration must resolve to a positive integral frame count");
+        if (total.has_value() && audible_start.has_value() &&
+            audible_count.has_value()) {
+            std::uint64_t audible_end = 0;
+            const auto audible_end_representable =
+                checked_add_u64(*audible_start, *audible_count, audible_end);
+            require(
+                report, audible_end_representable && audible_end == *total,
+                ContractIssueCode::inconsistent_semantics, path + ".audible_interval",
+                "audible frame interval must end exactly at the total frame horizon");
+        }
+    }
+
+    if (validate(scenario.rates.physics).ok()) {
+        const auto resolve_physics_boundary =
+            [&](double time_s, const std::string &path, std::string message) {
+                const auto frame = resolve_frame_index(time_s, scenario.rates.physics);
+                require(report, frame.has_value(),
+                        ContractIssueCode::inconsistent_semantics, path,
+                        std::move(message));
+                return frame;
+            };
+        const auto audible_start =
+            resolve_frame_index(scenario.audible_start_s.value, scenario.rates.physics);
+
+        std::visit(
+            [&](const auto &preparation) {
+                using T = std::decay_t<decltype(preparation)>;
+                if constexpr (std::is_same_v<T, FixedSettling>) {
+                    const auto warm_up = resolve_physics_boundary(
+                        preparation.warm_up_duration_s.value,
+                        "physics.preparation.warm_up_duration_s",
+                        "warm-up duration must resolve to an integral physics-frame "
+                        "count");
+                    const auto settling = resolve_physics_boundary(
+                        preparation.settling_duration_s.value,
+                        "physics.preparation.settling_duration_s",
+                        "settling duration must resolve to an integral physics-frame "
+                        "count");
+                    if (warm_up.has_value() && settling.has_value() &&
+                        audible_start.has_value()) {
+                        std::uint64_t preparation_end = 0;
+                        const auto preparation_end_representable =
+                            checked_add_u64(*warm_up, *settling, preparation_end);
+                        require(
+                            report,
+                            preparation_end_representable &&
+                                preparation_end == *audible_start,
+                            ContractIssueCode::inconsistent_semantics,
+                            "physics.preparation",
+                            "fixed preparation must end exactly at the audible-start "
+                            "physics frame");
+                    }
+                } else {
+                    const auto minimum_warm_up = resolve_physics_boundary(
+                        preparation.minimum_warm_up_duration_s.value,
+                        "physics.preparation.minimum_warm_up_duration_s",
+                        "minimum warm-up duration must resolve to an integral "
+                        "physics-frame count");
+                    const auto minimum_settling = resolve_physics_boundary(
+                        preparation.minimum_settling_duration_s.value,
+                        "physics.preparation.minimum_settling_duration_s",
+                        "minimum settling duration must resolve to an integral "
+                        "physics-frame count");
+                    const auto maximum_preparation = resolve_physics_boundary(
+                        preparation.maximum_preparation_duration_s.value,
+                        "physics.preparation.maximum_preparation_duration_s",
+                        "maximum preparation duration must resolve to an integral "
+                        "physics-frame count");
+                    if (minimum_warm_up.has_value() && minimum_settling.has_value() &&
+                        maximum_preparation.has_value() && audible_start.has_value()) {
+                        std::uint64_t minimum_preparation = 0;
+                        const auto minimum_representable = checked_add_u64(
+                            *minimum_warm_up, *minimum_settling, minimum_preparation);
+                        require(report,
+                                minimum_representable &&
+                                    minimum_preparation <= *maximum_preparation &&
+                                    *maximum_preparation <= *audible_start,
+                                ContractIssueCode::inconsistent_semantics,
+                                "physics.preparation",
+                                "convergence preparation frame bounds must satisfy "
+                                "minimum warm-up plus settling <= maximum <= audible "
+                                "start");
+                    }
+                }
+            },
+            scenario.preparation);
+
+        for (std::size_t index = 0; index < scenario.operating_state.value.size();
+             ++index) {
+            resolve_physics_boundary(
+                scenario.operating_state.value[index].time_s,
+                "physics.operating_state[" + std::to_string(index) + "].time_s",
+                "operating-state boundary must resolve to an integral physics-frame "
+                "index");
+        }
+
+        const auto validate_trajectory_grid = [&](const ScalarTrajectory &trajectory,
+                                                  const std::string &path) {
+            for (std::size_t index = 0; index < trajectory.points.size(); ++index) {
+                resolve_physics_boundary(
+                    trajectory.points[index].time_s,
+                    path + ".points[" + std::to_string(index) + "].time_s",
+                    "trajectory boundary must resolve to an integral physics-frame "
+                    "index");
+            }
+        };
+        std::visit(
+            [&](const auto &mode) {
+                using T = std::decay_t<decltype(mode)>;
+                if constexpr (std::is_same_v<T, PrescribedKinematicSweep>) {
+                    validate_trajectory_grid(mode.trajectory.rpm,
+                                             "physics.mode.trajectory.rpm");
+                    validate_trajectory_grid(mode.throttle_01,
+                                             "physics.mode.throttle_01");
+                } else if constexpr (std::is_same_v<T, InertialDyno>) {
+                    validate_trajectory_grid(mode.throttle_01,
+                                             "physics.mode.throttle_01");
+                }
+            },
+            scenario.mode);
+    }
+
+    return report;
+}
 
 ValidationReport validate(const RenderScenario &scenario,
                           const ProvenanceLedger &provenance) {
@@ -296,6 +465,7 @@ ValidationReport validate(const RenderScenario &scenario,
     }
 
     append_prefixed(report, validate(scenario.rates), "rates");
+    append_prefixed(report, validate_clock_grid(scenario), "clock_grid");
     validate_resolution_id(report, scenario.rates_resolution_id, provenance,
                            "rates_resolution_id", "scenario.rates");
     validate_resolved(report, scenario.quality, provenance, "scenario.quality");
@@ -304,9 +474,10 @@ ValidationReport validate(const RenderScenario &scenario,
             "quality profile ID must be a canonical semantic ID");
     require(report,
             scenario.quality.value.version > 0 &&
-                scenario.quality.value.capture_block_capacity_frames > 0,
+                scenario.quality.value.capture_block_capacity_frames > 0 &&
+                scenario.quality.value.event_journal_capacity_records > 0,
             ContractIssueCode::invalid_value, "quality.value",
-            "quality version and capture block capacity must be positive");
+            "quality version and capture transport capacities must be positive");
     validate_resolved(report, scenario.public_seed, provenance, "scenario.public_seed");
     validate_resolution_id(report, scenario.mode_resolution_id, provenance,
                            "mode_resolution_id", "scenario.mode.kind");

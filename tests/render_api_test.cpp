@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <iostream>
 #include <optional>
+#include <stop_token>
 
 namespace {
 
@@ -122,6 +123,37 @@ void run_tests() {
                     .ok(),
                "failure validated against a different resolved engine");
         expect(sink.calls == 0, "repeated preflight touched the sink");
+    }
+
+    {
+        RequestFixture fixture;
+        CountingSink sink;
+        std::stop_source cancellation;
+        cancellation.request_stop();
+        const auto result = render(fixture.specification, fixture.scenario, sink,
+                                   RenderControl{cancellation.get_token()});
+        const auto &failure =
+            expect_failure(result, FailureKind::cancelled,
+                           "pre-requested cancellation did not return its typed kind");
+        expect(failure.context.detail_code == "render-cancelled-before-execution",
+               "pre-execution cancellation used the wrong stable detail code");
+        expect_request_valid_failure(
+            result, fixture,
+            "pre-execution cancellation violated the request-aware result contract");
+        expect(sink.calls == 0, "pre-execution cancellation touched the sink");
+    }
+
+    {
+        RequestFixture fixture;
+        fixture.specification.engine.total_displacement_m3.value = -1.0;
+        CountingSink sink;
+        std::stop_source cancellation;
+        cancellation.request_stop();
+        const auto result = render(fixture.specification, fixture.scenario, sink,
+                                   RenderControl{cancellation.get_token()});
+        expect_failure(result, FailureKind::invalid_specification,
+                       "cancellation concealed an invalid render request");
+        expect(sink.calls == 0, "cancelled invalid request touched the sink");
     }
 
     {

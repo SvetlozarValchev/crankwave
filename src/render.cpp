@@ -157,10 +157,10 @@ RenderResult reject(FailureKind kind, std::string detail_code, std::string model
 
 contract::RenderResult render(const RenderSpecification &specification,
                               const contract::RenderScenario &scenario,
-                              RenderSink &sink) {
+                              RenderSink &sink, RenderControl control) {
     // The sink is intentionally unused until all admission checks pass and a
     // concrete execution route exists. Keeping the name documents that this is the
-    // public three-argument boundary rather than a validation-only overload.
+    // public render boundary rather than a validation-only overload.
     (void)sink;
 
     auto structural = validate_structure(specification, scenario);
@@ -177,6 +177,13 @@ contract::RenderResult render(const RenderSpecification &specification,
                       "render-evidence-not-admitted", "render-preflight-v1",
                       "selected output policy is incompatible with evidence rights",
                       specification, scenario, std::move(rights));
+    }
+
+    if (control.stop_token.stop_requested()) {
+        return reject(FailureKind::cancelled, "render-cancelled-before-execution",
+                      "render-session-v1",
+                      "cancellation was observed at the pre-execution block boundary",
+                      specification, scenario);
     }
 
     return reject(

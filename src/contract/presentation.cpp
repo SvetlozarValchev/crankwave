@@ -742,6 +742,15 @@ validate_p18_reference_presentation(const PresentationCalibration &calibration,
                            std::bit_cast<std::uint64_t>(15.0)),
             ContractIssueCode::inconsistent_semantics, "scenario.audible_interval",
             "P1.8 must retain exactly [2 s, 17 s)");
+    require(report, scenario.quality.value.capture_block_capacity_frames >= 200,
+            ContractIssueCode::inconsistent_semantics,
+            "scenario.quality.value.capture_block_capacity_frames",
+            "P1.8 capture transport must hold its fixed 200-frame method block");
+    require(report, scenario.quality.value.event_journal_capacity_records >= 19U * 200U,
+            ContractIssueCode::inconsistent_semantics,
+            "scenario.quality.value.event_journal_capacity_records",
+            "P1.8 capture transport must hold 19 event records for each frame in "
+            "its fixed 200-frame method block");
     return report;
 }
 

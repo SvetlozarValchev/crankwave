@@ -254,6 +254,14 @@ samples, telemetry, stems, or masters. A method may own a normative internal par
 when arithmetic depends on it—for example M2's frozen 3,840-source-frame presentation
 blocks—but that partition is not inferred from caller callback sizes.
 
+The M2 scheduler resolves each binary64 scenario boundary to an integral frame index
+once and then operates exclusively on integer indices. Its plan and cursor are
+constant-sized with respect to render duration. A method-owned capture partition is
+distinct from the scenario transport capacity: the former fixes arithmetic/callback
+boundaries, while the latter bounds borrowed frame and event-journal storage. The
+current session scheduler is serial. Cancellation is polled only between complete
+method blocks, including once after the final block before publication.
+
 ## 8. Scenario and torque semantics
 
 Exactly one owner advances or imposes crank motion:
@@ -811,6 +819,7 @@ Non-success is typed:
 |---|---|
 | invalid specification | Missing, contradictory, dimensionally invalid, or unsupported resolved input. |
 | unreachable target | A valid load/speed target cannot be reached within declared control bounds. |
+| cancelled | The caller requested cancellation at a deterministic block boundary; no success artifacts are published. |
 | event/schedule violation | Event ordering, interval coverage, or stable identity is invalid. |
 | nonphysical state | Required mass, energy, volume, temperature, pressure, or composition leaves its admitted domain. |
 | numerical failure | Convergence, root localization, step limit, overflow, or finite-value contract fails. |

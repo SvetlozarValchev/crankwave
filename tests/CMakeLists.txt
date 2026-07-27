@@ -45,6 +45,27 @@ add_test(
     COMMAND engine_sim_offline_render_tests
 )
 
+add_executable(
+    engine_sim_offline_schedule_tests
+    render_schedule_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_schedule_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_schedule_tests
+    PRIVATE engine_sim_offline::render
+)
+
+add_test(
+    NAME render.schedule
+    COMMAND engine_sim_offline_schedule_tests
+)
+
 if(TARGET engine_sim_offline_cli_shell)
     add_executable(
         engine_sim_offline_cli_tests

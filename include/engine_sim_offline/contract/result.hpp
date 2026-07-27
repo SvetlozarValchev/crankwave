@@ -14,6 +14,7 @@ namespace engine_sim_offline::contract {
 enum class FailureKind : std::uint8_t {
     invalid_specification,
     unreachable_target,
+    cancelled,
     event_schedule_violation,
     nonphysical_state,
     numerical_failure,

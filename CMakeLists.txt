@@ -73,6 +73,7 @@ add_library(
     engine_sim_offline_render
     STATIC
         src/render.cpp
+        src/scheduling/render_schedule.cpp
 )
 add_library(
     engine_sim_offline::render
@@ -83,6 +84,8 @@ target_include_directories(
     engine_sim_offline_render
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
 )
 
 target_link_libraries(

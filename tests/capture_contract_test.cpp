@@ -56,7 +56,7 @@ concept CanBorrowCaptureBlock =
              CylinderRange &&cylinders, PortRange &&ports, VolumeRange &&volumes,
              EdgeRange &&edges, RouteRange &&routes) {
         CaptureBlockView::borrow_for_callback(
-            layout, CaptureClock{}, 1, 1, std::forward<EngineRange>(engine),
+            layout, CaptureClock{}, 1, 1, 1, std::forward<EngineRange>(engine),
             std::forward<CylinderRange>(cylinders), std::forward<PortRange>(ports),
             std::forward<VolumeRange>(volumes), std::forward<EdgeRange>(edges),
             std::forward<RouteRange>(routes), journal);
@@ -224,15 +224,19 @@ void run_capture_contract_tests() {
     };
 
     const auto make_block =
-        [&](CaptureClock clock, std::uint32_t capacity, EventJournalView journal,
+        [&](CaptureClock clock, std::uint32_t capacity, std::uint32_t event_capacity,
+            EventJournalView journal,
             std::optional<ReferenceParityBlockView> reference_parity) {
             return CaptureBlockView::borrow_for_callback(
-                layout, clock, 2, capacity, engine, cylinder_samples, port_samples,
-                volume_samples, edge_samples, route_samples, journal, reference_parity);
+                layout, clock, 2, capacity, event_capacity, engine, cylinder_samples,
+                port_samples, volume_samples, edge_samples, route_samples, journal,
+                reference_parity);
         };
 
-    const auto valid_block = make_block(parity_clock, 256, empty_journal, parity);
+    const auto valid_block = make_block(parity_clock, 256, 38, empty_journal, parity);
     expect(validate(valid_block).ok(), "valid bounded CaptureBlock was rejected");
+    expect(valid_block.declared_event_journal_capacity_records() == 38,
+           "CaptureBlock lost its declared event-journal capacity");
     expect(valid_block.clock().timestamp_s(0) == 1.0 / 10000.0 &&
                valid_block.clock().timestamp_s(1) == 2.0 / 10000.0,
            "M3 post-step integer time grid is wrong");
@@ -275,6 +279,7 @@ void run_capture_contract_tests() {
     bound_scenario.engine_profile_id = "capture-binding-profile";
     bound_scenario.rates.capture = {10000, 1};
     bound_scenario.quality.value.capture_block_capacity_frames = 256;
+    bound_scenario.quality.value.event_journal_capacity_records = 38;
     bound_scenario.total_duration_s.value = 1.0;
 
     expect(validate(valid_block, bound_engine, bound_scenario).ok(),
@@ -340,19 +345,57 @@ void run_capture_contract_tests() {
            "CaptureBlock accepted a capacity different from scenario quality");
 
     mismatched_scenario = bound_scenario;
+    mismatched_scenario.quality.value.event_journal_capacity_records = 39;
+    expect(has_issue(validate(valid_block, bound_engine, mismatched_scenario),
+                     ContractIssueCode::inconsistent_semantics,
+                     "declared_event_journal_capacity_records"),
+           "CaptureBlock accepted an event capacity different from scenario quality");
+
+    mismatched_scenario = bound_scenario;
     mismatched_scenario.total_duration_s.value = 0.0001;
     expect(has_issue(validate(valid_block, bound_engine, mismatched_scenario),
                      ContractIssueCode::inconsistent_semantics,
-                     "clock.first_timestamp_tick"),
+                     "clock.first_sample_index"),
            "CaptureBlock accepted timestamps beyond the scenario duration");
 
+    const CaptureClock final_post_step_clock{
+        {10000, 1},
+        9998,
+        9999,
+        SamplePhase::post_step,
+    };
+    expect(validate(
+               make_block(final_post_step_clock, 256, 38, empty_journal, std::nullopt),
+               bound_engine, bound_scenario)
+               .ok(),
+           "post-step block ending exactly at the scenario boundary was rejected");
+
+    const CaptureClock exclusive_end_pre_step_clock{
+        {10000, 1},
+        10000,
+        10000,
+        SamplePhase::pre_step,
+    };
+    expect(has_issue(validate(make_block(exclusive_end_pre_step_clock, 256, 38,
+                                         empty_journal, std::nullopt),
+                              bound_engine, bound_scenario),
+                     ContractIssueCode::inconsistent_semantics,
+                     "clock.first_sample_index"),
+           "pre-step sample at the half-open scenario end was accepted");
+
     const auto capacity_report =
-        validate(make_block(parity_clock, 1, empty_journal, parity));
+        validate(make_block(parity_clock, 1, 38, empty_journal, parity));
     expect(
         capacity_report.issues.size() == 1 &&
             has_issue(capacity_report, ContractIssueCode::invalid_value, "frame_count"),
         "CaptureBlock capacity regression did not fail specifically on "
         "declared capacity");
+
+    const auto zero_event_capacity_report =
+        validate(make_block(parity_clock, 256, 0, empty_journal, parity));
+    expect(has_issue(zero_event_capacity_report, ContractIssueCode::invalid_value,
+                     "declared_event_journal_capacity_records"),
+           "CaptureBlock accepted a zero event-journal capacity");
 
     engine[0].torque.instantaneous_indicated_gas = {
         25.0,
@@ -436,13 +479,13 @@ void run_capture_contract_tests() {
 
     auto wrong_clock = parity_clock;
     wrong_clock.rate = {20000, 1};
-    expect(has_issue(validate(make_block(wrong_clock, 256, empty_journal, parity)),
+    expect(has_issue(validate(make_block(wrong_clock, 256, 38, empty_journal, parity)),
                      ContractIssueCode::inconsistent_semantics, "clock"),
            "non-10k M3 reference-parity clock was accepted");
 
     wrong_clock = parity_clock;
     wrong_clock.first_timestamp_tick = 0;
-    expect(has_issue(validate(make_block(wrong_clock, 256, empty_journal, parity)),
+    expect(has_issue(validate(make_block(wrong_clock, 256, 38, empty_journal, parity)),
                      ContractIssueCode::inconsistent_semantics,
                      "clock.first_timestamp_tick"),
            "pre-step timestamp masquerading as M3 post-step capture was "
@@ -452,7 +495,7 @@ void run_capture_contract_tests() {
     invalid_pressure_samples[0].dynamic_pressure_reverse_pa = -1.0;
     const auto invalid_pressure_parity = ReferenceParityBlockView::borrow_for_callback(
         filtered_rpm, invalid_pressure_samples);
-    expect(has_issue(validate(make_block(parity_clock, 256, empty_journal,
+    expect(has_issue(validate(make_block(parity_clock, 256, 38, empty_journal,
                                          invalid_pressure_parity)),
                      ContractIssueCode::invalid_value, "reference_parity.cylinders[0]"),
            "negative M3 directional dynamic pressure was accepted");
@@ -467,9 +510,9 @@ void run_capture_contract_tests() {
     const std::array<std::uint32_t, 3> one_event_offsets{0, 1, 1};
     const auto no_change_journal =
         EventJournalView::borrow_for_callback(one_event_offsets, no_change_event);
-    expect(has_issue(validate(make_block(parity_clock, 256, no_change_journal, parity)),
-                     ContractIssueCode::inconsistent_semantics,
-                     "event_journal.events[0]"),
+    expect(has_issue(
+               validate(make_block(parity_clock, 256, 38, no_change_journal, parity)),
+               ContractIssueCode::inconsistent_semantics, "event_journal.events[0]"),
            "limiter transition with unchanged state was accepted");
 
     const std::array out_of_order_events{
@@ -487,11 +530,15 @@ void run_capture_contract_tests() {
     const std::array<std::uint32_t, 3> two_event_offsets{0, 2, 2};
     const auto out_of_order_journal =
         EventJournalView::borrow_for_callback(two_event_offsets, out_of_order_events);
-    expect(
-        has_issue(validate(make_block(parity_clock, 256, out_of_order_journal, parity)),
-                  ContractIssueCode::inconsistent_semantics,
-                  "event_journal.events[1].payload"),
-        "out-of-category-order M3 journal was accepted");
+    expect(has_issue(validate(make_block(parity_clock, 256, 38, out_of_order_journal,
+                                         parity)),
+                     ContractIssueCode::inconsistent_semantics,
+                     "event_journal.events[1].payload"),
+           "out-of-category-order M3 journal was accepted");
+    expect(has_issue(
+               validate(make_block(parity_clock, 256, 1, out_of_order_journal, parity)),
+               ContractIssueCode::inconsistent_shape, "event_journal.events"),
+           "CaptureBlock accepted more events than its declared journal capacity");
 
     const std::array wrong_cylinder_order_events{
         EngineEvent{
@@ -507,7 +554,7 @@ void run_capture_contract_tests() {
     };
     const auto wrong_cylinder_order_journal = EventJournalView::borrow_for_callback(
         two_event_offsets, wrong_cylinder_order_events);
-    expect(has_issue(validate(make_block(parity_clock, 256,
+    expect(has_issue(validate(make_block(parity_clock, 256, 38,
                                          wrong_cylinder_order_journal, parity)),
                      ContractIssueCode::inconsistent_semantics,
                      "event_journal.events[1].cylinder_id"),
@@ -526,11 +573,11 @@ void run_capture_contract_tests() {
     };
     const auto bad_substep_journal =
         EventJournalView::borrow_for_callback(one_event_offsets, bad_substep_event);
-    expect(
-        has_issue(validate(make_block(parity_clock, 256, bad_substep_journal, parity)),
-                  ContractIssueCode::invalid_value,
-                  "event_journal.events[0].gas_substep_index"),
-        "M3 flame extinction outside gas substeps 0..7 was accepted");
+    expect(has_issue(
+               validate(make_block(parity_clock, 256, 38, bad_substep_journal, parity)),
+               ContractIssueCode::invalid_value,
+               "event_journal.events[0].gas_substep_index"),
+           "M3 flame extinction outside gas substeps 0..7 was accepted");
 
     std::array<EngineEvent, 2> duplicate_limiter_events{
         EngineEvent{
@@ -546,8 +593,8 @@ void run_capture_contract_tests() {
     };
     const auto duplicate_limiter_journal = EventJournalView::borrow_for_callback(
         two_event_offsets, duplicate_limiter_events);
-    expect(has_issue(validate(make_block(parity_clock, 256, duplicate_limiter_journal,
-                                         parity)),
+    expect(has_issue(validate(make_block(parity_clock, 256, 38,
+                                         duplicate_limiter_journal, parity)),
                      ContractIssueCode::inconsistent_shape, "event_journal"),
            "more than one M3 limiter transition per frame was accepted");
 

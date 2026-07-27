@@ -628,8 +628,8 @@ inline RenderScenario make_scenario(InputBuilder &builder, const EngineSpec &eng
         {10000, 1}, {10000, 1}, {192000, 1}, {192000, 1}, {192000, 1},
     };
     scenario.rates_resolution_id = builder.add_resolution("scenario.rates");
-    scenario.quality =
-        builder.resolved(RenderQuality{"production-v1", 1, 256}, "scenario.quality");
+    scenario.quality = builder.resolved(RenderQuality{"production-v1", 1, 256, 4096},
+                                        "scenario.quality");
     scenario.public_seed =
         builder.resolved<std::uint64_t>(12648430, "scenario.public_seed");
     scenario.mode = HeldSpeed{

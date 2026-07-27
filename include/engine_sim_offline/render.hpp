@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -93,12 +94,17 @@ class RenderSink {
     virtual void abort() noexcept = 0;
 };
 
+struct RenderControl {
+    std::stop_token stop_token;
+};
+
 // Synchronous and session-local. The current M2 checkpoint performs complete
 // preflight and fails closed until a concrete capture-to-artifact route is admitted.
 // It never substitutes silence, a tone, a legacy renderer, or fixture data.
 [[nodiscard]] contract::RenderResult render(const RenderSpecification &specification,
                                             const contract::RenderScenario &scenario,
-                                            RenderSink &sink);
+                                            RenderSink &sink,
+                                            RenderControl control = {});
 
 // Rebinds a result to the complete render-layer request, including engine,
 // presentation, assets, provenance, and source policy. This is stricter than the

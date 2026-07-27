@@ -8,7 +8,9 @@ capture, typed render results, source/output completeness, and render evidence
 This document describes the data contract implemented by the current C++ types and
 validators. The headless API, fail-closed admission boundary, transaction protocol,
 and CLI shell now exist and are recorded separately in
-[`M2_RENDER_API.md`](M2_RENDER_API.md). Neither record claims that the resolver,
+[`M2_RENDER_API.md`](M2_RENDER_API.md), while integer scheduling and bounded traversal
+are recorded in [`M2_SCHEDULING.md`](M2_SCHEDULING.md). None of these records claims
+that the resolver,
 simulator, concrete renderer, or file sinks exist yet; those are separate checkboxes
 in [`PLAN.md`](../../PLAN.md).
 
@@ -155,13 +157,16 @@ configuration boundary; it does not mean the M3 kernel has been implemented. Sec
   limiter state;
 - total duration and the retained half-open audible interval;
 - reduced-rational physics, capture, source-processing, acoustic, and delivery rates;
-- quality profile and bounded capture-block capacity;
+- quality profile, bounded capture-frame capacity, and bounded event-journal record
+  capacity;
 - a public deterministic seed.
 
 Preparation is causal history. For fixed preparation, warm-up plus settling ends
 exactly at the audible start. For convergence preparation, its declared maximum fits
 before the audible start. In both cases the audible interval ends at total duration;
-cropping does not imply a state reset.
+cropping does not imply a state reset. These relationships are rechecked after every
+duration is resolved to an integer physics/stream frame, so binary64 near-equality
+cannot leave an undeclared frame gap.
 
 Exactly one tagged `ScenarioMode` owns crank motion:
 
@@ -246,6 +251,10 @@ their inputs and results but does not calculate them yet.
 - `RenderFailure` carries every other `FailureContext` plus retained input diagnostics
   when preflight or evidence-rights validation caused the rejection.
 
+Caller cancellation uses the dedicated `FailureKind::cancelled`. It is observed only
+at the deterministic boundaries recorded in `M2_SCHEDULING.md`; it is not relabelled
+as a numerical or contract failure.
+
 A reached target records target BMEP, achieved BMEP, signed error
 `achieved - target`, tolerance, the selected settled candidate, and search evidence.
 Its absolute error must be within tolerance.
@@ -313,14 +322,18 @@ The layout fixes stable order and identity for cylinders, ports, gas volumes, fl
 edges, and physical source routes. Validation against an `EngineSpec` and
 `RenderScenario` binds the engine ID and profile, exact ordered entity topology,
 edge endpoints, route source/emitter/parent relationships, capture rate, and declared
-scenario block capacity. Safe accessors return `nullptr` for an out-of-range or
-unrepresentable index. Validation uses overflow-checked shape arithmetic.
+scenario frame/event transport capacities. Safe accessors return `nullptr` for an
+out-of-range or unrepresentable index. Validation uses overflow-checked shape
+arithmetic.
 
 `CaptureClock` uses a reduced rational rate, integer sample/timestamp origins, and an
-explicit pre-step or post-step phase. A block declares both its current frame count and
-positive capacity; the count cannot exceed that capacity. The phase fixes the exact
-sample-index-to-timestamp relationship, and the block's final timestamp must not pass
-the scenario duration.
+explicit pre-step or post-step phase. A block declares its current frame count, positive
+frame capacity, and positive event-journal record capacity. Neither current count may
+exceed its declared capacity, and both capacities bind exactly to the resolved scenario
+quality. The phase fixes the exact sample-index-to-timestamp relationship. The block's
+half-open integer sample interval must fit inside the scenario's resolved capture-frame
+horizon: a final post-step timestamp may equal total duration, while a pre-step sample
+at total duration is outside the run.
 
 Per-frame data include:
 
@@ -356,7 +369,9 @@ are not admitted as physical capture routes.
 
 Events use a compressed-row journal: `offsets` has `frame_count + 1` entries and
 selects each frame's strictly ordered event records. Payloads distinguish spark
-crossings, limiter transitions, accepted/rejected ignition, and flame extinction.
+crossings, limiter transitions, accepted/rejected ignition, and flame extinction. The
+complete event span cannot exceed the scenario's declared event-journal transport
+capacity.
 
 The optional `reference_parity` view is a narrow BMW M3 comparator extension carrying
 filtered RPM and the exact per-cylinder legacy pressure proxies. When present it
@@ -449,8 +464,10 @@ conditioning constants, `smooth_39` asset identity/media/hash, the
 calibration-route order (`exhaust.reference.0`, then `exhaust.reference.1`), IR
 gain/wet selection, `2^-26` publication calibration, the same audition reduction
 order, audition gain/fades, clock plan, and `[2 s, 17 s)` retained interval. Method
-configuration digests remain content identities supplied by the implementation; this
-validator does not substitute a hard-coded digest for them. Constants including the
+The associated capture transport must hold the fixed 200-frame block and its
+worst-case `19 * 200 = 3,800` event records. Method configuration digests remain
+content identities supplied by the implementation; this validator does not substitute
+a hard-coded digest for them. Constants including the
 3,840-frame source partition, 9,600-frame convolution limit, 65,536-point transform,
 6,907-frame source support, 30,071-coefficient kernel identity, zero history,
 continuous crop state, and no-tail policy are fixed by the content-addressed

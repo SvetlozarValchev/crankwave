@@ -395,6 +395,7 @@ std::span<const EngineEvent> EventJournalView::events() const noexcept {
 CaptureBlockView::CaptureBlockView(
     CaptureLayoutView layout, CaptureClock clock, std::uint32_t frame_count,
     std::uint32_t declared_block_capacity_frames,
+    std::uint32_t declared_event_journal_capacity_records,
     std::span<const EngineCaptureSample> engine,
     std::span<const CylinderCaptureSample> cylinders,
     std::span<const PortCaptureSample> ports,
@@ -404,8 +405,9 @@ CaptureBlockView::CaptureBlockView(
     EventJournalView event_journal,
     std::optional<ReferenceParityBlockView> reference_parity) noexcept
     : layout_(layout), clock_(clock), frame_count_(frame_count),
-      declared_block_capacity_frames_(declared_block_capacity_frames), engine_(engine),
-      cylinders_(cylinders), ports_(ports), gas_volumes_(gas_volumes),
+      declared_block_capacity_frames_(declared_block_capacity_frames),
+      declared_event_journal_capacity_records_(declared_event_journal_capacity_records),
+      engine_(engine), cylinders_(cylinders), ports_(ports), gas_volumes_(gas_volumes),
       flow_edges_(flow_edges), source_routes_(source_routes),
       event_journal_(event_journal), reference_parity_(reference_parity) {}
 
@@ -423,6 +425,11 @@ std::uint32_t CaptureBlockView::frame_count() const noexcept {
 
 std::uint32_t CaptureBlockView::declared_block_capacity_frames() const noexcept {
     return declared_block_capacity_frames_;
+}
+
+std::uint32_t
+CaptureBlockView::declared_event_journal_capacity_records() const noexcept {
+    return declared_event_journal_capacity_records_;
 }
 
 std::span<const EngineCaptureSample> CaptureBlockView::engine() const noexcept {
@@ -675,6 +682,14 @@ ValidationReport validate(const CaptureBlockView &block) {
                 block.frame_count() <= block.declared_block_capacity_frames(),
             ContractIssueCode::invalid_value, "frame_count",
             "frame count must be within the declared positive block capacity");
+    require(report, block.declared_event_journal_capacity_records() > 0,
+            ContractIssueCode::invalid_value, "declared_event_journal_capacity_records",
+            "event-journal record capacity must be positive");
+    require(report,
+            block.event_journal().events().size() <=
+                block.declared_event_journal_capacity_records(),
+            ContractIssueCode::inconsistent_shape, "event_journal.events",
+            "event count must not exceed the declared event-journal capacity");
 
     std::uint64_t timestamp_end = 0;
     require(report,
@@ -1301,6 +1316,12 @@ ValidationReport validate(const CaptureBlockView &block, const EngineSpec &engin
                 scenario.quality.value.capture_block_capacity_frames,
             ContractIssueCode::inconsistent_semantics, "declared_block_capacity_frames",
             "capture block capacity must exactly match the resolved scenario quality");
+    require(report,
+            block.declared_event_journal_capacity_records() ==
+                scenario.quality.value.event_journal_capacity_records,
+            ContractIssueCode::inconsistent_semantics,
+            "declared_event_journal_capacity_records",
+            "event-journal capacity must exactly match the resolved scenario quality");
 
     const auto phase_offset =
         block.clock().phase == SamplePhase::post_step ? UINT64_C(1) : UINT64_C(0);
@@ -1316,27 +1337,23 @@ ValidationReport validate(const CaptureBlockView &block, const EngineSpec &engin
             ContractIssueCode::inconsistent_semantics, "clock.first_timestamp_tick",
             "capture timestamp origin must match the sample index and sample phase");
 
-    std::uint64_t last_timestamp_tick = 0;
-    const auto timestamp_interval_representable =
-        block.frame_count() > 0 &&
-        checked_add_u64(block.clock().first_timestamp_tick,
-                        static_cast<std::uint64_t>(block.frame_count()) - 1,
-                        last_timestamp_tick);
-    require(report, timestamp_interval_representable, ContractIssueCode::invalid_value,
-            "clock.first_timestamp_tick",
-            "capture timestamp interval must be representable");
-    if (timestamp_interval_representable && block.clock().rate.numerator != 0 &&
-        block.clock().rate.denominator != 0 &&
-        detail::finite_nonnegative(scenario.total_duration_s.value)) {
-        const auto last_timestamp_s =
-            static_cast<long double>(last_timestamp_tick) *
-            static_cast<long double>(block.clock().rate.denominator) /
-            static_cast<long double>(block.clock().rate.numerator);
-        require(report,
-                last_timestamp_s <=
-                    static_cast<long double>(scenario.total_duration_s.value),
-                ContractIssueCode::inconsistent_semantics, "clock.first_timestamp_tick",
-                "capture block timestamp interval must fit inside the scenario");
+    std::uint64_t sample_end = 0;
+    const auto sample_interval_representable =
+        block.frame_count() > 0 && checked_add_u64(block.clock().first_sample_index,
+                                                   block.frame_count(), sample_end);
+    require(report, sample_interval_representable, ContractIssueCode::invalid_value,
+            "clock.first_sample_index",
+            "capture sample interval must be representable");
+    const auto scenario_capture_frames =
+        resolve_frame_index(scenario.total_duration_s.value, scenario.rates.capture);
+    require(report, scenario_capture_frames.has_value(),
+            ContractIssueCode::inconsistent_semantics, "scenario.total_duration_s",
+            "scenario duration must resolve to an integral capture-frame horizon");
+    if (sample_interval_representable && scenario_capture_frames.has_value()) {
+        require(report, sample_end <= *scenario_capture_frames,
+                ContractIssueCode::inconsistent_semantics, "clock.first_sample_index",
+                "capture block's half-open sample interval must fit inside the "
+                "scenario");
     }
 
     return report;

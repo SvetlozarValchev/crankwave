@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -91,37 +90,6 @@ void validate_audio_contract(ValidationReport &report, const AudioContract &audi
     detail::require(report, is_valid_semantic_id(audio.sample_encoding_id),
                     ContractIssueCode::invalid_value, path + ".sample_encoding_id",
                     "sample-encoding ID must be a canonical semantic ID");
-}
-
-std::optional<std::uint64_t> integral_frame_count(double duration_s,
-                                                  const RationalRateHz &rate) {
-    if (!std::isfinite(duration_s) || duration_s <= 0.0 || rate.numerator == 0 ||
-        rate.denominator == 0) {
-        return std::nullopt;
-    }
-
-    const auto frames = static_cast<long double>(duration_s) *
-                        static_cast<long double>(rate.numerator) /
-                        static_cast<long double>(rate.denominator);
-    const auto exclusive_limit = std::ldexp(1.0L, 64);
-    if (!std::isfinite(frames) || frames < 1.0L || frames >= exclusive_limit) {
-        return std::nullopt;
-    }
-
-    const auto rounded = std::round(frames);
-    // A scenario duration is currently encoded as binary64 while its rate is
-    // rational. Accommodate only the representational error of that binary64
-    // product, not an arbitrary fraction of a delivery frame.
-    const auto tolerance =
-        8.0L * static_cast<long double>(std::numeric_limits<double>::epsilon()) *
-        std::max(1.0L, std::abs(frames));
-    if (std::abs(frames - rounded) > tolerance) {
-        return std::nullopt;
-    }
-    if (rounded >= exclusive_limit) {
-        return std::nullopt;
-    }
-    return static_cast<std::uint64_t>(rounded);
 }
 
 void validate_delivery_audio_contract(ValidationReport &report,
@@ -279,9 +247,9 @@ ValidationReport validate_render_admission(const EngineSpec &engine,
             "presentation.p18_reference");
     }
 
-    const auto expected_frames = integral_frame_count(scenario.audible_duration_s.value,
-                                                      scenario.rates.delivery);
-    require(report, expected_frames.has_value(),
+    const auto expected_frames =
+        resolve_frame_index(scenario.audible_duration_s.value, scenario.rates.delivery);
+    require(report, expected_frames.has_value() && *expected_frames > 0,
             ContractIssueCode::inconsistent_semantics, "scenario.audible_duration_s",
             "audible duration and delivery rate must resolve to a positive integral "
             "frame count");
@@ -622,9 +590,9 @@ ValidationReport validate(const RenderManifestContent &content,
             "resolved output contract must exactly match the selected source matrix");
 
     const auto expected_frames =
-        integral_frame_count(content.resolved_inputs.scenario.audible_duration_s.value,
-                             content.rates.delivery);
-    require(report, expected_frames.has_value(),
+        resolve_frame_index(content.resolved_inputs.scenario.audible_duration_s.value,
+                            content.rates.delivery);
+    require(report, expected_frames.has_value() && *expected_frames > 0,
             ContractIssueCode::inconsistent_semantics,
             "resolved_inputs.scenario.audible_duration_s",
             "audible duration and delivery rate must resolve to a positive integral "

@@ -19,7 +19,10 @@ interfaces are recorded in
 [`docs/contracts/M2_DATA_CONTRACT.md`](docs/contracts/M2_DATA_CONTRACT.md). The
 headless render boundary, transaction protocol, and deliberately narrow CLI are
 recorded separately in
-[`docs/contracts/M2_RENDER_API.md`](docs/contracts/M2_RENDER_API.md).
+[`docs/contracts/M2_RENDER_API.md`](docs/contracts/M2_RENDER_API.md). Integer clock
+resolution, method-owned partitioning, bounded block traversal, and deterministic
+cancellation are recorded in
+[`docs/contracts/M2_SCHEDULING.md`](docs/contracts/M2_SCHEDULING.md).
 
 ## Build
 

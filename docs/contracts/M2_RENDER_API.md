@@ -16,7 +16,8 @@ The synchronous C++ entry point is:
 ```cpp
 RenderResult render(const RenderSpecification &specification,
                     const RenderScenario &scenario,
-                    RenderSink &sink);
+                    RenderSink &sink,
+                    RenderControl control = {});
 ```
 
 `RenderSpecification` owns exactly the resolved records required to decide whether a
@@ -97,8 +98,14 @@ idle -> begun -> committed
 Concrete transaction enforcement, filesystem staging, WAV and telemetry serialization
 belong to the later sink checkbox. Its typed publication errors map to
 `artifact_publication_failure`; a sink protocol rejection maps to
-`contract_violation`. Cancellation belongs to the scheduling/streaming checkbox and
-will receive its own type before it becomes reachable.
+`contract_violation`.
+
+`RenderControl` now carries a stop token. Preflight and evidence-rights checks precede
+cancellation, so a stop cannot conceal malformed input. Cancellation is observed only
+at deterministic internal block boundaries and reports the typed `cancelled` failure
+kind. In this fail-closed build, a pre-requested stop leaves the sink idle. The exact
+schedule, bounded cursor, cancellation progress, and future post-begin abort rule are
+recorded in [`M2_SCHEDULING.md`](M2_SCHEDULING.md).
 
 ## 4. CLI shell
 
@@ -129,5 +136,6 @@ different requests. The same binding applies to typed unreachable-target results
 CLI tests cover output streams and exit codes. Production render and CLI targets link
 no reference-audit reader or fixture adapter.
 
-The next M2 checkbox adds deterministic clocks, partitioning, and bounded streaming.
-It does not weaken this admission boundary or add a second render path.
+The deterministic clock/streaming checkpoint is now implemented without weakening
+this admission boundary or adding a second render path. The next M2 checkbox adds
+concrete telemetry/WAV sinks and focused DSP primitives.

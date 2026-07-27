@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cmath>
+#include <limits>
 #include <numeric>
 #include <utility>
 
@@ -149,6 +151,33 @@ bool is_valid_semantic_id(std::string_view value) noexcept {
         return ascii_lower(character) || ascii_digit(character) || character == '.' ||
                character == '_' || character == '-' || character == '/';
     });
+}
+
+std::optional<std::uint64_t> resolve_frame_index(double time_s,
+                                                 const RationalRateHz &rate) noexcept {
+    if (!std::isfinite(time_s) || time_s < 0.0 || rate.numerator == 0 ||
+        rate.denominator == 0) {
+        return std::nullopt;
+    }
+
+    const auto frames = static_cast<long double>(time_s) *
+                        static_cast<long double>(rate.numerator) /
+                        static_cast<long double>(rate.denominator);
+    if (!std::isfinite(frames) || frames < 0.0L ||
+        frames > static_cast<long double>(kMaximumResolvedFrameIndex)) {
+        return std::nullopt;
+    }
+
+    const auto rounded = std::round(frames);
+    // Accommodate only binary64 representation and multiplication error. This is
+    // intentionally much smaller than any material fraction of one frame.
+    const auto tolerance =
+        8.0L * static_cast<long double>(std::numeric_limits<double>::epsilon()) *
+        std::max(1.0L, std::abs(frames));
+    if (tolerance >= 0.25L || std::abs(frames - rounded) > tolerance) {
+        return std::nullopt;
+    }
+    return static_cast<std::uint64_t>(rounded);
 }
 
 ValidationReport validate(const RationalRateHz &rate) {

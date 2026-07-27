@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <optional>
 #include <type_traits>
 
 namespace engine_sim_offline::contract::test {
@@ -12,6 +13,19 @@ void run_primitives_contract_tests() {
 
     expect(validate(RationalRateHz{10000, 1}).ok(), "valid reduced rate rejected");
     expect(!validate(RationalRateHz{20000, 2}).ok(), "unreduced rate accepted");
+    expect(resolve_frame_index(0.0, RationalRateHz{48000, 1}) ==
+               std::optional<std::uint64_t>{0},
+           "zero time did not resolve to frame zero");
+    expect(resolve_frame_index(0.1, RationalRateHz{48000, 1}) ==
+               std::optional<std::uint64_t>{4800},
+           "binary64 decimal time did not resolve to its integral frame index");
+    expect(resolve_frame_index(1001.0 / 30000.0, RationalRateHz{30000, 1001}) ==
+               std::optional<std::uint64_t>{1},
+           "rational-rate frame resolution rejected an integral NTSC-style period");
+    expect(!resolve_frame_index(0.5 / 48000.0, RationalRateHz{48000, 1}).has_value(),
+           "genuine half-frame time was silently rounded onto the clock grid");
+    expect(!resolve_frame_index(1.0e20, RationalRateHz{192000, 1}).has_value(),
+           "unrepresentable frame horizon passed integer clock resolution");
 
     Sha256Digest empty_digest;
     empty_digest.bytes = {

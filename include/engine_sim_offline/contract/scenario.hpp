@@ -174,6 +174,7 @@ struct RenderQuality {
     std::string profile_id;
     std::uint32_t version = 0;
     std::uint32_t capture_block_capacity_frames = 0;
+    std::uint32_t event_journal_capacity_records = 0;
 
     friend bool operator==(const RenderQuality &, const RenderQuality &) = default;
 };
@@ -204,6 +205,10 @@ struct RenderScenario {
 
 [[nodiscard]] ValidationReport validate(const RenderScenario &scenario,
                                         const ProvenanceLedger &provenance);
+// Resolves every fixed-rate horizon and authored control boundary to an integer
+// frame grid. This check is provenance-independent and is also reused by the
+// deterministic scheduler.
+[[nodiscard]] ValidationReport validate_clock_grid(const RenderScenario &scenario);
 [[nodiscard]] ValidationReport validate_for_engine(const RenderScenario &scenario,
                                                    const EngineSpec &spec);
 
