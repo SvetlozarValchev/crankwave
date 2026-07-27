@@ -288,7 +288,7 @@ Exit: the oracle is identifiable and replayable without depending on the failed 
 
 ### M2 — Model record and foundation
 
-- [ ] Create the minimal C++20/CMake project.
+- [x] Create the minimal C++20/CMake project.
 - [ ] Write `MODEL.md` before physics implementation.
 - [ ] Define authored/resolved inputs, tagged scenarios, torque/load semantics,
       reachability reporting, `CaptureBlock`, and `RenderManifest`.

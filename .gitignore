@@ -1,3 +1,6 @@
 .work/
 __pycache__/
 *.py[cod]
+/build/
+/build-*/
+CMakeUserPresets.json
