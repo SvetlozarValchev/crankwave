@@ -89,6 +89,21 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_reference_manifest_encoder_tests
+    reference_manifest_encoder_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_reference_manifest_encoder_tests
+    PRIVATE engine_sim_offline::artifacts
+)
+
+add_test(
+    NAME artifacts.reference_manifest_encoder
+    COMMAND engine_sim_offline_reference_manifest_encoder_tests
+)
+
+add_executable(
     engine_sim_offline_directory_render_sink_tests
     directory_render_sink_test.cpp
 )

@@ -104,10 +104,14 @@ target_link_libraries(
 add_library(
     engine_sim_offline_artifacts
     STATIC
+        src/artifacts/canonical_json_writer.cpp
         src/artifacts/directory_render_sink.cpp
         src/artifacts/directory_render_sink_commit.cpp
         src/artifacts/directory_render_sink_lifecycle.cpp
         src/artifacts/p18_audition_wav_encoder.cpp
+        src/artifacts/reference_manifest_encoder.cpp
+        src/artifacts/reference_manifest_encoder_presentation.cpp
+        src/artifacts/reference_manifest_encoder_reference.cpp
         src/artifacts/secure_filesystem_support.cpp
         src/artifacts/sha256_stream.cpp
         src/artifacts/telemetry_encoder.cpp

@@ -55,7 +55,8 @@ The current contract supplies:
 - typed success, unreachable-target, and failure records;
 - a callback-scoped `CaptureBlockView`;
 - source-matrix, presentation, artifact, and manifest schemas;
-- generic validation and exact frozen BMW reference validation.
+- generic validation and exact frozen BMW reference validation;
+- the canonical completed `reference_presentation_v1` manifest encoder.
 - the owning render-specification aggregate, fail-closed render entry point, sink
   transaction protocol, and CLI shell recorded in `M2_RENDER_API.md`.
 
@@ -66,7 +67,7 @@ The current contract does not supply:
 - simulation or crank/load-control execution;
 - fixture decoding or excitation generation;
 - complete DSP-route execution or capture-to-artifact orchestration;
-- a production `RenderManifest` wire encoder or collection of execution facts.
+- a `simulation_v1` manifest wire encoder or collection of execution facts.
 
 The concrete directory sink verifies streamed artifact payload hashes and publishes
 encoded artifacts transactionally. WAV and complete capture-telemetry byte encoders

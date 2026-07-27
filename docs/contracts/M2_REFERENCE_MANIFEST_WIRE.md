@@ -49,6 +49,9 @@ There is exactly one byte representation for an admitted value:
 - The document is compact JSON encoded as UTF-8 without a BOM. It contains no
   insignificant whitespace and ends with exactly one LF byte (`0a`). That final LF
   is part of the document.
+- The complete document, including its final LF, is bounded to 4 MiB (4,194,304
+  bytes). An otherwise representable value whose encoding would exceed that bound is
+  rejected; the encoder never truncates it.
 - Object members are emitted recursively in their CDDL declaration order. No member
   may be reordered, omitted, duplicated, or added. Arrays retain their typed vector
   order; an encoder must never sort them.

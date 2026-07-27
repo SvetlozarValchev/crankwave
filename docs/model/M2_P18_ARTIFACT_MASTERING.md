@@ -82,7 +82,8 @@ manifest/render-manifest.v1.json
 manifest/render-manifest.v1.json.sha256
 ```
 
-The next manifest-schema checkpoint owns the first file's canonical contents.
+The canonical reference-manifest encoder owns the first file's contents under
+`engine-sim-offline.render-manifest.reference-presentation.v1`.
 `DirectoryRenderSink` owns the lowercase digest sidecar. Neither metadata path is an
 audio artifact role.
 
