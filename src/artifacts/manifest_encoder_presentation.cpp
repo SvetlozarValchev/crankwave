@@ -60,25 +60,6 @@ bool write_presentation_methods(CanonicalJsonWriter &writer,
            writer.end_object();
 }
 
-bool write_algorithm_record(CanonicalJsonWriter &writer,
-                            const contract::PresentationAlgorithmRecord &record) {
-    const auto write_string = [](CanonicalJsonWriter &output,
-                                 const std::string &value) {
-        return output.string_value(value);
-    };
-    const auto write_sha256 = [](CanonicalJsonWriter &output,
-                                 const contract::Sha256Digest &value) {
-        return output.sha256_value(value);
-    };
-    return writer.begin_object() && writer.key("semantic_id") &&
-           write_resolved(writer, record.semantic_id, write_string) &&
-           writer.key("evidence_source_id") &&
-           write_resolved(writer, record.evidence_source_id, write_string) &&
-           writer.key("content_sha256") &&
-           write_resolved(writer, record.content_sha256, write_sha256) &&
-           writer.end_object();
-}
-
 bool write_conditioning(CanonicalJsonWriter &writer,
                         const contract::PresentationConditioning &conditioning) {
     const auto write_f64 = [](CanonicalJsonWriter &output, double value) {
@@ -212,6 +193,10 @@ bool write_audition_mix(CanonicalJsonWriter &writer,
 bool write_presentation_calibration(
     CanonicalJsonWriter &writer,
     const contract::PresentationCalibration &presentation) {
+    if (presentation.schema_version != 2U) {
+        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                           "presentation calibration schema version is not v2");
+    }
     const auto write_string = [](CanonicalJsonWriter &output,
                                  const std::string &value) {
         return output.string_value(value);
@@ -224,8 +209,6 @@ bool write_presentation_calibration(
            write_resolved(writer, presentation.engine_profile_id, write_string) &&
            writer.key("methods") &&
            write_presentation_methods(writer, presentation.methods) &&
-           writer.key("algorithm_record") &&
-           write_algorithm_record(writer, presentation.algorithm_record) &&
            writer.key("conditioning") &&
            write_conditioning(writer, presentation.conditioning) &&
            writer.key("assets") && write_audio_assets(writer, presentation.assets) &&
@@ -241,4 +224,3 @@ bool write_presentation_calibration(
 }
 
 } // namespace engine_sim_offline::artifacts::detail
-

@@ -12,10 +12,10 @@
 
 namespace engine_sim_offline::artifacts {
 
-inline constexpr std::string_view kSimulationManifestWireSchemaV3 =
-    "engine-sim-offline.render-manifest.simulation.v3";
-inline constexpr std::string_view kSimulationManifestRelativePathV3 =
-    "manifest/render-manifest.v3.json";
+inline constexpr std::string_view kSimulationManifestWireSchemaV4 =
+    "engine-sim-offline.render-manifest.simulation.v4";
+inline constexpr std::string_view kSimulationManifestRelativePathV4 =
+    "manifest/render-manifest.v4.json";
 inline constexpr std::string_view kSimulationRequestIdentityWireSchemaV1 =
     "engine-sim-offline.simulation-request-identity.v1";
 
@@ -34,7 +34,7 @@ using SimulationRequestIdentityEncodingResult =
 // session performs semantic admission first; this boundary checks canonical wire
 // representability and verifies every fixed-rate RPM vector against its stored digest.
 [[nodiscard]] ManifestEncodingResult
-encode_simulation_manifest_v3(const contract::RenderManifest &manifest);
+encode_simulation_manifest_v4(const contract::RenderManifest &manifest);
 
 // Encodes the resolved engine/scenario factory identity without presentation or run
 // facts. The returned digest covers the complete canonical bytes, including final LF.

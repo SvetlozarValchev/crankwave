@@ -501,7 +501,7 @@ replacement starts before acceptance.
         exact raw, coefficient, and convolution-spectrum identities for the BMW IR.
   - [x] Admit the implemented presentation method identities and exact executable
         calibration.
-  - [ ] Remove the redundant caller-authored presentation algorithm record, advance
+  - [x] Remove the redundant caller-authored presentation algorithm record, advance
         the sole simulation-manifest schema without a compatibility path, and make
         the six admitted method identities the complete algorithm authority.
   - [ ] Seal executable plan and manifest basis into one opaque job, then connect its

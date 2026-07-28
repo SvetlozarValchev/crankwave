@@ -138,9 +138,9 @@ ValidationReport validate(const AuthoredPresentationCalibration &calibration) {
     using detail::unit_interval;
 
     ValidationReport report = validate(calibration.provenance);
-    require(report, calibration.schema_version > 0, ContractIssueCode::invalid_value,
-            "schema_version",
-            "presentation-calibration schema version must be positive");
+    require(report, calibration.schema_version == 2,
+            ContractIssueCode::unsupported_value, "schema_version",
+            "presentation-calibration schema version must be exactly 2");
     require(report, is_valid_semantic_id(calibration.calibration_id),
             ContractIssueCode::invalid_value, "calibration_id",
             "presentation-calibration ID must be canonical");
@@ -155,44 +155,6 @@ ValidationReport validate(const AuthoredPresentationCalibration &calibration) {
             validate_authored(report, method, calibration.provenance, path);
             validate_selection(report, method.value, path + ".value");
         });
-
-    const auto &algorithm_record = calibration.algorithm_record;
-    constexpr std::string_view algorithm_path = "presentation.algorithm_record";
-    validate_authored(report, algorithm_record.semantic_id, calibration.provenance,
-                      std::string(algorithm_path) + ".semantic_id");
-    validate_authored(report, algorithm_record.evidence_source_id,
-                      calibration.provenance,
-                      std::string(algorithm_path) + ".evidence_source_id");
-    validate_authored(report, algorithm_record.content_sha256, calibration.provenance,
-                      std::string(algorithm_path) + ".content_sha256");
-    require(report, is_valid_semantic_id(algorithm_record.semantic_id.value),
-            ContractIssueCode::invalid_value,
-            std::string(algorithm_path) + ".semantic_id.value",
-            "presentation algorithm-record ID must be canonical");
-    require(report, is_valid_semantic_id(algorithm_record.evidence_source_id.value),
-            ContractIssueCode::invalid_value,
-            std::string(algorithm_path) + ".evidence_source_id.value",
-            "presentation algorithm-record evidence ID must be canonical");
-    require(report, !algorithm_record.content_sha256.value.is_zero(),
-            ContractIssueCode::missing_value,
-            std::string(algorithm_path) + ".content_sha256.value",
-            "presentation algorithm-record digest must be present");
-    const auto *algorithm_evidence = find_evidence(
-        calibration.provenance, algorithm_record.evidence_source_id.value);
-    require(report, algorithm_evidence != nullptr,
-            ContractIssueCode::dangling_reference,
-            std::string(algorithm_path) + ".evidence_source_id.value",
-            "presentation algorithm record references unknown evidence");
-    if (algorithm_evidence != nullptr) {
-        require(report,
-                algorithm_evidence->content_sha256.has_value() &&
-                    *algorithm_evidence->content_sha256 ==
-                        algorithm_record.content_sha256.value,
-                ContractIssueCode::inconsistent_semantics,
-                std::string(algorithm_path) + ".content_sha256.value",
-                "presentation algorithm-record digest must exactly match its "
-                "content-addressed evidence source");
-    }
 
     const auto validate_conditioning = [&](const AuthoredValue<double> &value,
                                            const std::string &path,
@@ -348,9 +310,9 @@ ValidationReport validate(const PresentationCalibration &calibration,
     using detail::unit_interval;
 
     ValidationReport report = validate(provenance);
-    require(report, calibration.schema_version > 0, ContractIssueCode::invalid_value,
-            "schema_version",
-            "presentation-calibration schema version must be positive");
+    require(report, calibration.schema_version == 2,
+            ContractIssueCode::unsupported_value, "schema_version",
+            "presentation-calibration schema version must be exactly 2");
     require(report, is_valid_semantic_id(calibration.calibration_id),
             ContractIssueCode::invalid_value, "calibration_id",
             "presentation-calibration ID must be canonical");
@@ -369,43 +331,6 @@ ValidationReport validate(const PresentationCalibration &calibration,
             validate_resolved(report, method, provenance, path);
             append_prefixed(report, validate(method.value), path + ".value");
         });
-
-    const auto &algorithm_record = calibration.algorithm_record;
-    constexpr std::string_view algorithm_path = "presentation.algorithm_record";
-    validate_resolved(report, algorithm_record.semantic_id, provenance,
-                      std::string(algorithm_path) + ".semantic_id");
-    validate_resolved(report, algorithm_record.evidence_source_id, provenance,
-                      std::string(algorithm_path) + ".evidence_source_id");
-    validate_resolved(report, algorithm_record.content_sha256, provenance,
-                      std::string(algorithm_path) + ".content_sha256");
-    require(report, is_valid_semantic_id(algorithm_record.semantic_id.value),
-            ContractIssueCode::invalid_value,
-            std::string(algorithm_path) + ".semantic_id.value",
-            "presentation algorithm-record ID must be canonical");
-    require(report, is_valid_semantic_id(algorithm_record.evidence_source_id.value),
-            ContractIssueCode::invalid_value,
-            std::string(algorithm_path) + ".evidence_source_id.value",
-            "presentation algorithm-record evidence ID must be canonical");
-    require(report, !algorithm_record.content_sha256.value.is_zero(),
-            ContractIssueCode::missing_value,
-            std::string(algorithm_path) + ".content_sha256.value",
-            "presentation algorithm-record digest must be present");
-    const auto *algorithm_evidence =
-        find_evidence(provenance, algorithm_record.evidence_source_id.value);
-    require(report, algorithm_evidence != nullptr,
-            ContractIssueCode::dangling_reference,
-            std::string(algorithm_path) + ".evidence_source_id.value",
-            "presentation algorithm record references unknown evidence");
-    if (algorithm_evidence != nullptr) {
-        require(report,
-                algorithm_evidence->content_sha256.has_value() &&
-                    *algorithm_evidence->content_sha256 ==
-                        algorithm_record.content_sha256.value,
-                ContractIssueCode::inconsistent_semantics,
-                std::string(algorithm_path) + ".content_sha256.value",
-                "presentation algorithm-record digest must exactly match its "
-                "content-addressed evidence source");
-    }
 
     const auto validate_conditioning = [&](const ResolvedValue<double> &value,
                                            const std::string &path,

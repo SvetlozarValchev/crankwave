@@ -62,7 +62,7 @@ The current contract supplies:
 - the owning render-specification aggregate, fail-closed render entry point, sink
   transaction protocol, and CLI shell recorded in `M2_RENDER_API.md`;
 - the profile-specific resolved BMW request, M3 low-order simulator and excitation,
-  internal presentation session, and canonical completed simulation-manifest v3
+  internal presentation session, and canonical completed simulation-manifest v4
   encoder.
 
 The current contract does not supply:
@@ -454,15 +454,19 @@ Production completeness remains governed by
 Presentation is one-way and downstream of physical capture/excitation.
 `PresentationCalibration` resolves:
 
+- exact schema version 2, with no schema-1 compatibility interpretation;
 - versioned, configuration-hashed reconstruction, conditioning, IR-conversion,
   convolution, publication, and audition methods;
-- a content-addressed algorithm record containing the effective block partition,
-  filter/kernel preparation, state, crop, and publication conventions;
 - jitter, derivative, and air-noise conditioning values;
 - content-addressed audio assets with evidence identity and exact media shape;
 - per-route IR asset, gain, and wet selection;
 - publication calibration gain;
 - ordered audition-route reduction, monitoring gain, and edge fades.
+
+Those six method identities are the complete current presentation-algorithm
+authority. Their configuration digests cover the executable block partition,
+filter/kernel preparation, state, crop, tail, mastering, and publication conventions;
+there is no second caller-authored algorithm record that can drift from execution.
 
 The ordered audition route vector is an arithmetic reduction order, not merely a set.
 Engine, scenario, and presentation profile IDs must agree. Assets must link to
@@ -472,24 +476,27 @@ source-processing Nyquist rate, and fades must fit in the audible interval.
 The current convolution-presentation validator admits configured exhaust routes only;
 it does not falsely claim intake or mechanical presentation support.
 
-When the frozen BMW reference matrix is selected,
-`validate_p18_reference_presentation()` additionally pins the P1.8 method IDs and
-versions, the complete renderer record at SHA-256
+The historical frozen BMW reference evidence separately pins its former P1.8 method
+IDs and versions and the immutable complete renderer record at SHA-256
 `0e6b1183d421088b4d0b49ea96545034b5ef338363e5ae2e30d81c182c96a008`,
 conditioning constants, `smooth_39` asset identity/media/hash, the
 calibration-route order (`exhaust.reference.0`, then `exhaust.reference.1`), IR
 gain/wet selection, `2^-26` publication calibration, the same audition reduction
 order, audition gain/fades, clock plan, and `[2 s, 17 s)` retained interval. Method
+configuration digests in current execution come only from the implementation; the
+historical record is oracle evidence, not an execution input or compatibility
+surface.
+
 The associated capture transport must hold the fixed 200-frame block and its
 worst-case `19 * 200 = 3,800` event records. Method configuration digests remain
-content identities supplied by the implementation; this validator does not substitute
-a hard-coded digest for them. Constants including the
+content identities supplied by the implementation; admission does not substitute a
+hard-coded digest for them. Constants including the
 3,840-frame source partition, 9,600-frame convolution limit, 65,536-point transform,
 6,907-frame source support, 30,071-coefficient kernel identity, zero history,
 continuous crop state, and no-tail policy are fixed by the content-addressed
 [`P18_PRESENTATION_RENDERER.md`](../../reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md).
-The later fixture-renderer checkbox must implement and verify that record before it can claim
-P1.8 output; this checkbox pins the input identity but does not execute DSP.
+That record remains immutable audit evidence and is not accepted as current
+configuration.
 
 ## 10. `RenderManifest`
 

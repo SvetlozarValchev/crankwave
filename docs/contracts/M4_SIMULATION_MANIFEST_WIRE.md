@@ -4,16 +4,16 @@ Status: normative canonical encoding for completed simulation manifests and reso
 simulation-request identities
 
 Manifest wire schema ID:
-`engine-sim-offline.render-manifest.simulation.v3`
+`engine-sim-offline.render-manifest.simulation.v4`
 
 Request-identity wire schema ID:
 `engine-sim-offline.simulation-request-identity.v1`
 
 Machine schema:
-[`schemas/render_manifest_simulation_v3.cddl`](../../schemas/render_manifest_simulation_v3.cddl)
+[`schemas/render_manifest_simulation_v4.cddl`](../../schemas/render_manifest_simulation_v4.cddl)
 
 Schema SHA-256:
-`5aaf01b178ec7ac67f084ec3db02c2294b4002916e3375b845d7f98e78e4ee23`
+`a0b2ddb15332951637c8bf8cdfa5e7b8f2516128a68739d8dcaa520359081937`
 
 ## 1. Scope and admission
 
@@ -22,7 +22,7 @@ manifest input discriminator is exactly:
 
 ```text
 {
-  "kind": "simulation_v2",
+  "kind": "simulation_v3",
   "value": {
     "resolved": {
       "engine": <EngineSpec>,
@@ -38,7 +38,7 @@ The completed-manifest root is exactly:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v3",
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v4",
   "content": <RenderManifestContent>,
   "execution": <ExecutionFacts>
 }
@@ -75,8 +75,9 @@ CDDL shape.
 The `reference_presentation_v1` input belongs exclusively to
 `engine-sim-offline.render-manifest.reference-presentation.v2`. It has no alias,
 fallback, numeric variant index, or compatibility interpretation in this schema.
-Conversely, `simulation_v2` is not encodable under the reference-presentation schema.
-There is no withdrawn simulation schema and no backward-compatibility path.
+Conversely, `simulation_v3` is not encodable under the reference-presentation schema.
+The superseded simulation-v3 wire/API/path is not retained, accepted, or aliased;
+there is no backward-compatibility path.
 
 This checkpoint freezes data representation, not behavior. It does not claim that M4
 physics has executed, produced correct observables, reached public `render()` success,
@@ -140,9 +141,9 @@ members:
 
 - `EngineSpec`: identity, topology, all eight selected methods, the complete
   executable physics profile, torque capability, and provenance schema binding;
-- `PresentationCalibration`: all methods, algorithm record, conditioning values,
-  audio assets, per-route presentation, publication calibration, audition policy,
-  and provenance schema binding;
+- `PresentationCalibration` schema 2: all six exact configuration-hashed methods,
+  conditioning values, audio assets, per-route presentation, publication
+  calibration, audition policy, and provenance schema binding;
 - `ResolvedRandomnessPolicy`: the explicit seed namespace plus exact generator and
   derivation method identities, with provenance binding for all three leaves; and
 - `RenderScenario`: ambient, fuel, thermal and crankcase state, preparation,
@@ -154,6 +155,12 @@ ownership fields remain present as a stable ID/resolved value or `null`. All phy
 scalars, table abscissae/ordinates, trajectory points, angles, times, gains, and
 tolerances retain exact binary64 identity. All resolved leaves retain their
 `resolution_id`; the wire must not flatten provenance out of the request.
+
+The six presentation method identities jointly own reconstruction, conditioning,
+strict IR decoding/conversion, convolution, stem publication, audition reduction,
+mastering, container, timeline, crop, and tail conventions. There is no second
+caller-authored algorithm record that can describe behavior the executable methods
+do not perform.
 
 The seed namespace is not inferred from `RenderScenario::scenario_id`. Reusing an
 accepted stochastic domain or selecting a new one is therefore an explicit,
@@ -270,7 +277,7 @@ simulator continues to own and consume all 170,000 binary64 samples.
 
 ## 5. Common manifest content and execution
 
-Outside `content.inputs`, the simulation v3 content shape and canonical rules are the
+Outside `content.inputs`, the simulation v4 content shape and canonical rules are the
 same as the reference-presentation v2 content shape:
 
 ```text
@@ -331,11 +338,36 @@ worker, and `serial-stable-order` reduction. Provider identities remain observed
 content tokens. An encoder serializes these typed values; it does not authenticate,
 rewrite, infer, or substitute them.
 
+### 5.1 Job-owned artifact paths and audition metadata
+
+The opaque simulation job derives publication names from the same admitted values; it
+does not accept a second caller-built path or INFO-metadata description.
+
+For each admitted audio requirement, its artifact path is `audio/`, followed by the
+artifact role with every `/` byte replaced by lowercase `%2f`, followed by `.wav`.
+All other valid semantic-ID bytes (`a-z`, `0-9`, `.`, `_`, and `-`) are copied
+unchanged. `%` is not a valid input byte, so this projection is injective. The
+manifest path remains the schema-owned
+`manifest/render-manifest.v4.json`.
+
+The audition WAVE INFO values are derived exactly as these ASCII concatenations:
+
+```text
+ICMT = engine=<engine.engine_id.value>;profile=<engine.profile_id.value>;scenario=<scenario.scenario_id>;presentation=<presentation.calibration_id>;source_matrix=<source_matrix.id>
+INAM = engine=<engine.engine_id.value>;scenario=<scenario.scenario_id>
+ISFT = engine-sim-offline;method=<presentation.methods.audition_mix.value.id>;version=<shortest-u32-decimal>;configuration_sha256=<64-lowercase-hex>
+```
+
+The job validates all three derived strings as nonempty, NUL-free, and at most 4,096
+bytes before beginning a sink transaction. Display names, timestamps, run IDs, host
+facts, and historical encoder prose are not inputs. Thus the resolved manifest basis
+plus the admitted audition method completely determines the WAVE metadata bytes.
+
 ## 6. File identity and non-claims
 
 When published through `DirectoryRenderSink`, the canonical completed document is
-`manifest/render-manifest.v3.json`. Its sidecar is
-`manifest/render-manifest.v3.json.sha256`, containing the SHA-256 of the complete
+`manifest/render-manifest.v4.json`. Its sidecar is
+`manifest/render-manifest.v4.json.sha256`, containing the SHA-256 of the complete
 encoded manifest—including the final LF—as 64 lowercase hexadecimal digits followed
 by one LF. The manifest and sidecar are transaction metadata, not artifact records,
 and the manifest does not embed its own whole-file digest.

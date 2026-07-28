@@ -76,24 +76,6 @@ struct PresentationMethods {
                            const PresentationMethods &) = default;
 };
 
-struct AuthoredPresentationAlgorithmRecord {
-    AuthoredValue<std::string> semantic_id;
-    AuthoredValue<std::string> evidence_source_id;
-    AuthoredValue<Sha256Digest> content_sha256;
-
-    friend bool operator==(const AuthoredPresentationAlgorithmRecord &,
-                           const AuthoredPresentationAlgorithmRecord &) = default;
-};
-
-struct PresentationAlgorithmRecord {
-    ResolvedValue<std::string> semantic_id;
-    ResolvedValue<std::string> evidence_source_id;
-    ResolvedValue<Sha256Digest> content_sha256;
-
-    friend bool operator==(const PresentationAlgorithmRecord &,
-                           const PresentationAlgorithmRecord &) = default;
-};
-
 struct AuthoredPresentationConditioning {
     AuthoredValue<double> jitter_scale;
     AuthoredValue<double> jitter_modulation_cutoff_hz;
@@ -174,7 +156,6 @@ struct AuthoredPresentationCalibration {
     std::string calibration_id;
     AuthoredValue<std::string> engine_profile_id;
     AuthoredPresentationMethods methods;
-    AuthoredPresentationAlgorithmRecord algorithm_record;
     AuthoredPresentationConditioning conditioning;
     std::vector<AuthoredAudioAssetRef> assets;
     std::vector<AuthoredRoutePresentation> routes;
@@ -191,7 +172,6 @@ struct PresentationCalibration {
     std::string calibration_id;
     ResolvedValue<std::string> engine_profile_id;
     PresentationMethods methods;
-    PresentationAlgorithmRecord algorithm_record;
     PresentationConditioning conditioning;
     std::vector<AudioAssetSpec> assets;
     std::vector<RoutePresentation> routes;

@@ -34,8 +34,6 @@ struct ResolutionBuilder {
         "engine-sim-offline.provenance.v1",
         {"neutral-presentation-inputs-v1", digest(1)},
         {
-            {"algorithm-source", "docs/algorithm", std::nullopt, digest(10),
-             contract::RightsDisposition::permitted},
             {"asset-one-source", "assets/ir-one.wav", std::nullopt, digest(11),
              contract::RightsDisposition::permitted},
             {"asset-two-source", "assets/ir-two.wav", std::nullopt, digest(12),
@@ -112,7 +110,7 @@ make_asset(ResolutionBuilder &builder, std::uint32_t id, std::string semantic_id
 [[nodiscard]] contract::PresentationCalibration
 make_calibration(ResolutionBuilder &builder, const contract::EngineSpec &engine) {
     contract::PresentationCalibration calibration;
-    calibration.schema_version = 1;
+    calibration.schema_version = 2;
     calibration.calibration_id = "neutral-presentation-v1";
     calibration.engine_profile_id =
         builder.resolved(engine.profile_id.value, "presentation.engine_profile_id");
@@ -125,13 +123,6 @@ make_calibration(ResolutionBuilder &builder, const contract::EngineSpec &engine)
         builder.resolved(methods.convolution, "presentation.methods.convolution"),
         builder.resolved(methods.publication, "presentation.methods.publication"),
         builder.resolved(methods.audition_mix, "presentation.methods.audition_mix"),
-    };
-    calibration.algorithm_record = {
-        builder.resolved(std::string{"neutral-algorithm-v1"},
-                         "presentation.algorithm_record.semantic_id"),
-        builder.resolved(std::string{"algorithm-source"},
-                         "presentation.algorithm_record.evidence_source_id"),
-        builder.resolved(digest(10), "presentation.algorithm_record.content_sha256"),
     };
     calibration.conditioning = {
         builder.resolved(0.5, "presentation.conditioning.jitter_scale"),
@@ -475,12 +466,30 @@ void test_generic_validation_is_retained() {
            "generic calibration validation report was discarded");
 }
 
+void test_schema_version_is_exact() {
+    for (const auto schema_version : {UINT32_C(1), UINT32_C(3)}) {
+        Inputs inputs;
+        inputs.calibration.schema_version = schema_version;
+        const auto result = presentation::compile_presentation_calibration(
+            inputs.calibration, inputs.engine, inputs.scenario,
+            inputs.builder.provenance);
+        const auto &error = expect_rejected(result, "schema_version");
+        const bool found =
+            std::ranges::any_of(error.validation.issues, [](const auto &issue) {
+                return issue.code == contract::ContractIssueCode::unsupported_value &&
+                       issue.path == "schema_version";
+            });
+        expect(found, "unsupported presentation-calibration schema was not identified");
+    }
+}
+
 void run_tests() {
     test_valid_projection_and_engine_route_order();
     test_every_method_is_exact();
     test_calibration_leaf_boundaries();
     test_clock_and_topology_boundaries();
     test_generic_validation_is_retained();
+    test_schema_version_is_exact();
 }
 
 } // namespace

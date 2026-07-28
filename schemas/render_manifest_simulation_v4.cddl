@@ -8,9 +8,9 @@
 ; from the complete owned binary64 vector using the typed contract's canonical
 ; little-endian grammar.
 
-render-manifest-simulation-v3 = {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v3",
-  "content": render-manifest-content-simulation-v3,
+render-manifest-simulation-v4 = {
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v4",
+  "content": render-manifest-content-simulation-v4,
   "execution": execution-facts
 }
 
@@ -23,9 +23,9 @@ simulation-request-identity-v1 = {
   "provenance": provenance-bundle-ref
 }
 
-render-manifest-content-simulation-v3 = {
-  "schema_version": 3,
-  "inputs": simulation-manifest-inputs-v2,
+render-manifest-content-simulation-v4 = {
+  "schema_version": 4,
+  "inputs": simulation-manifest-inputs-v3,
   "provenance": provenance-bundle-ref,
   "determinism": determinism-envelope,
   "rates": render-rates,
@@ -36,12 +36,12 @@ render-manifest-content-simulation-v3 = {
   "artifacts": [* artifact-record]
 }
 
-simulation-manifest-inputs-v2 = {
-  "kind": "simulation_v2",
-  "value": simulation-inputs-v2
+simulation-manifest-inputs-v3 = {
+  "kind": "simulation_v3",
+  "value": simulation-inputs-v3
 }
 
-simulation-inputs-v2 = {
+simulation-inputs-v3 = {
   "resolved": resolved-render-inputs
 }
 
@@ -392,11 +392,10 @@ torque-capability = {
 }
 
 presentation-calibration = {
-  "schema_version": u32,
+  "schema_version": 2,
   "calibration_id": tstr,
   "engine_profile_id": resolved<tstr>,
   "methods": presentation-methods,
-  "algorithm_record": presentation-algorithm-record,
   "conditioning": presentation-conditioning,
   "assets": [* audio-asset-spec],
   "routes": [* route-presentation],
@@ -412,12 +411,6 @@ presentation-methods = {
   "convolution": resolved<method-identity>,
   "publication": resolved<method-identity>,
   "audition_mix": resolved<method-identity>
-}
-
-presentation-algorithm-record = {
-  "semantic_id": resolved<tstr>,
-  "evidence_source_id": resolved<tstr>,
-  "content_sha256": resolved<sha256>
 }
 
 presentation-conditioning = {

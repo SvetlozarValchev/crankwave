@@ -243,12 +243,16 @@ void run_scenario_manifest_contract_tests() {
     expect(validate(content, builder.provenance, source_matrix).ok(),
            "valid render manifest content was rejected");
 
-    auto retired_manifest_schema = content;
-    retired_manifest_schema.schema_version = 2;
-    auto report = validate(retired_manifest_schema, builder.provenance, source_matrix);
-    expect(!report.ok() && has_issue(report, ContractIssueCode::unsupported_value,
-                                     "schema_version"),
-           "retired simulation manifest schema was accepted");
+    ValidationReport report;
+    for (const auto schema_version : {UINT32_C(3), UINT32_C(5)}) {
+        auto unsupported_manifest_schema = content;
+        unsupported_manifest_schema.schema_version = schema_version;
+        report =
+            validate(unsupported_manifest_schema, builder.provenance, source_matrix);
+        expect(!report.ok() && has_issue(report, ContractIssueCode::unsupported_value,
+                                         "schema_version"),
+               "unsupported simulation manifest schema was accepted");
+    }
 
     auto mismatched_asset_evidence = content;
     simulation_inputs(mismatched_asset_evidence)
@@ -258,14 +262,6 @@ void run_scenario_manifest_contract_tests() {
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "content_sha256"),
            "presentation asset digest was allowed to disagree with its evidence");
-
-    auto mismatched_algorithm_record = content;
-    simulation_inputs(mismatched_algorithm_record)
-        .presentation.algorithm_record.content_sha256.value = digest(28);
-    report = validate(mismatched_algorithm_record, builder.provenance, source_matrix);
-    expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
-                                     "algorithm_record.content_sha256"),
-           "presentation algorithm record was allowed to disagree with evidence");
 
     auto unconfigured_rendered_route = content;
     simulation_inputs(unconfigured_rendered_route).presentation.routes.clear();

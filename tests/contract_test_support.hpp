@@ -76,13 +76,6 @@ struct InputBuilder {
                 digest(30),
                 RightsDisposition::permitted,
             },
-            EvidenceSource{
-                "test-presentation-record-source",
-                "docs/test-presentation-record.md",
-                std::nullopt,
-                digest(29),
-                RightsDisposition::permitted,
-            },
         },
         {
             ProvenanceClaim{
@@ -557,7 +550,7 @@ inline EngineSpec make_engine(InputBuilder &builder) {
 inline PresentationCalibration make_presentation(InputBuilder &builder,
                                                  const EngineSpec &engine) {
     PresentationCalibration presentation;
-    presentation.schema_version = 1;
+    presentation.schema_version = 2;
     presentation.calibration_id = "contract-test-presentation-v1";
     presentation.engine_profile_id =
         builder.resolved(engine.profile_id.value, "presentation.engine_profile_id");
@@ -573,13 +566,6 @@ inline PresentationCalibration make_presentation(InputBuilder &builder,
         resolved_method("convolution-v1", 23, "convolution"),
         resolved_method("publication-v1", 24, "publication"),
         resolved_method("audition-mix-v1", 25, "audition_mix"),
-    };
-    presentation.algorithm_record = {
-        builder.resolved(std::string{"contract-test-presentation-record-v1"},
-                         "presentation.algorithm_record.semantic_id"),
-        builder.resolved(std::string{"test-presentation-record-source"},
-                         "presentation.algorithm_record.evidence_source_id"),
-        builder.resolved(digest(29), "presentation.algorithm_record.content_sha256"),
     };
     presentation.conditioning = {
         builder.resolved(0.5, "presentation.conditioning.jitter_scale"),
@@ -762,7 +748,7 @@ inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
     const auto source_matrix = make_source_matrix();
 
     RenderManifestContent content;
-    content.schema_version = 3;
+    content.schema_version = 4;
     content.inputs = SimulationManifestInputs{
         ResolvedRenderInputs{engine, presentation, randomness, scenario}};
     content.provenance = builder.provenance.bundle;
