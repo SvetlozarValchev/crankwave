@@ -136,6 +136,7 @@ add_library(
         src/simulation/legacy_mechanics_primitives.cpp
         src/simulation/kinematic_scenario_schedule.cpp
         src/simulation/low_order_engine_core_v1_runtime.cpp
+        src/simulation/operating_cycle_accountant.cpp
 )
 add_library(
     engine_sim_offline::simulation
