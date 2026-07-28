@@ -787,6 +787,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_cycle_accounting_method_registry_tests
+    cycle_accounting_method_registry_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_cycle_accounting_method_registry_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_cycle_accounting_method_registry_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.cycle_accounting_method_registry
+    COMMAND engine_sim_offline_cycle_accounting_method_registry_tests
+)
+
+add_executable(
     engine_sim_offline_legacy_fixed_crank_torque_accounting_tests
     legacy_fixed_crank_torque_accounting_test.cpp
 )

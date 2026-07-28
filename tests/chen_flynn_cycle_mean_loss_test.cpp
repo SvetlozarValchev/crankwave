@@ -256,6 +256,14 @@ void test_derived_overflow_and_underflow_fail_closed() {
                  ChenFlynnCycleMeanLossErrorCode::derived_overflow, 0,
                  "weighted-pressure overflow was admitted");
 
+    std::array weighted_product_underflow{
+        ChenFlynnCylinderPeakPressureInput{1, std::numeric_limits<double>::denorm_min(),
+                                           std::numeric_limits<double>::denorm_min()},
+    };
+    expect_error(generic_plan(), input(weighted_product_underflow),
+                 ChenFlynnCycleMeanLossErrorCode::derived_nonpositive_result, 0,
+                 "underflowed zero weighted pressure was admitted");
+
     auto coefficient_overflow = generic_plan();
     coefficient_overflow.peak_pressure_coefficient = std::numeric_limits<double>::max();
     expect_error(coefficient_overflow, input(normal),

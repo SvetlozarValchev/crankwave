@@ -115,6 +115,8 @@ add_library(
     engine_sim_offline_simulation
     STATIC
         src/simulation/chen_flynn_cycle_mean_loss.cpp
+        src/simulation/cycle_accounting_method_descriptors.cpp
+        src/simulation/cycle_accounting_method_registry.cpp
         src/simulation/four_stroke_cycle_integrator.cpp
         src/simulation/legacy_combustion_primitives.cpp
         src/simulation/legacy_fixed_crank_torque_accounting.cpp
