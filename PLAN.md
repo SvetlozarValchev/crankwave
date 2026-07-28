@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — M3 gas, ignition, combustion, friction, and pumping
+Status: implementation — M3 pressure, flow, phase, and torque observables
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-28
 
@@ -453,7 +453,7 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
       outside the simulator dependency graph.
 - [x] Implement BMW crank-slider mechanics and event scheduling.
 - [x] Implement the required fixed-profile valvetrain.
-- [ ] Implement the minimum sourced gas, ignition, combustion, friction, and pumping
+- [x] Implement the minimum sourced gas, ignition, combustion, friction, and pumping
       models.
 - [ ] Publish required pressure, flow, phase, and torque observables.
 - [ ] Connect clean-slate physics to the already accepted renderer without changing

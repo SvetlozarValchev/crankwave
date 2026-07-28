@@ -652,6 +652,71 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_legacy_gas_primitives_tests
+    legacy_gas_primitives_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_legacy_gas_primitives_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_legacy_gas_primitives_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.legacy_gas_primitives
+    COMMAND engine_sim_offline_legacy_gas_primitives_tests
+)
+
+add_executable(
+    engine_sim_offline_legacy_combustion_primitives_tests
+    legacy_combustion_primitives_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_legacy_combustion_primitives_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_legacy_combustion_primitives_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.legacy_combustion_primitives
+    COMMAND engine_sim_offline_legacy_combustion_primitives_tests
+)
+
+add_executable(
+    engine_sim_offline_legacy_low_order_gas_tests
+    legacy_low_order_gas_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_legacy_low_order_gas_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_legacy_low_order_gas_tests
+    PRIVATE
+        engine_sim_offline::profiles
+        engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.legacy_low_order_gas
+    COMMAND engine_sim_offline_legacy_low_order_gas_tests
+)
+
+add_executable(
     engine_sim_offline_bmw_m52b28_mechanics_parity_tests
     bmw_m52b28_mechanics_parity_test.cpp
 )
