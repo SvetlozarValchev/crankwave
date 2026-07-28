@@ -114,6 +114,7 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_profiles)
 add_library(
     engine_sim_offline_simulation
     STATIC
+        src/simulation/legacy_fixed_valvetrain.cpp
         src/simulation/legacy_ignition_schedule.cpp
         src/simulation/legacy_low_order_mechanics.cpp
         src/simulation/legacy_low_order_mechanics_compile.cpp

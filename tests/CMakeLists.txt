@@ -631,6 +631,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_legacy_fixed_valvetrain_tests
+    legacy_fixed_valvetrain_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_legacy_fixed_valvetrain_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_legacy_fixed_valvetrain_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.legacy_fixed_valvetrain
+    COMMAND engine_sim_offline_legacy_fixed_valvetrain_tests
+)
+
+add_executable(
     engine_sim_offline_bmw_m52b28_mechanics_parity_tests
     bmw_m52b28_mechanics_parity_test.cpp
 )

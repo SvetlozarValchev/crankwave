@@ -1,6 +1,7 @@
 #include "engine_sim_offline/profiles/bmw_m52b28_parity_request.hpp"
 
 #include "reference/reference_parity_v1_reader.hpp"
+#include "simulation/legacy_fixed_valvetrain.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
 
 #include <algorithm>
@@ -125,6 +126,20 @@ compile_session(const profiles::BmwM52b28ParityRequest &request) {
     return std::get<simulation::LegacyLowOrderMechanicsSession>(std::move(result));
 }
 
+[[nodiscard]] simulation::LegacyFixedValvetrain
+compile_valvetrain(const profiles::BmwM52b28ParityRequest &request) {
+    auto result = simulation::compile_legacy_fixed_valvetrain(request.engine);
+    if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
+        std::ostringstream message;
+        message << "canonical BMW valvetrain request failed to compile";
+        for (const auto &issue : report->issues) {
+            message << "\n  " << issue.path << ": " << issue.message;
+        }
+        fail(message.str());
+    }
+    return std::get<simulation::LegacyFixedValvetrain>(std::move(result));
+}
+
 void verify_compiled_bmw_geometry(
     std::span<const simulation::CenteredSliderCrankCylinder> models) {
     constexpr std::array<double, 6> tdc_degrees{30.0, 150.0, 270.0, 270.0, 150.0, 30.0};
@@ -192,6 +207,103 @@ void verify_compiled_bmw_geometry(
         expect(std::abs(center.dvolume_dtheta_m3_per_rad - finite_difference) <=
                    finite_difference_tolerance_m3_per_rad,
                "compiled BMW analytic dV/dtheta failed finite difference");
+    }
+}
+
+void verify_compiled_bmw_valvetrain(
+    const simulation::LegacyFixedValvetrain &valvetrain) {
+    constexpr std::array<std::uint32_t, 6> intake_ports{1, 3, 5, 7, 9, 11};
+    constexpr std::array<std::uint32_t, 6> exhaust_ports{2, 4, 6, 8, 10, 12};
+    constexpr std::array<double, 6> intake_stored_centers{
+        0x1.067f5d701d783p+2, 0x1.094a40797a610p+3, 0x1.8c89ef31891d1p+2,
+        0x1.2acce4e9d54a3p+3, 0x1.4984a650d34aap+2, 0x1.cf8f38123eef8p+2,
+    };
+    constexpr std::array<double, 6> exhaust_stored_centers{
+        0x1.1cd675bb04be6p+1, 0x1.9a805e6059a8fp+2, 0x1.1475cc9eee041p+2,
+        0x1.dd85a7410f7b6p+2, 0x1.a2e1077c70634p+1, 0x1.577b157fa3d68p+2,
+    };
+
+    const auto bindings = valvetrain.cylinder_bindings();
+    expect(bindings.size() == intake_ports.size(),
+           "compiled BMW valvetrain has the wrong cylinder count");
+    for (std::size_t index = 0; index < bindings.size(); ++index) {
+        const auto &binding = bindings[index];
+        expect(binding.cylinder_id ==
+                       contract::CylinderId{static_cast<std::uint32_t>(index + 1U)} &&
+                   binding.intake_port_id == contract::PortId{intake_ports[index]} &&
+                   binding.exhaust_port_id == contract::PortId{exhaust_ports[index]},
+               "compiled BMW valve identity, order, or port binding changed");
+        expect(same_binary64(binding.intake_stored_lobe_angle_rad,
+                             intake_stored_centers[index]) &&
+                   same_binary64(binding.exhaust_stored_lobe_angle_rad,
+                                 exhaust_stored_centers[index]),
+               "compiled BMW raw lobe center was wrapped or reconstructed");
+    }
+}
+
+struct ValveCoverage {
+    bool intake_zero = false;
+    bool intake_nonzero = false;
+    bool exhaust_zero = false;
+    bool exhaust_nonzero = false;
+    double maximum_intake_lift_m = 0.0;
+    double maximum_exhaust_lift_m = 0.0;
+};
+
+void verify_valvetrain_step(const simulation::LegacyFixedValvetrain &valvetrain,
+                            const simulation::LegacyMechanismStep &step,
+                            std::array<ValveCoverage, 6> &coverage) {
+    std::array<simulation::LegacyCylinderValveSample, 6> samples{};
+    if (!valvetrain.sample_all(step.body_angle_psi_rad, samples)) {
+        fail_frame(step.sample_index, "BMW valvetrain rejected a mechanics angle");
+    }
+    const auto bindings = valvetrain.cylinder_bindings();
+    if (bindings.size() != samples.size()) {
+        fail_frame(step.sample_index, "BMW valve sample count changed");
+    }
+
+    for (std::size_t index = 0; index < samples.size(); ++index) {
+        const auto &sample = samples[index];
+        const auto &binding = bindings[index];
+        if (sample.cylinder_id != binding.cylinder_id ||
+            sample.intake_port_id != binding.intake_port_id ||
+            sample.exhaust_port_id != binding.exhaust_port_id) {
+            fail_frame(step.sample_index,
+                       "BMW valve sample left its compiled cylinder binding");
+        }
+        const bool finite = std::isfinite(sample.intake_lobe_argument_rad) &&
+                            std::isfinite(sample.exhaust_lobe_argument_rad) &&
+                            std::isfinite(sample.intake_lift_m) &&
+                            std::isfinite(sample.exhaust_lift_m) &&
+                            std::isfinite(sample.intake_valve_k) &&
+                            std::isfinite(sample.exhaust_valve_k);
+        const bool bounded = sample.intake_lobe_argument_rad >= -kLegacyPi &&
+                             sample.intake_lobe_argument_rad < kLegacyPi &&
+                             sample.exhaust_lobe_argument_rad >= -kLegacyPi &&
+                             sample.exhaust_lobe_argument_rad < kLegacyPi &&
+                             sample.intake_lift_m >= 0.0 &&
+                             sample.intake_lift_m <= 0.009000000000000001 &&
+                             sample.exhaust_lift_m >= 0.0 &&
+                             sample.exhaust_lift_m <= 0.009000000000000001 &&
+                             sample.intake_valve_k >= 0.0 &&
+                             sample.intake_valve_k <= 0.00632193692425645 &&
+                             sample.exhaust_valve_k >= 0.0 &&
+                             sample.exhaust_valve_k <= 0.004397869164700139;
+        if (!finite || !bounded) {
+            fail_frame(step.sample_index,
+                       "BMW valve sample became nonfinite or left its profile bounds");
+        }
+
+        auto &observed = coverage[index];
+        observed.intake_zero = observed.intake_zero || sample.intake_lift_m == 0.0;
+        observed.intake_nonzero = observed.intake_nonzero || sample.intake_lift_m > 0.0;
+        observed.exhaust_zero = observed.exhaust_zero || sample.exhaust_lift_m == 0.0;
+        observed.exhaust_nonzero =
+            observed.exhaust_nonzero || sample.exhaust_lift_m > 0.0;
+        observed.maximum_intake_lift_m =
+            std::max(observed.maximum_intake_lift_m, sample.intake_lift_m);
+        observed.maximum_exhaust_lift_m =
+            std::max(observed.maximum_exhaust_lift_m, sample.exhaust_lift_m);
     }
 }
 
@@ -502,15 +614,19 @@ void test_full_bmw_mechanics_parity(const reference::DecodedReferenceParityV1 &f
     const auto &profile =
         std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile);
     auto session = compile_session(request);
+    const auto valvetrain = compile_valvetrain(request);
     const auto models = session.cylinder_models();
     expect(models.size() == reference::kReferenceParityV1CylinderCount,
            "compiled BMW mechanics model count changed");
     verify_compiled_bmw_geometry(models);
+    verify_compiled_bmw_valvetrain(valvetrain);
 
     const auto &sweep =
         std::get<contract::PrescribedKinematicSweep>(request.scenario.mode);
     double previous_theta_cycle_rad = sweep.trajectory.initial_theta_rad.value;
     SparkSequenceState spark_sequence;
+    std::array<ValveCoverage, reference::kReferenceParityV1CylinderCount>
+        valve_coverage{};
 
     double maximum_angle_error_rad = 0.0;
     for (const auto &frame : fixture.frames) {
@@ -529,6 +645,7 @@ void test_full_bmw_mechanics_parity(const reference::DecodedReferenceParityV1 &f
         }
         verify_frame(step->get(), frame, fixture, profile.ignition, models,
                      previous_theta_cycle_rad, spark_sequence, maximum_angle_error_rad);
+        verify_valvetrain_step(valvetrain, step->get(), valve_coverage);
         previous_theta_cycle_rad = step->get().theta_cycle_rad;
     }
 
@@ -552,6 +669,14 @@ void test_full_bmw_mechanics_parity(const reference::DecodedReferenceParityV1 &f
                std::all_of(spark_sequence.seen.begin(), spark_sequence.seen.end(),
                            [](bool seen) { return seen; }),
            "full BMW run did not exercise every cylinder's spark schedule");
+    expect(std::all_of(valve_coverage.begin(), valve_coverage.end(),
+                       [](const ValveCoverage &coverage) {
+                           return coverage.intake_zero && coverage.intake_nonzero &&
+                                  coverage.exhaust_zero && coverage.exhaust_nonzero &&
+                                  coverage.maximum_intake_lift_m > 0.00899998 &&
+                                  coverage.maximum_exhaust_lift_m > 0.00899998;
+                       }),
+           "full BMW run did not exercise every valve from closed through peak");
 }
 
 } // namespace
