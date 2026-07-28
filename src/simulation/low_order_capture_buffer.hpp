@@ -12,25 +12,25 @@
 
 namespace engine_sim_offline::simulation::detail {
 
-struct LegacyCapturePortBinding {
+struct LowOrderCapturePortBinding {
     std::size_t cylinder_index = 0;
     std::size_t duct_volume_index = 0;
     std::size_t valve_edge_index = 0;
     contract::PortKind kind = contract::PortKind::unspecified;
 };
 
-struct LegacyCaptureCylinderBinding {
+struct LowOrderCaptureCylinderBinding {
     std::size_t chamber_volume_index = 0;
     std::size_t exhaust_primary_volume_index = 0;
 };
 
-struct LegacyCaptureRouteBinding {
+struct LowOrderCaptureRouteBinding {
     std::size_t gas_route_index = 0;
     std::size_t source_volume_index = 0;
     std::size_t outlet_edge_index = 0;
 };
 
-struct LegacyCaptureBufferFault {
+struct LowOrderCaptureBufferFault {
     contract::FailureKind kind = contract::FailureKind::contract_violation;
     std::string detail_code;
     std::string state_summary;
@@ -41,42 +41,42 @@ struct LegacyCaptureBufferFault {
     std::optional<contract::RouteId> route_id;
 };
 
-struct LegacyCaptureBufferPlan {
+struct LowOrderCaptureBufferPlan {
     contract::EngineId engine_id;
     contract::RationalRateHz rate;
     std::uint32_t declared_block_capacity_frames = 0;
     std::uint32_t declared_event_capacity_records = 0;
+    std::uint32_t maximum_events_per_frame = 0;
     std::vector<contract::CylinderId> cylinders;
     std::vector<contract::PortIdentity> ports;
     std::vector<contract::GasVolumeIdentity> gas_volumes;
     std::vector<contract::FlowEdgeIdentity> flow_edges;
     std::vector<contract::RouteIdentity> routes;
-    std::vector<LegacyCaptureCylinderBinding> cylinder_bindings;
-    std::vector<LegacyCapturePortBinding> port_bindings;
-    std::vector<LegacyCaptureRouteBinding> route_bindings;
+    std::vector<LowOrderCaptureCylinderBinding> cylinder_bindings;
+    std::vector<LowOrderCapturePortBinding> port_bindings;
+    std::vector<LowOrderCaptureRouteBinding> route_bindings;
 };
 
-class LegacyLowOrderCaptureBuffer final {
+class LowOrderCaptureBuffer final {
   public:
-    explicit LegacyLowOrderCaptureBuffer(LegacyCaptureBufferPlan plan);
+    explicit LowOrderCaptureBuffer(LowOrderCaptureBufferPlan plan);
 
-    LegacyLowOrderCaptureBuffer(const LegacyLowOrderCaptureBuffer &) = delete;
-    LegacyLowOrderCaptureBuffer &
-    operator=(const LegacyLowOrderCaptureBuffer &) = delete;
-    LegacyLowOrderCaptureBuffer(LegacyLowOrderCaptureBuffer &&) noexcept = default;
-    LegacyLowOrderCaptureBuffer &
-    operator=(LegacyLowOrderCaptureBuffer &&) noexcept = default;
+    LowOrderCaptureBuffer(const LowOrderCaptureBuffer &) = delete;
+    LowOrderCaptureBuffer &operator=(const LowOrderCaptureBuffer &) = delete;
+    LowOrderCaptureBuffer(LowOrderCaptureBuffer &&) noexcept = default;
+    LowOrderCaptureBuffer &operator=(LowOrderCaptureBuffer &&) noexcept = default;
 
     void begin_block(std::uint64_t first_sample_index) noexcept;
-    [[nodiscard]] std::optional<LegacyCaptureBufferFault>
+    [[nodiscard]] std::optional<LowOrderCaptureBufferFault>
     append(const LegacyMechanismStep &mechanics, const LegacyLowOrderGasStep &gas,
            const contract::TorqueTelemetry &torque);
     [[nodiscard]] contract::CaptureBlockView view() const noexcept;
     [[nodiscard]] std::uint32_t frame_count() const noexcept;
+    [[nodiscard]] std::uint32_t block_capacity_frames() const noexcept;
     [[nodiscard]] std::uint64_t first_sample_index() const noexcept;
 
   private:
-    LegacyCaptureBufferPlan plan_;
+    LowOrderCaptureBufferPlan plan_;
     std::uint64_t first_sample_index_ = 0;
     std::uint32_t frame_count_ = 0;
 

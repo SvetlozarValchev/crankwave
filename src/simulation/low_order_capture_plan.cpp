@@ -1,7 +1,5 @@
 #include "simulation/low_order_capture_plan.hpp"
 
-#include "simulation/legacy_low_order_simulation.hpp"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -58,25 +56,15 @@ find_exhaust_profile_index(const contract::LowOrderEngineCoreV1 &core,
     return static_cast<std::size_t>(found - routes.begin());
 }
 
-[[nodiscard]] bool reserve_product_representable(std::size_t entity_count) noexcept {
-    return entity_count <=
-           std::numeric_limits<std::size_t>::max() / kLegacyCaptureFramesPerBlock;
-}
-
-struct TopologyPhysicalVolume {
-    contract::GasVolumeId id;
-    contract::GasVolumeKind kind = contract::GasVolumeKind::unspecified;
-
-    friend bool operator==(const TopologyPhysicalVolume &,
-                           const TopologyPhysicalVolume &) = default;
-};
-
-void sort_physical_volumes(std::vector<TopologyPhysicalVolume> &volumes) {
-    std::ranges::sort(volumes, {}, &TopologyPhysicalVolume::id);
+[[nodiscard]] bool reserve_product_representable(std::size_t entity_count,
+                                                 std::uint32_t frame_count) noexcept {
+    return frame_count == 0U ||
+           entity_count <= std::numeric_limits<std::size_t>::max() /
+                               static_cast<std::size_t>(frame_count);
 }
 
 void append_layout_issues(ValidationReport &report,
-                          const detail::LegacyCaptureBufferPlan &plan) {
+                          const detail::LowOrderCaptureBufferPlan &plan) {
     const auto layout = contract::CaptureLayoutView::borrow_for_callback(
         plan.engine_id, plan.cylinders, plan.ports, plan.gas_volumes, plan.flow_edges,
         plan.routes);
@@ -88,51 +76,64 @@ void append_layout_issues(ValidationReport &report,
 
 } // namespace
 
+std::optional<std::uint32_t>
+maximum_low_order_events_per_frame(std::size_t cylinder_count) noexcept {
+    constexpr std::size_t kOrdinalCapacity =
+        static_cast<std::size_t>(std::numeric_limits<std::uint8_t>::max()) + 1U;
+    if (cylinder_count > (kOrdinalCapacity - 1U) / 3U) {
+        return std::nullopt;
+    }
+    return static_cast<std::uint32_t>(3U * cylinder_count + 1U);
+}
+
 LowOrderCapturePlanCompileResult
 compile_low_order_capture_plan(const contract::EngineSpec &engine,
-                               const contract::LowOrderEngineCoreV1 &core,
                                const contract::RenderScenario &scenario) {
     ValidationReport report;
+    const contract::LowOrderEngineCoreV1 *core = nullptr;
+    if (const auto *legacy =
+            std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile)) {
+        core = &legacy->core;
+    } else if (const auto *operating =
+                   std::get_if<contract::LowOrderOperatingPointV1Profile>(
+                       &engine.physics_profile)) {
+        core = &operating->core;
+    }
+    require(report, core != nullptr, ContractIssueCode::missing_value,
+            "engine.physics_profile",
+            "low-order capture requires one admitted low-order physics profile");
+    require(report, scenario.engine_profile_id == engine.profile_id.value,
+            ContractIssueCode::inconsistent_semantics, "scenario.engine_profile_id",
+            "capture scenario must identify the selected engine physics profile");
     require(report, scenario.rates.physics == scenario.rates.capture,
             ContractIssueCode::inconsistent_semantics, "scenario.rates.capture",
             "low-order capture requires identical physics and capture clocks");
-    require(report,
-            scenario.quality.value.capture_block_capacity_frames ==
-                kLegacyCaptureFramesPerBlock,
-            ContractIssueCode::unsupported_value,
+    require(report, scenario.quality.value.capture_block_capacity_frames > 0U,
+            ContractIssueCode::invalid_value,
             "scenario.quality.value.capture_block_capacity_frames",
-            "low-order capture requires the canonical 200-frame partition capacity");
-    require(report,
-            scenario.quality.value.event_journal_capacity_records ==
-                kLegacyCaptureFramesPerBlock * kLegacyMaximumEventsPerFrame,
-            ContractIssueCode::unsupported_value,
+            "low-order capture requires a positive block capacity");
+    require(report, scenario.quality.value.event_journal_capacity_records > 0U,
+            ContractIssueCode::invalid_value,
             "scenario.quality.value.event_journal_capacity_records",
-            "low-order capture requires the canonical 3800-record event capacity");
+            "low-order capture requires a positive event-journal capacity");
 
-    const bool event_count_representable =
-        engine.cylinders.size() <= (std::numeric_limits<std::size_t>::max() - 1U) / 3U;
-    require(report, event_count_representable, ContractIssueCode::unsupported_value,
-            "engine.cylinders", "composed event count is not representable");
-    if (event_count_representable) {
-        const auto maximum_events_per_frame = 3U * engine.cylinders.size() + 1U;
-        const bool fits_frame =
-            maximum_events_per_frame <= kLegacyMaximumEventsPerFrame;
-        require(report, fits_frame, ContractIssueCode::unsupported_value,
-                "engine.cylinders",
-                "cylinder count exceeds the canonical per-frame event bound");
-        if (fits_frame) {
-            const auto required_block_event_capacity =
-                static_cast<std::uint64_t>(
-                    scenario.quality.value.capture_block_capacity_frames) *
-                static_cast<std::uint64_t>(maximum_events_per_frame);
-            require(report,
-                    required_block_event_capacity <=
-                        scenario.quality.value.event_journal_capacity_records,
-                    ContractIssueCode::unsupported_value,
-                    "scenario.quality.value.event_journal_capacity_records",
-                    "event journal cannot hold the worst-case composed event bound "
-                    "for one capture block");
-        }
+    const auto maximum_events =
+        maximum_low_order_events_per_frame(engine.cylinders.size());
+    require(report, maximum_events.has_value(), ContractIssueCode::unsupported_value,
+            "engine.cylinders",
+            "cylinder count exceeds the uint8 event-ordinal capacity");
+    if (maximum_events.has_value()) {
+        const auto required_block_event_capacity =
+            static_cast<std::uint64_t>(
+                scenario.quality.value.capture_block_capacity_frames) *
+            static_cast<std::uint64_t>(*maximum_events);
+        require(report,
+                required_block_event_capacity <=
+                    scenario.quality.value.event_journal_capacity_records,
+                ContractIssueCode::unsupported_value,
+                "scenario.quality.value.event_journal_capacity_records",
+                "event journal cannot hold the worst-case composed event bound "
+                "for the full declared capture block");
     }
 
     const auto horizon = contract::resolve_frame_index(scenario.total_duration_s.value,
@@ -144,13 +145,27 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
             "count");
 
     require(report,
-            reserve_product_representable(engine.cylinders.size()) &&
-                reserve_product_representable(engine.ports.size()) &&
-                reserve_product_representable(engine.gas_volumes.size()) &&
-                reserve_product_representable(engine.flow_edges.size()) &&
-                reserve_product_representable(engine.routes.size()),
+            reserve_product_representable(
+                engine.cylinders.size(),
+                scenario.quality.value.capture_block_capacity_frames) &&
+                reserve_product_representable(
+                    engine.ports.size(),
+                    scenario.quality.value.capture_block_capacity_frames) &&
+                reserve_product_representable(
+                    engine.gas_volumes.size(),
+                    scenario.quality.value.capture_block_capacity_frames) &&
+                reserve_product_representable(
+                    engine.flow_edges.size(),
+                    scenario.quality.value.capture_block_capacity_frames) &&
+                reserve_product_representable(
+                    engine.routes.size(),
+                    scenario.quality.value.capture_block_capacity_frames),
             ContractIssueCode::unsupported_value, "engine",
             "capture entity count overflows bounded frame-major storage");
+    if (core == nullptr || !maximum_events.has_value()) {
+        return report;
+    }
+    const auto &selected_core = *core;
 
     LowOrderCapturePlan compiled;
     auto &plan = compiled.capture_buffer;
@@ -160,6 +175,7 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
         scenario.quality.value.capture_block_capacity_frames;
     plan.declared_event_capacity_records =
         scenario.quality.value.event_journal_capacity_records;
+    plan.maximum_events_per_frame = *maximum_events;
 
     plan.cylinders.reserve(engine.cylinders.size());
     for (const auto &cylinder : engine.cylinders) {
@@ -170,79 +186,28 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
         plan.ports.push_back({port.id, port.cylinder_id, port.kind.value});
     }
     plan.gas_volumes.reserve(engine.gas_volumes.size());
-    std::vector<TopologyPhysicalVolume> engine_physical_volumes;
-    engine_physical_volumes.reserve(engine.gas_volumes.size());
+    compiled.physical_gas_volume_ids.reserve(engine.gas_volumes.size());
     std::size_t atmosphere_count = 0;
     for (const auto &volume : engine.gas_volumes) {
         plan.gas_volumes.push_back({volume.id, volume.kind.value});
         if (volume.kind.value == contract::GasVolumeKind::atmosphere) {
             ++atmosphere_count;
         } else {
-            engine_physical_volumes.push_back({volume.id, volume.kind.value});
+            compiled.physical_gas_volume_ids.push_back(volume.id);
         }
     }
-    sort_physical_volumes(engine_physical_volumes);
+    std::ranges::sort(compiled.physical_gas_volume_ids);
     require(report, atmosphere_count == 1U, ContractIssueCode::inconsistent_shape,
             "engine.gas_volumes",
             "low-order capture requires exactly one unresolved atmosphere identity");
+    require(report, !compiled.physical_gas_volume_ids.empty(),
+            ContractIssueCode::missing_value, "engine.gas_volumes",
+            "physical gas-volume inventory must be nonempty");
     require(report,
-            std::ranges::adjacent_find(engine_physical_volumes, {},
-                                       &TopologyPhysicalVolume::id) ==
-                engine_physical_volumes.end(),
+            std::ranges::adjacent_find(compiled.physical_gas_volume_ids) ==
+                compiled.physical_gas_volume_ids.end(),
             ContractIssueCode::duplicate_identity, "engine.gas_volumes",
             "physical gas-volume IDs must be unique");
-
-    std::vector<TopologyPhysicalVolume> topology_physical_volumes;
-    const bool topology_inventory_representable =
-        core.gas_path.exhaust_routes.size() <=
-            std::numeric_limits<std::size_t>::max() - 1U &&
-        core.mechanism.cylinders.size() <= (std::numeric_limits<std::size_t>::max() -
-                                            1U - core.gas_path.exhaust_routes.size()) /
-                                               3U;
-    require(report, topology_inventory_representable,
-            ContractIssueCode::unsupported_value, "engine.physics_profile.gas_topology",
-            "physical topology inventory size is not representable");
-    if (!topology_inventory_representable) {
-        return report;
-    }
-    topology_physical_volumes.reserve(1U + core.gas_path.exhaust_routes.size() +
-                                      3U * core.mechanism.cylinders.size());
-    topology_physical_volumes.push_back({core.gas_path.intake_topology.plenum_volume_id,
-                                         contract::GasVolumeKind::intake_plenum});
-    for (const auto &route : core.gas_path.exhaust_routes) {
-        topology_physical_volumes.push_back(
-            {route.topology.collector_volume_id,
-             contract::GasVolumeKind::exhaust_collector});
-    }
-    for (const auto &cylinder : core.mechanism.cylinders) {
-        const auto &topology = cylinder.topology;
-        topology_physical_volumes.push_back(
-            {topology.intake_runner_volume_id, contract::GasVolumeKind::intake_runner});
-        topology_physical_volumes.push_back(
-            {topology.chamber_volume_id, contract::GasVolumeKind::cylinder});
-        topology_physical_volumes.push_back({topology.exhaust_primary_volume_id,
-                                             contract::GasVolumeKind::exhaust_primary});
-    }
-    sort_physical_volumes(topology_physical_volumes);
-    require(report, !topology_physical_volumes.empty(),
-            ContractIssueCode::missing_value, "engine.physics_profile.gas_topology",
-            "low-order gas topology must resolve at least one physical volume");
-    require(report,
-            std::ranges::adjacent_find(topology_physical_volumes, {},
-                                       &TopologyPhysicalVolume::id) ==
-                topology_physical_volumes.end(),
-            ContractIssueCode::duplicate_identity,
-            "engine.physics_profile.gas_topology",
-            "each physical gas volume must have exactly one low-order topology "
-            "role");
-    require(report, topology_physical_volumes == engine_physical_volumes,
-            ContractIssueCode::inconsistent_shape, "engine.gas_volumes",
-            "non-atmosphere EngineSpec volumes must exactly equal the low-order "
-            "topology's physical identity and role inventory");
-    compiled.physical_gas_volume_ids.reserve(topology_physical_volumes.size());
-    for (const auto &volume : topology_physical_volumes) {
-        compiled.physical_gas_volume_ids.push_back(volume.id);
-    }
 
     plan.flow_edges.reserve(engine.flow_edges.size());
     for (const auto &edge : engine.flow_edges) {
@@ -266,7 +231,7 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
     compiled.cylinder_chambers.reserve(engine.cylinders.size());
     for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
         const auto profile_index =
-            find_cylinder_profile_index(core, engine.cylinders[index].id);
+            find_cylinder_profile_index(selected_core, engine.cylinders[index].id);
         require(report, profile_index.has_value(),
                 ContractIssueCode::dangling_reference,
                 "engine.cylinders[" + std::to_string(index) + "]",
@@ -274,16 +239,24 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
         if (!profile_index.has_value()) {
             continue;
         }
-        const auto &topology = core.mechanism.cylinders[*profile_index].topology;
+        const auto &topology =
+            selected_core.mechanism.cylinders[*profile_index].topology;
         const auto chamber =
             find_id_index(engine.gas_volumes, topology.chamber_volume_id);
         const auto primary =
             find_id_index(engine.gas_volumes, topology.exhaust_primary_volume_id);
-        require(report, chamber.has_value() && primary.has_value(),
-                ContractIssueCode::dangling_reference,
+        const bool chamber_identity_matches =
+            chamber.has_value() && engine.gas_volumes[*chamber].kind.value ==
+                                       contract::GasVolumeKind::cylinder;
+        const bool primary_identity_matches =
+            primary.has_value() && engine.gas_volumes[*primary].kind.value ==
+                                       contract::GasVolumeKind::exhaust_primary;
+        require(report, chamber_identity_matches && primary_identity_matches,
+                ContractIssueCode::inconsistent_semantics,
                 "engine.cylinders[" + std::to_string(index) + "]",
-                "capture cylinder gas volumes do not resolve in engine order");
-        if (chamber.has_value() && primary.has_value()) {
+                "capture chamber and exhaust-primary identities must resolve to "
+                "their concrete EngineSpec roles");
+        if (chamber_identity_matches && primary_identity_matches) {
             plan.cylinder_bindings[index] = {*chamber, *primary};
         }
 
@@ -319,7 +292,8 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
     for (std::size_t index = 0; index < engine.ports.size(); ++index) {
         const auto &port = engine.ports[index];
         const auto cylinder_index = find_id_index(engine.cylinders, port.cylinder_id);
-        const auto profile_index = find_cylinder_profile_index(core, port.cylinder_id);
+        const auto profile_index =
+            find_cylinder_profile_index(selected_core, port.cylinder_id);
         require(report, cylinder_index.has_value() && profile_index.has_value(),
                 ContractIssueCode::dangling_reference,
                 "engine.ports[" + std::to_string(index) + "]",
@@ -327,7 +301,8 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
         if (!cylinder_index.has_value() || !profile_index.has_value()) {
             continue;
         }
-        const auto &topology = core.mechanism.cylinders[*profile_index].topology;
+        const auto &topology =
+            selected_core.mechanism.cylinders[*profile_index].topology;
         const bool intake = port.kind.value == contract::PortKind::intake;
         const bool exhaust = port.kind.value == contract::PortKind::exhaust;
         const bool identity_matches = (intake && topology.intake_port_id == port.id) ||
@@ -359,7 +334,7 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
     std::size_t public_exhaust_index = 0;
     for (std::size_t index = 0; index < engine.routes.size(); ++index) {
         const auto &route = engine.routes[index];
-        const auto profile_index = find_exhaust_profile_index(core, route.id);
+        const auto profile_index = find_exhaust_profile_index(selected_core, route.id);
         const bool exhaust =
             route.kind.value == contract::SourceRouteKind::exhaust_outlet;
         require(report, exhaust && profile_index.has_value(),
@@ -369,7 +344,8 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
         if (!exhaust || !profile_index.has_value()) {
             continue;
         }
-        const auto &topology = core.gas_path.exhaust_routes[*profile_index].topology;
+        const auto &topology =
+            selected_core.gas_path.exhaust_routes[*profile_index].topology;
         const auto source =
             find_id_index(engine.gas_volumes, topology.collector_volume_id);
         const auto outlet =

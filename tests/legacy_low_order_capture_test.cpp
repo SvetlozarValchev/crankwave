@@ -909,6 +909,32 @@ void expect_simulation_compile_rejected(const BmwM52b28ParityRequest &request,
            std::string{mutation} + " was admitted by the top-level compiler");
 }
 
+void test_declared_capture_capacity_drives_publication() {
+    auto request = make_short_bmw_request();
+    request.scenario.quality.value.capture_block_capacity_frames = 37U;
+    request.scenario.quality.value.event_journal_capacity_records = 37U * 19U;
+    auto capture = require_simulation(
+        compile_legacy_low_order_simulation_session(request.engine, request.scenario));
+
+    std::size_t callback_count = 0U;
+    const auto result = capture.publish_next_block([&](const CaptureBlockView &block) {
+        ++callback_count;
+        expect(block.frame_count() == 37U &&
+                   block.declared_block_capacity_frames() == 37U &&
+                   block.declared_event_journal_capacity_records() == 37U * 19U,
+               "session did not use the compiled capture transport bounds");
+        const auto report = validate(block, request.engine, request.scenario);
+        if (!report.ok()) {
+            fail_report("dynamic-capacity block failed validation", report);
+        }
+        return true;
+    });
+    const auto *published = std::get_if<LegacySimulationBlockPublished>(&result);
+    expect(published != nullptr && published->frame_count == 37U &&
+               published->published_sample_count == 37U && callback_count == 1U,
+           "dynamic-capacity block was not published atomically");
+}
+
 void test_capture_partition_admission_rejection() {
     {
         auto request = make_short_bmw_request();
@@ -922,21 +948,9 @@ void test_capture_partition_admission_rejection() {
     }
     {
         auto request = make_short_bmw_request();
-        request.scenario.quality.value.capture_block_capacity_frames = 199U;
-        expect_simulation_compile_rejected(request,
-                                           "noncanonical capture block capacity");
-    }
-    {
-        auto request = make_short_bmw_request();
         request.scenario.quality.value.event_journal_capacity_records = 3799U;
         expect_simulation_compile_rejected(request,
-                                           "noncanonical event-journal capacity");
-    }
-    {
-        auto request = make_short_bmw_request();
-        request.engine.cylinders.push_back(request.engine.cylinders.back());
-        expect_simulation_compile_rejected(
-            request, "cylinder count exceeding the M3 event bound");
+                                           "undersized event-journal capacity");
     }
     {
         auto request = make_short_bmw_request();
@@ -961,6 +975,7 @@ void test_capture_partition_admission_rejection() {
 
 void run_tests() {
     test_short_bmw_capture_mapping_and_completion();
+    test_declared_capture_capacity_drives_publication();
     test_consumer_rejection_is_a_stable_terminal_fault();
     test_consumer_exception_is_a_stable_terminal_fault();
     test_reentrant_publication_preserves_outer_view_and_faults();

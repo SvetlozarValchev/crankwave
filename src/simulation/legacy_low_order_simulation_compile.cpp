@@ -1,6 +1,6 @@
 #include "simulation/legacy_low_order_simulation.hpp"
 
-#include "simulation/legacy_low_order_capture_buffer.hpp"
+#include "simulation/low_order_capture_buffer.hpp"
 #include "simulation/low_order_capture_plan.hpp"
 
 #include <optional>
@@ -80,8 +80,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
         return report;
     }
 
-    auto capture_plan_result =
-        compile_low_order_capture_plan(engine, profile->core, scenario);
+    auto capture_plan_result = compile_low_order_capture_plan(engine, scenario);
     if (auto *capture_report = std::get_if<ValidationReport>(&capture_plan_result)) {
         for (auto &issue : capture_report->issues) {
             report.issues.push_back(std::move(issue));
@@ -99,7 +98,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
     }
     auto core_runtime = std::get<LowOrderEngineCoreV1Runtime>(std::move(core_result));
 
-    detail::LegacyLowOrderCaptureBuffer capture{std::move(capture_plan.capture_buffer)};
+    detail::LowOrderCaptureBuffer capture{std::move(capture_plan.capture_buffer)};
     return LegacyLowOrderSimulationSession{
         std::move(core_runtime),
         *torque_accounting,

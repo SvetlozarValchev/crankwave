@@ -1,6 +1,6 @@
 #include "simulation/legacy_low_order_simulation.hpp"
 
-#include "simulation/legacy_low_order_capture_buffer.hpp"
+#include "simulation/low_order_capture_buffer.hpp"
 
 #include <exception>
 #include <functional>
@@ -13,12 +13,11 @@ namespace engine_sim_offline::simulation {
 LegacyLowOrderSimulationSession::LegacyLowOrderSimulationSession(
     LowOrderEngineCoreV1Runtime core,
     LegacyFixedCrankTorqueAccountingPlan torque_accounting,
-    detail::LegacyLowOrderCaptureBuffer capture, std::uint64_t expected_samples,
+    detail::LowOrderCaptureBuffer capture, std::uint64_t expected_samples,
     std::string model_id, std::string profile_id, std::string scenario_id,
     contract::EngineId engine_id)
     : core_(std::move(core)), torque_accounting_(torque_accounting),
-      capture_(
-          std::make_unique<detail::LegacyLowOrderCaptureBuffer>(std::move(capture))),
+      capture_(std::make_unique<detail::LowOrderCaptureBuffer>(std::move(capture))),
       expected_samples_(expected_samples), model_id_(std::move(model_id)),
       profile_id_(std::move(profile_id)), scenario_id_(std::move(scenario_id)),
       engine_id_(engine_id) {}
@@ -103,7 +102,7 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
 
     capture_->begin_block(published_sample_count_);
     const LegacyMechanismStep *last_mechanics = nullptr;
-    for (std::uint32_t frame = 0; frame < kLegacyCaptureFramesPerBlock; ++frame) {
+    for (std::uint32_t frame = 0; frame < capture_->block_capacity_frames(); ++frame) {
         auto core_result = core_.advance();
         if (const auto *failure = std::get_if<contract::FailureContext>(&core_result)) {
             return fail(*failure);

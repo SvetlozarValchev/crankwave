@@ -295,7 +295,8 @@ void validate_event(ValidationReport &report, const EngineEvent &event,
                         "flame-extinction event references an unknown cylinder");
                 require(report, payload.gas_substep_index <= 7,
                         ContractIssueCode::invalid_value, path + ".gas_substep_index",
-                        "M3 flame-extinction gas substep must be in [0, 7]");
+                        "low-order reference-parity flame-extinction gas substep must "
+                        "be in [0, 7]");
                 require(report, known(payload.reason),
                         ContractIssueCode::unsupported_value, path + ".reason",
                         "flame-extinction reason is not recognized");
@@ -1021,7 +1022,8 @@ ValidationReport validate(const CaptureBlockView &block) {
                     require(report, category >= *previous_category,
                             ContractIssueCode::inconsistent_semantics,
                             path + ".payload",
-                            "M3 events must be ordered spark, limiter, "
+                            "low-order reference-parity events must be ordered spark, "
+                            "limiter, "
                             "ignition, extinction");
                 }
                 previous_category = category;
@@ -1035,7 +1037,8 @@ ValidationReport validate(const CaptureBlockView &block) {
                         require(report, *order > *previous_spark_cylinder,
                                 ContractIssueCode::inconsistent_semantics,
                                 path + ".cylinder_id",
-                                "M3 spark crossings must follow cylinder order");
+                                "low-order reference-parity spark crossings must "
+                                "follow cylinder order");
                     }
                     previous_spark_cylinder = order;
                 } else if (category == EventCategory::ignition && order.has_value()) {
@@ -1043,7 +1046,8 @@ ValidationReport validate(const CaptureBlockView &block) {
                         require(report, *order > *previous_ignition_cylinder,
                                 ContractIssueCode::inconsistent_semantics,
                                 path + ".cylinder_id",
-                                "M3 ignition results must follow cylinder order");
+                                "low-order reference-parity ignition results must "
+                                "follow cylinder order");
                     }
                     previous_ignition_cylinder = order;
                 } else if (category == EventCategory::extinction && order.has_value()) {
@@ -1057,7 +1061,8 @@ ValidationReport validate(const CaptureBlockView &block) {
                                      *order > *previous_extinction_cylinder),
                                 ContractIssueCode::inconsistent_semantics,
                                 path + ".payload",
-                                "M3 flame extinctions must follow gas-substep "
+                                "low-order reference-parity flame extinctions must "
+                                "follow gas-substep "
                                 "then cylinder order");
                     }
                     previous_extinction_substep = substep;
@@ -1066,31 +1071,47 @@ ValidationReport validate(const CaptureBlockView &block) {
             }
 
             if (block.reference_parity().has_value()) {
+                const auto cylinder_count = block.layout().cylinders().size();
                 require(
                     report,
                     category_counts[static_cast<std::size_t>(EventCategory::spark)] <=
-                        6,
+                        cylinder_count,
                     ContractIssueCode::inconsistent_shape, "event_journal",
-                    "M3 permits at most six spark crossings per frame");
+                    "low-order reference-parity permits at most one spark crossing per "
+                    "cylinder per frame");
                 require(
                     report,
                     category_counts[static_cast<std::size_t>(EventCategory::limiter)] <=
                         1,
                     ContractIssueCode::inconsistent_shape, "event_journal",
-                    "M3 permits at most one limiter transition per frame");
+                    "low-order reference-parity permits at most one limiter transition "
+                    "per frame");
                 require(report,
                         category_counts[static_cast<std::size_t>(
-                            EventCategory::ignition)] <= 6,
+                            EventCategory::ignition)] <= cylinder_count,
                         ContractIssueCode::inconsistent_shape, "event_journal",
-                        "M3 permits at most six ignition results per frame");
+                        "low-order reference-parity permits at most one ignition "
+                        "result per cylinder per "
+                        "frame");
                 require(report,
                         category_counts[static_cast<std::size_t>(
-                            EventCategory::extinction)] <= 6,
+                            EventCategory::extinction)] <= cylinder_count,
                         ContractIssueCode::inconsistent_shape, "event_journal",
-                        "M3 permits at most six flame extinctions per frame");
-                require(report, end - begin <= 19,
+                        "low-order reference-parity permits at most one flame "
+                        "extinction per cylinder per "
+                        "frame");
+                std::size_t cylinder_event_capacity = 0;
+                std::size_t composed_event_capacity = 0;
+                const bool capacity_representable =
+                    checked_product(cylinder_count, 3U, cylinder_event_capacity) &&
+                    checked_add(cylinder_event_capacity, 1U, composed_event_capacity);
+                require(report,
+                        capacity_representable &&
+                            end - begin <= composed_event_capacity,
                         ContractIssueCode::inconsistent_shape, "event_journal",
-                        "M3 reference-parity event capacity is 19 per frame");
+                        "low-order reference-parity frame exceeds three "
+                        "cylinder-scoped event classes plus "
+                        "one engine-wide limiter transition");
             }
         }
     }
@@ -1101,7 +1122,7 @@ ValidationReport validate(const CaptureBlockView &block) {
                 block.clock().rate == RationalRateHz{10000, 1} &&
                     block.clock().phase == SamplePhase::post_step,
                 ContractIssueCode::inconsistent_semantics, "clock",
-                "M3 reference parity requires exact 10000/1 Hz post-step "
+                "low-order reference parity requires exact 10000/1 Hz post-step "
                 "capture");
 
         std::uint64_t expected_first_timestamp = 0;
@@ -1111,14 +1132,16 @@ ValidationReport validate(const CaptureBlockView &block) {
                 timestamp_representable &&
                     block.clock().first_timestamp_tick == expected_first_timestamp,
                 ContractIssueCode::inconsistent_semantics, "clock.first_timestamp_tick",
-                "M3 post-step timestamp tick must equal first sample index "
+                "low-order reference-parity post-step timestamp tick must equal first "
+                "sample index "
                 "plus one");
 
         std::uint64_t expected_last_step = 0;
         const auto step_range_representable = checked_add_u64(
             block.clock().first_sample_index, block.frame_count(), expected_last_step);
         require(report, step_range_representable, ContractIssueCode::invalid_value,
-                "clock.first_sample_index", "M3 sample-to-step range overflows uint64");
+                "clock.first_sample_index",
+                "low-order reference-parity sample-to-step range overflows uint64");
         if (step_range_representable) {
             const auto comparable_frames = std::min(frame_count, block.engine().size());
             for (std::size_t frame = 0; frame < comparable_frames; ++frame) {
@@ -1131,7 +1154,8 @@ ValidationReport validate(const CaptureBlockView &block) {
                             block.engine()[frame].step_end_index == expected_step,
                         ContractIssueCode::inconsistent_semantics,
                         "engine[" + std::to_string(frame) + "].step_end_index",
-                        "M3 step-end index must equal sample index plus "
+                        "low-order reference-parity step-end index must equal sample "
+                        "index plus "
                         "one");
             }
         }
@@ -1161,7 +1185,8 @@ ValidationReport validate(const CaptureBlockView &block) {
                         sample.dynamic_pressure_reverse_pa >= 0.0,
                     ContractIssueCode::invalid_value,
                     "reference_parity.cylinders[" + std::to_string(index) + "]",
-                    "M3 primary static pressure must be positive and "
+                    "low-order reference-parity primary static pressure must be "
+                    "positive and "
                     "directional dynamic pressures nonnegative");
         }
     }

@@ -15,9 +15,6 @@
 
 namespace engine_sim_offline::simulation {
 
-inline constexpr std::uint32_t kLegacyCaptureFramesPerBlock = 200U;
-inline constexpr std::uint32_t kLegacyMaximumEventsPerFrame = 19U;
-
 using LegacyCaptureBlockConsumer =
     std::function<bool(const contract::CaptureBlockView &)>;
 
@@ -44,7 +41,7 @@ using LegacySimulationAdvanceResult =
                  contract::FailureContext>;
 
 namespace detail {
-class LegacyLowOrderCaptureBuffer;
+class LowOrderCaptureBuffer;
 }
 
 /**
@@ -65,7 +62,8 @@ class LegacyLowOrderSimulationSession final {
     operator=(LegacyLowOrderSimulationSession &&) noexcept;
     ~LegacyLowOrderSimulationSession();
 
-    // Builds, validates, and synchronously publishes at most one 200-frame block.
+    // Builds, validates, and synchronously publishes at most one declared-capacity
+    // block.
     // Consumer rejection or an exception is a stable terminal contract failure.
     [[nodiscard]] LegacySimulationAdvanceResult
     publish_next_block(const LegacyCaptureBlockConsumer &consumer);
@@ -79,7 +77,7 @@ class LegacyLowOrderSimulationSession final {
     LegacyLowOrderSimulationSession(
         LowOrderEngineCoreV1Runtime core,
         LegacyFixedCrankTorqueAccountingPlan torque_accounting,
-        detail::LegacyLowOrderCaptureBuffer capture, std::uint64_t expected_samples,
+        detail::LowOrderCaptureBuffer capture, std::uint64_t expected_samples,
         std::string model_id, std::string profile_id, std::string scenario_id,
         contract::EngineId engine_id);
 
@@ -91,7 +89,7 @@ class LegacyLowOrderSimulationSession final {
 
     LowOrderEngineCoreV1Runtime core_;
     LegacyFixedCrankTorqueAccountingPlan torque_accounting_;
-    std::unique_ptr<detail::LegacyLowOrderCaptureBuffer> capture_;
+    std::unique_ptr<detail::LowOrderCaptureBuffer> capture_;
     std::uint64_t expected_samples_ = 0;
     std::uint64_t published_sample_count_ = 0;
     std::uint64_t published_block_count_ = 0;

@@ -1,7 +1,6 @@
-#include "simulation/legacy_low_order_capture_buffer.hpp"
+#include "simulation/low_order_capture_buffer.hpp"
 
 #include "simulation/legacy_gas_primitives.hpp"
-#include "simulation/legacy_low_order_simulation.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -34,10 +33,10 @@ capture_mixture(const LegacyGasMixture &mixture) noexcept {
     };
 }
 
-[[nodiscard]] LegacyCaptureBufferFault shape_fault(std::string detail) {
-    LegacyCaptureBufferFault result;
+[[nodiscard]] LowOrderCaptureBufferFault shape_fault(std::string detail) {
+    LowOrderCaptureBufferFault result;
     result.kind = contract::FailureKind::contract_violation;
-    result.detail_code = "legacy-capture-step-shape-mismatch";
+    result.detail_code = "low-order-capture-step-shape-mismatch";
     result.state_summary = std::move(detail);
     return result;
 }
@@ -54,7 +53,7 @@ capture_mixture(const LegacyGasMixture &mixture) noexcept {
 
 } // namespace
 
-LegacyLowOrderCaptureBuffer::LegacyLowOrderCaptureBuffer(LegacyCaptureBufferPlan plan)
+LowOrderCaptureBuffer::LowOrderCaptureBuffer(LowOrderCaptureBufferPlan plan)
     : plan_(std::move(plan)) {
     const auto capacity =
         static_cast<std::size_t>(plan_.declared_block_capacity_frames);
@@ -70,8 +69,7 @@ LegacyLowOrderCaptureBuffer::LegacyLowOrderCaptureBuffer(LegacyCaptureBufferPlan
     parity_cylinders_.reserve(capacity * plan_.cylinders.size());
 }
 
-void LegacyLowOrderCaptureBuffer::begin_block(
-    std::uint64_t first_sample_index) noexcept {
+void LowOrderCaptureBuffer::begin_block(std::uint64_t first_sample_index) noexcept {
     first_sample_index_ = first_sample_index;
     frame_count_ = 0;
     engine_.clear();
@@ -87,10 +85,10 @@ void LegacyLowOrderCaptureBuffer::begin_block(
     event_offsets_.push_back(0U);
 }
 
-std::optional<LegacyCaptureBufferFault>
-LegacyLowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
-                                    const LegacyLowOrderGasStep &gas,
-                                    const contract::TorqueTelemetry &torque) {
+std::optional<LowOrderCaptureBufferFault>
+LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
+                              const LegacyLowOrderGasStep &gas,
+                              const contract::TorqueTelemetry &torque) {
     const auto expected_sample_index =
         first_sample_index_ + static_cast<std::uint64_t>(frame_count_);
     if (frame_count_ >= plan_.declared_block_capacity_frames ||
@@ -111,12 +109,12 @@ LegacyLowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
         return shape_fault("mechanics, gas, capture clock, or entity shape diverged "
                            "from the compiled capture plan");
     }
-    if (gas.events.size() > kLegacyMaximumEventsPerFrame ||
+    if (gas.events.size() > plan_.maximum_events_per_frame ||
         add_overflows(events_.size(), gas.events.size()) ||
         events_.size() + gas.events.size() > plan_.declared_event_capacity_records) {
-        LegacyCaptureBufferFault failure;
+        LowOrderCaptureBufferFault failure;
         failure.kind = contract::FailureKind::event_schedule_violation;
-        failure.detail_code = "legacy-capture-event-capacity-exceeded";
+        failure.detail_code = "low-order-capture-event-capacity-exceeded";
         failure.state_summary =
             "composed events exceed the per-frame or block event-journal capacity";
         return failure;
@@ -160,9 +158,9 @@ LegacyLowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
     }
     for (std::size_t index = 0; index < gas.events.size(); ++index) {
         if (gas.events[index].ordinal_within_step != static_cast<std::uint8_t>(index)) {
-            LegacyCaptureBufferFault failure;
+            LowOrderCaptureBufferFault failure;
             failure.kind = contract::FailureKind::event_schedule_violation;
-            failure.detail_code = "legacy-capture-event-order-invalid";
+            failure.detail_code = "low-order-capture-event-order-invalid";
             failure.state_summary =
                 "gas event ordinals are not contiguous execution order";
             return failure;
@@ -330,7 +328,7 @@ LegacyLowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
     return std::nullopt;
 }
 
-contract::CaptureBlockView LegacyLowOrderCaptureBuffer::view() const noexcept {
+contract::CaptureBlockView LowOrderCaptureBuffer::view() const noexcept {
     const auto layout = contract::CaptureLayoutView::borrow_for_callback(
         plan_.engine_id, plan_.cylinders, plan_.ports, plan_.gas_volumes,
         plan_.flow_edges, plan_.routes);
@@ -351,11 +349,15 @@ contract::CaptureBlockView LegacyLowOrderCaptureBuffer::view() const noexcept {
         gas_volumes_, flow_edges_, routes_, journal, parity);
 }
 
-std::uint32_t LegacyLowOrderCaptureBuffer::frame_count() const noexcept {
+std::uint32_t LowOrderCaptureBuffer::frame_count() const noexcept {
     return frame_count_;
 }
 
-std::uint64_t LegacyLowOrderCaptureBuffer::first_sample_index() const noexcept {
+std::uint32_t LowOrderCaptureBuffer::block_capacity_frames() const noexcept {
+    return plan_.declared_block_capacity_frames;
+}
+
+std::uint64_t LowOrderCaptureBuffer::first_sample_index() const noexcept {
     return first_sample_index_;
 }
 

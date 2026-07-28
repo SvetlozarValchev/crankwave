@@ -128,7 +128,7 @@ add_library(
         src/simulation/legacy_ignition_schedule.cpp
         src/simulation/legacy_low_order_gas.cpp
         src/simulation/legacy_low_order_gas_compile.cpp
-        src/simulation/legacy_low_order_capture_buffer.cpp
+        src/simulation/low_order_capture_buffer.cpp
         src/simulation/legacy_low_order_mechanics.cpp
         src/simulation/legacy_low_order_mechanics_compile.cpp
         src/simulation/legacy_low_order_simulation.cpp

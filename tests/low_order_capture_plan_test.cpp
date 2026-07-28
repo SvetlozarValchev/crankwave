@@ -1,10 +1,13 @@
 #include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/low_order_capture_plan.hpp"
+#include "simulation/low_order_engine_core_v1_runtime.hpp"
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -80,19 +83,20 @@ void verify_chamber_mapping(const simulation::LowOrderCapturePlan &plan,
 
 void test_physical_inventory_is_stable_and_excludes_atmosphere() {
     auto request = make_request();
-    const auto &core =
+    const auto &baseline_core =
         std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
             .core;
     const auto expected = expected_physical_inventory(request.engine);
-    const auto baseline = require_plan(simulation::compile_low_order_capture_plan(
-        request.engine, core, request.scenario));
+    const auto baseline = require_plan(
+        simulation::compile_low_order_capture_plan(request.engine, request.scenario));
     const auto expected_horizon = contract::resolve_frame_index(
         request.scenario.total_duration_s.value, request.scenario.rates.capture);
 
     expect(expected_horizon.has_value() &&
                baseline.capture_horizon_frames == *expected_horizon &&
                baseline.capture_buffer.declared_block_capacity_frames == 200U &&
-               baseline.capture_buffer.declared_event_capacity_records == 3800U,
+               baseline.capture_buffer.declared_event_capacity_records == 3800U &&
+               baseline.capture_buffer.maximum_events_per_frame == 19U,
            "capture horizon or bounded storage capacities changed");
     expect(!expected.empty() && baseline.physical_gas_volume_ids == expected &&
                std::ranges::none_of(
@@ -106,13 +110,18 @@ void test_physical_inventory_is_stable_and_excludes_atmosphere() {
                    }),
            "physical inventory retained atmosphere, omitted a volume, or changed "
            "ascending ID order");
-    verify_chamber_mapping(baseline, request.engine, core);
+    verify_chamber_mapping(baseline, request.engine, baseline_core);
 
     std::ranges::reverse(request.engine.gas_volumes);
     std::ranges::rotate(request.engine.cylinders,
                         request.engine.cylinders.begin() + 2U);
-    const auto reordered = require_plan(simulation::compile_low_order_capture_plan(
-        request.engine, core, request.scenario));
+    auto &reordered_core =
+        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
+            .core;
+    std::ranges::rotate(reordered_core.mechanism.cylinders,
+                        reordered_core.mechanism.cylinders.begin() + 2U);
+    const auto reordered = require_plan(
+        simulation::compile_low_order_capture_plan(request.engine, request.scenario));
     expect(reordered.physical_gas_volume_ids == baseline.physical_gas_volume_ids &&
                reordered.cylinder_chambers == baseline.cylinder_chambers,
            "physical inventory or chamber mapping depends on EngineSpec vector "
@@ -127,12 +136,29 @@ void test_physical_inventory_is_stable_and_excludes_atmosphere() {
                reordered.capture_buffer.cylinders.back() ==
                    request.engine.cylinders.back().id,
            "public cylinder capture layout stopped retaining EngineSpec order");
-    verify_chamber_mapping(reordered, request.engine, core);
+    verify_chamber_mapping(reordered, request.engine, reordered_core);
+
+    auto &rpm = std::get<contract::FixedRateRpmTrajectory>(
+        std::get<contract::PrescribedKinematicSweep>(request.scenario.mode)
+            .trajectory.rpm);
+    rpm.post_step_rpm.assign(170000U, 2400.0);
+    rpm.samples_f64le_sha256 =
+        contract::canonical_binary64_le_sha256(rpm.post_step_rpm);
+    auto core_runtime = simulation::compile_low_order_engine_core_v1_runtime(
+        request.engine, request.scenario, reordered_core);
+    if (const auto *report = std::get_if<contract::ValidationReport>(&core_runtime)) {
+        std::string message =
+            "matching EngineSpec/core cylinder permutation is not executable";
+        for (const auto &issue : report->issues) {
+            message += "\n  " + issue.path + ": " + issue.message;
+        }
+        throw std::runtime_error{std::move(message)};
+    }
 }
 
 void test_nonphysical_chamber_topology_is_rejected() {
     auto request = make_request();
-    auto core =
+    auto &core =
         std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
             .core;
     const auto atmosphere =
@@ -143,52 +169,109 @@ void test_nonphysical_chamber_topology_is_rejected() {
            "fixture has no atmosphere volume");
     core.mechanism.cylinders.front().topology.chamber_volume_id = atmosphere->id;
 
-    const auto result = simulation::compile_low_order_capture_plan(request.engine, core,
-                                                                   request.scenario);
+    const auto result =
+        simulation::compile_low_order_capture_plan(request.engine, request.scenario);
     const auto *report = std::get_if<contract::ValidationReport>(&result);
     expect(report != nullptr && !report->ok() &&
                std::ranges::any_of(
                    report->issues,
                    [](const auto &issue) {
                        return issue.code ==
-                                  contract::ContractIssueCode::inconsistent_shape &&
-                              issue.path == "engine.gas_volumes";
+                                  contract::ContractIssueCode::inconsistent_semantics &&
+                              issue.path == "engine.cylinders[0]";
                    }),
            "nonphysical cylinder-chamber topology was admitted");
 }
 
-void test_physical_inventory_requires_exact_topology_roles() {
+void test_cylinder_chamber_requires_concrete_engine_role() {
     auto request = make_request();
     const auto &core =
         std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
             .core;
-    const auto collector =
-        std::ranges::find_if(request.engine.gas_volumes, [](const auto &volume) {
-            return volume.kind.value == contract::GasVolumeKind::exhaust_collector;
-        });
-    expect(collector != request.engine.gas_volumes.end(),
-           "fixture has no exhaust collector");
-    collector->kind.value = contract::GasVolumeKind::cylinder;
+    const auto chamber_id = core.mechanism.cylinders.front().topology.chamber_volume_id;
+    const auto chamber = std::ranges::find(request.engine.gas_volumes, chamber_id,
+                                           &contract::GasVolumeSpec::id);
+    expect(chamber != request.engine.gas_volumes.end(),
+           "fixture has no first-cylinder chamber");
+    chamber->kind.value = contract::GasVolumeKind::exhaust_collector;
 
-    const auto result = simulation::compile_low_order_capture_plan(request.engine, core,
-                                                                   request.scenario);
+    const auto result =
+        simulation::compile_low_order_capture_plan(request.engine, request.scenario);
     const auto *report = std::get_if<contract::ValidationReport>(&result);
     expect(report != nullptr && !report->ok() &&
                std::ranges::any_of(
                    report->issues,
                    [](const auto &issue) {
                        return issue.code ==
-                                  contract::ContractIssueCode::inconsistent_shape &&
-                              issue.path == "engine.gas_volumes";
+                                  contract::ContractIssueCode::inconsistent_semantics &&
+                              issue.path == "engine.cylinders[0]";
                    }),
-           "EngineSpec physical role inventory diverged from topology without "
-           "rejection");
+           "cylinder chamber was admitted with a non-cylinder EngineSpec role");
+}
+
+void test_capacity_derivation_is_shape_driven() {
+    expect(simulation::maximum_low_order_events_per_frame(6U) ==
+                   std::optional<std::uint32_t>{19U} &&
+               simulation::maximum_low_order_events_per_frame(8U) ==
+                   std::optional<std::uint32_t>{25U} &&
+               simulation::maximum_low_order_events_per_frame(85U) ==
+                   std::optional<std::uint32_t>{256U} &&
+               !simulation::maximum_low_order_events_per_frame(86U).has_value(),
+           "low-order event capacity is not 3*cylinders+1 within uint8 ordinal "
+           "capacity");
+
+    auto request = make_request();
+    request.scenario.quality.value.capture_block_capacity_frames = 37U;
+    request.scenario.quality.value.event_journal_capacity_records = 37U * 19U;
+    const auto plan = require_plan(
+        simulation::compile_low_order_capture_plan(request.engine, request.scenario));
+    expect(plan.capture_buffer.declared_block_capacity_frames == 37U &&
+               plan.capture_buffer.declared_event_capacity_records == 37U * 19U &&
+               plan.capture_buffer.maximum_events_per_frame == 19U,
+           "capture plan retained the former 200/3800 transport ceiling");
+
+    const auto operating =
+        profiles::detail::build_bmw_m52b28_operating_profile_unvalidated();
+    request.scenario.engine_profile_id = operating.engine.profile_id.value;
+    const auto transplanted =
+        simulation::compile_low_order_capture_plan(request.engine, request.scenario);
+    const auto *transplant_report =
+        std::get_if<contract::ValidationReport>(&transplanted);
+    expect(transplant_report != nullptr && !transplant_report->ok() &&
+               std::ranges::any_of(transplant_report->issues,
+                                   [](const auto &issue) {
+                                       return issue.path ==
+                                              "scenario.engine_profile_id";
+                                   }),
+           "capture plan admitted a scenario from a different engine profile");
+
+    const auto operating_plan = require_plan(
+        simulation::compile_low_order_capture_plan(operating.engine, request.scenario));
+    expect(operating_plan.capture_buffer.maximum_events_per_frame == 19U &&
+               operating_plan.physical_gas_volume_ids == plan.physical_gas_volume_ids,
+           "capture plan did not select the shared core from the operating-profile "
+           "variant");
+
+    request.scenario.engine_profile_id = request.engine.profile_id.value;
+    --request.scenario.quality.value.event_journal_capacity_records;
+    const auto insufficient =
+        simulation::compile_low_order_capture_plan(request.engine, request.scenario);
+    const auto *report = std::get_if<contract::ValidationReport>(&insufficient);
+    expect(report != nullptr && !report->ok() &&
+               std::ranges::any_of(report->issues,
+                                   [](const auto &issue) {
+                                       return issue.path ==
+                                              "scenario.quality.value."
+                                              "event_journal_capacity_records";
+                                   }),
+           "capture plan admitted a journal smaller than the full-block worst case");
 }
 
 void run_tests() {
+    test_capacity_derivation_is_shape_driven();
     test_physical_inventory_is_stable_and_excludes_atmosphere();
     test_nonphysical_chamber_topology_is_rejected();
-    test_physical_inventory_requires_exact_topology_roles();
+    test_cylinder_chamber_requires_concrete_engine_role();
 }
 
 } // namespace
