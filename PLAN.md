@@ -456,6 +456,8 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
 - [x] Implement the minimum sourced gas, ignition, combustion, friction, and pumping
       models.
 - [x] Publish required pressure, flow, phase, and torque observables.
+- [x] Convert validated capture blocks into bounded, fixture-free two-route exhaust
+      excitation with persistent propagation delay and diagnostic observables.
 - [ ] Connect clean-slate physics to the already accepted renderer without changing
       that renderer.
 - [ ] Render the canonical 15-second pull.

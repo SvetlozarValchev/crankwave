@@ -272,6 +272,31 @@ target_link_libraries(
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_presentation)
 
+add_library(
+    engine_sim_offline_excitation
+    STATIC
+        src/excitation/captured_exhaust_excitation.cpp
+        src/excitation/captured_exhaust_excitation_compile.cpp
+)
+add_library(
+    engine_sim_offline::excitation
+    ALIAS engine_sim_offline_excitation
+)
+
+target_include_directories(
+    engine_sim_offline_excitation
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_excitation
+    PUBLIC
+        engine_sim_offline::contract
+    PRIVATE engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_excitation)
+
 if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     include(cmake/RendererSourceStamp.cmake)
 
@@ -598,6 +623,7 @@ set(
     engine_sim_offline_artifacts
     engine_sim_offline_dsp
     engine_sim_offline_presentation
+    engine_sim_offline_excitation
 )
 if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     list(

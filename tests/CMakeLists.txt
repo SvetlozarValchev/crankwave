@@ -741,6 +741,29 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_legacy_low_order_exhaust_excitation_tests
+    legacy_low_order_exhaust_excitation_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_legacy_low_order_exhaust_excitation_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_legacy_low_order_exhaust_excitation_tests
+    PRIVATE
+        engine_sim_offline::excitation
+        engine_sim_offline::profiles
+)
+
+add_test(
+    NAME excitation.legacy_low_order_exhaust
+    COMMAND engine_sim_offline_legacy_low_order_exhaust_excitation_tests
+)
+
+add_executable(
     engine_sim_offline_bmw_m52b28_mechanics_parity_tests
     bmw_m52b28_mechanics_parity_test.cpp
 )
