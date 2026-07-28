@@ -1,10 +1,12 @@
 #include "engine_sim_offline/contract/scenario.hpp"
 
 #include "engine_sim_offline/contract/engine.hpp"
+#include "sha256_stream.hpp"
 #include "validation_support.hpp"
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <limits>
 #include <string>
@@ -14,6 +16,25 @@
 #include <utility>
 
 namespace engine_sim_offline::contract {
+
+Sha256Digest canonical_binary64_le_sha256(std::span<const double> samples) noexcept {
+    static_assert(sizeof(double) == sizeof(std::uint64_t));
+    static_assert(std::numeric_limits<double>::is_iec559);
+    static_assert(std::numeric_limits<double>::digits == 53);
+
+    detail::Sha256Stream hash;
+    for (const auto &sample : samples) {
+        const auto bits = std::bit_cast<std::uint64_t>(sample);
+        std::array<std::byte, sizeof(bits)> bytes{};
+        for (std::size_t index = 0; index < bytes.size(); ++index) {
+            bytes[index] =
+                static_cast<std::byte>((bits >> (index * 8U)) & UINT64_C(0xff));
+        }
+        hash.update(bytes);
+    }
+    return hash.finish();
+}
+
 namespace {
 
 bool checked_add_u64(std::uint64_t lhs, std::uint64_t rhs,
@@ -102,6 +123,35 @@ void validate_trajectory(ValidationReport &report, const ScalarTrajectory &traje
                 ContractIssueCode::inconsistent_semantics, path + ".points",
                 "linear trajectory must explicitly cover the scenario endpoint");
     }
+}
+
+void validate_fixed_rate_rpm_trajectory(ValidationReport &report,
+                                        const FixedRateRpmTrajectory &trajectory,
+                                        const ProvenanceLedger &provenance,
+                                        const std::string &path) {
+    using detail::finite;
+    using detail::require;
+
+    validate_resolution_id(report, trajectory.resolution_id, provenance,
+                           path + ".resolution_id", path);
+    require(report, trajectory.semantics == RpmSampleSemantics::post_step_rpm,
+            ContractIssueCode::unsupported_value, path + ".semantics",
+            "fixed-rate RPM trajectory must contain post-step RPM samples");
+    require(report, !trajectory.post_step_rpm.empty(), ContractIssueCode::missing_value,
+            path + ".post_step_rpm",
+            "fixed-rate RPM trajectory must contain at least one post-step sample");
+    for (std::size_t index = 0; index < trajectory.post_step_rpm.size(); ++index) {
+        const auto sample_path = path + ".post_step_rpm[" + std::to_string(index) + "]";
+        const auto sample = trajectory.post_step_rpm[index];
+        require(report, finite(sample) && sample >= 0.0,
+                ContractIssueCode::invalid_value, sample_path,
+                "post-step RPM sample must be finite and nonnegative");
+    }
+    require(report,
+            trajectory.samples_f64le_sha256 ==
+                canonical_binary64_le_sha256(trajectory.post_step_rpm),
+            ContractIssueCode::inconsistent_semantics, path + ".samples_f64le_sha256",
+            "fixed-rate RPM sample hash does not match the owned sample vector");
 }
 
 } // namespace
@@ -247,8 +297,40 @@ ValidationReport validate_clock_grid(const RenderScenario &scenario) {
             [&](const auto &mode) {
                 using T = std::decay_t<decltype(mode)>;
                 if constexpr (std::is_same_v<T, PrescribedKinematicSweep>) {
-                    validate_trajectory_grid(mode.trajectory.rpm,
-                                             "physics.mode.trajectory.rpm");
+                    std::visit(
+                        [&](const auto &rpm) {
+                            using Rpm = std::decay_t<decltype(rpm)>;
+                            if constexpr (std::is_same_v<Rpm, ScalarTrajectory>) {
+                                validate_trajectory_grid(rpm,
+                                                         "physics.mode.trajectory.rpm");
+                            } else {
+                                detail::append_prefixed(
+                                    report, validate(rpm.rate),
+                                    "physics.mode.trajectory.rpm.rate");
+                                require(
+                                    report, rpm.first_step_index == 0,
+                                    ContractIssueCode::inconsistent_semantics,
+                                    "physics.mode.trajectory.rpm.first_step_index",
+                                    "post-step RPM trajectory must begin at physics "
+                                    "step zero");
+                                require(report, rpm.rate == scenario.rates.physics,
+                                        ContractIssueCode::inconsistent_semantics,
+                                        "physics.mode.trajectory.rpm.rate",
+                                        "fixed-rate RPM trajectory rate must equal the "
+                                        "physics rate");
+                                const auto total =
+                                    resolve_frame_index(scenario.total_duration_s.value,
+                                                        scenario.rates.physics);
+                                if (total.has_value()) {
+                                    require(report, rpm.post_step_rpm.size() == *total,
+                                            ContractIssueCode::inconsistent_shape,
+                                            "physics.mode.trajectory.rpm.post_step_rpm",
+                                            "post-step RPM sample count must equal the "
+                                            "total physics-frame count");
+                                }
+                            }
+                        },
+                        mode.trajectory.rpm);
                     validate_trajectory_grid(mode.throttle_01,
                                              "physics.mode.throttle_01");
                 } else if constexpr (std::is_same_v<T, InertialDyno>) {
@@ -515,9 +597,20 @@ ValidationReport validate(const RenderScenario &scenario,
                 append_prefixed(report,
                                 validate(mode.trajectory.kinematic_resolution.value),
                                 "mode.trajectory.kinematic_resolution");
-                validate_trajectory(report, mode.trajectory.rpm, provenance,
-                                    scenario.total_duration_s.value, false, true,
-                                    "scenario.mode.trajectory.rpm");
+                std::visit(
+                    [&](const auto &rpm) {
+                        using Rpm = std::decay_t<decltype(rpm)>;
+                        if constexpr (std::is_same_v<Rpm, ScalarTrajectory>) {
+                            validate_trajectory(report, rpm, provenance,
+                                                scenario.total_duration_s.value, false,
+                                                true, "scenario.mode.trajectory.rpm");
+                        } else {
+                            validate_fixed_rate_rpm_trajectory(
+                                report, rpm, provenance,
+                                "scenario.mode.trajectory.rpm");
+                        }
+                    },
+                    mode.trajectory.rpm);
                 validate_trajectory(report, mode.throttle_01, provenance,
                                     scenario.total_duration_s.value, true, false,
                                     "scenario.mode.throttle_01");

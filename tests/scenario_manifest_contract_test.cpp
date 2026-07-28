@@ -1,7 +1,9 @@
 #include "contract_test_support.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <limits>
 #include <string_view>
 
 namespace engine_sim_offline::contract::test {
@@ -50,6 +52,143 @@ void run_scenario_manifest_contract_tests() {
            "valid resolved engine was rejected");
     expect(validate(simulation_inputs(content).scenario, builder.provenance).ok(),
            "valid tagged scenario was rejected");
+
+    const std::array canonical_hash_samples{0.0, 1.0, -0.0, 3000.5};
+    const Sha256Digest expected_canonical_hash{{
+        0x3f, 0x13, 0x22, 0x14, 0xc2, 0xed, 0xab, 0xb5, 0xc5, 0xff, 0x74,
+        0xbd, 0x43, 0x06, 0x50, 0x3c, 0xb1, 0xf7, 0x04, 0x90, 0x71, 0x2a,
+        0x98, 0xad, 0x23, 0xb3, 0xcd, 0x03, 0xe7, 0x06, 0xa6, 0x1c,
+    }};
+    expect(canonical_binary64_le_sha256(canonical_hash_samples) ==
+               expected_canonical_hash,
+           "canonical binary64 little-endian RPM hash changed");
+
+    InputBuilder fixed_rpm_builder;
+    auto fixed_rpm_content = make_manifest_content(fixed_rpm_builder);
+    auto fixed_rpm_scenario = simulation_inputs(fixed_rpm_content).scenario;
+    const auto throttle_resolution_id =
+        std::get<HeldSpeed>(fixed_rpm_scenario.mode).throttle_01.resolution_id;
+    const auto fixed_rpm_frame_count = resolve_frame_index(
+        fixed_rpm_scenario.total_duration_s.value, fixed_rpm_scenario.rates.physics);
+    expect(fixed_rpm_frame_count.has_value(),
+           "fixed-rate RPM test horizon did not resolve to physics frames");
+
+    FixedRateRpmTrajectory fixed_rpm{
+        fixed_rpm_scenario.rates.physics,
+        0,
+        RpmSampleSemantics::post_step_rpm,
+        std::vector<double>(static_cast<std::size_t>(*fixed_rpm_frame_count), 3000.0),
+        {},
+        fixed_rpm_builder.add_resolution("scenario.mode.trajectory.rpm"),
+    };
+    fixed_rpm.samples_f64le_sha256 =
+        canonical_binary64_le_sha256(fixed_rpm.post_step_rpm);
+    PrescribedKinematicSweep fixed_sweep;
+    fixed_sweep.trajectory.rpm = std::move(fixed_rpm);
+    fixed_sweep.trajectory.initial_theta_rad =
+        fixed_rpm_builder.resolved(0.0, "scenario.mode.trajectory.initial_theta_rad");
+    fixed_sweep.trajectory.kinematic_resolution =
+        fixed_rpm_builder.resolved(method("fixed-rate-post-step-rpm-binary64-v1", 42),
+                                   "scenario.mode.trajectory.kinematic_resolution");
+    fixed_sweep.throttle_01 = {
+        TrajectoryInterpolation::right_continuous_hold,
+        {{0.0, 0.85}},
+        throttle_resolution_id,
+    };
+    fixed_rpm_scenario.mode = std::move(fixed_sweep);
+    expect(validate(fixed_rpm_scenario, fixed_rpm_builder.provenance).ok(),
+           "valid owned fixed-rate RPM trajectory was rejected");
+
+    auto keyframed_rpm_scenario = fixed_rpm_scenario;
+    auto &keyframed_rpm =
+        std::get<PrescribedKinematicSweep>(keyframed_rpm_scenario.mode).trajectory.rpm;
+    const auto trajectory_resolution_id =
+        std::get<FixedRateRpmTrajectory>(keyframed_rpm).resolution_id;
+    keyframed_rpm = ScalarTrajectory{
+        TrajectoryInterpolation::linear,
+        {{0.0, 1000.0}, {3.0, 3000.0}},
+        trajectory_resolution_id,
+    };
+    expect(validate(keyframed_rpm_scenario, fixed_rpm_builder.provenance).ok(),
+           "existing keyframed RPM trajectory alternative was rejected");
+
+    auto nonfinite_fixed_rpm = fixed_rpm_scenario;
+    std::get<FixedRateRpmTrajectory>(
+        std::get<PrescribedKinematicSweep>(nonfinite_fixed_rpm.mode).trajectory.rpm)
+        .post_step_rpm[0] = std::numeric_limits<double>::quiet_NaN();
+    auto fixed_rpm_report = validate(nonfinite_fixed_rpm, fixed_rpm_builder.provenance);
+    expect(!fixed_rpm_report.ok() &&
+               has_issue(fixed_rpm_report, ContractIssueCode::invalid_value,
+                         "post_step_rpm[0]"),
+           "non-finite fixed-rate RPM sample was accepted");
+
+    auto negative_fixed_rpm = fixed_rpm_scenario;
+    std::get<FixedRateRpmTrajectory>(
+        std::get<PrescribedKinematicSweep>(negative_fixed_rpm.mode).trajectory.rpm)
+        .post_step_rpm[0] = -1.0;
+    fixed_rpm_report = validate(negative_fixed_rpm, fixed_rpm_builder.provenance);
+    expect(!fixed_rpm_report.ok() &&
+               has_issue(fixed_rpm_report, ContractIssueCode::invalid_value,
+                         "post_step_rpm[0]"),
+           "negative fixed-rate RPM sample was accepted");
+
+    auto unhashed_fixed_rpm = fixed_rpm_scenario;
+    std::get<FixedRateRpmTrajectory>(
+        std::get<PrescribedKinematicSweep>(unhashed_fixed_rpm.mode).trajectory.rpm)
+        .post_step_rpm[0] += 1.0;
+    fixed_rpm_report = validate(unhashed_fixed_rpm, fixed_rpm_builder.provenance);
+    expect(!fixed_rpm_report.ok() &&
+               has_issue(fixed_rpm_report, ContractIssueCode::inconsistent_semantics,
+                         "samples_f64le_sha256"),
+           "fixed-rate RPM samples were allowed to disagree with their hash");
+
+    auto offset_fixed_rpm = fixed_rpm_scenario;
+    std::get<FixedRateRpmTrajectory>(
+        std::get<PrescribedKinematicSweep>(offset_fixed_rpm.mode).trajectory.rpm)
+        .first_step_index = 1;
+    fixed_rpm_report = validate(offset_fixed_rpm, fixed_rpm_builder.provenance);
+    expect(!fixed_rpm_report.ok() &&
+               has_issue(fixed_rpm_report, ContractIssueCode::inconsistent_semantics,
+                         "first_step_index"),
+           "fixed-rate RPM trajectory with a nonzero first step was accepted");
+
+    auto wrong_semantics_fixed_rpm = fixed_rpm_scenario;
+    std::get<FixedRateRpmTrajectory>(
+        std::get<PrescribedKinematicSweep>(wrong_semantics_fixed_rpm.mode)
+            .trajectory.rpm)
+        .semantics = static_cast<RpmSampleSemantics>(255);
+    fixed_rpm_report =
+        validate(wrong_semantics_fixed_rpm, fixed_rpm_builder.provenance);
+    expect(!fixed_rpm_report.ok() &&
+               has_issue(fixed_rpm_report, ContractIssueCode::unsupported_value,
+                         "semantics"),
+           "unsupported fixed-rate RPM sample semantics were accepted");
+
+    auto wrong_rate_fixed_rpm = fixed_rpm_scenario;
+    std::get<FixedRateRpmTrajectory>(
+        std::get<PrescribedKinematicSweep>(wrong_rate_fixed_rpm.mode).trajectory.rpm)
+        .rate = {5000, 1};
+    fixed_rpm_report = validate(wrong_rate_fixed_rpm, fixed_rpm_builder.provenance);
+    expect(!fixed_rpm_report.ok() &&
+               has_issue(fixed_rpm_report, ContractIssueCode::inconsistent_semantics,
+                         "trajectory.rpm.rate"),
+           "fixed-rate RPM trajectory rate was allowed to differ from physics");
+
+    auto short_fixed_rpm = fixed_rpm_scenario;
+    auto &short_samples =
+        std::get<FixedRateRpmTrajectory>(
+            std::get<PrescribedKinematicSweep>(short_fixed_rpm.mode).trajectory.rpm)
+            .post_step_rpm;
+    short_samples.pop_back();
+    std::get<FixedRateRpmTrajectory>(
+        std::get<PrescribedKinematicSweep>(short_fixed_rpm.mode).trajectory.rpm)
+        .samples_f64le_sha256 = canonical_binary64_le_sha256(short_samples);
+    fixed_rpm_report = validate(short_fixed_rpm, fixed_rpm_builder.provenance);
+    expect(!fixed_rpm_report.ok() &&
+               has_issue(fixed_rpm_report, ContractIssueCode::inconsistent_shape,
+                         "post_step_rpm"),
+           "fixed-rate RPM sample count was allowed to differ from physics frames");
+
     auto unbounded_event_journal = simulation_inputs(content).scenario;
     unbounded_event_journal.quality.value.event_journal_capacity_records = 0;
     expect(!validate(unbounded_event_journal, builder.provenance).ok(),

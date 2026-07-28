@@ -89,8 +89,24 @@ struct ScalarTrajectory {
                            const ScalarTrajectory &) = default;
 };
 
+enum class RpmSampleSemantics : std::uint8_t {
+    post_step_rpm,
+};
+
+struct FixedRateRpmTrajectory {
+    RationalRateHz rate;
+    std::uint64_t first_step_index = 0;
+    RpmSampleSemantics semantics = RpmSampleSemantics::post_step_rpm;
+    std::vector<double> post_step_rpm;
+    Sha256Digest samples_f64le_sha256;
+    std::string resolution_id;
+
+    friend bool operator==(const FixedRateRpmTrajectory &,
+                           const FixedRateRpmTrajectory &) = default;
+};
+
 struct RpmTrajectory {
-    ScalarTrajectory rpm;
+    std::variant<ScalarTrajectory, FixedRateRpmTrajectory> rpm;
     ResolvedValue<double> initial_theta_rad;
     ResolvedValue<MethodIdentity> kinematic_resolution;
 
@@ -203,6 +219,10 @@ struct RenderScenario {
     friend bool operator==(const RenderScenario &, const RenderScenario &) = default;
 };
 
+// Hashes the raw IEEE-754 binary64 bit pattern of each sample in little-endian
+// order, with no header or sample-count prefix.
+[[nodiscard]] Sha256Digest
+canonical_binary64_le_sha256(std::span<const double> samples) noexcept;
 [[nodiscard]] ValidationReport validate(const RenderScenario &scenario,
                                         const ProvenanceLedger &provenance);
 // Resolves every fixed-rate horizon and authored control boundary to an integer
