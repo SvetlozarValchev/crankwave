@@ -54,6 +54,20 @@ prescribed-motion method is
 `fixed-rate-post-step-rpm-binary64-v1`, version 1, with this request record's eventual
 committed content hash as its configuration identity.
 
+Derived request leaves use the following version-1 method identities. Each method's
+configuration identity is the content hash of `M3_PARITY_MODEL.md`; their dependency
+paths remain part of each provenance resolution rather than being hidden in the ID:
+
+| Method ID | Derived request value |
+|---|---|
+| `geometric-cylinder-displacement-std-pi-v1` | Generic `EngineSpec` displacement |
+| `legacy-slider-crank-compression-ratio-v1` | Per-cylinder compression ratio |
+| `legacy-flow-constant-v1` | Restriction/flow-table `resolved_k` |
+| `collector-volume-over-area-v1` | Exhaust collector/system length |
+| `legacy-propagation-delay-round-v1` | Integer source propagation delay |
+| `legacy-pseudo-gas-mass-afr-v1` | Scenario mass-AFR metadata |
+| `scenario-audible-duration-subtraction-v1` | Audible duration from total and start |
+
 The parity profile owns exactly six typed, resolved
 `LegacyCombustionRandomStream` request values in runtime-cylinder order. Their
 collection is `LegacyLowOrderV1Profile::combustion_random_streams`; for each row,
@@ -238,6 +252,11 @@ table while retaining RPM for operating limits:
 Neither the timing-table abscissae nor its triangle radius are RPM fields. Conversely,
 the limiter and declared redline remain RPM values and are not converted in the
 sealed request.
+
+The inherited fuel curve also carries its interpolation support explicitly:
+`engine.physics.legacy-low-order-v1.fuel.turbulence_to_flame_speed_ratio_triangle_radius`
+is the dimensionless binary64 value `5.0`. It is resolved request data alongside the
+curve samples, not a simulator constant.
 
 ## 6. Explicit ambient, fuel, and thermal metadata
 

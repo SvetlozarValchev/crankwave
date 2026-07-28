@@ -214,6 +214,8 @@ void visit_fuel(const Fuel &fuel, const std::string &base, Function function) {
     function(fuel.maximum_dilution_effect, base + ".maximum_dilution_effect");
     function(fuel.lbv_multiplier, base + ".lbv_multiplier");
     function(fuel.compression_ignition_enabled, base + ".compression_ignition_enabled");
+    function(fuel.turbulence_to_flame_speed_ratio_triangle_radius,
+             base + ".turbulence_to_flame_speed_ratio_triangle_radius");
     for (const auto &point : fuel.turbulence_to_flame_speed_ratio) {
         const auto point_base =
             base + ".turbulence_to_flame_speed_ratio." + point.sample_id.value;
@@ -769,6 +771,8 @@ void validate_authored_domains(ValidationReport &report,
                 finite_nonnegative(fuel.maximum_turbulence_effect.value) &&
                 finite_nonnegative(fuel.maximum_dilution_effect.value) &&
                 finite_nonnegative(fuel.lbv_multiplier.value) &&
+                finite_positive(
+                    fuel.turbulence_to_flame_speed_ratio_triangle_radius.value) &&
                 !fuel.turbulence_to_flame_speed_ratio.empty(),
             ContractIssueCode::invalid_value, "fuel",
             "legacy fuel parameters are outside their domain");
@@ -1612,6 +1616,8 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
                 finite_nonnegative(fuel.maximum_turbulence_effect.value) &&
                 finite_nonnegative(fuel.maximum_dilution_effect.value) &&
                 finite_nonnegative(fuel.lbv_multiplier.value) &&
+                finite_positive(
+                    fuel.turbulence_to_flame_speed_ratio_triangle_radius.value) &&
                 !fuel.turbulence_to_flame_speed_ratio.empty(),
             ContractIssueCode::invalid_value, "fuel",
             "legacy fuel parameters are outside their domain");

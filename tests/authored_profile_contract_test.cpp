@@ -175,6 +175,7 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
     profile.fuel.maximum_dilution_effect = authored(10.0);
     profile.fuel.lbv_multiplier = authored(1.0);
     profile.fuel.compression_ignition_enabled = authored(false);
+    profile.fuel.turbulence_to_flame_speed_ratio_triangle_radius = authored(5.0);
     profile.fuel.turbulence_to_flame_speed_ratio = {
         {
             authored(std::string{"turbulence-0"}),
@@ -393,6 +394,17 @@ void run_authored_profile_contract_tests() {
         "out-of-range authored fuel efficiency was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
             profile.fuel.maximum_burning_efficiency_01.value = 1.1;
+        });
+    expect_authored_mutation_rejected(
+        "nonpositive authored flame-speed table radius was accepted",
+        [](AuthoredLegacyLowOrderV1Profile &profile) {
+            profile.fuel.turbulence_to_flame_speed_ratio_triangle_radius.value = 0.0;
+        });
+    expect_authored_mutation_rejected(
+        "unclaimed authored flame-speed table radius was accepted",
+        [](AuthoredLegacyLowOrderV1Profile &profile) {
+            profile.fuel.turbulence_to_flame_speed_ratio_triangle_radius.claim_id
+                .clear();
         });
     expect_authored_mutation_rejected(
         "compression ignition was enabled in a spark-ignition authored profile",

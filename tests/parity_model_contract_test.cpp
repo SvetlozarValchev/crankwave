@@ -105,6 +105,21 @@ void run_parity_model_contract_tests() {
         });
 
     expect_parity_mutation_rejected(
+        "nonpositive resolved flame-speed table radius was accepted",
+        [](EngineSpec &engine, InputBuilder &) {
+            legacy_profile(engine)
+                .fuel.turbulence_to_flame_speed_ratio_triangle_radius.value = 0.0;
+        });
+
+    expect_parity_mutation_rejected(
+        "unresolved flame-speed table radius was accepted",
+        [](EngineSpec &engine, InputBuilder &) {
+            legacy_profile(engine)
+                .fuel.turbulence_to_flame_speed_ratio_triangle_radius.resolution_id
+                .clear();
+        });
+
+    expect_parity_mutation_rejected(
         "nonzero burning randomness accepted no combustion random streams",
         [](EngineSpec &engine, InputBuilder &) {
             legacy_profile(engine).combustion_random_streams.clear();

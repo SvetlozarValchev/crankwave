@@ -391,6 +391,7 @@ template <template <class> class Field, class FlamePoint> struct LegacyFuelProfi
     Field<double> maximum_dilution_effect;
     Field<double> lbv_multiplier;
     Field<bool> compression_ignition_enabled;
+    Field<double> turbulence_to_flame_speed_ratio_triangle_radius;
     std::vector<FlamePoint> turbulence_to_flame_speed_ratio;
 
     friend bool operator==(const LegacyFuelProfileT &,

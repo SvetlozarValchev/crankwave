@@ -340,6 +340,8 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
     profile.fuel.lbv_multiplier = builder.resolved(1.0, path("fuel.lbv_multiplier"));
     profile.fuel.compression_ignition_enabled =
         builder.resolved(false, path("fuel.compression_ignition_enabled"));
+    profile.fuel.turbulence_to_flame_speed_ratio_triangle_radius = builder.resolved(
+        5.0, path("fuel.turbulence_to_flame_speed_ratio_triangle_radius"));
     const auto make_flame_point = [&](std::string id, double turbulence, double ratio) {
         const auto base = path("fuel.turbulence_to_flame_speed_ratio." + id);
         return LegacyFlameSpeedPoint{
