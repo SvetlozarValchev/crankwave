@@ -8,10 +8,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
-#include <utility>
 
 namespace engine_sim_offline::contract {
 namespace {
@@ -39,27 +37,6 @@ namespace {
     return !require_positive || value != "0";
 }
 
-[[nodiscard]] bool consume_prefix(std::string_view &value,
-                                  std::string_view prefix) noexcept {
-    if (!value.starts_with(prefix)) {
-        return false;
-    }
-    value.remove_prefix(prefix.size());
-    return true;
-}
-
-[[nodiscard]] bool consume_decimal_until(std::string_view &value,
-                                         std::string_view delimiter,
-                                         bool require_positive) noexcept {
-    const auto position = value.find(delimiter);
-    if (position == std::string_view::npos ||
-        !is_canonical_decimal(value.substr(0, position), require_positive)) {
-        return false;
-    }
-    value.remove_prefix(position + delimiter.size());
-    return true;
-}
-
 [[nodiscard]] bool is_canonical_dotted_decimal(std::string_view value) noexcept {
     std::size_t component_count = 0;
     while (!value.empty()) {
@@ -78,99 +55,6 @@ namespace {
         value.remove_prefix(position + 1);
     }
     return component_count >= 2;
-}
-
-[[nodiscard]] bool consume_provider_identity(std::string_view &value,
-                                             std::string_view soname) noexcept {
-    if (!consume_prefix(value, "elf64le-x86_64.soname.") ||
-        !consume_prefix(value, soname) || !consume_prefix(value, ".bytes.") ||
-        !consume_decimal_until(value, ".buildid.", true)) {
-        return false;
-    }
-    const auto build_id_end = value.find(".sha256.");
-    if (build_id_end == std::string_view::npos) {
-        return false;
-    }
-    const auto build_id = value.substr(0, build_id_end);
-    if (build_id.size() < 2 || build_id.size() > 128 || (build_id.size() % 2) != 0 ||
-        !is_nonzero_lower_hex(build_id)) {
-        return false;
-    }
-    value.remove_prefix(build_id_end + std::string_view{".sha256."}.size());
-    if (value.size() < 64 || !is_nonzero_lower_hex(value.substr(0, 64))) {
-        return false;
-    }
-    value.remove_prefix(64);
-    return true;
-}
-
-template <std::size_t Size>
-[[nodiscard]] bool
-consume_symbol_identity(std::string_view &value,
-                        const std::array<std::pair<std::string_view, std::string_view>,
-                                         Size> &symbols) noexcept {
-    if (!consume_prefix(value, "symbols")) {
-        return false;
-    }
-    for (const auto &[name, version] : symbols) {
-        if (!consume_prefix(value, ".") || !consume_prefix(value, name) ||
-            !consume_prefix(value, ".") || !consume_prefix(value, version) ||
-            !consume_prefix(value, ".") || value.size() < 16 ||
-            !is_nonzero_lower_hex(value.substr(0, 16))) {
-            return false;
-        }
-        value.remove_prefix(16);
-    }
-    return value.empty();
-}
-
-[[nodiscard]] bool
-is_canonical_standard_library_identity(std::string_view value) noexcept {
-    constexpr std::array symbols{
-        std::pair{std::string_view{"__cxa_throw"}, std::string_view{"CXXABI_1.3"}},
-    };
-    if (value.size() > 8192 || !consume_prefix(value, "release.") ||
-        !consume_decimal_until(value, ".headers.", true) ||
-        !consume_decimal_until(value, ".gxxabi.", true) ||
-        !consume_decimal_until(value, ".cxx11abi.", true) || value.size() < 2 ||
-        (value.front() != '0' && value.front() != '1') || value[1] != '+') {
-        return false;
-    }
-    value.remove_prefix(2);
-    return consume_provider_identity(value, "libstdc++.so.6") &&
-           consume_prefix(value, "+") && consume_symbol_identity(value, symbols);
-}
-
-[[nodiscard]] bool is_canonical_math_library_identity(std::string_view value) noexcept {
-    constexpr std::array symbols{
-        std::pair{std::string_view{"ceil"}, std::string_view{"GLIBC_2.2.5"}},
-        std::pair{std::string_view{"cos"}, std::string_view{"GLIBC_2.2.5"}},
-        std::pair{std::string_view{"floor"}, std::string_view{"GLIBC_2.2.5"}},
-        std::pair{std::string_view{"roundl"}, std::string_view{"GLIBC_2.2.5"}},
-        std::pair{std::string_view{"sin"}, std::string_view{"GLIBC_2.2.5"}},
-        std::pair{std::string_view{"sincos"}, std::string_view{"GLIBC_2.2.5"}},
-        std::pair{std::string_view{"tan"}, std::string_view{"GLIBC_2.2.5"}},
-    };
-    if (value.size() > 8192 || !consume_prefix(value, "glibc.")) {
-        return false;
-    }
-    const auto version_end = value.find('+');
-    if (version_end == std::string_view::npos ||
-        !is_canonical_dotted_decimal(value.substr(0, version_end))) {
-        return false;
-    }
-    value.remove_prefix(version_end + 1);
-    return consume_provider_identity(value, "libm.so.6") &&
-           consume_prefix(value, "+") && consume_symbol_identity(value, symbols);
-}
-
-[[nodiscard]] bool
-is_canonical_compiler_runtime_identity(std::string_view value) noexcept {
-    constexpr std::array symbols{
-        std::pair{std::string_view{"__muldc3"}, std::string_view{"GCC_4.0.0"}},
-    };
-    return value.size() <= 8192 && consume_provider_identity(value, "libgcc_s.so.1") &&
-           consume_prefix(value, "+") && consume_symbol_identity(value, symbols);
 }
 
 [[nodiscard]] bool is_canonical_git_commit_id(std::string_view value) noexcept {
@@ -388,112 +272,6 @@ void validate_unique_owned_roles(ValidationReport &report,
     }
 }
 
-Sha256Digest sha256_from_lower_hex(std::string_view text) {
-    const auto nibble = [](char value) -> std::uint8_t {
-        return value >= '0' && value <= '9'
-                   ? static_cast<std::uint8_t>(value - '0')
-                   : static_cast<std::uint8_t>(10 + value - 'a');
-    };
-
-    Sha256Digest digest;
-    for (std::size_t index = 0; index < digest.bytes.size(); ++index) {
-        digest.bytes[index] = static_cast<std::uint8_t>(
-            (nibble(text[index * 2]) << 4U) | nibble(text[index * 2 + 1]));
-    }
-    return digest;
-}
-
-struct FrozenReferenceArtifactIdentity {
-    std::string_view role;
-    std::string_view relative_path;
-    std::uint64_t byte_count = 0;
-    std::string_view sha256;
-};
-
-void validate_frozen_reference_artifacts(
-    ValidationReport &report, const std::vector<ArtifactRecord> &artifacts,
-    const std::unordered_map<std::string, const ArtifactRecord *> &artifact_by_role) {
-    constexpr std::array identities{
-        FrozenReferenceArtifactIdentity{
-            "exhaust.reference.0.dry",
-            "audio/exhaust.reference.0.dry.wav",
-            UINT64_C(11520058),
-            "e5a96cb5d3b9f1732e741916706a99c6a7c5e1a912e3d751cb92846d33ce6eeb",
-        },
-        FrozenReferenceArtifactIdentity{
-            "exhaust.reference.0.configured_ir",
-            "audio/exhaust.reference.0.configured-ir.wav",
-            UINT64_C(11520058),
-            "a637639a4ec85d1c6a1432a0b0df2395e3669648f5708f846ce65e83b70e6f32",
-        },
-        FrozenReferenceArtifactIdentity{
-            "exhaust.reference.0.selected",
-            "audio/exhaust.reference.0.selected.wav",
-            UINT64_C(11520058),
-            "a637639a4ec85d1c6a1432a0b0df2395e3669648f5708f846ce65e83b70e6f32",
-        },
-        FrozenReferenceArtifactIdentity{
-            "exhaust.reference.1.dry",
-            "audio/exhaust.reference.1.dry.wav",
-            UINT64_C(11520058),
-            "2ad2ed41097af30421047f3e4a6033086ec70b9731082833699caad1da9d81ea",
-        },
-        FrozenReferenceArtifactIdentity{
-            "exhaust.reference.1.configured_ir",
-            "audio/exhaust.reference.1.configured-ir.wav",
-            UINT64_C(11520058),
-            "f47b94024648f6763804fa36bd11bf230d3b5741f2289bb062a6afe7c4a8ba3d",
-        },
-        FrozenReferenceArtifactIdentity{
-            "exhaust.reference.1.selected",
-            "audio/exhaust.reference.1.selected.wav",
-            UINT64_C(11520058),
-            "f47b94024648f6763804fa36bd11bf230d3b5741f2289bb062a6afe7c4a8ba3d",
-        },
-        FrozenReferenceArtifactIdentity{
-            "master.reference.raw",
-            "audio/master.reference.raw.wav",
-            UINT64_C(11520058),
-            "2c5473cfc3836f18164bb2fc52bec11d2a2349ca9fbd550130c520baa3750146",
-        },
-        FrozenReferenceArtifactIdentity{
-            "master.reference.audition",
-            "audio/master.reference.audition.wav",
-            UINT64_C(8640302),
-            "f62c164f9a3debca23b1459fae8d6b47a19a98a418490e2e99bcbdf8a7d972eb",
-        },
-    };
-
-    detail::require(report, artifacts.size() == identities.size(),
-                    ContractIssueCode::inconsistent_shape, "artifacts",
-                    "reference presentation requires exactly the frozen eight "
-                    "audio artifacts");
-    for (std::size_t index = 0; index < identities.size(); ++index) {
-        const auto &identity = identities[index];
-        if (index < artifacts.size()) {
-            detail::require(report, artifacts[index].role == identity.role,
-                            ContractIssueCode::inconsistent_semantics,
-                            "artifacts[" + std::to_string(index) + "].role",
-                            "reference artifacts must preserve the frozen route-0, "
-                            "route-1, raw-master, audition-master order");
-        }
-        const auto artifact = artifact_by_role.find(std::string(identity.role));
-        if (artifact == artifact_by_role.end()) {
-            continue;
-        }
-        const auto &actual = *artifact->second;
-        detail::require(
-            report,
-            actual.relative_path == identity.relative_path &&
-                actual.byte_count == identity.byte_count &&
-                actual.payload_sha256 == sha256_from_lower_hex(identity.sha256),
-            ContractIssueCode::inconsistent_semantics,
-            "artifacts." + std::string(identity.role),
-            "reference artifact path, complete-file byte count, and SHA-256 must "
-            "match the frozen mastering contract");
-    }
-}
-
 struct ManifestRouteView {
     RouteId route_id;
     std::string_view semantic_id;
@@ -527,21 +305,6 @@ ManifestInputView make_input_view(const SimulationManifestInputs &inputs) {
     return view;
 }
 
-ManifestInputView make_input_view(const ReferencePresentationInputsV1 &inputs) {
-    ManifestInputView view;
-    view.presentation = &inputs.presentation;
-    view.routes.reserve(inputs.engine.routes.size());
-    for (const auto &route : inputs.engine.routes) {
-        view.routes.push_back(
-            {route.route_id, route.semantic_id, route.source_matrix_classification});
-    }
-    view.rates = inputs.capture.rates;
-    view.public_seed = inputs.capture.public_seed;
-    view.delivery_frame_count = inputs.capture.delivery_frame_count;
-    view.route_validation_path = "inputs.reference.engine.routes";
-    return view;
-}
-
 } // namespace
 
 ValidationReport validate_render_admission(const EngineSpec &engine,
@@ -561,15 +324,12 @@ ValidationReport validate_render_admission(const EngineSpec &engine,
     append_prefixed(report, validate(presentation, engine, scenario, provenance),
                     "presentation");
 
-    const auto &frozen_reference = bmw_m52b28_reference_source_matrix_v1();
-    if (source_matrix.id == frozen_reference.id) {
-        require(report, source_matrix == frozen_reference,
+    const auto &bmw_baseline = bmw_m52b28_reference_source_matrix_v1();
+    if (source_matrix.id == bmw_baseline.id) {
+        require(report, source_matrix == bmw_baseline,
                 ContractIssueCode::inconsistent_semantics, "source_matrix",
-                "the frozen BMW reference matrix must exactly match its built-in "
-                "approved contract");
-        append_prefixed(
-            report, validate_p18_reference_presentation(presentation, engine, scenario),
-            "presentation.p18_reference");
+                "the built-in BMW baseline matrix must exactly match its approved "
+                "contract");
     }
 
     const auto expected_frames =
@@ -663,24 +423,14 @@ ValidationReport validate(const RenderManifestContent &content,
     using detail::require;
 
     ValidationReport report;
-    ManifestInputView input_view;
-    std::visit(
-        [&](const auto &inputs) {
-            using Inputs = std::decay_t<decltype(inputs)>;
-            if constexpr (std::is_same_v<Inputs, SimulationManifestInputs>) {
-                append_prefixed(report,
-                                validate_render_admission(inputs.resolved.engine,
-                                                          inputs.resolved.presentation,
-                                                          inputs.resolved.scenario,
-                                                          provenance, source_matrix),
-                                "admission");
-            } else {
-                append_prefixed(report, validate(inputs, provenance, source_matrix),
-                                "admission.reference");
-            }
-            input_view = make_input_view(inputs);
-        },
-        content.inputs);
+    append_prefixed(
+        report,
+        validate_render_admission(content.inputs.resolved.engine,
+                                  content.inputs.resolved.presentation,
+                                  content.inputs.resolved.scenario, provenance,
+                                  source_matrix),
+        "admission");
+    const auto input_view = make_input_view(content.inputs);
 
     require(report, content.schema_version == 2, ContractIssueCode::unsupported_value,
             "schema_version", "render-manifest schema must be version 2");
@@ -743,38 +493,6 @@ ValidationReport validate(const RenderManifestContent &content,
             ContractIssueCode::invalid_value,
             "determinism.deterministic_reduction_topology",
             "reduction-topology ID must be canonical");
-    if (std::holds_alternative<ReferencePresentationInputsV1>(content.inputs)) {
-        require(report,
-                build.standard_library_id == "libstdcxx" &&
-                    build.math_library_id == "glibc-libm" &&
-                    build.compiler_runtime_id == "libgcc-s",
-                ContractIssueCode::unsupported_value,
-                "determinism.build.runtime_providers",
-                "reference manifest v2 requires the admitted libstdc++, glibc libm, "
-                "and libgcc_s providers");
-        require(
-            report,
-            is_canonical_standard_library_identity(build.standard_library_identity) &&
-                is_canonical_math_library_identity(build.math_library_identity) &&
-                is_canonical_compiler_runtime_identity(build.compiler_runtime_identity),
-            ContractIssueCode::invalid_value, "determinism.build.runtime_identities",
-            "reference manifest v2 requires canonical content-derived runtime "
-            "identity tokens");
-        require(report,
-                content.determinism.numeric_policy_id ==
-                        "x86-64-v1-binary64-x87-extended-strict-v1" &&
-                    content.determinism.instruction_set_profile == "x86-64-v1",
-                ContractIssueCode::unsupported_value, "determinism.numeric_policy_id",
-                "reference manifest v2 requires the admitted strict x86-64-v1 "
-                "numeric policy and matching instruction-set projection");
-        require(report,
-                content.determinism.deterministic_worker_count == 1 &&
-                    content.determinism.deterministic_reduction_topology ==
-                        "serial-stable-order",
-                ContractIssueCode::unsupported_value,
-                "determinism.deterministic_execution",
-                "reference manifest v2 requires one serial stable-order worker");
-    }
     append_prefixed(report, validate(content.randomness.generator),
                     "randomness.generator");
     append_prefixed(report, validate(content.randomness.derivation),
@@ -782,30 +500,6 @@ ValidationReport validate(const RenderManifestContent &content,
     require(report, content.randomness.public_seed == input_view.public_seed,
             ContractIssueCode::inconsistent_semantics, "randomness.public_seed",
             "manifest random seed must equal the selected input public seed");
-    const auto &frozen_reference = bmw_m52b28_reference_source_matrix_v1();
-    constexpr std::string_view p18_generator_id = "p18_reference_pcg32_v1";
-    if (source_matrix.id == frozen_reference.id) {
-        require(report,
-                content.randomness.generator.id == p18_generator_id &&
-                    content.randomness.generator.version == 1,
-                ContractIssueCode::inconsistent_semantics, "randomness.generator",
-                "the frozen P1.8 route requires p18_reference_pcg32_v1 version 1");
-        require(report,
-                content.randomness.derivation.id ==
-                        "sha256_length_prefixed_capture_component_pcg32_v1" &&
-                    content.randomness.derivation.version == 1,
-                ContractIssueCode::inconsistent_semantics, "randomness.derivation",
-                "the frozen P1.8 route requires its recorded component-seed "
-                "derivation");
-        require(report, content.randomness.public_seed == UINT64_C(12648430),
-                ContractIssueCode::inconsistent_semantics, "randomness.public_seed",
-                "the frozen P1.8 route requires public seed 0xC0FFEE");
-    } else {
-        require(report, content.randomness.generator.id != p18_generator_id,
-                ContractIssueCode::unsupported_value, "randomness.generator",
-                "the P1.8 generator is reserved for the frozen reference route");
-    }
-
     std::unordered_set<std::string> component_seed_ids;
     std::unordered_map<std::uint32_t, std::uint32_t> combustion_seed_count;
     std::unordered_map<std::uint32_t, std::uint32_t> jitter_seed_count;
@@ -918,110 +612,6 @@ ValidationReport validate(const RenderManifestContent &content,
                     "configured route");
         }
     }
-    if (source_matrix.id == frozen_reference.id) {
-        for (const auto &route : input_view.routes) {
-            require(report,
-                    jitter_seed_count[route.route_id.value] == 1 &&
-                        air_noise_seed_count[route.route_id.value] == 1,
-                    ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
-                    "P1.8 requires exactly one jitter and one air-noise stream "
-                    "per reference exhaust route");
-        }
-        for (std::size_t index = 0; index < content.randomness.component_seeds.size();
-             ++index) {
-            const auto &seed = content.randomness.component_seeds[index];
-            if (!seed.route_id.has_value() ||
-                (seed.kind != RandomComponentKind::presentation_jitter &&
-                 seed.kind != RandomComponentKind::presentation_air_noise)) {
-                continue;
-            }
-            const auto route = std::ranges::find(input_view.routes, *seed.route_id,
-                                                 &ManifestRouteView::route_id);
-            if (route == input_view.routes.end()) {
-                continue;
-            }
-
-            std::optional<std::pair<std::uint64_t, std::uint64_t>> expected;
-            if (route->semantic_id == "exhaust.reference.0") {
-                expected = seed.kind == RandomComponentKind::presentation_jitter
-                               ? std::pair{UINT64_C(0x9e2b91cd0dc51cfc),
-                                           UINT64_C(0x1ae6ee3019603abb)}
-                               : std::pair{UINT64_C(0x75bc579d4c90a640),
-                                           UINT64_C(0x7e4ef6200e7c70c1)};
-            } else if (route->semantic_id == "exhaust.reference.1") {
-                expected = seed.kind == RandomComponentKind::presentation_jitter
-                               ? std::pair{UINT64_C(0xdb7540a0c8b54d74),
-                                           UINT64_C(0x41ddcdeb066bf214)}
-                               : std::pair{UINT64_C(0x208e57f73615bd95),
-                                           UINT64_C(0x786d92e584c43b78)};
-            }
-            require(report,
-                    expected.has_value() && seed.initial_state == expected->first &&
-                        seed.stream == expected->second,
-                    ContractIssueCode::inconsistent_semantics,
-                    "randomness.component_seeds[" + std::to_string(index) + "]",
-                    "P1.8 presentation stream state/selector must match the frozen "
-                    "route record");
-        }
-    }
-    if (std::holds_alternative<ReferencePresentationInputsV1>(content.inputs)) {
-        require(report,
-                content.randomness.component_seeds.size() == 4 &&
-                    combustion_seed_count.empty(),
-                ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
-                "reference presentation must record exactly the four executed "
-                "route-owned jitter and air-noise streams");
-        require(report,
-                std::ranges::none_of(content.randomness.component_seeds,
-                                     [](const ComponentSeed &seed) {
-                                         return seed.kind ==
-                                                    RandomComponentKind::combustion ||
-                                                seed.kind ==
-                                                    RandomComponentKind::starter;
-                                     }),
-                ContractIssueCode::inconsistent_semantics, "randomness.component_seeds",
-                "reference presentation cannot claim inherited combustion or "
-                "starter streams as current execution");
-        const std::array<ComponentSeed, 4> expected_order{
-            ComponentSeed{
-                RandomComponentKind::presentation_air_noise,
-                std::nullopt,
-                RouteId{1},
-                UINT64_C(0x75bc579d4c90a640),
-                UINT64_C(0x7e4ef6200e7c70c1),
-            },
-            ComponentSeed{
-                RandomComponentKind::presentation_air_noise,
-                std::nullopt,
-                RouteId{2},
-                UINT64_C(0x208e57f73615bd95),
-                UINT64_C(0x786d92e584c43b78),
-            },
-            ComponentSeed{
-                RandomComponentKind::presentation_jitter,
-                std::nullopt,
-                RouteId{1},
-                UINT64_C(0x9e2b91cd0dc51cfc),
-                UINT64_C(0x1ae6ee3019603abb),
-            },
-            ComponentSeed{
-                RandomComponentKind::presentation_jitter,
-                std::nullopt,
-                RouteId{2},
-                UINT64_C(0xdb7540a0c8b54d74),
-                UINT64_C(0x41ddcdeb066bf214),
-            },
-        };
-        if (content.randomness.component_seeds.size() == expected_order.size()) {
-            require(
-                report,
-                std::ranges::equal(content.randomness.component_seeds, expected_order),
-                ContractIssueCode::inconsistent_semantics, "randomness.component_seeds",
-                "reference presentation stream vector must preserve frozen "
-                "air-noise route 0/1 then jitter route 0/1 order");
-        }
-    }
-
     require(report, content.output_contract == resolve_output_contract(source_matrix),
             ContractIssueCode::inconsistent_semantics, "output_contract",
             "resolved output contract must exactly match the selected source matrix");
@@ -1118,11 +708,6 @@ ValidationReport validate(const RenderManifestContent &content,
                 ContractIssueCode::missing_value, "artifacts",
                 "every required artifact role must have exactly one payload");
     }
-    if (std::holds_alternative<ReferencePresentationInputsV1>(content.inputs)) {
-        validate_frozen_reference_artifacts(report, content.artifacts,
-                                            artifact_by_role);
-    }
-
     std::unordered_map<std::string, const SourceRouteRequirement *>
         required_route_by_semantic_id;
     for (const auto &route : content.output_contract.required_source_routes) {

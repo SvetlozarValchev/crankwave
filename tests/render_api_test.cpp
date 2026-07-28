@@ -1,14 +1,11 @@
 #include "contract_test_support.hpp"
-#include "reference_manifest_test_support.hpp"
 
 #include "engine_sim_offline/render.hpp"
 
-#include <algorithm>
 #include <cstddef>
 #include <iostream>
 #include <optional>
 #include <stop_token>
-#include <string_view>
 
 namespace {
 
@@ -93,12 +90,6 @@ void expect_request_valid_failure(const RenderResult &result,
     expect(engine_sim_offline::validate(result, fixture.specification, fixture.scenario)
                .ok(),
            message);
-}
-
-bool has_issue_path(const ValidationReport &report, std::string_view path_fragment) {
-    return std::ranges::any_of(report.issues, [&](const ContractIssue &issue) {
-        return issue.path.find(path_fragment) != std::string::npos;
-    });
 }
 
 void run_tests() {
@@ -345,20 +336,6 @@ void run_tests() {
         expect(sink.calls == 0, "distribution-rights failure touched the sink");
     }
 
-    {
-        RequestFixture request;
-        ReferenceManifestFixture reference;
-        const RenderResult success = RenderSuccess{
-            RenderManifest{reference.content, std::nullopt},
-            std::nullopt,
-        };
-        const auto report = engine_sim_offline::validate(success, request.specification,
-                                                         request.scenario);
-        expect(!report.ok() &&
-                   has_issue_path(report, "success.manifest.content.inputs"),
-               "public render-layer validation accepted a reference replay as "
-               "RenderSuccess");
-    }
 }
 
 } // namespace

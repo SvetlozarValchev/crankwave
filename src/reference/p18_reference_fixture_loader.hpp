@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dsp/p18_fixed_fft.hpp"
+#include "dsp/fixed_fft.hpp"
 #include "engine_sim_offline/contract/common.hpp"
 #include "reference/p18_reference_audit_reader.hpp"
 #include "reference/p18_reference_catalog.hpp"
@@ -82,7 +82,7 @@ struct P18LoadedReferenceFixture {
     P18DecodedReferenceAudit audit;
     P18DecodedReferenceSeeds component_seeds;
     std::vector<double> configured_ir_coefficients;
-    std::shared_ptr<const dsp::P18FixedConvolutionKernel> configured_ir_kernel;
+    std::shared_ptr<const dsp::FixedConvolutionKernel> configured_ir_kernel;
     P18VerifiedReferenceLineage verified_lineage;
     P18ReferenceDerivedIdentities derived_identities;
     std::chrono::nanoseconds preflight_duration{};

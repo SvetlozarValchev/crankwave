@@ -7,7 +7,6 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <variant>
 
 namespace engine_sim_offline::artifacts {
 namespace detail {
@@ -15,14 +14,8 @@ namespace {
 
 [[nodiscard]] bool
 write_simulation_manifest_inputs(CanonicalJsonWriter &writer,
-                                 const contract::RenderManifestInputs &inputs) {
-    const auto *simulation = std::get_if<contract::SimulationManifestInputs>(&inputs);
-    if (simulation == nullptr) {
-        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "simulation manifest inputs are not simulation_v1");
-    }
-
-    const auto &resolved = simulation->resolved;
+                                 const contract::SimulationManifestInputs &inputs) {
+    const auto &resolved = inputs.resolved;
     return writer.begin_object() && writer.key("kind") &&
            writer.string_value("simulation_v1") && writer.key("value") &&
            writer.begin_object() && writer.key("resolved") && writer.begin_object() &&
@@ -64,14 +57,6 @@ write_simulation_manifest_inputs(CanonicalJsonWriter &writer,
 
 ManifestEncodingResult
 encode_simulation_manifest_v2(const contract::RenderManifest &manifest) {
-    if (!std::holds_alternative<contract::SimulationManifestInputs>(
-            manifest.content.inputs)) {
-        return RenderSinkError{
-            RenderSinkErrorKind::protocol_violation,
-            "simulation-manifest-input-kind-unsupported",
-            "reference_presentation_v1 is not encodable under simulation v2",
-        };
-    }
     if (!manifest.execution.has_value()) {
         return RenderSinkError{
             RenderSinkErrorKind::protocol_violation,

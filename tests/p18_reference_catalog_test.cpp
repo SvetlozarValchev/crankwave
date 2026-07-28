@@ -1,16 +1,16 @@
-#include "artifacts/p18_audition_wav_encoder.hpp"
-#include "dsp/p18_fixed_fft.hpp"
-#include "dsp/p18_primitives.hpp"
-#include "dsp/p18_static_ir_conversion.hpp"
+#include "artifacts/audition_wav_encoder.hpp"
+#include "dsp/fixed_fft.hpp"
+#include "dsp/source_conditioning_primitives.hpp"
+#include "dsp/static_ir_conversion.hpp"
 #include "engine_sim_offline/artifacts/wav_encoder.hpp"
 #include "engine_sim_offline/contract/source_matrix.hpp"
-#include "presentation/p18_causal_reconstruction.hpp"
-#include "presentation/p18_mastering.hpp"
-#include "presentation/p18_pcm16_ir_decoder.hpp"
-#include "presentation/p18_source_stage.hpp"
+#include "presentation/causal_reconstruction.hpp"
+#include "presentation/exhaust_source_stage.hpp"
+#include "presentation/mastering.hpp"
+#include "presentation/pcm16_ir_decoder.hpp"
+#include "presentation/presentation_render_session.hpp"
 #include "reference/p18_reference_audit_reader.hpp"
 #include "reference/p18_reference_catalog.hpp"
-#include "reference/p18_reference_render_session.hpp"
 #include "reference/p18_reference_seed_reader.hpp"
 
 #include <algorithm>
@@ -249,7 +249,7 @@ void test_source_matrix_alignment(const P18ReferenceCatalogV1 &catalog) {
                "source-matrix audio media differs from catalog capture");
 
         if (expected.audio == P18ReferenceAudioArtifact::master_audition) {
-            expect(expected.expected_byte_count == artifacts::kP18AuditionWaveByteCount,
+            expect(expected.expected_byte_count == artifacts::kAuditionWaveByteCount,
                    "audition artifact size differs from its WAVE encoder");
         } else {
             auto encoder = artifacts::make_wav_encoder(*required.audio);
@@ -279,11 +279,11 @@ void test_source_matrix_alignment(const P18ReferenceCatalogV1 &catalog) {
 void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
     const auto &capture = catalog.expected_capture;
     const contract::RationalRateHz source_rate{
-        presentation::P18CausalReconstruction::kSourceRate, 1};
+        presentation::CausalReconstruction::kSourceRate, 1};
     expect(contract::validate(capture.expected_rates).ok(),
            "catalog render rates are invalid");
-    expect(capture.expected_rates.physics == presentation::kP18ExcitationRateHz &&
-               capture.expected_rates.capture == presentation::kP18ExcitationRateHz &&
+    expect(capture.expected_rates.physics == presentation::kExcitationRateHz &&
+               capture.expected_rates.capture == presentation::kExcitationRateHz &&
                capture.expected_rates.source_processing == source_rate &&
                capture.expected_rates.acoustic == source_rate &&
                capture.expected_rates.delivery == source_rate,
@@ -294,9 +294,9 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
                capture.expected_consumed_end_record_exclusive ==
                    kP18ReferenceAuditIntervalEndExclusive &&
                capture.expected_physics_frames_per_block ==
-                   presentation::kP18PhysicsFramesPerMethodBlock &&
+                   presentation::kExcitationFramesPerMethodBlock &&
                capture.expected_source_frames_per_block ==
-                   presentation::kP18SourceFramesPerMethodBlock &&
+                   presentation::kSourceFramesPerMethodBlock &&
                capture.expected_public_seed != 0,
            "catalog capture differs from decoder or source-stage shape");
     expect(capture.expected_consumed_start_record <
@@ -323,11 +323,11 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
            "catalog record and source-frame intervals are inconsistent");
     expect(kP18ReferenceRouteCount == kP18ReferenceAuditBusCount &&
                kP18ReferenceRouteCount == kP18ReferenceSeedRouteCount &&
-               kP18ReferenceRouteCount == presentation::kP18ExhaustRouteCount,
+               kP18ReferenceRouteCount == presentation::kExhaustExcitationRouteCount,
            "catalog route count differs from decoder or presentation topology");
     for (std::size_t index = 0; index < catalog.expected_routes.size(); ++index) {
         expect(catalog.expected_routes[index].expected_route_id ==
-                   presentation::kP18ReferenceRouteIds[index],
+                   presentation::kExhaustExcitationRouteIds[index],
                "catalog route ID differs from the source-stage route ID");
     }
 
@@ -344,20 +344,20 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
                contract::is_valid_semantic_id(media.expected_semantic_id) &&
                contract::is_valid_semantic_id(media.expected_evidence_source_id),
            "configured-IR catalog identity is invalid");
-    expect(media.expected_encoding == contract::AudioSampleEncoding::pcm_s16le &&
-               media.expected_channel_layout == contract::AudioChannelLayout::mono &&
-               media.expected_sample_rate ==
-                   contract::RationalRateHz{presentation::kP18ConfiguredIrSampleRateHz,
-                                            1} &&
-               media.expected_frame_count ==
-                   presentation::kP18MaximumConfiguredIrFrameCount &&
-               media.expected_frame_count ==
-                   dsp::P18StaticIrConversionLimits::maximum_source_frame_count,
-           "configured-IR catalog media differs from decoder or converter limits");
+    expect(
+        media.expected_encoding == contract::AudioSampleEncoding::pcm_s16le &&
+            media.expected_channel_layout == contract::AudioChannelLayout::mono &&
+            media.expected_sample_rate ==
+                contract::RationalRateHz{presentation::kConfiguredIrSampleRateHz, 1} &&
+            media.expected_frame_count ==
+                presentation::kMaximumConfiguredIrFrameCount &&
+            media.expected_frame_count ==
+                dsp::StaticIrConversionLimits::maximum_source_frame_count,
+        "configured-IR catalog media differs from decoder or converter limits");
     expect(catalog.expected_kernel.expected_coefficient_count ==
-                   dsp::P18FixedConvolutionKernel::coefficient_count &&
+                   dsp::FixedConvolutionKernel::coefficient_count &&
                catalog.expected_kernel.expected_coefficient_count ==
-                   dsp::p18_static_ir_target_count(
+                   dsp::static_ir_target_count(
                        media.expected_meaningful_support_frame_count) &&
                !catalog.expected_kernel.expected_coefficient_f64le_sha256.is_zero() &&
                !catalog.expected_kernel.expected_spectrum_f64le_sha256.is_zero(),
@@ -397,9 +397,9 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
             render.expected_warmup_source_frame_count == warmup_source_frames &&
             render.expected_published_source_frame_count == published_source_frames &&
             render.expected_published_source_frame_count ==
-                presentation::kP18AudibleFrameCount &&
+                presentation::kAudibleFrameCount &&
             render.expected_published_source_frame_count ==
-                artifacts::kP18AuditionWaveFrameCount,
+                artifacts::kAuditionWaveFrameCount,
         "render catalog differs from renderer or mastering horizons");
     expect(capture.expected_total_source_frame_count ==
                    render.expected_processed_source_frame_count &&
@@ -415,14 +415,14 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
 
     const auto &scalars = catalog.expected_presentation.expected_scalars;
     expect(scalars.expected_publication_calibration_gain_linear.expected_ieee754_bits ==
-                   std::bit_cast<std::uint64_t>(dsp::kP18SourceCalibration) &&
+                   std::bit_cast<std::uint64_t>(dsp::kSourcePublicationCalibration) &&
                scalars.expected_audition_monitoring_gain_linear.expected_ieee754_bits ==
                    std::bit_cast<std::uint64_t>(128.0) &&
                scalars.expected_audition_fade_in_duration_s.expected_ieee754_bits ==
                    std::bit_cast<std::uint64_t>(
-                       static_cast<double>(presentation::kP18FadeFrameCount) /
+                       static_cast<double>(presentation::kFadeFrameCount) /
                        static_cast<double>(
-                           presentation::P18CausalReconstruction::kSourceRate)) &&
+                           presentation::CausalReconstruction::kSourceRate)) &&
                scalars.expected_audition_fade_out_duration_s.expected_ieee754_bits ==
                    scalars.expected_audition_fade_in_duration_s.expected_ieee754_bits,
            "presentation scalar catalog differs from publication or mastering");

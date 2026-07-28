@@ -3,8 +3,8 @@
 #include "artifacts/directory_render_sink_support.hpp"
 #include "artifacts/secure_filesystem_support.hpp"
 #include "contract/sha256_stream.hpp"
-#include "dsp/p18_static_ir_conversion.hpp"
-#include "presentation/p18_pcm16_ir_decoder.hpp"
+#include "dsp/static_ir_conversion.hpp"
+#include "presentation/pcm16_ir_decoder.hpp"
 
 #include <algorithm>
 #include <array>
@@ -289,11 +289,11 @@ load_p18_reference_fixture(const std::filesystem::path &fixture_root) {
         throw decode_error("component seed",
                            std::get<P18ReferenceSeedDecodeError>(seed_result));
     }
-    auto ir_result = presentation::decode_p18_pcm16_ir_wave(ir_bytes);
-    const auto *ir = std::get_if<presentation::P18DecodedPcm16Ir>(&ir_result);
+    auto ir_result = presentation::decode_pcm16_ir_wave(ir_bytes);
+    const auto *ir = std::get_if<presentation::DecodedPcm16Ir>(&ir_result);
     if (ir == nullptr) {
         throw decode_error("configured IR",
-                           std::get<presentation::P18Pcm16IrDecodeError>(ir_result));
+                           std::get<presentation::Pcm16IrDecodeError>(ir_result));
     }
     const auto &expected_ir =
         catalog.expected_presentation.expected_configured_ir_media;
@@ -307,10 +307,10 @@ load_p18_reference_fixture(const std::filesystem::path &fixture_root) {
     const auto gain_bits =
         catalog.expected_presentation.expected_scalars
             .expected_impulse_response_gain_linear.expected_ieee754_bits;
-    auto coefficients = dsp::p18_convert_static_ir(
+    auto coefficients = dsp::convert_static_ir(
         ir->samples, ir->meaningful_support_frames, std::bit_cast<double>(gain_bits));
     if (coefficients.size() != catalog.expected_kernel.expected_coefficient_count ||
-        coefficients.size() != dsp::P18FixedConvolutionKernel::coefficient_count) {
+        coefficients.size() != dsp::FixedConvolutionKernel::coefficient_count) {
         throw preflight_error("configured IR",
                               "regenerated kernel shape differs from the catalog");
     }
@@ -332,7 +332,7 @@ load_p18_reference_fixture(const std::filesystem::path &fixture_root) {
             "regenerated coefficients differ from the observed comparator file");
     }
 
-    auto kernel = std::make_shared<const dsp::P18FixedConvolutionKernel>(coefficients);
+    auto kernel = std::make_shared<const dsp::FixedConvolutionKernel>(coefficients);
     const auto spectrum_bytes = serialize_complex_f64le(kernel->spectrum());
     derived.configured_ir_kernel_spectrum_f64le = {
         static_cast<std::uint64_t>(spectrum_bytes.size()),

@@ -2,7 +2,6 @@
 
 #include "canonical_json_writer.hpp"
 
-#include "engine_sim_offline/contract/reference_presentation.hpp"
 #include "engine_sim_offline/contract/render_manifest.hpp"
 #include "engine_sim_offline/render.hpp"
 
@@ -14,7 +13,7 @@
 namespace engine_sim_offline::artifacts::detail {
 
 using ManifestInputsWriter = bool (*)(CanonicalJsonWriter &,
-                                      const contract::RenderManifestInputs &);
+                                      const contract::SimulationManifestInputs &);
 
 [[nodiscard]] bool write_rational_rate(CanonicalJsonWriter &writer,
                                        const contract::RationalRateHz &rate);
@@ -49,9 +48,6 @@ template <class T, class WriteValue>
 [[nodiscard]] bool
 write_presentation_calibration(CanonicalJsonWriter &writer,
                                const contract::PresentationCalibration &presentation);
-[[nodiscard]] bool
-write_reference_inputs(CanonicalJsonWriter &writer,
-                       const contract::ReferencePresentationInputsV1 &inputs);
 [[nodiscard]] bool write_output_contract(CanonicalJsonWriter &writer,
                                          const contract::OutputContract &output);
 [[nodiscard]] bool write_route_records(CanonicalJsonWriter &writer,

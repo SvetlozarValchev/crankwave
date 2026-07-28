@@ -368,13 +368,6 @@ void run_scenario_manifest_contract_tests() {
                                      "randomness.public_seed"),
            "manifest seed was allowed to drift from the resolved scenario");
 
-    auto reserved_generator = content;
-    reserved_generator.randomness.generator.id = "p18_reference_pcg32_v1";
-    report = validate(reserved_generator, builder.provenance, source_matrix);
-    expect(!report.ok() && has_issue(report, ContractIssueCode::unsupported_value,
-                                     "randomness.generator"),
-           "generic output contract was allowed to claim the frozen P1.8 RNG");
-
     auto missing_active_stream = content;
     missing_active_stream.randomness.component_seeds.pop_back();
     report = validate(missing_active_stream, builder.provenance, source_matrix);

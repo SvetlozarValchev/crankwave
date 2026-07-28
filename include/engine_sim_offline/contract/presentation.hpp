@@ -233,12 +233,4 @@ validate(const AuthoredPresentationCalibration &calibration);
 [[nodiscard]] ValidationReport validate(const PresentationCalibration &calibration,
                                         const PresentationValidationContext &context,
                                         const ProvenanceLedger &provenance);
-[[nodiscard]] ValidationReport
-validate_p18_reference_presentation(const PresentationCalibration &calibration,
-                                    const EngineSpec &engine,
-                                    const RenderScenario &scenario);
-[[nodiscard]] ValidationReport
-validate_p18_reference_presentation(const PresentationCalibration &calibration,
-                                    const PresentationValidationContext &context);
-
 } // namespace engine_sim_offline::contract

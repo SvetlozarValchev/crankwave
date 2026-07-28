@@ -275,22 +275,15 @@ contract::ValidationReport validate(const contract::RenderResult &result,
                         "render success requires successful structural preflight");
                 require(report, rights.ok(), "success",
                         "render success requires admitted evidence rights");
-                const auto *simulation_inputs =
-                    std::get_if<contract::SimulationManifestInputs>(
-                        &outcome.manifest.content.inputs);
-                require(report, simulation_inputs != nullptr,
-                        "success.manifest.content.inputs",
-                        "public render success requires simulated manifest inputs");
+                const auto &simulation_inputs = outcome.manifest.content.inputs;
                 require(report,
-                        simulation_inputs != nullptr &&
-                            simulation_inputs->resolved.engine == specification.engine,
+                        simulation_inputs.resolved.engine == specification.engine,
                         "success.manifest.content.inputs.simulation.engine",
                         "success manifest must retain the exact requested engine");
                 require(
                     report,
-                    simulation_inputs != nullptr &&
-                        simulation_inputs->resolved.presentation ==
-                            specification.presentation,
+                    simulation_inputs.resolved.presentation ==
+                        specification.presentation,
                     "success.manifest.content.inputs.simulation.presentation",
                     "success manifest must retain the exact requested presentation");
             }

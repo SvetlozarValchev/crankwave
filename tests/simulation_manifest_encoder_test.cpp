@@ -202,10 +202,6 @@ struct GoldenHashes {
 void test_fail_closed_boundaries() {
     SimulationFixture fixture;
 
-    auto wrong_kind = fixture.manifest;
-    wrong_kind.content.inputs = ReferencePresentationInputsV1{};
-    expect_manifest_error(wrong_kind, "simulation-manifest-input-kind-unsupported");
-
     auto missing_execution = fixture.manifest;
     missing_execution.execution.reset();
     expect_manifest_error(missing_execution, "simulation-manifest-execution-missing");

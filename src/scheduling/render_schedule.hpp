@@ -89,10 +89,6 @@ using ScheduleCompileResult =
 compile_render_schedule(const contract::RenderScenario &scenario,
                         const SchedulePolicy &policy);
 
-[[nodiscard]] const SchedulePolicy &p18_reference_schedule_policy_v1() noexcept;
-[[nodiscard]] ScheduleCompileResult
-compile_p18_reference_schedule(const contract::RenderScenario &scenario);
-
 struct ScheduledClockBlock {
     FrameRange frames;
     FrameRange audible;

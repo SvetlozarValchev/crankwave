@@ -56,7 +56,6 @@ add_library(
         src/contract/presentation.cpp
         src/contract/provenance.cpp
         src/contract/provenance_digest.cpp
-        src/contract/reference_presentation.cpp
         src/contract/render_manifest.cpp
         src/contract/result.cpp
         src/contract/scenario.cpp
@@ -181,10 +180,10 @@ add_library(
         src/artifacts/directory_render_sink.cpp
         src/artifacts/directory_render_sink_commit.cpp
         src/artifacts/directory_render_sink_lifecycle.cpp
-        src/artifacts/p18_audition_wav_encoder.cpp
-        src/artifacts/reference_manifest_encoder.cpp
-        src/artifacts/reference_manifest_encoder_presentation.cpp
-        src/artifacts/reference_manifest_encoder_reference.cpp
+        src/artifacts/audition_wav_encoder.cpp
+        src/artifacts/manifest_encoder.cpp
+        src/artifacts/manifest_encoder_output.cpp
+        src/artifacts/manifest_encoder_presentation.cpp
         src/artifacts/secure_filesystem_support.cpp
         src/artifacts/simulation_manifest_encoder.cpp
         src/artifacts/simulation_manifest_encoder_engine.cpp
@@ -219,11 +218,11 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_artifacts)
 add_library(
     engine_sim_offline_dsp
     STATIC
-        src/dsp/p18_fixed_fft.cpp
-        src/dsp/p18_pcg32.cpp
-        src/dsp/p18_primitives.cpp
-        src/dsp/p18_reconstruction_table.cpp
-        src/dsp/p18_static_ir_conversion.cpp
+        src/dsp/causal_reconstruction_table.cpp
+        src/dsp/fixed_fft.cpp
+        src/dsp/pcg32.cpp
+        src/dsp/source_conditioning_primitives.cpp
+        src/dsp/static_ir_conversion.cpp
 )
 add_library(
     engine_sim_offline::dsp
@@ -245,12 +244,12 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_dsp)
 add_library(
     engine_sim_offline_presentation
     STATIC
-        src/presentation/p18_causal_reconstruction.cpp
-        src/presentation/p18_conditioning.cpp
-        src/presentation/p18_mastering.cpp
-        src/presentation/p18_overlap_save_convolver.cpp
-        src/presentation/p18_pcm16_ir_decoder.cpp
-        src/presentation/p18_source_stage.cpp
+        src/presentation/causal_reconstruction.cpp
+        src/presentation/exhaust_source_stage.cpp
+        src/presentation/mastering.cpp
+        src/presentation/overlap_save_convolver.cpp
+        src/presentation/pcm16_ir_decoder.cpp
+        src/presentation/route_conditioning.cpp
 )
 add_library(
     engine_sim_offline::presentation
@@ -297,29 +296,55 @@ target_link_libraries(
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_excitation)
 
+add_library(
+    engine_sim_offline_execution
+    STATIC
+        src/execution/linux_execution_facts.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_execution
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_execution
+    PUBLIC engine_sim_offline::contract
+    PRIVATE engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_execution)
+
+add_library(
+    engine_sim_offline_presentation_session
+    STATIC
+        src/presentation/presentation_render_session.cpp
+)
+add_library(
+    engine_sim_offline::presentation_session
+    ALIAS engine_sim_offline_presentation_session
+)
+
+target_include_directories(
+    engine_sim_offline_presentation_session
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_presentation_session
+    PUBLIC
+        engine_sim_offline::artifacts
+        engine_sim_offline_execution
+        engine_sim_offline::presentation
+    PRIVATE engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_presentation_session
+)
+
 if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     include(cmake/RendererSourceStamp.cmake)
-
-    add_library(
-        engine_sim_offline_execution
-        STATIC
-            src/execution/linux_execution_facts.cpp
-    )
-
-    target_include_directories(
-        engine_sim_offline_execution
-        PUBLIC
-            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-    )
-
-    target_link_libraries(
-        engine_sim_offline_execution
-        PUBLIC engine_sim_offline::contract
-        PRIVATE engine_sim_offline::build_options
-    )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_execution
-    )
 
     add_library(
         engine_sim_offline_renderer_determinism
@@ -379,30 +404,6 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     )
 
     add_library(
-        engine_sim_offline_p18_presentation_session
-        STATIC
-            src/reference/p18_reference_render_session.cpp
-    )
-
-    target_include_directories(
-        engine_sim_offline_p18_presentation_session
-        PUBLIC
-            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-    )
-
-    target_link_libraries(
-        engine_sim_offline_p18_presentation_session
-        PUBLIC
-            engine_sim_offline::artifacts
-            engine_sim_offline_execution
-            engine_sim_offline::presentation
-        PRIVATE engine_sim_offline::build_options
-    )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_p18_presentation_session
-    )
-
-    add_library(
         engine_sim_offline_p18_reference_catalog
         STATIC
             src/reference/p18_reference_catalog.cpp
@@ -450,85 +451,6 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
         engine_sim_offline_p18_reference_fixture
     )
 
-    add_library(
-        engine_sim_offline_p18_reference_session_adapter
-        STATIC
-            src/reference/p18_reference_session_adapter.cpp
-    )
-
-    target_include_directories(
-        engine_sim_offline_p18_reference_session_adapter
-        PUBLIC
-            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-    )
-
-    target_link_libraries(
-        engine_sim_offline_p18_reference_session_adapter
-        PUBLIC
-            engine_sim_offline_p18_presentation_session
-            engine_sim_offline_p18_reference_fixture
-        PRIVATE
-            engine_sim_offline::build_options
-            engine_sim_offline_p18_reference_catalog
-    )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_p18_reference_session_adapter
-    )
-
-    add_library(
-        engine_sim_offline_p18_reference_provenance
-        STATIC
-            src/reference/p18_reference_method_identity.cpp
-            src/reference/p18_reference_provenance.cpp
-    )
-
-    target_include_directories(
-        engine_sim_offline_p18_reference_provenance
-        PUBLIC
-            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-    )
-
-    target_link_libraries(
-        engine_sim_offline_p18_reference_provenance
-        PUBLIC
-            engine_sim_offline::contract
-            engine_sim_offline_p18_reference_catalog
-            engine_sim_offline_p18_reference_fixture
-        PRIVATE
-            engine_sim_offline::build_options
-    )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_p18_reference_provenance
-    )
-
-    add_library(
-        engine_sim_offline_p18_reference_manifest
-        STATIC
-            src/reference/p18_reference_manifest_completion.cpp
-            src/reference/p18_reference_manifest_content.cpp
-    )
-
-    target_include_directories(
-        engine_sim_offline_p18_reference_manifest
-        PUBLIC
-            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-    )
-
-    target_link_libraries(
-        engine_sim_offline_p18_reference_manifest
-        PUBLIC
-            engine_sim_offline_execution
-            engine_sim_offline_p18_presentation_session
-            engine_sim_offline_p18_reference_provenance
-            engine_sim_offline_renderer_determinism
-        PRIVATE
-            engine_sim_offline::artifacts
-            engine_sim_offline::build_options
-            engine_sim_offline_p18_reference_catalog
-    )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_p18_reference_manifest
-    )
 endif()
 
 if(ENGINE_SIM_OFFLINE_BUILD_CLI)
@@ -570,94 +492,6 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     )
 endif()
 
-if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
-    add_executable(
-        engine_sim_offline_p18_reference_render
-        src/reference/p18_reference_main.cpp
-    )
-
-    set_target_properties(
-        engine_sim_offline_p18_reference_render
-        PROPERTIES OUTPUT_NAME engine-sim-offline-p18-reference-render
-    )
-
-    target_include_directories(
-        engine_sim_offline_p18_reference_render
-        PRIVATE
-            ${PROJECT_SOURCE_DIR}/src
-    )
-
-    target_link_options(
-        engine_sim_offline_p18_reference_render
-        PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--no-as-needed>
-    )
-
-    target_link_libraries(
-        engine_sim_offline_p18_reference_render
-        PRIVATE
-            engine_sim_offline::artifacts
-            engine_sim_offline_execution
-            engine_sim_offline_p18_reference_catalog
-            engine_sim_offline_p18_reference_fixture
-            engine_sim_offline_p18_reference_manifest
-            engine_sim_offline_p18_reference_session_adapter
-            engine_sim_offline_p18_presentation_session
-            engine_sim_offline::presentation
-            engine_sim_offline_renderer_determinism
-            $<$<PLATFORM_ID:Linux>:m>
-    )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_p18_reference_render
-    )
-    engine_sim_offline_finalize_renderer_numeric_policy(
-        engine_sim_offline_p18_reference_render
-    )
-
-    add_executable(
-        engine_sim_offline_m3_bmw_listening
-        src/reference/m3_bmw_listening_main.cpp
-        src/reference/p18_reference_full_audit_reader.cpp
-    )
-
-    set_target_properties(
-        engine_sim_offline_m3_bmw_listening
-        PROPERTIES OUTPUT_NAME engine-sim-offline-m3-bmw-listening
-    )
-
-    target_include_directories(
-        engine_sim_offline_m3_bmw_listening
-        PRIVATE ${PROJECT_SOURCE_DIR}/src
-    )
-
-    target_link_options(
-        engine_sim_offline_m3_bmw_listening
-        PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--no-as-needed>
-    )
-
-    target_link_libraries(
-        engine_sim_offline_m3_bmw_listening
-        PRIVATE
-            engine_sim_offline::artifacts
-            engine_sim_offline::excitation
-            engine_sim_offline::presentation
-            engine_sim_offline::profiles
-            engine_sim_offline::simulation
-            engine_sim_offline_execution
-            engine_sim_offline_p18_presentation_session
-            engine_sim_offline_p18_reference_catalog
-            engine_sim_offline_p18_reference_fixture
-            engine_sim_offline_p18_reference_session_adapter
-            engine_sim_offline_reference_parity_v1_reader
-            $<$<PLATFORM_ID:Linux>:m>
-    )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_m3_bmw_listening
-    )
-    engine_sim_offline_finalize_renderer_numeric_policy(
-        engine_sim_offline_m3_bmw_listening
-    )
-endif()
-
 set(
     _engine_sim_offline_numeric_policy_targets
     engine_sim_offline_contract
@@ -668,41 +502,22 @@ set(
     engine_sim_offline_dsp
     engine_sim_offline_presentation
     engine_sim_offline_excitation
+    engine_sim_offline_execution
+    engine_sim_offline_presentation_session
 )
 if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     list(
         APPEND
         _engine_sim_offline_numeric_policy_targets
-        engine_sim_offline_execution
         engine_sim_offline_reference_parity_v1_reader
         engine_sim_offline_renderer_determinism
-        engine_sim_offline_p18_presentation_session
         engine_sim_offline_p18_reference_catalog
         engine_sim_offline_p18_reference_fixture
-        engine_sim_offline_p18_reference_manifest
-        engine_sim_offline_p18_reference_provenance
-        engine_sim_offline_p18_reference_session_adapter
-    )
-endif()
-if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
-    list(
-        APPEND
-        _engine_sim_offline_numeric_policy_targets
-        engine_sim_offline_m3_bmw_listening
-        engine_sim_offline_p18_reference_render
     )
 endif()
 foreach(_target IN LISTS _engine_sim_offline_numeric_policy_targets)
     engine_sim_offline_assert_renderer_numeric_policy("${_target}")
 endforeach()
-if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
-    engine_sim_offline_assert_final_renderer_numeric_policy(
-        engine_sim_offline_m3_bmw_listening
-    )
-    engine_sim_offline_assert_final_renderer_numeric_policy(
-        engine_sim_offline_p18_reference_render
-    )
-endif()
 unset(_engine_sim_offline_numeric_policy_targets)
 
 if(ENGINE_SIM_OFFLINE_BUILD_TESTS)

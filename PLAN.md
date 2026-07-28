@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — retiring temporary M3 parity scaffolding
+Status: implementation — M4 held-speed brake dyno
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-28
 
@@ -431,8 +431,9 @@ It does not change arithmetic, admission policy, or audio.
 
 The user accepted the renderer on 2026-07-27 after listening to the candidate from
 commit `9cc0cd8f1129b14de157082ad6e66407b548041c` and confirming that it was identical
-to the liked BMW baseline. This accepts the downstream P1.8 renderer only; it does not
-accept physics that has not yet been implemented or make a higher-fidelity claim.
+to the liked BMW baseline. This accepts the downstream renderer at the frozen baseline;
+it does not accept physics that has not yet been implemented or make a higher-fidelity
+claim.
 
 ### M3 — BMW parity
 
@@ -463,7 +464,7 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
 - [x] Render the canonical 15-second pull.
 - [x] Produce controlled oracle/candidate files plus routing and performance reports.
 - [x] Stop for user listening.
-- [ ] After the user accepts the physics-generated BMW listening gate, retire every
+- [x] After the user accepts the physics-generated BMW listening gate, retire every
       P1.8-named C++ renderer/replay implementation and its build targets. Move any
       still-needed algorithm into one generally named production implementation
       rather than retaining a second copy, and keep only immutable oracle artifacts,

@@ -342,7 +342,14 @@ void test_method_bounds_are_admitted_explicitly() {
            "fractional method-boundary rejection did not identify every target clock");
 }
 
-RenderScenario make_p18_scenario() {
+SchedulePolicy accepted_presentation_policy() {
+    return {
+        "fixed-rate-exhaust-presentation", 1, 200, 19U * 200U,
+        SamplePhase::post_step,             1,
+    };
+}
+
+RenderScenario make_accepted_presentation_scenario() {
     auto scenario = make_test_scenario();
     scenario.total_duration_s.value = 17.0;
     scenario.audible_start_s.value = 2.0;
@@ -351,10 +358,11 @@ RenderScenario make_p18_scenario() {
     return scenario;
 }
 
-void test_p18_partition_and_mapping() {
-    const auto scenario = make_p18_scenario();
-    const auto plan = require_plan(compile_p18_reference_schedule(scenario),
-                                   "valid P1.8 reference schedule was rejected");
+void test_accepted_presentation_partition_and_mapping() {
+    const auto scenario = make_accepted_presentation_scenario();
+    const auto plan = require_plan(
+        compile_render_schedule(scenario, accepted_presentation_policy()),
+        "valid accepted presentation schedule was rejected");
 
     expect(plan.capture_capacity_frames() == 256 &&
                plan.event_journal_capacity_records() == 4096 &&
@@ -362,29 +370,29 @@ void test_p18_partition_and_mapping() {
                plan.block_count() == 850 &&
                plan.capture().maximum_frames_per_block == 200 &&
                plan.source_processing().maximum_frames_per_block == 3840,
-           "P1.8 transport capacity and method-owned block bounds were conflated");
+           "presentation transport capacity and method-owned bounds were conflated");
     expect(plan.capture().total_frames == 170000 &&
                plan.capture().audible == FrameRange{20000, 170000},
-           "P1.8 capture extent is wrong");
+           "presentation capture extent is wrong");
     expect(plan.source_processing().total_frames == 3264000 &&
                plan.source_processing().audible == FrameRange{384000, 3264000},
-           "P1.8 source extent is wrong");
+           "presentation source extent is wrong");
 
     ScheduleCursor cursor{plan};
     for (std::uint64_t ordinal = 0; ordinal < 850; ++ordinal) {
         const auto step = cursor.next();
         const auto *block = std::get_if<ScheduledRenderBlock>(&step);
         expect(block != nullptr && block->ordinal == ordinal,
-               "P1.8 cursor did not return the expected block");
+               "presentation cursor did not return the expected block");
         expect(block->capture.frames ==
                        FrameRange{ordinal * 200, (ordinal + 1) * 200} &&
                    block->source_processing.frames ==
                        FrameRange{ordinal * 3840, (ordinal + 1) * 3840} &&
                    block->acoustic.frames == block->source_processing.frames &&
                    block->delivery.frames == block->source_processing.frames,
-               "P1.8 200-to-3840 block mapping drifted");
+               "presentation 200-to-3840 block mapping drifted");
         expect(block->capture_clock.first_timestamp_tick == ordinal * 200 + 1,
-               "P1.8 post-step capture timestamp origin drifted");
+               "presentation post-step capture timestamp origin drifted");
 
         const auto expected_capture_audible =
             ordinal < 100 ? FrameRange{(ordinal + 1) * 200, (ordinal + 1) * 200}
@@ -394,22 +402,23 @@ void test_p18_partition_and_mapping() {
                           : block->source_processing.frames;
         expect(block->capture.audible == expected_capture_audible &&
                    block->source_processing.audible == expected_source_audible,
-               "P1.8 crop did not preserve 100 complete pre-roll blocks");
+               "presentation crop did not preserve 100 complete pre-roll blocks");
     }
 
     const auto terminal = cursor.next();
     const auto *completed = std::get_if<ScheduleCompleted>(&terminal);
     expect(completed != nullptr && completed->progress.next_capture_frame == 170000 &&
                completed->progress.next_source_processing_frame == 3264000,
-           "P1.8 cursor did not finish at the exact frozen horizons");
+           "presentation cursor did not finish at the expected horizons");
 
     auto insufficient_capacity = scenario;
     insufficient_capacity.quality.value.capture_block_capacity_frames = 199;
-    const auto rejected = compile_p18_reference_schedule(insufficient_capacity);
+    const auto rejected = compile_render_schedule(insufficient_capacity,
+                                                  accepted_presentation_policy());
     const auto &report = require_rejection(
-        rejected, "P1.8 partition exceeded capacity without rejection");
+        rejected, "presentation partition exceeded capacity without rejection");
     expect(has_issue_path(report, "policy.capture_partition_frames"),
-           "P1.8 capacity rejection did not identify the method partition");
+           "presentation capacity rejection did not identify the method partition");
 }
 
 void test_binary64_grid_conversion_and_rejection() {
@@ -564,7 +573,7 @@ void run_tests() {
     test_generic_partition_and_crop_continuity();
     test_scheduled_capture_block_binding();
     test_method_bounds_are_admitted_explicitly();
-    test_p18_partition_and_mapping();
+    test_accepted_presentation_partition_and_mapping();
     test_binary64_grid_conversion_and_rejection();
     test_cancellation_boundaries_and_final_poll();
     test_interleaved_cursors_are_session_local();

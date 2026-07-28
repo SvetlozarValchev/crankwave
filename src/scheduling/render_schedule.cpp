@@ -270,14 +270,6 @@ ScheduledClockBlock schedule_clock_block(FrameRange capture_frames,
     return {frames, intersection(frames, clock.audible)};
 }
 
-bool exact_extent(const ClockExtent &extent, std::uint64_t total,
-                  std::uint64_t audible_begin, std::uint64_t audible_end,
-                  std::uint64_t maximum_block) noexcept {
-    return extent.total_frames == total &&
-           extent.audible == FrameRange{audible_begin, audible_end} &&
-           extent.maximum_frames_per_block == maximum_block;
-}
-
 } // namespace
 
 RenderSchedulePlan::RenderSchedulePlan(SchedulePolicy policy, ClockExtent physics,
@@ -443,80 +435,6 @@ ScheduleCompileResult compile_render_schedule(const contract::RenderScenario &sc
         scenario.quality.value.event_journal_capacity_records,
         block_count,
     };
-}
-
-const SchedulePolicy &p18_reference_schedule_policy_v1() noexcept {
-    static const SchedulePolicy policy{
-        "p18-reference-fixed-block-schedule", 1, 200, 19U * 200U,
-        contract::SamplePhase::post_step,     1,
-    };
-    return policy;
-}
-
-ScheduleCompileResult
-compile_p18_reference_schedule(const contract::RenderScenario &scenario) {
-    auto compiled =
-        compile_render_schedule(scenario, p18_reference_schedule_policy_v1());
-    if (const auto *failure = std::get_if<ValidationReport>(&compiled)) {
-        return *failure;
-    }
-
-    const auto &plan = std::get<RenderSchedulePlan>(compiled);
-    ValidationReport report;
-    require(report,
-            scenario.rates.physics == RationalRateHz{10000, 1} &&
-                scenario.rates.capture == RationalRateHz{10000, 1} &&
-                scenario.rates.source_processing == RationalRateHz{192000, 1} &&
-                scenario.rates.acoustic == RationalRateHz{192000, 1} &&
-                scenario.rates.delivery == RationalRateHz{192000, 1},
-            "scenario.rates",
-            "P1.8 schedule requires the frozen 10 kHz to 192 kHz clock plan");
-    require(report, exact_extent(plan.capture(), 170000, 20000, 170000, 200), "capture",
-            "P1.8 capture schedule must be 170000 frames in 200-frame blocks "
-            "with [20000,170000) audible");
-    require(report,
-            exact_extent(plan.source_processing(), 3264000, 384000, 3264000, 3840),
-            "source_processing",
-            "P1.8 source schedule must be 3264000 frames in 3840-frame blocks "
-            "with [384000,3264000) audible");
-    require(report,
-            exact_extent(plan.acoustic(), 3264000, 384000, 3264000, 3840) &&
-                exact_extent(plan.delivery(), 3264000, 384000, 3264000, 3840),
-            "acoustic_delivery",
-            "P1.8 acoustic and delivery clocks must retain the exact source "
-            "partition and crop");
-    require(report, plan.block_count() == 850, "block_count",
-            "P1.8 schedule requires exactly 850 method-owned blocks");
-    require(report, scenario.quality.value.capture_block_capacity_frames >= 200,
-            "scenario.quality.value.capture_block_capacity_frames",
-            "P1.8 transport capacity must hold one 200-frame method block");
-    require(report, plan.policy().maximum_event_records_per_block == 19U * 200U,
-            "policy.maximum_event_records_per_block",
-            "P1.8 method must reserve 19 event records per capture frame");
-
-    const auto *fixed = std::get_if<contract::FixedSettling>(&scenario.preparation);
-    const auto warm_up_frames =
-        fixed == nullptr ? std::optional<std::uint64_t>{}
-                         : contract::resolve_frame_index(
-                               fixed->warm_up_duration_s.value, scenario.rates.capture);
-    const auto settling_frames =
-        fixed == nullptr
-            ? std::optional<std::uint64_t>{}
-            : contract::resolve_frame_index(fixed->settling_duration_s.value,
-                                            scenario.rates.capture);
-    require(report,
-            fixed != nullptr && warm_up_frames == std::optional<std::uint64_t>{10000} &&
-                settling_frames == std::optional<std::uint64_t>{10000},
-            "scenario.preparation",
-            "P1.8 requires 50 bootstrap blocks followed by 50 loaded pre-roll "
-            "blocks before the 750 audible blocks");
-    require(report, plan.source_processing().maximum_frames_per_block <= 9600,
-            "source_processing.maximum_frames_per_block",
-            "P1.8 source block exceeds the frozen convolution limit");
-    if (!report.ok()) {
-        return report;
-    }
-    return plan;
 }
 
 ScheduleCursor::ScheduleCursor(RenderSchedulePlan plan) noexcept

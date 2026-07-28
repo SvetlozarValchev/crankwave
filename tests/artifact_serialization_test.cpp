@@ -154,7 +154,7 @@ void test_float32_wave_identity_and_bounds() {
     };
     const auto bmw = require_wav(make_wav_encoder(bmw_audio));
     expect(bmw.expected_byte_count() == 11520058,
-           "BMW P1.8 Float32 stem size is not exactly 11,520,058 bytes");
+           "BMW baseline Float32 stem size is not exactly 11,520,058 bytes");
 }
 
 void test_pcm24_wave_identity_and_fail_closed_input() {

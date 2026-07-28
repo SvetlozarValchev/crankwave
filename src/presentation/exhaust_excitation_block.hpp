@@ -13,12 +13,13 @@
 
 namespace engine_sim_offline::presentation {
 
-inline constexpr std::size_t kP18ExhaustRouteCount = 2;
+inline constexpr std::size_t kExhaustExcitationRouteCount = 2;
 
 // The values retain the narrow reference renderer's uncalibrated
 // engine_sim_source_unit. They are neither pressure nor microphone samples.
 struct ExhaustExcitationFrame {
-    std::array<double, kP18ExhaustRouteCount> route_values_engine_sim_source_unit{};
+    std::array<double, kExhaustExcitationRouteCount>
+        route_values_engine_sim_source_unit{};
 
     friend bool operator==(const ExhaustExcitationFrame &,
                            const ExhaustExcitationFrame &) = default;
@@ -39,11 +40,10 @@ class ExhaustExcitationBlockView {
                  std::ranges::sized_range<FrameRange> &&
                  std::same_as<std::remove_cv_t<std::ranges::range_value_t<FrameRange>>,
                               ExhaustExcitationFrame>
-    [[nodiscard]] static ExhaustExcitationBlockView
-    borrow_for_callback(std::uint64_t first_frame_index,
-                        contract::RationalRateHz sample_rate,
-                        std::array<contract::RouteId, kP18ExhaustRouteCount> route_ids,
-                        FrameRange &&frames) noexcept {
+    [[nodiscard]] static ExhaustExcitationBlockView borrow_for_callback(
+        std::uint64_t first_frame_index, contract::RationalRateHz sample_rate,
+        std::array<contract::RouteId, kExhaustExcitationRouteCount> route_ids,
+        FrameRange &&frames) noexcept {
         return {
             first_frame_index,
             sample_rate,
@@ -60,7 +60,7 @@ class ExhaustExcitationBlockView {
         return sample_rate_;
     }
 
-    [[nodiscard]] const std::array<contract::RouteId, kP18ExhaustRouteCount> &
+    [[nodiscard]] const std::array<contract::RouteId, kExhaustExcitationRouteCount> &
     route_ids() const noexcept {
         return route_ids_;
     }
@@ -72,14 +72,14 @@ class ExhaustExcitationBlockView {
   private:
     ExhaustExcitationBlockView(
         std::uint64_t first_frame_index, contract::RationalRateHz sample_rate,
-        std::array<contract::RouteId, kP18ExhaustRouteCount> route_ids,
+        std::array<contract::RouteId, kExhaustExcitationRouteCount> route_ids,
         std::span<const ExhaustExcitationFrame> frames) noexcept
         : first_frame_index_(first_frame_index), sample_rate_(sample_rate),
           route_ids_(route_ids), frames_(frames) {}
 
     std::uint64_t first_frame_index_ = 0;
     contract::RationalRateHz sample_rate_{};
-    std::array<contract::RouteId, kP18ExhaustRouteCount> route_ids_{};
+    std::array<contract::RouteId, kExhaustExcitationRouteCount> route_ids_{};
     std::span<const ExhaustExcitationFrame> frames_;
 };
 

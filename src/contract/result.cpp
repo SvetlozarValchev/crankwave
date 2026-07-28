@@ -395,15 +395,9 @@ ValidationReport validate(const RenderResult &result,
                 append_prefixed(report,
                                 validate(outcome.manifest, provenance, source_matrix),
                                 "success.manifest");
-                const auto *simulation_inputs = std::get_if<SimulationManifestInputs>(
-                    &outcome.manifest.content.inputs);
-                require(report, simulation_inputs != nullptr,
-                        ContractIssueCode::unsupported_value,
-                        "success.manifest.content.inputs",
-                        "public render success requires simulated manifest inputs");
+                const auto &simulation_inputs = outcome.manifest.content.inputs;
                 require(report,
-                        simulation_inputs != nullptr &&
-                            simulation_inputs->resolved.scenario == requested_scenario,
+                        simulation_inputs.resolved.scenario == requested_scenario,
                         ContractIssueCode::inconsistent_semantics,
                         "success.manifest.content.inputs.simulation.scenario",
                         "successful manifest must contain the requested scenario");

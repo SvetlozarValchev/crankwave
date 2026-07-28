@@ -3,7 +3,6 @@
 #include "engine_sim_offline/contract/common.hpp"
 #include "engine_sim_offline/contract/engine.hpp"
 #include "engine_sim_offline/contract/presentation.hpp"
-#include "engine_sim_offline/contract/reference_presentation.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
 #include "engine_sim_offline/contract/source_matrix.hpp"
 
@@ -11,7 +10,6 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <variant>
 #include <vector>
 
 namespace engine_sim_offline::contract {
@@ -141,12 +139,9 @@ struct SimulationManifestInputs {
                            const SimulationManifestInputs &) = default;
 };
 
-using RenderManifestInputs =
-    std::variant<SimulationManifestInputs, ReferencePresentationInputsV1>;
-
 struct RenderManifestContent {
     std::uint32_t schema_version = 0;
-    RenderManifestInputs inputs;
+    SimulationManifestInputs inputs;
     ProvenanceBundleRef provenance;
     DeterminismEnvelope determinism;
     RenderRates rates;

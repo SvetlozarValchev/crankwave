@@ -736,12 +736,12 @@ inline SourceMatrixContract make_source_matrix() {
 }
 
 inline ResolvedRenderInputs &simulation_inputs(RenderManifestContent &content) {
-    return std::get<SimulationManifestInputs>(content.inputs).resolved;
+    return content.inputs.resolved;
 }
 
 inline const ResolvedRenderInputs &
 simulation_inputs(const RenderManifestContent &content) {
-    return std::get<SimulationManifestInputs>(content.inputs).resolved;
+    return content.inputs.resolved;
 }
 
 inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
@@ -862,6 +862,5 @@ void run_authored_profile_contract_tests();
 void run_parity_model_contract_tests();
 void run_capture_contract_tests();
 void run_scenario_manifest_contract_tests();
-void run_reference_manifest_contract_tests();
 
 } // namespace engine_sim_offline::contract::test
