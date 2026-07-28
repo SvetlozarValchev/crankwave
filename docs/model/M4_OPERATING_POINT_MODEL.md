@@ -133,13 +133,29 @@ state evolves in this profile.
 must prove that indicated gas (`0x01`), aggregate loss (`0x7e`), and starter (`0x80`)
 are pairwise disjoint and their union is the complete known mask (`0xff`).
 
-The accessory ID is canonical and its content digest is nonzero. The digest identifies
-a canonical descriptor that declares the exact accessory inventory/state and repeats
-the coefficient tuple, required oil condition, and term scope to which it applies.
-The matching provenance evidence source carries the same digest. The exact BMW
-validator admits the descriptor and tuple as one pair: changing either the accessory
-identity or any loss value requires a new reviewed profile admission. Merely swapping
-an ID or reusing coefficients under an unadmitted accessory digest is invalid.
+The first BMW profile accessory authority is exactly:
+
+| Role | Frozen identity |
+|---|---|
+| Configuration ID | `bmw-m52b28-warm-stock-accessories-v1` |
+| Production descriptor | `data/profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json` |
+| Descriptor serialization | UTF-8 JSON, LF line endings, exactly one final LF |
+| Descriptor content SHA-256 | `ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97` |
+
+The descriptor bytes declare the modeled warm positive-speed held-running inventory
+and state, repeat the exact coefficient tuple and `363.15 K` applicability condition
+with their binary64 identities, and freeze the `0x7e` aggregate, separate disengaged
+starter `0x80`, and complete `0xff` accounting partition. They explicitly classify
+the loss model as a generic prior rather than a BMW measurement and prohibit
+component-loss inference from the aggregate.
+
+`accessory_configuration.configuration_id` and
+`accessory_configuration.content_sha256` must equal the ID and digest above. The
+matching provenance evidence source carries the same descriptor digest. The exact BMW
+validator admits the descriptor and tuple as one pair: changing the descriptor bytes,
+accessory identity, or any loss value requires a new reviewed profile admission.
+Merely swapping an ID or reusing coefficients under an unadmitted accessory digest is
+invalid.
 
 This v1 profile requires all cylinder strokes to be bit-identical. Cylinder
 displacements are visited in ascending stable `CylinderId` order; their stable sum
