@@ -249,6 +249,8 @@ add_library(
         src/presentation/mastering.cpp
         src/presentation/overlap_save_convolver.cpp
         src/presentation/pcm16_ir_decoder.cpp
+        src/presentation/presentation_asset_compiler.cpp
+        src/presentation/presentation_method_registry.cpp
         src/presentation/route_conditioning.cpp
 )
 add_library(

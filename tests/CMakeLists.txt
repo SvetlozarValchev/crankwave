@@ -548,6 +548,55 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_presentation_method_registry_tests
+    presentation_method_registry_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_presentation_method_registry_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_presentation_method_registry_tests
+    PRIVATE engine_sim_offline::presentation
+)
+
+add_test(
+    NAME presentation.method_registry
+    COMMAND engine_sim_offline_presentation_method_registry_tests
+)
+
+add_executable(
+    engine_sim_offline_presentation_asset_compiler_tests
+    presentation_asset_compiler_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_presentation_asset_compiler_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_presentation_asset_compiler_tests
+    PRIVATE
+        engine_sim_offline::presentation
+        $<$<PLATFORM_ID:Linux>:m>
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_presentation_asset_compiler_tests
+)
+
+add_test(
+    NAME presentation.asset_compiler
+    COMMAND
+        engine_sim_offline_presentation_asset_compiler_tests
+        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav
+)
+
+add_executable(
     engine_sim_offline_fixed_fft_convolution_tests
     fixed_fft_convolution_test.cpp
 )

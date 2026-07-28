@@ -493,7 +493,8 @@ replacement starts before acceptance.
   - [x] Implement the fixture-free, full-`uint64` capture/component seed derivation
         primitive and independently reproduce the frozen BMW random key plus all 11
         component seed pairs.
-  - [ ] Compile and content-identify the configured presentation assets.
+  - [x] Compile and content-identify the configured presentation assets, including
+        exact raw, coefficient, and convolution-spectrum identities for the BMW IR.
   - [ ] Admit the implemented presentation method identities and exact executable
         calibration.
   - [ ] Seal executable plan and manifest basis into one opaque job, then connect its
