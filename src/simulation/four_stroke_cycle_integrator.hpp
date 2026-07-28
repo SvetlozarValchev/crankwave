@@ -35,6 +35,13 @@ struct CycleBoundaryEvidence {
                            const CycleBoundaryEvidence &) = default;
 };
 
+// The values are the immediately preceding/current post-step scalar samples.
+// Exact-right-sample evidence selects right_value; bracketed evidence applies the
+// integrator-owned interpolation fraction.
+[[nodiscard]] double
+interpolate_cycle_boundary_scalar(double left_value, double right_value,
+                                  const CycleBoundaryEvidence &boundary) noexcept;
+
 struct CompletedFourStrokeCycle {
     std::uint64_t completed_cycle_ordinal = 0;
     CycleBoundaryEvidence start_boundary;
@@ -73,13 +80,23 @@ struct FourStrokeCycleIntegrationError {
                            const FourStrokeCycleIntegrationError &) = default;
 };
 
-struct NoCompletedFourStrokeCycle {
-    friend bool operator==(const NoCompletedFourStrokeCycle &,
-                           const NoCompletedFourStrokeCycle &) = default;
+struct NoFourStrokeCycleBoundaryCrossing {
+    friend bool operator==(const NoFourStrokeCycleBoundaryCrossing &,
+                           const NoFourStrokeCycleBoundaryCrossing &) = default;
+};
+
+struct FourStrokeCycleBoundaryCrossing {
+    CycleBoundaryEvidence boundary;
+    double theta_rad = 0.0;
+    double time_s = 0.0;
+    std::optional<CompletedFourStrokeCycle> completed_cycle;
+
+    friend bool operator==(const FourStrokeCycleBoundaryCrossing &,
+                           const FourStrokeCycleBoundaryCrossing &) = default;
 };
 
 using FourStrokeCycleAdvanceResult =
-    std::variant<NoCompletedFourStrokeCycle, CompletedFourStrokeCycle,
+    std::variant<NoFourStrokeCycleBoundaryCrossing, FourStrokeCycleBoundaryCrossing,
                  FourStrokeCycleIntegrationError>;
 
 class FourStrokeCycleIntegrator final {
@@ -92,8 +109,10 @@ class FourStrokeCycleIntegrator final {
     // Samples use strictly increasing post-step time/angle semantics. Between samples,
     // torque and time are piecewise linear in unwrapped crank angle; work uses
     // trapezoidal torque-angle quadrature. Boundaries are derived independently as
-    // reference + integer*4*pi, and the initial partial cycle is discarded. Upstream
-    // integration must split physical discontinuities at their exact event times.
+    // reference + integer*4*pi, and the initial partial cycle is discarded. Every
+    // represented boundary crossing is returned, including the crossing that ends
+    // that discarded partial cycle; a completed full cycle is attached when present.
+    // Upstream integration must split physical discontinuities at exact event times.
     //
     // This primitive integrates supplied terms but makes no claim that they constitute
     // complete physical net torque; that proof belongs to the compiled

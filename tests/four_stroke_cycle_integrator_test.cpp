@@ -61,7 +61,8 @@ sample(std::uint64_t index, double theta_rad, double time_s,
 
 [[nodiscard]] std::vector<CompletedFourStrokeCycle>
 feed(FourStrokeCycleIntegrator &integrator,
-     const std::vector<CycleTorqueSample> &samples) {
+     const std::vector<CycleTorqueSample> &samples,
+     std::vector<FourStrokeCycleBoundaryCrossing> *crossings = nullptr) {
     std::vector<CompletedFourStrokeCycle> completed;
     for (const auto &value : samples) {
         auto result = integrator.advance(value);
@@ -70,11 +71,56 @@ feed(FourStrokeCycleIntegrator &integrator,
                 "valid sample stream faulted with code " +
                 std::to_string(static_cast<unsigned>(error->code))};
         }
-        if (auto *cycle = std::get_if<CompletedFourStrokeCycle>(&result)) {
-            completed.push_back(std::move(*cycle));
+        if (auto *crossing = std::get_if<FourStrokeCycleBoundaryCrossing>(&result)) {
+            if (crossing->completed_cycle.has_value()) {
+                completed.push_back(*crossing->completed_cycle);
+            }
+            if (crossings != nullptr) {
+                crossings->push_back(std::move(*crossing));
+            }
         }
     }
     return completed;
+}
+
+void test_exact_and_bracketed_boundary_crossing_evidence() {
+    {
+        auto integrator = make_integrator();
+        const auto initialized = integrator.advance(sample(4, 0.0, 1.0, 12.0));
+        expect(std::holds_alternative<NoFourStrokeCycleBoundaryCrossing>(initialized),
+               "exact start sample was mislabeled as a crossed segment");
+
+        const auto result = integrator.advance(sample(9, kCycleRadians, 3.0, 20.0));
+        const auto *crossing = std::get_if<FourStrokeCycleBoundaryCrossing>(&result);
+        expect(crossing != nullptr && crossing->completed_cycle.has_value() &&
+                   crossing->boundary == CycleBoundaryEvidence{9, 9, 0.0} &&
+                   crossing->theta_rad == kCycleRadians && crossing->time_s == 3.0 &&
+                   crossing->completed_cycle->end_boundary == crossing->boundary,
+               "exact-right-sample boundary crossing evidence changed");
+        expect(interpolate_cycle_boundary_scalar(13.0, 29.0, crossing->boundary) ==
+                   29.0,
+               "exact-right-sample scalar interpolation selected the left value");
+    }
+
+    {
+        auto integrator = make_integrator();
+        (void)integrator.advance(sample(10, kCycleRadians - 1.0, 10.0, 30.0));
+        const auto result =
+            integrator.advance(sample(11, kCycleRadians + 3.0, 14.0, 70.0));
+        const auto *crossing = std::get_if<FourStrokeCycleBoundaryCrossing>(&result);
+        expect(crossing != nullptr && !crossing->completed_cycle.has_value() &&
+                   crossing->boundary.left_bracket_sample_index == 10 &&
+                   crossing->boundary.right_bracket_sample_index == 11 &&
+                   crossing->theta_rad == kCycleRadians,
+               "bracketed discarded-partial boundary crossing was not returned");
+        expect_near(crossing->boundary.fraction_from_left_01, 0.25, 1e-15,
+                    "bracketed boundary fraction changed");
+        expect_near(crossing->time_s, 11.0, 1e-15, "bracketed boundary time changed");
+        expect_near(
+            interpolate_cycle_boundary_scalar(120000.0, 200000.0, crossing->boundary),
+            140000.0, 1e-12,
+            "external scalar interpolation diverged from boundary evidence");
+    }
 }
 
 void test_constant_torque_discards_initial_partial_cycle() {
@@ -87,9 +133,13 @@ void test_constant_torque_discards_initial_partial_cycle() {
     samples.push_back(sample(index, 2.0 * kCycleRadians + 1.0,
                              (2.0 * kCycleRadians + 1.0) / 100.0, 100.0, -10.0));
 
-    const auto completed = feed(integrator, samples);
+    std::vector<FourStrokeCycleBoundaryCrossing> crossings;
+    const auto completed = feed(integrator, samples, &crossings);
     expect(completed.size() == 1,
            "initial partial cycle was published or full cycle was lost");
+    expect(crossings.size() == 2 && !crossings.front().completed_cycle.has_value() &&
+               crossings.back().completed_cycle.has_value(),
+           "first discarded-partial boundary was not returned separately");
     const auto &cycle = completed.front();
     expect(cycle.completed_cycle_ordinal == 0 &&
                cycle.start_boundary.left_bracket_sample_index <
@@ -105,6 +155,13 @@ void test_constant_torque_discards_initial_partial_cycle() {
                 "cycle start boundary changed");
     expect_near(cycle.end_theta_rad, 2.0 * kCycleRadians, 1e-13,
                 "cycle end boundary changed");
+    expect(crossings.front().boundary == cycle.start_boundary &&
+               crossings.front().theta_rad == cycle.start_theta_rad &&
+               crossings.front().time_s == cycle.start_time_s &&
+               crossings.back().boundary == cycle.end_boundary &&
+               crossings.back().theta_rad == cycle.end_theta_rad &&
+               crossings.back().time_s == cycle.end_time_s,
+           "crossing evidence diverged from completed-cycle boundary evidence");
     expect_near(cycle.summed_torque_work_j, 90.0 * kCycleRadians, 2e-11,
                 "constant-torque cycle work changed");
     expect_near(cycle.cycle_mean_summed_torque_nm, 90.0, 2e-12,
@@ -223,23 +280,25 @@ void test_indexed_boundaries_remain_stable_over_many_cycles() {
     constexpr std::uint64_t cycle_count = 4096;
     auto integrator = make_integrator(reference);
     auto first = integrator.advance(sample(0, reference, 0.0, 17.0));
-    expect(std::holds_alternative<NoCompletedFourStrokeCycle>(first),
+    expect(std::holds_alternative<NoFourStrokeCycleBoundaryCrossing>(first),
            "negative nonzero cycle reference did not initialize");
 
     for (std::uint64_t cycle = 1; cycle <= cycle_count; ++cycle) {
         const double theta = reference + static_cast<double>(cycle) * kCycleRadians;
         auto result = integrator.advance(
             sample(cycle, theta, static_cast<double>(cycle) * 0.02, 17.0));
-        const auto *completed = std::get_if<CompletedFourStrokeCycle>(&result);
-        expect(completed != nullptr,
+        const auto *crossing = std::get_if<FourStrokeCycleBoundaryCrossing>(&result);
+        expect(crossing != nullptr && crossing->completed_cycle.has_value(),
                "indexed exact boundary failed to complete its cycle");
-        expect(completed->completed_cycle_ordinal == cycle - 1,
+        const auto &completed = *crossing->completed_cycle;
+        expect(completed.completed_cycle_ordinal == cycle - 1,
                "long-run completed-cycle ordinal drifted");
-        expect(completed->end_theta_rad == theta,
+        expect(completed.end_theta_rad == theta && crossing->theta_rad == theta,
                "long-run boundary drifted from reference-plus-index grid");
-        expect(completed->end_boundary == CycleBoundaryEvidence{cycle, cycle, 0.0},
+        expect(completed.end_boundary == CycleBoundaryEvidence{cycle, cycle, 0.0} &&
+                   crossing->boundary == completed.end_boundary,
                "exact long-run boundary lost exact-sample evidence");
-        expect_near(completed->cycle_mean_summed_torque_nm, 17.0, 2e-11,
+        expect_near(completed.cycle_mean_summed_torque_nm, 17.0, 2e-11,
                     "constant torque drifted over indexed cycles");
     }
     expect(integrator.completed_cycle_count() == cycle_count,
@@ -260,7 +319,8 @@ void test_move_terminalizes_the_source() {
            "move construction left a second working integrator");
 
     const auto completed = destination.advance(sample(8, kCycleRadians, 1.0, 21.0));
-    expect(std::holds_alternative<CompletedFourStrokeCycle>(completed) &&
+    const auto *crossing = std::get_if<FourStrokeCycleBoundaryCrossing>(&completed);
+    expect(crossing != nullptr && crossing->completed_cycle.has_value() &&
                destination.completed_cycle_count() == 1,
            "move construction did not preserve destination state");
 
@@ -302,6 +362,10 @@ void test_two_boundary_segment_is_rejected() {
                 FourStrokeCycleIntegrationErrorCode::multiple_boundaries_in_segment &&
             integrator.completed_cycle_count() == 0,
         "one-result advance silently consumed two cycle boundaries");
+    const auto stable =
+        integrator.advance(sample(2, adversarial_segment->second + 0.5, 2.0, 10.0));
+    expect(std::get<FourStrokeCycleIntegrationError>(stable) == *error,
+           "multi-boundary failure was not terminal and stable");
 }
 
 void test_invalid_and_terminal_failures() {
@@ -321,7 +385,7 @@ void test_invalid_and_terminal_failures() {
     {
         auto integrator = make_integrator();
         const auto first = integrator.advance(sample(0, 0.0, 0.0, 10.0));
-        expect(std::holds_alternative<NoCompletedFourStrokeCycle>(first),
+        expect(std::holds_alternative<NoFourStrokeCycleBoundaryCrossing>(first),
                "first valid sample did not initialize the integrator");
         const auto bad = integrator.advance(sample(1, 0.0, 1.0, 10.0));
         const auto *error = std::get_if<FourStrokeCycleIntegrationError>(&bad);
@@ -372,6 +436,7 @@ void test_invalid_and_terminal_failures() {
 }
 
 void run_tests() {
+    test_exact_and_bracketed_boundary_crossing_evidence();
     test_constant_torque_discards_initial_partial_cycle();
     test_linear_torque_boundary_split_is_analytic();
     test_component_work_and_stable_summed_signs();

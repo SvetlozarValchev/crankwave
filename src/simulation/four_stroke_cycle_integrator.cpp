@@ -36,6 +36,15 @@ template <class Work> [[nodiscard]] bool finite_work(const Work &work) noexcept 
 
 } // namespace
 
+double
+interpolate_cycle_boundary_scalar(double left_value, double right_value,
+                                  const CycleBoundaryEvidence &boundary) noexcept {
+    if (boundary.left_bracket_sample_index == boundary.right_bracket_sample_index) {
+        return right_value;
+    }
+    return left_value + boundary.fraction_from_left_01 * (right_value - left_value);
+}
+
 FourStrokeCycleIntegrator::FourStrokeCycleIntegrator(
     double cycle_reference_theta_rad, double total_displacement_m3) noexcept
     : cycle_reference_theta_rad_(cycle_reference_theta_rad),
@@ -101,34 +110,32 @@ FourStrokeCycleIntegrator::fail(FourStrokeCycleIntegrationErrorCode code,
 FourStrokeCycleIntegrator::TorquePoint FourStrokeCycleIntegrator::interpolate_boundary(
     const TorquePoint &left, const TorquePoint &right,
     double boundary_theta_rad) const noexcept {
-    if (boundary_theta_rad == right.theta_rad) {
-        return right;
-    }
-
-    const double fraction =
-        (boundary_theta_rad - left.theta_rad) / (right.theta_rad - left.theta_rad);
-    const auto interpolate = [fraction](double left_value,
-                                        double right_value) noexcept {
-        return left_value + fraction * (right_value - left_value);
-    };
-    const double indicated =
-        interpolate(left.indicated_gas_torque_nm, right.indicated_gas_torque_nm);
-    const double friction = interpolate(left.friction_pump_and_accessory_torque_nm,
-                                        right.friction_pump_and_accessory_torque_nm);
-    const double starter = interpolate(left.starter_torque_nm, right.starter_torque_nm);
+    const bool exact_right_sample = boundary_theta_rad == right.theta_rad;
+    const auto evidence =
+        exact_right_sample
+            ? CycleBoundaryEvidence{right.sample_index, right.sample_index, 0.0}
+            : CycleBoundaryEvidence{
+                  left.sample_index,
+                  right.sample_index,
+                  (boundary_theta_rad - left.theta_rad) /
+                      (right.theta_rad - left.theta_rad),
+              };
+    const double indicated = interpolate_cycle_boundary_scalar(
+        left.indicated_gas_torque_nm, right.indicated_gas_torque_nm, evidence);
+    const double friction = interpolate_cycle_boundary_scalar(
+        left.friction_pump_and_accessory_torque_nm,
+        right.friction_pump_and_accessory_torque_nm, evidence);
+    const double starter = interpolate_cycle_boundary_scalar(
+        left.starter_torque_nm, right.starter_torque_nm, evidence);
     return {
         right.sample_index,
-        interpolate(left.time_s, right.time_s),
+        interpolate_cycle_boundary_scalar(left.time_s, right.time_s, evidence),
         boundary_theta_rad,
         indicated,
         friction,
         starter,
         stable_summed_torque(indicated, friction, starter),
-        {
-            left.sample_index,
-            right.sample_index,
-            fraction,
-        },
+        evidence,
     };
 }
 
@@ -247,7 +254,7 @@ FourStrokeCycleIntegrator::advance(const CycleTorqueSample &sample) noexcept {
                         sample.sample_index);
         }
         previous_ = current;
-        return NoCompletedFourStrokeCycle{};
+        return NoFourStrokeCycleBoundaryCrossing{};
     }
 
     const auto &previous = *previous_;
@@ -264,6 +271,7 @@ FourStrokeCycleIntegrator::advance(const CycleTorqueSample &sample) noexcept {
     }
 
     std::optional<CompletedFourStrokeCycle> completed;
+    std::optional<FourStrokeCycleBoundaryCrossing> crossing;
     if (current.theta_rad >= next_boundary_theta_rad_) {
         if (next_boundary_cycle_index_ == std::numeric_limits<std::int64_t>::max()) {
             return fail(FourStrokeCycleIntegrationErrorCode::nonfinite_result,
@@ -315,6 +323,12 @@ FourStrokeCycleIntegrator::advance(const CycleTorqueSample &sample) noexcept {
             }
         }
 
+        crossing = FourStrokeCycleBoundaryCrossing{
+            boundary.boundary_evidence,
+            boundary.theta_rad,
+            boundary.time_s,
+            completed,
+        };
         begin_cycle(boundary);
         next_boundary_cycle_index_ = following_boundary_cycle_index;
         next_boundary_theta_rad_ = following_boundary_theta;
@@ -330,11 +344,13 @@ FourStrokeCycleIntegrator::advance(const CycleTorqueSample &sample) noexcept {
                     sample.sample_index);
     }
     previous_ = current;
-    if (completed.has_value()) {
-        ++completed_cycle_count_;
-        return *completed;
+    if (crossing.has_value()) {
+        if (crossing->completed_cycle.has_value()) {
+            ++completed_cycle_count_;
+        }
+        return *crossing;
     }
-    return NoCompletedFourStrokeCycle{};
+    return NoFourStrokeCycleBoundaryCrossing{};
 }
 
 bool FourStrokeCycleIntegrator::faulted() const noexcept {
