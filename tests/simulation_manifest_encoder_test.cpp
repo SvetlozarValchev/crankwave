@@ -23,7 +23,7 @@ using namespace engine_sim_offline::contract;
 using namespace engine_sim_offline::contract::test;
 
 constexpr std::string_view kExpectedManifestSha256 =
-    "6a01dfdca6f3c6e8549cb88006c0940fbc318e5c1d7af5269d0291c31ccca812";
+    "9c66540e7914352862bb514cd22416e110c2b1994fdc006bfa4eeee8ada5db8a";
 constexpr std::string_view kExpectedRequestIdentitySha256 =
     "ed048b09e598ec0adb3c6e94afa74d957c3e809e07f35a612b455473a51686ff";
 
@@ -60,7 +60,7 @@ void require_valid(const ValidationReport &report, std::string_view message) {
 
 [[nodiscard]] ExecutionFacts deterministic_execution() {
     return {
-        "simulation-manifest-encoder-test-v2",
+        "simulation-manifest-encoder-test-v3",
         "2026-07-28T12:34:56Z",
         std::chrono::nanoseconds{UINT64_C(1234567890)},
         "linux",
@@ -83,7 +83,7 @@ struct SimulationFixture {
 
 [[nodiscard]] std::vector<std::byte>
 require_manifest_encoding(const RenderManifest &manifest) {
-    auto result = encode_simulation_manifest_v2(manifest);
+    auto result = encode_simulation_manifest_v3(manifest);
     if (const auto *error = std::get_if<RenderSinkError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
     }
@@ -103,7 +103,7 @@ require_request_identity_encoding(const EngineSpec &engine,
 
 void expect_manifest_error(const RenderManifest &manifest,
                            std::string_view detail_code) {
-    const auto result = encode_simulation_manifest_v2(manifest);
+    const auto result = encode_simulation_manifest_v3(manifest);
     const auto *error = std::get_if<RenderSinkError>(&result);
     expect(error != nullptr, "invalid simulation manifest unexpectedly encoded");
     expect(error->kind == RenderSinkErrorKind::protocol_violation,
@@ -145,8 +145,8 @@ struct GoldenHashes {
 
     const auto manifest_document = as_string(first_manifest);
     constexpr std::string_view kManifestPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v2\","
-        "\"content\":{\"schema_version\":2,\"inputs\":{\"kind\":\"simulation_v1\","
+        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v3\","
+        "\"content\":{\"schema_version\":3,\"inputs\":{\"kind\":\"simulation_v2\","
         "\"value\":{\"resolved\":{\"engine\":";
     expect(manifest_document.starts_with(kManifestPrefix),
            "simulation manifest root, discriminator, or member order changed");
@@ -157,13 +157,20 @@ struct GoldenHashes {
 
     const auto engine_key = manifest_document.find("\"engine\":");
     const auto presentation_key = manifest_document.find("\"presentation\":");
+    const auto randomness_key = manifest_document.find("\"randomness\":");
     const auto scenario_key = manifest_document.find("\"scenario\":");
     const auto execution_key = manifest_document.rfind("\"execution\":");
     expect(engine_key != std::string::npos && presentation_key != std::string::npos &&
+               randomness_key != std::string::npos &&
                scenario_key != std::string::npos &&
                execution_key != std::string::npos && engine_key < presentation_key &&
-               presentation_key < scenario_key && scenario_key < execution_key,
+               presentation_key < randomness_key && randomness_key < scenario_key &&
+               scenario_key < execution_key,
            "simulation manifest resolved-input or root member order changed");
+    expect(manifest_document.find(
+               "\"seed_namespace_id\":{\"value\":\"baked.loaded_acceleration\","
+               "\"resolution_id\":") != std::string::npos,
+           "resolved seed namespace was omitted or flattened");
 
     const auto &resolved = simulation_inputs(fixture.manifest.content);
     const auto first_identity = require_request_identity_encoding(
@@ -201,6 +208,10 @@ struct GoldenHashes {
 
 void test_fail_closed_boundaries() {
     SimulationFixture fixture;
+
+    auto retired_schema = fixture.manifest;
+    retired_schema.content.schema_version = 2;
+    expect_manifest_error(retired_schema, "simulation-manifest-wire-unrepresentable");
 
     auto missing_execution = fixture.manifest;
     missing_execution.execution.reset();

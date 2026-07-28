@@ -357,11 +357,16 @@ void run_authored_profile_contract_tests() {
 
     auto deterministic_profile = make_authored_profile();
     deterministic_profile.fuel.burning_efficiency_randomness_01.value = 0.0;
-    deterministic_profile.combustion_random_streams.clear();
-    expect(validate(AuthoredExecutablePhysicsProfile{std::move(deterministic_profile)},
+    expect(validate(AuthoredExecutablePhysicsProfile{deterministic_profile},
                     make_provenance())
                .ok(),
-           "zero burning randomness required unused combustion random streams");
+           "zero burning-efficiency variation invalidated the executed RNG stream");
+    deterministic_profile.combustion_random_streams.clear();
+    expect(!validate(AuthoredExecutablePhysicsProfile{std::move(deterministic_profile)},
+                     make_provenance())
+                .ok(),
+           "zero burning-efficiency variation hid an RNG stream consumed by "
+           "combustion");
 
     expect_authored_mutation_rejected(
         "negative authored piston mass was accepted",
@@ -412,7 +417,7 @@ void run_authored_profile_contract_tests() {
             profile.fuel.compression_ignition_enabled.value = true;
         });
     expect_authored_mutation_rejected(
-        "nonzero authored burning randomness accepted no random streams",
+        "implemented authored combustion accepted no random streams",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
             profile.combustion_random_streams.clear();
         });

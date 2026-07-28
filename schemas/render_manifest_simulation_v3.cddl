@@ -8,9 +8,9 @@
 ; from the complete owned binary64 vector using the typed contract's canonical
 ; little-endian grammar.
 
-render-manifest-simulation-v2 = {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v2",
-  "content": render-manifest-content-simulation-v2,
+render-manifest-simulation-v3 = {
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v3",
+  "content": render-manifest-content-simulation-v3,
   "execution": execution-facts
 }
 
@@ -23,9 +23,9 @@ simulation-request-identity-v1 = {
   "provenance": provenance-bundle-ref
 }
 
-render-manifest-content-simulation-v2 = {
-  "schema_version": 2,
-  "inputs": simulation-manifest-inputs-v1,
+render-manifest-content-simulation-v3 = {
+  "schema_version": 3,
+  "inputs": simulation-manifest-inputs-v2,
   "provenance": provenance-bundle-ref,
   "determinism": determinism-envelope,
   "rates": render-rates,
@@ -36,19 +36,26 @@ render-manifest-content-simulation-v2 = {
   "artifacts": [* artifact-record]
 }
 
-simulation-manifest-inputs-v1 = {
-  "kind": "simulation_v1",
-  "value": simulation-inputs-v1
+simulation-manifest-inputs-v2 = {
+  "kind": "simulation_v2",
+  "value": simulation-inputs-v2
 }
 
-simulation-inputs-v1 = {
+simulation-inputs-v2 = {
   "resolved": resolved-render-inputs
 }
 
 resolved-render-inputs = {
   "engine": engine-spec,
   "presentation": presentation-calibration,
+  "randomness": resolved-randomness-policy,
   "scenario": render-scenario
+}
+
+resolved-randomness-policy = {
+  "seed_namespace_id": resolved<tstr>,
+  "generator": resolved<method-identity>,
+  "derivation": resolved<method-identity>
 }
 
 engine-spec = {

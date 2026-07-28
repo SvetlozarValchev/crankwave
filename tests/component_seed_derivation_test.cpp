@@ -1,4 +1,4 @@
-#include "randomness/component_seed_derivation.hpp"
+#include "engine_sim_offline/contract/randomness.hpp"
 
 #include <algorithm>
 #include <array>
@@ -16,7 +16,7 @@
 namespace {
 
 using namespace engine_sim_offline;
-using namespace engine_sim_offline::randomness;
+using namespace engine_sim_offline::contract;
 
 constexpr std::uint64_t kBmwPublicSeed = UINT64_C(0x00c0ffee);
 
@@ -60,7 +60,7 @@ void expect(bool condition, const char *message) {
 
 [[nodiscard]] ComponentSeedDerivationRequest bmw_request() {
     ComponentSeedDerivationRequest request;
-    request.capture_scenario_id = "baked.loaded_acceleration";
+    request.seed_namespace_id = "baked.loaded_acceleration";
     request.public_seed = kBmwPublicSeed;
     request.ordered_components.reserve(kBmwExpectedSeeds.size());
     for (const auto &expected : kBmwExpectedSeeds) {
@@ -122,16 +122,17 @@ void test_mutation_and_domain_separation() {
     const auto canonical_result = derive_component_seeds(bmw_request());
     const auto canonical = require_success(canonical_result, "canonical setup failed");
 
-    auto changed_capture_request = bmw_request();
-    changed_capture_request.capture_scenario_id = "baked.loaded_acceleration.variant";
-    const auto changed_capture_result = derive_component_seeds(changed_capture_request);
-    const auto changed_capture =
-        require_success(changed_capture_result, "changed capture ID was rejected");
-    expect(changed_capture.capture_random_key_sha256 !=
+    auto changed_namespace_request = bmw_request();
+    changed_namespace_request.seed_namespace_id = "baked.loaded_acceleration.variant";
+    const auto changed_namespace_result =
+        derive_component_seeds(changed_namespace_request);
+    const auto changed_namespace = require_success(
+        changed_namespace_result, "changed seed namespace was rejected");
+    expect(changed_namespace.capture_random_key_sha256 !=
                    canonical.capture_random_key_sha256 &&
-               changed_capture.ordered_components.front().initialization !=
+               changed_namespace.ordered_components.front().initialization !=
                    canonical.ordered_components.front().initialization,
-           "capture/scenario ID mutation did not separate the random domain");
+           "seed-namespace mutation did not separate the random domain");
 
     auto changed_public_seed_request = bmw_request();
     ++changed_public_seed_request.public_seed;
@@ -188,16 +189,16 @@ void test_order_is_preserved_but_not_hashed_into_coordinates() {
 }
 
 void test_invalid_requests_fail_closed() {
-    auto invalid_capture = bmw_request();
-    invalid_capture.capture_scenario_id = "Invalid Capture";
-    const auto invalid_capture_result = derive_component_seeds(invalid_capture);
-    const auto &capture_error =
-        require_error(invalid_capture_result,
-                      ComponentSeedDerivationErrorCode::invalid_capture_scenario_id,
-                      "invalid capture/scenario ID was accepted");
-    expect(capture_error.path == "capture_scenario_id" &&
-               capture_error.component_ordinal == kNoComponentSeedOrdinal,
-           "invalid capture/scenario error lost its typed location");
+    auto invalid_namespace = bmw_request();
+    invalid_namespace.seed_namespace_id = "Invalid Namespace";
+    const auto invalid_namespace_result = derive_component_seeds(invalid_namespace);
+    const auto &namespace_error =
+        require_error(invalid_namespace_result,
+                      ComponentSeedDerivationErrorCode::invalid_seed_namespace_id,
+                      "invalid seed namespace was accepted");
+    expect(namespace_error.path == "seed_namespace_id" &&
+               namespace_error.component_ordinal == kNoComponentSeedOrdinal,
+           "invalid seed-namespace error lost its typed location");
 
     auto invalid_domain = bmw_request();
     invalid_domain.ordered_components[3].domain_id = "";

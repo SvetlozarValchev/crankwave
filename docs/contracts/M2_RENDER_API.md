@@ -25,6 +25,7 @@ render is admissible:
 
 - `EngineSpec`;
 - `PresentationCalibration`;
+- `ResolvedRandomnessPolicy`;
 - `ProvenanceLedger`;
 - the selected `SourceMatrixContract`;
 - one owning `RenderAssetPayload` for every presentation asset.
@@ -34,11 +35,11 @@ request. One call is one session. The API accepts no audit file, caller-provided
 excitation, backend, callback producer, registry, or legacy implementation selector.
 There are no mutable globals or hidden worker pools.
 
-`RenderManifestContent` also has a typed reference-presentation alternative for the
-isolated M2 evaluation target, as recorded in
-[`M2_MANIFEST_INPUTS.md`](M2_MANIFEST_INPUTS.md). It is deliberately not another
-public request form. Public result validation rejects any `RenderSuccess` whose
-manifest does not contain the complete simulation inputs matching this API call.
+`RenderManifestContent` is simulation-only. The retired reference-presentation
+alternative is preserved as historical evidence in
+[`M2_MANIFEST_INPUTS.md`](M2_MANIFEST_INPUTS.md), not as another request form. Public
+result validation rejects any `RenderSuccess` whose manifest does not contain the
+complete simulation inputs matching this API call.
 
 ## 2. Current behavior
 
@@ -50,11 +51,13 @@ Preflight runs in this order:
 4. resolved scenario;
 5. engine/scenario compatibility;
 6. presentation calibration;
-7. exact frozen P1.8 constraints when the BMW reference matrix is selected;
-8. source-matrix routes/dispositions against engine and presentation routes;
-9. required audio rate/frame shape against the scenario delivery clock;
-10. asset payload coverage and payload SHA-256 against presentation records;
-11. evidence rights versus distribution intent.
+7. resolved randomness policy;
+8. canonical provisioned random-plan compilation and cached combustion-seed equality;
+9. exact frozen baseline constraints when the BMW reference matrix is selected;
+10. source-matrix routes/dispositions against engine and presentation routes;
+11. required audio rate/frame shape against the scenario delivery clock;
+12. asset payload coverage and payload SHA-256 against presentation records;
+13. evidence rights versus distribution intent.
 
 Structural rejection returns `invalid_specification`. Rights/distribution rejection
 returns `evidence_rights_failure`. Both retain the exact `ValidationReport` rather
@@ -106,9 +109,10 @@ serialization are now implemented and recorded in
 [`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). Their typed publication errors map to
 `artifact_publication_failure`; a sink protocol rejection maps to
 `contract_violation`. They are not yet connected to this fail-closed public boundary:
-the isolated reference tool now exercises the complete fixture-to-acoustic
-transaction, but public `render()` still lacks the M3 simulation inputs and physics
-route required to begin one.
+the historical isolated reference tool exercised the complete fixture-to-acoustic
+transaction before it was retired, while public `render()` now admits the M3
+simulation inputs but still lacks the one opaque execution job required to begin a
+transaction.
 
 `RenderControl` now carries a stop token. Preflight and evidence-rights checks precede
 cancellation, so a stop cannot conceal malformed input. Cancellation is observed only
@@ -146,8 +150,9 @@ different requests. The same binding applies to typed unreachable-target results
 CLI tests cover output streams and exit codes. Production render and CLI targets link
 no reference-audit reader or fixture adapter.
 
-The deterministic clock/streaming, artifact, focused-DSP, and transactional reference
-checkpoints are implemented without weakening this admission boundary or adding a
-second publisher. The opt-in reference adapter verifies the approved acoustic route
-from the captured BMW fixture; M3 will replace that adapter with simulated excitation
-before public render success is admitted.
+The deterministic clock/streaming, artifact, focused-DSP, and M3
+simulation/excitation checkpoints are implemented without weakening this admission
+boundary or adding a second publisher. The historical transactional reference
+checkpoint was completed and retired. M4 is binding the current stages, their
+verified assets, and the matching manifest basis into one opaque job before public
+render success is admitted.

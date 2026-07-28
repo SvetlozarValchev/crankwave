@@ -44,9 +44,12 @@ void run_parity_model_contract_tests() {
     auto deterministic_engine = make_engine(deterministic_builder);
     legacy_profile(deterministic_engine).fuel.burning_efficiency_randomness_01.value =
         0.0;
-    legacy_profile(deterministic_engine).combustion_random_streams.clear();
     expect(validate(deterministic_engine, deterministic_builder.provenance).ok(),
-           "zero burning randomness required unused combustion random streams");
+           "zero burning-efficiency variation invalidated the executed RNG stream");
+    legacy_profile(deterministic_engine).combustion_random_streams.clear();
+    expect(!validate(deterministic_engine, deterministic_builder.provenance).ok(),
+           "zero burning-efficiency variation hid an RNG stream consumed by "
+           "combustion");
 
     expect_parity_mutation_rejected("non-legacy subsystem method identity was accepted",
                                     [](EngineSpec &engine, InputBuilder &) {
@@ -120,7 +123,7 @@ void run_parity_model_contract_tests() {
         });
 
     expect_parity_mutation_rejected(
-        "nonzero burning randomness accepted no combustion random streams",
+        "implemented combustion accepted no combustion random streams",
         [](EngineSpec &engine, InputBuilder &) {
             legacy_profile(engine).combustion_random_streams.clear();
         });

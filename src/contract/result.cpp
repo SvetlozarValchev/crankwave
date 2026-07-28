@@ -158,6 +158,15 @@ void validate_request_binding(ValidationReport &report,
                     "result must retain the complete selected source matrix");
 }
 
+[[nodiscard]] bool
+request_is_structurally_admitted(const RenderRequestRecord &request) {
+    return validate_render_admission(
+               request.resolved_inputs.engine, request.resolved_inputs.presentation,
+               request.resolved_inputs.randomness, request.resolved_inputs.scenario,
+               request.provenance, request.source_matrix)
+        .ok();
+}
+
 } // namespace
 
 bool is_better_nearest_candidate(const ReachabilityCandidate &candidate,
@@ -364,6 +373,13 @@ ValidationReport validate(const RenderFailure &failure) {
         report, !requires_validation || !failure.validation.ok(),
         ContractIssueCode::missing_value, "validation",
         "preflight and evidence-rights failures must retain their diagnostics");
+    if (failure.context.kind != FailureKind::invalid_specification) {
+        detail::require(
+            report, request_is_structurally_admitted(failure.request),
+            ContractIssueCode::inconsistent_semantics, "request.resolved_inputs",
+            "non-preflight failure must retain a structurally admitted render "
+            "request");
+    }
     for (std::size_t index = 0; index < failure.validation.issues.size(); ++index) {
         const auto &issue = failure.validation.issues[index];
         const auto path = "validation.issues[" + std::to_string(index) + "]";
@@ -433,6 +449,11 @@ ValidationReport validate(const RenderResult &result,
                 validate_request_binding(report, outcome.request, requested_scenario,
                                          provenance, source_matrix,
                                          "unreachable.request");
+                require(report, request_is_structurally_admitted(outcome.request),
+                        ContractIssueCode::inconsistent_semantics,
+                        "unreachable.request.resolved_inputs",
+                        "unreachable result must retain a structurally admitted "
+                        "render request");
                 const auto *mode =
                     std::get_if<LoadTargetHeldCapture>(&requested_scenario.mode);
                 require(report, mode != nullptr,

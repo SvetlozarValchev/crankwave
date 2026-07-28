@@ -13,15 +13,37 @@ namespace detail {
 namespace {
 
 [[nodiscard]] bool
+write_randomness_policy(CanonicalJsonWriter &writer,
+                        const contract::ResolvedRandomnessPolicy &randomness) {
+    const auto write_string = [](CanonicalJsonWriter &output,
+                                 const std::string &value) {
+        return output.string_value(value);
+    };
+    const auto write_method = [](CanonicalJsonWriter &output,
+                                 const contract::MethodIdentity &method) {
+        return write_method_identity(output, method);
+    };
+    return writer.begin_object() && writer.key("seed_namespace_id") &&
+           write_resolved(writer, randomness.seed_namespace_id, write_string) &&
+           writer.key("generator") &&
+           write_resolved(writer, randomness.generator, write_method) &&
+           writer.key("derivation") &&
+           write_resolved(writer, randomness.derivation, write_method) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
 write_simulation_manifest_inputs(CanonicalJsonWriter &writer,
                                  const contract::SimulationManifestInputs &inputs) {
     const auto &resolved = inputs.resolved;
     return writer.begin_object() && writer.key("kind") &&
-           writer.string_value("simulation_v1") && writer.key("value") &&
+           writer.string_value("simulation_v2") && writer.key("value") &&
            writer.begin_object() && writer.key("resolved") && writer.begin_object() &&
            writer.key("engine") && write_engine_spec(writer, resolved.engine) &&
            writer.key("presentation") &&
            write_presentation_calibration(writer, resolved.presentation) &&
+           writer.key("randomness") &&
+           write_randomness_policy(writer, resolved.randomness) &&
            writer.key("scenario") && write_render_scenario(writer, resolved.scenario) &&
            writer.end_object() && writer.end_object() && writer.end_object();
 }
@@ -56,7 +78,7 @@ write_simulation_manifest_inputs(CanonicalJsonWriter &writer,
 } // namespace detail
 
 ManifestEncodingResult
-encode_simulation_manifest_v2(const contract::RenderManifest &manifest) {
+encode_simulation_manifest_v3(const contract::RenderManifest &manifest) {
     if (!manifest.execution.has_value()) {
         return RenderSinkError{
             RenderSinkErrorKind::protocol_violation,
@@ -70,7 +92,7 @@ encode_simulation_manifest_v2(const contract::RenderManifest &manifest) {
         std::vector<std::byte> bytes;
         const bool encoded =
             writer.begin_object() && writer.key("wire_schema") &&
-            writer.string_value(kSimulationManifestWireSchemaV2) &&
+            writer.string_value(kSimulationManifestWireSchemaV3) &&
             writer.key("content") &&
             detail::write_completed_manifest_content(
                 writer, manifest.content, detail::write_simulation_manifest_inputs) &&

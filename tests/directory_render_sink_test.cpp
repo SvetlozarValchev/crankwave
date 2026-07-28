@@ -146,7 +146,7 @@ contract::ArtifactRecord artifact_record(const PendingArtifact &pending,
 contract::RenderManifest manifest_for(const contract::OutputContract &contract,
                                       std::vector<contract::ArtifactRecord> records) {
     contract::RenderManifest manifest;
-    manifest.content.schema_version = 2;
+    manifest.content.schema_version = 3;
     manifest.content.output_contract = contract;
     manifest.content.artifacts = std::move(records);
     return manifest;

@@ -3,6 +3,7 @@
 #include "engine_sim_offline/contract/common.hpp"
 #include "engine_sim_offline/contract/engine.hpp"
 #include "engine_sim_offline/contract/presentation.hpp"
+#include "engine_sim_offline/contract/randomness.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
 #include "engine_sim_offline/contract/source_matrix.hpp"
 
@@ -53,33 +54,6 @@ struct DeterminismEnvelope {
                            const DeterminismEnvelope &) = default;
 };
 
-enum class RandomComponentKind : std::uint8_t {
-    unspecified,
-    combustion,
-    presentation_jitter,
-    presentation_air_noise,
-    starter,
-};
-
-struct ComponentSeed {
-    RandomComponentKind kind = RandomComponentKind::unspecified;
-    std::optional<CylinderId> cylinder_id;
-    std::optional<RouteId> route_id;
-    std::uint64_t initial_state = 0;
-    std::uint64_t stream = 0;
-
-    friend bool operator==(const ComponentSeed &, const ComponentSeed &) = default;
-};
-
-struct RandomPlan {
-    MethodIdentity generator;
-    std::uint64_t public_seed = 0;
-    MethodIdentity derivation;
-    std::vector<ComponentSeed> component_seeds;
-
-    friend bool operator==(const RandomPlan &, const RandomPlan &) = default;
-};
-
 struct OutputContract {
     std::string source_matrix_id;
     Sha256Digest source_matrix_sha256;
@@ -126,6 +100,7 @@ struct OutputBusRecord {
 struct ResolvedRenderInputs {
     EngineSpec engine;
     PresentationCalibration presentation;
+    ResolvedRandomnessPolicy randomness;
     RenderScenario scenario;
 
     friend bool operator==(const ResolvedRenderInputs &,
@@ -182,8 +157,8 @@ resolve_output_contract(const SourceMatrixContract &source_matrix);
 // established by validating each input independently.
 [[nodiscard]] ValidationReport validate_render_admission(
     const EngineSpec &engine, const PresentationCalibration &presentation,
-    const RenderScenario &scenario, const ProvenanceLedger &provenance,
-    const SourceMatrixContract &source_matrix);
+    const ResolvedRandomnessPolicy &randomness, const RenderScenario &scenario,
+    const ProvenanceLedger &provenance, const SourceMatrixContract &source_matrix);
 
 [[nodiscard]] bool same_content_identity(const RenderManifest &lhs,
                                          const RenderManifest &rhs);

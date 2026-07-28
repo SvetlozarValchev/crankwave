@@ -493,6 +493,10 @@ replacement starts before acceptance.
   - [x] Implement the fixture-free, full-`uint64` capture/component seed derivation
         primitive and independently reproduce the frozen BMW random key plus all 11
         component seed pairs.
+  - [x] Carry the resolved seed namespace plus generator and derivation identities
+        through render admission, retained render-result requests, and the canonical
+        simulation manifest; require the initialized random plan to match both methods
+        and the canonically rederived provisioned component inventory.
   - [x] Compile and content-identify the configured presentation assets, including
         exact raw, coefficient, and convolution-spectrum identities for the BMW IR.
   - [ ] Admit the implemented presentation method identities and exact executable

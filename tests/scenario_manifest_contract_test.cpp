@@ -243,12 +243,18 @@ void run_scenario_manifest_contract_tests() {
     expect(validate(content, builder.provenance, source_matrix).ok(),
            "valid render manifest content was rejected");
 
+    auto retired_manifest_schema = content;
+    retired_manifest_schema.schema_version = 2;
+    auto report = validate(retired_manifest_schema, builder.provenance, source_matrix);
+    expect(!report.ok() && has_issue(report, ContractIssueCode::unsupported_value,
+                                     "schema_version"),
+           "retired simulation manifest schema was accepted");
+
     auto mismatched_asset_evidence = content;
     simulation_inputs(mismatched_asset_evidence)
         .presentation.assets[0]
         .content_sha256.value = digest(31);
-    auto report =
-        validate(mismatched_asset_evidence, builder.provenance, source_matrix);
+    report = validate(mismatched_asset_evidence, builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "content_sha256"),
            "presentation asset digest was allowed to disagree with its evidence");
@@ -303,6 +309,51 @@ void run_scenario_manifest_contract_tests() {
                     builder.provenance, source_matrix)
                .ok(),
            "held-speed success result was rejected");
+
+    const RenderFailure runtime_failure{
+        FailureContext{
+            FailureKind::incomplete_source_route,
+            "render-pipeline-not-admitted",
+            "render-session-v1",
+            simulation_inputs(content).scenario.engine_profile_id,
+            0,
+            0,
+            0.0,
+            0.0,
+            simulation_inputs(content).engine.id,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            "no complete capture-to-artifact route is admitted",
+            "none",
+            {},
+        },
+        {
+            simulation_inputs(content),
+            builder.provenance,
+            source_matrix,
+            {},
+        },
+        {},
+    };
+    const RenderResult runtime_failure_result = runtime_failure;
+    expect(validate(runtime_failure_result, simulation_inputs(content).scenario,
+                    builder.provenance, source_matrix)
+               .ok(),
+           "valid runtime failure did not retain an admitted request");
+    auto forged_randomness_failure = runtime_failure;
+    forged_randomness_failure.request.resolved_inputs.randomness.seed_namespace_id
+        .value += ".forged";
+    report = validate(RenderResult{forged_randomness_failure},
+                      simulation_inputs(content).scenario, builder.provenance,
+                      source_matrix);
+    expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
+                                     "failure.request.resolved_inputs"),
+           "lower-level result validation accepted a forged retained randomness "
+           "policy");
+
     expect(same_content_identity(first, second),
            "execution facts changed deterministic render identity");
     second.content.randomness.public_seed += 1;

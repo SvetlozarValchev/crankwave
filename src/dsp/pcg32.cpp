@@ -1,6 +1,5 @@
 #include "dsp/pcg32.hpp"
 
-#include <limits>
 #include <stdexcept>
 
 namespace engine_sim_offline::dsp {
@@ -11,7 +10,7 @@ constexpr std::uint64_t kPcg32Multiplier = UINT64_C(6364136223846793005);
 } // namespace
 
 Pcg32::Pcg32(std::uint64_t initial_state, std::uint64_t stream) {
-    if (stream > (std::numeric_limits<std::uint64_t>::max() >> 1U)) {
+    if (stream > kMaximumPcg32Stream) {
         throw std::invalid_argument{
             "PCG32 stream must fit before odd-increment encoding"};
     }

@@ -831,18 +831,15 @@ void validate_authored_domains(ValidationReport &report,
             ContractIssueCode::invalid_value, stream_path + ".pcg32_stream.value",
             "PCG32 stream must fit the 63-bit sequence domain");
     }
-    if (fuel.burning_efficiency_randomness_01.value > 0.0) {
-        require(report,
-                profile.combustion_random_streams.size() ==
-                        profile.mechanism.cylinders.size() &&
-                    mechanism_cylinder_ids.size() ==
-                        profile.mechanism.cylinders.size() &&
-                    random_stream_cylinder_ids == mechanism_cylinder_ids,
-                ContractIssueCode::inconsistent_shape,
-                profile_path("combustion_random_streams"),
-                "nonzero burning randomness requires exactly one combustion "
-                "random stream per cylinder");
-    }
+    require(report,
+            profile.combustion_random_streams.size() ==
+                    profile.mechanism.cylinders.size() &&
+                mechanism_cylinder_ids.size() == profile.mechanism.cylinders.size() &&
+                random_stream_cylinder_ids == mechanism_cylinder_ids,
+            ContractIssueCode::inconsistent_shape,
+            profile_path("combustion_random_streams"),
+            "implemented combustion consumes exactly one random stream per "
+            "cylinder");
 
     const auto classified =
         profile.losses.included_terms.value | profile.losses.omitted_terms.value;
@@ -1678,15 +1675,13 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             ContractIssueCode::invalid_value, stream_path + ".pcg32_stream.value",
             "PCG32 stream must fit the 63-bit sequence domain");
     }
-    if (fuel.burning_efficiency_randomness_01.value > 0.0) {
-        require(report,
-                profile.combustion_random_streams.size() == engine.cylinders.size() &&
-                    random_stream_cylinder_ids == engine_cylinder_ids,
-                ContractIssueCode::inconsistent_shape,
-                profile_path("combustion_random_streams"),
-                "nonzero burning randomness requires exactly one combustion "
-                "random stream per cylinder");
-    }
+    require(report,
+            profile.combustion_random_streams.size() == engine.cylinders.size() &&
+                random_stream_cylinder_ids == engine_cylinder_ids,
+            ContractIssueCode::inconsistent_shape,
+            profile_path("combustion_random_streams"),
+            "implemented combustion consumes exactly one random stream per "
+            "cylinder");
 
     const auto classified =
         profile.losses.included_terms.value | profile.losses.omitted_terms.value;

@@ -7,7 +7,7 @@
 
 namespace engine_sim_offline::artifacts::detail {
 
-// Canonical simulation-v1 input writers. These deliberately write only their
+// Canonical simulation-v2 input writers. These deliberately write only their
 // respective typed values so the same field enumeration can be embedded in both a
 // request-identity document and a completed simulation manifest.
 [[nodiscard]] bool write_engine_spec(CanonicalJsonWriter &writer,

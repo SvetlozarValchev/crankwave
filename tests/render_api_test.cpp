@@ -56,6 +56,7 @@ struct RequestFixture {
         auto &resolved = simulation_inputs(content);
         specification.engine = std::move(resolved.engine);
         specification.presentation = std::move(resolved.presentation);
+        specification.randomness = std::move(resolved.randomness);
         specification.provenance = builder.provenance;
         specification.source_matrix = make_source_matrix();
         const std::vector asset_bytes{
@@ -123,6 +124,12 @@ void run_tests() {
                                              fixture.scenario)
                     .ok(),
                "failure validated against a different resolved engine");
+        different_specification = fixture.specification;
+        different_specification.randomness.seed_namespace_id.value += ".different";
+        expect(!engine_sim_offline::validate(first, different_specification,
+                                             fixture.scenario)
+                    .ok(),
+               "failure validated against a different randomness policy");
         expect(sink.calls == 0, "repeated preflight touched the sink");
     }
 
@@ -218,6 +225,19 @@ void run_tests() {
             result, fixture,
             "invalid presentation did not produce a valid typed failure");
         expect(sink.calls == 0, "invalid presentation touched the sink");
+    }
+
+    {
+        RequestFixture fixture;
+        fixture.specification.randomness.seed_namespace_id.value = "Invalid Namespace";
+        CountingSink sink;
+        const auto result = render(fixture.specification, fixture.scenario, sink);
+        expect_failure(result, FailureKind::invalid_specification,
+                       "invalid randomness policy passed structural preflight");
+        expect_request_valid_failure(
+            result, fixture,
+            "invalid randomness policy did not produce a valid typed failure");
+        expect(sink.calls == 0, "invalid randomness policy touched the sink");
     }
 
     {
@@ -335,7 +355,6 @@ void run_tests() {
             "distribution-rights rejection produced an invalid typed result");
         expect(sink.calls == 0, "distribution-rights failure touched the sink");
     }
-
 }
 
 } // namespace

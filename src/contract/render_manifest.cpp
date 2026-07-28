@@ -309,6 +309,7 @@ ManifestInputView make_input_view(const SimulationManifestInputs &inputs) {
 
 ValidationReport validate_render_admission(const EngineSpec &engine,
                                            const PresentationCalibration &presentation,
+                                           const ResolvedRandomnessPolicy &randomness,
                                            const RenderScenario &scenario,
                                            const ProvenanceLedger &provenance,
                                            const SourceMatrixContract &source_matrix) {
@@ -323,6 +324,11 @@ ValidationReport validate_render_admission(const EngineSpec &engine,
     append_prefixed(report, validate_for_engine(scenario, engine), "engine_scenario");
     append_prefixed(report, validate(presentation, engine, scenario, provenance),
                     "presentation");
+    append_prefixed(report, validate(randomness, provenance), "randomness");
+    auto random_plan = compile_random_plan(randomness, engine, presentation, scenario);
+    if (auto *plan_report = std::get_if<ValidationReport>(&random_plan)) {
+        append_prefixed(report, std::move(*plan_report), "random_plan");
+    }
 
     const auto &bmw_baseline = bmw_m52b28_reference_source_matrix_v1();
     if (source_matrix.id == bmw_baseline.id) {
@@ -423,17 +429,17 @@ ValidationReport validate(const RenderManifestContent &content,
     using detail::require;
 
     ValidationReport report;
-    append_prefixed(
-        report,
-        validate_render_admission(content.inputs.resolved.engine,
-                                  content.inputs.resolved.presentation,
-                                  content.inputs.resolved.scenario, provenance,
-                                  source_matrix),
-        "admission");
+    append_prefixed(report,
+                    validate_render_admission(content.inputs.resolved.engine,
+                                              content.inputs.resolved.presentation,
+                                              content.inputs.resolved.randomness,
+                                              content.inputs.resolved.scenario,
+                                              provenance, source_matrix),
+                    "admission");
     const auto input_view = make_input_view(content.inputs);
 
-    require(report, content.schema_version == 2, ContractIssueCode::unsupported_value,
-            "schema_version", "render-manifest schema must be version 2");
+    require(report, content.schema_version == 3, ContractIssueCode::unsupported_value,
+            "schema_version", "render-manifest schema must be version 3");
     require(report, content.rates == input_view.rates,
             ContractIssueCode::inconsistent_semantics, "rates",
             "manifest rates must equal the selected input rates");
@@ -497,6 +503,16 @@ ValidationReport validate(const RenderManifestContent &content,
                     "randomness.generator");
     append_prefixed(report, validate(content.randomness.derivation),
                     "randomness.derivation");
+    require(report,
+            content.randomness.generator ==
+                content.inputs.resolved.randomness.generator.value,
+            ContractIssueCode::inconsistent_semantics, "randomness.generator",
+            "executed generator must equal the resolved randomness policy");
+    require(report,
+            content.randomness.derivation ==
+                content.inputs.resolved.randomness.derivation.value,
+            ContractIssueCode::inconsistent_semantics, "randomness.derivation",
+            "executed derivation must equal the resolved randomness policy");
     require(report, content.randomness.public_seed == input_view.public_seed,
             ContractIssueCode::inconsistent_semantics, "randomness.public_seed",
             "manifest random seed must equal the selected input public seed");
@@ -586,31 +602,31 @@ ValidationReport validate(const RenderManifestContent &content,
         }
     }
     if (input_view.simulation_engine != nullptr) {
-        const auto &legacy_profile = std::get<LegacyLowOrderV1Profile>(
-            input_view.simulation_engine->physics_profile);
-        if (legacy_profile.fuel.burning_efficiency_randomness_01.value > 0.0) {
-            for (const auto &cylinder : input_view.simulation_engine->cylinders) {
-                require(report, combustion_seed_count[cylinder.id.value] == 1,
-                        ContractIssueCode::inconsistent_shape,
-                        "randomness.component_seeds",
-                        "active combustion variation requires exactly one stream "
-                        "per cylinder");
-            }
+        for (const auto &cylinder : input_view.simulation_engine->cylinders) {
+            require(report, combustion_seed_count[cylinder.id.value] == 1,
+                    ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
+                    "implemented combustion requires exactly one initialized stream "
+                    "per cylinder");
         }
     }
     for (const auto &route : input_view.presentation->routes) {
-        if (input_view.presentation->conditioning.jitter_scale.value > 0.0) {
-            require(report, jitter_seed_count[route.route_id.value] == 1,
-                    ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
-                    "active presentation jitter requires exactly one stream per "
-                    "configured route");
-        }
-        if (input_view.presentation->conditioning.air_noise_mix_01.value > 0.0) {
-            require(report, air_noise_seed_count[route.route_id.value] == 1,
-                    ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
-                    "active presentation air noise requires exactly one stream per "
-                    "configured route");
-        }
+        require(report, jitter_seed_count[route.route_id.value] == 1,
+                ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
+                "implemented presentation jitter requires exactly one initialized "
+                "stream per configured route");
+        require(report, air_noise_seed_count[route.route_id.value] == 1,
+                ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
+                "implemented presentation air noise requires exactly one initialized "
+                "stream per configured route");
+    }
+    auto expected_random_plan = compile_random_plan(
+        content.inputs.resolved.randomness, content.inputs.resolved.engine,
+        content.inputs.resolved.presentation, content.inputs.resolved.scenario);
+    if (const auto *expected = std::get_if<RandomPlan>(&expected_random_plan)) {
+        require(report, content.randomness == *expected,
+                ContractIssueCode::inconsistent_semantics, "randomness.component_seeds",
+                "initialized random plan must exactly equal canonical component "
+                "derivation and ordering");
     }
     require(report, content.output_contract == resolve_output_contract(source_matrix),
             ContractIssueCode::inconsistent_semantics, "output_contract",

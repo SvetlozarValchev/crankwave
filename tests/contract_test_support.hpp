@@ -735,6 +735,16 @@ inline SourceMatrixContract make_source_matrix() {
     };
 }
 
+inline ResolvedRandomnessPolicy make_randomness_policy(InputBuilder &builder) {
+    return {
+        builder.resolved(std::string{"baked.loaded_acceleration"},
+                         "randomness.seed_namespace_id"),
+        builder.resolved(pcg32_generator_method_identity(), "randomness.generator"),
+        builder.resolved(component_seed_derivation_method_identity(),
+                         "randomness.derivation"),
+    };
+}
+
 inline ResolvedRenderInputs &simulation_inputs(RenderManifestContent &content) {
     return content.inputs.resolved;
 }
@@ -748,12 +758,13 @@ inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
     const auto engine = make_engine(builder);
     const auto presentation = make_presentation(builder, engine);
     const auto scenario = make_scenario(builder, engine);
+    const auto randomness = make_randomness_policy(builder);
     const auto source_matrix = make_source_matrix();
 
     RenderManifestContent content;
-    content.schema_version = 2;
-    content.inputs =
-        SimulationManifestInputs{ResolvedRenderInputs{engine, presentation, scenario}};
+    content.schema_version = 3;
+    content.inputs = SimulationManifestInputs{
+        ResolvedRenderInputs{engine, presentation, randomness, scenario}};
     content.provenance = builder.provenance.bundle;
     content.determinism = {
         BuildIdentity{
@@ -782,34 +793,10 @@ inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
         "serial-stable-order",
     };
     content.rates = scenario.rates;
-    content.randomness = {
-        method("pcg32-v1", 14),
-        scenario.public_seed.value,
-        method("domain-seed-v1", 15),
-        {
-            ComponentSeed{
-                RandomComponentKind::combustion,
-                CylinderId{1},
-                std::nullopt,
-                100,
-                200,
-            },
-            ComponentSeed{
-                RandomComponentKind::presentation_jitter,
-                std::nullopt,
-                RouteId{1},
-                123,
-                456,
-            },
-            ComponentSeed{
-                RandomComponentKind::presentation_air_noise,
-                std::nullopt,
-                RouteId{1},
-                789,
-                321,
-            },
-        },
-    };
+    auto random_plan = compile_random_plan(randomness, engine, presentation, scenario);
+    expect(std::holds_alternative<RandomPlan>(random_plan),
+           "valid fixture random plan failed compilation");
+    content.randomness = std::get<RandomPlan>(std::move(random_plan));
     content.output_contract = resolve_output_contract(source_matrix);
     content.routes = {
         RouteRecord{
@@ -861,6 +848,7 @@ void run_primitives_contract_tests();
 void run_authored_profile_contract_tests();
 void run_parity_model_contract_tests();
 void run_capture_contract_tests();
+void run_randomness_contract_tests();
 void run_scenario_manifest_contract_tests();
 
 } // namespace engine_sim_offline::contract::test

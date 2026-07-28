@@ -1,19 +1,19 @@
-# M3 simulation-manifest wire contract
+# M4 simulation-manifest wire contract
 
 Status: normative canonical encoding for completed simulation manifests and resolved
 simulation-request identities
 
 Manifest wire schema ID:
-`engine-sim-offline.render-manifest.simulation.v2`
+`engine-sim-offline.render-manifest.simulation.v3`
 
 Request-identity wire schema ID:
 `engine-sim-offline.simulation-request-identity.v1`
 
 Machine schema:
-[`schemas/render_manifest_simulation_v2.cddl`](../../schemas/render_manifest_simulation_v2.cddl)
+[`schemas/render_manifest_simulation_v3.cddl`](../../schemas/render_manifest_simulation_v3.cddl)
 
 Schema SHA-256:
-`5476256927ce15723f80906a2b5a0c896744d98c8d01e01bd2e543c58ab642c0`
+`5aaf01b178ec7ac67f084ec3db02c2294b4002916e3375b845d7f98e78e4ee23`
 
 ## 1. Scope and admission
 
@@ -22,11 +22,12 @@ manifest input discriminator is exactly:
 
 ```text
 {
-  "kind": "simulation_v1",
+  "kind": "simulation_v2",
   "value": {
     "resolved": {
       "engine": <EngineSpec>,
       "presentation": <PresentationCalibration>,
+      "randomness": <ResolvedRandomnessPolicy>,
       "scenario": <RenderScenario>
     }
   }
@@ -37,7 +38,7 @@ The completed-manifest root is exactly:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v2",
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v3",
   "content": <RenderManifestContent>,
   "execution": <ExecutionFacts>
 }
@@ -74,10 +75,10 @@ CDDL shape.
 The `reference_presentation_v1` input belongs exclusively to
 `engine-sim-offline.render-manifest.reference-presentation.v2`. It has no alias,
 fallback, numeric variant index, or compatibility interpretation in this schema.
-Conversely, `simulation_v1` is not encodable under the reference-presentation schema.
+Conversely, `simulation_v2` is not encodable under the reference-presentation schema.
 There is no withdrawn simulation schema and no backward-compatibility path.
 
-This checkpoint freezes data representation, not behavior. It does not claim that M3
+This checkpoint freezes data representation, not behavior. It does not claim that M4
 physics has executed, produced correct observables, reached public `render()` success,
 matched the oracle, or produced acceptable sound.
 
@@ -141,7 +142,9 @@ members:
   executable physics profile, torque capability, and provenance schema binding;
 - `PresentationCalibration`: all methods, algorithm record, conditioning values,
   audio assets, per-route presentation, publication calibration, audition policy,
-  and provenance schema binding; and
+  and provenance schema binding;
+- `ResolvedRandomnessPolicy`: the explicit seed namespace plus exact generator and
+  derivation method identities, with provenance binding for all three leaves; and
 - `RenderScenario`: ambient, fuel, thermal and crankcase state, preparation,
   operating-state journal, horizons, rates, quality, public seed, selected mode, and
   provenance schema binding.
@@ -151,6 +154,32 @@ ownership fields remain present as a stable ID/resolved value or `null`. All phy
 scalars, table abscissae/ordinates, trajectory points, angles, times, gains, and
 tolerances retain exact binary64 identity. All resolved leaves retain their
 `resolution_id`; the wire must not flatten provenance out of the request.
+
+The seed namespace is not inferred from `RenderScenario::scenario_id`. Reusing an
+accepted stochastic domain or selecting a new one is therefore an explicit,
+reviewable profile decision. The common initialized `RandomPlan::generator` and
+`RandomPlan::derivation` must exactly equal the two resolved policy identities;
+component seeds cannot claim an unrelated algorithm. The only
+currently admitted identities are:
+
+- `pcg32_xsh_rr_64_32_binary64_v1`, version 1, configuration SHA-256
+  `a48383d2716a059b0b60aabf4c6febb0a81edbad622da4634823bf22421eaf0c`;
+  and
+- `sha256_length_prefixed_capture_component_pcg32_v1`, version 1, configuration
+  SHA-256
+  `0e86ea38fb2e681bb6463b3916c6ad30536f6af05cb0be1b00d3cacb763593b4`.
+
+Admission recompiles the provisioned plan from the namespace, scenario public seed,
+and stable topology. The current executors instantiate one combustion lane per
+cylinder and one air-noise plus one jitter lane per configured presentation route
+even when the corresponding scale is zero, so all are recorded. Its canonical order is
+combustion by ascending stable cylinder ID, then air noise by ascending stable route
+ID, then jitter by ascending stable route ID. Each coordinate is derived under its
+fixed `combustion`, `synth_air_noise`, or `synth_jitter` domain with component index
+equal to the nonzero stable owner ID minus one. Container reordering or inserting a
+new owner therefore cannot rekey an existing component. Both the complete ordered
+plan and the engine profile's retained combustion initializations must equal this
+derivation; changing only a namespace, cached seed, or manifest seed is invalid.
 
 The current `ExecutablePhysicsProfile` has exactly one typed alternative:
 
@@ -241,7 +270,7 @@ simulator continues to own and consume all 170,000 binary64 samples.
 
 ## 5. Common manifest content and execution
 
-Outside `content.inputs`, the simulation v2 content shape and canonical rules are the
+Outside `content.inputs`, the simulation v3 content shape and canonical rules are the
 same as the reference-presentation v2 content shape:
 
 ```text
@@ -263,7 +292,8 @@ members.
 
 `content` is the deterministic render identity used by
 `same_content_identity()`. For simulation it includes the complete resolved engine,
-presentation, and scenario projection in addition to the provenance bundle,
+presentation, randomness policy, and scenario projection in addition to the
+provenance bundle,
 deterministic build/environment envelope, rates, random streams, output policy,
 routing, and complete artifact payload identities.
 
@@ -278,15 +308,17 @@ completed-manifest root requires a non-null `execution` object.
 root contains no execution facts.
 
 Build, runtime-provider, numeric-policy, routing, artifact, and execution identities
-retain the meanings and admission constraints established by the v2 typed manifest:
+retain the meanings and admission constraints established by the typed manifest:
 
 - build fields describe the current clean simulator/renderer source and toolchain,
   not the historical engine-sim capture producer;
 - standard-library, math-library, compiler-runtime, numeric-policy,
   instruction-set, and floating-point fields describe the providers and arithmetic
   policy that actually executed;
-- component seeds identify the streams actually executed by the simulation and
-  presentation stages;
+- component seeds identify the lanes initialized by the simulation and presentation
+  stages and exactly equal the independently recompiled provisioned random plan;
+- actual draw counts and cadence are runtime execution evidence, not assertions made
+  by this preflight inventory;
 - artifact byte counts and hashes cover complete emitted files; and
 - execution facts are observations from the current run, never caller guesses or
   oracle values.
@@ -302,8 +334,8 @@ rewrite, infer, or substitute them.
 ## 6. File identity and non-claims
 
 When published through `DirectoryRenderSink`, the canonical completed document is
-`manifest/render-manifest.v2.json`. Its sidecar is
-`manifest/render-manifest.v2.json.sha256`, containing the SHA-256 of the complete
+`manifest/render-manifest.v3.json`. Its sidecar is
+`manifest/render-manifest.v3.json.sha256`, containing the SHA-256 of the complete
 encoded manifest—including the final LF—as 64 lowercase hexadecimal digits followed
 by one LF. The manifest and sidecar are transaction metadata, not artifact records,
 and the manifest does not embed its own whole-file digest.

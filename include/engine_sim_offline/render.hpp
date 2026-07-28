@@ -26,6 +26,7 @@ struct RenderAssetPayload {
 struct RenderSpecification {
     contract::EngineSpec engine;
     contract::PresentationCalibration presentation;
+    contract::ResolvedRandomnessPolicy randomness;
     contract::ProvenanceLedger provenance;
     contract::SourceMatrixContract source_matrix;
     std::vector<RenderAssetPayload> asset_payloads;
@@ -107,8 +108,8 @@ struct RenderControl {
                                             RenderControl control = {});
 
 // Rebinds a result to the complete render-layer request, including engine,
-// presentation, assets, provenance, and source policy. This is stricter than the
-// lower-level contract validator, which cannot see RenderSpecification.
+// presentation, randomness, assets, provenance, and source policy. This is stricter
+// than the lower-level contract validator, which cannot see RenderSpecification.
 [[nodiscard]] contract::ValidationReport
 validate(const contract::RenderResult &result, const RenderSpecification &specification,
          const contract::RenderScenario &scenario);

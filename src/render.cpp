@@ -31,8 +31,9 @@ ValidationReport validate_structure(const RenderSpecification &specification,
     ValidationReport report;
     append_prefixed(report,
                     contract::validate_render_admission(
-                        specification.engine, specification.presentation, scenario,
-                        specification.provenance, specification.source_matrix),
+                        specification.engine, specification.presentation,
+                        specification.randomness, scenario, specification.provenance,
+                        specification.source_matrix),
                     "specification");
 
     std::unordered_set<std::uint32_t> payload_ids;
@@ -109,7 +110,8 @@ contract::RenderRequestRecord
 make_request_record(const RenderSpecification &specification,
                     const contract::RenderScenario &scenario) {
     return {
-        {specification.engine, specification.presentation, scenario},
+        {specification.engine, specification.presentation, specification.randomness,
+         scenario},
         specification.provenance,
         specification.source_matrix,
         asset_payload_identities(specification),
@@ -226,6 +228,14 @@ contract::ValidationReport validate(const contract::RenderResult &result,
                         std::string(outcome_path) +
                             " result must retain the exact requested presentation");
                 require(report,
+                        outcome.request.resolved_inputs.randomness ==
+                            specification.randomness,
+                        std::string(outcome_path) +
+                            ".request.resolved_inputs.randomness",
+                        std::string(outcome_path) +
+                            " result must retain the exact requested randomness "
+                            "policy");
+                require(report,
                         outcome.request.asset_payloads ==
                             asset_payload_identities(specification),
                         std::string(outcome_path) + ".request.asset_payloads",
@@ -286,6 +296,12 @@ contract::ValidationReport validate(const contract::RenderResult &result,
                         specification.presentation,
                     "success.manifest.content.inputs.simulation.presentation",
                     "success manifest must retain the exact requested presentation");
+                require(report,
+                        simulation_inputs.resolved.randomness ==
+                            specification.randomness,
+                        "success.manifest.content.inputs.simulation.randomness",
+                        "success manifest must retain the exact requested randomness "
+                        "policy");
             }
         },
         result);

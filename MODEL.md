@@ -45,11 +45,14 @@ The following records have distinct authority:
 7. `docs/model/M2_P18_ARTIFACT_MASTERING.md` owns the repository-selected artifact
    paths and exact raw/audition mastering behavior derived from the frozen stems and
    oracle.
-8. `docs/contracts/M2_MANIFEST_INPUTS.md` owns the typed distinction between complete
-   simulation inputs and exact isolated reference-presentation lineage.
+8. `docs/contracts/M2_MANIFEST_INPUTS.md` records the historical typed distinction
+   between complete simulation inputs and isolated reference-presentation lineage; it
+   is evidence history, not a current API alternative.
 9. `docs/contracts/M3_BMW_REQUEST.md` owns the concrete resolved engine/scenario
    identities, fixed-rate RPM representation, and explicit parity-scenario metadata.
-10. This document owns model meaning and admission; the focused contract records own
+10. `docs/contracts/M4_SIMULATION_MANIFEST_WIRE.md` owns the complete current
+    simulation-manifest byte grammar, including the resolved randomness policy.
+11. This document owns model meaning and admission; the focused contract records own
    concrete C++ types, schemas, and API signatures.
 
 If two authorities conflict, implementation stops and the contradiction is recorded.
@@ -232,10 +235,21 @@ deterministic comparisons. They cannot alter rendered samples.
 Randomness uses a versioned project-owned generator, domain-separated seeds, and stable
 semantic component IDs. A component owns its stream. Rejected/adaptive solver attempts
 must not consume accepted-path random draws. Parallel scheduling cannot change stream
-ownership or reduction order. `p18_reference_pcg32_v1` is allowed only for M2
-presentation parity and the six M3 combustion parity streams. Those paths use the
-fixture's frozen state/stream derivation and exact source draw cadence. Every
-post-parity stochastic model declares a separate generator and version.
+ownership or reduction order. The historical isolated M2 replay recorded
+`p18_reference_pcg32_v1`; it is evidence, not a current method. Simulation renders
+instead admit the exact
+project-owned `pcg32_xsh_rr_64_32_binary64_v1` generator and
+`sha256_length_prefixed_capture_component_pcg32_v1` derivation. Admission recompiles
+the complete initialized stream inventory from the explicit seed namespace, scenario
+public seed, and stable component topology; retained BMW combustion values are cache
+values that must match, not a second seed authority. Canonical plan order and seed
+coordinates use stable numeric owner IDs, not mutable container ordinals. The current
+combustion and conditioning methods record their lanes even when a coefficient is
+zero because those executors still instantiate them. Presentation advances both
+route-owned generators; combustion draws only for accepted ignition events. Runtime
+draw count and cadence are execution evidence, not claims made by the preflight plan.
+Every later stochastic method declares a separate identity and draw cadence when its
+behavior differs.
 
 At render-session start, the implementation verifies round-to-nearest/ties-to-even.
 Flush-to-zero and denormals-are-zero are disabled unless a named admitted operation

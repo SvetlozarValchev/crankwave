@@ -246,6 +246,7 @@ add_executable(
     contract_test_main.cpp
     parity_model_contract_test.cpp
     primitives_contract_test.cpp
+    randomness_contract_test.cpp
     scenario_manifest_contract_test.cpp
 )
 
@@ -424,15 +425,9 @@ add_executable(
     component_seed_derivation_test.cpp
 )
 
-target_include_directories(
-    engine_sim_offline_component_seed_derivation_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
 target_link_libraries(
     engine_sim_offline_component_seed_derivation_tests
-    PRIVATE engine_sim_offline::randomness
+    PRIVATE engine_sim_offline::contract
 )
 
 add_test(

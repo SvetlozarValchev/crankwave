@@ -1,5 +1,6 @@
 #pragma once
 
+#include "dsp/pcg32.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 
@@ -10,7 +11,7 @@
 namespace engine_sim_offline::simulation {
 
 inline constexpr std::size_t kLegacyCombustionHistorySampleCount = 256U;
-inline constexpr std::uint64_t kMaximumLegacyPcg32Stream = (UINT64_C(1) << 63U) - 1U;
+inline constexpr std::uint64_t kMaximumLegacyPcg32Stream = dsp::kMaximumPcg32Stream;
 inline constexpr double kLegacyIntakeFlameExtinctionAmountMol = 1.0e-9;
 
 // PCG-XSH-RR with the source generator's two-draw seed sequence and 53-bit
@@ -28,8 +29,7 @@ class LegacyPcg32 final {
     [[nodiscard]] std::uint64_t increment() const noexcept;
 
   private:
-    std::uint64_t state_ = 0;
-    std::uint64_t increment_ = 1;
+    dsp::Pcg32 generator_{0U, 1U};
 };
 
 // Invocation-scoped, admitted fuel data. The ratio table is sorted by turbulence

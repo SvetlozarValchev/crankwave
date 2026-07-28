@@ -17,7 +17,8 @@ namespace {
         build.math_library_id != "glibc-libm" ||
         build.compiler_runtime_id != "libgcc-s") {
         return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "manifest runtime providers are not canonical v2");
+                           "manifest runtime providers are outside the canonical "
+                           "profile");
     }
     return writer.begin_object() && writer.key("git_commit_id") &&
            writer.string_value(build.git_commit_id) &&
@@ -67,7 +68,8 @@ write_floating_point(CanonicalJsonWriter &writer,
         determinism.deterministic_worker_count != 1 ||
         determinism.deterministic_reduction_topology != "serial-stable-order") {
         return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "manifest determinism policy is not canonical v2");
+                           "manifest determinism policy is outside the canonical "
+                           "profile");
     }
     return writer.begin_object() && writer.key("build") &&
            write_build_identity(writer, determinism.build) &&
@@ -152,9 +154,9 @@ bool write_provenance_bundle_ref(CanonicalJsonWriter &writer,
 bool write_completed_manifest_content(CanonicalJsonWriter &writer,
                                       const contract::RenderManifestContent &content,
                                       ManifestInputsWriter write_inputs) {
-    if (content.schema_version != 2U) {
+    if (content.schema_version != 3U) {
         return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "manifest content schema version is not v2");
+                           "manifest content schema version is not v3");
     }
     if (write_inputs == nullptr) {
         return writer.fail(CanonicalJsonWriter::Error::invalid_state,

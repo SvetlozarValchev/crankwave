@@ -51,44 +51,31 @@ legacy_firing_pressure(std::span<const double, kLegacyCombustionHistorySampleCou
 
 } // namespace
 
-LegacyPcg32::LegacyPcg32() noexcept {
-    static_cast<void>(seed(0U, 1U));
-}
+LegacyPcg32::LegacyPcg32() noexcept = default;
 
 bool LegacyPcg32::seed(std::uint64_t initial_state, std::uint64_t stream) noexcept {
     if (stream > kMaximumLegacyPcg32Stream) {
         return false;
     }
 
-    state_ = 0U;
-    increment_ = (stream << 1U) | UINT64_C(1);
-    static_cast<void>(next_u32());
-    state_ += initial_state;
-    static_cast<void>(next_u32());
+    generator_ = dsp::Pcg32{initial_state, stream};
     return true;
 }
 
 std::uint32_t LegacyPcg32::next_u32() noexcept {
-    const std::uint64_t old_state = state_;
-    state_ = old_state * UINT64_C(6364136223846793005) + increment_;
-    const std::uint32_t xorshifted =
-        static_cast<std::uint32_t>(((old_state >> 18U) ^ old_state) >> 27U);
-    const std::uint32_t rotation = static_cast<std::uint32_t>(old_state >> 59U);
-    return (xorshifted >> rotation) | (xorshifted << ((-rotation) & 31U));
+    return generator_.next_u32();
 }
 
 double LegacyPcg32::uniform_binary64() noexcept {
-    const std::uint64_t high = static_cast<std::uint64_t>(next_u32() >> 5U);
-    const std::uint64_t low = static_cast<std::uint64_t>(next_u32() >> 6U);
-    return static_cast<double>((high << 26U) | low) * 0x1.0p-53;
+    return generator_.uniform_double();
 }
 
 std::uint64_t LegacyPcg32::state() const noexcept {
-    return state_;
+    return generator_.state();
 }
 
 std::uint64_t LegacyPcg32::increment() const noexcept {
-    return increment_;
+    return generator_.increment();
 }
 
 double

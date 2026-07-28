@@ -11,11 +11,13 @@ and CLI shell now exist and are recorded separately in
 [`M2_RENDER_API.md`](M2_RENDER_API.md), while integer scheduling and bounded traversal
 are recorded in [`M2_SCHEDULING.md`](M2_SCHEDULING.md). Bounded artifact encoding,
 transactional directory publication, and the focused P1.8 DSP primitives are recorded
-in [`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). None of these records claims that the
-resolver, simulator, or complete public simulation-to-acoustic renderer exists yet;
-those are separate checkboxes in [`PLAN.md`](../../PLAN.md).
-The manifest's complete-simulation versus isolated-reference input alternatives are
-frozen separately in [`M2_MANIFEST_INPUTS.md`](M2_MANIFEST_INPUTS.md).
+in [`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). The M3 simulator, profile-specific
+BMW request compiler, and internal presentation stages now exist. General authored
+resolution and the complete public simulation-to-acoustic job remain separate
+checkboxes in [`PLAN.md`](../../PLAN.md).
+The former isolated-reference input alternative is preserved only as historical
+evidence in [`M2_MANIFEST_INPUTS.md`](M2_MANIFEST_INPUTS.md); the current manifest
+input is simulation-only.
 
 The governing physical, numerical, and provenance meanings remain in
 [`MODEL.md`](../../MODEL.md). The exact BMW parity algorithm is separately fixed by
@@ -31,19 +33,20 @@ AuthoredEngineDefinition          AuthoredPresentationCalibration
               \                         /
                +---- ProvenanceLedger --+
                            |
-                    resolver                         not implemented yet
+             profile-specific request compiler      BMW implemented
                            v
 EngineSpec + RenderScenario + PresentationCalibration
                  resolved values + resolution IDs
                            |
              render preflight/session boundary    implemented
                            |
-              simulator publishes CaptureBlock   later M3 checkbox
+              simulator publishes CaptureBlock   internal M3 path implemented
                            |
-              excitation and presentation         later M2/M3 work
+              excitation and presentation         internal stages implemented;
+                                                   opaque M4 job pending
                            |
               artifacts + RenderManifest         encoder/sink implemented;
-                                                   orchestration later M2
+                                                   opaque M4 job pending
 ```
 
 The current contract supplies:
@@ -56,20 +59,19 @@ The current contract supplies:
 - a callback-scoped `CaptureBlockView`;
 - source-matrix, presentation, artifact, and manifest schemas;
 - generic validation and exact frozen BMW reference validation;
-- the canonical completed reference-manifest v2 encoder, whose unchanged input kind
-  remains `reference_presentation_v1`.
 - the owning render-specification aggregate, fail-closed render entry point, sink
-  transaction protocol, and CLI shell recorded in `M2_RENDER_API.md`.
+  transaction protocol, and CLI shell recorded in `M2_RENDER_API.md`;
+- the profile-specific resolved BMW request, M3 low-order simulator and excitation,
+  internal presentation session, and canonical completed simulation-manifest v3
+  encoder.
 
 The current contract does not supply:
 
-- authored-to-resolved conversion;
+- general authored-to-resolved conversion;
 - an executable capture-to-artifact route behind `render(spec, scenario, sink)`;
-- simulation or crank/load-control execution;
-- fixture decoding or excitation generation;
-- complete DSP-route execution or capture-to-artifact orchestration;
-- a `simulation_v1` manifest wire encoder or public simulation-route collection of
-  execution facts; the isolated reference-tool observer below is private.
+- opaque ownership of the admitted simulation, excitation, presentation, manifest,
+  and publication basis in one public job;
+- public simulation-route collection of execution facts.
 
 The concrete directory sink verifies streamed artifact payload hashes and publishes
 encoded artifacts transactionally. WAV and complete capture-telemetry byte encoders
@@ -495,9 +497,7 @@ P1.8 output; this checkbox pins the input identity but does not execute DSP.
 
 `RenderManifestContent` contains:
 
-- a tagged input alternative: either the complete resolved engine, presentation, and
-  scenario inputs, or the exact isolated P1.8 reference-presentation lineage and
-  executed presentation calibration;
+- the complete resolved engine, presentation, randomness-policy, and scenario inputs;
 - a content-addressed provenance-bundle reference;
 - build/toolchain, loaded runtime-provider, compiled numeric-policy, floating-point,
   instruction-set, worker, and reduction identities;
@@ -509,7 +509,7 @@ P1.8 output; this checkbox pins the input identity but does not execute DSP.
 - emitted artifact records with portable relative path, media shape, byte count, and
   payload SHA-256.
 
-The current reference determinism envelope requires the admitted libstdc++, glibc
+The current determinism envelope requires the admitted libstdc++, glibc
 libm, and libgcc_s providers; numeric policy
 `x86-64-v1-binary64-x87-extended-strict-v1`; ISA profile `x86-64-v1`; one serial
 stable-order worker; strict IEEE-754 binary64, round-to-nearest/ties-to-even; no FMA
@@ -517,27 +517,31 @@ contraction; and no flush-to-zero or denormals-are-zero. Component seeds are typ
 owned by a cylinder or route
 according to their stochastic role; duplicate kind/owner streams are rejected.
 Executable method identities live once in the resolved engine, presentation,
-scenario, and random plan rather than in a second manifest inventory that could
-silently drift.
-Active combustion variation requires one stream per cylinder; active presentation
-jitter and air noise require one stream of each kind per configured route. The frozen
-P1.8 matrix additionally pins the generator and derivation method IDs and versions
-(`p18_reference_pcg32_v1` and the recorded SHA-256 component-seed derivation), public
-seed `0xC0FFEE`, and the four recorded route-owned presentation stream pairs in
+randomness policy, scenario, and initialized random plan rather than in a second
+manifest inventory that could silently drift. The random plan's generator and
+derivation must equal the resolved policy. Its component inventory, order, and seed
+pairs are independently recomputed from the explicit namespace, public seed, and
+configured topology. The legacy-low-order profile's retained combustion initializations
+are executable cache values only and must equal that canonical derivation.
+Current combustion requires one initialized lane per cylinder; current presentation
+jitter and air noise require one initialized lane of each kind per configured route
+even at zero scale because those executors still instantiate them. Presentation
+advances both route-owned generators; combustion draws only for accepted ignition
+events. The plan does not claim runtime draw counts. Historical P1.8 evidence
+separately pins its former generator, derivation, seed, and four route-owned
+presentation stream pairs in
 [`P18_PRESENTATION_RENDERER.md`](../../reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md).
-Their method configuration digests remain implementation-supplied content identities.
-That reference-only generator is rejected by other source matrices.
+Those records are audit evidence only; their generator is not admitted by the current
+simulation contract.
 
-Simulation-content validation cross-checks all three resolved inputs and scenario
-compatibility. Reference-content validation instead requires the exact frozen fixture
-files, minimal BMW/two-route context, reader/adapter/seam identities, capture/crop
-window, presentation record, and only the four presentation random streams executed
-now. It never fabricates the deferred physics profile. Both alternatives cross-check
-rates, public seed, source matrix, route/bus identity, artifact ownership, exact
-delivery frame count, file shape, payload presence, evidence rights, and distribution
-intent. Artifact paths must be normalized portable relative paths without traversal,
-drive syntax, control characters, or case-insensitive duplicates. Extra artifacts are
-allowed only when explicitly diagnostic.
+Simulation-content validation cross-checks all four resolved inputs and scenario
+compatibility, rates, public seed, source matrix, route/bus identity, artifact
+ownership, exact delivery frame count, file shape, payload presence, evidence rights,
+and distribution intent. Artifact paths must be normalized portable relative paths
+without traversal, drive syntax, control characters, or case-insensitive duplicates.
+Extra artifacts are allowed only when explicitly diagnostic. The former reference
+validation route is retained only in the historical evidence record and cannot
+fabricate a current manifest.
 
 `ExecutionFacts` separately names run ID, canonical RFC 3339 UTC start, wall elapsed
 time, host/CPU, thread/job counts, and optional peak resident memory. The field is
@@ -545,17 +549,17 @@ optional so
 deterministic content can exist before execution, but validation of a completed
 `RenderManifest` requires complete, positive execution facts. Execution is excluded
 by `same_content_identity()`, so machine timing cannot change deterministic render
-identity. The isolated Linux reference tool now collects those facts through a
-private, one-shot single-render-job observer and validates/encodes its complete
-manifest in memory. That observer is not linked to, and does not admit, the still
-fail-closed public render route.
+identity. The historical Linux reference tool collected those facts through a
+private, one-shot single-render-job observer and validated/encoded its complete
+manifest in memory. That tool and observer are retired and are not linked to the
+still fail-closed public render route.
 
 A content-valid manifest is still not a successful render. The public render boundary
 now rejects valid inputs with `incomplete_source_route` until later renderer/sink work
 creates payloads, computes hashes, publishes required outputs transactionally, and can
 return the manifest only on success. A public `RenderSuccess` is valid only with the
-complete simulation-input alternative. The isolated reference target has its own
-result/session boundary and cannot use fixture replay to manufacture public success.
+complete simulation inputs. Historical fixture replay cannot manufacture public
+success.
 
 ## 11. M2 contract versus M3 exact profile
 

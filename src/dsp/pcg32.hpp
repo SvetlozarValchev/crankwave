@@ -1,8 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 
 namespace engine_sim_offline::dsp {
+
+inline constexpr std::uint64_t kMaximumPcg32Stream =
+    std::numeric_limits<std::uint64_t>::max() >> 1U;
 
 // Deterministic PCG32 state machine and binary64 draw construction. The constructor
 // arguments are the recorded inputs to the seeding procedure, not an already-seeded

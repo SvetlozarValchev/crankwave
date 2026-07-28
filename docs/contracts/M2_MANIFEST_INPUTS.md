@@ -1,8 +1,13 @@
 # M2 manifest-input contract
 
-Status: normative typed-input and deterministic reference-content contract; reference
-wire encoding frozen, simulation encoding deliberately deferred to the concrete M3
-request
+Status: historical M2 typed-input and deterministic reference-content record
+
+The reference-manifest API and compatibility targets described below were retired
+after parity acceptance. Current `RenderManifestContent` is simulation-only; its
+normative wire contract is
+[`M4_SIMULATION_MANIFEST_WIRE.md`](M4_SIMULATION_MANIFEST_WIRE.md). The remainder of
+this document preserves the exact former reference boundary as immutable audit
+evidence, not as a supported API.
 
 Applies to: the input lineage represented by `RenderManifestContent`, the isolated
 P1.8 reference-presentation route, and the public simulation-success boundary
