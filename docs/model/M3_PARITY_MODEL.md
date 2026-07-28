@@ -1369,6 +1369,11 @@ solver's cylinder-wall reaction, which the analytic mechanism intentionally remo
 Starter, bearing, ring-pack, valvetrain, pump, oil, and accessory losses are also
 absent and declared as such.
 
+The typed `LegacyFixedCrankLossV1` owns both this magnitude and its included/omitted
+term masks. `LowOrderEngineCoreV1` does not own any fixed-friction value or loss
+classification, so reusing that core cannot silently carry this incomplete M3 loss
+closure into another operating profile.
+
 The M3 parity method does not yet define an equivalent-inertia function or its
 derivative. Its prescribed-motion actuator torque is therefore reported unavailable
 with that reason, never as zero and never as source dyno reaction. A later

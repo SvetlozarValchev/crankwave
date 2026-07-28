@@ -164,14 +164,16 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
     constexpr double kCfmPointOne = 0.0000027486682279375876;
 
     LegacyLowOrderV1Profile profile;
-    profile.mechanism.crank = {
+    auto &core = profile.core;
+    auto &fixed_crank_loss = profile.fixed_crank_loss;
+    core.mechanism.crank = {
         builder.resolved(0.0, path("mechanism.crank.crank_tdc_reference_rad")),
         builder.resolved(5.0, path("mechanism.crank.crankshaft_mass_kg")),
         builder.resolved(5.9, path("mechanism.crank.flywheel_mass_kg")),
         builder.resolved(0.2, path("mechanism.crank.authored_crank_inertia_kg_m2")),
-        builder.resolved(10.0,
-                         path("mechanism.crank.fixed_crank_friction_magnitude_nm")),
     };
+    fixed_crank_loss.fixed_crank_friction_magnitude_nm = builder.resolved(
+        10.0, path("mechanism.crank.fixed_crank_friction_magnitude_nm"));
     LegacyCylinderAssembly cylinder;
     cylinder.topology = {
         CylinderId{1},  PortId{1},      PortId{2},     GasVolumeId{2},
@@ -195,14 +197,14 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
         builder.resolved(0.0, cylinder_path + ".ignition_wire_angle_rad"),
         builder.resolved(0.0, cylinder_path + ".header_primary_length_m"),
     };
-    profile.mechanism.cylinders.push_back(std::move(cylinder));
+    core.mechanism.cylinders.push_back(std::move(cylinder));
 
-    profile.gas_path.intake_topology = {
+    core.gas_path.intake_topology = {
         GasVolumeId{1},
         FlowEdgeId{1},
         FlowEdgeId{2},
     };
-    profile.gas_path.intake = {
+    core.gas_path.intake = {
         builder.resolved(0.002, path("gas_path.intake.plenum_volume_m3")),
         builder.resolved(0.01, path("gas_path.intake.plenum_cross_section_area_m2")),
         builder.resolved(0.15, path("gas_path.intake.runner_length_m")),
@@ -216,15 +218,15 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
         make_restriction(builder, LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
                          kCarb500, path("gas_path.intake.plenum_to_runner")),
     };
-    profile.gas_path.head.intake_runner_base_volume_m3 =
+    core.gas_path.head.intake_runner_base_volume_m3 =
         builder.resolved(0.0001, path("gas_path.head.intake_runner_base_volume_m3"));
-    profile.gas_path.head.intake_runner_cross_section_area_m2 = builder.resolved(
+    core.gas_path.head.intake_runner_cross_section_area_m2 = builder.resolved(
         0.002, path("gas_path.head.intake_runner_cross_section_area_m2"));
-    profile.gas_path.head.exhaust_runner_base_volume_m3 =
+    core.gas_path.head.exhaust_runner_base_volume_m3 =
         builder.resolved(0.0003, path("gas_path.head.exhaust_runner_base_volume_m3"));
-    profile.gas_path.head.exhaust_runner_cross_section_area_m2 = builder.resolved(
+    core.gas_path.head.exhaust_runner_cross_section_area_m2 = builder.resolved(
         0.0014, path("gas_path.head.exhaust_runner_cross_section_area_m2"));
-    profile.gas_path.head.flow_table_triangle_radius_m =
+    core.gas_path.head.flow_table_triangle_radius_m =
         builder.resolved(0.001, path("gas_path.head.flow_table_triangle_radius_m"));
     const auto make_flow_point = [&](std::string table, std::string id, double lift,
                                      double cfm, double k) {
@@ -240,11 +242,11 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
                             {base + ".source_cfm_at_28_inh2o"}),
         };
     };
-    profile.gas_path.head.intake_flow = {
+    core.gas_path.head.intake_flow = {
         make_flow_point("intake_flow", "lift-0", 0.0, 0.0, 0.0),
         make_flow_point("intake_flow", "lift-1", 0.001, 1.0, kCfmOne),
     };
-    profile.gas_path.head.exhaust_flow = {
+    core.gas_path.head.exhaust_flow = {
         make_flow_point("exhaust_flow", "lift-0", 0.0, 0.0, 0.0),
         make_flow_point("exhaust_flow", "lift-1", 0.001, 1.0, kCfmOne),
     };
@@ -264,8 +266,8 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
         make_restriction(builder, LegacyRestrictionCalibration::carb_at_1p5_inhg,
                          1000.0, kCarb1000, exhaust_path + ".collector_outlet"),
     };
-    profile.gas_path.exhaust_routes.push_back(std::move(exhaust));
-    profile.gas_path.piston_blowby =
+    core.gas_path.exhaust_routes.push_back(std::move(exhaust));
+    core.gas_path.piston_blowby =
         make_restriction(builder, LegacyRestrictionCalibration::cfm_at_28_inh2o, 0.1,
                          kCfmPointOne, path("gas_path.piston_blowby"));
 
@@ -287,12 +289,12 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
         });
         return camshaft;
     };
-    profile.valvetrain.intake = make_cam("intake", PortId{1});
-    profile.valvetrain.exhaust = make_cam("exhaust", PortId{2});
+    core.valvetrain.intake = make_cam("intake", PortId{1});
+    core.valvetrain.exhaust = make_cam("exhaust", PortId{2});
 
-    profile.ignition.firing_order = builder.resolved(
+    core.ignition.firing_order = builder.resolved(
         std::vector<CylinderId>{CylinderId{1}}, path("ignition.firing_order"));
-    profile.ignition.timing_curve_triangle_radius_rad_s =
+    core.ignition.timing_curve_triangle_radius_rad_s =
         builder.resolved(1000.0, path("ignition.timing_curve_triangle_radius_rad_s"));
     const auto make_timing = [&](std::string id, double angular_speed_rad_s) {
         const auto base = path("ignition.timing_curve." + id);
@@ -302,38 +304,38 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
             builder.resolved(0.1, base + ".timing_advance_rad"),
         };
     };
-    profile.ignition.timing_curve = {
+    core.ignition.timing_curve = {
         make_timing("rpm-0", 0.0),
         make_timing("rpm-1000", 1000.0),
     };
-    profile.ignition.limiter_speed_rpm =
+    core.ignition.limiter_speed_rpm =
         builder.resolved(8000.0, path("ignition.limiter_speed_rpm"));
-    profile.ignition.limiter_hold_s =
+    core.ignition.limiter_hold_s =
         builder.resolved(0.5, path("ignition.limiter_hold_s"));
-    profile.ignition.declared_redline_rpm =
+    core.ignition.declared_redline_rpm =
         builder.resolved(7000.0, path("ignition.declared_redline_rpm"));
 
-    profile.fuel.fuel_id =
+    core.fuel.fuel_id =
         builder.resolved(std::string{"gasoline"}, path("fuel.fuel_id"));
-    profile.fuel.molecular_mass_kg_per_mol =
+    core.fuel.molecular_mass_kg_per_mol =
         builder.resolved(0.1, path("fuel.molecular_mass_kg_per_mol"));
-    profile.fuel.energy_density_j_per_kg =
+    core.fuel.energy_density_j_per_kg =
         builder.resolved(48.1e6, path("fuel.energy_density_j_per_kg"));
-    profile.fuel.molecular_afr = builder.resolved(12.5, path("fuel.molecular_afr"));
-    profile.fuel.maximum_burning_efficiency_01 =
+    core.fuel.molecular_afr = builder.resolved(12.5, path("fuel.molecular_afr"));
+    core.fuel.maximum_burning_efficiency_01 =
         builder.resolved(0.8, path("fuel.maximum_burning_efficiency_01"));
-    profile.fuel.burning_efficiency_randomness_01 =
+    core.fuel.burning_efficiency_randomness_01 =
         builder.resolved(0.5, path("fuel.burning_efficiency_randomness_01"));
-    profile.fuel.low_efficiency_attenuation_01 =
+    core.fuel.low_efficiency_attenuation_01 =
         builder.resolved(0.6, path("fuel.low_efficiency_attenuation_01"));
-    profile.fuel.maximum_turbulence_effect =
+    core.fuel.maximum_turbulence_effect =
         builder.resolved(4.0, path("fuel.maximum_turbulence_effect"));
-    profile.fuel.maximum_dilution_effect =
+    core.fuel.maximum_dilution_effect =
         builder.resolved(10.0, path("fuel.maximum_dilution_effect"));
-    profile.fuel.lbv_multiplier = builder.resolved(1.0, path("fuel.lbv_multiplier"));
-    profile.fuel.compression_ignition_enabled =
+    core.fuel.lbv_multiplier = builder.resolved(1.0, path("fuel.lbv_multiplier"));
+    core.fuel.compression_ignition_enabled =
         builder.resolved(false, path("fuel.compression_ignition_enabled"));
-    profile.fuel.turbulence_to_flame_speed_ratio_triangle_radius = builder.resolved(
+    core.fuel.turbulence_to_flame_speed_ratio_triangle_radius = builder.resolved(
         5.0, path("fuel.turbulence_to_flame_speed_ratio_triangle_radius"));
     const auto make_flame_point = [&](std::string id, double turbulence, double ratio) {
         const auto base = path("fuel.turbulence_to_flame_speed_ratio." + id);
@@ -343,13 +345,13 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
             builder.resolved(ratio, base + ".flame_speed_ratio"),
         };
     };
-    profile.fuel.turbulence_to_flame_speed_ratio = {
+    core.fuel.turbulence_to_flame_speed_ratio = {
         make_flame_point("turbulence-0", 0.0, 1.0),
         make_flame_point("turbulence-1", 1.0, 2.0),
     };
 
     const auto combustion_stream_path = path("combustion_random_streams.cylinder-1");
-    profile.combustion_random_streams.push_back({
+    core.combustion_random_streams.push_back({
         CylinderId{1},
         builder.resolved<std::uint64_t>(UINT64_C(0x6ba3d060370e05fa),
                                         combustion_stream_path +
@@ -358,38 +360,38 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
                                         combustion_stream_path + ".pcg32_stream"),
     });
 
-    profile.losses.included_terms =
+    fixed_crank_loss.included_terms =
         builder.resolved(known_torque_term_mask(), path("losses.included_terms"));
-    profile.losses.omitted_terms =
+    fixed_crank_loss.omitted_terms =
         builder.resolved<TorqueTermMask>(0, path("losses.omitted_terms"));
 
-    profile.excitation.reference_atmosphere_pa_abs = builder.resolved(
+    core.excitation.reference_atmosphere_pa_abs = builder.resolved(
         101325.0, path("reference_excitation.reference_atmosphere_pa_abs"));
-    profile.excitation.legacy_propagation_speed_m_s = builder.resolved(
+    core.excitation.legacy_propagation_speed_m_s = builder.resolved(
         343.0, path("reference_excitation.legacy_propagation_speed_m_s"));
-    profile.excitation.excitation_scale =
+    core.excitation.excitation_scale =
         builder.resolved(1600.0, path("reference_excitation.excitation_scale"));
-    profile.excitation.filtered_speed_threshold_rpm = builder.resolved(
+    core.excitation.filtered_speed_threshold_rpm = builder.resolved(
         40.0, path("reference_excitation.filtered_speed_threshold_rpm"));
-    profile.excitation.filtered_speed_exponent = builder.resolved<std::uint32_t>(
+    core.excitation.filtered_speed_exponent = builder.resolved<std::uint32_t>(
         3, path("reference_excitation.filtered_speed_exponent"));
-    profile.excitation.pressure_gains = {
+    core.excitation.pressure_gains = {
         builder.resolved(1.0, path("reference_excitation.pressure_gains.gauge_static")),
         builder.resolved(0.1,
                          path("reference_excitation.pressure_gains.dynamic_forward")),
         builder.resolved(0.1,
                          path("reference_excitation.pressure_gains.dynamic_reverse")),
     };
-    profile.excitation.cylinder_count_divisor =
+    core.excitation.cylinder_count_divisor =
         builder.resolved(1.0, path("reference_excitation.cylinder_count_divisor"));
-    profile.excitation.inverse_length_exponent =
+    core.excitation.inverse_length_exponent =
         builder.resolved(2.0, path("reference_excitation.inverse_length_exponent"));
-    profile.excitation.delay_rate = builder.resolved(
+    core.excitation.delay_rate = builder.resolved(
         RationalRateHz{10000, 1}, path("reference_excitation.delay_rate"));
-    profile.excitation.cylinder_accumulation_order =
+    core.excitation.cylinder_accumulation_order =
         builder.resolved(std::vector<CylinderId>{CylinderId{1}},
                          path("reference_excitation.cylinder_accumulation_order"));
-    profile.excitation.cylinder_paths.push_back({
+    core.excitation.cylinder_paths.push_back({
         CylinderId{1},
         RouteId{1},
         builder.resolved(0.0, path("reference_excitation.cylinder_paths.cylinder-1."
@@ -409,7 +411,7 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
                 path("reference_excitation.delay_rate"),
             }),
     });
-    profile.excitation.routes.push_back({
+    core.excitation.routes.push_back({
         RouteId{1},
         builder.resolved(6.25, path("reference_excitation.routes.exhaust.outlet-1."
                                     "exhaust_system_length_m")),

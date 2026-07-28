@@ -643,7 +643,7 @@ void test_full_bmw_mechanics_parity(const reference::DecodedReferenceParityV1 &f
             }
             fail_frame(frame.sample_index, "mechanics completed before fixture end");
         }
-        verify_frame(step->get(), frame, fixture, profile.ignition, models,
+        verify_frame(step->get(), frame, fixture, profile.core.ignition, models,
                      previous_theta_cycle_rad, spark_sequence, maximum_angle_error_rad);
         verify_valvetrain_step(valvetrain, step->get(), valve_coverage);
         previous_theta_cycle_rad = step->get().theta_cycle_rad;

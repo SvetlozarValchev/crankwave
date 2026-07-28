@@ -110,7 +110,8 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine) 
         return report;
     }
 
-    const auto &source = profile->excitation;
+    const auto &core = profile->core;
+    const auto &source = core.excitation;
     require(report, source.delay_rate.value == contract::RationalRateHz{10000, 1},
             ContractIssueCode::unsupported_value,
             "engine.physics_profile.excitation.delay_rate",
@@ -155,12 +156,12 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine) 
             "engine.physics_profile.excitation.routes",
             "captured exhaust excitation requires exactly two route records");
     require(report,
-            profile->gas_path.exhaust_routes.size() == kCapturedExcitationRouteCount,
+            core.gas_path.exhaust_routes.size() == kCapturedExcitationRouteCount,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.gas_path.exhaust_routes",
             "captured exhaust excitation requires exactly two gas-path routes");
     require(report,
-            profile->mechanism.cylinders.size() == kCapturedExcitationCylinderCount,
+            core.mechanism.cylinders.size() == kCapturedExcitationCylinderCount,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.mechanism.cylinders",
             "captured exhaust excitation requires six mechanism cylinders");
@@ -185,7 +186,7 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine) 
         const auto &declared = engine.routes[index];
         const auto &configured = source.routes[index];
         const auto gas_route_index =
-            find_index(profile->gas_path.exhaust_routes, configured.route_id,
+            find_index(core.gas_path.exhaust_routes, configured.route_id,
                        [](const contract::LegacyExhaustRouteProfile &route) {
                            return route.topology.route_id;
                        });
@@ -211,7 +212,7 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine) 
                 "excitation route must resolve uniquely in the gas-path topology");
         if (gas_route_index.has_value()) {
             gas_route_seen[*gas_route_index] = true;
-            const auto &gas_route = profile->gas_path.exhaust_routes[*gas_route_index];
+            const auto &gas_route = core.gas_path.exhaust_routes[*gas_route_index];
             require(
                 report,
                 declared.source_volume_id ==
@@ -254,7 +255,7 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine) 
                            return path.cylinder_id;
                        });
         const auto mechanism_index =
-            find_index(profile->mechanism.cylinders, cylinder_id,
+            find_index(core.mechanism.cylinders, cylinder_id,
                        [](const contract::LegacyCylinderAssembly &cylinder) {
                            return cylinder.topology.cylinder_id;
                        });
@@ -280,7 +281,7 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine) 
         mechanism_seen[*mechanism_index] = true;
 
         const auto &configured = source.cylinder_paths[*path_index];
-        const auto &mechanism = profile->mechanism.cylinders[*mechanism_index];
+        const auto &mechanism = core.mechanism.cylinders[*mechanism_index];
         const auto route_index =
             find_index(source.routes, configured.route_id,
                        [](const contract::LegacyExcitationRoute &route) {

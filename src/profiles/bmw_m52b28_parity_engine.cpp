@@ -421,7 +421,9 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
     };
 
     contract::LegacyLowOrderV1Profile profile;
-    profile.mechanism.crank = {
+    auto &core = profile.core;
+    auto &fixed_crank_loss = profile.fixed_crank_loss;
+    core.mechanism.crank = {
         builder.resolved(120.0 * degree_source,
                          profile_path("mechanism.crank.crank_tdc_reference_rad"),
                          Source::legacy_asset),
@@ -432,11 +434,11 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
         builder.resolved(0.22986844776863666 * 0.9,
                          profile_path("mechanism.crank.authored_crank_inertia_kg_m2"),
                          Source::legacy_asset),
-        builder.resolved(
-            10.0 * lb_ft_source,
-            profile_path("mechanism.crank.fixed_crank_friction_magnitude_nm"),
-            Source::legacy_asset),
     };
+    fixed_crank_loss.fixed_crank_friction_magnitude_nm = builder.resolved(
+        10.0 * lb_ft_source,
+        profile_path("mechanism.crank.fixed_crank_friction_magnitude_nm"),
+        Source::legacy_asset);
 
     for (std::uint32_t index = 0; index < 6; ++index) {
         const std::uint32_t number = index + 1;
@@ -447,7 +449,7 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
         const contract::RouteId exhaust_route_id{
             number % 2 == 0 ? 1U : 2U,
         };
-        profile.mechanism.cylinders.push_back({
+        core.mechanism.cylinders.push_back({
             {
                 contract::CylinderId{number},
                 contract::PortId{2 * number - 1},
@@ -503,12 +505,12 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
         });
     }
 
-    profile.gas_path.intake_topology = {
+    core.gas_path.intake_topology = {
         contract::GasVolumeId{2},
         contract::FlowEdgeId{1},
         contract::FlowEdgeId{2},
     };
-    profile.gas_path.intake = {
+    core.gas_path.intake = {
         builder.resolved(2.0 * litre_source,
                          profile_path("gas_path.intake.plenum_volume_m3"),
                          Source::legacy_asset),
@@ -541,21 +543,21 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
     const double exhaust_primary_radius_m = 0.85 * inch_source;
     const double exhaust_primary_area_m2 =
         kLegacyPi * exhaust_primary_radius_m * exhaust_primary_radius_m;
-    profile.gas_path.head.intake_runner_base_volume_m3 = builder.resolved(
+    core.gas_path.head.intake_runner_base_volume_m3 = builder.resolved(
         100.0 * cc_source, profile_path("gas_path.head.intake_runner_base_volume_m3"),
         Source::legacy_asset);
-    profile.gas_path.head.intake_runner_cross_section_area_m2 = builder.resolved(
+    core.gas_path.head.intake_runner_cross_section_area_m2 = builder.resolved(
         intake_runner_area_m2,
         profile_path("gas_path.head.intake_runner_cross_section_area_m2"),
         Source::legacy_asset);
-    profile.gas_path.head.exhaust_runner_base_volume_m3 = builder.resolved(
+    core.gas_path.head.exhaust_runner_base_volume_m3 = builder.resolved(
         300.0 * cc_source, profile_path("gas_path.head.exhaust_runner_base_volume_m3"),
         Source::legacy_asset);
-    profile.gas_path.head.exhaust_runner_cross_section_area_m2 = builder.resolved(
+    core.gas_path.head.exhaust_runner_cross_section_area_m2 = builder.resolved(
         exhaust_primary_area_m2,
         profile_path("gas_path.head.exhaust_runner_cross_section_area_m2"),
         Source::legacy_asset);
-    profile.gas_path.head.flow_table_triangle_radius_m =
+    core.gas_path.head.flow_table_triangle_radius_m =
         builder.resolved(1.0 * millimetre_source,
                          profile_path("gas_path.head.flow_table_triangle_radius_m"),
                          Source::legacy_asset);
@@ -569,9 +571,9 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
         150.0, 155.0, 160.0, 165.0, 165.0, 165.0,
     };
     for (std::uint32_t index = 0; index < intake_flow_cfm.size(); ++index) {
-        profile.gas_path.head.intake_flow.push_back(make_valve_flow_point(
+        core.gas_path.head.intake_flow.push_back(make_valve_flow_point(
             builder, "intake_flow", index, intake_flow_cfm[index], millimetre_source));
-        profile.gas_path.head.exhaust_flow.push_back(
+        core.gas_path.head.exhaust_flow.push_back(
             make_valve_flow_point(builder, "exhaust_flow", index,
                                   exhaust_flow_cfm[index], millimetre_source));
     }
@@ -592,7 +594,7 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
         const std::string collector_volume_path = route_path + ".collector_volume_m3";
         const std::string collector_area_path =
             route_path + ".collector_cross_section_area_m2";
-        profile.gas_path.exhaust_routes.push_back({
+        core.gas_path.exhaust_routes.push_back({
             {
                 route_id,
                 collector_volume_id,
@@ -630,18 +632,18 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
                       contract::FlowEdgeId{33}, "exhaust.reference.0", 0.5);
     add_exhaust_route(contract::RouteId{2}, contract::GasVolumeId{22},
                       contract::FlowEdgeId{34}, "exhaust.reference.1", 1.0);
-    profile.gas_path.piston_blowby = make_restriction(
+    core.gas_path.piston_blowby = make_restriction(
         builder, contract::LegacyRestrictionCalibration::cfm_at_28_inh2o, 0.1,
         profile_path("gas_path.piston_blowby"));
 
-    profile.valvetrain.intake.shape = make_cam_shape(
+    core.valvetrain.intake.shape = make_cam_shape(
         builder, "intake", millimetre_source, inch_source, degree_source);
-    profile.valvetrain.exhaust.shape = make_cam_shape(
+    core.valvetrain.exhaust.shape = make_cam_shape(
         builder, "exhaust", millimetre_source, inch_source, degree_source);
     for (std::uint32_t index = 0; index < 6; ++index) {
         const std::uint32_t number = index + 1;
         const std::string cylinder_id = numbered_id("cylinder-", number);
-        profile.valvetrain.intake.lobes.push_back({
+        core.valvetrain.intake.lobes.push_back({
             contract::CylinderId{number},
             contract::PortId{2 * number - 1},
             builder.resolved(intake_centers[index],
@@ -649,7 +651,7 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
                                           ".crank_center_rad"),
                              Source::legacy_asset),
         });
-        profile.valvetrain.exhaust.lobes.push_back({
+        core.valvetrain.exhaust.lobes.push_back({
             contract::CylinderId{number},
             contract::PortId{2 * number},
             builder.resolved(exhaust_centers[index],
@@ -659,7 +661,7 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
         });
     }
 
-    profile.ignition.firing_order = builder.resolved(
+    core.ignition.firing_order = builder.resolved(
         std::vector<contract::CylinderId>{
             contract::CylinderId{1},
             contract::CylinderId{5},
@@ -669,55 +671,55 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
             contract::CylinderId{4},
         },
         profile_path("ignition.firing_order"), Source::legacy_asset);
-    profile.ignition.timing_curve_triangle_radius_rad_s =
+    core.ignition.timing_curve_triangle_radius_rad_s =
         builder.resolved(1000.0 * kLegacyRpmScale,
                          profile_path("ignition.timing_curve_triangle_radius_rad_s"),
                          Source::legacy_asset);
     for (std::uint32_t rpm = 0; rpm <= 7000; rpm += 1000) {
         const double advance = (rpm < 2000 ? 10.0 : 30.0) * degree_source;
-        profile.ignition.timing_curve.push_back(
+        core.ignition.timing_curve.push_back(
             make_timing_point(builder, rpm, advance));
     }
-    profile.ignition.limiter_speed_rpm = builder.resolved(
+    core.ignition.limiter_speed_rpm = builder.resolved(
         8000.0, profile_path("ignition.limiter_speed_rpm"), Source::legacy_asset);
-    profile.ignition.limiter_hold_s = builder.resolved(
+    core.ignition.limiter_hold_s = builder.resolved(
         0.5, profile_path("ignition.limiter_hold_s"), Source::legacy_asset);
-    profile.ignition.declared_redline_rpm = builder.resolved(
+    core.ignition.declared_redline_rpm = builder.resolved(
         7000.0, profile_path("ignition.declared_redline_rpm"), Source::legacy_asset);
 
-    profile.fuel.fuel_id =
+    core.fuel.fuel_id =
         builder.resolved(std::string{"gasoline-legacy-engine-sim-v1"},
                          profile_path("fuel.fuel_id"), Source::legacy_asset);
-    profile.fuel.molecular_mass_kg_per_mol = builder.resolved(
+    core.fuel.molecular_mass_kg_per_mol = builder.resolved(
         100.0 * gram_source, profile_path("fuel.molecular_mass_kg_per_mol"),
         Source::legacy_asset);
-    profile.fuel.energy_density_j_per_kg = builder.resolved(
+    core.fuel.energy_density_j_per_kg = builder.resolved(
         (48.1 * 1000.0) / gram_source, profile_path("fuel.energy_density_j_per_kg"),
         Source::legacy_asset);
-    profile.fuel.molecular_afr = builder.resolved(
+    core.fuel.molecular_afr = builder.resolved(
         25.0 / 2.0, profile_path("fuel.molecular_afr"), Source::legacy_asset);
-    profile.fuel.maximum_burning_efficiency_01 = builder.resolved(
+    core.fuel.maximum_burning_efficiency_01 = builder.resolved(
         0.8, profile_path("fuel.maximum_burning_efficiency_01"), Source::legacy_asset);
-    profile.fuel.burning_efficiency_randomness_01 =
+    core.fuel.burning_efficiency_randomness_01 =
         builder.resolved(0.5, profile_path("fuel.burning_efficiency_randomness_01"),
                          Source::legacy_asset);
-    profile.fuel.low_efficiency_attenuation_01 = builder.resolved(
+    core.fuel.low_efficiency_attenuation_01 = builder.resolved(
         0.6, profile_path("fuel.low_efficiency_attenuation_01"), Source::legacy_asset);
-    profile.fuel.maximum_turbulence_effect = builder.resolved(
+    core.fuel.maximum_turbulence_effect = builder.resolved(
         4.0, profile_path("fuel.maximum_turbulence_effect"), Source::legacy_asset);
-    profile.fuel.maximum_dilution_effect = builder.resolved(
+    core.fuel.maximum_dilution_effect = builder.resolved(
         10.0, profile_path("fuel.maximum_dilution_effect"), Source::legacy_asset);
-    profile.fuel.lbv_multiplier = builder.resolved(
+    core.fuel.lbv_multiplier = builder.resolved(
         1.0, profile_path("fuel.lbv_multiplier"), Source::legacy_asset);
-    profile.fuel.compression_ignition_enabled = builder.resolved(
+    core.fuel.compression_ignition_enabled = builder.resolved(
         false, profile_path("fuel.compression_ignition_enabled"), Source::legacy_asset);
-    profile.fuel.turbulence_to_flame_speed_ratio_triangle_radius = builder.resolved(
+    core.fuel.turbulence_to_flame_speed_ratio_triangle_radius = builder.resolved(
         5.0,
         profile_path("fuel."
                      "turbulence_to_flame_speed_ratio_triangle_radius"),
         Source::legacy_asset);
     for (std::uint32_t turbulence = 0; turbulence <= 45; turbulence += 5) {
-        profile.fuel.turbulence_to_flame_speed_ratio.push_back(
+        core.fuel.turbulence_to_flame_speed_ratio.push_back(
             make_flame_speed_point(builder, turbulence));
     }
 
@@ -735,7 +737,7 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
         const std::uint32_t number = index + 1;
         const std::string stream_path = profile_path("combustion_random_streams." +
                                                      numbered_id("cylinder-", number));
-        profile.combustion_random_streams.push_back({
+        core.combustion_random_streams.push_back({
             contract::CylinderId{number},
             builder.resolved<std::uint64_t>(initial_states[index],
                                             stream_path + ".pcg32_initial_state",
@@ -751,27 +753,27 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
         contract::torque_term_mask(contract::TorqueTerm::crank_friction);
     const contract::TorqueTermMask omitted_terms =
         contract::known_torque_term_mask() & ~included_terms;
-    profile.losses.included_terms = builder.resolved(
+    fixed_crank_loss.included_terms = builder.resolved(
         included_terms, profile_path("losses.included_terms"), Source::scenario);
-    profile.losses.omitted_terms = builder.resolved(
+    fixed_crank_loss.omitted_terms = builder.resolved(
         omitted_terms, profile_path("losses.omitted_terms"), Source::scenario);
 
-    profile.excitation.reference_atmosphere_pa_abs = builder.resolved(
+    core.excitation.reference_atmosphere_pa_abs = builder.resolved(
         101325.0, profile_path("reference_excitation.reference_atmosphere_pa_abs"),
         Source::reference_fixture);
-    profile.excitation.legacy_propagation_speed_m_s = builder.resolved(
+    core.excitation.legacy_propagation_speed_m_s = builder.resolved(
         343.0, profile_path("reference_excitation.legacy_propagation_speed_m_s"),
         Source::reference_fixture);
-    profile.excitation.excitation_scale =
+    core.excitation.excitation_scale =
         builder.resolved(1600.0, profile_path("reference_excitation.excitation_scale"),
                          Source::reference_fixture);
-    profile.excitation.filtered_speed_threshold_rpm = builder.resolved(
+    core.excitation.filtered_speed_threshold_rpm = builder.resolved(
         40.0, profile_path("reference_excitation.filtered_speed_threshold_rpm"),
         Source::reference_fixture);
-    profile.excitation.filtered_speed_exponent = builder.resolved<std::uint32_t>(
+    core.excitation.filtered_speed_exponent = builder.resolved<std::uint32_t>(
         3, profile_path("reference_excitation.filtered_speed_exponent"),
         Source::reference_fixture);
-    profile.excitation.pressure_gains = {
+    core.excitation.pressure_gains = {
         builder.resolved(
             1.0, profile_path("reference_excitation.pressure_gains.gauge_static"),
             Source::reference_fixture),
@@ -782,16 +784,16 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
             0.1, profile_path("reference_excitation.pressure_gains.dynamic_reverse"),
             Source::reference_fixture),
     };
-    profile.excitation.cylinder_count_divisor = builder.resolved(
+    core.excitation.cylinder_count_divisor = builder.resolved(
         6.0, profile_path("reference_excitation.cylinder_count_divisor"),
         Source::reference_fixture);
-    profile.excitation.inverse_length_exponent = builder.resolved(
+    core.excitation.inverse_length_exponent = builder.resolved(
         2.0, profile_path("reference_excitation.inverse_length_exponent"),
         Source::reference_fixture);
-    profile.excitation.delay_rate = builder.resolved(
+    core.excitation.delay_rate = builder.resolved(
         contract::RationalRateHz{10000, 1},
         profile_path("reference_excitation.delay_rate"), Source::reference_fixture);
-    profile.excitation.cylinder_accumulation_order = builder.resolved(
+    core.excitation.cylinder_accumulation_order = builder.resolved(
         std::vector<contract::CylinderId>{
             contract::CylinderId{1},
             contract::CylinderId{2},
@@ -803,7 +805,7 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
         profile_path("reference_excitation.cylinder_accumulation_order"),
         Source::reference_fixture);
 
-    profile.excitation.routes = {
+    core.excitation.routes = {
         {
             contract::RouteId{1},
             builder.resolved(
@@ -852,7 +854,7 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
         const double requested_delay_samples = delay_seconds * delay_rate_hz;
         const std::uint32_t resolved_delay_samples =
             static_cast<std::uint32_t>(std::round(requested_delay_samples));
-        profile.excitation.cylinder_paths.push_back({
+        core.excitation.cylinder_paths.push_back({
             contract::CylinderId{number},
             route_id,
             builder.resolved(header_primary_length_m,

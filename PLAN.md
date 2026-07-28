@@ -512,6 +512,13 @@ replacement starts before acceptance.
         claiming that arbitrary supplied terms are complete net torque.
   - [ ] Add the resolved accessory condition and a separate M4 BMW operating profile
         with complete aggregate loss/starter accounting.
+    - [x] Extract the shared low-order engine core and isolate the M3 fixed
+          crank-loss profile without changing M3 behavior or identity.
+    - [ ] Freeze the typed M4 accessory, aggregate-loss, starter, and operating-profile
+          contract.
+    - [ ] Replace the transitional simulation-v4 wire with the sole simulation-v5
+          wire for the explicit M3 and M4 profile forms.
+    - [ ] Instantiate and prove the BMW M4 operating profile.
   - [x] Generalize the kinematic schedule for O(1)-storage held-speed operation while
         preserving the accepted M3 trajectory exactly.
   - [ ] Admit and prove phase-aligned pressure plus cycle-torque convergence.

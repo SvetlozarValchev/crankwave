@@ -93,7 +93,6 @@ template <template <class> class Field> struct LegacyCrankAssemblyT {
     Field<double> crankshaft_mass_kg;
     Field<double> flywheel_mass_kg;
     Field<double> authored_crank_inertia_kg_m2;
-    Field<double> fixed_crank_friction_magnitude_nm;
 
     friend bool operator==(const LegacyCrankAssemblyT &,
                            const LegacyCrankAssemblyT &) = default;
@@ -420,17 +419,6 @@ struct LegacyCombustionRandomStream {
                            const LegacyCombustionRandomStream &) = default;
 };
 
-template <template <class> class Field> struct LegacyLossProfileT {
-    Field<TorqueTermMask> included_terms;
-    Field<TorqueTermMask> omitted_terms;
-
-    friend bool operator==(const LegacyLossProfileT &,
-                           const LegacyLossProfileT &) = default;
-};
-
-using AuthoredLegacyLossProfile = LegacyLossProfileT<AuthoredValue>;
-using LegacyLossProfile = LegacyLossProfileT<ResolvedValue>;
-
 template <template <class> class Field> struct LegacyExcitationPressureGainsT {
     Field<double> gauge_static;
     Field<double> dynamic_forward;
@@ -511,29 +499,61 @@ using AuthoredLegacyReferenceExcitationProfile =
 using LegacyReferenceExcitationProfile = LegacyReferenceExcitationProfileT<
     ResolvedValue, CylinderId, LegacyExcitationCylinderPath, LegacyExcitationRoute>;
 
-struct AuthoredLegacyLowOrderV1Profile {
+struct AuthoredLowOrderEngineCoreV1 {
     AuthoredLegacyMechanismProfile mechanism;
     AuthoredLegacyGasPathProfile gas_path;
     AuthoredLegacyValvetrainProfile valvetrain;
     AuthoredLegacyIgnitionProfile ignition;
     AuthoredLegacyFuelProfile fuel;
     std::vector<AuthoredLegacyCombustionRandomStream> combustion_random_streams;
-    AuthoredLegacyLossProfile losses;
     AuthoredLegacyReferenceExcitationProfile excitation;
 
-    friend bool operator==(const AuthoredLegacyLowOrderV1Profile &,
-                           const AuthoredLegacyLowOrderV1Profile &) = default;
+    friend bool operator==(const AuthoredLowOrderEngineCoreV1 &,
+                           const AuthoredLowOrderEngineCoreV1 &) = default;
 };
 
-struct LegacyLowOrderV1Profile {
+struct LowOrderEngineCoreV1 {
     LegacyMechanismProfile mechanism;
     LegacyGasPathProfile gas_path;
     LegacyValvetrainProfile valvetrain;
     LegacyIgnitionProfile ignition;
     LegacyFuelProfile fuel;
     std::vector<LegacyCombustionRandomStream> combustion_random_streams;
-    LegacyLossProfile losses;
     LegacyReferenceExcitationProfile excitation;
+
+    friend bool operator==(const LowOrderEngineCoreV1 &,
+                           const LowOrderEngineCoreV1 &) = default;
+};
+
+struct AuthoredLegacyFixedCrankLossV1 {
+    AuthoredValue<double> fixed_crank_friction_magnitude_nm;
+    AuthoredValue<TorqueTermMask> included_terms;
+    AuthoredValue<TorqueTermMask> omitted_terms;
+
+    friend bool operator==(const AuthoredLegacyFixedCrankLossV1 &,
+                           const AuthoredLegacyFixedCrankLossV1 &) = default;
+};
+
+struct LegacyFixedCrankLossV1 {
+    ResolvedValue<double> fixed_crank_friction_magnitude_nm;
+    ResolvedValue<TorqueTermMask> included_terms;
+    ResolvedValue<TorqueTermMask> omitted_terms;
+
+    friend bool operator==(const LegacyFixedCrankLossV1 &,
+                           const LegacyFixedCrankLossV1 &) = default;
+};
+
+struct AuthoredLegacyLowOrderV1Profile {
+    AuthoredLowOrderEngineCoreV1 core;
+    AuthoredLegacyFixedCrankLossV1 fixed_crank_loss;
+
+    friend bool operator==(const AuthoredLegacyLowOrderV1Profile &,
+                           const AuthoredLegacyLowOrderV1Profile &) = default;
+};
+
+struct LegacyLowOrderV1Profile {
+    LowOrderEngineCoreV1 core;
+    LegacyFixedCrankLossV1 fixed_crank_loss;
 
     friend bool operator==(const LegacyLowOrderV1Profile &,
                            const LegacyLowOrderV1Profile &) = default;

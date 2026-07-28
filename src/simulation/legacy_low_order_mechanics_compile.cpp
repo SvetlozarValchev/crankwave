@@ -83,7 +83,8 @@ compile_legacy_low_order_mechanics_session(const contract::EngineSpec &engine,
         return report;
     }
 
-    const auto &crank = profile->mechanism.crank;
+    const auto &core = profile->core;
+    const auto &crank = core.mechanism.crank;
     require(report, exact_fixed_rate_rpm_method(sweep->trajectory.kinematic_resolution),
             ContractIssueCode::unsupported_value,
             "scenario.mode.trajectory.kinematic_resolution",
@@ -113,23 +114,23 @@ compile_legacy_low_order_mechanics_session(const contract::EngineSpec &engine,
             "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
             "crank TDC reference must be finite");
     require(report,
-            profile->mechanism.cylinders.size() == engine.cylinders.size() &&
-                !profile->mechanism.cylinders.empty(),
+            core.mechanism.cylinders.size() == engine.cylinders.size() &&
+                !core.mechanism.cylinders.empty(),
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.mechanism.cylinders",
             "mechanism cylinders must match the nonempty engine cylinder order");
     require(report,
-            profile->mechanism.cylinders.size() <=
+            core.mechanism.cylinders.size() <=
                 std::numeric_limits<std::uint8_t>::max(),
             ContractIssueCode::unsupported_value,
             "engine.physics_profile.mechanism.cylinders",
             "event ordinals support at most 255 cylinders per mechanics session");
 
     std::vector<LegacyLowOrderMechanicsSession::CylinderModel> cylinders;
-    cylinders.reserve(profile->mechanism.cylinders.size());
+    cylinders.reserve(core.mechanism.cylinders.size());
     std::unordered_set<std::uint32_t> cylinder_ids;
-    for (std::size_t index = 0; index < profile->mechanism.cylinders.size(); ++index) {
-        const auto &assembly = profile->mechanism.cylinders[index];
+    for (std::size_t index = 0; index < core.mechanism.cylinders.size(); ++index) {
+        const auto &assembly = core.mechanism.cylinders[index];
         const auto &parameters = assembly.parameters;
         const auto path =
             "engine.physics_profile.mechanism.cylinders[" + std::to_string(index) + "]";
@@ -212,7 +213,7 @@ compile_legacy_low_order_mechanics_session(const contract::EngineSpec &engine,
         });
     }
 
-    const auto &ignition = profile->ignition;
+    const auto &ignition = core.ignition;
     require(report, finite_positive(ignition.timing_curve_triangle_radius_rad_s.value),
             ContractIssueCode::invalid_value,
             "engine.physics_profile.ignition.timing_curve_triangle_radius_rad_s.value",

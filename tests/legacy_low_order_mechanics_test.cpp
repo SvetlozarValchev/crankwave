@@ -220,9 +220,10 @@ struct MechanicsFixture {
     MechanicsFixture()
         : engine(make_engine(builder)), scenario(make_scenario(builder, engine)) {
         auto &profile = std::get<LegacyLowOrderV1Profile>(engine.physics_profile);
-        profile.mechanism.cylinders[0].parameters.ignition_wire_angle_rad.value = 2.0;
-        profile.ignition.limiter_speed_rpm.value = 300000.0;
-        profile.ignition.limiter_hold_s.value = 0.0002;
+        profile.core.mechanism.cylinders[0]
+            .parameters.ignition_wire_angle_rad.value = 2.0;
+        profile.core.ignition.limiter_speed_rpm.value = 300000.0;
+        profile.core.ignition.limiter_hold_s.value = 0.0002;
 
         scenario.scenario_id = "mechanics-four-step";
         scenario.total_duration_s.value = 0.0004;
@@ -386,7 +387,7 @@ void test_mechanics_compile_rejections() {
         MechanicsFixture fixture;
         auto &profile =
             std::get<LegacyLowOrderV1Profile>(fixture.engine.physics_profile);
-        profile.mechanism.cylinders[0].topology.exhaust_route_id = RouteId{999};
+        profile.core.mechanism.cylinders[0].topology.exhaust_route_id = RouteId{999};
         expect_compile_rejected(fixture, "exhaust_route_id");
     }
     {

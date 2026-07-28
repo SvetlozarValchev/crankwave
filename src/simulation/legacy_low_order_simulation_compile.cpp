@@ -34,9 +34,9 @@ template <class Range, class Id>
 }
 
 [[nodiscard]] std::optional<std::size_t>
-find_cylinder_profile_index(const contract::LegacyLowOrderV1Profile &profile,
+find_cylinder_profile_index(const contract::LowOrderEngineCoreV1 &core,
                             contract::CylinderId cylinder_id) {
-    const auto &cylinders = profile.mechanism.cylinders;
+    const auto &cylinders = core.mechanism.cylinders;
     const auto found = std::ranges::find_if(cylinders, [&](const auto &cylinder) {
         return cylinder.topology.cylinder_id == cylinder_id;
     });
@@ -47,9 +47,9 @@ find_cylinder_profile_index(const contract::LegacyLowOrderV1Profile &profile,
 }
 
 [[nodiscard]] std::optional<std::size_t>
-find_exhaust_profile_index(const contract::LegacyLowOrderV1Profile &profile,
+find_exhaust_profile_index(const contract::LowOrderEngineCoreV1 &core,
                            contract::RouteId route_id) {
-    const auto &routes = profile.gas_path.exhaust_routes;
+    const auto &routes = core.gas_path.exhaust_routes;
     const auto found = std::ranges::find_if(
         routes, [&](const auto &route) { return route.topology.route_id == route_id; });
     if (found == routes.end()) {
@@ -125,6 +125,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
     if (!report.ok() || profile == nullptr || !horizon.has_value()) {
         return report;
     }
+    const auto &core = profile->core;
 
     detail::LegacyCaptureBufferPlan plan;
     plan.engine_id = engine.id;
@@ -167,7 +168,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
     plan.cylinder_bindings.resize(engine.cylinders.size());
     for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
         const auto profile_index =
-            find_cylinder_profile_index(*profile, engine.cylinders[index].id);
+            find_cylinder_profile_index(core, engine.cylinders[index].id);
         require(report, profile_index.has_value(),
                 ContractIssueCode::dangling_reference,
                 "engine.cylinders[" + std::to_string(index) + "]",
@@ -175,7 +176,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
         if (!profile_index.has_value()) {
             continue;
         }
-        const auto &topology = profile->mechanism.cylinders[*profile_index].topology;
+        const auto &topology = core.mechanism.cylinders[*profile_index].topology;
         const auto chamber =
             find_id_index(engine.gas_volumes, topology.chamber_volume_id);
         const auto primary =
@@ -194,7 +195,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
         const auto &port = engine.ports[index];
         const auto cylinder_index = find_id_index(engine.cylinders, port.cylinder_id);
         const auto profile_index =
-            find_cylinder_profile_index(*profile, port.cylinder_id);
+            find_cylinder_profile_index(core, port.cylinder_id);
         require(report, cylinder_index.has_value() && profile_index.has_value(),
                 ContractIssueCode::dangling_reference,
                 "engine.ports[" + std::to_string(index) + "]",
@@ -202,7 +203,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
         if (!cylinder_index.has_value() || !profile_index.has_value()) {
             continue;
         }
-        const auto &topology = profile->mechanism.cylinders[*profile_index].topology;
+        const auto &topology = core.mechanism.cylinders[*profile_index].topology;
         const bool intake = port.kind.value == contract::PortKind::intake;
         const bool exhaust = port.kind.value == contract::PortKind::exhaust;
         const bool identity_matches = (intake && topology.intake_port_id == port.id) ||
@@ -234,7 +235,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
     std::size_t public_exhaust_index = 0;
     for (std::size_t index = 0; index < engine.routes.size(); ++index) {
         const auto &route = engine.routes[index];
-        const auto profile_index = find_exhaust_profile_index(*profile, route.id);
+        const auto profile_index = find_exhaust_profile_index(core, route.id);
         const bool exhaust =
             route.kind.value == contract::SourceRouteKind::exhaust_outlet;
         require(report, exhaust && profile_index.has_value(),
@@ -244,8 +245,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
         if (!exhaust || !profile_index.has_value()) {
             continue;
         }
-        const auto &topology =
-            profile->gas_path.exhaust_routes[*profile_index].topology;
+        const auto &topology = core.gas_path.exhaust_routes[*profile_index].topology;
         const auto source =
             find_id_index(engine.gas_volumes, topology.collector_volume_id);
         const auto outlet =

@@ -532,7 +532,7 @@ void test_gas_method_admission_rejection() {
         BmwM52b28ParityRequest request = make_short_bmw_request();
         auto &profile =
             std::get<LegacyLowOrderV1Profile>(request.engine.physics_profile);
-        profile.fuel.lbv_multiplier.value = 0.0;
+        profile.core.fuel.lbv_multiplier.value = 0.0;
         expect_gas_compile_rejected(request, "engine.physics_profile.fuel",
                                     "zero flame-speed multiplier");
     }

@@ -108,8 +108,6 @@ void visit_crank(const Crank &crank, const std::string &base, Function function)
     function(crank.flywheel_mass_kg, base + ".flywheel_mass_kg");
     function(crank.authored_crank_inertia_kg_m2,
              base + ".authored_crank_inertia_kg_m2");
-    function(crank.fixed_crank_friction_magnitude_nm,
-             base + ".fixed_crank_friction_magnitude_nm");
 }
 
 template <class Restriction, class Function>
@@ -233,29 +231,27 @@ void visit_pressure_gains(const Gains &gains, const std::string &base,
     function(gains.dynamic_reverse, base + ".dynamic_reverse");
 }
 
-template <class Profile, class Function>
-void visit_profile_fields(const Profile &profile, Function function,
-                          const auto &cylinder_name, const auto &route_name) {
+template <class Core, class Function>
+void visit_low_order_core_fields(const Core &core, Function function,
+                                 const auto &cylinder_name, const auto &route_name) {
     constexpr std::string_view root = kLegacyProfileRoot;
-    visit_crank(profile.mechanism.crank, std::string(root) + ".mechanism.crank",
-                function);
-    for (const auto &cylinder : profile.mechanism.cylinders) {
+    visit_crank(core.mechanism.crank, std::string(root) + ".mechanism.crank", function);
+    for (const auto &cylinder : core.mechanism.cylinders) {
         visit_cylinder_parameters(cylinder.parameters,
                                   std::string(root) + ".mechanism.cylinders." +
                                       cylinder_name(cylinder),
                                   function);
     }
 
-    visit_intake(profile.gas_path.intake, std::string(root) + ".gas_path.intake",
-                 function);
-    visit_head(profile.gas_path.head, std::string(root) + ".gas_path.head", function);
-    for (const auto &route : profile.gas_path.exhaust_routes) {
+    visit_intake(core.gas_path.intake, std::string(root) + ".gas_path.intake", function);
+    visit_head(core.gas_path.head, std::string(root) + ".gas_path.head", function);
+    for (const auto &route : core.gas_path.exhaust_routes) {
         visit_exhaust_parameters(route.parameters,
                                  std::string(root) + ".gas_path.exhaust_routes." +
                                      route_name(route),
                                  function);
     }
-    visit_restriction(profile.gas_path.piston_blowby,
+    visit_restriction(core.gas_path.piston_blowby,
                       std::string(root) + ".gas_path.piston_blowby", function);
 
     const auto visit_camshaft = [&](const auto &camshaft, const std::string &base) {
@@ -265,58 +261,54 @@ void visit_profile_fields(const Profile &profile, Function function,
                      base + ".lobes." + cylinder_name(lobe) + ".crank_center_rad");
         }
     };
-    visit_camshaft(profile.valvetrain.intake, std::string(root) + ".valvetrain.intake");
-    visit_camshaft(profile.valvetrain.exhaust,
+    visit_camshaft(core.valvetrain.intake, std::string(root) + ".valvetrain.intake");
+    visit_camshaft(core.valvetrain.exhaust,
                    std::string(root) + ".valvetrain.exhaust");
 
-    function(profile.ignition.firing_order,
+    function(core.ignition.firing_order,
              std::string(root) + ".ignition.firing_order");
-    function(profile.ignition.timing_curve_triangle_radius_rad_s,
+    function(core.ignition.timing_curve_triangle_radius_rad_s,
              std::string(root) + ".ignition.timing_curve_triangle_radius_rad_s");
-    for (const auto &point : profile.ignition.timing_curve) {
+    for (const auto &point : core.ignition.timing_curve) {
         const auto point_base =
             std::string(root) + ".ignition.timing_curve." + point.sample_id.value;
         visit_timing_point(point, point_base, function);
     }
-    function(profile.ignition.limiter_speed_rpm,
+    function(core.ignition.limiter_speed_rpm,
              std::string(root) + ".ignition.limiter_speed_rpm");
-    function(profile.ignition.limiter_hold_s,
+    function(core.ignition.limiter_hold_s,
              std::string(root) + ".ignition.limiter_hold_s");
-    function(profile.ignition.declared_redline_rpm,
+    function(core.ignition.declared_redline_rpm,
              std::string(root) + ".ignition.declared_redline_rpm");
 
-    visit_fuel(profile.fuel, std::string(root) + ".fuel", function);
-    for (const auto &stream : profile.combustion_random_streams) {
+    visit_fuel(core.fuel, std::string(root) + ".fuel", function);
+    for (const auto &stream : core.combustion_random_streams) {
         const auto stream_base =
             std::string(root) + ".combustion_random_streams." + cylinder_name(stream);
         function(stream.pcg32_initial_state, stream_base + ".pcg32_initial_state");
         function(stream.pcg32_stream, stream_base + ".pcg32_stream");
     }
-    function(profile.losses.included_terms,
-             std::string(root) + ".losses.included_terms");
-    function(profile.losses.omitted_terms, std::string(root) + ".losses.omitted_terms");
 
     const auto excitation_base = std::string(root) + ".reference_excitation";
-    function(profile.excitation.reference_atmosphere_pa_abs,
+    function(core.excitation.reference_atmosphere_pa_abs,
              excitation_base + ".reference_atmosphere_pa_abs");
-    function(profile.excitation.legacy_propagation_speed_m_s,
+    function(core.excitation.legacy_propagation_speed_m_s,
              excitation_base + ".legacy_propagation_speed_m_s");
-    function(profile.excitation.excitation_scale,
-             excitation_base + ".excitation_scale");
-    function(profile.excitation.filtered_speed_threshold_rpm,
+    function(core.excitation.excitation_scale, excitation_base + ".excitation_scale");
+    function(core.excitation.filtered_speed_threshold_rpm,
              excitation_base + ".filtered_speed_threshold_rpm");
-    function(profile.excitation.filtered_speed_exponent,
+    function(core.excitation.filtered_speed_exponent,
              excitation_base + ".filtered_speed_exponent");
-    visit_pressure_gains(profile.excitation.pressure_gains,
+    visit_pressure_gains(core.excitation.pressure_gains,
                          excitation_base + ".pressure_gains", function);
-    function(profile.excitation.cylinder_count_divisor,
+    function(core.excitation.cylinder_count_divisor,
              excitation_base + ".cylinder_count_divisor");
-    function(profile.excitation.inverse_length_exponent,
+    function(core.excitation.inverse_length_exponent,
              excitation_base + ".inverse_length_exponent");
-    function(profile.excitation.delay_rate, excitation_base + ".delay_rate");
-    function(profile.excitation.cylinder_accumulation_order,
+    function(core.excitation.delay_rate, excitation_base + ".delay_rate");
+    function(core.excitation.cylinder_accumulation_order,
              excitation_base + ".cylinder_accumulation_order");
-    for (const auto &path : profile.excitation.cylinder_paths) {
+    for (const auto &path : core.excitation.cylinder_paths) {
         const auto path_base =
             excitation_base + ".cylinder_paths." + cylinder_name(path);
         function(path.header_primary_length_m, path_base + ".header_primary_length_m");
@@ -324,12 +316,22 @@ void visit_profile_fields(const Profile &profile, Function function,
                  path_base + ".sound_attenuation_linear");
         function(path.resolved_delay_samples, path_base + ".resolved_delay_samples");
     }
-    for (const auto &route : profile.excitation.routes) {
+    for (const auto &route : core.excitation.routes) {
         const auto route_base = excitation_base + ".routes." + route_name(route);
         function(route.exhaust_system_length_m,
                  route_base + ".exhaust_system_length_m");
         function(route.audio_volume_linear, route_base + ".audio_volume_linear");
     }
+}
+
+template <class Loss, class Function>
+void visit_legacy_fixed_crank_loss_fields(const Loss &loss, Function function) {
+    constexpr std::string_view root = kLegacyProfileRoot;
+    function(loss.fixed_crank_friction_magnitude_nm,
+             std::string(root) +
+                 ".mechanism.crank.fixed_crank_friction_magnitude_nm");
+    function(loss.included_terms, std::string(root) + ".losses.included_terms");
+    function(loss.omitted_terms, std::string(root) + ".losses.omitted_terms");
 }
 
 template <class Id, class Range, class Projection>
@@ -525,21 +527,26 @@ void validate_authored_domains(ValidationReport &report,
     using detail::finite_positive;
     using detail::require;
 
-    const auto &crank = profile.mechanism.crank;
+    const auto &core = profile.core;
+    const auto &loss = profile.fixed_crank_loss;
+    const auto &crank = core.mechanism.crank;
     require(report,
             finite(crank.crank_tdc_reference_rad.value) &&
                 finite_positive(crank.crankshaft_mass_kg.value) &&
                 finite_positive(crank.flywheel_mass_kg.value) &&
-                finite_positive(crank.authored_crank_inertia_kg_m2.value) &&
-                finite_nonnegative(crank.fixed_crank_friction_magnitude_nm.value),
+                finite_positive(crank.authored_crank_inertia_kg_m2.value),
             ContractIssueCode::invalid_value, "mechanism.crank",
             "crank assembly values are outside their physical domain");
-    require(report, !profile.mechanism.cylinders.empty(),
+    require(report, finite_nonnegative(loss.fixed_crank_friction_magnitude_nm.value),
+            ContractIssueCode::invalid_value,
+            "mechanism.crank.fixed_crank_friction_magnitude_nm",
+            "fixed crank-friction magnitude must be finite and nonnegative");
+    require(report, !core.mechanism.cylinders.empty(),
             ContractIssueCode::missing_value, "mechanism.cylinders",
             "legacy mechanism requires at least one cylinder");
 
-    for (std::size_t index = 0; index < profile.mechanism.cylinders.size(); ++index) {
-        const auto &cylinder = profile.mechanism.cylinders[index];
+    for (std::size_t index = 0; index < core.mechanism.cylinders.size(); ++index) {
+        const auto &cylinder = core.mechanism.cylinders[index];
         const auto &parameters = cylinder.parameters;
         const auto path = "mechanism.cylinders[" + std::to_string(index) + "]";
         require(report,
@@ -604,7 +611,7 @@ void validate_authored_domains(ValidationReport &report,
         }
     }
 
-    const auto &intake = profile.gas_path.intake;
+    const auto &intake = core.gas_path.intake;
     require(report,
             finite_positive(intake.plenum_volume_m3.value) &&
                 finite_positive(intake.plenum_cross_section_area_m2.value) &&
@@ -620,10 +627,10 @@ void validate_authored_domains(ValidationReport &report,
                                 "gas_path.intake.idle_bypass");
     validate_restriction_domain(report, intake.plenum_to_runner,
                                 "gas_path.intake.plenum_to_runner");
-    validate_restriction_domain(report, profile.gas_path.piston_blowby,
+    validate_restriction_domain(report, core.gas_path.piston_blowby,
                                 "gas_path.piston_blowby");
 
-    const auto &head = profile.gas_path.head;
+    const auto &head = core.gas_path.head;
     require(report,
             finite_nonnegative(head.intake_runner_base_volume_m3.value) &&
                 finite_positive(head.intake_runner_cross_section_area_m2.value) &&
@@ -667,12 +674,12 @@ void validate_authored_domains(ValidationReport &report,
     validate_flow(head.intake_flow, "gas_path.head.intake_flow");
     validate_flow(head.exhaust_flow, "gas_path.head.exhaust_flow");
 
-    require(report, !profile.gas_path.exhaust_routes.empty(),
+    require(report, !core.gas_path.exhaust_routes.empty(),
             ContractIssueCode::missing_value, "gas_path.exhaust_routes",
             "legacy gas path requires at least one exhaust route");
-    for (std::size_t index = 0; index < profile.gas_path.exhaust_routes.size();
+    for (std::size_t index = 0; index < core.gas_path.exhaust_routes.size();
          ++index) {
-        const auto &parameters = profile.gas_path.exhaust_routes[index].parameters;
+        const auto &parameters = core.gas_path.exhaust_routes[index].parameters;
         const auto path =
             "gas_path.exhaust_routes[" + std::to_string(index) + "].parameters";
         require(report,
@@ -725,21 +732,21 @@ void validate_authored_domains(ValidationReport &report,
                     "cam lobe center must be finite");
         }
     };
-    validate_camshaft(profile.valvetrain.intake, "valvetrain.intake");
-    validate_camshaft(profile.valvetrain.exhaust, "valvetrain.exhaust");
+    validate_camshaft(core.valvetrain.intake, "valvetrain.intake");
+    validate_camshaft(core.valvetrain.exhaust, "valvetrain.exhaust");
 
     require(
         report,
-        finite_positive(profile.ignition.timing_curve_triangle_radius_rad_s.value) &&
-            profile.ignition.timing_curve.size() >= 2 &&
-            finite_positive(profile.ignition.limiter_speed_rpm.value) &&
-            finite_positive(profile.ignition.limiter_hold_s.value) &&
-            finite_positive(profile.ignition.declared_redline_rpm.value),
+        finite_positive(core.ignition.timing_curve_triangle_radius_rad_s.value) &&
+            core.ignition.timing_curve.size() >= 2 &&
+            finite_positive(core.ignition.limiter_speed_rpm.value) &&
+            finite_positive(core.ignition.limiter_hold_s.value) &&
+            finite_positive(core.ignition.declared_redline_rpm.value),
         ContractIssueCode::invalid_value, "ignition",
         "ignition curve, limiter, or redline is invalid");
-    validate_sample_ids(report, profile.ignition.timing_curve, "ignition.timing_curve");
-    for (std::size_t index = 0; index < profile.ignition.timing_curve.size(); ++index) {
-        const auto &point = profile.ignition.timing_curve[index];
+    validate_sample_ids(report, core.ignition.timing_curve, "ignition.timing_curve");
+    for (std::size_t index = 0; index < core.ignition.timing_curve.size(); ++index) {
+        const auto &point = core.ignition.timing_curve[index];
         require(report,
                 finite_nonnegative(point.angular_speed_rad_s.value) &&
                     finite(point.timing_advance_rad.value),
@@ -750,14 +757,14 @@ void validate_authored_domains(ValidationReport &report,
             require(
                 report,
                 point.angular_speed_rad_s.value >
-                    profile.ignition.timing_curve[index - 1].angular_speed_rad_s.value,
+                    core.ignition.timing_curve[index - 1].angular_speed_rad_s.value,
                 ContractIssueCode::inconsistent_semantics,
                 "ignition.timing_curve." + point.sample_id.value,
                 "ignition speed samples must be strictly increasing");
         }
     }
 
-    const auto &fuel = profile.fuel;
+    const auto &fuel = core.fuel;
     require(report, is_valid_semantic_id(fuel.fuel_id.value),
             ContractIssueCode::invalid_value, "fuel.fuel_id.value",
             "fuel ID must be canonical");
@@ -804,11 +811,11 @@ void validate_authored_domains(ValidationReport &report,
     }
 
     std::unordered_set<std::string> mechanism_cylinder_ids;
-    for (const auto &cylinder : profile.mechanism.cylinders) {
+    for (const auto &cylinder : core.mechanism.cylinders) {
         mechanism_cylinder_ids.insert(cylinder.topology.cylinder_id.value);
     }
     std::unordered_set<std::string> random_stream_cylinder_ids;
-    for (const auto &stream : profile.combustion_random_streams) {
+    for (const auto &stream : core.combustion_random_streams) {
         const auto &cylinder_id = stream.cylinder_id.value;
         const auto stream_path =
             profile_path("combustion_random_streams." + cylinder_id);
@@ -832,26 +839,24 @@ void validate_authored_domains(ValidationReport &report,
             "PCG32 stream must fit the 63-bit sequence domain");
     }
     require(report,
-            profile.combustion_random_streams.size() ==
-                    profile.mechanism.cylinders.size() &&
-                mechanism_cylinder_ids.size() == profile.mechanism.cylinders.size() &&
+            core.combustion_random_streams.size() ==
+                    core.mechanism.cylinders.size() &&
+                mechanism_cylinder_ids.size() == core.mechanism.cylinders.size() &&
                 random_stream_cylinder_ids == mechanism_cylinder_ids,
             ContractIssueCode::inconsistent_shape,
             profile_path("combustion_random_streams"),
             "implemented combustion consumes exactly one random stream per "
             "cylinder");
 
-    const auto classified =
-        profile.losses.included_terms.value | profile.losses.omitted_terms.value;
+    const auto classified = loss.included_terms.value | loss.omitted_terms.value;
     require(report,
-            (profile.losses.included_terms.value &
-             profile.losses.omitted_terms.value) == 0 &&
+            (loss.included_terms.value & loss.omitted_terms.value) == 0 &&
                 (classified & ~known_torque_term_mask()) == 0 &&
                 classified == known_torque_term_mask(),
             ContractIssueCode::inconsistent_semantics, "losses",
             "legacy loss profile must classify every known torque term once");
 
-    const auto &excitation = profile.excitation;
+    const auto &excitation = core.excitation;
     require(report,
             finite_positive(excitation.reference_atmosphere_pa_abs.value) &&
                 finite_positive(excitation.legacy_propagation_speed_m_s.value) &&
@@ -865,7 +870,7 @@ void validate_authored_domains(ValidationReport &report,
                 finite(excitation.inverse_length_exponent.value) &&
                 detail::nearly_equal(
                     excitation.cylinder_count_divisor.value,
-                    static_cast<double>(profile.mechanism.cylinders.size())),
+                    static_cast<double>(core.mechanism.cylinders.size())),
             ContractIssueCode::invalid_value, "reference_excitation",
             "reference excitation values are outside their domain");
     detail::append_prefixed(report, validate(excitation.delay_rate.value),
@@ -874,11 +879,11 @@ void validate_authored_domains(ValidationReport &report,
     const auto find_gas_route =
         [&](std::string_view id) -> const AuthoredLegacyExhaustRouteProfile * {
         const auto iterator =
-            std::ranges::find_if(profile.gas_path.exhaust_routes,
+            std::ranges::find_if(core.gas_path.exhaust_routes,
                                  [&](const AuthoredLegacyExhaustRouteProfile &route) {
                                      return route.topology.route_id.value == id;
                                  });
-        return iterator == profile.gas_path.exhaust_routes.end() ? nullptr : &*iterator;
+        return iterator == core.gas_path.exhaust_routes.end() ? nullptr : &*iterator;
     };
     const auto find_excitation_route =
         [&](std::string_view id) -> const AuthoredLegacyExcitationRoute * {
@@ -891,11 +896,11 @@ void validate_authored_domains(ValidationReport &report,
     const auto find_mechanism_cylinder =
         [&](std::string_view id) -> const AuthoredLegacyCylinderAssembly * {
         const auto iterator =
-            std::ranges::find_if(profile.mechanism.cylinders,
+            std::ranges::find_if(core.mechanism.cylinders,
                                  [&](const AuthoredLegacyCylinderAssembly &cylinder) {
                                      return cylinder.topology.cylinder_id.value == id;
                                  });
-        return iterator == profile.mechanism.cylinders.end() ? nullptr : &*iterator;
+        return iterator == core.mechanism.cylinders.end() ? nullptr : &*iterator;
     };
 
     for (std::size_t index = 0; index < excitation.routes.size(); ++index) {
@@ -987,26 +992,31 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
     using detail::finite_positive;
     using detail::require;
 
-    const auto &crank = profile.mechanism.crank;
+    const auto &core = profile.core;
+    const auto &loss = profile.fixed_crank_loss;
+    const auto &crank = core.mechanism.crank;
     require(report,
             finite(crank.crank_tdc_reference_rad.value) &&
                 finite_positive(crank.crankshaft_mass_kg.value) &&
                 finite_positive(crank.flywheel_mass_kg.value) &&
-                finite_positive(crank.authored_crank_inertia_kg_m2.value) &&
-                finite_nonnegative(crank.fixed_crank_friction_magnitude_nm.value),
+                finite_positive(crank.authored_crank_inertia_kg_m2.value),
             ContractIssueCode::invalid_value, "mechanism.crank",
             "crank assembly values are outside their physical domain");
+    require(report, finite_nonnegative(loss.fixed_crank_friction_magnitude_nm.value),
+            ContractIssueCode::invalid_value,
+            "mechanism.crank.fixed_crank_friction_magnitude_nm",
+            "fixed crank-friction magnitude must be finite and nonnegative");
 
     require(report,
-            profile.mechanism.cylinders.size() == engine.cylinders.size() &&
-                unique_valid_projected(profile.mechanism.cylinders,
+            core.mechanism.cylinders.size() == engine.cylinders.size() &&
+                unique_valid_projected(core.mechanism.cylinders,
                                        [](const LegacyCylinderAssembly &cylinder) {
                                            return cylinder.topology.cylinder_id;
                                        }),
             ContractIssueCode::inconsistent_shape, "mechanism.cylinders",
             "mechanism must bind every engine cylinder exactly once");
 
-    const auto &intake_topology = profile.gas_path.intake_topology;
+    const auto &intake_topology = core.gas_path.intake_topology;
     const auto *plenum = find_volume(engine, intake_topology.plenum_volume_id);
     require(report,
             plenum != nullptr && plenum->kind.value == GasVolumeKind::intake_plenum,
@@ -1029,7 +1039,7 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             "main throttle and idle bypass must be distinct flow edges");
 
     const auto find_gas_route = [&](RouteId id) -> const LegacyExhaustRouteProfile * {
-        return find_by_id(profile.gas_path.exhaust_routes, id,
+        return find_by_id(core.gas_path.exhaust_routes, id,
                           [](const LegacyExhaustRouteProfile &route) {
                               return route.topology.route_id;
                           });
@@ -1072,7 +1082,7 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             collect_valid_id(atmosphere_volume_ids, edge->endpoint_0_volume_id);
         }
     }
-    for (const auto &cylinder : profile.mechanism.cylinders) {
+    for (const auto &cylinder : core.mechanism.cylinders) {
         const auto &topology = cylinder.topology;
         const auto &parameters = cylinder.parameters;
         const auto path =
@@ -1297,7 +1307,7 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             ContractIssueCode::inconsistent_semantics, "mechanism.cylinders",
             "legacy mechanism displacement must agree with EngineSpec");
 
-    const auto &intake = profile.gas_path.intake;
+    const auto &intake = core.gas_path.intake;
     require(report,
             finite_positive(intake.plenum_volume_m3.value) &&
                 finite_positive(intake.plenum_cross_section_area_m2.value) &&
@@ -1313,10 +1323,10 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
                                 "gas_path.intake.idle_bypass", &provenance);
     validate_restriction_domain(report, intake.plenum_to_runner,
                                 "gas_path.intake.plenum_to_runner", &provenance);
-    validate_restriction_domain(report, profile.gas_path.piston_blowby,
+    validate_restriction_domain(report, core.gas_path.piston_blowby,
                                 "gas_path.piston_blowby", &provenance);
 
-    const auto &head = profile.gas_path.head;
+    const auto &head = core.gas_path.head;
     require(report,
             finite_nonnegative(head.intake_runner_base_volume_m3.value) &&
                 finite_positive(head.intake_runner_cross_section_area_m2.value) &&
@@ -1362,8 +1372,8 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
     validate_flow(head.exhaust_flow, "gas_path.head.exhaust_flow");
 
     require(report,
-            !profile.gas_path.exhaust_routes.empty() &&
-                unique_valid_projected(profile.gas_path.exhaust_routes,
+            !core.gas_path.exhaust_routes.empty() &&
+                unique_valid_projected(core.gas_path.exhaust_routes,
                                        [](const LegacyExhaustRouteProfile &route) {
                                            return route.topology.route_id;
                                        }),
@@ -1378,7 +1388,7 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
     std::unordered_set<std::uint32_t> gas_path_route_ids;
     std::unordered_set<std::uint32_t> collector_volume_ids;
     std::unordered_set<std::uint32_t> collector_outlet_edge_ids;
-    for (const auto &route : profile.gas_path.exhaust_routes) {
+    for (const auto &route : core.gas_path.exhaust_routes) {
         const auto path =
             "gas_path.exhaust_routes." + route_name(engine, route.topology.route_id);
         const auto *engine_route = find_route(engine, route.topology.route_id);
@@ -1495,8 +1505,8 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
         collect_valid_id(engine_flow_edge_ids, edge.id);
     }
     const auto topology_edge_binding_count = std::size_t{2} +
-                                             5 * profile.mechanism.cylinders.size() +
-                                             profile.gas_path.exhaust_routes.size();
+                                             5 * core.mechanism.cylinders.size() +
+                                             core.gas_path.exhaust_routes.size();
     require(report,
             engine_flow_edge_ids == topology_edge_ids &&
                 topology_edge_ids.size() == topology_edge_binding_count,
@@ -1536,7 +1546,7 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             const auto port =
                 std::ranges::find(engine.ports, lobe.port_id, &PortSpec::id);
             const auto *mechanism_cylinder =
-                find_by_id(profile.mechanism.cylinders, lobe.cylinder_id,
+                find_by_id(core.mechanism.cylinders, lobe.cylinder_id,
                            [](const LegacyCylinderAssembly &cylinder) {
                                return cylinder.topology.cylinder_id;
                            });
@@ -1556,32 +1566,32 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
                     "cam lobe must bind the matching cylinder port");
         }
     };
-    validate_camshaft(profile.valvetrain.intake, PortKind::intake, "valvetrain.intake");
-    validate_camshaft(profile.valvetrain.exhaust, PortKind::exhaust,
+    validate_camshaft(core.valvetrain.intake, PortKind::intake, "valvetrain.intake");
+    validate_camshaft(core.valvetrain.exhaust, PortKind::exhaust,
                       "valvetrain.exhaust");
 
     require(report,
-            profile.ignition.firing_order.value.size() == engine.cylinders.size() &&
-                unique_valid(profile.ignition.firing_order.value),
+            core.ignition.firing_order.value.size() == engine.cylinders.size() &&
+                unique_valid(core.ignition.firing_order.value),
             ContractIssueCode::inconsistent_shape, "ignition.firing_order",
             "firing order must contain every cylinder exactly once");
-    for (const auto cylinder : profile.ignition.firing_order.value) {
+    for (const auto cylinder : core.ignition.firing_order.value) {
         require(report, contains_id(engine.cylinders, cylinder, &CylinderSpec::id),
                 ContractIssueCode::dangling_reference, "ignition.firing_order",
                 "firing order references an unknown cylinder");
     }
     require(
         report,
-        finite_positive(profile.ignition.timing_curve_triangle_radius_rad_s.value) &&
-            profile.ignition.timing_curve.size() >= 2 &&
-            finite_positive(profile.ignition.limiter_speed_rpm.value) &&
-            finite_positive(profile.ignition.limiter_hold_s.value) &&
-            finite_positive(profile.ignition.declared_redline_rpm.value),
+        finite_positive(core.ignition.timing_curve_triangle_radius_rad_s.value) &&
+            core.ignition.timing_curve.size() >= 2 &&
+            finite_positive(core.ignition.limiter_speed_rpm.value) &&
+            finite_positive(core.ignition.limiter_hold_s.value) &&
+            finite_positive(core.ignition.declared_redline_rpm.value),
         ContractIssueCode::invalid_value, "ignition",
         "ignition curve, limiter, or redline is invalid");
-    validate_sample_ids(report, profile.ignition.timing_curve, "ignition.timing_curve");
-    for (std::size_t index = 0; index < profile.ignition.timing_curve.size(); ++index) {
-        const auto &point = profile.ignition.timing_curve[index];
+    validate_sample_ids(report, core.ignition.timing_curve, "ignition.timing_curve");
+    for (std::size_t index = 0; index < core.ignition.timing_curve.size(); ++index) {
+        const auto &point = core.ignition.timing_curve[index];
         require(report,
                 finite_nonnegative(point.angular_speed_rad_s.value) &&
                     finite(point.timing_advance_rad.value),
@@ -1592,14 +1602,14 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             require(
                 report,
                 point.angular_speed_rad_s.value >
-                    profile.ignition.timing_curve[index - 1].angular_speed_rad_s.value,
+                    core.ignition.timing_curve[index - 1].angular_speed_rad_s.value,
                 ContractIssueCode::inconsistent_semantics,
                 "ignition.timing_curve." + point.sample_id.value,
                 "ignition speed samples must be strictly increasing");
         }
     }
 
-    const auto &fuel = profile.fuel;
+    const auto &fuel = core.fuel;
     require(report, is_valid_semantic_id(fuel.fuel_id.value),
             ContractIssueCode::invalid_value, "fuel.fuel_id.value",
             "fuel ID must be canonical");
@@ -1652,7 +1662,7 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
         }
     }
     std::unordered_set<std::uint32_t> random_stream_cylinder_ids;
-    for (const auto &stream : profile.combustion_random_streams) {
+    for (const auto &stream : core.combustion_random_streams) {
         const auto stream_path = profile_path(
             "combustion_random_streams." + cylinder_name(engine, stream.cylinder_id));
         require(report, stream.cylinder_id.valid(), ContractIssueCode::invalid_value,
@@ -1676,33 +1686,31 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             "PCG32 stream must fit the 63-bit sequence domain");
     }
     require(report,
-            profile.combustion_random_streams.size() == engine.cylinders.size() &&
+            core.combustion_random_streams.size() == engine.cylinders.size() &&
                 random_stream_cylinder_ids == engine_cylinder_ids,
             ContractIssueCode::inconsistent_shape,
             profile_path("combustion_random_streams"),
             "implemented combustion consumes exactly one random stream per "
             "cylinder");
 
-    const auto classified =
-        profile.losses.included_terms.value | profile.losses.omitted_terms.value;
+    const auto classified = loss.included_terms.value | loss.omitted_terms.value;
     require(report,
-            (profile.losses.included_terms.value &
-             profile.losses.omitted_terms.value) == 0 &&
+            (loss.included_terms.value & loss.omitted_terms.value) == 0 &&
                 (classified & ~known_torque_term_mask()) == 0 &&
                 classified == known_torque_term_mask(),
             ContractIssueCode::inconsistent_semantics, "losses",
             "legacy loss profile must classify every known torque term once");
     require(
         report,
-        profile.losses.included_terms.value ==
+        loss.included_terms.value ==
                 engine.torque_capability.value.instantaneous_net_shaft.included_terms &&
-            profile.losses.omitted_terms.value ==
+            loss.omitted_terms.value ==
                 engine.torque_capability.value.instantaneous_net_shaft.omitted_terms,
         ContractIssueCode::inconsistent_semantics, "losses",
         "physics loss classification and instantaneous net-torque capability "
         "must agree");
 
-    const auto &excitation = profile.excitation;
+    const auto &excitation = core.excitation;
     require(report,
             finite_positive(excitation.reference_atmosphere_pa_abs.value) &&
                 finite_positive(excitation.legacy_propagation_speed_m_s.value) &&
@@ -1737,7 +1745,7 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             "excitation accumulation order must contain every cylinder once");
 
     require(report,
-            excitation.routes.size() == profile.gas_path.exhaust_routes.size() &&
+            excitation.routes.size() == core.gas_path.exhaust_routes.size() &&
                 unique_valid_projected(
                     excitation.routes,
                     [](const LegacyExcitationRoute &route) { return route.route_id; }),
@@ -1787,7 +1795,7 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
         const auto local_path =
             "reference_excitation.cylinder_paths." + cylinder_semantic;
         const auto *mechanism_cylinder =
-            find_by_id(profile.mechanism.cylinders, path.cylinder_id,
+            find_by_id(core.mechanism.cylinders, path.cylinder_id,
                        [](const LegacyCylinderAssembly &cylinder) {
                            return cylinder.topology.cylinder_id;
                        });
@@ -1886,10 +1894,11 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                                     "authored topology reference must be canonical");
                 }
             };
+            const auto &core = legacy.core;
             constexpr std::string_view root = kLegacyProfileRoot;
-            for (std::size_t index = 0; index < legacy.mechanism.cylinders.size();
+            for (std::size_t index = 0; index < core.mechanism.cylinders.size();
                  ++index) {
-                const auto &topology = legacy.mechanism.cylinders[index].topology;
+                const auto &topology = core.mechanism.cylinders[index].topology;
                 const auto base = std::string(root) + ".mechanism.cylinders[" +
                                   std::to_string(index) + "].topology";
                 validate_topology_field(topology.cylinder_id, base + ".cylinder_id");
@@ -1916,18 +1925,18 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                 validate_topology_field(topology.exhaust_route_id,
                                         base + ".exhaust_route_id");
             }
-            validate_topology_field(legacy.gas_path.intake_topology.plenum_volume_id,
+            validate_topology_field(core.gas_path.intake_topology.plenum_volume_id,
                                     std::string(root) +
                                         ".gas_path.intake_topology.plenum_volume_id");
             validate_topology_field(
-                legacy.gas_path.intake_topology.main_throttle_edge_id,
+                core.gas_path.intake_topology.main_throttle_edge_id,
                 std::string(root) + ".gas_path.intake_topology.main_throttle_edge_id");
             validate_topology_field(
-                legacy.gas_path.intake_topology.idle_bypass_edge_id,
+                core.gas_path.intake_topology.idle_bypass_edge_id,
                 std::string(root) + ".gas_path.intake_topology.idle_bypass_edge_id");
-            for (std::size_t index = 0; index < legacy.gas_path.exhaust_routes.size();
+            for (std::size_t index = 0; index < core.gas_path.exhaust_routes.size();
                  ++index) {
-                const auto &topology = legacy.gas_path.exhaust_routes[index].topology;
+                const auto &topology = core.gas_path.exhaust_routes[index].topology;
                 const auto base = std::string(root) + ".gas_path.exhaust_routes[" +
                                   std::to_string(index) + "].topology";
                 validate_topology_field(topology.route_id, base + ".route_id");
@@ -1947,25 +1956,25 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                     validate_topology_field(lobe.port_id, base + ".port_id");
                 }
             };
-            validate_lobes(legacy.valvetrain.intake, "intake");
-            validate_lobes(legacy.valvetrain.exhaust, "exhaust");
-            for (const auto &stream : legacy.combustion_random_streams) {
+            validate_lobes(core.valvetrain.intake, "intake");
+            validate_lobes(core.valvetrain.exhaust, "exhaust");
+            for (const auto &stream : core.combustion_random_streams) {
                 const auto base = std::string(root) + ".combustion_random_streams." +
                                   stream.cylinder_id.value;
                 validate_topology_field(stream.cylinder_id, base + ".cylinder_id");
             }
-            for (std::size_t index = 0; index < legacy.excitation.cylinder_paths.size();
+            for (std::size_t index = 0; index < core.excitation.cylinder_paths.size();
                  ++index) {
-                const auto &path = legacy.excitation.cylinder_paths[index];
+                const auto &path = core.excitation.cylinder_paths[index];
                 const auto base = std::string(root) +
                                   ".reference_excitation.cylinder_paths[" +
                                   std::to_string(index) + "]";
                 validate_topology_field(path.cylinder_id, base + ".cylinder_id");
                 validate_topology_field(path.route_id, base + ".route_id");
             }
-            for (std::size_t index = 0; index < legacy.excitation.routes.size();
+            for (std::size_t index = 0; index < core.excitation.routes.size();
                  ++index) {
-                validate_topology_field(legacy.excitation.routes[index].route_id,
+                validate_topology_field(core.excitation.routes[index].route_id,
                                         std::string(root) +
                                             ".reference_excitation.routes[" +
                                             std::to_string(index) + "].route_id");
@@ -1984,12 +1993,17 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                     return item.route_id.value;
                 }
             };
-            visit_profile_fields(
-                legacy,
+            visit_low_order_core_fields(
+                core,
                 [&](const auto &value, const std::string &path) {
                     validate_authored(report, value, provenance, path);
                 },
                 cylinder_name, route_name);
+            visit_legacy_fixed_crank_loss_fields(
+                legacy.fixed_crank_loss,
+                [&](const auto &value, const std::string &path) {
+                    validate_authored(report, value, provenance, path);
+                });
             validate_authored_domains(report, legacy);
         },
         profile);
@@ -2042,12 +2056,17 @@ ValidationReport validate(const ExecutablePhysicsProfile &profile,
                     return route_name(engine, item.route_id);
                 }
             };
-            visit_profile_fields(
-                legacy,
+            visit_low_order_core_fields(
+                legacy.core,
                 [&](const auto &value, const std::string &path) {
                     validate_resolved(report, value, provenance, path);
                 },
                 cylinder_namer, route_namer);
+            visit_legacy_fixed_crank_loss_fields(
+                legacy.fixed_crank_loss,
+                [&](const auto &value, const std::string &path) {
+                    validate_resolved(report, value, provenance, path);
+                });
             validate_domains(report, legacy, engine, provenance);
         },
         profile);

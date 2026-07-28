@@ -100,8 +100,8 @@ struct ValvetrainFixture {
             shape.advance_rad.value = 0.0;
             shape.base_radius_m.value = 0.6 * inch_source;
         };
-        configure_shape(profile.valvetrain.intake.shape);
-        configure_shape(profile.valvetrain.exhaust.shape);
+        configure_shape(profile.core.valvetrain.intake.shape);
+        configure_shape(profile.core.valvetrain.exhaust.shape);
 
         constexpr std::array<double, 13> intake_cfm{
             0.0,   35.0,  60.0,  90.0,  125.0, 150.0, 175.0,
@@ -111,11 +111,11 @@ struct ValvetrainFixture {
             0.0,   35.0,  55.0,  85.0,  105.0, 120.0, 140.0,
             150.0, 155.0, 160.0, 165.0, 165.0, 165.0,
         };
-        profile.gas_path.head.intake_flow =
-            make_flow_table(profile.gas_path.head.intake_flow.front(), intake_cfm);
-        profile.gas_path.head.exhaust_flow =
-            make_flow_table(profile.gas_path.head.exhaust_flow.front(), exhaust_cfm);
-        profile.gas_path.head.flow_table_triangle_radius_m.value = 0.001;
+        profile.core.gas_path.head.intake_flow = make_flow_table(
+            profile.core.gas_path.head.intake_flow.front(), intake_cfm);
+        profile.core.gas_path.head.exhaust_flow = make_flow_table(
+            profile.core.gas_path.head.exhaust_flow.front(), exhaust_cfm);
+        profile.core.gas_path.head.flow_table_triangle_radius_m.value = 0.001;
 
         auto second_cylinder = engine.cylinders.front();
         second_cylinder.id = CylinderId{2};
@@ -133,30 +133,32 @@ struct ValvetrainFixture {
         engine.ports.push_back(std::move(second_intake_port));
         engine.ports.push_back(std::move(second_exhaust_port));
 
-        auto second_mechanism = profile.mechanism.cylinders.front();
+        auto second_mechanism = profile.core.mechanism.cylinders.front();
         second_mechanism.topology.cylinder_id = CylinderId{2};
         second_mechanism.topology.intake_port_id = PortId{3};
         second_mechanism.topology.exhaust_port_id = PortId{4};
-        profile.mechanism.cylinders.push_back(std::move(second_mechanism));
+        profile.core.mechanism.cylinders.push_back(std::move(second_mechanism));
 
-        profile.valvetrain.intake.lobes.front().crank_center_rad.value = 0.0;
-        profile.valvetrain.exhaust.lobes.front().crank_center_rad.value = 0.0;
-        auto second_intake_lobe = profile.valvetrain.intake.lobes.front();
+        profile.core.valvetrain.intake.lobes.front().crank_center_rad.value = 0.0;
+        profile.core.valvetrain.exhaust.lobes.front().crank_center_rad.value = 0.0;
+        auto second_intake_lobe = profile.core.valvetrain.intake.lobes.front();
         second_intake_lobe.cylinder_id = CylinderId{2};
         second_intake_lobe.port_id = PortId{3};
         second_intake_lobe.crank_center_rad.value = 710.0 * kDegreeSource;
-        auto second_exhaust_lobe = profile.valvetrain.exhaust.lobes.front();
+        auto second_exhaust_lobe = profile.core.valvetrain.exhaust.lobes.front();
         second_exhaust_lobe.cylinder_id = CylinderId{2};
         second_exhaust_lobe.port_id = PortId{4};
         second_exhaust_lobe.crank_center_rad.value = 855.0 * kDegreeSource;
-        profile.valvetrain.intake.lobes.push_back(std::move(second_intake_lobe));
-        profile.valvetrain.exhaust.lobes.push_back(std::move(second_exhaust_lobe));
+        profile.core.valvetrain.intake.lobes.push_back(
+            std::move(second_intake_lobe));
+        profile.core.valvetrain.exhaust.lobes.push_back(
+            std::move(second_exhaust_lobe));
 
         // Admission must resolve by stable cylinder identity, not lobe-vector order.
-        std::reverse(profile.valvetrain.intake.lobes.begin(),
-                     profile.valvetrain.intake.lobes.end());
-        std::reverse(profile.valvetrain.exhaust.lobes.begin(),
-                     profile.valvetrain.exhaust.lobes.end());
+        std::reverse(profile.core.valvetrain.intake.lobes.begin(),
+                     profile.core.valvetrain.intake.lobes.end());
+        std::reverse(profile.core.valvetrain.exhaust.lobes.begin(),
+                     profile.core.valvetrain.exhaust.lobes.end());
     }
 };
 
@@ -258,16 +260,19 @@ void test_exact_lobe_construction_and_bindings() {
                bindings[1].intake_port_id == PortId{3} &&
                bindings[1].exhaust_port_id == PortId{4},
            "lobe-vector reordering changed admitted cylinder/port order");
-    const auto intake_lobe_2 = std::find_if(
-        profile.valvetrain.intake.lobes.begin(), profile.valvetrain.intake.lobes.end(),
-        [](const auto &lobe) { return lobe.cylinder_id == CylinderId{2}; });
-    const auto exhaust_lobe_2 =
-        std::find_if(profile.valvetrain.exhaust.lobes.begin(),
-                     profile.valvetrain.exhaust.lobes.end(), [](const auto &lobe) {
+    const auto intake_lobe_2 =
+        std::find_if(profile.core.valvetrain.intake.lobes.begin(),
+                     profile.core.valvetrain.intake.lobes.end(),
+                     [](const auto &lobe) {
                          return lobe.cylinder_id == CylinderId{2};
                      });
-    expect(intake_lobe_2 != profile.valvetrain.intake.lobes.end() &&
-               exhaust_lobe_2 != profile.valvetrain.exhaust.lobes.end() &&
+    const auto exhaust_lobe_2 =
+        std::find_if(profile.core.valvetrain.exhaust.lobes.begin(),
+                     profile.core.valvetrain.exhaust.lobes.end(), [](const auto &lobe) {
+                         return lobe.cylinder_id == CylinderId{2};
+                     });
+    expect(intake_lobe_2 != profile.core.valvetrain.intake.lobes.end() &&
+               exhaust_lobe_2 != profile.core.valvetrain.exhaust.lobes.end() &&
                same_binary64(bindings[1].intake_stored_lobe_angle_rad,
                              intake_lobe_2->crank_center_rad.value / 2.0) &&
                same_binary64(bindings[1].exhaust_stored_lobe_angle_rad,
@@ -367,54 +372,54 @@ void test_focused_admission_failures() {
         "engine.methods.valvetrain");
     expect_compile_rejected(
         [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
-            profile.valvetrain.intake.lobes[0].cylinder_id =
-                profile.valvetrain.intake.lobes[1].cylinder_id;
+            profile.core.valvetrain.intake.lobes[0].cylinder_id =
+                profile.core.valvetrain.intake.lobes[1].cylinder_id;
         },
         "valvetrain.intake.lobes");
     expect_compile_rejected(
         [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
-            profile.valvetrain.exhaust.lobes.pop_back();
+            profile.core.valvetrain.exhaust.lobes.pop_back();
         },
         "valvetrain.exhaust.lobes");
     expect_compile_rejected(
         [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
             auto &cylinder_one = *std::find_if(
-                profile.valvetrain.intake.lobes.begin(),
-                profile.valvetrain.intake.lobes.end(),
+                profile.core.valvetrain.intake.lobes.begin(),
+                profile.core.valvetrain.intake.lobes.end(),
                 [](const auto &lobe) { return lobe.cylinder_id == CylinderId{1}; });
             cylinder_one.port_id = PortId{2};
         },
         "valvetrain.intake.lobes");
     expect_compile_rejected(
         [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
-            profile.gas_path.head.intake_flow[1].lift_m.value =
-                profile.gas_path.head.intake_flow[0].lift_m.value;
+            profile.core.gas_path.head.intake_flow[1].lift_m.value =
+                profile.core.gas_path.head.intake_flow[0].lift_m.value;
         },
         "gas_path.head.intake_flow");
     expect_compile_rejected(
         [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
-            profile.gas_path.head.exhaust_flow.resize(1);
+            profile.core.gas_path.head.exhaust_flow.resize(1);
         },
         "gas_path.head.exhaust_flow");
     expect_compile_rejected(
         [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
-            profile.valvetrain.intake.shape.advance_rad.value =
+            profile.core.valvetrain.intake.shape.advance_rad.value =
                 std::numeric_limits<double>::quiet_NaN();
         },
         "valvetrain.intake.shape");
     expect_compile_rejected(
         [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
-            profile.valvetrain.intake.shape.construction_steps.value = 5;
+            profile.core.valvetrain.intake.shape.construction_steps.value = 5;
         },
         "valvetrain.intake.shape");
     expect_compile_rejected(
         [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
-            profile.valvetrain.intake.shape.maximum_lift_m.value = 0.0005;
+            profile.core.valvetrain.intake.shape.maximum_lift_m.value = 0.0005;
         },
         "valvetrain.intake.shape");
     expect_compile_rejected(
         [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
-            profile.valvetrain.exhaust.shape.duration_at_reference_lift_rad.value =
+            profile.core.valvetrain.exhaust.shape.duration_at_reference_lift_rad.value =
                 std::numeric_limits<double>::denorm_min();
         },
         "valvetrain.exhaust.shape");

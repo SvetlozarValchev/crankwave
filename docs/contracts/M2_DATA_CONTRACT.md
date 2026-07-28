@@ -153,6 +153,14 @@ The sole currently admitted executable-profile variant is
 configuration boundary; it does not mean the M3 kernel has been implemented. Section
 10 describes that boundary.
 
+That profile is explicit composition rather than inheritance or a compatibility
+facade. `LowOrderEngineCoreV1` owns the reusable mechanism, gas path, valvetrain,
+ignition, fuel, combustion-stream, and excitation data.
+`LegacyFixedCrankLossV1` separately owns the M3 fixed crank-friction magnitude and
+both exhaustive loss-classification masks. The authored contract has the same
+ownership split. This separation permits a later operating profile to reuse the
+accepted low-order core without also inheriting M3's incomplete fixed-loss model.
+
 ## 4. Scenario variants and motion ownership
 
 `RenderScenario` is already a resolved test-cell request. Common data include:
@@ -584,13 +592,14 @@ public render input and must not become a simulator dependency.
 
 The `LegacyLowOrderV1Profile` schema already exists because an `EngineSpec` must name
 the exact executable method and every input before physics implementation begins. It
-groups resolved, provenance-bound M3 data for:
+composes a resolved, provenance-bound `LowOrderEngineCoreV1` with a
+`LegacyFixedCrankLossV1`. Together they carry M3 data for:
 
 - analytic mechanism and per-cylinder topology/parameters;
 - restrictions, intake/head/exhaust gas paths;
 - cam shapes and stable lobe bindings;
 - firing order, timing, limiter, fuel, and flame-speed data;
-- exhaustive torque-loss classification;
+- the M3 fixed crank-friction magnitude and exhaustive torque-loss classification;
 - frozen reference excitation paths, ordering, gains, and delays.
 
 Both authored and resolved profile validation check finite physical domains, stable

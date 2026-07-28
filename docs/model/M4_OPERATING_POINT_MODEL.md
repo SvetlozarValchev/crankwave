@@ -22,6 +22,11 @@ complete cycles. “Complete” means every declared shaft-torque category is re
 It does not mean that generic loss coefficients are BMW measurements or that the
 result is independently validated.
 
+The reusable typed portion is `LowOrderEngineCoreV1`. The M3-only
+`LegacyFixedCrankLossV1` is a sibling in `LegacyLowOrderV1Profile`, not part of that
+core; an M4 profile must compose the core with its own aggregate-loss, accessory, and
+starter contract rather than copying or overriding the legacy loss.
+
 The first M4 torque curve is labelled:
 
 > generic Chen–Flynn low-order BMW model prediction

@@ -706,9 +706,9 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
     }
     std::visit(
         [&](const auto &profile) {
-            if (scenario.fuel.fuel_id.value != profile.fuel.fuel_id.value ||
+            if (scenario.fuel.fuel_id.value != profile.core.fuel.fuel_id.value ||
                 scenario.fuel.lower_heating_value_j_per_kg.value !=
-                    profile.fuel.energy_density_j_per_kg.value) {
+                    profile.core.fuel.energy_density_j_per_kg.value) {
                 report.add(
                     ContractIssueCode::inconsistent_semantics, "fuel",
                     "scenario fuel identity and heating value must exactly match "

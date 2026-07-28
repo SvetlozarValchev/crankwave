@@ -203,15 +203,16 @@ void test_exact_request(const std::vector<double> &rpm,
            "BMW temporal torque capability changed");
 
     const auto &profile = legacy_profile(request);
-    expect(profile.mechanism.cylinders.size() == 6 &&
-               profile.gas_path.exhaust_routes.size() == 2 &&
-               profile.combustion_random_streams.size() == 6 &&
-               profile.fuel.turbulence_to_flame_speed_ratio_triangle_radius.value ==
+    const auto &core = profile.core;
+    expect(core.mechanism.cylinders.size() == 6 &&
+               core.gas_path.exhaust_routes.size() == 2 &&
+               core.combustion_random_streams.size() == 6 &&
+               core.fuel.turbulence_to_flame_speed_ratio_triangle_radius.value ==
                    5.0,
            "BMW executable parity profile shape changed");
-    for (std::size_t index = 0; index < profile.combustion_random_streams.size();
+    for (std::size_t index = 0; index < core.combustion_random_streams.size();
          ++index) {
-        const auto &actual = profile.combustion_random_streams[index];
+        const auto &actual = core.combustion_random_streams[index];
         const auto &expected = reference_seeds.combustion[index];
         expect(actual.cylinder_id ==
                        contract::CylinderId{static_cast<std::uint32_t>(index + 1U)} &&
@@ -251,14 +252,14 @@ void test_exact_request(const std::vector<double> &rpm,
         request,
         [](auto &changed) {
             std::get<contract::LegacyLowOrderV1Profile>(changed.engine.physics_profile)
-                .fuel.turbulence_to_flame_speed_ratio_triangle_radius.value = 4.0;
+                .core.fuel.turbulence_to_flame_speed_ratio_triangle_radius.value = 4.0;
         },
         "mutated BMW fuel interpolation radius passed exact validation");
     expect_mutation_rejected(
         request,
         [](auto &changed) {
             std::get<contract::LegacyLowOrderV1Profile>(changed.engine.physics_profile)
-                .combustion_random_streams.front()
+                .core.combustion_random_streams.front()
                 .pcg32_initial_state.value ^= UINT64_C(1);
         },
         "mutated BMW combustion stream passed exact validation");

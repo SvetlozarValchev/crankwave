@@ -500,19 +500,20 @@ compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &en
             !component.cylinder_id.has_value()) {
             continue;
         }
+        const auto &streams = profile->core.combustion_random_streams;
         const auto stored = std::ranges::find(
-            profile->combustion_random_streams, *component.cylinder_id,
+            streams, *component.cylinder_id,
             &LegacyCombustionRandomStream::cylinder_id);
         const auto stored_ordinal = static_cast<std::size_t>(
-            stored - profile->combustion_random_streams.begin());
-        const auto path = stored == profile->combustion_random_streams.end()
+            stored - streams.begin());
+        const auto path = stored == streams.end()
                               ? "engine.physics_profile.combustion_random_streams"
                               : "engine.physics_profile.combustion_random_streams[" +
                                     std::to_string(stored_ordinal) + "]";
-        detail::require(report, stored != profile->combustion_random_streams.end(),
+        detail::require(report, stored != streams.end(),
                         ContractIssueCode::missing_value, path,
                         "configured cylinder lacks its derived combustion stream");
-        if (stored != profile->combustion_random_streams.end()) {
+        if (stored != streams.end()) {
             detail::require(
                 report,
                 stored->pcg32_initial_state.value == initialization.initial_state &&

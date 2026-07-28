@@ -624,13 +624,13 @@ void test_compile_rejects_method_profile_rate_and_layout_drift() {
     {
         auto engine = request.engine;
         auto &profile = std::get<LegacyLowOrderV1Profile>(engine.physics_profile);
-        profile.excitation.cylinder_count_divisor.value = 5.0;
+        profile.core.excitation.cylinder_count_divisor.value = 5.0;
         expect_compile_rejected(std::move(engine), "drifted excitation profile");
     }
     {
         auto engine = request.engine;
         auto &profile = std::get<LegacyLowOrderV1Profile>(engine.physics_profile);
-        profile.excitation.delay_rate.value = {9999, 1};
+        profile.core.excitation.delay_rate.value = {9999, 1};
         expect_compile_rejected(std::move(engine), "drifted excitation rate");
     }
     {

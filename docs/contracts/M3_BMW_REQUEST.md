@@ -70,9 +70,10 @@ paths remain part of each provenance resolution rather than being hidden in the 
 
 The parity profile owns exactly six typed, resolved
 `LegacyCombustionRandomStream` request values in runtime-cylinder order. Their
-collection is `LegacyLowOrderV1Profile::combustion_random_streams`; for each row,
-the resolved fields are `<base>.pcg32_initial_state` and
-`<base>.pcg32_stream`:
+collection is
+`LegacyLowOrderV1Profile::core.combustion_random_streams`; for each row, the resolved
+fields are `<base>.pcg32_initial_state` and `<base>.pcg32_stream`. The C++ ownership
+split does not insert `core` into the canonical parameter paths:
 
 | Cylinder | Request base path | `pcg32_initial_state` | `pcg32_stream` |
 |---:|---|---:|---:|

@@ -31,10 +31,13 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
     constexpr double kCfmPointOne = 0.0000027486682279375876;
 
     AuthoredLegacyLowOrderV1Profile profile;
-    profile.mechanism.crank = {
-        authored(0.0), authored(5.0), authored(5.9), authored(0.2), authored(10.0),
+    auto &core = profile.core;
+    auto &fixed_crank_loss = profile.fixed_crank_loss;
+    core.mechanism.crank = {
+        authored(0.0), authored(5.0), authored(5.9), authored(0.2),
     };
-    profile.mechanism.cylinders.push_back({
+    fixed_crank_loss.fixed_crank_friction_magnitude_nm = authored(10.0);
+    core.mechanism.cylinders.push_back({
         {
             authored(std::string{"cylinder-1"}),
             authored(std::string{"intake-port-1"}),
@@ -67,12 +70,12 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
         },
     });
 
-    profile.gas_path.intake_topology = {
+    core.gas_path.intake_topology = {
         authored(std::string{"intake-plenum"}),
         authored(std::string{"main-throttle-edge"}),
         authored(std::string{"idle-bypass-edge"}),
     };
-    profile.gas_path.intake = {
+    core.gas_path.intake = {
         authored(0.002),
         authored(0.01),
         authored(0.15),
@@ -86,11 +89,11 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
         make_restriction(LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
                          kCarb500),
     };
-    profile.gas_path.head.intake_runner_base_volume_m3 = authored(0.0001);
-    profile.gas_path.head.intake_runner_cross_section_area_m2 = authored(0.002);
-    profile.gas_path.head.exhaust_runner_base_volume_m3 = authored(0.0003);
-    profile.gas_path.head.exhaust_runner_cross_section_area_m2 = authored(0.0014);
-    profile.gas_path.head.flow_table_triangle_radius_m = authored(0.001);
+    core.gas_path.head.intake_runner_base_volume_m3 = authored(0.0001);
+    core.gas_path.head.intake_runner_cross_section_area_m2 = authored(0.002);
+    core.gas_path.head.exhaust_runner_base_volume_m3 = authored(0.0003);
+    core.gas_path.head.exhaust_runner_cross_section_area_m2 = authored(0.0014);
+    core.gas_path.head.flow_table_triangle_radius_m = authored(0.001);
     const auto flow_point = [](std::string id, double lift, double cfm, double k) {
         return AuthoredLegacyValveFlowPoint{
             authored(std::move(id)),
@@ -99,15 +102,15 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
             authored(k),
         };
     };
-    profile.gas_path.head.intake_flow = {
+    core.gas_path.head.intake_flow = {
         flow_point("lift-0", 0.0, 0.0, 0.0),
         flow_point("lift-1", 0.001, 1.0, kCfmOne),
     };
-    profile.gas_path.head.exhaust_flow = {
+    core.gas_path.head.exhaust_flow = {
         flow_point("lift-0", 0.0, 0.0, 0.0),
         flow_point("lift-1", 0.001, 1.0, kCfmOne),
     };
-    profile.gas_path.exhaust_routes.push_back({
+    core.gas_path.exhaust_routes.push_back({
         {
             authored(std::string{"exhaust.outlet-1"}),
             authored(std::string{"exhaust-collector-1"}),
@@ -126,7 +129,7 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
                              kCarb1000),
         },
     });
-    profile.gas_path.piston_blowby = make_restriction(
+    core.gas_path.piston_blowby = make_restriction(
         LegacyRestrictionCalibration::cfm_at_28_inh2o, 0.1, kCfmPointOne);
 
     const auto camshaft = [](std::string port_id) {
@@ -143,12 +146,12 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
         });
         return cam;
     };
-    profile.valvetrain.intake = camshaft("intake-port-1");
-    profile.valvetrain.exhaust = camshaft("exhaust-port-1");
+    core.valvetrain.intake = camshaft("intake-port-1");
+    core.valvetrain.exhaust = camshaft("exhaust-port-1");
 
-    profile.ignition.firing_order = authored(std::vector<std::string>{"cylinder-1"});
-    profile.ignition.timing_curve_triangle_radius_rad_s = authored(1000.0);
-    profile.ignition.timing_curve = {
+    core.ignition.firing_order = authored(std::vector<std::string>{"cylinder-1"});
+    core.ignition.timing_curve_triangle_radius_rad_s = authored(1000.0);
+    core.ignition.timing_curve = {
         {
             authored(std::string{"rpm-0"}),
             authored(0.0),
@@ -160,23 +163,23 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
             authored(0.1),
         },
     };
-    profile.ignition.limiter_speed_rpm = authored(8000.0);
-    profile.ignition.limiter_hold_s = authored(0.5);
-    profile.ignition.declared_redline_rpm = authored(7000.0);
+    core.ignition.limiter_speed_rpm = authored(8000.0);
+    core.ignition.limiter_hold_s = authored(0.5);
+    core.ignition.declared_redline_rpm = authored(7000.0);
 
-    profile.fuel.fuel_id = authored(std::string{"gasoline"});
-    profile.fuel.molecular_mass_kg_per_mol = authored(0.1);
-    profile.fuel.energy_density_j_per_kg = authored(48.1e6);
-    profile.fuel.molecular_afr = authored(12.5);
-    profile.fuel.maximum_burning_efficiency_01 = authored(0.8);
-    profile.fuel.burning_efficiency_randomness_01 = authored(0.5);
-    profile.fuel.low_efficiency_attenuation_01 = authored(0.6);
-    profile.fuel.maximum_turbulence_effect = authored(4.0);
-    profile.fuel.maximum_dilution_effect = authored(10.0);
-    profile.fuel.lbv_multiplier = authored(1.0);
-    profile.fuel.compression_ignition_enabled = authored(false);
-    profile.fuel.turbulence_to_flame_speed_ratio_triangle_radius = authored(5.0);
-    profile.fuel.turbulence_to_flame_speed_ratio = {
+    core.fuel.fuel_id = authored(std::string{"gasoline"});
+    core.fuel.molecular_mass_kg_per_mol = authored(0.1);
+    core.fuel.energy_density_j_per_kg = authored(48.1e6);
+    core.fuel.molecular_afr = authored(12.5);
+    core.fuel.maximum_burning_efficiency_01 = authored(0.8);
+    core.fuel.burning_efficiency_randomness_01 = authored(0.5);
+    core.fuel.low_efficiency_attenuation_01 = authored(0.6);
+    core.fuel.maximum_turbulence_effect = authored(4.0);
+    core.fuel.maximum_dilution_effect = authored(10.0);
+    core.fuel.lbv_multiplier = authored(1.0);
+    core.fuel.compression_ignition_enabled = authored(false);
+    core.fuel.turbulence_to_flame_speed_ratio_triangle_radius = authored(5.0);
+    core.fuel.turbulence_to_flame_speed_ratio = {
         {
             authored(std::string{"turbulence-0"}),
             authored(0.0),
@@ -189,38 +192,38 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
         },
     };
 
-    profile.combustion_random_streams.push_back({
+    core.combustion_random_streams.push_back({
         authored(std::string{"cylinder-1"}),
         authored<std::uint64_t>(UINT64_C(0x6ba3d060370e05fa)),
         authored<std::uint64_t>(UINT64_C(0x3e13b1e68ef2f790)),
     });
 
-    profile.losses.included_terms = authored(known_torque_term_mask());
-    profile.losses.omitted_terms = authored<TorqueTermMask>(0);
+    fixed_crank_loss.included_terms = authored(known_torque_term_mask());
+    fixed_crank_loss.omitted_terms = authored<TorqueTermMask>(0);
 
-    profile.excitation.reference_atmosphere_pa_abs = authored(101325.0);
-    profile.excitation.legacy_propagation_speed_m_s = authored(343.0);
-    profile.excitation.excitation_scale = authored(1600.0);
-    profile.excitation.filtered_speed_threshold_rpm = authored(40.0);
-    profile.excitation.filtered_speed_exponent = authored<std::uint32_t>(3);
-    profile.excitation.pressure_gains = {
+    core.excitation.reference_atmosphere_pa_abs = authored(101325.0);
+    core.excitation.legacy_propagation_speed_m_s = authored(343.0);
+    core.excitation.excitation_scale = authored(1600.0);
+    core.excitation.filtered_speed_threshold_rpm = authored(40.0);
+    core.excitation.filtered_speed_exponent = authored<std::uint32_t>(3);
+    core.excitation.pressure_gains = {
         authored(1.0),
         authored(0.1),
         authored(0.1),
     };
-    profile.excitation.cylinder_count_divisor = authored(1.0);
-    profile.excitation.inverse_length_exponent = authored(2.0);
-    profile.excitation.delay_rate = authored(RationalRateHz{10000, 1});
-    profile.excitation.cylinder_accumulation_order =
+    core.excitation.cylinder_count_divisor = authored(1.0);
+    core.excitation.inverse_length_exponent = authored(2.0);
+    core.excitation.delay_rate = authored(RationalRateHz{10000, 1});
+    core.excitation.cylinder_accumulation_order =
         authored(std::vector<std::string>{"cylinder-1"});
-    profile.excitation.cylinder_paths.push_back({
+    core.excitation.cylinder_paths.push_back({
         authored(std::string{"cylinder-1"}),
         authored(std::string{"exhaust.outlet-1"}),
         authored(0.0),
         authored(1.0),
         authored<std::uint32_t>(182),
     });
-    profile.excitation.routes.push_back({
+    core.excitation.routes.push_back({
         authored(std::string{"exhaust.outlet-1"}),
         authored(6.25),
         authored(1.0),
@@ -356,12 +359,12 @@ void run_authored_profile_contract_tests() {
     expect(valid_report.ok(), "valid authored executable profile was rejected");
 
     auto deterministic_profile = make_authored_profile();
-    deterministic_profile.fuel.burning_efficiency_randomness_01.value = 0.0;
+    deterministic_profile.core.fuel.burning_efficiency_randomness_01.value = 0.0;
     expect(validate(AuthoredExecutablePhysicsProfile{deterministic_profile},
                     make_provenance())
                .ok(),
            "zero burning-efficiency variation invalidated the executed RNG stream");
-    deterministic_profile.combustion_random_streams.clear();
+    deterministic_profile.core.combustion_random_streams.clear();
     expect(!validate(AuthoredExecutablePhysicsProfile{std::move(deterministic_profile)},
                      make_provenance())
                 .ok(),
@@ -371,104 +374,114 @@ void run_authored_profile_contract_tests() {
     expect_authored_mutation_rejected(
         "negative authored piston mass was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.mechanism.cylinders.front().parameters.piston_mass_kg.value = -0.1;
+            profile.core.mechanism.cylinders.front()
+                .parameters.piston_mass_kg.value = -0.1;
         });
     expect_authored_mutation_rejected(
         "NaN authored crankshaft mass was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.mechanism.crank.crankshaft_mass_kg.value =
+            profile.core.mechanism.crank.crankshaft_mass_kg.value =
                 std::numeric_limits<double>::quiet_NaN();
+        });
+    expect_authored_mutation_rejected(
+        "negative authored fixed crank loss was accepted",
+        [](AuthoredLegacyLowOrderV1Profile &profile) {
+            profile.fixed_crank_loss.fixed_crank_friction_magnitude_nm.value = -0.1;
         });
     expect_authored_mutation_rejected(
         "unknown authored restriction calibration was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.gas_path.intake.main_throttle.calibration.value =
+            profile.core.gas_path.intake.main_throttle.calibration.value =
                 LegacyRestrictionCalibration::unspecified;
         });
     expect_authored_mutation_rejected(
         "stale authored restriction coefficient was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.gas_path.intake.main_throttle.resolved_k.value += 0.001;
+            profile.core.gas_path.intake.main_throttle.resolved_k.value += 0.001;
         });
     expect_authored_mutation_rejected(
         "unsorted authored valve-flow table was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.gas_path.head.intake_flow.back().lift_m.value = 0.0;
+            profile.core.gas_path.head.intake_flow.back().lift_m.value = 0.0;
         });
     expect_authored_mutation_rejected(
         "out-of-range authored fuel efficiency was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.fuel.maximum_burning_efficiency_01.value = 1.1;
+            profile.core.fuel.maximum_burning_efficiency_01.value = 1.1;
         });
     expect_authored_mutation_rejected(
         "nonpositive authored flame-speed table radius was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.fuel.turbulence_to_flame_speed_ratio_triangle_radius.value = 0.0;
+            profile.core.fuel.turbulence_to_flame_speed_ratio_triangle_radius.value =
+                0.0;
         });
     expect_authored_mutation_rejected(
         "unclaimed authored flame-speed table radius was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.fuel.turbulence_to_flame_speed_ratio_triangle_radius.claim_id
+            profile.core.fuel.turbulence_to_flame_speed_ratio_triangle_radius.claim_id
                 .clear();
         });
     expect_authored_mutation_rejected(
         "compression ignition was enabled in a spark-ignition authored profile",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.fuel.compression_ignition_enabled.value = true;
+            profile.core.fuel.compression_ignition_enabled.value = true;
         });
     expect_authored_mutation_rejected(
         "implemented authored combustion accepted no random streams",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.combustion_random_streams.clear();
+            profile.core.combustion_random_streams.clear();
         });
     expect_authored_mutation_rejected(
         "duplicate authored combustion random-stream owner was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.combustion_random_streams.push_back(
-                profile.combustion_random_streams.front());
+            profile.core.combustion_random_streams.push_back(
+                profile.core.combustion_random_streams.front());
         });
     expect_authored_mutation_rejected(
         "dangling authored combustion random-stream owner was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.combustion_random_streams.front().cylinder_id.value = "cylinder-2";
+            profile.core.combustion_random_streams.front().cylinder_id.value =
+                "cylinder-2";
         });
     expect_authored_mutation_rejected(
         "out-of-range authored PCG32 stream was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.combustion_random_streams.front().pcg32_stream.value =
+            profile.core.combustion_random_streams.front().pcg32_stream.value =
                 std::numeric_limits<std::uint64_t>::max();
         });
     expect_authored_mutation_rejected(
         "unclaimed authored PCG32 initial state was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.combustion_random_streams.front()
+            profile.core.combustion_random_streams.front()
                 .pcg32_initial_state.claim_id.clear();
         });
     expect_authored_mutation_rejected(
         "unclaimed authored PCG32 stream was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.combustion_random_streams.front().pcg32_stream.claim_id.clear();
+            profile.core.combustion_random_streams.front()
+                .pcg32_stream.claim_id.clear();
         });
     expect_authored_mutation_rejected(
         "overlapping authored loss classifications were accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.losses.omitted_terms.value =
+            profile.fixed_crank_loss.omitted_terms.value =
                 torque_term_mask(TorqueTerm::indicated_gas);
         });
     expect_authored_mutation_rejected(
         "invalid authored excitation propagation speed was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.excitation.legacy_propagation_speed_m_s.value = -1.0;
+            profile.core.excitation.legacy_propagation_speed_m_s.value = -1.0;
         });
     expect_authored_mutation_rejected(
         "authored excitation route drifted from its gas-path route",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.excitation.routes.front().audio_volume_linear.value += 0.1;
+            profile.core.excitation.routes.front().audio_volume_linear.value += 0.1;
         });
     expect_authored_mutation_rejected(
         "stale authored propagation delay was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
-            ++profile.excitation.cylinder_paths.front().resolved_delay_samples.value;
+            ++profile.core.excitation.cylinder_paths.front()
+                  .resolved_delay_samples.value;
         });
 
     expect(validate(make_authored_engine()).ok(),

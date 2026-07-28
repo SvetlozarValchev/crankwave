@@ -383,9 +383,10 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine) {
         return report;
     }
 
-    const auto &mechanism = profile->mechanism;
-    const auto &valvetrain = profile->valvetrain;
-    const auto &head = profile->gas_path.head;
+    const auto &core = profile->core;
+    const auto &mechanism = core.mechanism;
+    const auto &valvetrain = core.valvetrain;
+    const auto &head = core.gas_path.head;
     require(report, std::isfinite(mechanism.crank.crank_tdc_reference_rad.value),
             ContractIssueCode::invalid_value,
             "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",

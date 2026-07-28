@@ -169,6 +169,7 @@ void validate_authored_legacy_topology(ValidationReport &report,
                                        const AuthoredLegacyLowOrderV1Profile &profile) {
     using detail::require;
 
+    const auto &core = profile.core;
     const auto find_cylinder = [&](std::string_view id) {
         return find_authored_by_id(
             definition.cylinders, id,
@@ -206,14 +207,14 @@ void validate_authored_legacy_topology(ValidationReport &report,
     };
     const auto find_exhaust_profile = [&](std::string_view route_id) {
         return find_authored_by_id(
-            profile.gas_path.exhaust_routes, route_id,
+            core.gas_path.exhaust_routes, route_id,
             [](const AuthoredLegacyExhaustRouteProfile &route) -> const std::string & {
                 return route.topology.route_id.value;
             });
     };
     const auto find_cylinder_profile = [&](std::string_view cylinder_id) {
         return find_authored_by_id(
-            profile.mechanism.cylinders, cylinder_id,
+            core.mechanism.cylinders, cylinder_id,
             [](const AuthoredLegacyCylinderAssembly &cylinder) -> const std::string & {
                 return cylinder.topology.cylinder_id.value;
             });
@@ -311,7 +312,7 @@ void validate_authored_legacy_topology(ValidationReport &report,
     std::unordered_set<std::string> collector_bindings;
     std::unordered_set<std::string> expected_edge_bindings;
 
-    const auto &intake_topology = profile.gas_path.intake_topology;
+    const auto &intake_topology = core.gas_path.intake_topology;
     constexpr std::string_view physics_root = "engine.physics.legacy-low-order-v1";
     const auto intake_path = std::string(physics_root) + ".gas_path.intake_topology";
     require_volume_kind(intake_topology.plenum_volume_id.value,
@@ -332,9 +333,9 @@ void validate_authored_legacy_topology(ValidationReport &report,
         intake_topology.plenum_volume_id.value, intake_path + ".idle_bypass_edge_id",
         "legacy idle-bypass edge");
 
-    for (std::size_t index = 0; index < profile.gas_path.exhaust_routes.size();
+    for (std::size_t index = 0; index < core.gas_path.exhaust_routes.size();
          ++index) {
-        const auto &exhaust = profile.gas_path.exhaust_routes[index];
+        const auto &exhaust = core.gas_path.exhaust_routes[index];
         const auto path = std::string(physics_root) + ".gas_path.exhaust_routes[" +
                           std::to_string(index) + "].topology";
         const auto &topology = exhaust.topology;
@@ -373,12 +374,12 @@ void validate_authored_legacy_topology(ValidationReport &report,
             "legacy collector-outlet edge");
     }
 
-    require(report, profile.mechanism.cylinders.size() == definition.cylinders.size(),
+    require(report, core.mechanism.cylinders.size() == definition.cylinders.size(),
             ContractIssueCode::inconsistent_shape,
             std::string(physics_root) + ".mechanism.cylinders",
             "legacy mechanism must bind every authored cylinder exactly once");
-    for (std::size_t index = 0; index < profile.mechanism.cylinders.size(); ++index) {
-        const auto &assembly = profile.mechanism.cylinders[index];
+    for (std::size_t index = 0; index < core.mechanism.cylinders.size(); ++index) {
+        const auto &assembly = core.mechanism.cylinders[index];
         const auto &topology = assembly.topology;
         const auto &parameters = assembly.parameters;
         const auto path = std::string(physics_root) + ".mechanism.cylinders[" +
@@ -630,9 +631,9 @@ void validate_authored_legacy_topology(ValidationReport &report,
                 ContractIssueCode::inconsistent_shape, path + ".lobes",
                 "legacy camshaft must cover every cylinder exactly once");
     };
-    validate_camshaft(profile.valvetrain.intake, PortKind::intake,
+    validate_camshaft(core.valvetrain.intake, PortKind::intake,
                       std::string(physics_root) + ".valvetrain.intake");
-    validate_camshaft(profile.valvetrain.exhaust, PortKind::exhaust,
+    validate_camshaft(core.valvetrain.exhaust, PortKind::exhaust,
                       std::string(physics_root) + ".valvetrain.exhaust");
 
     const auto require_exact_cylinder_sequence =
@@ -654,20 +655,20 @@ void validate_authored_legacy_topology(ValidationReport &report,
                     std::string(description) +
                         " must contain every authored cylinder exactly once");
         };
-    require_exact_cylinder_sequence(profile.ignition.firing_order.value,
+    require_exact_cylinder_sequence(core.ignition.firing_order.value,
                                     std::string(physics_root) +
                                         ".ignition.firing_order.value",
                                     "legacy firing order");
     require_exact_cylinder_sequence(
-        profile.excitation.cylinder_accumulation_order.value,
+        core.excitation.cylinder_accumulation_order.value,
         std::string(physics_root) +
             ".reference_excitation.cylinder_accumulation_order.value",
         "legacy excitation accumulation order");
 
     std::unordered_set<std::string> excitation_cylinders;
-    for (std::size_t index = 0; index < profile.excitation.cylinder_paths.size();
+    for (std::size_t index = 0; index < core.excitation.cylinder_paths.size();
          ++index) {
-        const auto &excitation_path = profile.excitation.cylinder_paths[index];
+        const auto &excitation_path = core.excitation.cylinder_paths[index];
         const auto path = std::string(physics_root) +
                           ".reference_excitation.cylinder_paths[" +
                           std::to_string(index) + "]";
@@ -687,9 +688,9 @@ void validate_authored_legacy_topology(ValidationReport &report,
             std::string(physics_root) + ".reference_excitation.cylinder_paths",
             "legacy excitation must contain one path per authored cylinder");
     std::unordered_set<std::string> excitation_routes;
-    for (std::size_t index = 0; index < profile.excitation.routes.size(); ++index) {
+    for (std::size_t index = 0; index < core.excitation.routes.size(); ++index) {
         require_unique_binding(
-            excitation_routes, profile.excitation.routes[index].route_id.value,
+            excitation_routes, core.excitation.routes[index].route_id.value,
             std::string(physics_root) + ".reference_excitation.routes[" +
                 std::to_string(index) + "].route_id",
             "legacy excitation route");

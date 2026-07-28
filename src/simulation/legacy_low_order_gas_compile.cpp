@@ -241,17 +241,17 @@ find_profile_route_index(const contract::LegacyGasPathProfile &gas_path,
 }
 
 [[nodiscard]] std::optional<std::size_t>
-find_random_stream_index(const contract::LegacyLowOrderV1Profile &profile,
+find_random_stream_index(const contract::LowOrderEngineCoreV1 &core,
                          contract::CylinderId cylinder_id) noexcept {
     const auto found =
-        std::find_if(profile.combustion_random_streams.begin(),
-                     profile.combustion_random_streams.end(), [&](const auto &stream) {
+        std::find_if(core.combustion_random_streams.begin(),
+                     core.combustion_random_streams.end(), [&](const auto &stream) {
                          return stream.cylinder_id == cylinder_id;
                      });
-    if (found == profile.combustion_random_streams.end()) {
+    if (found == core.combustion_random_streams.end()) {
         return std::nullopt;
     }
-    return static_cast<std::size_t>(found - profile.combustion_random_streams.begin());
+    return static_cast<std::size_t>(found - core.combustion_random_streams.begin());
 }
 
 [[nodiscard]] bool all_bound(const std::vector<bool> &bound) noexcept {
@@ -340,8 +340,10 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
     admit_public_identities(engine.flow_edges, report, "engine.flow_edges");
     admit_public_identities(engine.routes, report, "engine.routes");
 
-    const auto &mechanism = profile->mechanism;
-    const auto &gas_path = profile->gas_path;
+    const auto &core = profile->core;
+    const auto &fixed_crank_loss = profile->fixed_crank_loss;
+    const auto &mechanism = core.mechanism;
+    const auto &gas_path = core.gas_path;
     const auto &head = gas_path.head;
     require(report,
             !engine.cylinders.empty() &&
@@ -425,7 +427,7 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
     admit_valve_flow_k(head.exhaust_flow, report,
                        "engine.physics_profile.gas_path.head.exhaust_flow");
 
-    const auto &fuel = profile->fuel;
+    const auto &fuel = core.fuel;
     require(report,
             contract::is_valid_semantic_id(fuel.fuel_id.value) &&
                 finite_positive(fuel.molecular_mass_kg_per_mol.value) &&
@@ -484,8 +486,8 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
     const auto required_omitted_terms =
         contract::known_torque_term_mask() & ~required_included_terms;
     require(report,
-            profile->losses.included_terms.value == required_included_terms &&
-                profile->losses.omitted_terms.value == required_omitted_terms,
+            fixed_crank_loss.included_terms.value == required_included_terms &&
+                fixed_crank_loss.omitted_terms.value == required_omitted_terms,
             ContractIssueCode::unsupported_value, "engine.physics_profile.losses",
             "legacy_low_order_v1 gas reports only indicated gas and fixed crank "
             "friction");
@@ -510,7 +512,8 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
         "engine torque capability must exactly describe the available incomplete "
         "M3 instantaneous form and unavailable cycle-mean form");
     require(report,
-            finite_nonnegative(mechanism.crank.fixed_crank_friction_magnitude_nm.value),
+            finite_nonnegative(
+                fixed_crank_loss.fixed_crank_friction_magnitude_nm.value),
             ContractIssueCode::invalid_value,
             "engine.physics_profile.mechanism.crank."
             "fixed_crank_friction_magnitude_nm.value",
@@ -956,8 +959,7 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
                 "derived intake-runner and exhaust-primary volumes must be finite "
                 "and positive");
 
-        const auto stream_index =
-            find_random_stream_index(*profile, topology.cylinder_id);
+        const auto stream_index = find_random_stream_index(core, topology.cylinder_id);
         require(report, stream_index.has_value(), ContractIssueCode::missing_value,
                 "engine.physics_profile.combustion_random_streams",
                 "every cylinder requires one combustion random stream");
@@ -973,7 +975,7 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
             initial_sample.valid && finite_positive(runner_volume_m3) &&
             finite_positive(primary_volume_m3);
         if (all_bindings_valid) {
-            const auto &stream = profile->combustion_random_streams[*stream_index];
+            const auto &stream = core.combustion_random_streams[*stream_index];
             admitted_cylinders[cylinder_index] = {
                 *runner_volume_index,
                 *chamber_volume_index,
@@ -1015,15 +1017,15 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
             "every exhaust route must be used by at least one cylinder");
 
     require(report,
-            profile->combustion_random_streams.size() == engine.cylinders.size(),
+            core.combustion_random_streams.size() == engine.cylinders.size(),
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.combustion_random_streams",
             "fresh gas state requires exactly one combustion stream per cylinder");
     std::unordered_set<std::uint32_t> stream_cylinder_ids;
     std::unordered_set<std::uint64_t> stream_selectors;
-    for (std::size_t index = 0; index < profile->combustion_random_streams.size();
+    for (std::size_t index = 0; index < core.combustion_random_streams.size();
          ++index) {
-        const auto &stream = profile->combustion_random_streams[index];
+        const auto &stream = core.combustion_random_streams[index];
         const std::string path = "engine.physics_profile.combustion_random_streams[" +
                                  std::to_string(index) + "]";
         require(report,
@@ -1062,7 +1064,7 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
     session.crankcase_temperature_k_ = scenario.crankcase.temperature_k.value;
     session.blowby_k_ = gas_path.piston_blowby.resolved_k.value;
     session.crank_friction_magnitude_nm_ =
-        mechanism.crank.fixed_crank_friction_magnitude_nm.value;
+        fixed_crank_loss.fixed_crank_friction_magnitude_nm.value;
     session.inert_mixture_ = {0.0, 1.0, 0.0};
     session.valvetrain_.emplace(std::move(valvetrain));
     session.model_id_ = engine.methods.gas_exchange.value.id;

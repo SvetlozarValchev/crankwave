@@ -360,7 +360,8 @@ write_legacy_cylinder_assembly(CanonicalJsonWriter &writer,
 }
 
 [[nodiscard]] bool write_legacy_crank(CanonicalJsonWriter &writer,
-                                      const contract::LegacyCrankAssembly &crank) {
+                                      const contract::LegacyCrankAssembly &crank,
+                                      const contract::LegacyFixedCrankLossV1 &loss) {
     return writer.begin_object() && writer.key("crank_tdc_reference_rad") &&
            write_resolved(writer, crank.crank_tdc_reference_rad, write_f64) &&
            writer.key("crankshaft_mass_kg") &&
@@ -370,15 +371,17 @@ write_legacy_cylinder_assembly(CanonicalJsonWriter &writer,
            writer.key("authored_crank_inertia_kg_m2") &&
            write_resolved(writer, crank.authored_crank_inertia_kg_m2, write_f64) &&
            writer.key("fixed_crank_friction_magnitude_nm") &&
-           write_resolved(writer, crank.fixed_crank_friction_magnitude_nm, write_f64) &&
+           write_resolved(writer, loss.fixed_crank_friction_magnitude_nm, write_f64) &&
            writer.end_object();
 }
 
 [[nodiscard]] bool
 write_legacy_mechanism(CanonicalJsonWriter &writer,
-                       const contract::LegacyMechanismProfile &mechanism) {
+                       const contract::LegacyMechanismProfile &mechanism,
+                       const contract::LegacyFixedCrankLossV1 &loss) {
     return writer.begin_object() && writer.key("crank") &&
-           write_legacy_crank(writer, mechanism.crank) && writer.key("cylinders") &&
+           write_legacy_crank(writer, mechanism.crank, loss) &&
+           writer.key("cylinders") &&
            write_array(writer, mechanism.cylinders,
                        [](CanonicalJsonWriter &output,
                           const contract::LegacyCylinderAssembly &cylinder) {
@@ -682,8 +685,9 @@ write_legacy_combustion_stream(CanonicalJsonWriter &writer,
            writer.end_object();
 }
 
-[[nodiscard]] bool write_legacy_losses(CanonicalJsonWriter &writer,
-                                       const contract::LegacyLossProfile &losses) {
+[[nodiscard]] bool
+write_legacy_losses(CanonicalJsonWriter &writer,
+                    const contract::LegacyFixedCrankLossV1 &losses) {
     return writer.begin_object() && writer.key("included_terms") &&
            write_resolved(writer, losses.included_terms, write_u64) &&
            writer.key("omitted_terms") &&
@@ -776,22 +780,27 @@ write_legacy_excitation(CanonicalJsonWriter &writer,
 [[nodiscard]] bool
 write_legacy_low_order_profile(CanonicalJsonWriter &writer,
                                const contract::LegacyLowOrderV1Profile &profile) {
+    // Simulation-v4 predates the explicit core/loss composition. Flatten the typed
+    // M3 profile into that one historical shape; this is removed with v4 rather than
+    // retained as a compatibility representation.
+    const auto &core = profile.core;
+    const auto &loss = profile.fixed_crank_loss;
     return writer.begin_object() && writer.key("mechanism") &&
-           write_legacy_mechanism(writer, profile.mechanism) &&
-           writer.key("gas_path") && write_legacy_gas_path(writer, profile.gas_path) &&
+           write_legacy_mechanism(writer, core.mechanism, loss) &&
+           writer.key("gas_path") && write_legacy_gas_path(writer, core.gas_path) &&
            writer.key("valvetrain") &&
-           write_legacy_valvetrain(writer, profile.valvetrain) &&
-           writer.key("ignition") && write_legacy_ignition(writer, profile.ignition) &&
-           writer.key("fuel") && write_legacy_fuel(writer, profile.fuel) &&
+           write_legacy_valvetrain(writer, core.valvetrain) &&
+           writer.key("ignition") && write_legacy_ignition(writer, core.ignition) &&
+           writer.key("fuel") && write_legacy_fuel(writer, core.fuel) &&
            writer.key("combustion_random_streams") &&
-           write_array(writer, profile.combustion_random_streams,
+           write_array(writer, core.combustion_random_streams,
                        [](CanonicalJsonWriter &output,
                           const contract::LegacyCombustionRandomStream &stream) {
                            return write_legacy_combustion_stream(output, stream);
                        }) &&
-           writer.key("losses") && write_legacy_losses(writer, profile.losses) &&
+           writer.key("losses") && write_legacy_losses(writer, loss) &&
            writer.key("excitation") &&
-           write_legacy_excitation(writer, profile.excitation) && writer.end_object();
+           write_legacy_excitation(writer, core.excitation) && writer.end_object();
 }
 
 [[nodiscard]] bool

@@ -82,6 +82,15 @@ instantaneous form. The encoder derives `physical_net_complete`,
 temporally distinct capability as unrepresentable. Thus the canonical M3 bytes and
 request digest remain unchanged without allowing v4 to erase a distinction.
 
+The typed M3 profile now also composes a reusable `LowOrderEngineCoreV1` with a
+separate `LegacyFixedCrankLossV1`. Simulation-v4 predates that ownership split, so
+its transitional encoder explicitly flattens the composition into the one frozen
+historical member order: the fixed magnitude remains under `mechanism.crank`, and
+the two classification masks remain under `losses`. The CDDL, canonical parameter
+paths, request digest, and accepted BMW artifact hashes do not change. This flattening
+is only a lossless projection for the M3 form; it does not make the legacy loss part
+of the reusable core.
+
 When the M4 operating profile contract freezes, one new schema will encode both M3
 and M4 typed forms directly. This v4 API/path is then removed, not retained as an
 alias or compatibility encoder.
