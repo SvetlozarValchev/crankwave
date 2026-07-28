@@ -1,8 +1,11 @@
 #include "contract_test_support.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <limits>
 #include <numbers>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -235,14 +238,46 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
     return profile;
 }
 
+AuthoredLowOrderOperatingPointV1Profile make_authored_operating_profile() {
+    auto legacy = make_authored_profile();
+    AuthoredLowOrderOperatingPointV1Profile profile;
+    profile.core = std::move(legacy.core);
+    profile.aggregate_loss = {
+        authored(0.4),
+        authored(0.005),
+        authored(0.09),
+        authored(0.0009),
+        authored(363.15),
+        authored(friction_pump_and_accessory_torque_term_mask()),
+    };
+    profile.accessory_configuration = {
+        authored(std::string{"warm-stock-accessories-v1"}),
+        authored(digest(77)),
+    };
+    profile.starter = {
+        authored(true),
+        authored(torque_term_mask(TorqueTerm::starter)),
+    };
+    profile.cycle_quadrature = authored(
+        MethodSelection{"four-stroke-piecewise-linear-cycle-quadrature-v1", 1});
+    return profile;
+}
+
 ProvenanceLedger make_provenance() {
     ProvenanceLedger ledger;
     ledger.schema_id = "authored-profile-test-provenance-v1";
     ledger.bundle = {"authored-profile-test-provenance-v1", digest(41)};
+    ledger.evidence.push_back({
+        "accessory-descriptor",
+        "test/accessory-descriptor-v1",
+        std::nullopt,
+        digest(77),
+        RightsDisposition::permitted,
+    });
     ledger.claims.push_back({
         "claim",
         ProvenanceOrigin::artistic,
-        {},
+        {EvidenceCitation{"accessory-descriptor", "complete descriptor"}},
         std::nullopt,
     });
     return ledger;
@@ -346,9 +381,106 @@ AuthoredEngineDefinition make_authored_engine() {
     return definition;
 }
 
+EngineSpec make_resolved_operating_engine(InputBuilder &builder) {
+    constexpr std::string_view old_root =
+        "engine.physics.legacy-low-order-v1";
+    constexpr std::string_view new_root =
+        "engine.physics.low-order-operating-point-v1";
+    const auto reroot = [&](std::string &path) {
+        if (path.starts_with(old_root)) {
+            path.replace(0, old_root.size(), new_root);
+        }
+    };
+
+    auto engine = make_engine(builder);
+    for (auto &resolution : builder.provenance.resolutions) {
+        reroot(resolution.parameter_path);
+        for (auto &dependency : resolution.dependency_parameter_paths) {
+            reroot(dependency);
+        }
+    }
+    builder.provenance.evidence.push_back({
+        "accessory-descriptor",
+        "test/accessory-descriptor-v1",
+        std::nullopt,
+        digest(77),
+        RightsDisposition::permitted,
+    });
+    builder.provenance.claims.front().citations.push_back(
+        {"accessory-descriptor", "complete descriptor"});
+
+    auto legacy = std::get<LegacyLowOrderV1Profile>(
+        std::move(engine.physics_profile));
+    LowOrderOperatingPointV1Profile profile;
+    profile.core = std::move(legacy.core);
+    const auto path = [](std::string_view suffix) {
+        return std::string{"engine.physics.low-order-operating-point-v1."} +
+               std::string{suffix};
+    };
+    profile.aggregate_loss = {
+        builder.resolved(0.4, path("aggregate_loss.constant_fmep_bar")),
+        builder.resolved(0.005,
+                         path("aggregate_loss.peak_pressure_coefficient")),
+        builder.resolved(
+            0.09,
+            path("aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m")),
+        builder.resolved(
+            0.0009,
+            path("aggregate_loss."
+                 "mean_piston_speed_squared_coefficient_bar_s2_per_m2")),
+        builder.resolved(363.15,
+                         path("aggregate_loss.required_oil_temperature_k")),
+        builder.resolved(friction_pump_and_accessory_torque_term_mask(),
+                         path("aggregate_loss.included_terms")),
+    };
+    profile.accessory_configuration = {
+        builder.resolved(std::string{"warm-stock-accessories-v1"},
+                         path("accessory_configuration.configuration_id")),
+        builder.resolved(digest(77),
+                         path("accessory_configuration.content_sha256")),
+    };
+    profile.starter = {
+        builder.resolved(true, path("starter.mechanically_disengaged")),
+        builder.resolved(torque_term_mask(TorqueTerm::starter),
+                         path("starter.included_terms")),
+    };
+    profile.cycle_quadrature = builder.resolved(
+        method("four-stroke-piecewise-linear-cycle-quadrature-v1", 82),
+        path("cycle_quadrature"));
+    engine.physics_profile = std::move(profile);
+    engine.methods.losses.value =
+        method("chen-flynn-cycle-mean-aggregate-loss-v1", 81);
+    engine.torque_capability.value = {
+        {
+            Availability::unavailable,
+            Completeness::incomplete,
+            0,
+            0,
+        },
+        {
+            Availability::available,
+            Completeness::complete,
+            known_torque_term_mask(),
+            0,
+        },
+        false,
+    };
+    return engine;
+}
+
 template <class Mutation>
 void expect_authored_mutation_rejected(const char *message, Mutation &&mutation) {
     auto profile = make_authored_profile();
+    std::forward<Mutation>(mutation)(profile);
+    const auto report = validate(AuthoredExecutablePhysicsProfile{std::move(profile)},
+                                 make_provenance());
+    expect(!report.ok(), message);
+}
+
+template <class Mutation>
+void expect_authored_operating_mutation_rejected(const char *message,
+                                                 Mutation &&mutation) {
+    auto profile = make_authored_operating_profile();
     std::forward<Mutation>(mutation)(profile);
     const auto report = validate(AuthoredExecutablePhysicsProfile{std::move(profile)},
                                  make_provenance());
@@ -361,6 +493,42 @@ void run_authored_profile_contract_tests() {
     const auto valid_report = validate(
         AuthoredExecutablePhysicsProfile{make_authored_profile()}, make_provenance());
     expect(valid_report.ok(), "valid authored executable profile was rejected");
+
+    expect(validate(AuthoredExecutablePhysicsProfile{
+                        make_authored_operating_profile()},
+                    make_provenance())
+               .ok(),
+           "valid authored operating-point profile was rejected");
+    expect_authored_operating_mutation_rejected(
+        "negative-zero operating loss coefficient was accepted",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.aggregate_loss.constant_fmep_bar.value = -0.0;
+        });
+    expect_authored_operating_mutation_rejected(
+        "incorrect operating aggregate-loss term scope was accepted",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.aggregate_loss.included_terms.value ^=
+                torque_term_mask(TorqueTerm::accessory);
+        });
+    expect_authored_operating_mutation_rejected(
+        "engaged operating starter declaration was accepted",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.starter.mechanically_disengaged.value = false;
+        });
+    expect_authored_operating_mutation_rejected(
+        "wrong operating cycle quadrature was accepted",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.cycle_quadrature.value.id = "other-quadrature-v1";
+        });
+    {
+        auto profile = make_authored_operating_profile();
+        auto provenance = make_provenance();
+        provenance.evidence.front().content_sha256 = digest(78);
+        expect(!validate(AuthoredExecutablePhysicsProfile{std::move(profile)},
+                         provenance)
+                    .ok(),
+               "accessory descriptor digest without matching evidence was accepted");
+    }
 
     auto deterministic_profile = make_authored_profile();
     deterministic_profile.core.fuel.burning_efficiency_randomness_01.value = 0.0;
@@ -498,6 +666,73 @@ void run_authored_profile_contract_tests() {
 
     expect(validate(make_authored_engine()).ok(),
            "valid authored engine and executable profile were rejected");
+    auto operating_engine = make_authored_engine();
+    operating_engine.methods.losses.value = {
+        "chen-flynn-cycle-mean-aggregate-loss-v1",
+        1,
+    };
+    operating_engine.physics_profile = make_authored_operating_profile();
+    expect(validate(operating_engine).ok(),
+           "valid authored operating-point engine was rejected");
+    operating_engine.methods.losses.value = {"legacy_low_order_v1", 1};
+    expect(!validate(operating_engine).ok(),
+           "operating-point profile accepted the legacy loss method");
+
+    InputBuilder resolved_builder;
+    auto resolved_operating_engine =
+        make_resolved_operating_engine(resolved_builder);
+    expect(validate(resolved_operating_engine, resolved_builder.provenance).ok(),
+           "valid resolved operating-point engine was rejected");
+
+    auto wrong_resolved_capability = resolved_operating_engine;
+    wrong_resolved_capability.torque_capability.value.instantaneous_net_shaft = {
+        Availability::available,
+        Completeness::complete,
+        known_torque_term_mask(),
+        0,
+    };
+    expect(!validate(wrong_resolved_capability, resolved_builder.provenance).ok(),
+           "operating profile accepted an instantaneous complete-net claim");
+
+    auto wrong_resolved_total = resolved_operating_engine;
+    wrong_resolved_total.total_displacement_m3.value =
+        std::nextafter(wrong_resolved_total.total_displacement_m3.value,
+                       std::numeric_limits<double>::infinity());
+    expect(!validate(wrong_resolved_total, resolved_builder.provenance).ok(),
+           "operating profile accepted a nonidentical stable displacement sum");
+
+    auto wrong_resolved_quadrature = resolved_operating_engine;
+    std::get<LowOrderOperatingPointV1Profile>(
+        wrong_resolved_quadrature.physics_profile)
+        .cycle_quadrature.value.id = "other-quadrature-v1";
+    expect(!validate(wrong_resolved_quadrature, resolved_builder.provenance).ok(),
+           "resolved operating profile accepted the wrong cycle quadrature");
+
+    auto shallow_relabelled = resolved_operating_engine;
+    const auto &core_field =
+        std::get<LowOrderOperatingPointV1Profile>(
+            shallow_relabelled.physics_profile)
+            .core.mechanism.crank.crankshaft_mass_kg;
+    auto shallow_provenance = resolved_builder.provenance;
+    const auto shallow_resolution = std::ranges::find(
+        shallow_provenance.resolutions, core_field.resolution_id,
+        &ResolutionRecord::id);
+    expect(shallow_resolution != shallow_provenance.resolutions.end(),
+           "operating core test resolution disappeared");
+    shallow_resolution->parameter_path =
+        "engine.physics.legacy-low-order-v1.mechanism.crank.crankshaft_mass_kg";
+    expect(!validate(shallow_relabelled, shallow_provenance).ok(),
+           "M3 resolution was shallow-relabelled as an operating profile");
+
+    auto mismatched_accessory_evidence = resolved_builder.provenance;
+    std::ranges::find(mismatched_accessory_evidence.evidence,
+                      std::string{"accessory-descriptor"},
+                      &EvidenceSource::id)
+        ->content_sha256 = digest(78);
+    expect(!validate(resolved_operating_engine, mismatched_accessory_evidence)
+                .ok(),
+           "resolved accessory digest without matching evidence was accepted");
+
     auto contradictory_engine = make_authored_engine();
     contradictory_engine.cylinders.front().bore_m->value += 0.001;
     expect(!validate(contradictory_engine).ok(),

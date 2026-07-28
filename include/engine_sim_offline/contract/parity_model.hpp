@@ -559,8 +559,89 @@ struct LegacyLowOrderV1Profile {
                            const LegacyLowOrderV1Profile &) = default;
 };
 
-using AuthoredExecutablePhysicsProfile = std::variant<AuthoredLegacyLowOrderV1Profile>;
-using ExecutablePhysicsProfile = std::variant<LegacyLowOrderV1Profile>;
+struct AuthoredChenFlynnCycleMeanAggregateLossV1 {
+    AuthoredValue<double> constant_fmep_bar;
+    AuthoredValue<double> peak_pressure_coefficient;
+    AuthoredValue<double> mean_piston_speed_coefficient_bar_s_per_m;
+    AuthoredValue<double> mean_piston_speed_squared_coefficient_bar_s2_per_m2;
+    AuthoredValue<double> required_oil_temperature_k;
+    AuthoredValue<TorqueTermMask> included_terms;
+
+    friend bool operator==(const AuthoredChenFlynnCycleMeanAggregateLossV1 &,
+                           const AuthoredChenFlynnCycleMeanAggregateLossV1 &) = default;
+};
+
+struct ChenFlynnCycleMeanAggregateLossV1 {
+    ResolvedValue<double> constant_fmep_bar;
+    ResolvedValue<double> peak_pressure_coefficient;
+    ResolvedValue<double> mean_piston_speed_coefficient_bar_s_per_m;
+    ResolvedValue<double> mean_piston_speed_squared_coefficient_bar_s2_per_m2;
+    ResolvedValue<double> required_oil_temperature_k;
+    ResolvedValue<TorqueTermMask> included_terms;
+
+    friend bool operator==(const ChenFlynnCycleMeanAggregateLossV1 &,
+                           const ChenFlynnCycleMeanAggregateLossV1 &) = default;
+};
+
+struct AuthoredAccessoryConfigurationIdentityV1 {
+    AuthoredValue<std::string> configuration_id;
+    AuthoredValue<Sha256Digest> content_sha256;
+
+    friend bool operator==(const AuthoredAccessoryConfigurationIdentityV1 &,
+                           const AuthoredAccessoryConfigurationIdentityV1 &) = default;
+};
+
+struct AccessoryConfigurationIdentityV1 {
+    ResolvedValue<std::string> configuration_id;
+    ResolvedValue<Sha256Digest> content_sha256;
+
+    friend bool operator==(const AccessoryConfigurationIdentityV1 &,
+                           const AccessoryConfigurationIdentityV1 &) = default;
+};
+
+struct AuthoredMechanicallyDisengagedStarterV1 {
+    AuthoredValue<bool> mechanically_disengaged;
+    AuthoredValue<TorqueTermMask> included_terms;
+
+    friend bool operator==(const AuthoredMechanicallyDisengagedStarterV1 &,
+                           const AuthoredMechanicallyDisengagedStarterV1 &) = default;
+};
+
+struct MechanicallyDisengagedStarterV1 {
+    ResolvedValue<bool> mechanically_disengaged;
+    ResolvedValue<TorqueTermMask> included_terms;
+
+    friend bool operator==(const MechanicallyDisengagedStarterV1 &,
+                           const MechanicallyDisengagedStarterV1 &) = default;
+};
+
+struct AuthoredLowOrderOperatingPointV1Profile {
+    AuthoredLowOrderEngineCoreV1 core;
+    AuthoredChenFlynnCycleMeanAggregateLossV1 aggregate_loss;
+    AuthoredAccessoryConfigurationIdentityV1 accessory_configuration;
+    AuthoredMechanicallyDisengagedStarterV1 starter;
+    AuthoredValue<MethodSelection> cycle_quadrature;
+
+    friend bool operator==(const AuthoredLowOrderOperatingPointV1Profile &,
+                           const AuthoredLowOrderOperatingPointV1Profile &) = default;
+};
+
+struct LowOrderOperatingPointV1Profile {
+    LowOrderEngineCoreV1 core;
+    ChenFlynnCycleMeanAggregateLossV1 aggregate_loss;
+    AccessoryConfigurationIdentityV1 accessory_configuration;
+    MechanicallyDisengagedStarterV1 starter;
+    ResolvedValue<MethodIdentity> cycle_quadrature;
+
+    friend bool operator==(const LowOrderOperatingPointV1Profile &,
+                           const LowOrderOperatingPointV1Profile &) = default;
+};
+
+using AuthoredExecutablePhysicsProfile =
+    std::variant<AuthoredLegacyLowOrderV1Profile,
+                 AuthoredLowOrderOperatingPointV1Profile>;
+using ExecutablePhysicsProfile =
+    std::variant<LegacyLowOrderV1Profile, LowOrderOperatingPointV1Profile>;
 
 [[nodiscard]] ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                                         const ProvenanceLedger &provenance);

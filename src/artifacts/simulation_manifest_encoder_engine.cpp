@@ -70,6 +70,11 @@ write_optional_resolved(CanonicalJsonWriter &writer,
     return writer.bool_value(value);
 }
 
+[[nodiscard]] bool write_sha256(CanonicalJsonWriter &writer,
+                                const contract::Sha256Digest &value) {
+    return writer.sha256_value(value);
+}
+
 [[nodiscard]] bool write_engine_cycle(CanonicalJsonWriter &writer,
                                       contract::EngineCycle value) {
     switch (value) {
@@ -360,8 +365,7 @@ write_legacy_cylinder_assembly(CanonicalJsonWriter &writer,
 }
 
 [[nodiscard]] bool write_legacy_crank(CanonicalJsonWriter &writer,
-                                      const contract::LegacyCrankAssembly &crank,
-                                      const contract::LegacyFixedCrankLossV1 &loss) {
+                                      const contract::LegacyCrankAssembly &crank) {
     return writer.begin_object() && writer.key("crank_tdc_reference_rad") &&
            write_resolved(writer, crank.crank_tdc_reference_rad, write_f64) &&
            writer.key("crankshaft_mass_kg") &&
@@ -370,18 +374,14 @@ write_legacy_cylinder_assembly(CanonicalJsonWriter &writer,
            write_resolved(writer, crank.flywheel_mass_kg, write_f64) &&
            writer.key("authored_crank_inertia_kg_m2") &&
            write_resolved(writer, crank.authored_crank_inertia_kg_m2, write_f64) &&
-           writer.key("fixed_crank_friction_magnitude_nm") &&
-           write_resolved(writer, loss.fixed_crank_friction_magnitude_nm, write_f64) &&
            writer.end_object();
 }
 
 [[nodiscard]] bool
 write_legacy_mechanism(CanonicalJsonWriter &writer,
-                       const contract::LegacyMechanismProfile &mechanism,
-                       const contract::LegacyFixedCrankLossV1 &loss) {
+                       const contract::LegacyMechanismProfile &mechanism) {
     return writer.begin_object() && writer.key("crank") &&
-           write_legacy_crank(writer, mechanism.crank, loss) &&
-           writer.key("cylinders") &&
+           write_legacy_crank(writer, mechanism.crank) && writer.key("cylinders") &&
            write_array(writer, mechanism.cylinders,
                        [](CanonicalJsonWriter &output,
                           const contract::LegacyCylinderAssembly &cylinder) {
@@ -686,13 +686,14 @@ write_legacy_combustion_stream(CanonicalJsonWriter &writer,
 }
 
 [[nodiscard]] bool
-write_legacy_losses(CanonicalJsonWriter &writer,
-                    const contract::LegacyFixedCrankLossV1 &losses) {
-    return writer.begin_object() && writer.key("included_terms") &&
-           write_resolved(writer, losses.included_terms, write_u64) &&
+write_legacy_fixed_crank_loss(CanonicalJsonWriter &writer,
+                              const contract::LegacyFixedCrankLossV1 &loss) {
+    return writer.begin_object() && writer.key("fixed_crank_friction_magnitude_nm") &&
+           write_resolved(writer, loss.fixed_crank_friction_magnitude_nm, write_f64) &&
+           writer.key("included_terms") &&
+           write_resolved(writer, loss.included_terms, write_u64) &&
            writer.key("omitted_terms") &&
-           write_resolved(writer, losses.omitted_terms, write_u64) &&
-           writer.end_object();
+           write_resolved(writer, loss.omitted_terms, write_u64) && writer.end_object();
 }
 
 [[nodiscard]] bool
@@ -778,80 +779,157 @@ write_legacy_excitation(CanonicalJsonWriter &writer,
 }
 
 [[nodiscard]] bool
-write_legacy_low_order_profile(CanonicalJsonWriter &writer,
-                               const contract::LegacyLowOrderV1Profile &profile) {
-    // Simulation-v4 predates the explicit core/loss composition. Flatten the typed
-    // M3 profile into that one historical shape; this is removed with v4 rather than
-    // retained as a compatibility representation.
-    const auto &core = profile.core;
-    const auto &loss = profile.fixed_crank_loss;
+write_low_order_engine_core(CanonicalJsonWriter &writer,
+                            const contract::LowOrderEngineCoreV1 &core) {
     return writer.begin_object() && writer.key("mechanism") &&
-           write_legacy_mechanism(writer, core.mechanism, loss) &&
-           writer.key("gas_path") && write_legacy_gas_path(writer, core.gas_path) &&
-           writer.key("valvetrain") &&
-           write_legacy_valvetrain(writer, core.valvetrain) &&
-           writer.key("ignition") && write_legacy_ignition(writer, core.ignition) &&
-           writer.key("fuel") && write_legacy_fuel(writer, core.fuel) &&
+           write_legacy_mechanism(writer, core.mechanism) && writer.key("gas_path") &&
+           write_legacy_gas_path(writer, core.gas_path) && writer.key("valvetrain") &&
+           write_legacy_valvetrain(writer, core.valvetrain) && writer.key("ignition") &&
+           write_legacy_ignition(writer, core.ignition) && writer.key("fuel") &&
+           write_legacy_fuel(writer, core.fuel) &&
            writer.key("combustion_random_streams") &&
            write_array(writer, core.combustion_random_streams,
                        [](CanonicalJsonWriter &output,
                           const contract::LegacyCombustionRandomStream &stream) {
                            return write_legacy_combustion_stream(output, stream);
                        }) &&
-           writer.key("losses") && write_legacy_losses(writer, loss) &&
            writer.key("excitation") &&
            write_legacy_excitation(writer, core.excitation) && writer.end_object();
 }
 
 [[nodiscard]] bool
-write_physics_profile(CanonicalJsonWriter &writer,
-                      const contract::ExecutablePhysicsProfile &profile) {
-    const auto *legacy = std::get_if<contract::LegacyLowOrderV1Profile>(&profile);
-    if (legacy == nullptr) {
-        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "physics-profile variant is valueless or unsupported");
-    }
+write_physics_profile_alternative(CanonicalJsonWriter &writer,
+                                  const contract::LegacyLowOrderV1Profile &profile) {
     return writer.begin_object() && writer.key("kind") &&
            writer.string_value("legacy_low_order_v1") && writer.key("value") &&
-           write_legacy_low_order_profile(writer, *legacy) && writer.end_object();
+           writer.begin_object() && writer.key("core") &&
+           write_low_order_engine_core(writer, profile.core) &&
+           writer.key("fixed_crank_loss") &&
+           write_legacy_fixed_crank_loss(writer, profile.fixed_crank_loss) &&
+           writer.end_object() && writer.end_object();
+}
+
+[[nodiscard]] bool write_chen_flynn_aggregate_loss(
+    CanonicalJsonWriter &writer,
+    const contract::ChenFlynnCycleMeanAggregateLossV1 &loss) {
+    return writer.begin_object() && writer.key("constant_fmep_bar") &&
+           write_resolved(writer, loss.constant_fmep_bar, write_f64) &&
+           writer.key("peak_pressure_coefficient") &&
+           write_resolved(writer, loss.peak_pressure_coefficient, write_f64) &&
+           writer.key("mean_piston_speed_coefficient_bar_s_per_m") &&
+           write_resolved(writer, loss.mean_piston_speed_coefficient_bar_s_per_m,
+                          write_f64) &&
+           writer.key("mean_piston_speed_squared_coefficient_bar_s2_per_m2") &&
+           write_resolved(writer,
+                          loss.mean_piston_speed_squared_coefficient_bar_s2_per_m2,
+                          write_f64) &&
+           writer.key("required_oil_temperature_k") &&
+           write_resolved(writer, loss.required_oil_temperature_k, write_f64) &&
+           writer.key("included_terms") &&
+           write_resolved(writer, loss.included_terms, write_u64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_accessory_configuration(
+    CanonicalJsonWriter &writer,
+    const contract::AccessoryConfigurationIdentityV1 &configuration) {
+    return writer.begin_object() && writer.key("configuration_id") &&
+           write_resolved(writer, configuration.configuration_id, write_string) &&
+           writer.key("content_sha256") &&
+           write_resolved(writer, configuration.content_sha256, write_sha256) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_mechanically_disengaged_starter(
+    CanonicalJsonWriter &writer,
+    const contract::MechanicallyDisengagedStarterV1 &starter) {
+    return writer.begin_object() && writer.key("mechanically_disengaged") &&
+           write_resolved(writer, starter.mechanically_disengaged, write_bool) &&
+           writer.key("included_terms") &&
+           write_resolved(writer, starter.included_terms, write_u64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_physics_profile_alternative(
+    CanonicalJsonWriter &writer,
+    const contract::LowOrderOperatingPointV1Profile &profile) {
+    return writer.begin_object() && writer.key("kind") &&
+           writer.string_value("low_order_operating_point_v1") && writer.key("value") &&
+           writer.begin_object() && writer.key("core") &&
+           write_low_order_engine_core(writer, profile.core) &&
+           writer.key("aggregate_loss") &&
+           write_chen_flynn_aggregate_loss(writer, profile.aggregate_loss) &&
+           writer.key("accessory_configuration") &&
+           write_accessory_configuration(writer, profile.accessory_configuration) &&
+           writer.key("starter") &&
+           write_mechanically_disengaged_starter(writer, profile.starter) &&
+           writer.key("cycle_quadrature") &&
+           write_resolved(writer, profile.cycle_quadrature, write_method_identity) &&
+           writer.end_object() && writer.end_object();
+}
+
+[[nodiscard]] bool
+write_physics_profile(CanonicalJsonWriter &writer,
+                      const contract::ExecutablePhysicsProfile &profile) {
+    if (profile.valueless_by_exception()) {
+        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                           "physics-profile variant is valueless");
+    }
+    return std::visit(
+        [&](const auto &typed_profile) {
+            return write_physics_profile_alternative(writer, typed_profile);
+        },
+        profile);
+}
+
+[[nodiscard]] bool write_availability(CanonicalJsonWriter &writer,
+                                      contract::Availability availability) {
+    switch (availability) {
+    case contract::Availability::available:
+        return writer.string_value("available");
+    case contract::Availability::unavailable:
+        return writer.string_value("unavailable");
+    }
+    return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                       "torque availability is unknown");
+}
+
+[[nodiscard]] bool write_completeness(CanonicalJsonWriter &writer,
+                                      contract::Completeness completeness) {
+    switch (completeness) {
+    case contract::Completeness::complete:
+        return writer.string_value("complete");
+    case contract::Completeness::incomplete:
+        return writer.string_value("incomplete");
+    }
+    return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                       "torque completeness is unknown");
+}
+
+[[nodiscard]] bool
+write_net_torque_form_capability(CanonicalJsonWriter &writer,
+                                 const contract::NetTorqueFormCapability &capability) {
+    return writer.begin_object() && writer.key("availability") &&
+           write_availability(writer, capability.availability) &&
+           writer.key("completeness") &&
+           write_completeness(writer, capability.completeness) &&
+           writer.key("included_terms") &&
+           writer.uint64_hex_value(capability.included_terms) &&
+           writer.key("omitted_terms") &&
+           writer.uint64_hex_value(capability.omitted_terms) && writer.end_object();
 }
 
 [[nodiscard]] bool
 write_torque_capability(CanonicalJsonWriter &writer,
                         const contract::TorqueCapability &capability) {
-    const auto &instantaneous = capability.instantaneous_net_shaft;
-    const auto &cycle_mean = capability.cycle_mean_net_shaft;
-    const bool instantaneous_representable =
-        instantaneous.availability == contract::Availability::available &&
-        contract::validate(instantaneous).ok();
-    const bool cycle_mean_representable =
-        contract::validate(cycle_mean).ok() &&
-        (cycle_mean.availability == contract::Availability::unavailable ||
-         (cycle_mean.availability == contract::Availability::available &&
-          cycle_mean.completeness == instantaneous.completeness &&
-          cycle_mean.included_terms == instantaneous.included_terms &&
-          cycle_mean.omitted_terms == instantaneous.omitted_terms));
-    if (!instantaneous_representable || !cycle_mean_representable) {
-        return writer.fail(
-            CanonicalJsonWriter::Error::unsupported_value,
-            "temporal net-torque capability has no lossless simulation-v4 "
-            "projection");
-    }
-
-    const bool physical_net_complete =
-        instantaneous.completeness == contract::Completeness::complete;
-    const bool cycle_integration_available =
-        cycle_mean.availability == contract::Availability::available;
-    return writer.begin_object() && writer.key("physical_net_complete") &&
-           writer.bool_value(physical_net_complete) &&
-           writer.key("cycle_integration_available") &&
-           writer.bool_value(cycle_integration_available) &&
+    return writer.begin_object() && writer.key("instantaneous_net_shaft") &&
+           write_net_torque_form_capability(writer,
+                                            capability.instantaneous_net_shaft) &&
+           writer.key("cycle_mean_net_shaft") &&
+           write_net_torque_form_capability(writer, capability.cycle_mean_net_shaft) &&
            writer.key("equivalent_inertia_available") &&
            writer.bool_value(capability.equivalent_inertia_available) &&
-           writer.key("included_terms") &&
-           writer.uint64_hex_value(instantaneous.included_terms) &&
-           writer.key("omitted_terms") &&
-           writer.uint64_hex_value(instantaneous.omitted_terms) && writer.end_object();
+           writer.end_object();
 }
 
 } // namespace

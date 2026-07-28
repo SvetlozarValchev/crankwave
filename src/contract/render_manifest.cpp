@@ -438,8 +438,8 @@ ValidationReport validate(const RenderManifestContent &content,
                     "admission");
     const auto input_view = make_input_view(content.inputs);
 
-    require(report, content.schema_version == 4, ContractIssueCode::unsupported_value,
-            "schema_version", "render-manifest schema must be version 4");
+    require(report, content.schema_version == 5, ContractIssueCode::unsupported_value,
+            "schema_version", "render-manifest schema must be version 5");
     require(report, content.rates == input_view.rates,
             ContractIssueCode::inconsistent_semantics, "rates",
             "manifest rates must equal the selected input rates");

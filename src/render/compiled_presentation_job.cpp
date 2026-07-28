@@ -106,6 +106,14 @@ compile_presentation_job(const RenderSpecification &specification,
     auto request = make_render_request_record(specification, scenario);
     const auto &inputs = request.resolved_inputs;
 
+    if (!std::holds_alternative<contract::LegacyLowOrderV1Profile>(
+            inputs.engine.physics_profile)) {
+        return compiler_failure(
+            std::move(request), contract::FailureKind::incomplete_source_route,
+            "simulation-profile-not-admitted",
+            "the resolved engine profile has no complete capture producer");
+    }
+
     // Admit and retain the numeric identity before any IR conversion, FFT
     // construction, or simulation compilation can perform floating-point work.
     // Source/runtime identity remains below so a structurally unsupported pipeline
@@ -327,7 +335,7 @@ compile_presentation_job(const RenderSpecification &specification,
     }
 
     contract::RenderManifestContent manifest_basis;
-    manifest_basis.schema_version = 4;
+    manifest_basis.schema_version = 5;
     manifest_basis.inputs = contract::SimulationManifestInputs{inputs};
     manifest_basis.provenance = request.provenance.bundle;
     manifest_basis.determinism = determinism.manifest_identity();

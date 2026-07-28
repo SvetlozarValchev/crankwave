@@ -8,24 +8,24 @@
 ; from the complete owned binary64 vector using the typed contract's canonical
 ; little-endian grammar.
 
-render-manifest-simulation-v4 = {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v4",
-  "content": render-manifest-content-simulation-v4,
+render-manifest-simulation-v5 = {
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v5",
+  "content": render-manifest-content-simulation-v5,
   "execution": execution-facts
 }
 
 ; Canonical identity for a resolved simulator request before presentation/render
 ; composition. This domain is intentionally distinct from the completed manifest.
-simulation-request-identity-v1 = {
-  "wire_schema": "engine-sim-offline.simulation-request-identity.v1",
+simulation-request-identity-v2 = {
+  "wire_schema": "engine-sim-offline.simulation-request-identity.v2",
   "engine": engine-spec,
   "scenario": render-scenario,
   "provenance": provenance-bundle-ref
 }
 
-render-manifest-content-simulation-v4 = {
-  "schema_version": 4,
-  "inputs": simulation-manifest-inputs-v3,
+render-manifest-content-simulation-v5 = {
+  "schema_version": 5,
+  "inputs": simulation-manifest-inputs-v4,
   "provenance": provenance-bundle-ref,
   "determinism": determinism-envelope,
   "rates": render-rates,
@@ -36,12 +36,12 @@ render-manifest-content-simulation-v4 = {
   "artifacts": [* artifact-record]
 }
 
-simulation-manifest-inputs-v3 = {
-  "kind": "simulation_v3",
-  "value": simulation-inputs-v3
+simulation-manifest-inputs-v4 = {
+  "kind": "simulation_v4",
+  "value": simulation-inputs-v4
 }
 
-simulation-inputs-v3 = {
+simulation-inputs-v4 = {
   "resolved": resolved-render-inputs
 }
 
@@ -137,21 +137,62 @@ engine-model-methods = {
   "excitation": resolved<method-identity>
 }
 
-; M3 freezes only the concrete executable profile consumed by the BMW request.
-executable-physics-profile = {
-  "kind": "legacy_low_order_v1",
-  "value": legacy-low-order-v1-profile
-}
+executable-physics-profile =
+  {
+    "kind": "legacy_low_order_v1",
+    "value": legacy-low-order-v1-profile
+  } /
+  {
+    "kind": "low_order_operating_point_v1",
+    "value": low-order-operating-point-v1-profile
+  }
 
 legacy-low-order-v1-profile = {
+  "core": low-order-engine-core-v1,
+  "fixed_crank_loss": legacy-fixed-crank-loss-v1
+}
+
+low-order-operating-point-v1-profile = {
+  "core": low-order-engine-core-v1,
+  "aggregate_loss": chen-flynn-cycle-mean-aggregate-loss-v1,
+  "accessory_configuration": accessory-configuration-identity-v1,
+  "starter": mechanically-disengaged-starter-v1,
+  "cycle_quadrature": resolved<method-identity>
+}
+
+low-order-engine-core-v1 = {
   "mechanism": legacy-mechanism-profile,
   "gas_path": legacy-gas-path-profile,
   "valvetrain": legacy-valvetrain-profile,
   "ignition": legacy-ignition-profile,
   "fuel": legacy-fuel-profile,
   "combustion_random_streams": [* legacy-combustion-random-stream],
-  "losses": legacy-loss-profile,
   "excitation": legacy-reference-excitation-profile
+}
+
+legacy-fixed-crank-loss-v1 = {
+  "fixed_crank_friction_magnitude_nm": resolved<f64-bits>,
+  "included_terms": resolved<torque-term-mask>,
+  "omitted_terms": resolved<torque-term-mask>
+}
+
+chen-flynn-cycle-mean-aggregate-loss-v1 = {
+  "constant_fmep_bar": resolved<f64-bits>,
+  "peak_pressure_coefficient": resolved<f64-bits>,
+  "mean_piston_speed_coefficient_bar_s_per_m": resolved<f64-bits>,
+  "mean_piston_speed_squared_coefficient_bar_s2_per_m2": resolved<f64-bits>,
+  "required_oil_temperature_k": resolved<f64-bits>,
+  "included_terms": resolved<torque-term-mask>
+}
+
+accessory-configuration-identity-v1 = {
+  "configuration_id": resolved<tstr>,
+  "content_sha256": resolved<sha256>
+}
+
+mechanically-disengaged-starter-v1 = {
+  "mechanically_disengaged": resolved<bool>,
+  "included_terms": resolved<torque-term-mask>
 }
 
 legacy-mechanism-profile = {
@@ -163,8 +204,7 @@ legacy-crank-assembly = {
   "crank_tdc_reference_rad": resolved<f64-bits>,
   "crankshaft_mass_kg": resolved<f64-bits>,
   "flywheel_mass_kg": resolved<f64-bits>,
-  "authored_crank_inertia_kg_m2": resolved<f64-bits>,
-  "fixed_crank_friction_magnitude_nm": resolved<f64-bits>
+  "authored_crank_inertia_kg_m2": resolved<f64-bits>
 }
 
 legacy-cylinder-assembly = {
@@ -343,11 +383,6 @@ legacy-combustion-random-stream = {
   "pcg32_stream": resolved<u64-hex>
 }
 
-legacy-loss-profile = {
-  "included_terms": resolved<torque-term-mask>,
-  "omitted_terms": resolved<torque-term-mask>
-}
-
 legacy-reference-excitation-profile = {
   "reference_atmosphere_pa_abs": resolved<f64-bits>,
   "legacy_propagation_speed_m_s": resolved<f64-bits>,
@@ -384,9 +419,14 @@ legacy-excitation-route = {
 }
 
 torque-capability = {
-  "physical_net_complete": bool,
-  "cycle_integration_available": bool,
-  "equivalent_inertia_available": bool,
+  "instantaneous_net_shaft": net-torque-form-capability,
+  "cycle_mean_net_shaft": net-torque-form-capability,
+  "equivalent_inertia_available": bool
+}
+
+net-torque-form-capability = {
+  "availability": availability,
+  "completeness": completeness,
   "included_terms": torque-term-mask,
   "omitted_terms": torque-term-mask
 }
@@ -516,6 +556,7 @@ fixed-settling = {
 }
 
 convergence-settling = {
+  "method": resolved<method-identity>,
   "minimum_warm_up_duration_s": resolved<f64-bits>,
   "minimum_settling_duration_s": resolved<f64-bits>,
   "maximum_preparation_duration_s": resolved<f64-bits>,
@@ -802,6 +843,8 @@ u32 = 0..4294967295
 sha256 = tstr .regexp "[0-9a-f]{64}"
 u64-hex = tstr .regexp "0x[0-9a-f]{16}"
 torque-term-mask = u64-hex
+availability = "available" / "unavailable"
+completeness = "complete" / "incomplete"
 f64-bits = tstr .regexp "0x[0-9a-f]{16}"
 i64-nanoseconds = tstr .regexp "(0|-?[1-9][0-9]*)"
 

@@ -121,6 +121,7 @@ struct FixedSettling {
 };
 
 struct ConvergenceSettling {
+    ResolvedValue<MethodIdentity> method;
     ResolvedValue<double> minimum_warm_up_duration_s;
     ResolvedValue<double> minimum_settling_duration_s;
     ResolvedValue<double> maximum_preparation_duration_s;

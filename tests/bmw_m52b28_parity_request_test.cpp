@@ -28,7 +28,7 @@ constexpr contract::Sha256Digest kExpectedComponentSeedSha256{{
 }};
 
 constexpr std::string_view kExpectedRequestIdentitySha256 =
-    "f6f0ffc8d32167a52785003d9fb4568b32cc23adfc8e1ca4e7263210701f5aa4";
+    "f8f5a3f93e76c5d9ed9ba988eb504288fffb13c701890ebe3b0ff8915ad2b9a2";
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -98,7 +98,7 @@ fixed_rpm(const profiles::BmwM52b28ParityRequest &request) {
 
 [[nodiscard]] artifacts::SimulationRequestIdentityEncoding
 encode_request_identity(const profiles::BmwM52b28ParityRequest &request) {
-    auto result = artifacts::encode_simulation_request_identity_v1(
+    auto result = artifacts::encode_simulation_request_identity_v2(
         request.engine, request.scenario, request.provenance.bundle);
     const auto *encoding =
         std::get_if<artifacts::SimulationRequestIdentityEncoding>(&result);
@@ -122,7 +122,7 @@ void test_exact_request_identity(const profiles::BmwM52b28ParityRequest &request
 
     const auto document = as_string(first.bytes);
     constexpr std::string_view kPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v1\","
+        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v2\","
         "\"engine\":";
     expect(document.starts_with(kPrefix),
            "BMW request identity root or canonical member order changed");
@@ -130,6 +130,18 @@ void test_exact_request_identity(const profiles::BmwM52b28ParityRequest &request
            "BMW request identity does not have exactly one terminal LF");
     expect(std::count(document.begin(), document.end(), '\n') == 1,
            "BMW request identity contains non-terminal whitespace");
+    const auto profile =
+        document.find("\"physics_profile\":{\"kind\":\"legacy_low_order_v1\","
+                      "\"value\":{\"core\":");
+    const auto fixed_crank_loss =
+        document.find("\"fixed_crank_loss\":{", profile);
+    const auto torque_capability =
+        document.find("\"torque_capability\":", fixed_crank_loss);
+    expect(profile != std::string::npos &&
+               fixed_crank_loss != std::string::npos &&
+               torque_capability != std::string::npos &&
+               profile < fixed_crank_loss && fixed_crank_loss < torque_capability,
+           "BMW request identity did not encode the direct M3 core/loss form");
     expect(document.size() < 128U * 1024U,
            "BMW request identity unexpectedly expanded the owned RPM lane");
     expect(document.find("\"sample_count\":\"0x0000000000029810\"") !=

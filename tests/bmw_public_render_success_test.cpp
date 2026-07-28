@@ -5,6 +5,7 @@
 #include "reference/p18_reference_catalog.hpp"
 #include "reference/p18_reference_fixture_loader.hpp"
 #include "reference/reference_parity_v1_reader.hpp"
+#include "render/compiled_presentation_job.hpp"
 
 #include <algorithm>
 #include <array>
@@ -685,7 +686,7 @@ void expect_exact_manifest(const contract::RenderSuccess &success,
                            const P18ReferenceCatalogV1 &catalog) {
     const auto &manifest = success.manifest;
     const auto &content = manifest.content;
-    expect(content.schema_version == 4, "success manifest schema changed");
+    expect(content.schema_version == 5, "success manifest schema changed");
     expect(content.inputs.resolved ==
                contract::ResolvedRenderInputs{
                    specification.engine,
@@ -830,6 +831,39 @@ void expect_exact_audio(const VerifyingMemorySink &sink,
            "public BMW audition INFO metadata is not exact job-owned evidence");
 }
 
+void expect_operating_profile_rejected_before_presentation(
+    const RenderSpecification &specification,
+    const contract::RenderScenario &scenario) {
+    auto unsupported = specification;
+    const auto &legacy =
+        std::get<contract::LegacyLowOrderV1Profile>(
+            unsupported.engine.physics_profile);
+    contract::LowOrderOperatingPointV1Profile operating;
+    operating.core = legacy.core;
+    unsupported.engine.physics_profile = std::move(operating);
+
+    // Request-record construction deliberately hashes opaque payload bytes so every
+    // failure retains the exact request identity. This valid, nonempty but unmatched
+    // payload would fail later asset lookup; the profile gate must win before numeric
+    // admission, asset lookup/conversion, kernel construction, or simulation.
+    expect(!unsupported.asset_payloads.empty(),
+           "operating-profile precedence test lost its asset payload");
+    unsupported.asset_payloads.front().id = contract::AudioAssetId{999};
+    auto compiled =
+        render_detail::compile_presentation_job(unsupported, scenario);
+    const auto *failure = std::get_if<contract::RenderFailure>(&compiled);
+    expect(failure != nullptr &&
+               failure->context.kind ==
+                   contract::FailureKind::incomplete_source_route &&
+               failure->context.detail_code == "simulation-profile-not-admitted" &&
+               !failure->request.asset_payloads.empty() &&
+               failure->request.asset_payloads.front().id ==
+                   contract::AudioAssetId{999} &&
+               std::holds_alternative<contract::LowOrderOperatingPointV1Profile>(
+                   failure->request.resolved_inputs.engine.physics_profile),
+           "operating profile reached presentation work without a capture producer");
+}
+
 void run(const std::filesystem::path &fixture_root,
          const std::filesystem::path &oracle_wave_path) {
     const auto started = std::chrono::steady_clock::now();
@@ -867,6 +901,8 @@ void run(const std::filesystem::path &fixture_root,
                contract::sha256(specification.asset_payloads.front().bytes) ==
                    verified_ir_sha256,
            "render specification is not based on the exact public BMW request and IR");
+    expect_operating_profile_rejected_before_presentation(specification,
+                                                          request.scenario);
     expect_valid(contract::validate_render_admission(
                      specification.engine, specification.presentation,
                      specification.randomness, request.scenario,

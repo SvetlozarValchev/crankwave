@@ -131,6 +131,18 @@ void require_authored_legacy_low_order_method(
         "low-order core requires legacy_low_order_v1 version 1");
 }
 
+void require_authored_chen_flynn_aggregate_loss_method(
+    ValidationReport &report, const AuthoredValue<MethodSelection> &method,
+    std::string_view path) {
+    detail::require(
+        report,
+        method.value.id == "chen-flynn-cycle-mean-aggregate-loss-v1" &&
+            method.value.version == 1,
+        ContractIssueCode::unsupported_value, std::string(path) + ".value",
+        "operating-point loss accounting requires "
+        "chen-flynn-cycle-mean-aggregate-loss-v1 version 1");
+}
+
 void validate_authored_low_order_core_method_policy(
     ValidationReport &report, const AuthoredModelMethods &methods) {
     require_authored_legacy_low_order_method(report, methods.mechanism,
@@ -155,6 +167,14 @@ void validate_authored_profile_method_policy(ValidationReport &report,
     validate_authored_low_order_core_method_policy(report, methods);
     require_authored_legacy_low_order_method(report, methods.losses,
                                              "engine.methods.losses");
+}
+
+void validate_authored_profile_method_policy(
+    ValidationReport &report, const AuthoredModelMethods &methods,
+    const AuthoredLowOrderOperatingPointV1Profile &) {
+    validate_authored_low_order_core_method_policy(report, methods);
+    require_authored_chen_flynn_aggregate_loss_method(report, methods.losses,
+                                                     "engine.methods.losses");
 }
 
 template <class Id, class ParentFunction>

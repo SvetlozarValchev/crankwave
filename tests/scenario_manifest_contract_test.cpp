@@ -233,6 +233,34 @@ void run_scenario_manifest_contract_tests() {
                          "physics.preparation"),
            "convergence frame bounds accepted a maximum below their minimum");
 
+    InputBuilder convergence_builder;
+    auto convergence_content = make_manifest_content(convergence_builder);
+    auto convergence_scenario = simulation_inputs(convergence_content).scenario;
+    convergence_scenario.preparation = ConvergenceSettling{
+        convergence_builder.resolved(
+            method("adjacent-nonoverlapping-cycle-block-mean-v1", 71),
+            "scenario.preparation.method"),
+        convergence_builder.resolved(
+            0.5, "scenario.preparation.minimum_warm_up_duration_s"),
+        convergence_builder.resolved(
+            0.5, "scenario.preparation.minimum_settling_duration_s"),
+        convergence_builder.resolved(
+            2.0, "scenario.preparation.maximum_preparation_duration_s"),
+        convergence_builder.resolved<std::uint32_t>(
+            2, "scenario.preparation.comparison_cycle_count"),
+        convergence_builder.resolved(
+            0.5, "scenario.preparation.cycle_mean_torque_tolerance_nm"),
+        convergence_builder.resolved(
+            100.0, "scenario.preparation.pressure_tolerance_pa"),
+    };
+    expect(validate(convergence_scenario, convergence_builder.provenance).ok(),
+           "valid identified convergence preparation was rejected");
+    auto wrong_convergence_method = convergence_scenario;
+    std::get<ConvergenceSettling>(wrong_convergence_method.preparation)
+        .method.value.id = "other-convergence-v1";
+    expect(!validate(wrong_convergence_method, convergence_builder.provenance).ok(),
+           "unimplemented convergence method was accepted");
+
     expect(validate_for_engine(simulation_inputs(content).scenario,
                                simulation_inputs(content).engine)
                .ok(),
@@ -242,11 +270,79 @@ void run_scenario_manifest_contract_tests() {
     expect(!validate_for_engine(wrong_fuel_scenario, simulation_inputs(content).engine)
                 .ok(),
            "scenario fuel was allowed to contradict executable engine fuel");
+
+    auto operating_engine = simulation_inputs(content).engine;
+    auto legacy_profile =
+        std::get<LegacyLowOrderV1Profile>(operating_engine.physics_profile);
+    LowOrderOperatingPointV1Profile operating_profile;
+    operating_profile.core = std::move(legacy_profile.core);
+    operating_profile.aggregate_loss.required_oil_temperature_k.value = 370.0;
+    operating_engine.physics_profile = std::move(operating_profile);
+    operating_engine.torque_capability.value = {
+        {
+            Availability::unavailable,
+            Completeness::incomplete,
+            0,
+            0,
+        },
+        {
+            Availability::available,
+            Completeness::complete,
+            known_torque_term_mask(),
+            0,
+        },
+        false,
+    };
+    auto operating_scenario = convergence_scenario;
+    operating_scenario.mode = HeldSpeed{
+        {3000.0, {}},
+        {0.0, {}},
+        {0.85, {}},
+    };
+    operating_scenario.operating_state.value = {
+        {
+            "fired",
+            0.0,
+            OperatingState{true, true, false, true, false},
+        },
+    };
+    expect(validate_for_engine(operating_scenario, operating_engine).ok(),
+           "valid operating-profile held-speed scenario was rejected");
+
+    auto wrong_operating_mode = operating_scenario;
+    wrong_operating_mode.mode = simulation_inputs(content).scenario.mode;
+    expect(!validate_for_engine(wrong_operating_mode, operating_engine).ok(),
+           "operating profile accepted a prescribed sweep");
+    auto fixed_operating_preparation = operating_scenario;
+    fixed_operating_preparation.preparation =
+        simulation_inputs(content).scenario.preparation;
+    expect(!validate_for_engine(fixed_operating_preparation, operating_engine).ok(),
+           "operating profile accepted fixed preparation");
+    auto wrong_operating_oil = operating_scenario;
+    wrong_operating_oil.initial_thermal_state.oil_temperature_k.value =
+        std::nextafter(370.0, 371.0);
+    expect(!validate_for_engine(wrong_operating_oil, operating_engine).ok(),
+           "operating profile accepted a nonidentical oil condition");
+    auto engaged_operating_starter = operating_scenario;
+    engaged_operating_starter.operating_state.value.front().state.starter_enabled =
+        true;
+    expect(!validate_for_engine(engaged_operating_starter, operating_engine).ok(),
+           "operating profile accepted an enabled starter");
+    auto active_operating_limiter = operating_scenario;
+    active_operating_limiter.operating_state.value.front().state.limiter_enabled =
+        true;
+    expect(!validate_for_engine(active_operating_limiter, operating_engine).ok(),
+           "operating profile accepted an enabled limiter");
+    auto missing_operating_state = operating_scenario;
+    missing_operating_state.operating_state.value.clear();
+    expect(!validate_for_engine(missing_operating_state, operating_engine).ok(),
+           "operating profile accepted an empty operating-state journal");
+
     expect(validate(content, builder.provenance, source_matrix).ok(),
            "valid render manifest content was rejected");
 
     ValidationReport report;
-    for (const auto schema_version : {UINT32_C(3), UINT32_C(5)}) {
+    for (const auto schema_version : {UINT32_C(3), UINT32_C(4)}) {
         auto unsupported_manifest_schema = content;
         unsupported_manifest_schema.schema_version = schema_version;
         report =

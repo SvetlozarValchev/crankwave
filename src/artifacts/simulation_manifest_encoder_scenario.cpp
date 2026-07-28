@@ -239,7 +239,9 @@ write_rpm_trajectory_value(CanonicalJsonWriter &writer,
 [[nodiscard]] bool
 write_convergence_settling(CanonicalJsonWriter &writer,
                            const contract::ConvergenceSettling &settling) {
-    return writer.begin_object() && writer.key("minimum_warm_up_duration_s") &&
+    return writer.begin_object() && writer.key("method") &&
+           write_resolved(writer, settling.method, write_method_identity) &&
+           writer.key("minimum_warm_up_duration_s") &&
            write_resolved(writer, settling.minimum_warm_up_duration_s, write_f64) &&
            writer.key("minimum_settling_duration_s") &&
            write_resolved(writer, settling.minimum_settling_duration_s, write_f64) &&

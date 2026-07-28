@@ -127,6 +127,21 @@ void run_randomness_contract_tests() {
             },
         "canonical provisioned component inventory, order, or seed values changed");
 
+    auto operating_inputs = content.inputs.resolved;
+    auto legacy_for_operating =
+        std::get<LegacyLowOrderV1Profile>(
+            operating_inputs.engine.physics_profile);
+    LowOrderOperatingPointV1Profile operating_profile;
+    operating_profile.core = std::move(legacy_for_operating.core);
+    operating_inputs.engine.physics_profile = std::move(operating_profile);
+    const auto operating_random_plan =
+        require_random_plan(operating_inputs.randomness, operating_inputs.engine,
+                            operating_inputs.presentation,
+                            operating_inputs.scenario);
+    expect(operating_random_plan.component_seeds ==
+               content.randomness.component_seeds,
+           "operating-profile alternative changed shared-core random ownership");
+
     auto multi_owner_inputs = content.inputs.resolved;
     auto &multi_owner_profile =
         std::get<LegacyLowOrderV1Profile>(multi_owner_inputs.engine.physics_profile);

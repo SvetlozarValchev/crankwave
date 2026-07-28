@@ -22,10 +22,14 @@ using namespace engine_sim_offline::artifacts;
 using namespace engine_sim_offline::contract;
 using namespace engine_sim_offline::contract::test;
 
-constexpr std::string_view kExpectedManifestSha256 =
-    "82e8c5fe2d3373da61af4a01ca8ee166fcb9378baeae6b8c3ecdc94a3d6110fb";
-constexpr std::string_view kExpectedRequestIdentitySha256 =
-    "7f0bf33f602a6df9af4130ec6aa41d84ed870e549da5723b6355768873ae21bb";
+constexpr std::string_view kExpectedM3ManifestSha256 =
+    "0e4cbb48c58ef148d8f8e8ca3b63b0729cd403775bb7151beba0f9bfa565a713";
+constexpr std::string_view kExpectedM3RequestIdentitySha256 =
+    "cf0c280b746d29fead0d7aaacfb8553dc77562089a49aa8e20313462b9556876";
+constexpr std::string_view kExpectedM4ManifestSha256 =
+    "cb0903a119256755260a49b301d6ad9a3ec6155d8096d41a7fbdb09675e8c868";
+constexpr std::string_view kExpectedM4RequestIdentitySha256 =
+    "729076281a3b1782a3a04e63e0f56f8b8f716798a4643e05478075dd8268d525";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -60,7 +64,7 @@ void require_valid(const ValidationReport &report, std::string_view message) {
 
 [[nodiscard]] ExecutionFacts deterministic_execution() {
     return {
-        "simulation-manifest-encoder-test-v4",
+        "simulation-manifest-encoder-test-v5",
         "2026-07-28T12:34:56Z",
         std::chrono::nanoseconds{UINT64_C(1234567890)},
         "linux",
@@ -83,7 +87,7 @@ struct SimulationFixture {
 
 [[nodiscard]] std::vector<std::byte>
 require_manifest_encoding(const RenderManifest &manifest) {
-    auto result = encode_simulation_manifest_v4(manifest);
+    auto result = encode_simulation_manifest_v5(manifest);
     if (const auto *error = std::get_if<RenderSinkError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
     }
@@ -94,7 +98,7 @@ require_manifest_encoding(const RenderManifest &manifest) {
 require_request_identity_encoding(const EngineSpec &engine,
                                   const RenderScenario &scenario,
                                   const ProvenanceBundleRef &provenance) {
-    auto result = encode_simulation_request_identity_v1(engine, scenario, provenance);
+    auto result = encode_simulation_request_identity_v2(engine, scenario, provenance);
     if (const auto *error = std::get_if<RenderSinkError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
     }
@@ -103,7 +107,7 @@ require_request_identity_encoding(const EngineSpec &engine,
 
 void expect_manifest_error(const RenderManifest &manifest,
                            std::string_view detail_code) {
-    const auto result = encode_simulation_manifest_v4(manifest);
+    const auto result = encode_simulation_manifest_v5(manifest);
     const auto *error = std::get_if<RenderSinkError>(&result);
     expect(error != nullptr, "invalid simulation manifest unexpectedly encoded");
     expect(error->kind == RenderSinkErrorKind::protocol_violation,
@@ -117,7 +121,7 @@ void expect_request_identity_error(const EngineSpec &engine,
                                    const ProvenanceBundleRef &provenance,
                                    std::string_view detail_code) {
     const auto result =
-        encode_simulation_request_identity_v1(engine, scenario, provenance);
+        encode_simulation_request_identity_v2(engine, scenario, provenance);
     const auto *error = std::get_if<RenderSinkError>(&result);
     expect(error != nullptr,
            "invalid simulation request identity unexpectedly encoded");
@@ -145,8 +149,8 @@ struct GoldenHashes {
 
     const auto manifest_document = as_string(first_manifest);
     constexpr std::string_view kManifestPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v4\","
-        "\"content\":{\"schema_version\":4,\"inputs\":{\"kind\":\"simulation_v3\","
+        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v5\","
+        "\"content\":{\"schema_version\":5,\"inputs\":{\"kind\":\"simulation_v4\","
         "\"value\":{\"resolved\":{\"engine\":";
     expect(manifest_document.starts_with(kManifestPrefix),
            "simulation manifest root, discriminator, or member order changed");
@@ -175,7 +179,42 @@ struct GoldenHashes {
                std::string::npos,
            "presentation-calibration v2 was not emitted");
     expect(manifest_document.find("\"algorithm_record\":") == std::string::npos,
-           "retired presentation algorithm record leaked into manifest v4");
+           "retired presentation algorithm record leaked into manifest v5");
+
+    constexpr std::string_view kM3ProfilePrefix =
+        "\"physics_profile\":{\"kind\":\"legacy_low_order_v1\",\"value\":{"
+        "\"core\":{\"mechanism\":{\"crank\":{\"crank_tdc_reference_rad\":";
+    const auto m3_profile = manifest_document.find(kM3ProfilePrefix);
+    const auto fixed_crank_loss =
+        manifest_document.find("\"fixed_crank_loss\":{", m3_profile);
+    const auto torque_capability =
+        manifest_document.find("\"torque_capability\":", m3_profile);
+    expect(m3_profile != std::string::npos && fixed_crank_loss != std::string::npos &&
+               torque_capability != std::string::npos &&
+               fixed_crank_loss < torque_capability,
+           "M3 profile was flattened or its direct core/loss order changed");
+    expect(manifest_document.find(
+               "\"fixed_crank_loss\":{\"fixed_crank_friction_magnitude_nm\":") !=
+               std::string::npos,
+           "M3 fixed crank loss was omitted or renamed");
+    expect(manifest_document.find("\"instantaneous_net_shaft\":{"
+                                  "\"availability\":\"available\","
+                                  "\"completeness\":\"incomplete\","
+                                  "\"included_terms\":\"0x0000000000000003\","
+                                  "\"omitted_terms\":\"0x00000000000000fc\"}") !=
+               std::string::npos,
+           "M3 instantaneous torque capability was projected or reordered");
+    expect(manifest_document.find("\"cycle_mean_net_shaft\":{"
+                                  "\"availability\":\"unavailable\","
+                                  "\"completeness\":\"incomplete\","
+                                  "\"included_terms\":\"0x0000000000000000\","
+                                  "\"omitted_terms\":\"0x0000000000000000\"}") !=
+               std::string::npos,
+           "M3 cycle-mean torque capability was projected or reordered");
+    expect(manifest_document.find("\"physical_net_complete\":") == std::string::npos &&
+               manifest_document.find("\"cycle_integration_available\":") ==
+                   std::string::npos,
+           "retired v4 torque projection leaked into manifest v5");
 
     const auto &resolved = simulation_inputs(fixture.manifest.content);
     const auto first_identity = require_request_identity_encoding(
@@ -189,7 +228,7 @@ struct GoldenHashes {
 
     const auto identity_document = as_string(first_identity.bytes);
     constexpr std::string_view kIdentityPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v1\","
+        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v2\","
         "\"engine\":";
     expect(identity_document.starts_with(kIdentityPrefix),
            "request identity root or member order changed");
@@ -214,7 +253,7 @@ struct GoldenHashes {
 void test_fail_closed_boundaries() {
     SimulationFixture fixture;
 
-    for (const auto schema_version : {UINT32_C(3), UINT32_C(5)}) {
+    for (const auto schema_version : {UINT32_C(4), UINT32_C(6)}) {
         auto unsupported_schema = fixture.manifest;
         unsupported_schema.content.schema_version = schema_version;
         expect_manifest_error(unsupported_schema,
@@ -237,14 +276,17 @@ void test_fail_closed_boundaries() {
     simulation_inputs(nonfinite.content).presentation.conditioning.jitter_scale.value =
         std::numeric_limits<double>::infinity();
     expect_manifest_error(nonfinite, "simulation-manifest-wire-nonfinite");
+}
 
+void test_temporally_distinct_torque_capability() {
+    SimulationFixture fixture;
     auto temporally_distinct_torque = fixture.manifest;
     simulation_inputs(temporally_distinct_torque.content)
         .engine.torque_capability.value.instantaneous_net_shaft = {
-        Availability::available,
+        Availability::unavailable,
         Completeness::incomplete,
-        indicated_gas_torque_term_mask(),
-        known_torque_term_mask() & ~indicated_gas_torque_term_mask(),
+        0,
+        0,
     };
     simulation_inputs(temporally_distinct_torque.content)
         .engine.torque_capability.value.cycle_mean_net_shaft = {
@@ -253,12 +295,190 @@ void test_fail_closed_boundaries() {
         known_torque_term_mask(),
         0,
     };
-    expect_manifest_error(temporally_distinct_torque,
-                          "simulation-manifest-wire-unrepresentable");
+
+    const auto manifest_document =
+        as_string(require_manifest_encoding(temporally_distinct_torque));
+    constexpr std::string_view kDirectTemporalCapability =
+        "\"torque_capability\":{\"value\":{"
+        "\"instantaneous_net_shaft\":{\"availability\":\"unavailable\","
+        "\"completeness\":\"incomplete\","
+        "\"included_terms\":\"0x0000000000000000\","
+        "\"omitted_terms\":\"0x0000000000000000\"},"
+        "\"cycle_mean_net_shaft\":{\"availability\":\"available\","
+        "\"completeness\":\"complete\","
+        "\"included_terms\":\"0x00000000000000ff\","
+        "\"omitted_terms\":\"0x0000000000000000\"},"
+        "\"equivalent_inertia_available\":false},\"resolution_id\":";
+    expect(manifest_document.find(kDirectTemporalCapability) != std::string::npos,
+           "temporally distinct torque capability was not encoded directly");
+
     const auto &distinct_inputs = simulation_inputs(temporally_distinct_torque.content);
-    expect_request_identity_error(distinct_inputs.engine, distinct_inputs.scenario,
-                                  temporally_distinct_torque.content.provenance,
-                                  "simulation-request-identity-wire-unrepresentable");
+    const auto request_document =
+        as_string(require_request_identity_encoding(
+                      distinct_inputs.engine, distinct_inputs.scenario,
+                      temporally_distinct_torque.content.provenance)
+                      .bytes);
+    expect(request_document.find(kDirectTemporalCapability) != std::string::npos,
+           "request identity projected a temporally distinct torque capability");
+}
+
+void configure_synthetic_m4_wire_fixture(SimulationFixture &fixture) {
+    auto &resolved = simulation_inputs(fixture.manifest.content);
+    auto &engine = resolved.engine;
+    auto legacy = std::get<LegacyLowOrderV1Profile>(std::move(engine.physics_profile));
+
+    constexpr std::string_view kRoot = "encoder.synthetic.low-order-operating-point-v1";
+    const auto path = [kRoot](std::string_view suffix) {
+        return std::string{kRoot} + "." + std::string{suffix};
+    };
+    engine.physics_profile = LowOrderOperatingPointV1Profile{
+        std::move(legacy.core),
+        {
+            fixture.builder.resolved(1.25, path("aggregate_loss.constant_fmep_bar")),
+            fixture.builder.resolved(0.004,
+                                     path("aggregate_loss.peak_pressure_coefficient")),
+            fixture.builder.resolved(
+                0.03, path("aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m")),
+            fixture.builder.resolved(
+                0.002, path("aggregate_loss."
+                            "mean_piston_speed_squared_coefficient_bar_s2_per_m2")),
+            fixture.builder.resolved(370.0,
+                                     path("aggregate_loss.required_oil_temperature_k")),
+            fixture.builder.resolved(friction_pump_and_accessory_torque_term_mask(),
+                                     path("aggregate_loss.included_terms")),
+        },
+        {
+            fixture.builder.resolved(std::string{"encoder-accessory-configuration-v1"},
+                                     path("accessory_configuration.configuration_id")),
+            fixture.builder.resolved(digest(1),
+                                     path("accessory_configuration.content_sha256")),
+        },
+        {
+            fixture.builder.resolved(true, path("starter.mechanically_disengaged")),
+            fixture.builder.resolved(torque_term_mask(TorqueTerm::starter),
+                                     path("starter.included_terms")),
+        },
+        fixture.builder.resolved(
+            method("four-stroke-piecewise-linear-cycle-quadrature-v1", 61),
+            path("cycle_quadrature")),
+    };
+    engine.methods.losses.value = method("chen-flynn-cycle-mean-aggregate-loss-v1", 62);
+    engine.torque_capability.value = {
+        {
+            Availability::unavailable,
+            Completeness::incomplete,
+            0,
+            0,
+        },
+        {
+            Availability::available,
+            Completeness::complete,
+            known_torque_term_mask(),
+            0,
+        },
+        false,
+    };
+    engine.profile_id.value = "bmw-m52b28-operating-point-wire-test";
+    resolved.presentation.engine_profile_id.value = engine.profile_id.value;
+
+    auto &scenario = resolved.scenario;
+    scenario.engine_profile_id = engine.profile_id.value;
+    scenario.preparation = ConvergenceSettling{
+        fixture.builder.resolved(
+            method("adjacent-nonoverlapping-cycle-block-mean-v1", 63),
+            "scenario.preparation.method"),
+        fixture.builder.resolved(0.5,
+                                 "scenario.preparation.minimum_warm_up_duration_s"),
+        fixture.builder.resolved(0.5,
+                                 "scenario.preparation.minimum_settling_duration_s"),
+        fixture.builder.resolved(2.0,
+                                 "scenario.preparation.maximum_preparation_duration_s"),
+        fixture.builder.resolved<std::uint32_t>(
+            4, "scenario.preparation.comparison_cycle_count"),
+        fixture.builder.resolved(0.1,
+                                 "scenario.preparation.cycle_mean_torque_tolerance_nm"),
+        fixture.builder.resolved(100.0, "scenario.preparation.pressure_tolerance_pa"),
+    };
+    scenario.mode = HeldSpeed{
+        fixture.builder.resolved(3000.0, "scenario.mode.engine_speed_rpm"),
+        fixture.builder.resolved(0.0, "scenario.mode.initial_theta_rad"),
+        fixture.builder.resolved(0.85, "scenario.mode.throttle_01"),
+    };
+    scenario.operating_state.value.front().state.limiter_enabled = false;
+}
+
+[[nodiscard]] GoldenHashes test_m4_direct_wire_shape() {
+    // This fixture exercises wire enumeration only. The M4 contract deliberately
+    // forbids reusing the M3 core's provenance paths, so semantic admission is
+    // covered by contract tests built from independently resolved M4 inputs.
+    SimulationFixture fixture;
+    configure_synthetic_m4_wire_fixture(fixture);
+
+    const auto first_manifest = require_manifest_encoding(fixture.manifest);
+    const auto second_manifest = require_manifest_encoding(fixture.manifest);
+    expect(first_manifest == second_manifest,
+           "identical M4 simulation manifests produced different bytes");
+    const auto manifest_document = as_string(first_manifest);
+
+    const auto profile = manifest_document.find(
+        "\"physics_profile\":{\"kind\":\"low_order_operating_point_v1\","
+        "\"value\":{");
+    const auto core = manifest_document.find("\"core\":", profile);
+    const auto aggregate_loss = manifest_document.find("\"aggregate_loss\":", core);
+    const auto accessory =
+        manifest_document.find("\"accessory_configuration\":", aggregate_loss);
+    const auto starter = manifest_document.find("\"starter\":", accessory);
+    const auto quadrature = manifest_document.find("\"cycle_quadrature\":", starter);
+    const auto torque_capability =
+        manifest_document.find("\"torque_capability\":", quadrature);
+    expect(profile != std::string::npos && core != std::string::npos &&
+               aggregate_loss != std::string::npos && accessory != std::string::npos &&
+               starter != std::string::npos && quadrature != std::string::npos &&
+               torque_capability != std::string::npos && profile < core &&
+               core < aggregate_loss && aggregate_loss < accessory &&
+               accessory < starter && starter < quadrature &&
+               quadrature < torque_capability,
+           "M4 profile tag or five-member direct wire order changed");
+    const auto stale_fixed_loss =
+        manifest_document.find("\"fixed_crank_loss\":", profile);
+    expect(stale_fixed_loss == std::string::npos ||
+               stale_fixed_loss > torque_capability,
+           "M3 fixed crank loss leaked into the M4 profile");
+    expect(
+        manifest_document.find("\"aggregate_loss\":{\"constant_fmep_bar\":", profile) !=
+                std::string::npos &&
+            manifest_document.find("\"accessory_configuration\":{\"configuration_id\":",
+                                   aggregate_loss) != std::string::npos &&
+            manifest_document.find("\"starter\":{\"mechanically_disengaged\":",
+                                   accessory) != std::string::npos &&
+            manifest_document.find(
+                "\"cycle_quadrature\":{\"value\":{\"id\":"
+                "\"four-stroke-piecewise-linear-cycle-quadrature-v1\"",
+                starter) != std::string::npos,
+        "one or more direct M4 profile members were omitted or flattened");
+
+    constexpr std::string_view kConvergencePrefix =
+        "\"preparation\":{\"kind\":\"convergence_settling\",\"value\":{"
+        "\"method\":{\"value\":{\"id\":"
+        "\"adjacent-nonoverlapping-cycle-block-mean-v1\"";
+    expect(manifest_document.find(kConvergencePrefix) != std::string::npos,
+           "convergence settling did not encode its leading method identity");
+
+    const auto &resolved = simulation_inputs(fixture.manifest.content);
+    const auto first_identity = require_request_identity_encoding(
+        resolved.engine, resolved.scenario, fixture.manifest.content.provenance);
+    const auto second_identity = require_request_identity_encoding(
+        resolved.engine, resolved.scenario, fixture.manifest.content.provenance);
+    expect(first_identity == second_identity,
+           "identical M4 requests produced different identity encodings");
+    expect(as_string(first_identity.bytes).find(kConvergencePrefix) !=
+               std::string::npos,
+           "M4 request identity omitted the convergence method");
+
+    return {
+        digest_hex(sha256(first_manifest)),
+        digest_hex(first_identity.sha256),
+    };
 }
 
 void set_compact_fixed_rate_sweep(SimulationFixture &fixture) {
@@ -345,15 +565,24 @@ void test_compact_fixed_rate_scenario() {
                                   "simulation-request-identity-wire-nonfinite");
 }
 
-void check_golden_hashes(const GoldenHashes &actual) {
+void check_golden_hashes(const GoldenHashes &m3, const GoldenHashes &m4) {
     bool mismatch = false;
-    if (actual.manifest != kExpectedManifestSha256) {
-        std::cerr << "simulation manifest golden SHA-256: " << actual.manifest << '\n';
+    if (m3.manifest != kExpectedM3ManifestSha256) {
+        std::cerr << "M3 simulation manifest golden SHA-256: " << m3.manifest << '\n';
         mismatch = true;
     }
-    if (actual.request_identity != kExpectedRequestIdentitySha256) {
-        std::cerr << "simulation request identity golden SHA-256: "
-                  << actual.request_identity << '\n';
+    if (m3.request_identity != kExpectedM3RequestIdentitySha256) {
+        std::cerr << "M3 simulation request identity golden SHA-256: "
+                  << m3.request_identity << '\n';
+        mismatch = true;
+    }
+    if (m4.manifest != kExpectedM4ManifestSha256) {
+        std::cerr << "M4 simulation manifest golden SHA-256: " << m4.manifest << '\n';
+        mismatch = true;
+    }
+    if (m4.request_identity != kExpectedM4RequestIdentitySha256) {
+        std::cerr << "M4 simulation request identity golden SHA-256: "
+                  << m4.request_identity << '\n';
         mismatch = true;
     }
     expect(!mismatch, "canonical simulation encoder golden hashes are not pinned");
@@ -363,10 +592,12 @@ void check_golden_hashes(const GoldenHashes &actual) {
 
 int main() {
     try {
-        const auto hashes = test_deterministic_roots();
+        const auto m3_hashes = test_deterministic_roots();
         test_fail_closed_boundaries();
+        test_temporally_distinct_torque_capability();
+        const auto m4_hashes = test_m4_direct_wire_shape();
         test_compact_fixed_rate_scenario();
-        check_golden_hashes(hashes);
+        check_golden_hashes(m3_hashes, m4_hashes);
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return EXIT_FAILURE;

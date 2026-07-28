@@ -1,7 +1,7 @@
 # M4 operating-point model
 
-Status: normative pre-implementation companion, implemented one checked subsection at
-a time
+Status: normative implementation companion, implemented one checked subsection at a
+time
 
 Applies to: M4 held-speed BMW M52B28 operating points
 
@@ -173,11 +173,11 @@ resolved afresh under the new provenance root—an M3 object and its
 `ResolvedValue<MethodIdentity> method` member. Convergence remains scenario/test-cell
 policy and is not duplicated in the engine profile.
 
-Adding this variant to the executable-profile union is atomic with its authored and
-resolved validation, method policy, topology/root mapping, randomness access, final
-manifest wire, and request-identity wire. Until an operating capture producer exists,
-presentation-job compilation rejects this profile before execution. There is never an
-admitted-but-silently-treated-as-M3 fallback.
+This variant was added to the executable-profile union atomically with its authored
+and resolved validation, method policy, topology/root mapping, randomness access,
+final manifest wire, and request-identity wire. Until an operating capture producer
+exists, presentation-job compilation rejects this profile before execution. There is
+never an admitted-but-silently-treated-as-M3 fallback.
 
 ## 2. Indexed four-stroke torque quadrature
 

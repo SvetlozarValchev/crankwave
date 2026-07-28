@@ -62,7 +62,7 @@ The current contract supplies:
   `M2_RENDER_API.md`;
 - the profile-specific resolved BMW request, M3 low-order simulator and excitation,
   internal presentation session, live execution-facts observation, and canonical
-  completed simulation-manifest v4 encoder.
+  completed simulation-manifest v5 encoder.
 
 The current contract does not supply:
 

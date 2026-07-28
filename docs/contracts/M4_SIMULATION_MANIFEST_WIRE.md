@@ -1,19 +1,19 @@
 # M4 simulation-manifest wire contract
 
-Status: normative current v4 encoding for the frozen M3 simulation profile; the sole
-v5/request-v2 replacement is frozen below and awaits atomic implementation
+Status: normative canonical v5 encoding for the direct M3 and operating simulation
+profiles and resolved simulation-request identity
 
 Manifest wire schema ID:
-`engine-sim-offline.render-manifest.simulation.v4`
+`engine-sim-offline.render-manifest.simulation.v5`
 
 Request-identity wire schema ID:
-`engine-sim-offline.simulation-request-identity.v1`
+`engine-sim-offline.simulation-request-identity.v2`
 
 Machine schema:
-[`schemas/render_manifest_simulation_v4.cddl`](../../schemas/render_manifest_simulation_v4.cddl)
+[`schemas/render_manifest_simulation_v5.cddl`](../../schemas/render_manifest_simulation_v5.cddl)
 
 Schema SHA-256:
-`a0b2ddb15332951637c8bf8cdfa5e7b8f2516128a68739d8dcaa520359081937`
+`06a5d29a0eeff0e6975f84e26ad11795c3464b4d5ec3643544f264afeddb6811`
 
 ## 1. Scope and admission
 
@@ -22,7 +22,7 @@ manifest input discriminator is exactly:
 
 ```text
 {
-  "kind": "simulation_v3",
+  "kind": "simulation_v4",
   "value": {
     "resolved": {
       "engine": <EngineSpec>,
@@ -38,7 +38,7 @@ The completed-manifest root is exactly:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v4",
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v5",
   "content": <RenderManifestContent>,
   "execution": <ExecutionFacts>
 }
@@ -49,7 +49,7 @@ request before presentation and render composition:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.simulation-request-identity.v1",
+  "wire_schema": "engine-sim-offline.simulation-request-identity.v2",
   "engine": <EngineSpec>,
   "scenario": <RenderScenario>,
   "provenance": <ProvenanceBundleRef>
@@ -72,32 +72,15 @@ BMW identity. The encoder separately checks wire representability and fixed-rate
 content identity. Neither root grants admission merely because a value matches the
 CDDL shape.
 
-The typed torque capability now distinguishes instantaneous and cycle-mean net-shaft
-forms. This frozen v4 wire predates that distinction. It has one lossless historical
-projection only: instantaneous net shaft must be available; cycle mean must either be
-canonical unavailable or have exactly the same completeness and term masks as the
-instantaneous form. The encoder derives `physical_net_complete`,
-`cycle_integration_available`, and the shared masks from that state and rejects every
-temporally distinct capability as unrepresentable. Thus the canonical M3 bytes and
-request digest remain unchanged without allowing v4 to erase a distinction.
+The typed torque capability distinguishes instantaneous and cycle-mean net-shaft
+forms and serializes both directly. The typed M3 profile composes a reusable
+`LowOrderEngineCoreV1` with a sibling `LegacyFixedCrankLossV1`; the operating profile
+composes the same core with its own aggregate-loss, accessory, starter, and
+cycle-quadrature contract. Neither form is flattened or projected.
 
-The typed M3 profile now also composes a reusable `LowOrderEngineCoreV1` with a
-separate `LegacyFixedCrankLossV1`. Simulation-v4 predates that ownership split, so
-its transitional encoder explicitly flattens the composition into the one frozen
-historical member order: the fixed magnitude remains under `mechanism.crank`, and
-the two classification masks remain under `losses`. The CDDL, canonical parameter
-paths, request digest, and accepted BMW artifact hashes do not change. This flattening
-is only a lossless projection for the M3 form; it does not make the legacy loss part
-of the reusable core.
+### 1.1 Direct v5 profile and capability forms
 
-The frozen operating-profile contract requires one new schema that encodes both M3
-and operating typed forms directly. This v4 API/path is removed at that implementation
-boundary, not retained as an alias or compatibility encoder.
-
-### 1.1 Frozen v5 replacement boundary
-
-The operating-profile contract is now frozen. The next wire implementation replaces
-this entire v4/v1 surface atomically with:
+The sole implemented identities are:
 
 | Role | Final identity |
 |---|---|
@@ -110,7 +93,7 @@ this entire v4/v1 surface atomically with:
 
 `simulation_v4` versions the fourth resolved simulation-input grammar; it is not a
 milestone label. The manifest envelope has changed one additional time and is therefore
-v5. The historical `simulation_v3` discriminator is not carried into the final schema.
+v5. The historical `simulation_v3` discriminator is not retained.
 
 The request-v2 root retains the exact member order `wire_schema`, `engine`, `scenario`,
 `provenance`. It continues to call the same engine and scenario writers as the
@@ -205,18 +188,18 @@ profile overloads with no generic fallback, so another alternative fails compila
 until explicitly represented. The presentation compiler rejects the operating
 alternative until its capture producer exists.
 
-The v5 CDDL SHA-256, new M3 request-v2 digest, and implementation-owned method
-configuration hashes are deliberately not guessed in this pre-implementation
-contract. They are computed from reviewed final bytes in the replacement commit and
-then pinned here and in independent goldens. The old CDDL, v4 manifest path, v4
-encoder, request-v1 encoder, constants, overloads, and forwarding aliases are deleted
-at that boundary.
+The v5 CDDL SHA-256 is pinned above. The canonical BMW M3 request-v2 digest is pinned
+in section 6 and its independent factory test. Implementation-owned method
+configuration hashes remain governed by the operating-point model: each is pinned
+from its reviewed descriptor when that implementation is admitted. The old CDDL, v4
+manifest path, v4 encoder, request-v1 encoder, constants, overloads, and forwarding
+aliases are deleted.
 
 The `reference_presentation_v1` input belongs exclusively to
 `engine-sim-offline.render-manifest.reference-presentation.v2`. It has no alias,
 fallback, numeric variant index, or compatibility interpretation in this schema.
-Conversely, `simulation_v3` is not encodable under the reference-presentation schema.
-The superseded simulation-v3 wire/API/path is not retained, accepted, or aliased;
+Conversely, `simulation_v4` is not encodable under the reference-presentation schema.
+The superseded simulation inputs and wire APIs are not retained, accepted, or aliased;
 there is no backward-compatibility path.
 
 This checkpoint freezes data representation, not behavior. It does not claim that M4
@@ -328,16 +311,18 @@ new owner therefore cannot rekey an existing component. Both the complete ordere
 plan and the engine profile's retained combustion initializations must equal this
 derivation; changing only a namespace, cached seed, or manifest seed is invalid.
 
-The current `ExecutablePhysicsProfile` has exactly one typed alternative:
+The current `ExecutablePhysicsProfile` has exactly two typed alternatives:
 
 | C++ alternative | Wire kind |
 |---|---|
 | `LegacyLowOrderV1Profile` | `legacy_low_order_v1` |
+| `LowOrderOperatingPointV1Profile` | `low_order_operating_point_v1` |
 
-Its wire value includes every currently typed mechanism, gas-path, valvetrain,
-ignition, fuel, combustion-stream, loss, and reference-excitation field. This name is
-the admitted physics-method identity from the M3 model record. It is not a P1.8 alias
-and does not import a reference reader or fixture object.
+Both wire values contain the complete shared core. M3 then contains its explicit
+fixed-crank loss; the operating form contains its aggregate loss, accessory identity,
+disengaged starter, and cycle-quadrature method. The legacy name is the admitted
+physics-profile identity from the M3 model record. It is not a P1.8 alias and neither
+alternative imports a reference reader or fixture object.
 
 All already-typed `RenderScenario` variants have canonical tags:
 
@@ -417,7 +402,7 @@ simulator continues to own and consume all 170,000 binary64 samples.
 
 ## 5. Common manifest content and execution
 
-Outside `content.inputs`, the simulation v4 content shape and canonical rules are the
+Outside `content.inputs`, the simulation v5 content shape and canonical rules are the
 same as the reference-presentation v2 content shape:
 
 ```text
@@ -495,8 +480,8 @@ artifact role with every `/` byte replaced by lowercase `%2f`, followed by `.wav
 All other valid semantic-ID bytes (`a-z`, `0-9`, `.`, `_`, and `-`) are copied
 unchanged. `%` is not a valid input byte, so this projection is injective. The
 manifest path remains the schema-owned
-`manifest/render-manifest.v4.json`. The shipped directory sink binds that path and
-`encode_simulation_manifest_v4()` internally; callers configure only its publication
+`manifest/render-manifest.v5.json`. The shipped directory sink binds that path and
+`encode_simulation_manifest_v5()` internally; callers configure only its publication
 destination.
 
 The audition WAVE INFO values are derived exactly as these ASCII concatenations:
@@ -515,8 +500,8 @@ plus the admitted audition method completely determines the WAVE metadata bytes.
 ## 6. File identity and non-claims
 
 When published through `DirectoryRenderSink`, the canonical completed document is
-`manifest/render-manifest.v4.json`. Its sidecar is
-`manifest/render-manifest.v4.json.sha256`, containing the SHA-256 of the complete
+`manifest/render-manifest.v5.json`. Its sidecar is
+`manifest/render-manifest.v5.json.sha256`, containing the SHA-256 of the complete
 encoded manifest—including the final LF—as 64 lowercase hexadecimal digits followed
 by one LF. The manifest and sidecar are transaction metadata, not artifact records,
 and the manifest does not embed its own whole-file digest.
@@ -529,7 +514,7 @@ The complete sealed BMW M52B28 M3 request—including its engine, scenario, comp
 descriptor, and provenance bundle—has canonical request-identity SHA-256:
 
 ```text
-f6f0ffc8d32167a52785003d9fb4568b32cc23adfc8e1ca4e7263210701f5aa4
+f8f5a3f93e76c5d9ed9ba988eb504288fffb13c701890ebe3b0ff8915ad2b9a2
 ```
 
 This digest is pinned here and in the factory test, not inside the request or its
@@ -537,7 +522,8 @@ provenance. Embedding it in either would create a self-referential identity.
 
 Successful encoding proves only:
 
-- the typed value was admitted by the required validators;
+- the typed value is representable by this wire grammar; validator admission remains
+  an external precondition;
 - every represented field has one canonical JSON form;
 - the fixed-rate RPM descriptor matches the complete owned vector; and
 - the bytes are deterministic under this wire domain.

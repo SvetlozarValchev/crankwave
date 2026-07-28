@@ -517,7 +517,7 @@ replacement starts before acceptance.
           profile adapter, and prove unchanged M3 behavior and identity.
     - [x] Freeze the typed M4 accessory, aggregate-loss, starter, and operating-profile
           contract.
-    - [ ] Replace the transitional simulation-v4 wire with the sole simulation-v5
+    - [x] Replace the transitional simulation-v4 wire with the sole simulation-v5
           wire for the explicit M3 and M4 profile forms.
     - [ ] Instantiate and prove the BMW M4 operating profile.
   - [x] Generalize the kinematic schedule for O(1)-storage held-speed operation while

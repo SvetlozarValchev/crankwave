@@ -232,13 +232,21 @@ struct PlannedComponent {
     ComponentSeedCoordinate coordinate;
 };
 
+struct LowOrderCoreVisitor {
+    [[nodiscard]] const LowOrderEngineCoreV1 &
+    operator()(const LegacyLowOrderV1Profile &profile) const noexcept {
+        return profile.core;
+    }
+
+    [[nodiscard]] const LowOrderEngineCoreV1 &
+    operator()(const LowOrderOperatingPointV1Profile &profile) const noexcept {
+        return profile.core;
+    }
+};
+
 [[nodiscard]] const LowOrderEngineCoreV1 &
 low_order_core(const ExecutablePhysicsProfile &profile) noexcept {
-    return std::visit(
-        [](const auto &typed_profile) -> const LowOrderEngineCoreV1 & {
-            return typed_profile.core;
-        },
-        profile);
+    return std::visit(LowOrderCoreVisitor{}, profile);
 }
 
 void append_derivation_error(ValidationReport &report,

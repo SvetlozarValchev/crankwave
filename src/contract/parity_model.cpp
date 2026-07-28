@@ -5,6 +5,7 @@
 #include "validation_support.hpp"
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cmath>
 #include <cstddef>
@@ -12,6 +13,7 @@
 #include <functional>
 #include <initializer_list>
 #include <limits>
+#include <numbers>
 #include <span>
 #include <string>
 #include <string_view>
@@ -41,6 +43,26 @@ constexpr TorqueCapability kLegacyTorqueCapability{
         Availability::unavailable,
         Completeness::incomplete,
         0,
+        0,
+    },
+    false,
+};
+
+constexpr TorqueTermMask kOperatingAggregateLossTerms =
+    friction_pump_and_accessory_torque_term_mask();
+constexpr TorqueTermMask kOperatingStarterTerms =
+    torque_term_mask(TorqueTerm::starter);
+constexpr TorqueCapability kOperatingTorqueCapability{
+    {
+        Availability::unavailable,
+        Completeness::incomplete,
+        0,
+        0,
+    },
+    {
+        Availability::available,
+        Completeness::complete,
+        known_torque_term_mask(),
         0,
     },
     false,
@@ -353,6 +375,37 @@ void visit_legacy_fixed_crank_loss_fields(const Loss &loss, std::string_view roo
                  ".mechanism.crank.fixed_crank_friction_magnitude_nm");
     function(loss.included_terms, std::string(root) + ".losses.included_terms");
     function(loss.omitted_terms, std::string(root) + ".losses.omitted_terms");
+}
+
+template <class Profile, class Function>
+void visit_operating_profile_fields(const Profile &profile, std::string_view root,
+                                    Function function) {
+    const auto aggregate_root = std::string(root) + ".aggregate_loss";
+    function(profile.aggregate_loss.constant_fmep_bar,
+             aggregate_root + ".constant_fmep_bar");
+    function(profile.aggregate_loss.peak_pressure_coefficient,
+             aggregate_root + ".peak_pressure_coefficient");
+    function(profile.aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m,
+             aggregate_root + ".mean_piston_speed_coefficient_bar_s_per_m");
+    function(
+        profile.aggregate_loss.mean_piston_speed_squared_coefficient_bar_s2_per_m2,
+        aggregate_root + ".mean_piston_speed_squared_coefficient_bar_s2_per_m2");
+    function(profile.aggregate_loss.required_oil_temperature_k,
+             aggregate_root + ".required_oil_temperature_k");
+    function(profile.aggregate_loss.included_terms,
+             aggregate_root + ".included_terms");
+
+    const auto accessory_root = std::string(root) + ".accessory_configuration";
+    function(profile.accessory_configuration.configuration_id,
+             accessory_root + ".configuration_id");
+    function(profile.accessory_configuration.content_sha256,
+             accessory_root + ".content_sha256");
+
+    const auto starter_root = std::string(root) + ".starter";
+    function(profile.starter.mechanically_disengaged,
+             starter_root + ".mechanically_disengaged");
+    function(profile.starter.included_terms, starter_root + ".included_terms");
+    function(profile.cycle_quadrature, std::string(root) + ".cycle_quadrature");
 }
 
 template <class Id, class Range, class Projection>
@@ -1007,6 +1060,87 @@ void validate_authored_legacy_fixed_crank_loss_domains(
             ContractIssueCode::inconsistent_semantics, "losses",
             "legacy loss profile includes only indicated gas and fixed crank "
             "friction and must explicitly omit every other known torque term");
+}
+
+template <class AggregateLoss, class Accessory, class Starter>
+void validate_operating_accounting_domains(ValidationReport &report,
+                                           const AggregateLoss &loss,
+                                           const Accessory &accessory,
+                                           const Starter &starter) {
+    using detail::finite_positive;
+    using detail::require;
+
+    const std::array coefficients{
+        loss.constant_fmep_bar.value,
+        loss.peak_pressure_coefficient.value,
+        loss.mean_piston_speed_coefficient_bar_s_per_m.value,
+        loss.mean_piston_speed_squared_coefficient_bar_s2_per_m2.value,
+    };
+    bool coefficients_are_canonical = true;
+    bool any_positive = false;
+    for (const auto coefficient : coefficients) {
+        coefficients_are_canonical =
+            coefficients_are_canonical && std::isfinite(coefficient) &&
+            coefficient >= 0.0 && !std::signbit(coefficient);
+        any_positive = any_positive || coefficient > 0.0;
+    }
+    require(report, coefficients_are_canonical && any_positive,
+            ContractIssueCode::invalid_value, "aggregate_loss",
+            "Chen-Flynn coefficients must be finite canonical nonnegative binary64 "
+            "values with at least one positive coefficient");
+    require(report, finite_positive(loss.required_oil_temperature_k.value),
+            ContractIssueCode::invalid_value,
+            "aggregate_loss.required_oil_temperature_k.value",
+            "required oil temperature must be finite and positive");
+    require(report, loss.included_terms.value == kOperatingAggregateLossTerms,
+            ContractIssueCode::inconsistent_semantics,
+            "aggregate_loss.included_terms.value",
+            "aggregate loss must own exactly the friction, pump/oil, and accessory "
+            "torque terms");
+
+    require(report, is_valid_semantic_id(accessory.configuration_id.value),
+            ContractIssueCode::invalid_value,
+            "accessory_configuration.configuration_id.value",
+            "accessory configuration ID must be canonical");
+    require(report, !accessory.content_sha256.value.is_zero(),
+            ContractIssueCode::invalid_value,
+            "accessory_configuration.content_sha256.value",
+            "accessory configuration descriptor digest must be nonzero");
+
+    require(report,
+            starter.mechanically_disengaged.value &&
+                starter.included_terms.value == kOperatingStarterTerms,
+            ContractIssueCode::inconsistent_semantics, "starter",
+            "operating-point starter must be mechanically disengaged and own exactly "
+            "the starter torque term");
+    const auto indicated = indicated_gas_torque_term_mask();
+    require(report,
+            (indicated & loss.included_terms.value) == 0 &&
+                (indicated & starter.included_terms.value) == 0 &&
+                (loss.included_terms.value & starter.included_terms.value) == 0 &&
+                (indicated | loss.included_terms.value |
+                 starter.included_terms.value) == known_torque_term_mask(),
+            ContractIssueCode::inconsistent_semantics, "torque_term_accounting",
+            "indicated gas, aggregate loss, and starter scopes must be disjoint and "
+            "cover every known torque term");
+}
+
+void validate_authored_operating_geometry(
+    ValidationReport &report, const AuthoredLowOrderEngineCoreV1 &core) {
+    if (core.mechanism.cylinders.empty()) {
+        return;
+    }
+    const auto expected =
+        std::bit_cast<std::uint64_t>(
+            core.mechanism.cylinders.front().parameters.stroke_m.value);
+    const auto identical = std::ranges::all_of(
+        core.mechanism.cylinders, [&](const auto &cylinder) {
+            return std::bit_cast<std::uint64_t>(
+                       cylinder.parameters.stroke_m.value) == expected;
+        });
+    detail::require(report, identical, ContractIssueCode::inconsistent_semantics,
+                    "mechanism.cylinders",
+                    "operating-point v1 requires bit-identical cylinder strokes");
 }
 
 void validate_low_order_core_domains(ValidationReport &report,
@@ -1911,6 +2045,117 @@ void validate_legacy_fixed_crank_loss_domains(ValidationReport &report,
         "fixed-crank torque; it has no cycle-mean net torque or equivalent inertia");
 }
 
+[[nodiscard]] bool claim_cites_content_digest(const ProvenanceLedger &provenance,
+                                              std::string_view claim_id,
+                                              const Sha256Digest &digest) {
+    const auto claim = std::ranges::find(provenance.claims, claim_id,
+                                         &ProvenanceClaim::id);
+    if (claim == provenance.claims.end()) {
+        return false;
+    }
+    return std::ranges::any_of(claim->citations, [&](const auto &citation) {
+        const auto evidence = std::ranges::find(
+            provenance.evidence, citation.evidence_id, &EvidenceSource::id);
+        return evidence != provenance.evidence.end() &&
+               evidence->content_sha256.has_value() &&
+               *evidence->content_sha256 == digest;
+    });
+}
+
+void validate_authored_accessory_evidence(
+    ValidationReport &report,
+    const AuthoredAccessoryConfigurationIdentityV1 &accessory,
+    const ProvenanceLedger &provenance) {
+    detail::require(
+        report,
+        claim_cites_content_digest(provenance, accessory.content_sha256.claim_id,
+                                   accessory.content_sha256.value),
+        ContractIssueCode::inconsistent_semantics,
+        "accessory_configuration.content_sha256.claim_id",
+        "accessory descriptor digest must equal content-addressed evidence cited by "
+        "its provenance claim");
+}
+
+void validate_resolved_accessory_evidence(
+    ValidationReport &report, const AccessoryConfigurationIdentityV1 &accessory,
+    const ProvenanceLedger &provenance) {
+    const auto *resolution =
+        detail::find_resolution(provenance, accessory.content_sha256.resolution_id);
+    if (resolution == nullptr) {
+        return;
+    }
+    detail::require(
+        report,
+        claim_cites_content_digest(provenance, resolution->claim_id,
+                                   accessory.content_sha256.value),
+        ContractIssueCode::inconsistent_semantics,
+        "accessory_configuration.content_sha256.resolution_id",
+        "accessory descriptor digest must equal content-addressed evidence cited by "
+        "its resolution claim");
+}
+
+void validate_operating_geometry(ValidationReport &report,
+                                 const LowOrderEngineCoreV1 &core,
+                                 const EngineSpec &engine) {
+    if (engine.cylinders.empty()) {
+        return;
+    }
+
+    std::vector<const CylinderSpec *> cylinders;
+    cylinders.reserve(engine.cylinders.size());
+    for (const auto &cylinder : engine.cylinders) {
+        cylinders.push_back(&cylinder);
+    }
+    std::ranges::sort(cylinders, {},
+                      [](const auto *cylinder) { return cylinder->id.value; });
+
+    const auto expected_stroke_bits =
+        std::bit_cast<std::uint64_t>(cylinders.front()->stroke_m.value);
+    const auto bit_identical_strokes =
+        std::ranges::all_of(cylinders, [&](const auto *cylinder) {
+            return std::bit_cast<std::uint64_t>(cylinder->stroke_m.value) ==
+                   expected_stroke_bits;
+        });
+    detail::require(report, bit_identical_strokes,
+                    ContractIssueCode::inconsistent_semantics, "engine.cylinders",
+                    "operating-point v1 requires bit-identical cylinder strokes");
+
+    double stable_total_displacement_m3 = 0.0;
+    for (const auto *cylinder : cylinders) {
+        const auto displacement_m3 =
+            std::numbers::pi * cylinder->bore_m.value * cylinder->bore_m.value *
+            cylinder->stroke_m.value / 4.0;
+        stable_total_displacement_m3 += displacement_m3;
+    }
+    detail::require(
+        report,
+        std::isfinite(stable_total_displacement_m3) &&
+            std::bit_cast<std::uint64_t>(stable_total_displacement_m3) ==
+                std::bit_cast<std::uint64_t>(engine.total_displacement_m3.value),
+        ContractIssueCode::inconsistent_semantics,
+        "engine.total_displacement_m3.value",
+        "operating-point total displacement must bit-equal the ascending-CylinderId "
+        "stable sum of cylinder swept volumes");
+
+    for (const auto &assembly : core.mechanism.cylinders) {
+        const auto engine_cylinder =
+            std::ranges::find(engine.cylinders, assembly.topology.cylinder_id,
+                              &CylinderSpec::id);
+        if (engine_cylinder == engine.cylinders.end()) {
+            continue;
+        }
+        detail::require(
+            report,
+            std::bit_cast<std::uint64_t>(assembly.parameters.stroke_m.value) ==
+                std::bit_cast<std::uint64_t>(engine_cylinder->stroke_m.value),
+            ContractIssueCode::inconsistent_semantics,
+            "mechanism.cylinders." + engine_cylinder->semantic_id.value +
+                ".parameters.stroke_m.value",
+            "operating-point core stroke must bit-equal its EngineSpec cylinder "
+            "stroke");
+    }
+}
+
 void require_legacy_low_order_method(ValidationReport &report,
                                      const ResolvedValue<MethodIdentity> &method,
                                      std::string_view path) {
@@ -1918,6 +2163,30 @@ void require_legacy_low_order_method(ValidationReport &report,
         report, method.value.id == "legacy_low_order_v1" && method.value.version == 1,
         ContractIssueCode::inconsistent_semantics, std::string(path) + ".value",
         "low-order core requires legacy_low_order_v1 method identity version 1");
+}
+
+void require_chen_flynn_aggregate_loss_method(
+    ValidationReport &report, const ResolvedValue<MethodIdentity> &method,
+    std::string_view path) {
+    detail::require(
+        report,
+        method.value.id == "chen-flynn-cycle-mean-aggregate-loss-v1" &&
+            method.value.version == 1,
+        ContractIssueCode::inconsistent_semantics, std::string(path) + ".value",
+        "operating-point loss accounting requires "
+        "chen-flynn-cycle-mean-aggregate-loss-v1 method identity version 1");
+}
+
+template <class Method>
+void require_cycle_quadrature_method(ValidationReport &report, const Method &method,
+                                     std::string_view path) {
+    detail::require(
+        report,
+        method.id == "four-stroke-piecewise-linear-cycle-quadrature-v1" &&
+            method.version == 1,
+        ContractIssueCode::unsupported_value, std::string(path),
+        "operating-point integration requires "
+        "four-stroke-piecewise-linear-cycle-quadrature-v1 version 1");
 }
 
 void validate_authored_profile_specific(ValidationReport &report,
@@ -1930,6 +2199,24 @@ void validate_authored_profile_specific(ValidationReport &report,
             validate_authored(report, value, provenance, path);
         });
     validate_authored_legacy_fixed_crank_loss_domains(report, profile.fixed_crank_loss);
+}
+
+void validate_authored_profile_specific(
+    ValidationReport &report,
+    const AuthoredLowOrderOperatingPointV1Profile &profile,
+    const ProvenanceLedger &provenance, std::string_view root) {
+    visit_operating_profile_fields(
+        profile, root, [&](const auto &value, const std::string &path) {
+            validate_authored(report, value, provenance, path);
+        });
+    validate_operating_accounting_domains(
+        report, profile.aggregate_loss, profile.accessory_configuration,
+        profile.starter);
+    validate_authored_operating_geometry(report, profile.core);
+    validate_authored_accessory_evidence(
+        report, profile.accessory_configuration, provenance);
+    require_cycle_quadrature_method(report, profile.cycle_quadrature.value,
+                                    "cycle_quadrature.value");
 }
 
 void validate_resolved_profile_specific(ValidationReport &report,
@@ -1945,6 +2232,34 @@ void validate_resolved_profile_specific(ValidationReport &report,
             validate_resolved(report, value, provenance, path);
         });
     validate_legacy_fixed_crank_loss_domains(report, profile.fixed_crank_loss, engine);
+}
+
+void validate_resolved_profile_specific(
+    ValidationReport &report, const LowOrderOperatingPointV1Profile &profile,
+    const EngineSpec &engine, const ProvenanceLedger &provenance,
+    std::string_view root) {
+    require_chen_flynn_aggregate_loss_method(report, engine.methods.losses,
+                                             "engine.methods.losses");
+    visit_operating_profile_fields(
+        profile, root, [&](const auto &value, const std::string &path) {
+            validate_resolved(report, value, provenance, path);
+        });
+    detail::append_prefixed(report, validate(profile.cycle_quadrature.value),
+                            "cycle_quadrature.value");
+    require_cycle_quadrature_method(report, profile.cycle_quadrature.value,
+                                    "cycle_quadrature.value");
+    validate_operating_accounting_domains(
+        report, profile.aggregate_loss, profile.accessory_configuration,
+        profile.starter);
+    validate_resolved_accessory_evidence(
+        report, profile.accessory_configuration, provenance);
+    validate_operating_geometry(report, profile.core, engine);
+    detail::require(
+        report, engine.torque_capability.value == kOperatingTorqueCapability,
+        ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",
+        "operating-point profile exposes unavailable instantaneous net torque, "
+        "complete cycle-mean net torque over all known terms, and no equivalent "
+        "inertia");
 }
 
 } // namespace

@@ -154,6 +154,18 @@ void validate_fixed_rate_rpm_trajectory(ValidationReport &report,
             "fixed-rate RPM sample hash does not match the owned sample vector");
 }
 
+void require_convergence_method(ValidationReport &report,
+                                const MethodIdentity &method,
+                                const std::string &path) {
+    detail::require(
+        report,
+        method.id == "adjacent-nonoverlapping-cycle-block-mean-v1" &&
+            method.version == 1,
+        ContractIssueCode::unsupported_value, path,
+        "convergence preparation requires "
+        "adjacent-nonoverlapping-cycle-block-mean-v1 version 1");
+}
+
 } // namespace
 
 ValidationReport validate_clock_grid(const RenderScenario &scenario) {
@@ -462,6 +474,12 @@ ValidationReport validate(const RenderScenario &scenario,
                         "fixed preparation must end at audible start, and the audible "
                         "interval must end at total duration");
             } else {
+                validate_resolved(report, preparation.method, provenance,
+                                  "scenario.preparation.method");
+                append_prefixed(report, validate(preparation.method.value),
+                                "scenario.preparation.method.value");
+                require_convergence_method(report, preparation.method.value,
+                                           "scenario.preparation.method.value");
                 validate_resolved(report, preparation.minimum_warm_up_duration_s,
                                   provenance,
                                   "scenario.preparation.minimum_warm_up_duration_s");
@@ -713,6 +731,60 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                     ContractIssueCode::inconsistent_semantics, "fuel",
                     "scenario fuel identity and heating value must exactly match "
                     "the executable engine fuel");
+            }
+
+            using Profile = std::decay_t<decltype(profile)>;
+            if constexpr (std::is_same_v<Profile,
+                                         LowOrderOperatingPointV1Profile>) {
+                if (!std::holds_alternative<HeldSpeed>(scenario.mode)) {
+                    report.add(ContractIssueCode::unsupported_value, "mode",
+                               "operating-point v1 admits only held-speed mode");
+                }
+                const auto *convergence =
+                    std::get_if<ConvergenceSettling>(&scenario.preparation);
+                if (convergence == nullptr) {
+                    report.add(
+                        ContractIssueCode::unsupported_value, "preparation",
+                        "operating-point v1 requires convergence preparation");
+                } else if (std::bit_cast<std::uint64_t>(
+                               convergence->maximum_preparation_duration_s.value) !=
+                           std::bit_cast<std::uint64_t>(
+                               scenario.audible_start_s.value)) {
+                    report.add(
+                        ContractIssueCode::inconsistent_semantics,
+                        "preparation.maximum_preparation_duration_s.value",
+                        "operating-point preparation cutoff must exactly equal "
+                        "audible start");
+                }
+
+                if (std::bit_cast<std::uint64_t>(
+                        scenario.initial_thermal_state.oil_temperature_k.value) !=
+                    std::bit_cast<std::uint64_t>(
+                        profile.aggregate_loss.required_oil_temperature_k.value)) {
+                    report.add(
+                        ContractIssueCode::inconsistent_semantics,
+                        "initial_thermal_state.oil_temperature_k.value",
+                        "scenario oil temperature must exactly equal the "
+                        "operating-profile applicability condition");
+                }
+
+                const auto held_running =
+                    !scenario.operating_state.value.empty() &&
+                    std::ranges::all_of(
+                        scenario.operating_state.value, [](const auto &point) {
+                            return point.state.ignition_enabled &&
+                                   point.state.fuel_enabled &&
+                                   !point.state.starter_enabled &&
+                                   point.state.dyno_enabled &&
+                                   !point.state.limiter_enabled;
+                        });
+                if (!held_running) {
+                    report.add(
+                        ContractIssueCode::inconsistent_semantics,
+                        "operating_state.value",
+                        "operating-point v1 requires fired held-running state at "
+                        "every journal point");
+                }
             }
         },
         spec.physics_profile);
