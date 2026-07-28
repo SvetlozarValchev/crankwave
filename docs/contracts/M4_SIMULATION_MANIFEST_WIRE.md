@@ -1,8 +1,7 @@
 # M4 simulation-manifest wire contract
 
-Status: normative canonical encoding for the frozen M3 simulation profile and
-resolved simulation-request identity; transitional until the M4 profile freezes the
-single forward schema
+Status: normative current v4 encoding for the frozen M3 simulation profile; the sole
+v5/request-v2 replacement is frozen below and awaits atomic implementation
 
 Manifest wire schema ID:
 `engine-sim-offline.render-manifest.simulation.v4`
@@ -91,9 +90,127 @@ paths, request digest, and accepted BMW artifact hashes do not change. This flat
 is only a lossless projection for the M3 form; it does not make the legacy loss part
 of the reusable core.
 
-When the M4 operating profile contract freezes, one new schema will encode both M3
-and M4 typed forms directly. This v4 API/path is then removed, not retained as an
-alias or compatibility encoder.
+The frozen operating-profile contract requires one new schema that encodes both M3
+and operating typed forms directly. This v4 API/path is removed at that implementation
+boundary, not retained as an alias or compatibility encoder.
+
+### 1.1 Frozen v5 replacement boundary
+
+The operating-profile contract is now frozen. The next wire implementation replaces
+this entire v4/v1 surface atomically with:
+
+| Role | Final identity |
+|---|---|
+| Completed-manifest wire | `engine-sim-offline.render-manifest.simulation.v5` |
+| Manifest content schema version | `5` |
+| Manifest input kind | `simulation_v4` |
+| Request-identity wire | `engine-sim-offline.simulation-request-identity.v2` |
+| Manifest path | `manifest/render-manifest.v5.json` |
+| Sidecar path | `manifest/render-manifest.v5.json.sha256` |
+
+`simulation_v4` versions the fourth resolved simulation-input grammar; it is not a
+milestone label. The manifest envelope has changed one additional time and is therefore
+v5. The historical `simulation_v3` discriminator is not carried into the final schema.
+
+The request-v2 root retains the exact member order `wire_schema`, `engine`, `scenario`,
+`provenance`. It continues to call the same engine and scenario writers as the
+completed manifest. It changes version because `EngineSpec` gains a second directly
+encoded physics-profile form and because M3 itself is no longer flattened into its
+historical wire shape.
+
+The final executable-profile union is exactly:
+
+```text
+executable-physics-profile =
+  {"kind":"legacy_low_order_v1",
+   "value":legacy-low-order-v1-profile} /
+  {"kind":"low_order_operating_point_v1",
+   "value":low-order-operating-point-v1-profile}
+```
+
+The M3 value becomes its direct typed composition:
+
+```text
+legacy-low-order-v1-profile = {
+  "core": low-order-engine-core-v1,
+  "fixed_crank_loss": legacy-fixed-crank-loss-v1
+}
+```
+
+`low-order-engine-core-v1` owns, in order, `mechanism`, `gas_path`, `valvetrain`,
+`ignition`, `fuel`, `combustion_random_streams`, and `excitation`. Its crank record
+contains only `crank_tdc_reference_rad`, `crankshaft_mass_kg`, `flywheel_mass_kg`, and
+`authored_crank_inertia_kg_m2`. The sibling `legacy-fixed-crank-loss-v1` owns
+`fixed_crank_friction_magnitude_nm`, `included_terms`, and `omitted_terms`, in that
+order. The v4 placement of fixed loss inside the crank and its masks inside a generic
+`losses` member disappears.
+
+The operating value is the direct wire projection of the production type frozen in
+the operating-point model:
+
+```text
+low-order-operating-point-v1-profile = {
+  "core": low-order-engine-core-v1,
+  "aggregate_loss": {
+    "constant_fmep_bar": resolved<f64-bits>,
+    "peak_pressure_coefficient": resolved<f64-bits>,
+    "mean_piston_speed_coefficient_bar_s_per_m": resolved<f64-bits>,
+    "mean_piston_speed_squared_coefficient_bar_s2_per_m2":
+      resolved<f64-bits>,
+    "required_oil_temperature_k": resolved<f64-bits>,
+    "included_terms": resolved<torque-term-mask>
+  },
+  "accessory_configuration": {
+    "configuration_id": resolved<tstr>,
+    "content_sha256": resolved<sha256>
+  },
+  "starter": {
+    "mechanically_disengaged": resolved<bool>,
+    "included_terms": resolved<torque-term-mask>
+  },
+  "cycle_quadrature": resolved<method-identity>
+}
+```
+
+The cycle reference angle has one authority and is not serialized again:
+`core.mechanism.crank.crank_tdc_reference_rad`. Convergence is scenario-owned.
+`convergence-settling` gains a leading `method: resolved<method-identity>` member,
+followed by its existing durations, count, and tolerances.
+
+The v5 wire serializes the typed temporal torque capability without projection:
+
+```text
+torque-capability = {
+  "instantaneous_net_shaft": net-torque-form-capability,
+  "cycle_mean_net_shaft": net-torque-form-capability,
+  "equivalent_inertia_available": bool
+}
+
+net-torque-form-capability = {
+  "availability": "available" / "unavailable",
+  "completeness": "complete" / "incomplete",
+  "included_terms": torque-term-mask,
+  "omitted_terms": torque-term-mask
+}
+```
+
+This directly represents M3's incomplete instantaneous-only claim and the operating
+profile's unavailable instantaneous but complete cycle-mean claim. There is no v4
+projection or equality restriction between temporal forms.
+
+Variant membership, profile root mapping, authored/resolved validators, method
+admission, randomness access, v5 encoding, request-v2 encoding, schema replacement,
+and deletion of v4/v1 APIs and paths land in one commit. Writers use exhaustive
+profile overloads with no generic fallback, so another alternative fails compilation
+until explicitly represented. The presentation compiler rejects the operating
+alternative until its capture producer exists.
+
+The v5 CDDL SHA-256, new M3 request-v2 digest, and implementation-owned method
+configuration hashes are deliberately not guessed in this pre-implementation
+contract. They are computed from reviewed final bytes in the replacement commit and
+then pinned here and in independent goldens. The old CDDL, v4 manifest path, v4
+encoder, request-v1 encoder, constants, overloads, and forwarding aliases are deleted
+at that boundary.
 
 The `reference_presentation_v1` input belongs exclusively to
 `engine-sim-offline.render-manifest.reference-presentation.v2`. It has no alias,

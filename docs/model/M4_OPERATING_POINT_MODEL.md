@@ -47,6 +47,138 @@ The first M4 torque curve is labelled:
 It is not labelled BMW truth, measured brake torque, SAE net power, or independent
 validation.
 
+### 1.1 Frozen production type contract
+
+`M4` remains a roadmap label only. The production C++ alternative, wire tag,
+provenance root, and first BMW profile ID are exactly:
+
+| Role | Frozen identity |
+|---|---|
+| Authored C++ alternative | `AuthoredLowOrderOperatingPointV1Profile` |
+| Resolved C++ alternative | `LowOrderOperatingPointV1Profile` |
+| Wire kind | `low_order_operating_point_v1` |
+| Provenance root | `engine.physics.low-order-operating-point-v1` |
+| BMW profile ID | `bmw-m52b28-low-order-operating-point-v1` |
+
+The authored record has the following exact member structure and order:
+
+```text
+AuthoredChenFlynnCycleMeanAggregateLossV1 {
+  AuthoredValue<double> constant_fmep_bar
+  AuthoredValue<double> peak_pressure_coefficient
+  AuthoredValue<double> mean_piston_speed_coefficient_bar_s_per_m
+  AuthoredValue<double> mean_piston_speed_squared_coefficient_bar_s2_per_m2
+  AuthoredValue<double> required_oil_temperature_k
+  AuthoredValue<TorqueTermMask> included_terms
+}
+
+AuthoredAccessoryConfigurationIdentityV1 {
+  AuthoredValue<std::string> configuration_id
+  AuthoredValue<Sha256Digest> content_sha256
+}
+
+AuthoredMechanicallyDisengagedStarterV1 {
+  AuthoredValue<bool> mechanically_disengaged
+  AuthoredValue<TorqueTermMask> included_terms
+}
+
+AuthoredLowOrderOperatingPointV1Profile {
+  AuthoredLowOrderEngineCoreV1 core
+  AuthoredChenFlynnCycleMeanAggregateLossV1 aggregate_loss
+  AuthoredAccessoryConfigurationIdentityV1 accessory_configuration
+  AuthoredMechanicallyDisengagedStarterV1 starter
+  AuthoredValue<MethodSelection> cycle_quadrature
+}
+```
+
+The resolved records have the same member names and order, drop the `Authored`
+prefix, use `ResolvedValue` for scalar leaves, and resolve `cycle_quadrature` to a
+`ResolvedValue<MethodIdentity> cycle_quadrature`. The alternative contains no optional
+legacy loss and no switch between M3 and operating behavior.
+
+The exact new method IDs are:
+
+| Owner | Method ID | Version |
+|---|---|---:|
+| `EngineSpec::methods.losses` | `chen-flynn-cycle-mean-aggregate-loss-v1` | 1 |
+| profile `cycle_quadrature` | `four-stroke-piecewise-linear-cycle-quadrature-v1` | 1 |
+| `ConvergenceSettling::method` | `adjacent-nonoverlapping-cycle-block-mean-v1` | 1 |
+
+The implementation-owned canonical descriptor and configuration SHA-256 for a method
+are pinned only when that implementation exists and is admitted. A literature PDF
+hash is evidence identity, never a `MethodIdentity::configuration_sha256`. The
+quadrature primitive already exists; the aggregate accountant and convergence
+executor must each freeze their own descriptor before their first admitted use.
+
+For the first BMW profile, the binary64 values are exact:
+
+| Field | Decimal | Binary64 bits |
+|---|---:|---|
+| `constant_fmep_bar` | `0.4` | `0x3fd999999999999a` |
+| `peak_pressure_coefficient` | `0.005` | `0x3f747ae147ae147b` |
+| `mean_piston_speed_coefficient_bar_s_per_m` | `0.09` | `0x3fb70a3d70a3d70a` |
+| `mean_piston_speed_squared_coefficient_bar_s2_per_m2` | `0.0009` | `0x3f4d7dbf487fcb92` |
+| `required_oil_temperature_k` | `363.15` | `0x4076b26666666666` |
+
+All coefficients are finite, nonnegative with canonical positive zero, and at least
+one is positive. Negative zero is rejected. The first BMW profile admits only this
+coefficient tuple. The required oil temperature is an immutable applicability
+condition for the whole preparation and capture, not merely an initial value; no oil
+state evolves in this profile.
+
+`aggregate_loss.included_terms` is exactly
+`friction_pump_and_accessory_torque_term_mask()` (`0x7e`).
+`starter.mechanically_disengaged` is exactly `true` and
+`starter.included_terms` is exactly the starter bit (`0x80`). The accounting compiler
+must prove that indicated gas (`0x01`), aggregate loss (`0x7e`), and starter (`0x80`)
+are pairwise disjoint and their union is the complete known mask (`0xff`).
+
+The accessory ID is canonical and its content digest is nonzero. The digest identifies
+a canonical descriptor that declares the exact accessory inventory/state and repeats
+the coefficient tuple, required oil condition, and term scope to which it applies.
+The matching provenance evidence source carries the same digest. The exact BMW
+validator admits the descriptor and tuple as one pair: changing either the accessory
+identity or any loss value requires a new reviewed profile admission. Merely swapping
+an ID or reusing coefficients under an unadmitted accessory digest is invalid.
+
+This v1 profile requires all cylinder strokes to be bit-identical. Cylinder
+displacements are visited in ascending stable `CylinderId` order; their stable sum
+must bit-equal `EngineSpec::total_displacement_m3`, which is the total-displacement
+authority used for work and BMEP. The cycle reference angle is not a duplicate field:
+it is exactly `core.mechanism.crank.crank_tdc_reference_rad`.
+
+The exact torque capability is:
+
+```text
+instantaneous_net_shaft =
+  unavailable, incomplete, included_terms=0, omitted_terms=0
+cycle_mean_net_shaft =
+  available, complete, included_terms=0xff, omitted_terms=0
+equivalent_inertia_available = false
+```
+
+Consequently the per-frame `friction_pump_and_accessory`,
+`instantaneous_net_shaft`, actuator, and dyno-reaction quantities remain unavailable.
+The operating result exposes aggregate loss and complete shaft output only at
+completed-cycle/block resolution.
+
+The profile admits only `HeldSpeed` with `ConvergenceSettling`, finite positive RPM,
+the exact oil condition above, and a fired held-running state at every journal point:
+ignition, fuel, and dyno enabled; starter and limiter disabled. The scenario contains
+no accessory selector; the profile owns that condition. Reused core values must be
+resolved afresh under the new provenance root—an M3 object and its
+`ResolutionRecord`s may not be shallow-copied and relabelled.
+
+`ConvergenceSettling` gains a leading
+`ResolvedValue<MethodIdentity> method` member. Convergence remains scenario/test-cell
+policy and is not duplicated in the engine profile.
+
+Adding this variant to the executable-profile union is atomic with its authored and
+resolved validation, method policy, topology/root mapping, randomness access, final
+manifest wire, and request-identity wire. Until an operating capture producer exists,
+presentation-job compilation rejects this profile before execution. There is never an
+admitted-but-silently-treated-as-M3 fallback.
+
 ## 2. Indexed four-stroke torque quadrature
 
 The internal method name is
@@ -67,8 +199,8 @@ because one call can return at most one completed cycle.
 Inputs have post-step semantics. Between adjacent samples:
 
 - time is linear in unwrapped crank angle;
-- indicated-gas, friction/pump/accessory, and starter torques are each linear in
-  unwrapped crank angle;
+- each torque lane actually supplied to this generic primitive is linear in unwrapped
+  crank angle;
 - work for each term and their stable ordered sum uses trapezoidal
   torque-versus-angle quadrature;
 - a crossed boundary is evaluated by the same linear interpolation;
@@ -93,6 +225,19 @@ physical-category values and cannot prove that an upstream producer covered ever
 term. Only an encapsulated M4 torque-accounting source whose compiler proves the exact
 term inventory may promote its completed-cycle sum to public net/brake telemetry.
 Per-sample masks are not duplicated at 10 kHz.
+
+The current generic primitive has mandatory binary64 sample fields for indicated gas,
+friction/pump/accessory, and starter. The operating accountant supplies the physical
+instantaneous indicated-gas torque and canonical `+0.0` placeholders for the other two
+fields. It requires the corresponding completed placeholder-lane works to remain
+canonical zero and consumes only `indicated_gas_work_j`; it neither publishes nor
+promotes the primitive's indicated-only summed work as brake work.
+
+The Chen–Flynn loss depends on the same completed cycle's peak pressure and therefore
+cannot exist as an input waveform while that cycle is being integrated. After the
+indicated cycle closes, the aggregate accountant evaluates the loss and combines
+completed-cycle works. It must not manufacture a constant-through-cycle friction
+signal merely to fill a sample field.
 
 Every represented boundary crossing is observable, including the first crossing that
 only ends the discarded initial partial cycle. It carries the same exact boundary
@@ -148,10 +293,15 @@ The corresponding positive loss work and running-direction torque are:
 W_loss(k) = 100000 * FMEP_bar(k) * total_displacement
 tau_loss_mean(k) = -sign(omega) * W_loss(k) / (4*pi)
 
-W_brake(k) = W_full_cycle_indicated_gas(k) - W_loss(k)
+W_starter(k) = +0.0
+W_brake(k) = W_full_cycle_indicated_gas(k) - W_loss(k) + W_starter(k)
 tau_brake_mean(k) = W_brake(k) / (4*pi)
 net_BMEP(k) = W_brake(k) / total_displacement
 ```
+
+The canonical positive-zero starter work is complete only because the profile is
+mechanically disengaged and the complete scenario journal keeps the starter disabled.
+It is not an inferred residual.
 
 The M4 correlation replaces the M3 `13.558174560000001 N*m` fixed crank-friction
 term. Adding both would double-count crank friction.
@@ -184,9 +334,8 @@ oil state `363.15 K` and rejects other oil temperatures rather than inventing a
 correction. It admits positive held speed only. It does not claim cold-oil, oil-grade,
 reverse, startup, transient, or changed-accessory accuracy.
 
-The correlation is cycle-mean. Any constant-through-cycle torque used for bookkeeping
-is only work-equivalent and must not be described as an instantaneous friction
-waveform.
+The correlation is cycle-mean. M4 does not emit a constant-through-cycle bookkeeping
+torque and must not describe one as an instantaneous friction waveform.
 
 The coefficients are a generic prior used in a published four-stroke SI model, not
 BMW M52 measurements. Chen–Flynn originated from a single-cylinder compression-
@@ -208,6 +357,9 @@ stationarity heuristic, not a deterministic-periodicity test, statistical confid
 interval, or physical validation claim. The accepted low-order combustion core has
 nonzero deterministic per-ignition variation, so raw adjacent-cycle equality is not
 an admissible settling rule.
+
+The exact resolved method identity is carried by `ConvergenceSettling::method`; its
+configuration SHA-256 must equal the admitted convergence implementation descriptor.
 
 `cycles_per_block = N` must be positive. After
 `minimum_warm_up_duration_s + minimum_settling_duration_s`, a complete cycle is
@@ -294,9 +446,9 @@ is total brake work divided by the summed cycle duration.
 
 A typed held-speed result records at least RPM, throttle, ambient/thermal/fuel/
 accessory/starter conditions, completed-cycle range, indicated work, aggregate loss
-work, brake work, net torque, net BMEP, mean power, convergence residuals, and the
-generic-prior applicability label. Per-frame instantaneous actuator and dyno reaction
-remain unavailable.
+work, starter work, brake work, net torque, net BMEP, mean power, convergence
+residuals, and the generic-prior applicability label. Per-frame instantaneous actuator
+and dyno reaction remain unavailable.
 
 ## 6. BMW manufacturer plausibility landmarks
 
@@ -344,10 +496,11 @@ evaluation.
 - Chen and Flynn, “Development of a Single Cylinder Compression Ignition Research
   Engine,” [SAE 650733](https://saemobilus.sae.org/papers/development-a-single-cylinder-compression-ignition-research-engine-650733),
   is the original attribution for the correlation.
-- Tingting Li, *A Computationally Efficient Physics-Based Model for Internal
-  Combustion Engine Simulation and Control System Design*, Texas A&M University
-  dissertation, 2017, pp. 57–59, records the total-friction interpretation,
-  coefficient ranges, and accessory/invariant scope of the constant term:
+- Tingting Li, *A High Efficiency and Clean Combustion Strategy for Compression
+  Ignition Engines: Integration of Low Heat Rejection Concepts with Low Temperature
+  Combustion*, Texas A&M University dissertation, 2017, printed pp. 39–40, records
+  the total-friction interpretation, coefficient ranges, and accessory/invariant
+  scope of the constant term:
   [institutional PDF](https://oaktrust.library.tamu.edu/server/api/core/bitstreams/7bd25bcc-4712-4277-b714-d67206d6b604/content).
 - Jan Wittenbecher, *Development of a Dynamic Mean Value Engine Model*, University of
   Washington thesis, 2017, pp. 22–23, records the exact generic four-stroke

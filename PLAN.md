@@ -515,7 +515,7 @@ replacement starts before acceptance.
     - [x] Extract the shared low-order engine core behind one transactional
           mechanics-then-gas runtime, move M3 fixed crank-loss evaluation into its
           profile adapter, and prove unchanged M3 behavior and identity.
-    - [ ] Freeze the typed M4 accessory, aggregate-loss, starter, and operating-profile
+    - [x] Freeze the typed M4 accessory, aggregate-loss, starter, and operating-profile
           contract.
     - [ ] Replace the transitional simulation-v4 wire with the sole simulation-v5
           wire for the explicit M3 and M4 profile forms.
@@ -546,6 +546,12 @@ replacement starts before acceptance.
 
 Exit: fidelity changes cannot overfit one pull, and torque is characterized rather than
 silently deferred.
+
+The M4 held-point clips are operating-regression listening candidates through the
+already accepted exhaust presentation. They are not yet the complete
+production-listenable source set: that claim remains gated by user-accepted M5
+fidelity work and the applicable exhaust, intake, mechanical, raw-master, and
+audition-master requirements in M6.
 
 ### M5 — Isolated offline-fidelity upgrades
 
