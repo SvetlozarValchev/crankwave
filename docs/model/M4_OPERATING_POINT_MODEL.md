@@ -108,17 +108,20 @@ The implementation-owned canonical descriptor and configuration SHA-256 for a me
 are pinned when that implementation exists and is admitted. A literature PDF hash is
 evidence identity, never a `MethodIdentity::configuration_sha256`.
 
-The two implemented cycle-accounting authorities are:
+The implemented cycle-accounting and settling authorities are:
 
 | Method | Configuration SHA-256 |
 |---|---|
 | `four-stroke-piecewise-linear-cycle-quadrature-v1` | `57c9b1517deede3285b5c801cb66386a841d0b0dde08bece7eb05fae869a63ac` |
 | `chen-flynn-cycle-mean-aggregate-loss-v1` | `6fa03e2d9eabfdc7af99dd3e2b2658808dbe388260391780dab4c80bc0c79489` |
+| `adjacent-nonoverlapping-cycle-block-mean-v1` | `b1a1ad37088ceb2a88dbb5db4bb385067fefa6b244b091deeebe5bf38acac406` |
 
 These are SHA-256 digests of the canonical LF descriptors exposed by the production
-cycle-accounting method registry. Exact BMW profile validation admits those identities,
-not merely matching IDs and versions. The convergence executor does not yet exist, so
-its descriptor and configuration digest remain deliberately unpinned.
+implementations. Exact BMW profile validation admits the two engine-owned
+cycle-accounting identities, while scenario and held-result validation admit the
+scenario-owned convergence identity. Each comparison includes ID, version, and
+configuration digest, not merely ID and version. The bounded convergence observer is
+implemented and pinned; its composition into the held-speed executor remains pending.
 
 For the first BMW profile, the binary64 values are exact:
 

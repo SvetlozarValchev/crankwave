@@ -525,6 +525,8 @@ replacement starts before acceptance.
   - [ ] Admit and prove phase-aligned pressure plus cycle-torque convergence.
     - [x] Freeze a stochastic block-mean convergence method that reuses the exact
           cycle-boundary evidence rather than running a second angle detector.
+    - [x] Implement and independently test the bounded convergence observer and
+          complete-cycle operating accountant primitives.
     - [ ] Implement and verify the frozen convergence method in the held-speed
           executor.
   - [ ] Publish a typed held-speed operating-point result and prove M3 remains

@@ -137,7 +137,7 @@ constexpr std::array<EvidenceDefinition, 14> kOperatingEvidenceDefinitions{{
         "operating-point-model-record",
         "docs/model/M4_OPERATING_POINT_MODEL.md",
         kRepositoryContentRevision,
-        "8ab6ea30bcce393db8b5ec48aa8b9adf5907f32c044830506d7d97ea42f4086a",
+        "dfb751f2d31d3fd2a5abb2115d3b801fd07fe21da9a32262c2de495d51821606",
         contract::RightsDisposition::permitted,
     },
     {
