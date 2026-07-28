@@ -1,6 +1,10 @@
+#include "contract_test_support.hpp"
+
 #include "engine_sim_offline/artifacts/directory_render_sink.hpp"
+#include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -145,21 +149,32 @@ contract::ArtifactRecord artifact_record(const PendingArtifact &pending,
 
 contract::RenderManifest manifest_for(const contract::OutputContract &contract,
                                       std::vector<contract::ArtifactRecord> records) {
-    contract::RenderManifest manifest;
-    manifest.content.schema_version = 4;
-    manifest.content.output_contract = contract;
-    manifest.content.artifacts = std::move(records);
-    return manifest;
+    contract::test::InputBuilder builder;
+    auto content = contract::test::make_manifest_content(builder);
+    content.output_contract = contract;
+    content.artifacts = std::move(records);
+    return {
+        std::move(content),
+        contract::ExecutionFacts{
+            "directory-sink-test-run",
+            "2026-07-28T12:34:56Z",
+            std::chrono::nanoseconds{1},
+            "linux",
+            "test-cpu",
+            1,
+            1,
+            1,
+            UINT64_C(1),
+        },
+    };
 }
 
-RenderManifestEncoder test_manifest_encoder(std::vector<std::byte> document) {
-    // This is an intentionally test-only complete-document fixture. It exercises
-    // byte-for-byte staging and publication; it does not claim to define the
-    // production manifest format.
-    return [document = std::move(document)](
-               const contract::RenderManifest &) -> ManifestEncodingResult {
-        return ManifestEncoding{document};
-    };
+std::vector<std::byte>
+encoded_manifest(const contract::RenderManifest &manifest) {
+    auto result = encode_simulation_manifest_v4(manifest);
+    const auto *encoding = std::get_if<ManifestEncoding>(&result);
+    expect(encoding != nullptr, "test manifest was not wire-representable");
+    return encoding->bytes;
 }
 
 void expect_error(const RenderSinkStatus &status, RenderSinkErrorKind kind,
@@ -190,11 +205,7 @@ void declare_write_seal(DirectoryRenderSink &sink, const PendingArtifact &pendin
 
 void run_success_case() {
     IsolatedDirectory isolated;
-    const auto manifest_document =
-        bytes("complete-test-render-manifest-v1\nall-fields-owned-by-test-encoder\n");
-    DirectoryRenderSink sink(isolated.path(), "published-render",
-                             "metadata/render-manifest.test",
-                             test_manifest_encoder(manifest_document));
+    DirectoryRenderSink sink(isolated.path(), "published-render");
     const auto contract = output_contract();
 
     expect(sink.state() == DirectoryRenderSinkState::idle,
@@ -237,6 +248,7 @@ void run_success_case() {
                        std::span(telemetry_payload).subspan(5), telemetry_record);
 
     const auto manifest = manifest_for(contract, {telemetry_record, audio_record});
+    const auto manifest_document = encoded_manifest(manifest);
     if (const auto status = sink.commit(manifest)) {
         throw std::runtime_error("complete directory transaction did not commit: " +
                                  status->detail_code + ": " + status->message);
@@ -255,13 +267,15 @@ void run_success_case() {
                std::string(reinterpret_cast<const char *>(telemetry_payload.data()),
                            telemetry_payload.size()),
            "published telemetry bytes differ from streamed bytes");
-    expect(read_file(sink.publication_path() / "metadata/render-manifest.test") ==
+    expect(read_file(sink.publication_path() /
+                     std::string{kSimulationManifestRelativePathV4}) ==
                std::string(reinterpret_cast<const char *>(manifest_document.data()),
                            manifest_document.size()),
-           "published manifest differs from explicit encoder output");
+           "published manifest differs from the sole simulation-v4 encoder output");
     const auto manifest_digest = contract::sha256(manifest_document);
     expect(
-        read_file(sink.publication_path() / "metadata/render-manifest.test.sha256") ==
+        read_file(sink.publication_path() /
+                  (std::string{kSimulationManifestRelativePathV4} + ".sha256")) ==
             digest_hex(manifest_digest) + "\n",
         "published manifest digest sidecar is incorrect");
     expect(sink.manifest_payload_sha256() == std::optional{manifest_digest},
@@ -275,9 +289,7 @@ void run_abort_and_destructor_cleanup_cases() {
     IsolatedDirectory isolated;
     const auto contract = output_contract();
     {
-        DirectoryRenderSink sink(
-            isolated.path(), "aborted-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "aborted-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "abort test begin failed");
         const auto stage = *sink.staging_path();
@@ -306,9 +318,7 @@ void run_abort_and_destructor_cleanup_cases() {
     {
         std::filesystem::path stage;
         {
-            DirectoryRenderSink sink(
-                isolated.path(), "destructor-abort-render", "manifest.test",
-                test_manifest_encoder(bytes("complete-test-manifest")));
+            DirectoryRenderSink sink(isolated.path(), "destructor-abort-render");
             expect(!sink.begin_transaction(contract).has_value(),
                    "destructor cleanup begin failed");
             stage = *sink.staging_path();
@@ -324,11 +334,11 @@ void run_protocol_and_confinement_cases() {
     const auto contract = output_contract();
     {
         IsolatedDirectory isolated;
-        DirectoryRenderSink sink(isolated.path(), "missing-encoder", "manifest.test",
-                                 {});
-        expect_error(
-            sink.begin_transaction(contract), RenderSinkErrorKind::protocol_violation,
-            "manifest-encoder-missing", "missing manifest encoder did not fail closed");
+        DirectoryRenderSink sink(isolated.path(), "../invalid");
+        expect_error(sink.begin_transaction(contract),
+                     RenderSinkErrorKind::protocol_violation,
+                     "publication-name-invalid",
+                     "invalid publication name did not fail closed");
         expect(sink.state() == DirectoryRenderSinkState::idle,
                "failed begin changed the idle state");
         expect(std::filesystem::is_empty(isolated.path()),
@@ -336,9 +346,7 @@ void run_protocol_and_confinement_cases() {
     }
     {
         IsolatedDirectory isolated;
-        DirectoryRenderSink sink(
-            isolated.path(), "traversal-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "traversal-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "traversal test begin failed");
         const PendingArtifact traversal{
@@ -363,9 +371,7 @@ void run_protocol_and_confinement_cases() {
     }
     {
         IsolatedDirectory isolated;
-        DirectoryRenderSink sink(
-            isolated.path(), "symlink-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "symlink-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "symlink test begin failed");
         const auto outside = isolated.path() / "outside";
@@ -390,9 +396,7 @@ void run_protocol_and_confinement_cases() {
     }
     {
         IsolatedDirectory isolated;
-        DirectoryRenderSink sink(
-            isolated.path(), "offset-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "offset-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "offset test begin failed");
         const PendingArtifact audio{
@@ -415,9 +419,25 @@ void run_portable_path_identity_cases() {
     const auto contract = output_contract();
     {
         IsolatedDirectory isolated;
-        DirectoryRenderSink sink(
-            isolated.path(), "reserved-path-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "manifest-path-render");
+        expect(!sink.begin_transaction(contract).has_value(),
+               "manifest path reservation test begin failed");
+        const PendingArtifact collision{
+            "audio.master",
+            contract::ArtifactKind::audio,
+            std::string{kSimulationManifestRelativePathV4},
+            audio_contract(),
+            false,
+        };
+        expect_error(sink.declare_artifact(collision),
+                     RenderSinkErrorKind::protocol_violation,
+                     "artifact-path-duplicate",
+                     "schema-owned manifest path was accepted as an artifact");
+        sink.abort();
+    }
+    {
+        IsolatedDirectory isolated;
+        DirectoryRenderSink sink(isolated.path(), "reserved-path-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "reserved path test begin failed");
         const PendingArtifact invalid{
@@ -433,9 +453,7 @@ void run_portable_path_identity_cases() {
     }
     {
         IsolatedDirectory isolated;
-        DirectoryRenderSink sink(
-            isolated.path(), "case-alias-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "case-alias-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "case alias test begin failed");
         const PendingArtifact audio{
@@ -459,9 +477,7 @@ void run_portable_path_identity_cases() {
     }
     {
         IsolatedDirectory isolated;
-        DirectoryRenderSink sink(
-            isolated.path(), "prefix-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "prefix-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "path prefix test begin failed");
         const PendingArtifact audio{
@@ -488,9 +504,7 @@ void run_seal_and_completeness_cases() {
     const auto contract = output_contract();
     {
         IsolatedDirectory isolated;
-        DirectoryRenderSink sink(
-            isolated.path(), "digest-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "digest-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "digest test begin failed");
         const PendingArtifact audio{
@@ -519,9 +533,7 @@ void run_seal_and_completeness_cases() {
     }
     {
         IsolatedDirectory isolated;
-        DirectoryRenderSink sink(
-            isolated.path(), "incomplete-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "incomplete-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "completeness test begin failed");
         const PendingArtifact audio{
@@ -546,8 +558,7 @@ void run_seal_and_completeness_cases() {
 void run_atomic_no_overwrite_case() {
     IsolatedDirectory isolated;
     const auto contract = output_contract();
-    DirectoryRenderSink sink(isolated.path(), "existing-render", "manifest.test",
-                             test_manifest_encoder(bytes("complete-test-manifest")));
+    DirectoryRenderSink sink(isolated.path(), "existing-render");
     expect(!sink.begin_transaction(contract).has_value(),
            "no-overwrite test begin failed");
 
@@ -602,9 +613,7 @@ void run_post_seal_tamper_cases() {
         IsolatedDirectory isolated;
         auto contract = output_contract();
         contract.required_artifacts.resize(1);
-        DirectoryRenderSink sink(
-            isolated.path(), "tampered-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "tampered-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "post-seal tamper test begin failed");
         contract::ArtifactRecord record;
@@ -633,9 +642,7 @@ void run_post_seal_tamper_cases() {
         IsolatedDirectory isolated;
         auto contract = output_contract();
         contract.required_artifacts.resize(1);
-        DirectoryRenderSink sink(
-            isolated.path(), "fifo-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "fifo-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "FIFO replacement test begin failed");
         contract::ArtifactRecord record;
@@ -669,9 +676,7 @@ void run_staging_tree_integrity_cases() {
         IsolatedDirectory isolated;
         auto contract = output_contract();
         contract.required_artifacts.resize(1);
-        DirectoryRenderSink sink(
-            isolated.path(), "injected-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "injected-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "staging injection test begin failed");
         contract::ArtifactRecord record;
@@ -695,9 +700,7 @@ void run_staging_tree_integrity_cases() {
         IsolatedDirectory isolated;
         auto contract = output_contract();
         contract.required_artifacts.resize(1);
-        DirectoryRenderSink sink(
-            isolated.path(), "stage-replacement-render", "manifest.test",
-            test_manifest_encoder(bytes("complete-test-manifest")));
+        DirectoryRenderSink sink(isolated.path(), "stage-replacement-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "stage replacement test begin failed");
         contract::ArtifactRecord record;

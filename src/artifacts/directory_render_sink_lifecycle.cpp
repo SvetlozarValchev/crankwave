@@ -1,6 +1,7 @@
 #include "directory_render_sink_impl.hpp"
 
 #include "directory_render_sink_support.hpp"
+#include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -21,13 +22,11 @@
 namespace engine_sim_offline::artifacts {
 
 DirectoryRenderSink::Implementation::Implementation(
-    std::filesystem::path publication_root, std::string publication_name,
-    std::string manifest_relative_path, RenderManifestEncoder manifest_encoder)
+    std::filesystem::path publication_root, std::string publication_name)
     : publication_root_(std::move(publication_root)),
       publication_name_(std::move(publication_name)),
-      manifest_relative_path_(std::move(manifest_relative_path)),
-      manifest_digest_relative_path_(manifest_relative_path_ + ".sha256"),
-      manifest_encoder_(std::move(manifest_encoder)) {}
+      manifest_relative_path_(kSimulationManifestRelativePathV4),
+      manifest_digest_relative_path_(manifest_relative_path_ + ".sha256") {}
 
 DirectoryRenderSink::Implementation::~Implementation() {
     abort();
@@ -38,11 +37,6 @@ RenderSinkStatus DirectoryRenderSink::Implementation::begin_transaction(
     if (state_ != DirectoryRenderSinkState::idle) {
         return detail::protocol_error("sink-begin-invalid-state",
                                       "begin_transaction is allowed only while idle");
-    }
-    if (!manifest_encoder_) {
-        return detail::protocol_error(
-            "manifest-encoder-missing",
-            "directory publication requires an explicit complete manifest encoder");
     }
     if (!detail::valid_path_component(publication_name_)) {
         return detail::protocol_error(

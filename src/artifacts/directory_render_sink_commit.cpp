@@ -1,6 +1,7 @@
 #include "directory_render_sink_impl.hpp"
 
 #include "directory_render_sink_support.hpp"
+#include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
 
 #include <algorithm>
 #include <array>
@@ -75,7 +76,7 @@ DirectoryRenderSink::Implementation::commit(const contract::RenderManifest &mani
 
     ManifestEncodingResult encoded;
     try {
-        encoded = manifest_encoder_(manifest);
+        encoded = encode_simulation_manifest_v4(manifest);
     } catch (const std::exception &error) {
         return terminal_failure(detail::publication_error(
             "manifest-encoding-threw",
@@ -92,7 +93,7 @@ DirectoryRenderSink::Implementation::commit(const contract::RenderManifest &mani
     if (manifest_bytes.empty()) {
         return terminal_failure(detail::protocol_error(
             "manifest-encoding-empty",
-            "the explicit manifest encoder returned an empty document"));
+            "the simulation-v4 manifest encoder returned an empty document"));
     }
 
 #if defined(__linux__)

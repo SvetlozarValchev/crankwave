@@ -9,12 +9,9 @@
 namespace engine_sim_offline::artifacts {
 
 DirectoryRenderSink::DirectoryRenderSink(std::filesystem::path publication_root,
-                                         std::string publication_name,
-                                         std::string manifest_relative_path,
-                                         RenderManifestEncoder manifest_encoder)
+                                         std::string publication_name)
     : implementation_(std::make_unique<Implementation>(
-          std::move(publication_root), std::move(publication_name),
-          std::move(manifest_relative_path), std::move(manifest_encoder))) {}
+          std::move(publication_root), std::move(publication_name))) {}
 
 DirectoryRenderSink::~DirectoryRenderSink() = default;
 

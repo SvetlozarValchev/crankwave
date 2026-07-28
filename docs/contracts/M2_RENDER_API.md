@@ -104,6 +104,13 @@ idle -> begun -> committed
   chunk span.
 - Sink callback sizes never select simulation, capture, or DSP block sizes.
 
+`RenderSink` is a trusted transactional endpoint: the renderer verifies every value
+it sends and preserves typed rejections, but an arbitrary implementation can always
+lie about persistence. The shipped `DirectoryRenderSink` is the concrete confined
+publisher. Its public configuration selects only the destination root and one
+publication-name component; simulation-manifest v4 encoding and metadata paths are
+fixed by the sink/schema and are not another caller-authored contract.
+
 Concrete transaction enforcement, filesystem staging, and bounded WAV and telemetry
 serialization are now implemented and recorded in
 [`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). Their typed publication errors map to

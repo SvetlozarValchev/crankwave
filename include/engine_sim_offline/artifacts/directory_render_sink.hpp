@@ -4,26 +4,11 @@
 
 #include <cstddef>
 #include <filesystem>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
-#include <variant>
-#include <vector>
 
 namespace engine_sim_offline::artifacts {
-
-// Manifest serialization is deliberately an explicit dependency. The directory sink
-// owns transactional publication, not the manifest wire format. A production encoder
-// must serialize the complete RenderManifest deterministically; returning a summary,
-// digest-only record, or host-ABI byte dump violates this interface contract.
-struct ManifestEncoding {
-    std::vector<std::byte> bytes;
-};
-
-using ManifestEncodingResult = std::variant<ManifestEncoding, RenderSinkError>;
-using RenderManifestEncoder =
-    std::function<ManifestEncodingResult(const contract::RenderManifest &manifest)>;
 
 enum class DirectoryRenderSinkState {
     idle,
@@ -39,16 +24,15 @@ enum class DirectoryRenderSinkState {
 // existing destination is never replaced. Platforms without an implemented atomic
 // no-replace primitive fail closed at begin_transaction.
 //
-// The caller owns manifest encoding and supplies its normalized relative path.
-// DirectoryRenderSink adds "<manifest_relative_path>.sha256", containing the lowercase
-// SHA-256 of the exact encoded bytes. Both metadata paths are reserved and cannot be
-// used by artifacts.
+// This shipped sink has one schema-owned metadata route: it encodes the exact typed
+// manifest with encode_simulation_manifest_v4() at
+// kSimulationManifestRelativePathV4 and writes the corresponding ".sha256" sidecar.
+// Neither path nor encoder is caller-selectable. Both metadata paths are reserved and
+// cannot be used by artifacts.
 class DirectoryRenderSink final : public RenderSink {
   public:
     DirectoryRenderSink(std::filesystem::path publication_root,
-                        std::string publication_name,
-                        std::string manifest_relative_path,
-                        RenderManifestEncoder manifest_encoder);
+                        std::string publication_name);
     ~DirectoryRenderSink() override;
 
     DirectoryRenderSink(const DirectoryRenderSink &) = delete;

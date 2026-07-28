@@ -19,9 +19,8 @@ namespace engine_sim_offline::artifacts {
 
 class DirectoryRenderSink::Implementation {
   public:
-    Implementation(std::filesystem::path publication_root, std::string publication_name,
-                   std::string manifest_relative_path,
-                   RenderManifestEncoder manifest_encoder);
+    Implementation(std::filesystem::path publication_root,
+                   std::string publication_name);
     ~Implementation();
 
     RenderSinkStatus begin_transaction(const contract::OutputContract &output_contract);
@@ -79,7 +78,6 @@ class DirectoryRenderSink::Implementation {
     std::string publication_name_;
     std::string manifest_relative_path_;
     std::string manifest_digest_relative_path_;
-    RenderManifestEncoder manifest_encoder_;
     DirectoryRenderSinkState state_ = DirectoryRenderSinkState::idle;
     bool poisoned_ = false;
     std::string staging_name_;

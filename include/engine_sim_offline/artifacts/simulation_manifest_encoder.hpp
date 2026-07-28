@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine_sim_offline/artifacts/directory_render_sink.hpp"
+#include "engine_sim_offline/artifacts/manifest_encoder.hpp"
 #include "engine_sim_offline/contract/engine.hpp"
 #include "engine_sim_offline/contract/provenance.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"

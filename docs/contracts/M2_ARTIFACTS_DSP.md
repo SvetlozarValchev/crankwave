@@ -20,7 +20,7 @@ Artifact creation has three independent layers:
 ```text
 typed frames/records -> bounded encoder callbacks -> RenderSink transaction
                                               |
-complete RenderManifest -> explicit encoder --+
+complete RenderManifest -> simulation-v4 encoder --+
 ```
 
 - WAV and telemetry encoders own only their versioned wire formats. They retain no
@@ -30,9 +30,11 @@ complete RenderManifest -> explicit encoder --+
 - `DirectoryRenderSink` owns artifact declaration, contiguous writes, sealing,
   verification, private staging, and atomic publication. Sink chunking cannot select
   capture or DSP partitions.
-- Manifest serialization is an explicit injected dependency. The directory sink has
-  no summary, host-ABI dump, or default placeholder representation. A missing,
-  throwing, or empty manifest encoder makes commit fail closed.
+- The shipped directory sink has one schema-owned metadata route. It always serializes
+  the complete typed manifest through `encode_simulation_manifest_v4()` at
+  `manifest/render-manifest.v4.json` and writes that file's digest sidecar. Neither
+  encoder nor metadata path is caller-selectable. A throwing or empty encoding makes
+  commit fail closed.
 
 The complete capture-to-artifact orchestration remains in the split acoustic-route
 items in PLAN. Until that route constructs and validates a complete manifest, the
@@ -97,17 +99,18 @@ failure, and invalid state all fail closed.
 
 One `DirectoryRenderSink` publishes one directory beneath an already named
 publication root. The publication name is one validated portable path component;
-artifact and manifest paths are validated normalized relative paths. Portable
-case-fold collisions, prefix conflicts, duplicate identities/roles, undeclared
-artifacts, and reserved manifest paths are rejected.
+job-owned artifact paths and the schema-owned manifest paths are validated normalized
+relative paths. Portable case-fold collisions, prefix conflicts, duplicate
+identities/roles, undeclared artifacts, and reserved manifest paths are rejected.
 
 `begin_transaction()` creates a private sibling staging directory. Artifact files are
 opened relative to owned directory descriptors without following symlinks. Writes
 must be contiguous from offset zero. Sealing verifies the declared byte count and
 incrementally calculated SHA-256. Commit requires the exact output-contract artifact
-set and exact manifest artifact records, writes the encoded complete manifest and its
-lowercase SHA-256 sidecar into staging, synchronizes the staged tree, and performs one
-atomic no-replace rename. An existing destination is never overwritten.
+set and exact manifest artifact records, encodes the completed manifest using the
+sole simulation-v4 encoder, writes it and its lowercase SHA-256 sidecar into staging,
+synchronizes the staged tree, and performs one atomic no-replace rename. An existing
+destination is never overwritten.
 
 The current implementation admits this guarantee on Linux through `renameat2` with
 `RENAME_NOREPLACE`. A platform without an equivalent atomic no-replace primitive

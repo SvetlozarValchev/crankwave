@@ -348,7 +348,9 @@ artifact role with every `/` byte replaced by lowercase `%2f`, followed by `.wav
 All other valid semantic-ID bytes (`a-z`, `0-9`, `.`, `_`, and `-`) are copied
 unchanged. `%` is not a valid input byte, so this projection is injective. The
 manifest path remains the schema-owned
-`manifest/render-manifest.v4.json`.
+`manifest/render-manifest.v4.json`. The shipped directory sink binds that path and
+`encode_simulation_manifest_v4()` internally; callers configure only its publication
+destination.
 
 The audition WAVE INFO values are derived exactly as these ASCII concatenations:
 
