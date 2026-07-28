@@ -58,11 +58,17 @@ void run_parity_model_contract_tests() {
                                     });
 
     expect_parity_mutation_rejected(
-        "legacy profile falsely claimed every torque term",
+        "legacy profile accepted a disjoint but false torque partition",
         [](EngineSpec &engine, InputBuilder &) {
             auto &loss = legacy_profile(engine).fixed_crank_loss;
-            loss.included_terms.value = known_torque_term_mask();
-            loss.omitted_terms.value = 0;
+            loss.included_terms.value = indicated_gas_torque_term_mask();
+            loss.omitted_terms.value =
+                known_torque_term_mask() & ~indicated_gas_torque_term_mask();
+        });
+
+    expect_parity_mutation_rejected(
+        "legacy profile falsely advertised complete instantaneous torque",
+        [](EngineSpec &engine, InputBuilder &) {
             engine.torque_capability.value.instantaneous_net_shaft = {
                 Availability::available,
                 Completeness::complete,

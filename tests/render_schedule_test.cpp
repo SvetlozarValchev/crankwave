@@ -26,6 +26,11 @@ RenderScenario make_test_scenario() {
     InputBuilder builder;
     const auto engine = make_engine(builder);
     auto scenario = make_scenario(builder, engine);
+    scenario.mode = HeldSpeed{
+        {3000.0, "render-schedule-held-rpm"},
+        {0.0, "render-schedule-held-angle"},
+        {0.85, "render-schedule-held-throttle"},
+    };
     scenario.quality.value.event_journal_capacity_records = 4096;
     return scenario;
 }

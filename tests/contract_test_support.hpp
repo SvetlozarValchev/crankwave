@@ -28,6 +28,19 @@ inline MethodIdentity method(std::string id, std::uint8_t digest_byte = 1) {
     return {std::move(id), 1, digest(digest_byte)};
 }
 
+inline MethodIdentity fixed_rate_rpm_method() {
+    constexpr Sha256Digest configuration_sha256{{
+        0xc6, 0x4a, 0xb8, 0xb9, 0xc2, 0xf8, 0xc7, 0x8a, 0x15, 0x12, 0x22,
+        0xd8, 0x89, 0x86, 0x52, 0x69, 0xbe, 0x19, 0xcc, 0x52, 0x1e, 0x68,
+        0x52, 0xc4, 0x6d, 0xdf, 0x34, 0x50, 0x86, 0x9e, 0x75, 0xe4,
+    }};
+    return {
+        "fixed-rate-post-step-rpm-binary64-v1",
+        1,
+        configuration_sha256,
+    };
+}
+
 inline std::string test_runtime_provider_identity(std::string_view soname) {
     return "elf64le-x86_64.soname." + std::string(soname) +
            ".bytes.4096.buildid."
@@ -680,18 +693,24 @@ inline RenderScenario make_scenario(InputBuilder &builder, const EngineSpec &eng
                                         "scenario.quality");
     scenario.public_seed =
         builder.resolved<std::uint64_t>(12648430, "scenario.public_seed");
+    const auto physics_frame_count =
+        resolve_frame_index(scenario.total_duration_s.value, scenario.rates.physics);
+    expect(physics_frame_count == 30000U,
+           "default scenario duration did not resolve to 30000 physics frames");
+    FixedRateRpmTrajectory rpm{
+        scenario.rates.physics,
+        0,
+        RpmSampleSemantics::post_step_rpm,
+        std::vector<double>(static_cast<std::size_t>(*physics_frame_count), 3000.0),
+        {},
+        builder.add_resolution("scenario.mode.trajectory.rpm"),
+    };
+    rpm.samples_f64le_sha256 = canonical_binary64_le_sha256(rpm.post_step_rpm);
     scenario.mode = PrescribedKinematicSweep{
         {
-            ScalarTrajectory{
-                TrajectoryInterpolation::linear,
-                {
-                    {0.0, 3000.0},
-                    {scenario.total_duration_s.value, 3000.0},
-                },
-                builder.add_resolution("scenario.mode.trajectory.rpm"),
-            },
+            std::move(rpm),
             builder.resolved(0.0, "scenario.mode.trajectory.initial_theta_rad"),
-            builder.resolved(method("prescribed-linear-rpm-v1", 42),
+            builder.resolved(fixed_rate_rpm_method(),
                              "scenario.mode.trajectory.kinematic_resolution"),
         },
         {

@@ -472,6 +472,14 @@ void run_authored_profile_contract_tests() {
                 torque_term_mask(TorqueTerm::indicated_gas);
         });
     expect_authored_mutation_rejected(
+        "disjoint but false authored loss partition was accepted",
+        [](AuthoredLegacyLowOrderV1Profile &profile) {
+            profile.fixed_crank_loss.included_terms.value =
+                indicated_gas_torque_term_mask();
+            profile.fixed_crank_loss.omitted_terms.value =
+                known_torque_term_mask() & ~indicated_gas_torque_term_mask();
+        });
+    expect_authored_mutation_rejected(
         "invalid authored excitation propagation speed was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
             profile.core.excitation.legacy_propagation_speed_m_s.value = -1.0;

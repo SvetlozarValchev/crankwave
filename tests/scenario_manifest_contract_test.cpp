@@ -70,7 +70,7 @@ void run_scenario_manifest_contract_tests() {
         std::get<PrescribedKinematicSweep>(fixed_rpm_scenario.mode);
     const auto throttle_resolution_id = default_sweep.throttle_01.resolution_id;
     const auto rpm_resolution_id =
-        std::get<ScalarTrajectory>(default_sweep.trajectory.rpm).resolution_id;
+        std::get<FixedRateRpmTrajectory>(default_sweep.trajectory.rpm).resolution_id;
     const auto fixed_rpm_frame_count = resolve_frame_index(
         fixed_rpm_scenario.total_duration_s.value, fixed_rpm_scenario.rates.physics);
     expect(fixed_rpm_frame_count.has_value(),
@@ -507,6 +507,15 @@ void run_scenario_manifest_contract_tests() {
            "finite signed negative net-BMEP target was rejected");
     expect(!validate_for_engine(load_scenario, load_engine).ok(),
            "legacy incomplete torque model accepted a load-target capture");
+    auto load_capable_engine = load_engine;
+    load_capable_engine.torque_capability.value.cycle_mean_net_shaft = {
+        Availability::available,
+        Completeness::complete,
+        known_torque_term_mask(),
+        0,
+    };
+    expect(validate_for_engine(load_scenario, load_capable_engine).ok(),
+           "synthetic complete cycle-mean capability rejected a load target");
     simulation_inputs(load_content).scenario = load_scenario;
 
     auto inverted_bounds = load_scenario;
@@ -517,7 +526,7 @@ void run_scenario_manifest_contract_tests() {
     expect(!validate(inverted_bounds, load_builder.provenance).ok(),
            "inverted load-search throttle bounds were accepted");
 
-    auto incomplete_torque_engine = load_engine;
+    auto incomplete_torque_engine = load_capable_engine;
     incomplete_torque_engine.torque_capability.value.cycle_mean_net_shaft = {
         Availability::available,
         Completeness::incomplete,
@@ -547,7 +556,18 @@ void run_scenario_manifest_contract_tests() {
         "",
         {method("inertial-dyno-v1", 23), ""},
     };
-    auto cycle_complete_instantaneous_incomplete = load_engine;
+    auto inertial_capable_engine = load_engine;
+    inertial_capable_engine.torque_capability.value.instantaneous_net_shaft = {
+        Availability::available,
+        Completeness::complete,
+        known_torque_term_mask(),
+        0,
+    };
+    inertial_capable_engine.torque_capability.value.equivalent_inertia_available = true;
+    expect(validate_for_engine(inertial_scenario, inertial_capable_engine).ok(),
+           "synthetic complete instantaneous capability rejected an inertial dyno");
+
+    auto cycle_complete_instantaneous_incomplete = inertial_capable_engine;
     cycle_complete_instantaneous_incomplete.torque_capability.value
         .instantaneous_net_shaft = {
         Availability::available,
@@ -560,13 +580,10 @@ void run_scenario_manifest_contract_tests() {
              .ok(),
         "inertial dyno accepted cycle-complete but instantaneous-incomplete "
         "net torque");
-    auto inertia_missing = load_engine;
+    auto inertia_missing = inertial_capable_engine;
     inertia_missing.torque_capability.value.equivalent_inertia_available = false;
     expect(!validate_for_engine(inertial_scenario, inertia_missing).ok(),
            "inertial dyno accepted missing equivalent inertia");
-    expect(!validate_for_engine(inertial_scenario, load_engine).ok(),
-           "legacy incomplete torque and missing equivalent inertia accepted an "
-           "inertial dyno");
 
     const ReachabilityCandidate reached_candidate{
         1, 0.5, -2.0, 100.5, true,

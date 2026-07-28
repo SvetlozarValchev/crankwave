@@ -23,9 +23,9 @@ using namespace engine_sim_offline::contract;
 using namespace engine_sim_offline::contract::test;
 
 constexpr std::string_view kExpectedManifestSha256 =
-    "44c0e05e33991c4dc77599f898cd74310de62b4162eed1ad9b77d19a324f5b42";
+    "82e8c5fe2d3373da61af4a01ca8ee166fcb9378baeae6b8c3ecdc94a3d6110fb";
 constexpr std::string_view kExpectedRequestIdentitySha256 =
-    "57d304f4c8d95ebff6e77b804ea096ebc4aef014227f514d404e4ea9174e5183";
+    "7f0bf33f602a6df9af4130ec6aa41d84ed870e549da5723b6355768873ae21bb";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -266,7 +266,7 @@ void set_compact_fixed_rate_sweep(SimulationFixture &fixture) {
     const auto default_sweep = std::get<PrescribedKinematicSweep>(scenario.mode);
     const auto throttle_resolution_id = default_sweep.throttle_01.resolution_id;
     const auto rpm_resolution_id =
-        std::get<ScalarTrajectory>(default_sweep.trajectory.rpm).resolution_id;
+        std::get<FixedRateRpmTrajectory>(default_sweep.trajectory.rpm).resolution_id;
     scenario.scenario_id = "fixed-rate-encoder-smoke";
     scenario.rates.physics = {1, 1};
     scenario.rates.capture = {1, 1};
@@ -284,11 +284,9 @@ void set_compact_fixed_rate_sweep(SimulationFixture &fixture) {
     fixed_rpm.samples_f64le_sha256 =
         canonical_binary64_le_sha256(fixed_rpm.post_step_rpm);
 
-    auto kinematic_resolution = default_sweep.trajectory.kinematic_resolution;
-    kinematic_resolution.value = method("fixed-rate-post-step-rpm-binary64-v1", 61);
     RpmTrajectory trajectory{std::move(fixed_rpm),
                              default_sweep.trajectory.initial_theta_rad,
-                             std::move(kinematic_resolution)};
+                             default_sweep.trajectory.kinematic_resolution};
     ScalarTrajectory throttle{
         TrajectoryInterpolation::right_continuous_hold,
         {
