@@ -190,7 +190,48 @@ work, brake work, net torque, net BMEP, mean power, convergence residuals, and t
 generic-prior applicability label. Per-frame instantaneous actuator and dyno reaction
 remain unavailable.
 
-## 6. Sources
+## 6. BMW manufacturer plausibility landmarks
+
+The M4 comparison baseline is the original pre-1998 BMW M52B28, not the 1998
+double-VANOS M52 redesign/M52TU. BMW-issued manufacturer material declares the
+following nominal values:
+
+| Quantity | Manufacturer value |
+|---|---:|
+| Cylinders | 6 |
+| Bore / stroke | 84 mm / 84 mm |
+| Displacement | 2793 cm3 |
+| Compression ratio | 10.2:1 |
+| Maximum torque | 280 N*m at 3950 rpm |
+| Maximum output | 142 kW at 5300 rpm |
+
+Using the published displacement `0.002793 m3`, these landmarks imply:
+
+- `115.820 kW` and `12.598 bar` brake MEP at `280 N*m / 3950 rpm`;
+- `255.849 N*m` and `11.511 bar` brake MEP at `142 kW / 5300 rpm`.
+
+Six mathematical `84 mm` by `84 mm` cylinders give approximately
+`2793.0518 cm3`; the published whole-cubic-centimetre displacement is therefore not
+an exact geometry-equality target.
+
+Only the complete, converged M4 modeled shaft-output result may be compared with these
+landmarks. Indicated-gas torque, aggregate loss, or any component term may not be
+compared independently and relabelled as BMW evidence.
+
+The sources state no applicable power-test standard, atmospheric or thermal
+conditions, fuel, accessory configuration, run-in state, or manufacturer tolerance.
+They also provide no indicated pressure, FMEP, component losses, full torque curve,
+or control maps. M4 therefore reports its value and ratio to each landmark but does
+not fit the generic loss prior to them or treat agreement as validation.
+
+Until same-condition evidence exists, a modeled maximum torque or power outside
+`0.5` through `1.5` times the corresponding BMW value is a warning-only gross-error
+tripwire. This interval is project QA policy, not a BMW tolerance and not an accuracy
+or calibration acceptance gate. Non-finite output, non-convergence, energy-identity
+failure, or comparison against the M52TU landmarks fails the operating-point
+evaluation.
+
+## 7. Sources
 
 - Chen and Flynn, “Development of a Single Cylinder Compression Ignition Research
   Engine,” [SAE 650733](https://saemobilus.sae.org/papers/development-a-single-cylinder-compression-ignition-research-engine-650733),
@@ -209,6 +250,23 @@ remain unavailable.
 - Pipitone, “A New Simple Friction Model for S.I. Engine,”
   [SAE 2009-01-1984](https://iris.unipa.it/handle/10447/46811), records the cited
   late-peak-pressure limitation.
+- BMW AG, *Owner's Manual for the vehicle*, order number `01 41 9 790 377`,
+  edition `US VIII/97`, online edition `07/98`, printed page 160, records the
+  original 328i engine geometry and output landmarks. The reviewed extracted PDF has
+  SHA-256
+  `df6c0304c13a7da4d9e2afc923e0e40d64a3eccd715020420b73387e880f36a7`;
+  the containing archive has SHA-256
+  `da34f3af2e851c40e46a706ec664ffafefc76637d3139e21b2dea20a466e7a44`:
+  [archived BMW-issued manual](https://www.bmwsections.com/docs/d.php?file=1998_manual_e36).
+- BMW Group PressClub, *L'histoire des six cylindres en ligne BMW*, published
+  2000-05-06, and its section 2.3 table distinguish the original 1994 M52 values
+  from the 1998 double-VANOS redesign. The reviewed official attachment has SHA-256
+  `3ebddf08bd798204248ff0d6eec38d2553299dd8503063a35bf7329903710be8`:
+  [article](https://www.press.bmwgroup.com/france/article/detail/T0028512FR/l-histoire-des-six-cylindres-en-ligne-bmw?language=fr),
+  [official attachment](https://www.press.bmwgroup.com/france/article/attachment/T0028512FR/48815).
+- BMW Group Classic's
+  [BMW 328i (E36)](https://www.bmwgroup-classic.com/en/models/bmw-classics/product-description-page.ad-464-10.bmw-328i-e36.html)
+  page independently corroborates `2793 cm3` and `142 kW at 5300 rpm`.
 
 The SAE papers are not vendored and may be paywalled. Institutional theses are linked,
 not redistributed. A future BMW calibration requires identified same-condition

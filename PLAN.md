@@ -519,6 +519,10 @@ replacement starts before acceptance.
         rejected for held-speed use.
 - [ ] Render a modest BMW torque sweep with declared conditions and sourced plausibility
       bounds.
+  - [x] Freeze the original-M52 manufacturer landmarks, variant guard, derivations,
+        missing-condition caveats, and warning-only gross-error policy before seeing
+        the modeled sweep.
+  - [ ] Compare only complete converged shaft results and publish the sweep evidence.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.
 - [ ] Add the inertial dyno.
 - [ ] Render its natural BMW pull, then stop for user listening.
