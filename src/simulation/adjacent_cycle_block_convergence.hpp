@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/contract/common.hpp"
+#include "engine_sim_offline/contract/scenario.hpp"
 #include "simulation/four_stroke_cycle_integrator.hpp"
 
 #include <cstddef>
@@ -13,10 +14,6 @@
 #include <vector>
 
 namespace engine_sim_offline::simulation {
-
-inline constexpr std::string_view kAdjacentCycleBlockMeanConvergenceMethodId =
-    "adjacent-nonoverlapping-cycle-block-mean-v1";
-inline constexpr std::uint32_t kAdjacentCycleBlockMeanConvergenceMethodVersion = 1;
 
 [[nodiscard]] std::string_view
 adjacent_cycle_block_mean_convergence_method_descriptor() noexcept;

@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -119,6 +120,19 @@ struct FixedSettling {
 
     friend bool operator==(const FixedSettling &, const FixedSettling &) = default;
 };
+
+inline constexpr std::string_view kAdjacentCycleBlockMeanConvergenceMethodId =
+    "adjacent-nonoverlapping-cycle-block-mean-v1";
+inline constexpr std::uint32_t kAdjacentCycleBlockMeanConvergenceMethodVersion = 1;
+inline constexpr Sha256Digest
+    kAdjacentCycleBlockMeanConvergenceMethodConfigurationSha256{{
+        0xb1, 0xa1, 0xad, 0x37, 0x08, 0x8c, 0xeb, 0x2a, 0x88, 0xdb, 0xb5,
+        0xdb, 0x4b, 0xb3, 0x85, 0x06, 0x7f, 0xef, 0xa6, 0xb2, 0x44, 0xb0,
+        0x91, 0xde, 0xee, 0xbe, 0x5b, 0xf3, 0x8a, 0xca, 0xc4, 0x06,
+    }};
+
+[[nodiscard]] const MethodIdentity &
+adjacent_cycle_block_mean_convergence_method_identity();
 
 struct ConvergenceSettling {
     ResolvedValue<MethodIdentity> method;

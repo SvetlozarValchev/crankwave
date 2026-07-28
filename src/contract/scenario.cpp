@@ -17,6 +17,15 @@
 
 namespace engine_sim_offline::contract {
 
+const MethodIdentity &adjacent_cycle_block_mean_convergence_method_identity() {
+    static const MethodIdentity identity{
+        std::string{kAdjacentCycleBlockMeanConvergenceMethodId},
+        kAdjacentCycleBlockMeanConvergenceMethodVersion,
+        kAdjacentCycleBlockMeanConvergenceMethodConfigurationSha256,
+    };
+    return identity;
+}
+
 Sha256Digest canonical_binary64_le_sha256(std::span<const double> samples) noexcept {
     static_assert(sizeof(double) == sizeof(std::uint64_t));
     static_assert(std::numeric_limits<double>::is_iec559);
@@ -154,16 +163,13 @@ void validate_fixed_rate_rpm_trajectory(ValidationReport &report,
             "fixed-rate RPM sample hash does not match the owned sample vector");
 }
 
-void require_convergence_method(ValidationReport &report,
-                                const MethodIdentity &method,
+void require_convergence_method(ValidationReport &report, const MethodIdentity &method,
                                 const std::string &path) {
     detail::require(
-        report,
-        method.id == "adjacent-nonoverlapping-cycle-block-mean-v1" &&
-            method.version == 1,
+        report, method == adjacent_cycle_block_mean_convergence_method_identity(),
         ContractIssueCode::unsupported_value, path,
         "convergence preparation requires "
-        "adjacent-nonoverlapping-cycle-block-mean-v1 version 1");
+        "the exact adjacent-nonoverlapping-cycle-block-mean-v1 method identity");
 }
 
 } // namespace

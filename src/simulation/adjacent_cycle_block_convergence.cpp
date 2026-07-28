@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <new>
 #include <numbers>
-#include <span>
 #include <stdexcept>
 #include <utility>
 
@@ -71,12 +70,6 @@ external_numeric_authority=renderer-build-source-standard-library-math-runtime-a
 
 static_assert(canonical_lf_descriptor(kAdjacentCycleBlockMeanConvergenceDescriptor));
 
-[[nodiscard]] contract::Sha256Digest
-descriptor_digest(std::string_view descriptor) noexcept {
-    return contract::sha256(
-        std::as_bytes(std::span<const char>{descriptor.data(), descriptor.size()}));
-}
-
 [[nodiscard]] AdjacentCycleBlockConvergenceError
 plan_error(AdjacentCycleBlockConvergencePlanIssue issue) {
     AdjacentCycleBlockConvergenceError error;
@@ -116,12 +109,7 @@ std::string_view adjacent_cycle_block_mean_convergence_method_descriptor() noexc
 
 const contract::MethodIdentity &
 adjacent_cycle_block_mean_convergence_method_identity() {
-    static const contract::MethodIdentity identity{
-        std::string{kAdjacentCycleBlockMeanConvergenceMethodId},
-        kAdjacentCycleBlockMeanConvergenceMethodVersion,
-        descriptor_digest(kAdjacentCycleBlockMeanConvergenceDescriptor),
-    };
-    return identity;
+    return contract::adjacent_cycle_block_mean_convergence_method_identity();
 }
 
 AdjacentCycleBlockConvergenceObserver::AdjacentCycleBlockConvergenceObserver(

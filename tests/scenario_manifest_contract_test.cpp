@@ -238,10 +238,10 @@ void run_scenario_manifest_contract_tests() {
     auto convergence_scenario = simulation_inputs(convergence_content).scenario;
     convergence_scenario.preparation = ConvergenceSettling{
         convergence_builder.resolved(
-            method("adjacent-nonoverlapping-cycle-block-mean-v1", 71),
+            adjacent_cycle_block_mean_convergence_method_identity(),
             "scenario.preparation.method"),
-        convergence_builder.resolved(
-            0.5, "scenario.preparation.minimum_warm_up_duration_s"),
+        convergence_builder.resolved(0.5,
+                                     "scenario.preparation.minimum_warm_up_duration_s"),
         convergence_builder.resolved(
             0.5, "scenario.preparation.minimum_settling_duration_s"),
         convergence_builder.resolved(
@@ -250,8 +250,8 @@ void run_scenario_manifest_contract_tests() {
             2, "scenario.preparation.comparison_cycle_count"),
         convergence_builder.resolved(
             0.5, "scenario.preparation.cycle_mean_torque_tolerance_nm"),
-        convergence_builder.resolved(
-            100.0, "scenario.preparation.pressure_tolerance_pa"),
+        convergence_builder.resolved(100.0,
+                                     "scenario.preparation.pressure_tolerance_pa"),
     };
     expect(validate(convergence_scenario, convergence_builder.provenance).ok(),
            "valid identified convergence preparation was rejected");
@@ -260,6 +260,19 @@ void run_scenario_manifest_contract_tests() {
         .method.value.id = "other-convergence-v1";
     expect(!validate(wrong_convergence_method, convergence_builder.provenance).ok(),
            "unimplemented convergence method was accepted");
+    auto wrong_convergence_version = convergence_scenario;
+    std::get<ConvergenceSettling>(wrong_convergence_version.preparation)
+        .method.value.version = 2;
+    expect(!validate(wrong_convergence_version, convergence_builder.provenance).ok(),
+           "wrong convergence method version was accepted");
+    auto wrong_convergence_digest = convergence_scenario;
+    auto &wrong_digest =
+        std::get<ConvergenceSettling>(wrong_convergence_digest.preparation)
+            .method.value.configuration_sha256;
+    wrong_digest.bytes[0] =
+        static_cast<std::uint8_t>(wrong_digest.bytes[0] ^ UINT8_C(1));
+    expect(!validate(wrong_convergence_digest, convergence_builder.provenance).ok(),
+           "wrong convergence method configuration digest was accepted");
 
     expect(validate_for_engine(simulation_inputs(content).scenario,
                                simulation_inputs(content).engine)

@@ -185,7 +185,9 @@ void test_method_identity_and_plan_admission() {
     expect(identity.id == "adjacent-nonoverlapping-cycle-block-mean-v1" &&
                identity.version == 1U && identity.configuration_sha256 == digest &&
                contract::validate(identity).ok() &&
-               &identity == &adjacent_cycle_block_mean_convergence_method_identity(),
+               &identity == &adjacent_cycle_block_mean_convergence_method_identity() &&
+               &identity ==
+                   &contract::adjacent_cycle_block_mean_convergence_method_identity(),
            "convergence method identity is invalid or unstable");
 
     constexpr std::array forbidden_tokens{"m4", "bmw", "fixture", "profile_id"};
