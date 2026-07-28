@@ -353,6 +353,16 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
         make_flame_point("turbulence-1", 1.0, 2.0),
     };
 
+    const auto combustion_stream_path = path("combustion_random_streams.cylinder-1");
+    profile.combustion_random_streams.push_back({
+        CylinderId{1},
+        builder.resolved<std::uint64_t>(UINT64_C(0x6ba3d060370e05fa),
+                                        combustion_stream_path +
+                                            ".pcg32_initial_state"),
+        builder.resolved<std::uint64_t>(UINT64_C(0x3e13b1e68ef2f790),
+                                        combustion_stream_path + ".pcg32_stream"),
+    });
+
     profile.losses.included_terms =
         builder.resolved(known_torque_term_mask(), path("losses.included_terms"));
     profile.losses.omitted_terms =

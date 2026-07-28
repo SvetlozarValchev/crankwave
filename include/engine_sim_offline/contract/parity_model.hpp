@@ -401,6 +401,24 @@ using AuthoredLegacyFuelProfile =
     LegacyFuelProfileT<AuthoredValue, AuthoredLegacyFlameSpeedPoint>;
 using LegacyFuelProfile = LegacyFuelProfileT<ResolvedValue, LegacyFlameSpeedPoint>;
 
+struct AuthoredLegacyCombustionRandomStream {
+    AuthoredValue<std::string> cylinder_id;
+    AuthoredValue<std::uint64_t> pcg32_initial_state;
+    AuthoredValue<std::uint64_t> pcg32_stream;
+
+    friend bool operator==(const AuthoredLegacyCombustionRandomStream &,
+                           const AuthoredLegacyCombustionRandomStream &) = default;
+};
+
+struct LegacyCombustionRandomStream {
+    CylinderId cylinder_id;
+    ResolvedValue<std::uint64_t> pcg32_initial_state;
+    ResolvedValue<std::uint64_t> pcg32_stream;
+
+    friend bool operator==(const LegacyCombustionRandomStream &,
+                           const LegacyCombustionRandomStream &) = default;
+};
+
 template <template <class> class Field> struct LegacyLossProfileT {
     Field<TorqueTermMask> included_terms;
     Field<TorqueTermMask> omitted_terms;
@@ -498,6 +516,7 @@ struct AuthoredLegacyLowOrderV1Profile {
     AuthoredLegacyValvetrainProfile valvetrain;
     AuthoredLegacyIgnitionProfile ignition;
     AuthoredLegacyFuelProfile fuel;
+    std::vector<AuthoredLegacyCombustionRandomStream> combustion_random_streams;
     AuthoredLegacyLossProfile losses;
     AuthoredLegacyReferenceExcitationProfile excitation;
 
@@ -511,6 +530,7 @@ struct LegacyLowOrderV1Profile {
     LegacyValvetrainProfile valvetrain;
     LegacyIgnitionProfile ignition;
     LegacyFuelProfile fuel;
+    std::vector<LegacyCombustionRandomStream> combustion_random_streams;
     LegacyLossProfile losses;
     LegacyReferenceExcitationProfile excitation;
 

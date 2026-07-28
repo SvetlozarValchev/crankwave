@@ -188,6 +188,12 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
         },
     };
 
+    profile.combustion_random_streams.push_back({
+        authored(std::string{"cylinder-1"}),
+        authored<std::uint64_t>(UINT64_C(0x6ba3d060370e05fa)),
+        authored<std::uint64_t>(UINT64_C(0x3e13b1e68ef2f790)),
+    });
+
     profile.losses.included_terms = authored(known_torque_term_mask());
     profile.losses.omitted_terms = authored<TorqueTermMask>(0);
 
@@ -348,6 +354,14 @@ void run_authored_profile_contract_tests() {
         AuthoredExecutablePhysicsProfile{make_authored_profile()}, make_provenance());
     expect(valid_report.ok(), "valid authored executable profile was rejected");
 
+    auto deterministic_profile = make_authored_profile();
+    deterministic_profile.fuel.burning_efficiency_randomness_01.value = 0.0;
+    deterministic_profile.combustion_random_streams.clear();
+    expect(validate(AuthoredExecutablePhysicsProfile{std::move(deterministic_profile)},
+                    make_provenance())
+               .ok(),
+           "zero burning randomness required unused combustion random streams");
+
     expect_authored_mutation_rejected(
         "negative authored piston mass was accepted",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
@@ -384,6 +398,39 @@ void run_authored_profile_contract_tests() {
         "compression ignition was enabled in a spark-ignition authored profile",
         [](AuthoredLegacyLowOrderV1Profile &profile) {
             profile.fuel.compression_ignition_enabled.value = true;
+        });
+    expect_authored_mutation_rejected(
+        "nonzero authored burning randomness accepted no random streams",
+        [](AuthoredLegacyLowOrderV1Profile &profile) {
+            profile.combustion_random_streams.clear();
+        });
+    expect_authored_mutation_rejected(
+        "duplicate authored combustion random-stream owner was accepted",
+        [](AuthoredLegacyLowOrderV1Profile &profile) {
+            profile.combustion_random_streams.push_back(
+                profile.combustion_random_streams.front());
+        });
+    expect_authored_mutation_rejected(
+        "dangling authored combustion random-stream owner was accepted",
+        [](AuthoredLegacyLowOrderV1Profile &profile) {
+            profile.combustion_random_streams.front().cylinder_id.value = "cylinder-2";
+        });
+    expect_authored_mutation_rejected(
+        "out-of-range authored PCG32 stream was accepted",
+        [](AuthoredLegacyLowOrderV1Profile &profile) {
+            profile.combustion_random_streams.front().pcg32_stream.value =
+                std::numeric_limits<std::uint64_t>::max();
+        });
+    expect_authored_mutation_rejected(
+        "unclaimed authored PCG32 initial state was accepted",
+        [](AuthoredLegacyLowOrderV1Profile &profile) {
+            profile.combustion_random_streams.front()
+                .pcg32_initial_state.claim_id.clear();
+        });
+    expect_authored_mutation_rejected(
+        "unclaimed authored PCG32 stream was accepted",
+        [](AuthoredLegacyLowOrderV1Profile &profile) {
+            profile.combustion_random_streams.front().pcg32_stream.claim_id.clear();
         });
     expect_authored_mutation_rejected(
         "overlapping authored loss classifications were accepted",

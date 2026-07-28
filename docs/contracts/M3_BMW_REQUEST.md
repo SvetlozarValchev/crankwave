@@ -25,10 +25,12 @@ becoming an engine API.
 The public simulator library receives an already materialized request and never reads
 the reference fixture. A reference-only evaluation composition may:
 
-1. verify and decode `reference-parity.bin`;
-2. extract only its RPM lane into the typed trajectory below;
-3. retain crank angle and pressure fields solely in a comparator object;
-4. pass the sealed engine/scenario request to the simulator.
+1. verify and decode `reference-parity.bin` and `component-seeds.bin`;
+2. extract only `reference-parity.bin`'s RPM lane into the typed trajectory below;
+3. compare the decoded combustion seed pairs with the sealed parity-profile values
+   below;
+4. retain crank angle and pressure fields solely in a comparator object;
+5. pass the sealed engine/scenario request to the simulator.
 
 Captured crank angle, filtered RPM, pressure, excitation, and audit buses are never
 scenario inputs.
@@ -51,6 +53,33 @@ content hash of `M3_PARITY_MODEL.md` above as their configuration identity. The
 prescribed-motion method is
 `fixed-rate-post-step-rpm-binary64-v1`, version 1, with this request record's eventual
 committed content hash as its configuration identity.
+
+The parity profile owns exactly six typed, resolved
+`LegacyCombustionRandomStream` request values in runtime-cylinder order. Their
+collection is `LegacyLowOrderV1Profile::combustion_random_streams`; for each row,
+the resolved fields are `<base>.pcg32_initial_state` and
+`<base>.pcg32_stream`:
+
+| Cylinder | Request base path | `pcg32_initial_state` | `pcg32_stream` |
+|---:|---|---:|---:|
+| 1 | `engine.physics.legacy-low-order-v1.combustion_random_streams.cylinder-1` | `0x6ba3d060370e05fa` | `0x3e13b1e68ef2f790` |
+| 2 | `engine.physics.legacy-low-order-v1.combustion_random_streams.cylinder-2` | `0xb1ab9b6c6217bdf3` | `0x7681d4f9a6c78e3f` |
+| 3 | `engine.physics.legacy-low-order-v1.combustion_random_streams.cylinder-3` | `0x0c2447917cd77f40` | `0x4c09e08d851104f5` |
+| 4 | `engine.physics.legacy-low-order-v1.combustion_random_streams.cylinder-4` | `0xfc83080b6c8b1a98` | `0x686f68f85fd7d169` |
+| 5 | `engine.physics.legacy-low-order-v1.combustion_random_streams.cylinder-5` | `0x1f0c63f1d677237b` | `0x3507d87731683125` |
+| 6 | `engine.physics.legacy-low-order-v1.combustion_random_streams.cylinder-6` | `0xad811f42fb6dafa3` | `0x50900fae5afa96cf` |
+
+Each row binds its semantic cylinder to the corresponding typed `CylinderId`.
+Admission requires exactly one row per cylinder and the PCG32 sequence-selector
+bound `stream <= 2^63-1` on `pcg32_stream`; `pcg32_initial_state` retains its full
+unsigned 64-bit domain. These values are sealed engine-request data, not hidden
+session or simulator state. The production-neutral BMW request factory accepts only
+the owned RPM vector as fixture-derived input and constructs these six exact pairs
+directly from this normative request. A reference-only integration may verify and
+decode `component-seeds.bin` to compare its pairs with the constructed request; it
+never supplies those values to the factory or simulator. Neither production layer
+opens that fixture, derives replacement pairs from the public seed, or links its
+reader at render time.
 
 ## 3. Stable topology identities
 
@@ -110,6 +139,19 @@ The source routes are deliberately the two frozen evaluation routes only:
 
 This numeric mapping is repository-local. Fixture route index 0 maps to `RouteId 1`;
 fixture route index 1 maps to `RouteId 2`.
+
+Three nearby displacement values are intentionally distinct and must not be
+cross-substituted:
+
+| Owner/use | Arithmetic authority | Exact value |
+|---|---|---:|
+| `EngineSpec` field `engine.total_displacement_m3` | Geometric sum of cylinder swept volumes using `std::numbers::pi` | `0.0027930517982299274 m3` |
+| `legacy_low_order_v1` runtime analytic volumes, clearance, torque, and BMEP | `pi_l = 3.14159265359` in the arithmetic order fixed by `M3_PARITY_MODEL.md` | `0.0027930517982301117 m3` |
+| Reference comparator only | Source fixture's sampled constraint-mechanism observation | `0.0027930477143328905 m3` |
+
+The `EngineSpec` value satisfies generic geometry validation. The legacy runtime
+value remains the executable parity-method result. The sampled fixture value is
+comparator/provenance evidence only and never initializes either representation.
 
 ## 4. Fixed-rate prescribed RPM
 
@@ -182,6 +224,21 @@ No state change occurs at 1.0 or 2.0 seconds; only throttle changes at 1.0. The
 limiter is configured throughout because the source ignition module owns it, although
 the recorded trajectory never reaches its 8,000 RPM threshold.
 
+The resolved ignition profile deliberately uses angular-speed units for its timing
+table while retaining RPM for operating limits:
+
+| Resolved request field/path | Unit | Exact construction/value |
+|---|---|---|
+| `engine.physics.legacy-low-order-v1.ignition.timing_curve_triangle_radius_rad_s` | `rad/s` | `1000*0.104719755 rad/s` |
+| `engine.physics.legacy-low-order-v1.ignition.timing_curve.<sample-id>.angular_speed_rad_s` | `rad/s` | Each source `rpm_point*0.104719755` |
+| `engine.physics.legacy-low-order-v1.ignition.timing_curve.<sample-id>.timing_advance_rad` | `rad` | The corresponding source timing advance |
+| `engine.physics.legacy-low-order-v1.ignition.limiter_speed_rpm` | `rpm` | `8000 rpm` |
+| `engine.physics.legacy-low-order-v1.ignition.declared_redline_rpm` | `rpm` | `7000 rpm` |
+
+Neither the timing-table abscissae nor its triangle radius are RPM fields. Conversely,
+the limiter and declared redline remain RPM values and are not converted in the
+sealed request.
+
 ## 6. Explicit ambient, fuel, and thermal metadata
 
 The low-order parity method consumes dry idealized gas state and does not consume
@@ -230,8 +287,8 @@ inadmissible.
 ## 8. Provenance and acceptance
 
 The ledger includes content-addressed evidence for the legacy BMW asset, inherited
-defaults, `M3_PARITY_MODEL.md`, fixture manifest, parity evidence, and the preserved
-engine-sim MIT notice. Legacy engine values remain
+defaults, `M3_PARITY_MODEL.md`, fixture manifest, parity evidence, component-seed
+evidence, and the preserved engine-sim MIT notice. Legacy engine values remain
 `legacy_asset_unverified`; fixture trajectory values remain `reference_fixture`;
 scenario choices remain `scenario`; calculated values use derived resolutions with
 explicit direct dependencies.
@@ -246,6 +303,7 @@ The immutable evidence identities are:
 | `legacy-performer-intake` | `es/part-library/parts/intakes.mr` | `9617562a7a5615c2bf84c9ec39cd5ae25c560059` | `f2331225d54ec56da44b5b658cfd51b859eb77c9bc5700a8dcace7513f5f8b1e` | no assertion |
 | `reference-fixture-manifest` | `reference/fixtures/bmw-m52b28-p18/manifest.json` | repository content | `52d694ba6edc8771b5a4c394d5b62573c22b38e8ba4ef7e2f5bc8c8fb6decc07` | local evaluation only |
 | `reference-parity-evidence` | `reference/fixtures/bmw-m52b28-p18/reference-parity.bin` | repository content | `19d351b54c8eb8b509cd72ea03061b01f92722cbfa48d27a2342ca7203ffa94c` | local evaluation only |
+| `reference-component-seed-evidence` | `reference/fixtures/bmw-m52b28-p18/component-seeds.bin` | repository content | `ca6f9b2d56e2f6729401437a741f605069a7eea21524a85b3dce0322ec30468f` | local evaluation only |
 | `engine-sim-mit-notice` | `reference/oracles/bmw-m52b28/engine-sim-MIT.txt` | repository content | `9f64449d4ef2db6b57d6af9d36e5eca5b6de3ece2db14a847ae71d4e0dcbff15` | permitted |
 
 The ledger also content-addresses this request record after it is committed. Its

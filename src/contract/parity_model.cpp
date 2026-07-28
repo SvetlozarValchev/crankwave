@@ -284,6 +284,12 @@ void visit_profile_fields(const Profile &profile, Function function,
              std::string(root) + ".ignition.declared_redline_rpm");
 
     visit_fuel(profile.fuel, std::string(root) + ".fuel", function);
+    for (const auto &stream : profile.combustion_random_streams) {
+        const auto stream_base =
+            std::string(root) + ".combustion_random_streams." + cylinder_name(stream);
+        function(stream.pcg32_initial_state, stream_base + ".pcg32_initial_state");
+        function(stream.pcg32_stream, stream_base + ".pcg32_stream");
+    }
     function(profile.losses.included_terms,
              std::string(root) + ".losses.included_terms");
     function(profile.losses.omitted_terms, std::string(root) + ".losses.omitted_terms");
@@ -791,6 +797,47 @@ void validate_authored_domains(ValidationReport &report,
                 "fuel.turbulence_to_flame_speed_ratio." + point.sample_id.value,
                 "flame-speed curve inputs must be strictly increasing");
         }
+    }
+
+    std::unordered_set<std::string> mechanism_cylinder_ids;
+    for (const auto &cylinder : profile.mechanism.cylinders) {
+        mechanism_cylinder_ids.insert(cylinder.topology.cylinder_id.value);
+    }
+    std::unordered_set<std::string> random_stream_cylinder_ids;
+    for (const auto &stream : profile.combustion_random_streams) {
+        const auto &cylinder_id = stream.cylinder_id.value;
+        const auto stream_path =
+            profile_path("combustion_random_streams." + cylinder_id);
+        require(report, is_valid_semantic_id(cylinder_id),
+                ContractIssueCode::invalid_value, stream_path + ".cylinder_id.value",
+                "combustion random-stream owner must be canonical");
+        require(report, mechanism_cylinder_ids.contains(cylinder_id),
+                ContractIssueCode::dangling_reference,
+                stream_path + ".cylinder_id.value",
+                "combustion random stream references an unknown cylinder");
+        if (!random_stream_cylinder_ids.insert(cylinder_id).second) {
+            report.add(ContractIssueCode::duplicate_identity,
+                       stream_path + ".cylinder_id.value",
+                       "a cylinder may own only one combustion random stream");
+        }
+        require(
+            report,
+            stream.pcg32_stream.value <=
+                static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()),
+            ContractIssueCode::invalid_value, stream_path + ".pcg32_stream.value",
+            "PCG32 stream must fit the 63-bit sequence domain");
+    }
+    if (fuel.burning_efficiency_randomness_01.value > 0.0) {
+        require(report,
+                profile.combustion_random_streams.size() ==
+                        profile.mechanism.cylinders.size() &&
+                    mechanism_cylinder_ids.size() ==
+                        profile.mechanism.cylinders.size() &&
+                    random_stream_cylinder_ids == mechanism_cylinder_ids,
+                ContractIssueCode::inconsistent_shape,
+                profile_path("combustion_random_streams"),
+                "nonzero burning randomness requires exactly one combustion "
+                "random stream per cylinder");
     }
 
     const auto classified =
@@ -1595,6 +1642,46 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
         }
     }
 
+    std::unordered_set<std::uint32_t> engine_cylinder_ids;
+    for (const auto &cylinder : engine.cylinders) {
+        if (cylinder.id.valid()) {
+            engine_cylinder_ids.insert(cylinder.id.value);
+        }
+    }
+    std::unordered_set<std::uint32_t> random_stream_cylinder_ids;
+    for (const auto &stream : profile.combustion_random_streams) {
+        const auto stream_path = profile_path(
+            "combustion_random_streams." + cylinder_name(engine, stream.cylinder_id));
+        require(report, stream.cylinder_id.valid(), ContractIssueCode::invalid_value,
+                stream_path + ".cylinder_id",
+                "combustion random-stream owner must be nonzero");
+        require(report,
+                contains_id(engine.cylinders, stream.cylinder_id, &CylinderSpec::id),
+                ContractIssueCode::dangling_reference, stream_path + ".cylinder_id",
+                "combustion random stream references an unknown cylinder");
+        if (stream.cylinder_id.valid() &&
+            !random_stream_cylinder_ids.insert(stream.cylinder_id.value).second) {
+            report.add(ContractIssueCode::duplicate_identity,
+                       stream_path + ".cylinder_id",
+                       "a cylinder may own only one combustion random stream");
+        }
+        require(
+            report,
+            stream.pcg32_stream.value <=
+                static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()),
+            ContractIssueCode::invalid_value, stream_path + ".pcg32_stream.value",
+            "PCG32 stream must fit the 63-bit sequence domain");
+    }
+    if (fuel.burning_efficiency_randomness_01.value > 0.0) {
+        require(report,
+                profile.combustion_random_streams.size() == engine.cylinders.size() &&
+                    random_stream_cylinder_ids == engine_cylinder_ids,
+                ContractIssueCode::inconsistent_shape,
+                profile_path("combustion_random_streams"),
+                "nonzero burning randomness requires exactly one combustion "
+                "random stream per cylinder");
+    }
+
     const auto classified =
         profile.losses.included_terms.value | profile.losses.omitted_terms.value;
     require(report,
@@ -1631,10 +1718,6 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
     detail::append_prefixed(report, validate(excitation.delay_rate.value),
                             "reference_excitation.delay_rate.value");
 
-    std::unordered_set<std::uint32_t> engine_cylinder_ids;
-    for (const auto &cylinder : engine.cylinders) {
-        engine_cylinder_ids.insert(cylinder.id.value);
-    }
     std::unordered_set<std::uint32_t> accumulation_cylinder_ids;
     for (const auto cylinder_id : excitation.cylinder_accumulation_order.value) {
         if (cylinder_id.valid()) {
@@ -1863,6 +1946,11 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
             };
             validate_lobes(legacy.valvetrain.intake, "intake");
             validate_lobes(legacy.valvetrain.exhaust, "exhaust");
+            for (const auto &stream : legacy.combustion_random_streams) {
+                const auto base = std::string(root) + ".combustion_random_streams." +
+                                  stream.cylinder_id.value;
+                validate_topology_field(stream.cylinder_id, base + ".cylinder_id");
+            }
             for (std::size_t index = 0; index < legacy.excitation.cylinder_paths.size();
                  ++index) {
                 const auto &path = legacy.excitation.cylinder_paths[index];
