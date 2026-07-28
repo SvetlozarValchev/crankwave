@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — connecting M3 excitation to the accepted renderer
+Status: paused at M3 listening gate — awaiting user acceptance
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-28
 
@@ -462,7 +462,7 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
       that renderer.
 - [x] Render the canonical 15-second pull.
 - [x] Produce controlled oracle/candidate files plus routing and performance reports.
-- [ ] Stop for user listening.
+- [x] Stop for user listening.
 - [ ] After the user accepts the physics-generated BMW listening gate, retire every
       P1.8-named C++ renderer/replay implementation and its build targets. Move any
       still-needed algorithm into one generally named production implementation
