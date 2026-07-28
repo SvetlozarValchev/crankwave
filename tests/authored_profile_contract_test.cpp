@@ -198,8 +198,12 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
         authored<std::uint64_t>(UINT64_C(0x3e13b1e68ef2f790)),
     });
 
-    fixed_crank_loss.included_terms = authored(known_torque_term_mask());
-    fixed_crank_loss.omitted_terms = authored<TorqueTermMask>(0);
+    const TorqueTermMask included_torque_terms =
+        torque_term_mask(TorqueTerm::indicated_gas) |
+        torque_term_mask(TorqueTerm::crank_friction);
+    fixed_crank_loss.included_terms = authored(included_torque_terms);
+    fixed_crank_loss.omitted_terms =
+        authored(known_torque_term_mask() & ~included_torque_terms);
 
     core.excitation.reference_atmosphere_pa_abs = authored(101325.0);
     core.excitation.legacy_propagation_speed_m_s = authored(343.0);

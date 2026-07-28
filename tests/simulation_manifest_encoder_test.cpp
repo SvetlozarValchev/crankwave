@@ -23,9 +23,9 @@ using namespace engine_sim_offline::contract;
 using namespace engine_sim_offline::contract::test;
 
 constexpr std::string_view kExpectedManifestSha256 =
-    "8fb97dc325c9922cb26712bda6093652608649663e2f027e4f2b930352dc625b";
+    "44c0e05e33991c4dc77599f898cd74310de62b4162eed1ad9b77d19a324f5b42";
 constexpr std::string_view kExpectedRequestIdentitySha256 =
-    "b63c7200d10b4a63be22991b2aa99048f063053a882a1a4cc68fe4ae95c5e3ad";
+    "57d304f4c8d95ebff6e77b804ea096ebc4aef014227f514d404e4ea9174e5183";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -246,6 +246,13 @@ void test_fail_closed_boundaries() {
         indicated_gas_torque_term_mask(),
         known_torque_term_mask() & ~indicated_gas_torque_term_mask(),
     };
+    simulation_inputs(temporally_distinct_torque.content)
+        .engine.torque_capability.value.cycle_mean_net_shaft = {
+        Availability::available,
+        Completeness::complete,
+        known_torque_term_mask(),
+        0,
+    };
     expect_manifest_error(temporally_distinct_torque,
                           "simulation-manifest-wire-unrepresentable");
     const auto &distinct_inputs = simulation_inputs(temporally_distinct_torque.content);
@@ -256,8 +263,10 @@ void test_fail_closed_boundaries() {
 
 void set_compact_fixed_rate_sweep(SimulationFixture &fixture) {
     auto &scenario = simulation_inputs(fixture.manifest.content).scenario;
-    const auto throttle_resolution_id =
-        std::get<HeldSpeed>(scenario.mode).throttle_01.resolution_id;
+    const auto default_sweep = std::get<PrescribedKinematicSweep>(scenario.mode);
+    const auto throttle_resolution_id = default_sweep.throttle_01.resolution_id;
+    const auto rpm_resolution_id =
+        std::get<ScalarTrajectory>(default_sweep.trajectory.rpm).resolution_id;
     scenario.scenario_id = "fixed-rate-encoder-smoke";
     scenario.rates.physics = {1, 1};
     scenario.rates.capture = {1, 1};
@@ -270,17 +279,16 @@ void set_compact_fixed_rate_sweep(SimulationFixture &fixture) {
         RpmSampleSemantics::post_step_rpm,
         std::move(rpm_samples),
         {},
-        fixture.builder.add_resolution("scenario.mode.trajectory.rpm"),
+        rpm_resolution_id,
     };
     fixed_rpm.samples_f64le_sha256 =
         canonical_binary64_le_sha256(fixed_rpm.post_step_rpm);
 
-    RpmTrajectory trajectory{
-        std::move(fixed_rpm),
-        fixture.builder.resolved(0.0, "scenario.mode.trajectory.initial_theta_rad"),
-        fixture.builder.resolved(method("fixed-rate-post-step-rpm-binary64-v1", 61),
-                                 "scenario.mode.trajectory.kinematic_resolution"),
-    };
+    auto kinematic_resolution = default_sweep.trajectory.kinematic_resolution;
+    kinematic_resolution.value = method("fixed-rate-post-step-rpm-binary64-v1", 61);
+    RpmTrajectory trajectory{std::move(fixed_rpm),
+                             default_sweep.trajectory.initial_theta_rad,
+                             std::move(kinematic_resolution)};
     ScalarTrajectory throttle{
         TrajectoryInterpolation::right_continuous_hold,
         {

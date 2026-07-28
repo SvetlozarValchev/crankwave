@@ -360,10 +360,15 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
                                         combustion_stream_path + ".pcg32_stream"),
     });
 
+    const TorqueTermMask included_torque_terms =
+        torque_term_mask(TorqueTerm::indicated_gas) |
+        torque_term_mask(TorqueTerm::crank_friction);
+    const TorqueTermMask omitted_torque_terms =
+        known_torque_term_mask() & ~included_torque_terms;
     fixed_crank_loss.included_terms =
-        builder.resolved(known_torque_term_mask(), path("losses.included_terms"));
+        builder.resolved(included_torque_terms, path("losses.included_terms"));
     fixed_crank_loss.omitted_terms =
-        builder.resolved<TorqueTermMask>(0, path("losses.omitted_terms"));
+        builder.resolved(omitted_torque_terms, path("losses.omitted_terms"));
 
     core.excitation.reference_atmosphere_pa_abs = builder.resolved(
         101325.0, path("reference_excitation.reference_atmosphere_pa_abs"));
@@ -536,21 +541,26 @@ inline EngineSpec make_engine(InputBuilder &builder) {
         resolve_method("legacy_low_order_v1", 9, "excitation"),
     };
     spec.physics_profile = make_physics_profile(builder);
+    const TorqueTermMask included_torque_terms =
+        torque_term_mask(TorqueTerm::indicated_gas) |
+        torque_term_mask(TorqueTerm::crank_friction);
+    const TorqueTermMask omitted_torque_terms =
+        known_torque_term_mask() & ~included_torque_terms;
     spec.torque_capability = builder.resolved(
         TorqueCapability{
             {
                 Availability::available,
-                Completeness::complete,
-                known_torque_term_mask(),
-                0,
+                Completeness::incomplete,
+                included_torque_terms,
+                omitted_torque_terms,
             },
             {
-                Availability::available,
-                Completeness::complete,
-                known_torque_term_mask(),
+                Availability::unavailable,
+                Completeness::incomplete,
+                0,
                 0,
             },
-            true,
+            false,
         },
         "engine.torque_capability");
     spec.provenance_schema_id = builder.provenance.schema_id;
@@ -624,7 +634,7 @@ inline PresentationCalibration make_presentation(InputBuilder &builder,
 inline RenderScenario make_scenario(InputBuilder &builder, const EngineSpec &engine) {
     RenderScenario scenario;
     scenario.schema_version = 1;
-    scenario.scenario_id = "held-speed-smoke";
+    scenario.scenario_id = "prescribed-sweep-smoke";
     scenario.engine_profile_id = engine.profile_id.value;
     scenario.ambient = {
         builder.resolved(101325.0, "scenario.ambient.pressure_pa_abs"),
@@ -670,10 +680,25 @@ inline RenderScenario make_scenario(InputBuilder &builder, const EngineSpec &eng
                                         "scenario.quality");
     scenario.public_seed =
         builder.resolved<std::uint64_t>(12648430, "scenario.public_seed");
-    scenario.mode = HeldSpeed{
-        builder.resolved(3000.0, "scenario.mode.engine_speed_rpm"),
-        builder.resolved(0.0, "scenario.mode.initial_theta_rad"),
-        builder.resolved(0.85, "scenario.mode.throttle_01"),
+    scenario.mode = PrescribedKinematicSweep{
+        {
+            ScalarTrajectory{
+                TrajectoryInterpolation::linear,
+                {
+                    {0.0, 3000.0},
+                    {scenario.total_duration_s.value, 3000.0},
+                },
+                builder.add_resolution("scenario.mode.trajectory.rpm"),
+            },
+            builder.resolved(0.0, "scenario.mode.trajectory.initial_theta_rad"),
+            builder.resolved(method("prescribed-linear-rpm-v1", 42),
+                             "scenario.mode.trajectory.kinematic_resolution"),
+        },
+        {
+            TrajectoryInterpolation::right_continuous_hold,
+            {{0.0, 0.85}},
+            builder.add_resolution("scenario.mode.throttle_01"),
+        },
     };
     scenario.mode_resolution_id = builder.add_resolution("scenario.mode.kind");
     scenario.provenance_schema_id = builder.provenance.schema_id;

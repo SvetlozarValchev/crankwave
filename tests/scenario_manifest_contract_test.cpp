@@ -66,8 +66,11 @@ void run_scenario_manifest_contract_tests() {
     InputBuilder fixed_rpm_builder;
     auto fixed_rpm_content = make_manifest_content(fixed_rpm_builder);
     auto fixed_rpm_scenario = simulation_inputs(fixed_rpm_content).scenario;
-    const auto throttle_resolution_id =
-        std::get<HeldSpeed>(fixed_rpm_scenario.mode).throttle_01.resolution_id;
+    const auto default_sweep =
+        std::get<PrescribedKinematicSweep>(fixed_rpm_scenario.mode);
+    const auto throttle_resolution_id = default_sweep.throttle_01.resolution_id;
+    const auto rpm_resolution_id =
+        std::get<ScalarTrajectory>(default_sweep.trajectory.rpm).resolution_id;
     const auto fixed_rpm_frame_count = resolve_frame_index(
         fixed_rpm_scenario.total_duration_s.value, fixed_rpm_scenario.rates.physics);
     expect(fixed_rpm_frame_count.has_value(),
@@ -79,17 +82,16 @@ void run_scenario_manifest_contract_tests() {
         RpmSampleSemantics::post_step_rpm,
         std::vector<double>(static_cast<std::size_t>(*fixed_rpm_frame_count), 3000.0),
         {},
-        fixed_rpm_builder.add_resolution("scenario.mode.trajectory.rpm"),
+        rpm_resolution_id,
     };
     fixed_rpm.samples_f64le_sha256 =
         canonical_binary64_le_sha256(fixed_rpm.post_step_rpm);
     PrescribedKinematicSweep fixed_sweep;
     fixed_sweep.trajectory.rpm = std::move(fixed_rpm);
     fixed_sweep.trajectory.initial_theta_rad =
-        fixed_rpm_builder.resolved(0.0, "scenario.mode.trajectory.initial_theta_rad");
+        default_sweep.trajectory.initial_theta_rad;
     fixed_sweep.trajectory.kinematic_resolution =
-        fixed_rpm_builder.resolved(method("fixed-rate-post-step-rpm-binary64-v1", 42),
-                                   "scenario.mode.trajectory.kinematic_resolution");
+        default_sweep.trajectory.kinematic_resolution;
     fixed_sweep.throttle_01 = {
         TrajectoryInterpolation::right_continuous_hold,
         {{0.0, 0.85}},
@@ -491,10 +493,9 @@ void run_scenario_manifest_contract_tests() {
     auto load_content = make_manifest_content(load_builder);
     auto load_engine = simulation_inputs(load_content).engine;
     auto load_scenario = simulation_inputs(load_content).scenario;
-    const auto held_speed = std::get<HeldSpeed>(load_scenario.mode);
     load_scenario.mode = LoadTargetHeldCapture{
-        held_speed.engine_speed_rpm,
-        held_speed.initial_theta_rad,
+        load_builder.resolved(3000.0, "scenario.mode.engine_speed_rpm"),
+        load_builder.resolved(0.0, "scenario.mode.initial_theta_rad"),
         load_builder.resolved(-100000.0, "scenario.mode.target_net_bmep_pa"),
         load_builder.resolved(100.0, "scenario.mode.target_tolerance_pa"),
         load_builder.resolved(0.0, "scenario.mode.throttle_lower_bound_01"),
@@ -504,8 +505,8 @@ void run_scenario_manifest_contract_tests() {
     };
     expect(validate(load_scenario, load_builder.provenance).ok(),
            "finite signed negative net-BMEP target was rejected");
-    expect(validate_for_engine(load_scenario, load_engine).ok(),
-           "complete torque model rejected a load-target capture");
+    expect(!validate_for_engine(load_scenario, load_engine).ok(),
+           "legacy incomplete torque model accepted a load-target capture");
     simulation_inputs(load_content).scenario = load_scenario;
 
     auto inverted_bounds = load_scenario;
@@ -563,8 +564,8 @@ void run_scenario_manifest_contract_tests() {
     inertia_missing.torque_capability.value.equivalent_inertia_available = false;
     expect(!validate_for_engine(inertial_scenario, inertia_missing).ok(),
            "inertial dyno accepted missing equivalent inertia");
-    expect(validate_for_engine(inertial_scenario, load_engine).ok(),
-           "complete instantaneous torque and equivalent inertia rejected an "
+    expect(!validate_for_engine(inertial_scenario, load_engine).ok(),
+           "legacy incomplete torque and missing equivalent inertia accepted an "
            "inertial dyno");
 
     const ReachabilityCandidate reached_candidate{
@@ -625,9 +626,9 @@ void run_scenario_manifest_contract_tests() {
     };
     const RenderResult reached_result = RenderSuccess{load_manifest, requested_reached};
     expect(
-        validate(reached_result, load_scenario, load_builder.provenance, source_matrix)
-            .ok(),
-        "load-target reached result did not bind to its request");
+        !validate(reached_result, load_scenario, load_builder.provenance, source_matrix)
+             .ok(),
+        "legacy incomplete torque model published a load-target result");
 
     auto wrong_reached_search_result = reached_result;
     std::get<RenderSuccess>(wrong_reached_search_result)
@@ -720,10 +721,10 @@ void run_scenario_manifest_contract_tests() {
         {},
     };
     const RenderResult unreachable_result = matching_unreachable;
-    expect(validate(unreachable_result, load_scenario, load_builder.provenance,
-                    source_matrix)
-               .ok(),
-           "load-target unreachable result did not bind to its request");
+    expect(!validate(unreachable_result, load_scenario, load_builder.provenance,
+                     source_matrix)
+                .ok(),
+           "legacy incomplete torque model published a load-target failure");
 
     auto wrong_unreachable_search_interval = matching_unreachable;
     wrong_unreachable_search_interval.search.requested_throttle_lower_bound_01 = 0.25;
@@ -755,7 +756,7 @@ void run_scenario_manifest_contract_tests() {
                       builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "unreachable"),
-           "held-speed request accepted an unreachable load-target result");
+           "prescribed-sweep request accepted an unreachable load-target result");
 
     auto inconsistent_unreachable = unreachable;
     inconsistent_unreachable.nearest_feasible =

@@ -58,6 +58,37 @@ void run_parity_model_contract_tests() {
                                     });
 
     expect_parity_mutation_rejected(
+        "legacy profile falsely claimed every torque term",
+        [](EngineSpec &engine, InputBuilder &) {
+            auto &loss = legacy_profile(engine).fixed_crank_loss;
+            loss.included_terms.value = known_torque_term_mask();
+            loss.omitted_terms.value = 0;
+            engine.torque_capability.value.instantaneous_net_shaft = {
+                Availability::available,
+                Completeness::complete,
+                known_torque_term_mask(),
+                0,
+            };
+        });
+
+    expect_parity_mutation_rejected(
+        "legacy profile falsely claimed cycle-mean net torque",
+        [](EngineSpec &engine, InputBuilder &) {
+            engine.torque_capability.value.cycle_mean_net_shaft = {
+                Availability::available,
+                Completeness::complete,
+                known_torque_term_mask(),
+                0,
+            };
+        });
+
+    expect_parity_mutation_rejected(
+        "legacy profile falsely claimed equivalent inertia",
+        [](EngineSpec &engine, InputBuilder &) {
+            engine.torque_capability.value.equivalent_inertia_available = true;
+        });
+
+    expect_parity_mutation_rejected(
         "cylinder intake topology accepted an exhaust port",
         [](EngineSpec &engine, InputBuilder &) {
             legacy_profile(engine)

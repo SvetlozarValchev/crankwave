@@ -24,6 +24,27 @@ constexpr double kLegacyPi = 3.14159265359;
 constexpr double kGasConstant = 8.31446261815324;
 constexpr double kOneSourceScfm = 0.002641 * 453.59237 / 60.0;
 constexpr std::string_view kLegacyProfileRoot = "engine.physics.legacy-low-order-v1";
+constexpr TorqueTermMask kLegacyIncludedTorqueTerms =
+    torque_term_mask(TorqueTerm::indicated_gas) |
+    torque_term_mask(TorqueTerm::crank_friction);
+constexpr TorqueTermMask kLegacyOmittedTorqueTerms =
+    known_torque_term_mask() & ~kLegacyIncludedTorqueTerms;
+
+constexpr TorqueCapability kLegacyTorqueCapability{
+    {
+        Availability::available,
+        Completeness::incomplete,
+        kLegacyIncludedTorqueTerms,
+        kLegacyOmittedTorqueTerms,
+    },
+    {
+        Availability::unavailable,
+        Completeness::incomplete,
+        0,
+        0,
+    },
+    false,
+};
 
 template <class T>
 void validate_authored(ValidationReport &report, const AuthoredValue<T> &value,
@@ -848,13 +869,12 @@ void validate_authored_domains(ValidationReport &report,
             "implemented combustion consumes exactly one random stream per "
             "cylinder");
 
-    const auto classified = loss.included_terms.value | loss.omitted_terms.value;
     require(report,
-            (loss.included_terms.value & loss.omitted_terms.value) == 0 &&
-                (classified & ~known_torque_term_mask()) == 0 &&
-                classified == known_torque_term_mask(),
+            loss.included_terms.value == kLegacyIncludedTorqueTerms &&
+                loss.omitted_terms.value == kLegacyOmittedTorqueTerms,
             ContractIssueCode::inconsistent_semantics, "losses",
-            "legacy loss profile must classify every known torque term once");
+            "legacy loss profile includes only indicated gas and fixed crank "
+            "friction and must explicitly omit every other known torque term");
 
     const auto &excitation = core.excitation;
     require(report,
@@ -1693,22 +1713,17 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             "implemented combustion consumes exactly one random stream per "
             "cylinder");
 
-    const auto classified = loss.included_terms.value | loss.omitted_terms.value;
     require(report,
-            (loss.included_terms.value & loss.omitted_terms.value) == 0 &&
-                (classified & ~known_torque_term_mask()) == 0 &&
-                classified == known_torque_term_mask(),
+            loss.included_terms.value == kLegacyIncludedTorqueTerms &&
+                loss.omitted_terms.value == kLegacyOmittedTorqueTerms,
             ContractIssueCode::inconsistent_semantics, "losses",
-            "legacy loss profile must classify every known torque term once");
+            "legacy loss profile includes only indicated gas and fixed crank "
+            "friction and must explicitly omit every other known torque term");
     require(
-        report,
-        loss.included_terms.value ==
-                engine.torque_capability.value.instantaneous_net_shaft.included_terms &&
-            loss.omitted_terms.value ==
-                engine.torque_capability.value.instantaneous_net_shaft.omitted_terms,
-        ContractIssueCode::inconsistent_semantics, "losses",
-        "physics loss classification and instantaneous net-torque capability "
-        "must agree");
+        report, engine.torque_capability.value == kLegacyTorqueCapability,
+        ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",
+        "legacy profile exposes only incomplete instantaneous indicated-gas plus "
+        "fixed-crank torque; it has no cycle-mean net torque or equivalent inertia");
 
     const auto &excitation = core.excitation;
     require(report,

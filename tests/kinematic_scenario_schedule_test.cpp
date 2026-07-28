@@ -42,11 +42,16 @@ void expect_rejected(const RenderScenario &scenario, std::string_view path) {
     const auto result = compile_kinematic_scenario_schedule(scenario);
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr, "invalid kinematic scenario compiled successfully");
-    expect(std::ranges::any_of(report->issues,
-                               [&](const ContractIssue &issue) {
-                                   return issue.path.find(path) != std::string::npos;
-                               }),
-           "kinematic rejection omitted the responsible path");
+    if (std::ranges::any_of(report->issues, [&](const ContractIssue &issue) {
+            return issue.path.find(path) != std::string::npos;
+        })) {
+        return;
+    }
+    std::string message = "kinematic rejection omitted path " + std::string(path);
+    for (const auto &issue : report->issues) {
+        message += "; actual: " + issue.path;
+    }
+    throw std::runtime_error{std::move(message)};
 }
 
 struct ScheduleFixture {
@@ -134,6 +139,11 @@ void test_held_speed_snapshot_boundaries_and_completion() {
 
 void test_held_speed_horizon_is_not_materialized() {
     ScheduleFixture fixture;
+    fixture.scenario.mode = HeldSpeed{
+        fixture.builder.resolved(3000.0, "held-horizon.engine_speed_rpm"),
+        fixture.builder.resolved(0.0, "held-horizon.initial_theta_rad"),
+        fixture.builder.resolved(0.85, "held-horizon.throttle_01"),
+    };
     fixture.scenario.total_duration_s.value = 100000.0;
     auto schedule =
         require_schedule(compile_kinematic_scenario_schedule(fixture.scenario));
@@ -232,28 +242,33 @@ void test_prescribed_sweep_behavior_is_preserved() {
 void test_admission_rejections() {
     {
         ScheduleFixture fixture;
+        configure_short_held_schedule(fixture);
         std::get<HeldSpeed>(fixture.scenario.mode).engine_speed_rpm.value = 0.0;
         expect_rejected(fixture.scenario, "engine_speed_rpm.value");
     }
     {
         ScheduleFixture fixture;
+        configure_short_held_schedule(fixture);
         std::get<HeldSpeed>(fixture.scenario.mode).initial_theta_rad.value =
             std::numeric_limits<double>::quiet_NaN();
         expect_rejected(fixture.scenario, "initial_theta_rad.value");
     }
     {
         ScheduleFixture fixture;
+        configure_short_held_schedule(fixture);
         std::get<HeldSpeed>(fixture.scenario.mode).throttle_01.value = 1.01;
         expect_rejected(fixture.scenario, "throttle_01.value");
     }
     {
         ScheduleFixture fixture;
+        configure_short_held_schedule(fixture);
         fixture.scenario.operating_state.value.push_back(
             {"off-grid", 0.00015, {false, false, false, true, true}});
-        expect_rejected(fixture.scenario, "operating_state.value[1].time_s");
+        expect_rejected(fixture.scenario, "operating_state.value[2].time_s");
     }
     {
         ScheduleFixture fixture;
+        configure_short_held_schedule(fixture);
         fixture.scenario.total_duration_s.value = 0.0;
         expect_rejected(fixture.scenario, "total_duration_s.value");
     }
