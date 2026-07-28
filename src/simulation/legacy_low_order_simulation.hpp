@@ -4,8 +4,7 @@
 #include "engine_sim_offline/contract/result.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
 #include "simulation/legacy_fixed_crank_torque_accounting.hpp"
-#include "simulation/legacy_low_order_gas.hpp"
-#include "simulation/legacy_low_order_mechanics.hpp"
+#include "simulation/low_order_engine_core_v1_runtime.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -78,7 +77,7 @@ class LegacyLowOrderSimulationSession final {
 
   private:
     LegacyLowOrderSimulationSession(
-        LegacyLowOrderMechanicsSession mechanics, LegacyLowOrderGasSession gas,
+        LowOrderEngineCoreV1Runtime core,
         LegacyFixedCrankTorqueAccountingPlan torque_accounting,
         detail::LegacyLowOrderCaptureBuffer capture, std::uint64_t expected_samples,
         std::string model_id, std::string profile_id, std::string scenario_id,
@@ -90,8 +89,7 @@ class LegacyLowOrderSimulationSession final {
           const LegacyMechanismStep *mechanics = nullptr) const;
     [[nodiscard]] LegacySimulationAdvanceResult fail(contract::FailureContext failure);
 
-    LegacyLowOrderMechanicsSession mechanics_;
-    LegacyLowOrderGasSession gas_;
+    LowOrderEngineCoreV1Runtime core_;
     LegacyFixedCrankTorqueAccountingPlan torque_accounting_;
     std::unique_ptr<detail::LegacyLowOrderCaptureBuffer> capture_;
     std::uint64_t expected_samples_ = 0;

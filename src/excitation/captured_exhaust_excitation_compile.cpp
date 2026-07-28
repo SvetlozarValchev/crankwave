@@ -84,14 +84,9 @@ resolve_delay_samples(double header_length_m, double route_length_m,
 
 } // namespace
 
-CapturedExhaustExcitationCompileResult
-compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine) {
+CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_session(
+    const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core) {
     ValidationReport report;
-    const auto *profile =
-        std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile);
-    require(report, profile != nullptr, ContractIssueCode::unsupported_value,
-            "engine.physics_profile",
-            "captured exhaust excitation requires a LegacyLowOrderV1Profile");
     require(report, engine.id.valid(), ContractIssueCode::invalid_value, "engine.id",
             "captured exhaust excitation requires a valid engine identity");
     require(report, exact_excitation_method(engine.methods.excitation),
@@ -104,13 +99,11 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine) 
     require(report, engine.routes.size() == kCapturedExcitationRouteCount,
             ContractIssueCode::inconsistent_shape, "engine.routes",
             "captured exhaust excitation requires exactly two routes");
-    if (profile == nullptr ||
-        engine.cylinders.size() != kCapturedExcitationCylinderCount ||
+    if (engine.cylinders.size() != kCapturedExcitationCylinderCount ||
         engine.routes.size() != kCapturedExcitationRouteCount) {
         return report;
     }
 
-    const auto &core = profile->core;
     const auto &source = core.excitation;
     require(report, source.delay_rate.value == contract::RationalRateHz{10000, 1},
             ContractIssueCode::unsupported_value,
@@ -160,8 +153,7 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine) 
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.gas_path.exhaust_routes",
             "captured exhaust excitation requires exactly two gas-path routes");
-    require(report,
-            core.mechanism.cylinders.size() == kCapturedExcitationCylinderCount,
+    require(report, core.mechanism.cylinders.size() == kCapturedExcitationCylinderCount,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.mechanism.cylinders",
             "captured exhaust excitation requires six mechanism cylinders");

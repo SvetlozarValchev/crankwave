@@ -365,7 +365,8 @@ bool LegacyFixedValvetrain::sample_all(
 }
 
 LegacyFixedValvetrainCompileResult
-compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine) {
+compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
+                                const contract::LowOrderEngineCoreV1 &core) {
     ValidationReport report;
     require(report, exact_legacy_method(engine.methods.valvetrain),
             ContractIssueCode::unsupported_value, "engine.methods.valvetrain",
@@ -374,16 +375,6 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine) {
             ContractIssueCode::unsupported_value, "engine.cycle.value",
             "legacy half-speed camshaft requires a four-stroke engine");
 
-    const auto *profile =
-        std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile);
-    require(report, profile != nullptr, ContractIssueCode::unsupported_value,
-            "engine.physics_profile",
-            "fixed valvetrain requires LegacyLowOrderV1Profile");
-    if (profile == nullptr) {
-        return report;
-    }
-
-    const auto &core = profile->core;
     const auto &mechanism = core.mechanism;
     const auto &valvetrain = core.valvetrain;
     const auto &head = core.gas_path.head;

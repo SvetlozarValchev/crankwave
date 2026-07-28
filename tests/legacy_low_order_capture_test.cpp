@@ -4,6 +4,7 @@
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
 #include "simulation/legacy_low_order_simulation.hpp"
+#include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -31,6 +32,8 @@ using engine_sim_offline::artifacts::make_telemetry_encoder;
 using engine_sim_offline::artifacts::TelemetryEncoder;
 using engine_sim_offline::artifacts::TelemetryEncodingError;
 using engine_sim_offline::artifacts::TelemetryStreamDescriptor;
+using CoreRuntimeFactory =
+    engine_sim_offline::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
 
 inline constexpr std::size_t kShortRunStepCount = 1201U;
 inline constexpr double kShortRunRpm = 2400.0;
@@ -153,14 +156,15 @@ encode_capture_block(const CaptureBlockView &block) {
 }
 
 [[nodiscard]] LegacyLowOrderMechanicsSession
-require_mechanics(LegacyMechanicsCompileResult result) {
+require_mechanics(CoreRuntimeFactory::MechanicsCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
         fail_report("short BMW mechanics request failed admission", *report);
     }
     return std::get<LegacyLowOrderMechanicsSession>(std::move(result));
 }
 
-[[nodiscard]] LegacyLowOrderGasSession require_gas(LegacyGasCompileResult result) {
+[[nodiscard]] LegacyLowOrderGasSession
+require_gas(CoreRuntimeFactory::GasCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
         fail_report("short BMW gas request failed admission", *report);
     }
@@ -649,10 +653,17 @@ void test_short_bmw_capture_mapping_and_completion() {
     const BmwM52b28ParityRequest request = make_short_bmw_request();
     auto capture = require_simulation(
         compile_legacy_low_order_simulation_session(request.engine, request.scenario));
-    auto mechanics = require_mechanics(
-        compile_legacy_low_order_mechanics_session(request.engine, request.scenario));
-    auto gas = require_gas(compile_legacy_low_order_gas_session(
-        request.engine, request.scenario, mechanics.cylinder_models()));
+    auto schedule_result = compile_kinematic_scenario_schedule(request.scenario);
+    if (const auto *report = std::get_if<ValidationReport>(&schedule_result)) {
+        fail_report("short BMW schedule failed admission", *report);
+    }
+    const auto &schedule = std::get<KinematicScenarioSchedule>(schedule_result);
+    const auto &core =
+        std::get<LegacyLowOrderV1Profile>(request.engine.physics_profile).core;
+    auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
+        request.engine, core, request.scenario, schedule));
+    auto gas = require_gas(CoreRuntimeFactory::compile_gas(
+        request.engine, core, request.scenario, schedule, mechanics.cylinder_models()));
 
     Activity activity;
     std::uint64_t next_sample_index = 0U;
@@ -920,6 +931,31 @@ void test_capture_partition_admission_rejection() {
         request.scenario.quality.value.event_journal_capacity_records = 3799U;
         expect_simulation_compile_rejected(request,
                                            "noncanonical event-journal capacity");
+    }
+    {
+        auto request = make_short_bmw_request();
+        request.engine.cylinders.push_back(request.engine.cylinders.back());
+        expect_simulation_compile_rejected(
+            request, "cylinder count exceeding the M3 event bound");
+    }
+    {
+        auto request = make_short_bmw_request();
+        prescribed_sweep(request.scenario)
+            .trajectory.kinematic_resolution.value.configuration_sha256.bytes[0] ^=
+            0xffU;
+        expect_simulation_compile_rejected(request,
+                                           "wrong fixed-rate RPM method configuration");
+    }
+    {
+        auto request = make_short_bmw_request();
+        const auto &core =
+            std::get<LegacyLowOrderV1Profile>(request.engine.physics_profile).core;
+        request.scenario.mode = HeldSpeed{
+            {2400.0, "held-speed-rpm"},
+            {core.mechanism.crank.crank_tdc_reference_rad.value, "held-speed-angle"},
+            {0.85, "held-speed-throttle"},
+        };
+        expect_simulation_compile_rejected(request, "M3 held-speed mode");
     }
 }
 

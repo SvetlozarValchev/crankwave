@@ -32,6 +32,14 @@ indicated-gas torque only. The M3 adapter alone adds its fixed crank loss. M4 co
 the indicated result and applies the complete-cycle aggregate closure below; there is
 no switch inside the gas solver and no path on which both losses can be active.
 
+The reusable execution seam is `LowOrderEngineCoreV1Runtime`, not either component
+session. It compiles the scenario schedule once and exposes only a transactional
+mechanics-plus-gas post-step view. Both prescribed sweeps and held speed use this same
+runtime. The captured-exhaust compiler also receives this explicit core rather than
+selecting an executable profile. Profile-specific loss accounting observes the core
+view downstream. Capture clocks, block partitioning, and event-journal capacity are
+transport policy outside the reusable physics core.
+
 The first M4 torque curve is labelled:
 
 > generic Chen–Flynn low-order BMW model prediction

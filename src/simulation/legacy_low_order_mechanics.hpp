@@ -16,6 +16,10 @@
 
 namespace engine_sim_offline::simulation {
 
+namespace detail {
+struct LowOrderEngineCoreV1RuntimeFactory;
+}
+
 struct MechanismCylinderSample {
     contract::CylinderId cylinder_id;
     contract::RouteId exhaust_route_id;
@@ -145,18 +149,7 @@ class LegacyLowOrderMechanicsSession final {
     LegacyMechanismStep step_;
     std::optional<contract::FailureContext> terminal_fault_;
 
-    friend std::variant<LegacyLowOrderMechanicsSession, contract::ValidationReport>
-    compile_legacy_low_order_mechanics_session(const contract::EngineSpec &,
-                                               const contract::RenderScenario &);
+    friend struct detail::LowOrderEngineCoreV1RuntimeFactory;
 };
-
-using LegacyMechanicsCompileResult =
-    std::variant<LegacyLowOrderMechanicsSession, contract::ValidationReport>;
-
-// Compiles immutable numeric data, an owned snapshot of the validated RPM lane, and
-// integer scenario boundaries. The resulting session retains no request references.
-[[nodiscard]] LegacyMechanicsCompileResult
-compile_legacy_low_order_mechanics_session(const contract::EngineSpec &engine,
-                                           const contract::RenderScenario &scenario);
 
 } // namespace engine_sim_offline::simulation

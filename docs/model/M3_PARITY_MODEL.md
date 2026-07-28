@@ -1380,6 +1380,14 @@ from shaft direction, performs the indicated-plus-loss addition in the frozen or
 and supplies that M3-only result to capture. The gas state and solver never receive
 the fixed-loss magnitude.
 
+`LowOrderEngineCoreV1Runtime` is the only production owner of the mechanics and gas
+sessions. It compiles one immutable kinematic schedule, advances mechanics and then
+gas exactly once, and publishes only their coherent post-step pair. The component
+compilers are private construction details, not alternate execution paths. The shared
+runtime admits held speed for M4, while the M3 adapter continues to require the
+prescribed sampled sweep. The adapter also owns the exact M3 trajectory-method
+configuration and bounded capture transport policy; neither is a gas-core input.
+
 The M3 parity method does not yet define an equivalent-inertia function or its
 derivative. Its prescribed-motion actuator torque is therefore reported unavailable
 with that reason, never as zero and never as source dyno reaction. A later

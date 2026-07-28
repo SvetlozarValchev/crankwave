@@ -1,4 +1,4 @@
-#include "simulation/legacy_low_order_mechanics.hpp"
+#include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -21,14 +21,6 @@ void require(ValidationReport &report, bool condition, ContractIssueCode code,
     }
 }
 
-void append_prefixed(ValidationReport &destination, ValidationReport source,
-                     const std::string &prefix) {
-    for (auto &issue : source.issues) {
-        issue.path = issue.path.empty() ? prefix : prefix + "." + issue.path;
-        destination.issues.push_back(std::move(issue));
-    }
-}
-
 bool finite_positive(double value) noexcept {
     return std::isfinite(value) && value > 0.0;
 }
@@ -38,17 +30,13 @@ bool exact_legacy_method(
     return value.value.id == "legacy_low_order_v1" && value.value.version == 1;
 }
 
-bool exact_fixed_rate_rpm_method(
-    const contract::ResolvedValue<contract::MethodIdentity> &value) {
-    return value.value.id == "fixed-rate-post-step-rpm-binary64-v1" &&
-           value.value.version == 1;
-}
-
 } // namespace
 
-LegacyMechanicsCompileResult
-compile_legacy_low_order_mechanics_session(const contract::EngineSpec &engine,
-                                           const contract::RenderScenario &scenario) {
+detail::LowOrderEngineCoreV1RuntimeFactory::MechanicsCompileResult
+detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
+    const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core,
+    const contract::RenderScenario &scenario,
+    const KinematicScenarioSchedule &schedule) {
     ValidationReport report;
     require(report, scenario.engine_profile_id == engine.profile_id.value,
             ContractIssueCode::inconsistent_semantics, "scenario.engine_profile_id",
@@ -66,38 +54,31 @@ compile_legacy_low_order_mechanics_session(const contract::EngineSpec &engine,
             ContractIssueCode::unsupported_value, "engine.ignition.value",
             "legacy event scheduling requires spark ignition");
 
-    auto schedule_result = compile_kinematic_scenario_schedule(scenario);
-    if (auto *schedule_report = std::get_if<ValidationReport>(&schedule_result)) {
-        append_prefixed(report, std::move(*schedule_report), "schedule");
-    }
-
-    const auto *sweep = std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode);
-    const auto *profile =
-        std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile);
-    require(report, sweep != nullptr, ContractIssueCode::unsupported_value,
-            "scenario.mode", "legacy mechanics requires a prescribed kinematic sweep");
-    require(report, profile != nullptr, ContractIssueCode::unsupported_value,
-            "engine.physics_profile",
-            "legacy mechanics requires LegacyLowOrderV1Profile");
-    if (sweep == nullptr || profile == nullptr) {
-        return report;
-    }
-
-    const auto &core = profile->core;
     const auto &crank = core.mechanism.crank;
-    require(report, exact_fixed_rate_rpm_method(sweep->trajectory.kinematic_resolution),
-            ContractIssueCode::unsupported_value,
-            "scenario.mode.trajectory.kinematic_resolution",
-            "legacy mechanics requires fixed-rate-post-step-rpm-binary64-v1 "
-            "version 1");
+    require(report, schedule.rate() == scenario.rates.physics,
+            ContractIssueCode::inconsistent_semantics, "schedule.rate",
+            "compiled kinematic schedule rate must equal the scenario physics rate");
+    require(report, schedule.first_step_index() == 0,
+            ContractIssueCode::inconsistent_semantics, "schedule.first_step_index",
+            "legacy mechanics requires a kinematic schedule beginning at physics "
+            "step zero");
+    require(report,
+            schedule.sample_semantics() == contract::RpmSampleSemantics::post_step_rpm,
+            ContractIssueCode::unsupported_value, "schedule.sample_semantics",
+            "legacy mechanics requires post-step RPM schedule samples");
+    const auto scenario_horizon = contract::resolve_frame_index(
+        scenario.total_duration_s.value, scenario.rates.physics);
+    require(report,
+            scenario_horizon.has_value() &&
+                schedule.sample_count() == *scenario_horizon,
+            ContractIssueCode::inconsistent_shape, "schedule.sample_count",
+            "compiled kinematic schedule length must equal the scenario physics "
+            "horizon");
     require(report, scenario.rates.physics == contract::RationalRateHz{10000, 1},
             ContractIssueCode::unsupported_value, "scenario.rates.physics",
             "legacy_low_order_v1 mechanics requires exactly 10000 Hz");
-    require(report,
-            sweep->trajectory.initial_theta_rad.value ==
-                crank.crank_tdc_reference_rad.value,
-            ContractIssueCode::unsupported_value,
-            "scenario.mode.trajectory.initial_theta_rad.value",
+    require(report, schedule.initial_theta_rad() == crank.crank_tdc_reference_rad.value,
+            ContractIssueCode::unsupported_value, "schedule.initial_theta_rad",
             "legacy fresh state requires initial cycle angle equal to the crank TDC "
             "reference");
     for (std::size_t index = 0; index < scenario.operating_state.value.size();
@@ -120,8 +101,7 @@ compile_legacy_low_order_mechanics_session(const contract::EngineSpec &engine,
             "engine.physics_profile.mechanism.cylinders",
             "mechanism cylinders must match the nonempty engine cylinder order");
     require(report,
-            core.mechanism.cylinders.size() <=
-                std::numeric_limits<std::uint8_t>::max(),
+            core.mechanism.cylinders.size() <= std::numeric_limits<std::uint8_t>::max(),
             ContractIssueCode::unsupported_value,
             "engine.physics_profile.mechanism.cylinders",
             "event ordinals support at most 255 cylinders per mechanics session");
@@ -249,29 +229,21 @@ compile_legacy_low_order_mechanics_session(const contract::EngineSpec &engine,
             "engine.physics_profile.ignition.limiter_hold_s.value",
             "limiter hold must be finite and positive");
 
-    if (sweep != nullptr) {
-        const auto *schedule = std::get_if<KinematicScenarioSchedule>(&schedule_result);
-        if (schedule != nullptr) {
-            constexpr double kStepSeconds = 1.0 / 10000.0;
-            for (std::uint64_t index = 0; index < schedule->sample_count(); ++index) {
-                const auto rpm = schedule->rpm_at_sample_offset(index);
-                if (!rpm.has_value()) {
-                    require(report, false, ContractIssueCode::inconsistent_shape,
-                            "schedule",
-                            "kinematic schedule lost an admitted RPM sample");
-                    break;
-                }
-                const double step_rotation =
-                    std::abs(-*rpm * kLegacyRpmScale * kStepSeconds);
-                if (!(step_rotation < 4.0 * kLegacyPi)) {
-                    require(report, false, ContractIssueCode::unsupported_value,
-                            "scenario.mode.trajectory.rpm.post_step_rpm[" +
-                                std::to_string(index) + "]",
-                            "legacy crossing schedule requires less than one engine "
-                            "cycle of rotation per physics step");
-                    break;
-                }
-            }
+    constexpr double kStepSeconds = 1.0 / 10000.0;
+    for (std::uint64_t index = 0; index < schedule.sample_count(); ++index) {
+        const auto rpm = schedule.rpm_at_sample_offset(index);
+        if (!rpm.has_value()) {
+            require(report, false, ContractIssueCode::inconsistent_shape, "schedule",
+                    "kinematic schedule lost an admitted RPM sample");
+            break;
+        }
+        const double step_rotation = std::abs(-*rpm * kLegacyRpmScale * kStepSeconds);
+        if (!(step_rotation < 4.0 * kLegacyPi)) {
+            require(report, false, ContractIssueCode::unsupported_value,
+                    "schedule.rpm[" + std::to_string(index) + "]",
+                    "legacy crossing schedule requires less than one engine cycle "
+                    "of rotation per physics step");
+            break;
         }
     }
 
@@ -279,7 +251,6 @@ compile_legacy_low_order_mechanics_session(const contract::EngineSpec &engine,
         return report;
     }
 
-    auto schedule = std::get<KinematicScenarioSchedule>(std::move(schedule_result));
     auto cursor = schedule.fresh_cursor();
     return LegacyLowOrderMechanicsSession{
         std::move(cursor),

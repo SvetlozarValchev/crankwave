@@ -3,6 +3,7 @@
 #include "reference/reference_parity_v1_reader.hpp"
 #include "simulation/legacy_fixed_valvetrain.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
+#include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
 #include <algorithm>
 #include <array>
@@ -113,8 +114,25 @@ make_request(const reference::DecodedReferenceParityV1 &fixture) {
 
 [[nodiscard]] simulation::LegacyLowOrderMechanicsSession
 compile_session(const profiles::BmwM52b28ParityRequest &request) {
-    auto result = simulation::compile_legacy_low_order_mechanics_session(
-        request.engine, request.scenario);
+    auto schedule_result =
+        simulation::compile_kinematic_scenario_schedule(request.scenario);
+    if (const auto *report =
+            std::get_if<contract::ValidationReport>(&schedule_result)) {
+        std::ostringstream message;
+        message << "canonical BMW kinematic schedule failed to compile";
+        for (const auto &issue : report->issues) {
+            message << "\n  " << issue.path << ": " << issue.message;
+        }
+        fail(message.str());
+    }
+    const auto &schedule =
+        std::get<simulation::KinematicScenarioSchedule>(schedule_result);
+    const auto &core =
+        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
+            .core;
+    auto result =
+        simulation::detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
+            request.engine, core, request.scenario, schedule);
     if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
         std::ostringstream message;
         message << "canonical BMW mechanics request failed to compile";
@@ -128,7 +146,10 @@ compile_session(const profiles::BmwM52b28ParityRequest &request) {
 
 [[nodiscard]] simulation::LegacyFixedValvetrain
 compile_valvetrain(const profiles::BmwM52b28ParityRequest &request) {
-    auto result = simulation::compile_legacy_fixed_valvetrain(request.engine);
+    const auto &profile =
+        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile);
+    auto result =
+        simulation::compile_legacy_fixed_valvetrain(request.engine, profile.core);
     if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
         std::ostringstream message;
         message << "canonical BMW valvetrain request failed to compile";

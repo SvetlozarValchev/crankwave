@@ -11,13 +11,12 @@
 namespace engine_sim_offline::simulation {
 
 LegacyLowOrderSimulationSession::LegacyLowOrderSimulationSession(
-    LegacyLowOrderMechanicsSession mechanics, LegacyLowOrderGasSession gas,
+    LowOrderEngineCoreV1Runtime core,
     LegacyFixedCrankTorqueAccountingPlan torque_accounting,
     detail::LegacyLowOrderCaptureBuffer capture, std::uint64_t expected_samples,
     std::string model_id, std::string profile_id, std::string scenario_id,
     contract::EngineId engine_id)
-    : mechanics_(std::move(mechanics)), gas_(std::move(gas)),
-      torque_accounting_(torque_accounting),
+    : core_(std::move(core)), torque_accounting_(torque_accounting),
       capture_(
           std::make_unique<detail::LegacyLowOrderCaptureBuffer>(std::move(capture))),
       expected_samples_(expected_samples), model_id_(std::move(model_id)),
@@ -89,8 +88,7 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
     }
     if (published_sample_count_ >= expected_samples_) {
         if (published_sample_count_ != expected_samples_ ||
-            gas_.produced_sample_count() != expected_samples_ ||
-            !mechanics_.completed()) {
+            core_.produced_sample_count() != expected_samples_ || !core_.completed()) {
             return fail(fault(
                 contract::FailureKind::contract_violation,
                 "legacy-simulation-completion-count-mismatch",
@@ -106,13 +104,12 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
     capture_->begin_block(published_sample_count_);
     const LegacyMechanismStep *last_mechanics = nullptr;
     for (std::uint32_t frame = 0; frame < kLegacyCaptureFramesPerBlock; ++frame) {
-        auto mechanics_result = mechanics_.advance();
-        if (const auto *failure =
-                std::get_if<contract::FailureContext>(&mechanics_result)) {
+        auto core_result = core_.advance();
+        if (const auto *failure = std::get_if<contract::FailureContext>(&core_result)) {
             return fail(*failure);
         }
         if (const auto *completed =
-                std::get_if<LegacyMechanicsCompleted>(&mechanics_result)) {
+                std::get_if<LowOrderEngineCoreV1Completed>(&core_result)) {
             if (completed->sample_count != expected_samples_ ||
                 published_sample_count_ + capture_->frame_count() !=
                     expected_samples_) {
@@ -124,18 +121,10 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
             break;
         }
 
-        const auto &mechanics =
-            std::get<std::reference_wrapper<const LegacyMechanismStep>>(
-                mechanics_result)
-                .get();
+        const auto &core_step = std::get<LowOrderEngineCoreV1StepView>(core_result);
+        const auto &mechanics = core_step.mechanics.get();
+        const auto &gas = core_step.gas.get();
         last_mechanics = &mechanics;
-        auto gas_result = gas_.advance(mechanics);
-        if (const auto *failure = std::get_if<contract::FailureContext>(&gas_result)) {
-            return fail(*failure);
-        }
-        const auto &gas =
-            std::get<std::reference_wrapper<const LegacyLowOrderGasStep>>(gas_result)
-                .get();
         const auto torque_evaluation = evaluate_legacy_fixed_crank_torque_accounting(
             torque_accounting_, mechanics.angular_speed_rad_s,
             gas.indicated_gas_torque_nm);

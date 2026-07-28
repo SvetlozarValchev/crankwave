@@ -2,6 +2,7 @@
 
 #include "engine_sim_offline/contract/result.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
+#include "simulation/kinematic_scenario_schedule.hpp"
 #include "simulation/legacy_combustion_primitives.hpp"
 #include "simulation/legacy_fixed_valvetrain.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
@@ -18,6 +19,10 @@
 #include <vector>
 
 namespace engine_sim_offline::simulation {
+
+namespace detail {
+struct LowOrderEngineCoreV1RuntimeFactory;
+}
 
 inline constexpr std::uint32_t kLegacyGasSubstepCount = 8U;
 
@@ -214,19 +219,7 @@ class LegacyLowOrderGasSession final {
     LegacyLowOrderGasStep step_;
     std::optional<contract::FailureContext> terminal_fault_;
 
-    friend std::variant<LegacyLowOrderGasSession, contract::ValidationReport>
-    compile_legacy_low_order_gas_session(const contract::EngineSpec &,
-                                         const contract::RenderScenario &,
-                                         std::span<const CenteredSliderCrankCylinder>);
+    friend struct detail::LowOrderEngineCoreV1RuntimeFactory;
 };
-
-using LegacyGasCompileResult =
-    std::variant<LegacyLowOrderGasSession, contract::ValidationReport>;
-
-// Compiles exact topology bindings and fresh gas/flame/RNG state. The resulting
-// session retains no request or mechanics-model references.
-[[nodiscard]] LegacyGasCompileResult compile_legacy_low_order_gas_session(
-    const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
-    std::span<const CenteredSliderCrankCylinder> cylinder_models);
 
 } // namespace engine_sim_offline::simulation

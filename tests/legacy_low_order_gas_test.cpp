@@ -1,5 +1,6 @@
 #include "profiles/bmw_m52b28_parity_request_internal.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
+#include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -22,6 +23,8 @@ namespace {
 using namespace engine_sim_offline::contract;
 using namespace engine_sim_offline::profiles;
 using namespace engine_sim_offline::simulation;
+using CoreRuntimeFactory =
+    engine_sim_offline::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
 
 inline constexpr std::size_t kShortRunStepCount = 4000U;
 inline constexpr double kShortRunRpm = 2400.0;
@@ -89,18 +92,32 @@ void expect(bool condition, const std::string &message) {
 }
 
 [[nodiscard]] LegacyLowOrderMechanicsSession
-require_mechanics(LegacyMechanicsCompileResult result) {
+require_mechanics(CoreRuntimeFactory::MechanicsCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
         fail_report("short BMW mechanics request failed admission", *report);
     }
     return std::get<LegacyLowOrderMechanicsSession>(std::move(result));
 }
 
-[[nodiscard]] LegacyLowOrderGasSession require_gas(LegacyGasCompileResult result) {
+[[nodiscard]] LegacyLowOrderGasSession
+require_gas(CoreRuntimeFactory::GasCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
         fail_report("short BMW gas request failed admission", *report);
     }
     return std::get<LegacyLowOrderGasSession>(std::move(result));
+}
+
+[[nodiscard]] KinematicScenarioSchedule
+require_schedule(KinematicScenarioScheduleResult result) {
+    if (const auto *report = std::get_if<ValidationReport>(&result)) {
+        fail_report("short BMW schedule failed admission", *report);
+    }
+    return std::get<KinematicScenarioSchedule>(std::move(result));
+}
+
+[[nodiscard]] const LowOrderEngineCoreV1 &
+low_order_core(const BmwM52b28ParityRequest &request) {
+    return std::get<LegacyLowOrderV1Profile>(request.engine.physics_profile).core;
 }
 
 struct CompiledSessions {
@@ -109,10 +126,13 @@ struct CompiledSessions {
 };
 
 [[nodiscard]] CompiledSessions compile_sessions(const BmwM52b28ParityRequest &request) {
-    auto mechanics = require_mechanics(
-        compile_legacy_low_order_mechanics_session(request.engine, request.scenario));
-    auto gas = require_gas(compile_legacy_low_order_gas_session(
-        request.engine, request.scenario, mechanics.cylinder_models()));
+    auto schedule =
+        require_schedule(compile_kinematic_scenario_schedule(request.scenario));
+    auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
+        request.engine, low_order_core(request), request.scenario, schedule));
+    auto gas = require_gas(CoreRuntimeFactory::compile_gas(
+        request.engine, low_order_core(request), request.scenario, schedule,
+        mechanics.cylinder_models()));
     return {std::move(mechanics), std::move(gas)};
 }
 
@@ -491,10 +511,13 @@ void test_short_bmw_fresh_state_and_deterministic_activity() {
 void expect_gas_compile_rejected(const BmwM52b28ParityRequest &request,
                                  std::string_view expected_path,
                                  std::string_view context) {
-    auto mechanics = require_mechanics(
-        compile_legacy_low_order_mechanics_session(request.engine, request.scenario));
-    auto result = compile_legacy_low_order_gas_session(request.engine, request.scenario,
-                                                       mechanics.cylinder_models());
+    auto schedule =
+        require_schedule(compile_kinematic_scenario_schedule(request.scenario));
+    auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
+        request.engine, low_order_core(request), request.scenario, schedule));
+    auto result = CoreRuntimeFactory::compile_gas(
+        request.engine, low_order_core(request), request.scenario, schedule,
+        mechanics.cylinder_models());
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr, std::string{context} + " compiled successfully");
     const bool has_expected_issue = std::any_of(
@@ -515,16 +538,6 @@ void test_gas_method_admission_rejection() {
 
     {
         BmwM52b28ParityRequest request = make_short_bmw_request();
-        auto &method =
-            prescribed_sweep(request.scenario).trajectory.kinematic_resolution.value;
-        method.configuration_sha256.bytes[0] ^= 0x01U;
-        expect_gas_compile_rejected(request,
-                                    "scenario.mode.trajectory.kinematic_resolution",
-                                    "wrong fixed-rate RPM method configuration");
-    }
-
-    {
-        BmwM52b28ParityRequest request = make_short_bmw_request();
         auto &profile =
             std::get<LegacyLowOrderV1Profile>(request.engine.physics_profile);
         profile.core.fuel.lbv_multiplier.value = 0.0;
@@ -534,44 +547,27 @@ void test_gas_method_admission_rejection() {
 
     {
         BmwM52b28ParityRequest request = make_short_bmw_request();
-        auto mechanics = require_mechanics(compile_legacy_low_order_mechanics_session(
-            request.engine, request.scenario));
-        request.scenario.mode = HeldSpeed{{kShortRunRpm, {}}, {0.0, {}}, {0.85, {}}};
-        const auto result = compile_legacy_low_order_gas_session(
-            request.engine, request.scenario, mechanics.cylinder_models());
-        const auto *report = std::get_if<ValidationReport>(&result);
-        expect(report != nullptr &&
-                   std::ranges::any_of(report->issues,
-                                       [](const ContractIssue &issue) {
-                                           return issue.path.find("scenario.mode") !=
-                                                  std::string::npos;
-                                       }),
-               "legacy gas session admitted HeldSpeed");
+        auto sweep_schedule =
+            require_schedule(compile_kinematic_scenario_schedule(request.scenario));
+        auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
+            request.engine, low_order_core(request), request.scenario, sweep_schedule));
+        const double initial_theta_rad =
+            low_order_core(request).mechanism.crank.crank_tdc_reference_rad.value;
+        request.scenario.mode =
+            HeldSpeed{{kShortRunRpm, {}}, {initial_theta_rad, {}}, {0.85, {}}};
+        auto schedule =
+            require_schedule(compile_kinematic_scenario_schedule(request.scenario));
+        auto gas = require_gas(CoreRuntimeFactory::compile_gas(
+            request.engine, low_order_core(request), request.scenario, schedule,
+            mechanics.cylinder_models()));
+        expect(gas.produced_sample_count() == 0U,
+               "fresh held-speed gas session published samples during admission");
     }
-}
-
-void test_mechanics_event_coherence_rejection() {
-    const BmwM52b28ParityRequest request = make_short_bmw_request();
-    CompiledSessions sessions = compile_sessions(request);
-    auto mechanics_result = sessions.mechanics.advance();
-    LegacyMechanismStep tampered = require_mechanics_step(mechanics_result, 0U);
-    tampered.events.clear();
-    for (auto &cylinder : tampered.cylinders) {
-        cylinder.spark_crossed = false;
-    }
-    tampered.cylinders.front().spark_crossed = true;
-
-    const auto gas_result = sessions.gas.advance(tampered);
-    const auto *fault = std::get_if<FailureContext>(&gas_result);
-    expect(fault != nullptr && fault->kind == FailureKind::event_schedule_violation &&
-               fault->detail_code == "legacy-gas-mechanics-event-invalid",
-           "gas session accepted a spark flag missing from the mechanics journal");
 }
 
 void run_tests() {
     test_short_bmw_fresh_state_and_deterministic_activity();
     test_gas_method_admission_rejection();
-    test_mechanics_event_coherence_rejection();
 }
 
 } // namespace

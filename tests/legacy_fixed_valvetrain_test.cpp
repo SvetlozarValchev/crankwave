@@ -44,6 +44,11 @@ constexpr double kExpectedExhaustKAt105CrankDegrees = 0.001214419956248241;
     return *profile;
 }
 
+[[nodiscard]] LegacyFixedValvetrainCompileResult
+compile_fixture_valvetrain(EngineSpec &engine) {
+    return compile_legacy_fixed_valvetrain(engine, legacy_profile(engine).core);
+}
+
 [[nodiscard]] double resolved_flow_k(double source_cfm) {
     constexpr double gamma = 1.4;
     constexpr double gas_constant = 8.31446261815324;
@@ -111,8 +116,8 @@ struct ValvetrainFixture {
             0.0,   35.0,  55.0,  85.0,  105.0, 120.0, 140.0,
             150.0, 155.0, 160.0, 165.0, 165.0, 165.0,
         };
-        profile.core.gas_path.head.intake_flow = make_flow_table(
-            profile.core.gas_path.head.intake_flow.front(), intake_cfm);
+        profile.core.gas_path.head.intake_flow =
+            make_flow_table(profile.core.gas_path.head.intake_flow.front(), intake_cfm);
         profile.core.gas_path.head.exhaust_flow = make_flow_table(
             profile.core.gas_path.head.exhaust_flow.front(), exhaust_cfm);
         profile.core.gas_path.head.flow_table_triangle_radius_m.value = 0.001;
@@ -149,10 +154,8 @@ struct ValvetrainFixture {
         second_exhaust_lobe.cylinder_id = CylinderId{2};
         second_exhaust_lobe.port_id = PortId{4};
         second_exhaust_lobe.crank_center_rad.value = 855.0 * kDegreeSource;
-        profile.core.valvetrain.intake.lobes.push_back(
-            std::move(second_intake_lobe));
-        profile.core.valvetrain.exhaust.lobes.push_back(
-            std::move(second_exhaust_lobe));
+        profile.core.valvetrain.intake.lobes.push_back(std::move(second_intake_lobe));
+        profile.core.valvetrain.exhaust.lobes.push_back(std::move(second_exhaust_lobe));
 
         // Admission must resolve by stable cylinder identity, not lobe-vector order.
         std::reverse(profile.core.valvetrain.intake.lobes.begin(),
@@ -179,7 +182,7 @@ template <class Mutation>
 void expect_compile_rejected(Mutation mutation, std::string_view expected_path) {
     ValvetrainFixture fixture;
     mutation(fixture.engine, legacy_profile(fixture.engine));
-    auto result = compile_legacy_fixed_valvetrain(fixture.engine);
+    auto result = compile_fixture_valvetrain(fixture.engine);
     const auto *report = std::get_if<ValidationReport>(&result);
     if (report == nullptr) {
         throw std::runtime_error{
@@ -200,8 +203,7 @@ void expect_compile_rejected(Mutation mutation, std::string_view expected_path) 
 void test_exact_lobe_construction_and_bindings() {
     ValvetrainFixture fixture;
     const auto &profile = legacy_profile(fixture.engine);
-    auto valvetrain =
-        require_valvetrain(compile_legacy_fixed_valvetrain(fixture.engine));
+    auto valvetrain = require_valvetrain(compile_fixture_valvetrain(fixture.engine));
 
     const auto intake = valvetrain.intake_lobe_table();
     const auto exhaust = valvetrain.exhaust_lobe_table();
@@ -262,8 +264,7 @@ void test_exact_lobe_construction_and_bindings() {
            "lobe-vector reordering changed admitted cylinder/port order");
     const auto intake_lobe_2 =
         std::find_if(profile.core.valvetrain.intake.lobes.begin(),
-                     profile.core.valvetrain.intake.lobes.end(),
-                     [](const auto &lobe) {
+                     profile.core.valvetrain.intake.lobes.end(), [](const auto &lobe) {
                          return lobe.cylinder_id == CylinderId{2};
                      });
     const auto exhaust_lobe_2 =
@@ -282,8 +283,7 @@ void test_exact_lobe_construction_and_bindings() {
 
 void test_sampling_goldens_wrap_and_span_contract() {
     ValvetrainFixture fixture;
-    auto valvetrain =
-        require_valvetrain(compile_legacy_fixed_valvetrain(fixture.engine));
+    auto valvetrain = require_valvetrain(compile_fixture_valvetrain(fixture.engine));
 
     const auto peak = valvetrain.sample_cylinder(std::size_t{0}, 0.0);
     expect(peak.has_value() && peak->cylinder_id == CylinderId{1} &&

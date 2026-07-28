@@ -378,6 +378,14 @@ compile_kinematic_scenario_schedule(const contract::RenderScenario &scenario) {
         throttle.push_back({0, held->throttle_01.value});
     } else if (const auto *sweep =
                    std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode)) {
+        if (sweep->trajectory.kinematic_resolution.value.id !=
+                "fixed-rate-post-step-rpm-binary64-v1" ||
+            sweep->trajectory.kinematic_resolution.value.version != 1U) {
+            add_issue(report, ContractIssueCode::unsupported_value,
+                      "scenario.mode.trajectory.kinematic_resolution",
+                      "prescribed scheduling requires "
+                      "fixed-rate-post-step-rpm-binary64-v1 version 1");
+        }
         const auto *rpm =
             std::get_if<contract::FixedRateRpmTrajectory>(&sweep->trajectory.rpm);
         if (rpm == nullptr) {

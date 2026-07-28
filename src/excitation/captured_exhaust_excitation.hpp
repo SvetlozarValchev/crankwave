@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/contract/capture.hpp"
+#include "engine_sim_offline/contract/parity_model.hpp"
 #include "engine_sim_offline/contract/result.hpp"
 #include "presentation/exhaust_excitation_block.hpp"
 
@@ -150,14 +151,16 @@ class CapturedExhaustExcitationSession final {
     std::unique_ptr<detail::CapturedExhaustExcitationState> state_;
 
     friend std::variant<CapturedExhaustExcitationSession, contract::ValidationReport>
-    compile_captured_exhaust_excitation_session(const contract::EngineSpec &);
+    compile_captured_exhaust_excitation_session(const contract::EngineSpec &,
+                                                const contract::LowOrderEngineCoreV1 &);
 };
 
 using CapturedExhaustExcitationCompileResult =
     std::variant<CapturedExhaustExcitationSession, contract::ValidationReport>;
 
-// Resolves the exact LegacyLowOrderV1 excitation profile into an owned session.
+// Resolves the exact low-order core excitation profile into an owned session.
 [[nodiscard]] CapturedExhaustExcitationCompileResult
-compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine);
+compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine,
+                                            const contract::LowOrderEngineCoreV1 &core);
 
 } // namespace engine_sim_offline::excitation

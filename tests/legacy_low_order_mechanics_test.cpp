@@ -2,6 +2,7 @@
 #include "simulation/legacy_ignition_schedule.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
+#include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
 #include <algorithm>
 #include <array>
@@ -22,6 +23,8 @@ namespace {
 using namespace engine_sim_offline::contract;
 using namespace engine_sim_offline::contract::test;
 using namespace engine_sim_offline::simulation;
+using CoreRuntimeFactory =
+    engine_sim_offline::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
 
 void expect_near(double actual, double expected, double tolerance,
                  const char *message) {
@@ -220,8 +223,8 @@ struct MechanicsFixture {
     MechanicsFixture()
         : engine(make_engine(builder)), scenario(make_scenario(builder, engine)) {
         auto &profile = std::get<LegacyLowOrderV1Profile>(engine.physics_profile);
-        profile.core.mechanism.cylinders[0]
-            .parameters.ignition_wire_angle_rad.value = 2.0;
+        profile.core.mechanism.cylinders[0].parameters.ignition_wire_angle_rad.value =
+            2.0;
         profile.core.ignition.limiter_speed_rpm.value = 300000.0;
         profile.core.ignition.limiter_hold_s.value = 0.0002;
 
@@ -271,7 +274,8 @@ struct MechanicsFixture {
     }
 };
 
-LegacyLowOrderMechanicsSession require_session(LegacyMechanicsCompileResult result) {
+LegacyLowOrderMechanicsSession
+require_session(CoreRuntimeFactory::MechanicsCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
         std::string message = "valid low-order mechanics session was rejected";
         if (!report->issues.empty()) {
@@ -288,10 +292,21 @@ FixedRateRpmTrajectory &fixed_rpm(MechanicsFixture &fixture) {
         std::get<PrescribedKinematicSweep>(fixture.scenario.mode).trajectory.rpm);
 }
 
+CoreRuntimeFactory::MechanicsCompileResult compile_fixture(MechanicsFixture &fixture) {
+    auto schedule_result = compile_kinematic_scenario_schedule(fixture.scenario);
+    if (auto *report = std::get_if<ValidationReport>(&schedule_result)) {
+        return std::move(*report);
+    }
+    const auto &core =
+        std::get<LegacyLowOrderV1Profile>(fixture.engine.physics_profile).core;
+    return CoreRuntimeFactory::compile_mechanics(
+        fixture.engine, core, fixture.scenario,
+        std::get<KinematicScenarioSchedule>(schedule_result));
+}
+
 void expect_compile_rejected(MechanicsFixture &fixture,
                              std::string_view expected_path) {
-    auto result =
-        compile_legacy_low_order_mechanics_session(fixture.engine, fixture.scenario);
+    auto result = compile_fixture(fixture);
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr, "invalid mechanics request compiled successfully");
     const bool found = std::any_of(
@@ -310,8 +325,7 @@ const LegacyMechanismStep &require_step(LegacyMechanicsAdvanceResult &result) {
 
 void test_mechanics_session_step_order_and_completion() {
     MechanicsFixture fixture;
-    auto session = require_session(
-        compile_legacy_low_order_mechanics_session(fixture.engine, fixture.scenario));
+    auto session = require_session(compile_fixture(fixture));
     expect(session.cylinder_models().size() == 1 &&
                session.cylinder_models()[0].cylinder_id == CylinderId{1},
            "compiled mechanics session lost its cylinder model");
@@ -382,6 +396,17 @@ void test_mechanics_session_step_order_and_completion() {
            "mechanics session completion is not terminal and stable");
 }
 
+void test_mechanics_accepts_compiled_held_speed_schedule() {
+    MechanicsFixture fixture;
+    fixture.scenario.mode = HeldSpeed{{1000.0, {}}, {0.0, {}}, {0.75, {}}};
+
+    auto session = require_session(compile_fixture(fixture));
+    auto result = session.advance();
+    const auto &step = require_step(result);
+    expect(step.engine_speed_rpm == 1000.0 && step.requested_throttle_01 == 0.75,
+           "held-speed schedule changed while entering mechanics");
+}
+
 void test_mechanics_compile_rejections() {
     {
         MechanicsFixture fixture;
@@ -395,13 +420,13 @@ void test_mechanics_compile_rejections() {
         auto &rpm = fixed_rpm(fixture);
         rpm.post_step_rpm[0] = 2000000.0;
         rpm.samples_f64le_sha256 = canonical_binary64_le_sha256(rpm.post_step_rpm);
-        expect_compile_rejected(fixture, "post_step_rpm[0]");
+        expect_compile_rejected(fixture, "schedule.rpm[0]");
     }
     {
         MechanicsFixture fixture;
         auto &sweep = std::get<PrescribedKinematicSweep>(fixture.scenario.mode);
         sweep.trajectory.initial_theta_rad.value += 0.25;
-        expect_compile_rejected(fixture, "initial_theta_rad.value");
+        expect_compile_rejected(fixture, "initial_theta_rad");
     }
     {
         MechanicsFixture fixture;
@@ -416,23 +441,16 @@ void test_mechanics_compile_rejections() {
     {
         MechanicsFixture fixture;
         fixture.scenario.rates.physics = {12000, 1};
+        fixture.scenario.total_duration_s.value = 0.0005;
+        fixture.scenario.audible_duration_s.value = 0.0005;
+        fixture.scenario.operating_state.value[1].time_s = 0.00025;
+        fixture.scenario.mode = HeldSpeed{{1000.0, {}}, {0.0, {}}, {0.75, {}}};
         expect_compile_rejected(fixture, "scenario.rates.physics");
     }
     {
         MechanicsFixture fixture;
         fixture.engine.methods.mechanism.value.version = 2;
         expect_compile_rejected(fixture, "engine.methods.mechanism");
-    }
-    {
-        MechanicsFixture fixture;
-        auto &sweep = std::get<PrescribedKinematicSweep>(fixture.scenario.mode);
-        sweep.trajectory.kinematic_resolution.value.id = "unsupported-rpm-method";
-        expect_compile_rejected(fixture, "kinematic_resolution");
-    }
-    {
-        MechanicsFixture fixture;
-        fixture.scenario.mode = HeldSpeed{{1000.0, {}}, {0.0, {}}, {0.75, {}}};
-        expect_compile_rejected(fixture, "scenario.mode");
     }
 }
 
@@ -443,6 +461,7 @@ void run_tests() {
     test_ignition_crossing_half_open_intervals();
     test_limiter_strict_threshold_and_timer_edges();
     test_mechanics_session_step_order_and_completion();
+    test_mechanics_accepts_compiled_held_speed_schedule();
     test_mechanics_compile_rejections();
 }
 

@@ -273,8 +273,10 @@ compile_presentation_job(const RenderSpecification &specification,
     auto simulation = std::get<simulation::LegacyLowOrderSimulationSession>(
         std::move(simulation_result));
 
-    auto excitation_result =
-        excitation::compile_captured_exhaust_excitation_session(inputs.engine);
+    const auto &legacy_profile =
+        std::get<contract::LegacyLowOrderV1Profile>(inputs.engine.physics_profile);
+    auto excitation_result = excitation::compile_captured_exhaust_excitation_session(
+        inputs.engine, legacy_profile.core);
     if (std::holds_alternative<contract::ValidationReport>(excitation_result)) {
         return compiler_failure(
             std::move(request), contract::FailureKind::incomplete_source_route,

@@ -55,6 +55,12 @@ void expect_same_bits(double actual, double expected, std::string_view message) 
     return profiles::detail::build_bmw_m52b28_parity_request_unvalidated({});
 }
 
+[[nodiscard]] CapturedExhaustExcitationCompileResult
+compile_fixture_session(const EngineSpec &engine) {
+    const auto &core = std::get<LegacyLowOrderV1Profile>(engine.physics_profile).core;
+    return compile_captured_exhaust_excitation_session(engine, core);
+}
+
 [[nodiscard]] CapturedExhaustExcitationSession
 require_session(CapturedExhaustExcitationCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
@@ -358,8 +364,7 @@ void test_exact_arithmetic_delay_routes_and_continuity() {
     block_0.fill_distinct_excitation();
     block_1.fill_distinct_excitation();
 
-    auto session =
-        require_session(compile_captured_exhaust_excitation_session(request.engine));
+    auto session = require_session(compile_fixture_session(request.engine));
     const auto actual_0 = publish(session, block_0.view(), 0U);
     const auto actual_1 = publish(session, block_1.view(), 1U);
 
@@ -435,10 +440,8 @@ void test_independent_sessions_are_bit_deterministic() {
     block_0.fill_distinct_excitation();
     block_1.fill_distinct_excitation();
 
-    auto first =
-        require_session(compile_captured_exhaust_excitation_session(request.engine));
-    auto second =
-        require_session(compile_captured_exhaust_excitation_session(request.engine));
+    auto first = require_session(compile_fixture_session(request.engine));
+    auto second = require_session(compile_fixture_session(request.engine));
     const auto first_0 = publish(first, block_0.view(), 0U);
     const auto second_0 = publish(second, block_0.view(), 0U);
     const auto first_1 = publish(first, block_1.view(), 1U);
@@ -464,8 +467,7 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance() {
     malformed.parity_cylinders().back().dynamic_pressure_reverse_pa =
         std::numeric_limits<double>::quiet_NaN();
 
-    auto session =
-        require_session(compile_captured_exhaust_excitation_session(request.engine));
+    auto session = require_session(compile_fixture_session(request.engine));
     std::size_t callbacks = 0U;
     const auto first = session.process_block(
         malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
@@ -502,8 +504,7 @@ void test_consumer_rejection_and_exception_are_terminal() {
     block.fill_distinct_excitation();
 
     {
-        auto session = require_session(
-            compile_captured_exhaust_excitation_session(request.engine));
+        auto session = require_session(compile_fixture_session(request.engine));
         std::size_t callbacks = 0U;
         const auto rejected = session.process_block(
             block.view(), [&](const presentation::ExhaustExcitationBlockView &,
@@ -529,8 +530,7 @@ void test_consumer_rejection_and_exception_are_terminal() {
     }
 
     {
-        auto session = require_session(
-            compile_captured_exhaust_excitation_session(request.engine));
+        auto session = require_session(compile_fixture_session(request.engine));
         std::size_t callbacks = 0U;
         const auto thrown = session.process_block(
             block.view(),
@@ -561,8 +561,7 @@ void test_reentrant_callback_preserves_outer_views_and_faults() {
     const auto request = make_request();
     SyntheticCaptureBlock block{request.engine, 0U};
     block.fill_distinct_excitation();
-    auto session =
-        require_session(compile_captured_exhaust_excitation_session(request.engine));
+    auto session = require_session(compile_fixture_session(request.engine));
 
     std::size_t outer_callbacks = 0U;
     std::size_t nested_callbacks = 0U;
@@ -607,7 +606,7 @@ void test_reentrant_callback_preserves_outer_views_and_faults() {
 }
 
 void expect_compile_rejected(EngineSpec engine, std::string_view mutation) {
-    const auto result = compile_captured_exhaust_excitation_session(engine);
+    const auto result = compile_fixture_session(engine);
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr && !report->ok(),
            std::string{mutation} + " was admitted by the excitation compiler");

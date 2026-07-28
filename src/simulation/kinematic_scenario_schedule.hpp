@@ -98,8 +98,9 @@ class KinematicScenarioSchedule final {
 using KinematicScenarioScheduleResult =
     std::variant<KinematicScenarioSchedule, contract::ValidationReport>;
 
-// This is a provenance-independent admission seam for fixed-rate prescribed sweeps
-// and held speed. Dynamic and scalar-RPM modes are not silently adapted.
+// This is a configuration-provenance-independent admission seam for the typed
+// fixed-rate method family and held speed. Profile adapters own exact configuration
+// identity; dynamic and scalar-RPM modes are not silently adapted.
 [[nodiscard]] KinematicScenarioScheduleResult
 compile_kinematic_scenario_schedule(const contract::RenderScenario &scenario);
 

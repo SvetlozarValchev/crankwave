@@ -269,6 +269,20 @@ void test_admission_rejections() {
         sweep.trajectory.rpm = ScalarTrajectory{};
         expect_rejected(fixture.scenario, "trajectory.rpm");
     }
+    {
+        ScheduleFixture fixture;
+        configure_prescribed_schedule(fixture);
+        auto &sweep = std::get<PrescribedKinematicSweep>(fixture.scenario.mode);
+        sweep.trajectory.kinematic_resolution.value.id = "wrong-method";
+        expect_rejected(fixture.scenario, "kinematic_resolution");
+    }
+    {
+        ScheduleFixture fixture;
+        configure_prescribed_schedule(fixture);
+        auto &sweep = std::get<PrescribedKinematicSweep>(fixture.scenario.mode);
+        sweep.trajectory.kinematic_resolution.value.version = 2U;
+        expect_rejected(fixture.scenario, "kinematic_resolution");
+    }
 }
 
 void run_tests() {

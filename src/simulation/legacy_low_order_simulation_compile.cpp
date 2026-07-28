@@ -16,6 +16,19 @@ namespace {
 using contract::ContractIssueCode;
 using contract::ValidationReport;
 
+constexpr contract::Sha256Digest kM3FixedRateRpmConfigurationSha256{{
+    0xc6, 0x4a, 0xb8, 0xb9, 0xc2, 0xf8, 0xc7, 0x8a, 0x15, 0x12, 0x22,
+    0xd8, 0x89, 0x86, 0x52, 0x69, 0xbe, 0x19, 0xcc, 0x52, 0x1e, 0x68,
+    0x52, 0xc4, 0x6d, 0xdf, 0x34, 0x50, 0x86, 0x9e, 0x75, 0xe4,
+}};
+
+[[nodiscard]] bool exact_m3_fixed_rate_rpm_method(
+    const contract::ResolvedValue<contract::MethodIdentity> &method) noexcept {
+    return method.value.id == "fixed-rate-post-step-rpm-binary64-v1" &&
+           method.value.version == 1U &&
+           method.value.configuration_sha256 == kM3FixedRateRpmConfigurationSha256;
+}
+
 void require(ValidationReport &report, bool condition, ContractIssueCode code,
              std::string path, std::string message) {
     if (!condition) {
@@ -68,41 +81,37 @@ find_exhaust_profile_index(const contract::LowOrderEngineCoreV1 &core,
 LegacySimulationCompileResult
 compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
                                             const contract::RenderScenario &scenario) {
-    auto mechanics_result =
-        compile_legacy_low_order_mechanics_session(engine, scenario);
-    if (const auto *report = std::get_if<ValidationReport>(&mechanics_result)) {
-        return *report;
-    }
-    auto mechanics =
-        std::get<LegacyLowOrderMechanicsSession>(std::move(mechanics_result));
-
-    auto gas_result = compile_legacy_low_order_gas_session(engine, scenario,
-                                                           mechanics.cylinder_models());
-    if (const auto *report = std::get_if<ValidationReport>(&gas_result)) {
-        return *report;
-    }
-    auto gas = std::get<LegacyLowOrderGasSession>(std::move(gas_result));
-
     ValidationReport report;
     const auto *profile =
         std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile);
+    const auto *sweep = std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode);
     require(report, profile != nullptr, ContractIssueCode::unsupported_value,
             "engine.physics_profile",
             "legacy capture requires a LegacyLowOrderV1Profile");
+    require(report, sweep != nullptr, ContractIssueCode::unsupported_value,
+            "scenario.mode", "M3 legacy capture requires a prescribed kinematic sweep");
+    if (sweep != nullptr) {
+        require(report,
+                exact_m3_fixed_rate_rpm_method(sweep->trajectory.kinematic_resolution),
+                ContractIssueCode::unsupported_value,
+                "scenario.mode.trajectory.kinematic_resolution",
+                "M3 legacy capture requires its exact fixed-rate RPM method "
+                "configuration");
+    }
+    if (!report.ok() || profile == nullptr || sweep == nullptr) {
+        return report;
+    }
 
     std::optional<LegacyFixedCrankTorqueAccountingPlan> torque_accounting;
-    if (profile != nullptr) {
-        auto accounting_result = compile_legacy_fixed_crank_torque_accounting(
-            engine, profile->fixed_crank_loss);
-        if (auto *accounting_report =
-                std::get_if<ValidationReport>(&accounting_result)) {
-            for (auto &issue : accounting_report->issues) {
-                report.issues.push_back(std::move(issue));
-            }
-        } else {
-            torque_accounting = std::get<LegacyFixedCrankTorqueAccountingPlan>(
-                std::move(accounting_result));
+    auto accounting_result =
+        compile_legacy_fixed_crank_torque_accounting(engine, profile->fixed_crank_loss);
+    if (auto *accounting_report = std::get_if<ValidationReport>(&accounting_result)) {
+        for (auto &issue : accounting_report->issues) {
+            report.issues.push_back(std::move(issue));
         }
+    } else {
+        torque_accounting = std::get<LegacyFixedCrankTorqueAccountingPlan>(
+            std::move(accounting_result));
     }
 
     require(report,
@@ -123,6 +132,32 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
             "scenario.quality.value.event_journal_capacity_records",
             "legacy capture requires the canonical 3800-record event capacity");
 
+    const bool event_count_representable =
+        engine.cylinders.size() <= (std::numeric_limits<std::size_t>::max() - 1U) / 3U;
+    require(report, event_count_representable, ContractIssueCode::unsupported_value,
+            "engine.cylinders", "M3 composed event count is not representable");
+    if (event_count_representable) {
+        const auto maximum_events_per_frame = 3U * engine.cylinders.size() + 1U;
+        const bool fits_frame =
+            maximum_events_per_frame <= kLegacyMaximumEventsPerFrame;
+        require(report, fits_frame, ContractIssueCode::unsupported_value,
+                "engine.cylinders",
+                "M3 cylinder count exceeds the canonical per-frame event bound");
+        if (fits_frame) {
+            const auto required_block_event_capacity =
+                static_cast<std::uint64_t>(
+                    scenario.quality.value.capture_block_capacity_frames) *
+                static_cast<std::uint64_t>(maximum_events_per_frame);
+            require(report,
+                    required_block_event_capacity <=
+                        scenario.quality.value.event_journal_capacity_records,
+                    ContractIssueCode::unsupported_value,
+                    "scenario.quality.value.event_journal_capacity_records",
+                    "M3 event journal cannot hold the worst-case composed event "
+                    "bound for one capture block");
+        }
+    }
+
     const auto horizon = contract::resolve_frame_index(scenario.total_duration_s.value,
                                                        scenario.rates.capture);
     require(report, horizon.has_value() && *horizon > 0U,
@@ -138,10 +173,16 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
                 reserve_product_representable(engine.routes.size()),
             ContractIssueCode::unsupported_value, "engine",
             "capture entity count overflows bounded frame-major storage");
-    if (!report.ok() || profile == nullptr || !torque_accounting.has_value() ||
-        !horizon.has_value()) {
+    if (!report.ok() || !torque_accounting.has_value() || !horizon.has_value()) {
         return report;
     }
+
+    auto core_result =
+        compile_low_order_engine_core_v1_runtime(engine, scenario, profile->core);
+    if (const auto *core_report = std::get_if<ValidationReport>(&core_result)) {
+        return *core_report;
+    }
+    auto core_runtime = std::get<LowOrderEngineCoreV1Runtime>(std::move(core_result));
     const auto &core = profile->core;
 
     detail::LegacyCaptureBufferPlan plan;
@@ -297,8 +338,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
 
     detail::LegacyLowOrderCaptureBuffer capture{std::move(plan)};
     return LegacyLowOrderSimulationSession{
-        std::move(mechanics),
-        std::move(gas),
+        std::move(core_runtime),
         *torque_accounting,
         std::move(capture),
         *horizon,

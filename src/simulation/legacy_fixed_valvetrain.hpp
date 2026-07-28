@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/contract/engine.hpp"
+#include "engine_sim_offline/contract/parity_model.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 
 #include <cstddef>
@@ -110,7 +111,8 @@ class LegacyFixedValvetrain final {
     double exhaust_base_radius_m_ = 0.0;
 
     friend std::variant<LegacyFixedValvetrain, contract::ValidationReport>
-    compile_legacy_fixed_valvetrain(const contract::EngineSpec &);
+    compile_legacy_fixed_valvetrain(const contract::EngineSpec &,
+                                    const contract::LowOrderEngineCoreV1 &);
 };
 
 using LegacyFixedValvetrainCompileResult =
@@ -119,6 +121,7 @@ using LegacyFixedValvetrainCompileResult =
 // Compiles all source-shaped tables and topology bindings once. The result retains
 // no EngineSpec references and sampling has no mutable state.
 [[nodiscard]] LegacyFixedValvetrainCompileResult
-compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine);
+compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
+                                const contract::LowOrderEngineCoreV1 &core);
 
 } // namespace engine_sim_offline::simulation

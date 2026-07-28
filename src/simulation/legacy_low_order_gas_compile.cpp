@@ -1,6 +1,4 @@
-#include "simulation/legacy_low_order_gas.hpp"
-
-#include "simulation/kinematic_scenario_schedule.hpp"
+#include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -24,12 +22,6 @@ constexpr contract::Sha256Digest kLegacyLowOrderV1ConfigurationSha256{{
     0x43, 0x54, 0x41, 0x89, 0x0e, 0x0a, 0x5f, 0x8d, 0x01, 0xe8, 0x19,
     0x95, 0xf6, 0x4f, 0x33, 0xd4, 0xc5, 0x54, 0x14, 0x4f, 0x5b, 0x14,
     0x36, 0x89, 0x5e, 0x68, 0x16, 0xf6, 0xdb, 0x85, 0xe3, 0x4c,
-}};
-
-constexpr contract::Sha256Digest kFixedRateRpmV1ConfigurationSha256{{
-    0xc6, 0x4a, 0xb8, 0xb9, 0xc2, 0xf8, 0xc7, 0x8a, 0x15, 0x12, 0x22,
-    0xd8, 0x89, 0x86, 0x52, 0x69, 0xbe, 0x19, 0xcc, 0x52, 0x1e, 0x68,
-    0x52, 0xc4, 0x6d, 0xdf, 0x34, 0x50, 0x86, 0x9e, 0x75, 0xe4,
 }};
 
 constexpr double kLegacyCalibrationPressurePa = 101325.0;
@@ -107,13 +99,6 @@ void append_prefixed(ValidationReport &destination, const ValidationReport &sour
     const contract::ResolvedValue<contract::MethodIdentity> &method) noexcept {
     return method.value.id == "legacy_low_order_v1" && method.value.version == 1U &&
            method.value.configuration_sha256 == kLegacyLowOrderV1ConfigurationSha256;
-}
-
-[[nodiscard]] bool exact_fixed_rate_rpm_method(
-    const contract::ResolvedValue<contract::MethodIdentity> &method) noexcept {
-    return method.value.id == "fixed-rate-post-step-rpm-binary64-v1" &&
-           method.value.version == 1U &&
-           method.value.configuration_sha256 == kFixedRateRpmV1ConfigurationSha256;
 }
 
 template <class Range, class Id>
@@ -258,8 +243,10 @@ find_random_stream_index(const contract::LowOrderEngineCoreV1 &core,
 
 } // namespace
 
-LegacyGasCompileResult compile_legacy_low_order_gas_session(
-    const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
+detail::LowOrderEngineCoreV1RuntimeFactory::GasCompileResult
+detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
+    const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core,
+    const contract::RenderScenario &scenario, const KinematicScenarioSchedule &schedule,
     std::span<const CenteredSliderCrankCylinder> cylinder_models) {
     ValidationReport report;
 
@@ -294,39 +281,24 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
                 "configuration");
     }
 
-    auto schedule_result = compile_kinematic_scenario_schedule(scenario);
-    if (const auto *nested = std::get_if<ValidationReport>(&schedule_result)) {
-        append_prefixed(report, *nested, "schedule");
-    }
     require(report, scenario.rates.physics == contract::RationalRateHz{10000U, 1U},
             ContractIssueCode::unsupported_value, "scenario.rates.physics",
             "legacy_low_order_v1 gas requires exactly 10000 Hz physics");
-    require(report, scenario.rates.capture == scenario.rates.physics,
-            ContractIssueCode::unsupported_value, "scenario.rates.capture",
-            "gas session publishes exactly one post-step sample per physics step");
+    require(report, schedule.rate() == scenario.rates.physics,
+            ContractIssueCode::inconsistent_semantics, "schedule.rate",
+            "gas session requires the admitted scenario physics rate");
+    require(report, schedule.first_step_index() == 0U,
+            ContractIssueCode::inconsistent_semantics, "schedule.first_step_index",
+            "gas session requires a schedule beginning at physics step zero");
+    require(report,
+            schedule.sample_semantics() == contract::RpmSampleSemantics::post_step_rpm,
+            ContractIssueCode::unsupported_value, "schedule.sample_semantics",
+            "gas session consumes post-step RPM mechanics samples");
+    require(report, schedule.sample_count() > 0U, ContractIssueCode::inconsistent_shape,
+            "schedule.sample_count",
+            "gas session requires a nonempty kinematic schedule");
 
-    const auto *sweep = std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode);
-    require(report, sweep != nullptr, ContractIssueCode::unsupported_value,
-            "scenario.mode",
-            "legacy_low_order_v1 gas requires a prescribed kinematic sweep");
-    if (sweep != nullptr) {
-        require(report,
-                exact_fixed_rate_rpm_method(sweep->trajectory.kinematic_resolution),
-                ContractIssueCode::unsupported_value,
-                "scenario.mode.trajectory.kinematic_resolution",
-                "gas session requires fixed-rate post-step RPM resolution version "
-                "1");
-    }
-
-    const auto *profile =
-        std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile);
-    require(report, profile != nullptr, ContractIssueCode::unsupported_value,
-            "engine.physics_profile", "gas session requires LegacyLowOrderV1Profile");
-    if (profile == nullptr || sweep == nullptr) {
-        return report;
-    }
-
-    auto valvetrain_result = compile_legacy_fixed_valvetrain(engine);
+    auto valvetrain_result = compile_legacy_fixed_valvetrain(engine, core);
     if (const auto *nested = std::get_if<ValidationReport>(&valvetrain_result)) {
         append_prefixed(report, *nested, "valvetrain");
     }
@@ -337,7 +309,6 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
     admit_public_identities(engine.flow_edges, report, "engine.flow_edges");
     admit_public_identities(engine.routes, report, "engine.routes");
 
-    const auto &core = profile->core;
     const auto &mechanism = core.mechanism;
     const auto &gas_path = core.gas_path;
     const auto &head = gas_path.head;
@@ -354,12 +325,11 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
             "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
             "crank TDC reference must be finite");
     require(report,
-            std::isfinite(sweep->trajectory.initial_theta_rad.value) &&
-                same_binary64(sweep->trajectory.initial_theta_rad.value,
+            std::isfinite(schedule.initial_theta_rad()) &&
+                same_binary64(schedule.initial_theta_rad(),
                               mechanism.crank.crank_tdc_reference_rad.value),
-            ContractIssueCode::unsupported_value,
-            "scenario.mode.trajectory.initial_theta_rad.value",
-            "fresh gas state requires the prescribed initial angle to equal the "
+            ContractIssueCode::unsupported_value, "schedule.initial_theta_rad",
+            "fresh gas state requires the admitted initial angle to equal the "
             "crank TDC reference");
 
     require(
@@ -489,19 +459,6 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
                         1U,
                 ContractIssueCode::unsupported_value, "engine.cylinders",
                 "composed event ordinals support at most 256 records per step");
-        const std::uint64_t required_block_event_capacity =
-            static_cast<std::uint64_t>(
-                scenario.quality.value.capture_block_capacity_frames) *
-            static_cast<std::uint64_t>(maximum_event_count);
-        require(report,
-                scenario.quality.value.capture_block_capacity_frames > 0U &&
-                    static_cast<std::uint64_t>(
-                        scenario.quality.value.event_journal_capacity_records) >=
-                        required_block_event_capacity,
-                ContractIssueCode::invalid_value,
-                "scenario.quality.value.event_journal_capacity_records",
-                "event journal must hold the exact worst-case composed event bound "
-                "for a full capture block");
     }
 
     std::vector<bool> bound_ports(engine.ports.size(), false);
@@ -883,8 +840,8 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
                     "profile's cylinder geometry and phase");
         }
 
-        const auto initial_sample = evaluate_centered_slider_crank(
-            model, sweep->trajectory.initial_theta_rad.value, 0.0);
+        const auto initial_sample =
+            evaluate_centered_slider_crank(model, schedule.initial_theta_rad(), 0.0);
         require(report,
                 model_matches && initial_sample.valid &&
                     finite_positive(initial_sample.chamber_volume_m3),
@@ -1002,7 +959,6 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
         return report;
     }
 
-    const auto &schedule = std::get<KinematicScenarioSchedule>(schedule_result);
     auto valvetrain = std::get<LegacyFixedValvetrain>(std::move(valvetrain_result));
 
     LegacyLowOrderGasSession session;
