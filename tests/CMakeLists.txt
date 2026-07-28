@@ -787,6 +787,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_adjacent_cycle_block_convergence_tests
+    adjacent_cycle_block_convergence_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_adjacent_cycle_block_convergence_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_adjacent_cycle_block_convergence_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.adjacent_cycle_block_convergence
+    COMMAND engine_sim_offline_adjacent_cycle_block_convergence_tests
+)
+
+add_executable(
     engine_sim_offline_cycle_accounting_method_registry_tests
     cycle_accounting_method_registry_test.cpp
 )

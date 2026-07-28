@@ -116,6 +116,7 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_profiles)
 add_library(
     engine_sim_offline_simulation
     STATIC
+        src/simulation/adjacent_cycle_block_convergence.cpp
         src/simulation/chen_flynn_cycle_mean_loss.cpp
         src/simulation/cycle_accounting_method_descriptors.cpp
         src/simulation/cycle_accounting_method_registry.cpp
