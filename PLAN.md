@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — M3 pressure, flow, phase, and torque observables
+Status: implementation — connecting M3 excitation to the accepted renderer
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-28
 
@@ -455,7 +455,7 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
 - [x] Implement the required fixed-profile valvetrain.
 - [x] Implement the minimum sourced gas, ignition, combustion, friction, and pumping
       models.
-- [ ] Publish required pressure, flow, phase, and torque observables.
+- [x] Publish required pressure, flow, phase, and torque observables.
 - [ ] Connect clean-slate physics to the already accepted renderer without changing
       that renderer.
 - [ ] Render the canonical 15-second pull.

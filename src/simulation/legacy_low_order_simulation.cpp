@@ -1,0 +1,230 @@
+#include "simulation/legacy_low_order_simulation.hpp"
+
+#include "simulation/legacy_low_order_capture_buffer.hpp"
+
+#include <exception>
+#include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+
+namespace engine_sim_offline::simulation {
+
+LegacyLowOrderSimulationSession::LegacyLowOrderSimulationSession(
+    LegacyLowOrderMechanicsSession mechanics, LegacyLowOrderGasSession gas,
+    detail::LegacyLowOrderCaptureBuffer capture, std::uint64_t expected_samples,
+    std::string model_id, std::string profile_id, std::string scenario_id,
+    contract::EngineId engine_id)
+    : mechanics_(std::move(mechanics)), gas_(std::move(gas)),
+      capture_(
+          std::make_unique<detail::LegacyLowOrderCaptureBuffer>(std::move(capture))),
+      expected_samples_(expected_samples), model_id_(std::move(model_id)),
+      profile_id_(std::move(profile_id)), scenario_id_(std::move(scenario_id)),
+      engine_id_(engine_id) {}
+
+LegacyLowOrderSimulationSession::LegacyLowOrderSimulationSession(
+    LegacyLowOrderSimulationSession &&) noexcept = default;
+
+LegacyLowOrderSimulationSession &LegacyLowOrderSimulationSession::operator=(
+    LegacyLowOrderSimulationSession &&) noexcept = default;
+
+LegacyLowOrderSimulationSession::~LegacyLowOrderSimulationSession() = default;
+
+contract::FailureContext LegacyLowOrderSimulationSession::fault(
+    contract::FailureKind kind, std::string detail_code, std::string state_summary,
+    const LegacyMechanismStep *mechanics) const {
+    const std::uint64_t sample_index =
+        mechanics != nullptr ? mechanics->sample_index : published_sample_count_;
+    const std::uint64_t step_end_index =
+        mechanics != nullptr ? mechanics->step_end_index : published_sample_count_;
+    return {
+        kind,
+        std::move(detail_code),
+        model_id_,
+        profile_id_,
+        sample_index,
+        step_end_index,
+        static_cast<double>(step_end_index) / 10000.0,
+        mechanics != nullptr ? mechanics->theta_unwrapped_rad : 0.0,
+        engine_id_,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        "scenario=" + scenario_id_ + "; " + std::move(state_summary),
+        "none; simulation terminated without fallback",
+        {},
+    };
+}
+
+LegacySimulationAdvanceResult
+LegacyLowOrderSimulationSession::fail(contract::FailureContext failure) {
+    if (!terminal_fault_.has_value()) {
+        terminal_fault_ = std::move(failure);
+    }
+    return *terminal_fault_;
+}
+
+LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_block(
+    const LegacyCaptureBlockConsumer &consumer) {
+    if (terminal_fault_.has_value()) {
+        return *terminal_fault_;
+    }
+    if (terminal_completion_.has_value()) {
+        return *terminal_completion_;
+    }
+    if (consumer_callback_active_) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "legacy-capture-consumer-reentrant",
+                          "capture consumer re-entered its session while a borrowed "
+                          "view was active"));
+    }
+    if (!consumer) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "legacy-capture-consumer-missing",
+                          "capture publication requires a synchronous consumer"));
+    }
+    if (published_sample_count_ >= expected_samples_) {
+        if (published_sample_count_ != expected_samples_ ||
+            gas_.produced_sample_count() != expected_samples_ ||
+            !mechanics_.completed()) {
+            return fail(fault(
+                contract::FailureKind::contract_violation,
+                "legacy-simulation-completion-count-mismatch",
+                "mechanics, gas, and published capture counts diverged at completion"));
+        }
+        terminal_completion_ = LegacySimulationCompleted{
+            published_sample_count_,
+            published_block_count_,
+        };
+        return *terminal_completion_;
+    }
+
+    capture_->begin_block(published_sample_count_);
+    const LegacyMechanismStep *last_mechanics = nullptr;
+    for (std::uint32_t frame = 0; frame < kLegacyCaptureFramesPerBlock; ++frame) {
+        auto mechanics_result = mechanics_.advance();
+        if (const auto *failure =
+                std::get_if<contract::FailureContext>(&mechanics_result)) {
+            return fail(*failure);
+        }
+        if (const auto *completed =
+                std::get_if<LegacyMechanicsCompleted>(&mechanics_result)) {
+            if (completed->sample_count != expected_samples_ ||
+                published_sample_count_ + capture_->frame_count() !=
+                    expected_samples_) {
+                return fail(
+                    fault(contract::FailureKind::contract_violation,
+                          "legacy-mechanics-premature-completion",
+                          "mechanics completed before the admitted capture horizon"));
+            }
+            break;
+        }
+
+        const auto &mechanics =
+            std::get<std::reference_wrapper<const LegacyMechanismStep>>(
+                mechanics_result)
+                .get();
+        last_mechanics = &mechanics;
+        auto gas_result = gas_.advance(mechanics);
+        if (const auto *failure = std::get_if<contract::FailureContext>(&gas_result)) {
+            return fail(*failure);
+        }
+        const auto &gas =
+            std::get<std::reference_wrapper<const LegacyLowOrderGasStep>>(gas_result)
+                .get();
+        if (auto buffer_failure = capture_->append(mechanics, gas);
+            buffer_failure.has_value()) {
+            auto failure =
+                fault(buffer_failure->kind, std::move(buffer_failure->detail_code),
+                      std::move(buffer_failure->state_summary), &mechanics);
+            failure.cylinder_id = buffer_failure->cylinder_id;
+            failure.port_id = buffer_failure->port_id;
+            failure.gas_volume_id = buffer_failure->gas_volume_id;
+            failure.flow_edge_id = buffer_failure->flow_edge_id;
+            failure.route_id = buffer_failure->route_id;
+            return fail(std::move(failure));
+        }
+
+        if (published_sample_count_ + capture_->frame_count() == expected_samples_) {
+            break;
+        }
+    }
+
+    if (capture_->frame_count() == 0U) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "legacy-capture-empty-block",
+                          "active simulation produced no capture frames"));
+    }
+
+    const auto block = capture_->view();
+    const auto report = contract::validate(block);
+    if (!report.ok()) {
+        const auto &issue = report.issues.front();
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "legacy-capture-block-invalid",
+                          "path=" + issue.path + "; " + issue.message, last_mechanics));
+    }
+
+    bool accepted = false;
+    consumer_callback_active_ = true;
+    try {
+        accepted = consumer(block);
+    } catch (const std::exception &exception) {
+        consumer_callback_active_ = false;
+        if (terminal_fault_.has_value()) {
+            return *terminal_fault_;
+        }
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "legacy-capture-consumer-threw",
+                          "capture consumer threw: " + std::string{exception.what()},
+                          last_mechanics));
+    } catch (...) {
+        consumer_callback_active_ = false;
+        if (terminal_fault_.has_value()) {
+            return *terminal_fault_;
+        }
+        return fail(fault(
+            contract::FailureKind::contract_violation, "legacy-capture-consumer-threw",
+            "capture consumer threw a non-standard exception", last_mechanics));
+    }
+    consumer_callback_active_ = false;
+    if (terminal_fault_.has_value()) {
+        return *terminal_fault_;
+    }
+    if (!accepted) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "legacy-capture-consumer-rejected",
+                          "capture consumer rejected a complete validated block",
+                          last_mechanics));
+    }
+
+    const LegacySimulationBlockPublished published{
+        published_block_count_,
+        capture_->first_sample_index(),
+        capture_->frame_count(),
+        published_sample_count_ + capture_->frame_count(),
+    };
+    published_sample_count_ = published.published_sample_count;
+    ++published_block_count_;
+    return published;
+}
+
+bool LegacyLowOrderSimulationSession::faulted() const noexcept {
+    return terminal_fault_.has_value();
+}
+
+bool LegacyLowOrderSimulationSession::completed() const noexcept {
+    return terminal_completion_.has_value();
+}
+
+std::uint64_t LegacyLowOrderSimulationSession::published_sample_count() const noexcept {
+    return published_sample_count_;
+}
+
+std::uint64_t LegacyLowOrderSimulationSession::published_block_count() const noexcept {
+    return published_block_count_;
+}
+
+} // namespace engine_sim_offline::simulation

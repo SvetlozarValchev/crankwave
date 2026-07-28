@@ -717,6 +717,30 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_legacy_low_order_capture_tests
+    legacy_low_order_capture_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_legacy_low_order_capture_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_legacy_low_order_capture_tests
+    PRIVATE
+        engine_sim_offline::artifacts
+        engine_sim_offline::profiles
+        engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.legacy_low_order_capture
+    COMMAND engine_sim_offline_legacy_low_order_capture_tests
+)
+
+add_executable(
     engine_sim_offline_bmw_m52b28_mechanics_parity_tests
     bmw_m52b28_mechanics_parity_test.cpp
 )
