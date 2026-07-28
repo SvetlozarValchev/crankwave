@@ -439,7 +439,7 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
 - [x] Freeze the concrete BMW engine/scenario request record, including exact
       identities, otherwise-unused scenario metadata, and the content-addressed
       fixed-rate RPM representation.
-- [ ] Implement a strict reference-only parity-evidence decoder that can extract the
+- [x] Implement a strict reference-only parity-evidence decoder that can extract the
       RPM input lane while retaining crank angle and pressure only as comparator
       outputs.
 - [ ] Construct and exhaustively validate the sealed resolved BMW engine/scenario

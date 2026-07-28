@@ -264,6 +264,27 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     )
 
     add_library(
+        engine_sim_offline_reference_parity_v1_reader
+        STATIC
+            src/reference/reference_parity_v1_reader.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_reference_parity_v1_reader
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_reference_parity_v1_reader
+        PUBLIC engine_sim_offline::build_options
+        PRIVATE engine_sim_offline::contract
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_reference_parity_v1_reader
+    )
+
+    add_library(
         engine_sim_offline_p18_presentation_session
         STATIC
             src/reference/p18_reference_render_session.cpp
@@ -512,6 +533,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
         APPEND
         _engine_sim_offline_numeric_policy_targets
         engine_sim_offline_execution
+        engine_sim_offline_reference_parity_v1_reader
         engine_sim_offline_renderer_determinism
         engine_sim_offline_p18_presentation_session
         engine_sim_offline_p18_reference_catalog

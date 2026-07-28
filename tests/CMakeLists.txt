@@ -571,6 +571,23 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_reference_parity_v1_reader_tests
+    reference_parity_v1_reader_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_reference_parity_v1_reader_tests
+    PRIVATE engine_sim_offline_reference_parity_v1_reader
+)
+
+add_test(
+    NAME reference.parity_v1_reader
+    COMMAND
+        engine_sim_offline_reference_parity_v1_reader_tests
+        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/reference-parity.bin
+)
+
+add_executable(
     engine_sim_offline_p18_reference_seed_reader_tests
     p18_reference_seed_reader_test.cpp
 )
