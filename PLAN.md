@@ -461,7 +461,7 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
 - [x] Connect clean-slate physics to the already accepted renderer without changing
       that renderer.
 - [x] Render the canonical 15-second pull.
-- [ ] Produce controlled oracle/candidate files plus routing and performance reports.
+- [x] Produce controlled oracle/candidate files plus routing and performance reports.
 - [ ] Stop for user listening.
 - [ ] After the user accepts the physics-generated BMW listening gate, retire every
       P1.8-named C++ renderer/replay implementation and its build targets. Move any
