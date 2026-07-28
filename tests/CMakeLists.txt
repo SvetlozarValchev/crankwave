@@ -981,6 +981,29 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_low_order_capture_plan_tests
+    low_order_capture_plan_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_low_order_capture_plan_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_low_order_capture_plan_tests
+    PRIVATE
+        engine_sim_offline::profiles
+        engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.low_order_capture_plan
+    COMMAND engine_sim_offline_low_order_capture_plan_tests
+)
+
+add_executable(
     engine_sim_offline_low_order_engine_core_v1_runtime_tests
     low_order_engine_core_v1_runtime_test.cpp
 )
