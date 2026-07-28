@@ -1,9 +1,10 @@
 # M3 BMW physics listening gate
 
-Status: canonical pull rendered; user listening acceptance pending
+Status: accepted by user listening; M3 parity gate passed
 
 Source commit: `f0e0848`
 Render date: 2026-07-28
+Acceptance date: 2026-07-28
 
 The clean-slate BMW M52B28 simulation and capture-to-excitation stage rendered the
 canonical 15-second, 192 kHz pull through the unchanged accepted presentation
@@ -75,5 +76,9 @@ The physics-to-WAV pipeline took `12.421992373 s`; total command time was
 took `8.505016762 s`; presentation took `3.908372072 s`. These measurements exclude
 compilation and remain below the hard 60-second gate and the 30-second product target.
 
-No M4 or fidelity-upgrade work may begin until the user listens and accepts or rejects
-this candidate.
+## Listening decision
+
+The user compared the controlled pair and reported that candidate `B` sounded
+identical to oracle `A` by ear. M3 therefore passes its audible parity gate. This
+accepts the clean-slate physics path as the baseline for subsequent isolated fidelity
+work; it does not claim a fidelity improvement over engine-sim.

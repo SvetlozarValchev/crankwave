@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: paused at M3 listening gate — awaiting user acceptance
+Status: implementation — retiring temporary M3 parity scaffolding
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-28
 
