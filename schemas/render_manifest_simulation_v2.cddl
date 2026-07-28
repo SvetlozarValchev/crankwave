@@ -1,0 +1,848 @@
+; Canonical JSON shape for a completed simulation RenderManifest.
+; Map-member order is serialization order. Semantic validation is additionally
+; required; in particular f64-bits must decode to a finite binary64 value and
+; both binary64 zero signs use the canonical positive-zero representation.
+;
+; The fixed-rate RPM vector is deliberately represented by sample_count and
+; samples_f64le_sha256. Before encoding, the encoder must recompute that digest
+; from the complete owned binary64 vector using the typed contract's canonical
+; little-endian grammar.
+
+render-manifest-simulation-v2 = {
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v2",
+  "content": render-manifest-content-simulation-v2,
+  "execution": execution-facts
+}
+
+; Canonical identity for a resolved simulator request before presentation/render
+; composition. This domain is intentionally distinct from the completed manifest.
+simulation-request-identity-v1 = {
+  "wire_schema": "engine-sim-offline.simulation-request-identity.v1",
+  "engine": engine-spec,
+  "scenario": render-scenario,
+  "provenance": provenance-bundle-ref
+}
+
+render-manifest-content-simulation-v2 = {
+  "schema_version": 2,
+  "inputs": simulation-manifest-inputs-v1,
+  "provenance": provenance-bundle-ref,
+  "determinism": determinism-envelope,
+  "rates": render-rates,
+  "randomness": random-plan,
+  "output_contract": output-contract,
+  "routes": [* route-record],
+  "output_buses": [* output-bus-record],
+  "artifacts": [* artifact-record]
+}
+
+simulation-manifest-inputs-v1 = {
+  "kind": "simulation_v1",
+  "value": simulation-inputs-v1
+}
+
+simulation-inputs-v1 = {
+  "resolved": resolved-render-inputs
+}
+
+resolved-render-inputs = {
+  "engine": engine-spec,
+  "presentation": presentation-calibration,
+  "scenario": render-scenario
+}
+
+engine-spec = {
+  "schema_version": u32,
+  "id": stable-id,
+  "engine_id": resolved<tstr>,
+  "profile_id": resolved<tstr>,
+  "display_name": resolved<tstr>,
+  "cycle": resolved<engine-cycle>,
+  "ignition": resolved<ignition-kind>,
+  "cylinder_layout": resolved<cylinder-layout-kind>,
+  "total_displacement_m3": resolved<f64-bits>,
+  "banks": [* bank-spec],
+  "cylinders": [* cylinder-spec],
+  "ports": [* port-spec],
+  "gas_volumes": [* gas-volume-spec],
+  "flow_edges": [* flow-edge-spec],
+  "routes": [* route-spec],
+  "methods": engine-model-methods,
+  "physics_profile": executable-physics-profile,
+  "torque_capability": resolved<torque-capability>,
+  "provenance_schema_id": tstr
+}
+
+bank-spec = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>
+}
+
+cylinder-spec = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>,
+  "bank_id": stable-id,
+  "bore_m": resolved<f64-bits>,
+  "stroke_m": resolved<f64-bits>,
+  "connecting_rod_length_m": resolved<f64-bits>,
+  "compression_ratio": resolved<f64-bits>,
+  "firing_tdc_offset_rad": resolved<f64-bits>,
+  "journal_phase_rad": resolved<f64-bits>
+}
+
+port-spec = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>,
+  "cylinder_id": stable-id,
+  "kind": resolved<port-kind>
+}
+
+gas-volume-spec = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>,
+  "kind": resolved<gas-volume-kind>
+}
+
+flow-edge-spec = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>,
+  "endpoint_0_volume_id": stable-id,
+  "endpoint_1_volume_id": stable-id
+}
+
+route-spec = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>,
+  "kind": resolved<source-route-kind>,
+  "source_volume_id": stable-id / null,
+  "default_parent_route_id": stable-id / null,
+  "emitter_anchor_id": resolved<tstr> / null
+}
+
+engine-model-methods = {
+  "mechanism": resolved<method-identity>,
+  "valvetrain": resolved<method-identity>,
+  "gas_exchange": resolved<method-identity>,
+  "ignition": resolved<method-identity>,
+  "combustion": resolved<method-identity>,
+  "heat_transfer": resolved<method-identity>,
+  "losses": resolved<method-identity>,
+  "excitation": resolved<method-identity>
+}
+
+; M3 freezes only the concrete executable profile consumed by the BMW request.
+executable-physics-profile = {
+  "kind": "legacy_low_order_v1",
+  "value": legacy-low-order-v1-profile
+}
+
+legacy-low-order-v1-profile = {
+  "mechanism": legacy-mechanism-profile,
+  "gas_path": legacy-gas-path-profile,
+  "valvetrain": legacy-valvetrain-profile,
+  "ignition": legacy-ignition-profile,
+  "fuel": legacy-fuel-profile,
+  "combustion_random_streams": [* legacy-combustion-random-stream],
+  "losses": legacy-loss-profile,
+  "excitation": legacy-reference-excitation-profile
+}
+
+legacy-mechanism-profile = {
+  "crank": legacy-crank-assembly,
+  "cylinders": [* legacy-cylinder-assembly]
+}
+
+legacy-crank-assembly = {
+  "crank_tdc_reference_rad": resolved<f64-bits>,
+  "crankshaft_mass_kg": resolved<f64-bits>,
+  "flywheel_mass_kg": resolved<f64-bits>,
+  "authored_crank_inertia_kg_m2": resolved<f64-bits>,
+  "fixed_crank_friction_magnitude_nm": resolved<f64-bits>
+}
+
+legacy-cylinder-assembly = {
+  "topology": legacy-cylinder-topology,
+  "parameters": legacy-cylinder-parameters
+}
+
+legacy-cylinder-topology = {
+  "cylinder_id": stable-id,
+  "intake_port_id": stable-id,
+  "exhaust_port_id": stable-id,
+  "intake_runner_volume_id": stable-id,
+  "chamber_volume_id": stable-id,
+  "exhaust_primary_volume_id": stable-id,
+  "plenum_to_runner_edge_id": stable-id,
+  "intake_valve_edge_id": stable-id,
+  "exhaust_valve_edge_id": stable-id,
+  "primary_to_collector_edge_id": stable-id,
+  "blowby_edge_id": stable-id,
+  "exhaust_route_id": stable-id
+}
+
+legacy-cylinder-parameters = {
+  "bore_m": resolved<f64-bits>,
+  "stroke_m": resolved<f64-bits>,
+  "crank_radius_m": resolved<f64-bits>,
+  "connecting_rod_length_m": resolved<f64-bits>,
+  "deck_height_m": resolved<f64-bits>,
+  "piston_compression_height_m": resolved<f64-bits>,
+  "head_chamber_volume_m3": resolved<f64-bits>,
+  "piston_displacement_term_m3": resolved<f64-bits>,
+  "piston_mass_kg": resolved<f64-bits>,
+  "connecting_rod_mass_kg": resolved<f64-bits>,
+  "connecting_rod_inertia_kg_m2": resolved<f64-bits>,
+  "journal_angle_rad": resolved<f64-bits>,
+  "ignition_wire_angle_rad": resolved<f64-bits>,
+  "header_primary_length_m": resolved<f64-bits>
+}
+
+legacy-gas-path-profile = {
+  "intake_topology": legacy-intake-topology,
+  "intake": legacy-intake-parameters,
+  "head": legacy-cylinder-head-profile,
+  "exhaust_routes": [* legacy-exhaust-route-profile],
+  "piston_blowby": legacy-restriction
+}
+
+legacy-intake-topology = {
+  "plenum_volume_id": stable-id,
+  "main_throttle_edge_id": stable-id,
+  "idle_bypass_edge_id": stable-id
+}
+
+legacy-intake-parameters = {
+  "plenum_volume_m3": resolved<f64-bits>,
+  "plenum_cross_section_area_m2": resolved<f64-bits>,
+  "runner_length_m": resolved<f64-bits>,
+  "velocity_decay": resolved<f64-bits>,
+  "throttle_gamma": resolved<f64-bits>,
+  "idle_throttle_plate_position_01": resolved<f64-bits>,
+  "main_throttle": legacy-restriction,
+  "idle_bypass": legacy-restriction,
+  "plenum_to_runner": legacy-restriction
+}
+
+legacy-restriction = {
+  "calibration": resolved<legacy-restriction-calibration>,
+  "source_rating": resolved<f64-bits>,
+  "resolved_k": resolved<f64-bits>
+}
+
+legacy-cylinder-head-profile = {
+  "intake_runner_base_volume_m3": resolved<f64-bits>,
+  "intake_runner_cross_section_area_m2": resolved<f64-bits>,
+  "exhaust_runner_base_volume_m3": resolved<f64-bits>,
+  "exhaust_runner_cross_section_area_m2": resolved<f64-bits>,
+  "flow_table_triangle_radius_m": resolved<f64-bits>,
+  "intake_flow": [* legacy-valve-flow-point],
+  "exhaust_flow": [* legacy-valve-flow-point]
+}
+
+legacy-valve-flow-point = {
+  "sample_id": resolved<tstr>,
+  "lift_m": resolved<f64-bits>,
+  "source_cfm_at_28_inh2o": resolved<f64-bits>,
+  "resolved_k": resolved<f64-bits>
+}
+
+legacy-exhaust-route-profile = {
+  "topology": legacy-exhaust-route-topology,
+  "parameters": legacy-exhaust-route-parameters
+}
+
+legacy-exhaust-route-topology = {
+  "route_id": stable-id,
+  "collector_volume_id": stable-id,
+  "collector_outlet_edge_id": stable-id
+}
+
+legacy-exhaust-route-parameters = {
+  "collector_volume_m3": resolved<f64-bits>,
+  "collector_cross_section_area_m2": resolved<f64-bits>,
+  "exhaust_system_length_m": resolved<f64-bits>,
+  "primary_tube_length_m": resolved<f64-bits>,
+  "velocity_decay": resolved<f64-bits>,
+  "audio_volume_linear": resolved<f64-bits>,
+  "primary_to_collector": legacy-restriction,
+  "collector_outlet": legacy-restriction
+}
+
+legacy-valvetrain-profile = {
+  "intake": legacy-camshaft-profile,
+  "exhaust": legacy-camshaft-profile
+}
+
+legacy-camshaft-profile = {
+  "shape": legacy-cam-shape,
+  "lobes": [* legacy-cam-lobe]
+}
+
+legacy-cam-shape = {
+  "maximum_lift_m": resolved<f64-bits>,
+  "duration_at_reference_lift_rad": resolved<f64-bits>,
+  "exponent": resolved<f64-bits>,
+  "construction_steps": resolved<u32>,
+  "advance_rad": resolved<f64-bits>,
+  "base_radius_m": resolved<f64-bits>
+}
+
+legacy-cam-lobe = {
+  "cylinder_id": stable-id,
+  "port_id": stable-id,
+  "crank_center_rad": resolved<f64-bits>
+}
+
+legacy-ignition-profile = {
+  "firing_order": resolved<cylinder-id-array>,
+  "timing_curve_triangle_radius_rad_s": resolved<f64-bits>,
+  "timing_curve": [* legacy-timing-point],
+  "limiter_speed_rpm": resolved<f64-bits>,
+  "limiter_hold_s": resolved<f64-bits>,
+  "declared_redline_rpm": resolved<f64-bits>
+}
+
+legacy-timing-point = {
+  "sample_id": resolved<tstr>,
+  "angular_speed_rad_s": resolved<f64-bits>,
+  "timing_advance_rad": resolved<f64-bits>
+}
+
+legacy-fuel-profile = {
+  "fuel_id": resolved<tstr>,
+  "molecular_mass_kg_per_mol": resolved<f64-bits>,
+  "energy_density_j_per_kg": resolved<f64-bits>,
+  "molecular_afr": resolved<f64-bits>,
+  "maximum_burning_efficiency_01": resolved<f64-bits>,
+  "burning_efficiency_randomness_01": resolved<f64-bits>,
+  "low_efficiency_attenuation_01": resolved<f64-bits>,
+  "maximum_turbulence_effect": resolved<f64-bits>,
+  "maximum_dilution_effect": resolved<f64-bits>,
+  "lbv_multiplier": resolved<f64-bits>,
+  "compression_ignition_enabled": resolved<bool>,
+  "turbulence_to_flame_speed_ratio_triangle_radius": resolved<f64-bits>,
+  "turbulence_to_flame_speed_ratio": [* legacy-flame-speed-point]
+}
+
+legacy-flame-speed-point = {
+  "sample_id": resolved<tstr>,
+  "turbulence": resolved<f64-bits>,
+  "flame_speed_ratio": resolved<f64-bits>
+}
+
+legacy-combustion-random-stream = {
+  "cylinder_id": stable-id,
+  "pcg32_initial_state": resolved<u64-hex>,
+  "pcg32_stream": resolved<u64-hex>
+}
+
+legacy-loss-profile = {
+  "included_terms": resolved<torque-term-mask>,
+  "omitted_terms": resolved<torque-term-mask>
+}
+
+legacy-reference-excitation-profile = {
+  "reference_atmosphere_pa_abs": resolved<f64-bits>,
+  "legacy_propagation_speed_m_s": resolved<f64-bits>,
+  "excitation_scale": resolved<f64-bits>,
+  "filtered_speed_threshold_rpm": resolved<f64-bits>,
+  "filtered_speed_exponent": resolved<u32>,
+  "pressure_gains": legacy-excitation-pressure-gains,
+  "cylinder_count_divisor": resolved<f64-bits>,
+  "inverse_length_exponent": resolved<f64-bits>,
+  "delay_rate": resolved<rational-rate-hz>,
+  "cylinder_accumulation_order": resolved<cylinder-id-array>,
+  "cylinder_paths": [* legacy-excitation-cylinder-path],
+  "routes": [* legacy-excitation-route]
+}
+
+legacy-excitation-pressure-gains = {
+  "gauge_static": resolved<f64-bits>,
+  "dynamic_forward": resolved<f64-bits>,
+  "dynamic_reverse": resolved<f64-bits>
+}
+
+legacy-excitation-cylinder-path = {
+  "cylinder_id": stable-id,
+  "route_id": stable-id,
+  "header_primary_length_m": resolved<f64-bits>,
+  "sound_attenuation_linear": resolved<f64-bits>,
+  "resolved_delay_samples": resolved<u32>
+}
+
+legacy-excitation-route = {
+  "route_id": stable-id,
+  "exhaust_system_length_m": resolved<f64-bits>,
+  "audio_volume_linear": resolved<f64-bits>
+}
+
+torque-capability = {
+  "physical_net_complete": bool,
+  "cycle_integration_available": bool,
+  "equivalent_inertia_available": bool,
+  "included_terms": torque-term-mask,
+  "omitted_terms": torque-term-mask
+}
+
+presentation-calibration = {
+  "schema_version": u32,
+  "calibration_id": tstr,
+  "engine_profile_id": resolved<tstr>,
+  "methods": presentation-methods,
+  "algorithm_record": presentation-algorithm-record,
+  "conditioning": presentation-conditioning,
+  "assets": [* audio-asset-spec],
+  "routes": [* route-presentation],
+  "publication": stem-publication,
+  "audition": audition-mix,
+  "provenance_schema_id": tstr
+}
+
+presentation-methods = {
+  "reconstruction": resolved<method-identity>,
+  "conditioning": resolved<method-identity>,
+  "impulse_response_conversion": resolved<method-identity>,
+  "convolution": resolved<method-identity>,
+  "publication": resolved<method-identity>,
+  "audition_mix": resolved<method-identity>
+}
+
+presentation-algorithm-record = {
+  "semantic_id": resolved<tstr>,
+  "evidence_source_id": resolved<tstr>,
+  "content_sha256": resolved<sha256>
+}
+
+presentation-conditioning = {
+  "jitter_scale": resolved<f64-bits>,
+  "jitter_modulation_cutoff_hz": resolved<f64-bits>,
+  "derivative_mix_01": resolved<f64-bits>,
+  "air_noise_mix_01": resolved<f64-bits>,
+  "air_noise_cutoff_hz": resolved<f64-bits>
+}
+
+audio-asset-spec = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>,
+  "evidence_source_id": resolved<tstr>,
+  "content_sha256": resolved<sha256>,
+  "media": resolved<audio-media-contract>
+}
+
+audio-media-contract = {
+  "encoding": audio-sample-encoding,
+  "channel_layout": audio-channel-layout,
+  "sample_rate": rational-rate-hz,
+  "frame_count": u64-hex
+}
+
+route-presentation = {
+  "route_id": stable-id,
+  "impulse_response_asset_id": stable-id,
+  "impulse_response_gain_linear": resolved<f64-bits>,
+  "wet_mix_01": resolved<f64-bits>
+}
+
+stem-publication = {
+  "calibration_gain_linear": resolved<f64-bits>
+}
+
+audition-mix = {
+  "selected_routes": resolved<route-id-array>,
+  "monitoring_gain_linear": resolved<f64-bits>,
+  "fade_in_duration_s": resolved<f64-bits>,
+  "fade_out_duration_s": resolved<f64-bits>
+}
+
+render-scenario = {
+  "schema_version": u32,
+  "scenario_id": tstr,
+  "engine_profile_id": tstr,
+  "ambient": ambient-conditions,
+  "fuel": fuel-definition,
+  "initial_thermal_state": initial-thermal-state,
+  "crankcase": crankcase-conditions,
+  "preparation": preparation-policy,
+  "operating_state": resolved<operating-state-point-array>,
+  "total_duration_s": resolved<f64-bits>,
+  "audible_start_s": resolved<f64-bits>,
+  "audible_duration_s": resolved<f64-bits>,
+  "rates": render-rates,
+  "rates_resolution_id": tstr,
+  "quality": resolved<render-quality>,
+  "public_seed": resolved<u64-hex>,
+  "mode": scenario-mode,
+  "mode_resolution_id": tstr,
+  "provenance_schema_id": tstr
+}
+
+ambient-conditions = {
+  "pressure_pa_abs": resolved<f64-bits>,
+  "temperature_k": resolved<f64-bits>,
+  "relative_humidity_01": resolved<f64-bits>
+}
+
+fuel-definition = {
+  "fuel_id": resolved<tstr>,
+  "lower_heating_value_j_per_kg": resolved<f64-bits>,
+  "stoichiometric_air_fuel_mass_ratio": resolved<f64-bits>
+}
+
+initial-thermal-state = {
+  "gas_temperature_k": resolved<f64-bits>,
+  "wall_temperature_k": resolved<f64-bits>,
+  "coolant_temperature_k": resolved<f64-bits>,
+  "oil_temperature_k": resolved<f64-bits>
+}
+
+crankcase-conditions = {
+  "pressure_pa_abs": resolved<f64-bits>,
+  "temperature_k": resolved<f64-bits>
+}
+
+preparation-policy =
+  {
+    "kind": "fixed_settling",
+    "value": fixed-settling
+  } /
+  {
+    "kind": "convergence_settling",
+    "value": convergence-settling
+  }
+
+fixed-settling = {
+  "warm_up_duration_s": resolved<f64-bits>,
+  "settling_duration_s": resolved<f64-bits>
+}
+
+convergence-settling = {
+  "minimum_warm_up_duration_s": resolved<f64-bits>,
+  "minimum_settling_duration_s": resolved<f64-bits>,
+  "maximum_preparation_duration_s": resolved<f64-bits>,
+  "comparison_cycle_count": resolved<u32>,
+  "cycle_mean_torque_tolerance_nm": resolved<f64-bits>,
+  "pressure_tolerance_pa": resolved<f64-bits>
+}
+
+operating-state-point-array = [* operating-state-point]
+
+operating-state-point = {
+  "event_id": tstr,
+  "time_s": f64-bits,
+  "state": operating-state
+}
+
+operating-state = {
+  "ignition_enabled": bool,
+  "fuel_enabled": bool,
+  "starter_enabled": bool,
+  "dyno_enabled": bool,
+  "limiter_enabled": bool
+}
+
+render-quality = {
+  "profile_id": tstr,
+  "version": u32,
+  "capture_block_capacity_frames": u32,
+  "event_journal_capacity_records": u32
+}
+
+scenario-mode =
+  {
+    "kind": "held_speed",
+    "value": held-speed
+  } /
+  {
+    "kind": "prescribed_kinematic_sweep",
+    "value": prescribed-kinematic-sweep
+  } /
+  {
+    "kind": "load_target_held_capture",
+    "value": load-target-held-capture
+  } /
+  {
+    "kind": "inertial_dyno",
+    "value": inertial-dyno
+  }
+
+held-speed = {
+  "engine_speed_rpm": resolved<f64-bits>,
+  "initial_theta_rad": resolved<f64-bits>,
+  "throttle_01": resolved<f64-bits>
+}
+
+prescribed-kinematic-sweep = {
+  "trajectory": rpm-trajectory,
+  "throttle_01": scalar-trajectory
+}
+
+load-target-held-capture = {
+  "engine_speed_rpm": resolved<f64-bits>,
+  "initial_theta_rad": resolved<f64-bits>,
+  "target_net_bmep_pa": resolved<f64-bits>,
+  "target_tolerance_pa": resolved<f64-bits>,
+  "throttle_lower_bound_01": resolved<f64-bits>,
+  "throttle_upper_bound_01": resolved<f64-bits>,
+  "search_method": resolved<method-identity>
+}
+
+inertial-dyno = {
+  "initial_engine_speed_rpm": resolved<f64-bits>,
+  "initial_theta_rad": resolved<f64-bits>,
+  "equivalent_inertia_kg_m2": resolved<f64-bits>,
+  "throttle_01": scalar-trajectory,
+  "brake_curve": [* brake-torque-point],
+  "brake_curve_resolution_id": tstr,
+  "crank_dynamics_method": resolved<method-identity>
+}
+
+brake-torque-point = {
+  "angular_speed_rad_s": f64-bits,
+  "resisting_torque_nm": f64-bits
+}
+
+rpm-trajectory = {
+  "rpm": rpm-trajectory-value,
+  "initial_theta_rad": resolved<f64-bits>,
+  "kinematic_resolution": resolved<method-identity>
+}
+
+rpm-trajectory-value =
+  {
+    "kind": "scalar_trajectory",
+    "value": scalar-trajectory
+  } /
+  {
+    "kind": "fixed_rate_rpm",
+    "value": fixed-rate-rpm-trajectory
+  }
+
+fixed-rate-rpm-trajectory = {
+  "rate": rational-rate-hz,
+  "first_step_index": u64-hex,
+  "semantics": "post_step_rpm",
+  "sample_count": u64-hex,
+  "samples_f64le_sha256": sha256,
+  "resolution_id": tstr
+}
+
+scalar-trajectory = {
+  "interpolation": trajectory-interpolation,
+  "points": [* scalar-trajectory-point],
+  "resolution_id": tstr
+}
+
+scalar-trajectory-point = {
+  "time_s": f64-bits,
+  "value": f64-bits
+}
+
+provenance-bundle-ref = {
+  "id": tstr,
+  "sha256": sha256
+}
+
+determinism-envelope = {
+  "build": build-identity,
+  "numeric_policy_id": "x86-64-v1-binary64-x87-extended-strict-v1",
+  "instruction_set_profile": "x86-64-v1",
+  "floating_point": floating-point-identity,
+  "deterministic_worker_count": 1,
+  "deterministic_reduction_topology": "serial-stable-order"
+}
+
+build-identity = {
+  "git_commit_id": tstr,
+  "source_closure_sha256": sha256,
+  "compiler_id": tstr,
+  "compiler_version": tstr,
+  "target_triple": tstr,
+  "standard_library_id": "libstdcxx",
+  "standard_library_identity": tstr,
+  "math_library_id": "glibc-libm",
+  "math_library_identity": tstr,
+  "compiler_runtime_id": "libgcc-s",
+  "compiler_runtime_identity": tstr
+}
+
+floating-point-identity = {
+  "format": "ieee754_binary64",
+  "rounding": "nearest_ties_to_even",
+  "fma_contraction": false,
+  "flush_to_zero": false,
+  "denormals_are_zero": false
+}
+
+render-rates = {
+  "physics": rational-rate-hz,
+  "capture": rational-rate-hz,
+  "source_processing": rational-rate-hz,
+  "acoustic": rational-rate-hz,
+  "delivery": rational-rate-hz
+}
+
+rational-rate-hz = {
+  "numerator": u64-hex,
+  "denominator": u64-hex
+}
+
+method-identity = {
+  "id": tstr,
+  "version": u32,
+  "configuration_sha256": sha256
+}
+
+random-plan = {
+  "generator": method-identity,
+  "public_seed": u64-hex,
+  "derivation": method-identity,
+  "component_seeds": [* component-seed]
+}
+
+component-seed = {
+  "kind": random-component-kind,
+  "cylinder_id": stable-id / null,
+  "route_id": stable-id / null,
+  "initial_state": u64-hex,
+  "stream": u64-hex
+}
+
+output-contract = {
+  "source_matrix_id": tstr,
+  "source_matrix_sha256": sha256,
+  "distribution": distribution-intent,
+  "required_source_routes": [* source-route-requirement],
+  "required_output_buses": [* output-bus-requirement],
+  "required_artifacts": [* artifact-requirement],
+  "declared_omissions": [* declared-omission]
+}
+
+source-route-requirement = {
+  "semantic_id": tstr,
+  "kind": source-route-kind,
+  "disposition": route-disposition,
+  "disposition_reason": tstr,
+  "artifact_roles": [* tstr]
+}
+
+output-bus-requirement = {
+  "semantic_id": tstr,
+  "kind": output-bus-kind,
+  "artifact_roles": [* tstr]
+}
+
+artifact-requirement = {
+  "role": tstr,
+  "kind": artifact-kind,
+  "audio": audio-contract / null,
+  "diagnostic": bool
+}
+
+declared-omission = {
+  "semantic_id": tstr,
+  "kind": omission-kind,
+  "rationale": tstr
+}
+
+audio-contract = {
+  "sample_rate": rational-rate-hz,
+  "frame_count": u64-hex,
+  "channel_layout_id": tstr,
+  "sample_encoding_id": tstr
+}
+
+route-record = {
+  "route_id": stable-id,
+  "semantic_id": tstr,
+  "kind": source-route-kind,
+  "disposition": route-disposition,
+  "disposition_reason": tstr,
+  "artifact_roles": [* tstr]
+}
+
+output-bus-record = {
+  "semantic_id": tstr,
+  "kind": output-bus-kind,
+  "artifact_roles": [* tstr]
+}
+
+artifact-record = {
+  "role": tstr,
+  "kind": artifact-kind,
+  "relative_path": tstr,
+  "audio": audio-contract / null,
+  "byte_count": u64-hex,
+  "payload_sha256": sha256,
+  "diagnostic": bool
+}
+
+execution-facts = {
+  "run_id": tstr,
+  "started_utc": tstr,
+  "wall_elapsed_ns": i64-nanoseconds,
+  "host_os": tstr,
+  "cpu_model": tstr,
+  "logical_cpu_count": u32,
+  "observed_process_threads": u32,
+  "concurrent_render_jobs": u32,
+  "peak_resident_bytes": u64-hex / null
+}
+
+resolved<t> = {
+  "value": t,
+  "resolution_id": tstr
+}
+
+cylinder-id-array = [* stable-id]
+route-id-array = [* stable-id]
+
+; StableId<T> is a direct native JSON u32, not an object with a value member.
+stable-id = u32
+u32 = 0..4294967295
+sha256 = tstr .regexp "[0-9a-f]{64}"
+u64-hex = tstr .regexp "0x[0-9a-f]{16}"
+torque-term-mask = u64-hex
+f64-bits = tstr .regexp "0x[0-9a-f]{16}"
+i64-nanoseconds = tstr .regexp "(0|-?[1-9][0-9]*)"
+
+engine-cycle = "four_stroke"
+ignition-kind = "spark_ignition"
+cylinder-layout-kind = "inline_engine" / "vee_engine" / "flat_engine" / "other"
+port-kind = "intake" / "exhaust"
+gas-volume-kind =
+  "atmosphere" /
+  "intake_plenum" /
+  "intake_runner" /
+  "cylinder" /
+  "exhaust_primary" /
+  "exhaust_collector"
+legacy-restriction-calibration = "carb_at_1p5_inhg" / "cfm_at_28_inh2o"
+trajectory-interpolation = "right_continuous_hold" / "linear"
+
+random-component-kind =
+  "combustion" /
+  "presentation_jitter" /
+  "presentation_air_noise" /
+  "starter"
+
+source-route-kind =
+  "exhaust_outlet" /
+  "intake_inlet" /
+  "mechanical_engine" /
+  "mechanical_starter"
+
+audio-sample-encoding = "pcm_s16le" / "float32le" / "pcm_s24le"
+audio-channel-layout = "mono"
+artifact-kind = "audio" / "telemetry" / "routing_report" / "validation_report"
+distribution-intent = "local_evaluation" / "distributable"
+output-bus-kind =
+  "master_engine_raw" /
+  "master_engine_audition" /
+  "master_reference_raw" /
+  "master_reference_audition"
+route-disposition = "rendered" / "not_applicable"
+omission-kind =
+  "source_route" /
+  "external_system" /
+  "presentation_scene" /
+  "scenario_behavior"

@@ -445,7 +445,7 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
 - [ ] Construct and exhaustively validate the sealed resolved BMW engine/scenario
       request that the production-neutral parity simulator will actually consume;
       keep the decoder outside the simulator dependency graph.
-- [ ] Freeze the canonical `simulation_v1` manifest-input schema from that concrete
+- [x] Freeze the canonical `simulation_v1` manifest-input schema from that concrete
       request before extending the encoder or admitting public render success.
 - [ ] Extend the canonical manifest encoder to `simulation_v1` and prove the encoded
       request matches the exact in-memory request.
