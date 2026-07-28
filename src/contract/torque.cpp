@@ -193,26 +193,54 @@ ValidationReport validate(const TorqueTelemetry &telemetry) {
     return report;
 }
 
-ValidationReport validate(const TorqueCapability &capability) {
+ValidationReport validate(const NetTorqueFormCapability &capability) {
     using detail::require;
 
     ValidationReport report;
     const auto classified = capability.included_terms | capability.omitted_terms;
+    require(report, known(capability.availability),
+            ContractIssueCode::unsupported_value, "availability",
+            "net-torque form availability is not recognized");
+    require(report, known(capability.completeness),
+            ContractIssueCode::unsupported_value, "completeness",
+            "net-torque form completeness is not recognized");
     require(report, (classified & ~known_torque_term_mask()) == 0,
             ContractIssueCode::unsupported_value, "included_terms",
-            "torque capability contains unknown terms");
+            "net-torque form capability contains unknown terms");
     require(report, (capability.included_terms & capability.omitted_terms) == 0,
             ContractIssueCode::inconsistent_semantics, "included_terms",
-            "a capability cannot both include and omit the same torque term");
-    require(report, classified == known_torque_term_mask(),
-            ContractIssueCode::inconsistent_semantics, "included_terms",
-            "torque capability must classify every known physical net-torque term");
-    require(
-        report,
-        capability.physical_net_complete ==
-            (capability.omitted_terms == 0 && classified == known_torque_term_mask()),
-        ContractIssueCode::inconsistent_semantics, "physical_net_complete",
-        "physical net completeness requires every known term and no omissions");
+            "a net-torque form cannot both include and omit the same term");
+
+    if (capability.availability == Availability::available) {
+        require(report, classified == known_torque_term_mask(),
+                ContractIssueCode::inconsistent_semantics, "included_terms",
+                "an available net-torque form must classify every known physical term");
+        require(report,
+                capability.completeness == (capability.omitted_terms == 0
+                                                ? Completeness::complete
+                                                : Completeness::incomplete),
+                ContractIssueCode::inconsistent_semantics, "completeness",
+                "an available net-torque form is complete exactly when it omits "
+                "no terms");
+    } else if (capability.availability == Availability::unavailable) {
+        require(report, capability.completeness == Completeness::incomplete,
+                ContractIssueCode::inconsistent_semantics, "completeness",
+                "an unavailable net-torque form must be incomplete");
+        require(report, capability.included_terms == 0 && capability.omitted_terms == 0,
+                ContractIssueCode::inconsistent_semantics, "included_terms",
+                "an unavailable net-torque form uses canonical empty term masks");
+    }
+    return report;
+}
+
+ValidationReport validate(const TorqueCapability &capability) {
+    using detail::append_prefixed;
+
+    ValidationReport report;
+    append_prefixed(report, validate(capability.instantaneous_net_shaft),
+                    "instantaneous_net_shaft");
+    append_prefixed(report, validate(capability.cycle_mean_net_shaft),
+                    "cycle_mean_net_shaft");
     return report;
 }
 

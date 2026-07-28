@@ -489,16 +489,26 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
             ContractIssueCode::unsupported_value, "engine.physics_profile.losses",
             "legacy_low_order_v1 gas reports only indicated gas and fixed crank "
             "friction");
-    require(report,
-            engine.torque_capability.value.included_terms == required_included_terms &&
-                engine.torque_capability.value.omitted_terms ==
-                    required_omitted_terms &&
-                !engine.torque_capability.value.physical_net_complete &&
-                !engine.torque_capability.value.cycle_integration_available &&
-                !engine.torque_capability.value.equivalent_inertia_available,
-            ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",
-            "engine torque capability must exactly describe the incomplete M3 "
-            "instantaneous model");
+    require(
+        report,
+        engine.torque_capability.value.instantaneous_net_shaft.availability ==
+                contract::Availability::available &&
+            engine.torque_capability.value.instantaneous_net_shaft.completeness ==
+                contract::Completeness::incomplete &&
+            engine.torque_capability.value.instantaneous_net_shaft.included_terms ==
+                required_included_terms &&
+            engine.torque_capability.value.instantaneous_net_shaft.omitted_terms ==
+                required_omitted_terms &&
+            engine.torque_capability.value.cycle_mean_net_shaft.availability ==
+                contract::Availability::unavailable &&
+            engine.torque_capability.value.cycle_mean_net_shaft.completeness ==
+                contract::Completeness::incomplete &&
+            engine.torque_capability.value.cycle_mean_net_shaft.included_terms == 0 &&
+            engine.torque_capability.value.cycle_mean_net_shaft.omitted_terms == 0 &&
+            !engine.torque_capability.value.equivalent_inertia_available,
+        ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",
+        "engine torque capability must exactly describe the available incomplete "
+        "M3 instantaneous form and unavailable cycle-mean form");
     require(report,
             finite_nonnegative(mechanism.crank.fixed_crank_friction_magnitude_nm.value),
             ContractIssueCode::invalid_value,

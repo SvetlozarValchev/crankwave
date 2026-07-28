@@ -536,11 +536,19 @@ inline EngineSpec make_engine(InputBuilder &builder) {
     spec.physics_profile = make_physics_profile(builder);
     spec.torque_capability = builder.resolved(
         TorqueCapability{
+            {
+                Availability::available,
+                Completeness::complete,
+                known_torque_term_mask(),
+                0,
+            },
+            {
+                Availability::available,
+                Completeness::complete,
+                known_torque_term_mask(),
+                0,
+            },
             true,
-            true,
-            true,
-            known_torque_term_mask(),
-            0,
         },
         "engine.torque_capability");
     spec.provenance_schema_id = builder.provenance.schema_id;

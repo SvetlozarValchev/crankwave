@@ -128,16 +128,38 @@ void run_primitives_contract_tests() {
            "incomplete net torque with an exhaustive term classification was "
            "rejected");
 
-    const TorqueCapability complete_capability{
-        true, true, true, known_torque_term_mask(), 0,
+    const NetTorqueFormCapability complete_form{
+        Availability::available,
+        Completeness::complete,
+        known_torque_term_mask(),
+        0,
     };
+    const TorqueCapability complete_capability{complete_form, complete_form, true};
     expect(validate(complete_capability).ok(),
-           "fully classified physical net torque capability was rejected");
+           "fully classified temporal net-torque capabilities were rejected");
     auto falsely_complete = complete_capability;
-    falsely_complete.omitted_terms = torque_term_mask(TorqueTerm::accessory);
-    falsely_complete.included_terms &= ~falsely_complete.omitted_terms;
+    falsely_complete.instantaneous_net_shaft.omitted_terms =
+        torque_term_mask(TorqueTerm::accessory);
+    falsely_complete.instantaneous_net_shaft.included_terms &=
+        ~falsely_complete.instantaneous_net_shaft.omitted_terms;
     expect(!validate(falsely_complete).ok(),
-           "torque capability concealed an omitted term behind a complete claim");
+           "net-torque form concealed an omitted term behind a complete claim");
+
+    const NetTorqueFormCapability unavailable_form{};
+    expect(validate(unavailable_form).ok(),
+           "canonical unavailable net-torque form was rejected");
+    auto unavailable_with_terms = unavailable_form;
+    unavailable_with_terms.included_terms = indicated_gas_torque_term_mask();
+    expect(!validate(unavailable_with_terms).ok(),
+           "unavailable net-torque form retained a physical term mask");
+    auto available_without_classification = unavailable_form;
+    available_without_classification.availability = Availability::available;
+    expect(!validate(available_without_classification).ok(),
+           "available net-torque form omitted exhaustive term classification");
+    auto falsely_incomplete = complete_form;
+    falsely_incomplete.completeness = Completeness::incomplete;
+    expect(!validate(falsely_incomplete).ok(),
+           "net-torque form claimed incomplete while omitting no terms");
 
     InputBuilder crosswired_builder;
     const auto first_leaf = crosswired_builder.resolved(1.0, "crosswire.first");

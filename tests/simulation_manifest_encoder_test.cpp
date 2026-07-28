@@ -237,6 +237,21 @@ void test_fail_closed_boundaries() {
     simulation_inputs(nonfinite.content).presentation.conditioning.jitter_scale.value =
         std::numeric_limits<double>::infinity();
     expect_manifest_error(nonfinite, "simulation-manifest-wire-nonfinite");
+
+    auto temporally_distinct_torque = fixture.manifest;
+    simulation_inputs(temporally_distinct_torque.content)
+        .engine.torque_capability.value.instantaneous_net_shaft = {
+        Availability::available,
+        Completeness::incomplete,
+        indicated_gas_torque_term_mask(),
+        known_torque_term_mask() & ~indicated_gas_torque_term_mask(),
+    };
+    expect_manifest_error(temporally_distinct_torque,
+                          "simulation-manifest-wire-unrepresentable");
+    const auto &distinct_inputs = simulation_inputs(temporally_distinct_torque.content);
+    expect_request_identity_error(distinct_inputs.engine, distinct_inputs.scenario,
+                                  temporally_distinct_torque.content.provenance,
+                                  "simulation-request-identity-wire-unrepresentable");
 }
 
 void set_compact_fixed_rate_sweep(SimulationFixture &fixture) {

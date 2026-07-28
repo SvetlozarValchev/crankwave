@@ -876,11 +876,19 @@ build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder) {
     engine.physics_profile = std::move(profile);
     engine.torque_capability = builder.resolved(
         contract::TorqueCapability{
+            {
+                contract::Availability::available,
+                contract::Completeness::incomplete,
+                included_terms,
+                omitted_terms,
+            },
+            {
+                contract::Availability::unavailable,
+                contract::Completeness::incomplete,
+                0,
+                0,
+            },
             false,
-            false,
-            false,
-            included_terms,
-            omitted_terms,
         },
         "engine.torque_capability", Source::scenario);
     engine.provenance_schema_id = "engine-sim-offline.m3-bmw-provenance.v1";

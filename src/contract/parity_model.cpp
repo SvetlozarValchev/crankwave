@@ -1692,13 +1692,15 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
                 classified == known_torque_term_mask(),
             ContractIssueCode::inconsistent_semantics, "losses",
             "legacy loss profile must classify every known torque term once");
-    require(report,
-            profile.losses.included_terms.value ==
-                    engine.torque_capability.value.included_terms &&
-                profile.losses.omitted_terms.value ==
-                    engine.torque_capability.value.omitted_terms,
-            ContractIssueCode::inconsistent_semantics, "losses",
-            "physics loss classification and engine torque capability must agree");
+    require(
+        report,
+        profile.losses.included_terms.value ==
+                engine.torque_capability.value.instantaneous_net_shaft.included_terms &&
+            profile.losses.omitted_terms.value ==
+                engine.torque_capability.value.instantaneous_net_shaft.omitted_terms,
+        ContractIssueCode::inconsistent_semantics, "losses",
+        "physics loss classification and instantaneous net-torque capability "
+        "must agree");
 
     const auto &excitation = profile.excitation;
     require(report,

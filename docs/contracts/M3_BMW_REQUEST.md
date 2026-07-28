@@ -298,9 +298,10 @@ piston_ring_friction | bearing_friction | valvetrain_friction |
 pump_and_oil | accessory | starter
 ```
 
-`physical_net_complete`, `cycle_integration_available`, and
-`equivalent_inertia_available` are all false. The prescribed sweep is therefore
-admissible, while held-speed, load-target, and inertial-dyno claims remain
+The instantaneous net-shaft form is available but incomplete, with the included and
+omitted masks above. The cycle-mean form is unavailable, canonical incomplete, and
+has empty masks. Equivalent inertia is unavailable. The prescribed sweep is
+therefore admissible, while held-speed, load-target, and inertial-dyno claims remain
 inadmissible.
 
 ## 8. Provenance and acceptance

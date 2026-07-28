@@ -192,12 +192,14 @@ cover the requested interval, and carry a resolution record. Operating-state eve
 have stable IDs and strictly increasing times.
 
 Engine/scenario compatibility is capability-gated. Held-speed and load-target
-scenarios require complete physical net torque and cycle integration. Inertial dyno
-requires complete physical net torque. The scenario and engine profile IDs must match.
-The scenario fuel identity and lower heating value must exactly match the executable
-profile's fuel identity and energy density, so two conflicting fuels cannot enter one
-render. The legacy profile's source-named molar ignition ratio is deliberately
-distinct from the scenario's conventional stoichiometric air/fuel mass ratio.
+scenarios require an available, complete cycle-mean net-shaft torque form. Inertial
+dyno requires an available, complete instantaneous net-shaft torque form and admitted
+equivalent inertia. A complete form in one time domain cannot stand in for the other.
+The scenario and engine profile IDs must match. The scenario fuel identity and lower
+heating value must exactly match the executable profile's fuel identity and energy
+density, so two conflicting fuels cannot enter one render. The legacy profile's
+source-named molar ignition ratio is deliberately distinct from the scenario's
+conventional stoichiometric air/fuel mass ratio.
 
 ## 5. Torque and load semantics
 
@@ -242,10 +244,13 @@ torque still classifies the entire scope between included and omitted masks. Thu
 complete net value cannot pass by merely declaring no omissions while failing to name
 all physical terms.
 
-`TorqueCapability` must classify every known physical net-torque term exactly once:
-indicated gas, crank friction, ring friction, bearing friction, valvetrain friction,
-pump/oil, accessory, and starter. `physical_net_complete` is true only when none is
-omitted. Cycle integration and equivalent inertia are separate capabilities.
+`TorqueCapability` describes instantaneous and cycle-mean net-shaft forms separately.
+Each available `NetTorqueFormCapability` must classify every known physical term
+exactly once: indicated gas, crank friction, ring friction, bearing friction,
+valvetrain friction, pump/oil, accessory, and starter. It is complete exactly when
+none is omitted. An unavailable form is canonical incomplete with both masks empty;
+it must not preserve a classification that consumers could mistake for a result.
+Equivalent inertia remains a separate capability.
 
 The four-stroke work/BMEP identities and the motion sign convention are normative in
 [`MODEL.md` §8](../../MODEL.md#8-scenario-and-torque-semantics); this schema names

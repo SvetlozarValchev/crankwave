@@ -517,9 +517,55 @@ void run_scenario_manifest_contract_tests() {
            "inverted load-search throttle bounds were accepted");
 
     auto incomplete_torque_engine = load_engine;
-    incomplete_torque_engine.torque_capability.value.physical_net_complete = false;
+    incomplete_torque_engine.torque_capability.value.cycle_mean_net_shaft = {
+        Availability::available,
+        Completeness::incomplete,
+        indicated_gas_torque_term_mask(),
+        known_torque_term_mask() & ~indicated_gas_torque_term_mask(),
+    };
     expect(!validate_for_engine(load_scenario, incomplete_torque_engine).ok(),
            "load-target capture accepted an incomplete net-torque model");
+
+    auto inertial_scenario = load_scenario;
+    inertial_scenario.mode = InertialDyno{
+        {1000.0, ""},
+        {0.0, ""},
+        {0.25, ""},
+        ScalarTrajectory{
+            TrajectoryInterpolation::linear,
+            {
+                {0.0, 0.5},
+                {inertial_scenario.total_duration_s.value, 1.0},
+            },
+            "",
+        },
+        {
+            {0.0, 0.0},
+            {1000.0, 10.0},
+        },
+        "",
+        {method("inertial-dyno-v1", 23), ""},
+    };
+    auto cycle_complete_instantaneous_incomplete = load_engine;
+    cycle_complete_instantaneous_incomplete.torque_capability.value
+        .instantaneous_net_shaft = {
+        Availability::available,
+        Completeness::incomplete,
+        indicated_gas_torque_term_mask(),
+        known_torque_term_mask() & ~indicated_gas_torque_term_mask(),
+    };
+    expect(
+        !validate_for_engine(inertial_scenario, cycle_complete_instantaneous_incomplete)
+             .ok(),
+        "inertial dyno accepted cycle-complete but instantaneous-incomplete "
+        "net torque");
+    auto inertia_missing = load_engine;
+    inertia_missing.torque_capability.value.equivalent_inertia_available = false;
+    expect(!validate_for_engine(inertial_scenario, inertia_missing).ok(),
+           "inertial dyno accepted missing equivalent inertia");
+    expect(validate_for_engine(inertial_scenario, load_engine).ok(),
+           "complete instantaneous torque and equivalent inertia rejected an "
+           "inertial dyno");
 
     const ReachabilityCandidate reached_candidate{
         1, 0.5, -2.0, 100.5, true,

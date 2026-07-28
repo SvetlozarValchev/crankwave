@@ -107,12 +107,20 @@ struct TorqueTelemetry {
     friend bool operator==(const TorqueTelemetry &, const TorqueTelemetry &) = default;
 };
 
-struct TorqueCapability {
-    bool physical_net_complete = false;
-    bool cycle_integration_available = false;
-    bool equivalent_inertia_available = false;
+struct NetTorqueFormCapability {
+    Availability availability = Availability::unavailable;
+    Completeness completeness = Completeness::incomplete;
     TorqueTermMask included_terms = 0;
     TorqueTermMask omitted_terms = 0;
+
+    friend bool operator==(const NetTorqueFormCapability &,
+                           const NetTorqueFormCapability &) = default;
+};
+
+struct TorqueCapability {
+    NetTorqueFormCapability instantaneous_net_shaft;
+    NetTorqueFormCapability cycle_mean_net_shaft;
+    bool equivalent_inertia_available = false;
 
     friend bool operator==(const TorqueCapability &,
                            const TorqueCapability &) = default;
@@ -121,6 +129,7 @@ struct TorqueCapability {
 [[nodiscard]] ValidationReport validate(const QuantityValue &value);
 [[nodiscard]] ValidationReport validate(const TorqueValueNm &value);
 [[nodiscard]] ValidationReport validate(const TorqueTelemetry &telemetry);
+[[nodiscard]] ValidationReport validate(const NetTorqueFormCapability &capability);
 [[nodiscard]] ValidationReport validate(const TorqueCapability &capability);
 
 } // namespace engine_sim_offline::contract

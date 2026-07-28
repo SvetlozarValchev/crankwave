@@ -810,16 +810,39 @@ write_physics_profile(CanonicalJsonWriter &writer,
 [[nodiscard]] bool
 write_torque_capability(CanonicalJsonWriter &writer,
                         const contract::TorqueCapability &capability) {
+    const auto &instantaneous = capability.instantaneous_net_shaft;
+    const auto &cycle_mean = capability.cycle_mean_net_shaft;
+    const bool instantaneous_representable =
+        instantaneous.availability == contract::Availability::available &&
+        contract::validate(instantaneous).ok();
+    const bool cycle_mean_representable =
+        contract::validate(cycle_mean).ok() &&
+        (cycle_mean.availability == contract::Availability::unavailable ||
+         (cycle_mean.availability == contract::Availability::available &&
+          cycle_mean.completeness == instantaneous.completeness &&
+          cycle_mean.included_terms == instantaneous.included_terms &&
+          cycle_mean.omitted_terms == instantaneous.omitted_terms));
+    if (!instantaneous_representable || !cycle_mean_representable) {
+        return writer.fail(
+            CanonicalJsonWriter::Error::unsupported_value,
+            "temporal net-torque capability has no lossless simulation-v4 "
+            "projection");
+    }
+
+    const bool physical_net_complete =
+        instantaneous.completeness == contract::Completeness::complete;
+    const bool cycle_integration_available =
+        cycle_mean.availability == contract::Availability::available;
     return writer.begin_object() && writer.key("physical_net_complete") &&
-           writer.bool_value(capability.physical_net_complete) &&
+           writer.bool_value(physical_net_complete) &&
            writer.key("cycle_integration_available") &&
-           writer.bool_value(capability.cycle_integration_available) &&
+           writer.bool_value(cycle_integration_available) &&
            writer.key("equivalent_inertia_available") &&
            writer.bool_value(capability.equivalent_inertia_available) &&
            writer.key("included_terms") &&
-           writer.uint64_hex_value(capability.included_terms) &&
+           writer.uint64_hex_value(instantaneous.included_terms) &&
            writer.key("omitted_terms") &&
-           writer.uint64_hex_value(capability.omitted_terms) && writer.end_object();
+           writer.uint64_hex_value(instantaneous.omitted_terms) && writer.end_object();
 }
 
 } // namespace

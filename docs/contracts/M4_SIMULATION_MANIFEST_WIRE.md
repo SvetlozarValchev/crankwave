@@ -1,7 +1,8 @@
 # M4 simulation-manifest wire contract
 
-Status: normative canonical encoding for completed simulation manifests and resolved
-simulation-request identities
+Status: normative canonical encoding for the frozen M3 simulation profile and
+resolved simulation-request identity; transitional until the M4 profile freezes the
+single forward schema
 
 Manifest wire schema ID:
 `engine-sim-offline.render-manifest.simulation.v4`
@@ -71,6 +72,19 @@ requires successful exact BMW request validation when the object claims the froz
 BMW identity. The encoder separately checks wire representability and fixed-rate RPM
 content identity. Neither root grants admission merely because a value matches the
 CDDL shape.
+
+The typed torque capability now distinguishes instantaneous and cycle-mean net-shaft
+forms. This frozen v4 wire predates that distinction. It has one lossless historical
+projection only: instantaneous net shaft must be available; cycle mean must either be
+canonical unavailable or have exactly the same completeness and term masks as the
+instantaneous form. The encoder derives `physical_net_complete`,
+`cycle_integration_available`, and the shared masks from that state and rejects every
+temporally distinct capability as unrepresentable. Thus the canonical M3 bytes and
+request digest remain unchanged without allowing v4 to erase a distinction.
+
+When the M4 operating profile contract freezes, one new schema will encode both M3
+and M4 typed forms directly. This v4 API/path is then removed, not retained as an
+alias or compatibility encoder.
 
 The `reference_presentation_v1` input belongs exclusively to
 `engine-sim-offline.render-manifest.reference-presentation.v2`. It has no alias,

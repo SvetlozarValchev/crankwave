@@ -185,6 +185,22 @@ void test_exact_request(const std::vector<double> &rpm,
         "BMW request engine identity or topology shape changed");
     expect(request.engine.total_displacement_m3.value == 0.0027930517982299274,
            "generic BMW displacement changed");
+    const auto included_torque_terms =
+        contract::torque_term_mask(contract::TorqueTerm::indicated_gas) |
+        contract::torque_term_mask(contract::TorqueTerm::crank_friction);
+    const auto omitted_torque_terms =
+        contract::known_torque_term_mask() & ~included_torque_terms;
+    expect(request.engine.torque_capability.value.instantaneous_net_shaft ==
+                   contract::NetTorqueFormCapability{
+                       contract::Availability::available,
+                       contract::Completeness::incomplete,
+                       included_torque_terms,
+                       omitted_torque_terms,
+                   } &&
+               request.engine.torque_capability.value.cycle_mean_net_shaft ==
+                   contract::NetTorqueFormCapability{} &&
+               !request.engine.torque_capability.value.equivalent_inertia_available,
+           "BMW temporal torque capability changed");
 
     const auto &profile = legacy_profile(request);
     expect(profile.mechanism.cylinders.size() == 6 &&

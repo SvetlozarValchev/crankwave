@@ -717,20 +717,30 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
         },
         spec.physics_profile);
 
+    const auto &torque_capability = spec.torque_capability.value;
     const bool needs_complete_cycle_result =
         std::holds_alternative<HeldSpeed>(scenario.mode) ||
         std::holds_alternative<LoadTargetHeldCapture>(scenario.mode);
-    if (needs_complete_cycle_result &&
-        (!spec.torque_capability.value.physical_net_complete ||
-         !spec.torque_capability.value.cycle_integration_available)) {
+    const bool has_complete_cycle_mean =
+        torque_capability.cycle_mean_net_shaft.availability ==
+            Availability::available &&
+        torque_capability.cycle_mean_net_shaft.completeness == Completeness::complete;
+    if (needs_complete_cycle_result && !has_complete_cycle_mean) {
         report.add(ContractIssueCode::unsupported_value, "mode",
-                   "held-speed and load-target scenarios require complete cycle-mean "
-                   "net torque");
+                   "held-speed and load-target scenarios require an available, "
+                   "complete cycle-mean net-shaft torque form");
     }
+    const bool has_complete_instantaneous_net =
+        torque_capability.instantaneous_net_shaft.availability ==
+            Availability::available &&
+        torque_capability.instantaneous_net_shaft.completeness ==
+            Completeness::complete;
     if (std::holds_alternative<InertialDyno>(scenario.mode) &&
-        !spec.torque_capability.value.physical_net_complete) {
+        (!has_complete_instantaneous_net ||
+         !torque_capability.equivalent_inertia_available)) {
         report.add(ContractIssueCode::unsupported_value, "mode",
-                   "inertial dyno requires complete modeled net engine torque");
+                   "inertial dyno requires an available, complete instantaneous "
+                   "net-shaft torque form and equivalent inertia");
     }
     return report;
 }
