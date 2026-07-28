@@ -424,14 +424,22 @@ decode_reference_parity_v1(std::span<const std::byte> bytes) {
                 read_f64_le(bytes, pressure_offset + 16),
             };
             if (!std::isfinite(pressure.static_pressure_pa_abs) ||
-                pressure.static_pressure_pa_abs <= 0.0 ||
-                !std::isfinite(pressure.dynamic_pressure_forward_pa) ||
-                pressure.dynamic_pressure_forward_pa < 0.0 ||
-                !std::isfinite(pressure.dynamic_pressure_reverse_pa) ||
-                pressure.dynamic_pressure_reverse_pa < 0.0) {
+                pressure.static_pressure_pa_abs <= 0.0) {
                 return error(
                     ReferenceParityV1DecodeErrorCode::invalid_cylinder_pressure,
                     pressure_offset, record_index);
+            }
+            if (!std::isfinite(pressure.dynamic_pressure_forward_pa) ||
+                pressure.dynamic_pressure_forward_pa < 0.0) {
+                return error(
+                    ReferenceParityV1DecodeErrorCode::invalid_cylinder_pressure,
+                    pressure_offset + 8U, record_index);
+            }
+            if (!std::isfinite(pressure.dynamic_pressure_reverse_pa) ||
+                pressure.dynamic_pressure_reverse_pa < 0.0) {
+                return error(
+                    ReferenceParityV1DecodeErrorCode::invalid_cylinder_pressure,
+                    pressure_offset + 16U, record_index);
             }
             frame.cylinders[cylinder] = pressure;
         }

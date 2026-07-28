@@ -369,6 +369,14 @@ void test_payload_and_record_rejections(Bytes &bytes) {
                         std::numeric_limits<double>::infinity(),
                         ReferenceParityV1DecodeErrorCode::invalid_cylinder_pressure,
                         "non-finite parity cylinder pressure was accepted", 0);
+    expect_f64_mutation(bytes, kFirstRecordOffset + kRecordCylinderValuesOffset + 8U,
+                        -1.0,
+                        ReferenceParityV1DecodeErrorCode::invalid_cylinder_pressure,
+                        "negative forward dynamic cylinder pressure was accepted", 0);
+    expect_f64_mutation(bytes, kFirstRecordOffset + kRecordCylinderValuesOffset + 16U,
+                        -1.0,
+                        ReferenceParityV1DecodeErrorCode::invalid_cylinder_pressure,
+                        "negative reverse dynamic cylinder pressure was accepted", 0);
 
     const auto finite_pressure_offset =
         kFirstRecordOffset + kRecordCylinderValuesOffset;
