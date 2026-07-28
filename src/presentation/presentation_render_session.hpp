@@ -13,7 +13,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace engine_sim_offline::presentation {
@@ -115,9 +117,23 @@ class SealedPresentationEvidence final {
     friend class PresentationRenderSession;
 };
 
+// Preserves the exact transactional endpoint rejection through WAVE callback
+// boundaries. The opaque render job maps this typed failure to the public failure
+// taxonomy without guessing from an encoder's callback-rejected diagnostic.
+class PresentationSinkFailure final : public std::runtime_error {
+  public:
+    PresentationSinkFailure(std::string_view operation, RenderSinkError error);
+
+    [[nodiscard]] const RenderSinkError &sink_error() const noexcept;
+
+  private:
+    RenderSinkError sink_error_;
+};
+
 enum class PresentationRenderSessionState : std::uint8_t {
     active,
     sealed,
+    committed,
     aborted,
 };
 
@@ -128,9 +144,10 @@ enum class PresentationRenderSessionState : std::uint8_t {
 //
 // Cancellation is observed before transaction begin, between complete input blocks,
 // and once before finalization. Any failure after a successful sink begin aborts
-// exactly once. This low-level session deliberately cannot publish: public render()
-// remains fail-closed until one compiler can derive both the executable plan and its
-// manifest basis from the same admitted request.
+// exactly once. A commit attempt is terminal because RenderSink owns cleanup on both
+// commit success and commit failure. This low-level session cannot construct a
+// manifest: the opaque admitted job must derive and validate it from the same request
+// that produced the executable plan.
 class PresentationRenderSession final {
   public:
     PresentationRenderSession(RenderSink &sink, PresentationRenderPlan plan,
@@ -145,6 +162,14 @@ class PresentationRenderSession final {
     void process(ExhaustExcitationBlockView input);
 
     [[nodiscard]] SealedPresentationEvidence finish();
+
+    // Requires the completed manifest to contain exactly this session's retained
+    // artifact and execution evidence, revalidates the complete contract, and then
+    // makes the sink's sole terminal commit attempt.
+    void commit(const SealedPresentationEvidence &evidence,
+                const contract::RenderManifest &manifest,
+                const contract::ProvenanceLedger &provenance,
+                const contract::SourceMatrixContract &source_matrix);
 
     [[nodiscard]] PresentationRenderSessionState state() const noexcept;
 

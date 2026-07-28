@@ -132,15 +132,14 @@ audition_route_indices(const PresentationRenderPlan &plan) {
     return indices;
 }
 
-[[nodiscard]] std::runtime_error sink_error(std::string_view operation,
-                                            const RenderSinkError &error) {
-    return std::runtime_error{std::string(operation) + ": " + error.detail_code + ": " +
-                              error.message};
+[[nodiscard]] std::string sink_failure_message(std::string_view operation,
+                                               const RenderSinkError &error) {
+    return std::string(operation) + ": " + error.detail_code + ": " + error.message;
 }
 
 void require_sink_success(std::string_view operation, const RenderSinkStatus &status) {
     if (status.has_value()) {
-        throw sink_error(operation, *status);
+        throw PresentationSinkFailure{operation, *status};
     }
 }
 
@@ -385,12 +384,6 @@ make_convolvers(const PresentationRenderPlan &plan) {
     };
 }
 
-void require_encoding_success(const WavEncodingStatus &status, const char *operation) {
-    if (status.has_value()) {
-        throw std::runtime_error{std::string(operation) + ": " + status->message};
-    }
-}
-
 struct RenderScratch {
     std::array<ConditionedSourceFrame, kSourceFramesPerBlock> conditioned{};
     std::array<std::array<double, kSourceFramesPerBlock>, kRouteCount> dry{};
@@ -412,6 +405,16 @@ struct FinishedSession {
     std::array<contract::ArtifactRecord, kPresentationAudioArtifactCount> artifacts;
     execution::ObservedExecutionFacts execution;
 };
+
+[[nodiscard]] std::logic_error
+manifest_validation_error(const contract::ValidationReport &report) {
+    if (report.issues.empty()) {
+        return std::logic_error{"complete publication manifest failed validation"};
+    }
+    const auto &first = report.issues.front();
+    return std::logic_error{"complete publication manifest is invalid at " +
+                            first.path + ": " + first.message};
+}
 
 } // namespace
 
@@ -565,10 +568,61 @@ class PresentationRenderSession::Implementation final {
                 require_execution_finish(std::move(*execution_observation_));
             execution_observation_.reset();
 
+            sealed_artifacts_ = records;
+            sealed_execution_ = execution.facts();
             state_ = PresentationRenderSessionState::sealed;
             return {stats_, std::move(records), std::move(execution)};
         } catch (...) {
             abort_once();
+            throw;
+        }
+    }
+
+    void commit(const SealedPresentationEvidence &evidence,
+                const contract::RenderManifest &manifest,
+                const contract::ProvenanceLedger &provenance,
+                const contract::SourceMatrixContract &source_matrix) {
+        if (state_ != PresentationRenderSessionState::sealed ||
+            !sealed_artifacts_.has_value() || !sealed_execution_.has_value()) {
+            abort_once();
+            throw std::logic_error{
+                "presentation commit requires this session's sealed evidence"};
+        }
+
+        try {
+            if (evidence.artifacts() != *sealed_artifacts_ ||
+                evidence.execution().facts() != *sealed_execution_ ||
+                manifest.execution !=
+                    std::optional<contract::ExecutionFacts>{*sealed_execution_} ||
+                manifest.content.output_contract != plan_.output_contract ||
+                manifest.content.artifacts.size() != sealed_artifacts_->size() ||
+                !std::equal(manifest.content.artifacts.begin(),
+                            manifest.content.artifacts.end(),
+                            sealed_artifacts_->begin())) {
+                throw std::logic_error{
+                    "commit manifest differs from this session's sealed "
+                    "artifact or execution evidence"};
+            }
+            const auto report = contract::validate(manifest, provenance, source_matrix);
+            if (!report.ok()) {
+                throw manifest_validation_error(report);
+            }
+        } catch (...) {
+            abort_once();
+            throw;
+        }
+
+        // RenderSink::commit is the terminal attempt. Once called, the sink owns
+        // cleanup on both outcomes, so this session must never issue a later abort.
+        commit_attempted_ = true;
+        try {
+            require_sink_success("could not commit presentation",
+                                 sink_.commit(manifest));
+            state_ = PresentationRenderSessionState::committed;
+        } catch (...) {
+            if (state_ != PresentationRenderSessionState::committed) {
+                state_ = PresentationRenderSessionState::aborted;
+            }
             throw;
         }
     }
@@ -629,11 +683,24 @@ class PresentationRenderSession::Implementation final {
         const auto &role = audio_artifacts_[artifact_index].role;
         const auto status = sink_.write_artifact_chunk({role, byte_offset, bytes});
         if (status.has_value()) {
+            if (!pending_sink_error_.has_value()) {
+                pending_sink_error_ = *status;
+            }
             return false;
         }
         observed.hash.update(bytes);
         observed.byte_count += static_cast<std::uint64_t>(bytes.size());
         return true;
+    }
+
+    void require_encoding_success(const WavEncodingStatus &status,
+                                  std::string_view operation) const {
+        if (pending_sink_error_.has_value()) {
+            throw PresentationSinkFailure{operation, *pending_sink_error_};
+        }
+        if (status.has_value()) {
+            throw std::runtime_error{std::string(operation) + ": " + status->message};
+        }
     }
 
     void write_published_block() {
@@ -696,7 +763,9 @@ class PresentationRenderSession::Implementation final {
     }
 
     void abort_once() noexcept {
-        if (!transaction_begun_ || state_ == PresentationRenderSessionState::aborted) {
+        if (!transaction_begun_ || commit_attempted_ ||
+            state_ == PresentationRenderSessionState::committed ||
+            state_ == PresentationRenderSessionState::aborted) {
             return;
         }
         sink_.abort();
@@ -717,10 +786,25 @@ class PresentationRenderSession::Implementation final {
     std::array<artifacts::WavChunkConsumer, kPresentationAudioArtifactCount> consumers_;
     std::optional<execution::LinuxExecutionFactsObservation> execution_observation_;
     PresentationRenderStats stats_;
+    std::optional<std::array<contract::ArtifactRecord,
+                             kPresentationAudioArtifactCount>>
+        sealed_artifacts_;
+    std::optional<contract::ExecutionFacts> sealed_execution_;
+    std::optional<RenderSinkError> pending_sink_error_;
     std::uint64_t audible_frame_ = 0;
     PresentationRenderSessionState state_ = PresentationRenderSessionState::active;
     bool transaction_begun_ = false;
+    bool commit_attempted_ = false;
 };
+
+PresentationSinkFailure::PresentationSinkFailure(std::string_view operation,
+                                                 RenderSinkError error)
+    : std::runtime_error{sink_failure_message(operation, error)},
+      sink_error_(std::move(error)) {}
+
+const RenderSinkError &PresentationSinkFailure::sink_error() const noexcept {
+    return sink_error_;
+}
 
 const PresentationRenderStats &SealedPresentationEvidence::stats() const noexcept {
     return stats_;
@@ -752,6 +836,14 @@ SealedPresentationEvidence PresentationRenderSession::finish() {
     auto finished = implementation_->finish();
     return {std::move(finished.stats), std::move(finished.artifacts),
             std::move(finished.execution)};
+}
+
+void PresentationRenderSession::commit(
+    const SealedPresentationEvidence &evidence,
+    const contract::RenderManifest &manifest,
+    const contract::ProvenanceLedger &provenance,
+    const contract::SourceMatrixContract &source_matrix) {
+    implementation_->commit(evidence, manifest, provenance, source_matrix);
 }
 
 PresentationRenderSessionState PresentationRenderSession::state() const noexcept {

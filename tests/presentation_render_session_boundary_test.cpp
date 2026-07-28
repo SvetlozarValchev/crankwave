@@ -11,6 +11,7 @@
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <stop_token>
@@ -72,6 +73,20 @@ void expect_throw(Function &&function, const char *message) {
     throw std::runtime_error{message};
 }
 
+template <class Function>
+void expect_sink_failure(Function &&function, const RenderSinkError &expected,
+                         const char *message) {
+    try {
+        std::forward<Function>(function)();
+    } catch (const PresentationSinkFailure &failure) {
+        expect(failure.sink_error() == expected, message);
+        return;
+    } catch (...) {
+        throw std::runtime_error{message};
+    }
+    throw std::runtime_error{message};
+}
+
 [[nodiscard]] RenderSinkStatus rejected(std::string detail_code) {
     return RenderSinkError{
         RenderSinkErrorKind::publication_failure,
@@ -91,6 +106,7 @@ class RecordingSink final : public RenderSink {
     bool reject_begin = false;
     bool reject_first_declaration = false;
     bool reject_first_write = false;
+    std::optional<RenderSinkError> next_write_error;
 
     std::size_t begin_calls = 0;
     std::size_t commit_calls = 0;
@@ -123,6 +139,11 @@ class RecordingSink final : public RenderSink {
             {std::string{chunk.role}, chunk.byte_offset, chunk.bytes.size()});
         if (reject_first_write && writes.size() == 1) {
             return rejected("injected_first_write_failure");
+        }
+        if (next_write_error.has_value()) {
+            auto error = std::move(next_write_error);
+            next_write_error.reset();
+            return error;
         }
         return std::nullopt;
     }
@@ -298,8 +319,14 @@ void test_failed_begin_does_not_abort_or_write(
     RecordingSink sink;
     sink.reject_begin = true;
 
-    expect_throw<std::runtime_error>(
+    const RenderSinkError expected{
+        RenderSinkErrorKind::publication_failure,
+        "injected_begin_failure",
+        "injected recording-sink failure",
+    };
+    expect_sink_failure(
         [&] { PresentationRenderSession session{sink, make_plan(kernel, kernel)}; },
+        expected,
         "presentation session construction accepted a failed transaction begin");
     expect(sink.begin_calls == 1 && sink.declarations.empty() && sink.writes.empty() &&
                sink.seals.empty() && sink.commit_calls == 0 && sink.abort_calls == 0,
@@ -352,8 +379,14 @@ void test_rejected_first_declaration_aborts_constructor_once(
     RecordingSink sink;
     sink.reject_first_declaration = true;
 
-    expect_throw<std::runtime_error>(
+    const RenderSinkError expected{
+        RenderSinkErrorKind::publication_failure,
+        "injected_first_declaration_failure",
+        "injected recording-sink failure",
+    };
+    expect_sink_failure(
         [&] { PresentationRenderSession session{sink, make_plan(kernel, kernel)}; },
+        expected,
         "presentation session construction accepted a rejected declaration");
     expect(sink.begin_calls == 1 && sink.declarations.size() == 1 &&
                sink.writes.empty() && sink.seals.empty() && sink.commit_calls == 0 &&
@@ -398,14 +431,109 @@ void test_rejected_first_header_write_aborts_constructor_once(
     RecordingSink sink;
     sink.reject_first_write = true;
 
-    expect_throw<std::runtime_error>(
+    const RenderSinkError expected{
+        RenderSinkErrorKind::publication_failure,
+        "injected_first_write_failure",
+        "injected recording-sink failure",
+    };
+    expect_sink_failure(
         [&] { PresentationRenderSession session{sink, make_plan(kernel, kernel)}; },
+        expected,
         "presentation session construction accepted a rejected first WAVE header");
     expect(sink.begin_calls == 1 &&
                sink.declarations.size() == kPresentationAudioArtifactCount &&
                sink.writes.size() == 1 && sink.seals.empty() &&
                sink.commit_calls == 0 && sink.abort_calls == 1,
            "rejected first WAVE header leaked or multiply aborted its transaction");
+}
+
+void test_rejected_payload_write_preserves_sink_error(
+    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+    RecordingSink sink;
+    {
+        PresentationRenderSession session{sink, make_plan(kernel, kernel, 1, 0)};
+        const auto writes_before_payload = sink.writes.size();
+        const RenderSinkError expected{
+            RenderSinkErrorKind::protocol_violation,
+            "injected_payload_protocol_failure",
+            "injected payload write protocol failure",
+        };
+        sink.next_write_error = expected;
+
+        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
+        fill_block(frames, 0);
+        expect_sink_failure(
+            [&] { session.process(make_block(frames)); }, expected,
+            "payload sink rejection was flattened into a WAVE callback error");
+        expect(session.state() == PresentationRenderSessionState::aborted &&
+                   sink.writes.size() == writes_before_payload + 1 &&
+                   sink.seals.empty() && sink.commit_calls == 0 &&
+                   sink.abort_calls == 1,
+               "payload sink rejection did not abort exactly once");
+    }
+    expect(sink.abort_calls == 1 && sink.commit_calls == 0,
+           "payload sink failure destruction retried transaction cleanup");
+}
+
+void test_manifest_evidence_mismatch_aborts_before_commit(
+    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+    RecordingSink sink;
+    const auto plan = make_plan(kernel, kernel, 1, 0);
+    {
+        PresentationRenderSession session{sink, plan};
+        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
+        fill_block(frames, 0);
+        session.process(make_block(frames));
+        const auto evidence = session.finish();
+
+        contract::RenderManifest mismatched;
+        mismatched.content.output_contract = plan.output_contract;
+        mismatched.content.artifacts.assign(evidence.artifacts().begin(),
+                                            evidence.artifacts().end());
+        ++mismatched.content.artifacts.front().byte_count;
+        mismatched.execution = evidence.execution().facts();
+        expect_throw<std::logic_error>(
+            [&] {
+                session.commit(evidence, mismatched, contract::ProvenanceLedger{},
+                               contract::SourceMatrixContract{});
+            },
+            "session accepted a manifest differing from its sealed artifacts");
+        expect(session.state() == PresentationRenderSessionState::aborted &&
+                   sink.commit_calls == 0 && sink.abort_calls == 1,
+               "mismatched manifest reached the terminal sink commit");
+    }
+    expect(sink.commit_calls == 0 && sink.abort_calls == 1,
+           "manifest-mismatch destruction retried transaction cleanup");
+}
+
+void test_complete_evidence_rejects_incomplete_manifest_before_commit(
+    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+    RecordingSink sink;
+    const auto plan = make_plan(kernel, kernel, 1, 0);
+    {
+        PresentationRenderSession session{sink, plan};
+        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
+        fill_block(frames, 0);
+        session.process(make_block(frames));
+        const auto evidence = session.finish();
+
+        contract::RenderManifest incomplete;
+        incomplete.content.output_contract = plan.output_contract;
+        incomplete.content.artifacts.assign(evidence.artifacts().begin(),
+                                            evidence.artifacts().end());
+        incomplete.execution = evidence.execution().facts();
+        expect_throw<std::logic_error>(
+            [&] {
+                session.commit(evidence, incomplete, contract::ProvenanceLedger{},
+                               contract::SourceMatrixContract{});
+            },
+            "session committed a structurally incomplete manifest");
+        expect(session.state() == PresentationRenderSessionState::aborted &&
+                   sink.commit_calls == 0 && sink.abort_calls == 1,
+               "invalid completed manifest reached the terminal sink commit");
+    }
+    expect(sink.commit_calls == 0 && sink.abort_calls == 1,
+           "invalid-manifest destruction retried transaction cleanup");
 }
 
 void test_variable_timeline_and_route_settings(
@@ -579,8 +707,11 @@ void run_tests() {
     test_invalid_first_block_aborts_once(kernel, true);
     test_destructor_aborts_successful_construction_once(kernel);
     test_rejected_first_header_write_aborts_constructor_once(kernel);
+    test_rejected_payload_write_preserves_sink_error(kernel);
     test_variable_timeline_and_route_settings(kernel);
     test_invalid_or_incomplete_timeline_fails_closed(kernel);
+    test_manifest_evidence_mismatch_aborts_before_commit(kernel);
+    test_complete_evidence_rejects_incomplete_manifest_before_commit(kernel);
 }
 
 } // namespace
