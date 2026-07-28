@@ -34,84 +34,6 @@ capture_mixture(const LegacyGasMixture &mixture) noexcept {
     };
 }
 
-[[nodiscard]] contract::TorqueValueNm
-available_torque(double value_nm, contract::Completeness completeness,
-                 contract::TorqueTermMask included,
-                 contract::TorqueTermMask omitted) noexcept {
-    return {
-        value_nm,     contract::Availability::available,
-        completeness, contract::QuantityUnavailableReason::none,
-        included,     omitted,
-    };
-}
-
-[[nodiscard]] contract::TorqueValueNm
-unavailable_torque(contract::QuantityUnavailableReason reason) noexcept {
-    return {
-        0.0,
-        contract::Availability::unavailable,
-        contract::Completeness::incomplete,
-        reason,
-        0,
-        0,
-    };
-}
-
-[[nodiscard]] contract::QuantityValue
-unavailable_quantity(contract::QuantityUnavailableReason reason) noexcept {
-    return {
-        0.0,
-        contract::Availability::unavailable,
-        contract::Completeness::incomplete,
-        reason,
-    };
-}
-
-[[nodiscard]] contract::TorqueTelemetry
-capture_torque(const LegacyMechanismStep &mechanics,
-               const LegacyLowOrderGasStep &gas) noexcept {
-    const auto indicated =
-        contract::torque_term_mask(contract::TorqueTerm::indicated_gas);
-    const auto crank = contract::torque_term_mask(contract::TorqueTerm::crank_friction);
-    const auto included = indicated | crank;
-    const auto omitted = contract::known_torque_term_mask() & ~included;
-    const auto friction_scope =
-        contract::friction_pump_and_accessory_torque_term_mask();
-
-    contract::TorqueTelemetry result;
-    result.instantaneous_indicated_gas = available_torque(
-        gas.indicated_gas_torque_nm, contract::Completeness::complete, indicated, 0);
-    result.pumping_partition = unavailable_torque(
-        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
-    result.friction_pump_and_accessory = available_torque(
-        gas.crank_friction_torque_nm, contract::Completeness::incomplete, crank,
-        friction_scope & ~crank);
-    result.starter =
-        unavailable_torque(contract::QuantityUnavailableReason::model_not_admitted);
-    result.instantaneous_net_shaft =
-        available_torque(gas.incomplete_modeled_net_torque_nm,
-                         contract::Completeness::incomplete, included, omitted);
-    result.cycle_mean_net_shaft = unavailable_torque(
-        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
-    result.actuator = unavailable_torque(
-        contract::QuantityUnavailableReason::equivalent_inertia_missing);
-    result.dyno_reaction = unavailable_torque(
-        contract::QuantityUnavailableReason::equivalent_inertia_missing);
-    result.cycle_work_j = unavailable_quantity(
-        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
-    result.net_bmep_pa = unavailable_quantity(
-        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
-    result.instantaneous_power_w = {
-        gas.incomplete_modeled_net_torque_nm * mechanics.angular_speed_rad_s,
-        contract::Availability::available,
-        contract::Completeness::incomplete,
-        contract::QuantityUnavailableReason::none,
-    };
-    result.cycle_mean_power_w = unavailable_quantity(
-        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
-    return result;
-}
-
 [[nodiscard]] LegacyCaptureBufferFault shape_fault(std::string detail) {
     LegacyCaptureBufferFault result;
     result.kind = contract::FailureKind::contract_violation;
@@ -167,7 +89,8 @@ void LegacyLowOrderCaptureBuffer::begin_block(
 
 std::optional<LegacyCaptureBufferFault>
 LegacyLowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
-                                    const LegacyLowOrderGasStep &gas) {
+                                    const LegacyLowOrderGasStep &gas,
+                                    const contract::TorqueTelemetry &torque) {
     const auto expected_sample_index =
         first_sample_index_ + static_cast<std::uint64_t>(frame_count_);
     if (frame_count_ >= plan_.declared_block_capacity_frames ||
@@ -263,7 +186,7 @@ LegacyLowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
     engine.starter_enabled = mechanics.operating_state.starter_enabled;
     engine.dyno_enabled = mechanics.operating_state.dyno_enabled;
     engine.limiter_cut_active = mechanics.limiter_cut_active;
-    engine.torque = capture_torque(mechanics, gas);
+    engine.torque = torque;
     engine_.push_back(engine);
 
     for (std::size_t index = 0; index < plan_.cylinders.size(); ++index) {
@@ -292,9 +215,14 @@ LegacyLowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
             gas_cylinder.flame.radial_travel_m,
             gas_cylinder.flame.axial_travel_m,
             gas_cylinder.flame.active,
-            available_torque(gas_cylinder.indicated_gas_torque_nm,
-                             contract::Completeness::complete,
-                             contract::indicated_gas_torque_term_mask(), 0),
+            contract::TorqueValueNm{
+                gas_cylinder.indicated_gas_torque_nm,
+                contract::Availability::available,
+                contract::Completeness::complete,
+                contract::QuantityUnavailableReason::none,
+                contract::indicated_gas_torque_term_mask(),
+                0,
+            },
         });
 
         const auto &primary =

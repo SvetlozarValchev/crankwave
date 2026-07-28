@@ -84,6 +84,27 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
     auto gas = std::get<LegacyLowOrderGasSession>(std::move(gas_result));
 
     ValidationReport report;
+    const auto *profile =
+        std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile);
+    require(report, profile != nullptr, ContractIssueCode::unsupported_value,
+            "engine.physics_profile",
+            "legacy capture requires a LegacyLowOrderV1Profile");
+
+    std::optional<LegacyFixedCrankTorqueAccountingPlan> torque_accounting;
+    if (profile != nullptr) {
+        auto accounting_result = compile_legacy_fixed_crank_torque_accounting(
+            engine, profile->fixed_crank_loss);
+        if (auto *accounting_report =
+                std::get_if<ValidationReport>(&accounting_result)) {
+            for (auto &issue : accounting_report->issues) {
+                report.issues.push_back(std::move(issue));
+            }
+        } else {
+            torque_accounting = std::get<LegacyFixedCrankTorqueAccountingPlan>(
+                std::move(accounting_result));
+        }
+    }
+
     require(report,
             scenario.rates.physics == contract::RationalRateHz{10000, 1} &&
                 scenario.rates.capture == contract::RationalRateHz{10000, 1},
@@ -109,11 +130,6 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
             "scenario.total_duration_s.value",
             "legacy capture horizon must resolve to a positive integral frame count");
 
-    const auto *profile =
-        std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile);
-    require(report, profile != nullptr, ContractIssueCode::unsupported_value,
-            "engine.physics_profile",
-            "legacy capture requires a LegacyLowOrderV1Profile");
     require(report,
             reserve_product_representable(engine.cylinders.size()) &&
                 reserve_product_representable(engine.ports.size()) &&
@@ -122,7 +138,8 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
                 reserve_product_representable(engine.routes.size()),
             ContractIssueCode::unsupported_value, "engine",
             "capture entity count overflows bounded frame-major storage");
-    if (!report.ok() || profile == nullptr || !horizon.has_value()) {
+    if (!report.ok() || profile == nullptr || !torque_accounting.has_value() ||
+        !horizon.has_value()) {
         return report;
     }
     const auto &core = profile->core;
@@ -194,8 +211,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
     for (std::size_t index = 0; index < engine.ports.size(); ++index) {
         const auto &port = engine.ports[index];
         const auto cylinder_index = find_id_index(engine.cylinders, port.cylinder_id);
-        const auto profile_index =
-            find_cylinder_profile_index(core, port.cylinder_id);
+        const auto profile_index = find_cylinder_profile_index(core, port.cylinder_id);
         require(report, cylinder_index.has_value() && profile_index.has_value(),
                 ContractIssueCode::dangling_reference,
                 "engine.ports[" + std::to_string(index) + "]",
@@ -283,6 +299,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
     return LegacyLowOrderSimulationSession{
         std::move(mechanics),
         std::move(gas),
+        *torque_accounting,
         std::move(capture),
         *horizon,
         engine.methods.gas_exchange.value.id,

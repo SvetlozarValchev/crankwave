@@ -69,7 +69,8 @@ class LegacyLowOrderCaptureBuffer final {
 
     void begin_block(std::uint64_t first_sample_index) noexcept;
     [[nodiscard]] std::optional<LegacyCaptureBufferFault>
-    append(const LegacyMechanismStep &mechanics, const LegacyLowOrderGasStep &gas);
+    append(const LegacyMechanismStep &mechanics, const LegacyLowOrderGasStep &gas,
+           const contract::TorqueTelemetry &torque);
     [[nodiscard]] contract::CaptureBlockView view() const noexcept;
     [[nodiscard]] std::uint32_t frame_count() const noexcept;
     [[nodiscard]] std::uint64_t first_sample_index() const noexcept;

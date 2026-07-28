@@ -27,6 +27,11 @@ The reusable typed portion is `LowOrderEngineCoreV1`. The M3-only
 core; an M4 profile must compose the core with its own aggregate-loss, accessory, and
 starter contract rather than copying or overriding the legacy loss.
 
+Runtime composition follows the same rule: the reusable gas solver produces
+indicated-gas torque only. The M3 adapter alone adds its fixed crank loss. M4 consumes
+the indicated result and applies the complete-cycle aggregate closure below; there is
+no switch inside the gas solver and no path on which both losses can be active.
+
 The first M4 torque curve is labelled:
 
 > generic Chen–Flynn low-order BMW model prediction

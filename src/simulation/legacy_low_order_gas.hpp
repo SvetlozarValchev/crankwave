@@ -87,8 +87,6 @@ struct LegacyLowOrderGasStep {
     std::vector<LegacyExhaustRouteGasStepState> exhaust_routes;
     std::vector<ScheduledMechanismEvent> events;
     double indicated_gas_torque_nm = 0.0;
-    double crank_friction_torque_nm = 0.0;
-    double incomplete_modeled_net_torque_nm = 0.0;
 };
 
 using LegacyGasAdvanceResult =
@@ -201,7 +199,6 @@ class LegacyLowOrderGasSession final {
     double crankcase_pressure_pa_ = 0.0;
     double crankcase_temperature_k_ = 0.0;
     double blowby_k_ = 0.0;
-    double crank_friction_magnitude_nm_ = 0.0;
     double current_theta_unwrapped_rad_ = 0.0;
     bool previous_limiter_cut_active_ = false;
     LegacyGasMixture inert_mixture_{};

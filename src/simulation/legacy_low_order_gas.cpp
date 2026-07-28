@@ -871,21 +871,10 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
             mechanism_cylinder.dvolume_dtheta_m3_per_rad;
         step_.indicated_gas_torque_nm += public_cylinder.indicated_gas_torque_nm;
     }
-    if (mechanics.angular_speed_rad_s > 0.0) {
-        step_.crank_friction_torque_nm = -crank_friction_magnitude_nm_;
-    } else if (mechanics.angular_speed_rad_s < 0.0) {
-        step_.crank_friction_torque_nm = crank_friction_magnitude_nm_;
-    } else {
-        step_.crank_friction_torque_nm = 0.0;
-    }
-    step_.incomplete_modeled_net_torque_nm =
-        step_.indicated_gas_torque_nm + step_.crank_friction_torque_nm;
-    if (!std::isfinite(step_.indicated_gas_torque_nm) ||
-        !std::isfinite(step_.crank_friction_torque_nm) ||
-        !std::isfinite(step_.incomplete_modeled_net_torque_nm)) {
+    if (!std::isfinite(step_.indicated_gas_torque_nm)) {
         terminal_fault_ = fault(contract::FailureKind::numerical_failure,
                                 "legacy-gas-nonfinite-torque",
-                                "post-gas torque sum became nonfinite");
+                                "post-gas indicated torque sum became nonfinite");
         return *terminal_fault_;
     }
 

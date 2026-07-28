@@ -283,6 +283,7 @@ void expect_unavailable(const QuantityValue &value, QuantityUnavailableReason re
 }
 
 void verify_torque(const TorqueTelemetry &actual, const LegacyLowOrderGasStep &gas,
+                   double fixed_crank_friction_magnitude_nm,
                    double angular_speed_rad_s) {
     const TorqueTermMask gas_term = torque_term_mask(TorqueTerm::indicated_gas);
     const TorqueTermMask crank_term = torque_term_mask(TorqueTerm::crank_friction);
@@ -290,6 +291,14 @@ void verify_torque(const TorqueTelemetry &actual, const LegacyLowOrderGasStep &g
     const TorqueTermMask omitted = known_torque_term_mask() & ~included;
     const TorqueTermMask friction_scope =
         friction_pump_and_accessory_torque_term_mask();
+    double crank_friction_torque_nm = 0.0;
+    if (angular_speed_rad_s > 0.0) {
+        crank_friction_torque_nm = -fixed_crank_friction_magnitude_nm;
+    } else if (angular_speed_rad_s < 0.0) {
+        crank_friction_torque_nm = fixed_crank_friction_magnitude_nm;
+    }
+    const double incomplete_modeled_net_torque_nm =
+        gas.indicated_gas_torque_nm + crank_friction_torque_nm;
 
     expect(actual.instantaneous_indicated_gas ==
                TorqueValueNm{gas.indicated_gas_torque_nm, Availability::available,
@@ -300,16 +309,16 @@ void verify_torque(const TorqueTelemetry &actual, const LegacyLowOrderGasStep &g
                        QuantityUnavailableReason::cycle_integration_not_admitted,
                        "pumping partition");
     expect(actual.friction_pump_and_accessory ==
-               TorqueValueNm{gas.crank_friction_torque_nm, Availability::available,
+               TorqueValueNm{crank_friction_torque_nm, Availability::available,
                              Completeness::incomplete, QuantityUnavailableReason::none,
                              crank_term, friction_scope & ~crank_term},
            "incomplete friction/loss torque mapping changed");
     expect_unavailable(actual.starter, QuantityUnavailableReason::model_not_admitted,
                        "starter");
     expect(actual.instantaneous_net_shaft ==
-               TorqueValueNm{gas.incomplete_modeled_net_torque_nm,
-                             Availability::available, Completeness::incomplete,
-                             QuantityUnavailableReason::none, included, omitted},
+               TorqueValueNm{incomplete_modeled_net_torque_nm, Availability::available,
+                             Completeness::incomplete, QuantityUnavailableReason::none,
+                             included, omitted},
            "incomplete instantaneous-net torque mapping changed");
     expect_unavailable(actual.cycle_mean_net_shaft,
                        QuantityUnavailableReason::cycle_integration_not_admitted,
@@ -327,7 +336,7 @@ void verify_torque(const TorqueTelemetry &actual, const LegacyLowOrderGasStep &g
                        QuantityUnavailableReason::cycle_integration_not_admitted,
                        "net BMEP");
     expect(actual.instantaneous_power_w ==
-               QuantityValue{gas.incomplete_modeled_net_torque_nm * angular_speed_rad_s,
+               QuantityValue{incomplete_modeled_net_torque_nm * angular_speed_rad_s,
                              Availability::available, Completeness::incomplete,
                              QuantityUnavailableReason::none},
            "incomplete instantaneous-power mapping changed");
@@ -461,7 +470,11 @@ void verify_frame(const CaptureBlockView &block, std::size_t frame,
                engine->dyno_enabled == mechanics.operating_state.dyno_enabled &&
                engine->limiter_cut_active == mechanics.limiter_cut_active,
            "engine observable mapping changed");
-    verify_torque(engine->torque, gas, mechanics.angular_speed_rad_s);
+    const auto &profile =
+        std::get<LegacyLowOrderV1Profile>(request.engine.physics_profile);
+    verify_torque(engine->torque, gas,
+                  profile.fixed_crank_loss.fixed_crank_friction_magnitude_nm.value,
+                  mechanics.angular_speed_rad_s);
 
     for (std::size_t index = 0; index < request.engine.cylinders.size(); ++index) {
         const auto id = request.engine.cylinders[index].id;

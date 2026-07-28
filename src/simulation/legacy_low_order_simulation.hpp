@@ -3,6 +3,7 @@
 #include "engine_sim_offline/contract/capture.hpp"
 #include "engine_sim_offline/contract/result.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
+#include "simulation/legacy_fixed_crank_torque_accounting.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
 
@@ -76,13 +77,12 @@ class LegacyLowOrderSimulationSession final {
     [[nodiscard]] std::uint64_t published_block_count() const noexcept;
 
   private:
-    LegacyLowOrderSimulationSession(LegacyLowOrderMechanicsSession mechanics,
-                                    LegacyLowOrderGasSession gas,
-                                    detail::LegacyLowOrderCaptureBuffer capture,
-                                    std::uint64_t expected_samples,
-                                    std::string model_id, std::string profile_id,
-                                    std::string scenario_id,
-                                    contract::EngineId engine_id);
+    LegacyLowOrderSimulationSession(
+        LegacyLowOrderMechanicsSession mechanics, LegacyLowOrderGasSession gas,
+        LegacyFixedCrankTorqueAccountingPlan torque_accounting,
+        detail::LegacyLowOrderCaptureBuffer capture, std::uint64_t expected_samples,
+        std::string model_id, std::string profile_id, std::string scenario_id,
+        contract::EngineId engine_id);
 
     [[nodiscard]] contract::FailureContext
     fault(contract::FailureKind kind, std::string detail_code,
@@ -92,6 +92,7 @@ class LegacyLowOrderSimulationSession final {
 
     LegacyLowOrderMechanicsSession mechanics_;
     LegacyLowOrderGasSession gas_;
+    LegacyFixedCrankTorqueAccountingPlan torque_accounting_;
     std::unique_ptr<detail::LegacyLowOrderCaptureBuffer> capture_;
     std::uint64_t expected_samples_ = 0;
     std::uint64_t published_sample_count_ = 0;

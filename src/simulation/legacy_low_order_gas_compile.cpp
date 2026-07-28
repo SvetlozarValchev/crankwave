@@ -243,11 +243,9 @@ find_profile_route_index(const contract::LegacyGasPathProfile &gas_path,
 [[nodiscard]] std::optional<std::size_t>
 find_random_stream_index(const contract::LowOrderEngineCoreV1 &core,
                          contract::CylinderId cylinder_id) noexcept {
-    const auto found =
-        std::find_if(core.combustion_random_streams.begin(),
-                     core.combustion_random_streams.end(), [&](const auto &stream) {
-                         return stream.cylinder_id == cylinder_id;
-                     });
+    const auto found = std::find_if(
+        core.combustion_random_streams.begin(), core.combustion_random_streams.end(),
+        [&](const auto &stream) { return stream.cylinder_id == cylinder_id; });
     if (found == core.combustion_random_streams.end()) {
         return std::nullopt;
     }
@@ -280,7 +278,7 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
     const std::array<
         std::pair<const contract::ResolvedValue<contract::MethodIdentity> *,
                   const char *>,
-        7U>
+        6U>
         consumed_methods{{
             {&engine.methods.mechanism, "engine.methods.mechanism"},
             {&engine.methods.valvetrain, "engine.methods.valvetrain"},
@@ -288,7 +286,6 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
             {&engine.methods.ignition, "engine.methods.ignition"},
             {&engine.methods.combustion, "engine.methods.combustion"},
             {&engine.methods.heat_transfer, "engine.methods.heat_transfer"},
-            {&engine.methods.losses, "engine.methods.losses"},
         }};
     for (const auto &[method, path] : consumed_methods) {
         require(report, exact_legacy_method(*method),
@@ -341,7 +338,6 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
     admit_public_identities(engine.routes, report, "engine.routes");
 
     const auto &core = profile->core;
-    const auto &fixed_crank_loss = profile->fixed_crank_loss;
     const auto &mechanism = core.mechanism;
     const auto &gas_path = core.gas_path;
     const auto &head = gas_path.head;
@@ -479,45 +475,6 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
                 ContractIssueCode::duplicate_identity, path + ".sample_id.value",
                 "flame-speed sample identities must be unique");
     }
-
-    const auto required_included_terms =
-        contract::torque_term_mask(contract::TorqueTerm::indicated_gas) |
-        contract::torque_term_mask(contract::TorqueTerm::crank_friction);
-    const auto required_omitted_terms =
-        contract::known_torque_term_mask() & ~required_included_terms;
-    require(report,
-            fixed_crank_loss.included_terms.value == required_included_terms &&
-                fixed_crank_loss.omitted_terms.value == required_omitted_terms,
-            ContractIssueCode::unsupported_value, "engine.physics_profile.losses",
-            "legacy_low_order_v1 gas reports only indicated gas and fixed crank "
-            "friction");
-    require(
-        report,
-        engine.torque_capability.value.instantaneous_net_shaft.availability ==
-                contract::Availability::available &&
-            engine.torque_capability.value.instantaneous_net_shaft.completeness ==
-                contract::Completeness::incomplete &&
-            engine.torque_capability.value.instantaneous_net_shaft.included_terms ==
-                required_included_terms &&
-            engine.torque_capability.value.instantaneous_net_shaft.omitted_terms ==
-                required_omitted_terms &&
-            engine.torque_capability.value.cycle_mean_net_shaft.availability ==
-                contract::Availability::unavailable &&
-            engine.torque_capability.value.cycle_mean_net_shaft.completeness ==
-                contract::Completeness::incomplete &&
-            engine.torque_capability.value.cycle_mean_net_shaft.included_terms == 0 &&
-            engine.torque_capability.value.cycle_mean_net_shaft.omitted_terms == 0 &&
-            !engine.torque_capability.value.equivalent_inertia_available,
-        ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",
-        "engine torque capability must exactly describe the available incomplete "
-        "M3 instantaneous form and unavailable cycle-mean form");
-    require(report,
-            finite_nonnegative(
-                fixed_crank_loss.fixed_crank_friction_magnitude_nm.value),
-            ContractIssueCode::invalid_value,
-            "engine.physics_profile.mechanism.crank."
-            "fixed_crank_friction_magnitude_nm.value",
-            "fixed crank-friction magnitude must be finite and nonnegative");
 
     std::size_t maximum_event_count = 0;
     const bool event_count_representable =
@@ -1016,8 +973,7 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
             "engine.physics_profile.gas_path.exhaust_routes",
             "every exhaust route must be used by at least one cylinder");
 
-    require(report,
-            core.combustion_random_streams.size() == engine.cylinders.size(),
+    require(report, core.combustion_random_streams.size() == engine.cylinders.size(),
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.combustion_random_streams",
             "fresh gas state requires exactly one combustion stream per cylinder");
@@ -1063,8 +1019,6 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
     session.crankcase_pressure_pa_ = scenario.crankcase.pressure_pa_abs.value;
     session.crankcase_temperature_k_ = scenario.crankcase.temperature_k.value;
     session.blowby_k_ = gas_path.piston_blowby.resolved_k.value;
-    session.crank_friction_magnitude_nm_ =
-        fixed_crank_loss.fixed_crank_friction_magnitude_nm.value;
     session.inert_mixture_ = {0.0, 1.0, 0.0};
     session.valvetrain_.emplace(std::move(valvetrain));
     session.model_id_ = engine.methods.gas_exchange.value.id;

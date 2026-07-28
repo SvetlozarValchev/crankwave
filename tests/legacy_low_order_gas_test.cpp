@@ -252,10 +252,8 @@ void verify_fresh_layout_and_first_state(const BmwM52b28ParityRequest &request,
                "fresh exhaust-route identity/order changed");
     }
 
-    expect(std::isfinite(gas.indicated_gas_torque_nm) &&
-               std::isfinite(gas.crank_friction_torque_nm) &&
-               std::isfinite(gas.incomplete_modeled_net_torque_nm),
-           "fresh aggregate torque state is nonfinite");
+    expect(std::isfinite(gas.indicated_gas_torque_nm),
+           "fresh aggregate indicated torque state is nonfinite");
 }
 
 enum class EventStage : std::uint8_t {
@@ -434,10 +432,7 @@ void accumulate_activity(const LegacyLowOrderGasStep &step,
            left.flow_edges == right.flow_edges && left.cylinders == right.cylinders &&
            left.exhaust_routes == right.exhaust_routes &&
            same_events(left.events, right.events) &&
-           left.indicated_gas_torque_nm == right.indicated_gas_torque_nm &&
-           left.crank_friction_torque_nm == right.crank_friction_torque_nm &&
-           left.incomplete_modeled_net_torque_nm ==
-               right.incomplete_modeled_net_torque_nm;
+           left.indicated_gas_torque_nm == right.indicated_gas_torque_nm;
 }
 
 void test_short_bmw_fresh_state_and_deterministic_activity() {

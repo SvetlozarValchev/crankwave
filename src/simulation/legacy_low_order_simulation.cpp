@@ -12,10 +12,12 @@ namespace engine_sim_offline::simulation {
 
 LegacyLowOrderSimulationSession::LegacyLowOrderSimulationSession(
     LegacyLowOrderMechanicsSession mechanics, LegacyLowOrderGasSession gas,
+    LegacyFixedCrankTorqueAccountingPlan torque_accounting,
     detail::LegacyLowOrderCaptureBuffer capture, std::uint64_t expected_samples,
     std::string model_id, std::string profile_id, std::string scenario_id,
     contract::EngineId engine_id)
     : mechanics_(std::move(mechanics)), gas_(std::move(gas)),
+      torque_accounting_(torque_accounting),
       capture_(
           std::make_unique<detail::LegacyLowOrderCaptureBuffer>(std::move(capture))),
       expected_samples_(expected_samples), model_id_(std::move(model_id)),
@@ -134,7 +136,17 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
         const auto &gas =
             std::get<std::reference_wrapper<const LegacyLowOrderGasStep>>(gas_result)
                 .get();
-        if (auto buffer_failure = capture_->append(mechanics, gas);
+        const auto torque_evaluation = evaluate_legacy_fixed_crank_torque_accounting(
+            torque_accounting_, mechanics.angular_speed_rad_s,
+            gas.indicated_gas_torque_nm);
+        const auto *torque = std::get_if<contract::TorqueTelemetry>(&torque_evaluation);
+        if (torque == nullptr) {
+            return fail(fault(contract::FailureKind::numerical_failure,
+                              "legacy-fixed-crank-torque-accounting-failed",
+                              "M3 torque accountant produced no finite telemetry",
+                              &mechanics));
+        }
+        if (auto buffer_failure = capture_->append(mechanics, gas, *torque);
             buffer_failure.has_value()) {
             auto failure =
                 fault(buffer_failure->kind, std::move(buffer_failure->detail_code),

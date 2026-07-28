@@ -1374,6 +1374,12 @@ term masks. `LowOrderEngineCoreV1` does not own any fixed-friction value or loss
 classification, so reusing that core cannot silently carry this incomplete M3 loss
 closure into another operating profile.
 
+The runtime has the same ownership boundary. The shared gas session returns only the
+stable ordered indicated-gas sum. The M3 simulation adapter evaluates the fixed loss
+from shaft direction, performs the indicated-plus-loss addition in the frozen order,
+and supplies that M3-only result to capture. The gas state and solver never receive
+the fixed-loss magnitude.
+
 The M3 parity method does not yet define an equivalent-inertia function or its
 derivative. Its prescribed-motion actuator torque is therefore reported unavailable
 with that reason, never as zero and never as source dyno reaction. A later
