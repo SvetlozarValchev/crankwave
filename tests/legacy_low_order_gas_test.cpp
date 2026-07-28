@@ -1,4 +1,4 @@
-#include "profiles/bmw_m52b28_parity_request_internal.hpp"
+#include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 

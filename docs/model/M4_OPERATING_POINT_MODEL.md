@@ -105,10 +105,20 @@ The exact new method IDs are:
 | `ConvergenceSettling::method` | `adjacent-nonoverlapping-cycle-block-mean-v1` | 1 |
 
 The implementation-owned canonical descriptor and configuration SHA-256 for a method
-are pinned only when that implementation exists and is admitted. A literature PDF
-hash is evidence identity, never a `MethodIdentity::configuration_sha256`. The
-quadrature primitive already exists; the aggregate accountant and convergence
-executor must each freeze their own descriptor before their first admitted use.
+are pinned when that implementation exists and is admitted. A literature PDF hash is
+evidence identity, never a `MethodIdentity::configuration_sha256`.
+
+The two implemented cycle-accounting authorities are:
+
+| Method | Configuration SHA-256 |
+|---|---|
+| `four-stroke-piecewise-linear-cycle-quadrature-v1` | `57c9b1517deede3285b5c801cb66386a841d0b0dde08bece7eb05fae869a63ac` |
+| `chen-flynn-cycle-mean-aggregate-loss-v1` | `6fa03e2d9eabfdc7af99dd3e2b2658808dbe388260391780dab4c80bc0c79489` |
+
+These are SHA-256 digests of the canonical LF descriptors exposed by the production
+cycle-accounting method registry. Exact BMW profile validation admits those identities,
+not merely matching IDs and versions. The convergence executor does not yet exist, so
+its descriptor and configuration digest remain deliberately unpinned.
 
 For the first BMW profile, the binary64 values are exact:
 
@@ -194,6 +204,26 @@ and resolved validation, method policy, topology/root mapping, randomness access
 final manifest wire, and request-identity wire. Until an operating capture producer
 exists, presentation-job compilation rejects this profile before execution. There is
 never an admitted-but-silently-treated-as-M3 fallback.
+
+The canonical BMW factory now constructs this profile directly from the reusable
+low-order core under a fresh operating provenance root. Its exact validator pins the
+coefficient bits, oil and accessory conditions, torque partition, implemented method
+identities, capability statement, and complete provenance bundle. It does not yet
+construct a held-speed scenario; that scenario becomes canonical with the convergence
+executor so its preparation policy cannot be guessed prematurely.
+
+The reused `legacy_low_order_v1` method configuration retains the admitted M3 content
+identity `435441890e0a5f8d01e81995f64f33d4c554144f5b1436895e6816f6db85e34c`.
+That authority is the frozen
+`aa1c9a1553b301300258e9fc1de16e6e47c2012c:docs/model/M3_PARITY_MODEL.md`
+Git blob (`760ddd8e436704ed707623a6dad0e6556606d08f`), not a newly invented
+compiled-method descriptor.
+
+This operating-regression profile also retains accepted M3 fixture-derived combustion
+seeds, header lengths, and reference-excitation values. Their evidence remains
+`local_evaluation_only`: the profile has no runtime fixture dependency, but its
+provenance is not yet admissible for a distributable product package. Those authorities
+must be sourced or re-authored before the M7 package gate.
 
 ## 2. Indexed four-stroke torque quadrature
 

@@ -1042,6 +1042,35 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_bmw_m52b28_operating_profile_tests
+    bmw_m52b28_operating_profile_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_bmw_m52b28_operating_profile_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_bmw_m52b28_operating_profile_tests
+    PRIVATE
+        engine_sim_offline::profiles
+        engine_sim_offline::simulation
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_bmw_m52b28_operating_profile_tests
+)
+
+add_test(
+    NAME profiles.bmw_m52b28_operating_profile
+    COMMAND
+        engine_sim_offline_bmw_m52b28_operating_profile_tests
+        ${PROJECT_SOURCE_DIR}/docs/model/M4_OPERATING_POINT_MODEL.md
+        ${PROJECT_SOURCE_DIR}/data/profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json
+)
+
+add_executable(
     engine_sim_offline_p18_reference_seed_reader_tests
     p18_reference_seed_reader_test.cpp
 )

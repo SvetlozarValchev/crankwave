@@ -1,5 +1,5 @@
 #include "excitation/captured_exhaust_excitation.hpp"
-#include "profiles/bmw_m52b28_parity_request_internal.hpp"
+#include "profiles/bmw_m52b28_profile_internal.hpp"
 
 #include <algorithm>
 #include <array>

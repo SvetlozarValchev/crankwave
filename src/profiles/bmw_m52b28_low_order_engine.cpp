@@ -1,4 +1,5 @@
-#include "profiles/bmw_m52b28_parity_request_internal.hpp"
+#include "profiles/bmw_m52b28_profile_internal.hpp"
+#include "simulation/cycle_accounting_method_registry.hpp"
 
 #include <array>
 #include <cmath>
@@ -152,6 +153,8 @@ make_flame_speed_point(BmwProvenanceBuilder &builder, std::uint32_t turbulence) 
 
 contract::EngineSpec
 build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
+    const bool operating_profile =
+        builder.profile_kind() == BmwProfileKind::low_order_operating_point_v1;
     const auto profile_path = [&builder](std::string_view suffix) {
         return builder.profile_path(suffix);
     };
@@ -216,8 +219,9 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
     engine.id = contract::EngineId{1};
     engine.engine_id = builder.resolved(std::string{"bmw-m52b28"}, "engine.engine_id",
                                         Source::legacy_asset);
-    engine.profile_id = builder.resolved(std::string{"bmw-m52b28-legacy-low-order-v1"},
-                                         "engine.profile_id", Source::profile_contract);
+    engine.profile_id =
+        builder.resolved(std::string{builder.engine_profile_id()},
+                         "engine.profile_id", Source::profile_contract);
     engine.display_name = builder.resolved(std::string{"BMW M52B28"},
                                            "engine.display_name", Source::legacy_asset);
     engine.cycle = builder.resolved(contract::EngineCycle::four_stroke, "engine.cycle",
@@ -401,23 +405,31 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
         },
     };
 
+    const auto core_method_source =
+        operating_profile ? Source::implemented_method
+                          : Source::profile_contract;
     engine.methods = {
         builder.resolved(legacy_low_order_method(), "engine.methods.mechanism",
-                         Source::profile_contract),
+                         core_method_source),
         builder.resolved(legacy_low_order_method(), "engine.methods.valvetrain",
-                         Source::profile_contract),
+                         core_method_source),
         builder.resolved(legacy_low_order_method(), "engine.methods.gas_exchange",
-                         Source::profile_contract),
+                         core_method_source),
         builder.resolved(legacy_low_order_method(), "engine.methods.ignition",
-                         Source::profile_contract),
+                         core_method_source),
         builder.resolved(legacy_low_order_method(), "engine.methods.combustion",
-                         Source::profile_contract),
+                         core_method_source),
         builder.resolved(legacy_low_order_method(), "engine.methods.heat_transfer",
-                         Source::profile_contract),
-        builder.resolved(legacy_low_order_method(), "engine.methods.losses",
-                         Source::profile_contract),
+                         core_method_source),
+        builder.resolved(
+            operating_profile
+                ? simulation::chen_flynn_cycle_mean_aggregate_loss_method_identity()
+                : legacy_low_order_method(),
+            "engine.methods.losses",
+            operating_profile ? Source::implemented_method
+                              : Source::profile_contract),
         builder.resolved(legacy_low_order_method(), "engine.methods.excitation",
-                         Source::profile_contract),
+                         core_method_source),
     };
 
     contract::LowOrderEngineCoreV1 core;
@@ -434,10 +446,12 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
                          profile_path("mechanism.crank.authored_crank_inertia_kg_m2"),
                          Source::legacy_asset),
     };
-    fixed_crank_loss.fixed_crank_friction_magnitude_nm = builder.resolved(
-        10.0 * lb_ft_source,
-        profile_path("mechanism.crank.fixed_crank_friction_magnitude_nm"),
-        Source::legacy_asset);
+    if (!operating_profile) {
+        fixed_crank_loss.fixed_crank_friction_magnitude_nm = builder.resolved(
+            10.0 * lb_ft_source,
+            profile_path("mechanism.crank.fixed_crank_friction_magnitude_nm"),
+            Source::legacy_asset);
+    }
 
     for (std::uint32_t index = 0; index < 6; ++index) {
         const std::uint32_t number = index + 1;
@@ -752,10 +766,14 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
         contract::torque_term_mask(contract::TorqueTerm::crank_friction);
     const contract::TorqueTermMask omitted_terms =
         contract::known_torque_term_mask() & ~included_terms;
-    fixed_crank_loss.included_terms = builder.resolved(
-        included_terms, profile_path("losses.included_terms"), Source::profile_contract);
-    fixed_crank_loss.omitted_terms = builder.resolved(
-        omitted_terms, profile_path("losses.omitted_terms"), Source::profile_contract);
+    if (!operating_profile) {
+        fixed_crank_loss.included_terms = builder.resolved(
+            included_terms, profile_path("losses.included_terms"),
+            Source::profile_contract);
+        fixed_crank_loss.omitted_terms = builder.resolved(
+            omitted_terms, profile_path("losses.omitted_terms"),
+            Source::profile_contract);
+    }
 
     core.excitation.reference_atmosphere_pa_abs = builder.resolved(
         101325.0, profile_path("reference_excitation.reference_atmosphere_pa_abs"),
@@ -874,28 +892,100 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
         });
     }
 
-    engine.physics_profile = contract::LegacyLowOrderV1Profile{
-        std::move(core),
-        std::move(fixed_crank_loss),
-    };
-    engine.torque_capability = builder.resolved(
-        contract::TorqueCapability{
-            {
-                contract::Availability::available,
-                contract::Completeness::incomplete,
-                included_terms,
-                omitted_terms,
+    if (operating_profile) {
+        contract::LowOrderOperatingPointV1Profile profile;
+        profile.core = std::move(core);
+        profile.aggregate_loss = {
+            builder.resolved(
+                0.4, profile_path("aggregate_loss.constant_fmep_bar"),
+                Source::operating_literature),
+            builder.resolved(
+                0.005, profile_path("aggregate_loss.peak_pressure_coefficient"),
+                Source::operating_literature),
+            builder.resolved(
+                0.09,
+                profile_path(
+                    "aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m"),
+                Source::operating_literature),
+            builder.resolved(
+                0.0009,
+                profile_path("aggregate_loss."
+                             "mean_piston_speed_squared_coefficient_bar_s2_per_m2"),
+                Source::operating_literature),
+            builder.resolved(
+                363.15,
+                profile_path("aggregate_loss.required_oil_temperature_k"),
+                Source::declared_default),
+            builder.resolved(
+                contract::friction_pump_and_accessory_torque_term_mask(),
+                profile_path("aggregate_loss.included_terms"),
+                Source::profile_contract),
+        };
+        profile.accessory_configuration = {
+            builder.resolved(
+                std::string{"bmw-m52b28-warm-stock-accessories-v1"},
+                profile_path("accessory_configuration.configuration_id"),
+                Source::accessory_configuration),
+            builder.resolved(
+                bmw_m52b28_operating_accessory_descriptor_sha256(),
+                profile_path("accessory_configuration.content_sha256"),
+                Source::accessory_configuration),
+        };
+        profile.starter = {
+            builder.resolved(
+                true, profile_path("starter.mechanically_disengaged"),
+                Source::profile_contract),
+            builder.resolved(
+                contract::torque_term_mask(contract::TorqueTerm::starter),
+                profile_path("starter.included_terms"),
+                Source::profile_contract),
+        };
+        profile.cycle_quadrature = builder.resolved(
+            simulation::
+                four_stroke_piecewise_linear_cycle_quadrature_method_identity(),
+            profile_path("cycle_quadrature"), Source::implemented_method);
+        engine.physics_profile = std::move(profile);
+        engine.torque_capability = builder.resolved(
+            contract::TorqueCapability{
+                {
+                    contract::Availability::unavailable,
+                    contract::Completeness::incomplete,
+                    0,
+                    0,
+                },
+                {
+                    contract::Availability::available,
+                    contract::Completeness::complete,
+                    contract::known_torque_term_mask(),
+                    0,
+                },
+                false,
             },
-            {
-                contract::Availability::unavailable,
-                contract::Completeness::incomplete,
-                0,
-                0,
+            "engine.torque_capability", Source::profile_contract);
+    } else {
+        engine.physics_profile = contract::LegacyLowOrderV1Profile{
+            std::move(core),
+            std::move(fixed_crank_loss),
+        };
+        engine.torque_capability = builder.resolved(
+            contract::TorqueCapability{
+                {
+                    contract::Availability::available,
+                    contract::Completeness::incomplete,
+                    included_terms,
+                    omitted_terms,
+                },
+                {
+                    contract::Availability::unavailable,
+                    contract::Completeness::incomplete,
+                    0,
+                    0,
+                },
+                false,
             },
-            false,
-        },
-        "engine.torque_capability", Source::profile_contract);
-    engine.provenance_schema_id = "engine-sim-offline.m3-bmw-provenance.v1";
+            "engine.torque_capability", Source::profile_contract);
+    }
+    engine.provenance_schema_id = std::string{builder.provenance_schema_id()};
     return engine;
 }
 

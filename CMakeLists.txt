@@ -84,8 +84,10 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_contract)
 add_library(
     engine_sim_offline_profiles
     STATIC
-        src/profiles/bmw_m52b28_parity_engine.cpp
-        src/profiles/bmw_m52b28_parity_provenance.cpp
+        src/profiles/bmw_m52b28_operating_profile.cpp
+        src/profiles/bmw_m52b28_operating_profile_validation.cpp
+        src/profiles/bmw_m52b28_low_order_engine.cpp
+        src/profiles/bmw_m52b28_profile_provenance.cpp
         src/profiles/bmw_m52b28_parity_request.cpp
         src/profiles/bmw_m52b28_parity_scenario.cpp
         src/profiles/bmw_m52b28_parity_validation.cpp
@@ -153,6 +155,11 @@ target_link_libraries(
     PRIVATE engine_sim_offline::dsp
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_simulation)
+
+target_link_libraries(
+    engine_sim_offline_profiles
+    PRIVATE engine_sim_offline_simulation
+)
 
 add_library(
     engine_sim_offline_render

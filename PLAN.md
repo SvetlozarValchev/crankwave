@@ -510,7 +510,7 @@ replacement starts before acceptance.
 - [ ] Add the held-speed brake dyno.
   - [x] Implement fixture-free, indexed four-stroke torque-angle quadrature without
         claiming that arbitrary supplied terms are complete net torque.
-  - [ ] Add the resolved accessory condition and a separate M4 BMW operating profile
+  - [x] Add the resolved accessory condition and a separate M4 BMW operating profile
         with complete aggregate loss/starter accounting.
     - [x] Extract the shared low-order engine core behind one transactional
           mechanics-then-gas runtime, move M3 fixed crank-loss evaluation into its
@@ -519,7 +519,7 @@ replacement starts before acceptance.
           contract.
     - [x] Replace the transitional simulation-v4 wire with the sole simulation-v5
           wire for the explicit M3 and M4 profile forms.
-    - [ ] Instantiate and prove the BMW M4 operating profile.
+    - [x] Instantiate and prove the BMW M4 operating profile.
   - [x] Generalize the kinematic schedule for O(1)-storage held-speed operation while
         preserving the accepted M3 trajectory exactly.
   - [ ] Admit and prove phase-aligned pressure plus cycle-torque convergence.
@@ -600,6 +600,8 @@ Exit: the user accepts the complete set at the declared performance budget.
 ### M7 — Responsive package proof
 
 - [ ] Resolve move-versus-consume integration with `car-engine-studio`; do not duplicate.
+- [ ] Replace or re-author every local-evaluation-only M3 fixture and presentation
+      authority before compiling a distributable package.
 - [ ] Design a minimal capture space from accepted BMW behavior.
 - [ ] Compile and locally verify an actual versioned BMW audio package.
 - [ ] Implement an audio-follower reference runtime accepting RPM, achieved load,
