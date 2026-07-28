@@ -76,6 +76,12 @@ term. Only an encapsulated M4 torque-accounting source whose compiler proves the
 term inventory may promote its completed-cycle sum to public net/brake telemetry.
 Per-sample masks are not duplicated at 10 kHz.
 
+Every represented boundary crossing is observable, including the first crossing that
+only ends the discarded initial partial cycle. It carries the same exact boundary
+angle, time, left/right post-step sample identities, and interpolation fraction used
+by the quadrature. Downstream cycle observers reuse this evidence; they do not run a
+second wrapped-angle crossing detector.
+
 The quadrature does not establish settling. Held-speed admission also requires the
 separate convergence evidence in section 5.
 
@@ -111,7 +117,12 @@ pmax_mean_abs(k) =
 ```
 
 This displacement-weighted resolver is an explicit M4 choice; it is not attributed to
-Chen and Flynn.
+Chen and Flynn. Absolute cylinder pressure is read directly from the post-step gas
+state rather than from quantized capture telemetry. For the same piecewise-linear
+outer-step representation used by cycle quadrature, each cylinder maximum includes
+the interpolated start-boundary value, every interior post-step value, and the
+interpolated end-boundary value. A linear segment has no interior maximum above both
+endpoints. The initial partial cycle is discarded.
 
 The corresponding positive loss work and running-direction torque are:
 
@@ -173,16 +184,95 @@ the balancing reaction. Equivalent inertia is not needed for mean reaction over 
 periodic complete cycle, but instantaneous actuator/dyno reaction remains unavailable
 until equivalent inertia and its derivative are admitted.
 
-M4 does not call an operating point settled from torque alone. The named convergence
-method must compare, over the declared consecutive-cycle window:
+The convergence method is
+`adjacent-nonoverlapping-cycle-block-mean-v1`, version 1. It is a deterministic
+stationarity heuristic, not a deterministic-periodicity test, statistical confidence
+interval, or physical validation claim. The accepted low-order combustion core has
+nonzero deterministic per-ignition variation, so raw adjacent-cycle equality is not
+an admissible settling rule.
 
-- complete-cycle mean brake torque; and
-- phase-aligned pressure state for every physical gas volume.
+`cycles_per_block = N` must be positive. After
+`minimum_warm_up_duration_s + minimum_settling_duration_s`, a complete cycle is
+eligible only if its start boundary is at or after that threshold and its end boundary
+is at or before `maximum_preparation_duration_s`. The latest `2*N` eligible cycles at
+the fixed preparation cutoff form two adjacent, non-overlapping blocks:
 
-The implementation must freeze the exact norm, comparison ordering, tolerances,
-boundary phase, minimum preparation, maximum preparation, and failure behavior before
-enabling held-speed public results. Failure to converge by the maximum duration fails
-closed.
+```text
+block A = older N cycles
+block B = newer N cycles
+```
+
+The physical pressure snapshot for one cycle is its exact end-boundary Poincare state.
+It contains absolute pressure for every `physically_resolved` gas volume in ascending
+stable `GasVolumeId` order. The resettable atmosphere alias is excluded. Each boundary
+value is interpolated from the same left/right samples and fraction emitted by the
+cycle integrator:
+
+```text
+p_boundary = p_left + fraction_from_left * (p_right - p_left)
+```
+
+No pressure observer independently recomputes a cycle index, boundary angle, or
+crossing fraction. It retains only the previous/current pressure vectors and bounded
+complete-cycle summaries.
+
+Stable chronological summation defines the two block means:
+
+```text
+mean_brake_torque(block) =
+    sum_cycle(W_brake) / (N * 4*pi)
+
+mean_boundary_pressure(block, volume_i) =
+    sum_cycle(p_boundary_cycle_i) / N
+```
+
+The residuals are:
+
+```text
+torque_residual_nm =
+    abs(mean_brake_torque(block_B) - mean_brake_torque(block_A))
+
+pressure_residual_pa =
+    max_over_physical_volumes(
+        abs(mean_boundary_pressure(block_B, i)
+            - mean_boundary_pressure(block_A, i)))
+```
+
+The stable gas-volume identity attaining the pressure maximum is retained; ties keep
+the first ascending identity. Both comparisons are inclusive. The point is settled
+only when:
+
+```text
+torque_residual_nm <= cycle_mean_torque_tolerance_nm
+pressure_residual_pa <= pressure_tolerance_pa
+```
+
+The method requires all `2*N` eligible complete cycles. The compiler budgets an
+initial phase acquisition plus those cycles; at held speed a conservative necessary
+post-threshold duration is:
+
+```text
+(2*N + 1) * 120 / engine_speed_rpm seconds
+```
+
+Insufficient cycles or a failed residual at the fixed maximum preparation cutoff
+fails closed as `preparation-not-converged`, before an audible block can be committed.
+An M4 listening scenario makes the maximum preparation cutoff equal its audible start,
+so an unclassified gap cannot exist.
+
+M4 therefore does not call an operating point settled from torque alone. The evidence
+retains:
+
+- the A and B cycle ordinal/time/boundary ranges;
+- both work-derived torque means, their residual, and its tolerance;
+- both phase-aligned pressure means, the L-infinity residual, its limiting volume,
+  and its tolerance; and
+- the exact convergence method identity and `N`.
+
+Block B is the reported operating-point window. Its indicated, loss, starter, and
+brake works are summed coherently. Reported torque is total brake work divided by
+`N*4*pi`; net BMEP is total brake work divided by `N*total_displacement`; mean power
+is total brake work divided by the summed cycle duration.
 
 A typed held-speed result records at least RPM, throttle, ambient/thermal/fuel/
 accessory/starter conditions, completed-cycle range, indicated work, aggregate loss
