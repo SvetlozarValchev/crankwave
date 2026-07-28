@@ -1,0 +1,892 @@
+#include "simulation_manifest_encoder_impl.hpp"
+
+#include "engine_sim_offline/contract/parity_model.hpp"
+#include "engine_sim_offline/contract/torque.hpp"
+
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <variant>
+
+namespace engine_sim_offline::artifacts::detail {
+namespace {
+
+template <class Range, class WriteElement>
+[[nodiscard]] bool write_array(CanonicalJsonWriter &writer, const Range &values,
+                               WriteElement write_element) {
+    if (!writer.begin_array()) {
+        return false;
+    }
+    for (const auto &value : values) {
+        if (!write_element(writer, value)) {
+            return false;
+        }
+    }
+    return writer.end_array();
+}
+
+template <class Id>
+[[nodiscard]] bool write_stable_id(CanonicalJsonWriter &writer, Id id) {
+    if (!id.valid()) {
+        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                           "simulation input contains an invalid stable ID");
+    }
+    return writer.uint32_value(id.value);
+}
+
+template <class Id>
+[[nodiscard]] bool write_optional_stable_id(CanonicalJsonWriter &writer,
+                                            const std::optional<Id> &id) {
+    return id.has_value() ? write_stable_id(writer, *id) : writer.null_value();
+}
+
+template <class T, class WriteValue>
+[[nodiscard]] bool
+write_optional_resolved(CanonicalJsonWriter &writer,
+                        const std::optional<contract::ResolvedValue<T>> &value,
+                        WriteValue write_value) {
+    return value.has_value() ? write_resolved(writer, *value, write_value)
+                             : writer.null_value();
+}
+
+[[nodiscard]] bool write_string(CanonicalJsonWriter &writer, const std::string &value) {
+    return writer.string_value(value);
+}
+
+[[nodiscard]] bool write_f64(CanonicalJsonWriter &writer, double value) {
+    return writer.binary64_bits_value(value);
+}
+
+[[nodiscard]] bool write_u32(CanonicalJsonWriter &writer, std::uint32_t value) {
+    return writer.uint32_value(value);
+}
+
+[[nodiscard]] bool write_u64(CanonicalJsonWriter &writer, std::uint64_t value) {
+    return writer.uint64_hex_value(value);
+}
+
+[[nodiscard]] bool write_bool(CanonicalJsonWriter &writer, bool value) {
+    return writer.bool_value(value);
+}
+
+[[nodiscard]] bool write_engine_cycle(CanonicalJsonWriter &writer,
+                                      contract::EngineCycle value) {
+    switch (value) {
+    case contract::EngineCycle::four_stroke:
+        return writer.string_value("four_stroke");
+    case contract::EngineCycle::unspecified:
+        break;
+    }
+    return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                       "engine cycle is unspecified or unknown");
+}
+
+[[nodiscard]] bool write_ignition_kind(CanonicalJsonWriter &writer,
+                                       contract::IgnitionKind value) {
+    switch (value) {
+    case contract::IgnitionKind::spark_ignition:
+        return writer.string_value("spark_ignition");
+    case contract::IgnitionKind::unspecified:
+        break;
+    }
+    return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                       "ignition kind is unspecified or unknown");
+}
+
+[[nodiscard]] bool write_cylinder_layout(CanonicalJsonWriter &writer,
+                                         contract::CylinderLayoutKind value) {
+    switch (value) {
+    case contract::CylinderLayoutKind::inline_engine:
+        return writer.string_value("inline_engine");
+    case contract::CylinderLayoutKind::vee_engine:
+        return writer.string_value("vee_engine");
+    case contract::CylinderLayoutKind::flat_engine:
+        return writer.string_value("flat_engine");
+    case contract::CylinderLayoutKind::other:
+        return writer.string_value("other");
+    case contract::CylinderLayoutKind::unspecified:
+        break;
+    }
+    return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                       "cylinder layout is unspecified or unknown");
+}
+
+[[nodiscard]] bool write_port_kind(CanonicalJsonWriter &writer,
+                                   contract::PortKind value) {
+    switch (value) {
+    case contract::PortKind::intake:
+        return writer.string_value("intake");
+    case contract::PortKind::exhaust:
+        return writer.string_value("exhaust");
+    case contract::PortKind::unspecified:
+        break;
+    }
+    return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                       "port kind is unspecified or unknown");
+}
+
+[[nodiscard]] bool write_gas_volume_kind(CanonicalJsonWriter &writer,
+                                         contract::GasVolumeKind value) {
+    switch (value) {
+    case contract::GasVolumeKind::atmosphere:
+        return writer.string_value("atmosphere");
+    case contract::GasVolumeKind::intake_plenum:
+        return writer.string_value("intake_plenum");
+    case contract::GasVolumeKind::intake_runner:
+        return writer.string_value("intake_runner");
+    case contract::GasVolumeKind::cylinder:
+        return writer.string_value("cylinder");
+    case contract::GasVolumeKind::exhaust_primary:
+        return writer.string_value("exhaust_primary");
+    case contract::GasVolumeKind::exhaust_collector:
+        return writer.string_value("exhaust_collector");
+    case contract::GasVolumeKind::unspecified:
+        break;
+    }
+    return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                       "gas-volume kind is unspecified or unknown");
+}
+
+[[nodiscard]] bool write_source_route_kind(CanonicalJsonWriter &writer,
+                                           contract::SourceRouteKind value) {
+    switch (value) {
+    case contract::SourceRouteKind::exhaust_outlet:
+        return writer.string_value("exhaust_outlet");
+    case contract::SourceRouteKind::intake_inlet:
+        return writer.string_value("intake_inlet");
+    case contract::SourceRouteKind::mechanical_engine:
+        return writer.string_value("mechanical_engine");
+    case contract::SourceRouteKind::mechanical_starter:
+        return writer.string_value("mechanical_starter");
+    case contract::SourceRouteKind::unspecified:
+        break;
+    }
+    return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                       "source-route kind is unspecified or unknown");
+}
+
+[[nodiscard]] bool
+write_restriction_calibration(CanonicalJsonWriter &writer,
+                              contract::LegacyRestrictionCalibration value) {
+    switch (value) {
+    case contract::LegacyRestrictionCalibration::carb_at_1p5_inhg:
+        return writer.string_value("carb_at_1p5_inhg");
+    case contract::LegacyRestrictionCalibration::cfm_at_28_inh2o:
+        return writer.string_value("cfm_at_28_inh2o");
+    case contract::LegacyRestrictionCalibration::unspecified:
+        break;
+    }
+    return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                       "legacy restriction calibration is unspecified or unknown");
+}
+
+template <class Id>
+[[nodiscard]] bool write_stable_id_array(CanonicalJsonWriter &writer,
+                                         const std::vector<Id> &values) {
+    return write_array(writer, values, [](CanonicalJsonWriter &output, Id value) {
+        return write_stable_id(output, value);
+    });
+}
+
+[[nodiscard]] bool write_bank(CanonicalJsonWriter &writer,
+                              const contract::BankSpec &bank) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, bank.id) && writer.key("semantic_id") &&
+           write_resolved(writer, bank.semantic_id, write_string) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_cylinder(CanonicalJsonWriter &writer,
+                                  const contract::CylinderSpec &cylinder) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, cylinder.id) && writer.key("semantic_id") &&
+           write_resolved(writer, cylinder.semantic_id, write_string) &&
+           writer.key("bank_id") && write_stable_id(writer, cylinder.bank_id) &&
+           writer.key("bore_m") && write_resolved(writer, cylinder.bore_m, write_f64) &&
+           writer.key("stroke_m") &&
+           write_resolved(writer, cylinder.stroke_m, write_f64) &&
+           writer.key("connecting_rod_length_m") &&
+           write_resolved(writer, cylinder.connecting_rod_length_m, write_f64) &&
+           writer.key("compression_ratio") &&
+           write_resolved(writer, cylinder.compression_ratio, write_f64) &&
+           writer.key("firing_tdc_offset_rad") &&
+           write_resolved(writer, cylinder.firing_tdc_offset_rad, write_f64) &&
+           writer.key("journal_phase_rad") &&
+           write_resolved(writer, cylinder.journal_phase_rad, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_port(CanonicalJsonWriter &writer,
+                              const contract::PortSpec &port) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, port.id) && writer.key("semantic_id") &&
+           write_resolved(writer, port.semantic_id, write_string) &&
+           writer.key("cylinder_id") && write_stable_id(writer, port.cylinder_id) &&
+           writer.key("kind") && write_resolved(writer, port.kind, write_port_kind) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_gas_volume(CanonicalJsonWriter &writer,
+                                    const contract::GasVolumeSpec &volume) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, volume.id) && writer.key("semantic_id") &&
+           write_resolved(writer, volume.semantic_id, write_string) &&
+           writer.key("kind") &&
+           write_resolved(writer, volume.kind, write_gas_volume_kind) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_flow_edge(CanonicalJsonWriter &writer,
+                                   const contract::FlowEdgeSpec &edge) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, edge.id) && writer.key("semantic_id") &&
+           write_resolved(writer, edge.semantic_id, write_string) &&
+           writer.key("endpoint_0_volume_id") &&
+           write_stable_id(writer, edge.endpoint_0_volume_id) &&
+           writer.key("endpoint_1_volume_id") &&
+           write_stable_id(writer, edge.endpoint_1_volume_id) && writer.end_object();
+}
+
+[[nodiscard]] bool write_route(CanonicalJsonWriter &writer,
+                               const contract::RouteSpec &route) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, route.id) && writer.key("semantic_id") &&
+           write_resolved(writer, route.semantic_id, write_string) &&
+           writer.key("kind") &&
+           write_resolved(writer, route.kind, write_source_route_kind) &&
+           writer.key("source_volume_id") &&
+           write_optional_stable_id(writer, route.source_volume_id) &&
+           writer.key("default_parent_route_id") &&
+           write_optional_stable_id(writer, route.default_parent_route_id) &&
+           writer.key("emitter_anchor_id") &&
+           write_optional_resolved(writer, route.emitter_anchor_id, write_string) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_model_methods(CanonicalJsonWriter &writer,
+                    const contract::EngineSpec::ModelMethods &methods) {
+    return writer.begin_object() && writer.key("mechanism") &&
+           write_resolved(writer, methods.mechanism, write_method_identity) &&
+           writer.key("valvetrain") &&
+           write_resolved(writer, methods.valvetrain, write_method_identity) &&
+           writer.key("gas_exchange") &&
+           write_resolved(writer, methods.gas_exchange, write_method_identity) &&
+           writer.key("ignition") &&
+           write_resolved(writer, methods.ignition, write_method_identity) &&
+           writer.key("combustion") &&
+           write_resolved(writer, methods.combustion, write_method_identity) &&
+           writer.key("heat_transfer") &&
+           write_resolved(writer, methods.heat_transfer, write_method_identity) &&
+           writer.key("losses") &&
+           write_resolved(writer, methods.losses, write_method_identity) &&
+           writer.key("excitation") &&
+           write_resolved(writer, methods.excitation, write_method_identity) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_cylinder_topology(CanonicalJsonWriter &writer,
+                               const contract::LegacyCylinderTopology &topology) {
+    return writer.begin_object() && writer.key("cylinder_id") &&
+           write_stable_id(writer, topology.cylinder_id) &&
+           writer.key("intake_port_id") &&
+           write_stable_id(writer, topology.intake_port_id) &&
+           writer.key("exhaust_port_id") &&
+           write_stable_id(writer, topology.exhaust_port_id) &&
+           writer.key("intake_runner_volume_id") &&
+           write_stable_id(writer, topology.intake_runner_volume_id) &&
+           writer.key("chamber_volume_id") &&
+           write_stable_id(writer, topology.chamber_volume_id) &&
+           writer.key("exhaust_primary_volume_id") &&
+           write_stable_id(writer, topology.exhaust_primary_volume_id) &&
+           writer.key("plenum_to_runner_edge_id") &&
+           write_stable_id(writer, topology.plenum_to_runner_edge_id) &&
+           writer.key("intake_valve_edge_id") &&
+           write_stable_id(writer, topology.intake_valve_edge_id) &&
+           writer.key("exhaust_valve_edge_id") &&
+           write_stable_id(writer, topology.exhaust_valve_edge_id) &&
+           writer.key("primary_to_collector_edge_id") &&
+           write_stable_id(writer, topology.primary_to_collector_edge_id) &&
+           writer.key("blowby_edge_id") &&
+           write_stable_id(writer, topology.blowby_edge_id) &&
+           writer.key("exhaust_route_id") &&
+           write_stable_id(writer, topology.exhaust_route_id) && writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_cylinder_parameters(CanonicalJsonWriter &writer,
+                                 const contract::LegacyCylinderParameters &parameters) {
+    return writer.begin_object() && writer.key("bore_m") &&
+           write_resolved(writer, parameters.bore_m, write_f64) &&
+           writer.key("stroke_m") &&
+           write_resolved(writer, parameters.stroke_m, write_f64) &&
+           writer.key("crank_radius_m") &&
+           write_resolved(writer, parameters.crank_radius_m, write_f64) &&
+           writer.key("connecting_rod_length_m") &&
+           write_resolved(writer, parameters.connecting_rod_length_m, write_f64) &&
+           writer.key("deck_height_m") &&
+           write_resolved(writer, parameters.deck_height_m, write_f64) &&
+           writer.key("piston_compression_height_m") &&
+           write_resolved(writer, parameters.piston_compression_height_m, write_f64) &&
+           writer.key("head_chamber_volume_m3") &&
+           write_resolved(writer, parameters.head_chamber_volume_m3, write_f64) &&
+           writer.key("piston_displacement_term_m3") &&
+           write_resolved(writer, parameters.piston_displacement_term_m3, write_f64) &&
+           writer.key("piston_mass_kg") &&
+           write_resolved(writer, parameters.piston_mass_kg, write_f64) &&
+           writer.key("connecting_rod_mass_kg") &&
+           write_resolved(writer, parameters.connecting_rod_mass_kg, write_f64) &&
+           writer.key("connecting_rod_inertia_kg_m2") &&
+           write_resolved(writer, parameters.connecting_rod_inertia_kg_m2, write_f64) &&
+           writer.key("journal_angle_rad") &&
+           write_resolved(writer, parameters.journal_angle_rad, write_f64) &&
+           writer.key("ignition_wire_angle_rad") &&
+           write_resolved(writer, parameters.ignition_wire_angle_rad, write_f64) &&
+           writer.key("header_primary_length_m") &&
+           write_resolved(writer, parameters.header_primary_length_m, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_cylinder_assembly(CanonicalJsonWriter &writer,
+                               const contract::LegacyCylinderAssembly &cylinder) {
+    return writer.begin_object() && writer.key("topology") &&
+           write_legacy_cylinder_topology(writer, cylinder.topology) &&
+           writer.key("parameters") &&
+           write_legacy_cylinder_parameters(writer, cylinder.parameters) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_legacy_crank(CanonicalJsonWriter &writer,
+                                      const contract::LegacyCrankAssembly &crank) {
+    return writer.begin_object() && writer.key("crank_tdc_reference_rad") &&
+           write_resolved(writer, crank.crank_tdc_reference_rad, write_f64) &&
+           writer.key("crankshaft_mass_kg") &&
+           write_resolved(writer, crank.crankshaft_mass_kg, write_f64) &&
+           writer.key("flywheel_mass_kg") &&
+           write_resolved(writer, crank.flywheel_mass_kg, write_f64) &&
+           writer.key("authored_crank_inertia_kg_m2") &&
+           write_resolved(writer, crank.authored_crank_inertia_kg_m2, write_f64) &&
+           writer.key("fixed_crank_friction_magnitude_nm") &&
+           write_resolved(writer, crank.fixed_crank_friction_magnitude_nm, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_mechanism(CanonicalJsonWriter &writer,
+                       const contract::LegacyMechanismProfile &mechanism) {
+    return writer.begin_object() && writer.key("crank") &&
+           write_legacy_crank(writer, mechanism.crank) && writer.key("cylinders") &&
+           write_array(writer, mechanism.cylinders,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacyCylinderAssembly &cylinder) {
+                           return write_legacy_cylinder_assembly(output, cylinder);
+                       }) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_restriction(CanonicalJsonWriter &writer,
+                         const contract::LegacyRestriction &restriction) {
+    return writer.begin_object() && writer.key("calibration") &&
+           write_resolved(writer, restriction.calibration,
+                          write_restriction_calibration) &&
+           writer.key("source_rating") &&
+           write_resolved(writer, restriction.source_rating, write_f64) &&
+           writer.key("resolved_k") &&
+           write_resolved(writer, restriction.resolved_k, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_intake_topology(CanonicalJsonWriter &writer,
+                             const contract::LegacyIntakeTopology &topology) {
+    return writer.begin_object() && writer.key("plenum_volume_id") &&
+           write_stable_id(writer, topology.plenum_volume_id) &&
+           writer.key("main_throttle_edge_id") &&
+           write_stable_id(writer, topology.main_throttle_edge_id) &&
+           writer.key("idle_bypass_edge_id") &&
+           write_stable_id(writer, topology.idle_bypass_edge_id) && writer.end_object();
+}
+
+[[nodiscard]] bool write_legacy_intake(CanonicalJsonWriter &writer,
+                                       const contract::LegacyIntakeParameters &intake) {
+    return writer.begin_object() && writer.key("plenum_volume_m3") &&
+           write_resolved(writer, intake.plenum_volume_m3, write_f64) &&
+           writer.key("plenum_cross_section_area_m2") &&
+           write_resolved(writer, intake.plenum_cross_section_area_m2, write_f64) &&
+           writer.key("runner_length_m") &&
+           write_resolved(writer, intake.runner_length_m, write_f64) &&
+           writer.key("velocity_decay") &&
+           write_resolved(writer, intake.velocity_decay, write_f64) &&
+           writer.key("throttle_gamma") &&
+           write_resolved(writer, intake.throttle_gamma, write_f64) &&
+           writer.key("idle_throttle_plate_position_01") &&
+           write_resolved(writer, intake.idle_throttle_plate_position_01, write_f64) &&
+           writer.key("main_throttle") &&
+           write_legacy_restriction(writer, intake.main_throttle) &&
+           writer.key("idle_bypass") &&
+           write_legacy_restriction(writer, intake.idle_bypass) &&
+           writer.key("plenum_to_runner") &&
+           write_legacy_restriction(writer, intake.plenum_to_runner) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_valve_flow_point(CanonicalJsonWriter &writer,
+                              const contract::LegacyValveFlowPoint &point) {
+    return writer.begin_object() && writer.key("sample_id") &&
+           write_resolved(writer, point.sample_id, write_string) &&
+           writer.key("lift_m") && write_resolved(writer, point.lift_m, write_f64) &&
+           writer.key("source_cfm_at_28_inh2o") &&
+           write_resolved(writer, point.source_cfm_at_28_inh2o, write_f64) &&
+           writer.key("resolved_k") &&
+           write_resolved(writer, point.resolved_k, write_f64) && writer.end_object();
+}
+
+[[nodiscard]] bool write_legacy_head(CanonicalJsonWriter &writer,
+                                     const contract::LegacyCylinderHeadProfile &head) {
+    const auto write_flow_points = [](CanonicalJsonWriter &output, const auto &points) {
+        return write_array(output, points,
+                           [](CanonicalJsonWriter &array_writer,
+                              const contract::LegacyValveFlowPoint &point) {
+                               return write_legacy_valve_flow_point(array_writer,
+                                                                    point);
+                           });
+    };
+    return writer.begin_object() && writer.key("intake_runner_base_volume_m3") &&
+           write_resolved(writer, head.intake_runner_base_volume_m3, write_f64) &&
+           writer.key("intake_runner_cross_section_area_m2") &&
+           write_resolved(writer, head.intake_runner_cross_section_area_m2,
+                          write_f64) &&
+           writer.key("exhaust_runner_base_volume_m3") &&
+           write_resolved(writer, head.exhaust_runner_base_volume_m3, write_f64) &&
+           writer.key("exhaust_runner_cross_section_area_m2") &&
+           write_resolved(writer, head.exhaust_runner_cross_section_area_m2,
+                          write_f64) &&
+           writer.key("flow_table_triangle_radius_m") &&
+           write_resolved(writer, head.flow_table_triangle_radius_m, write_f64) &&
+           writer.key("intake_flow") && write_flow_points(writer, head.intake_flow) &&
+           writer.key("exhaust_flow") && write_flow_points(writer, head.exhaust_flow) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_exhaust_topology(CanonicalJsonWriter &writer,
+                              const contract::LegacyExhaustRouteTopology &topology) {
+    return writer.begin_object() && writer.key("route_id") &&
+           write_stable_id(writer, topology.route_id) &&
+           writer.key("collector_volume_id") &&
+           write_stable_id(writer, topology.collector_volume_id) &&
+           writer.key("collector_outlet_edge_id") &&
+           write_stable_id(writer, topology.collector_outlet_edge_id) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_legacy_exhaust_parameters(
+    CanonicalJsonWriter &writer,
+    const contract::LegacyExhaustRouteParameters &parameters) {
+    return writer.begin_object() && writer.key("collector_volume_m3") &&
+           write_resolved(writer, parameters.collector_volume_m3, write_f64) &&
+           writer.key("collector_cross_section_area_m2") &&
+           write_resolved(writer, parameters.collector_cross_section_area_m2,
+                          write_f64) &&
+           writer.key("exhaust_system_length_m") &&
+           write_resolved(writer, parameters.exhaust_system_length_m, write_f64) &&
+           writer.key("primary_tube_length_m") &&
+           write_resolved(writer, parameters.primary_tube_length_m, write_f64) &&
+           writer.key("velocity_decay") &&
+           write_resolved(writer, parameters.velocity_decay, write_f64) &&
+           writer.key("audio_volume_linear") &&
+           write_resolved(writer, parameters.audio_volume_linear, write_f64) &&
+           writer.key("primary_to_collector") &&
+           write_legacy_restriction(writer, parameters.primary_to_collector) &&
+           writer.key("collector_outlet") &&
+           write_legacy_restriction(writer, parameters.collector_outlet) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_exhaust_route(CanonicalJsonWriter &writer,
+                           const contract::LegacyExhaustRouteProfile &route) {
+    return writer.begin_object() && writer.key("topology") &&
+           write_legacy_exhaust_topology(writer, route.topology) &&
+           writer.key("parameters") &&
+           write_legacy_exhaust_parameters(writer, route.parameters) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_gas_path(CanonicalJsonWriter &writer,
+                      const contract::LegacyGasPathProfile &gas_path) {
+    return writer.begin_object() && writer.key("intake_topology") &&
+           write_legacy_intake_topology(writer, gas_path.intake_topology) &&
+           writer.key("intake") && write_legacy_intake(writer, gas_path.intake) &&
+           writer.key("head") && write_legacy_head(writer, gas_path.head) &&
+           writer.key("exhaust_routes") &&
+           write_array(writer, gas_path.exhaust_routes,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacyExhaustRouteProfile &route) {
+                           return write_legacy_exhaust_route(output, route);
+                       }) &&
+           writer.key("piston_blowby") &&
+           write_legacy_restriction(writer, gas_path.piston_blowby) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_legacy_cam_shape(CanonicalJsonWriter &writer,
+                                          const contract::LegacyCamShape &shape) {
+    return writer.begin_object() && writer.key("maximum_lift_m") &&
+           write_resolved(writer, shape.maximum_lift_m, write_f64) &&
+           writer.key("duration_at_reference_lift_rad") &&
+           write_resolved(writer, shape.duration_at_reference_lift_rad, write_f64) &&
+           writer.key("exponent") &&
+           write_resolved(writer, shape.exponent, write_f64) &&
+           writer.key("construction_steps") &&
+           write_resolved(writer, shape.construction_steps, write_u32) &&
+           writer.key("advance_rad") &&
+           write_resolved(writer, shape.advance_rad, write_f64) &&
+           writer.key("base_radius_m") &&
+           write_resolved(writer, shape.base_radius_m, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_legacy_cam_lobe(CanonicalJsonWriter &writer,
+                                         const contract::LegacyCamLobe &lobe) {
+    return writer.begin_object() && writer.key("cylinder_id") &&
+           write_stable_id(writer, lobe.cylinder_id) && writer.key("port_id") &&
+           write_stable_id(writer, lobe.port_id) && writer.key("crank_center_rad") &&
+           write_resolved(writer, lobe.crank_center_rad, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_camshaft(CanonicalJsonWriter &writer,
+                      const contract::LegacyCamshaftProfile &camshaft) {
+    return writer.begin_object() && writer.key("shape") &&
+           write_legacy_cam_shape(writer, camshaft.shape) && writer.key("lobes") &&
+           write_array(
+               writer, camshaft.lobes,
+               [](CanonicalJsonWriter &output, const contract::LegacyCamLobe &lobe) {
+                   return write_legacy_cam_lobe(output, lobe);
+               }) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_valvetrain(CanonicalJsonWriter &writer,
+                        const contract::LegacyValvetrainProfile &valvetrain) {
+    return writer.begin_object() && writer.key("intake") &&
+           write_legacy_camshaft(writer, valvetrain.intake) && writer.key("exhaust") &&
+           write_legacy_camshaft(writer, valvetrain.exhaust) && writer.end_object();
+}
+
+[[nodiscard]] bool write_legacy_timing_point(CanonicalJsonWriter &writer,
+                                             const contract::LegacyTimingPoint &point) {
+    return writer.begin_object() && writer.key("sample_id") &&
+           write_resolved(writer, point.sample_id, write_string) &&
+           writer.key("angular_speed_rad_s") &&
+           write_resolved(writer, point.angular_speed_rad_s, write_f64) &&
+           writer.key("timing_advance_rad") &&
+           write_resolved(writer, point.timing_advance_rad, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_ignition(CanonicalJsonWriter &writer,
+                      const contract::LegacyIgnitionProfile &ignition) {
+    const auto write_cylinder_ids =
+        [](CanonicalJsonWriter &output,
+           const std::vector<contract::CylinderId> &cylinders) {
+            return write_stable_id_array(output, cylinders);
+        };
+    return writer.begin_object() && writer.key("firing_order") &&
+           write_resolved(writer, ignition.firing_order, write_cylinder_ids) &&
+           writer.key("timing_curve_triangle_radius_rad_s") &&
+           write_resolved(writer, ignition.timing_curve_triangle_radius_rad_s,
+                          write_f64) &&
+           writer.key("timing_curve") &&
+           write_array(writer, ignition.timing_curve,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacyTimingPoint &point) {
+                           return write_legacy_timing_point(output, point);
+                       }) &&
+           writer.key("limiter_speed_rpm") &&
+           write_resolved(writer, ignition.limiter_speed_rpm, write_f64) &&
+           writer.key("limiter_hold_s") &&
+           write_resolved(writer, ignition.limiter_hold_s, write_f64) &&
+           writer.key("declared_redline_rpm") &&
+           write_resolved(writer, ignition.declared_redline_rpm, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_flame_speed_point(CanonicalJsonWriter &writer,
+                               const contract::LegacyFlameSpeedPoint &point) {
+    return writer.begin_object() && writer.key("sample_id") &&
+           write_resolved(writer, point.sample_id, write_string) &&
+           writer.key("turbulence") &&
+           write_resolved(writer, point.turbulence, write_f64) &&
+           writer.key("flame_speed_ratio") &&
+           write_resolved(writer, point.flame_speed_ratio, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_legacy_fuel(CanonicalJsonWriter &writer,
+                                     const contract::LegacyFuelProfile &fuel) {
+    return writer.begin_object() && writer.key("fuel_id") &&
+           write_resolved(writer, fuel.fuel_id, write_string) &&
+           writer.key("molecular_mass_kg_per_mol") &&
+           write_resolved(writer, fuel.molecular_mass_kg_per_mol, write_f64) &&
+           writer.key("energy_density_j_per_kg") &&
+           write_resolved(writer, fuel.energy_density_j_per_kg, write_f64) &&
+           writer.key("molecular_afr") &&
+           write_resolved(writer, fuel.molecular_afr, write_f64) &&
+           writer.key("maximum_burning_efficiency_01") &&
+           write_resolved(writer, fuel.maximum_burning_efficiency_01, write_f64) &&
+           writer.key("burning_efficiency_randomness_01") &&
+           write_resolved(writer, fuel.burning_efficiency_randomness_01, write_f64) &&
+           writer.key("low_efficiency_attenuation_01") &&
+           write_resolved(writer, fuel.low_efficiency_attenuation_01, write_f64) &&
+           writer.key("maximum_turbulence_effect") &&
+           write_resolved(writer, fuel.maximum_turbulence_effect, write_f64) &&
+           writer.key("maximum_dilution_effect") &&
+           write_resolved(writer, fuel.maximum_dilution_effect, write_f64) &&
+           writer.key("lbv_multiplier") &&
+           write_resolved(writer, fuel.lbv_multiplier, write_f64) &&
+           writer.key("compression_ignition_enabled") &&
+           write_resolved(writer, fuel.compression_ignition_enabled, write_bool) &&
+           writer.key("turbulence_to_flame_speed_ratio_triangle_radius") &&
+           write_resolved(writer, fuel.turbulence_to_flame_speed_ratio_triangle_radius,
+                          write_f64) &&
+           writer.key("turbulence_to_flame_speed_ratio") &&
+           write_array(writer, fuel.turbulence_to_flame_speed_ratio,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacyFlameSpeedPoint &point) {
+                           return write_legacy_flame_speed_point(output, point);
+                       }) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_combustion_stream(CanonicalJsonWriter &writer,
+                               const contract::LegacyCombustionRandomStream &stream) {
+    return writer.begin_object() && writer.key("cylinder_id") &&
+           write_stable_id(writer, stream.cylinder_id) &&
+           writer.key("pcg32_initial_state") &&
+           write_resolved(writer, stream.pcg32_initial_state, write_u64) &&
+           writer.key("pcg32_stream") &&
+           write_resolved(writer, stream.pcg32_stream, write_u64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_legacy_losses(CanonicalJsonWriter &writer,
+                                       const contract::LegacyLossProfile &losses) {
+    return writer.begin_object() && writer.key("included_terms") &&
+           write_resolved(writer, losses.included_terms, write_u64) &&
+           writer.key("omitted_terms") &&
+           write_resolved(writer, losses.omitted_terms, write_u64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_pressure_gains(CanonicalJsonWriter &writer,
+                            const contract::LegacyExcitationPressureGains &gains) {
+    return writer.begin_object() && writer.key("gauge_static") &&
+           write_resolved(writer, gains.gauge_static, write_f64) &&
+           writer.key("dynamic_forward") &&
+           write_resolved(writer, gains.dynamic_forward, write_f64) &&
+           writer.key("dynamic_reverse") &&
+           write_resolved(writer, gains.dynamic_reverse, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_legacy_excitation_cylinder_path(
+    CanonicalJsonWriter &writer, const contract::LegacyExcitationCylinderPath &path) {
+    return writer.begin_object() && writer.key("cylinder_id") &&
+           write_stable_id(writer, path.cylinder_id) && writer.key("route_id") &&
+           write_stable_id(writer, path.route_id) &&
+           writer.key("header_primary_length_m") &&
+           write_resolved(writer, path.header_primary_length_m, write_f64) &&
+           writer.key("sound_attenuation_linear") &&
+           write_resolved(writer, path.sound_attenuation_linear, write_f64) &&
+           writer.key("resolved_delay_samples") &&
+           write_resolved(writer, path.resolved_delay_samples, write_u32) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_excitation_route(CanonicalJsonWriter &writer,
+                              const contract::LegacyExcitationRoute &route) {
+    return writer.begin_object() && writer.key("route_id") &&
+           write_stable_id(writer, route.route_id) &&
+           writer.key("exhaust_system_length_m") &&
+           write_resolved(writer, route.exhaust_system_length_m, write_f64) &&
+           writer.key("audio_volume_linear") &&
+           write_resolved(writer, route.audio_volume_linear, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_excitation(CanonicalJsonWriter &writer,
+                        const contract::LegacyReferenceExcitationProfile &excitation) {
+    const auto write_cylinder_ids =
+        [](CanonicalJsonWriter &output,
+           const std::vector<contract::CylinderId> &cylinders) {
+            return write_stable_id_array(output, cylinders);
+        };
+    return writer.begin_object() && writer.key("reference_atmosphere_pa_abs") &&
+           write_resolved(writer, excitation.reference_atmosphere_pa_abs, write_f64) &&
+           writer.key("legacy_propagation_speed_m_s") &&
+           write_resolved(writer, excitation.legacy_propagation_speed_m_s, write_f64) &&
+           writer.key("excitation_scale") &&
+           write_resolved(writer, excitation.excitation_scale, write_f64) &&
+           writer.key("filtered_speed_threshold_rpm") &&
+           write_resolved(writer, excitation.filtered_speed_threshold_rpm, write_f64) &&
+           writer.key("filtered_speed_exponent") &&
+           write_resolved(writer, excitation.filtered_speed_exponent, write_u32) &&
+           writer.key("pressure_gains") &&
+           write_legacy_pressure_gains(writer, excitation.pressure_gains) &&
+           writer.key("cylinder_count_divisor") &&
+           write_resolved(writer, excitation.cylinder_count_divisor, write_f64) &&
+           writer.key("inverse_length_exponent") &&
+           write_resolved(writer, excitation.inverse_length_exponent, write_f64) &&
+           writer.key("delay_rate") &&
+           write_resolved(writer, excitation.delay_rate, write_rational_rate) &&
+           writer.key("cylinder_accumulation_order") &&
+           write_resolved(writer, excitation.cylinder_accumulation_order,
+                          write_cylinder_ids) &&
+           writer.key("cylinder_paths") &&
+           write_array(writer, excitation.cylinder_paths,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacyExcitationCylinderPath &path) {
+                           return write_legacy_excitation_cylinder_path(output, path);
+                       }) &&
+           writer.key("routes") &&
+           write_array(writer, excitation.routes,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacyExcitationRoute &route) {
+                           return write_legacy_excitation_route(output, route);
+                       }) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_low_order_profile(CanonicalJsonWriter &writer,
+                               const contract::LegacyLowOrderV1Profile &profile) {
+    return writer.begin_object() && writer.key("mechanism") &&
+           write_legacy_mechanism(writer, profile.mechanism) &&
+           writer.key("gas_path") && write_legacy_gas_path(writer, profile.gas_path) &&
+           writer.key("valvetrain") &&
+           write_legacy_valvetrain(writer, profile.valvetrain) &&
+           writer.key("ignition") && write_legacy_ignition(writer, profile.ignition) &&
+           writer.key("fuel") && write_legacy_fuel(writer, profile.fuel) &&
+           writer.key("combustion_random_streams") &&
+           write_array(writer, profile.combustion_random_streams,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacyCombustionRandomStream &stream) {
+                           return write_legacy_combustion_stream(output, stream);
+                       }) &&
+           writer.key("losses") && write_legacy_losses(writer, profile.losses) &&
+           writer.key("excitation") &&
+           write_legacy_excitation(writer, profile.excitation) && writer.end_object();
+}
+
+[[nodiscard]] bool
+write_physics_profile(CanonicalJsonWriter &writer,
+                      const contract::ExecutablePhysicsProfile &profile) {
+    const auto *legacy = std::get_if<contract::LegacyLowOrderV1Profile>(&profile);
+    if (legacy == nullptr) {
+        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                           "physics-profile variant is valueless or unsupported");
+    }
+    return writer.begin_object() && writer.key("kind") &&
+           writer.string_value("legacy_low_order_v1") && writer.key("value") &&
+           write_legacy_low_order_profile(writer, *legacy) && writer.end_object();
+}
+
+[[nodiscard]] bool
+write_torque_capability(CanonicalJsonWriter &writer,
+                        const contract::TorqueCapability &capability) {
+    return writer.begin_object() && writer.key("physical_net_complete") &&
+           writer.bool_value(capability.physical_net_complete) &&
+           writer.key("cycle_integration_available") &&
+           writer.bool_value(capability.cycle_integration_available) &&
+           writer.key("equivalent_inertia_available") &&
+           writer.bool_value(capability.equivalent_inertia_available) &&
+           writer.key("included_terms") &&
+           writer.uint64_hex_value(capability.included_terms) &&
+           writer.key("omitted_terms") &&
+           writer.uint64_hex_value(capability.omitted_terms) && writer.end_object();
+}
+
+} // namespace
+
+bool write_engine_spec(CanonicalJsonWriter &writer,
+                       const contract::EngineSpec &engine) {
+    if (engine.schema_version != 1U) {
+        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                           "simulation engine schema version is not v1");
+    }
+    return writer.begin_object() && writer.key("schema_version") &&
+           writer.uint32_value(engine.schema_version) && writer.key("id") &&
+           write_stable_id(writer, engine.id) && writer.key("engine_id") &&
+           write_resolved(writer, engine.engine_id, write_string) &&
+           writer.key("profile_id") &&
+           write_resolved(writer, engine.profile_id, write_string) &&
+           writer.key("display_name") &&
+           write_resolved(writer, engine.display_name, write_string) &&
+           writer.key("cycle") &&
+           write_resolved(writer, engine.cycle, write_engine_cycle) &&
+           writer.key("ignition") &&
+           write_resolved(writer, engine.ignition, write_ignition_kind) &&
+           writer.key("cylinder_layout") &&
+           write_resolved(writer, engine.cylinder_layout, write_cylinder_layout) &&
+           writer.key("total_displacement_m3") &&
+           write_resolved(writer, engine.total_displacement_m3, write_f64) &&
+           writer.key("banks") &&
+           write_array(writer, engine.banks,
+                       [](CanonicalJsonWriter &output, const contract::BankSpec &bank) {
+                           return write_bank(output, bank);
+                       }) &&
+           writer.key("cylinders") &&
+           write_array(
+               writer, engine.cylinders,
+               [](CanonicalJsonWriter &output, const contract::CylinderSpec &cylinder) {
+                   return write_cylinder(output, cylinder);
+               }) &&
+           writer.key("ports") &&
+           write_array(writer, engine.ports,
+                       [](CanonicalJsonWriter &output, const contract::PortSpec &port) {
+                           return write_port(output, port);
+                       }) &&
+           writer.key("gas_volumes") &&
+           write_array(
+               writer, engine.gas_volumes,
+               [](CanonicalJsonWriter &output, const contract::GasVolumeSpec &volume) {
+                   return write_gas_volume(output, volume);
+               }) &&
+           writer.key("flow_edges") &&
+           write_array(
+               writer, engine.flow_edges,
+               [](CanonicalJsonWriter &output, const contract::FlowEdgeSpec &edge) {
+                   return write_flow_edge(output, edge);
+               }) &&
+           writer.key("routes") &&
+           write_array(
+               writer, engine.routes,
+               [](CanonicalJsonWriter &output, const contract::RouteSpec &route) {
+                   return write_route(output, route);
+               }) &&
+           writer.key("methods") && write_model_methods(writer, engine.methods) &&
+           writer.key("physics_profile") &&
+           write_physics_profile(writer, engine.physics_profile) &&
+           writer.key("torque_capability") &&
+           write_resolved(writer, engine.torque_capability, write_torque_capability) &&
+           writer.key("provenance_schema_id") &&
+           writer.string_value(engine.provenance_schema_id) && writer.end_object();
+}
+
+} // namespace engine_sim_offline::artifacts::detail

@@ -4,12 +4,17 @@
 
 #include "engine_sim_offline/contract/reference_presentation.hpp"
 #include "engine_sim_offline/contract/render_manifest.hpp"
+#include "engine_sim_offline/render.hpp"
 
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 
 namespace engine_sim_offline::artifacts::detail {
+
+using ManifestInputsWriter = bool (*)(CanonicalJsonWriter &,
+                                      const contract::RenderManifestInputs &);
 
 [[nodiscard]] bool write_rational_rate(CanonicalJsonWriter &writer,
                                        const contract::RationalRateHz &rate);
@@ -19,6 +24,18 @@ namespace engine_sim_offline::artifacts::detail {
                                          const contract::MethodIdentity &method);
 [[nodiscard]] bool write_audio_contract(CanonicalJsonWriter &writer,
                                         const contract::AudioContract &audio);
+[[nodiscard]] bool
+write_provenance_bundle_ref(CanonicalJsonWriter &writer,
+                            const contract::ProvenanceBundleRef &provenance);
+[[nodiscard]] bool
+write_completed_manifest_content(CanonicalJsonWriter &writer,
+                                 const contract::RenderManifestContent &content,
+                                 ManifestInputsWriter write_inputs);
+[[nodiscard]] bool write_execution_facts(CanonicalJsonWriter &writer,
+                                         const contract::ExecutionFacts &execution);
+[[nodiscard]] RenderSinkError
+manifest_writer_error(const CanonicalJsonWriter &writer,
+                      std::string_view detail_code_domain);
 
 template <class T, class WriteValue>
 [[nodiscard]] bool write_resolved(CanonicalJsonWriter &writer,

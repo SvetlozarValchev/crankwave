@@ -120,6 +120,9 @@ add_library(
         src/artifacts/reference_manifest_encoder_presentation.cpp
         src/artifacts/reference_manifest_encoder_reference.cpp
         src/artifacts/secure_filesystem_support.cpp
+        src/artifacts/simulation_manifest_encoder.cpp
+        src/artifacts/simulation_manifest_encoder_engine.cpp
+        src/artifacts/simulation_manifest_encoder_scenario.cpp
         src/artifacts/telemetry_encoder.cpp
         src/artifacts/telemetry_encoder_rows.cpp
         src/artifacts/telemetry_encoder_validation.cpp

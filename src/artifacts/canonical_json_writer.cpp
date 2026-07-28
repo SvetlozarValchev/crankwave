@@ -310,9 +310,9 @@ bool CanonicalJsonWriter::append(std::string_view value) {
     if (error_ != Error::none) {
         return false;
     }
-    if (value.size() > kMaximumReferenceManifestBytes - bytes_.size()) {
+    if (value.size() > kMaximumCanonicalDocumentBytes - bytes_.size()) {
         return fail(Error::size_limit,
-                    "canonical reference manifest exceeds the 4 MiB limit");
+                    "canonical JSON document exceeds the 4 MiB limit");
     }
     for (const char character : value) {
         bytes_.push_back(static_cast<std::byte>(static_cast<unsigned char>(character)));
@@ -324,9 +324,9 @@ bool CanonicalJsonWriter::append_byte(char value) {
     if (error_ != Error::none) {
         return false;
     }
-    if (bytes_.size() == kMaximumReferenceManifestBytes) {
+    if (bytes_.size() == kMaximumCanonicalDocumentBytes) {
         return fail(Error::size_limit,
-                    "canonical reference manifest exceeds the 4 MiB limit");
+                    "canonical JSON document exceeds the 4 MiB limit");
     }
     bytes_.push_back(static_cast<std::byte>(static_cast<unsigned char>(value)));
     return true;

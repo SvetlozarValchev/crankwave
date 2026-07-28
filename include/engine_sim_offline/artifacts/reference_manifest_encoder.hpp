@@ -15,8 +15,8 @@ inline constexpr std::string_view kReferenceManifestRelativePathV2 =
 // JSON contract. Its input alternative remains ReferencePresentationInputsV1 because
 // the fixture/input shape did not change. This checks wire representability only. The
 // owning render session must first perform complete semantic validation with its
-// provenance ledger and source matrix. SimulationManifestInputs remain deliberately
-// unencodable until M3.
+// provenance ledger and source matrix. SimulationManifestInputs use their separate
+// canonical simulation wire domain and are never aliased into this encoder.
 [[nodiscard]] ManifestEncodingResult
 encode_reference_manifest_v2(const contract::RenderManifest &manifest);
 

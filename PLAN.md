@@ -442,13 +442,15 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
 - [x] Implement a strict reference-only parity-evidence decoder that can extract the
       RPM input lane while retaining crank angle and pressure only as comparator
       outputs.
-- [ ] Construct and exhaustively validate the sealed resolved BMW engine/scenario
-      request that the production-neutral parity simulator will actually consume;
-      keep the decoder outside the simulator dependency graph.
 - [x] Freeze the canonical `simulation_v1` manifest-input schema from that concrete
       request before extending the encoder or admitting public render success.
-- [ ] Extend the canonical manifest encoder to `simulation_v1` and prove the encoded
-      request matches the exact in-memory request.
+- [x] Extend the canonical manifest encoder to `simulation_v1` and expose its exact
+      engine/scenario field writers through the domain-separated request-identity
+      encoder.
+- [ ] Construct and exhaustively validate the sealed resolved BMW engine/scenario
+      request that the production-neutral parity simulator will actually consume;
+      independently pin its complete encoded request identity and keep the decoder
+      outside the simulator dependency graph.
 - [ ] Implement BMW crank-slider mechanics and event scheduling.
 - [ ] Implement the required fixed-profile valvetrain.
 - [ ] Implement the minimum sourced gas, ignition, combustion, friction, and pumping
@@ -465,6 +467,11 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
       rather than retaining a second copy, and keep only immutable oracle artifacts,
       metadata, and the minimum comparison tests outside the production dependency
       graph.
+
+The schema and encoder deliberately precede the request seal. Independent review found
+that rebuilding the expected request with the same factory is mutation-sensitive but
+circular under coordinated factory drift; the canonical request-identity encoder is
+the independent whole-request oracle.
 
 Exit: the user accepts the rewrite as at least comparable to the oracle. No fidelity
 replacement starts before acceptance.

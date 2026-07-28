@@ -1,6 +1,6 @@
 #include "engine_sim_offline/artifacts/reference_manifest_encoder.hpp"
 
-#include "reference_manifest_encoder_impl.hpp"
+#include "manifest_encoder_impl.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -23,7 +23,7 @@ namespace {
         build.math_library_id != "glibc-libm" ||
         build.compiler_runtime_id != "libgcc-s") {
         return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "reference manifest runtime providers are not v2");
+                           "manifest runtime providers are not canonical v2");
     }
     return writer.begin_object() && writer.key("git_commit_id") &&
            writer.string_value(build.git_commit_id) &&
@@ -73,7 +73,7 @@ write_floating_point(CanonicalJsonWriter &writer,
         determinism.deterministic_worker_count != 1 ||
         determinism.deterministic_reduction_topology != "serial-stable-order") {
         return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "reference manifest determinism policy is not v2");
+                           "manifest determinism policy is not canonical v2");
     }
     return writer.begin_object() && writer.key("build") &&
            write_build_identity(writer, determinism.build) &&
@@ -146,15 +146,60 @@ template <class Id>
     return writer.end_array() && writer.end_object();
 }
 
-[[nodiscard]] bool write_provenance(CanonicalJsonWriter &writer,
-                                    const contract::ProvenanceBundleRef &provenance) {
+[[nodiscard]] bool
+write_reference_manifest_inputs(CanonicalJsonWriter &writer,
+                                const contract::RenderManifestInputs &inputs) {
+    const auto *reference =
+        std::get_if<contract::ReferencePresentationInputsV1>(&inputs);
+    if (reference == nullptr) {
+        return writer.fail(
+            CanonicalJsonWriter::Error::unsupported_value,
+            "reference manifest inputs are not reference_presentation_v1");
+    }
+    return writer.begin_object() && writer.key("kind") &&
+           writer.string_value("reference_presentation_v1") && writer.key("value") &&
+           write_reference_inputs(writer, *reference) && writer.end_object();
+}
+
+} // namespace
+
+bool write_provenance_bundle_ref(CanonicalJsonWriter &writer,
+                                 const contract::ProvenanceBundleRef &provenance) {
     return writer.begin_object() && writer.key("id") &&
            writer.string_value(provenance.id) && writer.key("sha256") &&
            writer.sha256_value(provenance.sha256) && writer.end_object();
 }
 
-[[nodiscard]] bool write_execution(CanonicalJsonWriter &writer,
-                                   const contract::ExecutionFacts &execution) {
+bool write_completed_manifest_content(CanonicalJsonWriter &writer,
+                                      const contract::RenderManifestContent &content,
+                                      ManifestInputsWriter write_inputs) {
+    if (content.schema_version != 2U) {
+        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                           "manifest content schema version is not v2");
+    }
+    if (write_inputs == nullptr) {
+        return writer.fail(CanonicalJsonWriter::Error::invalid_state,
+                           "manifest inputs writer is missing");
+    }
+    return writer.begin_object() && writer.key("schema_version") &&
+           writer.uint32_value(content.schema_version) && writer.key("inputs") &&
+           write_inputs(writer, content.inputs) && writer.key("provenance") &&
+           write_provenance_bundle_ref(writer, content.provenance) &&
+           writer.key("determinism") &&
+           write_determinism(writer, content.determinism) && writer.key("rates") &&
+           write_render_rates(writer, content.rates) && writer.key("randomness") &&
+           write_random_plan(writer, content.randomness) &&
+           writer.key("output_contract") &&
+           write_output_contract(writer, content.output_contract) &&
+           writer.key("routes") && write_route_records(writer, content.routes) &&
+           writer.key("output_buses") &&
+           write_output_bus_records(writer, content.output_buses) &&
+           writer.key("artifacts") &&
+           write_artifact_records(writer, content.artifacts) && writer.end_object();
+}
+
+bool write_execution_facts(CanonicalJsonWriter &writer,
+                           const contract::ExecutionFacts &execution) {
     if (execution.wall_elapsed.count() > std::numeric_limits<std::int64_t>::max() ||
         execution.wall_elapsed.count() < std::numeric_limits<std::int64_t>::min()) {
         return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
@@ -181,51 +226,19 @@ template <class Id>
            writer.end_object();
 }
 
-[[nodiscard]] bool write_content(CanonicalJsonWriter &writer,
-                                 const contract::RenderManifestContent &content) {
-    if (content.schema_version != 2U) {
-        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "reference manifest content schema version is not v2");
-    }
-    const auto *reference =
-        std::get_if<contract::ReferencePresentationInputsV1>(&content.inputs);
-    if (reference == nullptr) {
-        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "simulation_v1 manifest encoding is not frozen");
-    }
-    return writer.begin_object() && writer.key("schema_version") &&
-           writer.uint32_value(content.schema_version) && writer.key("inputs") &&
-           writer.begin_object() && writer.key("kind") &&
-           writer.string_value("reference_presentation_v1") && writer.key("value") &&
-           write_reference_inputs(writer, *reference) && writer.end_object() &&
-           writer.key("provenance") && write_provenance(writer, content.provenance) &&
-           writer.key("determinism") &&
-           write_determinism(writer, content.determinism) && writer.key("rates") &&
-           write_render_rates(writer, content.rates) && writer.key("randomness") &&
-           write_random_plan(writer, content.randomness) &&
-           writer.key("output_contract") &&
-           write_output_contract(writer, content.output_contract) &&
-           writer.key("routes") && write_route_records(writer, content.routes) &&
-           writer.key("output_buses") &&
-           write_output_bus_records(writer, content.output_buses) &&
-           writer.key("artifacts") &&
-           write_artifact_records(writer, content.artifacts) && writer.end_object();
-}
-
-[[nodiscard]] RenderSinkError writer_error(const CanonicalJsonWriter &writer) {
-    std::string detail_code = "reference-manifest-wire-unrepresentable";
+RenderSinkError manifest_writer_error(const CanonicalJsonWriter &writer,
+                                      std::string_view detail_code_domain) {
+    std::string detail_code = std::string{detail_code_domain} + "-wire-unrepresentable";
     if (writer.error() == CanonicalJsonWriter::Error::size_limit) {
-        detail_code = "reference-manifest-wire-size-exceeded";
+        detail_code = std::string{detail_code_domain} + "-wire-size-exceeded";
     } else if (writer.error() == CanonicalJsonWriter::Error::invalid_utf8) {
-        detail_code = "reference-manifest-wire-invalid-utf8";
+        detail_code = std::string{detail_code_domain} + "-wire-invalid-utf8";
     } else if (writer.error() == CanonicalJsonWriter::Error::non_finite_binary64) {
-        detail_code = "reference-manifest-wire-nonfinite";
+        detail_code = std::string{detail_code_domain} + "-wire-nonfinite";
     }
     return {RenderSinkErrorKind::protocol_violation, std::move(detail_code),
             std::string(writer.error_message())};
 }
-
-} // namespace
 
 bool write_rational_rate(CanonicalJsonWriter &writer,
                          const contract::RationalRateHz &rate) {
@@ -274,8 +287,7 @@ encode_reference_manifest_v2(const contract::RenderManifest &manifest) {
         return RenderSinkError{
             RenderSinkErrorKind::protocol_violation,
             "reference-manifest-input-kind-unsupported",
-            "simulation manifest encoding remains unavailable until simulation_v1 "
-            "is frozen in M3"};
+            "simulation_v1 is not encodable under reference-presentation v2"};
     }
     if (!manifest.execution.has_value()) {
         return RenderSinkError{RenderSinkErrorKind::protocol_violation,
@@ -287,15 +299,17 @@ encode_reference_manifest_v2(const contract::RenderManifest &manifest) {
     try {
         detail::CanonicalJsonWriter writer;
         std::vector<std::byte> bytes;
-        const bool encoded = writer.begin_object() && writer.key("wire_schema") &&
-                             writer.string_value(kReferenceManifestWireSchemaV2) &&
-                             writer.key("content") &&
-                             detail::write_content(writer, manifest.content) &&
-                             writer.key("execution") &&
-                             detail::write_execution(writer, *manifest.execution) &&
-                             writer.end_object() && writer.finish(bytes);
+        const bool encoded =
+            writer.begin_object() && writer.key("wire_schema") &&
+            writer.string_value(kReferenceManifestWireSchemaV2) &&
+            writer.key("content") &&
+            detail::write_completed_manifest_content(
+                writer, manifest.content, detail::write_reference_manifest_inputs) &&
+            writer.key("execution") &&
+            detail::write_execution_facts(writer, *manifest.execution) &&
+            writer.end_object() && writer.finish(bytes);
         if (!encoded) {
-            return detail::writer_error(writer);
+            return detail::manifest_writer_error(writer, "reference-manifest");
         }
         return ManifestEncoding{std::move(bytes)};
     } catch (const std::bad_alloc &) {

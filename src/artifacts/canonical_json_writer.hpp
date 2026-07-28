@@ -11,7 +11,7 @@
 
 namespace engine_sim_offline::artifacts::detail {
 
-inline constexpr std::size_t kMaximumReferenceManifestBytes = 4U * 1024U * 1024U;
+inline constexpr std::size_t kMaximumCanonicalDocumentBytes = 4U * 1024U * 1024U;
 
 class CanonicalJsonWriter final {
   public:

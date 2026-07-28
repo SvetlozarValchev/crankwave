@@ -339,6 +339,28 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_simulation_manifest_encoder_tests
+    simulation_manifest_encoder_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_simulation_manifest_encoder_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_simulation_manifest_encoder_tests
+    PRIVATE
+        engine_sim_offline::artifacts
+)
+
+add_test(
+    NAME artifacts.simulation_manifest_encoder
+    COMMAND engine_sim_offline_simulation_manifest_encoder_tests
+)
+
+add_executable(
     engine_sim_offline_p18_reference_catalog_tests
     p18_reference_catalog_test.cpp
 )

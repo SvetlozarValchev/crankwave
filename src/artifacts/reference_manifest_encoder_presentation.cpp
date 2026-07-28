@@ -1,4 +1,4 @@
-#include "reference_manifest_encoder_impl.hpp"
+#include "manifest_encoder_impl.hpp"
 
 namespace engine_sim_offline::artifacts::detail {
 namespace {
