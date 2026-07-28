@@ -152,6 +152,11 @@ add_library(
     engine_sim_offline_render
     STATIC
         src/render.cpp
+        src/render/compiled_presentation_job.cpp
+        src/render/compiled_presentation_job_execute.cpp
+        src/render/render_job_derivation.cpp
+        src/render/render_job_failure.cpp
+        src/render/render_request.cpp
         src/scheduling/render_schedule.cpp
 )
 add_library(
@@ -351,45 +356,55 @@ engine_sim_offline_enable_renderer_numeric_policy(
     engine_sim_offline_presentation_session
 )
 
-if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
-    include(cmake/RendererSourceStamp.cmake)
+include(cmake/RendererSourceStamp.cmake)
 
-    add_library(
+add_library(
+    engine_sim_offline_renderer_determinism
+    STATIC
+        src/determinism/loaded_runtime_identity.cpp
+        src/determinism/renderer_determinism_envelope.cpp
+        src/determinism/renderer_numeric_environment.cpp
+)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND
+   CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+    target_sources(
         engine_sim_offline_renderer_determinism
-        STATIC
-            src/determinism/loaded_runtime_identity.cpp
-            src/determinism/renderer_determinism_envelope.cpp
-            src/determinism/renderer_numeric_environment.cpp
-    )
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND
-       CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
-        target_sources(
-            engine_sim_offline_renderer_determinism
-            PRIVATE
-                src/determinism/linux_loaded_provider.cpp
-                src/determinism/linux_loaded_provider_file.cpp
-        )
-    endif()
-    engine_sim_offline_add_renderer_source_stamp(
-        engine_sim_offline_renderer_determinism
-    )
-
-    target_include_directories(
-        engine_sim_offline_renderer_determinism
-        PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-    )
-
-    target_link_libraries(
-        engine_sim_offline_renderer_determinism
-        PUBLIC engine_sim_offline::contract
         PRIVATE
-            engine_sim_offline::build_options
-            ${CMAKE_DL_LIBS}
+            src/determinism/linux_loaded_provider.cpp
+            src/determinism/linux_loaded_provider_file.cpp
     )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_renderer_determinism
-    )
+endif()
+engine_sim_offline_add_renderer_source_stamp(
+    engine_sim_offline_renderer_determinism
+)
 
+target_include_directories(
+    engine_sim_offline_renderer_determinism
+    PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_renderer_determinism
+    PUBLIC engine_sim_offline::contract
+    PRIVATE
+        engine_sim_offline::build_options
+        ${CMAKE_DL_LIBS}
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_renderer_determinism
+)
+
+target_link_libraries(
+    engine_sim_offline_render
+    PRIVATE
+        engine_sim_offline::simulation
+        engine_sim_offline::excitation
+        engine_sim_offline::presentation
+        engine_sim_offline::presentation_session
+        engine_sim_offline_renderer_determinism
+)
+
+if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     add_library(
         engine_sim_offline_reference_parity_v1_reader
         STATIC
@@ -512,13 +527,13 @@ set(
     engine_sim_offline_excitation
     engine_sim_offline_execution
     engine_sim_offline_presentation_session
+    engine_sim_offline_renderer_determinism
 )
 if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     list(
         APPEND
         _engine_sim_offline_numeric_policy_targets
         engine_sim_offline_reference_parity_v1_reader
-        engine_sim_offline_renderer_determinism
         engine_sim_offline_p18_reference_catalog
         engine_sim_offline_p18_reference_fixture
     )

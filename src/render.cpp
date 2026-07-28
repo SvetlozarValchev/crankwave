@@ -1,4 +1,6 @@
 #include "engine_sim_offline/render.hpp"
+#include "render/compiled_presentation_job.hpp"
+#include "render/render_request.hpp"
 
 #include <algorithm>
 #include <ranges>
@@ -83,41 +85,6 @@ ValidationReport validate_rights(const RenderSpecification &specification) {
     return report;
 }
 
-std::vector<contract::AssetPayloadIdentity>
-asset_payload_identities(const RenderSpecification &specification) {
-    std::vector<contract::AssetPayloadIdentity> identities;
-    identities.reserve(specification.asset_payloads.size());
-    for (const auto &payload : specification.asset_payloads) {
-        identities.push_back({
-            payload.id,
-            static_cast<std::uint64_t>(payload.bytes.size()),
-            contract::sha256(payload.bytes),
-        });
-    }
-    std::ranges::sort(identities, [](const auto &lhs, const auto &rhs) {
-        if (lhs.id != rhs.id) {
-            return lhs.id < rhs.id;
-        }
-        if (lhs.byte_count != rhs.byte_count) {
-            return lhs.byte_count < rhs.byte_count;
-        }
-        return lhs.payload_sha256.bytes < rhs.payload_sha256.bytes;
-    });
-    return identities;
-}
-
-contract::RenderRequestRecord
-make_request_record(const RenderSpecification &specification,
-                    const contract::RenderScenario &scenario) {
-    return {
-        {specification.engine, specification.presentation, specification.randomness,
-         scenario},
-        specification.provenance,
-        specification.source_matrix,
-        asset_payload_identities(specification),
-    };
-}
-
 void require(ValidationReport &report, bool condition, std::string path,
              std::string message) {
     if (!condition) {
@@ -150,7 +117,7 @@ RenderResult reject(FailureKind kind, std::string detail_code, std::string model
         "none; render failed closed and generated no fallback output";
     return RenderFailure{
         std::move(context),
-        make_request_record(specification, scenario),
+        render_detail::make_render_request_record(specification, scenario),
         std::move(validation),
     };
 }
@@ -160,11 +127,6 @@ RenderResult reject(FailureKind kind, std::string detail_code, std::string model
 contract::RenderResult render(const RenderSpecification &specification,
                               const contract::RenderScenario &scenario,
                               RenderSink &sink, RenderControl control) {
-    // The sink is intentionally unused until all admission checks pass and a
-    // concrete execution route exists. Keeping the name documents that this is the
-    // public render boundary rather than a validation-only overload.
-    (void)sink;
-
     auto structural = validate_structure(specification, scenario);
     if (!structural.ok()) {
         return reject(FailureKind::invalid_specification, "render-preflight-invalid",
@@ -188,12 +150,12 @@ contract::RenderResult render(const RenderSpecification &specification,
                       specification, scenario);
     }
 
-    return reject(
-        FailureKind::incomplete_source_route, "render-pipeline-not-admitted",
-        "render-session-v1",
-        "preflight passed but no complete capture-to-artifact execution route is "
-        "admitted in this build",
-        specification, scenario);
+    auto compiled = render_detail::compile_presentation_job(specification, scenario);
+    if (auto *failure = std::get_if<contract::RenderFailure>(&compiled)) {
+        return std::move(*failure);
+    }
+    return std::move(std::get<render_detail::CompiledPresentationJob>(compiled))
+        .execute(sink, std::move(control));
 }
 
 contract::ValidationReport validate(const contract::RenderResult &result,
@@ -237,7 +199,7 @@ contract::ValidationReport validate(const contract::RenderResult &result,
                             "policy");
                 require(report,
                         outcome.request.asset_payloads ==
-                            asset_payload_identities(specification),
+                            render_detail::asset_payload_identities(specification),
                         std::string(outcome_path) + ".request.asset_payloads",
                         std::string(outcome_path) +
                             " result must retain the exact requested asset identities");

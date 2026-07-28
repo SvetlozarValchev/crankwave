@@ -484,8 +484,9 @@ replacement starts before acceptance.
 - [x] Generalize the bounded, non-publishing presentation session to explicit
       block-aligned timelines, route-owned artifacts, route-bound seeds/IR/wet mix,
       mastering settings, bounded INFO annotations, and an explicit convolution-tail
-      policy while preserving every canonical BMW artifact hash. Keep commit
-      unavailable while public `render()` remains fail-closed.
+      policy while preserving every canonical BMW artifact hash. At this checkpoint
+      commit remained unavailable until the opaque job below could own both execution
+      and manifest authority.
 - [ ] Compile one opaque presentation job from the admitted render specification,
       scenario, verified asset payloads, seed derivation, and renderer identity. It
       must own both the executable values and matching manifest basis; only then

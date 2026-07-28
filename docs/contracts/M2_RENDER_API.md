@@ -65,19 +65,26 @@ than flattening its issue paths into one string. A malformed requested profile u
 the canonical failure identity `unresolved`, so even an invalid request can produce a
 contract-valid typed result.
 
-If preflight passes in the current build, `render` returns:
+After preflight, the renderer compiles one opaque job from the exact retained request.
+The job owns the admitted simulation, excitation, presentation plan, verified asset
+payloads and kernels, initialized random plan, renderer identity, and matching
+manifest basis. A structurally valid request that cannot compile the complete route
+still returns:
 
 ```text
 kind:        incomplete_source_route
 detail_code: render-pipeline-not-admitted
 ```
 
-That result is intentional. No complete capture-to-artifact execution route exists
-yet. The call does not begin the sink, fabricate a manifest, open evidence locators,
-read fixture data, synthesize silence or a tone, or create output.
+That rejection occurs before the sink transaction begins. An admitted job instead
+executes the bounded simulation-to-capture-to-excitation-to-presentation chain,
+completes its manifest from the sealed artifact and live execution evidence, validates
+that exact completed manifest, and makes one terminal sink commit attempt.
 `EvidenceSource::locator` remains provenance metadata, not an asset-byte path. Asset
 bytes enter only through the owning payloads and must hash exactly to their resolved,
-content-addressed presentation records before a route can be admitted.
+content-addressed presentation records before a route can be admitted. The job never
+reads a fixture, synthesizes fallback audio, or accepts a second caller-built
+execution plan.
 
 ## 3. Sink transaction
 
@@ -112,21 +119,20 @@ publication-name component; simulation-manifest v4 encoding and metadata paths a
 fixed by the sink/schema and are not another caller-authored contract.
 
 Concrete transaction enforcement, filesystem staging, and bounded WAV and telemetry
-serialization are now implemented and recorded in
-[`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). Their typed publication errors map to
+serialization are recorded in
+[`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). The opaque job now connects the
+simulation route to this public transaction. Typed publication errors map to
 `artifact_publication_failure`; a sink protocol rejection maps to
-`contract_violation`. They are not yet connected to this fail-closed public boundary:
-the historical isolated reference tool exercised the complete fixture-to-acoustic
-transaction before it was retired, while public `render()` now admits the M3
-simulation inputs but still lacks the one opaque execution job required to begin a
-transaction.
+`contract_violation`. A downstream presentation or sink failure is relayed through
+the nested synchronous callbacks without being flattened into a generic
+capture-consumer rejection.
 
-`RenderControl` now carries a stop token. Preflight and evidence-rights checks precede
+`RenderControl` carries a stop token. Preflight and evidence-rights checks precede
 cancellation, so a stop cannot conceal malformed input. Cancellation is observed only
-at deterministic internal block boundaries and reports the typed `cancelled` failure
-kind. In this fail-closed build, a pre-requested stop leaves the sink idle. The exact
-schedule, bounded cursor, cancellation progress, and future post-begin abort rule are
-recorded in [`M2_SCHEDULING.md`](M2_SCHEDULING.md).
+at deterministic internal block boundaries and once before finalization, and reports
+the typed `cancelled` failure kind. A pre-requested stop leaves the sink idle; a stop
+after transaction begin aborts exactly once. The exact schedule and bounded cursor
+are recorded in [`M2_SCHEDULING.md`](M2_SCHEDULING.md).
 
 ## 4. CLI shell
 
@@ -160,6 +166,6 @@ no reference-audit reader or fixture adapter.
 The deterministic clock/streaming, artifact, focused-DSP, and M3
 simulation/excitation checkpoints are implemented without weakening this admission
 boundary or adding a second publisher. The historical transactional reference
-checkpoint was completed and retired. M4 is binding the current stages, their
-verified assets, and the matching manifest basis into one opaque job before public
-render success is admitted.
+checkpoint was completed and retired. M4 now binds the current stages, verified
+assets, renderer observation, and matching manifest basis into one opaque job. The
+shipped CLI remains a loader-free shell; it is not an alternate execution path.

@@ -12,9 +12,9 @@ and CLI shell now exist and are recorded separately in
 are recorded in [`M2_SCHEDULING.md`](M2_SCHEDULING.md). Bounded artifact encoding,
 transactional directory publication, and the focused P1.8 DSP primitives are recorded
 in [`M2_ARTIFACTS_DSP.md`](M2_ARTIFACTS_DSP.md). The M3 simulator, profile-specific
-BMW request compiler, and internal presentation stages now exist. General authored
-resolution and the complete public simulation-to-acoustic job remain separate
-checkboxes in [`PLAN.md`](../../PLAN.md).
+BMW request compiler, presentation stages, and M4 opaque public
+simulation-to-acoustic job now exist. General authored resolution remains a separate
+checkbox in [`PLAN.md`](../../PLAN.md).
 The former isolated-reference input alternative is preserved only as historical
 evidence in [`M2_MANIFEST_INPUTS.md`](M2_MANIFEST_INPUTS.md); the current manifest
 input is simulation-only.
@@ -42,11 +42,9 @@ EngineSpec + RenderScenario + PresentationCalibration
                            |
               simulator publishes CaptureBlock   internal M3 path implemented
                            |
-              excitation and presentation         internal stages implemented;
-                                                   opaque M4 job pending
+              excitation and presentation         opaque M4 job implemented
                            |
-              artifacts + RenderManifest         encoder/sink implemented;
-                                                   opaque M4 job pending
+              artifacts + RenderManifest         atomic publication implemented
 ```
 
 The current contract supplies:
@@ -59,24 +57,22 @@ The current contract supplies:
 - a callback-scoped `CaptureBlockView`;
 - source-matrix, presentation, artifact, and manifest schemas;
 - generic validation and exact frozen BMW reference validation;
-- the owning render-specification aggregate, fail-closed render entry point, sink
-  transaction protocol, and CLI shell recorded in `M2_RENDER_API.md`;
+- the owning render-specification aggregate, admitted/fail-closed render entry point,
+  opaque execution job, sink transaction protocol, and CLI shell recorded in
+  `M2_RENDER_API.md`;
 - the profile-specific resolved BMW request, M3 low-order simulator and excitation,
-  internal presentation session, and canonical completed simulation-manifest v4
-  encoder.
+  internal presentation session, live execution-facts observation, and canonical
+  completed simulation-manifest v4 encoder.
 
 The current contract does not supply:
 
 - general authored-to-resolved conversion;
-- an executable capture-to-artifact route behind `render(spec, scenario, sink)`;
-- opaque ownership of the admitted simulation, excitation, presentation, manifest,
-  and publication basis in one public job;
-- public simulation-route collection of execution facts.
+- a serialized profile/scenario loader behind the CLI shell.
 
 The concrete directory sink verifies streamed artifact payload hashes and publishes
 encoded artifacts transactionally. WAV and complete capture-telemetry byte encoders
-exist, but the current `render()` call does not invoke them until the complete route is
-admitted.
+exist; `render()` invokes the audio transaction only after the complete route and its
+matching manifest basis have been admitted.
 
 A valid data object therefore means “internally consistent and admitted by this
 schema,” not “rendered successfully” or “sounds correct.”

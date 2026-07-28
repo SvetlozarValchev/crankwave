@@ -276,6 +276,32 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_render_job_derivation_tests
+    render_job_derivation_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_render_job_derivation_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_render_job_derivation_tests
+    PRIVATE
+        engine_sim_offline::render
+        engine_sim_offline::presentation
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_render_job_derivation_tests
+)
+
+add_test(
+    NAME render.job_derivation
+    COMMAND engine_sim_offline_render_job_derivation_tests
+)
+
+add_executable(
     engine_sim_offline_schedule_tests
     render_schedule_test.cpp
 )

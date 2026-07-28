@@ -68,10 +68,16 @@ inline bool valid_path_component(std::string_view component) noexcept {
         component.back() == '.') {
         return false;
     }
-    if (!std::ranges::all_of(component, [&](unsigned char byte) {
-            return ascii_alphanumeric(byte) || byte == '-' || byte == '_' ||
-                   byte == '.';
-        })) {
+    for (std::size_t index = 0; index < component.size(); ++index) {
+        const auto byte = static_cast<unsigned char>(component[index]);
+        if (ascii_alphanumeric(byte) || byte == '-' || byte == '_' || byte == '.') {
+            continue;
+        }
+        if (byte == '%' && index + 2 < component.size() &&
+            component[index + 1] == '2' && component[index + 2] == 'f') {
+            index += 2;
+            continue;
+        }
         return false;
     }
 

@@ -419,6 +419,43 @@ void run_portable_path_identity_cases() {
     const auto contract = output_contract();
     {
         IsolatedDirectory isolated;
+        DirectoryRenderSink sink(isolated.path(), "escaped-role-render");
+        expect(!sink.begin_transaction(contract).has_value(),
+               "escaped role path test begin failed");
+        const PendingArtifact escaped{
+            "audio.master",
+            contract::ArtifactKind::audio,
+            "audio/route%2fselected.wav",
+            audio_contract(),
+            false,
+        };
+        expect(!sink.declare_artifact(escaped).has_value(),
+               "lowercase percent-escaped role path was rejected");
+        sink.abort();
+    }
+    for (const std::string_view invalid_path : {
+             "audio/route%selected.wav",
+             "audio/route%2Fselected.wav",
+         }) {
+        IsolatedDirectory isolated;
+        DirectoryRenderSink sink(isolated.path(), "invalid-escape-render");
+        expect(!sink.begin_transaction(contract).has_value(),
+               "invalid escaped path test begin failed");
+        const PendingArtifact escaped{
+            "audio.master",
+            contract::ArtifactKind::audio,
+            std::string{invalid_path},
+            audio_contract(),
+            false,
+        };
+        expect_error(sink.declare_artifact(escaped),
+                     RenderSinkErrorKind::protocol_violation,
+                     "artifact-declaration-invalid",
+                     "noncanonical percent escape was accepted");
+        sink.abort();
+    }
+    {
+        IsolatedDirectory isolated;
         DirectoryRenderSink sink(isolated.path(), "manifest-path-render");
         expect(!sink.begin_transaction(contract).has_value(),
                "manifest path reservation test begin failed");

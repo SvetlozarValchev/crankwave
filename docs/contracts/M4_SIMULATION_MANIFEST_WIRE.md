@@ -343,6 +343,13 @@ rewrite, infer, or substitute them.
 The opaque simulation job derives publication names from the same admitted values; it
 does not accept a second caller-built path or INFO-metadata description.
 
+For each admitted rendered exhaust route, the three
+`SourceRouteRequirement::artifact_roles` entries are the method-owned positional
+tuple `dry`, `configured_ir`, and `selected`, in that order. The job copies those
+identities into the corresponding named plan fields; it does not infer signal meaning
+from role spelling or artifact-list order. A different count or ownership mapping is
+not executable by this presentation method and fails before transaction begin.
+
 For each admitted audio requirement, its artifact path is `audio/`, followed by the
 artifact role with every `/` byte replaced by lowercase `%2f`, followed by `.wav`.
 All other valid semantic-ID bytes (`a-z`, `0-9`, `.`, `_`, and `-`) are copied

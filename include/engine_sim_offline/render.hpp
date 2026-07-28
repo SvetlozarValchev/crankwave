@@ -99,9 +99,9 @@ struct RenderControl {
     std::stop_token stop_token;
 };
 
-// Synchronous and session-local. The current M2 checkpoint performs complete
-// preflight and fails closed until a concrete capture-to-artifact route is admitted.
-// It never substitutes silence, a tone, a legacy renderer, or fixture data.
+// Synchronous and session-local. Complete preflight occurs before an opaque admitted
+// job can begin the sink transaction. Unsupported routes fail closed; the renderer
+// never substitutes silence, a tone, a legacy renderer, or fixture data.
 [[nodiscard]] contract::RenderResult render(const RenderSpecification &specification,
                                             const contract::RenderScenario &scenario,
                                             RenderSink &sink,
