@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — M4 admitted presentation-job compiler
+Status: implementation — M4 operating-point test cells
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-28
 
@@ -487,7 +487,7 @@ replacement starts before acceptance.
       policy while preserving every canonical BMW artifact hash. At this checkpoint
       commit remained unavailable until the opaque job below could own both execution
       and manifest authority.
-- [ ] Compile one opaque presentation job from the admitted render specification,
+- [x] Compile one opaque presentation job from the admitted render specification,
       scenario, verified asset payloads, seed derivation, and renderer identity. It
       must own both the executable values and matching manifest basis; only then
       restore atomic publication without accepting a second caller-built description.
@@ -505,7 +505,7 @@ replacement starts before acceptance.
   - [x] Remove the redundant caller-authored presentation algorithm record, advance
         the sole simulation-manifest schema without a compatibility path, and make
         the six admitted method identities the complete algorithm authority.
-  - [ ] Seal executable plan and manifest basis into one opaque job, then connect its
+  - [x] Seal executable plan and manifest basis into one opaque job, then connect its
         sole terminal path to atomic sink publication.
 - [ ] Add the held-speed brake dyno.
 - [ ] Render a modest BMW torque sweep with declared conditions and sourced plausibility

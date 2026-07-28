@@ -991,6 +991,49 @@ add_test(
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(
+        engine_sim_offline_bmw_public_render_success_tests
+        bmw_public_render_success_test.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_bmw_public_render_success_tests
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(
+        engine_sim_offline_bmw_public_render_success_tests
+        PRIVATE
+            engine_sim_offline::profiles
+            engine_sim_offline::render
+            engine_sim_offline::presentation
+            engine_sim_offline_reference_parity_v1_reader
+            engine_sim_offline_p18_reference_catalog
+            engine_sim_offline_p18_reference_fixture
+            m
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_bmw_public_render_success_tests
+    )
+
+    # The production source stamp deliberately fails closed for Debug and
+    # multi-config generators. Keep this integration gate registered only where a
+    # successful public render is representable.
+    if(NOT CMAKE_CONFIGURATION_TYPES AND CMAKE_BUILD_TYPE STREQUAL "Release")
+        add_test(
+            NAME render.bmw_public_success
+            COMMAND
+                engine_sim_offline_bmw_public_render_success_tests
+                ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18
+                ${PROJECT_SOURCE_DIR}/reference/oracles/bmw-m52b28/bmw-m52b28-5th-gear-equivalent-dyno-1500-6500rpm.wav
+        )
+        set_tests_properties(
+            render.bmw_public_success
+            PROPERTIES TIMEOUT 240
+        )
+    endif()
+
+    add_executable(
         engine_sim_offline_linux_execution_facts_tests
         linux_execution_facts_test.cpp
     )

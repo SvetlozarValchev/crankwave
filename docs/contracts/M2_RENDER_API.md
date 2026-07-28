@@ -168,4 +168,8 @@ simulation/excitation checkpoints are implemented without weakening this admissi
 boundary or adding a second publisher. The historical transactional reference
 checkpoint was completed and retired. M4 now binds the current stages, verified
 assets, renderer observation, and matching manifest basis into one opaque job. The
-shipped CLI remains a loader-free shell; it is not an alternate execution path.
+exact Release integration gate calls only the public `render()` boundary, proves one
+begin/eight declarations/eight seals/one commit/no abort, validates the returned
+request and completed manifest, and pins all eight live-simulation WAVE identities
+plus the audition PCM identity. The shipped CLI remains a loader-free shell; it is
+not an alternate execution path.
