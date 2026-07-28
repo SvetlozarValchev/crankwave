@@ -232,6 +232,15 @@ struct PlannedComponent {
     ComponentSeedCoordinate coordinate;
 };
 
+[[nodiscard]] const LowOrderEngineCoreV1 &
+low_order_core(const ExecutablePhysicsProfile &profile) noexcept {
+    return std::visit(
+        [](const auto &typed_profile) -> const LowOrderEngineCoreV1 & {
+            return typed_profile.core;
+        },
+        profile);
+}
+
 void append_derivation_error(ValidationReport &report,
                              const ComponentSeedDerivationError &error) {
     auto code = ContractIssueCode::inconsistent_semantics;
@@ -390,14 +399,14 @@ compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &en
         report, policy.derivation.value == component_seed_derivation_method_identity(),
         ContractIssueCode::unsupported_value, "derivation",
         "random plan requires the exact implemented component-seed derivation");
+    detail::require(report, !engine.physics_profile.valueless_by_exception(),
+                    ContractIssueCode::unsupported_value, "engine.physics_profile",
+                    "random-plan compilation requires a populated engine profile");
 
-    const auto *profile = std::get_if<LegacyLowOrderV1Profile>(&engine.physics_profile);
-    detail::require(report, profile != nullptr, ContractIssueCode::unsupported_value,
-                    "engine.physics_profile",
-                    "random-plan compilation requires the admitted engine profile");
-    if (!report.ok() || profile == nullptr) {
+    if (!report.ok()) {
         return report;
     }
+    const auto &core = low_order_core(engine.physics_profile);
 
     detail::require(
         report,
@@ -500,7 +509,7 @@ compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &en
             !component.cylinder_id.has_value()) {
             continue;
         }
-        const auto &streams = profile->core.combustion_random_streams;
+        const auto &streams = core.combustion_random_streams;
         const auto stored = std::ranges::find(
             streams, *component.cylinder_id,
             &LegacyCombustionRandomStream::cylinder_id);

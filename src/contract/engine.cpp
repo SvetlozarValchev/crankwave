@@ -1,5 +1,6 @@
 #include "engine_sim_offline/contract/engine.hpp"
 
+#include "physics_profile_support.hpp"
 #include "validation_support.hpp"
 
 #include <algorithm>
@@ -121,6 +122,41 @@ void for_each_method(const EngineSpec::ModelMethods &methods, Function function)
     function(methods.excitation, "engine.methods.excitation");
 }
 
+void require_authored_legacy_low_order_method(
+    ValidationReport &report, const AuthoredValue<MethodSelection> &method,
+    std::string_view path) {
+    detail::require(
+        report, method.value.id == "legacy_low_order_v1" && method.value.version == 1,
+        ContractIssueCode::unsupported_value, std::string(path) + ".value",
+        "low-order core requires legacy_low_order_v1 version 1");
+}
+
+void validate_authored_low_order_core_method_policy(
+    ValidationReport &report, const AuthoredModelMethods &methods) {
+    require_authored_legacy_low_order_method(report, methods.mechanism,
+                                             "engine.methods.mechanism");
+    require_authored_legacy_low_order_method(report, methods.valvetrain,
+                                             "engine.methods.valvetrain");
+    require_authored_legacy_low_order_method(report, methods.gas_exchange,
+                                             "engine.methods.gas_exchange");
+    require_authored_legacy_low_order_method(report, methods.ignition,
+                                             "engine.methods.ignition");
+    require_authored_legacy_low_order_method(report, methods.combustion,
+                                             "engine.methods.combustion");
+    require_authored_legacy_low_order_method(report, methods.heat_transfer,
+                                             "engine.methods.heat_transfer");
+    require_authored_legacy_low_order_method(report, methods.excitation,
+                                             "engine.methods.excitation");
+}
+
+void validate_authored_profile_method_policy(ValidationReport &report,
+                                             const AuthoredModelMethods &methods,
+                                             const AuthoredLegacyLowOrderV1Profile &) {
+    validate_authored_low_order_core_method_policy(report, methods);
+    require_authored_legacy_low_order_method(report, methods.losses,
+                                             "engine.methods.losses");
+}
+
 template <class Id, class ParentFunction>
 bool has_parent_cycle(const std::vector<Id> &ids, ParentFunction parent_of) {
     enum class Visit : std::uint8_t {
@@ -164,12 +200,11 @@ const typename Range::value_type *find_authored_by_id(const Range &range,
     return iterator == range.end() ? nullptr : &*iterator;
 }
 
-void validate_authored_legacy_topology(ValidationReport &report,
-                                       const AuthoredEngineDefinition &definition,
-                                       const AuthoredLegacyLowOrderV1Profile &profile) {
+void validate_authored_low_order_core_topology(
+    ValidationReport &report, const AuthoredEngineDefinition &definition,
+    const AuthoredLowOrderEngineCoreV1 &core, std::string_view physics_root) {
     using detail::require;
 
-    const auto &core = profile.core;
     const auto find_cylinder = [&](std::string_view id) {
         return find_authored_by_id(
             definition.cylinders, id,
@@ -313,7 +348,6 @@ void validate_authored_legacy_topology(ValidationReport &report,
     std::unordered_set<std::string> expected_edge_bindings;
 
     const auto &intake_topology = core.gas_path.intake_topology;
-    constexpr std::string_view physics_root = "engine.physics.legacy-low-order-v1";
     const auto intake_path = std::string(physics_root) + ".gas_path.intake_topology";
     require_volume_kind(intake_topology.plenum_volume_id.value,
                         GasVolumeKind::intake_plenum, intake_path + ".plenum_volume_id",
@@ -996,18 +1030,20 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
                                                      const std::string &path) {
         validate_authored(report, method, definition.provenance, path);
         validate_selection(report, method.value, path + ".value");
-        require(report,
-                method.value.id == "legacy_low_order_v1" && method.value.version == 1,
-                ContractIssueCode::unsupported_value, path + ".value",
-                "the sole authored executable profile requires "
-                "legacy_low_order_v1 version 1");
     });
+    std::visit(
+        [&](const auto &profile) {
+            validate_authored_profile_method_policy(report, definition.methods,
+                                                    profile);
+        },
+        definition.physics_profile);
     detail::append_prefixed(report,
                             validate(definition.physics_profile, definition.provenance),
                             "physics_profile");
     std::visit(
-        [&](const AuthoredLegacyLowOrderV1Profile &legacy) {
-            validate_authored_legacy_topology(report, definition, legacy);
+        [&](const auto &profile) {
+            validate_authored_low_order_core_topology(report, definition, profile.core,
+                                                      profile_support::root(profile));
         },
         definition.physics_profile);
     return report;

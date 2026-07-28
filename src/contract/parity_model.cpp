@@ -1,6 +1,7 @@
 #include "engine_sim_offline/contract/parity_model.hpp"
 
 #include "engine_sim_offline/contract/engine.hpp"
+#include "physics_profile_support.hpp"
 #include "validation_support.hpp"
 
 #include <algorithm>
@@ -23,7 +24,6 @@ namespace {
 constexpr double kLegacyPi = 3.14159265359;
 constexpr double kGasConstant = 8.31446261815324;
 constexpr double kOneSourceScfm = 0.002641 * 453.59237 / 60.0;
-constexpr std::string_view kLegacyProfileRoot = "engine.physics.legacy-low-order-v1";
 constexpr TorqueTermMask kLegacyIncludedTorqueTerms =
     torque_term_mask(TorqueTerm::indicated_gas) |
     torque_term_mask(TorqueTerm::crank_friction);
@@ -58,8 +58,8 @@ void validate_resolved(ValidationReport &report, const ResolvedValue<T> &value,
     detail::validate_resolved_value(report, value, provenance, path);
 }
 
-std::string profile_path(std::string_view suffix) {
-    return std::string(kLegacyProfileRoot) + "." + std::string(suffix);
+std::string profile_path(std::string_view root, std::string_view suffix) {
+    return std::string(root) + "." + std::string(suffix);
 }
 
 template <class T>
@@ -253,9 +253,9 @@ void visit_pressure_gains(const Gains &gains, const std::string &base,
 }
 
 template <class Core, class Function>
-void visit_low_order_core_fields(const Core &core, Function function,
-                                 const auto &cylinder_name, const auto &route_name) {
-    constexpr std::string_view root = kLegacyProfileRoot;
+void visit_low_order_core_fields(const Core &core, std::string_view root,
+                                 Function function, const auto &cylinder_name,
+                                 const auto &route_name) {
     visit_crank(core.mechanism.crank, std::string(root) + ".mechanism.crank", function);
     for (const auto &cylinder : core.mechanism.cylinders) {
         visit_cylinder_parameters(cylinder.parameters,
@@ -346,8 +346,8 @@ void visit_low_order_core_fields(const Core &core, Function function,
 }
 
 template <class Loss, class Function>
-void visit_legacy_fixed_crank_loss_fields(const Loss &loss, Function function) {
-    constexpr std::string_view root = kLegacyProfileRoot;
+void visit_legacy_fixed_crank_loss_fields(const Loss &loss, std::string_view root,
+                                          Function function) {
     function(loss.fixed_crank_friction_magnitude_nm,
              std::string(root) +
                  ".mechanism.crank.fixed_crank_friction_magnitude_nm");
@@ -443,7 +443,7 @@ void validate_restriction_domain(ValidationReport &report,
 
 void validate_restriction_domain(ValidationReport &report,
                                  const LegacyRestriction &restriction,
-                                 const std::string &path,
+                                 const std::string &path, std::string_view profile_root,
                                  const ProvenanceLedger *provenance = nullptr) {
     detail::require(report, known(restriction.calibration.value),
                     ContractIssueCode::unsupported_value, path + ".calibration.value",
@@ -464,7 +464,7 @@ void validate_restriction_domain(ValidationReport &report,
             "calibration rule");
     }
     if (provenance != nullptr) {
-        const auto canonical_path = profile_path(path);
+        const auto canonical_path = profile_path(profile_root, path);
         validate_derived_resolution(report, restriction.resolved_k, *provenance,
                                     canonical_path + ".resolved_k",
                                     {
@@ -541,15 +541,14 @@ void validate_sample_ids(ValidationReport &report, const std::vector<Point> &poi
     }
 }
 
-void validate_authored_domains(ValidationReport &report,
-                               const AuthoredLegacyLowOrderV1Profile &profile) {
+void validate_authored_low_order_core_domains(ValidationReport &report,
+                                              const AuthoredLowOrderEngineCoreV1 &core,
+                                              std::string_view profile_root) {
     using detail::finite;
     using detail::finite_nonnegative;
     using detail::finite_positive;
     using detail::require;
 
-    const auto &core = profile.core;
-    const auto &loss = profile.fixed_crank_loss;
     const auto &crank = core.mechanism.crank;
     require(report,
             finite(crank.crank_tdc_reference_rad.value) &&
@@ -558,10 +557,6 @@ void validate_authored_domains(ValidationReport &report,
                 finite_positive(crank.authored_crank_inertia_kg_m2.value),
             ContractIssueCode::invalid_value, "mechanism.crank",
             "crank assembly values are outside their physical domain");
-    require(report, finite_nonnegative(loss.fixed_crank_friction_magnitude_nm.value),
-            ContractIssueCode::invalid_value,
-            "mechanism.crank.fixed_crank_friction_magnitude_nm",
-            "fixed crank-friction magnitude must be finite and nonnegative");
     require(report, !core.mechanism.cylinders.empty(),
             ContractIssueCode::missing_value, "mechanism.cylinders",
             "legacy mechanism requires at least one cylinder");
@@ -839,7 +834,7 @@ void validate_authored_domains(ValidationReport &report,
     for (const auto &stream : core.combustion_random_streams) {
         const auto &cylinder_id = stream.cylinder_id.value;
         const auto stream_path =
-            profile_path("combustion_random_streams." + cylinder_id);
+            profile_path(profile_root, "combustion_random_streams." + cylinder_id);
         require(report, is_valid_semantic_id(cylinder_id),
                 ContractIssueCode::invalid_value, stream_path + ".cylinder_id.value",
                 "combustion random-stream owner must be canonical");
@@ -860,21 +855,13 @@ void validate_authored_domains(ValidationReport &report,
             "PCG32 stream must fit the 63-bit sequence domain");
     }
     require(report,
-            core.combustion_random_streams.size() ==
-                    core.mechanism.cylinders.size() &&
+            core.combustion_random_streams.size() == core.mechanism.cylinders.size() &&
                 mechanism_cylinder_ids.size() == core.mechanism.cylinders.size() &&
                 random_stream_cylinder_ids == mechanism_cylinder_ids,
             ContractIssueCode::inconsistent_shape,
-            profile_path("combustion_random_streams"),
+            profile_path(profile_root, "combustion_random_streams"),
             "implemented combustion consumes exactly one random stream per "
             "cylinder");
-
-    require(report,
-            loss.included_terms.value == kLegacyIncludedTorqueTerms &&
-                loss.omitted_terms.value == kLegacyOmittedTorqueTerms,
-            ContractIssueCode::inconsistent_semantics, "losses",
-            "legacy loss profile includes only indicated gas and fixed crank "
-            "friction and must explicitly omit every other known torque term");
 
     const auto &excitation = core.excitation;
     require(report,
@@ -1005,15 +992,33 @@ void validate_authored_domains(ValidationReport &report,
     }
 }
 
-void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &profile,
-                      const EngineSpec &engine, const ProvenanceLedger &provenance) {
+void validate_authored_legacy_fixed_crank_loss_domains(
+    ValidationReport &report, const AuthoredLegacyFixedCrankLossV1 &loss) {
+    using detail::finite_nonnegative;
+    using detail::require;
+
+    require(report, finite_nonnegative(loss.fixed_crank_friction_magnitude_nm.value),
+            ContractIssueCode::invalid_value,
+            "mechanism.crank.fixed_crank_friction_magnitude_nm",
+            "fixed crank-friction magnitude must be finite and nonnegative");
+    require(report,
+            loss.included_terms.value == kLegacyIncludedTorqueTerms &&
+                loss.omitted_terms.value == kLegacyOmittedTorqueTerms,
+            ContractIssueCode::inconsistent_semantics, "losses",
+            "legacy loss profile includes only indicated gas and fixed crank "
+            "friction and must explicitly omit every other known torque term");
+}
+
+void validate_low_order_core_domains(ValidationReport &report,
+                                     const LowOrderEngineCoreV1 &core,
+                                     const EngineSpec &engine,
+                                     const ProvenanceLedger &provenance,
+                                     std::string_view profile_root) {
     using detail::finite;
     using detail::finite_nonnegative;
     using detail::finite_positive;
     using detail::require;
 
-    const auto &core = profile.core;
-    const auto &loss = profile.fixed_crank_loss;
     const auto &crank = core.mechanism.crank;
     require(report,
             finite(crank.crank_tdc_reference_rad.value) &&
@@ -1022,11 +1027,6 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
                 finite_positive(crank.authored_crank_inertia_kg_m2.value),
             ContractIssueCode::invalid_value, "mechanism.crank",
             "crank assembly values are outside their physical domain");
-    require(report, finite_nonnegative(loss.fixed_crank_friction_magnitude_nm.value),
-            ContractIssueCode::invalid_value,
-            "mechanism.crank.fixed_crank_friction_magnitude_nm",
-            "fixed crank-friction magnitude must be finite and nonnegative");
-
     require(report,
             core.mechanism.cylinders.size() == engine.cylinders.size() &&
                 unique_valid_projected(core.mechanism.cylinders,
@@ -1338,13 +1338,16 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             ContractIssueCode::invalid_value, "gas_path.intake",
             "legacy intake parameters are outside their domain");
     validate_restriction_domain(report, intake.main_throttle,
-                                "gas_path.intake.main_throttle", &provenance);
+                                "gas_path.intake.main_throttle", profile_root,
+                                &provenance);
     validate_restriction_domain(report, intake.idle_bypass,
-                                "gas_path.intake.idle_bypass", &provenance);
+                                "gas_path.intake.idle_bypass", profile_root,
+                                &provenance);
     validate_restriction_domain(report, intake.plenum_to_runner,
-                                "gas_path.intake.plenum_to_runner", &provenance);
+                                "gas_path.intake.plenum_to_runner", profile_root,
+                                &provenance);
     validate_restriction_domain(report, core.gas_path.piston_blowby,
-                                "gas_path.piston_blowby", &provenance);
+                                "gas_path.piston_blowby", profile_root, &provenance);
 
     const auto &head = core.gas_path.head;
     require(report,
@@ -1380,9 +1383,10 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
                 point.source_cfm_at_28_inh2o,
                 point.resolved_k,
             };
-            validate_restriction_domain(report, restriction,
-                                        path + "." + point.sample_id.value);
-            const auto point_path = profile_path(path + "." + point.sample_id.value);
+            validate_restriction_domain(
+                report, restriction, path + "." + point.sample_id.value, profile_root);
+            const auto point_path =
+                profile_path(profile_root, path + "." + point.sample_id.value);
             validate_derived_resolution(report, point.resolved_k, provenance,
                                         point_path + ".resolved_k",
                                         {point_path + ".source_cfm_at_28_inh2o"});
@@ -1474,9 +1478,11 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
                     "by collector cross-section area");
         }
         validate_restriction_domain(report, parameters.primary_to_collector,
-                                    path + ".primary_to_collector", &provenance);
+                                    path + ".primary_to_collector", profile_root,
+                                    &provenance);
         validate_restriction_domain(report, parameters.collector_outlet,
-                                    path + ".collector_outlet", &provenance);
+                                    path + ".collector_outlet", profile_root,
+                                    &provenance);
     }
     const auto role_ids = [](const auto &range, const auto expected_kind) {
         std::unordered_set<std::uint32_t> ids;
@@ -1683,8 +1689,9 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
     }
     std::unordered_set<std::uint32_t> random_stream_cylinder_ids;
     for (const auto &stream : core.combustion_random_streams) {
-        const auto stream_path = profile_path(
-            "combustion_random_streams." + cylinder_name(engine, stream.cylinder_id));
+        const auto stream_path =
+            profile_path(profile_root, "combustion_random_streams." +
+                                           cylinder_name(engine, stream.cylinder_id));
         require(report, stream.cylinder_id.valid(), ContractIssueCode::invalid_value,
                 stream_path + ".cylinder_id",
                 "combustion random-stream owner must be nonzero");
@@ -1709,21 +1716,9 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             core.combustion_random_streams.size() == engine.cylinders.size() &&
                 random_stream_cylinder_ids == engine_cylinder_ids,
             ContractIssueCode::inconsistent_shape,
-            profile_path("combustion_random_streams"),
+            profile_path(profile_root, "combustion_random_streams"),
             "implemented combustion consumes exactly one random stream per "
             "cylinder");
-
-    require(report,
-            loss.included_terms.value == kLegacyIncludedTorqueTerms &&
-                loss.omitted_terms.value == kLegacyOmittedTorqueTerms,
-            ContractIssueCode::inconsistent_semantics, "losses",
-            "legacy loss profile includes only indicated gas and fixed crank "
-            "friction and must explicitly omit every other known torque term");
-    require(
-        report, engine.torque_capability.value == kLegacyTorqueCapability,
-        ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",
-        "legacy profile exposes only incomplete instantaneous indicated-gas plus "
-        "fixed-crank torque; it has no cycle-mean net torque or equivalent inertia");
 
     const auto &excitation = core.excitation;
     require(report,
@@ -1836,17 +1831,18 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             excitation_path_cylinder_ids.insert(path.cylinder_id.value);
         }
 
-        const auto canonical_path = profile_path(local_path);
+        const auto canonical_path = profile_path(profile_root, local_path);
         const auto canonical_route_path =
-            profile_path("reference_excitation.routes." + route_semantic);
+            profile_path(profile_root, "reference_excitation.routes." + route_semantic);
         validate_derived_resolution(
             report, path.resolved_delay_samples, provenance,
             canonical_path + ".resolved_delay_samples",
             {
                 canonical_path + ".header_primary_length_m",
                 canonical_route_path + ".exhaust_system_length_m",
-                profile_path("reference_excitation.legacy_propagation_speed_m_s"),
-                profile_path("reference_excitation.delay_rate"),
+                profile_path(profile_root,
+                             "reference_excitation.legacy_propagation_speed_m_s"),
+                profile_path(profile_root, "reference_excitation.delay_rate"),
             });
 
         if (excitation_route != nullptr &&
@@ -1892,13 +1888,74 @@ void validate_domains(ValidationReport &report, const LegacyLowOrderV1Profile &p
             "excitation cylinder paths must exactly cover the engine cylinders");
 }
 
+void validate_legacy_fixed_crank_loss_domains(ValidationReport &report,
+                                              const LegacyFixedCrankLossV1 &loss,
+                                              const EngineSpec &engine) {
+    using detail::finite_nonnegative;
+    using detail::require;
+
+    require(report, finite_nonnegative(loss.fixed_crank_friction_magnitude_nm.value),
+            ContractIssueCode::invalid_value,
+            "mechanism.crank.fixed_crank_friction_magnitude_nm",
+            "fixed crank-friction magnitude must be finite and nonnegative");
+    require(report,
+            loss.included_terms.value == kLegacyIncludedTorqueTerms &&
+                loss.omitted_terms.value == kLegacyOmittedTorqueTerms,
+            ContractIssueCode::inconsistent_semantics, "losses",
+            "legacy loss profile includes only indicated gas and fixed crank "
+            "friction and must explicitly omit every other known torque term");
+    require(
+        report, engine.torque_capability.value == kLegacyTorqueCapability,
+        ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",
+        "legacy profile exposes only incomplete instantaneous indicated-gas plus "
+        "fixed-crank torque; it has no cycle-mean net torque or equivalent inertia");
+}
+
+void require_legacy_low_order_method(ValidationReport &report,
+                                     const ResolvedValue<MethodIdentity> &method,
+                                     std::string_view path) {
+    detail::require(
+        report, method.value.id == "legacy_low_order_v1" && method.value.version == 1,
+        ContractIssueCode::inconsistent_semantics, std::string(path) + ".value",
+        "low-order core requires legacy_low_order_v1 method identity version 1");
+}
+
+void validate_authored_profile_specific(ValidationReport &report,
+                                        const AuthoredLegacyLowOrderV1Profile &profile,
+                                        const ProvenanceLedger &provenance,
+                                        std::string_view root) {
+    visit_legacy_fixed_crank_loss_fields(
+        profile.fixed_crank_loss, root,
+        [&](const auto &value, const std::string &path) {
+            validate_authored(report, value, provenance, path);
+        });
+    validate_authored_legacy_fixed_crank_loss_domains(report, profile.fixed_crank_loss);
+}
+
+void validate_resolved_profile_specific(ValidationReport &report,
+                                        const LegacyLowOrderV1Profile &profile,
+                                        const EngineSpec &engine,
+                                        const ProvenanceLedger &provenance,
+                                        std::string_view root) {
+    require_legacy_low_order_method(report, engine.methods.losses,
+                                    "engine.methods.losses");
+    visit_legacy_fixed_crank_loss_fields(
+        profile.fixed_crank_loss, root,
+        [&](const auto &value, const std::string &path) {
+            validate_resolved(report, value, provenance, path);
+        });
+    validate_legacy_fixed_crank_loss_domains(report, profile.fixed_crank_loss, engine);
+}
+
 } // namespace
 
 ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                           const ProvenanceLedger &provenance) {
     ValidationReport report;
     std::visit(
-        [&](const AuthoredLegacyLowOrderV1Profile &legacy) {
+        [&](const auto &typed_profile) {
+            const auto &core = typed_profile.core;
+            const auto root = profile_support::root(typed_profile);
             const auto validate_topology_field = [&](const auto &value,
                                                      const std::string &path) {
                 validate_authored(report, value, provenance, path);
@@ -1909,8 +1966,6 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                                     "authored topology reference must be canonical");
                 }
             };
-            const auto &core = legacy.core;
-            constexpr std::string_view root = kLegacyProfileRoot;
             for (std::size_t index = 0; index < core.mechanism.cylinders.size();
                  ++index) {
                 const auto &topology = core.mechanism.cylinders[index].topology;
@@ -2009,17 +2064,13 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                 }
             };
             visit_low_order_core_fields(
-                core,
+                core, root,
                 [&](const auto &value, const std::string &path) {
                     validate_authored(report, value, provenance, path);
                 },
                 cylinder_name, route_name);
-            visit_legacy_fixed_crank_loss_fields(
-                legacy.fixed_crank_loss,
-                [&](const auto &value, const std::string &path) {
-                    validate_authored(report, value, provenance, path);
-                });
-            validate_authored_domains(report, legacy);
+            validate_authored_low_order_core_domains(report, core, root);
+            validate_authored_profile_specific(report, typed_profile, provenance, root);
         },
         profile);
     return report;
@@ -2030,32 +2081,23 @@ ValidationReport validate(const ExecutablePhysicsProfile &profile,
                           const ProvenanceLedger &provenance) {
     ValidationReport report;
     std::visit(
-        [&](const LegacyLowOrderV1Profile &legacy) {
-            const auto require_legacy_method =
-                [&](const ResolvedValue<MethodIdentity> &method,
-                    std::string_view path) {
-                    detail::require(
-                        report,
-                        method.value.id == "legacy_low_order_v1" &&
-                            method.value.version == 1,
-                        ContractIssueCode::inconsistent_semantics,
-                        std::string(path) + ".value",
-                        "LegacyLowOrderV1Profile requires legacy_low_order_v1 "
-                        "method identity version 1");
-                };
-            require_legacy_method(engine.methods.mechanism, "engine.methods.mechanism");
-            require_legacy_method(engine.methods.valvetrain,
-                                  "engine.methods.valvetrain");
-            require_legacy_method(engine.methods.gas_exchange,
-                                  "engine.methods.gas_exchange");
-            require_legacy_method(engine.methods.ignition, "engine.methods.ignition");
-            require_legacy_method(engine.methods.combustion,
-                                  "engine.methods.combustion");
-            require_legacy_method(engine.methods.heat_transfer,
-                                  "engine.methods.heat_transfer");
-            require_legacy_method(engine.methods.losses, "engine.methods.losses");
-            require_legacy_method(engine.methods.excitation,
-                                  "engine.methods.excitation");
+        [&](const auto &typed_profile) {
+            const auto &core = typed_profile.core;
+            const auto root = profile_support::root(typed_profile);
+            require_legacy_low_order_method(report, engine.methods.mechanism,
+                                            "engine.methods.mechanism");
+            require_legacy_low_order_method(report, engine.methods.valvetrain,
+                                            "engine.methods.valvetrain");
+            require_legacy_low_order_method(report, engine.methods.gas_exchange,
+                                            "engine.methods.gas_exchange");
+            require_legacy_low_order_method(report, engine.methods.ignition,
+                                            "engine.methods.ignition");
+            require_legacy_low_order_method(report, engine.methods.combustion,
+                                            "engine.methods.combustion");
+            require_legacy_low_order_method(report, engine.methods.heat_transfer,
+                                            "engine.methods.heat_transfer");
+            require_legacy_low_order_method(report, engine.methods.excitation,
+                                            "engine.methods.excitation");
 
             const auto cylinder_namer = [&](const auto &item) {
                 if constexpr (requires { item.topology.cylinder_id; }) {
@@ -2072,17 +2114,14 @@ ValidationReport validate(const ExecutablePhysicsProfile &profile,
                 }
             };
             visit_low_order_core_fields(
-                legacy.core,
+                core, root,
                 [&](const auto &value, const std::string &path) {
                     validate_resolved(report, value, provenance, path);
                 },
                 cylinder_namer, route_namer);
-            visit_legacy_fixed_crank_loss_fields(
-                legacy.fixed_crank_loss,
-                [&](const auto &value, const std::string &path) {
-                    validate_resolved(report, value, provenance, path);
-                });
-            validate_domains(report, legacy, engine, provenance);
+            validate_low_order_core_domains(report, core, engine, provenance, root);
+            validate_resolved_profile_specific(report, typed_profile, engine,
+                                               provenance, root);
         },
         profile);
     return report;
