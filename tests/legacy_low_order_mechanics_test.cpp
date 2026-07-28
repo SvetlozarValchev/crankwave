@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <exception>
@@ -407,6 +408,36 @@ void test_mechanics_accepts_compiled_held_speed_schedule() {
            "held-speed schedule changed while entering mechanics");
 }
 
+void test_mechanics_uniform_limiter_disabled_policy() {
+    MechanicsFixture fixture;
+    for (auto &point : fixture.scenario.operating_state.value) {
+        point.state.limiter_enabled = false;
+    }
+
+    auto session = require_session(compile_fixture(fixture));
+    for (std::uint64_t index = 0; index < 4U; ++index) {
+        auto result = session.advance();
+        const auto &step = require_step(result);
+        expect(step.sample_index == index && !step.operating_state.limiter_enabled &&
+                   !step.limiter_cut_active &&
+                   std::bit_cast<std::uint64_t>(step.limiter_timer_s) ==
+                       std::bit_cast<std::uint64_t>(0.0),
+               "disabled limiter did not remain canonical inactive positive zero");
+        expect(std::none_of(step.events.begin(), step.events.end(),
+                            [](const auto &event) {
+                                return std::holds_alternative<LimiterStateChanged>(
+                                    event.payload);
+                            }),
+               "disabled limiter emitted a limiter-state transition");
+        if (index == 0U) {
+            expect(
+                step.cylinders.front().spark_crossed && step.events.size() == 1U &&
+                    std::holds_alternative<SparkCrossing>(step.events.front().payload),
+                "disabled limiter suppressed the admitted overspeed spark");
+        }
+    }
+}
+
 void test_mechanics_compile_rejections() {
     {
         MechanicsFixture fixture;
@@ -462,6 +493,7 @@ void run_tests() {
     test_limiter_strict_threshold_and_timer_edges();
     test_mechanics_session_step_order_and_completion();
     test_mechanics_accepts_compiled_held_speed_schedule();
+    test_mechanics_uniform_limiter_disabled_policy();
     test_mechanics_compile_rejections();
 }
 

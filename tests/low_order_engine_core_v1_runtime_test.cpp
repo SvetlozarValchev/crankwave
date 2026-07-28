@@ -1,6 +1,9 @@
+#include "contract_test_support.hpp"
+#include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
 #include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -174,10 +177,83 @@ void test_core_ignores_capture_transport_policy() {
            "capture transport policy leaked into the shared physics core");
 }
 
+void test_canonical_bmw_operating_profile_uses_limiter_disabled_core() {
+    auto profile_result = profiles::make_bmw_m52b28_operating_profile();
+    const auto *profile =
+        std::get_if<profiles::BmwM52b28OperatingProfile>(&profile_result);
+    if (profile == nullptr) {
+        fail_report("canonical BMW operating profile was rejected",
+                    std::get<contract::ValidationReport>(profile_result));
+    }
+    const auto &operating = std::get<contract::LowOrderOperatingPointV1Profile>(
+        profile->engine.physics_profile);
+
+    contract::test::InputBuilder builder;
+    auto scenario = contract::test::make_scenario(builder, profile->engine);
+    scenario.scenario_id = "bmw-m52b28-operating-core-limiter-disabled";
+    scenario.fuel.fuel_id.value = operating.core.fuel.fuel_id.value;
+    scenario.fuel.lower_heating_value_j_per_kg.value =
+        operating.core.fuel.energy_density_j_per_kg.value;
+    scenario.fuel.stoichiometric_air_fuel_mass_ratio.value =
+        operating.core.fuel.molecular_afr.value;
+    scenario.initial_thermal_state.oil_temperature_k.value =
+        operating.aggregate_loss.required_oil_temperature_k.value;
+    scenario.preparation = contract::ConvergenceSettling{
+        builder.resolved(
+            contract::adjacent_cycle_block_mean_convergence_method_identity(),
+            "scenario.preparation.method"),
+        builder.resolved(0.0, "scenario.preparation.minimum_warm_up_duration_s"),
+        builder.resolved(0.0, "scenario.preparation.minimum_settling_duration_s"),
+        builder.resolved(0.0004, "scenario.preparation.maximum_preparation_duration_s"),
+        builder.resolved<std::uint32_t>(1U,
+                                        "scenario.preparation.comparison_cycle_count"),
+        builder.resolved(1.0, "scenario.preparation.cycle_mean_torque_tolerance_nm"),
+        builder.resolved(50.0, "scenario.preparation.pressure_tolerance_pa"),
+    };
+    scenario.operating_state.value = {
+        {
+            "held-running",
+            0.0,
+            {true, true, false, true, false},
+        },
+    };
+    scenario.total_duration_s.value = 0.001;
+    scenario.audible_start_s.value = 0.0004;
+    scenario.audible_duration_s.value = 0.0006;
+    scenario.mode = contract::HeldSpeed{
+        builder.resolved(kRpm, "scenario.mode.engine_speed_rpm"),
+        builder.resolved(operating.core.mechanism.crank.crank_tdc_reference_rad.value,
+                         "scenario.mode.initial_theta_rad"),
+        builder.resolved(0.85, "scenario.mode.throttle_01"),
+    };
+
+    const auto pairing = contract::validate_for_engine(scenario, profile->engine);
+    if (!pairing.ok()) {
+        fail_report("canonical BMW held operating scenario was rejected", pairing);
+    }
+    auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
+        profile->engine, scenario, operating.core));
+    auto result = runtime.advance();
+    const auto *step = std::get_if<simulation::LowOrderEngineCoreV1StepView>(&result);
+    expect(step != nullptr, "canonical BMW operating core produced no first step");
+    const auto &mechanics = step->mechanics.get();
+    expect(!mechanics.operating_state.limiter_enabled &&
+               !mechanics.limiter_cut_active && mechanics.limiter_timer_s == 0.0 &&
+               !std::signbit(mechanics.limiter_timer_s) &&
+               std::none_of(
+                   mechanics.events.begin(), mechanics.events.end(),
+                   [](const auto &event) {
+                       return std::holds_alternative<contract::LimiterStateChanged>(
+                           event.payload);
+                   }),
+           "canonical BMW operating core did not preserve disabled-limiter state");
+}
+
 void run_tests() {
     test_prescribed_transaction_and_stable_completion();
     test_held_speed_reuses_core_without_m3_loss_policy();
     test_core_ignores_capture_transport_policy();
+    test_canonical_bmw_operating_profile_uses_limiter_disabled_core();
 }
 
 } // namespace

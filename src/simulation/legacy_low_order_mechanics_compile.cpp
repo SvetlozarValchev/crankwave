@@ -81,13 +81,20 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
             ContractIssueCode::unsupported_value, "schedule.initial_theta_rad",
             "legacy fresh state requires initial cycle angle equal to the crank TDC "
             "reference");
-    for (std::size_t index = 0; index < scenario.operating_state.value.size();
+    bool limiter_enabled = false;
+    if (!scenario.operating_state.value.empty()) {
+        limiter_enabled = scenario.operating_state.value.front().state.limiter_enabled;
+    }
+    for (std::size_t index = 1; index < scenario.operating_state.value.size();
          ++index) {
-        require(report, scenario.operating_state.value[index].state.limiter_enabled,
+        require(report,
+                scenario.operating_state.value[index].state.limiter_enabled ==
+                    limiter_enabled,
                 ContractIssueCode::unsupported_value,
                 "scenario.operating_state.value[" + std::to_string(index) +
                     "].state.limiter_enabled",
-                "legacy_low_order_v1 has no admitted limiter-disabled behavior");
+                "limiter_enabled must remain constant for the complete scenario; "
+                "within-scenario limiter-policy transitions are not admitted");
     }
 
     require(report, std::isfinite(crank.crank_tdc_reference_rad.value),
@@ -262,6 +269,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
         ignition.timing_curve_triangle_radius_rad_s.value,
         ignition.limiter_speed_rpm.value,
         ignition.limiter_hold_s.value,
+        limiter_enabled,
         engine.methods.mechanism.value.id,
         engine.profile_id.value,
         scenario.scenario_id,

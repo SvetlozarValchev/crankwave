@@ -112,8 +112,9 @@ class LegacyLowOrderMechanicsSession final {
         double crank_tdc_reference_rad, double initial_theta_cycle_rad,
         std::vector<CylinderModel> cylinders,
         std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
-        double limiter_speed_rpm, double limiter_hold_s, std::string model_id,
-        std::string profile_id, std::string scenario_id, contract::EngineId engine_id);
+        double limiter_speed_rpm, double limiter_hold_s, bool limiter_enabled,
+        std::string model_id, std::string profile_id, std::string scenario_id,
+        contract::EngineId engine_id);
 
     [[nodiscard]] contract::FailureContext
     fault(contract::FailureKind kind, std::string detail_code,
@@ -133,6 +134,7 @@ class LegacyLowOrderMechanicsSession final {
     double timing_curve_radius_rad_s_ = 0.0;
     double limiter_speed_rpm_ = 0.0;
     double limiter_hold_s_ = 0.0;
+    bool limiter_enabled_ = false;
     std::string model_id_;
     std::string profile_id_;
     std::string scenario_id_;

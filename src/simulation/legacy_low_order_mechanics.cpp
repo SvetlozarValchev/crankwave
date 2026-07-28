@@ -33,8 +33,8 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
     double crank_tdc_reference_rad, double initial_theta_cycle_rad,
     std::vector<CylinderModel> cylinders, std::vector<LegacyTrianglePoint> timing_curve,
     double timing_curve_radius_rad_s, double limiter_speed_rpm, double limiter_hold_s,
-    std::string model_id, std::string profile_id, std::string scenario_id,
-    contract::EngineId engine_id)
+    bool limiter_enabled, std::string model_id, std::string profile_id,
+    std::string scenario_id, contract::EngineId engine_id)
     : scenario_cursor_(std::move(scenario_cursor)), rate_(rate),
       crank_tdc_reference_rad_(crank_tdc_reference_rad), step_s_(1.0 / 10000.0),
       filter_alpha_(step_s_ / (100.0 + step_s_)), cylinders_(std::move(cylinders)),
@@ -42,9 +42,9 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
       timing_curve_(std::move(timing_curve)),
       timing_curve_radius_rad_s_(timing_curve_radius_rad_s),
       limiter_speed_rpm_(limiter_speed_rpm), limiter_hold_s_(limiter_hold_s),
-      model_id_(std::move(model_id)), profile_id_(std::move(profile_id)),
-      scenario_id_(std::move(scenario_id)), engine_id_(engine_id),
-      theta_cycle_rad_(initial_theta_cycle_rad),
+      limiter_enabled_(limiter_enabled), model_id_(std::move(model_id)),
+      profile_id_(std::move(profile_id)), scenario_id_(std::move(scenario_id)),
+      engine_id_(engine_id), theta_cycle_rad_(initial_theta_cycle_rad),
       theta_unwrapped_rad_(initial_theta_cycle_rad),
       ignition_saved_angle_rad_(initial_theta_cycle_rad) {
     cylinder_model_view_.reserve(cylinders_.size());
@@ -164,30 +164,39 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance() {
         }
     }
 
-    const auto limiter =
-        update_legacy_limiter(limiter_timer_s_, step_s_, step_.omega_legacy_rad_s,
-                              limiter_speed_rpm_, limiter_hold_s_);
-    limiter_timer_s_ = limiter.timer_s;
-    step_.limiter_timer_s = limiter_timer_s_;
-    step_.limiter_cut_active = limiter.new_active;
-    if (limiter.old_active != limiter.new_active) {
-        if (step_.events.size() == maximum_event_count_) {
-            terminal_fault_ =
-                fault(contract::FailureKind::event_schedule_violation,
-                      "legacy-mechanics-event-capacity-exceeded",
-                      "limiter transition exceeded the compiled per-step event "
-                      "capacity");
-            return *terminal_fault_;
+    if (limiter_enabled_) {
+        const auto limiter =
+            update_legacy_limiter(limiter_timer_s_, step_s_, step_.omega_legacy_rad_s,
+                                  limiter_speed_rpm_, limiter_hold_s_);
+        limiter_timer_s_ = limiter.timer_s;
+        step_.limiter_timer_s = limiter_timer_s_;
+        step_.limiter_cut_active = limiter.new_active;
+        if (limiter.old_active != limiter.new_active) {
+            if (step_.events.size() == maximum_event_count_) {
+                terminal_fault_ =
+                    fault(contract::FailureKind::event_schedule_violation,
+                          "legacy-mechanics-event-capacity-exceeded",
+                          "limiter transition exceeded the compiled per-step event "
+                          "capacity");
+                return *terminal_fault_;
+            }
+            step_.events.push_back({
+                static_cast<std::uint8_t>(step_.events.size()),
+                contract::LimiterStateChanged{
+                    limiter.old_active,
+                    limiter.new_active,
+                    limiter.overspeed_refreshed,
+                    limiter.timer_s,
+                },
+            });
         }
-        step_.events.push_back({
-            static_cast<std::uint8_t>(step_.events.size()),
-            contract::LimiterStateChanged{
-                limiter.old_active,
-                limiter.new_active,
-                limiter.overspeed_refreshed,
-                limiter.timer_s,
-            },
-        });
+    } else {
+        // Disabled is a compiled scenario policy, not a per-step transition. Keep
+        // the observable state at canonical positive zero and publish no limiter
+        // transition event.
+        limiter_timer_s_ = 0.0;
+        step_.limiter_timer_s = 0.0;
+        step_.limiter_cut_active = false;
     }
     ignition_saved_angle_rad_ = theta_cycle_rad_;
 
