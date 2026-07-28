@@ -106,6 +106,22 @@ compile_presentation_job(const RenderSpecification &specification,
     auto request = make_render_request_record(specification, scenario);
     const auto &inputs = request.resolved_inputs;
 
+    // Admit and retain the numeric identity before any IR conversion, FFT
+    // construction, or simulation compilation can perform floating-point work.
+    // Source/runtime identity remains below so a structurally unsupported pipeline
+    // keeps its more specific failure precedence.
+    const auto numeric_before_compilation = determinism::renderer_numeric_environment();
+    const auto *admitted_numeric = std::get_if<determinism::RendererNumericEnvironment>(
+        &numeric_before_compilation);
+    if (admitted_numeric == nullptr) {
+        return compiler_failure(
+            std::move(request), contract::FailureKind::contract_violation,
+            "renderer-numeric-environment-not-admitted",
+            "the calling thread cannot compile a presentation job under the "
+            "required renderer numeric environment");
+    }
+    const auto compiled_numeric_identity = *admitted_numeric;
+
     auto calibration_result = presentation::compile_presentation_calibration(
         inputs.presentation, inputs.engine, inputs.scenario, request.provenance);
     if (std::holds_alternative<presentation::PresentationCalibrationCompileError>(
@@ -269,6 +285,20 @@ compile_presentation_job(const RenderSpecification &specification,
     auto excitation = std::get<excitation::CapturedExhaustExcitationSession>(
         std::move(excitation_result));
 
+    // Compilation itself is inside the numeric identity boundary. A control change
+    // during asset/kernel/session construction invalidates the job rather than
+    // sealing values computed under two environments.
+    const auto numeric_after_compilation = determinism::renderer_numeric_environment();
+    const auto *observed_numeric = std::get_if<determinism::RendererNumericEnvironment>(
+        &numeric_after_compilation);
+    if (observed_numeric == nullptr || *observed_numeric != compiled_numeric_identity) {
+        return compiler_failure(
+            std::move(request), contract::FailureKind::contract_violation,
+            "renderer-numeric-environment-changed-during-compilation",
+            "the renderer numeric environment changed after identity admission and "
+            "before the opaque job was sealed");
+    }
+
     auto determinism_result = determinism::renderer_determinism_envelope();
     if (!std::holds_alternative<determinism::RendererDeterminismEnvelope>(
             determinism_result)) {
@@ -285,6 +315,13 @@ compile_presentation_job(const RenderSpecification &specification,
             std::move(request), contract::FailureKind::contract_violation,
             "renderer-identity-not-production",
             "a non-production renderer observation cannot authorize publication");
+    }
+    if (determinism.numeric_environment() != compiled_numeric_identity) {
+        return compiler_failure(
+            std::move(request), contract::FailureKind::contract_violation,
+            "renderer-numeric-identity-disagreed",
+            "the renderer identity disagreed with the numeric environment retained "
+            "across presentation-job compilation");
     }
 
     contract::RenderManifestContent manifest_basis;

@@ -141,5 +141,13 @@ inline constexpr std::uint32_t kRequiredMxcsrControl = 0x1f80U;
 inline constexpr std::uint16_t kX87ControlMask = 0x0f3fU;
 inline constexpr std::uint16_t kRequiredX87Control = 0x033fU;
 
+// Execution callbacks are outside the renderer's trust boundary and may alter the
+// calling thread's controls before returning or throwing. This is intentionally
+// separate from the read-only observer above: the render coordinator calls it only
+// while unwinding an already-admitted production transaction. Sticky exception
+// status is preserved; only result-affecting controls and the required CPUID setting
+// are restored.
+void restore_admitted_renderer_numeric_controls() noexcept;
+
 } // namespace detail
 } // namespace engine_sim_offline::determinism

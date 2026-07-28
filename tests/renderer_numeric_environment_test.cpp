@@ -20,6 +20,7 @@ static_assert(noexcept(observe_current_thread_renderer_numeric_environment()));
 static_assert(noexcept(
     validate_renderer_numeric_environment(RendererNumericEnvironmentSnapshot{})));
 static_assert(noexcept(renderer_numeric_environment()));
+static_assert(noexcept(detail::restore_admitted_renderer_numeric_controls()));
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -466,6 +467,34 @@ void test_live_cpuid_rejection_restores_state_when_supported() {
     (void)admitted_live_snapshot();
 }
 
+void test_explicit_execution_control_recovery() {
+    ScopedNumericState restore;
+    const auto admitted = admitted_live_snapshot();
+
+    auto hostile_mxcsr = read_mxcsr();
+    hostile_mxcsr |= (1U << 15U) | (1U << 6U) | (1U << 13U);
+    write_mxcsr(hostile_mxcsr);
+    write_x87_control_word(
+        static_cast<std::uint16_t>((read_x87_control_word() & ~0x0f3fU) | 0x073fU));
+    expect(std::holds_alternative<RendererNumericEnvironmentError>(
+               renderer_numeric_environment()),
+           "hostile execution controls were not installed");
+
+    detail::restore_admitted_renderer_numeric_controls();
+    const auto recovered = observe_current_thread_renderer_numeric_environment();
+    expect((recovered.mxcsr & detail::kMxcsrControlMask) ==
+                   detail::kRequiredMxcsrControl &&
+               (recovered.x87_control_word & detail::kX87ControlMask) ==
+                   detail::kRequiredX87Control &&
+               recovered.cpuid_enabled,
+           "execution recovery did not restore admitted result-affecting controls");
+    expect(std::holds_alternative<RendererNumericEnvironment>(
+               validate_renderer_numeric_environment(recovered)),
+           "restored execution controls were not admitted");
+    expect(recovered.build_policy == admitted.build_policy,
+           "execution recovery changed the compiled numeric policy");
+}
+
 } // namespace
 
 int main() {
@@ -477,4 +506,5 @@ int main() {
     test_live_x87_rejection_restores_state();
     test_live_sticky_status_is_observed_and_preserved();
     test_live_cpuid_rejection_restores_state_when_supported();
+    test_explicit_execution_control_recovery();
 }

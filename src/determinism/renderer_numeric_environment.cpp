@@ -96,6 +96,14 @@ failure(RendererNumericEnvironmentErrorCode code, std::string_view component,
     __asm__ volatile("fnstsw %0" : "=am"(value));
     return value;
 }
+
+void write_mxcsr(std::uint32_t value) noexcept {
+    __asm__ volatile("ldmxcsr %0" : : "m"(value));
+}
+
+void write_x87_control_word(std::uint16_t value) noexcept {
+    __asm__ volatile("fldcw %0" : : "m"(value));
+}
 #endif
 
 } // namespace
@@ -269,5 +277,27 @@ RendererNumericEnvironmentResult renderer_numeric_environment() noexcept {
     return validate_renderer_numeric_environment(
         observe_current_thread_renderer_numeric_environment());
 }
+
+namespace detail {
+
+void restore_admitted_renderer_numeric_controls() noexcept {
+#if defined(__linux__) && defined(__x86_64__)
+    // Integer register manipulation and the two control-register loads must happen
+    // before any failure wrapper performs floating-point work. Preserve sticky
+    // status flags while restoring every result-affecting MXCSR/x87 control bit.
+    const auto mxcsr = (read_mxcsr() & ~kMxcsrControlMask) | kRequiredMxcsrControl;
+    write_mxcsr(mxcsr);
+
+    const auto x87_control = static_cast<std::uint16_t>(
+        (read_x87_control_word() & ~kX87ControlMask) | kRequiredX87Control);
+    write_x87_control_word(x87_control);
+
+    const int saved_errno = errno;
+    (void)::syscall(SYS_arch_prctl, ARCH_SET_CPUID, 1UL);
+    errno = saved_errno;
+#endif
+}
+
+} // namespace detail
 
 } // namespace engine_sim_offline::determinism

@@ -85,6 +85,17 @@ class FirstCause final {
     FirstCauseValue value_;
 };
 
+class NumericControlRecovery final {
+  public:
+    NumericControlRecovery() = default;
+    NumericControlRecovery(const NumericControlRecovery &) = delete;
+    NumericControlRecovery &operator=(const NumericControlRecovery &) = delete;
+
+    ~NumericControlRecovery() noexcept {
+        determinism::detail::restore_admitted_renderer_numeric_controls();
+    }
+};
+
 [[nodiscard]] double scenario_time(std::uint64_t sample_index) noexcept {
     return static_cast<double>(sample_index) / 10000.0;
 }
@@ -168,10 +179,15 @@ revalidate_numeric_environment(const determinism::RendererNumericEnvironment &ex
     auto observed = determinism::renderer_numeric_environment();
     if (auto *error =
             std::get_if<determinism::RendererNumericEnvironmentError>(&observed)) {
-        return NumericEnvironmentFailure{boundary, *error, sample_index};
+        const auto failure = NumericEnvironmentFailure{boundary, *error, sample_index};
+        determinism::detail::restore_admitted_renderer_numeric_controls();
+        return failure;
     }
     if (std::get<determinism::RendererNumericEnvironment>(observed) != expected) {
-        return NumericEnvironmentFailure{boundary, std::nullopt, sample_index};
+        const auto failure =
+            NumericEnvironmentFailure{boundary, std::nullopt, sample_index};
+        determinism::detail::restore_admitted_renderer_numeric_controls();
+        return failure;
     }
     return std::nullopt;
 }
@@ -212,10 +228,21 @@ exception_failure(contract::RenderRequestRecord request, ExecutionStage stage,
         const auto kind = sink_error.kind == RenderSinkErrorKind::publication_failure
                               ? contract::FailureKind::artifact_publication_failure
                               : contract::FailureKind::contract_violation;
+        const auto detail_code =
+            contract::is_valid_semantic_id(sink_error.detail_code)
+                ? sink_error.detail_code
+                : std::string{sink_error.kind ==
+                                      RenderSinkErrorKind::publication_failure
+                                  ? "render-sink-publication-failed"
+                                  : "render-sink-protocol-violated"};
+        const auto invalid_detail =
+            contract::is_valid_semantic_id(sink_error.detail_code)
+                ? std::string{}
+                : "; rejected sink detail code=" + sink_error.detail_code;
         return make_job_failure(
-            std::move(request), kind, sink_error.detail_code,
-            "compiled-presentation-job-v1",
-            std::string(stage_name(stage)) + " sink failure: " + sink_error.message,
+            std::move(request), kind, detail_code, "compiled-presentation-job-v1",
+            std::string(stage_name(stage)) + " sink failure: " + sink_error.message +
+                invalid_detail,
             sample_index, sample_index, scenario_time(sample_index));
     } catch (const std::bad_alloc &) {
         return make_job_failure(
@@ -301,6 +328,7 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
         throw std::logic_error{"compiled presentation job was already consumed"};
     }
     auto implementation = std::move(implementation_);
+    NumericControlRecovery recover_numeric_controls_at_exit;
 
     if (control.stop_token.stop_requested()) {
         return cancellation_failure(
@@ -361,90 +389,102 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
             std::optional<simulation::LegacySimulationAdvanceResult> simulation_result;
 
             stage = ExecutionStage::simulation;
-            simulation_result.emplace(implementation->simulation.publish_next_block(
-                [&](const contract::CaptureBlockView &capture) -> bool {
-                    if (first_cause.present()) {
-                        return false;
-                    }
-
-                    if (capture.clock().first_sample_index != expected_first_frame ||
-                        capture.frame_count() !=
-                            presentation::AdmittedPresentationCalibration::
-                                capture_frames_per_block) {
-                        first_cause.record(CoordinatorFailure{
-                            contract::FailureKind::contract_violation,
-                            "simulation-capture-extent-disagreed",
-                            "the simulation callback extent disagreed with the "
-                            "opaque job block identity",
-                            expected_first_frame,
-                        });
-                        return false;
-                    }
-
-                    try {
-                        auto excitation_result = implementation->excitation.process_block(
-                            capture,
-                            [&](const presentation::ExhaustExcitationBlockView
-                                    &excitation_block,
-                                const excitation::ExhaustExcitationDiagnosticBlockView
-                                    &) -> bool {
-                                try {
-                                    presentation.process(excitation_block);
-                                    if (const auto failure =
-                                            revalidate_numeric_environment(
-                                                implementation->determinism
-                                                    .numeric_environment(),
-                                                "presentation block callback",
-                                                expected_first_frame +
-                                                    presentation::
-                                                        AdmittedPresentationCalibration::
-                                                            capture_frames_per_block)) {
-                                        first_cause.record(*failure);
-                                        return false;
-                                    }
-                                    return true;
-                                } catch (...) {
-                                    first_cause.record(ExecutionStage::presentation,
-                                                       std::current_exception());
-                                    return false;
-                                }
-                            });
-
-                        if (auto *failure = std::get_if<contract::FailureContext>(
-                                &excitation_result)) {
-                            first_cause.record(std::move(*failure));
+            try {
+                simulation_result.emplace(implementation->simulation.publish_next_block(
+                    [&](const contract::CaptureBlockView &capture) -> bool {
+                        if (first_cause.present()) {
                             return false;
                         }
 
-                        const auto &published =
-                            std::get<excitation::ExhaustExcitationBlockPublished>(
-                                excitation_result);
-                        const auto expected_end =
-                            expected_first_frame +
-                            presentation::AdmittedPresentationCalibration::
-                                capture_frames_per_block;
-                        if (published.block_ordinal != expected_block ||
-                            published.first_frame_index != expected_first_frame ||
-                            published.frame_count !=
+                        if (capture.clock().first_sample_index !=
+                                expected_first_frame ||
+                            capture.frame_count() !=
                                 presentation::AdmittedPresentationCalibration::
-                                    capture_frames_per_block ||
-                            published.published_frame_count != expected_end) {
+                                    capture_frames_per_block) {
                             first_cause.record(CoordinatorFailure{
                                 contract::FailureKind::contract_violation,
-                                "excitation-publication-extent-disagreed",
-                                "the excitation publication disagreed with the "
+                                "simulation-capture-extent-disagreed",
+                                "the simulation callback extent disagreed with the "
                                 "opaque job block identity",
                                 expected_first_frame,
                             });
                             return false;
                         }
-                        return true;
-                    } catch (...) {
-                        first_cause.record(ExecutionStage::excitation,
-                                           std::current_exception());
-                        return false;
-                    }
-                }));
+
+                        try {
+                            auto excitation_result = implementation->excitation.process_block(
+                                capture,
+                                [&](const presentation::ExhaustExcitationBlockView
+                                        &excitation_block,
+                                    const excitation::
+                                        ExhaustExcitationDiagnosticBlockView &)
+                                    -> bool {
+                                    try {
+                                        presentation.process(excitation_block);
+                                        if (const auto failure =
+                                                revalidate_numeric_environment(
+                                                    implementation->determinism
+                                                        .numeric_environment(),
+                                                    "presentation block callback",
+                                                    expected_first_frame +
+                                                        presentation::
+                                                            AdmittedPresentationCalibration::
+                                                                capture_frames_per_block)) {
+                                            first_cause.record(*failure);
+                                            return false;
+                                        }
+                                        return true;
+                                    } catch (...) {
+                                        determinism::detail::
+                                            restore_admitted_renderer_numeric_controls();
+                                        first_cause.record(ExecutionStage::presentation,
+                                                           std::current_exception());
+                                        return false;
+                                    }
+                                });
+
+                            if (auto *failure = std::get_if<contract::FailureContext>(
+                                    &excitation_result)) {
+                                first_cause.record(std::move(*failure));
+                                return false;
+                            }
+
+                            const auto &published =
+                                std::get<excitation::ExhaustExcitationBlockPublished>(
+                                    excitation_result);
+                            const auto expected_end =
+                                expected_first_frame +
+                                presentation::AdmittedPresentationCalibration::
+                                    capture_frames_per_block;
+                            if (published.block_ordinal != expected_block ||
+                                published.first_frame_index != expected_first_frame ||
+                                published.frame_count !=
+                                    presentation::AdmittedPresentationCalibration::
+                                        capture_frames_per_block ||
+                                published.published_frame_count != expected_end) {
+                                first_cause.record(CoordinatorFailure{
+                                    contract::FailureKind::contract_violation,
+                                    "excitation-publication-extent-disagreed",
+                                    "the excitation publication disagreed with the "
+                                    "opaque job block identity",
+                                    expected_first_frame,
+                                });
+                                return false;
+                            }
+                            return true;
+                        } catch (...) {
+                            determinism::detail::
+                                restore_admitted_renderer_numeric_controls();
+                            first_cause.record(ExecutionStage::excitation,
+                                               std::current_exception());
+                            return false;
+                        }
+                    }));
+            } catch (...) {
+                determinism::detail::restore_admitted_renderer_numeric_controls();
+                first_cause.record(ExecutionStage::simulation,
+                                   std::current_exception());
+            }
 
             if (first_cause.present()) {
                 return relayed_failure(
@@ -566,6 +606,7 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                             implementation->request.source_matrix);
         return contract::RenderSuccess{std::move(manifest), std::nullopt};
     } catch (...) {
+        determinism::detail::restore_admitted_renderer_numeric_controls();
         return exception_failure(std::move(implementation->request), stage,
                                  std::current_exception(),
                                  implementation->simulation.published_sample_count());
