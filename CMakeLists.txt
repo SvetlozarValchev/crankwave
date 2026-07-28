@@ -114,6 +114,7 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_profiles)
 add_library(
     engine_sim_offline_simulation
     STATIC
+        src/simulation/chen_flynn_cycle_mean_loss.cpp
         src/simulation/four_stroke_cycle_integrator.cpp
         src/simulation/legacy_combustion_primitives.cpp
         src/simulation/legacy_fixed_valvetrain.cpp
