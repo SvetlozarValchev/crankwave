@@ -172,9 +172,12 @@ void test_cleanup_and_publication_order() {
     expect(bits(cleanup_conditioned_sample(1.25)) == bits(1.25),
            "cleanup changed a normal value");
 
-    expect(bits(publish_calibrated_float32(1.0)) == UINT32_C(0x32800000) &&
-               bits(publish_calibrated_float32(-0.5)) == UINT32_C(0xb2000000) &&
-               bits(publish_calibrated_float32(0.1)) == UINT32_C(0x30cccccd),
+    expect(bits(publish_calibrated_float32(1.0, kSourcePublicationCalibration)) ==
+                   UINT32_C(0x32800000) &&
+               bits(publish_calibrated_float32(-0.5, kSourcePublicationCalibration)) ==
+                   UINT32_C(0xb2000000) &&
+               bits(publish_calibrated_float32(0.1, kSourcePublicationCalibration)) ==
+                   UINT32_C(0x30cccccd),
            "Float32 publication/calibration order changed");
 }
 
@@ -213,16 +216,25 @@ void test_invalid_and_nonfinite_inputs_fail_closed() {
         "non-finite derivative input was accepted");
     expect_throw<std::domain_error>(
         [] {
-            static_cast<void>(cleanup_conditioned_sample(
-                std::numeric_limits<double>::quiet_NaN()));
+            static_cast<void>(
+                cleanup_conditioned_sample(std::numeric_limits<double>::quiet_NaN()));
         },
         "non-finite cleanup input was accepted");
     expect_throw<std::domain_error>(
         [] {
-            static_cast<void>(
-                publish_calibrated_float32(std::numeric_limits<double>::max()));
+            static_cast<void>(publish_calibrated_float32(
+                std::numeric_limits<double>::max(), kSourcePublicationCalibration));
         },
         "overflowing Float32 publication was accepted");
+    expect_throw<std::invalid_argument>(
+        [] { static_cast<void>(publish_calibrated_float32(1.0, 0.0)); },
+        "zero publication calibration gain was accepted");
+    expect_throw<std::domain_error>(
+        [] {
+            static_cast<void>(publish_calibrated_float32(
+                1.0, std::numeric_limits<double>::quiet_NaN()));
+        },
+        "non-finite publication calibration gain was accepted");
 }
 
 void run_tests() {

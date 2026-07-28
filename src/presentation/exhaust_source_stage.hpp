@@ -12,8 +12,9 @@
 namespace engine_sim_offline::presentation {
 
 inline constexpr contract::RationalRateHz kExcitationRateHz{10000, 1};
-inline constexpr std::array<contract::RouteId, kExhaustExcitationRouteCount>
-    kExhaustExcitationRouteIds{contract::RouteId{1}, contract::RouteId{2}};
+
+using ExhaustSourceRouteIds =
+    std::array<contract::RouteId, kExhaustExcitationRouteCount>;
 
 struct RouteConditioningSeeds {
     Pcg32Seed jitter;
@@ -47,12 +48,17 @@ struct SourceBlockExtent {
 // have advanced; structural validation happens before mutation.
 class ExhaustSourceStage {
   public:
-    explicit ExhaustSourceStage(
-        std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> seeds);
+    // Route values and conditioning seeds share this exact positional order:
+    // route_seeds[i] belongs to expected_route_ids[i], and every input block must
+    // present the same ordered IDs before any stateful DSP work begins.
+    ExhaustSourceStage(
+        ExhaustSourceRouteIds expected_route_ids,
+        std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> route_seeds);
 
     [[nodiscard]] SourceBlockExtent process(ExhaustExcitationBlockView input,
                                             std::span<ConditionedSourceFrame> output);
 
+    [[nodiscard]] const ExhaustSourceRouteIds &expected_route_ids() const noexcept;
     [[nodiscard]] std::uint64_t next_input_frame_index() const noexcept;
     [[nodiscard]] std::uint64_t next_source_frame_index() const noexcept;
     [[nodiscard]] bool terminal_failed() const noexcept;
@@ -61,10 +67,13 @@ class ExhaustSourceStage {
     [[nodiscard]] std::uint64_t air_noise_rng_state(std::size_t route) const;
 
   private:
+    static ExhaustSourceRouteIds
+    validate_route_ids(ExhaustSourceRouteIds expected_route_ids);
     static std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount>
     validate_seeds(
         std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> seeds);
 
+    ExhaustSourceRouteIds expected_route_ids_;
     std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> seeds_;
     CausalReconstruction reconstruction_;
     std::array<RouteConditioner, kExhaustExcitationRouteCount> conditioners_;

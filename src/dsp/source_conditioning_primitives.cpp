@@ -128,15 +128,19 @@ double cleanup_conditioned_sample(double sample) {
     return sample;
 }
 
-float publish_calibrated_float32(double sample) {
+float publish_calibrated_float32(double sample, double calibration_gain_linear) {
     require_finite(sample, "publication input was non-finite");
+    require_finite(calibration_gain_linear,
+                   "publication calibration gain was non-finite");
+    if (calibration_gain_linear <= 0.0) {
+        throw std::invalid_argument{"publication calibration gain must be positive"};
+    }
     const float published = static_cast<float>(sample);
     if (!std::isfinite(published)) {
         throw std::domain_error{
             "publication overflowed during binary64-to-Float32 conversion"};
     }
-    const double calibrated =
-        static_cast<double>(published) * kSourcePublicationCalibration;
+    const double calibrated = static_cast<double>(published) * calibration_gain_linear;
     const float output = static_cast<float>(calibrated);
     if (!std::isfinite(output)) {
         throw std::domain_error{"calibrated publication was non-finite"};

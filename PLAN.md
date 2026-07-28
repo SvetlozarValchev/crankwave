@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — M4 held-speed brake dyno
+Status: implementation — M4 admitted presentation-job compiler
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-28
 
@@ -481,6 +481,15 @@ replacement starts before acceptance.
 
 ### M4 — Operating regression set
 
+- [x] Generalize the bounded, non-publishing presentation session to explicit
+      block-aligned timelines, route-owned artifacts, route-bound seeds/IR/wet mix,
+      mastering settings, bounded INFO annotations, and an explicit convolution-tail
+      policy while preserving every canonical BMW artifact hash. Keep commit
+      unavailable while public `render()` remains fail-closed.
+- [ ] Compile one opaque presentation job from the admitted render specification,
+      scenario, verified asset payloads, seed derivation, and renderer identity. It
+      must own both the executable values and matching manifest basis; only then
+      restore atomic publication without accepting a second caller-built description.
 - [ ] Add the held-speed brake dyno.
 - [ ] Render a modest BMW torque sweep with declared conditions and sourced plausibility
       bounds.

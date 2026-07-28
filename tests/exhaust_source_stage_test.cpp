@@ -17,6 +17,11 @@ namespace {
 using namespace engine_sim_offline;
 using namespace engine_sim_offline::presentation;
 
+constexpr ExhaustSourceRouteIds kCanonicalRouteIds{
+    contract::RouteId{1},
+    contract::RouteId{2},
+};
+
 constexpr std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> kFrozenSeeds{
     RouteConditioningSeeds{
         {UINT64_C(0x9e2b91cd0dc51cfc), UINT64_C(0x1ae6ee3019603abb)},
@@ -53,7 +58,7 @@ ExhaustExcitationBlockView
 make_view(std::uint64_t first_frame_index, Frames &frames,
           contract::RationalRateHz rate = kExcitationRateHz,
           std::array<contract::RouteId, kExhaustExcitationRouteCount> route_ids =
-              kExhaustExcitationRouteIds) {
+              kCanonicalRouteIds) {
     return ExhaustExcitationBlockView::borrow_for_callback(first_frame_index, rate,
                                                            route_ids, frames);
 }
@@ -111,7 +116,9 @@ void test_exact_block_extent_and_component_wiring() {
     fill_block(input, 0);
     std::vector<ConditionedSourceFrame> actual(kSourceFramesPerMethodBlock);
 
-    ExhaustSourceStage stage{kFrozenSeeds};
+    ExhaustSourceStage stage{kCanonicalRouteIds, kFrozenSeeds};
+    expect(stage.expected_route_ids() == kCanonicalRouteIds,
+           "source stage did not retain its ordered route binding");
     const auto extent = stage.process(make_view(0, input), actual);
     expect(extent ==
                    SourceBlockExtent{
@@ -141,14 +148,41 @@ void test_exact_block_extent_and_component_wiring() {
            "source stage changed per-route random consumption");
 }
 
+void test_explicit_route_ids_preserve_positional_seed_binding() {
+    constexpr ExhaustSourceRouteIds custom_route_ids{
+        contract::RouteId{41},
+        contract::RouteId{7},
+    };
+    std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> input{};
+    fill_block(input, 0);
+
+    ExhaustSourceStage canonical{kCanonicalRouteIds, kFrozenSeeds};
+    ExhaustSourceStage custom{custom_route_ids, kFrozenSeeds};
+    std::vector<ConditionedSourceFrame> canonical_output(kSourceFramesPerMethodBlock);
+    std::vector<ConditionedSourceFrame> custom_output(kSourceFramesPerMethodBlock);
+    static_cast<void>(canonical.process(make_view(0, input), canonical_output));
+    static_cast<void>(custom.process(
+        make_view(0, input, kExcitationRateHz, custom_route_ids), custom_output));
+
+    expect(custom.expected_route_ids() == custom_route_ids,
+           "source stage changed its explicitly configured route order");
+    expect_same_output(custom_output, canonical_output,
+                       "route identities changed positional signal or seed ownership");
+    expect(custom.jitter_rng_state(0) == canonical.jitter_rng_state(0) &&
+               custom.air_noise_rng_state(0) == canonical.air_noise_rng_state(0) &&
+               custom.jitter_rng_state(1) == canonical.jitter_rng_state(1) &&
+               custom.air_noise_rng_state(1) == canonical.air_noise_rng_state(1),
+           "route identities changed positional random-stream ownership");
+}
+
 void test_block_continuity_and_session_isolation() {
     std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> block_0{};
     std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> block_1{};
     fill_block(block_0, 0);
     fill_block(block_1, 1);
 
-    ExhaustSourceStage first{kFrozenSeeds};
-    ExhaustSourceStage interleaved{kFrozenSeeds};
+    ExhaustSourceStage first{kCanonicalRouteIds, kFrozenSeeds};
+    ExhaustSourceStage interleaved{kCanonicalRouteIds, kFrozenSeeds};
     std::vector<ConditionedSourceFrame> first_0(kSourceFramesPerMethodBlock);
     std::vector<ConditionedSourceFrame> first_1(kSourceFramesPerMethodBlock);
     std::vector<ConditionedSourceFrame> other_0(kSourceFramesPerMethodBlock);
@@ -188,9 +222,15 @@ void test_structural_rejections_do_not_mutate_state() {
     std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> valid{};
     fill_block(valid, 0);
     std::vector<ConditionedSourceFrame> output(kSourceFramesPerMethodBlock);
-    ExhaustSourceStage candidate{kFrozenSeeds};
+    ExhaustSourceStage candidate{kCanonicalRouteIds, kFrozenSeeds};
+    const std::array initial_rng_states{
+        candidate.jitter_rng_state(0),
+        candidate.air_noise_rng_state(0),
+        candidate.jitter_rng_state(1),
+        candidate.air_noise_rng_state(1),
+    };
 
-    auto wrong_routes = kExhaustExcitationRouteIds;
+    auto wrong_routes = kCanonicalRouteIds;
     std::swap(wrong_routes[0], wrong_routes[1]);
     expect_throw<std::invalid_argument>(
         [&] {
@@ -233,8 +273,16 @@ void test_structural_rejections_do_not_mutate_state() {
     expect(candidate.next_input_frame_index() == 0 &&
                candidate.next_source_frame_index() == 0 && !candidate.terminal_failed(),
            "source-stage structural rejection mutated session state");
+    expect(
+        std::array{
+            candidate.jitter_rng_state(0),
+            candidate.air_noise_rng_state(0),
+            candidate.jitter_rng_state(1),
+            candidate.air_noise_rng_state(1),
+        } == initial_rng_states,
+        "source-stage structural rejection advanced a route-owned RNG");
 
-    ExhaustSourceStage fresh{kFrozenSeeds};
+    ExhaustSourceStage fresh{kCanonicalRouteIds, kFrozenSeeds};
     std::vector<ConditionedSourceFrame> fresh_output(kSourceFramesPerMethodBlock);
     static_cast<void>(candidate.process(make_view(0, valid), output));
     static_cast<void>(fresh.process(make_view(0, valid), fresh_output));
@@ -244,19 +292,31 @@ void test_structural_rejections_do_not_mutate_state() {
 }
 
 void test_invalid_seed_ownership_and_terminal_arithmetic_failure() {
+    auto invalid_route_ids = kCanonicalRouteIds;
+    invalid_route_ids[0] = {};
+    expect_throw<std::invalid_argument>(
+        [&] { ExhaustSourceStage invalid{invalid_route_ids, kFrozenSeeds}; },
+        "source stage accepted an invalid route identity");
+
+    auto duplicate_route_ids = kCanonicalRouteIds;
+    duplicate_route_ids[1] = duplicate_route_ids[0];
+    expect_throw<std::invalid_argument>(
+        [&] { ExhaustSourceStage invalid{duplicate_route_ids, kFrozenSeeds}; },
+        "source stage accepted duplicate route identities");
+
     auto duplicate_seeds = kFrozenSeeds;
     duplicate_seeds[1].air_noise.stream = duplicate_seeds[0].jitter.stream;
     duplicate_seeds[1].air_noise.initial_state =
         duplicate_seeds[0].jitter.initial_state + UINT64_C(1);
     expect_throw<std::invalid_argument>(
-        [&] { ExhaustSourceStage invalid{duplicate_seeds}; },
+        [&] { ExhaustSourceStage invalid{kCanonicalRouteIds, duplicate_seeds}; },
         "source stage accepted one selector for two random-stream owners");
 
     auto oversized_stream = kFrozenSeeds;
     oversized_stream[0].jitter.stream =
         (std::numeric_limits<std::uint64_t>::max() >> 1U) + UINT64_C(1);
     expect_throw<std::invalid_argument>(
-        [&] { ExhaustSourceStage invalid{oversized_stream}; },
+        [&] { ExhaustSourceStage invalid{kCanonicalRouteIds, oversized_stream}; },
         "source stage accepted an oversized PCG stream");
 
     std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> huge{};
@@ -267,7 +327,7 @@ void test_invalid_seed_ownership_and_terminal_arithmetic_failure() {
         };
     }
     std::vector<ConditionedSourceFrame> output(kSourceFramesPerMethodBlock);
-    ExhaustSourceStage failed{kFrozenSeeds};
+    ExhaustSourceStage failed{kCanonicalRouteIds, kFrozenSeeds};
     expect_throw<std::domain_error>(
         [&] { static_cast<void>(failed.process(make_view(0, huge), output)); },
         "overflowing source-stage arithmetic was not rejected");
@@ -283,6 +343,7 @@ void test_invalid_seed_ownership_and_terminal_arithmetic_failure() {
 
 void run_tests() {
     test_exact_block_extent_and_component_wiring();
+    test_explicit_route_ids_preserve_positional_seed_binding();
     test_block_continuity_and_session_isolation();
     test_structural_rejections_do_not_mutate_state();
     test_invalid_seed_ownership_and_terminal_arithmetic_failure();

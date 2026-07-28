@@ -5,19 +5,26 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <variant>
+#include <vector>
 
 namespace engine_sim_offline::artifacts {
 
-inline constexpr std::uint64_t kAuditionWaveFrameCount = 2'880'000;
-inline constexpr std::uint64_t kAuditionWavePrefixByteCount = 302;
-inline constexpr std::uint64_t kAuditionWaveDataByteCount = 8'640'000;
-inline constexpr std::uint64_t kAuditionWaveByteCount = 8'640'302;
+inline constexpr std::size_t kMaximumAuditionMetadataFieldBytes = 4096;
 
-// The immutable, oracle-compatible WAVE_FORMAT_EXTENSIBLE/INFO prefix. Its data-size
-// field commits the stream to exactly kAuditionWaveFrameCount mono PCM24 frames.
-[[nodiscard]] std::span<const std::byte, kAuditionWavePrefixByteCount>
-audition_wave_prefix() noexcept;
+// Per-artifact RIFF INFO annotations. Values are emitted as NUL-terminated ICMT,
+// INAM, and ISFT payloads in this order. They are retained as exact render evidence,
+// but only a later admitted job compiler may establish their semantic truth. Embedded
+// NULs, empty values, and values above the fixed allocation bound are rejected.
+struct AuditionWaveMetadata {
+    std::string comment;
+    std::string title;
+    std::string software;
+
+    friend bool operator==(const AuditionWaveMetadata &,
+                           const AuditionWaveMetadata &) = default;
+};
 
 class AuditionWaveEncoder {
   public:
@@ -28,6 +35,10 @@ class AuditionWaveEncoder {
 
     [[nodiscard]] std::uint64_t frames_written() const noexcept;
     [[nodiscard]] std::uint64_t bytes_emitted() const noexcept;
+    [[nodiscard]] std::uint64_t expected_byte_count() const noexcept;
+    [[nodiscard]] const contract::AudioContract &contract() const noexcept;
+    [[nodiscard]] const AuditionWaveMetadata &metadata() const noexcept;
+    [[nodiscard]] std::span<const std::byte> prefix() const noexcept;
     [[nodiscard]] std::size_t maximum_chunk_bytes() const noexcept;
     [[nodiscard]] bool failed() const noexcept;
     [[nodiscard]] bool finished() const noexcept;
@@ -40,22 +51,32 @@ class AuditionWaveEncoder {
         failed,
     };
 
-    explicit AuditionWaveEncoder(std::size_t maximum_chunk_bytes) noexcept;
+    AuditionWaveEncoder(contract::AudioContract audio, AuditionWaveMetadata metadata,
+                        std::vector<std::byte> prefix, std::uint64_t data_byte_count,
+                        std::uint64_t expected_byte_count,
+                        std::size_t maximum_chunk_bytes) noexcept;
     [[nodiscard]] WavEncodingStatus fail(WavEncodingError error) noexcept;
 
+    contract::AudioContract contract_;
+    AuditionWaveMetadata metadata_;
+    std::vector<std::byte> prefix_;
+    std::uint64_t data_byte_count_ = 0;
+    std::uint64_t expected_byte_count_ = 0;
     std::size_t maximum_chunk_bytes_ = 0;
     std::uint64_t frames_written_ = 0;
     std::uint64_t bytes_emitted_ = 0;
     State state_ = State::ready;
 
     friend std::variant<AuditionWaveEncoder, WavEncodingError>
-        make_audition_wave_encoder(WavEncoderOptions);
+    make_audition_wave_encoder(const contract::AudioContract &, AuditionWaveMetadata,
+                               WavEncoderOptions);
 };
 
-using AuditionWaveEncoderResult =
-    std::variant<AuditionWaveEncoder, WavEncodingError>;
+using AuditionWaveEncoderResult = std::variant<AuditionWaveEncoder, WavEncodingError>;
 
 [[nodiscard]] AuditionWaveEncoderResult
-make_audition_wave_encoder(WavEncoderOptions options = {});
+make_audition_wave_encoder(const contract::AudioContract &audio,
+                           AuditionWaveMetadata metadata,
+                           WavEncoderOptions options = {});
 
 } // namespace engine_sim_offline::artifacts

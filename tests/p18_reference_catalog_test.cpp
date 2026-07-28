@@ -28,6 +28,10 @@
 
 namespace {
 
+constexpr std::uint64_t kFixtureAudibleFrameCount = 2'880'000;
+constexpr std::uint64_t kFixtureFadeFrameCount = 3'840;
+constexpr std::uint64_t kFixtureAuditionWaveByteCount = 8'640'302;
+
 using namespace engine_sim_offline;
 using namespace engine_sim_offline::reference;
 
@@ -249,7 +253,7 @@ void test_source_matrix_alignment(const P18ReferenceCatalogV1 &catalog) {
                "source-matrix audio media differs from catalog capture");
 
         if (expected.audio == P18ReferenceAudioArtifact::master_audition) {
-            expect(expected.expected_byte_count == artifacts::kAuditionWaveByteCount,
+            expect(expected.expected_byte_count == kFixtureAuditionWaveByteCount,
                    "audition artifact size differs from its WAVE encoder");
         } else {
             auto encoder = artifacts::make_wav_encoder(*required.audio);
@@ -325,9 +329,11 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
                kP18ReferenceRouteCount == kP18ReferenceSeedRouteCount &&
                kP18ReferenceRouteCount == presentation::kExhaustExcitationRouteCount,
            "catalog route count differs from decoder or presentation topology");
+    constexpr presentation::ExhaustSourceRouteIds fixture_route_ids{
+        contract::RouteId{1}, contract::RouteId{2}};
     for (std::size_t index = 0; index < catalog.expected_routes.size(); ++index) {
         expect(catalog.expected_routes[index].expected_route_id ==
-                   presentation::kExhaustExcitationRouteIds[index],
+                   fixture_route_ids[index],
                "catalog route ID differs from the source-stage route ID");
     }
 
@@ -396,10 +402,7 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
             render.expected_processed_source_frame_count == processed_source_frames &&
             render.expected_warmup_source_frame_count == warmup_source_frames &&
             render.expected_published_source_frame_count == published_source_frames &&
-            render.expected_published_source_frame_count ==
-                presentation::kAudibleFrameCount &&
-            render.expected_published_source_frame_count ==
-                artifacts::kAuditionWaveFrameCount,
+            render.expected_published_source_frame_count == kFixtureAudibleFrameCount,
         "render catalog differs from renderer or mastering horizons");
     expect(capture.expected_total_source_frame_count ==
                    render.expected_processed_source_frame_count &&
@@ -420,7 +423,7 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
                    std::bit_cast<std::uint64_t>(128.0) &&
                scalars.expected_audition_fade_in_duration_s.expected_ieee754_bits ==
                    std::bit_cast<std::uint64_t>(
-                       static_cast<double>(presentation::kFadeFrameCount) /
+                       static_cast<double>(kFixtureFadeFrameCount) /
                        static_cast<double>(
                            presentation::CausalReconstruction::kSourceRate)) &&
                scalars.expected_audition_fade_out_duration_s.expected_ieee754_bits ==

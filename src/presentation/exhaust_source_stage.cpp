@@ -12,6 +12,22 @@ constexpr std::uint64_t kMaximumPcgStream =
 
 } // namespace
 
+ExhaustSourceRouteIds
+ExhaustSourceStage::validate_route_ids(ExhaustSourceRouteIds expected_route_ids) {
+    for (std::size_t index = 0; index < expected_route_ids.size(); ++index) {
+        if (!expected_route_ids[index].valid()) {
+            throw std::invalid_argument{
+                "source-stage route IDs must be valid nonzero identities"};
+        }
+        for (std::size_t prior = 0; prior < index; ++prior) {
+            if (expected_route_ids[index] == expected_route_ids[prior]) {
+                throw std::invalid_argument{"source-stage route IDs must be distinct"};
+            }
+        }
+    }
+    return expected_route_ids;
+}
+
 std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount>
 ExhaustSourceStage::validate_seeds(
     std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> seeds) {
@@ -37,8 +53,10 @@ ExhaustSourceStage::validate_seeds(
 }
 
 ExhaustSourceStage::ExhaustSourceStage(
-    std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> seeds)
-    : seeds_(validate_seeds(seeds)),
+    ExhaustSourceRouteIds expected_route_ids,
+    std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> route_seeds)
+    : expected_route_ids_(validate_route_ids(expected_route_ids)),
+      seeds_(validate_seeds(route_seeds)),
       conditioners_{
           RouteConditioner{seeds_[0].jitter, seeds_[0].air_noise},
           RouteConditioner{seeds_[1].jitter, seeds_[1].air_noise},
@@ -55,9 +73,9 @@ ExhaustSourceStage::process(ExhaustExcitationBlockView input,
         throw std::invalid_argument{
             "source stage requires an exact 10000/1 excitation rate"};
     }
-    if (input.route_ids() != kExhaustExcitationRouteIds) {
+    if (input.route_ids() != expected_route_ids_) {
         throw std::invalid_argument{
-            "source stage requires ordered local route IDs 1 then 2"};
+            "source-stage input route IDs must match the configured order"};
     }
     if (input.first_frame_index() != next_input_frame_index_) {
         throw std::invalid_argument{
@@ -120,6 +138,10 @@ ExhaustSourceStage::process(ExhaustExcitationBlockView input,
     next_input_frame_index_ += kExcitationFramesPerMethodBlock;
     next_source_frame_index_ += kSourceFramesPerMethodBlock;
     return extent;
+}
+
+const ExhaustSourceRouteIds &ExhaustSourceStage::expected_route_ids() const noexcept {
+    return expected_route_ids_;
 }
 
 std::uint64_t ExhaustSourceStage::next_input_frame_index() const noexcept {

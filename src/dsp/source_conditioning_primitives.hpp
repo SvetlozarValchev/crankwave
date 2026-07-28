@@ -7,10 +7,8 @@ namespace engine_sim_offline::dsp {
 // Deterministic primitives used by source conditioning and publication.
 inline constexpr double kSourceConditioningPi = 3.14159265359;
 inline constexpr double kConditionedSourceRateHz = 192000.0;
-inline constexpr double kConditionedSourceTimeStepS =
-    1.0 / kConditionedSourceRateHz;
-inline constexpr double kDcRemovalTimeConstantS =
-    1.0 / (20.0 * kSourceConditioningPi);
+inline constexpr double kConditionedSourceTimeStepS = 1.0 / kConditionedSourceRateHz;
+inline constexpr double kDcRemovalTimeConstantS = 1.0 / (20.0 * kSourceConditioningPi);
 inline constexpr double kSourcePublicationCalibration = 0x1.0p-26;
 
 struct FourthOrderLowPassCoefficients {
@@ -31,8 +29,7 @@ class FourthOrderLowPass {
     FourthOrderLowPass(double cutoff_hz, double sample_rate_hz);
 
     [[nodiscard]] double process(double input);
-    [[nodiscard]] const FourthOrderLowPassCoefficients &
-    coefficients() const noexcept;
+    [[nodiscard]] const FourthOrderLowPassCoefficients &coefficients() const noexcept;
 
   private:
     FourthOrderLowPassCoefficients coefficients_;
@@ -71,9 +68,11 @@ class BackwardDerivative {
 // and signed zero retain their bit pattern.
 [[nodiscard]] double cleanup_conditioned_sample(double sample);
 
-// Publish by rounding binary64 to Float32 first, multiplying that
-// Float32 value (promoted back to binary64) by 2^-26, and rounding to Float32
-// again. This helper deliberately does not serialize a WAVE payload.
-[[nodiscard]] float publish_calibrated_float32(double sample);
+// Publish by rounding binary64 to Float32 first, multiplying that Float32 value
+// (promoted back to binary64) by the explicit positive calibration gain, and
+// rounding to Float32 again. This helper deliberately does not serialize a WAVE
+// payload.
+[[nodiscard]] float publish_calibrated_float32(double sample,
+                                               double calibration_gain_linear);
 
 } // namespace engine_sim_offline::dsp

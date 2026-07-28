@@ -1,46 +1,89 @@
 #pragma once
 
+#include "artifacts/audition_wav_encoder.hpp"
 #include "dsp/fixed_fft.hpp"
 #include "engine_sim_offline/render.hpp"
 #include "execution/linux_execution_facts.hpp"
 #include "presentation/exhaust_excitation_block.hpp"
 #include "presentation/exhaust_source_stage.hpp"
+#include "presentation/mastering.hpp"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <utility>
 
 namespace engine_sim_offline::presentation {
 
 inline constexpr std::size_t kPresentationAudioArtifactCount = 8;
 
-// The array order is the renderer's fixed signal topology:
-// route 0 dry/configured/selected, route 1 dry/configured/selected, raw master,
-// audition master. Roles, paths, media, and diagnostic flags remain policy supplied
-// rather than being inferred by the renderer.
+enum class PresentationTailPolicy : std::uint8_t {
+    unspecified,
+    truncate_at_timeline_end,
+};
+
+struct PresentationTimeline {
+    std::uint64_t total_block_count = 0;
+    std::uint64_t pre_audible_block_count = 0;
+    PresentationTailPolicy tail_policy = PresentationTailPolicy::unspecified;
+
+    friend bool operator==(const PresentationTimeline &,
+                           const PresentationTimeline &) = default;
+};
+
+struct PresentationRouteArtifacts {
+    PendingArtifact dry;
+    PendingArtifact configured_ir;
+    PendingArtifact selected;
+};
+
+struct PresentationRouteRenderPlan {
+    contract::RouteId route_id;
+    std::string route_semantic_id;
+    RouteConditioningSeeds conditioning_seeds;
+    std::shared_ptr<const dsp::FixedConvolutionKernel> configured_ir;
+    double wet_mix_01 = 0.0;
+    PresentationRouteArtifacts artifacts;
+};
+
+struct PresentationAuditionRenderPlan {
+    std::array<contract::RouteId, kExhaustExcitationRouteCount> selected_route_ids;
+    MasteringSettings mastering;
+    artifacts::AuditionWaveMetadata metadata;
+    PendingArtifact raw_master_artifact;
+    PendingArtifact audition_master_artifact;
+};
+
+// The renderer's fixed signal topology is expressed through named, route-owned
+// artifacts rather than a caller-defined positional array. The output contract must
+// bind every supplied role to the same route or output bus before a sink is touched.
 struct PresentationRenderPlan {
     contract::OutputContract output_contract;
-    std::array<PendingArtifact, kPresentationAudioArtifactCount> audio_artifacts;
+    PresentationTimeline timeline;
+    std::array<PresentationRouteRenderPlan, kExhaustExcitationRouteCount> routes;
+    double publication_calibration_gain_linear = 0.0;
+    PresentationAuditionRenderPlan audition;
 };
 
 struct PresentationRenderStats {
     std::uint64_t input_frame_count = 0;
     std::uint64_t processed_block_count = 0;
-    std::uint64_t warmup_block_count = 0;
+    std::uint64_t pre_audible_block_count = 0;
     std::uint64_t published_block_count = 0;
     std::uint64_t processed_source_frame_count = 0;
-    std::uint64_t warmup_source_frame_count = 0;
+    std::uint64_t pre_audible_source_frame_count = 0;
     std::uint64_t published_source_frame_count = 0;
 
     friend bool operator==(const PresentationRenderStats &,
                            const PresentationRenderStats &) = default;
 };
 
-// Authority that the session actually streamed and sealed all eight role-bound
-// artifacts and then finished its live execution observation. Callers can inspect or
-// move it, but only PresentationRenderSession can construct it.
+// Evidence that the session actually streamed and sealed all eight role-bound
+// artifacts and then finished its live execution observation. This is deliberately
+// not publication authority: callers can inspect or move it, but only a future
+// admitted-job boundary may bind it to a manifest and commit it.
 class SealedPresentationEvidence final {
   public:
     SealedPresentationEvidence(const SealedPresentationEvidence &) = delete;
@@ -72,7 +115,6 @@ class SealedPresentationEvidence final {
 enum class PresentationRenderSessionState : std::uint8_t {
     active,
     sealed,
-    committed,
     aborted,
 };
 
@@ -83,15 +125,13 @@ enum class PresentationRenderSessionState : std::uint8_t {
 //
 // Cancellation is observed before transaction begin, between complete input blocks,
 // and once before finalization. Any failure after a successful sink begin aborts
-// exactly once. A commit attempt is terminal because RenderSink owns commit-failure
-// cleanup.
+// exactly once. This low-level session deliberately cannot publish: public render()
+// remains fail-closed until one compiler can derive both the executable plan and its
+// manifest basis from the same admitted request.
 class PresentationRenderSession final {
   public:
-    PresentationRenderSession(
-        RenderSink &sink, PresentationRenderPlan plan,
-        std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> route_seeds,
-        std::shared_ptr<const dsp::FixedConvolutionKernel> configured_ir,
-        RenderControl control = {});
+    PresentationRenderSession(RenderSink &sink, PresentationRenderPlan plan,
+                              RenderControl control = {});
     ~PresentationRenderSession();
 
     PresentationRenderSession(const PresentationRenderSession &) = delete;
@@ -102,14 +142,6 @@ class PresentationRenderSession final {
     void process(ExhaustExcitationBlockView input);
 
     [[nodiscard]] SealedPresentationEvidence finish();
-
-    // Revalidates the complete manifest at the publication boundary and requires its
-    // artifact and execution observations to be exactly this session's sealed
-    // evidence before making the sink's one terminal commit attempt.
-    void commit(const SealedPresentationEvidence &evidence,
-                const contract::RenderManifest &manifest,
-                const contract::ProvenanceLedger &provenance,
-                const contract::SourceMatrixContract &source_matrix);
 
     [[nodiscard]] PresentationRenderSessionState state() const noexcept;
 

@@ -43,7 +43,8 @@ constexpr double kPi = std::bit_cast<double>(UINT64_C(0x400921fb54442d18));
 
 [[nodiscard]] MasteredFrame compute_mastered_frame(float route_0_selected,
                                                    float route_1_selected,
-                                                   std::uint64_t frame_index) {
+                                                   std::uint64_t frame_index,
+                                                   const MasteringSettings &settings) {
     if (!std::isfinite(route_0_selected) || !std::isfinite(route_1_selected)) {
         throw std::domain_error{"mastering input was non-finite"};
     }
@@ -53,12 +54,12 @@ constexpr double kPi = std::bit_cast<double>(UINT64_C(0x400921fb54442d18));
         throw std::domain_error{"raw master sum was non-finite"};
     }
 
-    const float monitor = raw * 128.0F;
+    const float monitor = raw * settings.monitoring_gain_linear();
     if (!std::isfinite(monitor)) {
         throw std::domain_error{"monitoring gain produced non-finite output"};
     }
 
-    const double gain = audition_fade_gain(frame_index);
+    const double gain = audition_fade_gain(frame_index, settings);
     const float faded = static_cast<float>(static_cast<double>(monitor) * gain);
     if (!std::isfinite(faded)) {
         throw std::domain_error{"audition fade produced non-finite output"};
@@ -72,26 +73,71 @@ constexpr double kPi = std::bit_cast<double>(UINT64_C(0x400921fb54442d18));
 
 } // namespace
 
-double quarter_sine_gain(std::uint64_t k) {
-    if (k > kFadeFrameCount) {
-        throw std::out_of_range{"quarter-sine index exceeds 3840"};
+MasteringSettings::MasteringSettings(std::uint64_t audible_frame_count,
+                                     std::uint64_t fade_in_frame_count,
+                                     std::uint64_t fade_out_frame_count,
+                                     float monitoring_gain_linear)
+    : audible_frame_count_(audible_frame_count),
+      fade_in_frame_count_(fade_in_frame_count),
+      fade_out_frame_count_(fade_out_frame_count),
+      monitoring_gain_linear_(monitoring_gain_linear) {
+    if (audible_frame_count_ == 0) {
+        throw std::invalid_argument{"mastering audible frame count must be positive"};
     }
-    const double ratio = static_cast<double>(k) / static_cast<double>(kFadeFrameCount);
+    if (fade_in_frame_count_ > audible_frame_count_ ||
+        fade_out_frame_count_ > audible_frame_count_ - fade_in_frame_count_) {
+        throw std::invalid_argument{
+            "mastering fade frame counts must fit inside the audible interval"};
+    }
+    if (!std::isfinite(monitoring_gain_linear_) || monitoring_gain_linear_ <= 0.0F) {
+        throw std::invalid_argument{
+            "mastering monitoring gain must be finite and positive"};
+    }
+}
+
+std::uint64_t MasteringSettings::audible_frame_count() const noexcept {
+    return audible_frame_count_;
+}
+
+std::uint64_t MasteringSettings::fade_in_frame_count() const noexcept {
+    return fade_in_frame_count_;
+}
+
+std::uint64_t MasteringSettings::fade_out_frame_count() const noexcept {
+    return fade_out_frame_count_;
+}
+
+float MasteringSettings::monitoring_gain_linear() const noexcept {
+    return monitoring_gain_linear_;
+}
+
+double quarter_sine_gain(std::uint64_t k, std::uint64_t fade_frame_count) {
+    if (fade_frame_count == 0) {
+        throw std::invalid_argument{"quarter-sine fade frame count must be positive"};
+    }
+    if (k > fade_frame_count) {
+        throw std::out_of_range{"quarter-sine index exceeds its fade interval"};
+    }
+    const double ratio = static_cast<double>(k) / static_cast<double>(fade_frame_count);
     const double angle = (ratio * kPi) / 2.0;
     return std::sin(angle);
 }
 
-double audition_fade_gain(std::uint64_t frame_index) {
-    if (frame_index >= kAudibleFrameCount) {
+double audition_fade_gain(std::uint64_t frame_index,
+                          const MasteringSettings &settings) {
+    if (frame_index >= settings.audible_frame_count()) {
         throw std::out_of_range{"audition frame exceeds the audible interval"};
     }
-    if (frame_index < kFadeFrameCount) {
-        return quarter_sine_gain(frame_index);
+    if (frame_index < settings.fade_in_frame_count()) {
+        return quarter_sine_gain(frame_index, settings.fade_in_frame_count());
     }
-    if (frame_index <= kFadeOutStartFrame) {
+    const auto fade_out_start =
+        settings.audible_frame_count() - settings.fade_out_frame_count();
+    if (frame_index <= fade_out_start) {
         return 1.0;
     }
-    return quarter_sine_gain(kAudibleFrameCount - frame_index);
+    return quarter_sine_gain(settings.audible_frame_count() - frame_index,
+                             settings.fade_out_frame_count());
 }
 
 Pcm24Quantization quantize_pcm24(float faded_sample) {
@@ -127,19 +173,22 @@ std::array<std::byte, 3> serialize_pcm24le(std::int32_t pcm24_sample) {
 }
 
 MasteredFrame master_frame(float route_0_selected, float route_1_selected,
-                           std::uint64_t frame_index) {
-    return compute_mastered_frame(route_0_selected, route_1_selected, frame_index);
+                           std::uint64_t frame_index,
+                           const MasteringSettings &settings) {
+    return compute_mastered_frame(route_0_selected, route_1_selected, frame_index,
+                                  settings);
 }
 
 void master_block(std::span<const float> route_0_selected,
                   std::span<const float> route_1_selected,
-                  std::uint64_t first_frame_index, std::span<MasteredFrame> output) {
+                  std::uint64_t first_frame_index, const MasteringSettings &settings,
+                  std::span<MasteredFrame> output) {
     if (route_0_selected.size() != route_1_selected.size() ||
         route_0_selected.size() != output.size()) {
         throw std::invalid_argument{"mastering block span lengths must match"};
     }
-    if (first_frame_index > kAudibleFrameCount ||
-        route_0_selected.size() > kAudibleFrameCount - first_frame_index) {
+    if (first_frame_index > settings.audible_frame_count() ||
+        route_0_selected.size() > settings.audible_frame_count() - first_frame_index) {
         throw std::out_of_range{"mastering block exceeds the audible interval"};
     }
 
@@ -148,7 +197,7 @@ void master_block(std::span<const float> route_0_selected,
     for (std::size_t index = 0; index < output.size(); ++index) {
         staged.push_back(compute_mastered_frame(route_0_selected[index],
                                                 route_1_selected[index],
-                                                first_frame_index + index));
+                                                first_frame_index + index, settings));
     }
     std::copy(staged.begin(), staged.end(), output.begin());
 }

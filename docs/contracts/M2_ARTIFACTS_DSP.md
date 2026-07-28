@@ -25,7 +25,8 @@ complete RenderManifest -> explicit encoder --+
 
 - WAV and telemetry encoders own only their versioned wire formats. They retain no
   callback span and allocate at most the configured encoder chunk buffer plus fixed
-  topology/state.
+  topology/state. Each dynamic audition INFO field is capped at 4,096 bytes, so its
+  retained metadata and constructed prefix remain within a fixed small bound.
 - `DirectoryRenderSink` owns artifact declaration, contiguous writes, sealing,
   verification, private staging, and atomic publication. Sink chunking cannot select
   capture or DSP partitions.

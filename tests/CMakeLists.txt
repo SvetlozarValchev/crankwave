@@ -925,6 +925,38 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         COMMAND engine_sim_offline_presentation_render_session_boundary_tests
     )
 
+    if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
+        add_executable(
+            engine_sim_offline_bmw_full_presentation_comparator_tests
+            bmw_full_presentation_comparator_test.cpp
+        )
+
+        target_include_directories(
+            engine_sim_offline_bmw_full_presentation_comparator_tests
+            PRIVATE
+                ${PROJECT_SOURCE_DIR}/src
+        )
+
+        target_link_libraries(
+            engine_sim_offline_bmw_full_presentation_comparator_tests
+            PRIVATE
+                engine_sim_offline_presentation_session
+                engine_sim_offline_p18_reference_catalog
+                engine_sim_offline_p18_reference_fixture
+                $<$<PLATFORM_ID:Linux>:m>
+        )
+        engine_sim_offline_enable_renderer_numeric_policy(
+            engine_sim_offline_bmw_full_presentation_comparator_tests
+        )
+
+        add_test(
+            NAME reference.bmw_full_presentation_comparator
+            COMMAND
+                engine_sim_offline_bmw_full_presentation_comparator_tests
+                ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18
+        )
+    endif()
+
 endif()
 
 if(TARGET engine_sim_offline_cli_shell)
