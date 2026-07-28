@@ -447,7 +447,7 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
 - [x] Extend the canonical manifest encoder to `simulation_v1` and expose its exact
       engine/scenario field writers through the domain-separated request-identity
       encoder.
-- [ ] Construct and exhaustively validate the sealed resolved BMW engine/scenario
+- [x] Construct and exhaustively validate the sealed resolved BMW engine/scenario
       request that the production-neutral parity simulator will actually consume;
       independently pin its complete encoded request identity and keep the decoder
       outside the simulator dependency graph.

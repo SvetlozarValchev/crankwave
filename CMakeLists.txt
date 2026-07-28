@@ -82,6 +82,36 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_contract)
 
 add_library(
+    engine_sim_offline_profiles
+    STATIC
+        src/profiles/bmw_m52b28_parity_engine.cpp
+        src/profiles/bmw_m52b28_parity_provenance.cpp
+        src/profiles/bmw_m52b28_parity_request.cpp
+        src/profiles/bmw_m52b28_parity_scenario.cpp
+        src/profiles/bmw_m52b28_parity_validation.cpp
+)
+add_library(
+    engine_sim_offline::profiles
+    ALIAS engine_sim_offline_profiles
+)
+
+target_include_directories(
+    engine_sim_offline_profiles
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_profiles
+    PUBLIC
+        engine_sim_offline::contract
+        engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_profiles)
+
+add_library(
     engine_sim_offline_render
     STATIC
         src/render.cpp
@@ -526,6 +556,7 @@ endif()
 set(
     _engine_sim_offline_numeric_policy_targets
     engine_sim_offline_contract
+    engine_sim_offline_profiles
     engine_sim_offline_render
     engine_sim_offline_artifacts
     engine_sim_offline_dsp

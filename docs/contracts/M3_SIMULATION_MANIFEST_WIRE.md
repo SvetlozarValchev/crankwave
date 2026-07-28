@@ -312,6 +312,16 @@ A canonical simulation-request identity is an in-memory golden/cache byte sequen
 unless an owning transaction explicitly assigns it a path. This contract does not
 invent a second manifest path, artifact role, or sidecar convention for it.
 
+The complete sealed BMW M52B28 M3 request—including its engine, scenario, compact RPM
+descriptor, and provenance bundle—has canonical request-identity SHA-256:
+
+```text
+f6f0ffc8d32167a52785003d9fb4568b32cc23adfc8e1ca4e7263210701f5aa4
+```
+
+This digest is pinned here and in the factory test, not inside the request or its
+provenance. Embedding it in either would create a self-referential identity.
+
 Successful encoding proves only:
 
 - the typed value was admitted by the required validators;
