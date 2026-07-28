@@ -25,11 +25,29 @@ struct ConditioningResult {
                            const ConditioningResult &) = default;
 };
 
+// Exact executable values for the configurable leaves of the admitted conditioning
+// method. Method-owned constants such as the delay range, DC time constant, and
+// source-rate normalization remain in the implementation identity instead.
+struct RouteConditioningCalibration {
+    double jitter_scale = 0.0;
+    double jitter_modulation_cutoff_hz = 0.0;
+    double derivative_mix_01 = 0.0;
+    double air_noise_mix_01 = 0.0;
+    double air_noise_cutoff_hz = 0.0;
+
+    friend bool operator==(const RouteConditioningCalibration &,
+                           const RouteConditioningCalibration &) = default;
+};
+
+[[nodiscard]] bool valid_route_conditioning_calibration(
+    const RouteConditioningCalibration &calibration) noexcept;
+
 // Exact route-owned jitter, DC/derivative, and filtered-air conditioning.
 // One instance owns one route's continuous 192 kHz state and random streams.
 class RouteConditioner {
   public:
-    RouteConditioner(Pcg32Seed jitter_seed, Pcg32Seed air_noise_seed);
+    RouteConditioner(Pcg32Seed jitter_seed, Pcg32Seed air_noise_seed,
+                     RouteConditioningCalibration calibration);
 
     [[nodiscard]] ConditioningResult
     process(double reconstructed_engine_sim_source_unit);
@@ -40,6 +58,7 @@ class RouteConditioner {
   private:
     static constexpr std::size_t kJitterHistoryLength = 41;
 
+    RouteConditioningCalibration calibration_;
     std::array<double, kJitterHistoryLength> jitter_history_{};
     std::size_t jitter_write_offset_ = 0;
     dsp::Pcg32 jitter_rng_;

@@ -1,16 +1,9 @@
 #include "presentation/exhaust_source_stage.hpp"
 
 #include <cmath>
-#include <limits>
 #include <stdexcept>
 
 namespace engine_sim_offline::presentation {
-namespace {
-
-constexpr std::uint64_t kMaximumPcgStream =
-    std::numeric_limits<std::uint64_t>::max() >> 1U;
-
-} // namespace
 
 ExhaustSourceRouteIds
 ExhaustSourceStage::validate_route_ids(ExhaustSourceRouteIds expected_route_ids) {
@@ -38,7 +31,7 @@ ExhaustSourceStage::validate_seeds(
         seeds[1].air_noise,
     };
     for (std::size_t index = 0; index < flattened.size(); ++index) {
-        if (flattened[index].stream > kMaximumPcgStream) {
+        if (flattened[index].stream > dsp::kMaximumPcg32Stream) {
             throw std::invalid_argument{
                 "source-stage PCG stream exceeded the encodable range"};
         }
@@ -54,12 +47,13 @@ ExhaustSourceStage::validate_seeds(
 
 ExhaustSourceStage::ExhaustSourceStage(
     ExhaustSourceRouteIds expected_route_ids,
-    std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> route_seeds)
+    std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> route_seeds,
+    RouteConditioningCalibration conditioning)
     : expected_route_ids_(validate_route_ids(expected_route_ids)),
-      seeds_(validate_seeds(route_seeds)),
+      seeds_(validate_seeds(route_seeds)), conditioning_(conditioning),
       conditioners_{
-          RouteConditioner{seeds_[0].jitter, seeds_[0].air_noise},
-          RouteConditioner{seeds_[1].jitter, seeds_[1].air_noise},
+          RouteConditioner{seeds_[0].jitter, seeds_[0].air_noise, conditioning_},
+          RouteConditioner{seeds_[1].jitter, seeds_[1].air_noise, conditioning_},
       } {}
 
 SourceBlockExtent

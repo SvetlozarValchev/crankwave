@@ -53,7 +53,8 @@ class ExhaustSourceStage {
     // present the same ordered IDs before any stateful DSP work begins.
     ExhaustSourceStage(
         ExhaustSourceRouteIds expected_route_ids,
-        std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> route_seeds);
+        std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> route_seeds,
+        RouteConditioningCalibration conditioning);
 
     [[nodiscard]] SourceBlockExtent process(ExhaustExcitationBlockView input,
                                             std::span<ConditionedSourceFrame> output);
@@ -75,6 +76,7 @@ class ExhaustSourceStage {
 
     ExhaustSourceRouteIds expected_route_ids_;
     std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> seeds_;
+    RouteConditioningCalibration conditioning_;
     CausalReconstruction reconstruction_;
     std::array<RouteConditioner, kExhaustExcitationRouteCount> conditioners_;
     std::array<ReconstructedSourceFrame, kSourceFramesPerMethodBlock>

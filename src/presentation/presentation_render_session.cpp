@@ -199,6 +199,10 @@ void validate_plan(const PresentationRenderPlan &plan) {
         throw std::invalid_argument{
             "presentation timeline requires an explicit supported tail policy"};
     }
+    if (plan.methods != implemented_presentation_method_identities()) {
+        throw std::invalid_argument{
+            "presentation methods do not exactly match the executable implementation"};
+    }
     static_cast<void>(processed_input_frame_count(plan));
     static_cast<void>(processed_source_frame_count(plan));
     static_cast<void>(pre_audible_source_frame_count(plan));
@@ -206,6 +210,10 @@ void validate_plan(const PresentationRenderPlan &plan) {
     if (plan.audition.mastering.audible_frame_count() != audible_frames) {
         throw std::invalid_argument{
             "presentation mastering horizon differs from the timeline"};
+    }
+    if (!valid_route_conditioning_calibration(plan.conditioning)) {
+        throw std::invalid_argument{
+            "presentation conditioning calibration is outside the executable domain"};
     }
     if (!std::isfinite(plan.publication_calibration_gain_linear) ||
         plan.publication_calibration_gain_linear <= 0.0) {
@@ -220,6 +228,10 @@ void validate_plan(const PresentationRenderPlan &plan) {
             configured.wet_mix_01 < 0.0 || configured.wet_mix_01 > 1.0) {
             throw std::invalid_argument{
                 "presentation route requires identities, an IR, and wet mix in [0, 1]"};
+        }
+        if (configured.wet_mix_01 == 0.0 && std::signbit(configured.wet_mix_01)) {
+            throw std::invalid_argument{
+                "presentation wet mix requires canonical positive zero"};
         }
         for (std::size_t prior = 0; prior < route; ++prior) {
             if (configured.route_id == plan.routes[prior].route_id ||
@@ -410,7 +422,8 @@ class PresentationRenderSession::Implementation final {
           audio_artifacts_(ordered_audio_artifacts(plan_)),
           control_(std::move(control)),
           audition_route_indices_(audition_route_indices(plan_)),
-          source_stage_(source_route_ids(plan_), source_route_seeds(plan_)),
+          source_stage_(source_route_ids(plan_), source_route_seeds(plan_),
+                        plan_.conditioning),
           convolvers_(make_convolvers(plan_)),
           encoders_(make_float_wave_encoders(audio_artifacts_)),
           audition_(make_audition_wave_encoder(plan_, audio_artifacts_)),

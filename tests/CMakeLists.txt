@@ -564,6 +564,30 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_presentation_calibration_compiler_tests
+    presentation_calibration_compiler_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_presentation_calibration_compiler_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_presentation_calibration_compiler_tests
+    PRIVATE engine_sim_offline::presentation
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_presentation_calibration_compiler_tests
+)
+
+add_test(
+    NAME presentation.calibration_compiler
+    COMMAND engine_sim_offline_presentation_calibration_compiler_tests
+)
+
+add_executable(
     engine_sim_offline_presentation_asset_compiler_tests
     presentation_asset_compiler_test.cpp
 )

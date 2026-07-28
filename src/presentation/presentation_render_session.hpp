@@ -7,6 +7,7 @@
 #include "presentation/exhaust_excitation_block.hpp"
 #include "presentation/exhaust_source_stage.hpp"
 #include "presentation/mastering.hpp"
+#include "presentation/presentation_method_registry.hpp"
 
 #include <array>
 #include <cstddef>
@@ -62,6 +63,8 @@ struct PresentationAuditionRenderPlan {
 struct PresentationRenderPlan {
     contract::OutputContract output_contract;
     PresentationTimeline timeline;
+    PresentationMethodIdentities methods;
+    RouteConditioningCalibration conditioning;
     std::array<PresentationRouteRenderPlan, kExhaustExcitationRouteCount> routes;
     double publication_calibration_gain_linear = 0.0;
     PresentationAuditionRenderPlan audition;

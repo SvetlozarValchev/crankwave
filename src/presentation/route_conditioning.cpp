@@ -10,20 +10,52 @@ namespace {
 
 constexpr double kJitterMaximumOffset = 40.0;
 constexpr double kJitterMeanOffset = 20.0;
-constexpr double kJitterAmount = 0.5;
 constexpr double kNoiseExcitationScale =
     std::bit_cast<double>(UINT64_C(0x3ff6a09e667f3bcd));
-constexpr double kDerivativeMix = std::bit_cast<double>(UINT64_C(0x3f847ae140000000));
+
+[[nodiscard]] RouteConditioningCalibration
+require_valid_calibration(RouteConditioningCalibration calibration) {
+    if (!valid_route_conditioning_calibration(calibration)) {
+        throw std::invalid_argument{
+            "route conditioning calibration is outside the executable domain"};
+    }
+    return calibration;
+}
 
 } // namespace
 
-RouteConditioner::RouteConditioner(Pcg32Seed jitter_seed, Pcg32Seed air_noise_seed)
-    : jitter_rng_(jitter_seed.initial_state, jitter_seed.stream),
-      jitter_modulation_filter_(10000.0, dsp::kConditionedSourceRateHz),
+bool valid_route_conditioning_calibration(
+    const RouteConditioningCalibration &calibration) noexcept {
+    const auto canonical_nonnegative = [](double value) {
+        return std::isfinite(value) && value >= 0.0 &&
+               (value != 0.0 || !std::signbit(value));
+    };
+    const auto unit_interval = [](double value) {
+        return std::isfinite(value) && value >= 0.0 && value <= 1.0 &&
+               (value != 0.0 || !std::signbit(value));
+    };
+    const auto valid_cutoff = [](double value) {
+        return std::isfinite(value) && value > 0.0 &&
+               value < dsp::kConditionedSourceRateHz / 2.0;
+    };
+    return canonical_nonnegative(calibration.jitter_scale) &&
+           valid_cutoff(calibration.jitter_modulation_cutoff_hz) &&
+           unit_interval(calibration.derivative_mix_01) &&
+           unit_interval(calibration.air_noise_mix_01) &&
+           valid_cutoff(calibration.air_noise_cutoff_hz);
+}
+
+RouteConditioner::RouteConditioner(Pcg32Seed jitter_seed, Pcg32Seed air_noise_seed,
+                                   RouteConditioningCalibration calibration)
+    : calibration_(require_valid_calibration(calibration)),
+      jitter_rng_(jitter_seed.initial_state, jitter_seed.stream),
+      jitter_modulation_filter_(calibration_.jitter_modulation_cutoff_hz,
+                                dsp::kConditionedSourceRateHz),
       dc_removal_(dsp::kConditionedSourceTimeStepS, dsp::kDcRemovalTimeConstantS),
       derivative_(dsp::kConditionedSourceTimeStepS),
       air_noise_rng_(air_noise_seed.initial_state, air_noise_seed.stream),
-      air_noise_filter_(2000.0, dsp::kConditionedSourceRateHz) {}
+      air_noise_filter_(calibration_.air_noise_cutoff_hz,
+                        dsp::kConditionedSourceRateHz) {}
 
 ConditioningResult
 RouteConditioner::process(double reconstructed_engine_sim_source_unit) {
@@ -40,8 +72,8 @@ RouteConditioner::process(double reconstructed_engine_sim_source_unit) {
     const double random_offset = jitter_rng_.uniform_double() * kJitterMaximumOffset;
     const double rate_normalized_offset =
         kJitterMeanOffset + (random_offset - kJitterMeanOffset) * kNoiseExcitationScale;
-    const double filtered_offset =
-        jitter_modulation_filter_.process(rate_normalized_offset * kJitterAmount);
+    const double filtered_offset = jitter_modulation_filter_.process(
+        rate_normalized_offset * calibration_.jitter_scale);
     const double clamped_offset =
         std::clamp(filtered_offset, 0.0, kJitterMaximumOffset);
     const auto lower_offset = static_cast<std::size_t>(std::floor(clamped_offset));
@@ -61,10 +93,12 @@ RouteConditioner::process(double reconstructed_engine_sim_source_unit) {
 
     const double noise = air_noise_rng_.uniform_signed_double() * kNoiseExcitationScale;
     const double filtered_air_noise = air_noise_filter_.process(noise);
-    const double noise_mix = 1.0 * filtered_air_noise + (1.0 - 1.0);
+    const double noise_mix = calibration_.air_noise_mix_01 * filtered_air_noise +
+                             (1.0 - calibration_.air_noise_mix_01);
 
     const double conditioned = dsp::cleanup_conditioned_sample(
-        derivative * kDerivativeMix + dc_removed * noise_mix * (1.0 - kDerivativeMix));
+        derivative * calibration_.derivative_mix_01 +
+        dc_removed * noise_mix * (1.0 - calibration_.derivative_mix_01));
     return {
         jittered,
         filtered_air_noise,

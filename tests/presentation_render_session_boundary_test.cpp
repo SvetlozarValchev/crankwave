@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -40,6 +41,9 @@ constexpr std::array<presentation::RouteConditioningSeeds,
             {UINT64_C(0x208e57f73615bd95), UINT64_C(0x786d92e584c43b78)},
         },
     };
+constexpr presentation::RouteConditioningCalibration kSyntheticConditioning{
+    0.5, 10000.0, std::bit_cast<double>(UINT64_C(0x3f847ae140000000)), 1.0, 2000.0,
+};
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -217,6 +221,8 @@ make_plan(const std::shared_ptr<const dsp::FixedConvolutionKernel> &route_0_ir,
         std::move(output_contract),
         {total_block_count, pre_audible_block_count,
          PresentationTailPolicy::truncate_at_timeline_end},
+        implemented_presentation_method_identities(),
+        kSyntheticConditioning,
         {{
             {
                 kSyntheticRouteIds[0],
@@ -479,6 +485,43 @@ void test_variable_timeline_and_route_settings(
 
 void test_invalid_or_incomplete_timeline_fails_closed(
     const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+    RecordingSink invalid_method_sink;
+    auto invalid_method_plan = make_plan(kernel, kernel);
+    invalid_method_plan.methods.conditioning.version += 1;
+    expect_throw<std::invalid_argument>(
+        [&] {
+            PresentationRenderSession session{invalid_method_sink,
+                                              std::move(invalid_method_plan)};
+        },
+        "presentation accepted a method outside the implemented identity set");
+    expect(invalid_method_sink.begin_calls == 0 && invalid_method_sink.abort_calls == 0,
+           "invalid presentation method touched the sink");
+
+    RecordingSink invalid_conditioning_sink;
+    auto invalid_conditioning_plan = make_plan(kernel, kernel);
+    invalid_conditioning_plan.conditioning.air_noise_mix_01 = 1.1;
+    expect_throw<std::invalid_argument>(
+        [&] {
+            PresentationRenderSession session{invalid_conditioning_sink,
+                                              std::move(invalid_conditioning_plan)};
+        },
+        "presentation accepted conditioning outside the executable domain");
+    expect(invalid_conditioning_sink.begin_calls == 0 &&
+               invalid_conditioning_sink.abort_calls == 0,
+           "invalid presentation conditioning touched the sink");
+
+    RecordingSink negative_zero_wet_sink;
+    auto negative_zero_wet_plan = make_plan(kernel, kernel, 850, 100, {-0.0, 1.0});
+    expect_throw<std::invalid_argument>(
+        [&] {
+            PresentationRenderSession session{negative_zero_wet_sink,
+                                              std::move(negative_zero_wet_plan)};
+        },
+        "presentation accepted negative-zero wet mix");
+    expect(negative_zero_wet_sink.begin_calls == 0 &&
+               negative_zero_wet_sink.abort_calls == 0,
+           "negative-zero presentation wet mix touched the sink");
+
     RecordingSink invalid_sink;
     auto invalid_plan = make_plan(kernel, kernel);
     invalid_plan.timeline.pre_audible_block_count =

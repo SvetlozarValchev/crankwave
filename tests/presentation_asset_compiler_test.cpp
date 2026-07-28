@@ -245,7 +245,7 @@ void test_valid_asset_and_deterministic_identities() {
 
     const auto &supported = static_ir_conversion_method_identity();
     expect(supported.configuration_sha256 ==
-               contract::sha256(as_bytes(kStaticIrConversionMethodDescriptor)),
+               contract::sha256(as_bytes(static_ir_conversion_method_descriptor())),
            "production static-IR method descriptor and identity disagree");
 
     expect(

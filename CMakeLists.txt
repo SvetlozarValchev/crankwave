@@ -252,6 +252,10 @@ add_library(
         src/presentation/overlap_save_convolver.cpp
         src/presentation/pcm16_ir_decoder.cpp
         src/presentation/presentation_asset_compiler.cpp
+        src/presentation/presentation_calibration_compiler.cpp
+        src/presentation/presentation_method_descriptors_asset.cpp
+        src/presentation/presentation_method_descriptors_output.cpp
+        src/presentation/presentation_method_descriptors_source.cpp
         src/presentation/presentation_method_registry.cpp
         src/presentation/route_conditioning.cpp
 )

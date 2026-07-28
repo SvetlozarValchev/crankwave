@@ -29,6 +29,9 @@ constexpr Pcg32Seed kRoute1Air{
     UINT64_C(0x208e57f73615bd95),
     UINT64_C(0x786d92e584c43b78),
 };
+constexpr RouteConditioningCalibration kCanonicalCalibration{
+    0.5, 10000.0, std::bit_cast<double>(UINT64_C(0x3f847ae140000000)), 1.0, 2000.0,
+};
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -100,8 +103,8 @@ void test_route_conditioning_goldens_and_rng_consumption() {
                           UINT64_C(0xbfab23a72898c76b), UINT64_C(0x40652e1c6ae78de3)},
     };
 
-    RouteConditioner route_0{kRoute0Jitter, kRoute0Air};
-    RouteConditioner route_1{kRoute1Jitter, kRoute1Air};
+    RouteConditioner route_0{kRoute0Jitter, kRoute0Air, kCanonicalCalibration};
+    RouteConditioner route_1{kRoute1Jitter, kRoute1Air, kCanonicalCalibration};
     std::size_t route_0_probe = 0;
     std::size_t route_1_probe = 0;
     for (std::size_t frame = 0; frame < 3840; ++frame) {
@@ -137,7 +140,7 @@ void test_route_conditioning_goldens_and_rng_consumption() {
 }
 
 void test_nonfinite_input_is_rejected_before_mutation() {
-    RouteConditioner candidate{kRoute0Jitter, kRoute0Air};
+    RouteConditioner candidate{kRoute0Jitter, kRoute0Air, kCanonicalCalibration};
     const auto initial_jitter_state = candidate.jitter_rng_state();
     const auto initial_air_state = candidate.air_noise_rng_state();
     expect_throw<std::domain_error>(
@@ -150,7 +153,7 @@ void test_nonfinite_input_is_rejected_before_mutation() {
                candidate.air_noise_rng_state() == initial_air_state,
            "conditioner advanced RNG state for a rejected input");
 
-    RouteConditioner fresh{kRoute0Jitter, kRoute0Air};
+    RouteConditioner fresh{kRoute0Jitter, kRoute0Air, kCanonicalCalibration};
     for (std::size_t frame = 0; frame < 128; ++frame) {
         const auto input = synthetic_input(frame);
         const auto candidate_result = candidate.process(input);
@@ -161,9 +164,9 @@ void test_nonfinite_input_is_rejected_before_mutation() {
 }
 
 void test_interleaved_sessions_remain_independent() {
-    RouteConditioner contiguous{kRoute1Jitter, kRoute1Air};
-    RouteConditioner interleaved{kRoute1Jitter, kRoute1Air};
-    RouteConditioner unrelated{kRoute0Jitter, kRoute0Air};
+    RouteConditioner contiguous{kRoute1Jitter, kRoute1Air, kCanonicalCalibration};
+    RouteConditioner interleaved{kRoute1Jitter, kRoute1Air, kCanonicalCalibration};
+    RouteConditioner unrelated{kRoute0Jitter, kRoute0Air, kCanonicalCalibration};
 
     std::array<ConditioningResult, 128> expected{};
     for (std::size_t frame = 0; frame < expected.size(); ++frame) {
@@ -177,10 +180,97 @@ void test_interleaved_sessions_remain_independent() {
     }
 }
 
+struct ConditioningDifferences {
+    bool jittered = false;
+    bool filtered_air = false;
+    bool conditioned = false;
+    bool random_states_match = false;
+};
+
+[[nodiscard]] ConditioningDifferences
+conditioning_differences(const RouteConditioningCalibration &changed) {
+    RouteConditioner canonical{kRoute0Jitter, kRoute0Air, kCanonicalCalibration};
+    RouteConditioner configured{kRoute0Jitter, kRoute0Air, changed};
+    ConditioningDifferences differences;
+    for (std::size_t frame = 0; frame < 3840; ++frame) {
+        const auto canonical_result = canonical.process(synthetic_input(frame));
+        const auto configured_result = configured.process(synthetic_input(frame));
+        differences.jittered =
+            differences.jittered ||
+            bits(canonical_result.jittered_engine_sim_source_unit) !=
+                bits(configured_result.jittered_engine_sim_source_unit);
+        differences.filtered_air =
+            differences.filtered_air || bits(canonical_result.filtered_air_noise) !=
+                                            bits(configured_result.filtered_air_noise);
+        differences.conditioned =
+            differences.conditioned ||
+            bits(canonical_result.conditioned_engine_sim_source_unit) !=
+                bits(configured_result.conditioned_engine_sim_source_unit);
+    }
+    differences.random_states_match =
+        canonical.jitter_rng_state() == configured.jitter_rng_state() &&
+        canonical.air_noise_rng_state() == configured.air_noise_rng_state();
+    return differences;
+}
+
+void test_every_calibration_leaf_controls_execution() {
+    auto changed = kCanonicalCalibration;
+    changed.jitter_scale = 0.25;
+    auto differences = conditioning_differences(changed);
+    expect(differences.jittered && !differences.filtered_air &&
+               differences.conditioned && differences.random_states_match,
+           "jitter scale did not control only the jitter signal path");
+
+    changed = kCanonicalCalibration;
+    changed.jitter_modulation_cutoff_hz = 8000.0;
+    differences = conditioning_differences(changed);
+    expect(differences.jittered && !differences.filtered_air &&
+               differences.conditioned && differences.random_states_match,
+           "jitter cutoff did not control only the jitter signal path");
+
+    changed = kCanonicalCalibration;
+    changed.derivative_mix_01 = 0.0;
+    differences = conditioning_differences(changed);
+    expect(!differences.jittered && !differences.filtered_air &&
+               differences.conditioned && differences.random_states_match,
+           "derivative mix changed something outside the final conditioning mix");
+
+    changed = kCanonicalCalibration;
+    changed.air_noise_mix_01 = 0.5;
+    differences = conditioning_differences(changed);
+    expect(!differences.jittered && !differences.filtered_air &&
+               differences.conditioned && differences.random_states_match,
+           "air-noise mix changed something outside the final conditioning mix");
+
+    changed = kCanonicalCalibration;
+    changed.air_noise_cutoff_hz = 1500.0;
+    differences = conditioning_differences(changed);
+    expect(!differences.jittered && differences.filtered_air &&
+               differences.conditioned && differences.random_states_match,
+           "air-noise cutoff did not control only the air-noise signal path");
+}
+
+void test_invalid_calibration_is_rejected() {
+    auto invalid = kCanonicalCalibration;
+    invalid.derivative_mix_01 = 1.1;
+    expect(!valid_route_conditioning_calibration(invalid),
+           "out-of-range derivative mix was reported executable");
+    expect_throw<std::invalid_argument>(
+        [&] { RouteConditioner rejected{kRoute0Jitter, kRoute0Air, invalid}; },
+        "conditioner accepted an out-of-range executable calibration");
+
+    invalid = kCanonicalCalibration;
+    invalid.jitter_scale = -0.0;
+    expect(!valid_route_conditioning_calibration(invalid),
+           "negative zero was admitted under a canonical calibration identity");
+}
+
 void run_tests() {
     test_route_conditioning_goldens_and_rng_consumption();
     test_nonfinite_input_is_rejected_before_mutation();
     test_interleaved_sessions_remain_independent();
+    test_every_calibration_leaf_controls_execution();
+    test_invalid_calibration_is_rejected();
 }
 
 } // namespace
