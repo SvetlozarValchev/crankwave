@@ -508,6 +508,15 @@ replacement starts before acceptance.
   - [x] Seal executable plan and manifest basis into one opaque job, then connect its
         sole terminal path to atomic sink publication.
 - [ ] Add the held-speed brake dyno.
+  - [x] Implement fixture-free, indexed four-stroke torque-angle quadrature without
+        claiming that arbitrary supplied terms are complete net torque.
+  - [ ] Add the resolved accessory condition and a separate M4 BMW operating profile
+        with complete aggregate loss/starter accounting.
+  - [ ] Generalize the kinematic schedule for O(1)-storage held-speed operation while
+        preserving the accepted M3 trajectory exactly.
+  - [ ] Admit and prove phase-aligned pressure plus cycle-torque convergence.
+  - [ ] Publish a typed held-speed operating-point result and prove M3 remains
+        rejected for held-speed use.
 - [ ] Render a modest BMW torque sweep with declared conditions and sourced plausibility
       bounds.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.

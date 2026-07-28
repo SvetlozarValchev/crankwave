@@ -2,9 +2,10 @@
 
 Status: normative pre-implementation record
 
-Applies to: M2 renderer, M3 BMW parity, and the admission of later fidelity upgrades
+Applies to: M2 renderer, M3 BMW parity, M4 operating-point test cells, and the
+admission of later fidelity upgrades
 
-Date: 2026-07-27
+Date: 2026-07-28
 
 ## 1. Purpose and claim boundary
 
@@ -52,8 +53,10 @@ The following records have distinct authority:
    identities, fixed-rate RPM representation, and explicit parity-scenario metadata.
 10. `docs/contracts/M4_SIMULATION_MANIFEST_WIRE.md` owns the complete current
     simulation-manifest byte grammar, including the resolved randomness policy.
-11. This document owns model meaning and admission; the focused contract records own
-   concrete C++ types, schemas, and API signatures.
+11. `docs/model/M4_OPERATING_POINT_MODEL.md` owns exact cycle quadrature, held-speed
+    torque-accounting, convergence, and applicability rules introduced by M4.
+12. This document owns model meaning and admission; the focused contract records own
+    concrete C++ types, schemas, and API signatures.
 
 If two authorities conflict, implementation stops and the contradiction is recorded.
 Code must not silently choose the easier interpretation. The liked oracle is
