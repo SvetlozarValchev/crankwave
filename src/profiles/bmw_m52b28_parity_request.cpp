@@ -26,8 +26,8 @@ namespace engine_sim_offline::profiles::detail {
 
 BmwM52b28ParityRequest
 build_bmw_m52b28_parity_request_unvalidated(std::vector<double> post_step_rpm) {
-    BmwRequestProvenanceBuilder builder;
-    auto engine = build_bmw_m52b28_parity_engine(builder);
+    BmwProvenanceBuilder builder{BmwProfileKind::parity_request_v1};
+    auto engine = build_bmw_m52b28_low_order_engine(builder);
     auto scenario = build_bmw_m52b28_parity_scenario(builder, std::move(post_step_rpm));
     auto provenance = builder.finish();
     return {

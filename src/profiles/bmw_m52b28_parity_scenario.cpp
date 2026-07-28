@@ -14,7 +14,7 @@ constexpr std::string_view kScenarioProfileId = "bmw-m52b28-legacy-low-order-v1"
 } // namespace
 
 contract::RenderScenario
-build_bmw_m52b28_parity_scenario(BmwRequestProvenanceBuilder &builder,
+build_bmw_m52b28_parity_scenario(BmwProvenanceBuilder &builder,
                                  std::vector<double> post_step_rpm) {
     using Source = BmwResolutionSource;
 
@@ -64,9 +64,9 @@ build_bmw_m52b28_parity_scenario(BmwRequestProvenanceBuilder &builder,
 
     scenario.preparation = contract::FixedSettling{
         builder.resolved(1.0, "scenario.preparation.warm_up_duration_s",
-                         Source::scenario),
+                         Source::profile_contract),
         builder.resolved(1.0, "scenario.preparation.settling_duration_s",
-                         Source::scenario),
+                         Source::profile_contract),
     };
     scenario.operating_state = builder.resolved(
         std::vector<contract::OperatingStatePoint>{
@@ -86,12 +86,14 @@ build_bmw_m52b28_parity_scenario(BmwRequestProvenanceBuilder &builder,
                 {true, true, false, true, true},
             },
         },
-        "scenario.operating_state", Source::scenario);
+        "scenario.operating_state", Source::profile_contract);
 
     scenario.total_duration_s =
-        builder.resolved(17.0, "scenario.total_duration_s", Source::scenario);
+        builder.resolved(17.0, "scenario.total_duration_s",
+                         Source::profile_contract);
     scenario.audible_start_s =
-        builder.resolved(2.0, "scenario.audible_start_s", Source::scenario);
+        builder.resolved(2.0, "scenario.audible_start_s",
+                         Source::profile_contract);
     scenario.audible_duration_s =
         builder.derived(15.0, "scenario.audible_duration_s",
                         derived_method("scenario-audible-duration-subtraction-v1"),
@@ -104,7 +106,9 @@ build_bmw_m52b28_parity_scenario(BmwRequestProvenanceBuilder &builder,
         {10000, 1}, {10000, 1}, {192000, 1}, {192000, 1}, {192000, 1},
     };
     scenario.rates_resolution_id =
-        builder.resolved(scenario.rates, "scenario.rates", Source::scenario)
+        builder
+            .resolved(scenario.rates, "scenario.rates",
+                      Source::profile_contract)
             .resolution_id;
     scenario.quality = builder.resolved(
         contract::RenderQuality{
@@ -113,9 +117,10 @@ build_bmw_m52b28_parity_scenario(BmwRequestProvenanceBuilder &builder,
             200,
             3800,
         },
-        "scenario.quality", Source::scenario);
+        "scenario.quality", Source::profile_contract);
     scenario.public_seed = builder.resolved<std::uint64_t>(
-        UINT64_C(12648430), "scenario.public_seed", Source::scenario);
+        UINT64_C(12648430), "scenario.public_seed",
+        Source::profile_contract);
 
     contract::FixedRateRpmTrajectory rpm{
         {10000, 1},
@@ -138,7 +143,7 @@ build_bmw_m52b28_parity_scenario(BmwRequestProvenanceBuilder &builder,
         Source::legacy_asset);
     sweep.trajectory.kinematic_resolution = builder.resolved(
         fixed_rate_rpm_method(), "scenario.mode.trajectory.kinematic_resolution",
-        Source::scenario);
+        Source::profile_contract);
     sweep.throttle_01 = {
         contract::TrajectoryInterpolation::right_continuous_hold,
         {
@@ -148,14 +153,14 @@ build_bmw_m52b28_parity_scenario(BmwRequestProvenanceBuilder &builder,
         },
         builder
             .resolved(std::string{"right-continuous-throttle-v1"},
-                      "scenario.mode.throttle_01", Source::scenario)
+                      "scenario.mode.throttle_01", Source::profile_contract)
             .resolution_id,
     };
     scenario.mode = std::move(sweep);
     scenario.mode_resolution_id =
         builder
             .resolved(std::string{"prescribed-kinematic-sweep"}, "scenario.mode.kind",
-                      Source::scenario)
+                      Source::profile_contract)
             .resolution_id;
     scenario.provenance_schema_id = "engine-sim-offline.m3-bmw-provenance.v1";
     return scenario;

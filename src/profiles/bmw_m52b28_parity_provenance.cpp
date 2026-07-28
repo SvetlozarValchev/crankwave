@@ -149,10 +149,14 @@ struct ResolutionSourceDefinition {
         return {contract::ResolutionMode::authored, kReferenceTrajectoryClaimId};
     case BmwResolutionSource::reference_component_seed:
         return {contract::ResolutionMode::authored, kReferenceComponentSeedClaimId};
-    case BmwResolutionSource::scenario:
+    case BmwResolutionSource::profile_contract:
         return {contract::ResolutionMode::authored, kScenarioClaimId};
     case BmwResolutionSource::declared_default:
         return {contract::ResolutionMode::declared_default, kDeclaredDefaultClaimId};
+    case BmwResolutionSource::operating_literature:
+    case BmwResolutionSource::accessory_configuration:
+    case BmwResolutionSource::implemented_method:
+        break;
     }
     throw std::logic_error{"unknown BMW provenance resolution source"};
 }
@@ -163,7 +167,11 @@ struct ResolutionSourceDefinition {
 
 } // namespace
 
-BmwRequestProvenanceBuilder::BmwRequestProvenanceBuilder() {
+BmwProvenanceBuilder::BmwProvenanceBuilder(BmwProfileKind profile_kind)
+    : profile_kind_(profile_kind) {
+    if (profile_kind_ != BmwProfileKind::parity_request_v1) {
+        throw std::logic_error{"BMW operating-profile provenance is not configured"};
+    }
     ledger_.schema_id = kSchemaId;
     ledger_.bundle.id = kBundleId;
 
@@ -260,8 +268,8 @@ BmwRequestProvenanceBuilder::BmwRequestProvenanceBuilder() {
     });
 }
 
-std::string BmwRequestProvenanceBuilder::add_resolution(std::string parameter_path,
-                                                        BmwResolutionSource source) {
+std::string BmwProvenanceBuilder::add_resolution(std::string parameter_path,
+                                                 BmwResolutionSource source) {
     const auto definition = resolution_source(source);
     auto id = resolution_id(next_resolution_++);
     ledger_.resolutions.push_back({
@@ -275,7 +283,7 @@ std::string BmwRequestProvenanceBuilder::add_resolution(std::string parameter_pa
     return id;
 }
 
-std::string BmwRequestProvenanceBuilder::add_derived_resolution(
+std::string BmwProvenanceBuilder::add_derived_resolution(
     std::string parameter_path, contract::MethodIdentity method,
     std::vector<std::string> dependencies) {
     auto id = resolution_id(next_resolution_++);
@@ -290,10 +298,21 @@ std::string BmwRequestProvenanceBuilder::add_derived_resolution(
     return id;
 }
 
-contract::ProvenanceLedger BmwRequestProvenanceBuilder::finish() {
+contract::ProvenanceLedger BmwProvenanceBuilder::finish() {
     ledger_.bundle.sha256 =
         contract::canonical_provenance_ledger_digest(ledger_, kDigestGrammar);
     return std::move(ledger_);
+}
+
+BmwProfileKind BmwProvenanceBuilder::profile_kind() const noexcept {
+    return profile_kind_;
+}
+
+std::string
+BmwProvenanceBuilder::profile_path(std::string_view suffix) const {
+    constexpr std::string_view kParityRoot =
+        "engine.physics.legacy-low-order-v1";
+    return std::string{kParityRoot} + "." + std::string{suffix};
 }
 
 contract::MethodIdentity legacy_low_order_method() {

@@ -12,18 +12,26 @@
 
 namespace engine_sim_offline::profiles::detail {
 
+enum class BmwProfileKind : std::uint8_t {
+    parity_request_v1,
+    low_order_operating_point_v1,
+};
+
 enum class BmwResolutionSource : std::uint8_t {
     legacy_asset,
     reference_fixture,
     reference_trajectory,
     reference_component_seed,
-    scenario,
+    profile_contract,
     declared_default,
+    operating_literature,
+    accessory_configuration,
+    implemented_method,
 };
 
-class BmwRequestProvenanceBuilder {
+class BmwProvenanceBuilder {
   public:
-    BmwRequestProvenanceBuilder();
+    explicit BmwProvenanceBuilder(BmwProfileKind profile_kind);
 
     template <class T>
     [[nodiscard]] contract::ResolvedValue<T>
@@ -51,6 +59,8 @@ class BmwRequestProvenanceBuilder {
     }
 
     [[nodiscard]] contract::ProvenanceLedger finish();
+    [[nodiscard]] BmwProfileKind profile_kind() const noexcept;
+    [[nodiscard]] std::string profile_path(std::string_view suffix) const;
 
   private:
     [[nodiscard]] std::string add_resolution(std::string parameter_path,
@@ -60,6 +70,7 @@ class BmwRequestProvenanceBuilder {
                            std::vector<std::string> dependencies);
 
     contract::ProvenanceLedger ledger_;
+    BmwProfileKind profile_kind_;
     std::uint32_t next_resolution_ = 1;
 };
 
@@ -68,10 +79,10 @@ class BmwRequestProvenanceBuilder {
 [[nodiscard]] contract::MethodIdentity derived_method(std::string id);
 
 [[nodiscard]] contract::EngineSpec
-build_bmw_m52b28_parity_engine(BmwRequestProvenanceBuilder &builder);
+build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder);
 
 [[nodiscard]] contract::RenderScenario
-build_bmw_m52b28_parity_scenario(BmwRequestProvenanceBuilder &builder,
+build_bmw_m52b28_parity_scenario(BmwProvenanceBuilder &builder,
                                  std::vector<double> post_step_rpm);
 
 [[nodiscard]] BmwM52b28ParityRequest
