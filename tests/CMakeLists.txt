@@ -420,6 +420,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_component_seed_derivation_tests
+    component_seed_derivation_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_component_seed_derivation_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_component_seed_derivation_tests
+    PRIVATE engine_sim_offline::randomness
+)
+
+add_test(
+    NAME randomness.component_seed_derivation
+    COMMAND engine_sim_offline_component_seed_derivation_tests
+)
+
+add_executable(
     engine_sim_offline_causal_reconstruction_tests
     causal_reconstruction_test.cpp
 )

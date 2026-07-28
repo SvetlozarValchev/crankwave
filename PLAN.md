@@ -490,6 +490,14 @@ replacement starts before acceptance.
       scenario, verified asset payloads, seed derivation, and renderer identity. It
       must own both the executable values and matching manifest basis; only then
       restore atomic publication without accepting a second caller-built description.
+  - [x] Implement the fixture-free, full-`uint64` capture/component seed derivation
+        primitive and independently reproduce the frozen BMW random key plus all 11
+        component seed pairs.
+  - [ ] Compile and content-identify the configured presentation assets.
+  - [ ] Admit the implemented presentation method identities and exact executable
+        calibration.
+  - [ ] Seal executable plan and manifest basis into one opaque job, then connect its
+        sole terminal path to atomic sink publication.
 - [ ] Add the held-speed brake dyno.
 - [ ] Render a modest BMW torque sweep with declared conditions and sourced plausibility
       bounds.

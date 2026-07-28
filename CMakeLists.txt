@@ -297,6 +297,29 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_excitation)
 
 add_library(
+    engine_sim_offline_randomness
+    STATIC
+        src/randomness/component_seed_derivation.cpp
+)
+add_library(
+    engine_sim_offline::randomness
+    ALIAS engine_sim_offline_randomness
+)
+
+target_include_directories(
+    engine_sim_offline_randomness
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_randomness
+    PUBLIC engine_sim_offline::contract
+    PRIVATE engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_randomness)
+
+add_library(
     engine_sim_offline_execution
     STATIC
         src/execution/linux_execution_facts.cpp
@@ -502,6 +525,7 @@ set(
     engine_sim_offline_dsp
     engine_sim_offline_presentation
     engine_sim_offline_excitation
+    engine_sim_offline_randomness
     engine_sim_offline_execution
     engine_sim_offline_presentation_session
 )
