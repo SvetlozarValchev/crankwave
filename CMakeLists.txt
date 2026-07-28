@@ -612,6 +612,50 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
     engine_sim_offline_finalize_renderer_numeric_policy(
         engine_sim_offline_p18_reference_render
     )
+
+    add_executable(
+        engine_sim_offline_m3_bmw_listening
+        src/reference/m3_bmw_listening_main.cpp
+        src/reference/p18_reference_full_audit_reader.cpp
+    )
+
+    set_target_properties(
+        engine_sim_offline_m3_bmw_listening
+        PROPERTIES OUTPUT_NAME engine-sim-offline-m3-bmw-listening
+    )
+
+    target_include_directories(
+        engine_sim_offline_m3_bmw_listening
+        PRIVATE ${PROJECT_SOURCE_DIR}/src
+    )
+
+    target_link_options(
+        engine_sim_offline_m3_bmw_listening
+        PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--no-as-needed>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_m3_bmw_listening
+        PRIVATE
+            engine_sim_offline::artifacts
+            engine_sim_offline::excitation
+            engine_sim_offline::presentation
+            engine_sim_offline::profiles
+            engine_sim_offline::simulation
+            engine_sim_offline_execution
+            engine_sim_offline_p18_presentation_session
+            engine_sim_offline_p18_reference_catalog
+            engine_sim_offline_p18_reference_fixture
+            engine_sim_offline_p18_reference_session_adapter
+            engine_sim_offline_reference_parity_v1_reader
+            $<$<PLATFORM_ID:Linux>:m>
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_m3_bmw_listening
+    )
+    engine_sim_offline_finalize_renderer_numeric_policy(
+        engine_sim_offline_m3_bmw_listening
+    )
 endif()
 
 set(
@@ -644,6 +688,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
     list(
         APPEND
         _engine_sim_offline_numeric_policy_targets
+        engine_sim_offline_m3_bmw_listening
         engine_sim_offline_p18_reference_render
     )
 endif()
@@ -651,6 +696,9 @@ foreach(_target IN LISTS _engine_sim_offline_numeric_policy_targets)
     engine_sim_offline_assert_renderer_numeric_policy("${_target}")
 endforeach()
 if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
+    engine_sim_offline_assert_final_renderer_numeric_policy(
+        engine_sim_offline_m3_bmw_listening
+    )
     engine_sim_offline_assert_final_renderer_numeric_policy(
         engine_sim_offline_p18_reference_render
     )
