@@ -460,7 +460,7 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
       excitation with persistent propagation delay and diagnostic observables.
 - [x] Connect clean-slate physics to the already accepted renderer without changing
       that renderer.
-- [ ] Render the canonical 15-second pull.
+- [x] Render the canonical 15-second pull.
 - [ ] Produce controlled oracle/candidate files plus routing and performance reports.
 - [ ] Stop for user listening.
 - [ ] After the user accepts the physics-generated BMW listening gate, retire every
