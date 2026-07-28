@@ -127,7 +127,7 @@ add_library(
         src/simulation/legacy_low_order_simulation.cpp
         src/simulation/legacy_low_order_simulation_compile.cpp
         src/simulation/legacy_mechanics_primitives.cpp
-        src/simulation/prescribed_scenario_schedule.cpp
+        src/simulation/kinematic_scenario_schedule.cpp
 )
 add_library(
     engine_sim_offline::simulation

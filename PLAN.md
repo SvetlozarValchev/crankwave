@@ -512,7 +512,7 @@ replacement starts before acceptance.
         claiming that arbitrary supplied terms are complete net torque.
   - [ ] Add the resolved accessory condition and a separate M4 BMW operating profile
         with complete aggregate loss/starter accounting.
-  - [ ] Generalize the kinematic schedule for O(1)-storage held-speed operation while
+  - [x] Generalize the kinematic schedule for O(1)-storage held-speed operation while
         preserving the accepted M3 trajectory exactly.
   - [ ] Admit and prove phase-aligned pressure plus cycle-torque convergence.
   - [ ] Publish a typed held-speed operating-point result and prove M3 remains

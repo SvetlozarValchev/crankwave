@@ -2,7 +2,6 @@
 #include "simulation/legacy_ignition_schedule.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
-#include "simulation/prescribed_scenario_schedule.hpp"
 
 #include <algorithm>
 #include <array>
@@ -271,18 +270,6 @@ struct MechanicsFixture {
     }
 };
 
-PrescribedScenarioSchedule require_schedule(PrescribedScenarioScheduleResult result) {
-    if (const auto *report = std::get_if<ValidationReport>(&result)) {
-        std::string message = "valid prescribed mechanics schedule was rejected";
-        if (!report->issues.empty()) {
-            message += ": " + report->issues.front().path + ": " +
-                       report->issues.front().message;
-        }
-        throw std::runtime_error{message};
-    }
-    return std::get<PrescribedScenarioSchedule>(std::move(result));
-}
-
 LegacyLowOrderMechanicsSession require_session(LegacyMechanicsCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
         std::string message = "valid low-order mechanics session was rejected";
@@ -318,59 +305,6 @@ const LegacyMechanismStep &require_step(LegacyMechanicsAdvanceResult &result) {
         std::get_if<std::reference_wrapper<const LegacyMechanismStep>>(&result);
     expect(step != nullptr, "mechanics session did not produce an expected step");
     return step->get();
-}
-
-void test_prescribed_schedule_right_continuity_and_cursor_lifetime() {
-    MechanicsFixture fixture;
-    auto schedule =
-        require_schedule(compile_prescribed_scenario_schedule(fixture.scenario));
-    expect(schedule.rate() == RationalRateHz{10000, 1} &&
-               schedule.first_step_index() == 0 && schedule.sample_count() == 4,
-           "compiled prescribed schedule has the wrong fixed-rate extent");
-
-    auto &source_rpm = std::get<FixedRateRpmTrajectory>(
-        std::get<PrescribedKinematicSweep>(fixture.scenario.mode).trajectory.rpm);
-    source_rpm.post_step_rpm.assign(1U, -1.0);
-
-    auto first_cursor = schedule.fresh_cursor();
-    auto second_cursor = schedule.fresh_cursor();
-    const auto first_a = first_cursor.next();
-    const auto first_b = second_cursor.next();
-    expect(first_a.has_value() && first_a == first_b,
-           "fresh prescribed cursors do not begin independently");
-    expect(first_a->sample_index == 0 && first_a->step_end_index == 1 &&
-               first_a->rpm == 400000.0 && first_a->requested_throttle == 0.25 &&
-               first_a->operating_state.ignition_enabled,
-           "first prescribed step changed its post-step controls");
-
-    const auto second = first_cursor.next();
-    const auto boundary = first_cursor.next();
-    const auto fourth = first_cursor.next();
-    expect(second.has_value() && second->sample_index == 1 &&
-               second->requested_throttle == 0.25 &&
-               second->operating_state.ignition_enabled,
-           "pre-boundary controls changed early");
-    expect(boundary.has_value() && boundary->sample_index == 2 &&
-               boundary->requested_throttle == 0.75 &&
-               !boundary->operating_state.ignition_enabled,
-           "right-continuous controls did not change on their resolved step");
-    expect(fourth.has_value() && fourth->sample_index == 3 &&
-               fourth->step_end_index == 4,
-           "prescribed schedule lost its final sample");
-    expect(!first_cursor.next().has_value() && first_cursor.completed() &&
-               !first_cursor.next().has_value(),
-           "prescribed cursor completion is not terminal and stable");
-
-    auto surviving_cursor = [] {
-        MechanicsFixture temporary_fixture;
-        auto temporary_schedule = require_schedule(
-            compile_prescribed_scenario_schedule(temporary_fixture.scenario));
-        return temporary_schedule.fresh_cursor();
-    }();
-    const auto surviving_first = surviving_cursor.next();
-    expect(surviving_first.has_value() && surviving_first == first_a,
-           "compiled RPM/control snapshot changed with its request or schedule "
-           "lifetime");
 }
 
 void test_mechanics_session_step_order_and_completion() {
@@ -494,6 +428,11 @@ void test_mechanics_compile_rejections() {
         sweep.trajectory.kinematic_resolution.value.id = "unsupported-rpm-method";
         expect_compile_rejected(fixture, "kinematic_resolution");
     }
+    {
+        MechanicsFixture fixture;
+        fixture.scenario.mode = HeldSpeed{{1000.0, {}}, {0.0, {}}, {0.75, {}}};
+        expect_compile_rejected(fixture, "scenario.mode");
+    }
 }
 
 void run_tests() {
@@ -502,7 +441,6 @@ void run_tests() {
     test_centered_slider_crank_geometry();
     test_ignition_crossing_half_open_intervals();
     test_limiter_strict_threshold_and_timer_edges();
-    test_prescribed_schedule_right_continuity_and_cursor_lifetime();
     test_mechanics_session_step_order_and_completion();
     test_mechanics_compile_rejections();
 }

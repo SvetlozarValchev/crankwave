@@ -29,7 +29,7 @@ bool finite_step_scalars(const LegacyMechanismStep &step) noexcept {
 } // namespace
 
 LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
-    PrescribedScenarioCursor scenario_cursor, contract::RationalRateHz rate,
+    KinematicScenarioCursor scenario_cursor, contract::RationalRateHz rate,
     double crank_tdc_reference_rad, double initial_theta_cycle_rad,
     std::vector<CylinderModel> cylinders, std::vector<LegacyTrianglePoint> timing_curve,
     double timing_curve_radius_rad_s, double limiter_speed_rpm, double limiter_hold_s,

@@ -1,6 +1,6 @@
 #include "simulation/legacy_low_order_gas.hpp"
 
-#include "simulation/prescribed_scenario_schedule.hpp"
+#include "simulation/kinematic_scenario_schedule.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -297,7 +297,7 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
                 "configuration");
     }
 
-    auto schedule_result = compile_prescribed_scenario_schedule(scenario);
+    auto schedule_result = compile_kinematic_scenario_schedule(scenario);
     if (const auto *nested = std::get_if<ValidationReport>(&schedule_result)) {
         append_prefixed(report, *nested, "schedule");
     }
@@ -1034,7 +1034,7 @@ LegacyGasCompileResult compile_legacy_low_order_gas_session(
         return report;
     }
 
-    const auto &schedule = std::get<PrescribedScenarioSchedule>(schedule_result);
+    const auto &schedule = std::get<KinematicScenarioSchedule>(schedule_result);
     auto valvetrain = std::get<LegacyFixedValvetrain>(std::move(valvetrain_result));
 
     LegacyLowOrderGasSession session;

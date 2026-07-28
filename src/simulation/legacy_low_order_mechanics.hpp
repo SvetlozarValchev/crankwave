@@ -3,8 +3,8 @@
 #include "engine_sim_offline/contract/capture.hpp"
 #include "engine_sim_offline/contract/result.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
+#include "simulation/kinematic_scenario_schedule.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
-#include "simulation/prescribed_scenario_schedule.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -104,7 +104,7 @@ class LegacyLowOrderMechanicsSession final {
     };
 
     LegacyLowOrderMechanicsSession(
-        PrescribedScenarioCursor scenario_cursor, contract::RationalRateHz rate,
+        KinematicScenarioCursor scenario_cursor, contract::RationalRateHz rate,
         double crank_tdc_reference_rad, double initial_theta_cycle_rad,
         std::vector<CylinderModel> cylinders,
         std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
@@ -117,7 +117,7 @@ class LegacyLowOrderMechanicsSession final {
           std::optional<contract::CylinderId> cylinder_id = std::nullopt,
           std::optional<contract::RouteId> route_id = std::nullopt) const;
 
-    PrescribedScenarioCursor scenario_cursor_;
+    KinematicScenarioCursor scenario_cursor_;
     contract::RationalRateHz rate_;
     double crank_tdc_reference_rad_ = 0.0;
     double step_s_ = 0.0;

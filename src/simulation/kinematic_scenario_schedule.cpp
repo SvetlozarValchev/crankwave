@@ -1,8 +1,8 @@
-#include "prescribed_scenario_schedule.hpp"
+#include "kinematic_scenario_schedule.hpp"
 
 #include <cmath>
-#include <limits>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -20,17 +20,31 @@ struct ThrottleBoundary {
     double value = 0.0;
 };
 
-struct PrescribedScenarioScheduleStorage {
+struct SampledRpmLane {
     std::vector<double> post_step_rpm;
+};
+
+struct ConstantRpmLane {
+    double rpm = 0.0;
+};
+
+using RpmLane = std::variant<SampledRpmLane, ConstantRpmLane>;
+
+struct KinematicScenarioScheduleStorage {
+    RpmLane rpm;
+    std::uint64_t sample_count = 0;
     std::vector<OperatingStateBoundary> operating_state;
     std::vector<ThrottleBoundary> throttle;
 };
 
-struct PrescribedScenarioScheduleFactory {
-    static PrescribedScenarioSchedule
-    make(const contract::FixedRateRpmTrajectory &rpm,
-         std::shared_ptr<const PrescribedScenarioScheduleStorage> storage) noexcept {
-        return {rpm.rate, rpm.first_step_index, rpm.semantics, std::move(storage)};
+struct KinematicScenarioScheduleFactory {
+    static KinematicScenarioSchedule
+    make(contract::RationalRateHz rate, std::uint64_t first_step_index,
+         contract::RpmSampleSemantics semantics, std::uint64_t sample_count,
+         double initial_theta_rad,
+         std::shared_ptr<const KinematicScenarioScheduleStorage> storage) noexcept {
+        return {rate,         first_step_index,  semantics,
+                sample_count, initial_theta_rad, std::move(storage)};
     }
 };
 
@@ -68,7 +82,7 @@ resolve_boundary(ValidationReport &report, double time_s,
     }
     if (horizon.has_value() && *step_index > *horizon) {
         add_issue(report, ContractIssueCode::inconsistent_semantics, path,
-                  "boundary must not exceed the prescribed scenario horizon");
+                  "boundary must not exceed the kinematic scenario horizon");
     }
     return step_index;
 }
@@ -190,13 +204,13 @@ void compile_throttle_boundaries(ValidationReport &report,
 
 } // namespace
 
-PrescribedScenarioCursor::PrescribedScenarioCursor(
-    std::shared_ptr<const detail::PrescribedScenarioScheduleStorage> storage,
+KinematicScenarioCursor::KinematicScenarioCursor(
+    std::shared_ptr<const detail::KinematicScenarioScheduleStorage> storage,
     std::uint64_t first_step_index) noexcept
     : storage_(std::move(storage)), first_step_index_(first_step_index) {}
 
-PrescribedScenarioCursor::PrescribedScenarioCursor(
-    PrescribedScenarioCursor &&other) noexcept
+KinematicScenarioCursor::KinematicScenarioCursor(
+    KinematicScenarioCursor &&other) noexcept
     : storage_(std::move(other.storage_)),
       first_step_index_(std::exchange(other.first_step_index_, 0)),
       next_sample_offset_(std::exchange(other.next_sample_offset_, 0)),
@@ -206,8 +220,8 @@ PrescribedScenarioCursor::PrescribedScenarioCursor(
       operating_state_(other.operating_state_),
       requested_throttle_(other.requested_throttle_) {}
 
-PrescribedScenarioCursor &
-PrescribedScenarioCursor::operator=(PrescribedScenarioCursor &&other) noexcept {
+KinematicScenarioCursor &
+KinematicScenarioCursor::operator=(KinematicScenarioCursor &&other) noexcept {
     if (this == &other) {
         return *this;
     }
@@ -222,7 +236,7 @@ PrescribedScenarioCursor::operator=(PrescribedScenarioCursor &&other) noexcept {
     return *this;
 }
 
-std::optional<ScheduledScenarioStep> PrescribedScenarioCursor::next() noexcept {
+std::optional<ScheduledScenarioStep> KinematicScenarioCursor::next() noexcept {
     if (!storage_ || completed()) {
         return std::nullopt;
     }
@@ -245,7 +259,17 @@ std::optional<ScheduledScenarioStep> PrescribedScenarioCursor::next() noexcept {
     const auto step = ScheduledScenarioStep{
         sample_index,
         sample_index + 1,
-        storage_->post_step_rpm[next_sample_offset_],
+        std::visit(
+            [this](const auto &lane) {
+                using Lane = std::decay_t<decltype(lane)>;
+                if constexpr (std::is_same_v<Lane, detail::SampledRpmLane>) {
+                    return lane
+                        .post_step_rpm[static_cast<std::size_t>(next_sample_offset_)];
+                } else {
+                    return lane.rpm;
+                }
+            },
+            storage_->rpm),
         requested_throttle_,
         operating_state_,
     };
@@ -253,47 +277,63 @@ std::optional<ScheduledScenarioStep> PrescribedScenarioCursor::next() noexcept {
     return step;
 }
 
-bool PrescribedScenarioCursor::completed() const noexcept {
-    return !storage_ || next_sample_offset_ >= storage_->post_step_rpm.size();
+bool KinematicScenarioCursor::completed() const noexcept {
+    return !storage_ || next_sample_offset_ >= storage_->sample_count;
 }
 
-PrescribedScenarioSchedule::PrescribedScenarioSchedule(
+KinematicScenarioSchedule::KinematicScenarioSchedule(
     contract::RationalRateHz rate, std::uint64_t first_step_index,
-    contract::RpmSampleSemantics sample_semantics,
-    std::shared_ptr<const detail::PrescribedScenarioScheduleStorage> storage) noexcept
+    contract::RpmSampleSemantics sample_semantics, std::uint64_t sample_count,
+    double initial_theta_rad,
+    std::shared_ptr<const detail::KinematicScenarioScheduleStorage> storage) noexcept
     : rate_(rate), first_step_index_(first_step_index),
-      sample_semantics_(sample_semantics), storage_(std::move(storage)) {}
+      sample_semantics_(sample_semantics), sample_count_(sample_count),
+      initial_theta_rad_(initial_theta_rad), storage_(std::move(storage)) {}
 
-const contract::RationalRateHz &PrescribedScenarioSchedule::rate() const noexcept {
+const contract::RationalRateHz &KinematicScenarioSchedule::rate() const noexcept {
     return rate_;
 }
 
-std::uint64_t PrescribedScenarioSchedule::first_step_index() const noexcept {
+std::uint64_t KinematicScenarioSchedule::first_step_index() const noexcept {
     return first_step_index_;
 }
 
 contract::RpmSampleSemantics
-PrescribedScenarioSchedule::sample_semantics() const noexcept {
+KinematicScenarioSchedule::sample_semantics() const noexcept {
     return sample_semantics_;
 }
 
-std::uint64_t PrescribedScenarioSchedule::sample_count() const noexcept {
-    return storage_ == nullptr
-               ? 0
-               : static_cast<std::uint64_t>(storage_->post_step_rpm.size());
+std::uint64_t KinematicScenarioSchedule::sample_count() const noexcept {
+    return storage_ == nullptr ? 0 : sample_count_;
 }
 
-std::span<const double> PrescribedScenarioSchedule::post_step_rpm() const noexcept {
-    return storage_ == nullptr ? std::span<const double>{}
-                               : std::span<const double>{storage_->post_step_rpm};
+double KinematicScenarioSchedule::initial_theta_rad() const noexcept {
+    return initial_theta_rad_;
 }
 
-PrescribedScenarioCursor PrescribedScenarioSchedule::fresh_cursor() const noexcept {
+std::optional<double> KinematicScenarioSchedule::rpm_at_sample_offset(
+    std::uint64_t sample_offset) const noexcept {
+    if (storage_ == nullptr || sample_offset >= sample_count_) {
+        return std::nullopt;
+    }
+    return std::visit(
+        [sample_offset](const auto &lane) {
+            using Lane = std::decay_t<decltype(lane)>;
+            if constexpr (std::is_same_v<Lane, detail::SampledRpmLane>) {
+                return lane.post_step_rpm[static_cast<std::size_t>(sample_offset)];
+            } else {
+                return lane.rpm;
+            }
+        },
+        storage_->rpm);
+}
+
+KinematicScenarioCursor KinematicScenarioSchedule::fresh_cursor() const noexcept {
     return {storage_, first_step_index_};
 }
 
-PrescribedScenarioScheduleResult
-compile_prescribed_scenario_schedule(const contract::RenderScenario &scenario) {
+KinematicScenarioScheduleResult
+compile_kinematic_scenario_schedule(const contract::RenderScenario &scenario) {
     ValidationReport report;
     append_rate_report(report, scenario.rates.physics, "scenario.rates.physics");
 
@@ -306,83 +346,121 @@ compile_prescribed_scenario_schedule(const contract::RenderScenario &scenario) {
                   "horizon");
     }
 
-    const auto *sweep = std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode);
-    if (sweep == nullptr) {
-        add_issue(report, ContractIssueCode::unsupported_value, "scenario.mode",
-                  "prescribed scheduling requires PrescribedKinematicSweep mode");
-        return report;
-    }
-
-    const auto *rpm =
-        std::get_if<contract::FixedRateRpmTrajectory>(&sweep->trajectory.rpm);
-    if (rpm == nullptr) {
-        add_issue(report, ContractIssueCode::unsupported_value,
-                  "scenario.mode.trajectory.rpm",
-                  "prescribed scheduling requires a fixed-rate RPM trajectory");
-        return report;
-    }
-    std::vector<double> rpm_snapshot = rpm->post_step_rpm;
-
-    append_rate_report(report, rpm->rate, "scenario.mode.trajectory.rpm.rate");
-    if (rpm->rate != scenario.rates.physics) {
-        add_issue(report, ContractIssueCode::inconsistent_semantics,
-                  "scenario.mode.trajectory.rpm.rate",
-                  "fixed-rate RPM trajectory rate must equal the physics rate");
-    }
-    if (rpm->first_step_index != 0) {
-        add_issue(report, ContractIssueCode::inconsistent_semantics,
-                  "scenario.mode.trajectory.rpm.first_step_index",
-                  "fixed-rate RPM trajectory must begin at physics step zero");
-    }
-    if (rpm->semantics != contract::RpmSampleSemantics::post_step_rpm) {
-        add_issue(report, ContractIssueCode::unsupported_value,
-                  "scenario.mode.trajectory.rpm.semantics",
-                  "prescribed scheduling supports only post-step RPM samples");
-    }
-    if (horizon.has_value() && rpm_snapshot.size() != *horizon) {
-        add_issue(report, ContractIssueCode::inconsistent_shape,
-                  "scenario.mode.trajectory.rpm.post_step_rpm",
-                  "fixed-rate RPM sample count must equal the physics-step horizon");
-    }
-    for (std::size_t index = 0; index < rpm_snapshot.size(); ++index) {
-        const auto value = rpm_snapshot[index];
-        if (!std::isfinite(value)) {
-            add_issue(report, ContractIssueCode::invalid_value,
-                      "scenario.mode.trajectory.rpm.post_step_rpm[" +
-                          std::to_string(index) + "]",
-                      "post-step RPM must be finite");
-        } else if (value < 0.0) {
-            add_issue(report, ContractIssueCode::invalid_value,
-                      "scenario.mode.trajectory.rpm.post_step_rpm[" +
-                          std::to_string(index) + "]",
-                      "post-step RPM must be nonnegative");
-        }
-    }
-    if (contract::canonical_binary64_le_sha256(rpm_snapshot) !=
-        rpm->samples_f64le_sha256) {
-        add_issue(report, ContractIssueCode::inconsistent_semantics,
-                  "scenario.mode.trajectory.rpm.samples_f64le_sha256",
-                  "fixed-rate RPM sample hash does not match the captured lane");
-    }
-
+    detail::RpmLane rpm_lane;
+    std::uint64_t first_step_index = 0;
+    auto semantics = contract::RpmSampleSemantics::post_step_rpm;
+    std::uint64_t sample_count = horizon.value_or(0);
+    double initial_theta_rad = 0.0;
     std::vector<detail::OperatingStateBoundary> operating_state;
     std::vector<detail::ThrottleBoundary> throttle;
+
+    if (const auto *held = std::get_if<contract::HeldSpeed>(&scenario.mode)) {
+        if (!std::isfinite(held->engine_speed_rpm.value) ||
+            held->engine_speed_rpm.value <= 0.0) {
+            add_issue(report, ContractIssueCode::invalid_value,
+                      "scenario.mode.engine_speed_rpm.value",
+                      "held speed must be finite and positive");
+        }
+        if (!std::isfinite(held->initial_theta_rad.value)) {
+            add_issue(report, ContractIssueCode::invalid_value,
+                      "scenario.mode.initial_theta_rad.value",
+                      "initial crank angle must be finite");
+        }
+        if (!std::isfinite(held->throttle_01.value) || held->throttle_01.value < 0.0 ||
+            held->throttle_01.value > 1.0) {
+            add_issue(report, ContractIssueCode::invalid_value,
+                      "scenario.mode.throttle_01.value",
+                      "throttle must be finite and in [0, 1]");
+        }
+
+        rpm_lane = detail::ConstantRpmLane{held->engine_speed_rpm.value};
+        initial_theta_rad = held->initial_theta_rad.value;
+        throttle.push_back({0, held->throttle_01.value});
+    } else if (const auto *sweep =
+                   std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode)) {
+        const auto *rpm =
+            std::get_if<contract::FixedRateRpmTrajectory>(&sweep->trajectory.rpm);
+        if (rpm == nullptr) {
+            add_issue(report, ContractIssueCode::unsupported_value,
+                      "scenario.mode.trajectory.rpm",
+                      "kinematic scheduling requires a fixed-rate RPM trajectory");
+            return report;
+        }
+        std::vector<double> rpm_snapshot = rpm->post_step_rpm;
+
+        append_rate_report(report, rpm->rate, "scenario.mode.trajectory.rpm.rate");
+        if (rpm->rate != scenario.rates.physics) {
+            add_issue(report, ContractIssueCode::inconsistent_semantics,
+                      "scenario.mode.trajectory.rpm.rate",
+                      "fixed-rate RPM trajectory rate must equal the physics rate");
+        }
+        if (rpm->first_step_index != 0) {
+            add_issue(report, ContractIssueCode::inconsistent_semantics,
+                      "scenario.mode.trajectory.rpm.first_step_index",
+                      "fixed-rate RPM trajectory must begin at physics step zero");
+        }
+        if (rpm->semantics != contract::RpmSampleSemantics::post_step_rpm) {
+            add_issue(report, ContractIssueCode::unsupported_value,
+                      "scenario.mode.trajectory.rpm.semantics",
+                      "kinematic scheduling supports only post-step RPM samples");
+        }
+        if (horizon.has_value() && rpm_snapshot.size() != *horizon) {
+            add_issue(
+                report, ContractIssueCode::inconsistent_shape,
+                "scenario.mode.trajectory.rpm.post_step_rpm",
+                "fixed-rate RPM sample count must equal the physics-step horizon");
+        }
+        for (std::size_t index = 0; index < rpm_snapshot.size(); ++index) {
+            const auto value = rpm_snapshot[index];
+            if (!std::isfinite(value)) {
+                add_issue(report, ContractIssueCode::invalid_value,
+                          "scenario.mode.trajectory.rpm.post_step_rpm[" +
+                              std::to_string(index) + "]",
+                          "post-step RPM must be finite");
+            } else if (value < 0.0) {
+                add_issue(report, ContractIssueCode::invalid_value,
+                          "scenario.mode.trajectory.rpm.post_step_rpm[" +
+                              std::to_string(index) + "]",
+                          "post-step RPM must be nonnegative");
+            }
+        }
+        if (contract::canonical_binary64_le_sha256(rpm_snapshot) !=
+            rpm->samples_f64le_sha256) {
+            add_issue(report, ContractIssueCode::inconsistent_semantics,
+                      "scenario.mode.trajectory.rpm.samples_f64le_sha256",
+                      "fixed-rate RPM sample hash does not match the captured lane");
+        }
+
+        first_step_index = rpm->first_step_index;
+        semantics = rpm->semantics;
+        sample_count = static_cast<std::uint64_t>(rpm_snapshot.size());
+        initial_theta_rad = sweep->trajectory.initial_theta_rad.value;
+        rpm_lane = detail::SampledRpmLane{std::move(rpm_snapshot)};
+        compile_throttle_boundaries(report, scenario, sweep->throttle_01, horizon,
+                                    throttle);
+    } else {
+        add_issue(report, ContractIssueCode::unsupported_value, "scenario.mode",
+                  "kinematic scheduling supports only HeldSpeed and "
+                  "PrescribedKinematicSweep modes");
+        return report;
+    }
+
     compile_operating_state_boundaries(report, scenario, horizon, operating_state);
-    compile_throttle_boundaries(report, scenario, sweep->throttle_01, horizon,
-                                throttle);
 
     if (!report.ok()) {
         return report;
     }
 
-    auto mutable_storage =
-        std::make_shared<detail::PrescribedScenarioScheduleStorage>();
-    mutable_storage->post_step_rpm = std::move(rpm_snapshot);
+    auto mutable_storage = std::make_shared<detail::KinematicScenarioScheduleStorage>();
+    mutable_storage->rpm = std::move(rpm_lane);
+    mutable_storage->sample_count = sample_count;
     mutable_storage->operating_state = std::move(operating_state);
     mutable_storage->throttle = std::move(throttle);
-    std::shared_ptr<const detail::PrescribedScenarioScheduleStorage> storage =
+    std::shared_ptr<const detail::KinematicScenarioScheduleStorage> storage =
         std::move(mutable_storage);
-    return detail::PrescribedScenarioScheduleFactory::make(*rpm, std::move(storage));
+    return detail::KinematicScenarioScheduleFactory::make(
+        scenario.rates.physics, first_step_index, semantics, sample_count,
+        initial_theta_rad, std::move(storage));
 }
 
 } // namespace engine_sim_offline::simulation

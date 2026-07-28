@@ -536,6 +536,23 @@ void test_gas_method_admission_rejection() {
         expect_gas_compile_rejected(request, "engine.physics_profile.fuel",
                                     "zero flame-speed multiplier");
     }
+
+    {
+        BmwM52b28ParityRequest request = make_short_bmw_request();
+        auto mechanics = require_mechanics(compile_legacy_low_order_mechanics_session(
+            request.engine, request.scenario));
+        request.scenario.mode = HeldSpeed{{kShortRunRpm, {}}, {0.0, {}}, {0.85, {}}};
+        const auto result = compile_legacy_low_order_gas_session(
+            request.engine, request.scenario, mechanics.cylinder_models());
+        const auto *report = std::get_if<ValidationReport>(&result);
+        expect(report != nullptr &&
+                   std::ranges::any_of(report->issues,
+                                       [](const ContractIssue &issue) {
+                                           return issue.path.find("scenario.mode") !=
+                                                  std::string::npos;
+                                       }),
+               "legacy gas session admitted HeldSpeed");
+    }
 }
 
 void test_mechanics_event_coherence_rejection() {
