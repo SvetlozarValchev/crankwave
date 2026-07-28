@@ -112,6 +112,34 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_profiles)
 
 add_library(
+    engine_sim_offline_simulation
+    STATIC
+        src/simulation/legacy_ignition_schedule.cpp
+        src/simulation/legacy_low_order_mechanics.cpp
+        src/simulation/legacy_low_order_mechanics_compile.cpp
+        src/simulation/legacy_mechanics_primitives.cpp
+        src/simulation/prescribed_scenario_schedule.cpp
+)
+add_library(
+    engine_sim_offline::simulation
+    ALIAS engine_sim_offline_simulation
+)
+
+target_include_directories(
+    engine_sim_offline_simulation
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_simulation
+    PUBLIC
+        engine_sim_offline::contract
+        engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_simulation)
+
+add_library(
     engine_sim_offline_render
     STATIC
         src/render.cpp
@@ -557,6 +585,7 @@ set(
     _engine_sim_offline_numeric_policy_targets
     engine_sim_offline_contract
     engine_sim_offline_profiles
+    engine_sim_offline_simulation
     engine_sim_offline_render
     engine_sim_offline_artifacts
     engine_sim_offline_dsp

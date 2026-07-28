@@ -610,6 +610,56 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_legacy_low_order_mechanics_tests
+    legacy_low_order_mechanics_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_legacy_low_order_mechanics_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_legacy_low_order_mechanics_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.legacy_low_order_mechanics
+    COMMAND engine_sim_offline_legacy_low_order_mechanics_tests
+)
+
+add_executable(
+    engine_sim_offline_bmw_m52b28_mechanics_parity_tests
+    bmw_m52b28_mechanics_parity_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_bmw_m52b28_mechanics_parity_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_bmw_m52b28_mechanics_parity_tests
+    PRIVATE
+        engine_sim_offline::profiles
+        engine_sim_offline::simulation
+        engine_sim_offline_reference_parity_v1_reader
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_bmw_m52b28_mechanics_parity_tests
+)
+
+add_test(
+    NAME simulation.bmw_m52b28_mechanics_parity
+    COMMAND
+        engine_sim_offline_bmw_m52b28_mechanics_parity_tests
+        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/reference-parity.bin
+)
+
+add_executable(
     engine_sim_offline_bmw_m52b28_parity_request_tests
     bmw_m52b28_parity_request_test.cpp
 )

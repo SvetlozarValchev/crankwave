@@ -1,0 +1,573 @@
+#include "engine_sim_offline/profiles/bmw_m52b28_parity_request.hpp"
+
+#include "reference/reference_parity_v1_reader.hpp"
+#include "simulation/legacy_low_order_mechanics.hpp"
+
+#include <algorithm>
+#include <array>
+#include <bit>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <fstream>
+#include <functional>
+#include <iomanip>
+#include <iostream>
+#include <optional>
+#include <span>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <variant>
+#include <vector>
+
+namespace {
+
+using namespace engine_sim_offline;
+
+constexpr double kLegacyPi = 3.14159265359;
+constexpr double kLegacyRpmScale = 0.104719755;
+constexpr double kMaximumCircularAngleErrorRad = 1.0e-12;
+constexpr double kMaximumTimingErrorRad = 1.0e-14;
+
+[[noreturn]] void fail(std::string message) {
+    throw std::runtime_error{std::move(message)};
+}
+
+void expect(bool condition, std::string_view message) {
+    if (!condition) {
+        fail(std::string{message});
+    }
+}
+
+[[noreturn]] void fail_frame(std::uint64_t sample_index, std::string_view field) {
+    std::ostringstream message;
+    message << "frame " << sample_index << ": " << field;
+    fail(message.str());
+}
+
+[[noreturn]] void fail_numeric(std::uint64_t sample_index, std::string_view field,
+                               double actual, double expected) {
+    std::ostringstream message;
+    message << std::setprecision(17) << "frame " << sample_index << ": " << field
+            << " (actual=" << actual << ", expected=" << expected << ')';
+    fail(message.str());
+}
+
+[[nodiscard]] bool same_binary64(double lhs, double rhs) noexcept {
+    return std::bit_cast<std::uint64_t>(lhs) == std::bit_cast<std::uint64_t>(rhs);
+}
+
+[[nodiscard]] double circular_error_4pi(double lhs, double rhs) noexcept {
+    return std::abs(std::remainder(lhs - rhs, 4.0 * kLegacyPi));
+}
+
+[[nodiscard]] double expected_positive_mod(double value, double modulus) noexcept {
+    if (value < 0.0) {
+        value = std::ceil(-value / modulus) * modulus + value;
+    }
+    return std::fmod(value, modulus);
+}
+
+[[nodiscard]] std::vector<std::byte> read_exact_fixture(const std::string &path) {
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    expect(input.is_open(), "could not open pinned reference-parity.bin");
+    const auto size = input.tellg();
+    expect(size == static_cast<std::streamoff>(reference::kReferenceParityV1ByteCount),
+           "pinned reference-parity.bin has unexpected size");
+    input.seekg(0);
+    std::vector<std::byte> bytes(reference::kReferenceParityV1ByteCount);
+    input.read(reinterpret_cast<char *>(bytes.data()),
+               static_cast<std::streamsize>(bytes.size()));
+    expect(input.gcount() == static_cast<std::streamsize>(bytes.size()),
+           "pinned reference-parity.bin read was incomplete");
+    return bytes;
+}
+
+[[nodiscard]] reference::DecodedReferenceParityV1
+decode_fixture(const std::vector<std::byte> &bytes) {
+    auto result = reference::decode_reference_parity_v1(bytes);
+    auto *decoded = std::get_if<reference::DecodedReferenceParityV1>(&result);
+    expect(decoded != nullptr, "pinned reference-parity.bin failed strict decode");
+    return std::move(*decoded);
+}
+
+[[nodiscard]] profiles::BmwM52b28ParityRequest
+make_request(const reference::DecodedReferenceParityV1 &fixture) {
+    std::vector<double> rpm;
+    rpm.reserve(fixture.frames.size());
+    for (const auto &frame : fixture.frames) {
+        rpm.push_back(frame.engine_speed_rpm);
+    }
+
+    auto result = profiles::make_bmw_m52b28_parity_request(std::move(rpm));
+    auto *request = std::get_if<profiles::BmwM52b28ParityRequest>(&result);
+    expect(request != nullptr,
+           "decoded RPM lane did not construct the canonical BMW request");
+    return std::move(*request);
+}
+
+[[nodiscard]] simulation::LegacyLowOrderMechanicsSession
+compile_session(const profiles::BmwM52b28ParityRequest &request) {
+    auto result = simulation::compile_legacy_low_order_mechanics_session(
+        request.engine, request.scenario);
+    if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
+        std::ostringstream message;
+        message << "canonical BMW mechanics request failed to compile";
+        for (const auto &issue : report->issues) {
+            message << "\n  " << issue.path << ": " << issue.message;
+        }
+        fail(message.str());
+    }
+    return std::get<simulation::LegacyLowOrderMechanicsSession>(std::move(result));
+}
+
+void verify_compiled_bmw_geometry(
+    std::span<const simulation::CenteredSliderCrankCylinder> models) {
+    constexpr std::array<double, 6> tdc_degrees{30.0, 150.0, 270.0, 270.0, 150.0, 30.0};
+    constexpr std::array<double, 6> ignition_degrees{0.0,   480.0, 240.0,
+                                                     600.0, 120.0, 360.0};
+    constexpr double expected_area_m2 = 0.005541769440932761;
+    constexpr double expected_clearance_m3 = 0.00004608105738123328;
+    constexpr double expected_maximum_volume_m3 = 0.00051158969041958523;
+    constexpr double derivative_dead_center_tolerance_m3_per_rad = 1.0e-14;
+    constexpr double finite_difference_tolerance_m3_per_rad = 1.0e-12;
+    constexpr double difference_step_rad = 1.0e-6;
+    const double degree = kLegacyPi / 180.0;
+
+    expect(models.size() == tdc_degrees.size(),
+           "compiled BMW geometry has the wrong cylinder count");
+    for (std::size_t index = 0; index < models.size(); ++index) {
+        const auto &model = models[index];
+        const double expected_tdc = tdc_degrees[index] * degree;
+        const double expected_ignition = ignition_degrees[index] * degree;
+        expect(model.cylinder_id ==
+                   contract::CylinderId{static_cast<std::uint32_t>(index + 1U)},
+               "compiled BMW cylinder identity/order changed");
+        expect(same_binary64(model.piston_area_m2, expected_area_m2),
+               "compiled BMW piston area changed");
+        expect(same_binary64(model.clearance_volume_m3, expected_clearance_m3),
+               "compiled BMW clearance volume changed");
+        expect(std::abs(model.geometric_tdc_rad - expected_tdc) <= 2.0e-15,
+               "compiled BMW geometric TDC changed");
+        expect(std::abs(model.ignition_wire_angle_rad - expected_ignition) <= 2.0e-15,
+               "compiled BMW ignition representative changed");
+        expect(std::abs(model.geometric_tdc_rad -
+                        expected_positive_mod(model.ignition_wire_angle_rad,
+                                              2.0 * kLegacyPi) -
+                        30.0 * degree) <= 3.0e-15,
+               "mandatory BMW 30-degree geometry/ignition distinction changed");
+
+        const auto tdc = simulation::evaluate_centered_slider_crank(
+            model, model.geometric_tdc_rad, 1.0);
+        const auto bdc = simulation::evaluate_centered_slider_crank(
+            model, model.geometric_tdc_rad + kLegacyPi, 1.0);
+        expect(tdc.valid && bdc.valid,
+               "compiled BMW dead-center geometry became invalid");
+        expect(std::abs(tdc.chamber_volume_m3 - expected_clearance_m3) <= 1.0e-18,
+               "compiled BMW TDC volume changed");
+        expect(std::abs(bdc.chamber_volume_m3 - expected_maximum_volume_m3) <= 1.0e-18,
+               "compiled BMW BDC volume changed");
+        expect(std::abs(tdc.dvolume_dtheta_m3_per_rad) <=
+                       derivative_dead_center_tolerance_m3_per_rad &&
+                   std::abs(bdc.dvolume_dtheta_m3_per_rad) <=
+                       derivative_dead_center_tolerance_m3_per_rad,
+               "compiled BMW dead-center volume derivative exceeded its gate");
+
+        const double diagnostic_angle = model.geometric_tdc_rad + 0.73;
+        const auto center =
+            simulation::evaluate_centered_slider_crank(model, diagnostic_angle, 1.0);
+        const auto before = simulation::evaluate_centered_slider_crank(
+            model, diagnostic_angle - difference_step_rad, 1.0);
+        const auto after = simulation::evaluate_centered_slider_crank(
+            model, diagnostic_angle + difference_step_rad, 1.0);
+        expect(center.valid && before.valid && after.valid,
+               "compiled BMW finite-difference geometry became invalid");
+        const double finite_difference =
+            (after.chamber_volume_m3 - before.chamber_volume_m3) /
+            (2.0 * difference_step_rad);
+        expect(std::abs(center.dvolume_dtheta_m3_per_rad - finite_difference) <=
+                   finite_difference_tolerance_m3_per_rad,
+               "compiled BMW analytic dV/dtheta failed finite difference");
+    }
+}
+
+// Independent reconstruction of the sealed legacy triangle table. This deliberately
+// does not call the simulator's sampler: the profile remains the source of both axes,
+// and an upper point wins an equal-distance nearest-point tie.
+[[nodiscard]] double
+expected_timing_advance(const contract::LegacyIgnitionProfile &ignition,
+                        double angular_speed_rad_s) {
+    const auto &points = ignition.timing_curve;
+    expect(!points.empty(), "sealed BMW ignition timing curve became empty");
+    if (angular_speed_rad_s <= points.front().angular_speed_rad_s.value) {
+        return points.front().timing_advance_rad.value;
+    }
+    if (angular_speed_rad_s >= points.back().angular_speed_rad_s.value) {
+        return points.back().timing_advance_rad.value;
+    }
+
+    std::size_t closest = 0;
+    double closest_distance =
+        std::abs(points.front().angular_speed_rad_s.value - angular_speed_rad_s);
+    for (std::size_t index = 1; index < points.size(); ++index) {
+        const double distance =
+            std::abs(points[index].angular_speed_rad_s.value - angular_speed_rad_s);
+        if (distance <= closest_distance) {
+            closest = index;
+            closest_distance = distance;
+        }
+    }
+
+    const double radius = ignition.timing_curve_triangle_radius_rad_s.value;
+    double weighted_sum = 0.0;
+    double total_weight = 0.0;
+    for (std::size_t index = closest + 1U; index-- > 0U;) {
+        const double x = points[index].angular_speed_rad_s.value;
+        if (x > angular_speed_rad_s) {
+            continue;
+        }
+        const double distance = std::abs(x - angular_speed_rad_s);
+        if (distance > radius) {
+            break;
+        }
+        const double weight = (radius - distance) / radius;
+        weighted_sum += weight * points[index].timing_advance_rad.value;
+        total_weight += weight;
+    }
+    for (std::size_t index = closest; index < points.size(); ++index) {
+        const double x = points[index].angular_speed_rad_s.value;
+        if (x <= angular_speed_rad_s) {
+            continue;
+        }
+        const double distance = std::abs(x - angular_speed_rad_s);
+        if (distance > radius) {
+            break;
+        }
+        const double weight = (radius - distance) / radius;
+        weighted_sum += weight * points[index].timing_advance_rad.value;
+        total_weight += weight;
+    }
+    return total_weight != 0.0 ? weighted_sum / total_weight : 0.0;
+}
+
+void verify_controls(const simulation::LegacyMechanismStep &step,
+                     const reference::ReferenceParityV1Frame &frame) {
+    const auto sample_index = frame.sample_index;
+    if (!same_binary64(step.requested_throttle_01,
+                       frame.controls.requested_throttle_01)) {
+        fail_numeric(sample_index, "requested throttle differs from fixture",
+                     step.requested_throttle_01, frame.controls.requested_throttle_01);
+    }
+    if (!same_binary64(step.resolved_engine_throttle_01,
+                       frame.controls.resolved_intake_throttle_01)) {
+        fail_numeric(sample_index, "resolved throttle differs from fixture",
+                     step.resolved_engine_throttle_01,
+                     frame.controls.resolved_intake_throttle_01);
+    }
+    if (step.operating_state.ignition_enabled != frame.controls.ignition_enabled ||
+        step.operating_state.fuel_enabled != frame.controls.fuel_enabled ||
+        step.operating_state.starter_enabled != frame.controls.starter_enabled ||
+        step.operating_state.dyno_enabled != frame.controls.dyno_enabled) {
+        fail_frame(sample_index, "operating-state controls differ from fixture");
+    }
+    if (!step.operating_state.limiter_enabled) {
+        fail_frame(sample_index, "sealed limiter configuration was not retained");
+    }
+
+    const double expected_plate = 0.994 * step.resolved_engine_throttle_01;
+    const double expected_flow = std::cos(kLegacyPi * expected_plate / 2.0);
+    if (!same_binary64(step.intake_plate_position_01, expected_plate) ||
+        !same_binary64(step.main_flow_multiplier_01, expected_flow)) {
+        fail_frame(sample_index, "direct intake throttle linkage changed");
+    }
+}
+
+void verify_geometry(const simulation::LegacyMechanismStep &step,
+                     const reference::DecodedReferenceParityV1 &fixture,
+                     std::span<const simulation::CenteredSliderCrankCylinder> models) {
+    if (step.cylinders.size() != reference::kReferenceParityV1CylinderCount ||
+        step.cylinders.size() != models.size()) {
+        fail_frame(step.sample_index, "mechanics cylinder count changed");
+    }
+
+    for (std::size_t index = 0; index < step.cylinders.size(); ++index) {
+        const auto &cylinder = step.cylinders[index];
+        const auto &descriptor = fixture.cylinders[index];
+        const auto &model = models[index];
+        if (cylinder.cylinder_id != contract::CylinderId{descriptor.stable_id} ||
+            cylinder.exhaust_route_id !=
+                contract::RouteId{descriptor.route_index + 1U} ||
+            cylinder.cylinder_id != model.cylinder_id) {
+            fail_frame(step.sample_index,
+                       "mechanics cylinder identity, order, or route changed");
+        }
+        const bool finite = std::isfinite(cylinder.geometric_tdc_rad) &&
+                            std::isfinite(cylinder.ignition_wire_angle_rad) &&
+                            std::isfinite(cylinder.phase_rad) &&
+                            std::isfinite(cylinder.piston_travel_m) &&
+                            std::isfinite(cylinder.chamber_volume_m3) &&
+                            std::isfinite(cylinder.dx_dtheta_m_per_rad) &&
+                            std::isfinite(cylinder.dvolume_dtheta_m3_per_rad) &&
+                            std::isfinite(cylinder.piston_speed_abs_m_s);
+        const bool physical =
+            cylinder.phase_rad >= 0.0 && cylinder.phase_rad < 2.0 * kLegacyPi &&
+            cylinder.piston_travel_m >= -1.0e-15 &&
+            cylinder.piston_travel_m <= 2.0 * model.crank_radius_m + 1.0e-15 &&
+            cylinder.chamber_volume_m3 > 0.0 && cylinder.piston_speed_abs_m_s >= 0.0;
+        if (!finite || !physical) {
+            fail_frame(step.sample_index,
+                       "slider-crank geometry became nonfinite or nonphysical");
+        }
+    }
+}
+
+struct SparkSequenceState {
+    std::optional<contract::CylinderId> previous_cylinder;
+    std::array<bool, reference::kReferenceParityV1CylinderCount> seen{};
+    std::uint64_t crossing_count = 0;
+};
+
+[[nodiscard]] contract::CylinderId
+next_bmw_firing_cylinder(contract::CylinderId cylinder_id) {
+    switch (cylinder_id.value) {
+    case 1:
+        return contract::CylinderId{5};
+    case 5:
+        return contract::CylinderId{3};
+    case 3:
+        return contract::CylinderId{6};
+    case 6:
+        return contract::CylinderId{2};
+    case 2:
+        return contract::CylinderId{4};
+    case 4:
+        return contract::CylinderId{1};
+    default:
+        fail("spark journal contained a non-BMW cylinder identity");
+    }
+}
+
+void verify_spark_events(
+    const simulation::LegacyMechanismStep &step,
+    std::span<const simulation::CenteredSliderCrankCylinder> models,
+    double previous_theta_cycle_rad, SparkSequenceState &sequence) {
+    struct ExpectedCrossing {
+        std::size_t runtime_index = 0;
+        double adjusted_current_angle_rad = 0.0;
+        double adjusted_spark_angle_rad = 0.0;
+    };
+
+    std::array<ExpectedCrossing, reference::kReferenceParityV1CylinderCount>
+        expected_crossings{};
+    std::size_t expected_count = 0;
+    std::array<bool, reference::kReferenceParityV1CylinderCount> crossed{};
+    if (step.operating_state.ignition_enabled) {
+        for (std::size_t runtime_index = 0; runtime_index < models.size();
+             ++runtime_index) {
+            const auto &model = models[runtime_index];
+            double adjusted_current = step.theta_cycle_rad;
+            double adjusted_spark = expected_positive_mod(
+                model.ignition_wire_angle_rad - step.timing_advance_rad,
+                4.0 * kLegacyPi);
+            bool expected_crossing = false;
+            if (step.omega_legacy_rad_s < 0.0) {
+                if (adjusted_current < previous_theta_cycle_rad) {
+                    adjusted_current += 4.0 * kLegacyPi;
+                    adjusted_spark += 4.0 * kLegacyPi;
+                }
+                expected_crossing = adjusted_spark >= previous_theta_cycle_rad &&
+                                    adjusted_spark < adjusted_current;
+            } else {
+                if (adjusted_current > previous_theta_cycle_rad) {
+                    adjusted_current -= 4.0 * kLegacyPi;
+                    adjusted_spark -= 4.0 * kLegacyPi;
+                }
+                expected_crossing = adjusted_spark >= adjusted_current &&
+                                    adjusted_spark < previous_theta_cycle_rad;
+            }
+            if (expected_crossing) {
+                expected_crossings[expected_count++] = {runtime_index, adjusted_current,
+                                                        adjusted_spark};
+                crossed[runtime_index] = true;
+            }
+        }
+    }
+
+    expect(step.events.size() == expected_count,
+           "BMW mechanics spark journal omitted or added a crossing");
+
+    for (std::size_t event_index = 0; event_index < step.events.size(); ++event_index) {
+        const auto &event = step.events[event_index];
+        const auto &expected = expected_crossings[event_index];
+        const auto &model = models[expected.runtime_index];
+        expect(event.ordinal_within_step == event_index,
+               "BMW mechanics event ordinals changed");
+        const auto *spark = std::get_if<contract::SparkCrossing>(&event.payload);
+        expect(spark != nullptr, "sub-limiter BMW mechanics emitted a non-spark event");
+        expect(spark->cylinder_id == model.cylinder_id,
+               "BMW spark journal left runtime cylinder order");
+        expect(same_binary64(spark->raw_saved_angle_rad, previous_theta_cycle_rad) &&
+                   same_binary64(spark->raw_current_angle_rad, step.theta_cycle_rad) &&
+                   same_binary64(spark->adjusted_current_angle_rad,
+                                 expected.adjusted_current_angle_rad) &&
+                   same_binary64(spark->adjusted_spark_angle_rad,
+                                 expected.adjusted_spark_angle_rad) &&
+                   same_binary64(spark->timing_advance_rad, step.timing_advance_rad),
+               "BMW spark crossing payload fields changed");
+
+        if (sequence.previous_cylinder.has_value()) {
+            expect(spark->cylinder_id ==
+                       next_bmw_firing_cylinder(*sequence.previous_cylinder),
+                   "BMW spark journal left firing order 1-5-3-6-2-4");
+        }
+        sequence.previous_cylinder = spark->cylinder_id;
+        sequence.seen[expected.runtime_index] = true;
+        ++sequence.crossing_count;
+    }
+
+    for (std::size_t index = 0; index < step.cylinders.size(); ++index) {
+        expect(step.cylinders[index].spark_crossed == crossed[index],
+               "BMW cylinder spark flag disagrees with its event journal");
+    }
+}
+
+void verify_frame(const simulation::LegacyMechanismStep &step,
+                  const reference::ReferenceParityV1Frame &frame,
+                  const reference::DecodedReferenceParityV1 &fixture,
+                  const contract::LegacyIgnitionProfile &ignition,
+                  std::span<const simulation::CenteredSliderCrankCylinder> models,
+                  double previous_theta_cycle_rad, SparkSequenceState &spark_sequence,
+                  double &maximum_angle_error_rad) {
+    if (step.rate != contract::RationalRateHz{10000, 1} ||
+        step.sample_index != frame.sample_index ||
+        step.step_end_index != frame.step_end ||
+        step.timestamp_tick != frame.step_end) {
+        fail_frame(frame.sample_index, "physics index, step end, or rate changed");
+    }
+    if (!same_binary64(step.engine_speed_rpm, frame.engine_speed_rpm)) {
+        fail_numeric(frame.sample_index, "prescribed RPM differs from fixture",
+                     step.engine_speed_rpm, frame.engine_speed_rpm);
+    }
+    if (!same_binary64(step.filtered_engine_speed_rpm,
+                       frame.filtered_engine_speed_rpm)) {
+        fail_numeric(frame.sample_index, "filtered RPM differs from fixture",
+                     step.filtered_engine_speed_rpm, frame.filtered_engine_speed_rpm);
+    }
+
+    const double angle_error =
+        circular_error_4pi(step.theta_cycle_rad, frame.crank_angle_rad);
+    maximum_angle_error_rad = std::max(maximum_angle_error_rad, angle_error);
+    if (!std::isfinite(angle_error) || angle_error > kMaximumCircularAngleErrorRad) {
+        fail_numeric(frame.sample_index, "wrapped crank-angle parity failed",
+                     step.theta_cycle_rad, frame.crank_angle_rad);
+    }
+
+    const double expected_omega_legacy = -frame.engine_speed_rpm * kLegacyRpmScale;
+    if (!same_binary64(step.omega_legacy_rad_s, expected_omega_legacy) ||
+        !same_binary64(step.angular_speed_rad_s, -expected_omega_legacy) ||
+        !std::isfinite(step.angular_acceleration_rad_s2) ||
+        !std::isfinite(step.body_angle_psi_rad) ||
+        !std::isfinite(step.theta_unwrapped_rad)) {
+        fail_frame(frame.sample_index, "prescribed crank-motion scalars changed");
+    }
+
+    const double expected_timing =
+        expected_timing_advance(ignition, -expected_omega_legacy);
+    if (!std::isfinite(step.timing_advance_rad) ||
+        std::abs(step.timing_advance_rad - expected_timing) > kMaximumTimingErrorRad) {
+        fail_numeric(frame.sample_index, "ignition timing lookup changed",
+                     step.timing_advance_rad, expected_timing);
+    }
+    if (step.limiter_cut_active || step.limiter_timer_s != 0.0) {
+        fail_frame(frame.sample_index,
+                   "sub-limiter BMW trajectory unexpectedly activated the limiter");
+    }
+
+    verify_controls(step, frame);
+    verify_geometry(step, fixture, models);
+    verify_spark_events(step, models, previous_theta_cycle_rad, spark_sequence);
+    if (step.events.size() > models.size() + 1U) {
+        fail_frame(frame.sample_index, "mechanics event bound was exceeded");
+    }
+}
+
+void test_full_bmw_mechanics_parity(const reference::DecodedReferenceParityV1 &fixture,
+                                    const profiles::BmwM52b28ParityRequest &request) {
+    expect(fixture.frames.size() == reference::kReferenceParityV1RecordCount,
+           "frozen BMW fixture frame count changed");
+    const auto &profile =
+        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile);
+    auto session = compile_session(request);
+    const auto models = session.cylinder_models();
+    expect(models.size() == reference::kReferenceParityV1CylinderCount,
+           "compiled BMW mechanics model count changed");
+    verify_compiled_bmw_geometry(models);
+
+    const auto &sweep =
+        std::get<contract::PrescribedKinematicSweep>(request.scenario.mode);
+    double previous_theta_cycle_rad = sweep.trajectory.initial_theta_rad.value;
+    SparkSequenceState spark_sequence;
+
+    double maximum_angle_error_rad = 0.0;
+    for (const auto &frame : fixture.frames) {
+        auto result = session.advance();
+        const auto *step =
+            std::get_if<std::reference_wrapper<const simulation::LegacyMechanismStep>>(
+                &result);
+        if (step == nullptr) {
+            if (const auto *fault = std::get_if<contract::FailureContext>(&result)) {
+                std::ostringstream message;
+                message << "frame " << frame.sample_index << ": mechanics fault "
+                        << fault->detail_code << " (" << fault->state_summary << ')';
+                fail(message.str());
+            }
+            fail_frame(frame.sample_index, "mechanics completed before fixture end");
+        }
+        verify_frame(step->get(), frame, fixture, profile.ignition, models,
+                     previous_theta_cycle_rad, spark_sequence, maximum_angle_error_rad);
+        previous_theta_cycle_rad = step->get().theta_cycle_rad;
+    }
+
+    expect(session.completed(),
+           "mechanics session did not report completion after frame 169999");
+    const auto first_terminal = session.advance();
+    const auto *completed =
+        std::get_if<simulation::LegacyMechanicsCompleted>(&first_terminal);
+    expect(completed != nullptr &&
+               completed->sample_count == reference::kReferenceParityV1RecordCount,
+           "mechanics terminal result has the wrong produced sample count");
+    const auto second_terminal = session.advance();
+    const auto *second_completed =
+        std::get_if<simulation::LegacyMechanicsCompleted>(&second_terminal);
+    expect(second_completed != nullptr && completed != nullptr &&
+               *second_completed == *completed,
+           "mechanics completion result was not stable across repeated advance");
+    expect(maximum_angle_error_rad <= kMaximumCircularAngleErrorRad,
+           "maximum BMW crank-angle error exceeded the admitted parity bound");
+    expect(spark_sequence.crossing_count > 0 &&
+               std::all_of(spark_sequence.seen.begin(), spark_sequence.seen.end(),
+                           [](bool seen) { return seen; }),
+           "full BMW run did not exercise every cylinder's spark schedule");
+}
+
+} // namespace
+
+int main(int argc, char **argv) {
+    try {
+        expect(argc == 2,
+               "usage: bmw_m52b28_mechanics_parity_test <reference-parity.bin>");
+        const auto bytes = read_exact_fixture(argv[1]);
+        const auto fixture = decode_fixture(bytes);
+        const auto request = make_request(fixture);
+        test_full_bmw_mechanics_parity(fixture, request);
+    } catch (const std::exception &error) {
+        std::cerr << "BMW M52B28 mechanics parity test failure: " << error.what()
+                  << '\n';
+        return 1;
+    }
+    return 0;
+}

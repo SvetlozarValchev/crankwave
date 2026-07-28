@@ -1,6 +1,6 @@
 # Engine Sim Offline: source-informed clean-slate plan
 
-Status: implementation — M3 concrete BMW request
+Status: implementation — M3 fixed-profile valvetrain
 Branch: `clean-room/bmw-baseline`  
 Date: 2026-07-28
 
@@ -451,7 +451,7 @@ accept physics that has not yet been implemented or make a higher-fidelity claim
       request that the production-neutral parity simulator will actually consume;
       independently pin its complete encoded request identity and keep the decoder
       outside the simulator dependency graph.
-- [ ] Implement BMW crank-slider mechanics and event scheduling.
+- [x] Implement BMW crank-slider mechanics and event scheduling.
 - [ ] Implement the required fixed-profile valvetrain.
 - [ ] Implement the minimum sourced gas, ignition, combustion, friction, and pumping
       models.
