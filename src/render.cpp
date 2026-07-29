@@ -164,16 +164,19 @@ contract::ValidationReport validate(const contract::RenderResult &result,
                                     const contract::RenderScenario &scenario) {
     ValidationReport report;
     contract::Sha256Digest simulation_request_identity_v2_sha256;
-    const bool has_held_speed_operating_evidence = std::visit(
-        [](const auto &outcome) {
+    const bool requires_held_speed_operating_evidence = std::visit(
+        [&](const auto &outcome) {
             using Outcome = std::decay_t<decltype(outcome)>;
             if constexpr (std::is_same_v<Outcome, contract::RenderSuccess>) {
-                return outcome.held_speed_operating_point.has_value();
+                return std::holds_alternative<
+                           contract::LowOrderOperatingPointV1Profile>(
+                           specification.engine.physics_profile) &&
+                       std::holds_alternative<contract::HeldSpeed>(scenario.mode);
             }
             return false;
         },
         result);
-    if (has_held_speed_operating_evidence) {
+    if (requires_held_speed_operating_evidence) {
         const auto encoded_request_identity =
             identity::encode_simulation_request_identity_v2(
                 specification.engine, scenario, specification.provenance.bundle);
@@ -182,9 +185,8 @@ contract::ValidationReport validate(const contract::RenderResult &result,
                     &encoded_request_identity)) {
             simulation_request_identity_v2_sha256 = encoding->sha256;
         } else {
-            const auto &error =
-                std::get<identity::SimulationRequestIdentityError>(
-                    encoded_request_identity);
+            const auto &error = std::get<identity::SimulationRequestIdentityError>(
+                encoded_request_identity);
             report.add(ContractIssueCode::inconsistent_semantics,
                        "simulation_request_identity_v2",
                        "canonical simulation-request identity encoding failed: " +

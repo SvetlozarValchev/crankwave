@@ -1,5 +1,7 @@
+#include "engine_sim_offline/profiles/bmw_m52b28_held_speed_listening_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_parity_request.hpp"
 #include "engine_sim_offline/render.hpp"
+#include "engine_sim_offline/request_identity.hpp"
 
 #include "presentation/presentation_method_registry.hpp"
 #include "reference/p18_reference_catalog.hpp"
@@ -109,6 +111,15 @@ void expect_valid(const contract::ValidationReport &report, std::string_view con
     if (!report.ok()) {
         throw std::runtime_error{std::string{context} + ": " + report_text(report)};
     }
+}
+
+[[nodiscard]] bool has_issue(const contract::ValidationReport &report,
+                             contract::ContractIssueCode code,
+                             std::string_view path_fragment) {
+    return std::ranges::any_of(report.issues, [&](const auto &issue) {
+        return issue.code == code &&
+               issue.path.find(path_fragment) != std::string::npos;
+    });
 }
 
 [[nodiscard]] std::vector<std::byte> read_bytes(const std::filesystem::path &path,
@@ -258,11 +269,10 @@ expected_route(const P18ReferenceCatalogV1 &catalog, P18ReferenceRoute route) {
     return *found;
 }
 
-[[nodiscard]] contract::PresentationCalibration
-make_presentation(CombinedProvenanceBuilder &builder,
-                  const profiles::BmwM52b28ParityRequest &request,
-                  const P18ReferenceCatalogV1 &catalog,
-                  const contract::Sha256Digest &configured_ir_sha256) {
+[[nodiscard]] contract::PresentationCalibration make_presentation(
+    CombinedProvenanceBuilder &builder, const contract::EngineSpec &engine,
+    std::string_view provenance_schema_id, const P18ReferenceCatalogV1 &catalog,
+    const contract::Sha256Digest &configured_ir_sha256) {
     const auto &policy = catalog.expected_presentation;
     const auto &media = policy.expected_configured_ir_media;
     const auto &scalars = policy.expected_scalars;
@@ -271,8 +281,8 @@ make_presentation(CombinedProvenanceBuilder &builder,
     contract::PresentationCalibration result;
     result.schema_version = 2;
     result.calibration_id = std::string{catalog.expected_presentation_calibration_id};
-    result.engine_profile_id = builder.resolved(request.engine.profile_id.value,
-                                                "presentation.engine_profile_id");
+    result.engine_profile_id =
+        builder.resolved(engine.profile_id.value, "presentation.engine_profile_id");
     result.methods = {
         builder.resolved(methods.reconstruction, "presentation.methods.reconstruction"),
         builder.resolved(methods.conditioning, "presentation.methods.conditioning"),
@@ -342,7 +352,7 @@ make_presentation(CombinedProvenanceBuilder &builder,
         builder.resolved(binary64(scalars.expected_audition_fade_out_duration_s),
                          "presentation.audition.fade_out_duration_s"),
     };
-    result.provenance_schema_id = request.provenance.schema_id;
+    result.provenance_schema_id = provenance_schema_id;
     return result;
 }
 
@@ -358,9 +368,9 @@ make_randomness(CombinedProvenanceBuilder &builder) {
     };
 }
 
+template <class Request>
 [[nodiscard]] RenderSpecification
-make_specification(const profiles::BmwM52b28ParityRequest &request,
-                   const P18ReferenceCatalogV1 &catalog,
+make_specification(const Request &request, const P18ReferenceCatalogV1 &catalog,
                    std::vector<std::byte> configured_ir_bytes) {
     const auto configured_ir_sha256 = contract::sha256(configured_ir_bytes);
     CombinedProvenanceBuilder builder{
@@ -369,7 +379,8 @@ make_specification(const profiles::BmwM52b28ParityRequest &request,
         configured_ir_sha256,
     };
     auto presentation =
-        make_presentation(builder, request, catalog, configured_ir_sha256);
+        make_presentation(builder, request.engine, request.provenance.schema_id,
+                          catalog, configured_ir_sha256);
     auto randomness = make_randomness(builder);
     return {
         request.engine,
@@ -750,6 +761,8 @@ void expect_exact_manifest(const contract::RenderSuccess &success,
            "successful public render omitted execution facts");
     expect(!success.reached_target.has_value(),
            "prescribed BMW render fabricated a reached-target result");
+    expect(!success.held_speed_operating_point.has_value(),
+           "M3 prescribed BMW render fabricated held-speed operating evidence");
     expect(sink.committed_manifest.has_value() &&
                sink.committed_manifest->content == manifest.content &&
                sink.committed_manifest->execution == manifest.execution,
@@ -831,37 +844,110 @@ void expect_exact_audio(const VerifyingMemorySink &sink,
            "public BMW audition INFO metadata is not exact job-owned evidence");
 }
 
-void expect_operating_profile_rejected_before_presentation(
-    const RenderSpecification &specification,
-    const contract::RenderScenario &scenario) {
-    auto unsupported = specification;
-    const auto &legacy =
-        std::get<contract::LegacyLowOrderV1Profile>(
-            unsupported.engine.physics_profile);
-    contract::LowOrderOperatingPointV1Profile operating;
-    operating.core = legacy.core;
-    unsupported.engine.physics_profile = std::move(operating);
+void expect_legacy_held_speed_rejected(const RenderSpecification &specification,
+                                       const contract::RenderScenario &scenario) {
+    auto incompatible_scenario = scenario;
+    const auto &sweep = std::get<contract::PrescribedKinematicSweep>(scenario.mode);
+    const auto &rpm = std::get<contract::FixedRateRpmTrajectory>(sweep.trajectory.rpm);
+    incompatible_scenario.mode = contract::HeldSpeed{
+        {rpm.post_step_rpm.front(), rpm.resolution_id},
+        sweep.trajectory.initial_theta_rad,
+        {sweep.throttle_01.points.back().value, sweep.throttle_01.resolution_id},
+    };
 
-    // Request-record construction deliberately hashes opaque payload bytes so every
-    // failure retains the exact request identity. This valid, nonempty but unmatched
-    // payload would fail later asset lookup; the profile gate must win before numeric
-    // admission, asset lookup/conversion, kernel construction, or simulation.
-    expect(!unsupported.asset_payloads.empty(),
-           "operating-profile precedence test lost its asset payload");
-    unsupported.asset_payloads.front().id = contract::AudioAssetId{999};
     auto compiled =
-        render_detail::compile_presentation_job(unsupported, scenario);
+        render_detail::compile_presentation_job(specification, incompatible_scenario);
     const auto *failure = std::get_if<contract::RenderFailure>(&compiled);
     expect(failure != nullptr &&
                failure->context.kind ==
                    contract::FailureKind::incomplete_source_route &&
                failure->context.detail_code == "simulation-profile-not-admitted" &&
-               !failure->request.asset_payloads.empty() &&
-               failure->request.asset_payloads.front().id ==
-                   contract::AudioAssetId{999} &&
-               std::holds_alternative<contract::LowOrderOperatingPointV1Profile>(
+               failure->request.resolved_inputs.scenario == incompatible_scenario &&
+               std::holds_alternative<contract::LegacyLowOrderV1Profile>(
                    failure->request.resolved_inputs.engine.physics_profile),
-           "operating profile reached presentation work without a capture producer");
+           "M3 engine admitted held-speed execution or lost its exact rejection "
+           "request");
+}
+
+void expect_operating_render_contract(
+    const P18ReferenceCatalogV1 &catalog,
+    const std::vector<std::byte> &configured_ir_bytes) {
+    auto request_result = profiles::make_bmw_m52b28_held_speed_listening_request();
+    const auto *request =
+        std::get_if<profiles::BmwM52b28HeldSpeedListeningRequest>(&request_result);
+    if (request == nullptr) {
+        throw std::runtime_error{
+            "canonical BMW held-speed listening request construction failed: " +
+            report_text(std::get<contract::ValidationReport>(request_result))};
+    }
+    expect_valid(profiles::validate_bmw_m52b28_held_speed_listening_request(*request),
+                 "canonical BMW held-speed listening request validation failed");
+    auto specification = make_specification(*request, catalog, configured_ir_bytes);
+    expect_valid(contract::validate_render_admission(
+                     specification.engine, specification.presentation,
+                     specification.randomness, request->scenario,
+                     specification.provenance, specification.source_matrix),
+                 "canonical M4 public render admission failed");
+
+    VerifyingMemorySink sink;
+    const auto result = render(specification, request->scenario, sink);
+    const auto *success = std::get_if<contract::RenderSuccess>(&result);
+    if (success == nullptr) {
+        const auto *failure = std::get_if<contract::RenderFailure>(&result);
+        if (failure != nullptr) {
+            throw std::runtime_error{"canonical M4 public render failed (" +
+                                     failure->context.detail_code +
+                                     "): " + failure->context.state_summary + "; " +
+                                     report_text(failure->validation)};
+        }
+        throw std::runtime_error{
+            "canonical M4 public render returned unreachable target"};
+    }
+
+    expect(sink.begin_calls == 1 &&
+               sink.declaration_calls == kP18ReferenceAudioArtifactCount &&
+               sink.write_calls > 0 &&
+               sink.seal_calls == kP18ReferenceAudioArtifactCount &&
+               sink.commit_calls == 1 && sink.abort_calls == 0,
+           "successful M4 render violated sink transaction cardinality");
+    expect(!success->reached_target.has_value() &&
+               success->held_speed_operating_point.has_value(),
+           "M4 held-speed success omitted its exclusive operating evidence");
+    expect(success->manifest.content.inputs.resolved.scenario == request->scenario,
+           "M4 success manifest did not retain the exact held-speed scenario");
+
+    const auto encoded = identity::encode_simulation_request_identity_v2(
+        specification.engine, request->scenario, specification.provenance.bundle);
+    const auto *request_identity =
+        std::get_if<identity::SimulationRequestIdentityEncoding>(&encoded);
+    expect(request_identity != nullptr &&
+               success->held_speed_operating_point
+                       ->simulation_request_identity_v2_sha256 ==
+                   request_identity->sha256,
+           "M4 success did not publish evidence bound to its canonical request");
+    expect_valid(validate(result, specification, request->scenario),
+                 "M4 public render-layer result validation failed");
+
+    auto missing_evidence = result;
+    std::get<contract::RenderSuccess>(missing_evidence)
+        .held_speed_operating_point.reset();
+    auto report = validate(missing_evidence, specification, request->scenario);
+    expect(!report.ok() &&
+               has_issue(report, contract::ContractIssueCode::inconsistent_semantics,
+                         "contract.success.held_speed_operating_point"),
+           "outer validation accepted missing M4 operating evidence");
+
+    auto mutated_evidence = result;
+    auto &mutated_identity =
+        std::get<contract::RenderSuccess>(mutated_evidence)
+            .held_speed_operating_point->simulation_request_identity_v2_sha256;
+    mutated_identity.bytes.front() ^= UINT8_C(1);
+    report = validate(mutated_evidence, specification, request->scenario);
+    expect(!report.ok() &&
+               has_issue(report, contract::ContractIssueCode::inconsistent_semantics,
+                         "contract.success.held_speed_operating_point."
+                         "simulation_request_identity_v2_sha256"),
+           "outer validation accepted M4 evidence from another request");
 }
 
 void run(const std::filesystem::path &fixture_root,
@@ -901,8 +987,7 @@ void run(const std::filesystem::path &fixture_root,
                contract::sha256(specification.asset_payloads.front().bytes) ==
                    verified_ir_sha256,
            "render specification is not based on the exact public BMW request and IR");
-    expect_operating_profile_rejected_before_presentation(specification,
-                                                          request.scenario);
+    expect_legacy_held_speed_rejected(specification, request.scenario);
     expect_valid(contract::validate_render_admission(
                      specification.engine, specification.presentation,
                      specification.randomness, request.scenario,
@@ -942,6 +1027,8 @@ void run(const std::filesystem::path &fixture_root,
             ->expected_byte_count);
     expect_exact_audio(sink, oracle_wave_bytes, specification, request.scenario,
                        catalog);
+    expect_operating_render_contract(catalog,
+                                     specification.asset_payloads.front().bytes);
 
     const auto elapsed =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - started);

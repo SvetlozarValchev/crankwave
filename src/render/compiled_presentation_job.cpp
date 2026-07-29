@@ -1,6 +1,7 @@
 #include "render/compiled_presentation_job.hpp"
 
 #include "determinism/renderer_determinism_envelope.hpp"
+#include "engine_sim_offline/request_identity.hpp"
 #include "excitation/captured_exhaust_excitation.hpp"
 #include "presentation/presentation_asset_compiler.hpp"
 #include "presentation/presentation_calibration_compiler.hpp"
@@ -106,13 +107,18 @@ compile_presentation_job(const RenderSpecification &specification,
     auto request = make_render_request_record(specification, scenario);
     const auto &inputs = request.resolved_inputs;
 
-    if (!std::holds_alternative<contract::LegacyLowOrderV1Profile>(
-            inputs.engine.physics_profile)) {
-        return compiler_failure(
-            std::move(request), contract::FailureKind::incomplete_source_route,
-            "simulation-profile-not-admitted",
-            "the resolved engine profile has no complete capture producer");
+    auto request_identity_result = identity::encode_simulation_request_identity_v2(
+        inputs.engine, inputs.scenario, request.provenance.bundle);
+    if (const auto *error = std::get_if<identity::SimulationRequestIdentityError>(
+            &request_identity_result)) {
+        return compiler_failure(std::move(request),
+                                contract::FailureKind::contract_violation,
+                                error->detail_code, error->message);
     }
+    const auto simulation_request_identity_v2_sha256 =
+        std::get<identity::SimulationRequestIdentityEncoding>(
+            std::move(request_identity_result))
+            .sha256;
 
     // Admit and retain the numeric identity before any IR conversion, FFT
     // construction, or simulation compilation can perform floating-point work.
@@ -270,7 +276,7 @@ compile_presentation_job(const RenderSpecification &specification,
     };
 
     auto simulation_result = simulation::compile_low_order_capture_session(
-        inputs.engine, inputs.scenario, contract::Sha256Digest{});
+        inputs.engine, inputs.scenario, simulation_request_identity_v2_sha256);
     if (std::holds_alternative<contract::ValidationReport>(simulation_result)) {
         return compiler_failure(
             std::move(request), contract::FailureKind::incomplete_source_route,
@@ -281,10 +287,11 @@ compile_presentation_job(const RenderSpecification &specification,
     auto simulation =
         std::get<simulation::LowOrderCaptureSession>(std::move(simulation_result));
 
-    const auto &legacy_profile =
-        std::get<contract::LegacyLowOrderV1Profile>(inputs.engine.physics_profile);
-    auto excitation_result = excitation::compile_captured_exhaust_excitation_session(
-        inputs.engine, legacy_profile.core);
+    const auto *core = std::visit(
+        [](const auto &profile) { return &profile.core; },
+        inputs.engine.physics_profile);
+    auto excitation_result =
+        excitation::compile_captured_exhaust_excitation_session(inputs.engine, *core);
     if (std::holds_alternative<contract::ValidationReport>(excitation_result)) {
         return compiler_failure(
             std::move(request), contract::FailureKind::incomplete_source_route,
@@ -347,10 +354,11 @@ compile_presentation_job(const RenderSpecification &specification,
 
     return CompiledPresentationJob{
         std::make_unique<CompiledPresentationJob::Implementation>(
-            std::move(request), std::move(determinism), std::move(random_plan),
-            std::move(calibration), std::move(compiled_assets),
-            std::move(compiled_kernels), std::move(presentation_plan),
-            std::move(manifest_basis), std::move(simulation), std::move(excitation))};
+            std::move(request), simulation_request_identity_v2_sha256,
+            std::move(determinism), std::move(random_plan), std::move(calibration),
+            std::move(compiled_assets), std::move(compiled_kernels),
+            std::move(presentation_plan), std::move(manifest_basis),
+            std::move(simulation), std::move(excitation))};
 }
 
 } // namespace engine_sim_offline::render_detail

@@ -16,6 +16,7 @@ namespace engine_sim_offline::render_detail {
 class CompiledPresentationJob::Implementation final {
   public:
     Implementation(contract::RenderRequestRecord request,
+                   contract::Sha256Digest simulation_request_identity_v2_sha256,
                    determinism::RendererDeterminismEnvelope determinism,
                    contract::RandomPlan random_plan,
                    presentation::AdmittedPresentationCalibration calibration,
@@ -26,8 +27,10 @@ class CompiledPresentationJob::Implementation final {
                    contract::RenderManifestContent manifest_basis,
                    simulation::LowOrderCaptureSession simulation,
                    excitation::CapturedExhaustExcitationSession excitation)
-        : request(std::move(request)), determinism(std::move(determinism)),
-          random_plan(std::move(random_plan)), calibration(std::move(calibration)),
+        : request(std::move(request)),
+          simulation_request_identity_v2_sha256(simulation_request_identity_v2_sha256),
+          determinism(std::move(determinism)), random_plan(std::move(random_plan)),
+          calibration(std::move(calibration)),
           compiled_assets(std::move(compiled_assets)),
           compiled_kernels(std::move(compiled_kernels)),
           presentation_plan(std::move(presentation_plan)),
@@ -35,6 +38,7 @@ class CompiledPresentationJob::Implementation final {
           excitation(std::move(excitation)) {}
 
     contract::RenderRequestRecord request;
+    contract::Sha256Digest simulation_request_identity_v2_sha256;
     determinism::RendererDeterminismEnvelope determinism;
     contract::RandomPlan random_plan;
     presentation::AdmittedPresentationCalibration calibration;

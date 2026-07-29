@@ -367,6 +367,8 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
         const auto expected_published_source_frame_count =
             expected_published_block_count *
             presentation::AdmittedPresentationCalibration::source_frames_per_block;
+        std::optional<contract::HeldSpeedOperatingPointResult>
+            held_speed_operating_point;
 
         while (true) {
             const auto sample_index =
@@ -498,9 +500,8 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                     std::move(*failure), std::move(implementation->request), {}};
             }
 
-            if (const auto *completed =
-                    std::get_if<simulation::LowOrderCaptureCompleted>(
-                        &*simulation_result)) {
+            if (auto *completed = std::get_if<simulation::LowOrderCaptureCompleted>(
+                    &*simulation_result)) {
                 if (completed->sample_count != expected_input_frame_count ||
                     completed->block_count != total_block_count ||
                     implementation->simulation.published_sample_count() !=
@@ -521,6 +522,45 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                             "with the opaque job timeline",
                             implementation->simulation.published_sample_count(),
                         });
+                }
+                const bool requires_operating_point =
+                    std::holds_alternative<contract::LowOrderOperatingPointV1Profile>(
+                        implementation->request.resolved_inputs.engine
+                            .physics_profile) &&
+                    std::holds_alternative<contract::HeldSpeed>(
+                        implementation->request.resolved_inputs.scenario.mode);
+                if (completed->held_speed_operating_point.has_value() !=
+                    requires_operating_point) {
+                    return coordinator_failure(
+                        std::move(implementation->request),
+                        {
+                            contract::FailureKind::contract_violation,
+                            "pipeline-operating-result-presence-disagreed",
+                            "simulation completion carried held-speed evidence if "
+                            "and only if the opaque job requested an operating "
+                            "held-speed profile",
+                            implementation->simulation.published_sample_count(),
+                        });
+                }
+                held_speed_operating_point =
+                    std::move(completed->held_speed_operating_point);
+                if (held_speed_operating_point.has_value()) {
+                    const auto report = contract::validate(
+                        *held_speed_operating_point,
+                        implementation->request.resolved_inputs.scenario,
+                        implementation->request.resolved_inputs.engine,
+                        implementation->simulation_request_identity_v2_sha256);
+                    if (!report.ok()) {
+                        return coordinator_failure(
+                            std::move(implementation->request),
+                            {
+                                contract::FailureKind::contract_violation,
+                                "pipeline-operating-result-invalid",
+                                "request-bound held-speed evidence failed validation "
+                                "before presentation finalization",
+                                implementation->simulation.published_sample_count(),
+                            });
+                    }
                 }
                 break;
             }
@@ -606,7 +646,7 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
         return contract::RenderSuccess{
             std::move(manifest),
             std::nullopt,
-            std::nullopt,
+            std::move(held_speed_operating_point),
         };
     } catch (...) {
         determinism::detail::restore_admitted_renderer_numeric_controls();
