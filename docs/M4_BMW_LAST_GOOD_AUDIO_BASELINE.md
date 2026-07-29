@@ -118,10 +118,13 @@ byte-for-byte identical to the tracked listening oracle:
 87eda586902fbcf7e015161a84688c74e486285c99150c1a6fb3bc9c4382c444
 ```
 
-No cleanup or new sound work was included after this proof. In particular, the
-previously approved dead compression-ignition-field cleanup is deliberately deferred
-until after the user reaccepts this recovered audio, so it can remain a separate,
-audibly verified change.
+The user listened to this recovered render on 2026-07-30 and explicitly reaccepted
+it. Commit `3f5fa1c` and the hash above are therefore the current audible return point,
+not merely a mechanically reconstructed historical candidate.
+
+No cleanup or new sound work was included in this proof. In particular, the
+previously approved dead compression-ignition-field cleanup remains a separate future
+change so it cannot be hidden inside the audible recovery.
 
 ## 5. Recovery and future comparison rule
 
