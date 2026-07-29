@@ -549,8 +549,11 @@ replacement starts before acceptance.
             cutoff, block size, tolerance, or model behavior.
         - [x] Freeze the first minimal three-cutoff diagnostic and its bit-exact
               production-failure guard before exposing detailed failure evidence.
-        - [ ] Preserve the existing typed failed-convergence evidence through a
+        - [x] Preserve the existing typed failed-convergence evidence through a
               read-only session accessor, run the diagnostic, and record its result.
+        - [ ] Compare fixed trailing 32-cycle estimates at predeclared `6.44 s` and
+              `12.88 s` cutoffs across all nine RPMs before freezing an honest v2
+              initialization-deletion and sampling policy.
       - [ ] Freeze any evidence-justified correction under a new exact request
             identity, then execute and publish all nine points atomically.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.

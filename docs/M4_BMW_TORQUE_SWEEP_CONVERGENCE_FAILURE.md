@@ -137,3 +137,47 @@ three windows:
 The diagnostic executable and accessor are temporary investigation scaffolding. Once
 the result is recorded and a model decision is frozen, they are removed unless they
 prove to be a small, generally useful failure-observability seam.
+
+## First diagnostic result
+
+The frozen diagnostic was executed from clean source commit
+`8588945b3ae8df1a58619dd6aadee98a09d90d70` (tree
+`d5d9b8136e3a531ace8a1ed2e7ed858b93b98eee`) with the Release Clang `21.1.8`
+build. The command was:
+
+```text
+./build-m4-listening-clang/engine-sim-offline-m4-bmw-held-settling-diagnostic
+```
+
+The complete deterministic report is reproducible from that command. It contains all
+physical-volume means and all 32 retained `cylinder.1` pressure and four-work-lane
+observations for every window. The decision-bearing subset is:
+
+| Cutoff | Request-v2 SHA-256 | Torque residual | Pressure residual | Cylinder 1 A/B mean pressure | Cycle ranges |
+|---:|---|---:|---:|---:|---|
+| `6.44 s` | `d86dd9f6b2465736f62c9d5d00ffb2106f872208fa29eef0e71080bf3cb35409` | `0.37528913618660908 N*m` | `9202.532607962843 Pa` | `1403298.1530081446 / 1412500.6856161074 Pa` | `101..116 / 117..132` |
+| `12.88 s` | `29868f9537de0fc6e644212f50694f19e184433c4ede7bf4a67562792ea2a9dd` | `1.0741284191178124 N*m` | `12090.370132419979 Pa` | `1411814.1379205545 / 1399723.7677881345 Pa` | `235..250 / 251..266` |
+| `25.76 s` | `bfa85894f13380038086340cfe6d123c39fbfdd6cceee2f5a39806debb30866a` | `0.16214885967116288 N*m` | `1557.3257954858709 Pa` | `1409620.8702170989 / 1408063.544421613 Pa` | `503..518 / 519..534` |
+
+Every window retained the required cycles and failed the unchanged `1500 Pa` pressure
+comparison with `cylinder.1` as the limiting volume. The first window reproduced the
+previous public failure bit-for-bit. Torque independently passed, failed, then passed.
+
+This supports a deterministic cycle-variation floor, not continued settling. The
+signed cylinder-pressure block difference reverses from `+9202.532607962843 Pa` to
+`-12090.370132419979 Pa` and then `-1557.3257954858709 Pa`; meanwhile the three
+combined 32-cycle centers are `1407899.419312126`, `1405768.9528543446`, and
+`1408842.207319356 Pa`, a total span of only `0.21834790514975883%`. Extending the
+cutoff therefore selects a different deterministic PCG-driven cycle sample rather
+than monotonically reducing a slow-state transient. The late near-pass is not a
+reason to select `25.76 s`, and the existing absolute tolerance will not be widened to
+make this run pass.
+
+The v1 adjacent-block equality check is rejected as the torque sweep's preparation
+admission rule because it asks a deliberately cycle-varying signal to become
+effectively periodic. Simulation, combustion, and audio behavior remain unchanged.
+The next bounded diagnostic will evaluate all nine RPMs at predeclared `6.44 s` and
+`12.88 s` cutoffs using a fixed trailing 32-complete-cycle estimate. Its purpose is to
+choose an initialization-deletion horizon, not to hunt for a passing adjacent pair.
+If that cross-RPM evidence is adequate, v2 will report honest fixed-horizon,
+fixed-sample evidence and will not call the result “converged.”
