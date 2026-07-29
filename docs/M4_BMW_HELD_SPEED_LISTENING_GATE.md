@@ -1,14 +1,18 @@
 # M4 BMW held-speed listening gate
 
-Status: original artifact accepted by user listening on 2026-07-29; current
-fixed-sample rerender is PCM-identical
+Status: historical one-point artifact accepted by user listening on 2026-07-29;
+its pre-matrix fixed-sample bridge was PCM-identical and is now deleted from the
+current API
 
 The originally accepted M4 operating-regression clip holds the BMW M52B28 at
 `3000 rpm` and `0.85` throttle for 15 audible seconds. It uses the accepted exhaust
-presentation without a second audio path. This artifact predates the sole
-fixed-horizon sampling cutover; its current replacement and exact PCM comparison are
-recorded in
+presentation without a second audio path. This artifact predates the fixed-horizon
+sampling cutover. Its subsequent one-point bridge and exact PCM comparison are
+recorded as historical evidence in
 [`M4_FIXED_SAMPLE_AUDIO_REGRESSION.md`](M4_FIXED_SAMPLE_AUDIO_REGRESSION.md).
+The sole current held-listening surface is the pending four-point matrix frozen in
+[`M4_BMW_HELD_REGRESSION_MATRIX.md`](M4_BMW_HELD_REGRESSION_MATRIX.md); neither this
+scenario nor the bridge remains constructible through a current factory or CLI alias.
 
 Listening file:
 

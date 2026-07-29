@@ -1264,31 +1264,44 @@ add_test(
 )
 
 add_executable(
-    engine_sim_offline_bmw_m52b28_held_speed_listening_request_tests
-    bmw_m52b28_held_speed_listening_request_test.cpp
+    engine_sim_offline_bmw_m52b28_held_regression_request_set_tests
+    bmw_m52b28_held_regression_request_set_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_bmw_m52b28_held_speed_listening_request_tests
+    engine_sim_offline_bmw_m52b28_held_regression_request_set_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_bmw_m52b28_held_speed_listening_request_tests
+    engine_sim_offline_bmw_m52b28_held_regression_request_set_tests
     PRIVATE
         engine_sim_offline::profiles
         engine_sim_offline::request_identity
         engine_sim_offline::simulation
 )
 engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_bmw_m52b28_held_speed_listening_request_tests
+    engine_sim_offline_bmw_m52b28_held_regression_request_set_tests
 )
 
 add_test(
-    NAME profiles.bmw_m52b28_held_speed_listening_request
-    COMMAND engine_sim_offline_bmw_m52b28_held_speed_listening_request_tests
+    NAME profiles.bmw_m52b28_held_regression_request_set
+    COMMAND engine_sim_offline_bmw_m52b28_held_regression_request_set_tests
 )
+
+if(TARGET engine_sim_offline_m4_bmw_listening AND
+   TARGET engine_sim_offline_m4_bmw_torque_sweep)
+    add_test(
+        NAME reference.m4_bmw_cli_rejection
+        COMMAND
+            ${CMAKE_COMMAND}
+            -DLISTENING_EXE=$<TARGET_FILE:engine_sim_offline_m4_bmw_listening>
+            -DTORQUE_EXE=$<TARGET_FILE:engine_sim_offline_m4_bmw_torque_sweep>
+            -DTEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/m4_bmw_cli_rejection_test.cmake
+    )
+endif()
 
 add_executable(
     engine_sim_offline_bmw_m52b28_inertial_dyno_listening_request_tests

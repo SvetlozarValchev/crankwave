@@ -124,9 +124,9 @@ add_library(
         src/profiles/bmw_m52b28_full_throttle_torque_sweep_request.cpp
         src/profiles/bmw_m52b28_full_throttle_torque_sweep_scenario.cpp
         src/profiles/bmw_m52b28_full_throttle_torque_sweep_validation.cpp
-        src/profiles/bmw_m52b28_held_speed_listening_request.cpp
-        src/profiles/bmw_m52b28_held_speed_listening_scenario.cpp
-        src/profiles/bmw_m52b28_held_speed_listening_validation.cpp
+        src/profiles/bmw_m52b28_held_regression_request.cpp
+        src/profiles/bmw_m52b28_held_regression_scenario.cpp
+        src/profiles/bmw_m52b28_held_regression_validation.cpp
         src/profiles/bmw_m52b28_inertial_dyno_listening_request.cpp
         src/profiles/bmw_m52b28_inertial_dyno_listening_scenario.cpp
         src/profiles/bmw_m52b28_inertial_dyno_listening_validation.cpp

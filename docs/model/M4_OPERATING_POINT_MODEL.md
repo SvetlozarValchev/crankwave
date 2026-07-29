@@ -232,39 +232,36 @@ The canonical BMW profile factory constructs this profile directly from the reus
 low-order core under a fresh operating provenance root. Its exact validator pins the
 coefficient bits, oil and accessory conditions, torque partition, implemented method
 identities, capability statement, and complete provenance bundle. The listening
-request factory separately rebuilds that engine and its held-speed scenario through one
-fresh builder before finishing one shared ledger; it never copies the completed profile
-or relabels an M3 request.
+request-set factory separately rebuilds that engine and each held-speed scenario
+through a fresh builder before finishing its ledger; it never copies a completed
+profile, shares mutable state between points, or relabels an M3 request.
 
-### 1.2 First canonical held-speed listening request
+### 1.2 Canonical held operating-regression request set
 
-`make_bmw_m52b28_held_speed_listening_request()` has no calibration arguments. Its
-exact first listening point is:
+`make_bmw_m52b28_held_regression_request_set()` has no calibration arguments. It
+constructs exactly four requests in this order:
 
-| Field | Canonical value |
-|---|---:|
-| Scenario ID | `bmw-m52b28-held-3000rpm-listening-v2` |
-| Engine speed | `3000 rpm` |
-| Throttle | `0.85` |
-| Fixed preparation horizon / audible start | `3.22 s` / `3.22 s` |
-| Trailing complete-cycle sample | `32` cycles |
-| Audible duration / total duration | `15.0 s` / `18.22 s` |
-| Physics / capture rates | `10000 Hz` / `10000 Hz` |
-| Source / acoustic / delivery rates | `192000 Hz` / `192000 Hz` / `192000 Hz` |
-| Capture block / event capacities | `200` frames / `3800` records |
-| Public seed | `0xC0FFEE` |
+| Point key | Scenario ID | RPM | Throttle |
+|---|---|---:|---:|
+| `rpm1500-throttle0p85` | `bmw-m52b28-held-regression-rpm1500-throttle0p85` | 1500 | 0.85 |
+| `rpm3000-throttle0p25` | `bmw-m52b28-held-regression-rpm3000-throttle0p25` | 3000 | 0.25 |
+| `rpm3000-throttle0p85` | `bmw-m52b28-held-regression-rpm3000-throttle0p85` | 3000 | 0.85 |
+| `rpm6500-throttle0p85` | `bmw-m52b28-held-regression-rpm6500-throttle0p85` | 6500 | 0.85 |
 
-The request executes the core through the exact fixed horizon and retains the latest
-32 eligible complete cycles ending no later than that horizon. It requires one
+Every point uses a `6.44 s` fixed preparation horizon and audible start, the latest 32
+eligible complete cycles, `15.0 s` audible duration, `21.44 s` total duration,
+`10000 Hz` physics/capture rates, `192000 Hz` source/acoustic/delivery rates,
+200-frame capture blocks, 3800-record event capacity, and public seed `0xC0FFEE`.
+The integer horizons are `64400` preparation and `214400` total physics/capture
+frames, plus `2880000` audible and `4116480` total 192 kHz frames.
+
+The three `0.85` points isolate RPM; the two `3000 rpm` points isolate throttle. The
+`0.25` value is a normalized throttle command, not a target or percentage load. Each
+request returns its achieved net shaft torque, power, and net BMEP from one
 request-v3-bound fixed sample; it neither compares adjacent windows nor claims
-stationarity. The selection history and the evidence that rejected the former policy
-are kept separately in
-[`M4_BMW_TORQUE_SWEEP_CONVERGENCE_FAILURE.md`](../M4_BMW_TORQUE_SWEEP_CONVERGENCE_FAILURE.md).
-
-The resulting integer horizons are `32200` preparation and `182200` total physics/
-capture frames, plus `2880000` audible and `3498240` total 192 kHz frames. At the
-declared 200-frame capture block capacity, the complete run is 911 blocks, of which 750
-cover the audible interval.
+stationarity. Exact point keys, conditions, CLI selectors, source-route non-claims,
+and listening gate are frozen separately in
+[`M4_BMW_HELD_REGRESSION_MATRIX.md`](../M4_BMW_HELD_REGRESSION_MATRIX.md).
 
 The reused `legacy_low_order_v1` method configuration retains the admitted M3 content
 identity `435441890e0a5f8d01e81995f64f33d4c554144f5b1436895e6816f6db85e34c`.

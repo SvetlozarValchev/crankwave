@@ -111,6 +111,10 @@ void preflight_new_output_directory(const std::filesystem::path &output_director
         throw std::invalid_argument{
             "new output directory must end in one ordinary name component"};
     }
+    if (publication_name.front() == '-') {
+        throw std::invalid_argument{
+            "publication directory name must not begin with '-'"};
+    }
     if (publication_parent.empty()) {
         publication_parent = ".";
     }

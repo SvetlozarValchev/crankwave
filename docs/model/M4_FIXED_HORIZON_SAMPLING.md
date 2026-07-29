@@ -1,7 +1,8 @@
 # M4 fixed-horizon complete-cycle sampling
 
 Status: implemented as the sole current M4 preparation and sampling policy; clean-run
-torque and listening evidence remain to be published
+torque evidence and fixed-sample PCM regression are published; the four-point held
+listening gate remains open
 Applies to: M4 held-speed and inertial-dyno preparation and operating evidence
 Supersedes: adjacent non-overlapping block pass/fail convergence in production
 
@@ -236,12 +237,21 @@ The production cutover uses:
 
 | Request | Fixed preparation horizon | Trailing cycles | Other timing |
 |---|---:|---:|---|
-| Held-speed listening | `3.22 s` | `32` | `bmw-m52b28-held-3000rpm-listening-v2`; existing audible duration/total remain |
+| Four-point held operating regression | `6.44 s` | `32` | exact points and identities are frozen in `M4_BMW_HELD_REGRESSION_MATRIX.md`; `15.0 s` audible; `21.44 s` total |
 | Inertial-dyno listening | `6.44 s` | `32` | `bmw-m52b28-inertial-dyno-1500-6500rpm-listening-v2`; release remains frame `64400` |
 | Nine-point torque sweep | `6.44 s` | `32` | replace the final `v1` of each existing canonical point ID with `v2`; `0.02 s` tail; total `6.46 s` |
 
-All affected scenario IDs become `v2`. The request factories are replaced in place;
-there are no v1 factories. Provenance and request digests are regenerated from the
+The four-point held set is the sole current held-listening construction surface. Its
+point keys, scenario IDs, CLI tokens, shared timing, and hard listening stop are
+defined in
+[`M4_BMW_HELD_REGRESSION_MATRIX.md`](../M4_BMW_HELD_REGRESSION_MATRIX.md). The
+earlier `3.22 s` one-point held request was only a migration bridge. It was deleted,
+not retained as a legacy factory or generic `held` CLI alias. Its byte-identical PCM
+comparison remains historical evidence in
+[`M4_FIXED_SAMPLE_AUDIO_REGRESSION.md`](../M4_FIXED_SAMPLE_AUDIO_REGRESSION.md).
+
+The inertial and torque-sweep migrations use their current `v2` scenario identities.
+There are no v1 factories. Provenance and request digests are regenerated from the
 new exact contracts.
 
 The torque-sweep evidence wire becomes

@@ -5,11 +5,11 @@ Recorded: 2026-07-29
 
 ## Outcome
 
-The sole fixed-horizon production path was rendered for both M4 requests affected by
-the incompatible preparation/result cutover. The WAVE containers changed because
-their current request, manifest, and renderer metadata changed. Decoding each
-audition master to interleaved signed 16-bit PCM produced exactly the same bytes as
-the corresponding user-accepted artifact.
+The fixed-horizon production path was rendered for the two one-point requests that
+existed at the time of the incompatible preparation/result cutover. The WAVE
+containers changed because their request, manifest, and renderer metadata changed.
+Decoding each audition master to interleaved signed 16-bit PCM produced exactly the
+same bytes as the corresponding user-accepted artifact.
 
 | Clip | Accepted PCM SHA-256 | Current PCM SHA-256 | Result |
 |---|---|---|---|
@@ -22,7 +22,12 @@ The comparison command for each file was:
 ffmpeg -v error -i <audition.wav> -map 0:a:0 -f s16le -acodec pcm_s16le - | sha256sum
 ```
 
-## Current held render
+## Historical pre-matrix held bridge
+
+This request and its generic `held` CLI selection were subsequently deleted by the
+four-point held operating-regression cutover. The artifact is retained only as
+evidence that fixed-horizon sampling itself did not change the accepted audio signal;
+it is not a current factory, scenario, or listening entry point.
 
 - source commit: `531a496ec35e756ceb5d6ddc153e5ae8d41b8bea`
 - scenario: `bmw-m52b28-held-3000rpm-listening-v2`
@@ -38,7 +43,11 @@ ffmpeg -v error -i <audition.wav> -map 0:a:0 -f s16le -acodec pcm_s16le - | sha2
   `440c07ef4d16dfb4dda6ebfe258e7187fcdfc2407608748d60aa0e4cdff60cab`
 - render / command time: `12.825 s` / `12.997 s`
 
-## Current inertial render
+## Historical pre-matrix inertial render
+
+The inertial factory remains current, but this exact artifact predates the later
+operating-model authority update made for the held matrix. It is retained as PCM
+regression evidence, not presented as a render of the current request identity.
 
 - source commit: `9a15e422376d8cbc270e34deaff6573e0a03a3d4`
 - scenario: `bmw-m52b28-inertial-dyno-1500-6500rpm-listening-v2`

@@ -1,6 +1,7 @@
 #include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/cycle_accounting_method_registry.hpp"
 
+#include <string>
 #include <utility>
 #include <variant>
 
@@ -12,11 +13,8 @@ void append(contract::ValidationReport &destination,
     destination.append(std::move(source));
 }
 
-} // namespace
-
-contract::ValidationReport validate_bmw_m52b28_held_speed_listening_request(
-    const BmwM52b28HeldSpeedListeningRequest &request) {
-    contract::ValidationReport report;
+void validate_point_contract(contract::ValidationReport &report,
+                             const BmwM52b28HeldRegressionRequest &request) {
     append(report, contract::validate(request.engine, request.provenance));
     append(report, contract::validate(request.scenario, request.provenance));
     append(report, contract::validate_for_engine(request.scenario, request.engine));
@@ -26,20 +24,33 @@ contract::ValidationReport validate_bmw_m52b28_held_speed_listening_request(
     if (operating == nullptr) {
         report.add(contract::ContractIssueCode::inconsistent_semantics,
                    "engine.physics_profile",
-                   "BMW held-speed listening request requires "
+                   "BMW held-regression request requires "
                    "low_order_operating_point_v1");
     } else {
         append(report, simulation::admit_implemented_cycle_accounting_methods(
                            request.engine, *operating));
     }
+}
+
+} // namespace
+
+contract::ValidationReport validate_bmw_m52b28_held_regression_request_set(
+    const BmwM52b28HeldRegressionRequestSet &request_set) {
+    contract::ValidationReport report;
+    for (const auto &request : request_set) {
+        validate_point_contract(report, request);
+    }
 
     const auto expected =
-        detail::build_bmw_m52b28_held_speed_listening_request_unvalidated();
-    if (request != expected) {
-        report.add(contract::ContractIssueCode::inconsistent_semantics,
-                   "bmw_m52b28_held_speed_listening_request",
-                   "request differs from the exact normative BMW M52B28 "
-                   "held-speed listening request");
+        detail::build_bmw_m52b28_held_regression_request_set_unvalidated();
+    for (std::size_t index = 0; index < request_set.size(); ++index) {
+        if (request_set[index] != expected[index]) {
+            report.add(contract::ContractIssueCode::inconsistent_semantics,
+                       "bmw_m52b28_held_regression_request_set[" +
+                           std::to_string(index) + "]",
+                       "request differs from the exact normative BMW M52B28 "
+                       "held-regression point at this frozen matrix index");
+        }
     }
     return report;
 }

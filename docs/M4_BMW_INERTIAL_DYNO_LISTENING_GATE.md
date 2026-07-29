@@ -1,7 +1,7 @@
 # M4 BMW inertial-dyno listening gate
 
-Status: original artifact accepted by user listening on 2026-07-29; current
-fixed-sample rerender is PCM-identical
+Status: original artifact accepted by user listening on 2026-07-29; its historical
+pre-matrix fixed-sample rerender is PCM-identical
 
 Source commit: `f3657973f510dae7dd5c43e3458ccf34752562e6`
 
@@ -10,8 +10,11 @@ The originally accepted M4 BMW M52B28 inertial-dyno scenario holds the warm engi
 brake and `7.9 kg*m^2` total crank-referred test-cell inertia. Crank speed is advanced
 from modeled shaft torque and inertia; it is neither prescribed nor clamped to the
 listening target. This artifact predates the sole fixed-horizon sampling cutover; its
-current replacement and exact PCM comparison are recorded in
-[`M4_FIXED_SAMPLE_AUDIO_REGRESSION.md`](M4_FIXED_SAMPLE_AUDIO_REGRESSION.md).
+pre-matrix fixed-sample rerender and exact PCM comparison are retained as historical
+evidence in
+[`M4_FIXED_SAMPLE_AUDIO_REGRESSION.md`](M4_FIXED_SAMPLE_AUDIO_REGRESSION.md). The
+inertial factory remains current, but neither artifact is claimed to carry the request
+identity produced after the held-matrix operating-model authority update.
 
 Listening file:
 

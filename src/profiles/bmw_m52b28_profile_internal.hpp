@@ -1,7 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/profiles/bmw_m52b28_full_throttle_torque_sweep_request.hpp"
-#include "engine_sim_offline/profiles/bmw_m52b28_held_speed_listening_request.hpp"
+#include "engine_sim_offline/profiles/bmw_m52b28_held_regression_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_inertial_dyno_listening_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_parity_request.hpp"
@@ -93,10 +93,6 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder);
 build_bmw_m52b28_parity_scenario(BmwProvenanceBuilder &builder,
                                  std::vector<double> post_step_rpm);
 
-[[nodiscard]] contract::RenderScenario
-build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
-                                               const contract::EngineSpec &engine);
-
 struct BmwM52b28HeldSpeedScenarioParameters {
     std::string_view scenario_id;
     std::string_view operating_state_event_id;
@@ -113,6 +109,14 @@ struct BmwM52b28HeldSpeedScenarioParameters {
     BmwProvenanceBuilder &builder, const contract::EngineSpec &engine,
     const BmwM52b28HeldSpeedScenarioParameters &parameters);
 
+[[nodiscard]] std::string_view
+bmw_m52b28_held_regression_point_key(std::size_t point_index);
+
+[[nodiscard]] contract::RenderScenario
+build_bmw_m52b28_held_regression_scenario(BmwProvenanceBuilder &builder,
+                                          const contract::EngineSpec &engine,
+                                          std::size_t point_index);
+
 [[nodiscard]] contract::RenderScenario
 build_bmw_m52b28_full_throttle_torque_sweep_scenario(BmwProvenanceBuilder &builder,
                                                      const contract::EngineSpec &engine,
@@ -128,8 +132,11 @@ build_bmw_m52b28_parity_request_unvalidated(std::vector<double> post_step_rpm);
 [[nodiscard]] BmwM52b28OperatingProfile
 build_bmw_m52b28_operating_profile_unvalidated();
 
-[[nodiscard]] BmwM52b28HeldSpeedListeningRequest
-build_bmw_m52b28_held_speed_listening_request_unvalidated();
+[[nodiscard]] BmwM52b28HeldRegressionRequest
+build_bmw_m52b28_held_regression_request_unvalidated(std::size_t point_index);
+
+[[nodiscard]] BmwM52b28HeldRegressionRequestSet
+build_bmw_m52b28_held_regression_request_set_unvalidated();
 
 [[nodiscard]] BmwM52b28FullThrottleTorqueSweepRequest
 build_bmw_m52b28_full_throttle_torque_sweep_request_unvalidated(

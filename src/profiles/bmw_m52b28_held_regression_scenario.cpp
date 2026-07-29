@@ -1,9 +1,49 @@
 #include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 
+#include <array>
 #include <string>
+#include <string_view>
 
 namespace engine_sim_offline::profiles::detail {
+namespace {
+
+struct HeldRegressionPoint {
+    std::string_view point_key;
+    std::string_view scenario_id;
+    double engine_speed_rpm;
+    double throttle_01;
+};
+
+constexpr std::array<HeldRegressionPoint, kBmwM52b28HeldRegressionPointCount>
+    kHeldRegressionPoints{
+        HeldRegressionPoint{
+            "rpm1500-throttle0p85",
+            "bmw-m52b28-held-regression-rpm1500-throttle0p85",
+            1500.0,
+            0.85,
+        },
+        HeldRegressionPoint{
+            "rpm3000-throttle0p25",
+            "bmw-m52b28-held-regression-rpm3000-throttle0p25",
+            3000.0,
+            0.25,
+        },
+        HeldRegressionPoint{
+            "rpm3000-throttle0p85",
+            "bmw-m52b28-held-regression-rpm3000-throttle0p85",
+            3000.0,
+            0.85,
+        },
+        HeldRegressionPoint{
+            "rpm6500-throttle0p85",
+            "bmw-m52b28-held-regression-rpm6500-throttle0p85",
+            6500.0,
+            0.85,
+        },
+    };
+
+} // namespace
 
 contract::RenderScenario build_bmw_m52b28_held_speed_scenario(
     BmwProvenanceBuilder &builder, const contract::EngineSpec &engine,
@@ -127,20 +167,26 @@ contract::RenderScenario build_bmw_m52b28_held_speed_scenario(
     return scenario;
 }
 
+std::string_view bmw_m52b28_held_regression_point_key(std::size_t point_index) {
+    return kHeldRegressionPoints.at(point_index).point_key;
+}
+
 contract::RenderScenario
-build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
-                                               const contract::EngineSpec &engine) {
+build_bmw_m52b28_held_regression_scenario(BmwProvenanceBuilder &builder,
+                                          const contract::EngineSpec &engine,
+                                          std::size_t point_index) {
+    const auto &point = kHeldRegressionPoints.at(point_index);
     return build_bmw_m52b28_held_speed_scenario(
         builder, engine,
         {
-            "bmw-m52b28-held-3000rpm-listening-v2",
-            "held-running",
-            3000.0,
-            0.85,
-            3.22,
+            point.scenario_id,
+            "held-regression-running",
+            point.engine_speed_rpm,
+            point.throttle_01,
+            6.44,
             32U,
             15.0,
-            18.22,
+            21.44,
             "low-order-operating-point-listening-v1",
         });
 }

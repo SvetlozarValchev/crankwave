@@ -1,6 +1,7 @@
 # M4 BMW held operating-regression matrix
 
-Status: frozen before implementation
+Status: implemented as the sole held-listening surface; clean-commit execution,
+four-clip publication, and user listening acceptance remain open
 
 This gate replaces the single BMW held listening request with one small, exact
 RPM/throttle cross. It broadens the audible operating regression set without adding a
