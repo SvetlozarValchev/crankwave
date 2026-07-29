@@ -44,8 +44,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.85,
             47U,
             78U,
-            "3fcfbdc310f9cb0c3417fd21160267b2ff52497bdd503baa9e67bbe2e3188878",
-            "0e24e820683ef92658971c5641393fe21cb08e9a942c8f38cf0ab75d4ec08825",
+            "83bbbec5729c8c0b3a80964fdfa4002569877bb4efeabc6997429984c394f1fb",
+            "1d5ae9c9c2b3276e9d9acc8f7ff507d22b15e82e425414438a4b4c11d495e608",
         },
         {
             "rpm3000-throttle0p25",
@@ -54,8 +54,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.25,
             127U,
             158U,
-            "848cce413cda58e5026bb370f7fe534082bf1ee03d522997300533acb062b427",
-            "0e24e820683ef92658971c5641393fe21cb08e9a942c8f38cf0ab75d4ec08825",
+            "89f2725f7cf4e362eaa2a2e7528c3fe765213541f62290b9f32d0175eade23cd",
+            "1d5ae9c9c2b3276e9d9acc8f7ff507d22b15e82e425414438a4b4c11d495e608",
         },
         {
             "rpm3000-throttle0p85",
@@ -64,8 +64,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.85,
             127U,
             158U,
-            "96c7338e67ece2d806c530097a66dfd73219e8c7a63d5f15a0424d9fc65a1172",
-            "0e24e820683ef92658971c5641393fe21cb08e9a942c8f38cf0ab75d4ec08825",
+            "1bc3abd3285485e5ebb57e13f47e72c07780f061cc6f455e9bc9380881a3b813",
+            "1d5ae9c9c2b3276e9d9acc8f7ff507d22b15e82e425414438a4b4c11d495e608",
         },
         {
             "rpm6500-throttle0p85",
@@ -74,8 +74,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.85,
             315U,
             346U,
-            "49feaf859f358e27f0bcf48897f32e7104dfbc2399a9341a745054c79c968421",
-            "0e24e820683ef92658971c5641393fe21cb08e9a942c8f38cf0ab75d4ec08825",
+            "3e7c039a21b815872d17c347d3f6f1ab046527720c7e155326a4cb336de1821b",
+            "1d5ae9c9c2b3276e9d9acc8f7ff507d22b15e82e425414438a4b4c11d495e608",
         },
     }};
 

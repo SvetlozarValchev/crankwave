@@ -703,6 +703,13 @@ per-cylinder ignition event, deterministic component stream, fuel reaction
 stoichiometry, flame-speed input functions, and geometric propagating-flame burn.
 It does not introduce a Wiebe burn law in M3.
 
+Ignition mode belongs to the engine/combustion-model selection. The current engine
+contract selects `spark_ignition`; its gasoline fuel record therefore contains no
+second compression-ignition Boolean. The disabled diesel knob from the development
+fork was never evaluated by this implementation and is not retained as schema data.
+A future compression-ignition engine requires an explicit admitted combustion model
+and its actual parameters, not a switch on the fuel record.
+
 The source-named ignition quantity `p_o2/p_fuel/molecular_afr` is accepted only in
 `[0.5, 1.9]`; the name is preserved for parity even though it is not the conventional
 equivalence-ratio orientation. `ignite` reads the previous thermodynamic state before

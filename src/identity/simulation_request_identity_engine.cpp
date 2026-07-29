@@ -659,8 +659,6 @@ write_legacy_flame_speed_point(CanonicalJsonWriter &writer,
            write_resolved(writer, fuel.maximum_dilution_effect, write_f64) &&
            writer.key("lbv_multiplier") &&
            write_resolved(writer, fuel.lbv_multiplier, write_f64) &&
-           writer.key("compression_ignition_enabled") &&
-           write_resolved(writer, fuel.compression_ignition_enabled, write_bool) &&
            writer.key("turbulence_to_flame_speed_ratio_triangle_radius") &&
            write_resolved(writer, fuel.turbulence_to_flame_speed_ratio_triangle_radius,
                           write_f64) &&

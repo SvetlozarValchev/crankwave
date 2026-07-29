@@ -738,8 +738,6 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
         10.0, profile_path("fuel.maximum_dilution_effect"), Source::legacy_asset);
     core.fuel.lbv_multiplier = builder.resolved(
         1.0, profile_path("fuel.lbv_multiplier"), Source::legacy_asset);
-    core.fuel.compression_ignition_enabled = builder.resolved(
-        false, profile_path("fuel.compression_ignition_enabled"), Source::legacy_asset);
     core.fuel.turbulence_to_flame_speed_ratio_triangle_radius = builder.resolved(
         5.0,
         profile_path("fuel."

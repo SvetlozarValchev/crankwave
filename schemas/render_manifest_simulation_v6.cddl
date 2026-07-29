@@ -366,7 +366,6 @@ legacy-fuel-profile = {
   "maximum_turbulence_effect": resolved<f64-bits>,
   "maximum_dilution_effect": resolved<f64-bits>,
   "lbv_multiplier": resolved<f64-bits>,
-  "compression_ignition_enabled": resolved<bool>,
   "turbulence_to_flame_speed_ratio_triangle_radius": resolved<f64-bits>,
   "turbulence_to_flame_speed_ratio": [* legacy-flame-speed-point]
 }

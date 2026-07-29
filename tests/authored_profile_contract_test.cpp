@@ -180,7 +180,6 @@ AuthoredLegacyLowOrderV1Profile make_authored_profile() {
     core.fuel.maximum_turbulence_effect = authored(4.0);
     core.fuel.maximum_dilution_effect = authored(10.0);
     core.fuel.lbv_multiplier = authored(1.0);
-    core.fuel.compression_ignition_enabled = authored(false);
     core.fuel.turbulence_to_flame_speed_ratio_triangle_radius = authored(5.0);
     core.fuel.turbulence_to_flame_speed_ratio = {
         {
@@ -592,11 +591,6 @@ void run_authored_profile_contract_tests() {
         [](AuthoredLegacyLowOrderV1Profile &profile) {
             profile.core.fuel.turbulence_to_flame_speed_ratio_triangle_radius.claim_id
                 .clear();
-        });
-    expect_authored_mutation_rejected(
-        "compression ignition was enabled in a spark-ignition authored profile",
-        [](AuthoredLegacyLowOrderV1Profile &profile) {
-            profile.core.fuel.compression_ignition_enabled.value = true;
         });
     expect_authored_mutation_rejected(
         "implemented authored combustion accepted no random streams",

@@ -20,9 +20,9 @@ namespace {
 using namespace engine_sim_offline;
 
 constexpr std::string_view kExpectedRequestIdentitySha256 =
-    "908b07e00bd10a735010fdc0d71f7d6f8e9e2f11e481d363d982dc670002f489";
+    "3b2bc89166d242ad34be4845a9d36a9c26ffda8d4edb7561b47288887f896c9f";
 constexpr std::string_view kExpectedProvenanceSha256 =
-    "795a6b48b3468983178de391de9dc33ed96026119c9aca5829e1cd713c646c7c";
+    "8c96b4f3a9a45c2a59e4d94afb0dbff314b5be9f988200625c07a365cb48101e";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {

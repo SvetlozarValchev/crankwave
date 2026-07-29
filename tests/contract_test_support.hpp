@@ -346,8 +346,6 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
     core.fuel.maximum_dilution_effect =
         builder.resolved(10.0, path("fuel.maximum_dilution_effect"));
     core.fuel.lbv_multiplier = builder.resolved(1.0, path("fuel.lbv_multiplier"));
-    core.fuel.compression_ignition_enabled =
-        builder.resolved(false, path("fuel.compression_ignition_enabled"));
     core.fuel.turbulence_to_flame_speed_ratio_triangle_radius = builder.resolved(
         5.0, path("fuel.turbulence_to_flame_speed_ratio_triangle_radius"));
     const auto make_flame_point = [&](std::string id, double turbulence, double ratio) {
