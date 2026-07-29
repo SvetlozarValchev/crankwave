@@ -140,12 +140,26 @@ continuous causal windowed-sinc polyphase resampler:
 ratio                    = 192000 / 80000 = 12 / 5
 taps                     = 257
 fractional phase rows    = 4,096 plus the shifted wrap row
-window                   = Kaiser, beta 12
+window                   = Kaiser, beta 12, with exact +0.0 endpoint overrides
 cutoff                   = 0.95 of the 80 kHz source Nyquist
 per-phase DC gain        = 1
 arithmetic               = binary64, fixed traversal order
 history                  = zero at render start, never reset at crop/block boundaries
 ```
+
+Source record `i` is observed at the post-interval time `(i + 1) / 80000`. Acoustic
+frame `m` is observed at `m / 192000`. While consuming source record `i`, the
+resampler first emits the acoustic frames in
+`[i / 80000, (i + 1) / 80000)` from the previously committed history and only then
+commits record `i` at its timestamp. A record therefore cannot influence an acoustic
+frame preceding that record. This clock convention is part of the reconstruction
+contract, not a crop adjustment.
+
+The 257-point Kaiser beta-12 window is constructed first, then taps `0` and `256` are
+overridden with exact positive zero before serial per-phase DC normalization. The
+4,097th table row is exactly `{+0.0, phase_0[0..255]}`. These endpoint and wrap rules
+close the finite causal support and preserve exact unit DC gain; this is deliberately
+Kaiser-derived rather than an unmodified stock Kaiser window.
 
 One 200-frame outer block therefore maps exactly from 1,600 source intervals to 3,840
 acoustic frames. The causal group delay is retained through preparation and cropping;

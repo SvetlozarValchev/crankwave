@@ -297,6 +297,7 @@ add_library(
         src/dsp/causal_reconstruction_table.cpp
         src/dsp/fixed_fft.cpp
         src/dsp/pcg32.cpp
+        src/dsp/six_channel_causal_resampler.cpp
         src/dsp/source_conditioning_primitives.cpp
         src/dsp/static_ir_conversion.cpp
 )

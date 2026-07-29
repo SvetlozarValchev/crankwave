@@ -449,6 +449,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_six_channel_causal_resampler_tests
+    six_channel_causal_resampler_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_six_channel_causal_resampler_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_six_channel_causal_resampler_tests
+    PRIVATE engine_sim_offline::dsp
+)
+
+add_test(
+    NAME dsp.six_channel_causal_resampler
+    COMMAND engine_sim_offline_six_channel_causal_resampler_tests
+)
+
+add_executable(
     engine_sim_offline_acoustic_wave_network_primitive_tests
     acoustic_wave_network_primitives_test.cpp
 )
