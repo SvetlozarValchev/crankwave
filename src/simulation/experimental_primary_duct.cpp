@@ -17,6 +17,7 @@ constexpr double kMinimumPressurePa = 1000.0;
 constexpr double kMinimumDensityKgM3 = 0.01;
 constexpr double kDarcyFrictionFactor = 0.02;
 constexpr double kWallHeatTransferWPerM2K = 50.0;
+constexpr double kListeningSpikePressureGain = 0.25;
 
 struct Primitive {
     double density_kg_m3 = 0.0;
@@ -301,9 +302,11 @@ ExperimentalPrimaryDuct::observation() const noexcept {
         (std::pow(1.0 + 0.5 * (kGamma - 1.0) * mach_squared, kGamma / (kGamma - 1.0)) -
          1.0);
     return {
-        value.pressure_pa,
-        value.velocity_m_s >= 0.0 ? dynamic_pressure : 0.0,
-        value.velocity_m_s < 0.0 ? dynamic_pressure : 0.0,
+        ambient_pressure_pa_ +
+            kListeningSpikePressureGain * (value.pressure_pa - ambient_pressure_pa_),
+        value.velocity_m_s >= 0.0 ? kListeningSpikePressureGain * dynamic_pressure
+                                  : 0.0,
+        value.velocity_m_s < 0.0 ? kListeningSpikePressureGain * dynamic_pressure : 0.0,
     };
 }
 
