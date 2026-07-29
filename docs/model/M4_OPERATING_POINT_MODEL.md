@@ -703,6 +703,56 @@ or calibration acceptance gate. Non-finite output, non-convergence, energy-ident
 failure, or comparison against the M52TU landmarks fails the operating-point
 evaluation.
 
+### 6.1 Canonical full-throttle torque sweep
+
+The first modeled sweep is frozen before any point is executed. It consists of nine
+independent held-speed sessions in ascending order:
+
+```text
+1500, 2500, 3000, 3500, 3950, 4500, 5300, 6000, 6500 rpm
+```
+
+Each point uses throttle `1.0`; the original-M52 operating profile; the profile-owned
+warm stock-accessory condition; `101325 Pa`, `298.15 K`, and zero relative humidity;
+the profile fuel; initial gas/crankcase temperature `298.15 K`; wall, coolant, and oil
+temperature `363.15 K`; fired running state with ignition, fuel, and dyno enabled and
+starter plus limiter disabled; public seed `0xC0FFEE`; and `10000 Hz` physics/capture
+rates. No point reuses mutable state from another point.
+
+Every session has a fixed `6.44 s` convergence cutoff, 16 cycles per adjacent
+comparison block, `0.75 N*m` cycle-mean torque tolerance, and `1500 Pa` phase-aligned
+pressure tolerance. A `0.02 s` post-cutoff evidence tail makes the complete scenario
+`6.46 s`; it is transport continuity evidence, not an audible clip. The capture block
+capacity is 200 frames and the event-journal capacity is 3800 records. Each scenario
+ID is
+`bmw-m52b28-held-<rpm>rpm-full-throttle-torque-sweep-v1`.
+
+Only a request-bound, complete, converged `HeldSpeedOperatingPointResult` contributes
+to the sweep. Any invalid request/result, nonconvergence, non-finite quantity, missing
+complete torque term, or partial point fails the entire record; there is no retry with
+different tolerances and no interpolation over a failed point.
+
+The evidence record retains, for every point, the canonical simulation-request digest,
+RPM, throttle, indicated-gas, aggregate-loss, starter, and net-shaft cycle-mean torque,
+net BMEP, mean power, the two convergence residuals and tolerances, completed-cycle
+ranges, applicability label, and elapsed time. It also retains the clean source commit
+and a SHA-256 over its canonical JSON bytes.
+
+Comparison is deterministic and does not fit the model:
+
+- the `3950 rpm` modeled net-shaft torque is divided by `280 N*m`;
+- the `5300 rpm` modeled mean power is divided by `142000 W`;
+- sampled maximum net-shaft torque and mean power are selected from the nine points in
+  ascending-RPM order, with the lower RPM winning an exact binary64 tie; and
+- those two sampled maxima are divided by `280 N*m` and `142000 W` respectively and
+  receive the warning-only `0.5` through `1.5` gross-error tripwire.
+
+The exact landmark-point ratios and sampled-maximum ratios are reported separately.
+The sparse sampled maxima are not described as continuous curve maxima. Agreement is
+not BMW calibration or validation because the manufacturer test conditions remain
+unknown. The runner produces evidence only; low/middle/high RPM and load audio is the
+next separate listening checkpoint.
+
 ## 7. Sources
 
 - Chen and Flynn, “Development of a Single Cylinder Compression Ignition Research

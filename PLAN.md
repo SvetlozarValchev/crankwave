@@ -537,6 +537,10 @@ replacement starts before acceptance.
         missing-condition caveats, and warning-only gross-error policy before seeing
         the modeled sweep.
   - [ ] Compare only complete converged shaft results and publish the sweep evidence.
+    - [x] Freeze the exact sweep points, conditions, comparison rules, and evidence
+          record before executing any point.
+    - [ ] Implement and verify the canonical sweep request set and bounded runner.
+    - [ ] Execute from a clean commit and publish the complete evidence record.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.
 - [x] Add the inertial dyno.
 - [x] Render its natural BMW pull, then stop for user listening.
