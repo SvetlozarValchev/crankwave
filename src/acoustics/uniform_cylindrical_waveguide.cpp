@@ -142,10 +142,7 @@ FixedPassiveFractionalDelay::FixedPassiveFractionalDelay(double delay_frames,
     }
 }
 
-double FixedPassiveFractionalDelay::process(double input) {
-    require_finite_input(input, "fractional-delay input was non-finite");
-
-    history_[write_index_] = input;
+double FixedPassiveFractionalDelay::arrival() const {
     const auto newer_index =
         (write_index_ + history_.size() - integer_delay_frames_) % history_.size();
     const auto older_index =
@@ -154,10 +151,25 @@ double FixedPassiveFractionalDelay::process(double input) {
                                           fractional_delay_frames_);
     const double output = amplitude_survival_ * interpolated;
 
+    require_finite_input(output, "fractional-delay arrival became non-finite");
+    return output;
+}
+
+void FixedPassiveFractionalDelay::commit(double input) {
+    require_finite_input(input, "fractional-delay input was non-finite");
+
+    history_[write_index_] = input;
+
     ++write_index_;
     if (write_index_ == history_.size()) {
         write_index_ = 0;
     }
+}
+
+double FixedPassiveFractionalDelay::process(double input) {
+    require_finite_input(input, "fractional-delay input was non-finite");
+    const double output = arrival();
+    commit(input);
     return output;
 }
 
@@ -186,18 +198,33 @@ UniformCylindricalWaveguide::UniformCylindricalWaveguide(
       downstream_to_upstream_(properties_.delay_frames,
                               properties_.one_way_amplitude_survival) {}
 
-WaveguideArrivalFrame
-UniformCylindricalWaveguide::process(const WaveguideLaunchFrame &launched) {
+WaveguideArrivalFrame UniformCylindricalWaveguide::arrivals() const {
+    return {
+        downstream_to_upstream_.arrival(),
+        upstream_to_downstream_.arrival(),
+    };
+}
+
+void UniformCylindricalWaveguide::commit(const WaveguideLaunchFrame &launched) {
     require_finite_input(launched.from_upstream_pa,
                          "upstream waveguide launch was non-finite");
     require_finite_input(launched.from_downstream_pa,
                          "downstream waveguide launch was non-finite");
 
     // Validate both inputs before either direction mutates its history.
-    return {
-        downstream_to_upstream_.process(launched.from_downstream_pa),
-        upstream_to_downstream_.process(launched.from_upstream_pa),
-    };
+    downstream_to_upstream_.commit(launched.from_downstream_pa);
+    upstream_to_downstream_.commit(launched.from_upstream_pa);
+}
+
+WaveguideArrivalFrame
+UniformCylindricalWaveguide::process(const WaveguideLaunchFrame &launched) {
+    require_finite_input(launched.from_upstream_pa,
+                         "upstream waveguide launch was non-finite");
+    require_finite_input(launched.from_downstream_pa,
+                         "downstream waveguide launch was non-finite");
+    const auto result = arrivals();
+    commit(launched);
+    return result;
 }
 
 const UniformCylindricalWaveguideParameters &

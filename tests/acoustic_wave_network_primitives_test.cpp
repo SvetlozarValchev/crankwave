@@ -53,15 +53,20 @@ UniformCylindricalWaveguideParameters parameters_for_delay(double delay_frames,
     constexpr double gas_molar_mass = 0.02897;
     constexpr double heat_capacity_ratio = 1.4;
     constexpr double temperature_k = 600.0;
-    constexpr double specific_gas_constant =
-        universal_gas_constant / gas_molar_mass;
+    constexpr double specific_gas_constant = universal_gas_constant / gas_molar_mass;
     const double sound_speed =
         std::sqrt(heat_capacity_ratio * specific_gas_constant * temperature_k);
     const double length_m = delay_frames * sound_speed / sample_rate_hz;
     const double loss_nepers_per_m = -std::log(amplitude_survival) / length_m;
     return {
-        length_m,          std::numbers::pi * 0.02 * 0.02, 101325.0, temperature_k,
-        loss_nepers_per_m, sample_rate_hz, universal_gas_constant, gas_molar_mass,
+        length_m,
+        std::numbers::pi * 0.02 * 0.02,
+        101325.0,
+        temperature_k,
+        loss_nepers_per_m,
+        sample_rate_hz,
+        universal_gas_constant,
+        gas_molar_mass,
         heat_capacity_ratio,
     };
 }
@@ -225,6 +230,35 @@ void test_waveguide_rejects_invalid_state_without_cross_direction_mutation() {
            "rejected launch mutated one waveguide direction");
 }
 
+void test_waveguide_two_phase_step_matches_wrapper_and_preserves_same_frame_arrival() {
+    const auto parameters = parameters_for_delay(3.25, 0.9);
+    UniformCylindricalWaveguide wrapper{parameters};
+    UniformCylindricalWaveguide two_phase{parameters};
+
+    for (std::size_t frame = 0; frame < 40U; ++frame) {
+        const double n = static_cast<double>(frame);
+        const WaveguideLaunchFrame launch{
+            std::sin(0.37 * n),
+            -0.5 * std::cos(0.19 * n),
+        };
+        const auto expected = wrapper.process(launch);
+        const auto before_commit = two_phase.arrivals();
+        expect(two_phase.arrivals() == before_commit,
+               "reading a current waveguide arrival advanced its state");
+        two_phase.commit(launch);
+        expect(before_commit == expected,
+               "two-phase waveguide update diverged from the exact wrapper");
+    }
+
+    UniformCylindricalWaveguide rejected{parameters};
+    const auto zero_arrival = rejected.arrivals();
+    expect_throw<std::domain_error>(
+        [&] { rejected.commit({1.0, std::numeric_limits<double>::quiet_NaN()}); },
+        "two-phase waveguide commit accepted a non-finite launch");
+    expect(rejected.arrivals() == zero_arrival,
+           "rejected two-phase launch advanced waveguide state");
+}
+
 void test_junction_analytic_matrix_and_pressure_flow_constraints() {
     const CompactFourPortWaves impedances{2.0, 3.0, 5.0, 7.0};
     const CompactFourPortWaves arrivals{1.25, -0.5, 0.75, 2.0};
@@ -339,6 +373,7 @@ void run_tests() {
     test_waveguide_resolves_physical_properties_and_matched_delay();
     test_waveguide_partition_equality_and_bounded_gain();
     test_waveguide_rejects_invalid_state_without_cross_direction_mutation();
+    test_waveguide_two_phase_step_matches_wrapper_and_preserves_same_frame_arrival();
     test_junction_analytic_matrix_and_pressure_flow_constraints();
     test_junction_lossless_passivity_and_partition_equality();
     test_junction_rejects_invalid_inputs();

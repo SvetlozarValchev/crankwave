@@ -48,6 +48,13 @@ class FixedPassiveFractionalDelay final {
   public:
     FixedPassiveFractionalDelay(double delay_frames, double amplitude_survival);
 
+    // Reads the arrival for the current frame without advancing history. This is
+    // the first half of a network update: every boundary may inspect all current
+    // arrivals before any launch for that frame is committed.
+    [[nodiscard]] double arrival() const;
+    void commit(double input);
+
+    // Exact convenience wrapper for an isolated line: arrival(), then commit().
     [[nodiscard]] double process(double input);
 
     [[nodiscard]] double delay_frames() const noexcept;
@@ -91,6 +98,12 @@ class UniformCylindricalWaveguide final {
     explicit UniformCylindricalWaveguide(
         UniformCylindricalWaveguideParameters parameters);
 
+    // Network stepping is deliberately two-phase. Read all duct arrivals for one
+    // acoustic frame, solve every connected boundary, then commit every launch.
+    [[nodiscard]] WaveguideArrivalFrame arrivals() const;
+    void commit(const WaveguideLaunchFrame &launched);
+
+    // Exact convenience wrapper for an isolated line: arrivals(), then commit().
     [[nodiscard]] WaveguideArrivalFrame process(const WaveguideLaunchFrame &launched);
 
     [[nodiscard]] const UniformCylindricalWaveguideParameters &
