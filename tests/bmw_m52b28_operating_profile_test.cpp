@@ -154,7 +154,7 @@ void test_exact_profile_authorities(
            "canonical BMW operating identity changed");
 
     constexpr std::string_view kExpectedBundleSha256 =
-        "7b87e5712fe9deb912eb45e1e42ebcc5f0d29dd0afc477b296cf9c0b3d2a5554";
+        "b98a54c8da0c54110fddccbf47af02353393ab982db7f70e7d78251210a7764d";
     const auto actual_bundle_sha256 = digest_hex(profile.provenance.bundle.sha256);
     if (actual_bundle_sha256 != kExpectedBundleSha256) {
         std::cerr << "BMW operating profile provenance SHA-256: "

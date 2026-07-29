@@ -28,7 +28,7 @@ constexpr contract::Sha256Digest kExpectedComponentSeedSha256{{
 }};
 
 constexpr std::string_view kExpectedRequestIdentitySha256 =
-    "d9ef5e18b311adb3aadb7b3cfd77610c5b72591dc2f9f8351d630c8e8a515a71";
+    "539a027ade538f9b3ea4840fdcf08d58247d67ce6e00a8e1d30886a599f4f909";
 
 void expect(bool condition, const char *message) {
     if (!condition) {

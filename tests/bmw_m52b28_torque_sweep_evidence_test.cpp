@@ -204,7 +204,7 @@ void run_tests() {
            "retained SHA-256 does not cover exact canonical JSON bytes");
     const auto encoded_sha256 = digest_hex(encoded->sha256);
     constexpr std::string_view kExpectedEncodedSha256 =
-        "a026ded29e39c8f930c5daa4505f6a8253f136c04a2e241d557797ba1b92e6da";
+        "0baca7c1ad439e3f13938f2dc2b4f7253c775b55c5e962d978e55186afa23479";
     if (encoded_sha256 != kExpectedEncodedSha256) {
         std::cerr << "BMW torque-sweep evidence SHA-256: " << encoded_sha256 << '\n';
     }

@@ -140,12 +140,6 @@ void run_parity_model_contract_tests() {
         });
 
     expect_parity_mutation_rejected(
-        "compression ignition was enabled in a spark-ignition executable profile",
-        [](EngineSpec &engine, InputBuilder &) {
-            legacy_profile(engine).core.fuel.compression_ignition_enabled.value = true;
-        });
-
-    expect_parity_mutation_rejected(
         "nonpositive resolved flame-speed table radius was accepted",
         [](EngineSpec &engine, InputBuilder &) {
             legacy_profile(engine)

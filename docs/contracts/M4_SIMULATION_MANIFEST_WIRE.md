@@ -13,7 +13,7 @@ Machine schema:
 [`schemas/render_manifest_simulation_v6.cddl`](../../schemas/render_manifest_simulation_v6.cddl)
 
 Schema SHA-256:
-`4953793e48557dccc11ba3803897667c8a229dd7b2c966a5b49481c07b07a987`
+`054bd338c6c9cb17f2e52d1307b8eaed3ed633e41214ca0318213448e46f02ca`
 
 ## 1. Scope and admission
 
@@ -514,12 +514,13 @@ unless an owning transaction explicitly assigns it a path. This contract does no
 invent a second manifest path, artifact role, or sidecar convention for it.
 
 The complete sealed BMW M52B28 M3 request—including its engine, scenario, compact RPM
-descriptor, and provenance bundle—receives a new request-v3 digest even though its
-typed `FixedSettling` value is unchanged, because the root wire-schema domain changes.
+descriptor, and provenance bundle—uses the sole current request-v3 grammar. The fuel
+record has no disabled compression-ignition member: `EngineSpec::ignition` already
+selects spark ignition, and another combustion mode requires its own admitted model.
 The mechanically generated canonical digest is:
 
 ```text
-d9ef5e18b311adb3aadb7b3cfd77610c5b72591dc2f9f8351d630c8e8a515a71
+539a027ade538f9b3ea4840fdcf08d58247d67ce6e00a8e1d30886a599f4f909
 ```
 
 The independent BMW parity-request factory test pins the same digest. It is not
