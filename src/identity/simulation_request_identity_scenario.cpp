@@ -236,23 +236,14 @@ write_rpm_trajectory_value(CanonicalJsonWriter &writer,
            writer.end_object();
 }
 
-[[nodiscard]] bool
-write_convergence_settling(CanonicalJsonWriter &writer,
-                           const contract::ConvergenceSettling &settling) {
+[[nodiscard]] bool write_fixed_horizon_cycle_sampling(
+    CanonicalJsonWriter &writer, const contract::FixedHorizonCycleSampling &sampling) {
     return writer.begin_object() && writer.key("method") &&
-           write_resolved(writer, settling.method, write_method_identity) &&
-           writer.key("minimum_warm_up_duration_s") &&
-           write_resolved(writer, settling.minimum_warm_up_duration_s, write_f64) &&
-           writer.key("minimum_settling_duration_s") &&
-           write_resolved(writer, settling.minimum_settling_duration_s, write_f64) &&
-           writer.key("maximum_preparation_duration_s") &&
-           write_resolved(writer, settling.maximum_preparation_duration_s, write_f64) &&
-           writer.key("comparison_cycle_count") &&
-           write_resolved(writer, settling.comparison_cycle_count, write_u32) &&
-           writer.key("cycle_mean_torque_tolerance_nm") &&
-           write_resolved(writer, settling.cycle_mean_torque_tolerance_nm, write_f64) &&
-           writer.key("pressure_tolerance_pa") &&
-           write_resolved(writer, settling.pressure_tolerance_pa, write_f64) &&
+           write_resolved(writer, sampling.method, write_method_identity) &&
+           writer.key("fixed_preparation_horizon_s") &&
+           write_resolved(writer, sampling.fixed_preparation_horizon_s, write_f64) &&
+           writer.key("trailing_complete_cycle_count") &&
+           write_resolved(writer, sampling.trailing_complete_cycle_count, write_u32) &&
            writer.end_object();
 }
 
@@ -266,10 +257,11 @@ write_convergence_settling(CanonicalJsonWriter &writer,
             !write_fixed_settling(writer, *fixed)) {
             return false;
         }
-    } else if (const auto *convergence =
-                   std::get_if<contract::ConvergenceSettling>(&preparation)) {
-        if (!writer.string_value("convergence_settling") || !writer.key("value") ||
-            !write_convergence_settling(writer, *convergence)) {
+    } else if (const auto *sampling =
+                   std::get_if<contract::FixedHorizonCycleSampling>(&preparation)) {
+        if (!writer.string_value("fixed_horizon_cycle_sampling") ||
+            !writer.key("value") ||
+            !write_fixed_horizon_cycle_sampling(writer, *sampling)) {
             return false;
         }
     } else {

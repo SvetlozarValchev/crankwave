@@ -63,25 +63,14 @@ contract::RenderScenario build_bmw_m52b28_held_speed_scenario(
                          Source::legacy_asset),
     };
 
-    scenario.preparation = contract::ConvergenceSettling{
-        builder.resolved(
-            contract::adjacent_cycle_block_mean_convergence_method_identity(),
-            "scenario.preparation.method", Source::implemented_method),
-        builder.resolved(0.0, "scenario.preparation.minimum_warm_up_duration_s",
+    scenario.preparation = contract::FixedHorizonCycleSampling{
+        builder.resolved(contract::fixed_horizon_cycle_sampling_method_identity(),
+                         "scenario.preparation.method", Source::implemented_method),
+        builder.resolved(parameters.fixed_preparation_horizon_s,
+                         "scenario.preparation.fixed_preparation_horizon_s",
                          Source::profile_contract),
-        builder.resolved(0.0, "scenario.preparation.minimum_settling_duration_s",
-                         Source::profile_contract),
-        builder.resolved(parameters.maximum_preparation_duration_s,
-                         "scenario.preparation.maximum_preparation_duration_s",
-                         Source::profile_contract),
-        builder.resolved(parameters.comparison_cycle_count,
-                         "scenario.preparation.comparison_cycle_count",
-                         Source::profile_contract),
-        builder.resolved(parameters.cycle_mean_torque_tolerance_nm,
-                         "scenario.preparation.cycle_mean_torque_tolerance_nm",
-                         Source::profile_contract),
-        builder.resolved(parameters.pressure_tolerance_pa,
-                         "scenario.preparation.pressure_tolerance_pa",
+        builder.resolved(parameters.trailing_complete_cycle_count,
+                         "scenario.preparation.trailing_complete_cycle_count",
                          Source::profile_contract),
     };
     scenario.operating_state = builder.resolved(
@@ -98,7 +87,7 @@ contract::RenderScenario build_bmw_m52b28_held_speed_scenario(
         builder.resolved(parameters.total_duration_s, "scenario.total_duration_s",
                          Source::profile_contract);
     scenario.audible_start_s =
-        builder.resolved(parameters.maximum_preparation_duration_s,
+        builder.resolved(parameters.fixed_preparation_horizon_s,
                          "scenario.audible_start_s", Source::profile_contract);
     scenario.audible_duration_s =
         builder.resolved(parameters.evidence_duration_s, "scenario.audible_duration_s",
@@ -144,14 +133,12 @@ build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
     return build_bmw_m52b28_held_speed_scenario(
         builder, engine,
         {
-            "bmw-m52b28-held-3000rpm-listening-v1",
+            "bmw-m52b28-held-3000rpm-listening-v2",
             "held-running",
             3000.0,
             0.85,
             3.22,
-            16U,
-            0.25,
-            1500.0,
+            32U,
             15.0,
             18.22,
             "low-order-operating-point-listening-v1",

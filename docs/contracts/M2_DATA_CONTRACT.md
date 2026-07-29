@@ -62,7 +62,7 @@ The current contract supplies:
   `M2_RENDER_API.md`;
 - the profile-specific resolved BMW request, M3 low-order simulator and excitation,
   internal presentation session, live execution-facts observation, and canonical
-  completed simulation-manifest v5 encoder.
+  completed simulation-manifest v6 encoder.
 
 The current contract does not supply:
 
@@ -170,7 +170,7 @@ accepted low-order core without also inheriting M3's incomplete fixed-loss model
 - fuel identity, heating value, and stoichiometric air/fuel ratio;
 - initial gas, wall, coolant, and oil temperatures;
 - crankcase absolute pressure and temperature;
-- fixed-duration or convergence-based preparation;
+- fixed-duration or fixed-horizon complete-cycle sampling preparation;
 - a right-continuous operating-state timeline for ignition, fuel, starter, dyno, and
   limiter state;
 - total duration and the retained half-open audible interval;
@@ -179,18 +179,18 @@ accepted low-order core without also inheriting M3's incomplete fixed-loss model
   capacity;
 - a public deterministic seed.
 
-Preparation is causal history. For fixed preparation, warm-up plus settling ends
-exactly at the audible start. For convergence preparation, its declared maximum fits
-before the audible start. In both cases the audible interval ends at total duration;
-cropping does not imply a state reset. These relationships are rechecked after every
-duration is resolved to an integer physics/stream frame, so binary64 near-equality
-cannot leave an undeclared frame gap.
+Preparation is causal history. For `FixedSettling`, warm-up plus settling ends exactly
+at the audible start. For `FixedHorizonCycleSampling`, the fixed horizon equals the
+audible start and retains the declared trailing complete-cycle sample. In both cases
+the audible interval ends at total duration; cropping does not imply a state reset.
+These relationships are rechecked after every duration is resolved to an integer
+physics/stream frame, so binary64 near-equality cannot leave an undeclared frame gap.
 
 Exactly one tagged `ScenarioMode` owns crank motion:
 
 | Variant | Authoritative request | Contract result meaning |
 |---|---|---|
-| `HeldSpeed` | Positive fixed RPM, initial crank angle, throttle | Motion is held; settled torque and achieved load are results. |
+| `HeldSpeed` | Positive fixed RPM, initial crank angle, throttle | Motion is held; sampled cycle-mean torque and achieved load are results. |
 | `PrescribedKinematicSweep` | RPM trajectory, initial angle, throttle trajectory, named kinematic method | The scenario imposes motion; an actuator result is the residual required to impose it. |
 | `LoadTargetHeldCapture` | Fixed RPM, signed target net BMEP, tolerance, bounded throttle search, named search method | The search reports a reached target or a typed unreachable target; saturation is not disguised as success. |
 | `InertialDyno` | Initial RPM/angle, equivalent inertia, throttle trajectory, passive brake curve, named crank-dynamics method | The dynamics owner advances RPM; the brake curve supplies resistance. |

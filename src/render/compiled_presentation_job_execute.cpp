@@ -550,7 +550,7 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                         *held_speed_operating_point,
                         implementation->request.resolved_inputs.scenario,
                         implementation->request.resolved_inputs.engine,
-                        implementation->simulation_request_identity_v2_sha256);
+                        implementation->simulation_request_identity_v3_sha256);
                     if (!report.ok()) {
                         return coordinator_failure(
                             std::move(implementation->request),
@@ -583,7 +583,7 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                     const auto report = contract::validate(
                         *inertial_dyno,
                         implementation->request.resolved_inputs.scenario,
-                        implementation->simulation_request_identity_v2_sha256);
+                        implementation->simulation_request_identity_v3_sha256);
                     if (!report.ok()) {
                         return coordinator_failure(
                             std::move(implementation->request),

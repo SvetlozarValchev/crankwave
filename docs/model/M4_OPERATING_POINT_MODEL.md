@@ -1,7 +1,6 @@
 # M4 operating-point model
 
-Status: normative implementation companion, implemented one checked subsection at a
-time
+Status: normative implementation companion; fixed-horizon sampling cutover implemented
 
 Applies to: M4 held-speed and inertial-dyno BMW M52B28 operation
 
@@ -102,26 +101,26 @@ The exact new method IDs are:
 |---|---|---:|
 | `EngineSpec::methods.losses` | `chen-flynn-cycle-mean-aggregate-loss-v1` | 1 |
 | profile `cycle_quadrature` | `four-stroke-piecewise-linear-cycle-quadrature-v1` | 1 |
-| `ConvergenceSettling::method` | `adjacent-nonoverlapping-cycle-block-mean-v1` | 1 |
+| `FixedHorizonCycleSampling::method` | `fixed-horizon-trailing-complete-cycle-sample-v1` | 1 |
 
 The implementation-owned canonical descriptor and configuration SHA-256 for a method
 are pinned when that implementation exists and is admitted. A literature PDF hash is
 evidence identity, never a `MethodIdentity::configuration_sha256`.
 
-The implemented cycle-accounting and settling authorities are:
+The implemented cycle-accounting and fixed-sampling authorities are:
 
 | Method | Configuration SHA-256 |
 |---|---|
 | `four-stroke-piecewise-linear-cycle-quadrature-v1` | `57c9b1517deede3285b5c801cb66386a841d0b0dde08bece7eb05fae869a63ac` |
 | `chen-flynn-cycle-mean-aggregate-loss-v1` | `6fa03e2d9eabfdc7af99dd3e2b2658808dbe388260391780dab4c80bc0c79489` |
-| `adjacent-nonoverlapping-cycle-block-mean-v1` | `b1a1ad37088ceb2a88dbb5db4bb385067fefa6b244b091deeebe5bf38acac406` |
+| `fixed-horizon-trailing-complete-cycle-sample-v1` | `9efbb15d0ad27d3f97d75d135b642c9a7feec6610c50e7ec82523ec62808da63` |
 
 These are SHA-256 digests of the canonical LF descriptors exposed by the production
 implementations. Exact BMW profile validation admits the two engine-owned
 cycle-accounting identities, while scenario and held-result validation admit the
-scenario-owned convergence identity. Each comparison includes ID, version, and
-configuration digest, not merely ID and version. The bounded convergence observer is
-composed into the held-speed executor as the operating policy of the sole low-order
+scenario-owned fixed-sampling identity. Each comparison includes ID, version, and
+configuration digest, not merely ID and version. One bounded trailing-cycle sampler
+is composed into the held-speed executor as the operating policy of the sole low-order
 capture session.
 
 For the first BMW profile, the binary64 values are exact:
@@ -191,13 +190,14 @@ equivalent_inertia_available = true
 The instantaneous capability is not a physical component-friction waveform. It is
 available only through the admitted causal one-cycle-lagged aggregate-loss closure;
 held results continue to expose the same-cycle aggregate loss and complete shaft
-output at completed-cycle/block resolution.
+output at completed-cycle/sample resolution.
 
 The profile admits `HeldSpeed` and `InertialDyno`, both with
-`ConvergenceSettling`, finite positive running speed, the exact oil condition above,
-and a fired running state at every journal point: ignition, fuel, and dyno enabled;
-starter and limiter disabled. `HeldSpeed` constrains speed during capture;
-`InertialDyno` releases the converged state into the admitted crank-dynamics method.
+`FixedHorizonCycleSampling`, finite positive running speed, the exact oil condition
+above, and a fired running state at every journal point: ignition, fuel, and dyno
+enabled; starter and limiter disabled. `HeldSpeed` constrains speed during capture;
+`InertialDyno` releases the state at the declared fixed horizon into the admitted
+crank-dynamics method.
 The scenario contains no accessory selector; the profile owns that condition. Reused
 core values must be resolved afresh under the new provenance root—an M3 object and
 its `ResolutionRecord`s may not be shallow-copied and relabelled.
@@ -210,20 +210,23 @@ The first BMW profile therefore declares `14.484999999999998`, not `12.5`. The
 runtime bit-binds the reported operating condition to that conversion even though the
 legacy gas solver consumes the molecular representation directly.
 
-`ConvergenceSettling` gains a leading
-`ResolvedValue<MethodIdentity> method` member. Convergence remains scenario/test-cell
-policy and is not duplicated in the engine profile.
+`FixedHorizonCycleSampling` owns the method identity, exact preparation horizon, and
+positive trailing complete-cycle count. Sampling remains scenario/test-cell policy
+and is not duplicated in the engine profile. Its normative contract is
+[`M4_FIXED_HORIZON_SAMPLING.md`](M4_FIXED_HORIZON_SAMPLING.md); there is no alternate
+preparation policy, compatibility tag, adapter, or fallback.
 
 This variant was added to the executable-profile union atomically with its authored
 and resolved validation, method policy, topology/root mapping, randomness access,
 final manifest wire, and request-identity wire. The low-order capture runtime selects
 exactly one profile policy: the M3 fixed-crank accountant or this M4
-complete-cycle/convergence policy, with the latter selecting constrained held capture
+complete-cycle/fixed-sample policy, with the latter selecting constrained held capture
 or released inertial capture from the scenario. Both consume the same transactional
 core step inside the same block loop; neither policy can instantiate, evaluate, or
-fall back to the other. A cutoff failure terminalizes the session before the
-containing capture block reaches its consumer. Successful M4 completion alone retains
-the request-bound typed operating result.
+fall back to the other. Malformed cycle evidence or an insufficient trailing window at
+the exact fixed horizon terminalizes the session before the containing capture block
+reaches its consumer. Successful M4 completion alone retains the request-v3-bound
+typed operating result.
 
 The canonical BMW profile factory constructs this profile directly from the reusable
 low-order core under a fresh operating provenance root. Its exact validator pins the
@@ -240,33 +243,23 @@ exact first listening point is:
 
 | Field | Canonical value |
 |---|---:|
-| Scenario ID | `bmw-m52b28-held-3000rpm-listening-v1` |
+| Scenario ID | `bmw-m52b28-held-3000rpm-listening-v2` |
 | Engine speed | `3000 rpm` |
 | Throttle | `0.85` |
-| Minimum warm-up / settling | `0 s` / `0 s` |
-| Maximum preparation / audible start | `3.22 s` |
-| Comparison cycles per block | `16` |
-| Cycle-mean torque tolerance | `0.25 N*m` |
-| Boundary-pressure tolerance | `1500 Pa` |
+| Fixed preparation horizon / audible start | `3.22 s` / `3.22 s` |
+| Trailing complete-cycle sample | `32` cycles |
 | Audible duration / total duration | `15.0 s` / `18.22 s` |
 | Physics / capture rates | `10000 Hz` / `10000 Hz` |
 | Source / acoustic / delivery rates | `192000 Hz` / `192000 Hz` / `192000 Hz` |
 | Capture block / event capacities | `200` frames / `3800` records |
 | Public seed | `0xC0FFEE` |
 
-The original `0.22 s`, two-cycle-block candidate was run as a diagnostic on these
-same engine, ambient, thermal, fuel, held-control, and numeric-envelope conditions. At
-its cutoff the adjacent blocks differed by `146.38408799394455 N*m` and
-`285912.14626085013 Pa`. Treating that state as converged would therefore have required
-meaningless placeholder-scale tolerances, so it was rejected rather than frozen.
-
-The selected `3.22 s`, 16-cycle-block calibration retained the latest adjacent
-complete-cycle blocks and measured residuals of `0.14219052207965888 N*m` and
-`870.20266385539435 Pa`. The round admitted bounds (`0.25 N*m`, `1500 Pa`) leave finite
-margin around that deterministic reference observation while remaining materially
-tighter than the rejected early transient. The request test executes the core through
-the fixed cutoff and requires a request-bound settled result; it does not merely inspect
-the authored constants.
+The request executes the core through the exact fixed horizon and retains the latest
+32 eligible complete cycles ending no later than that horizon. It requires one
+request-v3-bound fixed sample; it neither compares adjacent windows nor claims
+stationarity. The selection history and the evidence that rejected the former policy
+are kept separately in
+[`M4_BMW_TORQUE_SWEEP_CONVERGENCE_FAILURE.md`](../M4_BMW_TORQUE_SWEEP_CONVERGENCE_FAILURE.md).
 
 The resulting integer horizons are `32200` preparation and `182200` total physics/
 capture frames, plus `2880000` audible and `3498240` total 192 kHz frames. At the
@@ -299,12 +292,11 @@ The first request freezes these conditions before listening:
 
 | Field | Canonical value |
 |---|---:|
-| Scenario ID | `bmw-m52b28-inertial-dyno-1500-6500rpm-listening-v1` |
+| Scenario ID | `bmw-m52b28-inertial-dyno-1500-6500rpm-listening-v2` |
 | Initial / listening-target speed | `1500 rpm` / `6500 rpm` |
 | Throttle | `0.85` |
-| Maximum preparation / audible start | `6.44 s` |
-| Preparation comparison block | `16` complete cycles |
-| Preparation torque / pressure tolerances | `0.75 N*m` / `1500 Pa` |
+| Fixed preparation horizon / audible start | `6.44 s` / `6.44 s` |
+| Trailing complete-cycle sample | `32` cycles |
 | Audible duration / total duration | `15.0 s` / `21.44 s` |
 | Total crank-referred equivalent inertia | `7.9 kg*m^2` |
 | Passive brake curve | `40 N*m` from `1000` through `7500 rpm` |
@@ -337,14 +329,12 @@ and must cover every evaluated positive speed. Extrapolation, reverse rotation, 
 zero-speed stick model are absent from v1.
 
 Preparation holds exactly `1500 rpm` using a test-cell actuator while the passive
-brake remains active. Existing adjacent-block torque and phase-aligned pressure
-convergence is evaluated at the fixed `6.44 s` cutoff. The first canonical execution
-retained the required 32 cycles and measured `0.6150874926158565 N*m` torque residual
-and `1300.6961110872217 Pa` pressure residual. The round `0.75 N*m` and `1500 Pa`
-bounds admit that deterministic preparation with finite margins; this is explicit
-scenario calibration, not a runtime bypass. The hold actuator becomes zero at that
-exact physics-frame boundary; crank angle, gas state, flame state, pressure history,
-randomness, and the latest completed aggregate-loss state continue without a reset.
+brake remains active. At the exact `6.44 s` horizon the sampler finalizes the latest
+32 eligible complete cycles, and the hold actuator becomes zero at physics frame
+`64400`. The sample is bounded preparation evidence, not a stationarity certificate
+or a release condition computed from the observed values. Crank angle, gas state,
+flame state, pressure history, randomness, and the latest completed aggregate-loss
+state continue without a reset.
 
 The first dynamics method is a deterministic rigid one-degree-of-freedom mean-value
 model. With positive running direction, the committed state from step `n` supplies:
@@ -453,8 +443,8 @@ angle, time, left/right post-step sample identities, and interpolation fraction 
 by the quadrature. Downstream cycle observers reuse this evidence; they do not run a
 second wrapped-angle crossing detector.
 
-The quadrature does not establish settling. Held-speed admission also requires the
-separate convergence evidence in section 5.
+The quadrature does not establish stationarity. Held-speed reporting uses the
+separate fixed-horizon sample boundary in section 5.
 
 ## 3. M4 aggregate loss closure
 
@@ -553,114 +543,56 @@ peak pressure occurs materially later than about 20 degrees after top dead cente
 The M4 result therefore depends directly on the simulated peak pressure and retains
 this explicit model-form limitation.
 
-## 5. Held-speed convergence and result boundary
+## 5. Held-speed fixed sample and result boundary
 
 Held speed prescribes constant positive RPM and throttle while the test cell supplies
 the balancing reaction. Equivalent inertia is not needed for mean reaction over a
-periodic complete cycle. The constrained held result intentionally reports the
-complete same-cycle reaction at cycle/block resolution rather than fabricating a
-per-frame actuator waveform. The separate inertial result reports shaft motion and
-energy evidence under its admitted equivalent inertia and brake law.
+complete-cycle sample. The constrained held result intentionally reports the complete
+same-cycle reaction at cycle resolution rather than fabricating a per-frame actuator
+waveform. The separate inertial result reports shaft motion and energy evidence under
+its admitted equivalent inertia and brake law.
 
-The convergence method is
-`adjacent-nonoverlapping-cycle-block-mean-v1`, version 1. It is a deterministic
-stationarity heuristic, not a deterministic-periodicity test, statistical confidence
-interval, or physical validation claim. The accepted low-order combustion core has
-nonzero deterministic per-ignition variation, so raw adjacent-cycle equality is not
-an admissible settling rule.
+Production uses exactly one `FixedHorizonCycleSampling` policy. Its declared horizon
+`H` is the preparation endpoint and audible start; its positive count `M` is the size
+of the one trailing sample. A completed cycle is eligible when its exact end-boundary
+time is no later than `H`. The sampler validates all chronological cycle inputs through
+that horizon, retains only the latest `M` eligible cycles, and finalizes exactly at
+`H`. It does not compare two windows, stop early, extend the horizon, or claim that the
+engine is stationary.
 
-The exact resolved method identity is carried by `ConvergenceSettling::method`; its
-configuration SHA-256 must equal the admitted convergence implementation descriptor.
+Each retained cycle carries coherent indicated-gas, positive aggregate-loss, starter,
+and brake works plus its exact boundary evidence and end-boundary absolute pressure
+for every non-atmosphere gas volume in ascending stable `GasVolumeId` order. Boundary
+values reuse the interpolation evidence emitted by the cycle integrator; no second
+wrapped-angle crossing detector exists.
 
-`cycles_per_block = N` must be positive. After
-`minimum_warm_up_duration_s + minimum_settling_duration_s`, a complete cycle is
-eligible only if its start boundary is at or after that threshold and its end boundary
-is at or before `maximum_preparation_duration_s`. The latest `2*N` eligible cycles at
-the fixed preparation cutoff form two adjacent, non-overlapping blocks:
-
-```text
-block A = older N cycles
-block B = newer N cycles
-```
-
-The physical pressure snapshot for one cycle is its exact end-boundary Poincare state.
-It contains absolute pressure for every `physically_resolved` gas volume in ascending
-stable `GasVolumeId` order. The resettable atmosphere alias is excluded. Each boundary
-value is interpolated from the same left/right samples and fraction emitted by the
-cycle integrator:
+Stable chronological reduction over the single sample defines the reported values:
 
 ```text
-p_boundary = p_left + fraction_from_left * (p_right - p_left)
+mean_brake_torque = sum_cycle(W_brake) / (M * 4*pi)
+net_BMEP = sum_cycle(W_brake) / (M * total_displacement)
+mean_power = sum_cycle(W_brake) / sum_cycle(cycle_duration)
+mean_boundary_pressure(volume_i) =
+    sum_cycle(p_end_boundary_cycle_i) / M
 ```
 
-No pressure observer independently recomputes a cycle index, boundary angle, or
-crossing fraction. It retains only the previous/current pressure vectors and bounded
-complete-cycle summaries.
+`HeldSpeedFixedHorizonSampleEvidence` owns the exact sampling method identity, `M`,
+`H`, one chronological `HeldSpeedCycleBlockEvidence`, and an attestation of the last
+eligible cycle ordinal and end boundary at `H`. `HeldSpeedOperatingPointResult` owns,
+in order, the `simulation_request_identity_v3_sha256`, operating conditions,
+generic-prior applicability label, and that sampling evidence. Its
+`reported_block()` is the one trailing sample.
 
-Stable chronological summation defines the two block means:
+An insufficient trailing window, malformed cycle evidence, or nonfinite reduction is
+a typed contract/runtime failure before audible output is committed. There is no
+residual, tolerance, limiting-volume, stationarity flag, or rejected-policy terminal
+vocabulary in the production result. There is also no old preparation tag, request
+encoder, parser, adapter, or fallback. The exact plan, descriptor, validation,
+reduction, and wire contracts are frozen in
+[`M4_FIXED_HORIZON_SAMPLING.md`](M4_FIXED_HORIZON_SAMPLING.md).
 
-```text
-mean_brake_torque(block) =
-    sum_cycle(W_brake) / (N * 4*pi)
-
-mean_boundary_pressure(block, volume_i) =
-    sum_cycle(p_boundary_cycle_i) / N
-```
-
-The residuals are:
-
-```text
-torque_residual_nm =
-    abs(mean_brake_torque(block_B) - mean_brake_torque(block_A))
-
-pressure_residual_pa =
-    max_over_physical_volumes(
-        abs(mean_boundary_pressure(block_B, i)
-            - mean_boundary_pressure(block_A, i)))
-```
-
-The stable gas-volume identity attaining the pressure maximum is retained; ties keep
-the first ascending identity. Both comparisons are inclusive. The point is settled
-only when:
-
-```text
-torque_residual_nm <= cycle_mean_torque_tolerance_nm
-pressure_residual_pa <= pressure_tolerance_pa
-```
-
-The method requires all `2*N` eligible complete cycles. The compiler budgets an
-initial phase acquisition plus those cycles; at held speed a conservative necessary
-post-threshold duration is:
-
-```text
-(2*N + 1) * 120 / engine_speed_rpm seconds
-```
-
-Insufficient cycles or a failed residual at the fixed maximum preparation cutoff
-fails closed as `preparation-not-converged`, before an audible block can be committed.
-An M4 listening scenario makes the maximum preparation cutoff equal its audible start,
-so an unclassified gap cannot exist.
-
-M4 therefore does not call an operating point settled from torque alone. The evidence
-retains:
-
-- the A and B cycle ordinal/time/boundary ranges;
-- both work-derived torque means, their residual, and its tolerance;
-- both phase-aligned pressure means, the L-infinity residual, its limiting volume,
-  and its tolerance; and
-- the exact convergence method identity and `N`.
-
-Block B is the reported operating-point window. Its indicated, loss, starter, and
-brake works are summed coherently. Reported torque is total brake work divided by
-`N*4*pi`; net BMEP is total brake work divided by `N*total_displacement`; mean power
-is total brake work divided by the summed cycle duration.
-
-A typed held-speed result records at least RPM, throttle, ambient/thermal/fuel/
-accessory/starter conditions, completed-cycle range, indicated work, aggregate loss
-work, starter work, brake work, net torque, net BMEP, mean power, convergence
-residuals, and the generic-prior applicability label. The held result does not expose
-a per-frame actuator/dyno reaction; that omission is a boundary of constrained held
-capture, not a missing inertial-dyno implementation.
+The held result does not expose a per-frame actuator/dyno reaction; that omission is a
+boundary of constrained held capture, not a missing inertial-dyno implementation.
 
 ## 6. BMW manufacturer plausibility landmarks
 
@@ -686,9 +618,9 @@ Six mathematical `84 mm` by `84 mm` cylinders give approximately
 `2793.0518 cm3`; the published whole-cubic-centimetre displacement is therefore not
 an exact geometry-equality target.
 
-Only the complete, converged M4 modeled shaft-output result may be compared with these
-landmarks. Indicated-gas torque, aggregate loss, or any component term may not be
-compared independently and relabelled as BMW evidence.
+Only the complete, request-bound M4 modeled shaft-output sample may be compared with
+these landmarks. Indicated-gas torque, aggregate loss, or any component term may not
+be compared independently and relabelled as BMW evidence.
 
 The sources state no applicable power-test standard, atmospheric or thermal
 conditions, fuel, accessory configuration, run-in state, or manufacturer tolerance.
@@ -699,9 +631,9 @@ not fit the generic loss prior to them or treat agreement as validation.
 Until same-condition evidence exists, a modeled maximum torque or power outside
 `0.5` through `1.5` times the corresponding BMW value is a warning-only gross-error
 tripwire. This interval is project QA policy, not a BMW tolerance and not an accuracy
-or calibration acceptance gate. Non-finite output, non-convergence, energy-identity
-failure, or comparison against the M52TU landmarks fails the operating-point
-evaluation.
+or calibration acceptance gate. Non-finite output, invalid fixed-sample evidence,
+energy-identity failure, or comparison against the M52TU landmarks fails the
+operating-point evaluation.
 
 ### 6.1 Canonical full-throttle torque sweep
 
@@ -722,79 +654,39 @@ angle is exactly the operating core's `crank_tdc_reference_rad`. The sole operat
 state point is ID `torque-sweep-held-running` at time zero. No point reuses mutable
 state from another point.
 
-Every session has zero minimum warm-up and minimum settling duration, a fixed `6.44 s`
-maximum convergence cutoff and audible start, 16 cycles per adjacent comparison
-block, `0.75 N*m` cycle-mean torque tolerance, and `1500 Pa` phase-aligned pressure
-tolerance. Audible duration is exactly `0.02 s`, making total duration exactly
-`6.46 s`; this post-cutoff evidence tail is transport continuity evidence, not an
-audible clip. The capture block capacity is 200 frames and the event-journal capacity
-is 3800 records. Each scenario uses `RenderQuality` ID
+Every session has a fixed `6.44 s` preparation horizon and audible start, followed by
+one sample of the latest `32` eligible complete cycles. Audible duration is exactly
+`0.02 s`, making total duration exactly `6.46 s`; this post-horizon tail is transport
+continuity evidence, not an audible clip. The capture block capacity is 200 frames and
+the event-journal capacity is 3800 records. Each scenario uses `RenderQuality` ID
 `low-order-operating-point-torque-sweep-v1`, version 1. Each scenario ID is
-`bmw-m52b28-held-<rpm>rpm-full-throttle-torque-sweep-v1`.
+`bmw-m52b28-held-<rpm>rpm-full-throttle-torque-sweep-v2`.
 
-Only a request-bound, complete, converged `HeldSpeedOperatingPointResult` contributes
-to the sweep. Any invalid request/result, nonconvergence, non-finite quantity, missing
-complete torque term, or partial point fails the entire record; there is no retry with
-different tolerances and no interpolation over a failed point.
+Only a request-v3-bound, complete `HeldSpeedOperatingPointResult` with the exact
+32-cycle fixed sample contributes to the sweep. Any invalid request/result, non-finite
+quantity, malformed or insufficient sample, missing complete torque term, or partial
+point fails the entire record. There is no alternate horizon, second policy, retry,
+or interpolation over a failed point.
 
-The evidence record retains, for every point, the canonical simulation-request digest,
-RPM, throttle, indicated-gas, aggregate-loss, starter, and net-shaft cycle-mean torque,
-net BMEP, mean power, the two convergence residuals and tolerances, completed-cycle
-ranges, applicability label, and elapsed time. It also retains the clean source commit.
-The publication is exactly `bmw-m52b28-m4-torque-sweep-v1.json` plus
-`bmw-m52b28-m4-torque-sweep-v1.json.sha256`; the lowercase SHA-256 sidecar covers the
-complete canonical JSON bytes and is not a self-referential member of that JSON. The
-sidecar is exactly 64 lowercase hexadecimal digits, two ASCII spaces, the JSON base
-filename, and one final LF.
+The evidence record retains, for every point, the canonical simulation-request-v3
+digest, RPM, throttle, indicated-gas, aggregate-loss, starter, and net-shaft
+cycle-mean torque, net BMEP, mean power, the single sample's first and last cycle,
+applicability label, and elapsed time. It also retains the clean source commit. The
+publication is exactly `bmw-m52b28-m4-torque-sweep-v2.json` plus
+`bmw-m52b28-m4-torque-sweep-v2.json.sha256`.
 
 The JSON wire schema is
-`engine-sim-offline.bmw-m52b28-torque-sweep-evidence.v1`; its canonical grammar is
-`engine-sim-offline.bmw-m52b28-torque-sweep-evidence-canonical-json.v1`. Encoding is
-compact UTF-8 JSON with no BOM, insignificant whitespace, or final newline. Object
-members occur only in the following written order:
+`engine-sim-offline.bmw-m52b28-torque-sweep-evidence.v2`; its canonical grammar is
+`engine-sim-offline.bmw-m52b28-torque-sweep-evidence-canonical-json.v2` and its
+`schema_version` is `2`. Conditions identify the fixed-sampling method, its
+configuration digest, the 32-cycle count, and fixed-horizon frame. Each point carries
+`simulation_request_v3_sha256`, one `sample_first_cycle`/`sample_last_cycle` range,
+and no comparison-window fields. The exact member order, scalar grammar, warning
+order, sidecar bytes, and complete v2 schema are frozen in
+[`M4_FIXED_HORIZON_SAMPLING.md`](M4_FIXED_HORIZON_SAMPLING.md); no previous evidence
+schema or encoder is retained.
 
-1. root: `wire_schema`, `schema_version`, `source_commit`,
-   `model_record_sha256`, `engine_profile_id`, `conditions`, `points`, `comparisons`,
-   `warnings`, `execution`;
-2. conditions: `ambient_pressure_pa_abs`, `ambient_temperature_k`,
-   `relative_humidity_01`, `gas_temperature_k`, `wall_temperature_k`,
-   `coolant_temperature_k`, `oil_temperature_k`, `crankcase_pressure_pa_abs`,
-   `crankcase_temperature_k`, `total_displacement_m3`, `fuel_id`,
-   `lower_heating_value_j_per_kg`,
-   `stoichiometric_air_fuel_mass_ratio`, `accessory_configuration_id`,
-   `accessory_configuration_sha256`, `initial_theta_rad`, `throttle_01`,
-   `public_seed`, `physics_rate_numerator`, `physics_rate_denominator`,
-   `convergence_method_id`, `convergence_method_version`,
-   `convergence_method_configuration_sha256`, `comparison_cycle_count`,
-   `cutoff_frame`, `tail_frame_count`;
-3. each point: `scenario_id`, `simulation_request_v2_sha256`,
-   `provenance_bundle_sha256`, `engine_speed_rpm`, `throttle_01`,
-   `indicated_gas_torque_nm`, `aggregate_loss_torque_nm`, `starter_torque_nm`,
-   `net_shaft_torque_nm`, `net_bmep_pa`, `mean_power_w`, `torque_residual_nm`,
-   `torque_tolerance_nm`, `pressure_residual_pa`, `pressure_tolerance_pa`,
-   `block_a_first_cycle`, `block_a_last_cycle`, `block_b_first_cycle`,
-   `block_b_last_cycle`, `applicability_label`, `elapsed_ns`;
-4. comparisons: `torque_at_3950_nm`, `torque_at_3950_to_280_ratio`,
-   `power_at_5300_w`, `power_at_5300_to_142000_ratio`,
-   `sampled_maximum_torque_nm`, `sampled_maximum_torque_rpm`,
-   `sampled_maximum_torque_to_280_ratio`, `sampled_maximum_power_w`,
-   `sampled_maximum_power_rpm`, `sampled_maximum_power_to_142000_ratio`,
-   `gross_error_lower_ratio`, `gross_error_upper_ratio`;
-5. execution: `point_count`, `total_elapsed_ns`.
-
-`schema_version` is exactly the unsigned decimal JSON integer `1`; `point_count` is
-also an unsigned decimal JSON integer. Strings and booleans use canonical JSON scalar
-syntax. Every binary64 value and every other integer is a quoted fixed-width lowercase
-hexadecimal bit pattern: binary64 as
-`0x` plus 16 digits, SHA-256 as 64 digits, and frame/seed/elapsed/cycle integers as
-`0x` plus 16 digits. `warnings` is an ordered array of stable strings: torque warning
-first, then power warning. The exact strings are
-`sampled-maximum-torque-outside-warning-ratio` and
-`sampled-maximum-power-outside-warning-ratio`. A warning is present only when its
-finite ratio is strictly less than `0.5` or strictly greater than `1.5`; an endpoint
-does not warn. The array is empty when neither sampled-maximum ratio trips.
-
-For each point the runner independently encodes simulation-request-v2 from that
+For each point the runner independently encodes simulation-request-v3 from that
 point's fresh engine, scenario, and finished provenance bundle, supplies that digest
 to the runtime, then requires the returned result to bind the same digest. A mutated
 held-listening request or a reused provenance ledger is not an admissible shortcut.
@@ -802,12 +694,12 @@ held-listening request or a reused provenance ledger is not an admissible shortc
 The nine points execute sequentially in the frozen ascending-RPM order. Timing uses
 `std::chrono::steady_clock`. A point's `elapsed_ns` interval starts immediately before
 constructing its runtime/session and ends immediately after obtaining and validating
-the complete, converged, request-bound typed result. The total interval starts
-immediately before encoding the first point's simulation-request-v2 identity and ends
-immediately after validating the ninth point's result. It therefore includes all nine
-request-identity encodes and the small sequential runner overhead between point
-intervals. Both durations use `duration_cast<nanoseconds>` and must fit the unsigned
-64-bit evidence field.
+the complete request-bound typed result. The total interval starts immediately before
+encoding the first point's simulation-request-v3 identity and ends immediately after
+validating the ninth point's result. It therefore includes all nine request-identity
+encodes and the small sequential runner overhead between point intervals. Both
+durations use `duration_cast<nanoseconds>` and must fit the unsigned 64-bit evidence
+field.
 
 Comparison is deterministic and does not fit the model:
 

@@ -25,8 +25,8 @@ constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
 constexpr double kLegacyRpmScale = 0.104719755;
 constexpr double kStepSeconds = 1.0 / 10000.0;
 constexpr double kHeldRpm = 3000.0;
-constexpr double kCutoffTimeS = 0.22;
-constexpr std::uint32_t kCyclesPerBlock = 2;
+constexpr double kFixedPreparationHorizonS = 0.22;
+constexpr std::uint32_t kTrailingCompleteCycleCount = 2;
 constexpr double kBmwM52b28StoichiometricMassAfr = 14.484999999999998;
 
 void expect(bool condition, std::string_view message) {
@@ -95,7 +95,7 @@ block(std::uint64_t first_ordinal, OperatingPointBoundaryEvidence start_boundary
       double aggregate_loss_work_j, double brake_work_j,
       const std::vector<GasVolumeId> &physical_volume_ids, double pressure_offset_pa) {
     const double angle_range =
-        static_cast<double>(kCyclesPerBlock) * kFourStrokeCycleRadians;
+        static_cast<double>(kTrailingCompleteCycleCount) * kFourStrokeCycleRadians;
     const double duration_s =
         end_boundary.scenario_time_s - start_boundary.scenario_time_s;
     constexpr double starter_work_j = 0.0;
@@ -111,13 +111,13 @@ block(std::uint64_t first_ordinal, OperatingPointBoundaryEvidence start_boundary
     }
 
     const double cycle_indicated_work_j =
-        indicated_work_j / static_cast<double>(kCyclesPerBlock);
+        indicated_work_j / static_cast<double>(kTrailingCompleteCycleCount);
     const double cycle_aggregate_loss_work_j =
-        aggregate_loss_work_j / static_cast<double>(kCyclesPerBlock);
+        aggregate_loss_work_j / static_cast<double>(kTrailingCompleteCycleCount);
     const double cycle_brake_work_j =
         (cycle_indicated_work_j - cycle_aggregate_loss_work_j) + starter_work_j;
     std::vector<HeldSpeedCompletedCycleEvidence> completed_cycles;
-    for (std::uint32_t index = 0; index < kCyclesPerBlock; ++index) {
+    for (std::uint32_t index = 0; index < kTrailingCompleteCycleCount; ++index) {
         HeldSpeedCompletedCycleEvidence completed_cycle{
             first_ordinal + index, cycle_indicated_work_j, cycle_aggregate_loss_work_j,
             starter_work_j,        cycle_brake_work_j,     {},
@@ -132,14 +132,15 @@ block(std::uint64_t first_ordinal, OperatingPointBoundaryEvidence start_boundary
         }
         completed_cycles.push_back(std::move(completed_cycle));
     }
-    expect(cycle_brake_work_j * static_cast<double>(kCyclesPerBlock) == brake_work_j,
-           "test block brake-work input disagrees with per-cycle source work");
+    expect(cycle_brake_work_j * static_cast<double>(kTrailingCompleteCycleCount) ==
+               brake_work_j,
+           "test sample brake-work input disagrees with per-cycle source work");
 
     return {
         {
-            kCyclesPerBlock,
+            kTrailingCompleteCycleCount,
             first_ordinal,
-            first_ordinal + kCyclesPerBlock - 1,
+            first_ordinal + kTrailingCompleteCycleCount - 1,
             start_boundary,
             end_boundary,
         },
@@ -158,7 +159,8 @@ block(std::uint64_t first_ordinal, OperatingPointBoundaryEvidence start_boundary
             complete_torque(brake_work_j / angle_range, known_torque_term_mask()),
         },
         // Replaced by the fixture's exact canonical engine displacement below.
-        brake_work_j / (static_cast<double>(kCyclesPerBlock) * displacement_m3),
+        brake_work_j /
+            (static_cast<double>(kTrailingCompleteCycleCount) * displacement_m3),
         brake_work_j / duration_s,
         std::move(pressures),
     };
@@ -175,7 +177,7 @@ struct Fixture {
 Sha256Digest request_identity(const EngineSpec &engine, const RenderScenario &scenario,
                               const ProvenanceBundleRef &provenance) {
     const auto encoded =
-        identity::encode_simulation_request_identity_v2(engine, scenario, provenance);
+        identity::encode_simulation_request_identity_v3(engine, scenario, provenance);
     const auto *encoding =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&encoded);
     expect(encoding != nullptr,
@@ -222,15 +224,12 @@ Fixture fixture() {
         resolved(101325.0, "result-test-crankcase-pressure"),
         resolved(293.15, "result-test-crankcase-temperature"),
     };
-    scenario.preparation = ConvergenceSettling{
-        resolved(adjacent_cycle_block_mean_convergence_method_identity(),
-                 "result-test-convergence-method"),
-        resolved(0.0, "result-test-minimum-warm-up"),
-        resolved(0.0, "result-test-minimum-settling"),
-        resolved(kCutoffTimeS, "result-test-fixed-cutoff"),
-        resolved<std::uint32_t>(kCyclesPerBlock, "result-test-cycle-count"),
-        resolved(1.0, "result-test-torque-tolerance"),
-        resolved(50.0, "result-test-pressure-tolerance"),
+    scenario.preparation = FixedHorizonCycleSampling{
+        resolved(fixed_horizon_cycle_sampling_method_identity(),
+                 "result-test-sampling-method"),
+        resolved(kFixedPreparationHorizonS, "result-test-fixed-preparation-horizon"),
+        resolved<std::uint32_t>(kTrailingCompleteCycleCount,
+                                "result-test-trailing-cycle-count"),
     };
     scenario.operating_state = resolved(
         std::vector<OperatingStatePoint>{
@@ -242,7 +241,8 @@ Fixture fixture() {
         },
         "result-test-operating-state");
     scenario.total_duration_s = resolved(1.0, "result-test-total-duration");
-    scenario.audible_start_s = resolved(kCutoffTimeS, "result-test-audible-start");
+    scenario.audible_start_s =
+        resolved(kFixedPreparationHorizonS, "result-test-audible-start");
     scenario.audible_duration_s = resolved(0.78, "result-test-audible-duration");
     scenario.rates = {
         {10000, 1}, {48000, 1}, {48000, 1}, {48000, 1}, {48000, 1},
@@ -269,27 +269,19 @@ Fixture fixture() {
     expect(!physical_volume_ids.empty(),
            "canonical BMW profile has no physical gas volumes");
 
-    const auto boundary_1 = boundary_at_lattice_index(cycle_reference_theta_rad,
-                                                      cycle_reference_theta_rad, 1);
     const auto boundary_3 = boundary_at_lattice_index(cycle_reference_theta_rad,
                                                       cycle_reference_theta_rad, 3);
     const auto boundary_5 = boundary_at_lattice_index(cycle_reference_theta_rad,
                                                       cycle_reference_theta_rad, 5);
-    auto block_a = block(0, boundary_1, boundary_3, 2000.0, 200.0, 1800.0,
-                         physical_volume_ids, 0.0);
-    auto block_b = block(2, boundary_3, boundary_5, 2002.0, 200.0, 1802.0,
-                         physical_volume_ids, 20.0);
+    auto sample = block(2, boundary_3, boundary_5, 2002.0, 200.0, 1802.0,
+                        physical_volume_ids, 20.0);
     const double displacement_m3 = engine.total_displacement_m3.value;
-    block_a.net_bmep_pa =
-        block_a.brake_work_j / (static_cast<double>(kCyclesPerBlock) * displacement_m3);
-    block_b.net_bmep_pa =
-        block_b.brake_work_j / (static_cast<double>(kCyclesPerBlock) * displacement_m3);
+    sample.net_bmep_pa =
+        sample.brake_work_j /
+        (static_cast<double>(kTrailingCompleteCycleCount) * displacement_m3);
 
     const auto provenance_bundle = canonical_profile->provenance.bundle;
     const auto identity = request_identity(engine, scenario, provenance_bundle);
-    const double torque_residual_nm =
-        std::abs(block_b.cycle_mean_torque.net_shaft.value_nm -
-                 block_a.cycle_mean_torque.net_shaft.value_nm);
 
     HeldSpeedOperatingPointConditions conditions{
         engine.profile_id.value,
@@ -331,19 +323,12 @@ Fixture fixture() {
         std::move(conditions),
         std::string{kGenericChenFlynnLowOrderModelPredictionApplicability},
         {
-            adjacent_cycle_block_mean_convergence_method_identity(),
-            kCyclesPerBlock,
-            0.0,
-            kCutoffTimeS,
-            std::move(block_a),
-            std::move(block_b),
+            fixed_horizon_cycle_sampling_method_identity(),
+            kTrailingCompleteCycleCount,
+            kFixedPreparationHorizonS,
+            std::move(sample),
             3,
             boundary_5,
-            torque_residual_nm,
-            1.0,
-            20.0,
-            50.0,
-            physical_volume_ids.front(),
         },
     };
     return {
@@ -360,32 +345,34 @@ void run_tests() {
     expect(validate(valid.result, valid.scenario, valid.engine, valid.request_identity)
                .ok(),
            "valid operating point was not bound to its canonical request");
-    expect(&valid.result.reported_block() == &valid.result.convergence.block_b,
-           "reported block accessor did not expose convergence block B");
+    expect(&valid.result.reported_block() ==
+               &valid.result.sampling.trailing_complete_cycles,
+           "reported block accessor did not expose the trailing sample");
 
     auto wrong_method_digest = valid.result;
-    wrong_method_digest.convergence.method.configuration_sha256.bytes[0] ^= 0x01U;
+    wrong_method_digest.sampling.method.configuration_sha256.bytes[0] ^= 0x01U;
     expect(!validate(wrong_method_digest).ok(),
-           "forged convergence implementation digest was accepted");
+           "forged sampling implementation digest was accepted");
 
     auto impossible_kinematics = valid.result;
     auto &impossible_end =
-        impossible_kinematics.convergence.block_b.cycles.end_boundary;
+        impossible_kinematics.sampling.trailing_complete_cycles.cycles.end_boundary;
     impossible_end.scenario_time_s =
         std::nextafter(impossible_end.scenario_time_s, 1.0);
-    impossible_kinematics.convergence.last_eligible_cycle_end_boundary_at_fixed_cutoff =
+    impossible_kinematics.sampling.last_eligible_cycle_end_boundary_at_fixed_horizon =
         impossible_end;
-    impossible_kinematics.convergence.block_b.mean_power_w =
-        impossible_kinematics.convergence.block_b.brake_work_j /
-        (impossible_end.scenario_time_s - impossible_kinematics.convergence.block_b
-                                              .cycles.start_boundary.scenario_time_s);
+    auto &impossible_sample = impossible_kinematics.sampling.trailing_complete_cycles;
+    impossible_sample.mean_power_w =
+        impossible_sample.brake_work_j /
+        (impossible_end.scenario_time_s -
+         impossible_sample.cycles.start_boundary.scenario_time_s);
     expect(!validate(impossible_kinematics).ok(),
            "impossible held-RPM boundary timing was accepted");
 
-    auto stale_cutoff = valid.result;
-    stale_cutoff.convergence.fixed_cutoff_time_s = 0.25;
-    expect(!validate(stale_cutoff).ok(),
-           "a non-latest convergence window was accepted at a later cutoff");
+    auto stale_horizon = valid.result;
+    stale_horizon.sampling.fixed_preparation_horizon_s = 0.25;
+    expect(!validate(stale_horizon).ok(),
+           "a non-latest sample was accepted at a later fixed horizon");
 
     auto transplanted_scenario = valid.scenario;
     transplanted_scenario.public_seed.value += 1;
@@ -396,21 +383,13 @@ void run_tests() {
                 .ok(),
            "operating evidence transplanted across canonical request identities");
 
-    auto residual_edge = valid.result;
-    residual_edge.convergence.torque_residual_nm =
-        std::nextafter(residual_edge.convergence.torque_residual_nm, 0.0);
-    residual_edge.convergence.torque_tolerance_nm =
-        residual_edge.convergence.torque_residual_nm;
-    expect(!validate(residual_edge).ok(),
-           "nearby stored residual produced a false convergence pass");
-
     auto forged_block_work = valid.result;
-    auto &forged_block = forged_block_work.convergence.block_b;
+    auto &forged_block = forged_block_work.sampling.trailing_complete_cycles;
     forged_block.brake_work_j += 1.0;
     const double block_angle =
-        static_cast<double>(kCyclesPerBlock) * kFourStrokeCycleRadians;
+        static_cast<double>(kTrailingCompleteCycleCount) * kFourStrokeCycleRadians;
     const double block_displacement =
-        static_cast<double>(kCyclesPerBlock) *
+        static_cast<double>(kTrailingCompleteCycleCount) *
         forged_block_work.conditions.total_displacement_m3;
     const double block_duration = forged_block.cycles.end_boundary.scenario_time_s -
                                   forged_block.cycles.start_boundary.scenario_time_s;
@@ -418,17 +397,13 @@ void run_tests() {
         forged_block.brake_work_j / block_angle;
     forged_block.net_bmep_pa = forged_block.brake_work_j / block_displacement;
     forged_block.mean_power_w = forged_block.brake_work_j / block_duration;
-    forged_block_work.convergence.torque_residual_nm = std::abs(
-        forged_block.cycle_mean_torque.net_shaft.value_nm -
-        forged_block_work.convergence.block_a.cycle_mean_torque.net_shaft.value_nm);
-    forged_block_work.convergence.torque_tolerance_nm =
-        forged_block_work.convergence.torque_residual_nm + 1.0;
     expect(!validate(forged_block_work).ok(),
            "coordinated forged block brake work escaped retained per-cycle "
            "source validation");
 
     auto forged_cycle_work = valid.result;
-    auto &forged_cycle = forged_cycle_work.convergence.block_b.completed_cycles.front();
+    auto &forged_cycle =
+        forged_cycle_work.sampling.trailing_complete_cycles.completed_cycles.front();
     forged_cycle.indicated_gas_work_j += 1.0;
     forged_cycle.brake_work_j =
         (forged_cycle.indicated_gas_work_j - forged_cycle.aggregate_loss_work_j) +
@@ -437,18 +412,16 @@ void run_tests() {
            "per-cycle work mutation escaped exact stable block reduction");
 
     auto forged_pressure_means = valid.result;
-    for (auto *cycle_block : {&forged_pressure_means.convergence.block_a,
-                              &forged_pressure_means.convergence.block_b}) {
-        for (auto &pressure : cycle_block->mean_boundary_pressures) {
-            pressure.pressure_pa_abs += 1000.0;
-        }
+    for (auto &pressure : forged_pressure_means.sampling.trailing_complete_cycles
+                              .mean_boundary_pressures) {
+        pressure.pressure_pa_abs += 1000.0;
     }
     expect(!validate(forged_pressure_means).ok(),
-           "coordinated forged A/B pressure means escaped retained per-cycle "
+           "coordinated forged pressure means escaped retained per-cycle "
            "pressure reduction");
 
     auto forged_cycle_pressure = valid.result;
-    forged_cycle_pressure.convergence.block_b.completed_cycles.front()
+    forged_cycle_pressure.sampling.trailing_complete_cycles.completed_cycles.front()
         .end_boundary_pressures.front()
         .pressure_pa_abs += 1.0;
     expect(!validate(forged_cycle_pressure).ok(),
@@ -456,33 +429,32 @@ void run_tests() {
            "reduction");
 
     auto transplanted_ordinals = valid.result;
-    auto rewrite_ordinals = [](HeldSpeedCycleBlockEvidence &cycle_block,
+    auto rewrite_ordinals = [](HeldSpeedCycleBlockEvidence &sample,
                                std::uint64_t first) {
-        cycle_block.cycles.first_completed_cycle_ordinal = first;
-        cycle_block.cycles.last_completed_cycle_ordinal = first + kCyclesPerBlock - 1;
-        for (std::size_t index = 0; index < cycle_block.completed_cycles.size();
-             ++index) {
-            cycle_block.completed_cycles[index].completed_cycle_ordinal = first + index;
+        sample.cycles.first_completed_cycle_ordinal = first;
+        sample.cycles.last_completed_cycle_ordinal =
+            first + kTrailingCompleteCycleCount - 1;
+        for (std::size_t index = 0; index < sample.completed_cycles.size(); ++index) {
+            sample.completed_cycles[index].completed_cycle_ordinal = first + index;
         }
     };
-    rewrite_ordinals(transplanted_ordinals.convergence.block_a, 10);
-    rewrite_ordinals(transplanted_ordinals.convergence.block_b, 12);
-    transplanted_ordinals.convergence
-        .last_eligible_completed_cycle_ordinal_at_fixed_cutoff = 13;
+    rewrite_ordinals(transplanted_ordinals.sampling.trailing_complete_cycles, 10);
+    transplanted_ordinals.sampling
+        .last_eligible_completed_cycle_ordinal_at_fixed_horizon = 11;
     expect(!validate(transplanted_ordinals).ok(),
            "cycle ordinals detached from the initial held-state lattice were "
            "accepted");
 
     auto old_bmep = valid.result;
-    old_bmep.convergence.block_b.net_bmep_pa =
-        old_bmep.convergence.block_b.brake_work_j /
+    old_bmep.sampling.trailing_complete_cycles.net_bmep_pa =
+        old_bmep.sampling.trailing_complete_cycles.brake_work_j /
         old_bmep.conditions.total_displacement_m3;
     expect(!validate(old_bmep).ok(),
            "old one-cycle BMEP denominator was accepted for an N-cycle block");
 
     auto rounded_power = valid.result;
-    rounded_power.convergence.block_b.mean_power_w =
-        std::nextafter(rounded_power.convergence.block_b.mean_power_w, 0.0);
+    rounded_power.sampling.trailing_complete_cycles.mean_power_w = std::nextafter(
+        rounded_power.sampling.trailing_complete_cycles.mean_power_w, 0.0);
     expect(!validate(rounded_power).ok(),
            "one-ULP drift in a directly derived power field was accepted");
 
@@ -495,116 +467,38 @@ void run_tests() {
            "numerically close but nonidentical held throttle was accepted");
 
     auto incomplete_pressure_set = valid.result;
-    incomplete_pressure_set.convergence.block_a.mean_boundary_pressures.pop_back();
-    incomplete_pressure_set.convergence.block_b.mean_boundary_pressures.pop_back();
+    incomplete_pressure_set.sampling.trailing_complete_cycles.mean_boundary_pressures
+        .pop_back();
     expect(!validate(incomplete_pressure_set, valid.scenario, valid.engine,
                      valid.request_identity)
                 .ok(),
            "physical gas-volume pressure omission was accepted");
 
     auto wrong_mask = valid.result;
-    wrong_mask.convergence.block_b.cycle_mean_torque.aggregate_loss.included_terms =
-        known_torque_term_mask();
+    wrong_mask.sampling.trailing_complete_cycles.cycle_mean_torque.aggregate_loss
+        .included_terms = known_torque_term_mask();
     expect(!validate(wrong_mask).ok(),
            "aggregate loss was allowed to claim the complete net-torque mask");
 
-    auto beyond_old_replay_cap = valid.result;
-    constexpr std::uint64_t kLargeCutoffFrameCount = 10'002'200;
-    const double large_cutoff_time_s =
-        static_cast<double>(kLargeCutoffFrameCount) / 10000.0;
-    const double cutoff_theta =
-        beyond_old_replay_cap.conditions.initial_theta_unwrapped_rad +
-        static_cast<double>(kLargeCutoffFrameCount) *
-            (kHeldRpm * kLegacyRpmScale * kStepSeconds);
-    const auto latest_lattice_index = static_cast<std::int64_t>(std::floor(
-        (cutoff_theta - beyond_old_replay_cap.conditions.cycle_reference_theta_rad) /
-        kFourStrokeCycleRadians));
-    expect(latest_lattice_index > 5,
-           "large-cutoff test did not retain enough complete cycles");
-    std::vector<GasVolumeId> physical_volume_ids;
-    for (const auto &pressure :
-         beyond_old_replay_cap.convergence.block_a.mean_boundary_pressures) {
-        physical_volume_ids.push_back(pressure.gas_volume_id);
-    }
-    const auto large_boundary_a = boundary_at_lattice_index(
-        beyond_old_replay_cap.conditions.initial_theta_unwrapped_rad,
-        beyond_old_replay_cap.conditions.cycle_reference_theta_rad,
-        latest_lattice_index - 4);
-    const auto large_boundary_b = boundary_at_lattice_index(
-        beyond_old_replay_cap.conditions.initial_theta_unwrapped_rad,
-        beyond_old_replay_cap.conditions.cycle_reference_theta_rad,
-        latest_lattice_index - 2);
-    const auto large_boundary_end = boundary_at_lattice_index(
-        beyond_old_replay_cap.conditions.initial_theta_unwrapped_rad,
-        beyond_old_replay_cap.conditions.cycle_reference_theta_rad,
-        latest_lattice_index);
-    const auto first_large_ordinal =
-        static_cast<std::uint64_t>(latest_lattice_index - 5);
-    beyond_old_replay_cap.convergence.block_a =
-        block(first_large_ordinal, large_boundary_a, large_boundary_b, 2000.0, 200.0,
-              1800.0, physical_volume_ids, 0.0);
-    beyond_old_replay_cap.convergence.block_b =
-        block(first_large_ordinal + 2, large_boundary_b, large_boundary_end, 2002.0,
-              200.0, 1802.0, physical_volume_ids, 20.0);
-    for (auto *cycle_block : {&beyond_old_replay_cap.convergence.block_a,
-                              &beyond_old_replay_cap.convergence.block_b}) {
-        cycle_block->net_bmep_pa =
-            cycle_block->brake_work_j /
-            (static_cast<double>(kCyclesPerBlock) *
-             beyond_old_replay_cap.conditions.total_displacement_m3);
-    }
-    beyond_old_replay_cap.convergence.fixed_cutoff_time_s = large_cutoff_time_s;
-    beyond_old_replay_cap.convergence
-        .last_eligible_completed_cycle_ordinal_at_fixed_cutoff =
-        first_large_ordinal + 3;
-    beyond_old_replay_cap.convergence.last_eligible_cycle_end_boundary_at_fixed_cutoff =
-        large_boundary_end;
-    beyond_old_replay_cap.convergence.torque_residual_nm = std::abs(
-        beyond_old_replay_cap.convergence.block_b.cycle_mean_torque.net_shaft.value_nm -
-        beyond_old_replay_cap.convergence.block_a.cycle_mean_torque.net_shaft.value_nm);
-    expect(validate(beyond_old_replay_cap).ok(),
-           "valid compact boundary evidence beyond the former ten-million-sample "
-           "replay cap was rejected");
+    auto wrong_attestation = valid.result;
+    ++wrong_attestation.sampling.last_eligible_completed_cycle_ordinal_at_fixed_horizon;
+    expect(!validate(wrong_attestation).ok(),
+           "a last-eligible ordinal detached from the sample was accepted");
 
-    FailureContext convergence_failure;
-    convergence_failure.kind = FailureKind::preparation_not_converged;
-    convergence_failure.detail_code = std::string{kPreparationNotConvergedDetailCode};
-    convergence_failure.model_id = "operating-point-session-v1";
-    convergence_failure.profile_id = "bmw-m52b28-low-order-operating-point-v1";
-    convergence_failure.state_summary =
-        "fixed preparation cutoff reached before both residuals converged";
-    convergence_failure.attempted_recovery = "none";
-    convergence_failure.tolerances = {
-        {
-            std::string{kCycleMeanTorqueResidualNmQuantityId},
-            2.0,
-            1.0,
-        },
-        {
-            std::string{kBoundaryPressureResidualPaQuantityId},
-            20.0,
-            50.0,
-        },
-    };
-    expect(validate(convergence_failure).ok(),
-           "evaluated preparation nonconvergence evidence was not admitted");
+    auto wrong_sample_count = valid.result;
+    ++wrong_sample_count.sampling.trailing_complete_cycle_count;
+    expect(!validate(wrong_sample_count).ok(),
+           "a sample whose size differs from M was accepted");
 
-    auto missing_residuals = convergence_failure;
-    missing_residuals.tolerances.clear();
-    expect(!validate(missing_residuals).ok(),
-           "evaluated preparation nonconvergence omitted residual evidence");
-
-    auto insufficient_cycles = convergence_failure;
-    insufficient_cycles.detail_code =
-        std::string{kPreparationInsufficientCyclesDetailCode};
-    insufficient_cycles.tolerances.clear();
-    expect(validate(insufficient_cycles).ok(),
-           "insufficient-cycle preparation failure was not admitted");
-
-    insufficient_cycles.tolerances = convergence_failure.tolerances;
-    expect(!validate(insufficient_cycles).ok(),
-           "insufficient-cycle preparation failure published unevaluated "
-           "residual evidence");
+    auto mismatched_request = valid.scenario;
+    std::get<FixedHorizonCycleSampling>(mismatched_request.preparation)
+        .trailing_complete_cycle_count.value = 3U;
+    const auto mismatched_identity =
+        request_identity(valid.engine, mismatched_request, valid.provenance_bundle);
+    expect(
+        !validate(valid.result, mismatched_request, valid.engine, mismatched_identity)
+             .ok(),
+        "result sampling parameters detached from the request were accepted");
 }
 
 } // namespace

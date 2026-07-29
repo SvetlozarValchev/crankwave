@@ -23,8 +23,8 @@ namespace {
 using namespace engine_sim_offline;
 
 constexpr double kHeldRpm = 3000.0;
-constexpr double kCutoffTimeS = 0.22;
-constexpr std::uint32_t kCyclesPerBlock = 2U;
+constexpr double kFixedPreparationHorizonS = 0.22;
+constexpr std::uint32_t kTrailingCompleteCycleCount = 4U;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -38,9 +38,7 @@ struct Fixture {
     contract::Sha256Digest request_identity;
 };
 
-[[nodiscard]] Fixture fixture(double torque_tolerance_nm = 1.0e9,
-                              double pressure_tolerance_pa = 1.0e12,
-                              std::uint32_t cycles_per_block = kCyclesPerBlock) {
+[[nodiscard]] Fixture fixture() {
     auto profile_result = profiles::make_bmw_m52b28_operating_profile();
     const auto *canonical =
         std::get_if<profiles::BmwM52b28OperatingProfile>(&profile_result);
@@ -61,20 +59,14 @@ struct Fixture {
             profile.core.fuel.molecular_mass_kg_per_mol.value);
     scenario.initial_thermal_state.oil_temperature_k.value =
         profile.aggregate_loss.required_oil_temperature_k.value;
-    scenario.preparation = contract::ConvergenceSettling{
-        builder.resolved(
-            contract::adjacent_cycle_block_mean_convergence_method_identity(),
-            "scenario.preparation.method"),
-        builder.resolved(0.0, "scenario.preparation.minimum_warm_up_duration_s"),
-        builder.resolved(0.0, "scenario.preparation.minimum_settling_duration_s"),
-        builder.resolved(kCutoffTimeS,
-                         "scenario.preparation.maximum_preparation_duration_s"),
-        builder.resolved<std::uint32_t>(cycles_per_block,
-                                        "scenario.preparation.comparison_cycle_count"),
-        builder.resolved(torque_tolerance_nm,
-                         "scenario.preparation.cycle_mean_torque_tolerance_nm"),
-        builder.resolved(pressure_tolerance_pa,
-                         "scenario.preparation.pressure_tolerance_pa"),
+    scenario.preparation = contract::FixedHorizonCycleSampling{
+        builder.resolved(contract::fixed_horizon_cycle_sampling_method_identity(),
+                         "scenario.preparation.method"),
+        builder.resolved(kFixedPreparationHorizonS,
+                         "scenario.preparation.fixed_preparation_horizon_s"),
+        builder.resolved<std::uint32_t>(
+            kTrailingCompleteCycleCount,
+            "scenario.preparation.trailing_complete_cycle_count"),
     };
     scenario.operating_state.value = {
         {
@@ -84,7 +76,7 @@ struct Fixture {
         },
     };
     scenario.total_duration_s.value = 0.3;
-    scenario.audible_start_s.value = kCutoffTimeS;
+    scenario.audible_start_s.value = kFixedPreparationHorizonS;
     scenario.audible_duration_s.value = 0.08;
     scenario.rates.physics = {10000U, 1U};
     scenario.rates.capture = scenario.rates.physics;
@@ -140,13 +132,15 @@ core_runtime(const Fixture &value) {
     return std::get<simulation::LowOrderEngineCoreV1Runtime>(std::move(result));
 }
 
-void advance_to_cutoff(simulation::LowOrderEngineCoreV1Runtime &core,
-                       simulation::LowOrderOperatingPointV1Runtime &operating) {
-    while (operating.accepted_sample_count() < operating.fixed_cutoff_frame_count()) {
+void advance_to_fixed_horizon(simulation::LowOrderEngineCoreV1Runtime &core,
+                              simulation::LowOrderOperatingPointV1Runtime &operating) {
+    while (operating.accepted_sample_count() <
+           operating.fixed_preparation_horizon_frame_count()) {
         auto core_result = core.advance();
         const auto *step =
             std::get_if<simulation::LowOrderEngineCoreV1StepView>(&core_result);
-        expect(step != nullptr, "operating core ended before the fixed cutoff");
+        expect(step != nullptr,
+               "operating core ended before the fixed preparation horizon");
         auto result = operating.advance(step->mechanics.get(), step->gas.get());
         if (const auto *failure = std::get_if<contract::FailureContext>(&result)) {
             throw std::runtime_error{
@@ -161,54 +155,64 @@ void test_complete_cycle_evidence_reaches_public_result() {
     const auto plan = capture_plan(value);
     auto operating = operating_runtime(value, plan);
     auto core = core_runtime(value);
-    advance_to_cutoff(core, operating);
+    advance_to_fixed_horizon(core, operating);
 
     expect(operating.finalized() && !operating.faulted() &&
                operating.operating_point_result().has_value(),
-           "operating runtime did not finalize a settled result");
-    const auto &convergence = operating.operating_point_result()->convergence;
-    for (const auto *block : {&convergence.block_a, &convergence.block_b}) {
-        expect(block->completed_cycles.size() == kCyclesPerBlock,
-               "public block omitted complete-cycle work evidence");
-        double indicated = 0.0;
-        double loss = 0.0;
-        double starter = 0.0;
-        double brake = 0.0;
-        std::vector<double> pressure_sums(block->mean_boundary_pressures.size(), 0.0);
-        for (const auto &cycle : block->completed_cycles) {
-            indicated += cycle.indicated_gas_work_j;
-            loss += cycle.aggregate_loss_work_j;
-            starter += cycle.starter_work_j;
-            brake += cycle.brake_work_j;
-            expect(cycle.end_boundary_pressures.size() ==
-                       block->mean_boundary_pressures.size(),
-                   "public completed cycle omitted end-boundary pressure lanes");
-            for (std::size_t index = 0; index < cycle.end_boundary_pressures.size();
-                 ++index) {
-                expect(cycle.end_boundary_pressures[index].gas_volume_id ==
-                           block->mean_boundary_pressures[index].gas_volume_id,
-                       "public completed-cycle pressure identity/order changed");
-                pressure_sums[index] +=
-                    cycle.end_boundary_pressures[index].pressure_pa_abs;
-            }
+           "operating runtime did not finalize a fixed sample");
+    const auto &point = *operating.operating_point_result();
+    const auto &sampling = point.sampling;
+    const auto &sample = sampling.trailing_complete_cycles;
+    expect(point.simulation_request_identity_v3_sha256 == value.request_identity &&
+               sampling.method ==
+                   contract::fixed_horizon_cycle_sampling_method_identity() &&
+               sampling.trailing_complete_cycle_count == kTrailingCompleteCycleCount &&
+               std::bit_cast<std::uint64_t>(sampling.fixed_preparation_horizon_s) ==
+                   std::bit_cast<std::uint64_t>(kFixedPreparationHorizonS) &&
+               sample.completed_cycles.size() == kTrailingCompleteCycleCount &&
+               sampling.last_eligible_completed_cycle_ordinal_at_fixed_horizon ==
+                   sample.cycles.last_completed_cycle_ordinal &&
+               sampling.last_eligible_cycle_end_boundary_at_fixed_horizon ==
+                   sample.cycles.end_boundary,
+           "public fixed-sample policy or last-eligible attestation changed");
+
+    double indicated = 0.0;
+    double loss = 0.0;
+    double starter = 0.0;
+    double brake = 0.0;
+    std::vector<double> pressure_sums(sample.mean_boundary_pressures.size(), 0.0);
+    for (const auto &cycle : sample.completed_cycles) {
+        indicated += cycle.indicated_gas_work_j;
+        loss += cycle.aggregate_loss_work_j;
+        starter += cycle.starter_work_j;
+        brake += cycle.brake_work_j;
+        expect(cycle.end_boundary_pressures.size() ==
+                   sample.mean_boundary_pressures.size(),
+               "public completed cycle omitted end-boundary pressure lanes");
+        for (std::size_t index = 0; index < cycle.end_boundary_pressures.size();
+             ++index) {
+            expect(cycle.end_boundary_pressures[index].gas_volume_id ==
+                       sample.mean_boundary_pressures[index].gas_volume_id,
+                   "public completed-cycle pressure identity/order changed");
+            pressure_sums[index] += cycle.end_boundary_pressures[index].pressure_pa_abs;
         }
-        expect(std::bit_cast<std::uint64_t>(indicated) ==
-                       std::bit_cast<std::uint64_t>(block->indicated_gas_work_j) &&
-                   std::bit_cast<std::uint64_t>(loss) ==
-                       std::bit_cast<std::uint64_t>(block->aggregate_loss_work_j) &&
-                   std::bit_cast<std::uint64_t>(starter) ==
-                       std::bit_cast<std::uint64_t>(block->starter_work_j) &&
-                   std::bit_cast<std::uint64_t>(brake) ==
-                       std::bit_cast<std::uint64_t>(block->brake_work_j),
-               "public block totals changed the convergence reduction order");
-        for (std::size_t index = 0; index < pressure_sums.size(); ++index) {
-            const double mean =
-                pressure_sums[index] / static_cast<double>(kCyclesPerBlock);
-            expect(std::bit_cast<std::uint64_t>(mean) ==
-                       std::bit_cast<std::uint64_t>(
-                           block->mean_boundary_pressures[index].pressure_pa_abs),
-                   "public pressure mean changed the convergence reduction order");
-        }
+    }
+    expect(std::bit_cast<std::uint64_t>(indicated) ==
+                   std::bit_cast<std::uint64_t>(sample.indicated_gas_work_j) &&
+               std::bit_cast<std::uint64_t>(loss) ==
+                   std::bit_cast<std::uint64_t>(sample.aggregate_loss_work_j) &&
+               std::bit_cast<std::uint64_t>(starter) ==
+                   std::bit_cast<std::uint64_t>(sample.starter_work_j) &&
+               std::bit_cast<std::uint64_t>(brake) ==
+                   std::bit_cast<std::uint64_t>(sample.brake_work_j),
+           "public sample totals changed the chronological reduction order");
+    for (std::size_t index = 0; index < pressure_sums.size(); ++index) {
+        const double mean =
+            pressure_sums[index] / static_cast<double>(kTrailingCompleteCycleCount);
+        expect(std::bit_cast<std::uint64_t>(mean) ==
+                   std::bit_cast<std::uint64_t>(
+                       sample.mean_boundary_pressures[index].pressure_pa_abs),
+               "public pressure mean changed the chronological reduction order");
     }
 }
 
@@ -355,82 +359,12 @@ void test_runtime_rejects_foreign_controls_and_shape() {
                     "runtime admitted a foreign gas transaction shape");
 }
 
-void test_nonconvergence_retains_exact_residual_diagnostics() {
-    auto value = fixture(std::numeric_limits<double>::denorm_min(),
-                         std::numeric_limits<double>::denorm_min());
-    const auto plan = capture_plan(value);
-    auto operating = operating_runtime(value, plan);
-    auto core = core_runtime(value);
-
-    contract::FailureContext failure;
-    while (operating.accepted_sample_count() < operating.fixed_cutoff_frame_count()) {
-        auto core_result = core.advance();
-        const auto &step =
-            std::get<simulation::LowOrderEngineCoreV1StepView>(core_result);
-        auto result = operating.advance(step.mechanics.get(), step.gas.get());
-        if (const auto *actual = std::get_if<contract::FailureContext>(&result)) {
-            failure = *actual;
-            break;
-        }
-    }
-    const auto &preparation =
-        std::get<contract::ConvergenceSettling>(value.scenario.preparation);
-    expect(
-        failure.kind == contract::FailureKind::preparation_not_converged &&
-            failure.detail_code == contract::kPreparationNotConvergedDetailCode &&
-            failure.tolerances.size() == 2U &&
-            failure.tolerances[0].quantity_id ==
-                contract::kCycleMeanTorqueResidualNmQuantityId &&
-            failure.tolerances[1].quantity_id ==
-                contract::kBoundaryPressureResidualPaQuantityId &&
-            std::bit_cast<std::uint64_t>(failure.tolerances[0].tolerance) ==
-                std::bit_cast<std::uint64_t>(
-                    preparation.cycle_mean_torque_tolerance_nm.value) &&
-            std::bit_cast<std::uint64_t>(failure.tolerances[1].tolerance) ==
-                std::bit_cast<std::uint64_t>(preparation.pressure_tolerance_pa.value) &&
-            failure.state_summary.find("torque-residual-binary64=") !=
-                std::string::npos &&
-            failure.state_summary.find("pressure-residual-binary64=") !=
-                std::string::npos &&
-            failure.state_summary.find("block-a-first-ordinal=") != std::string::npos,
-        "nonconverged failure discarded stable residual/block evidence");
-    expect(contract::validate(failure).ok(),
-           "runtime produced an invalid typed nonconvergence failure");
-}
-
-void test_insufficient_cycles_have_distinct_failure_without_residuals() {
-    auto value = fixture(1.0e9, 1.0e12, 100U);
-    const auto plan = capture_plan(value);
-    auto operating = operating_runtime(value, plan);
-    auto core = core_runtime(value);
-
-    contract::FailureContext failure;
-    while (operating.accepted_sample_count() < operating.fixed_cutoff_frame_count()) {
-        auto core_result = core.advance();
-        const auto &step =
-            std::get<simulation::LowOrderEngineCoreV1StepView>(core_result);
-        auto result = operating.advance(step.mechanics.get(), step.gas.get());
-        if (const auto *actual = std::get_if<contract::FailureContext>(&result)) {
-            failure = *actual;
-            break;
-        }
-    }
-    expect(failure.kind == contract::FailureKind::preparation_not_converged &&
-               failure.detail_code ==
-                   contract::kPreparationInsufficientCyclesDetailCode &&
-               failure.tolerances.empty() && contract::validate(failure).ok(),
-           "insufficient-cycle cutoff did not produce the distinct auditable "
-           "preparation failure");
-}
-
 void run_tests() {
     test_capture_plan_transplants_are_rejected();
     test_scenario_mass_afr_is_exactly_bound_to_core_conversion();
     test_capture_reports_absent_instantaneous_models_truthfully();
     test_runtime_rejects_foreign_controls_and_shape();
     test_complete_cycle_evidence_reaches_public_result();
-    test_nonconvergence_retains_exact_residual_diagnostics();
-    test_insufficient_cycles_have_distinct_failure_without_residuals();
 }
 
 } // namespace

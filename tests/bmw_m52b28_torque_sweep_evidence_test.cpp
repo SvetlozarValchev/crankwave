@@ -43,19 +43,19 @@ void expect(bool condition, std::string_view message) {
         &first_request.engine.physics_profile);
     const auto *first_held =
         std::get_if<contract::HeldSpeed>(&first_request.scenario.mode);
-    const auto *preparation =
-        std::get_if<contract::ConvergenceSettling>(&first_request.scenario.preparation);
-    const auto cutoff_frame =
+    const auto *preparation = std::get_if<contract::FixedHorizonCycleSampling>(
+        &first_request.scenario.preparation);
+    const auto fixed_preparation_horizon_frame =
         preparation == nullptr ? std::optional<std::uint64_t>{}
                                : contract::resolve_frame_index(
-                                     preparation->maximum_preparation_duration_s.value,
+                                     preparation->fixed_preparation_horizon_s.value,
                                      first_request.scenario.rates.physics);
     const auto total_frame =
         contract::resolve_frame_index(first_request.scenario.total_duration_s.value,
                                       first_request.scenario.rates.physics);
     expect(profile != nullptr && first_held != nullptr && preparation != nullptr &&
-               cutoff_frame.has_value() && total_frame.has_value() &&
-               *total_frame >= *cutoff_frame,
+               fixed_preparation_horizon_frame.has_value() && total_frame.has_value() &&
+               *total_frame >= *fixed_preparation_horizon_frame,
            "canonical BMW torque-sweep request lost its frozen conditions");
 
     std::optional<contract::Sha256Digest> model_record_sha256;
@@ -105,9 +105,9 @@ void expect(bool condition, std::string_view message) {
         preparation->method.value.id,
         preparation->method.value.version,
         preparation->method.value.configuration_sha256,
-        preparation->comparison_cycle_count.value,
-        *cutoff_frame,
-        *total_frame - *cutoff_frame,
+        preparation->trailing_complete_cycle_count.value,
+        *fixed_preparation_horizon_frame,
+        *total_frame - *fixed_preparation_horizon_frame,
     };
 
     constexpr std::array<double, 9> kTorques{
@@ -123,7 +123,7 @@ void expect(bool condition, std::string_view message) {
         const auto *held = std::get_if<contract::HeldSpeed>(&request.scenario.mode);
         expect(held != nullptr,
                "canonical BMW torque-sweep point lost held-speed mode");
-        const auto identity_result = identity::encode_simulation_request_identity_v2(
+        const auto identity_result = identity::encode_simulation_request_identity_v3(
             request.engine, request.scenario, request.provenance.bundle);
         const auto *identity_encoding =
             std::get_if<identity::SimulationRequestIdentityEncoding>(&identity_result);
@@ -133,9 +133,9 @@ void expect(bool condition, std::string_view message) {
         const auto elapsed = static_cast<std::uint64_t>(100U + index);
         elapsed_sum += elapsed;
         evidence.points[index] = {
+            request.scenario.scenario_id,
             identity_encoding->sha256,
             request.provenance.bundle.sha256,
-            request.scenario.scenario_id,
             held->engine_speed_rpm.value,
             held->throttle_01.value,
             kTorques[index] + 60.0,
@@ -144,13 +144,7 @@ void expect(bool condition, std::string_view message) {
             kTorques[index],
             1000000.0,
             kPowers[index],
-            0.25,
-            0.75,
-            500.0,
-            1500.0,
             first_cycle,
-            first_cycle + 15U,
-            first_cycle + 16U,
             first_cycle + 31U,
             std::string{
                 contract::kGenericChenFlynnLowOrderModelPredictionApplicability},
@@ -208,20 +202,25 @@ void run_tests() {
            "canonical JSON unexpectedly has a final newline");
     expect(contract::sha256(encoded->bytes) == encoded->sha256,
            "retained SHA-256 does not cover exact canonical JSON bytes");
-    expect(digest_hex(encoded->sha256) ==
-               "b628f39edba61320f406e9973784cea2fa2bd4820f14a11ac0a9a147948ee801",
+    const auto encoded_sha256 = digest_hex(encoded->sha256);
+    constexpr std::string_view kExpectedEncodedSha256 =
+        "ea7b26933c969137f32aee0dc26ad75c53eef763697bb9ef7e60eb5122205518";
+    if (encoded_sha256 != kExpectedEncodedSha256) {
+        std::cerr << "BMW torque-sweep evidence SHA-256: " << encoded_sha256 << '\n';
+    }
+    expect(encoded_sha256 == kExpectedEncodedSha256,
            "canonical fixture bytes drifted from the pinned full-document SHA-256");
 
     const auto json = text(encoded->bytes);
     expect(
         json.starts_with("{\"wire_schema\":\"engine-sim-offline.bmw-m52b28-torque-"
-                         "sweep-evidence.v1\",\"schema_version\":1,\"source_commit\":"),
+                         "sweep-evidence.v2\",\"schema_version\":2,\"source_commit\":"),
         "root wire fields are not in frozen order");
     expect(json.find("\"schema_version\":\"0x") == std::string::npos,
            "schema_version was not encoded as an unsigned decimal integer");
     expect(json.find("\"point_count\":9") != std::string::npos,
            "point_count was not encoded as an unsigned decimal integer");
-    expect(json.find("\"convergence_method_version\":\"0x0000000000000001\"") !=
+    expect(json.find("\"sampling_method_version\":\"0x0000000000000001\"") !=
                std::string::npos,
            "non-exempt integer was not encoded as fixed-width quoted hex");
 
@@ -259,8 +258,7 @@ void run_tests() {
                             "fabricated canonical conditions were accepted");
 
     auto wrong_request_identity = evidence;
-    wrong_request_identity.points.front().simulation_request_identity_v2_sha256 =
-        digest(20U);
+    wrong_request_identity.points.front().simulation_request_v3_sha256 = digest(20U);
     expect_binding_rejected(wrong_request_identity,
                             "fabricated request identity was accepted");
 
@@ -271,7 +269,7 @@ void run_tests() {
 
     auto wrong_scenario = evidence;
     wrong_scenario.points.front().scenario_id =
-        "bmw-m52b28-held-1500rpm-full-throttle-torque-sweep-v2";
+        "bmw-m52b28-held-1500rpm-full-throttle-torque-sweep-v3";
     expect_binding_rejected(wrong_scenario,
                             "fabricated scenario identity was accepted");
 

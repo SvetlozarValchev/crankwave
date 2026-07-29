@@ -485,7 +485,7 @@ void expect_exact_manifest(const contract::RenderSuccess &success,
                            const P18ReferenceCatalogV1 &catalog) {
     const auto &manifest = success.manifest;
     const auto &content = manifest.content;
-    expect(content.schema_version == 5, "success manifest schema changed");
+    expect(content.schema_version == 6, "success manifest schema changed");
     expect(content.inputs.resolved ==
                contract::ResolvedRenderInputs{
                    specification.engine,
@@ -707,13 +707,13 @@ void expect_operating_render_contract(
     expect(success->manifest.content.inputs.resolved.scenario == request->scenario,
            "M4 success manifest did not retain the exact held-speed scenario");
 
-    const auto encoded = identity::encode_simulation_request_identity_v2(
+    const auto encoded = identity::encode_simulation_request_identity_v3(
         specification.engine, request->scenario, specification.provenance.bundle);
     const auto *request_identity =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&encoded);
     expect(request_identity != nullptr &&
                success->held_speed_operating_point
-                       ->simulation_request_identity_v2_sha256 ==
+                       ->simulation_request_identity_v3_sha256 ==
                    request_identity->sha256,
            "M4 success did not publish evidence bound to its canonical request");
     expect_valid(validate(result, specification, request->scenario),
@@ -731,13 +731,13 @@ void expect_operating_render_contract(
     auto mutated_evidence = result;
     auto &mutated_identity =
         std::get<contract::RenderSuccess>(mutated_evidence)
-            .held_speed_operating_point->simulation_request_identity_v2_sha256;
+            .held_speed_operating_point->simulation_request_identity_v3_sha256;
     mutated_identity.bytes.front() ^= UINT8_C(1);
     report = validate(mutated_evidence, specification, request->scenario);
     expect(!report.ok() &&
                has_issue(report, contract::ContractIssueCode::inconsistent_semantics,
                          "contract.success.held_speed_operating_point."
-                         "simulation_request_identity_v2_sha256"),
+                         "simulation_request_identity_v3_sha256"),
            "outer validation accepted M4 evidence from another request");
 }
 

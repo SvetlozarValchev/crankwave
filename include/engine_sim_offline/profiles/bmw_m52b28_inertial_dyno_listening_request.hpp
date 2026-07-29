@@ -20,12 +20,11 @@ struct BmwM52b28InertialDynoListeningRequest {
 };
 
 using BmwM52b28InertialDynoListeningRequestResult =
-    std::variant<BmwM52b28InertialDynoListeningRequest,
-                 contract::ValidationReport>;
+    std::variant<BmwM52b28InertialDynoListeningRequest, contract::ValidationReport>;
 
 // Constructs and validates the frozen 1500-to-6500 rpm BMW inertial listening
-// request. Inertia, passive brake, and convergence calibration are not caller
-// controls.
+// request. Inertia, passive brake, fixed preparation horizon, and trailing sample
+// size are not caller controls.
 [[nodiscard]] BmwM52b28InertialDynoListeningRequestResult
 make_bmw_m52b28_inertial_dyno_listening_request();
 

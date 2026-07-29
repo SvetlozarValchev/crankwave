@@ -242,7 +242,7 @@ void print_summary(const reference::BmwM52b28TorqueSweepEvidence &evidence,
                    const std::filesystem::path &output_directory) {
     std::cout << "\nBMW M52B28 canonical full-throttle torque sweep\n\n"
               << "  RPM     indicated       loss    starter        net   BMEP bar"
-                 "   power kW      dT Nm       dP Pa    time ms\n";
+                 "   power kW  first cyc   last cyc    time ms\n";
     std::cout << std::fixed;
     for (const auto &point : evidence.points) {
         std::cout << std::setw(5) << std::setprecision(0) << point.engine_speed_rpm
@@ -253,8 +253,8 @@ void print_summary(const reference::BmwM52b28TorqueSweepEvidence &evidence,
                   << point.net_shaft_cycle_mean_torque_nm << std::setw(11)
                   << point.net_bmep_pa / 100000.0 << std::setw(11)
                   << point.mean_power_w / 1000.0 << std::setw(11)
-                  << point.torque_residual_nm << std::setw(12)
-                  << point.pressure_residual_pa << std::setw(11)
+                  << point.sample_first_cycle << std::setw(11)
+                  << point.sample_last_cycle << std::setw(11)
                   << static_cast<double>(point.elapsed_ns) / 1000000.0 << '\n';
     }
     const auto &comparison = evidence.comparisons;

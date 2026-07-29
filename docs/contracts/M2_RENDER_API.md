@@ -115,7 +115,7 @@ idle -> begun -> committed
 it sends and preserves typed rejections, but an arbitrary implementation can always
 lie about persistence. The shipped `DirectoryRenderSink` is the concrete confined
 publisher. Its public configuration selects only the destination root and one
-publication-name component; simulation-manifest v5 encoding and metadata paths are
+publication-name component; simulation-manifest v6 encoding and metadata paths are
 fixed by the sink/schema and are not another caller-authored contract.
 
 Concrete transaction enforcement, filesystem staging, and bounded WAV and telemetry

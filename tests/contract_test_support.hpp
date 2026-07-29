@@ -802,7 +802,7 @@ inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
     const auto source_matrix = make_source_matrix();
 
     RenderManifestContent content;
-    content.schema_version = 5;
+    content.schema_version = 6;
     content.inputs = SimulationManifestInputs{
         ResolvedRenderInputs{engine, presentation, randomness, scenario}};
     content.provenance = builder.provenance.bundle;

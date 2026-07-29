@@ -220,17 +220,12 @@ void test_canonical_bmw_operating_profile_uses_limiter_disabled_core() {
             operating.core.fuel.molecular_mass_kg_per_mol.value);
     scenario.initial_thermal_state.oil_temperature_k.value =
         operating.aggregate_loss.required_oil_temperature_k.value;
-    scenario.preparation = contract::ConvergenceSettling{
-        builder.resolved(
-            contract::adjacent_cycle_block_mean_convergence_method_identity(),
-            "scenario.preparation.method"),
-        builder.resolved(0.0, "scenario.preparation.minimum_warm_up_duration_s"),
-        builder.resolved(0.0, "scenario.preparation.minimum_settling_duration_s"),
-        builder.resolved(0.0004, "scenario.preparation.maximum_preparation_duration_s"),
-        builder.resolved<std::uint32_t>(1U,
-                                        "scenario.preparation.comparison_cycle_count"),
-        builder.resolved(1.0, "scenario.preparation.cycle_mean_torque_tolerance_nm"),
-        builder.resolved(50.0, "scenario.preparation.pressure_tolerance_pa"),
+    scenario.preparation = contract::FixedHorizonCycleSampling{
+        builder.resolved(contract::fixed_horizon_cycle_sampling_method_identity(),
+                         "scenario.preparation.method"),
+        builder.resolved(0.1, "scenario.preparation.fixed_preparation_horizon_s"),
+        builder.resolved<std::uint32_t>(
+            1U, "scenario.preparation.trailing_complete_cycle_count"),
     };
     scenario.operating_state.value = {
         {
@@ -239,8 +234,8 @@ void test_canonical_bmw_operating_profile_uses_limiter_disabled_core() {
             {true, true, false, true, false},
         },
     };
-    scenario.total_duration_s.value = 0.001;
-    scenario.audible_start_s.value = 0.0004;
+    scenario.total_duration_s.value = 0.1006;
+    scenario.audible_start_s.value = 0.1;
     scenario.audible_duration_s.value = 0.0006;
     scenario.mode = contract::HeldSpeed{
         builder.resolved(kRpm, "scenario.mode.engine_speed_rpm"),

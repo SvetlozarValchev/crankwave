@@ -220,59 +220,72 @@ void run_scenario_manifest_contract_tests() {
                          "physics.preparation"),
            "binary64-near fixed preparation left an undeclared frame gap");
 
-    auto invalid_convergence_grid = simulation_inputs(content).scenario;
-    ConvergenceSettling convergence;
-    convergence.minimum_warm_up_duration_s.value = 1.0;
-    convergence.minimum_settling_duration_s.value = 1.0;
-    convergence.maximum_preparation_duration_s.value = 1.5;
-    invalid_convergence_grid.preparation = convergence;
-    const auto convergence_grid_report = validate_clock_grid(invalid_convergence_grid);
-    expect(!convergence_grid_report.ok() &&
-               has_issue(convergence_grid_report,
+    auto mismatched_sampling_grid = simulation_inputs(content).scenario;
+    FixedHorizonCycleSampling grid_sampling;
+    grid_sampling.fixed_preparation_horizon_s.value = 1.5;
+    grid_sampling.trailing_complete_cycle_count.value = 1;
+    mismatched_sampling_grid.preparation = grid_sampling;
+    const auto sampling_grid_report = validate_clock_grid(mismatched_sampling_grid);
+    expect(!sampling_grid_report.ok() &&
+               has_issue(sampling_grid_report,
                          ContractIssueCode::inconsistent_semantics,
-                         "physics.preparation"),
-           "convergence frame bounds accepted a maximum below their minimum");
+                         "physics.preparation.fixed_preparation_horizon_s"),
+           "fixed-horizon sampling accepted a horizon away from audible start");
 
-    InputBuilder convergence_builder;
-    auto convergence_content = make_manifest_content(convergence_builder);
-    auto convergence_scenario = simulation_inputs(convergence_content).scenario;
-    convergence_scenario.preparation = ConvergenceSettling{
-        convergence_builder.resolved(
-            adjacent_cycle_block_mean_convergence_method_identity(),
-            "scenario.preparation.method"),
-        convergence_builder.resolved(0.5,
-                                     "scenario.preparation.minimum_warm_up_duration_s"),
-        convergence_builder.resolved(
-            0.5, "scenario.preparation.minimum_settling_duration_s"),
-        convergence_builder.resolved(
-            2.0, "scenario.preparation.maximum_preparation_duration_s"),
-        convergence_builder.resolved<std::uint32_t>(
-            2, "scenario.preparation.comparison_cycle_count"),
-        convergence_builder.resolved(
-            0.5, "scenario.preparation.cycle_mean_torque_tolerance_nm"),
-        convergence_builder.resolved(100.0,
-                                     "scenario.preparation.pressure_tolerance_pa"),
+    InputBuilder sampling_builder;
+    auto sampling_content = make_manifest_content(sampling_builder);
+    auto sampling_scenario = simulation_inputs(sampling_content).scenario;
+    std::erase_if(sampling_builder.provenance.resolutions, [](const auto &resolution) {
+        return resolution.parameter_path.starts_with("scenario.preparation.") ||
+               resolution.parameter_path.starts_with("scenario.mode.");
+    });
+    sampling_scenario.preparation = FixedHorizonCycleSampling{
+        sampling_builder.resolved(fixed_horizon_cycle_sampling_method_identity(),
+                                  "scenario.preparation.method"),
+        sampling_builder.resolved(2.0,
+                                  "scenario.preparation.fixed_preparation_horizon_s"),
+        sampling_builder.resolved<std::uint32_t>(
+            32, "scenario.preparation.trailing_complete_cycle_count"),
     };
-    expect(validate(convergence_scenario, convergence_builder.provenance).ok(),
-           "valid identified convergence preparation was rejected");
-    auto wrong_convergence_method = convergence_scenario;
-    std::get<ConvergenceSettling>(wrong_convergence_method.preparation)
-        .method.value.id = "other-convergence-v1";
-    expect(!validate(wrong_convergence_method, convergence_builder.provenance).ok(),
-           "unimplemented convergence method was accepted");
-    auto wrong_convergence_version = convergence_scenario;
-    std::get<ConvergenceSettling>(wrong_convergence_version.preparation)
+    sampling_scenario.mode = HeldSpeed{
+        sampling_builder.resolved(3000.0, "scenario.mode.engine_speed_rpm"),
+        sampling_builder.resolved(0.0, "scenario.mode.initial_theta_rad"),
+        sampling_builder.resolved(0.85, "scenario.mode.throttle_01"),
+    };
+    sampling_scenario.mode_resolution_id =
+        sampling_builder.add_resolution("scenario.mode.kind");
+    expect(validate(sampling_scenario, sampling_builder.provenance).ok(),
+           "valid identified fixed-horizon preparation was rejected");
+    auto wrong_sampling_method = sampling_scenario;
+    std::get<FixedHorizonCycleSampling>(wrong_sampling_method.preparation)
+        .method.value.id = "other-sampling-v1";
+    expect(!validate(wrong_sampling_method, sampling_builder.provenance).ok(),
+           "unimplemented fixed-horizon method was accepted");
+    auto wrong_sampling_version = sampling_scenario;
+    std::get<FixedHorizonCycleSampling>(wrong_sampling_version.preparation)
         .method.value.version = 2;
-    expect(!validate(wrong_convergence_version, convergence_builder.provenance).ok(),
-           "wrong convergence method version was accepted");
-    auto wrong_convergence_digest = convergence_scenario;
+    expect(!validate(wrong_sampling_version, sampling_builder.provenance).ok(),
+           "wrong fixed-horizon method version was accepted");
+    auto wrong_sampling_digest = sampling_scenario;
     auto &wrong_digest =
-        std::get<ConvergenceSettling>(wrong_convergence_digest.preparation)
+        std::get<FixedHorizonCycleSampling>(wrong_sampling_digest.preparation)
             .method.value.configuration_sha256;
     wrong_digest.bytes[0] =
         static_cast<std::uint8_t>(wrong_digest.bytes[0] ^ UINT8_C(1));
-    expect(!validate(wrong_convergence_digest, convergence_builder.provenance).ok(),
-           "wrong convergence method configuration digest was accepted");
+    expect(!validate(wrong_sampling_digest, sampling_builder.provenance).ok(),
+           "wrong fixed-horizon method configuration digest was accepted");
+    auto empty_sampling = sampling_scenario;
+    std::get<FixedHorizonCycleSampling>(empty_sampling.preparation)
+        .trailing_complete_cycle_count.value = 0;
+    expect(!validate(empty_sampling, sampling_builder.provenance).ok(),
+           "zero trailing complete-cycle count was accepted");
+    auto short_sampling = sampling_scenario;
+    std::get<FixedHorizonCycleSampling>(short_sampling.preparation)
+        .fixed_preparation_horizon_s.value = 1.0;
+    short_sampling.audible_start_s.value = 1.0;
+    short_sampling.audible_duration_s.value = 2.0;
+    expect(!validate(short_sampling, sampling_builder.provenance).ok(),
+           "horizon shorter than the conservative complete-cycle bound was accepted");
 
     expect(validate_for_engine(simulation_inputs(content).scenario,
                                simulation_inputs(content).engine)
@@ -306,12 +319,7 @@ void run_scenario_manifest_contract_tests() {
         },
         false,
     };
-    auto operating_scenario = convergence_scenario;
-    operating_scenario.mode = HeldSpeed{
-        {3000.0, {}},
-        {0.0, {}},
-        {0.85, {}},
-    };
+    auto operating_scenario = sampling_scenario;
     operating_scenario.operating_state.value = {
         {
             "fired",
@@ -355,7 +363,7 @@ void run_scenario_manifest_contract_tests() {
            "valid render manifest content was rejected");
 
     ValidationReport report;
-    for (const auto schema_version : {UINT32_C(3), UINT32_C(4)}) {
+    for (const auto schema_version : {UINT32_C(4), UINT32_C(5), UINT32_C(7)}) {
         auto unsupported_manifest_schema = content;
         unsupported_manifest_schema.schema_version = schema_version;
         report =

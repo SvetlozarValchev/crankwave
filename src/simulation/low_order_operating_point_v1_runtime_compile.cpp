@@ -113,7 +113,7 @@ find_core_route(const contract::LowOrderEngineCoreV1 &core,
 LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
-    const contract::Sha256Digest &simulation_request_identity_v2_sha256) {
+    const contract::Sha256Digest &simulation_request_identity_v3_sha256) {
     ValidationReport report;
     report.append(contract::validate_for_engine(scenario, engine));
 
@@ -121,7 +121,7 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
         std::get_if<contract::LowOrderOperatingPointV1Profile>(&engine.physics_profile);
     const auto *held = std::get_if<contract::HeldSpeed>(&scenario.mode);
     const auto *preparation =
-        std::get_if<contract::ConvergenceSettling>(&scenario.preparation);
+        std::get_if<contract::FixedHorizonCycleSampling>(&scenario.preparation);
     require(report, profile != nullptr, ContractIssueCode::unsupported_value,
             "engine.physics_profile",
             "operating runtime requires low_order_operating_point_v1");
@@ -129,9 +129,9 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
             "scenario.mode", "operating runtime requires held-speed mode");
     require(report, preparation != nullptr, ContractIssueCode::unsupported_value,
             "scenario.preparation",
-            "operating runtime requires convergence preparation");
-    require(report, !simulation_request_identity_v2_sha256.is_zero(),
-            ContractIssueCode::missing_value, "simulation_request_identity_v2_sha256",
+            "operating runtime requires fixed-horizon cycle sampling");
+    require(report, !simulation_request_identity_v3_sha256.is_zero(),
+            ContractIssueCode::missing_value, "simulation_request_identity_v3_sha256",
             "operating runtime requires the canonical nonzero request identity");
     if (profile == nullptr || held == nullptr || preparation == nullptr) {
         return report;
@@ -152,9 +152,10 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
     report.append(admit_implemented_cycle_accounting_methods(engine, *profile));
     require(report,
             preparation->method.value ==
-                contract::adjacent_cycle_block_mean_convergence_method_identity(),
+                contract::fixed_horizon_cycle_sampling_method_identity(),
             ContractIssueCode::unsupported_value, "scenario.preparation.method.value",
-            "operating runtime requires the exact implemented convergence method");
+            "operating runtime requires the exact implemented fixed-horizon "
+            "sampling method");
     require(report, scenario.rates.physics == scenario.rates.capture,
             ContractIssueCode::inconsistent_semantics, "scenario.rates",
             "operating runtime requires identical physics and capture clocks");
@@ -219,19 +220,20 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
                 "capture-plan public topology differs from the canonical engine");
     }
 
-    const auto cutoff_frame = contract::resolve_frame_index(
-        preparation->maximum_preparation_duration_s.value, scenario.rates.physics);
-    require(report, cutoff_frame.has_value() && *cutoff_frame > 0U,
+    const auto fixed_horizon_frame = contract::resolve_frame_index(
+        preparation->fixed_preparation_horizon_s.value, scenario.rates.physics);
+    require(report, fixed_horizon_frame.has_value() && *fixed_horizon_frame > 0U,
             ContractIssueCode::inconsistent_semantics,
-            "scenario.preparation.maximum_preparation_duration_s.value",
-            "operating cutoff must resolve to a positive integral physics frame");
+            "scenario.preparation.fixed_preparation_horizon_s.value",
+            "operating preparation horizon must resolve to a positive integral "
+            "physics frame");
     require(report,
-            cutoff_frame.has_value() &&
-                *cutoff_frame <= capture_plan.capture_horizon_frames,
+            fixed_horizon_frame.has_value() &&
+                *fixed_horizon_frame <= capture_plan.capture_horizon_frames,
             ContractIssueCode::inconsistent_semantics,
             "capture_plan.capture_horizon_frames",
-            "capture horizon must include the complete fixed-cutoff transaction");
-    if (!report.ok() || canonical_plan == nullptr || !cutoff_frame.has_value()) {
+            "capture horizon must include the complete fixed-horizon transaction");
+    if (!report.ok() || canonical_plan == nullptr || !fixed_horizon_frame.has_value()) {
         return report;
     }
 
@@ -276,7 +278,7 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
         const auto gas_index = find_capture_volume_index(capture_plan, id);
         require(report, gas_index.has_value(), ContractIssueCode::dangling_reference,
                 "capture_plan.physical_gas_volume_ids[" + std::to_string(index) + "]",
-                "physical convergence volume is absent from capture topology");
+                "physical sampling volume is absent from capture topology");
         if (gas_index.has_value()) {
             physical_gas_step_indices.push_back(*gas_index);
             pressure_samples.push_back({id, 0.0});
@@ -322,16 +324,6 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
         });
     }
 
-    const double eligibility_threshold_time_s =
-        preparation->minimum_warm_up_duration_s.value +
-        preparation->minimum_settling_duration_s.value;
-    require(report, std::isfinite(eligibility_threshold_time_s),
-            ContractIssueCode::invalid_value, "scenario.preparation",
-            "operating eligibility threshold overflowed");
-    if (!report.ok()) {
-        return report;
-    }
-
     auto accountant_result = compile_operating_cycle_accountant({
         {
             profile->core.mechanism.crank.crank_tdc_reference_rad.value,
@@ -361,19 +353,16 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
         return report;
     }
 
-    auto convergence_result = compile_adjacent_cycle_block_convergence_observer({
+    auto sampling_result = compile_fixed_horizon_cycle_sampler({
         preparation->method.value,
-        preparation->comparison_cycle_count.value,
-        eligibility_threshold_time_s,
-        preparation->maximum_preparation_duration_s.value,
-        preparation->cycle_mean_torque_tolerance_nm.value,
-        preparation->pressure_tolerance_pa.value,
+        preparation->trailing_complete_cycle_count.value,
+        preparation->fixed_preparation_horizon_s.value,
         capture_plan.physical_gas_volume_ids,
     });
     if (const auto *error =
-            std::get_if<AdjacentCycleBlockConvergenceError>(&convergence_result)) {
+            std::get_if<FixedHorizonCycleSamplingError>(&sampling_result)) {
         report.add(ContractIssueCode::unsupported_value, "scenario.preparation",
-                   "convergence observer rejected the admitted preparation; code=" +
+                   "fixed-horizon sampler rejected the admitted preparation; code=" +
                        std::to_string(static_cast<std::uint32_t>(error->code)));
         return report;
     }
@@ -416,12 +405,12 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
 
     return LowOrderOperatingPointV1Runtime{
         std::get<OperatingCycleAccountant>(std::move(accountant_result)),
-        std::get<AdjacentCycleBlockConvergenceObserver>(std::move(convergence_result)),
+        std::get<FixedHorizonCycleSampler>(std::move(sampling_result)),
         std::move(physical_gas_step_indices),
         std::move(pressure_samples),
         std::move(transaction_shape),
-        *cutoff_frame,
-        simulation_request_identity_v2_sha256,
+        *fixed_horizon_frame,
+        simulation_request_identity_v3_sha256,
         std::move(conditions),
         "low-order-operating-point-v1",
         engine.profile_id.value,

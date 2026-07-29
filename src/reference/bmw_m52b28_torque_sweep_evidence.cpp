@@ -20,8 +20,8 @@ namespace {
 using SweepClock = std::chrono::steady_clock;
 
 constexpr std::size_t kNoPoint = profiles::kBmwM52b28FullThrottleTorqueSweepPointCount;
-constexpr std::uint32_t kComparisonCycleCount = 16U;
-constexpr std::uint64_t kCutoffFrame = UINT64_C(64400);
+constexpr std::uint32_t kTrailingCompleteCycleCount = 32U;
+constexpr std::uint64_t kFixedPreparationHorizonFrame = UINT64_C(64400);
 constexpr std::uint64_t kTailFrameCount = UINT64_C(200);
 constexpr std::string_view kModelRecordEvidenceId = "operating-point-model-record";
 constexpr std::string_view kTorqueWarning =
@@ -157,7 +157,7 @@ model_record_digest(const contract::ProvenanceLedger &provenance) {
 
 struct CanonicalPointBinding {
     std::string scenario_id;
-    contract::Sha256Digest simulation_request_identity_v2_sha256;
+    contract::Sha256Digest simulation_request_v3_sha256;
     contract::Sha256Digest provenance_bundle_sha256;
     double engine_speed_rpm = 0.0;
     double throttle_01 = 0.0;
@@ -198,12 +198,12 @@ same_conditions_exact(const BmwM52b28TorqueSweepConditions &lhs,
            lhs.public_seed == rhs.public_seed &&
            lhs.physics_rate_numerator == rhs.physics_rate_numerator &&
            lhs.physics_rate_denominator == rhs.physics_rate_denominator &&
-           lhs.convergence_method_id == rhs.convergence_method_id &&
-           lhs.convergence_method_version == rhs.convergence_method_version &&
-           lhs.convergence_method_configuration_sha256 ==
-               rhs.convergence_method_configuration_sha256 &&
-           lhs.comparison_cycle_count == rhs.comparison_cycle_count &&
-           lhs.cutoff_frame == rhs.cutoff_frame &&
+           lhs.sampling_method_id == rhs.sampling_method_id &&
+           lhs.sampling_method_version == rhs.sampling_method_version &&
+           lhs.sampling_method_configuration_sha256 ==
+               rhs.sampling_method_configuration_sha256 &&
+           lhs.trailing_complete_cycle_count == rhs.trailing_complete_cycle_count &&
+           lhs.fixed_preparation_horizon_frame == rhs.fixed_preparation_horizon_frame &&
            lhs.tail_frame_count == rhs.tail_frame_count;
 }
 
@@ -213,17 +213,17 @@ same_conditions_exact(const BmwM52b28TorqueSweepConditions &lhs,
         &request.engine.physics_profile);
     const auto *held = std::get_if<contract::HeldSpeed>(&request.scenario.mode);
     const auto *preparation =
-        std::get_if<contract::ConvergenceSettling>(&request.scenario.preparation);
-    const auto cutoff_frame =
+        std::get_if<contract::FixedHorizonCycleSampling>(&request.scenario.preparation);
+    const auto fixed_preparation_horizon_frame =
         preparation == nullptr ? std::optional<std::uint64_t>{}
                                : contract::resolve_frame_index(
-                                     preparation->maximum_preparation_duration_s.value,
+                                     preparation->fixed_preparation_horizon_s.value,
                                      request.scenario.rates.physics);
     const auto total_frame = contract::resolve_frame_index(
         request.scenario.total_duration_s.value, request.scenario.rates.physics);
     if (profile == nullptr || held == nullptr || preparation == nullptr ||
-        !cutoff_frame.has_value() || !total_frame.has_value() ||
-        *total_frame < *cutoff_frame) {
+        !fixed_preparation_horizon_frame.has_value() || !total_frame.has_value() ||
+        *total_frame < *fixed_preparation_horizon_frame) {
         return std::nullopt;
     }
     return BmwM52b28TorqueSweepConditions{
@@ -250,9 +250,9 @@ same_conditions_exact(const BmwM52b28TorqueSweepConditions &lhs,
         preparation->method.value.id,
         preparation->method.value.version,
         preparation->method.value.configuration_sha256,
-        preparation->comparison_cycle_count.value,
-        *cutoff_frame,
-        *total_frame - *cutoff_frame,
+        preparation->trailing_complete_cycle_count.value,
+        *fixed_preparation_horizon_frame,
+        *total_frame - *fixed_preparation_horizon_frame,
     };
 }
 
@@ -286,7 +286,7 @@ using CanonicalEvidenceBindingsResult =
     };
     for (std::size_t index = 0U; index < requests.size(); ++index) {
         const auto &request = requests[index];
-        const auto identity_result = identity::encode_simulation_request_identity_v2(
+        const auto identity_result = identity::encode_simulation_request_identity_v3(
             request.engine, request.scenario, request.provenance.bundle);
         const auto *identity_encoding =
             std::get_if<identity::SimulationRequestIdentityEncoding>(&identity_result);
@@ -295,7 +295,7 @@ using CanonicalEvidenceBindingsResult =
                 std::get<identity::SimulationRequestIdentityError>(identity_result);
             report.add(contract::ContractIssueCode::invalid_value,
                        "canonical_bmw_torque_sweep.points[" + std::to_string(index) +
-                           "].simulation_request_v2_sha256",
+                           "].simulation_request_v3_sha256",
                        "canonical request identity encoding failed: " +
                            identity_error.detail_code + ": " + identity_error.message);
             continue;
@@ -401,13 +401,19 @@ run_point(const profiles::BmwM52b28FullThrottleTorqueSweepRequest &request,
                          "steady clock produced a negative point duration",
                          point_index);
         }
-        const auto *preparation =
-            std::get_if<contract::ConvergenceSettling>(&request.scenario.preparation);
+        const auto *preparation = std::get_if<contract::FixedHorizonCycleSampling>(
+            &request.scenario.preparation);
         const auto *held = std::get_if<contract::HeldSpeed>(&request.scenario.mode);
+        const auto fixed_preparation_horizon_frame =
+            preparation == nullptr ? std::optional<std::uint64_t>{}
+                                   : contract::resolve_frame_index(
+                                         preparation->fixed_preparation_horizon_s.value,
+                                         request.scenario.rates.physics);
         const auto total_frame = contract::resolve_frame_index(
             request.scenario.total_duration_s.value, request.scenario.rates.physics);
-        if (preparation == nullptr || held == nullptr || !total_frame.has_value() ||
-            *total_frame < kCutoffFrame) {
+        if (preparation == nullptr || held == nullptr ||
+            !fixed_preparation_horizon_frame.has_value() || !total_frame.has_value() ||
+            *total_frame < *fixed_preparation_horizon_frame) {
             return error("bmw-torque-sweep-condition-extraction-failed",
                          "validated request did not expose its frozen held timing",
                          point_index);
@@ -434,17 +440,17 @@ run_point(const profiles::BmwM52b28FullThrottleTorqueSweepRequest &request,
             request.scenario.public_seed.value,
             request.scenario.rates.physics.numerator,
             request.scenario.rates.physics.denominator,
-            operating.convergence.method.id,
-            operating.convergence.method.version,
-            operating.convergence.method.configuration_sha256,
-            operating.convergence.comparison_cycle_count,
-            kCutoffFrame,
-            *total_frame - kCutoffFrame,
+            operating.sampling.method.id,
+            operating.sampling.method.version,
+            operating.sampling.method.configuration_sha256,
+            operating.sampling.trailing_complete_cycle_count,
+            *fixed_preparation_horizon_frame,
+            *total_frame - *fixed_preparation_horizon_frame,
         };
         BmwM52b28TorqueSweepPointEvidence point{
+            request.scenario.scenario_id,
             request_identity,
             request.provenance.bundle.sha256,
-            request.scenario.scenario_id,
             operating.conditions.engine_speed_rpm,
             operating.conditions.throttle_01,
             torque.indicated_gas.value_nm,
@@ -453,14 +459,8 @@ run_point(const profiles::BmwM52b28FullThrottleTorqueSweepRequest &request,
             torque.net_shaft.value_nm,
             block.net_bmep_pa,
             block.mean_power_w,
-            operating.convergence.torque_residual_nm,
-            operating.convergence.torque_tolerance_nm,
-            operating.convergence.pressure_residual_pa,
-            operating.convergence.pressure_tolerance_pa,
-            operating.convergence.block_a.cycles.first_completed_cycle_ordinal,
-            operating.convergence.block_a.cycles.last_completed_cycle_ordinal,
-            operating.convergence.block_b.cycles.first_completed_cycle_ordinal,
-            operating.convergence.block_b.cycles.last_completed_cycle_ordinal,
+            block.cycles.first_completed_cycle_ordinal,
+            block.cycles.last_completed_cycle_ordinal,
             operating.applicability_label,
             static_cast<std::uint64_t>(elapsed),
         };
@@ -509,7 +509,7 @@ contract::ValidationReport validate_bmw_m52b28_torque_sweep_evidence(
 
     const auto &conditions = evidence.conditions;
     const auto expected_method =
-        contract::adjacent_cycle_block_mean_convergence_method_identity();
+        contract::fixed_horizon_cycle_sampling_method_identity();
     require(report,
             finite(conditions.ambient_pressure_pa_abs) &&
                 same_binary64(conditions.ambient_pressure_pa_abs, 101325.0) &&
@@ -536,12 +536,14 @@ contract::ValidationReport validate_bmw_m52b28_torque_sweep_evidence(
                 conditions.public_seed == UINT64_C(0xC0FFEE) &&
                 conditions.physics_rate_numerator == UINT64_C(10000) &&
                 conditions.physics_rate_denominator == UINT64_C(1) &&
-                conditions.convergence_method_id == expected_method.id &&
-                conditions.convergence_method_version == expected_method.version &&
-                conditions.convergence_method_configuration_sha256 ==
+                conditions.sampling_method_id == expected_method.id &&
+                conditions.sampling_method_version == expected_method.version &&
+                conditions.sampling_method_configuration_sha256 ==
                     expected_method.configuration_sha256 &&
-                conditions.comparison_cycle_count == kComparisonCycleCount &&
-                conditions.cutoff_frame == kCutoffFrame &&
+                conditions.trailing_complete_cycle_count ==
+                    kTrailingCompleteCycleCount &&
+                conditions.fixed_preparation_horizon_frame ==
+                    kFixedPreparationHorizonFrame &&
                 conditions.tail_frame_count == kTailFrameCount,
             contract::ContractIssueCode::inconsistent_semantics, "conditions",
             "common conditions do not match the frozen canonical BMW sweep");
@@ -556,21 +558,21 @@ contract::ValidationReport validate_bmw_m52b28_torque_sweep_evidence(
         const auto &binding = bindings->points[index];
         const auto path = "points[" + std::to_string(index) + "]";
         require(report,
-                !point.simulation_request_identity_v2_sha256.is_zero() &&
+                !point.simulation_request_v3_sha256.is_zero() &&
                     !point.provenance_bundle_sha256.is_zero(),
                 contract::ContractIssueCode::invalid_value, path,
                 "sweep point requires nonzero request and provenance digests");
         for (std::size_t prior = 0U; prior < index; ++prior) {
             require(report,
-                    point.simulation_request_identity_v2_sha256 !=
-                        evidence.points[prior].simulation_request_identity_v2_sha256,
+                    point.simulation_request_v3_sha256 !=
+                        evidence.points[prior].simulation_request_v3_sha256,
                     contract::ContractIssueCode::duplicate_identity,
-                    path + ".simulation_request_v2_sha256",
+                    path + ".simulation_request_v3_sha256",
                     "independent sweep points must have distinct request digests");
         }
         require(report,
-                point.simulation_request_identity_v2_sha256 ==
-                        binding.simulation_request_identity_v2_sha256 &&
+                point.simulation_request_v3_sha256 ==
+                        binding.simulation_request_v3_sha256 &&
                     point.provenance_bundle_sha256 ==
                         binding.provenance_bundle_sha256 &&
                     point.scenario_id == binding.scenario_id &&
@@ -584,42 +586,23 @@ contract::ValidationReport validate_bmw_m52b28_torque_sweep_evidence(
                     finite(point.aggregate_loss_cycle_mean_torque_nm) &&
                     finite(point.starter_cycle_mean_torque_nm) &&
                     finite(point.net_shaft_cycle_mean_torque_nm) &&
-                    finite(point.net_bmep_pa) && finite(point.mean_power_w) &&
-                    finite(point.torque_residual_nm) &&
-                    finite(point.torque_tolerance_nm) &&
-                    finite(point.pressure_residual_pa) &&
-                    finite(point.pressure_tolerance_pa),
+                    finite(point.net_bmep_pa) && finite(point.mean_power_w),
                 contract::ContractIssueCode::invalid_value, path,
                 "all retained point quantities must be finite");
         require(report,
                 point.aggregate_loss_cycle_mean_torque_nm < 0.0 &&
-                    same_binary64(point.starter_cycle_mean_torque_nm, 0.0) &&
-                    point.torque_residual_nm >= 0.0 &&
-                    same_binary64(point.torque_tolerance_nm, 0.75) &&
-                    point.torque_residual_nm <= point.torque_tolerance_nm &&
-                    point.pressure_residual_pa >= 0.0 &&
-                    same_binary64(point.pressure_tolerance_pa, 1500.0) &&
-                    point.pressure_residual_pa <= point.pressure_tolerance_pa,
+                    same_binary64(point.starter_cycle_mean_torque_nm, 0.0),
                 contract::ContractIssueCode::inconsistent_semantics, path,
-                "loss/starter semantics or frozen inclusive convergence "
-                "tolerances are not satisfied");
-        const bool a_representable =
-            point.block_a_first_cycle <=
-            std::numeric_limits<std::uint64_t>::max() - (kComparisonCycleCount - 1U);
-        const bool b_representable =
-            point.block_b_first_cycle <=
-            std::numeric_limits<std::uint64_t>::max() - (kComparisonCycleCount - 1U);
+                "loss or starter semantics are not satisfied");
+        const bool sample_representable =
+            point.sample_first_cycle <= std::numeric_limits<std::uint64_t>::max() -
+                                            (kTrailingCompleteCycleCount - 1U);
         require(report,
-                a_representable && b_representable &&
-                    point.block_a_last_cycle ==
-                        point.block_a_first_cycle + (kComparisonCycleCount - 1U) &&
-                    point.block_b_last_cycle ==
-                        point.block_b_first_cycle + (kComparisonCycleCount - 1U) &&
-                    point.block_a_last_cycle <
-                        std::numeric_limits<std::uint64_t>::max() &&
-                    point.block_b_first_cycle == point.block_a_last_cycle + 1U,
+                sample_representable &&
+                    point.sample_last_cycle ==
+                        point.sample_first_cycle + (kTrailingCompleteCycleCount - 1U),
                 contract::ContractIssueCode::inconsistent_semantics, path,
-                "point must retain two adjacent 16-complete-cycle ranges");
+                "point must retain one contiguous 32-complete-cycle sample");
         require(report,
                 point.applicability_label ==
                     contract::kGenericChenFlynnLowOrderModelPredictionApplicability,
@@ -699,7 +682,7 @@ BmwM52b28TorqueSweepEvidenceResult run_bmw_m52b28_full_throttle_torque_sweep(
                 total_started = SweepClock::now();
             }
             const auto identity_result =
-                identity::encode_simulation_request_identity_v2(
+                identity::encode_simulation_request_identity_v3(
                     requests[index].engine, requests[index].scenario,
                     requests[index].provenance.bundle);
             const auto *identity_encoding =

@@ -102,10 +102,8 @@ struct BmwM52b28HeldSpeedScenarioParameters {
     std::string_view operating_state_event_id;
     double engine_speed_rpm = 0.0;
     double throttle_01 = 0.0;
-    double maximum_preparation_duration_s = 0.0;
-    std::uint32_t comparison_cycle_count = 0U;
-    double cycle_mean_torque_tolerance_nm = 0.0;
-    double pressure_tolerance_pa = 0.0;
+    double fixed_preparation_horizon_s = 0.0;
+    std::uint32_t trailing_complete_cycle_count = 0U;
     double evidence_duration_s = 0.0;
     double total_duration_s = 0.0;
     std::string_view quality_profile_id;

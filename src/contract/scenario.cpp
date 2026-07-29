@@ -18,11 +18,11 @@
 
 namespace engine_sim_offline::contract {
 
-const MethodIdentity &adjacent_cycle_block_mean_convergence_method_identity() {
+const MethodIdentity &fixed_horizon_cycle_sampling_method_identity() {
     static const MethodIdentity identity{
-        std::string{kAdjacentCycleBlockMeanConvergenceMethodId},
-        kAdjacentCycleBlockMeanConvergenceMethodVersion,
-        kAdjacentCycleBlockMeanConvergenceMethodConfigurationSha256,
+        std::string{kFixedHorizonCycleSamplingMethodId},
+        kFixedHorizonCycleSamplingMethodVersion,
+        kFixedHorizonCycleSamplingMethodConfigurationSha256,
     };
     return identity;
 }
@@ -164,13 +164,21 @@ void validate_fixed_rate_rpm_trajectory(ValidationReport &report,
             "fixed-rate RPM sample hash does not match the owned sample vector");
 }
 
-void require_convergence_method(ValidationReport &report, const MethodIdentity &method,
-                                const std::string &path) {
-    detail::require(
-        report, method == adjacent_cycle_block_mean_convergence_method_identity(),
-        ContractIssueCode::unsupported_value, path,
-        "convergence preparation requires "
-        "the exact adjacent-nonoverlapping-cycle-block-mean-v1 method identity");
+void require_fixed_horizon_sampling_method(ValidationReport &report,
+                                           const MethodIdentity &method,
+                                           const std::string &path) {
+    detail::require(report, method == fixed_horizon_cycle_sampling_method_identity(),
+                    ContractIssueCode::unsupported_value, path,
+                    "fixed-horizon preparation requires the exact "
+                    "fixed-horizon-trailing-complete-cycle-sample-v1 method identity");
+}
+
+[[nodiscard]] double
+sufficient_complete_cycle_horizon_s(std::uint32_t trailing_complete_cycle_count,
+                                    double engine_speed_rpm) noexcept {
+    const auto conservative_cycle_count = static_cast<double>(
+        static_cast<std::uint64_t>(trailing_complete_cycle_count) + UINT64_C(1));
+    return (conservative_cycle_count * 120.0) / engine_speed_rpm;
 }
 
 } // namespace
@@ -259,35 +267,18 @@ ValidationReport validate_clock_grid(const RenderScenario &scenario) {
                             "physics frame");
                     }
                 } else {
-                    const auto minimum_warm_up = resolve_physics_boundary(
-                        preparation.minimum_warm_up_duration_s.value,
-                        "physics.preparation.minimum_warm_up_duration_s",
-                        "minimum warm-up duration must resolve to an integral "
-                        "physics-frame count");
-                    const auto minimum_settling = resolve_physics_boundary(
-                        preparation.minimum_settling_duration_s.value,
-                        "physics.preparation.minimum_settling_duration_s",
-                        "minimum settling duration must resolve to an integral "
-                        "physics-frame count");
-                    const auto maximum_preparation = resolve_physics_boundary(
-                        preparation.maximum_preparation_duration_s.value,
-                        "physics.preparation.maximum_preparation_duration_s",
-                        "maximum preparation duration must resolve to an integral "
-                        "physics-frame count");
-                    if (minimum_warm_up.has_value() && minimum_settling.has_value() &&
-                        maximum_preparation.has_value() && audible_start.has_value()) {
-                        std::uint64_t minimum_preparation = 0;
-                        const auto minimum_representable = checked_add_u64(
-                            *minimum_warm_up, *minimum_settling, minimum_preparation);
-                        require(report,
-                                minimum_representable &&
-                                    minimum_preparation <= *maximum_preparation &&
-                                    *maximum_preparation <= *audible_start,
-                                ContractIssueCode::inconsistent_semantics,
-                                "physics.preparation",
-                                "convergence preparation frame bounds must satisfy "
-                                "minimum warm-up plus settling <= maximum <= audible "
-                                "start");
+                    const auto fixed_horizon = resolve_physics_boundary(
+                        preparation.fixed_preparation_horizon_s.value,
+                        "physics.preparation.fixed_preparation_horizon_s",
+                        "fixed preparation horizon must resolve to an integral "
+                        "physics-frame index");
+                    if (fixed_horizon.has_value() && audible_start.has_value()) {
+                        require(
+                            report, *fixed_horizon == *audible_start,
+                            ContractIssueCode::inconsistent_semantics,
+                            "physics.preparation.fixed_preparation_horizon_s",
+                            "fixed preparation horizon must equal the audible-start "
+                            "physics frame");
                     }
                 }
             },
@@ -485,54 +476,67 @@ ValidationReport validate(const RenderScenario &scenario,
                                   "scenario.preparation.method");
                 append_prefixed(report, validate(preparation.method.value),
                                 "scenario.preparation.method.value");
-                require_convergence_method(report, preparation.method.value,
-                                           "scenario.preparation.method.value");
-                validate_resolved(report, preparation.minimum_warm_up_duration_s,
+                require_fixed_horizon_sampling_method(
+                    report, preparation.method.value,
+                    "scenario.preparation.method.value");
+                validate_resolved(report, preparation.fixed_preparation_horizon_s,
                                   provenance,
-                                  "scenario.preparation.minimum_warm_up_duration_s");
-                validate_resolved(report, preparation.minimum_settling_duration_s,
+                                  "scenario.preparation.fixed_preparation_horizon_s");
+                validate_resolved(report, preparation.trailing_complete_cycle_count,
                                   provenance,
-                                  "scenario.preparation.minimum_settling_duration_s");
-                validate_resolved(
-                    report, preparation.maximum_preparation_duration_s, provenance,
-                    "scenario.preparation.maximum_preparation_duration_s");
-                validate_resolved(report, preparation.comparison_cycle_count,
-                                  provenance,
-                                  "scenario.preparation.comparison_cycle_count");
-                validate_resolved(
-                    report, preparation.cycle_mean_torque_tolerance_nm, provenance,
-                    "scenario.preparation.cycle_mean_torque_tolerance_nm");
-                validate_resolved(report, preparation.pressure_tolerance_pa, provenance,
-                                  "scenario.preparation.pressure_tolerance_pa");
-                const auto minimum = preparation.minimum_warm_up_duration_s.value +
-                                     preparation.minimum_settling_duration_s.value;
+                                  "scenario.preparation.trailing_complete_cycle_count");
                 require(
                     report,
-                    finite_nonnegative(preparation.minimum_warm_up_duration_s.value) &&
-                        finite_nonnegative(
-                            preparation.minimum_settling_duration_s.value) &&
-                        finite_positive(
-                            preparation.maximum_preparation_duration_s.value) &&
-                        preparation.maximum_preparation_duration_s.value >= minimum,
+                    finite_positive(preparation.fixed_preparation_horizon_s.value) &&
+                        preparation.trailing_complete_cycle_count.value > 0 &&
+                        static_cast<std::uintmax_t>(
+                            preparation.trailing_complete_cycle_count.value) <=
+                            static_cast<std::uintmax_t>(
+                                std::numeric_limits<std::size_t>::max()),
                     ContractIssueCode::invalid_value, "preparation",
-                    "convergence preparation durations are inconsistent");
+                    "fixed horizon must be finite and positive, and retained "
+                    "cycle capacity must be positive and representable");
                 require(report,
-                        preparation.comparison_cycle_count.value > 0 &&
-                            finite_positive(
-                                preparation.cycle_mean_torque_tolerance_nm.value) &&
-                            finite_positive(preparation.pressure_tolerance_pa.value),
-                        ContractIssueCode::invalid_value, "preparation",
-                        "convergence windows and tolerances must be positive");
-                require(report,
-                        preparation.maximum_preparation_duration_s.value <=
-                                scenario.audible_start_s.value &&
+                        std::bit_cast<std::uint64_t>(
+                            preparation.fixed_preparation_horizon_s.value) ==
+                                std::bit_cast<std::uint64_t>(
+                                    scenario.audible_start_s.value) &&
                             detail::nearly_equal(scenario.audible_start_s.value +
                                                      scenario.audible_duration_s.value,
                                                  scenario.total_duration_s.value),
                         ContractIssueCode::inconsistent_semantics,
                         "total_duration_s.value",
-                        "maximum preparation must fit before audible start, and the "
-                        "audible interval must end at total duration");
+                        "fixed preparation horizon must exactly equal audible start, "
+                        "and the audible interval must end at total duration");
+
+                const double engine_speed_rpm = std::visit(
+                    [](const auto &mode) {
+                        using Mode = std::decay_t<decltype(mode)>;
+                        if constexpr (std::is_same_v<Mode, HeldSpeed>) {
+                            return mode.engine_speed_rpm.value;
+                        } else if constexpr (std::is_same_v<Mode, InertialDyno>) {
+                            return mode.initial_engine_speed_rpm.value;
+                        } else {
+                            return 0.0;
+                        }
+                    },
+                    scenario.mode);
+                if (finite_positive(engine_speed_rpm) &&
+                    preparation.trailing_complete_cycle_count.value > 0) {
+                    const double sufficient_horizon_s =
+                        sufficient_complete_cycle_horizon_s(
+                            preparation.trailing_complete_cycle_count.value,
+                            engine_speed_rpm);
+                    require(
+                        report,
+                        finite_positive(sufficient_horizon_s) &&
+                            preparation.fixed_preparation_horizon_s.value >=
+                                sufficient_horizon_s,
+                        ContractIssueCode::inconsistent_semantics,
+                        "scenario.preparation.fixed_preparation_horizon_s.value",
+                        "fixed preparation horizon is shorter than the conservative "
+                        "complete-cycle admission bound");
+                }
             }
         },
         scenario.preparation);
@@ -690,21 +694,21 @@ ValidationReport validate(const RenderScenario &scenario,
                         ContractIssueCode::invalid_value, "mode",
                         "inertial dyno requires a positive initial speed and inertia "
                         "plus an upward target speed");
-                const auto *convergence =
-                    std::get_if<ConvergenceSettling>(&scenario.preparation);
-                require(report, convergence != nullptr,
+                const auto *sampling =
+                    std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
+                require(report, sampling != nullptr,
                         ContractIssueCode::unsupported_value, "preparation",
-                        "inertial dyno requires convergence preparation before "
+                        "inertial dyno requires fixed-horizon sampling before "
                         "release");
-                if (convergence != nullptr) {
+                if (sampling != nullptr) {
                     require(report,
                             std::bit_cast<std::uint64_t>(
-                                convergence->maximum_preparation_duration_s.value) ==
+                                sampling->fixed_preparation_horizon_s.value) ==
                                 std::bit_cast<std::uint64_t>(
                                     scenario.audible_start_s.value),
                             ContractIssueCode::inconsistent_semantics,
-                            "preparation.maximum_preparation_duration_s.value",
-                            "inertial-dyno release is exactly the convergence cutoff "
+                            "preparation.fixed_preparation_horizon_s.value",
+                            "inertial-dyno release is exactly the fixed horizon "
                             "and audible-start boundary");
                 }
                 validate_trajectory(report, mode.throttle_01, provenance,
@@ -796,21 +800,20 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                                "operating-point v1 admits held-speed and inertial-"
                                "dyno modes");
                 }
-                const auto *convergence =
-                    std::get_if<ConvergenceSettling>(&scenario.preparation);
-                if (convergence == nullptr) {
+                const auto *sampling =
+                    std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
+                if (sampling == nullptr) {
                     report.add(
                         ContractIssueCode::unsupported_value, "preparation",
-                        "operating-point v1 requires convergence preparation");
+                        "operating-point v1 requires fixed-horizon cycle sampling");
                 } else if (std::bit_cast<std::uint64_t>(
-                               convergence->maximum_preparation_duration_s.value) !=
+                               sampling->fixed_preparation_horizon_s.value) !=
                            std::bit_cast<std::uint64_t>(
                                scenario.audible_start_s.value)) {
-                    report.add(
-                        ContractIssueCode::inconsistent_semantics,
-                        "preparation.maximum_preparation_duration_s.value",
-                        "operating-point preparation cutoff must exactly equal "
-                        "audible start");
+                    report.add(ContractIssueCode::inconsistent_semantics,
+                               "preparation.fixed_preparation_horizon_s.value",
+                               "operating-point preparation horizon must exactly equal "
+                               "audible start");
                 }
 
                 if (std::bit_cast<std::uint64_t>(

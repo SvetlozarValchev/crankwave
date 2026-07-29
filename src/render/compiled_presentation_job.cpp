@@ -107,7 +107,7 @@ compile_presentation_job(const RenderSpecification &specification,
     auto request = make_render_request_record(specification, scenario);
     const auto &inputs = request.resolved_inputs;
 
-    auto request_identity_result = identity::encode_simulation_request_identity_v2(
+    auto request_identity_result = identity::encode_simulation_request_identity_v3(
         inputs.engine, inputs.scenario, request.provenance.bundle);
     if (const auto *error = std::get_if<identity::SimulationRequestIdentityError>(
             &request_identity_result)) {
@@ -115,7 +115,7 @@ compile_presentation_job(const RenderSpecification &specification,
                                 contract::FailureKind::contract_violation,
                                 error->detail_code, error->message);
     }
-    const auto simulation_request_identity_v2_sha256 =
+    const auto simulation_request_identity_v3_sha256 =
         std::get<identity::SimulationRequestIdentityEncoding>(
             std::move(request_identity_result))
             .sha256;
@@ -276,7 +276,7 @@ compile_presentation_job(const RenderSpecification &specification,
     };
 
     auto simulation_result = simulation::compile_low_order_capture_session(
-        inputs.engine, inputs.scenario, simulation_request_identity_v2_sha256);
+        inputs.engine, inputs.scenario, simulation_request_identity_v3_sha256);
     if (std::holds_alternative<contract::ValidationReport>(simulation_result)) {
         return compiler_failure(
             std::move(request), contract::FailureKind::incomplete_source_route,
@@ -342,7 +342,7 @@ compile_presentation_job(const RenderSpecification &specification,
     }
 
     contract::RenderManifestContent manifest_basis;
-    manifest_basis.schema_version = 5;
+    manifest_basis.schema_version = 6;
     manifest_basis.inputs = contract::SimulationManifestInputs{inputs};
     manifest_basis.provenance = request.provenance.bundle;
     manifest_basis.determinism = determinism.manifest_identity();
@@ -354,7 +354,7 @@ compile_presentation_job(const RenderSpecification &specification,
 
     return CompiledPresentationJob{
         std::make_unique<CompiledPresentationJob::Implementation>(
-            std::move(request), simulation_request_identity_v2_sha256,
+            std::move(request), simulation_request_identity_v3_sha256,
             std::move(determinism), std::move(random_plan), std::move(calibration),
             std::move(compiled_assets), std::move(compiled_kernels),
             std::move(presentation_plan), std::move(manifest_basis),

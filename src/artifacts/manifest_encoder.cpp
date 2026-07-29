@@ -147,9 +147,9 @@ template <class Id>
 bool write_completed_manifest_content(CanonicalJsonWriter &writer,
                                       const contract::RenderManifestContent &content,
                                       ManifestInputsWriter write_inputs) {
-    if (content.schema_version != 5U) {
+    if (content.schema_version != 6U) {
         return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "manifest content schema version is not v5");
+                           "manifest content schema version is not v6");
     }
     if (write_inputs == nullptr) {
         return writer.fail(CanonicalJsonWriter::Error::invalid_state,

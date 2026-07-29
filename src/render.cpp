@@ -163,7 +163,7 @@ contract::ValidationReport validate(const contract::RenderResult &result,
                                     const RenderSpecification &specification,
                                     const contract::RenderScenario &scenario) {
     ValidationReport report;
-    contract::Sha256Digest simulation_request_identity_v2_sha256;
+    contract::Sha256Digest simulation_request_identity_v3_sha256;
     const bool requires_operating_evidence_identity = std::visit(
         [&](const auto &outcome) {
             using Outcome = std::decay_t<decltype(outcome)>;
@@ -179,24 +179,24 @@ contract::ValidationReport validate(const contract::RenderResult &result,
         result);
     if (requires_operating_evidence_identity) {
         const auto encoded_request_identity =
-            identity::encode_simulation_request_identity_v2(
+            identity::encode_simulation_request_identity_v3(
                 specification.engine, scenario, specification.provenance.bundle);
         if (const auto *encoding =
                 std::get_if<identity::SimulationRequestIdentityEncoding>(
                     &encoded_request_identity)) {
-            simulation_request_identity_v2_sha256 = encoding->sha256;
+            simulation_request_identity_v3_sha256 = encoding->sha256;
         } else {
             const auto &error = std::get<identity::SimulationRequestIdentityError>(
                 encoded_request_identity);
             report.add(ContractIssueCode::inconsistent_semantics,
-                       "simulation_request_identity_v2",
+                       "simulation_request_identity_v3",
                        "canonical simulation-request identity encoding failed: " +
                            error.detail_code + ": " + error.message);
         }
     }
     append_prefixed(
         report,
-        contract::validate(result, scenario, simulation_request_identity_v2_sha256,
+        contract::validate(result, scenario, simulation_request_identity_v3_sha256,
                            specification.provenance, specification.source_matrix),
         "contract");
 

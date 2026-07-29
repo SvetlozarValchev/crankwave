@@ -625,11 +625,13 @@ load-target-held-capture = {
 
 inertial-dyno = {
   "initial_engine_speed_rpm": resolved<f64-bits>,
+  "target_engine_speed_rpm": resolved<f64-bits>,
   "initial_theta_rad": resolved<f64-bits>,
   "equivalent_inertia_kg_m2": resolved<f64-bits>,
   "throttle_01": scalar-trajectory,
   "brake_curve": [* brake-torque-point],
   "brake_curve_resolution_id": tstr,
+  "brake_torque_method": resolved<method-identity>,
   "crank_dynamics_method": resolved<method-identity>
 }
 

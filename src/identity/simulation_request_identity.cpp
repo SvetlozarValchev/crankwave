@@ -68,7 +68,7 @@ exception_error(const std::exception *exception) {
 } // namespace
 
 SimulationRequestIdentityEncodingResult
-encode_simulation_request_identity_v2(const contract::EngineSpec &engine,
+encode_simulation_request_identity_v3(const contract::EngineSpec &engine,
                                       const contract::RenderScenario &scenario,
                                       const contract::ProvenanceBundleRef &provenance) {
     try {
@@ -76,7 +76,7 @@ encode_simulation_request_identity_v2(const contract::EngineSpec &engine,
         std::vector<std::byte> bytes;
         const bool encoded =
             writer.begin_object() && writer.key("wire_schema") &&
-            writer.string_value(kSimulationRequestIdentityWireSchemaV2) &&
+            writer.string_value(kSimulationRequestIdentityWireSchemaV3) &&
             writer.key("engine") && detail::write_engine_spec(writer, engine) &&
             writer.key("scenario") && detail::write_render_scenario(writer, scenario) &&
             writer.key("provenance") &&

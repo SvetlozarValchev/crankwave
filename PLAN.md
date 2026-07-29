@@ -561,7 +561,7 @@ replacement starts before acceptance.
             torque sweep under new exact identities.
         - [x] Freeze the incompatible fixed-horizon sampling contract, result,
               canonical BMW migration, evidence replacement, and removal policy.
-        - [ ] Implement the no-compatibility production cutover and focused checks.
+        - [x] Implement the no-compatibility production cutover and focused checks.
         - [ ] Execute from a clean commit and publish all nine points atomically.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.
 - [x] Add the inertial dyno.

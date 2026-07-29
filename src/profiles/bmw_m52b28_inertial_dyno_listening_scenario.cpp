@@ -14,16 +14,14 @@ namespace {
 constexpr double kInitialEngineSpeedRpm = 1500.0;
 constexpr double kTargetEngineSpeedRpm = 6500.0;
 constexpr double kThrottle01 = 0.85;
-constexpr double kMaximumPreparationDurationS = 6.44;
+constexpr double kFixedPreparationHorizonS = 6.44;
 constexpr double kAudibleDurationS = 15.0;
 constexpr double kTotalDurationS = 21.44;
 constexpr double kEquivalentInertiaKgM2 = 7.9;
 constexpr double kBrakeTorqueNm = 40.0;
 constexpr double kBrakeCurveMinimumRpm = 1000.0;
 constexpr double kBrakeCurveMaximumRpm = 7500.0;
-constexpr std::uint32_t kComparisonCycleCount = 16U;
-constexpr double kCycleMeanTorqueToleranceNm = 0.75;
-constexpr double kBoundaryPressureTolerancePa = 1500.0;
+constexpr std::uint32_t kTrailingCompleteCycleCount = 32U;
 constexpr double kRadiansPerSecondPerRpm = std::numbers::pi_v<double> / 30.0;
 
 } // namespace
@@ -39,7 +37,7 @@ build_bmw_m52b28_inertial_dyno_listening_scenario(BmwProvenanceBuilder &builder,
 
     contract::RenderScenario scenario;
     scenario.schema_version = 1U;
-    scenario.scenario_id = "bmw-m52b28-inertial-dyno-1500-6500rpm-listening-v1";
+    scenario.scenario_id = "bmw-m52b28-inertial-dyno-1500-6500rpm-listening-v2";
     scenario.engine_profile_id = std::string{builder.engine_profile_id()};
 
     scenario.ambient = {
@@ -86,25 +84,14 @@ build_bmw_m52b28_inertial_dyno_listening_scenario(BmwProvenanceBuilder &builder,
                          Source::legacy_asset),
     };
 
-    scenario.preparation = contract::ConvergenceSettling{
-        builder.resolved(
-            contract::adjacent_cycle_block_mean_convergence_method_identity(),
-            "scenario.preparation.method", Source::implemented_method),
-        builder.resolved(0.0, "scenario.preparation.minimum_warm_up_duration_s",
+    scenario.preparation = contract::FixedHorizonCycleSampling{
+        builder.resolved(contract::fixed_horizon_cycle_sampling_method_identity(),
+                         "scenario.preparation.method", Source::implemented_method),
+        builder.resolved(kFixedPreparationHorizonS,
+                         "scenario.preparation.fixed_preparation_horizon_s",
                          Source::profile_contract),
-        builder.resolved(0.0, "scenario.preparation.minimum_settling_duration_s",
-                         Source::profile_contract),
-        builder.resolved(kMaximumPreparationDurationS,
-                         "scenario.preparation.maximum_preparation_duration_s",
-                         Source::profile_contract),
-        builder.resolved(kComparisonCycleCount,
-                         "scenario.preparation.comparison_cycle_count",
-                         Source::profile_contract),
-        builder.resolved(kCycleMeanTorqueToleranceNm,
-                         "scenario.preparation.cycle_mean_torque_tolerance_nm",
-                         Source::profile_contract),
-        builder.resolved(kBoundaryPressureTolerancePa,
-                         "scenario.preparation.pressure_tolerance_pa",
+        builder.resolved(kTrailingCompleteCycleCount,
+                         "scenario.preparation.trailing_complete_cycle_count",
                          Source::profile_contract),
     };
     scenario.operating_state = builder.resolved(
@@ -120,7 +107,7 @@ build_bmw_m52b28_inertial_dyno_listening_scenario(BmwProvenanceBuilder &builder,
     scenario.total_duration_s = builder.resolved(
         kTotalDurationS, "scenario.total_duration_s", Source::profile_contract);
     scenario.audible_start_s =
-        builder.resolved(kMaximumPreparationDurationS, "scenario.audible_start_s",
+        builder.resolved(kFixedPreparationHorizonS, "scenario.audible_start_s",
                          Source::profile_contract);
     scenario.audible_duration_s = builder.resolved(
         kAudibleDurationS, "scenario.audible_duration_s", Source::profile_contract);

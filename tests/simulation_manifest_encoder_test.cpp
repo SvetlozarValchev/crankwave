@@ -25,13 +25,13 @@ using namespace engine_sim_offline::contract::test;
 using namespace engine_sim_offline::identity;
 
 constexpr std::string_view kExpectedM3ManifestSha256 =
-    "0e4cbb48c58ef148d8f8e8ca3b63b0729cd403775bb7151beba0f9bfa565a713";
+    "f222284373ed9908d4021447056f47e32052e629e2891265e4f04aef1afc1554";
 constexpr std::string_view kExpectedM3RequestIdentitySha256 =
-    "cf0c280b746d29fead0d7aaacfb8553dc77562089a49aa8e20313462b9556876";
+    "8f8f4034910d5660aa2c994ea75b739d0d8b9953eef3ceafe1aba96bf29db2ce";
 constexpr std::string_view kExpectedM4ManifestSha256 =
-    "cb0903a119256755260a49b301d6ad9a3ec6155d8096d41a7fbdb09675e8c868";
+    "7b96375f57ee1e5cadc908138854a7bf6e48617ac44da39eac32785e2870d4bc";
 constexpr std::string_view kExpectedM4RequestIdentitySha256 =
-    "729076281a3b1782a3a04e63e0f56f8b8f716798a4643e05478075dd8268d525";
+    "0a2836ce6a8a6ec4b24630366c6f8c821b4450a2dacba6b5db46b6ede2053fd6";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -66,7 +66,7 @@ void require_valid(const ValidationReport &report, std::string_view message) {
 
 [[nodiscard]] ExecutionFacts deterministic_execution() {
     return {
-        "simulation-manifest-encoder-test-v5",
+        "simulation-manifest-encoder-test-v6",
         "2026-07-28T12:34:56Z",
         std::chrono::nanoseconds{UINT64_C(1234567890)},
         "linux",
@@ -89,7 +89,7 @@ struct SimulationFixture {
 
 [[nodiscard]] std::vector<std::byte>
 require_manifest_encoding(const RenderManifest &manifest) {
-    auto result = encode_simulation_manifest_v5(manifest);
+    auto result = encode_simulation_manifest_v6(manifest);
     if (const auto *error = std::get_if<RenderSinkError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
     }
@@ -100,7 +100,7 @@ require_manifest_encoding(const RenderManifest &manifest) {
 require_request_identity_encoding(const EngineSpec &engine,
                                   const RenderScenario &scenario,
                                   const ProvenanceBundleRef &provenance) {
-    auto result = encode_simulation_request_identity_v2(engine, scenario, provenance);
+    auto result = encode_simulation_request_identity_v3(engine, scenario, provenance);
     if (const auto *error =
             std::get_if<SimulationRequestIdentityError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
@@ -110,7 +110,7 @@ require_request_identity_encoding(const EngineSpec &engine,
 
 void expect_manifest_error(const RenderManifest &manifest,
                            std::string_view detail_code) {
-    const auto result = encode_simulation_manifest_v5(manifest);
+    const auto result = encode_simulation_manifest_v6(manifest);
     const auto *error = std::get_if<RenderSinkError>(&result);
     expect(error != nullptr, "invalid simulation manifest unexpectedly encoded");
     expect(error->kind == RenderSinkErrorKind::protocol_violation,
@@ -124,7 +124,7 @@ void expect_request_identity_error(const EngineSpec &engine,
                                    const ProvenanceBundleRef &provenance,
                                    std::string_view detail_code) {
     const auto result =
-        encode_simulation_request_identity_v2(engine, scenario, provenance);
+        encode_simulation_request_identity_v3(engine, scenario, provenance);
     const auto *error =
         std::get_if<SimulationRequestIdentityError>(&result);
     expect(error != nullptr,
@@ -151,8 +151,8 @@ struct GoldenHashes {
 
     const auto manifest_document = as_string(first_manifest);
     constexpr std::string_view kManifestPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v5\","
-        "\"content\":{\"schema_version\":5,\"inputs\":{\"kind\":\"simulation_v4\","
+        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v6\","
+        "\"content\":{\"schema_version\":6,\"inputs\":{\"kind\":\"simulation_v5\","
         "\"value\":{\"resolved\":{\"engine\":";
     expect(manifest_document.starts_with(kManifestPrefix),
            "simulation manifest root, discriminator, or member order changed");
@@ -181,7 +181,7 @@ struct GoldenHashes {
                std::string::npos,
            "presentation-calibration v2 was not emitted");
     expect(manifest_document.find("\"algorithm_record\":") == std::string::npos,
-           "retired presentation algorithm record leaked into manifest v5");
+           "retired presentation algorithm record leaked into manifest v6");
 
     constexpr std::string_view kM3ProfilePrefix =
         "\"physics_profile\":{\"kind\":\"legacy_low_order_v1\",\"value\":{"
@@ -216,7 +216,7 @@ struct GoldenHashes {
     expect(manifest_document.find("\"physical_net_complete\":") == std::string::npos &&
                manifest_document.find("\"cycle_integration_available\":") ==
                    std::string::npos,
-           "retired v4 torque projection leaked into manifest v5");
+           "retired torque projection leaked into manifest v6");
 
     const auto &resolved = simulation_inputs(fixture.manifest.content);
     const auto first_identity = require_request_identity_encoding(
@@ -230,7 +230,7 @@ struct GoldenHashes {
 
     const auto identity_document = as_string(first_identity.bytes);
     constexpr std::string_view kIdentityPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v2\","
+        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v3\","
         "\"engine\":";
     expect(identity_document.starts_with(kIdentityPrefix),
            "request identity root or member order changed");
@@ -255,7 +255,7 @@ struct GoldenHashes {
 void test_fail_closed_boundaries() {
     SimulationFixture fixture;
 
-    for (const auto schema_version : {UINT32_C(4), UINT32_C(6)}) {
+    for (const auto schema_version : {UINT32_C(5), UINT32_C(7)}) {
         auto unsupported_schema = fixture.manifest;
         unsupported_schema.content.schema_version = schema_version;
         expect_manifest_error(unsupported_schema,
@@ -385,21 +385,13 @@ void configure_synthetic_m4_wire_fixture(SimulationFixture &fixture) {
 
     auto &scenario = resolved.scenario;
     scenario.engine_profile_id = engine.profile_id.value;
-    scenario.preparation = ConvergenceSettling{
-        fixture.builder.resolved(
-            method("adjacent-nonoverlapping-cycle-block-mean-v1", 63),
-            "scenario.preparation.method"),
-        fixture.builder.resolved(0.5,
-                                 "scenario.preparation.minimum_warm_up_duration_s"),
-        fixture.builder.resolved(0.5,
-                                 "scenario.preparation.minimum_settling_duration_s"),
+    scenario.preparation = FixedHorizonCycleSampling{
+        fixture.builder.resolved(fixed_horizon_cycle_sampling_method_identity(),
+                                 "scenario.preparation.method"),
         fixture.builder.resolved(2.0,
-                                 "scenario.preparation.maximum_preparation_duration_s"),
+                                 "scenario.preparation.fixed_preparation_horizon_s"),
         fixture.builder.resolved<std::uint32_t>(
-            4, "scenario.preparation.comparison_cycle_count"),
-        fixture.builder.resolved(0.1,
-                                 "scenario.preparation.cycle_mean_torque_tolerance_nm"),
-        fixture.builder.resolved(100.0, "scenario.preparation.pressure_tolerance_pa"),
+            32, "scenario.preparation.trailing_complete_cycle_count"),
     };
     scenario.mode = HeldSpeed{
         fixture.builder.resolved(3000.0, "scenario.mode.engine_speed_rpm"),
@@ -459,12 +451,21 @@ void configure_synthetic_m4_wire_fixture(SimulationFixture &fixture) {
                 starter) != std::string::npos,
         "one or more direct M4 profile members were omitted or flattened");
 
-    constexpr std::string_view kConvergencePrefix =
-        "\"preparation\":{\"kind\":\"convergence_settling\",\"value\":{"
+    constexpr std::string_view kSamplingPrefix =
+        "\"preparation\":{\"kind\":\"fixed_horizon_cycle_sampling\",\"value\":{"
         "\"method\":{\"value\":{\"id\":"
-        "\"adjacent-nonoverlapping-cycle-block-mean-v1\"";
-    expect(manifest_document.find(kConvergencePrefix) != std::string::npos,
-           "convergence settling did not encode its leading method identity");
+        "\"fixed-horizon-trailing-complete-cycle-sample-v1\"";
+    expect(manifest_document.find(kSamplingPrefix) != std::string::npos,
+           "fixed-horizon sampling did not encode its leading method identity");
+    const auto sampling = manifest_document.find(kSamplingPrefix);
+    const auto horizon =
+        manifest_document.find("\"fixed_preparation_horizon_s\":", sampling);
+    const auto cycle_count =
+        manifest_document.find("\"trailing_complete_cycle_count\":", sampling);
+    expect(sampling != std::string::npos && horizon != std::string::npos &&
+               cycle_count != std::string::npos && sampling < horizon &&
+               horizon < cycle_count,
+           "fixed-horizon preparation value members changed order");
 
     const auto &resolved = simulation_inputs(fixture.manifest.content);
     const auto first_identity = require_request_identity_encoding(
@@ -473,9 +474,8 @@ void configure_synthetic_m4_wire_fixture(SimulationFixture &fixture) {
         resolved.engine, resolved.scenario, fixture.manifest.content.provenance);
     expect(first_identity == second_identity,
            "identical M4 requests produced different identity encodings");
-    expect(as_string(first_identity.bytes).find(kConvergencePrefix) !=
-               std::string::npos,
-           "M4 request identity omitted the convergence method");
+    expect(as_string(first_identity.bytes).find(kSamplingPrefix) != std::string::npos,
+           "M4 request identity omitted the fixed-horizon sampling method");
 
     return {
         digest_hex(sha256(first_manifest)),

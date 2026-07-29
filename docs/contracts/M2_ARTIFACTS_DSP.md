@@ -108,7 +108,7 @@ opened relative to owned directory descriptors without following symlinks. Write
 must be contiguous from offset zero. Sealing verifies the declared byte count and
 incrementally calculated SHA-256. Commit requires the exact output-contract artifact
 set and exact manifest artifact records, encodes the completed manifest using the
-sole simulation-v5 encoder, writes it and its lowercase SHA-256 sidecar into staging,
+sole simulation-v6 encoder, writes it and its lowercase SHA-256 sidecar into staging,
 synchronizes the staged tree, and performs one atomic no-replace rename. An existing
 destination is never overwritten.
 

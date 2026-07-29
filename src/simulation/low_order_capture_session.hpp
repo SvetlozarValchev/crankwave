@@ -74,8 +74,6 @@ class LowOrderCaptureSession final {
     [[nodiscard]] bool completed() const noexcept;
     [[nodiscard]] std::uint64_t published_sample_count() const noexcept;
     [[nodiscard]] std::uint64_t published_block_count() const noexcept;
-    [[nodiscard]] const std::optional<AdjacentCycleBlockConvergenceError> &
-    held_speed_convergence_finalization_error() const noexcept;
 
   private:
     using ProfilePolicy =
@@ -126,6 +124,6 @@ using LowOrderCaptureCompileResult =
 // evidence; the M3 fixed-loss policy accepts but does not interpret it.
 [[nodiscard]] LowOrderCaptureCompileResult compile_low_order_capture_session(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
-    const contract::Sha256Digest &simulation_request_identity_v2_sha256);
+    const contract::Sha256Digest &simulation_request_identity_v3_sha256);
 
 } // namespace engine_sim_offline::simulation

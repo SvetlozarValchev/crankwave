@@ -24,17 +24,7 @@ enum class FailureKind : std::uint8_t {
     evidence_rights_failure,
     artifact_publication_failure,
     contract_violation,
-    preparation_not_converged,
 };
-
-inline constexpr std::string_view kPreparationNotConvergedDetailCode =
-    "preparation-not-converged";
-inline constexpr std::string_view kPreparationInsufficientCyclesDetailCode =
-    "preparation-insufficient-complete-cycles";
-inline constexpr std::string_view kCycleMeanTorqueResidualNmQuantityId =
-    "cycle-mean-torque-residual-nm";
-inline constexpr std::string_view kBoundaryPressureResidualPaQuantityId =
-    "boundary-pressure-residual-pa";
 
 struct FailureTolerance {
     std::string quantity_id;
@@ -197,10 +187,10 @@ struct CycleMeanTorqueBreakdown {
                            const CycleMeanTorqueBreakdown &) = default;
 };
 
-// Source evidence retained for every complete cycle in a convergence block. The
-// contract reduces work and each ascending end-boundary pressure lane in written
-// order, starting from canonical +0, so no independently supplied block total or
-// mean can forge a convergence claim.
+// Source evidence retained for every complete cycle in the fixed trailing sample.
+// The contract reduces work and each ascending end-boundary pressure lane in written
+// order, starting from canonical +0, so no independently supplied sample total or
+// mean can forge the result.
 struct HeldSpeedCompletedCycleEvidence {
     std::uint64_t completed_cycle_ordinal = 0;
     double indicated_gas_work_j = 0.0;
@@ -229,26 +219,16 @@ struct HeldSpeedCycleBlockEvidence {
                            const HeldSpeedCycleBlockEvidence &) = default;
 };
 
-struct HeldSpeedConvergenceEvidence {
+struct HeldSpeedFixedHorizonSampleEvidence {
     MethodIdentity method;
-    std::uint32_t comparison_cycle_count = 0;
-    double eligibility_threshold_time_s = 0.0;
-    double fixed_cutoff_time_s = 0.0;
-    HeldSpeedCycleBlockEvidence block_a;
-    HeldSpeedCycleBlockEvidence block_b;
-    // These identify the final complete cycle admitted by the fixed cutoff. They
-    // make the retained A/B pair auditable as the latest window rather than merely
-    // a window that happened to end before the cutoff.
-    std::uint64_t last_eligible_completed_cycle_ordinal_at_fixed_cutoff = 0;
-    OperatingPointBoundaryEvidence last_eligible_cycle_end_boundary_at_fixed_cutoff;
-    double torque_residual_nm = 0.0;
-    double torque_tolerance_nm = 0.0;
-    double pressure_residual_pa = 0.0;
-    double pressure_tolerance_pa = 0.0;
-    GasVolumeId limiting_pressure_volume_id;
+    std::uint32_t trailing_complete_cycle_count = 0;
+    double fixed_preparation_horizon_s = 0.0;
+    HeldSpeedCycleBlockEvidence trailing_complete_cycles;
+    std::uint64_t last_eligible_completed_cycle_ordinal_at_fixed_horizon = 0;
+    OperatingPointBoundaryEvidence last_eligible_cycle_end_boundary_at_fixed_horizon;
 
-    friend bool operator==(const HeldSpeedConvergenceEvidence &,
-                           const HeldSpeedConvergenceEvidence &) = default;
+    friend bool operator==(const HeldSpeedFixedHorizonSampleEvidence &,
+                           const HeldSpeedFixedHorizonSampleEvidence &) = default;
 };
 
 struct HeldSpeedOperatingPointAmbientConditions {
@@ -321,15 +301,15 @@ struct HeldSpeedOperatingPointConditions {
 };
 
 struct HeldSpeedOperatingPointResult {
-    Sha256Digest simulation_request_identity_v2_sha256;
+    Sha256Digest simulation_request_identity_v3_sha256;
     HeldSpeedOperatingPointConditions conditions;
     std::string applicability_label;
-    HeldSpeedConvergenceEvidence convergence;
+    HeldSpeedFixedHorizonSampleEvidence sampling;
 
-    // The newer convergence block is the one reportable operating point. Returning
-    // it by reference avoids a second mutable copy that can drift from the evidence.
+    // The one fixed trailing sample is the reportable operating point. Returning it
+    // by reference avoids a second mutable copy that can drift from the evidence.
     [[nodiscard]] const HeldSpeedCycleBlockEvidence &reported_block() const noexcept {
-        return convergence.block_b;
+        return sampling.trailing_complete_cycles;
     }
 
     friend bool operator==(const HeldSpeedOperatingPointResult &,
@@ -360,8 +340,8 @@ struct InertialDynoEnergyBalanceEvidence {
 // early-terminal instruction: audio continues through end_frame_index whether or not
 // the target was reached.
 struct InertialDynoResult {
-    Sha256Digest simulation_request_identity_v2_sha256;
-    // Start is physics frame zero; release is the exact preparation-cutoff frame.
+    Sha256Digest simulation_request_identity_v3_sha256;
+    // Start is physics frame zero; release is the exact preparation-horizon frame.
     // Extrema cover every represented physics-frame state from start through end.
     double start_engine_speed_rpm = 0.0;
     double target_engine_speed_rpm = 0.0;
@@ -428,17 +408,17 @@ validate(const HeldSpeedOperatingPointResult &operating_point);
 [[nodiscard]] ValidationReport
 validate(const HeldSpeedOperatingPointResult &operating_point,
          const RenderScenario &requested_scenario, const EngineSpec &engine,
-         const Sha256Digest &expected_simulation_request_identity_v2_sha256);
+         const Sha256Digest &expected_simulation_request_identity_v3_sha256);
 [[nodiscard]] ValidationReport validate(const InertialDynoResult &inertial_dyno);
 [[nodiscard]] ValidationReport
 validate(const InertialDynoResult &inertial_dyno,
          const RenderScenario &requested_scenario,
-         const Sha256Digest &expected_simulation_request_identity_v2_sha256);
+         const Sha256Digest &expected_simulation_request_identity_v3_sha256);
 [[nodiscard]] ValidationReport validate(const UnreachableTarget &unreachable);
 [[nodiscard]] ValidationReport validate(const RenderFailure &failure);
 [[nodiscard]] ValidationReport
 validate(const RenderResult &result, const RenderScenario &requested_scenario,
-         const Sha256Digest &expected_simulation_request_identity_v2_sha256,
+         const Sha256Digest &expected_simulation_request_identity_v3_sha256,
          const ProvenanceLedger &provenance, const SourceMatrixContract &source_matrix);
 
 } // namespace engine_sim_offline::contract

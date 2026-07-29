@@ -19,43 +19,43 @@ using namespace engine_sim_offline;
 constexpr std::array<std::string_view,
                      profiles::kBmwM52b28FullThrottleTorqueSweepPointCount>
     kExpectedScenarioIds{
-        "bmw-m52b28-held-1500rpm-full-throttle-torque-sweep-v1",
-        "bmw-m52b28-held-2500rpm-full-throttle-torque-sweep-v1",
-        "bmw-m52b28-held-3000rpm-full-throttle-torque-sweep-v1",
-        "bmw-m52b28-held-3500rpm-full-throttle-torque-sweep-v1",
-        "bmw-m52b28-held-3950rpm-full-throttle-torque-sweep-v1",
-        "bmw-m52b28-held-4500rpm-full-throttle-torque-sweep-v1",
-        "bmw-m52b28-held-5300rpm-full-throttle-torque-sweep-v1",
-        "bmw-m52b28-held-6000rpm-full-throttle-torque-sweep-v1",
-        "bmw-m52b28-held-6500rpm-full-throttle-torque-sweep-v1",
+        "bmw-m52b28-held-1500rpm-full-throttle-torque-sweep-v2",
+        "bmw-m52b28-held-2500rpm-full-throttle-torque-sweep-v2",
+        "bmw-m52b28-held-3000rpm-full-throttle-torque-sweep-v2",
+        "bmw-m52b28-held-3500rpm-full-throttle-torque-sweep-v2",
+        "bmw-m52b28-held-3950rpm-full-throttle-torque-sweep-v2",
+        "bmw-m52b28-held-4500rpm-full-throttle-torque-sweep-v2",
+        "bmw-m52b28-held-5300rpm-full-throttle-torque-sweep-v2",
+        "bmw-m52b28-held-6000rpm-full-throttle-torque-sweep-v2",
+        "bmw-m52b28-held-6500rpm-full-throttle-torque-sweep-v2",
     };
 
 constexpr std::array<std::string_view,
                      profiles::kBmwM52b28FullThrottleTorqueSweepPointCount>
     kExpectedRequestIdentitySha256{
-        "bfdf6b406049743ea09b591207d71c07638b63e603a2cd9d95a8b20951649bae",
-        "d86dd9f6b2465736f62c9d5d00ffb2106f872208fa29eef0e71080bf3cb35409",
-        "a5c5f1e2dedab56dd7229b70c41b36868ce9cdab896556cfcd9a6d86e318bb1e",
-        "b49a97a71f54710e61a85769be10c34296ee0d5fa0d8d2c94f6f2e6dc32e05ec",
-        "b29355d50d77ddee69e94696c3af389de5a47fffdc7c22d8f94f7d480a806d65",
-        "89583f2ecb8c66481b818c745c855ca798ff66f5ab1a33ba55a479500c4b4920",
-        "e772038c2a1b122caa03dcff668a1e9ea76b606f69611a0227f7a37cc4e100fb",
-        "c57680d6365fbb4a671a2e54bfa46b5c2b33405a863c25676b1e4b6c5f18c4ca",
-        "0f4cd3443423d315d60d46157ba044359bcb9138d3e4ec471643f0c2af3f30ec",
+        "894e7ebff30fa5768ed732b64a3e43b503fd7cc0459671db9287c8d8371161b3",
+        "6fe3fdd124d62c1f196b5625bf07cf50de01ad007175d1567db02619842dc721",
+        "930d5e380a1020ae89316e11e8d5a33ee7726f757adb039b3058849df94e186f",
+        "7bdbee11ecd4f2693ff1347e8039ef466b17a25f745e1a4f5c319b06cd2e06bd",
+        "02b819190aaf0bb2865961440c9d21b875ee909b093882ab1a549eaf65538421",
+        "5739b0cea05f7bbf5c8b3e6bcd45a806208f396f55cfcf3edcdc2dff3a75bf0e",
+        "2423a9ea597a2520ad6b92a92718d1d62e99930007293ad15e6815e856b7bb96",
+        "5fdcb9419a34c26344e74bcfd6c3d0ac0b61e9223f781dc66b6c55a2dc4b043b",
+        "b821ae2fa506119afe021c64125104393dd31e2c7818833c2594586dc85bd56c",
     };
 
 constexpr std::array<std::string_view,
                      profiles::kBmwM52b28FullThrottleTorqueSweepPointCount>
     kExpectedProvenanceSha256{
-        "05bdb20fa7b3039346b2eb8710739d62c865328dff6a43e83d62396049701d60",
-        "05bdb20fa7b3039346b2eb8710739d62c865328dff6a43e83d62396049701d60",
-        "05bdb20fa7b3039346b2eb8710739d62c865328dff6a43e83d62396049701d60",
-        "05bdb20fa7b3039346b2eb8710739d62c865328dff6a43e83d62396049701d60",
-        "05bdb20fa7b3039346b2eb8710739d62c865328dff6a43e83d62396049701d60",
-        "05bdb20fa7b3039346b2eb8710739d62c865328dff6a43e83d62396049701d60",
-        "05bdb20fa7b3039346b2eb8710739d62c865328dff6a43e83d62396049701d60",
-        "05bdb20fa7b3039346b2eb8710739d62c865328dff6a43e83d62396049701d60",
-        "05bdb20fa7b3039346b2eb8710739d62c865328dff6a43e83d62396049701d60",
+        "4064e3f048a0a9902229185fa8f46059fa68346ab384b13bb04279e63dc8665d",
+        "4064e3f048a0a9902229185fa8f46059fa68346ab384b13bb04279e63dc8665d",
+        "4064e3f048a0a9902229185fa8f46059fa68346ab384b13bb04279e63dc8665d",
+        "4064e3f048a0a9902229185fa8f46059fa68346ab384b13bb04279e63dc8665d",
+        "4064e3f048a0a9902229185fa8f46059fa68346ab384b13bb04279e63dc8665d",
+        "4064e3f048a0a9902229185fa8f46059fa68346ab384b13bb04279e63dc8665d",
+        "4064e3f048a0a9902229185fa8f46059fa68346ab384b13bb04279e63dc8665d",
+        "4064e3f048a0a9902229185fa8f46059fa68346ab384b13bb04279e63dc8665d",
+        "4064e3f048a0a9902229185fa8f46059fa68346ab384b13bb04279e63dc8665d",
     };
 
 void expect(bool condition, std::string_view message) {
@@ -96,7 +96,7 @@ template <class T> [[nodiscard]] bool exact(T lhs, T rhs) {
 
 [[nodiscard]] identity::SimulationRequestIdentityEncoding
 request_identity(const profiles::BmwM52b28FullThrottleTorqueSweepRequest &request) {
-    auto result = identity::encode_simulation_request_identity_v2(
+    auto result = identity::encode_simulation_request_identity_v3(
         request.engine, request.scenario, request.provenance.bundle);
     const auto *encoding =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&result);
@@ -114,6 +114,8 @@ void test_exact_frozen_set(
     std::array<contract::Sha256Digest,
                profiles::kBmwM52b28FullThrottleTorqueSweepPointCount>
         identities{};
+    bool request_identity_mismatch = false;
+    bool provenance_identity_mismatch = false;
     for (std::size_t index = 0; index < requests.size(); ++index) {
         const auto &request = requests[index];
         expect(profiles::validate_bmw_m52b28_full_throttle_torque_sweep_request(request)
@@ -127,19 +129,19 @@ void test_exact_frozen_set(
                "canonical torque-sweep engine or scenario identity changed");
 
         const auto *held = std::get_if<contract::HeldSpeed>(&request.scenario.mode);
-        const auto *preparation =
-            std::get_if<contract::ConvergenceSettling>(&request.scenario.preparation);
+        const auto *preparation = std::get_if<contract::FixedHorizonCycleSampling>(
+            &request.scenario.preparation);
         expect(held != nullptr && preparation != nullptr,
-               "canonical torque-sweep point lost held-speed convergence mode");
+               "canonical torque-sweep point lost fixed-horizon sampling");
         expect(
             exact(held->engine_speed_rpm.value,
                   profiles::kBmwM52b28FullThrottleTorqueSweepEngineSpeedsRpm[index]) &&
                 exact(held->throttle_01.value, 1.0) &&
-                preparation->comparison_cycle_count.value == 16U &&
-                exact(preparation->maximum_preparation_duration_s.value, 6.44) &&
-                exact(preparation->cycle_mean_torque_tolerance_nm.value, 0.75) &&
-                exact(preparation->pressure_tolerance_pa.value, 1500.0),
-            "canonical torque-sweep operating point or convergence policy "
+                preparation->trailing_complete_cycle_count.value == 32U &&
+                exact(preparation->fixed_preparation_horizon_s.value, 6.44) &&
+                preparation->method.value ==
+                    contract::fixed_horizon_cycle_sampling_method_identity(),
+            "canonical torque-sweep operating point or fixed-horizon policy "
             "changed");
 
         expect(request.scenario.operating_state.value ==
@@ -200,22 +202,22 @@ void test_exact_frozen_set(
         if (request_sha256 != kExpectedRequestIdentitySha256[index]) {
             std::cerr << "BMW torque-sweep request " << index
                       << " SHA-256: " << request_sha256 << '\n';
+            request_identity_mismatch = true;
         }
-        expect(request_sha256 == kExpectedRequestIdentitySha256[index],
-               "canonical torque-sweep request identity changed");
 
         const auto provenance_sha256 = digest_hex(request.provenance.bundle.sha256);
         if (provenance_sha256 != kExpectedProvenanceSha256[index]) {
             std::cerr << "BMW torque-sweep provenance " << index
                       << " SHA-256: " << provenance_sha256 << '\n';
+            provenance_identity_mismatch = true;
         }
-        expect(provenance_sha256 == kExpectedProvenanceSha256[index],
-               "canonical torque-sweep provenance identity changed");
         for (std::size_t earlier = 0; earlier < index; ++earlier) {
             expect(identities[index] != identities[earlier],
                    "two canonical torque-sweep points share a request identity");
         }
     }
+    expect(!request_identity_mismatch && !provenance_identity_mismatch,
+           "canonical torque-sweep request or provenance identities changed");
 }
 
 void test_mutation_and_order_rejection(
@@ -240,6 +242,14 @@ void test_mutation_and_order_rejection(
         !profiles::validate_bmw_m52b28_full_throttle_torque_sweep_request_set(duplicate)
              .ok(),
         "duplicate torque-sweep point passed exact set validation");
+
+    changed_point = requests[0];
+    std::get<contract::FixedHorizonCycleSampling>(changed_point.scenario.preparation)
+        .trailing_complete_cycle_count.value = 31U;
+    expect(
+        !profiles::validate_bmw_m52b28_full_throttle_torque_sweep_request(changed_point)
+             .ok(),
+        "mutated torque-sweep fixed sample size passed exact point validation");
 }
 
 void run_tests() {

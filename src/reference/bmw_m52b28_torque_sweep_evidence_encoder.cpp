@@ -81,13 +81,14 @@ using identity::detail::CanonicalJsonWriter;
            key_u64(writer, "physics_rate_numerator", value.physics_rate_numerator) &&
            key_u64(writer, "physics_rate_denominator",
                    value.physics_rate_denominator) &&
-           key_string(writer, "convergence_method_id", value.convergence_method_id) &&
-           key_u64(writer, "convergence_method_version",
-                   value.convergence_method_version) &&
-           key_sha256(writer, "convergence_method_configuration_sha256",
-                      value.convergence_method_configuration_sha256) &&
-           key_u64(writer, "comparison_cycle_count", value.comparison_cycle_count) &&
-           key_u64(writer, "cutoff_frame", value.cutoff_frame) &&
+           key_string(writer, "sampling_method_id", value.sampling_method_id) &&
+           key_u64(writer, "sampling_method_version", value.sampling_method_version) &&
+           key_sha256(writer, "sampling_method_configuration_sha256",
+                      value.sampling_method_configuration_sha256) &&
+           key_u64(writer, "trailing_complete_cycle_count",
+                   value.trailing_complete_cycle_count) &&
+           key_u64(writer, "fixed_preparation_horizon_frame",
+                   value.fixed_preparation_horizon_frame) &&
            key_u64(writer, "tail_frame_count", value.tail_frame_count) &&
            writer.end_object();
 }
@@ -96,8 +97,8 @@ using identity::detail::CanonicalJsonWriter;
                                const BmwM52b28TorqueSweepPointEvidence &value) {
     return writer.begin_object() &&
            key_string(writer, "scenario_id", value.scenario_id) &&
-           key_sha256(writer, "simulation_request_v2_sha256",
-                      value.simulation_request_identity_v2_sha256) &&
+           key_sha256(writer, "simulation_request_v3_sha256",
+                      value.simulation_request_v3_sha256) &&
            key_sha256(writer, "provenance_bundle_sha256",
                       value.provenance_bundle_sha256) &&
            key_f64(writer, "engine_speed_rpm", value.engine_speed_rpm) &&
@@ -111,14 +112,8 @@ using identity::detail::CanonicalJsonWriter;
                    value.net_shaft_cycle_mean_torque_nm) &&
            key_f64(writer, "net_bmep_pa", value.net_bmep_pa) &&
            key_f64(writer, "mean_power_w", value.mean_power_w) &&
-           key_f64(writer, "torque_residual_nm", value.torque_residual_nm) &&
-           key_f64(writer, "torque_tolerance_nm", value.torque_tolerance_nm) &&
-           key_f64(writer, "pressure_residual_pa", value.pressure_residual_pa) &&
-           key_f64(writer, "pressure_tolerance_pa", value.pressure_tolerance_pa) &&
-           key_u64(writer, "block_a_first_cycle", value.block_a_first_cycle) &&
-           key_u64(writer, "block_a_last_cycle", value.block_a_last_cycle) &&
-           key_u64(writer, "block_b_first_cycle", value.block_b_first_cycle) &&
-           key_u64(writer, "block_b_last_cycle", value.block_b_last_cycle) &&
+           key_u64(writer, "sample_first_cycle", value.sample_first_cycle) &&
+           key_u64(writer, "sample_last_cycle", value.sample_last_cycle) &&
            key_string(writer, "applicability_label", value.applicability_label) &&
            key_u64(writer, "elapsed_ns", value.elapsed_ns) && writer.end_object();
 }
@@ -180,7 +175,7 @@ using identity::detail::CanonicalJsonWriter;
                                   const BmwM52b28TorqueSweepEvidence &evidence) {
     return writer.begin_object() &&
            key_string(writer, "wire_schema", kBmwM52b28TorqueSweepEvidenceWireSchema) &&
-           writer.key("schema_version") && writer.uint32_value(1U) &&
+           writer.key("schema_version") && writer.uint32_value(2U) &&
            key_string(writer, "source_commit", evidence.source.full_git_head) &&
            key_sha256(writer, "model_record_sha256", evidence.model_record_sha256) &&
            key_string(writer, "engine_profile_id", evidence.engine_profile_id) &&

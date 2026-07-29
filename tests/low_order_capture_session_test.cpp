@@ -175,9 +175,7 @@ struct OperatingCaptureRequest {
     Sha256Digest request_identity;
 };
 
-[[nodiscard]] OperatingCaptureRequest
-make_operating_capture_request(double torque_tolerance_nm = 1.0e9,
-                               double pressure_tolerance_pa = 1.0e12) {
+[[nodiscard]] OperatingCaptureRequest make_operating_capture_request() {
     auto profile_result = make_bmw_m52b28_operating_profile();
     const auto *canonical = std::get_if<BmwM52b28OperatingProfile>(&profile_result);
     if (canonical == nullptr) {
@@ -200,20 +198,15 @@ make_operating_capture_request(double torque_tolerance_nm = 1.0e9,
             profile.core.fuel.molecular_mass_kg_per_mol.value);
     scenario.initial_thermal_state.oil_temperature_k.value =
         profile.aggregate_loss.required_oil_temperature_k.value;
-    scenario.preparation = ConvergenceSettling{
+    scenario.preparation = FixedHorizonCycleSampling{
         builder.resolved(engine_sim_offline::contract::
-                             adjacent_cycle_block_mean_convergence_method_identity(),
+                             fixed_horizon_cycle_sampling_method_identity(),
                          "scenario.preparation.method"),
-        builder.resolved(0.0, "scenario.preparation.minimum_warm_up_duration_s"),
-        builder.resolved(0.0, "scenario.preparation.minimum_settling_duration_s"),
         builder.resolved(kOperatingCutoffTimeS,
-                         "scenario.preparation.maximum_preparation_duration_s"),
-        builder.resolved<std::uint32_t>(kOperatingCyclesPerBlock,
-                                        "scenario.preparation.comparison_cycle_count"),
-        builder.resolved(torque_tolerance_nm,
-                         "scenario.preparation.cycle_mean_torque_tolerance_nm"),
-        builder.resolved(pressure_tolerance_pa,
-                         "scenario.preparation.pressure_tolerance_pa"),
+                         "scenario.preparation.fixed_preparation_horizon_s"),
+        builder.resolved<std::uint32_t>(
+            kOperatingCyclesPerBlock,
+            "scenario.preparation.trailing_complete_cycle_count"),
     };
     scenario.operating_state.value = {
         {
@@ -741,13 +734,6 @@ void test_short_bmw_capture_mapping_and_completion() {
     const BmwM52b28ParityRequest request = make_short_bmw_request();
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario, nonzero_request_identity()));
-    const auto *const absent_held_finalization_error =
-        &capture.held_speed_convergence_finalization_error();
-    expect(!absent_held_finalization_error->has_value() &&
-               &capture.held_speed_convergence_finalization_error() ==
-                   absent_held_finalization_error,
-           "non-held capture did not expose one stable empty convergence-error "
-           "view");
     auto schedule_result = compile_kinematic_scenario_schedule(request.scenario);
     if (const auto *report = std::get_if<ValidationReport>(&schedule_result)) {
         fail_report("short BMW schedule failed admission", *report);
@@ -881,10 +867,6 @@ void test_short_bmw_capture_mapping_and_completion() {
                activity.combustion_heat && activity.event,
            "short capture did not exercise bidirectional flow, pressure, combustion, "
            "and events");
-    expect(&capture.held_speed_convergence_finalization_error() ==
-                   absent_held_finalization_error &&
-               !absent_held_finalization_error->has_value(),
-           "non-held completion changed its stable empty convergence-error view");
 }
 
 void test_operating_capture_publishes_request_bound_completion_evidence() {
@@ -939,7 +921,7 @@ void test_operating_capture_rejects_zero_request_identity() {
                std::ranges::any_of(report->issues,
                                    [](const ContractIssue &issue) {
                                        return issue.path ==
-                                              "simulation_request_identity_v2_sha256";
+                                              "simulation_request_identity_v3_sha256";
                                    }),
            "operating capture admitted a zero simulation-request identity");
 }
@@ -996,88 +978,6 @@ void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence() {
     if (!report.ok()) {
         fail_report("inertial completion evidence failed request validation", report);
     }
-}
-
-void test_operating_nonconvergence_does_not_publish_cutoff_block() {
-    const auto request =
-        make_operating_capture_request(std::numeric_limits<double>::denorm_min(),
-                                       std::numeric_limits<double>::denorm_min());
-    auto capture = require_simulation(compile_low_order_capture_session(
-        request.engine, request.scenario, request.request_identity));
-    const auto *const held_finalization_error =
-        &capture.held_speed_convergence_finalization_error();
-    expect(!held_finalization_error->has_value() &&
-               &capture.held_speed_convergence_finalization_error() ==
-                   held_finalization_error,
-           "held capture exposed a convergence error before cutoff finalization");
-
-    std::uint64_t callback_count = 0U;
-    FailureContext cutoff_failure;
-    while (cutoff_failure.detail_code.empty()) {
-        auto result = capture.publish_next_block([&](const CaptureBlockView &) {
-            ++callback_count;
-            return true;
-        });
-        if (const auto *failure = std::get_if<FailureContext>(&result)) {
-            cutoff_failure = *failure;
-            break;
-        }
-        expect(std::holds_alternative<LowOrderCaptureBlockPublished>(result),
-               "nonconverged operating capture completed instead of failing");
-    }
-
-    const auto cutoff_frame =
-        resolve_frame_index(kOperatingCutoffTimeS, request.scenario.rates.physics);
-    const FailureContext prior_public_failure = cutoff_failure;
-    const auto &finalization_error =
-        capture.held_speed_convergence_finalization_error();
-    expect(&finalization_error == held_finalization_error &&
-               finalization_error.has_value() &&
-               finalization_error->code ==
-                   AdjacentCycleBlockConvergenceErrorCode::nonconverged &&
-               finalization_error->evidence.has_value(),
-           "held capture did not retain its complete terminal nonconvergence "
-           "evidence");
-    const auto &evidence = *finalization_error->evidence;
-    expect(!evidence.settled && evidence.cycles_per_block == kOperatingCyclesPerBlock &&
-               evidence.block_a.completed_cycles.size() == kOperatingCyclesPerBlock &&
-               evidence.block_b.completed_cycles.size() == kOperatingCyclesPerBlock &&
-               !evidence.pressure_means.empty() &&
-               cutoff_failure.tolerances.size() == 2U &&
-               evidence.torque_residual_nm ==
-                   cutoff_failure.tolerances[0].attempted_value &&
-               evidence.cycle_mean_torque_tolerance_nm ==
-                   cutoff_failure.tolerances[0].tolerance &&
-               evidence.pressure_residual_pa ==
-                   cutoff_failure.tolerances[1].attempted_value &&
-               evidence.pressure_tolerance_pa ==
-                   cutoff_failure.tolerances[1].tolerance &&
-               cutoff_failure.gas_volume_id ==
-                   std::optional{evidence.limiting_gas_volume_id},
-           "retained convergence error omitted the evaluated block/residual "
-           "evidence behind the public failure");
-    const auto prior_finalization_error = finalization_error;
-    expect(cutoff_frame == 2200U &&
-               cutoff_failure.kind == FailureKind::preparation_not_converged &&
-               cutoff_failure.detail_code == kPreparationNotConvergedDetailCode &&
-               cutoff_failure.step_end_index == *cutoff_frame &&
-               callback_count == 10U && capture.published_block_count() == 10U &&
-               capture.published_sample_count() == 2000U && capture.faulted() &&
-               !capture.completed(),
-           "nonconvergence published the 200-frame block containing the fixed "
-           "preparation cutoff");
-
-    auto repeated =
-        capture.publish_next_block([](const CaptureBlockView &) { return true; });
-    const auto *repeated_failure = std::get_if<FailureContext>(&repeated);
-    expect(repeated_failure != nullptr && *repeated_failure == prior_public_failure &&
-               cutoff_failure == prior_public_failure &&
-               &capture.held_speed_convergence_finalization_error() ==
-                   held_finalization_error &&
-               capture.held_speed_convergence_finalization_error() ==
-                   prior_finalization_error,
-           "reading detailed convergence evidence changed the exact prior public "
-           "failure or its stable terminal state");
 }
 
 void test_consumer_rejection_is_a_stable_terminal_fault() {
@@ -1274,7 +1174,6 @@ void run_tests() {
     test_operating_capture_publishes_request_bound_completion_evidence();
     test_operating_capture_rejects_zero_request_identity();
     test_inertial_capture_publishes_dynamic_motion_and_energy_evidence();
-    test_operating_nonconvergence_does_not_publish_cutoff_block();
     test_declared_capture_capacity_drives_publication();
     test_consumer_rejection_is_a_stable_terminal_fault();
     test_consumer_exception_is_a_stable_terminal_fault();

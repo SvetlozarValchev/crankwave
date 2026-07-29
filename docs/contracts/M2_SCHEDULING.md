@@ -32,8 +32,8 @@ The clock-grid validator requires:
 - preparation, operating-state, and authored trajectory boundaries on the physics
   grid;
 - fixed warm-up plus settling to end exactly at the physics audible-start frame;
-- convergence minimum warm-up plus settling not to exceed its maximum, and that
-  maximum not to exceed the physics audible-start frame.
+- the fixed-horizon complete-cycle sampling endpoint to resolve exactly on the
+  physics grid and equal the physics audible-start frame.
 
 Manifest media validation and capture horizon validation use the same resolver, so
 they cannot silently round the same scenario differently.

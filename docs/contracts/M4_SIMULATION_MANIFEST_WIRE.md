@@ -1,7 +1,7 @@
 # M4 simulation-manifest wire contract
 
-Status: frozen canonical v6 encoding; implementation pending for the direct M3 and
-operating simulation profiles and resolved simulation-request identity
+Status: implemented as the sole current canonical v6 manifest and v3 request-identity
+encoding; execution and listening gates remain separate
 
 Manifest wire schema ID:
 `engine-sim-offline.render-manifest.simulation.v6`
@@ -13,7 +13,7 @@ Machine schema:
 [`schemas/render_manifest_simulation_v6.cddl`](../../schemas/render_manifest_simulation_v6.cddl)
 
 Schema SHA-256:
-`876458471659734330f674d24b6c4787be28622177dee8288131892445fb5aaf`
+`4953793e48557dccc11ba3803897667c8a229dd7b2c966a5b49481c07b07a987`
 
 ## 1. Scope and admission
 
@@ -180,19 +180,19 @@ net-torque-form-capability = {
 ```
 
 This directly represents M3's incomplete instantaneous-only claim and the operating
-profile's unavailable instantaneous but complete cycle-mean claim. There is no v4
-projection or equality restriction between temporal forms.
+profile's complete causal mean-value instantaneous, complete cycle-mean, and
+equivalent-inertia claims. There is no superseded projection or equality restriction
+between temporal forms.
 
 Variant membership, profile root mapping, authored/resolved validators, method
 admission, randomness access, v6 encoding, request-v3 encoding, schema replacement,
 and deletion of v5/v2 APIs and paths land in one commit. Writers use exhaustive
 profile overloads with no generic fallback, so another alternative fails compilation
-until explicitly represented. The presentation compiler rejects the operating
-alternative until its capture producer exists.
+until explicitly represented. The presentation compiler admits both current profile
+alternatives through their exact capture producers and has no projection or fallback.
 
 The v6 CDDL SHA-256 is pinned above. The canonical BMW M3 request-v3 digest is pinned
-in section 6 when the frozen encoder is implemented and in its independent factory
-test. Implementation-owned method
+in section 6 and in its independent factory test. Implementation-owned method
 configuration hashes remain governed by the operating-point model: each is pinned
 from its reviewed descriptor when that implementation is admitted. The old CDDL, v5
 manifest path, v5 encoder, request-v2 encoder, constants, overloads, and forwarding
@@ -516,10 +516,14 @@ invent a second manifest path, artifact role, or sidecar convention for it.
 The complete sealed BMW M52B28 M3 request—including its engine, scenario, compact RPM
 descriptor, and provenance bundle—receives a new request-v3 digest even though its
 typed `FixedSettling` value is unchanged, because the root wire-schema domain changes.
-The exact digest is generated mechanically by the first conforming encoder and must be
-pinned here and in the same factory-test commit before that encoder is accepted. It is
-not embedded in the request or provenance, which would create a self-referential
-identity.
+The mechanically generated canonical digest is:
+
+```text
+d9ef5e18b311adb3aadb7b3cfd77610c5b72591dc2f9f8351d630c8e8a515a71
+```
+
+The independent BMW parity-request factory test pins the same digest. It is not
+embedded in the request or provenance, which would create a self-referential identity.
 
 Successful encoding proves only:
 

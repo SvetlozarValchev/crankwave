@@ -788,24 +788,24 @@ add_test(
 )
 
 add_executable(
-    engine_sim_offline_adjacent_cycle_block_convergence_tests
-    adjacent_cycle_block_convergence_test.cpp
+    engine_sim_offline_fixed_horizon_cycle_sampling_tests
+    fixed_horizon_cycle_sampling_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_adjacent_cycle_block_convergence_tests
+    engine_sim_offline_fixed_horizon_cycle_sampling_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_adjacent_cycle_block_convergence_tests
+    engine_sim_offline_fixed_horizon_cycle_sampling_tests
     PRIVATE engine_sim_offline::simulation
 )
 
 add_test(
-    NAME simulation.adjacent_cycle_block_convergence
-    COMMAND engine_sim_offline_adjacent_cycle_block_convergence_tests
+    NAME simulation.fixed_horizon_cycle_sampling
+    COMMAND engine_sim_offline_fixed_horizon_cycle_sampling_tests
 )
 
 add_executable(

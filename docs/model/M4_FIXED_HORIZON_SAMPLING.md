@@ -1,6 +1,7 @@
 # M4 fixed-horizon complete-cycle sampling
 
-Status: frozen before implementation
+Status: implemented as the sole current M4 preparation and sampling policy; clean-run
+torque and listening evidence remain to be published
 Applies to: M4 held-speed and inertial-dyno preparation and operating evidence
 Supersedes: adjacent non-overlapping block pass/fail convergence in production
 

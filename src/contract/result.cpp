@@ -26,7 +26,6 @@ bool known(FailureKind value) noexcept {
     case FailureKind::evidence_rights_failure:
     case FailureKind::artifact_publication_failure:
     case FailureKind::contract_violation:
-    case FailureKind::preparation_not_converged:
         return true;
     }
     return false;
@@ -254,55 +253,6 @@ ValidationReport validate(const FailureContext &context) {
                 ContractIssueCode::invalid_value, path,
                 "attempted value and tolerance must be finite");
     }
-    if (context.kind == FailureKind::preparation_not_converged) {
-        const bool insufficient_cycles =
-            context.detail_code == kPreparationInsufficientCyclesDetailCode;
-        const bool residual_nonconvergence =
-            context.detail_code == kPreparationNotConvergedDetailCode;
-        require(report, insufficient_cycles || residual_nonconvergence,
-                ContractIssueCode::inconsistent_semantics, "detail_code",
-                "preparation failure must distinguish insufficient complete cycles "
-                "from an evaluated nonconverged residual window");
-        if (insufficient_cycles) {
-            require(report, context.tolerances.empty(),
-                    ContractIssueCode::inconsistent_shape, "tolerances",
-                    "insufficient-cycle preparation failure cannot publish "
-                    "unevaluated residual records");
-        }
-        if (residual_nonconvergence) {
-            require(report, context.tolerances.size() == 2U,
-                    ContractIssueCode::inconsistent_shape, "tolerances",
-                    "evaluated nonconvergence requires exactly torque then "
-                    "boundary-pressure residual records");
-            if (context.tolerances.size() >= 2U) {
-                const auto &torque = context.tolerances[0];
-                const auto &pressure = context.tolerances[1];
-                require(report,
-                        torque.quantity_id == kCycleMeanTorqueResidualNmQuantityId &&
-                            pressure.quantity_id ==
-                                kBoundaryPressureResidualPaQuantityId,
-                        ContractIssueCode::inconsistent_semantics, "tolerances",
-                        "nonconvergence residual records must use the canonical torque "
-                        "then boundary-pressure identities");
-                const bool valid_residuals =
-                    finite_nonnegative(torque.attempted_value) &&
-                    detail::finite_positive(torque.tolerance) &&
-                    finite_nonnegative(pressure.attempted_value) &&
-                    detail::finite_positive(pressure.tolerance);
-                require(report, valid_residuals, ContractIssueCode::invalid_value,
-                        "tolerances",
-                        "nonconvergence residuals must be finite and nonnegative "
-                        "with finite positive tolerances");
-                require(report,
-                        valid_residuals &&
-                            (torque.attempted_value > torque.tolerance ||
-                             pressure.attempted_value > pressure.tolerance),
-                        ContractIssueCode::inconsistent_semantics, "tolerances",
-                        "evaluated preparation failure requires at least one "
-                        "residual above its inclusive convergence tolerance");
-            }
-        }
-    }
     return report;
 }
 
@@ -351,8 +301,8 @@ ValidationReport validate(const InertialDynoResult &inertial_dyno) {
     using detail::require;
 
     ValidationReport report;
-    require(report, !inertial_dyno.simulation_request_identity_v2_sha256.is_zero(),
-            ContractIssueCode::invalid_value, "simulation_request_identity_v2_sha256",
+    require(report, !inertial_dyno.simulation_request_identity_v3_sha256.is_zero(),
+            ContractIssueCode::invalid_value, "simulation_request_identity_v3_sha256",
             "inertial-dyno result requires a nonzero canonical simulation-request "
             "identity");
     require(report,
@@ -458,17 +408,17 @@ ValidationReport validate(const InertialDynoResult &inertial_dyno) {
 ValidationReport
 validate(const InertialDynoResult &inertial_dyno,
          const RenderScenario &requested_scenario,
-         const Sha256Digest &expected_simulation_request_identity_v2_sha256) {
+         const Sha256Digest &expected_simulation_request_identity_v3_sha256) {
     using detail::require;
 
     auto report = validate(inertial_dyno);
     require(report,
-            !expected_simulation_request_identity_v2_sha256.is_zero() &&
-                inertial_dyno.simulation_request_identity_v2_sha256 ==
-                    expected_simulation_request_identity_v2_sha256,
+            !expected_simulation_request_identity_v3_sha256.is_zero() &&
+                inertial_dyno.simulation_request_identity_v3_sha256 ==
+                    expected_simulation_request_identity_v3_sha256,
             ContractIssueCode::inconsistent_semantics,
-            "simulation_request_identity_v2_sha256",
-            "inertial-dyno result must retain the caller-supplied canonical v2 "
+            "simulation_request_identity_v3_sha256",
+            "inertial-dyno result must retain the caller-supplied canonical v3 "
             "simulation-request identity");
 
     const auto *requested_mode = std::get_if<InertialDyno>(&requested_scenario.mode);
@@ -645,7 +595,7 @@ ValidationReport validate(const RenderFailure &failure) {
 
 ValidationReport
 validate(const RenderResult &result, const RenderScenario &requested_scenario,
-         const Sha256Digest &expected_simulation_request_identity_v2_sha256,
+         const Sha256Digest &expected_simulation_request_identity_v3_sha256,
          const ProvenanceLedger &provenance,
          const SourceMatrixContract &source_matrix) {
     using detail::append_prefixed;
@@ -711,7 +661,7 @@ validate(const RenderResult &result, const RenderScenario &requested_scenario,
                         report,
                         validate(*outcome.held_speed_operating_point,
                                  requested_scenario, simulation_inputs.resolved.engine,
-                                 expected_simulation_request_identity_v2_sha256),
+                                 expected_simulation_request_identity_v3_sha256),
                         "success.held_speed_operating_point");
                 }
                 const auto is_inertial_dyno =
@@ -725,7 +675,7 @@ validate(const RenderResult &result, const RenderScenario &requested_scenario,
                     append_prefixed(
                         report,
                         validate(*outcome.inertial_dyno, requested_scenario,
-                                 expected_simulation_request_identity_v2_sha256),
+                                 expected_simulation_request_identity_v3_sha256),
                         "success.inertial_dyno");
                 }
             } else if constexpr (std::is_same_v<T, UnreachableTarget>) {

@@ -8,7 +8,7 @@ namespace engine_sim_offline::profiles {
 
 // The canonical BMW M52B28 engine/profile pair for positive-speed warm operating
 // points. A held-speed scenario is intentionally not part of this checkpoint: its
-// convergence policy becomes canonical only with the executable held-point producer.
+// sampling policy becomes canonical only with the executable held-point producer.
 struct BmwM52b28OperatingProfile {
     contract::EngineSpec engine;
     contract::ProvenanceLedger provenance;

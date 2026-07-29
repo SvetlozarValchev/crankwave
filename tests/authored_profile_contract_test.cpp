@@ -452,9 +452,9 @@ EngineSpec make_resolved_operating_engine(InputBuilder &builder) {
         method("chen-flynn-cycle-mean-aggregate-loss-v1", 81);
     engine.torque_capability.value = {
         {
-            Availability::unavailable,
-            Completeness::incomplete,
-            0,
+            Availability::available,
+            Completeness::complete,
+            known_torque_term_mask(),
             0,
         },
         {
@@ -463,7 +463,7 @@ EngineSpec make_resolved_operating_engine(InputBuilder &builder) {
             known_torque_term_mask(),
             0,
         },
-        false,
+        true,
     };
     return engine;
 }
@@ -687,12 +687,12 @@ void run_authored_profile_contract_tests() {
     auto wrong_resolved_capability = resolved_operating_engine;
     wrong_resolved_capability.torque_capability.value.instantaneous_net_shaft = {
         Availability::available,
-        Completeness::complete,
-        known_torque_term_mask(),
-        0,
+        Completeness::incomplete,
+        indicated_gas_torque_term_mask(),
+        known_torque_term_mask() & ~indicated_gas_torque_term_mask(),
     };
     expect(!validate(wrong_resolved_capability, resolved_builder.provenance).ok(),
-           "operating profile accepted an instantaneous complete-net claim");
+           "operating profile accepted incomplete instantaneous net torque");
 
     auto wrong_resolved_total = resolved_operating_engine;
     wrong_resolved_total.total_displacement_m3.value =

@@ -37,7 +37,7 @@ void require(ValidationReport &report, bool condition, ContractIssueCode code,
 
 LowOrderCaptureCompileResult compile_low_order_capture_session(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
-    const contract::Sha256Digest &simulation_request_identity_v2_sha256) {
+    const contract::Sha256Digest &simulation_request_identity_v3_sha256) {
     ValidationReport report;
     const auto *legacy_profile =
         std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile);
@@ -110,7 +110,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     } else if (operating_profile != nullptr) {
         if (inertial != nullptr) {
             auto inertial_result = compile_low_order_inertial_dyno_v1_runtime(
-                engine, scenario, capture_plan, simulation_request_identity_v2_sha256);
+                engine, scenario, capture_plan, simulation_request_identity_v3_sha256);
             if (auto *inertial_report =
                     std::get_if<ValidationReport>(&inertial_result)) {
                 return std::move(*inertial_report);
@@ -120,7 +120,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
                 std::get<LowOrderInertialDynoV1Runtime>(std::move(inertial_result)));
         } else {
             auto operating_result = compile_low_order_operating_point_v1_runtime(
-                engine, scenario, capture_plan, simulation_request_identity_v2_sha256);
+                engine, scenario, capture_plan, simulation_request_identity_v3_sha256);
             if (auto *operating_report =
                     std::get_if<ValidationReport>(&operating_result)) {
                 return std::move(*operating_report);

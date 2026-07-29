@@ -22,9 +22,9 @@ namespace {
 using namespace engine_sim_offline;
 
 constexpr std::string_view kExpectedRequestIdentitySha256 =
-    "55e6fc6d76746c59a6d313035c165168b8418898a7a5f8cb06a33a7073ca4523";
+    "0f29b9b3a53abf6ed64970b4f0050b37a4d244d6f9368fcc9b77cfbec01024b1";
 constexpr std::string_view kExpectedProvenanceSha256 =
-    "05bdb20fa7b3039346b2eb8710739d62c865328dff6a43e83d62396049701d60";
+    "4064e3f048a0a9902229185fa8f46059fa68346ab384b13bb04279e63dc8665d";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -59,7 +59,7 @@ void expect(bool condition, std::string_view message) {
 
 [[nodiscard]] identity::SimulationRequestIdentityEncoding
 request_identity(const profiles::BmwM52b28HeldSpeedListeningRequest &request) {
-    auto result = identity::encode_simulation_request_identity_v2(
+    auto result = identity::encode_simulation_request_identity_v3(
         request.engine, request.scenario, request.provenance.bundle);
     const auto *encoding =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&result);
@@ -74,29 +74,26 @@ void test_exact_request_shape(
            "canonical BMW held-speed request failed exact revalidation");
     expect(request.engine.profile_id.value ==
                    "bmw-m52b28-low-order-operating-point-v1" &&
-               request.scenario.scenario_id == "bmw-m52b28-held-3000rpm-listening-v1" &&
+               request.scenario.scenario_id == "bmw-m52b28-held-3000rpm-listening-v2" &&
                request.scenario.engine_profile_id == request.engine.profile_id.value,
            "canonical held-speed engine/scenario identity changed");
 
     const auto *held = std::get_if<contract::HeldSpeed>(&request.scenario.mode);
     const auto *preparation =
-        std::get_if<contract::ConvergenceSettling>(&request.scenario.preparation);
+        std::get_if<contract::FixedHorizonCycleSampling>(&request.scenario.preparation);
     expect(held != nullptr && preparation != nullptr,
-           "canonical request lost held-speed convergence mode");
+           "canonical request lost held-speed fixed-horizon sampling");
     expect(std::bit_cast<std::uint64_t>(held->engine_speed_rpm.value) ==
                    std::bit_cast<std::uint64_t>(3000.0) &&
                std::bit_cast<std::uint64_t>(held->throttle_01.value) ==
                    std::bit_cast<std::uint64_t>(0.85) &&
-               preparation->comparison_cycle_count.value == 16U &&
+               preparation->trailing_complete_cycle_count.value == 32U &&
                std::bit_cast<std::uint64_t>(
-                   preparation->maximum_preparation_duration_s.value) ==
+                   preparation->fixed_preparation_horizon_s.value) ==
                    std::bit_cast<std::uint64_t>(3.22) &&
-               std::bit_cast<std::uint64_t>(
-                   preparation->cycle_mean_torque_tolerance_nm.value) ==
-                   std::bit_cast<std::uint64_t>(0.25) &&
-               std::bit_cast<std::uint64_t>(preparation->pressure_tolerance_pa.value) ==
-                   std::bit_cast<std::uint64_t>(1500.0),
-           "canonical held point or calibrated convergence policy changed");
+               preparation->method.value ==
+                   contract::fixed_horizon_cycle_sampling_method_identity(),
+           "canonical held point or fixed-horizon sampling policy changed");
 
     expect(request.scenario.operating_state.value ==
                std::vector<contract::OperatingStatePoint>{
@@ -151,8 +148,7 @@ void test_identity_and_mutation_rejection(
            "held-speed request identity changed");
     const auto provenance_sha256 = digest_hex(request.provenance.bundle.sha256);
     if (provenance_sha256 != kExpectedProvenanceSha256) {
-        std::cerr << "BMW held-speed provenance SHA-256: " << provenance_sha256
-                  << '\n';
+        std::cerr << "BMW held-speed provenance SHA-256: " << provenance_sha256 << '\n';
     }
     expect(provenance_sha256 == kExpectedProvenanceSha256,
            "held-speed request provenance identity changed");
@@ -163,13 +159,13 @@ void test_identity_and_mutation_rejection(
            "mutated held-speed throttle passed exact validation");
 
     changed = request;
-    std::get<contract::ConvergenceSettling>(changed.scenario.preparation)
-        .pressure_tolerance_pa.value = 1501.0;
+    std::get<contract::FixedHorizonCycleSampling>(changed.scenario.preparation)
+        .trailing_complete_cycle_count.value = 31U;
     expect(!profiles::validate_bmw_m52b28_held_speed_listening_request(changed).ok(),
-           "mutated convergence calibration passed exact validation");
+           "mutated fixed-horizon sample size passed exact validation");
 }
 
-void test_calibrated_request_converges(
+void test_fixed_horizon_sample(
     const profiles::BmwM52b28HeldSpeedListeningRequest &request) {
     const auto identity = request_identity(request);
     auto plan_result =
@@ -190,45 +186,42 @@ void test_calibrated_request_converges(
     auto *core = std::get_if<simulation::LowOrderEngineCoreV1Runtime>(&core_result);
     expect(core != nullptr, "canonical held-speed engine core did not compile");
 
-    while (operating->accepted_sample_count() < operating->fixed_cutoff_frame_count()) {
+    while (operating->accepted_sample_count() <
+           operating->fixed_preparation_horizon_frame_count()) {
         auto step_result = core->advance();
         const auto *step =
             std::get_if<simulation::LowOrderEngineCoreV1StepView>(&step_result);
         expect(step != nullptr,
-               "held-speed engine core ended before preparation cutoff");
+               "held-speed engine core ended before the fixed preparation horizon");
         const auto advance = operating->advance(step->mechanics.get(), step->gas.get());
         if (const auto *failure = std::get_if<contract::FailureContext>(&advance)) {
-            throw std::runtime_error{"calibrated held-speed request failed: " +
+            throw std::runtime_error{"fixed-horizon held-speed request failed: " +
                                      failure->state_summary};
         }
     }
 
     expect(operating->finalized() && !operating->faulted() &&
                operating->operating_point_result().has_value(),
-           "calibrated held-speed request did not publish an operating point");
+           "fixed-horizon held-speed request did not publish an operating point");
     const auto &point = *operating->operating_point_result();
     expect(contract::validate(point, request.scenario, request.engine, identity.sha256)
                .ok(),
-           "calibrated result failed request-bound validation");
-    expect(point.convergence.block_a.cycles.completed_cycle_count == 16U &&
-               point.convergence.block_a.cycles.first_completed_cycle_ordinal == 47U &&
-               point.convergence.block_a.cycles.last_completed_cycle_ordinal == 62U &&
-               point.convergence.block_b.cycles.completed_cycle_count == 16U &&
-               point.convergence.block_b.cycles.first_completed_cycle_ordinal == 63U &&
-               point.convergence.block_b.cycles.last_completed_cycle_ordinal == 78U,
-           "calibrated request retained a different adjacent-cycle window");
-    expect(std::bit_cast<std::uint64_t>(point.convergence.torque_residual_nm) ==
-                   std::bit_cast<std::uint64_t>(0.14219052207965888) &&
-               std::bit_cast<std::uint64_t>(point.convergence.pressure_residual_pa) ==
-                   std::bit_cast<std::uint64_t>(870.20266385539435),
-           "calibrated request residuals differ from the documented observation");
+           "fixed-horizon result failed request-bound validation");
+    const auto &sample = point.sampling.trailing_complete_cycles.cycles;
+    expect(point.sampling.trailing_complete_cycle_count == 32U &&
+               sample.completed_cycle_count == 32U &&
+               sample.first_completed_cycle_ordinal == 47U &&
+               sample.last_completed_cycle_ordinal == 78U &&
+               point.sampling.last_eligible_completed_cycle_ordinal_at_fixed_horizon ==
+                   78U,
+           "fixed-horizon request retained a different trailing-cycle sample");
 }
 
 void run_tests() {
     const auto request = make_request();
     test_exact_request_shape(request);
     test_identity_and_mutation_rejection(request);
-    test_calibrated_request_converges(request);
+    test_fixed_horizon_sample(request);
 }
 
 } // namespace

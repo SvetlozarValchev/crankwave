@@ -13,8 +13,8 @@
 
 namespace engine_sim_offline::identity {
 
-inline constexpr std::string_view kSimulationRequestIdentityWireSchemaV2 =
-    "engine-sim-offline.simulation-request-identity.v2";
+inline constexpr std::string_view kSimulationRequestIdentityWireSchemaV3 =
+    "engine-sim-offline.simulation-request-identity.v3";
 
 struct SimulationRequestIdentityEncoding {
     std::vector<std::byte> bytes;
@@ -47,9 +47,9 @@ using SimulationRequestIdentityEncodingResult =
     std::variant<SimulationRequestIdentityEncoding, SimulationRequestIdentityError>;
 
 // Encodes the complete resolved simulation factory identity without presentation
-// or run facts. The digest covers the exact canonical v2 bytes, including final LF.
+// or run facts. The digest covers the exact canonical v3 bytes, including final LF.
 [[nodiscard]] SimulationRequestIdentityEncodingResult
-encode_simulation_request_identity_v2(const contract::EngineSpec &engine,
+encode_simulation_request_identity_v3(const contract::EngineSpec &engine,
                                       const contract::RenderScenario &scenario,
                                       const contract::ProvenanceBundleRef &provenance);
 

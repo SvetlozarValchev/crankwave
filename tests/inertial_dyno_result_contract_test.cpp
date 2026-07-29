@@ -69,7 +69,7 @@ RenderScenario request(const Sha256Digest &) {
 
 InertialDynoResult result(const Sha256Digest &request_digest) {
     InertialDynoResult value;
-    value.simulation_request_identity_v2_sha256 = request_digest;
+    value.simulation_request_identity_v3_sha256 = request_digest;
     value.start_engine_speed_rpm = 1000.0;
     value.target_engine_speed_rpm = 1800.0;
     value.release_engine_speed_rpm = 1000.0;
@@ -158,20 +158,12 @@ void test_inertial_request_has_one_exact_release_and_identified_brake_method() {
         std::get<PrescribedKinematicSweep>(scenario.mode)
             .throttle_01.resolution_id;
 
-    scenario.preparation = ConvergenceSettling{
-        builder.resolved(adjacent_cycle_block_mean_convergence_method_identity(),
+    scenario.preparation = FixedHorizonCycleSampling{
+        builder.resolved(fixed_horizon_cycle_sampling_method_identity(),
                          "scenario.preparation.method"),
-        builder.resolved(0.5,
-                         "scenario.preparation.minimum_warm_up_duration_s"),
-        builder.resolved(0.5,
-                         "scenario.preparation.minimum_settling_duration_s"),
-        builder.resolved(2.0,
-                         "scenario.preparation.maximum_preparation_duration_s"),
+        builder.resolved(2.0, "scenario.preparation.fixed_preparation_horizon_s"),
         builder.resolved<std::uint32_t>(
-            4, "scenario.preparation.comparison_cycle_count"),
-        builder.resolved(0.1,
-                         "scenario.preparation.cycle_mean_torque_tolerance_nm"),
-        builder.resolved(100.0, "scenario.preparation.pressure_tolerance_pa"),
+            4, "scenario.preparation.trailing_complete_cycle_count"),
     };
 
     InertialDyno dyno;
@@ -201,10 +193,10 @@ void test_inertial_request_has_one_exact_release_and_identified_brake_method() {
                  "valid inertial request with exact release was rejected");
 
     auto early_release = scenario;
-    std::get<ConvergenceSettling>(early_release.preparation)
-        .maximum_preparation_duration_s.value = 1.99;
+    std::get<FixedHorizonCycleSampling>(early_release.preparation)
+        .fixed_preparation_horizon_s.value = 1.99;
     expect(!validate(early_release, builder.provenance).ok(),
-           "inertial request admitted a convergence cutoff before audible release");
+           "inertial request admitted a sampling horizon before audible release");
 
     auto unidentified_brake = scenario;
     std::get<InertialDyno>(unidentified_brake.mode)

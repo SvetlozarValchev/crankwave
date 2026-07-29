@@ -121,33 +121,27 @@ struct FixedSettling {
     friend bool operator==(const FixedSettling &, const FixedSettling &) = default;
 };
 
-inline constexpr std::string_view kAdjacentCycleBlockMeanConvergenceMethodId =
-    "adjacent-nonoverlapping-cycle-block-mean-v1";
-inline constexpr std::uint32_t kAdjacentCycleBlockMeanConvergenceMethodVersion = 1;
-inline constexpr Sha256Digest
-    kAdjacentCycleBlockMeanConvergenceMethodConfigurationSha256{{
-        0xb1, 0xa1, 0xad, 0x37, 0x08, 0x8c, 0xeb, 0x2a, 0x88, 0xdb, 0xb5,
-        0xdb, 0x4b, 0xb3, 0x85, 0x06, 0x7f, 0xef, 0xa6, 0xb2, 0x44, 0xb0,
-        0x91, 0xde, 0xee, 0xbe, 0x5b, 0xf3, 0x8a, 0xca, 0xc4, 0x06,
-    }};
+inline constexpr std::string_view kFixedHorizonCycleSamplingMethodId =
+    "fixed-horizon-trailing-complete-cycle-sample-v1";
+inline constexpr std::uint32_t kFixedHorizonCycleSamplingMethodVersion = 1;
+inline constexpr Sha256Digest kFixedHorizonCycleSamplingMethodConfigurationSha256{{
+    0x9e, 0xfb, 0xb1, 0x5d, 0x0a, 0xd2, 0x7d, 0x3f, 0x97, 0xd7, 0x5d,
+    0x13, 0x5b, 0x64, 0x2c, 0x9a, 0x7f, 0xee, 0xc6, 0x61, 0x0c, 0x50,
+    0xe7, 0xec, 0x82, 0x52, 0x3e, 0xc6, 0x28, 0x08, 0xda, 0x63,
+}};
 
-[[nodiscard]] const MethodIdentity &
-adjacent_cycle_block_mean_convergence_method_identity();
+[[nodiscard]] const MethodIdentity &fixed_horizon_cycle_sampling_method_identity();
 
-struct ConvergenceSettling {
+struct FixedHorizonCycleSampling {
     ResolvedValue<MethodIdentity> method;
-    ResolvedValue<double> minimum_warm_up_duration_s;
-    ResolvedValue<double> minimum_settling_duration_s;
-    ResolvedValue<double> maximum_preparation_duration_s;
-    ResolvedValue<std::uint32_t> comparison_cycle_count;
-    ResolvedValue<double> cycle_mean_torque_tolerance_nm;
-    ResolvedValue<double> pressure_tolerance_pa;
+    ResolvedValue<double> fixed_preparation_horizon_s;
+    ResolvedValue<std::uint32_t> trailing_complete_cycle_count;
 
-    friend bool operator==(const ConvergenceSettling &,
-                           const ConvergenceSettling &) = default;
+    friend bool operator==(const FixedHorizonCycleSampling &,
+                           const FixedHorizonCycleSampling &) = default;
 };
 
-using PreparationPolicy = std::variant<FixedSettling, ConvergenceSettling>;
+using PreparationPolicy = std::variant<FixedSettling, FixedHorizonCycleSampling>;
 
 struct HeldSpeed {
     ResolvedValue<double> engine_speed_rpm;

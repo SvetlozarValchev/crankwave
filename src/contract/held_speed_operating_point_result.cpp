@@ -205,7 +205,7 @@ validate_pressure_means(const std::vector<MeanBoundaryPressurePa> &pressures) {
 
     ValidationReport report;
     require(report, !pressures.empty(), ContractIssueCode::missing_value, "",
-            "a convergence block requires every physical gas-volume pressure");
+            "a fixed-horizon sample requires every physical gas-volume pressure");
     for (std::size_t index = 0; index < pressures.size(); ++index) {
         const auto &pressure = pressures[index];
         const auto path = "[" + std::to_string(index) + "]";
@@ -624,19 +624,19 @@ void validate_boundary_kinematics(ValidationReport &report,
                                   const OperatingPointBoundaryEvidence &boundary,
                                   const HeldSpeedOperatingPointConditions &conditions,
                                   double step_rotation_rad,
-                                  std::uint64_t last_cutoff_sample_index,
+                                  std::uint64_t last_horizon_sample_index,
                                   std::string_view path) {
     using detail::require;
 
     const auto field_path = [path](std::string_view field) {
         return std::string(path) + "." + std::string(field);
     };
-    require(report, boundary.right_bracket_sample_index <= last_cutoff_sample_index,
+    require(report, boundary.right_bracket_sample_index <= last_horizon_sample_index,
             ContractIssueCode::inconsistent_semantics,
             field_path("right_bracket_sample_index"),
             "boundary brackets must be post-step mechanics samples at or "
-            "before the fixed cutoff");
-    if (boundary.right_bracket_sample_index > last_cutoff_sample_index) {
+            "before the fixed preparation horizon");
+    if (boundary.right_bracket_sample_index > last_horizon_sample_index) {
         return;
     }
 
@@ -745,22 +745,23 @@ void validate_block_ordinal_lattice(ValidationReport &report,
             "partial cycle");
 }
 
-void validate_held_speed_kinematics(ValidationReport &report,
-                                    const HeldSpeedOperatingPointConditions &conditions,
-                                    const HeldSpeedConvergenceEvidence &convergence) {
+void validate_held_speed_kinematics(
+    ValidationReport &report, const HeldSpeedOperatingPointConditions &conditions,
+    const HeldSpeedFixedHorizonSampleEvidence &sampling) {
     using detail::require;
 
-    const auto cutoff_frame_count = resolve_frame_index(convergence.fixed_cutoff_time_s,
-                                                        conditions.physics_rate_hz);
-    require(report, cutoff_frame_count.has_value() && *cutoff_frame_count > 0,
+    const auto horizon_frame_count = resolve_frame_index(
+        sampling.fixed_preparation_horizon_s, conditions.physics_rate_hz);
+    require(report, horizon_frame_count.has_value() && *horizon_frame_count > 0,
             ContractIssueCode::inconsistent_semantics,
-            "convergence.fixed_cutoff_time_s",
-            "fixed cutoff must resolve to a positive integral mechanics-frame "
+            "sampling.fixed_preparation_horizon_s",
+            "fixed preparation horizon must resolve to a positive integral "
+            "mechanics-frame "
             "count");
-    if (!cutoff_frame_count.has_value() || *cutoff_frame_count == 0) {
+    if (!horizon_frame_count.has_value() || *horizon_frame_count == 0) {
         return;
     }
-    const auto last_cutoff_sample_index = *cutoff_frame_count - 1;
+    const auto last_horizon_sample_index = *horizon_frame_count - 1;
 
     const double angular_speed_rad_s =
         conditions.engine_speed_rpm * kFrozenLegacyRpmScale;
@@ -778,25 +779,19 @@ void validate_held_speed_kinematics(ValidationReport &report,
         return;
     }
 
-    validate_boundary_kinematics(report, convergence.block_a.cycles.start_boundary,
-                                 conditions, step_rotation_rad,
-                                 last_cutoff_sample_index,
-                                 "convergence.block_a.cycles.start_boundary");
+    const auto &sample = sampling.trailing_complete_cycles;
     validate_boundary_kinematics(
-        report, convergence.block_a.cycles.end_boundary, conditions, step_rotation_rad,
-        last_cutoff_sample_index, "convergence.block_a.cycles.end_boundary");
-    validate_boundary_kinematics(report, convergence.block_b.cycles.start_boundary,
-                                 conditions, step_rotation_rad,
-                                 last_cutoff_sample_index,
-                                 "convergence.block_b.cycles.start_boundary");
+        report, sample.cycles.start_boundary, conditions, step_rotation_rad,
+        last_horizon_sample_index,
+        "sampling.trailing_complete_cycles.cycles.start_boundary");
     validate_boundary_kinematics(
-        report, convergence.block_b.cycles.end_boundary, conditions, step_rotation_rad,
-        last_cutoff_sample_index, "convergence.block_b.cycles.end_boundary");
+        report, sample.cycles.end_boundary, conditions, step_rotation_rad,
+        last_horizon_sample_index,
+        "sampling.trailing_complete_cycles.cycles.end_boundary");
     validate_boundary_kinematics(
-        report, convergence.last_eligible_cycle_end_boundary_at_fixed_cutoff,
-        conditions, step_rotation_rad, last_cutoff_sample_index,
-        "convergence."
-        "last_eligible_cycle_end_boundary_at_fixed_cutoff");
+        report, sampling.last_eligible_cycle_end_boundary_at_fixed_horizon, conditions,
+        step_rotation_rad, last_horizon_sample_index,
+        "sampling.last_eligible_cycle_end_boundary_at_fixed_horizon");
 
     const auto first_full_start =
         first_full_cycle_start_lattice(conditions, step_rotation_rad);
@@ -805,12 +800,9 @@ void validate_held_speed_kinematics(ValidationReport &report,
             "first post-step held state cannot derive a representable "
             "four-stroke lattice origin");
     if (first_full_start.has_value()) {
-        validate_block_ordinal_lattice(report, convergence.block_a, *first_full_start,
+        validate_block_ordinal_lattice(report, sample, *first_full_start,
                                        conditions.cycle_reference_theta_rad,
-                                       "convergence.block_a");
-        validate_block_ordinal_lattice(report, convergence.block_b, *first_full_start,
-                                       conditions.cycle_reference_theta_rad,
-                                       "convergence.block_b");
+                                       "sampling.trailing_complete_cycles");
     }
 
     const auto validate_duration_coherence = [&](const HeldSpeedCycleBlockEvidence
@@ -843,35 +835,34 @@ void validate_held_speed_kinematics(ValidationReport &report,
                 "within the documented binary64 accumulation and arithmetic "
                 "bounds");
     };
-    validate_duration_coherence(convergence.block_a, "convergence.block_a");
-    validate_duration_coherence(convergence.block_b, "convergence.block_b");
+    validate_duration_coherence(sample, "sampling.trailing_complete_cycles");
 
-    const auto block_b_end_index = boundary_cycle_index(
-        convergence.block_b.cycles.end_boundary.theta_unwrapped_rad,
-        conditions.cycle_reference_theta_rad);
-    const auto cutoff_theta =
-        theta_envelope(last_cutoff_sample_index, conditions.initial_theta_unwrapped_rad,
-                       step_rotation_rad);
-    if (block_b_end_index.has_value()) {
-        require(report, *block_b_end_index != std::numeric_limits<std::int64_t>::max(),
+    const auto sample_end_index =
+        boundary_cycle_index(sample.cycles.end_boundary.theta_unwrapped_rad,
+                             conditions.cycle_reference_theta_rad);
+    const auto horizon_theta =
+        theta_envelope(last_horizon_sample_index,
+                       conditions.initial_theta_unwrapped_rad, step_rotation_rad);
+    if (sample_end_index.has_value()) {
+        require(report, *sample_end_index != std::numeric_limits<std::int64_t>::max(),
                 ContractIssueCode::invalid_value,
-                "convergence.block_b.cycles.end_boundary."
+                "sampling.trailing_complete_cycles.cycles.end_boundary."
                 "theta_unwrapped_rad",
                 "last retained boundary leaves no representable following "
                 "four-stroke lattice index");
-        if (*block_b_end_index != std::numeric_limits<std::int64_t>::max()) {
+        if (*sample_end_index != std::numeric_limits<std::int64_t>::max()) {
             const double following_boundary_theta =
                 conditions.cycle_reference_theta_rad +
-                static_cast<double>(*block_b_end_index + 1) * kFourStrokeCycleRadians;
+                static_cast<double>(*sample_end_index + 1) * kFourStrokeCycleRadians;
             require(report,
-                    detail::finite(cutoff_theta.absolute_error_bound_rad) &&
-                        cutoff_theta.center_rad +
-                                cutoff_theta.absolute_error_bound_rad <
+                    detail::finite(horizon_theta.absolute_error_bound_rad) &&
+                        horizon_theta.center_rad +
+                                horizon_theta.absolute_error_bound_rad <
                             following_boundary_theta,
                     ContractIssueCode::inconsistent_semantics,
-                    "convergence.block_b.cycles.end_boundary",
-                    "the documented held-RPM cutoff envelope must prove that no "
-                    "following complete cycle was available at fixed cutoff");
+                    "sampling.trailing_complete_cycles.cycles.end_boundary",
+                    "the documented held-RPM horizon envelope must prove that no "
+                    "following complete cycle was available at the fixed horizon");
         }
     }
 }
@@ -880,14 +871,12 @@ void validate_held_speed_kinematics(ValidationReport &report,
 
 ValidationReport validate(const HeldSpeedOperatingPointResult &operating_point) {
     using detail::append_prefixed;
-    using detail::finite;
-    using detail::finite_nonnegative;
     using detail::finite_positive;
     using detail::require;
 
     ValidationReport report;
-    require(report, !operating_point.simulation_request_identity_v2_sha256.is_zero(),
-            ContractIssueCode::invalid_value, "simulation_request_identity_v2_sha256",
+    require(report, !operating_point.simulation_request_identity_v3_sha256.is_zero(),
+            ContractIssueCode::invalid_value, "simulation_request_identity_v3_sha256",
             "held-speed result requires a nonzero canonical simulation-request "
             "identity");
     append_prefixed(report, validate_operating_conditions(operating_point.conditions),
@@ -900,164 +889,66 @@ ValidationReport validate(const HeldSpeedOperatingPointResult &operating_point) 
             "model-prediction applicability label");
 
     const auto displacement_m3 = operating_point.conditions.total_displacement_m3;
-    const auto &convergence = operating_point.convergence;
-    append_prefixed(report, validate(convergence.method), "convergence.method");
-    require(report,
-            convergence.method ==
-                adjacent_cycle_block_mean_convergence_method_identity(),
-            ContractIssueCode::unsupported_value, "convergence.method",
-            "operating-point convergence evidence must use the exact admitted "
+    const auto &sampling = operating_point.sampling;
+    append_prefixed(report, validate(sampling.method), "sampling.method");
+    require(report, sampling.method == fixed_horizon_cycle_sampling_method_identity(),
+            ContractIssueCode::unsupported_value, "sampling.method",
+            "operating-point sampling evidence must use the exact admitted "
             "contract method identity");
     require(report,
-            convergence.comparison_cycle_count > 0 &&
-                finite_nonnegative(convergence.eligibility_threshold_time_s) &&
-                finite_positive(convergence.fixed_cutoff_time_s) &&
-                convergence.fixed_cutoff_time_s >=
-                    convergence.eligibility_threshold_time_s &&
-                finite_nonnegative(convergence.torque_residual_nm) &&
-                finite_positive(convergence.torque_tolerance_nm) &&
-                finite_nonnegative(convergence.pressure_residual_pa) &&
-                finite_positive(convergence.pressure_tolerance_pa),
-            ContractIssueCode::invalid_value, "convergence",
-            "convergence time bounds, cycle count, residuals, or tolerances are "
+            sampling.trailing_complete_cycle_count > 0 &&
+                finite_positive(sampling.fixed_preparation_horizon_s),
+            ContractIssueCode::invalid_value, "sampling",
+            "fixed preparation horizon and trailing complete-cycle count are "
             "invalid");
 
     append_prefixed(
         report,
-        validate_cycle_block(convergence.block_a, displacement_m3,
+        validate_cycle_block(sampling.trailing_complete_cycles, displacement_m3,
                              operating_point.conditions.cycle_reference_theta_rad),
-        "convergence.block_a");
-    append_prefixed(
-        report,
-        validate_cycle_block(convergence.block_b, displacement_m3,
-                             operating_point.conditions.cycle_reference_theta_rad),
-        "convergence.block_b");
+        "sampling.trailing_complete_cycles");
     require(report,
-            convergence.block_a.cycles.completed_cycle_count ==
-                    convergence.comparison_cycle_count &&
-                convergence.block_b.cycles.completed_cycle_count ==
-                    convergence.comparison_cycle_count,
-            ContractIssueCode::inconsistent_shape, "convergence",
-            "both convergence blocks must contain exactly N complete cycles");
+            sampling.trailing_complete_cycles.cycles.completed_cycle_count ==
+                sampling.trailing_complete_cycle_count,
+            ContractIssueCode::inconsistent_shape, "sampling",
+            "the trailing sample must contain exactly M complete cycles");
 
-    const auto &a_cycles = convergence.block_a.cycles;
-    const auto &b_cycles = convergence.block_b.cycles;
+    const auto &sample_cycles = sampling.trailing_complete_cycles.cycles;
     require(report,
-            a_cycles.last_completed_cycle_ordinal !=
-                    std::numeric_limits<std::uint64_t>::max() &&
-                b_cycles.first_completed_cycle_ordinal ==
-                    a_cycles.last_completed_cycle_ordinal + 1 &&
-                a_cycles.end_boundary == b_cycles.start_boundary,
-            ContractIssueCode::inconsistent_semantics, "convergence.block_b.cycles",
-            "convergence blocks A and B must be adjacent, non-overlapping cycle "
-            "ranges sharing one exact boundary");
+            sample_cycles.end_boundary.scenario_time_s <=
+                sampling.fixed_preparation_horizon_s,
+            ContractIssueCode::inconsistent_semantics, "sampling",
+            "the trailing complete-cycle sample must end at or before the fixed "
+            "preparation horizon");
     require(report,
-            a_cycles.start_boundary.scenario_time_s >=
-                    convergence.eligibility_threshold_time_s &&
-                b_cycles.end_boundary.scenario_time_s <=
-                    convergence.fixed_cutoff_time_s,
-            ContractIssueCode::inconsistent_semantics, "convergence",
-            "convergence blocks must begin at or after the eligibility threshold "
-            "and end at or before the fixed cutoff");
-    require(report,
-            convergence.last_eligible_completed_cycle_ordinal_at_fixed_cutoff ==
-                    b_cycles.last_completed_cycle_ordinal &&
-                convergence.last_eligible_cycle_end_boundary_at_fixed_cutoff ==
-                    b_cycles.end_boundary,
+            sampling.last_eligible_completed_cycle_ordinal_at_fixed_horizon ==
+                    sample_cycles.last_completed_cycle_ordinal &&
+                sampling.last_eligible_cycle_end_boundary_at_fixed_horizon ==
+                    sample_cycles.end_boundary,
             ContractIssueCode::inconsistent_semantics,
-            "convergence."
-            "last_eligible_cycle_end_boundary_at_fixed_cutoff",
-            "block B must end at the explicitly attested last complete eligible "
-            "cycle at the fixed cutoff");
+            "sampling.last_eligible_cycle_end_boundary_at_fixed_horizon",
+            "the retained sample must end at the explicitly attested last complete "
+            "eligible cycle at the fixed horizon");
 
-    validate_held_speed_kinematics(report, operating_point.conditions, convergence);
-
-    const double torque_denominator =
-        static_cast<double>(convergence.comparison_cycle_count) *
-        kFourStrokeCycleRadians;
-    const double canonical_block_a_net_torque_nm =
-        convergence.block_a.brake_work_j / torque_denominator;
-    const double canonical_block_b_net_torque_nm =
-        convergence.block_b.brake_work_j / torque_denominator;
-    const double torque_residual =
-        std::abs(canonical_block_b_net_torque_nm - canonical_block_a_net_torque_nm);
-    require(report,
-            finite(torque_residual) &&
-                same_binary64(convergence.torque_residual_nm, torque_residual),
-            ContractIssueCode::inconsistent_semantics, "convergence.torque_residual_nm",
-            "torque residual must be the exact binary64 absolute A/B difference "
-            "recomputed from retained brake work");
-
-    const auto &a_pressures = convergence.block_a.mean_boundary_pressures;
-    const auto &b_pressures = convergence.block_b.mean_boundary_pressures;
-    require(report, a_pressures.size() == b_pressures.size(),
-            ContractIssueCode::inconsistent_shape,
-            "convergence.block_b.mean_boundary_pressures",
-            "convergence blocks must retain identical physical pressure sets");
-    bool comparable_pressures =
-        !a_pressures.empty() && a_pressures.size() == b_pressures.size();
-    double pressure_residual = 0.0;
-    GasVolumeId limiting_volume;
-    if (comparable_pressures) {
-        for (std::size_t index = 0; index < a_pressures.size(); ++index) {
-            if (a_pressures[index].gas_volume_id != b_pressures[index].gas_volume_id ||
-                !detail::finite(a_pressures[index].pressure_pa_abs) ||
-                !detail::finite(b_pressures[index].pressure_pa_abs)) {
-                comparable_pressures = false;
-                break;
-            }
-            const double candidate = std::abs(b_pressures[index].pressure_pa_abs -
-                                              a_pressures[index].pressure_pa_abs);
-            if (index == 0 || candidate > pressure_residual) {
-                pressure_residual = candidate;
-                limiting_volume = a_pressures[index].gas_volume_id;
-            }
-        }
-    }
-    if (comparable_pressures) {
-        require(report,
-                same_binary64(convergence.pressure_residual_pa, pressure_residual),
-                ContractIssueCode::inconsistent_semantics,
-                "convergence.pressure_residual_pa",
-                "pressure residual must be the exact binary64 maximum A/B "
-                "boundary-pressure difference");
-        require(report, convergence.limiting_pressure_volume_id == limiting_volume,
-                ContractIssueCode::inconsistent_semantics,
-                "convergence.limiting_pressure_volume_id",
-                "limiting pressure identity must retain the first ascending "
-                "maximum-residual gas volume");
-    } else {
-        require(report, convergence.limiting_pressure_volume_id.valid(),
-                ContractIssueCode::invalid_value,
-                "convergence.limiting_pressure_volume_id",
-                "limiting pressure gas-volume ID must be nonzero");
-    }
-    require(report,
-            finite(torque_residual) &&
-                torque_residual <= convergence.torque_tolerance_nm &&
-                comparable_pressures &&
-                pressure_residual <= convergence.pressure_tolerance_pa,
-            ContractIssueCode::inconsistent_semantics, "convergence",
-            "recomputed canonical residuals for a successful operating point must "
-            "satisfy both inclusive convergence tolerances");
+    validate_held_speed_kinematics(report, operating_point.conditions, sampling);
     return report;
 }
 
 ValidationReport
 validate(const HeldSpeedOperatingPointResult &operating_point,
          const RenderScenario &requested_scenario, const EngineSpec &engine,
-         const Sha256Digest &expected_simulation_request_identity_v2_sha256) {
+         const Sha256Digest &expected_simulation_request_identity_v3_sha256) {
     using detail::require;
 
     auto report = validate(operating_point);
     const auto &conditions = operating_point.conditions;
     require(report,
-            !expected_simulation_request_identity_v2_sha256.is_zero() &&
-                operating_point.simulation_request_identity_v2_sha256 ==
-                    expected_simulation_request_identity_v2_sha256,
+            !expected_simulation_request_identity_v3_sha256.is_zero() &&
+                operating_point.simulation_request_identity_v3_sha256 ==
+                    expected_simulation_request_identity_v3_sha256,
             ContractIssueCode::inconsistent_semantics,
-            "simulation_request_identity_v2_sha256",
-            "held-speed result must retain the caller-supplied canonical v2 "
+            "simulation_request_identity_v3_sha256",
+            "held-speed result must retain the caller-supplied canonical v3 "
             "simulation-request identity");
 
     const auto *requested_mode = std::get_if<HeldSpeed>(&requested_scenario.mode);
@@ -1079,32 +970,22 @@ validate(const HeldSpeedOperatingPointResult &operating_point,
     }
 
     const auto *requested_preparation =
-        std::get_if<ConvergenceSettling>(&requested_scenario.preparation);
+        std::get_if<FixedHorizonCycleSampling>(&requested_scenario.preparation);
     require(report, requested_preparation != nullptr,
-            ContractIssueCode::inconsistent_semantics, "convergence",
-            "held-speed operating-point result requires convergence preparation");
+            ContractIssueCode::inconsistent_semantics, "sampling",
+            "held-speed operating-point result requires fixed-horizon cycle "
+            "sampling preparation");
     if (requested_preparation != nullptr) {
-        const double minimum_eligible_time_s =
-            requested_preparation->minimum_warm_up_duration_s.value +
-            requested_preparation->minimum_settling_duration_s.value;
         require(
             report,
-            operating_point.convergence.method == requested_preparation->method.value &&
-                operating_point.convergence.comparison_cycle_count ==
-                    requested_preparation->comparison_cycle_count.value &&
-                same_binary64(operating_point.convergence.eligibility_threshold_time_s,
-                              minimum_eligible_time_s) &&
-                same_binary64(
-                    operating_point.convergence.fixed_cutoff_time_s,
-                    requested_preparation->maximum_preparation_duration_s.value) &&
-                same_binary64(
-                    operating_point.convergence.torque_tolerance_nm,
-                    requested_preparation->cycle_mean_torque_tolerance_nm.value) &&
-                same_binary64(operating_point.convergence.pressure_tolerance_pa,
-                              requested_preparation->pressure_tolerance_pa.value),
-            ContractIssueCode::inconsistent_semantics, "convergence",
-            "convergence identity, fixed time bounds, cycle count, and "
-            "tolerances must exactly match the request");
+            operating_point.sampling.method == requested_preparation->method.value &&
+                operating_point.sampling.trailing_complete_cycle_count ==
+                    requested_preparation->trailing_complete_cycle_count.value &&
+                same_binary64(operating_point.sampling.fixed_preparation_horizon_s,
+                              requested_preparation->fixed_preparation_horizon_s.value),
+            ContractIssueCode::inconsistent_semantics, "sampling",
+            "sampling identity, fixed preparation horizon, and trailing cycle count "
+            "must exactly match the request");
     }
 
     require(
@@ -1203,10 +1084,9 @@ validate(const HeldSpeedOperatingPointResult &operating_point,
                         "gas-volume identity");
             }
         };
-    validate_pressure_coverage(operating_point.convergence.block_a,
-                               "convergence.block_a.mean_boundary_pressures");
-    validate_pressure_coverage(operating_point.convergence.block_b,
-                               "convergence.block_b.mean_boundary_pressures");
+    validate_pressure_coverage(
+        operating_point.sampling.trailing_complete_cycles,
+        "sampling.trailing_complete_cycles.mean_boundary_pressures");
     return report;
 }
 

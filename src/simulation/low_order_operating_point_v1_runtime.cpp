@@ -8,7 +8,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <numbers>
-#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -83,7 +82,7 @@ operating_capture_torque(double indicated_gas_torque_nm) noexcept {
 }
 
 [[nodiscard]] contract::OperatingPointBoundaryEvidence
-public_boundary(const AdjacentCycleBlockBoundary &boundary) {
+public_boundary(const FixedHorizonCycleBoundary &boundary) {
     return {
         boundary.interpolation.left_bracket_sample_index,
         boundary.interpolation.right_bracket_sample_index,
@@ -99,29 +98,27 @@ complete_cycle_mean_torque(double value_nm, contract::TorqueTermMask terms) noex
 }
 
 [[nodiscard]] contract::HeldSpeedCycleBlockEvidence
-public_block(const AdjacentCycleBlockMean &block,
-             std::span<const AdjacentCycleBlockPressureMeans> pressure_means,
-             bool pressure_block_b, std::uint32_t cycles_per_block,
-             double total_displacement_m3) {
-    const double cycle_count = static_cast<double>(cycles_per_block);
+public_sample(const FixedHorizonCycleSample &sample,
+              std::uint32_t trailing_complete_cycle_count,
+              double total_displacement_m3) {
+    const double cycle_count = static_cast<double>(trailing_complete_cycle_count);
     const double angle_range = cycle_count * kFourStrokeCycleRadians;
     const double displacement_range = cycle_count * total_displacement_m3;
     const double duration_s =
-        block.range.end_boundary.time_s - block.range.start_boundary.time_s;
+        sample.range.end_boundary.time_s - sample.range.start_boundary.time_s;
 
     std::vector<contract::MeanBoundaryPressurePa> pressures;
-    pressures.reserve(pressure_means.size());
-    for (const auto &pressure : pressure_means) {
+    pressures.reserve(sample.mean_boundary_pressures.size());
+    for (const auto &pressure : sample.mean_boundary_pressures) {
         pressures.push_back({
             pressure.gas_volume_id,
-            pressure_block_b ? pressure.block_b_mean_pressure_pa_abs
-                             : pressure.block_a_mean_pressure_pa_abs,
+            pressure.mean_pressure_pa_abs,
         });
     }
 
     std::vector<contract::HeldSpeedCompletedCycleEvidence> completed_cycles;
-    completed_cycles.reserve(block.completed_cycles.size());
-    for (const auto &cycle : block.completed_cycles) {
+    completed_cycles.reserve(sample.completed_cycles.size());
+    for (const auto &cycle : sample.completed_cycles) {
         contract::HeldSpeedCompletedCycleEvidence completed_cycle{
             cycle.completed_cycle_ordinal,
             cycle.indicated_gas_work_j,
@@ -143,63 +140,52 @@ public_block(const AdjacentCycleBlockMean &block,
 
     return {
         {
-            cycles_per_block,
-            block.range.first_cycle_ordinal,
-            block.range.last_cycle_ordinal,
-            public_boundary(block.range.start_boundary),
-            public_boundary(block.range.end_boundary),
+            trailing_complete_cycle_count,
+            sample.range.first_cycle_ordinal,
+            sample.range.last_cycle_ordinal,
+            public_boundary(sample.range.start_boundary),
+            public_boundary(sample.range.end_boundary),
         },
         std::move(completed_cycles),
-        block.total_indicated_gas_work_j,
-        block.total_positive_aggregate_loss_work_j,
-        block.total_starter_work_j,
-        block.total_brake_work_j,
+        sample.total_indicated_gas_work_j,
+        sample.total_positive_aggregate_loss_work_j,
+        sample.total_starter_work_j,
+        sample.total_brake_work_j,
         {
-            complete_cycle_mean_torque(block.total_indicated_gas_work_j / angle_range,
+            complete_cycle_mean_torque(sample.total_indicated_gas_work_j / angle_range,
                                        contract::indicated_gas_torque_term_mask()),
             complete_cycle_mean_torque(
-                -block.total_positive_aggregate_loss_work_j / angle_range,
+                -sample.total_positive_aggregate_loss_work_j / angle_range,
                 contract::friction_pump_and_accessory_torque_term_mask()),
             complete_cycle_mean_torque(
-                block.total_starter_work_j / angle_range,
+                sample.total_starter_work_j / angle_range,
                 contract::torque_term_mask(contract::TorqueTerm::starter)),
-            complete_cycle_mean_torque(block.total_brake_work_j / angle_range,
+            complete_cycle_mean_torque(sample.total_brake_work_j / angle_range,
                                        contract::known_torque_term_mask()),
         },
-        block.total_brake_work_j / displacement_range,
-        block.total_brake_work_j / duration_s,
+        sample.total_brake_work_j / displacement_range,
+        sample.total_brake_work_j / duration_s,
         std::move(pressures),
     };
 }
 
 [[nodiscard]] contract::HeldSpeedOperatingPointResult public_operating_point(
-    const AdjacentCycleBlockConvergenceEvidence &evidence,
-    const contract::Sha256Digest &simulation_request_identity_v2_sha256,
+    const FixedHorizonCycleSamplingEvidence &evidence,
+    const contract::Sha256Digest &simulation_request_identity_v3_sha256,
     const contract::HeldSpeedOperatingPointConditions &conditions) {
-    const auto block_a =
-        public_block(evidence.block_a, evidence.pressure_means, false,
-                     evidence.cycles_per_block, conditions.total_displacement_m3);
-    const auto block_b =
-        public_block(evidence.block_b, evidence.pressure_means, true,
-                     evidence.cycles_per_block, conditions.total_displacement_m3);
     return {
-        simulation_request_identity_v2_sha256,
+        simulation_request_identity_v3_sha256,
         conditions,
         std::string{contract::kGenericChenFlynnLowOrderModelPredictionApplicability},
         {
             evidence.method,
-            evidence.cycles_per_block,
-            evidence.eligibility_threshold_time_s,
-            evidence.fixed_cutoff_time_s,
-            std::move(block_a),
-            std::move(block_b),
-            evidence.block_b.range.last_cycle_ordinal,
-            public_boundary(evidence.block_b.range.end_boundary),
-            evidence.torque_residual_nm,
-            evidence.cycle_mean_torque_tolerance_nm,
-            evidence.pressure_residual_pa,
-            evidence.pressure_tolerance_pa,
-            evidence.limiting_gas_volume_id,
+            evidence.trailing_complete_cycle_count,
+            evidence.fixed_preparation_horizon_s,
+            public_sample(evidence.trailing_complete_cycles,
+                          evidence.trailing_complete_cycle_count,
+                          conditions.total_displacement_m3),
+            evidence.last_eligible_completed_cycle_ordinal_at_fixed_horizon,
+            public_boundary(evidence.last_eligible_cycle_end_boundary_at_fixed_horizon),
         },
     };
 }
@@ -259,57 +245,30 @@ accounting_detail_code(OperatingCycleAccountingErrorCode code) noexcept {
 }
 
 [[nodiscard]] std::string
-convergence_failure_summary(const AdjacentCycleBlockConvergenceError &error) {
-    std::string summary =
-        "fixed-cutoff convergence failed; error-code=" +
-        std::to_string(static_cast<std::uint32_t>(error.code)) +
-        "; retained-cycle-count=" + std::to_string(error.retained_cycle_count) +
-        "; required-cycle-count=" + std::to_string(error.required_cycle_count);
-    if (!error.evidence.has_value()) {
-        return summary;
-    }
-
-    const auto &evidence = *error.evidence;
-    summary +=
-        "; block-a-first-ordinal=" +
-        std::to_string(evidence.block_a.range.first_cycle_ordinal) +
-        "; block-a-last-ordinal=" +
-        std::to_string(evidence.block_a.range.last_cycle_ordinal) +
-        "; block-b-first-ordinal=" +
-        std::to_string(evidence.block_b.range.first_cycle_ordinal) +
-        "; block-b-last-ordinal=" +
-        std::to_string(evidence.block_b.range.last_cycle_ordinal) +
-        "; torque-residual-binary64=" +
-        std::to_string(std::bit_cast<std::uint64_t>(evidence.torque_residual_nm)) +
-        "; torque-tolerance-binary64=" +
-        std::to_string(
-            std::bit_cast<std::uint64_t>(evidence.cycle_mean_torque_tolerance_nm)) +
-        "; pressure-residual-binary64=" +
-        std::to_string(std::bit_cast<std::uint64_t>(evidence.pressure_residual_pa)) +
-        "; pressure-tolerance-binary64=" +
-        std::to_string(std::bit_cast<std::uint64_t>(evidence.pressure_tolerance_pa)) +
-        "; limiting-gas-volume-id=" +
-        std::to_string(evidence.limiting_gas_volume_id.value);
-    return summary;
+sampling_failure_summary(const FixedHorizonCycleSamplingError &error) {
+    return "fixed-horizon cycle sampling failed; error-code=" +
+           std::to_string(static_cast<std::uint32_t>(error.code)) +
+           "; retained-cycle-count=" + std::to_string(error.retained_cycle_count) +
+           "; required-cycle-count=" + std::to_string(error.required_cycle_count);
 }
 
 } // namespace
 
 LowOrderOperatingPointV1Runtime::LowOrderOperatingPointV1Runtime(
-    OperatingCycleAccountant accountant,
-    AdjacentCycleBlockConvergenceObserver convergence,
+    OperatingCycleAccountant accountant, FixedHorizonCycleSampler sampler,
     std::vector<std::size_t> physical_gas_step_indices,
     std::vector<OperatingGasVolumePressureSample> pressure_samples,
-    TransactionShape transaction_shape, std::uint64_t fixed_cutoff_frame_count,
-    contract::Sha256Digest simulation_request_identity_v2_sha256,
+    TransactionShape transaction_shape,
+    std::uint64_t fixed_preparation_horizon_frame_count,
+    contract::Sha256Digest simulation_request_identity_v3_sha256,
     contract::HeldSpeedOperatingPointConditions conditions, std::string model_id,
     std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
-    : accountant_(std::move(accountant)), convergence_(std::move(convergence)),
+    : accountant_(std::move(accountant)), sampler_(std::move(sampler)),
       physical_gas_step_indices_(std::move(physical_gas_step_indices)),
       pressure_samples_(std::move(pressure_samples)),
       transaction_shape_(std::move(transaction_shape)),
-      fixed_cutoff_frame_count_(fixed_cutoff_frame_count),
-      simulation_request_identity_v2_sha256_(simulation_request_identity_v2_sha256),
+      fixed_preparation_horizon_frame_count_(fixed_preparation_horizon_frame_count),
+      simulation_request_identity_v3_sha256_(simulation_request_identity_v3_sha256),
       conditions_(std::move(conditions)), model_id_(std::move(model_id)),
       profile_id_(std::move(profile_id)), scenario_id_(std::move(scenario_id)),
       engine_id_(engine_id) {}
@@ -561,7 +520,7 @@ LowOrderOperatingPointV1Runtime::observe_completed_cycle(
         return std::nullopt;
     }
     const auto &completed = *crossing.completed_cycle;
-    std::vector<AdjacentCycleBlockPressure> pressures;
+    std::vector<FixedHorizonCyclePressure> pressures;
     pressures.reserve(crossing.boundary_pressures.size());
     for (const auto &pressure : crossing.boundary_pressures) {
         pressures.push_back({
@@ -569,7 +528,7 @@ LowOrderOperatingPointV1Runtime::observe_completed_cycle(
             pressure.pressure_pa_abs,
         });
     }
-    const auto result = convergence_.observe({
+    const auto result = sampler_.observe({
         completed.indicated_quadrature.completed_cycle_ordinal,
         {
             completed.indicated_quadrature.start_boundary,
@@ -587,86 +546,43 @@ LowOrderOperatingPointV1Runtime::observe_completed_cycle(
         completed.brake_work_j,
         std::move(pressures),
     });
-    if (const auto *error = std::get_if<AdjacentCycleBlockConvergenceError>(&result)) {
+    if (const auto *error = std::get_if<FixedHorizonCycleSamplingError>(&result)) {
         const auto gas_volume_id =
             error->element_index < pressure_samples_.size()
                 ? std::optional{pressure_samples_[error->element_index].gas_volume_id}
                 : std::nullopt;
-        return fault(error->code ==
-                             AdjacentCycleBlockConvergenceErrorCode::nonfinite_result
+        return fault(error->code == FixedHorizonCycleSamplingErrorCode::nonfinite_result
                          ? contract::FailureKind::numerical_failure
                          : contract::FailureKind::contract_violation,
-                     "operating-convergence-observation-failed",
-                     "complete-cycle convergence observer rejected accountant evidence",
+                     "operating-fixed-horizon-sampling-observation-failed",
+                     "fixed-horizon sampler rejected complete-cycle accountant "
+                     "evidence",
                      &mechanics, gas_volume_id);
     }
-    if (std::holds_alternative<AdjacentCycleBlockObservationClosed>(result)) {
+    if (std::holds_alternative<FixedHorizonCycleObservationClosed>(result)) {
         return fault(contract::FailureKind::contract_violation,
-                     "operating-convergence-closed-before-cutoff",
-                     "convergence observer closed before the fixed cutoff", &mechanics);
+                     "operating-fixed-horizon-sampler-closed-early",
+                     "fixed-horizon sampler closed before the preparation horizon",
+                     &mechanics);
     }
     return std::nullopt;
 }
 
 std::optional<contract::FailureContext>
-LowOrderOperatingPointV1Runtime::finalize_at_cutoff(
+LowOrderOperatingPointV1Runtime::finalize_at_fixed_horizon(
     const LegacyMechanismStep &mechanics) {
-    auto result = convergence_.finalize_at_fixed_cutoff();
-    if (auto *error = std::get_if<AdjacentCycleBlockConvergenceError>(&result)) {
-        if (error->code ==
-            AdjacentCycleBlockConvergenceErrorCode::insufficient_cycles) {
-            auto failure =
-                fault(contract::FailureKind::preparation_not_converged,
-                      std::string{contract::kPreparationInsufficientCyclesDetailCode},
-                      convergence_failure_summary(*error), &mechanics);
-            convergence_finalization_error_ = std::move(*error);
-            return failure;
-        }
-        if (error->code == AdjacentCycleBlockConvergenceErrorCode::nonconverged) {
-            if (!error->evidence.has_value()) {
-                auto failure =
-                    fault(contract::FailureKind::contract_violation,
-                          "operating-nonconvergence-evidence-missing",
-                          "nonconverged fixed-cutoff result omitted its evaluated "
-                          "residual evidence",
-                          &mechanics);
-                convergence_finalization_error_ = std::move(*error);
-                return failure;
-            }
-            const auto &evidence = *error->evidence;
-            auto failure =
-                fault(contract::FailureKind::preparation_not_converged,
-                      std::string{contract::kPreparationNotConvergedDetailCode},
-                      convergence_failure_summary(*error), &mechanics,
-                      evidence.limiting_gas_volume_id);
-            failure.tolerances = {
-                {
-                    std::string{contract::kCycleMeanTorqueResidualNmQuantityId},
-                    evidence.torque_residual_nm,
-                    evidence.cycle_mean_torque_tolerance_nm,
-                },
-                {
-                    std::string{contract::kBoundaryPressureResidualPaQuantityId},
-                    evidence.pressure_residual_pa,
-                    evidence.pressure_tolerance_pa,
-                },
-            };
-            convergence_finalization_error_ = std::move(*error);
-            return failure;
-        }
-        auto failure = fault(
-            error->code == AdjacentCycleBlockConvergenceErrorCode::nonfinite_result
-                ? contract::FailureKind::numerical_failure
-                : contract::FailureKind::contract_violation,
-            "operating-convergence-finalization-failed",
-            convergence_failure_summary(*error), &mechanics);
-        convergence_finalization_error_ = std::move(*error);
-        return failure;
+    auto result = sampler_.finalize_at_fixed_horizon();
+    if (const auto *error = std::get_if<FixedHorizonCycleSamplingError>(&result)) {
+        return fault(error->code == FixedHorizonCycleSamplingErrorCode::nonfinite_result
+                         ? contract::FailureKind::numerical_failure
+                         : contract::FailureKind::contract_violation,
+                     "operating-fixed-horizon-sampling-finalization-failed",
+                     sampling_failure_summary(*error), &mechanics);
     }
 
     auto point =
-        public_operating_point(std::get<AdjacentCycleBlockConverged>(result).evidence,
-                               simulation_request_identity_v2_sha256_, conditions_);
+        public_operating_point(std::get<FixedHorizonCycleSampled>(result).evidence,
+                               simulation_request_identity_v3_sha256_, conditions_);
     const auto report = contract::validate(point);
     if (!report.ok()) {
         const auto summary =
@@ -692,11 +608,11 @@ LowOrderOperatingPointV1Runtime::advance(const LegacyMechanismStep &mechanics,
         return fail(std::move(*failure));
     }
     if (!operating_point_result_.has_value() &&
-        mechanics.step_end_index > fixed_cutoff_frame_count_) {
+        mechanics.step_end_index > fixed_preparation_horizon_frame_count_) {
         return fail(fault(contract::FailureKind::contract_violation,
-                          "operating-cutoff-was-skipped",
-                          "simulation advanced beyond the fixed cutoff without "
-                          "finalizing convergence",
+                          "operating-fixed-horizon-was-skipped",
+                          "simulation advanced beyond the fixed preparation horizon "
+                          "without finalizing its cycle sample",
                           &mechanics));
     }
 
@@ -757,8 +673,8 @@ LowOrderOperatingPointV1Runtime::advance(const LegacyMechanismStep &mechanics,
         }
     }
 
-    if (mechanics.step_end_index == fixed_cutoff_frame_count_) {
-        if (auto failure = finalize_at_cutoff(mechanics); failure.has_value()) {
+    if (mechanics.step_end_index == fixed_preparation_horizon_frame_count_) {
+        if (auto failure = finalize_at_fixed_horizon(mechanics); failure.has_value()) {
             return fail(std::move(*failure));
         }
     }
@@ -778,19 +694,14 @@ std::uint64_t LowOrderOperatingPointV1Runtime::accepted_sample_count() const noe
     return accepted_sample_count_;
 }
 
-std::uint64_t
-LowOrderOperatingPointV1Runtime::fixed_cutoff_frame_count() const noexcept {
-    return fixed_cutoff_frame_count_;
+std::uint64_t LowOrderOperatingPointV1Runtime::fixed_preparation_horizon_frame_count()
+    const noexcept {
+    return fixed_preparation_horizon_frame_count_;
 }
 
 const std::optional<contract::HeldSpeedOperatingPointResult> &
 LowOrderOperatingPointV1Runtime::operating_point_result() const noexcept {
     return operating_point_result_;
-}
-
-const std::optional<AdjacentCycleBlockConvergenceError> &
-LowOrderOperatingPointV1Runtime::convergence_finalization_error() const noexcept {
-    return convergence_finalization_error_;
 }
 
 } // namespace engine_sim_offline::simulation

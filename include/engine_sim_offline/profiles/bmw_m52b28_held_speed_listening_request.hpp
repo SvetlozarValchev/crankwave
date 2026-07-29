@@ -23,7 +23,8 @@ using BmwM52b28HeldSpeedListeningRequestResult =
     std::variant<BmwM52b28HeldSpeedListeningRequest, contract::ValidationReport>;
 
 // Constructs and validates the frozen 3000 rpm, 0.85-throttle BMW listening
-// request. Preparation tolerances are calibrated constants, not caller controls.
+// request. Its fixed preparation horizon and trailing sample size are profile-owned,
+// not caller controls.
 [[nodiscard]] BmwM52b28HeldSpeedListeningRequestResult
 make_bmw_m52b28_held_speed_listening_request();
 

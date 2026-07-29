@@ -38,7 +38,7 @@ chen_flynn_cycle_mean_aggregate_loss_method_identity();
 implemented_cycle_accounting_method_identities();
 
 // This admits only the two implemented cycle-accounting algorithms. It does not
-// admit an engine profile, convergence policy, capture producer, or render route.
+// admit an engine profile, preparation policy, capture producer, or render route.
 [[nodiscard]] bool exactly_matches_implemented_cycle_accounting_methods(
     const contract::EngineSpec &engine,
     const contract::LowOrderOperatingPointV1Profile &profile);

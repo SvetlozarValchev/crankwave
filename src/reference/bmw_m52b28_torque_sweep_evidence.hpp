@@ -15,13 +15,13 @@
 namespace engine_sim_offline::reference {
 
 inline constexpr std::string_view kBmwM52b28TorqueSweepEvidenceWireSchema =
-    "engine-sim-offline.bmw-m52b28-torque-sweep-evidence.v1";
+    "engine-sim-offline.bmw-m52b28-torque-sweep-evidence.v2";
 inline constexpr std::string_view kBmwM52b28TorqueSweepEvidenceCanonicalGrammar =
-    "engine-sim-offline.bmw-m52b28-torque-sweep-evidence-canonical-json.v1";
+    "engine-sim-offline.bmw-m52b28-torque-sweep-evidence-canonical-json.v2";
 inline constexpr std::string_view kBmwM52b28TorqueSweepEvidenceFilename =
-    "bmw-m52b28-m4-torque-sweep-v1.json";
+    "bmw-m52b28-m4-torque-sweep-v2.json";
 inline constexpr std::string_view kBmwM52b28TorqueSweepEvidenceSha256Filename =
-    "bmw-m52b28-m4-torque-sweep-v1.json.sha256";
+    "bmw-m52b28-m4-torque-sweep-v2.json.sha256";
 inline constexpr double kBmwM52b28NominalTorqueNm = 280.0;
 inline constexpr double kBmwM52b28NominalPowerW = 142000.0;
 inline constexpr double kBmwM52b28GrossErrorWarningLowerRatio = 0.5;
@@ -48,11 +48,11 @@ struct BmwM52b28TorqueSweepConditions {
     std::uint64_t public_seed = 0U;
     std::uint64_t physics_rate_numerator = 0U;
     std::uint64_t physics_rate_denominator = 0U;
-    std::string convergence_method_id;
-    std::uint32_t convergence_method_version = 0U;
-    contract::Sha256Digest convergence_method_configuration_sha256;
-    std::uint32_t comparison_cycle_count = 0U;
-    std::uint64_t cutoff_frame = 0U;
+    std::string sampling_method_id;
+    std::uint32_t sampling_method_version = 0U;
+    contract::Sha256Digest sampling_method_configuration_sha256;
+    std::uint32_t trailing_complete_cycle_count = 0U;
+    std::uint64_t fixed_preparation_horizon_frame = 0U;
     std::uint64_t tail_frame_count = 0U;
 
     friend bool operator==(const BmwM52b28TorqueSweepConditions &,
@@ -60,9 +60,9 @@ struct BmwM52b28TorqueSweepConditions {
 };
 
 struct BmwM52b28TorqueSweepPointEvidence {
-    contract::Sha256Digest simulation_request_identity_v2_sha256;
-    contract::Sha256Digest provenance_bundle_sha256;
     std::string scenario_id;
+    contract::Sha256Digest simulation_request_v3_sha256;
+    contract::Sha256Digest provenance_bundle_sha256;
     double engine_speed_rpm = 0.0;
     double throttle_01 = 0.0;
     double indicated_gas_cycle_mean_torque_nm = 0.0;
@@ -71,14 +71,8 @@ struct BmwM52b28TorqueSweepPointEvidence {
     double net_shaft_cycle_mean_torque_nm = 0.0;
     double net_bmep_pa = 0.0;
     double mean_power_w = 0.0;
-    double torque_residual_nm = 0.0;
-    double torque_tolerance_nm = 0.0;
-    double pressure_residual_pa = 0.0;
-    double pressure_tolerance_pa = 0.0;
-    std::uint64_t block_a_first_cycle = 0U;
-    std::uint64_t block_a_last_cycle = 0U;
-    std::uint64_t block_b_first_cycle = 0U;
-    std::uint64_t block_b_last_cycle = 0U;
+    std::uint64_t sample_first_cycle = 0U;
+    std::uint64_t sample_last_cycle = 0U;
     std::string applicability_label;
     std::uint64_t elapsed_ns = 0U;
 

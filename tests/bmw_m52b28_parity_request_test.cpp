@@ -28,7 +28,7 @@ constexpr contract::Sha256Digest kExpectedComponentSeedSha256{{
 }};
 
 constexpr std::string_view kExpectedRequestIdentitySha256 =
-    "f8f5a3f93e76c5d9ed9ba988eb504288fffb13c701890ebe3b0ff8915ad2b9a2";
+    "d9ef5e18b311adb3aadb7b3cfd77610c5b72591dc2f9f8351d630c8e8a515a71";
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -98,7 +98,7 @@ fixed_rpm(const profiles::BmwM52b28ParityRequest &request) {
 
 [[nodiscard]] identity::SimulationRequestIdentityEncoding
 encode_request_identity(const profiles::BmwM52b28ParityRequest &request) {
-    auto result = identity::encode_simulation_request_identity_v2(
+    auto result = identity::encode_simulation_request_identity_v3(
         request.engine, request.scenario, request.provenance.bundle);
     const auto *encoding =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&result);
@@ -122,7 +122,7 @@ void test_exact_request_identity(const profiles::BmwM52b28ParityRequest &request
 
     const auto document = as_string(first.bytes);
     constexpr std::string_view kPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v2\","
+        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v3\","
         "\"engine\":";
     expect(document.starts_with(kPrefix),
            "BMW request identity root or canonical member order changed");
