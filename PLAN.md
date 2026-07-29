@@ -542,6 +542,13 @@ replacement starts before acceptance.
     - [x] Implement and verify the canonical sweep request set.
     - [x] Implement and verify the bounded runner and canonical evidence encoder.
     - [ ] Execute from a clean commit and publish the complete evidence record.
+      - [x] Run the frozen v1 set once, record its fail-closed 2500 rpm pressure
+            nonconvergence, and prove that no partial evidence was published.
+      - [ ] Diagnose whether the limiting cylinder-pressure residual is continued
+            settling or stationary deterministic cycle variation before changing any
+            cutoff, block size, tolerance, or model behavior.
+      - [ ] Freeze any evidence-justified correction under a new exact request
+            identity, then execute and publish all nine points atomically.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.
 - [x] Add the inertial dyno.
 - [x] Render its natural BMW pull, then stop for user listening.
