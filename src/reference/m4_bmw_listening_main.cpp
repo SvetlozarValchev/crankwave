@@ -1,6 +1,7 @@
 #include "reference/bmw_p18_render_specification.hpp"
 
 #include "engine_sim_offline/artifacts/directory_render_sink.hpp"
+#include "engine_sim_offline/profiles/bmw_m52b28_held_speed_listening_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_inertial_dyno_listening_request.hpp"
 #include "reference/p18_reference_catalog.hpp"
 #include "reference/p18_reference_fixture_loader.hpp"
@@ -27,6 +28,17 @@
 namespace {
 
 using namespace engine_sim_offline;
+
+enum class ListeningMode : std::uint8_t {
+    held,
+    inertial,
+};
+
+struct ListeningRequest {
+    contract::EngineSpec engine;
+    contract::RenderScenario scenario;
+    contract::ProvenanceLedger provenance;
+};
 
 [[nodiscard]] std::string
 validation_report_text(const contract::ValidationReport &report) {
@@ -98,38 +110,80 @@ read_verified_configured_ir(const std::filesystem::path &fixture_root) {
     return bytes;
 }
 
-[[nodiscard]] profiles::BmwM52b28InertialDynoListeningRequest make_listening_request() {
+[[nodiscard]] ListeningMode parse_listening_mode(std::string_view mode) {
+    if (mode == "held") {
+        return ListeningMode::held;
+    }
+    if (mode == "inertial") {
+        return ListeningMode::inertial;
+    }
+    throw std::invalid_argument{"listening mode must be exactly 'held' or 'inertial'"};
+}
+
+[[nodiscard]] std::string_view listening_mode_name(ListeningMode mode) noexcept {
+    switch (mode) {
+    case ListeningMode::held:
+        return "held";
+    case ListeningMode::inertial:
+        return "inertial";
+    }
+    std::abort();
+}
+
+[[nodiscard]] ListeningRequest make_listening_request(ListeningMode mode) {
+    if (mode == ListeningMode::held) {
+        auto result = profiles::make_bmw_m52b28_held_speed_listening_request();
+        if (auto *request =
+                std::get_if<profiles::BmwM52b28HeldSpeedListeningRequest>(&result)) {
+            return {
+                std::move(request->engine),
+                std::move(request->scenario),
+                std::move(request->provenance),
+            };
+        }
+        throw std::runtime_error{
+            "canonical M4 BMW held listening request construction failed" +
+            validation_report_text(std::get<contract::ValidationReport>(result))};
+    }
+
     auto result = profiles::make_bmw_m52b28_inertial_dyno_listening_request();
     if (auto *request =
             std::get_if<profiles::BmwM52b28InertialDynoListeningRequest>(&result)) {
-        return std::move(*request);
+        return {
+            std::move(request->engine),
+            std::move(request->scenario),
+            std::move(request->provenance),
+        };
     }
     throw std::runtime_error{
-        "canonical M4 BMW listening request construction failed" +
+        "canonical M4 BMW inertial listening request construction failed" +
         validation_report_text(std::get<contract::ValidationReport>(result))};
 }
 
-[[noreturn]] void throw_render_outcome(const contract::RenderResult &result) {
+[[noreturn]] void throw_render_outcome(const contract::RenderResult &result,
+                                       ListeningMode mode) {
     if (const auto *failure = std::get_if<contract::RenderFailure>(&result)) {
-        throw std::runtime_error{"M4 BMW render failed (" +
-                                 failure->context.detail_code +
+        throw std::runtime_error{"M4 BMW " + std::string{listening_mode_name(mode)} +
+                                 " render failed (" + failure->context.detail_code +
                                  "): " + failure->context.state_summary +
                                  validation_report_text(failure->validation)};
     }
     const auto &unreachable = std::get<contract::UnreachableTarget>(result);
-    throw std::runtime_error{
-        "M4 BMW inertial-dyno request unexpectedly returned unreachable-target (" +
-        unreachable.context.detail_code + "): " + unreachable.context.state_summary};
+    throw std::runtime_error{"M4 BMW " + std::string{listening_mode_name(mode)} +
+                             " request unexpectedly returned unreachable-target (" +
+                             unreachable.context.detail_code +
+                             "): " + unreachable.context.state_summary};
 }
 
 int run(int argc, char **argv) {
-    if (argc != 3) {
+    if (argc != 4) {
         throw std::invalid_argument{
-            "usage: engine-sim-offline-m4-bmw-listening <fixture-root> "
-            "<new-output-directory>"};
+            "usage: engine-sim-offline-m4-bmw-listening <held|inertial> "
+            "<fixture-root> <new-output-directory>"};
     }
-    const std::filesystem::path fixture_root{argv[1]};
-    const std::filesystem::path output_directory{argv[2]};
+    const auto mode = parse_listening_mode(argv[1]);
+    const std::filesystem::path fixture_root{argv[2]};
+    const std::filesystem::path output_directory{argv[3]};
     const auto publication_name = output_directory.filename().string();
     auto publication_root = output_directory.parent_path();
     if (output_directory.empty() || publication_name.empty()) {
@@ -147,7 +201,7 @@ int run(int argc, char **argv) {
     }
 
     const auto command_started = std::chrono::steady_clock::now();
-    auto request = make_listening_request();
+    auto request = make_listening_request(mode);
     auto configured_ir = read_verified_configured_ir(fixture_root);
     auto specification = reference::make_bmw_p18_render_specification(
         std::move(request.engine), std::move(request.provenance),
@@ -167,53 +221,84 @@ int run(int argc, char **argv) {
     }
     const auto *success = std::get_if<contract::RenderSuccess>(&result);
     if (success == nullptr) {
-        throw_render_outcome(result);
+        throw_render_outcome(result, mode);
     }
     if (sink.state() != artifacts::DirectoryRenderSinkState::committed) {
         throw std::runtime_error{
             "successful M4 BMW render did not commit its directory transaction"};
-    }
-    if (success->reached_target.has_value() ||
-        success->held_speed_operating_point.has_value() ||
-        !success->inertial_dyno.has_value()) {
-        throw std::runtime_error{
-            "successful M4 BMW inertial-dyno render has the wrong operating evidence"};
-    }
-
-    const auto &operating = *success->inertial_dyno;
-    if (!operating.first_target_reached_frame_index.has_value()) {
-        throw std::runtime_error{
-            "M4 BMW inertial-dyno pull did not reach its target speed"};
     }
     const auto audition = output_directory / "audio/master.reference.audition.wav";
     const double command_seconds =
         std::chrono::duration<double>(std::chrono::steady_clock::now() -
                                       command_started)
             .count();
-    std::cout << std::setprecision(17) << "output=" << output_directory.string() << '\n'
+    std::cout << std::setprecision(17) << "mode=" << listening_mode_name(mode) << '\n'
+              << "output=" << output_directory.string() << '\n'
               << "audition=" << audition.string() << '\n'
-              << "scenario=" << request.scenario.scenario_id << '\n'
-              << "start_engine_speed_rpm=" << operating.start_engine_speed_rpm << '\n'
-              << "release_engine_speed_rpm=" << operating.release_engine_speed_rpm
-              << '\n'
-              << "target_engine_speed_rpm=" << operating.target_engine_speed_rpm << '\n'
-              << "end_engine_speed_rpm=" << operating.end_engine_speed_rpm << '\n'
-              << "minimum_engine_speed_rpm=" << operating.minimum_engine_speed_rpm
-              << '\n'
-              << "maximum_engine_speed_rpm=" << operating.maximum_engine_speed_rpm
-              << '\n'
-              << "release_frame_index=" << operating.release_frame_index << '\n'
-              << "first_target_reached_frame_index="
-              << *operating.first_target_reached_frame_index << '\n'
-              << "end_frame_index=" << operating.end_frame_index << '\n'
-              << "net_shaft_work_j=" << operating.energy_balance.net_shaft_work_j
-              << '\n'
-              << "passive_brake_absorbed_work_j="
-              << operating.energy_balance.passive_brake_absorbed_work_j << '\n'
-              << "kinetic_energy_change_j="
-              << operating.energy_balance.kinetic_energy_change_j << '\n'
-              << "energy_residual_j=" << operating.energy_balance.residual_j << '\n'
-              << "render_seconds=" << render_seconds << '\n'
+              << "scenario=" << request.scenario.scenario_id << '\n';
+
+    if (mode == ListeningMode::held) {
+        if (success->reached_target.has_value() ||
+            !success->held_speed_operating_point.has_value() ||
+            success->inertial_dyno.has_value()) {
+            throw std::runtime_error{
+                "successful M4 BMW held render has the wrong operating evidence"};
+        }
+        const auto &operating = *success->held_speed_operating_point;
+        const auto &sample = operating.sampling;
+        const auto &block = operating.reported_block();
+        std::cout << "engine_speed_rpm=" << operating.conditions.engine_speed_rpm
+                  << '\n'
+                  << "throttle_01=" << operating.conditions.throttle_01 << '\n'
+                  << "fixed_preparation_horizon_s="
+                  << sample.fixed_preparation_horizon_s << '\n'
+                  << "trailing_complete_cycle_count="
+                  << sample.trailing_complete_cycle_count << '\n'
+                  << "first_completed_cycle_ordinal="
+                  << block.cycles.first_completed_cycle_ordinal << '\n'
+                  << "last_completed_cycle_ordinal="
+                  << block.cycles.last_completed_cycle_ordinal << '\n'
+                  << "indicated_gas_mean_torque_nm="
+                  << block.cycle_mean_torque.indicated_gas.value_nm << '\n'
+                  << "aggregate_loss_mean_torque_nm="
+                  << block.cycle_mean_torque.aggregate_loss.value_nm << '\n'
+                  << "net_shaft_mean_torque_nm="
+                  << block.cycle_mean_torque.net_shaft.value_nm << '\n'
+                  << "net_bmep_pa=" << block.net_bmep_pa << '\n'
+                  << "mean_power_w=" << block.mean_power_w << '\n';
+    } else {
+        if (success->reached_target.has_value() ||
+            success->held_speed_operating_point.has_value() ||
+            !success->inertial_dyno.has_value()) {
+            throw std::runtime_error{
+                "successful M4 BMW inertial-dyno render has the wrong operating "
+                "evidence"};
+        }
+        const auto &operating = *success->inertial_dyno;
+        if (!operating.first_target_reached_frame_index.has_value()) {
+            throw std::runtime_error{
+                "M4 BMW inertial-dyno pull did not reach its target speed"};
+        }
+        std::cout
+            << "start_engine_speed_rpm=" << operating.start_engine_speed_rpm << '\n'
+            << "release_engine_speed_rpm=" << operating.release_engine_speed_rpm << '\n'
+            << "target_engine_speed_rpm=" << operating.target_engine_speed_rpm << '\n'
+            << "end_engine_speed_rpm=" << operating.end_engine_speed_rpm << '\n'
+            << "minimum_engine_speed_rpm=" << operating.minimum_engine_speed_rpm << '\n'
+            << "maximum_engine_speed_rpm=" << operating.maximum_engine_speed_rpm << '\n'
+            << "release_frame_index=" << operating.release_frame_index << '\n'
+            << "first_target_reached_frame_index="
+            << *operating.first_target_reached_frame_index << '\n'
+            << "end_frame_index=" << operating.end_frame_index << '\n'
+            << "net_shaft_work_j=" << operating.energy_balance.net_shaft_work_j << '\n'
+            << "passive_brake_absorbed_work_j="
+            << operating.energy_balance.passive_brake_absorbed_work_j << '\n'
+            << "kinetic_energy_change_j="
+            << operating.energy_balance.kinetic_energy_change_j << '\n'
+            << "energy_residual_j=" << operating.energy_balance.residual_j << '\n';
+    }
+
+    std::cout << "render_seconds=" << render_seconds << '\n'
               << "total_command_seconds=" << command_seconds << '\n';
     return EXIT_SUCCESS;
 }
