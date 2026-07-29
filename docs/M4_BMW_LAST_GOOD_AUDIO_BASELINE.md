@@ -135,7 +135,9 @@ artifacts/listening/bmw-m52b28-compression-field-removed-f40fbb6/
 completed in `15.16 s` and remained byte-for-byte identical to the tracked oracle,
 with WAVE SHA-256
 `87eda586902fbcf7e015161a84688c74e486285c99150c1a6fb3bc9c4382c444`.
-The cleanup is therefore proven audio-neutral rather than hidden inside the recovery.
+The user listened to this post-cleanup render on 2026-07-30 and confirmed that it
+still sounds correct. The cleanup is therefore both byte-proven and listening-accepted
+as audio-neutral rather than hidden inside the recovery.
 
 ## 5. Recovery and future comparison rule
 
