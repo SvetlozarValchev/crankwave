@@ -3,7 +3,7 @@
 Status: normative implementation companion, implemented one checked subsection at a
 time
 
-Applies to: M4 held-speed BMW M52B28 operating points
+Applies to: M4 held-speed and inertial-dyno BMW M52B28 operation
 
 Date: 2026-07-28
 
@@ -281,6 +281,95 @@ seeds, header lengths, and reference-excitation values. Their evidence remains
 `local_evaluation_only`: the profile has no runtime fixture dependency, but its
 provenance is not yet admissible for a distributable product package. Those authorities
 must be sourced or re-authored before the M7 package gate.
+
+### 1.3 First inertial-dyno listening request
+
+The inertial pull is a new physical operating mode, not the M3 prescribed RPM lane and
+not a reproduction of engine-sim's GUI dyno sweep. The original engine-sim sweep moves
+an ideal speed constraint at an authored `500 rpm/s`; it measures constraint reaction
+while the constraint owns crank speed. `InertialDyno` instead lets the modeled shaft
+torque accelerate one declared crank-referred inertia against one declared passive
+load.
+
+The first request freezes these conditions before listening:
+
+| Field | Canonical value |
+|---|---:|
+| Scenario ID | `bmw-m52b28-inertial-dyno-1500-6500rpm-listening-v1` |
+| Initial / listening-target speed | `1500 rpm` / `6500 rpm` |
+| Throttle | `0.85` |
+| Maximum preparation / audible start | `6.44 s` |
+| Audible duration / total duration | `15.0 s` / `21.44 s` |
+| Total crank-referred equivalent inertia | `6.5 kg*m^2` |
+| Passive brake curve | `40 N*m` from `1000` through `7500 rpm` |
+| Crank-dynamics method | `rigid-crank-zoh-work-energy-v1`, version 1 |
+| Passive-brake method | `piecewise-linear-positive-speed-passive-brake-v1`, version 1 |
+| Physics / capture rates | `10000 Hz` / `10000 Hz` |
+| Source / acoustic / delivery rates | `192000 Hz` / `192000 Hz` / `192000 Hz` |
+| Capture block / event capacities | `200` frames / `3800` records |
+| Public seed | `0xC0FFEE` |
+
+`6.5 kg*m^2` is a declared test-cell total, including all rigidly crank-referred
+engine, coupling, and flywheel inertia. It is not a measured BMW value and must not be
+added to a second hidden engine inertia. A future component inventory may derive this
+total as `J_engine + sum(J_i * ratio_i^2)`; v1 owns only the resolved total and its
+provenance.
+
+The listening target is evidence, not a prescribed trajectory. The fixed-horizon run
+records the first frame at or above `6500 rpm`, if any, and continues to the declared
+duration. Missing the target does not get disguised by resampling or clamping; the
+canonical publisher fails its listening gate and reports the final speed. The brake
+curve uses an admitted piecewise-linear method, is a nonnegative resisting magnitude,
+and must cover every evaluated positive speed. Extrapolation, reverse rotation, and a
+zero-speed stick model are absent from v1.
+
+Preparation holds exactly `1500 rpm` using a test-cell actuator while the passive
+brake remains active. Existing adjacent-block torque and phase-aligned pressure
+convergence is evaluated at the fixed `6.44 s` cutoff. The hold actuator becomes zero
+at that exact physics-frame boundary; crank angle, gas state, flame state, pressure
+history, randomness, and the latest completed aggregate-loss state continue without a
+reset.
+
+The first dynamics method is a deterministic rigid one-degree-of-freedom mean-value
+model. With positive running direction, the committed state from step `n` supplies:
+
+```text
+tau_engine_n = tau_indicated_n + tau_applied_loss_n + tau_starter_n
+tau_brake_n  = -B(omega_n)
+tau_total_n  = tau_engine_n + tau_brake_n
+alpha_n      = tau_total_n / J_equivalent
+
+omega_n1 = omega_n + alpha_n * dt
+theta_n1 = theta_n + omega_n * dt + 0.5 * alpha_n * dt^2
+```
+
+Torque is zero-order held over that interval. This update preserves the constant-step
+work/kinetic-energy identity
+`tau_total_n * (theta_n1 - theta_n) = 0.5 * J * (omega_n1^2 - omega_n^2)`;
+the runtime retains the maximum absolute binary64 residual. A step that would reach
+zero speed resolves the within-step stop and returns a typed stall rather than
+silently reversing. A step outside the compiled brake domain fails rather than
+extrapolating.
+
+The gas solver produces the post-step indicated torque used by the following dynamics
+interval, matching the existing causal mechanics-then-gas transaction. Chen–Flynn
+cannot supply same-cycle instantaneous loss because its peak pressure is known only
+after that cycle closes. When completed cycle `k` closes, its mean loss torque becomes
+a constant mean-value dynamics input for cycle `k+1`. Variable-speed cycle mean RPM is
+derived from the represented cycle duration as `120 / duration_s`. The preparation
+must provide the first complete lagged-loss state; there is no guessed startup value.
+
+This causal one-cycle lag is an explicit dynamics approximation. It is complete within
+the named low-order crank-dynamics method, but it is not a physical instantaneous
+friction waveform and does not expose component friction. Public evidence keeps the
+applied lagged loss, newly estimated completed-cycle loss, indicated torque, passive
+brake, and total dynamics torque distinct.
+
+The canonical descriptor for `rigid-crank-zoh-work-energy-v1` includes the
+`cycle-k estimate -> cycle-k+1 application` causality rule; accepting the same ID with
+a same-cycle, guessed-first-cycle, or interpolated loss law is forbidden. The brake
+method uses binary64 linear interpolation between ascending angular-speed points,
+returns the exact endpoint value at either endpoint, and has no extrapolation rule.
 
 ## 2. Indexed four-stroke torque quadrature
 
@@ -614,6 +703,14 @@ evaluation.
 - Pipitone, “A New Simple Friction Model for S.I. Engine,”
   [SAE 2009-01-1984](https://iris.unipa.it/handle/10447/46811), records the cited
   late-peak-pressure limitation.
+- Kee and Blair, “Acceleration Test Method for a High Performance Two-Stroke Racing
+  Engine,” [SAE 942478](https://saemobilus.sae.org/papers/acceleration-test-method-a-high-performance-two-stroke-racing-engine-942478),
+  describes an inertia flywheel whose measured acceleration yields torque and power.
+- The Modelica Association's
+  [Rotational library guide](https://doc.modelica.org/Modelica%204.0.0/Resources/helpDymola/Modelica_Mechanics_Rotational_UsersGuide.html)
+  supplies the standard rigid one-dimensional inertia, applied-torque, brake, and
+  sign-convention model boundary used here. It is structural support, not validation
+  of this BMW parameter set.
 - BMW AG, *Owner's Manual for the vehicle*, order number `01 41 9 790 377`,
   edition `US VIII/97`, online edition `07/98`, printed page 160, records the
   original 328i engine geometry and output landmarks. The reviewed extracted PDF has
