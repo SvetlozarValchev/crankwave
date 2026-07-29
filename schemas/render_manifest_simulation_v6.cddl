@@ -8,24 +8,24 @@
 ; from the complete owned binary64 vector using the typed contract's canonical
 ; little-endian grammar.
 
-render-manifest-simulation-v5 = {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v5",
-  "content": render-manifest-content-simulation-v5,
+render-manifest-simulation-v6 = {
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v6",
+  "content": render-manifest-content-simulation-v6,
   "execution": execution-facts
 }
 
 ; Canonical identity for a resolved simulator request before presentation/render
 ; composition. This domain is intentionally distinct from the completed manifest.
-simulation-request-identity-v2 = {
-  "wire_schema": "engine-sim-offline.simulation-request-identity.v2",
+simulation-request-identity-v3 = {
+  "wire_schema": "engine-sim-offline.simulation-request-identity.v3",
   "engine": engine-spec,
   "scenario": render-scenario,
   "provenance": provenance-bundle-ref
 }
 
-render-manifest-content-simulation-v5 = {
-  "schema_version": 5,
-  "inputs": simulation-manifest-inputs-v4,
+render-manifest-content-simulation-v6 = {
+  "schema_version": 6,
+  "inputs": simulation-manifest-inputs-v5,
   "provenance": provenance-bundle-ref,
   "determinism": determinism-envelope,
   "rates": render-rates,
@@ -36,12 +36,12 @@ render-manifest-content-simulation-v5 = {
   "artifacts": [* artifact-record]
 }
 
-simulation-manifest-inputs-v4 = {
-  "kind": "simulation_v4",
-  "value": simulation-inputs-v4
+simulation-manifest-inputs-v5 = {
+  "kind": "simulation_v5",
+  "value": simulation-inputs-v5
 }
 
-simulation-inputs-v4 = {
+simulation-inputs-v5 = {
   "resolved": resolved-render-inputs
 }
 
@@ -546,8 +546,8 @@ preparation-policy =
     "value": fixed-settling
   } /
   {
-    "kind": "convergence_settling",
-    "value": convergence-settling
+    "kind": "fixed_horizon_cycle_sampling",
+    "value": fixed-horizon-cycle-sampling
   }
 
 fixed-settling = {
@@ -555,14 +555,10 @@ fixed-settling = {
   "settling_duration_s": resolved<f64-bits>
 }
 
-convergence-settling = {
+fixed-horizon-cycle-sampling = {
   "method": resolved<method-identity>,
-  "minimum_warm_up_duration_s": resolved<f64-bits>,
-  "minimum_settling_duration_s": resolved<f64-bits>,
-  "maximum_preparation_duration_s": resolved<f64-bits>,
-  "comparison_cycle_count": resolved<u32>,
-  "cycle_mean_torque_tolerance_nm": resolved<f64-bits>,
-  "pressure_tolerance_pa": resolved<f64-bits>
+  "fixed_preparation_horizon_s": resolved<f64-bits>,
+  "trailing_complete_cycle_count": resolved<u32>
 }
 
 operating-state-point-array = [* operating-state-point]

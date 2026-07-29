@@ -20,7 +20,7 @@ Artifact creation has three independent layers:
 ```text
 typed frames/records -> bounded encoder callbacks -> RenderSink transaction
                                               |
-complete RenderManifest -> simulation-v5 encoder --+
+complete RenderManifest -> simulation-v6 encoder --+
 ```
 
 - WAV and telemetry encoders own only their versioned wire formats. They retain no
@@ -31,8 +31,8 @@ complete RenderManifest -> simulation-v5 encoder --+
   verification, private staging, and atomic publication. Sink chunking cannot select
   capture or DSP partitions.
 - The shipped directory sink has one schema-owned metadata route. It always serializes
-  the complete typed manifest through `encode_simulation_manifest_v5()` at
-  `manifest/render-manifest.v5.json` and writes that file's digest sidecar. Neither
+  the complete typed manifest through `encode_simulation_manifest_v6()` at
+  `manifest/render-manifest.v6.json` and writes that file's digest sidecar. Neither
   encoder nor metadata path is caller-selectable. A throwing or empty encoding makes
   commit fail closed.
 

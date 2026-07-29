@@ -557,8 +557,12 @@ replacement starts before acceptance.
           - [x] Freeze the bounded cross-RPM diagnostic, reduction, decision envelope,
                 extension rule, concurrency bound, and non-publication behavior.
           - [x] Implement, execute from a clean commit, and record the result.
-      - [ ] Freeze any evidence-justified correction under a new exact request
-            identity, then execute and publish all nine points atomically.
+      - [ ] Replace the rejected equality gate and publish a complete fixed-sample
+            torque sweep under new exact identities.
+        - [x] Freeze the incompatible fixed-horizon sampling contract, result,
+              canonical BMW migration, evidence replacement, and removal policy.
+        - [ ] Implement the no-compatibility production cutover and focused checks.
+        - [ ] Execute from a clean commit and publish all nine points atomically.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.
 - [x] Add the inertial dyno.
 - [x] Render its natural BMW pull, then stop for user listening.

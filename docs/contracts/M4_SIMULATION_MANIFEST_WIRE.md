@@ -1,19 +1,19 @@
 # M4 simulation-manifest wire contract
 
-Status: normative canonical v5 encoding for the direct M3 and operating simulation
-profiles and resolved simulation-request identity
+Status: frozen canonical v6 encoding; implementation pending for the direct M3 and
+operating simulation profiles and resolved simulation-request identity
 
 Manifest wire schema ID:
-`engine-sim-offline.render-manifest.simulation.v5`
+`engine-sim-offline.render-manifest.simulation.v6`
 
 Request-identity wire schema ID:
-`engine-sim-offline.simulation-request-identity.v2`
+`engine-sim-offline.simulation-request-identity.v3`
 
 Machine schema:
-[`schemas/render_manifest_simulation_v5.cddl`](../../schemas/render_manifest_simulation_v5.cddl)
+[`schemas/render_manifest_simulation_v6.cddl`](../../schemas/render_manifest_simulation_v6.cddl)
 
 Schema SHA-256:
-`06a5d29a0eeff0e6975f84e26ad11795c3464b4d5ec3643544f264afeddb6811`
+`876458471659734330f674d24b6c4787be28622177dee8288131892445fb5aaf`
 
 ## 1. Scope and admission
 
@@ -22,7 +22,7 @@ manifest input discriminator is exactly:
 
 ```text
 {
-  "kind": "simulation_v4",
+  "kind": "simulation_v5",
   "value": {
     "resolved": {
       "engine": <EngineSpec>,
@@ -38,7 +38,7 @@ The completed-manifest root is exactly:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v5",
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v6",
   "content": <RenderManifestContent>,
   "execution": <ExecutionFacts>
 }
@@ -49,7 +49,7 @@ request before presentation and render composition:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.simulation-request-identity.v2",
+  "wire_schema": "engine-sim-offline.simulation-request-identity.v3",
   "engine": <EngineSpec>,
   "scenario": <RenderScenario>,
   "provenance": <ProvenanceBundleRef>
@@ -78,28 +78,29 @@ forms and serializes both directly. The typed M3 profile composes a reusable
 composes the same core with its own aggregate-loss, accessory, starter, and
 cycle-quadrature contract. Neither form is flattened or projected.
 
-### 1.1 Direct v5 profile and capability forms
+### 1.1 Direct v6 profile and capability forms
 
-The sole implemented identities are:
+The sole frozen identities are:
 
 | Role | Final identity |
 |---|---|
-| Completed-manifest wire | `engine-sim-offline.render-manifest.simulation.v5` |
-| Manifest content schema version | `5` |
-| Manifest input kind | `simulation_v4` |
-| Request-identity wire | `engine-sim-offline.simulation-request-identity.v2` |
-| Manifest path | `manifest/render-manifest.v5.json` |
-| Sidecar path | `manifest/render-manifest.v5.json.sha256` |
+| Completed-manifest wire | `engine-sim-offline.render-manifest.simulation.v6` |
+| Manifest content schema version | `6` |
+| Manifest input kind | `simulation_v5` |
+| Request-identity wire | `engine-sim-offline.simulation-request-identity.v3` |
+| Manifest path | `manifest/render-manifest.v6.json` |
+| Sidecar path | `manifest/render-manifest.v6.json.sha256` |
 
-`simulation_v4` versions the fourth resolved simulation-input grammar; it is not a
-milestone label. The manifest envelope has changed one additional time and is therefore
-v5. The historical `simulation_v3` discriminator is not retained.
+`simulation_v5` versions the fifth resolved simulation-input grammar; it is not a
+milestone label. The manifest envelope has changed one additional time and is
+therefore v6. The superseded `simulation_v4` discriminator is not retained.
 
-The request-v2 root retains the exact member order `wire_schema`, `engine`, `scenario`,
+The request-v3 root retains the exact member order `wire_schema`, `engine`, `scenario`,
 `provenance`. It continues to call the same engine and scenario writers as the
-completed manifest. It changes version because `EngineSpec` gains a second directly
-encoded physics-profile form and because M3 itself is no longer flattened into its
-historical wire shape.
+completed manifest. It changes version because the scenario preparation union
+replaces `convergence_settling` with the incompatible
+`fixed_horizon_cycle_sampling` record. The request-v2 root is deleted rather than
+accepted as an alias.
 
 The final executable-profile union is exactly:
 
@@ -156,11 +157,12 @@ low-order-operating-point-v1-profile = {
 ```
 
 The cycle reference angle has one authority and is not serialized again:
-`core.mechanism.crank.crank_tdc_reference_rad`. Convergence is scenario-owned.
-`convergence-settling` gains a leading `method: resolved<method-identity>` member,
-followed by its existing durations, count, and tolerances.
+`core.mechanism.crank.crank_tdc_reference_rad`. Preparation sampling is scenario-owned.
+`fixed-horizon-cycle-sampling` contains, in order, `method`,
+`fixed_preparation_horizon_s`, and `trailing_complete_cycle_count`, all as resolved
+values. The rejected convergence durations, block count, and tolerances are absent.
 
-The v5 wire serializes the typed temporal torque capability without projection:
+The v6 wire serializes the typed temporal torque capability without projection:
 
 ```text
 torque-capability = {
@@ -182,23 +184,24 @@ profile's unavailable instantaneous but complete cycle-mean claim. There is no v
 projection or equality restriction between temporal forms.
 
 Variant membership, profile root mapping, authored/resolved validators, method
-admission, randomness access, v5 encoding, request-v2 encoding, schema replacement,
-and deletion of v4/v1 APIs and paths land in one commit. Writers use exhaustive
+admission, randomness access, v6 encoding, request-v3 encoding, schema replacement,
+and deletion of v5/v2 APIs and paths land in one commit. Writers use exhaustive
 profile overloads with no generic fallback, so another alternative fails compilation
 until explicitly represented. The presentation compiler rejects the operating
 alternative until its capture producer exists.
 
-The v5 CDDL SHA-256 is pinned above. The canonical BMW M3 request-v2 digest is pinned
-in section 6 and its independent factory test. Implementation-owned method
+The v6 CDDL SHA-256 is pinned above. The canonical BMW M3 request-v3 digest is pinned
+in section 6 when the frozen encoder is implemented and in its independent factory
+test. Implementation-owned method
 configuration hashes remain governed by the operating-point model: each is pinned
-from its reviewed descriptor when that implementation is admitted. The old CDDL, v4
-manifest path, v4 encoder, request-v1 encoder, constants, overloads, and forwarding
+from its reviewed descriptor when that implementation is admitted. The old CDDL, v5
+manifest path, v5 encoder, request-v2 encoder, constants, overloads, and forwarding
 aliases are deleted.
 
 The `reference_presentation_v1` input belongs exclusively to
 `engine-sim-offline.render-manifest.reference-presentation.v2`. It has no alias,
 fallback, numeric variant index, or compatibility interpretation in this schema.
-Conversely, `simulation_v4` is not encodable under the reference-presentation schema.
+Conversely, `simulation_v5` is not encodable under the reference-presentation schema.
 The superseded simulation inputs and wire APIs are not retained, accepted, or aliased;
 there is no backward-compatibility path.
 
@@ -329,7 +332,7 @@ All already-typed `RenderScenario` variants have canonical tags:
 | C++ variant | Wire kind |
 |---|---|
 | `FixedSettling` | `fixed_settling` |
-| `ConvergenceSettling` | `convergence_settling` |
+| `FixedHorizonCycleSampling` | `fixed_horizon_cycle_sampling` |
 | `HeldSpeed` | `held_speed` |
 | `PrescribedKinematicSweep` | `prescribed_kinematic_sweep` |
 | `LoadTargetHeldCapture` | `load_target_held_capture` |
@@ -402,7 +405,7 @@ simulator continues to own and consume all 170,000 binary64 samples.
 
 ## 5. Common manifest content and execution
 
-Outside `content.inputs`, the simulation v5 content shape and canonical rules are the
+Outside `content.inputs`, the simulation v6 content shape and canonical rules are the
 same as the reference-presentation v2 content shape:
 
 ```text
@@ -480,8 +483,8 @@ artifact role with every `/` byte replaced by lowercase `%2f`, followed by `.wav
 All other valid semantic-ID bytes (`a-z`, `0-9`, `.`, `_`, and `-`) are copied
 unchanged. `%` is not a valid input byte, so this projection is injective. The
 manifest path remains the schema-owned
-`manifest/render-manifest.v5.json`. The shipped directory sink binds that path and
-`encode_simulation_manifest_v5()` internally; callers configure only its publication
+`manifest/render-manifest.v6.json`. The shipped directory sink binds that path and
+`encode_simulation_manifest_v6()` internally; callers configure only its publication
 destination.
 
 The audition WAVE INFO values are derived exactly as these ASCII concatenations:
@@ -500,8 +503,8 @@ plus the admitted audition method completely determines the WAVE metadata bytes.
 ## 6. File identity and non-claims
 
 When published through `DirectoryRenderSink`, the canonical completed document is
-`manifest/render-manifest.v5.json`. Its sidecar is
-`manifest/render-manifest.v5.json.sha256`, containing the SHA-256 of the complete
+`manifest/render-manifest.v6.json`. Its sidecar is
+`manifest/render-manifest.v6.json.sha256`, containing the SHA-256 of the complete
 encoded manifest—including the final LF—as 64 lowercase hexadecimal digits followed
 by one LF. The manifest and sidecar are transaction metadata, not artifact records,
 and the manifest does not embed its own whole-file digest.
@@ -511,14 +514,12 @@ unless an owning transaction explicitly assigns it a path. This contract does no
 invent a second manifest path, artifact role, or sidecar convention for it.
 
 The complete sealed BMW M52B28 M3 request—including its engine, scenario, compact RPM
-descriptor, and provenance bundle—has canonical request-identity SHA-256:
-
-```text
-f8f5a3f93e76c5d9ed9ba988eb504288fffb13c701890ebe3b0ff8915ad2b9a2
-```
-
-This digest is pinned here and in the factory test, not inside the request or its
-provenance. Embedding it in either would create a self-referential identity.
+descriptor, and provenance bundle—receives a new request-v3 digest even though its
+typed `FixedSettling` value is unchanged, because the root wire-schema domain changes.
+The exact digest is generated mechanically by the first conforming encoder and must be
+pinned here and in the same factory-test commit before that encoder is accepted. It is
+not embedded in the request or provenance, which would create a self-referential
+identity.
 
 Successful encoding proves only:
 
