@@ -449,6 +449,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_acoustic_wave_network_primitive_tests
+    acoustic_wave_network_primitives_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_acoustic_wave_network_primitive_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_acoustic_wave_network_primitive_tests
+    PRIVATE engine_sim_offline::acoustics
+)
+
+add_test(
+    NAME acoustics.wave_network_primitives
+    COMMAND engine_sim_offline_acoustic_wave_network_primitive_tests
+)
+
+add_executable(
     engine_sim_offline_component_seed_derivation_tests
     component_seed_derivation_test.cpp
 )

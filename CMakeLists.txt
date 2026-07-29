@@ -318,6 +318,29 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_dsp)
 
 add_library(
+    engine_sim_offline_acoustics
+    STATIC
+        src/acoustics/ideal_compact_junction.cpp
+        src/acoustics/uniform_cylindrical_waveguide.cpp
+)
+add_library(
+    engine_sim_offline::acoustics
+    ALIAS engine_sim_offline_acoustics
+)
+
+target_include_directories(
+    engine_sim_offline_acoustics
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_acoustics
+    PUBLIC engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_acoustics)
+
+add_library(
     engine_sim_offline_presentation
     STATIC
         src/presentation/causal_reconstruction.cpp
