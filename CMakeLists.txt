@@ -124,6 +124,9 @@ add_library(
         src/profiles/bmw_m52b28_held_speed_listening_request.cpp
         src/profiles/bmw_m52b28_held_speed_listening_scenario.cpp
         src/profiles/bmw_m52b28_held_speed_listening_validation.cpp
+        src/profiles/bmw_m52b28_inertial_dyno_listening_request.cpp
+        src/profiles/bmw_m52b28_inertial_dyno_listening_scenario.cpp
+        src/profiles/bmw_m52b28_inertial_dyno_listening_validation.cpp
         src/profiles/bmw_m52b28_parity_request.cpp
         src/profiles/bmw_m52b28_parity_scenario.cpp
         src/profiles/bmw_m52b28_parity_validation.cpp
