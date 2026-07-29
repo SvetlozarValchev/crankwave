@@ -74,14 +74,14 @@ make_restriction(BmwProvenanceBuilder &builder,
     };
 }
 
-contract::LegacyValveFlowPoint
-make_valve_flow_point(BmwProvenanceBuilder &builder, std::string_view table_name,
-                      std::uint32_t lift_index, double source_cfm,
-                      double millimetre_source) {
+contract::LegacyValveFlowPoint make_valve_flow_point(BmwProvenanceBuilder &builder,
+                                                     std::string_view table_name,
+                                                     std::uint32_t lift_index,
+                                                     double source_cfm,
+                                                     double millimetre_source) {
     const std::string sample_id = numbered_id("lift-", lift_index);
-    const std::string base_path =
-        builder.profile_path("gas_path.head." + std::string(table_name) + "." +
-                             sample_id);
+    const std::string base_path = builder.profile_path(
+        "gas_path.head." + std::string(table_name) + "." + sample_id);
     const std::string source_cfm_path = base_path + ".source_cfm_at_28_inh2o";
     return {
         builder.resolved(sample_id, base_path + ".sample_id", Source::legacy_asset),
@@ -134,8 +134,8 @@ contract::LegacyTimingPoint make_timing_point(BmwProvenanceBuilder &builder,
     };
 }
 
-contract::LegacyFlameSpeedPoint
-make_flame_speed_point(BmwProvenanceBuilder &builder, std::uint32_t turbulence) {
+contract::LegacyFlameSpeedPoint make_flame_speed_point(BmwProvenanceBuilder &builder,
+                                                       std::uint32_t turbulence) {
     const std::string sample_id = numbered_id("turbulence-", turbulence);
     const std::string base_path =
         builder.profile_path("fuel.turbulence_to_flame_speed_ratio." + sample_id);
@@ -151,12 +151,25 @@ make_flame_speed_point(BmwProvenanceBuilder &builder, std::uint32_t turbulence) 
 
 } // namespace
 
-contract::EngineSpec
-build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
+contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
     const bool operating_profile =
         builder.profile_kind() == BmwProfileKind::low_order_operating_point_v1;
     const auto profile_path = [&builder](std::string_view suffix) {
         return builder.profile_path(suffix);
+    };
+    const auto exhaust_route_for_cylinder =
+        [operating_profile](std::uint32_t cylinder_number) {
+            if (operating_profile) {
+                return contract::RouteId{cylinder_number <= 3U ? 1U : 2U};
+            }
+            return contract::RouteId{cylinder_number % 2U == 0U ? 1U : 2U};
+        };
+    const auto collector_for_route = [](contract::RouteId route_id) {
+        return contract::GasVolumeId{route_id == contract::RouteId{1} ? 21U : 22U};
+    };
+    const auto semantic_id_for_route = [](contract::RouteId route_id) {
+        return route_id == contract::RouteId{1} ? "exhaust.reference.0"
+                                                : "exhaust.reference.1";
     };
     const double centimetre_source = 1.0 / 100.0;
     const double millimetre_source = 1.0 / 1000.0;
@@ -219,9 +232,8 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
     engine.id = contract::EngineId{1};
     engine.engine_id = builder.resolved(std::string{"bmw-m52b28"}, "engine.engine_id",
                                         Source::legacy_asset);
-    engine.profile_id =
-        builder.resolved(std::string{builder.engine_profile_id()},
-                         "engine.profile_id", Source::profile_contract);
+    engine.profile_id = builder.resolved(std::string{builder.engine_profile_id()},
+                                         "engine.profile_id", Source::profile_contract);
     engine.display_name = builder.resolved(std::string{"BMW M52B28"},
                                            "engine.display_name", Source::legacy_asset);
     engine.cycle = builder.resolved(contract::EngineCycle::four_stroke, "engine.cycle",
@@ -235,7 +247,8 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
     engine.banks.push_back({
         contract::BankId{1},
         builder.resolved(std::string{"bank.inline-1"},
-                         "engine.banks.bank.inline-1.semantic_id", Source::profile_contract),
+                         "engine.banks.bank.inline-1.semantic_id",
+                         Source::profile_contract),
     });
 
     for (std::uint32_t index = 0; index < 6; ++index) {
@@ -307,7 +320,8 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
                              Source::profile_contract),
             cylinder_id,
             builder.resolved(contract::PortKind::intake,
-                             "engine.ports." + intake_id + ".kind", Source::profile_contract),
+                             "engine.ports." + intake_id + ".kind",
+                             Source::profile_contract),
         });
         engine.ports.push_back({
             contract::PortId{2 * number},
@@ -315,7 +329,8 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
                              Source::profile_contract),
             cylinder_id,
             builder.resolved(contract::PortKind::exhaust,
-                             "engine.ports." + exhaust_id + ".kind", Source::profile_contract),
+                             "engine.ports." + exhaust_id + ".kind",
+                             Source::profile_contract),
         });
     }
 
@@ -324,7 +339,8 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
         const std::string base_path = "engine.gas_volumes." + semantic_id;
         engine.gas_volumes.push_back({
             contract::GasVolumeId{id},
-            builder.resolved(semantic_id, base_path + ".semantic_id", Source::profile_contract),
+            builder.resolved(semantic_id, base_path + ".semantic_id",
+                             Source::profile_contract),
             builder.resolved(kind, base_path + ".kind", Source::profile_contract),
         });
     };
@@ -361,7 +377,8 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
         const std::uint32_t runner_volume = 3 + 3 * index;
         const std::uint32_t cylinder_volume = 4 + 3 * index;
         const std::uint32_t primary_volume = 5 + 3 * index;
-        const std::uint32_t collector_volume = number % 2 == 0 ? 21 : 22;
+        const auto collector_volume =
+            collector_for_route(exhaust_route_for_cylinder(number));
         add_edge(edge_base, numbered_id("flow.plenum-to-runner.", number), 2,
                  runner_volume);
         add_edge(edge_base + 1, numbered_id("flow.intake-valve.", number),
@@ -369,7 +386,7 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
         add_edge(edge_base + 2, numbered_id("flow.exhaust-valve.", number),
                  cylinder_volume, primary_volume);
         add_edge(edge_base + 3, numbered_id("flow.primary-to-collector.", number),
-                 primary_volume, collector_volume);
+                 primary_volume, collector_volume.value);
         add_edge(edge_base + 4, numbered_id("flow.blowby.", number), cylinder_volume,
                  1);
     }
@@ -406,8 +423,7 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
     };
 
     const auto core_method_source =
-        operating_profile ? Source::implemented_method
-                          : Source::profile_contract;
+        operating_profile ? Source::implemented_method : Source::profile_contract;
     engine.methods = {
         builder.resolved(legacy_low_order_method(), "engine.methods.mechanism",
                          core_method_source),
@@ -426,8 +442,7 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
                 ? simulation::chen_flynn_cycle_mean_aggregate_loss_method_identity()
                 : legacy_low_order_method(),
             "engine.methods.losses",
-            operating_profile ? Source::implemented_method
-                              : Source::profile_contract),
+            operating_profile ? Source::implemented_method : Source::profile_contract),
         builder.resolved(legacy_low_order_method(), "engine.methods.excitation",
                          core_method_source),
     };
@@ -459,9 +474,7 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
         const std::string cylinder_path =
             profile_path("mechanism.cylinders." + semantic_id);
         const std::uint32_t topology_base = 3 + 5 * index;
-        const contract::RouteId exhaust_route_id{
-            number % 2 == 0 ? 1U : 2U,
-        };
+        const contract::RouteId exhaust_route_id = exhaust_route_for_cylinder(number);
         core.mechanism.cylinders.push_back({
             {
                 contract::CylinderId{number},
@@ -631,7 +644,8 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
                 builder.resolved(1.0, route_path + ".velocity_decay",
                                  Source::legacy_asset),
                 builder.resolved(audio_volume, route_path + ".audio_volume_linear",
-                                 Source::legacy_asset),
+                                 operating_profile ? Source::profile_contract
+                                                   : Source::legacy_asset),
                 make_restriction(
                     builder, contract::LegacyRestrictionCalibration::carb_at_1p5_inhg,
                     200.0, route_path + ".primary_to_collector"),
@@ -642,15 +656,16 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
         });
     };
     add_exhaust_route(contract::RouteId{1}, contract::GasVolumeId{21},
-                      contract::FlowEdgeId{33}, "exhaust.reference.0", 0.5);
+                      contract::FlowEdgeId{33}, "exhaust.reference.0",
+                      operating_profile ? 1.0 : 0.5);
     add_exhaust_route(contract::RouteId{2}, contract::GasVolumeId{22},
                       contract::FlowEdgeId{34}, "exhaust.reference.1", 1.0);
     core.gas_path.piston_blowby = make_restriction(
         builder, contract::LegacyRestrictionCalibration::cfm_at_28_inh2o, 0.1,
         profile_path("gas_path.piston_blowby"));
 
-    core.valvetrain.intake.shape = make_cam_shape(
-        builder, "intake", millimetre_source, inch_source, degree_source);
+    core.valvetrain.intake.shape = make_cam_shape(builder, "intake", millimetre_source,
+                                                  inch_source, degree_source);
     core.valvetrain.exhaust.shape = make_cam_shape(
         builder, "exhaust", millimetre_source, inch_source, degree_source);
     for (std::uint32_t index = 0; index < 6; ++index) {
@@ -690,8 +705,7 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
                          Source::legacy_asset);
     for (std::uint32_t rpm = 0; rpm <= 7000; rpm += 1000) {
         const double advance = (rpm < 2000 ? 10.0 : 30.0) * degree_source;
-        core.ignition.timing_curve.push_back(
-            make_timing_point(builder, rpm, advance));
+        core.ignition.timing_curve.push_back(make_timing_point(builder, rpm, advance));
     }
     core.ignition.limiter_speed_rpm = builder.resolved(
         8000.0, profile_path("ignition.limiter_speed_rpm"), Source::legacy_asset);
@@ -767,12 +781,12 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
     const contract::TorqueTermMask omitted_terms =
         contract::known_torque_term_mask() & ~included_terms;
     if (!operating_profile) {
-        fixed_crank_loss.included_terms = builder.resolved(
-            included_terms, profile_path("losses.included_terms"),
-            Source::profile_contract);
-        fixed_crank_loss.omitted_terms = builder.resolved(
-            omitted_terms, profile_path("losses.omitted_terms"),
-            Source::profile_contract);
+        fixed_crank_loss.included_terms =
+            builder.resolved(included_terms, profile_path("losses.included_terms"),
+                             Source::profile_contract);
+        fixed_crank_loss.omitted_terms =
+            builder.resolved(omitted_terms, profile_path("losses.omitted_terms"),
+                             Source::profile_contract);
     }
 
     core.excitation.reference_atmosphere_pa_abs = builder.resolved(
@@ -830,10 +844,11 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
                 profile_path("reference_excitation.routes."
                              "exhaust.reference.0.exhaust_system_length_m"),
                 Source::reference_fixture),
-            builder.resolved(0.5,
+            builder.resolved(operating_profile ? 1.0 : 0.5,
                              profile_path("reference_excitation.routes."
                                           "exhaust.reference.0.audio_volume_linear"),
-                             Source::reference_fixture),
+                             operating_profile ? Source::profile_contract
+                                               : Source::reference_fixture),
         },
         {
             contract::RouteId{2},
@@ -845,7 +860,8 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
             builder.resolved(1.0,
                              profile_path("reference_excitation.routes."
                                           "exhaust.reference.1.audio_volume_linear"),
-                             Source::reference_fixture),
+                             operating_profile ? Source::profile_contract
+                                               : Source::reference_fixture),
         },
     };
 
@@ -853,12 +869,9 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
     const contract::RationalRateHz delay_rate{10000, 1};
     for (std::uint32_t index = 0; index < 6; ++index) {
         const std::uint32_t number = index + 1;
-        const contract::RouteId route_id{
-            number % 2 == 0 ? 1U : 2U,
-        };
+        const contract::RouteId route_id = exhaust_route_for_cylinder(number);
         const std::string cylinder_id = numbered_id("cylinder-", number);
-        const std::string route_id_text =
-            number % 2 == 0 ? "exhaust.reference.0" : "exhaust.reference.1";
+        const std::string route_id_text = semantic_id_for_route(route_id);
         const std::string cylinder_path =
             profile_path("reference_excitation.cylinder_paths." + cylinder_id);
         const std::string excitation_route_path =
@@ -896,12 +909,11 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
         contract::LowOrderOperatingPointV1Profile profile;
         profile.core = std::move(core);
         profile.aggregate_loss = {
-            builder.resolved(
-                0.4, profile_path("aggregate_loss.constant_fmep_bar"),
-                Source::operating_literature),
-            builder.resolved(
-                0.005, profile_path("aggregate_loss.peak_pressure_coefficient"),
-                Source::operating_literature),
+            builder.resolved(0.4, profile_path("aggregate_loss.constant_fmep_bar"),
+                             Source::operating_literature),
+            builder.resolved(0.005,
+                             profile_path("aggregate_loss.peak_pressure_coefficient"),
+                             Source::operating_literature),
             builder.resolved(
                 0.09,
                 profile_path(
@@ -912,37 +924,30 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
                 profile_path("aggregate_loss."
                              "mean_piston_speed_squared_coefficient_bar_s2_per_m2"),
                 Source::operating_literature),
-            builder.resolved(
-                363.15,
-                profile_path("aggregate_loss.required_oil_temperature_k"),
-                Source::declared_default),
-            builder.resolved(
-                contract::friction_pump_and_accessory_torque_term_mask(),
-                profile_path("aggregate_loss.included_terms"),
-                Source::profile_contract),
+            builder.resolved(363.15,
+                             profile_path("aggregate_loss.required_oil_temperature_k"),
+                             Source::declared_default),
+            builder.resolved(contract::friction_pump_and_accessory_torque_term_mask(),
+                             profile_path("aggregate_loss.included_terms"),
+                             Source::profile_contract),
         };
         profile.accessory_configuration = {
-            builder.resolved(
-                std::string{"bmw-m52b28-warm-stock-accessories-v1"},
-                profile_path("accessory_configuration.configuration_id"),
-                Source::accessory_configuration),
-            builder.resolved(
-                bmw_m52b28_operating_accessory_descriptor_sha256(),
-                profile_path("accessory_configuration.content_sha256"),
-                Source::accessory_configuration),
+            builder.resolved(std::string{"bmw-m52b28-warm-stock-accessories-v1"},
+                             profile_path("accessory_configuration.configuration_id"),
+                             Source::accessory_configuration),
+            builder.resolved(bmw_m52b28_operating_accessory_descriptor_sha256(),
+                             profile_path("accessory_configuration.content_sha256"),
+                             Source::accessory_configuration),
         };
         profile.starter = {
-            builder.resolved(
-                true, profile_path("starter.mechanically_disengaged"),
-                Source::profile_contract),
-            builder.resolved(
-                contract::torque_term_mask(contract::TorqueTerm::starter),
-                profile_path("starter.included_terms"),
-                Source::profile_contract),
+            builder.resolved(true, profile_path("starter.mechanically_disengaged"),
+                             Source::profile_contract),
+            builder.resolved(contract::torque_term_mask(contract::TorqueTerm::starter),
+                             profile_path("starter.included_terms"),
+                             Source::profile_contract),
         };
         profile.cycle_quadrature = builder.resolved(
-            simulation::
-                four_stroke_piecewise_linear_cycle_quadrature_method_identity(),
+            simulation::four_stroke_piecewise_linear_cycle_quadrature_method_identity(),
             profile_path("cycle_quadrature"), Source::implemented_method);
         engine.physics_profile = std::move(profile);
         engine.torque_capability = builder.resolved(

@@ -13,13 +13,14 @@ It does not silently change the frozen `bmw-m52b28-legacy-low-order-v1` profile.
 profile remains an incomplete prescribed-trajectory parity model and must continue to
 fail held-speed admission.
 
-A distinct M4 operating profile may reuse accepted M3 mechanism, valvetrain, gas,
-ignition, combustion, heat-transfer, excitation, and presentation methods. It must
-replace the M3 fixed crank-friction term with the complete aggregate loss closure
-defined below, classify the disabled/disengaged starter separately, and integrate
-complete cycles. “Complete” means every declared shaft-torque category is represented.
-It does not mean that generic loss coefficients are BMW measurements or that the
-result is independently validated.
+A distinct M4 operating profile reuses the accepted M3 mechanism, valvetrain,
+ignition, combustion, heat-transfer, gas/excitation methods, and presentation, except
+for the M4-only exhaust topology correction in section 1.2. It must replace the M3
+fixed crank-friction term with the complete aggregate loss closure defined below,
+classify the disabled/disengaged starter separately, and integrate complete cycles.
+“Complete” means every declared shaft-torque category is represented. It does not mean
+that generic loss coefficients are BMW measurements or that the result is independently
+validated.
 
 The reusable typed portion is `LowOrderEngineCoreV1`. The M3-only
 `LegacyFixedCrankLossV1` is a sibling in `LegacyLowOrderV1Profile`, not part of that
@@ -236,7 +237,29 @@ request-set factory separately rebuilds that engine and each held-speed scenario
 through a fresh builder before finishing its ledger; it never copies a completed
 profile, shares mutable state between points, or relabels an M3 request.
 
-### 1.2 Canonical held operating-regression request set
+### 1.2 M4-only exhaust topology correction
+
+The M4 operating profile does not inherit M3's odd/even cylinder routing or its
+`0.5 / 1.0` route-volume split. The canonical M4 graph binds cylinders `1,2,3` to
+route 1 / collector volume 21 and cylinders `4,5,6` to route 2 / collector volume 22.
+Both gas-path and excitation audio-volume leaves are `1.0` on both routes. With firing
+order `1-5-3-6-2-4`, the route sequence is therefore `1,2,1,2,1,2`, rather than three
+loud events followed by three events authored about 6 dB lower.
+
+BMW's distinct front and rear three-port M52-family manifold parts support the
+adjacent-cylinder grouping. They do not establish primary lengths, diameters,
+downstream merge geometry, catalyst/muffler transfer, or outlet radiation. The exact
+diagnosis, evidence boundary, replacement graph, M3 isolation, and listening stop are
+frozen in
+[`M4_BMW_EXHAUST_TOPOLOGY_CORRECTION.md`](../M4_BMW_EXHAUST_TOPOLOGY_CORRECTION.md).
+The unchanged `exhaust.reference.0/.1` labels identify the current route slots only;
+they are not a claim that these buses are complete physical production outlets.
+
+M3 remains the immutable parity oracle with even cylinders on route 1 at gain `0.5`
+and odd cylinders on route 2 at gain `1.0`. There is no runtime switch, alternate M4
+profile, compatibility alias, or second production path.
+
+### 1.3 Canonical held operating-regression request set
 
 `make_bmw_m52b28_held_regression_request_set()` has no calibration arguments. It
 constructs exactly four requests in this order:
@@ -271,12 +294,13 @@ Git blob (`760ddd8e436704ed707623a6dad0e6556606d08f`), not a newly invented
 compiled-method descriptor.
 
 This operating-regression profile also retains accepted M3 fixture-derived combustion
-seeds, header lengths, and reference-excitation values. Their evidence remains
+seeds, header lengths, and reference-excitation values other than the corrected route
+grouping and route-volume leaves in section 1.2. The retained evidence remains
 `local_evaluation_only`: the profile has no runtime fixture dependency, but its
 provenance is not yet admissible for a distributable product package. Those authorities
 must be sourced or re-authored before the M7 package gate.
 
-### 1.3 First inertial-dyno listening request
+### 1.4 First inertial-dyno listening request
 
 The inertial pull is a new physical operating mode, not the M3 prescribed RPM lane and
 not a reproduction of engine-sim's GUI dyno sweep. The original engine-sim sweep moves

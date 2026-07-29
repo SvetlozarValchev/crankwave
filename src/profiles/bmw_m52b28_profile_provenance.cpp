@@ -131,12 +131,19 @@ constexpr std::array<EvidenceDefinition, 9> kEvidenceDefinitions{{
     },
 }};
 
-constexpr std::array<EvidenceDefinition, 14> kOperatingEvidenceDefinitions{{
+constexpr std::array<EvidenceDefinition, 15> kOperatingEvidenceDefinitions{{
     {
         "operating-point-model-record",
         "docs/model/M4_OPERATING_POINT_MODEL.md",
         kRepositoryContentRevision,
-        "254eaf8994ac9884c9ef7e6e14844f2ac751f75d47d227d19a2d587a69f6eb00",
+        "f838428cc76eff5622f02e57d1c91ddf6448e9467327be5dc82c7727d19b7cb2",
+        contract::RightsDisposition::permitted,
+    },
+    {
+        "m4-bmw-exhaust-topology-correction",
+        "docs/M4_BMW_EXHAUST_TOPOLOGY_CORRECTION.md",
+        kRepositoryContentRevision,
+        "de1ea26b3cfad577ca23a2d0b139fd631de0505b8d79a8e38e35a5588907a125",
         contract::RightsDisposition::permitted,
     },
     {
@@ -417,8 +424,12 @@ BmwProvenanceBuilder::BmwProvenanceBuilder(BmwProfileKind profile_kind)
             contract::ProvenanceOrigin::scenario,
             {
                 citation("operating-point-model-record",
-                         "sections 1.1-1.2: exact profile and listening-request "
+                         "sections 1.1-1.4: exact profile, corrected exhaust graph, "
+                         "and listening-request "
                          "identity and accounting"),
+                citation("m4-bmw-exhaust-topology-correction",
+                         "sections 1 and 5: exact M4-only manifold grouping and "
+                         "equal gross route authority"),
             },
             std::nullopt,
         });

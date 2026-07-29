@@ -154,7 +154,7 @@ void test_exact_profile_authorities(
            "canonical BMW operating identity changed");
 
     constexpr std::string_view kExpectedBundleSha256 =
-        "7b87e5712fe9deb912eb45e1e42ebcc5f0d29dd0afc477b296cf9c0b3d2a5554";
+        "dd5461e127ffbf011a08cc70e0c3ed40d8ed8eaeaf37c3a55dcae52cbce83c32";
     const auto actual_bundle_sha256 = digest_hex(profile.provenance.bundle.sha256);
     if (actual_bundle_sha256 != kExpectedBundleSha256) {
         std::cerr << "BMW operating profile provenance SHA-256: "
@@ -259,13 +259,17 @@ void test_exact_profile_authorities(
 
 void test_exact_evidence_files(const profiles::BmwM52b28OperatingProfile &profile,
                                const char *model_record_path,
-                               const char *accessory_descriptor_path) {
+                               const char *accessory_descriptor_path,
+                               const char *topology_correction_path) {
     expect(file_sha256(model_record_path) ==
                digest_from_evidence(profile, "operating-point-model-record"),
            "M4 model-record bytes do not match their provenance evidence");
     expect(file_sha256(accessory_descriptor_path) ==
                digest_from_evidence(profile, "operating-accessory-configuration"),
            "BMW accessory-descriptor bytes do not match their provenance evidence");
+    expect(file_sha256(topology_correction_path) ==
+               digest_from_evidence(profile, "m4-bmw-exhaust-topology-correction"),
+           "BMW M4 exhaust correction bytes do not match their provenance evidence");
 }
 
 void test_fresh_core_provenance_and_shared_values(
@@ -298,6 +302,18 @@ void test_fresh_core_provenance_and_shared_values(
 
     const auto &legacy_core = legacy.core;
     const auto &operating_core = operating.core;
+    constexpr std::array<contract::RouteId, 6> kLegacyCylinderRoutes{
+        contract::RouteId{2}, contract::RouteId{1}, contract::RouteId{2},
+        contract::RouteId{1}, contract::RouteId{2}, contract::RouteId{1},
+    };
+    constexpr std::array<contract::RouteId, 6> kOperatingCylinderRoutes{
+        contract::RouteId{1}, contract::RouteId{1}, contract::RouteId{1},
+        contract::RouteId{2}, contract::RouteId{2}, contract::RouteId{2},
+    };
+    constexpr std::array<contract::RouteId, 6> kOperatingFiringRoutes{
+        contract::RouteId{1}, contract::RouteId{2}, contract::RouteId{1},
+        contract::RouteId{2}, contract::RouteId{1}, contract::RouteId{2},
+    };
     expect(legacy_core.mechanism.cylinders.size() ==
                operating_core.mechanism.cylinders.size(),
            "fresh operating construction changed the cylinder count");
@@ -335,16 +351,68 @@ void test_fresh_core_provenance_and_shared_values(
     expect(legacy_core.combustion_random_streams.size() ==
                operating_core.combustion_random_streams.size(),
            "fresh operating construction changed the combustion stream count");
-    expect(std::ranges::equal(
-               legacy_core.excitation.routes, operating_core.excitation.routes,
-               [](const auto &legacy_route, const auto &operating_route) {
-                   return legacy_route.route_id == operating_route.route_id &&
-                          legacy_route.exhaust_system_length_m.value ==
-                              operating_route.exhaust_system_length_m.value &&
-                          legacy_route.audio_volume_linear.value ==
-                              operating_route.audio_volume_linear.value;
-               }),
-           "fresh operating construction changed the excitation routes");
+    expect(legacy_core.gas_path.exhaust_routes.size() == 2U &&
+               operating_core.gas_path.exhaust_routes.size() == 2U &&
+               legacy_core.excitation.routes.size() == 2U &&
+               operating_core.excitation.routes.size() == 2U,
+           "BMW exhaust route count changed");
+    expect(
+        legacy_core.gas_path.exhaust_routes[0].parameters.audio_volume_linear.value ==
+                0.5 &&
+            legacy_core.gas_path.exhaust_routes[1]
+                    .parameters.audio_volume_linear.value == 1.0 &&
+            legacy_core.excitation.routes[0].audio_volume_linear.value == 0.5 &&
+            legacy_core.excitation.routes[1].audio_volume_linear.value == 1.0,
+        "M3 oracle exhaust authority changed");
+    expect(operating_core.gas_path.exhaust_routes[0]
+                       .parameters.audio_volume_linear.value == 1.0 &&
+               operating_core.gas_path.exhaust_routes[1]
+                       .parameters.audio_volume_linear.value == 1.0 &&
+               operating_core.excitation.routes[0].audio_volume_linear.value == 1.0 &&
+               operating_core.excitation.routes[1].audio_volume_linear.value == 1.0,
+           "M4 exhaust routes do not have equal gross authority");
+
+    for (std::size_t index = 0; index < kOperatingCylinderRoutes.size(); ++index) {
+        const auto expected_legacy_route = kLegacyCylinderRoutes[index];
+        const auto expected_operating_route = kOperatingCylinderRoutes[index];
+        expect(legacy_core.mechanism.cylinders[index].topology.exhaust_route_id ==
+                       expected_legacy_route &&
+                   legacy_core.excitation.cylinder_paths[index].route_id ==
+                       expected_legacy_route,
+               "M3 oracle cylinder routing changed");
+        expect(operating_core.mechanism.cylinders[index].topology.exhaust_route_id ==
+                       expected_operating_route &&
+                   operating_core.excitation.cylinder_paths[index].route_id ==
+                       expected_operating_route,
+               "M4 mechanism and excitation cylinder routing disagree");
+
+        const auto &assembly = operating_core.mechanism.cylinders[index];
+        const auto edge = std::ranges::find(
+            profile.engine.flow_edges, assembly.topology.primary_to_collector_edge_id,
+            &contract::FlowEdgeSpec::id);
+        const auto route = std::ranges::find(
+            operating_core.gas_path.exhaust_routes, expected_operating_route,
+            [](const auto &candidate) { return candidate.topology.route_id; });
+        expect(edge != profile.engine.flow_edges.end() &&
+                   route != operating_core.gas_path.exhaust_routes.end() &&
+                   edge->endpoint_0_volume_id ==
+                       assembly.topology.exhaust_primary_volume_id &&
+                   edge->endpoint_1_volume_id == route->topology.collector_volume_id,
+               "M4 primary edge does not terminate at its declared collector");
+    }
+
+    std::array<contract::RouteId, 6> operating_firing_routes{};
+    for (std::size_t index = 0; index < operating_firing_routes.size(); ++index) {
+        const auto cylinder_id = operating_core.ignition.firing_order.value[index];
+        const auto assembly = std::ranges::find(
+            operating_core.mechanism.cylinders, cylinder_id,
+            [](const auto &candidate) { return candidate.topology.cylinder_id; });
+        expect(assembly != operating_core.mechanism.cylinders.end(),
+               "M4 firing-order cylinder is absent from the mechanism");
+        operating_firing_routes[index] = assembly->topology.exhaust_route_id;
+    }
+    expect(operating_firing_routes == kOperatingFiringRoutes,
+           "M4 firing order does not alternate adjacent-cylinder manifolds");
     expect(legacy_core.mechanism.crank.crankshaft_mass_kg.resolution_id !=
                operating_core.mechanism.crank.crankshaft_mass_kg.resolution_id,
            "operating core shallow-copied an M3 resolution identity");
@@ -420,6 +488,43 @@ void test_exact_mutation_rejection(const profiles::BmwM52b28OperatingProfile &ex
             changed.engine.torque_capability.value.cycle_mean_net_shaft.completeness =
                 contract::Completeness::incomplete;
         });
+    expect_mutation_rejected(exact, "odd/even M4 mechanism route mutation was accepted",
+                             [&](auto &changed) {
+                                 mutate_operating(changed)
+                                     .core.mechanism.cylinders[0]
+                                     .topology.exhaust_route_id = contract::RouteId{2};
+                             });
+    expect_mutation_rejected(
+        exact, "cross-bound M4 collector edge was accepted", [&](auto &changed) {
+            const auto edge =
+                std::ranges::find(changed.engine.flow_edges, contract::FlowEdgeId{6},
+                                  &contract::FlowEdgeSpec::id);
+            expect(edge != changed.engine.flow_edges.end(),
+                   "canonical cylinder-1 collector edge disappeared");
+            edge->endpoint_1_volume_id = contract::GasVolumeId{22};
+        });
+    expect_mutation_rejected(
+        exact, "cross-bound M4 excitation path was accepted", [&](auto &changed) {
+            mutate_operating(changed).core.excitation.cylinder_paths[0].route_id =
+                contract::RouteId{2};
+        });
+    expect_mutation_rejected(
+        exact, "missing M4 excitation path was accepted", [&](auto &changed) {
+            mutate_operating(changed).core.excitation.cylinder_paths.pop_back();
+        });
+    expect_mutation_rejected(
+        exact, "unequal M4 gas-route authority was accepted", [&](auto &changed) {
+            mutate_operating(changed)
+                .core.gas_path.exhaust_routes[0]
+                .parameters.audio_volume_linear.value = std::nextafter(1.0, 0.0);
+        });
+    expect_mutation_rejected(
+        exact, "unequal M4 excitation-route authority was accepted",
+        [&](auto &changed) {
+            mutate_operating(changed)
+                .core.excitation.routes[0]
+                .audio_volume_linear.value = std::nextafter(1.0, 0.0);
+        });
     expect_mutation_rejected(
         exact, "changed accessory evidence was accepted", [&](auto &changed) {
             const auto evidence =
@@ -464,10 +569,12 @@ void test_invalid_internal_profile_kind_rejected() {
     expect(rejected, "unknown internal BMW profile kind did not fail closed");
 }
 
-void run_tests(const char *model_record_path, const char *accessory_descriptor_path) {
+void run_tests(const char *model_record_path, const char *accessory_descriptor_path,
+               const char *topology_correction_path) {
     const auto exact = make_exact_profile();
     test_exact_profile_authorities(exact);
-    test_exact_evidence_files(exact, model_record_path, accessory_descriptor_path);
+    test_exact_evidence_files(exact, model_record_path, accessory_descriptor_path,
+                              topology_correction_path);
     test_fresh_core_provenance_and_shared_values(exact);
     test_exact_mutation_rejection(exact);
     test_invalid_internal_profile_kind_rejected();
@@ -477,11 +584,12 @@ void run_tests(const char *model_record_path, const char *accessory_descriptor_p
 
 int main(int argc, char **argv) {
     try {
-        if (argc != 3) {
+        if (argc != 4) {
             throw std::runtime_error{
-                "expected M4 model-record and accessory-descriptor paths"};
+                "expected M4 model-record, accessory-descriptor, and exhaust-"
+                "correction paths"};
         }
-        run_tests(argv[1], argv[2]);
+        run_tests(argv[1], argv[2], argv[3]);
     } catch (const std::exception &error) {
         std::cerr << "BMW operating-profile test failure: " << error.what() << '\n';
         return 1;

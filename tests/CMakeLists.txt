@@ -1211,6 +1211,7 @@ add_test(
         engine_sim_offline_bmw_m52b28_operating_profile_tests
         ${PROJECT_SOURCE_DIR}/docs/model/M4_OPERATING_POINT_MODEL.md
         ${PROJECT_SOURCE_DIR}/data/profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json
+        ${PROJECT_SOURCE_DIR}/docs/M4_BMW_EXHAUST_TOPOLOGY_CORRECTION.md
 )
 
 add_executable(

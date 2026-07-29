@@ -569,6 +569,10 @@ replacement starts before acceptance.
 - [x] Add stable externally held idle-region/low-load audio behavior without claiming
       self-regulated free idle.
 - [x] Render idle/low-load behavior, then stop for user listening.
+- [x] Correct the M4-only BMW exhaust graph from inherited odd/even routing and
+      `0.5 / 1.0` authority to adjacent `1-2-3 / 4-5-6` manifolds with equal gross
+      source authority, preserving the byte-stable M3 oracle; then admit only the
+      first bounded physical M5 exhaust slice before the next listening stop.
 - [ ] Add throttle application, lift, and ordinary-overrun behavior.
 - [ ] Render those transients, then stop for user listening.
 - [ ] Freeze the pull and affected clips as the minimum regression set.
