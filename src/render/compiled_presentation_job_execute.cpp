@@ -604,7 +604,11 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
         stage = ExecutionStage::commit;
         presentation.commit(evidence, manifest, implementation->request.provenance,
                             implementation->request.source_matrix);
-        return contract::RenderSuccess{std::move(manifest), std::nullopt};
+        return contract::RenderSuccess{
+            std::move(manifest),
+            std::nullopt,
+            std::nullopt,
+        };
     } catch (...) {
         determinism::detail::restore_admitted_renderer_numeric_controls();
         return exception_failure(std::move(implementation->request), stage,

@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <stop_token>
 
@@ -183,6 +184,24 @@ void run_tests() {
                     .ok(),
                "invalid-engine diagnostics validated against a corrected request");
         expect(sink.calls == 0, "invalid engine touched the sink");
+    }
+
+    {
+        RequestFixture fixture;
+        fixture.specification.engine.total_displacement_m3.value =
+            std::numeric_limits<double>::infinity();
+        CountingSink sink;
+        const auto result =
+            render(fixture.specification, fixture.scenario, sink);
+        expect_failure(
+            result, FailureKind::invalid_specification,
+            "non-encodable invalid engine did not fail structural preflight");
+        expect_request_valid_failure(
+            result, fixture,
+            "invalid-specification failure incorrectly required canonical "
+            "request-identity encoding without held operating evidence");
+        expect(sink.calls == 0,
+               "non-encodable invalid engine touched the sink");
     }
 
     {

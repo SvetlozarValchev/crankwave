@@ -24,6 +24,7 @@ bool known(FailureKind value) noexcept {
     case FailureKind::evidence_rights_failure:
     case FailureKind::artifact_publication_failure:
     case FailureKind::contract_violation:
+    case FailureKind::preparation_not_converged:
         return true;
     }
     return false;
@@ -396,10 +397,11 @@ ValidationReport validate(const RenderFailure &failure) {
     return report;
 }
 
-ValidationReport validate(const RenderResult &result,
-                          const RenderScenario &requested_scenario,
-                          const ProvenanceLedger &provenance,
-                          const SourceMatrixContract &source_matrix) {
+ValidationReport
+validate(const RenderResult &result, const RenderScenario &requested_scenario,
+         const Sha256Digest &expected_simulation_request_identity_v2_sha256,
+         const ProvenanceLedger &provenance,
+         const SourceMatrixContract &source_matrix) {
     using detail::append_prefixed;
     using detail::require;
 
@@ -443,6 +445,28 @@ ValidationReport validate(const RenderResult &result,
                             report, outcome.reached_target->search, *mode,
                             "success.reached_target.search");
                     }
+                }
+                const auto is_held_speed =
+                    std::holds_alternative<HeldSpeed>(requested_scenario.mode);
+                const auto is_operating_profile =
+                    std::holds_alternative<LowOrderOperatingPointV1Profile>(
+                        simulation_inputs.resolved.engine.physics_profile);
+                const auto requires_operating_point =
+                    is_held_speed && is_operating_profile;
+                require(report,
+                        outcome.held_speed_operating_point.has_value() ==
+                            requires_operating_point,
+                        ContractIssueCode::inconsistent_semantics,
+                        "success.held_speed_operating_point",
+                        "exactly a low-order operating-profile held-speed success "
+                        "requires typed operating-point evidence");
+                if (outcome.held_speed_operating_point.has_value()) {
+                    append_prefixed(
+                        report,
+                        validate(*outcome.held_speed_operating_point,
+                                 requested_scenario, simulation_inputs.resolved.engine,
+                                 expected_simulation_request_identity_v2_sha256),
+                        "success.held_speed_operating_point");
                 }
             } else if constexpr (std::is_same_v<T, UnreachableTarget>) {
                 append_prefixed(report, validate(outcome), "unreachable");

@@ -1,4 +1,5 @@
 #include "engine_sim_offline/render.hpp"
+#include "engine_sim_offline/request_identity.hpp"
 #include "render/compiled_presentation_job.hpp"
 #include "render/render_request.hpp"
 
@@ -162,10 +163,39 @@ contract::ValidationReport validate(const contract::RenderResult &result,
                                     const RenderSpecification &specification,
                                     const contract::RenderScenario &scenario) {
     ValidationReport report;
-    append_prefixed(report,
-                    contract::validate(result, scenario, specification.provenance,
-                                       specification.source_matrix),
-                    "contract");
+    contract::Sha256Digest simulation_request_identity_v2_sha256;
+    const bool has_held_speed_operating_evidence = std::visit(
+        [](const auto &outcome) {
+            using Outcome = std::decay_t<decltype(outcome)>;
+            if constexpr (std::is_same_v<Outcome, contract::RenderSuccess>) {
+                return outcome.held_speed_operating_point.has_value();
+            }
+            return false;
+        },
+        result);
+    if (has_held_speed_operating_evidence) {
+        const auto encoded_request_identity =
+            identity::encode_simulation_request_identity_v2(
+                specification.engine, scenario, specification.provenance.bundle);
+        if (const auto *encoding =
+                std::get_if<identity::SimulationRequestIdentityEncoding>(
+                    &encoded_request_identity)) {
+            simulation_request_identity_v2_sha256 = encoding->sha256;
+        } else {
+            const auto &error =
+                std::get<identity::SimulationRequestIdentityError>(
+                    encoded_request_identity);
+            report.add(ContractIssueCode::inconsistent_semantics,
+                       "simulation_request_identity_v2",
+                       "canonical simulation-request identity encoding failed: " +
+                           error.detail_code + ": " + error.message);
+        }
+    }
+    append_prefixed(
+        report,
+        contract::validate(result, scenario, simulation_request_identity_v2_sha256,
+                           specification.provenance, specification.source_matrix),
+        "contract");
 
     const auto structural = validate_structure(specification, scenario);
     const auto rights = validate_rights(specification);

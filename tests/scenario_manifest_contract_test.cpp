@@ -411,8 +411,8 @@ void run_scenario_manifest_contract_tests() {
     };
     expect(validate(first, builder.provenance, source_matrix).ok(),
            "valid completed render manifest was rejected");
-    const RenderResult held_success = RenderSuccess{first, std::nullopt};
-    expect(validate(held_success, simulation_inputs(content).scenario,
+    const RenderResult held_success = RenderSuccess{first, std::nullopt, std::nullopt};
+    expect(validate(held_success, simulation_inputs(content).scenario, Sha256Digest{},
                     builder.provenance, source_matrix)
                .ok(),
            "held-speed success result was rejected");
@@ -447,15 +447,15 @@ void run_scenario_manifest_contract_tests() {
     };
     const RenderResult runtime_failure_result = runtime_failure;
     expect(validate(runtime_failure_result, simulation_inputs(content).scenario,
-                    builder.provenance, source_matrix)
+                    Sha256Digest{}, builder.provenance, source_matrix)
                .ok(),
            "valid runtime failure did not retain an admitted request");
     auto forged_randomness_failure = runtime_failure;
     forged_randomness_failure.request.resolved_inputs.randomness.seed_namespace_id
         .value += ".forged";
     report = validate(RenderResult{forged_randomness_failure},
-                      simulation_inputs(content).scenario, builder.provenance,
-                      source_matrix);
+                      simulation_inputs(content).scenario, Sha256Digest{},
+                      builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "failure.request.resolved_inputs"),
            "lower-level result validation accepted a forged retained randomness "
@@ -750,16 +750,17 @@ void run_scenario_manifest_contract_tests() {
             1024,
         },
     };
-    const RenderResult reached_result = RenderSuccess{load_manifest, requested_reached};
-    expect(
-        !validate(reached_result, load_scenario, load_builder.provenance, source_matrix)
-             .ok(),
-        "legacy incomplete torque model published a load-target result");
+    const RenderResult reached_result =
+        RenderSuccess{load_manifest, requested_reached, std::nullopt};
+    expect(!validate(reached_result, load_scenario, Sha256Digest{},
+                     load_builder.provenance, source_matrix)
+                .ok(),
+           "legacy incomplete torque model published a load-target result");
 
     auto wrong_reached_search_result = reached_result;
     std::get<RenderSuccess>(wrong_reached_search_result)
         .reached_target->search.requested_throttle_upper_bound_01 = 0.9;
-    report = validate(wrong_reached_search_result, load_scenario,
+    report = validate(wrong_reached_search_result, load_scenario, Sha256Digest{},
                       load_builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "success.reached_target.search."
@@ -771,7 +772,7 @@ void run_scenario_manifest_contract_tests() {
         *std::get<RenderSuccess>(almost_matching_reached_result).reached_target;
     almost_matching_reached.target_net_bmep_pa =
         std::nextafter(almost_matching_reached.target_net_bmep_pa, 0.0);
-    report = validate(almost_matching_reached_result, load_scenario,
+    report = validate(almost_matching_reached_result, load_scenario, Sha256Digest{},
                       load_builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "success.reached_target"),
@@ -847,8 +848,8 @@ void run_scenario_manifest_contract_tests() {
         {},
     };
     const RenderResult unreachable_result = matching_unreachable;
-    expect(!validate(unreachable_result, load_scenario, load_builder.provenance,
-                     source_matrix)
+    expect(!validate(unreachable_result, load_scenario, Sha256Digest{},
+                     load_builder.provenance, source_matrix)
                 .ok(),
            "legacy incomplete torque model published a load-target failure");
 
@@ -856,7 +857,7 @@ void run_scenario_manifest_contract_tests() {
     wrong_unreachable_search_interval.search.requested_throttle_lower_bound_01 = 0.25;
     const RenderResult wrong_unreachable_search_result =
         wrong_unreachable_search_interval;
-    report = validate(wrong_unreachable_search_result, load_scenario,
+    report = validate(wrong_unreachable_search_result, load_scenario, Sha256Digest{},
                       load_builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "unreachable.search."
@@ -867,7 +868,7 @@ void run_scenario_manifest_contract_tests() {
     almost_matching_unreachable.tolerance_pa =
         std::nextafter(almost_matching_unreachable.tolerance_pa, 0.0);
     const RenderResult almost_matching_unreachable_result = almost_matching_unreachable;
-    report = validate(almost_matching_unreachable_result, load_scenario,
+    report = validate(almost_matching_unreachable_result, load_scenario, Sha256Digest{},
                       load_builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "unreachable"),
@@ -879,7 +880,7 @@ void run_scenario_manifest_contract_tests() {
         simulation_inputs(content).scenario.engine_profile_id;
     const RenderResult wrong_mode_result = wrong_mode_unreachable;
     report = validate(wrong_mode_result, simulation_inputs(content).scenario,
-                      builder.provenance, source_matrix);
+                      Sha256Digest{}, builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "unreachable"),
            "prescribed-sweep request accepted an unreachable load-target result");

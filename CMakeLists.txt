@@ -52,6 +52,7 @@ add_library(
         src/contract/capture.cpp
         src/contract/common.cpp
         src/contract/engine.cpp
+        src/contract/held_speed_operating_point_result.cpp
         src/contract/parity_model.cpp
         src/contract/presentation.cpp
         src/contract/provenance.cpp

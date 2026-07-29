@@ -809,6 +809,23 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_held_speed_operating_point_result_tests
+    held_speed_operating_point_result_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_held_speed_operating_point_result_tests
+    PRIVATE
+        engine_sim_offline::profiles
+        engine_sim_offline::request_identity
+)
+
+add_test(
+    NAME contract.held_speed_operating_point_result
+    COMMAND engine_sim_offline_held_speed_operating_point_result_tests
+)
+
+add_executable(
     engine_sim_offline_operating_cycle_accountant_tests
     operating_cycle_accountant_test.cpp
 )
