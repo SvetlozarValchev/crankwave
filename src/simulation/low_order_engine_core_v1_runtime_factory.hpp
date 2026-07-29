@@ -32,7 +32,7 @@ struct LowOrderEngineCoreV1RuntimeFactory {
     compile_gas(const contract::EngineSpec &engine,
                 const contract::LowOrderEngineCoreV1 &core,
                 const contract::RenderScenario &scenario,
-                const KinematicScenarioSchedule &schedule,
+                const ScenarioControlSchedule &schedule,
                 std::span<const CenteredSliderCrankCylinder> cylinder_models);
 };
 

@@ -155,16 +155,34 @@ LowOrderEngineCoreV1CompileResult
 compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
                                          const contract::RenderScenario &scenario,
                                          const contract::LowOrderEngineCoreV1 &core) {
-    auto schedule_result = compile_kinematic_scenario_schedule(scenario);
-    if (const auto *report =
-            std::get_if<contract::ValidationReport>(&schedule_result)) {
-        return *report;
+    std::optional<KinematicScenarioSchedule> kinematic_schedule;
+    std::optional<ScenarioControlSchedule> control_schedule;
+    if (std::holds_alternative<contract::InertialDyno>(scenario.mode)) {
+        auto result = compile_scenario_control_schedule(scenario);
+        if (const auto *report =
+                std::get_if<contract::ValidationReport>(&result)) {
+            return *report;
+        }
+        control_schedule.emplace(
+            std::get<ScenarioControlSchedule>(std::move(result)));
+    } else {
+        auto result = compile_kinematic_scenario_schedule(scenario);
+        if (const auto *report =
+                std::get_if<contract::ValidationReport>(&result)) {
+            return *report;
+        }
+        kinematic_schedule.emplace(
+            std::get<KinematicScenarioSchedule>(std::move(result)));
+        control_schedule.emplace(kinematic_schedule->control_schedule());
     }
-    const auto &schedule = std::get<KinematicScenarioSchedule>(schedule_result);
 
-    auto mechanics_result =
-        detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
-            engine, core, scenario, schedule);
+    auto mechanics_result = kinematic_schedule.has_value()
+                                ? detail::LowOrderEngineCoreV1RuntimeFactory::
+                                      compile_mechanics(engine, core, scenario,
+                                                        *kinematic_schedule)
+                                : detail::LowOrderEngineCoreV1RuntimeFactory::
+                                      compile_mechanics(engine, core, scenario,
+                                                        *control_schedule);
     if (const auto *report =
             std::get_if<contract::ValidationReport>(&mechanics_result)) {
         return *report;
@@ -173,7 +191,7 @@ compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
         std::get<LegacyLowOrderMechanicsSession>(std::move(mechanics_result));
 
     auto gas_result = detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
-        engine, core, scenario, schedule, mechanics.cylinder_models());
+        engine, core, scenario, *control_schedule, mechanics.cylinder_models());
     if (const auto *report = std::get_if<contract::ValidationReport>(&gas_result)) {
         return *report;
     }
@@ -182,8 +200,8 @@ compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
     return LowOrderEngineCoreV1Runtime{
         std::move(mechanics),
         std::move(gas),
-        schedule.sample_count(),
-        schedule.rate(),
+        control_schedule->sample_count(),
+        control_schedule->rate(),
         engine.methods.gas_exchange.value.id,
         engine.profile_id.value,
         scenario.scenario_id,

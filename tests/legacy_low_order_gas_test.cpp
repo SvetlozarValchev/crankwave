@@ -131,7 +131,8 @@ struct CompiledSessions {
     auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
         request.engine, low_order_core(request), request.scenario, schedule));
     auto gas = require_gas(CoreRuntimeFactory::compile_gas(
-        request.engine, low_order_core(request), request.scenario, schedule,
+        request.engine, low_order_core(request), request.scenario,
+        schedule.control_schedule(),
         mechanics.cylinder_models()));
     return {std::move(mechanics), std::move(gas)};
 }
@@ -516,7 +517,8 @@ void expect_gas_compile_rejected(const BmwM52b28ParityRequest &request,
     auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
         request.engine, low_order_core(request), request.scenario, schedule));
     auto result = CoreRuntimeFactory::compile_gas(
-        request.engine, low_order_core(request), request.scenario, schedule,
+        request.engine, low_order_core(request), request.scenario,
+        schedule.control_schedule(),
         mechanics.cylinder_models());
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr, std::string{context} + " compiled successfully");
@@ -558,7 +560,8 @@ void test_gas_method_admission_rejection() {
         auto schedule =
             require_schedule(compile_kinematic_scenario_schedule(request.scenario));
         auto gas = require_gas(CoreRuntimeFactory::compile_gas(
-            request.engine, low_order_core(request), request.scenario, schedule,
+            request.engine, low_order_core(request), request.scenario,
+            schedule.control_schedule(),
             mechanics.cylinder_models()));
         expect(gas.produced_sample_count() == 0U,
                "fresh held-speed gas session published samples during admission");

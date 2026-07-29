@@ -750,7 +750,8 @@ void test_short_bmw_capture_mapping_and_completion() {
     auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
         request.engine, core, request.scenario, schedule));
     auto gas = require_gas(CoreRuntimeFactory::compile_gas(
-        request.engine, core, request.scenario, schedule, mechanics.cylinder_models()));
+        request.engine, core, request.scenario, schedule.control_schedule(),
+        mechanics.cylinder_models()));
 
     Activity activity;
     std::uint64_t next_sample_index = 0U;

@@ -246,7 +246,7 @@ find_random_stream_index(const contract::LowOrderEngineCoreV1 &core,
 detail::LowOrderEngineCoreV1RuntimeFactory::GasCompileResult
 detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core,
-    const contract::RenderScenario &scenario, const KinematicScenarioSchedule &schedule,
+    const contract::RenderScenario &scenario, const ScenarioControlSchedule &schedule,
     std::span<const CenteredSliderCrankCylinder> cylinder_models) {
     ValidationReport report;
 
@@ -290,13 +290,9 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     require(report, schedule.first_step_index() == 0U,
             ContractIssueCode::inconsistent_semantics, "schedule.first_step_index",
             "gas session requires a schedule beginning at physics step zero");
-    require(report,
-            schedule.sample_semantics() == contract::RpmSampleSemantics::post_step_rpm,
-            ContractIssueCode::unsupported_value, "schedule.sample_semantics",
-            "gas session consumes post-step RPM mechanics samples");
     require(report, schedule.sample_count() > 0U, ContractIssueCode::inconsistent_shape,
             "schedule.sample_count",
-            "gas session requires a nonempty kinematic schedule");
+            "gas session requires a nonempty control schedule");
 
     auto valvetrain_result = compile_legacy_fixed_valvetrain(engine, core);
     if (const auto *nested = std::get_if<ValidationReport>(&valvetrain_result)) {
