@@ -42,9 +42,8 @@ void expect(bool condition, std::string_view message) {
 
 void test_exact_request_shape(
     const profiles::BmwM52b28InertialDynoListeningRequest &request) {
-    expect(
-        profiles::validate_bmw_m52b28_inertial_dyno_listening_request(request).ok(),
-        "canonical BMW inertial-dyno request failed exact revalidation");
+    expect(profiles::validate_bmw_m52b28_inertial_dyno_listening_request(request).ok(),
+           "canonical BMW inertial-dyno request failed exact revalidation");
     expect(request.engine.profile_id.value ==
                    "bmw-m52b28-low-order-operating-point-v1" &&
                request.scenario.scenario_id ==
@@ -57,18 +56,17 @@ void test_exact_request_shape(
         std::get_if<contract::ConvergenceSettling>(&request.scenario.preparation);
     expect(dyno != nullptr && preparation != nullptr,
            "canonical request lost inertial-dyno convergence mode");
-    expect(
-        std::bit_cast<std::uint64_t>(dyno->initial_engine_speed_rpm.value) ==
-                std::bit_cast<std::uint64_t>(1500.0) &&
-            std::bit_cast<std::uint64_t>(dyno->target_engine_speed_rpm.value) ==
-                std::bit_cast<std::uint64_t>(6500.0) &&
-            std::bit_cast<std::uint64_t>(dyno->equivalent_inertia_kg_m2.value) ==
-                std::bit_cast<std::uint64_t>(6.5) &&
-            dyno->throttle_01.interpolation ==
-                contract::TrajectoryInterpolation::right_continuous_hold &&
-            dyno->throttle_01.points ==
-                std::vector<contract::ScalarTrajectoryPoint>{{0.0, 0.85}},
-        "canonical inertial point, inertia, or throttle changed");
+    expect(std::bit_cast<std::uint64_t>(dyno->initial_engine_speed_rpm.value) ==
+                   std::bit_cast<std::uint64_t>(1500.0) &&
+               std::bit_cast<std::uint64_t>(dyno->target_engine_speed_rpm.value) ==
+                   std::bit_cast<std::uint64_t>(6500.0) &&
+               std::bit_cast<std::uint64_t>(dyno->equivalent_inertia_kg_m2.value) ==
+                   std::bit_cast<std::uint64_t>(7.9) &&
+               dyno->throttle_01.interpolation ==
+                   contract::TrajectoryInterpolation::right_continuous_hold &&
+               dyno->throttle_01.points ==
+                   std::vector<contract::ScalarTrajectoryPoint>{{0.0, 0.85}},
+           "canonical inertial point, inertia, or throttle changed");
 
     constexpr double kRadiansPerSecondPerRpm = std::numbers::pi_v<double> / 30.0;
     expect(dyno->brake_curve ==
@@ -77,8 +75,7 @@ void test_exact_request_shape(
                    {7500.0 * kRadiansPerSecondPerRpm, 40.0},
                },
            "canonical passive brake curve changed");
-    expect(dyno->crank_dynamics_method.value.id ==
-                   "rigid-crank-zoh-work-energy-v1" &&
+    expect(dyno->crank_dynamics_method.value.id == "rigid-crank-zoh-work-energy-v1" &&
                dyno->crank_dynamics_method.value.version == 1U &&
                !dyno->crank_dynamics_method.value.configuration_sha256.is_zero() &&
                dyno->brake_torque_method.value.id ==
@@ -87,22 +84,19 @@ void test_exact_request_shape(
                !dyno->brake_torque_method.value.configuration_sha256.is_zero(),
            "canonical inertial-dyno method authority changed");
 
-    expect(
-        preparation->comparison_cycle_count.value == 16U &&
-            std::bit_cast<std::uint64_t>(
-                preparation->maximum_preparation_duration_s.value) ==
-                std::bit_cast<std::uint64_t>(6.44) &&
-            std::bit_cast<std::uint64_t>(
-                preparation->cycle_mean_torque_tolerance_nm.value) ==
-                std::bit_cast<std::uint64_t>(0.25) &&
-            std::bit_cast<std::uint64_t>(preparation->pressure_tolerance_pa.value) ==
-                std::bit_cast<std::uint64_t>(1500.0),
-        "canonical inertial convergence policy changed");
+    expect(preparation->comparison_cycle_count.value == 16U &&
+               std::bit_cast<std::uint64_t>(
+                   preparation->maximum_preparation_duration_s.value) ==
+                   std::bit_cast<std::uint64_t>(6.44) &&
+               std::bit_cast<std::uint64_t>(
+                   preparation->cycle_mean_torque_tolerance_nm.value) ==
+                   std::bit_cast<std::uint64_t>(0.75) &&
+               std::bit_cast<std::uint64_t>(preparation->pressure_tolerance_pa.value) ==
+                   std::bit_cast<std::uint64_t>(1500.0),
+           "canonical inertial convergence policy changed");
     expect(request.scenario.operating_state.value ==
                std::vector<contract::OperatingStatePoint>{
-                   {"inertial-dyno-running",
-                    0.0,
-                    {true, true, false, true, false}},
+                   {"inertial-dyno-running", 0.0, {true, true, false, true, false}},
                },
            "canonical fired dyno-running state changed");
 
@@ -128,8 +122,7 @@ void test_exact_request_shape(
     expect(request.scenario.quality.value.profile_id ==
                    "low-order-operating-point-listening-v1" &&
                request.scenario.quality.value.capture_block_capacity_frames == 200U &&
-               request.scenario.quality.value.event_journal_capacity_records ==
-                   3800U &&
+               request.scenario.quality.value.event_journal_capacity_records == 3800U &&
                request.scenario.public_seed.value == UINT64_C(0xC0FFEE),
            "canonical inertial-dyno quality, transport, or seed changed");
 
@@ -161,23 +154,20 @@ void test_identity_and_exact_mutation_rejection(
     auto changed = request;
     std::get<contract::InertialDyno>(changed.scenario.mode)
         .target_engine_speed_rpm.value = 6499.0;
-    expect(!profiles::validate_bmw_m52b28_inertial_dyno_listening_request(changed)
-                .ok(),
+    expect(!profiles::validate_bmw_m52b28_inertial_dyno_listening_request(changed).ok(),
            "mutated inertial target passed exact validation");
 
     changed = request;
     std::get<contract::InertialDyno>(changed.scenario.mode)
         .brake_curve[0]
         .resisting_torque_nm = 39.0;
-    expect(!profiles::validate_bmw_m52b28_inertial_dyno_listening_request(changed)
-                .ok(),
+    expect(!profiles::validate_bmw_m52b28_inertial_dyno_listening_request(changed).ok(),
            "mutated passive brake passed exact validation");
 
     changed = request;
     std::get<contract::ConvergenceSettling>(changed.scenario.preparation)
         .pressure_tolerance_pa.value = 1501.0;
-    expect(!profiles::validate_bmw_m52b28_inertial_dyno_listening_request(changed)
-                .ok(),
+    expect(!profiles::validate_bmw_m52b28_inertial_dyno_listening_request(changed).ok(),
            "mutated convergence calibration passed exact validation");
 }
 

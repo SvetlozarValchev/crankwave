@@ -44,6 +44,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     const auto *operating_profile =
         std::get_if<contract::LowOrderOperatingPointV1Profile>(&engine.physics_profile);
     const auto *sweep = std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode);
+    const auto *inertial = std::get_if<contract::InertialDyno>(&scenario.mode);
     require(report, legacy_profile != nullptr || operating_profile != nullptr,
             ContractIssueCode::unsupported_value, "engine.physics_profile",
             "low-order capture requires an executable low-order profile");
@@ -107,14 +108,27 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
                                *legacy_torque_accounting);
         core = &legacy_profile->core;
     } else if (operating_profile != nullptr) {
-        auto operating_result = compile_low_order_operating_point_v1_runtime(
-            engine, scenario, capture_plan, simulation_request_identity_v2_sha256);
-        if (auto *operating_report = std::get_if<ValidationReport>(&operating_result)) {
-            return std::move(*operating_report);
+        if (inertial != nullptr) {
+            auto inertial_result = compile_low_order_inertial_dyno_v1_runtime(
+                engine, scenario, capture_plan, simulation_request_identity_v2_sha256);
+            if (auto *inertial_report =
+                    std::get_if<ValidationReport>(&inertial_result)) {
+                return std::move(*inertial_report);
+            }
+            profile_policy.emplace(
+                std::in_place_type<LowOrderInertialDynoV1Runtime>,
+                std::get<LowOrderInertialDynoV1Runtime>(std::move(inertial_result)));
+        } else {
+            auto operating_result = compile_low_order_operating_point_v1_runtime(
+                engine, scenario, capture_plan, simulation_request_identity_v2_sha256);
+            if (auto *operating_report =
+                    std::get_if<ValidationReport>(&operating_result)) {
+                return std::move(*operating_report);
+            }
+            profile_policy.emplace(
+                std::in_place_type<LowOrderOperatingPointV1Runtime>,
+                std::get<LowOrderOperatingPointV1Runtime>(std::move(operating_result)));
         }
-        profile_policy.emplace(
-            std::in_place_type<LowOrderOperatingPointV1Runtime>,
-            std::get<LowOrderOperatingPointV1Runtime>(std::move(operating_result)));
         core = &operating_profile->core;
     }
     if (!profile_policy.has_value() || core == nullptr) {
@@ -124,8 +138,20 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
         return report;
     }
 
-    auto core_result =
-        compile_low_order_engine_core_v1_runtime(engine, scenario, *core);
+    auto core_result = [&]() {
+        if (inertial == nullptr) {
+            return compile_low_order_engine_core_v1_runtime(engine, scenario, *core);
+        }
+        auto held_preparation_scenario = scenario;
+        held_preparation_scenario.mode = contract::HeldSpeed{
+            inertial->initial_engine_speed_rpm,
+            inertial->initial_theta_rad,
+            {inertial->throttle_01.points.front().value,
+             inertial->throttle_01.resolution_id},
+        };
+        return compile_low_order_engine_core_v1_runtime(
+            engine, held_preparation_scenario, *core);
+    }();
     if (const auto *core_report = std::get_if<ValidationReport>(&core_result)) {
         return *core_report;
     }

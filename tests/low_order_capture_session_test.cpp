@@ -1,5 +1,6 @@
 #include "contract_test_support.hpp"
 #include "engine_sim_offline/artifacts/telemetry_encoder.hpp"
+#include "engine_sim_offline/profiles/bmw_m52b28_inertial_dyno_listening_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
 #include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
@@ -932,6 +933,60 @@ void test_operating_capture_rejects_zero_request_identity() {
            "operating capture admitted a zero simulation-request identity");
 }
 
+void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence() {
+    auto request_result = make_bmw_m52b28_inertial_dyno_listening_request();
+    if (const auto *report = std::get_if<ValidationReport>(&request_result)) {
+        fail_report("canonical inertial request failed admission", *report);
+    }
+    const auto &request =
+        std::get<BmwM52b28InertialDynoListeningRequest>(request_result);
+    const auto request_identity = nonzero_request_identity();
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario, request_identity));
+
+    std::optional<LowOrderCaptureCompleted> completion;
+    double first_released_rpm = 0.0;
+    double last_rpm = 0.0;
+    const auto release_frame = *resolve_frame_index(
+        request.scenario.audible_start_s.value, request.scenario.rates.capture);
+    while (!completion.has_value()) {
+        auto result = capture.publish_next_block([&](const CaptureBlockView &block) {
+            const auto report = validate(block, request.engine, request.scenario);
+            if (!report.ok()) {
+                fail_report("inertial capture block failed validation", report);
+            }
+            for (const auto &frame : block.engine()) {
+                if (block.clock().first_sample_index +
+                        static_cast<std::uint64_t>(&frame - block.engine().data()) ==
+                    release_frame) {
+                    first_released_rpm = frame.engine_speed_rpm;
+                }
+                last_rpm = frame.engine_speed_rpm;
+            }
+            return true;
+        });
+        if (const auto *failure = std::get_if<FailureContext>(&result)) {
+            throw std::runtime_error{
+                "inertial capture faulted: " + failure->detail_code + "; " +
+                failure->state_summary +
+                "; time-s=" + std::to_string(failure->scenario_time_s)};
+        }
+        if (const auto *completed = std::get_if<LowOrderCaptureCompleted>(&result)) {
+            completion = *completed;
+        }
+    }
+
+    expect(completion->inertial_dyno.has_value() &&
+               !completion->held_speed_operating_point.has_value() &&
+               first_released_rpm > 1500.0 && last_rpm > first_released_rpm,
+           "inertial capture did not publish an accelerating released motion lane");
+    const auto report =
+        validate(*completion->inertial_dyno, request.scenario, request_identity);
+    if (!report.ok()) {
+        fail_report("inertial completion evidence failed request validation", report);
+    }
+}
+
 void test_operating_nonconvergence_does_not_publish_cutoff_block() {
     const auto request =
         make_operating_capture_request(std::numeric_limits<double>::denorm_min(),
@@ -1160,6 +1215,7 @@ void run_tests() {
     test_short_bmw_capture_mapping_and_completion();
     test_operating_capture_publishes_request_bound_completion_evidence();
     test_operating_capture_rejects_zero_request_identity();
+    test_inertial_capture_publishes_dynamic_motion_and_energy_evidence();
     test_operating_nonconvergence_does_not_publish_cutoff_block();
     test_declared_capture_capacity_drives_publication();
     test_consumer_rejection_is_a_stable_terminal_fault();

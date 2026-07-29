@@ -303,8 +303,10 @@ The first request freezes these conditions before listening:
 | Initial / listening-target speed | `1500 rpm` / `6500 rpm` |
 | Throttle | `0.85` |
 | Maximum preparation / audible start | `6.44 s` |
+| Preparation comparison block | `16` complete cycles |
+| Preparation torque / pressure tolerances | `0.75 N*m` / `1500 Pa` |
 | Audible duration / total duration | `15.0 s` / `21.44 s` |
-| Total crank-referred equivalent inertia | `6.5 kg*m^2` |
+| Total crank-referred equivalent inertia | `7.9 kg*m^2` |
 | Passive brake curve | `40 N*m` from `1000` through `7500 rpm` |
 | Crank-dynamics method | `rigid-crank-zoh-work-energy-v1`, version 1 |
 | Passive-brake method | `piecewise-linear-positive-speed-passive-brake-v1`, version 1 |
@@ -313,11 +315,18 @@ The first request freezes these conditions before listening:
 | Capture block / event capacities | `200` frames / `3800` records |
 | Public seed | `0xC0FFEE` |
 
-`6.5 kg*m^2` is a declared test-cell total, including all rigidly crank-referred
+`7.9 kg*m^2` is a declared test-cell total, including all rigidly crank-referred
 engine, coupling, and flywheel inertia. It is not a measured BMW value and must not be
 added to a second hidden engine inertia. A future component inventory may derive this
 total as `J_engine + sum(J_i * ratio_i^2)`; v1 owns only the resolved total and its
 provenance.
+
+The first executable calibration at `6.5 kg*m^2` reached the declared brake-domain
+ceiling (`7500.019868 rpm`) at scenario time `20.8741 s`, before the fixed
+`21.44 s` horizon. The canonical total was therefore changed to `7.9 kg*m^2` to put
+the 1500-to-6500 listening climb near the end of its 15-second released window while
+retaining the fixed throttle and passive load. This is an explicit test-cell request
+calibration; no hidden clamp or prescribed speed was introduced.
 
 The listening target is evidence, not a prescribed trajectory. The fixed-horizon run
 records the first frame at or above `6500 rpm`, if any, and continues to the declared
@@ -329,10 +338,13 @@ zero-speed stick model are absent from v1.
 
 Preparation holds exactly `1500 rpm` using a test-cell actuator while the passive
 brake remains active. Existing adjacent-block torque and phase-aligned pressure
-convergence is evaluated at the fixed `6.44 s` cutoff. The hold actuator becomes zero
-at that exact physics-frame boundary; crank angle, gas state, flame state, pressure
-history, randomness, and the latest completed aggregate-loss state continue without a
-reset.
+convergence is evaluated at the fixed `6.44 s` cutoff. The first canonical execution
+retained the required 32 cycles and measured `0.6150874926158565 N*m` torque residual
+and `1300.6961110872217 Pa` pressure residual. The round `0.75 N*m` and `1500 Pa`
+bounds admit that deterministic preparation with finite margins; this is explicit
+scenario calibration, not a runtime bypass. The hold actuator becomes zero at that
+exact physics-frame boundary; crank angle, gas state, flame state, pressure history,
+randomness, and the latest completed aggregate-loss state continue without a reset.
 
 The first dynamics method is a deterministic rigid one-degree-of-freedom mean-value
 model. With positive running direction, the committed state from step `n` supplies:

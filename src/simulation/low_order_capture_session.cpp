@@ -96,6 +96,7 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
                 "mechanics, gas, and published capture counts diverged at completion"));
         }
         std::optional<contract::HeldSpeedOperatingPointResult> operating_point;
+        std::optional<contract::InertialDynoResult> inertial_dyno;
         if (const auto *policy =
                 std::get_if<LowOrderOperatingPointV1Runtime>(&profile_policy_)) {
             if (policy->accepted_sample_count() != expected_samples_ ||
@@ -108,11 +109,24 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
                     "one converged operating-point result"));
             }
             operating_point = *policy->operating_point_result();
+        } else if (const auto *policy =
+                       std::get_if<LowOrderInertialDynoV1Runtime>(&profile_policy_)) {
+            if (policy->accepted_sample_count() != expected_samples_ ||
+                !policy->finalized() || policy->faulted() ||
+                !policy->inertial_dyno_result().has_value()) {
+                return fail(fault(
+                    contract::FailureKind::contract_violation,
+                    "low-order-inertial-policy-completion-disagreed",
+                    "inertial-dyno policy did not finish the exact capture horizon "
+                    "with one typed result"));
+            }
+            inertial_dyno = *policy->inertial_dyno_result();
         }
         terminal_completion_ = LowOrderCaptureCompleted{
             published_sample_count_,
             published_block_count_,
             std::move(operating_point),
+            std::move(inertial_dyno),
         };
         return *terminal_completion_;
     }
@@ -120,54 +134,105 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
     capture_->begin_block(published_sample_count_);
     const LegacyMechanismStep *last_mechanics = nullptr;
     for (std::uint32_t frame = 0; frame < capture_->block_capacity_frames(); ++frame) {
-        auto core_result = core_.advance();
-        if (const auto *failure = std::get_if<contract::FailureContext>(&core_result)) {
-            return fail(*failure);
-        }
-        if (const auto *completed =
-                std::get_if<LowOrderEngineCoreV1Completed>(&core_result)) {
-            if (completed->sample_count != expected_samples_ ||
-                published_sample_count_ + capture_->frame_count() !=
-                    expected_samples_) {
-                return fail(
-                    fault(contract::FailureKind::contract_violation,
-                          "low-order-core-premature-completion",
-                          "mechanics completed before the admitted capture horizon"));
+        const LegacyMechanismStep *mechanics_pointer = nullptr;
+        const LegacyLowOrderGasStep *gas_pointer = nullptr;
+        std::optional<contract::TorqueTelemetry> inertial_capture_torque;
+        if (auto *inertial =
+                std::get_if<LowOrderInertialDynoV1Runtime>(&profile_policy_)) {
+            auto result = inertial->advance(core_);
+            if (const auto *failure = std::get_if<contract::FailureContext>(&result)) {
+                return fail(*failure);
             }
-            break;
+            if (const auto *completed =
+                    std::get_if<LowOrderEngineCoreV1Completed>(&result)) {
+                if (completed->sample_count != expected_samples_ ||
+                    published_sample_count_ + capture_->frame_count() !=
+                        expected_samples_) {
+                    return fail(fault(
+                        contract::FailureKind::contract_violation,
+                        "low-order-core-premature-completion",
+                        "inertial mechanics completed before the admitted capture "
+                        "horizon"));
+                }
+                break;
+            }
+            const auto &step = std::get<LowOrderInertialDynoV1StepView>(result);
+            mechanics_pointer = &step.mechanics.get();
+            gas_pointer = &step.gas.get();
+            inertial_capture_torque = step.capture_torque;
+        } else {
+            auto core_result = core_.advance();
+            if (const auto *failure =
+                    std::get_if<contract::FailureContext>(&core_result)) {
+                return fail(*failure);
+            }
+            if (const auto *completed =
+                    std::get_if<LowOrderEngineCoreV1Completed>(&core_result)) {
+                if (completed->sample_count != expected_samples_ ||
+                    published_sample_count_ + capture_->frame_count() !=
+                        expected_samples_) {
+                    return fail(fault(
+                        contract::FailureKind::contract_violation,
+                        "low-order-core-premature-completion",
+                        "mechanics completed before the admitted capture horizon"));
+                }
+                break;
+            }
+            const auto &core_step = std::get<LowOrderEngineCoreV1StepView>(core_result);
+            mechanics_pointer = &core_step.mechanics.get();
+            gas_pointer = &core_step.gas.get();
         }
 
-        const auto &core_step = std::get<LowOrderEngineCoreV1StepView>(core_result);
-        const auto &mechanics = core_step.mechanics.get();
-        const auto &gas = core_step.gas.get();
+        if (mechanics_pointer == nullptr || gas_pointer == nullptr) {
+            return fail(fault(contract::FailureKind::contract_violation,
+                              "low-order-policy-step-missing",
+                              "active simulation policy produced no committed core "
+                              "transaction"));
+        }
+        const auto &mechanics = *mechanics_pointer;
+        const auto &gas = *gas_pointer;
         last_mechanics = &mechanics;
-        auto torque_evaluation = std::visit(
-            [&](auto &policy)
-                -> std::variant<contract::TorqueTelemetry, contract::FailureContext> {
-                using Policy = std::decay_t<decltype(policy)>;
-                if constexpr (std::is_same_v<Policy,
-                                             LegacyFixedCrankTorqueAccountingPlan>) {
-                    auto evaluated = evaluate_legacy_fixed_crank_torque_accounting(
-                        policy, mechanics.angular_speed_rad_s,
-                        gas.indicated_gas_torque_nm);
-                    if (const auto *torque =
-                            std::get_if<contract::TorqueTelemetry>(&evaluated)) {
-                        return *torque;
+        std::variant<contract::TorqueTelemetry, contract::FailureContext>
+            torque_evaluation;
+        if (inertial_capture_torque.has_value()) {
+            torque_evaluation = *inertial_capture_torque;
+        } else {
+            torque_evaluation = std::visit(
+                [&](auto &policy) -> std::variant<contract::TorqueTelemetry,
+                                                  contract::FailureContext> {
+                    using Policy = std::decay_t<decltype(policy)>;
+                    if constexpr (std::is_same_v<
+                                      Policy, LegacyFixedCrankTorqueAccountingPlan>) {
+                        auto evaluated = evaluate_legacy_fixed_crank_torque_accounting(
+                            policy, mechanics.angular_speed_rad_s,
+                            gas.indicated_gas_torque_nm);
+                        if (const auto *torque =
+                                std::get_if<contract::TorqueTelemetry>(&evaluated)) {
+                            return *torque;
+                        }
+                        return fault(
+                            contract::FailureKind::numerical_failure,
+                            "legacy-fixed-crank-torque-accounting-failed",
+                            "M3 torque accountant produced no finite telemetry",
+                            &mechanics);
+                    } else if constexpr (std::is_same_v<
+                                             Policy, LowOrderOperatingPointV1Runtime>) {
+                        auto evaluated = policy.advance(mechanics, gas);
+                        if (const auto *step =
+                                std::get_if<LowOrderOperatingPointV1Step>(&evaluated)) {
+                            return step->capture_torque;
+                        }
+                        return std::get<contract::FailureContext>(std::move(evaluated));
+                    } else {
+                        return fault(contract::FailureKind::contract_violation,
+                                     "low-order-inertial-policy-double-advanced",
+                                     "inertial torque policy was invoked twice for "
+                                     "one core transaction",
+                                     &mechanics);
                     }
-                    return fault(contract::FailureKind::numerical_failure,
-                                 "legacy-fixed-crank-torque-accounting-failed",
-                                 "M3 torque accountant produced no finite telemetry",
-                                 &mechanics);
-                } else {
-                    auto evaluated = policy.advance(mechanics, gas);
-                    if (const auto *step =
-                            std::get_if<LowOrderOperatingPointV1Step>(&evaluated)) {
-                        return step->capture_torque;
-                    }
-                    return std::get<contract::FailureContext>(std::move(evaluated));
-                }
-            },
-            profile_policy_);
+                },
+                profile_policy_);
+        }
         if (auto *failure = std::get_if<contract::FailureContext>(&torque_evaluation)) {
             return fail(std::move(*failure));
         }
