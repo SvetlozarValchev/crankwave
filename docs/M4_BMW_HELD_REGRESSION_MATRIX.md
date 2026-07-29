@@ -1,7 +1,7 @@
 # M4 BMW held operating-regression matrix
 
-Status: implemented as the sole held-listening surface; four clips published from a
-clean commit; user listening acceptance remains open
+Status: implemented as the sole held-listening surface and accepted by user listening
+on 2026-07-29
 
 Execution paths, identities, operating results, timings, and hashes are recorded in
 [`M4_BMW_HELD_REGRESSION_LISTENING_GATE.md`](M4_BMW_HELD_REGRESSION_LISTENING_GATE.md).

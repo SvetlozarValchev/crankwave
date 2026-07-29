@@ -563,7 +563,7 @@ replacement starts before acceptance.
               canonical BMW migration, evidence replacement, and removal policy.
         - [x] Implement the no-compatibility production cutover and focused checks.
         - [x] Execute from a clean commit and publish all nine points atomically.
-- [ ] Render low/middle/high RPM and load clips, then stop for user listening.
+- [x] Render low/middle/high RPM and load clips, then stop for user listening.
 - [x] Add the inertial dyno.
 - [x] Render its natural BMW pull, then stop for user listening.
 - [ ] Add stable idle/low-load behavior.
@@ -584,6 +584,9 @@ audition-master requirements in M6.
 The user accepted the first canonical held-speed listening point on 2026-07-29.
 That gate is recorded in
 [`docs/M4_BMW_HELD_SPEED_LISTENING_GATE.md`](docs/M4_BMW_HELD_SPEED_LISTENING_GATE.md).
+The user accepted the complete four-point held operating-regression matrix on the
+same date. Its exact execution and listening gate are recorded in
+[`docs/M4_BMW_HELD_REGRESSION_LISTENING_GATE.md`](docs/M4_BMW_HELD_REGRESSION_LISTENING_GATE.md).
 The user accepted the natural inertial-dyno climb on the same date. It is driven by
 simulated shaft dynamics rather than relabelling the accepted M3 prescribed sweep;
 the gate is recorded in

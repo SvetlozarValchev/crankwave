@@ -1,6 +1,6 @@
 # M4 BMW held operating-regression listening gate
 
-Status: four clips published; awaiting user listening acceptance
+Status: accepted by user listening on 2026-07-29
 Recorded: 2026-07-29
 
 ## Execution
@@ -47,13 +47,15 @@ Every manifest hash matches its published sidecar. The manifest scenario IDs mat
 the four frozen token-to-point mappings exactly, closing the CLI selection check with
 the actual renderer rather than a parser-only assertion.
 
-## Listening claim and stop
+## Listening acceptance and claim
 
 These are exhaust operating-regression clips through the currently accepted
 presentation. They contain neither an independent physical intake source nor an
 independent mechanical source, and they do not claim new M5 fidelity or a complete
 production engine mix.
 
-The user must listen to all four files before this matrix becomes the accepted M4
-regression baseline. Until explicit acceptance or correction, the corresponding PLAN
-item remains open and M5 fidelity work must not begin.
+The user listened to the published set and reported that it "sounds good." This
+accepts all four clips as the M4 held operating-regression baseline and closes the
+matrix listening stop. The acceptance covers audible coherence across the frozen RPM
+and throttle cross; it does not turn the current exhaust-only presentation into an
+intake/mechanical mix or claim new offline fidelity.
