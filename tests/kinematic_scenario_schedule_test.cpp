@@ -38,6 +38,18 @@ KinematicScenarioSchedule require_schedule(KinematicScenarioScheduleResult resul
     return std::get<KinematicScenarioSchedule>(std::move(result));
 }
 
+ScenarioControlSchedule require_control_schedule(ScenarioControlScheduleResult result) {
+    if (const auto *report = std::get_if<ValidationReport>(&result)) {
+        std::string message = "valid control schedule was rejected";
+        if (!report->issues.empty()) {
+            message += ": " + report->issues.front().path + ": " +
+                       report->issues.front().message;
+        }
+        throw std::runtime_error{message};
+    }
+    return std::get<ScenarioControlSchedule>(std::move(result));
+}
+
 void expect_rejected(const RenderScenario &scenario, std::string_view path) {
     const auto result = compile_kinematic_scenario_schedule(scenario);
     const auto *report = std::get_if<ValidationReport>(&result);
@@ -239,6 +251,62 @@ void test_prescribed_sweep_behavior_is_preserved() {
            "sampled schedule changed final-step completion");
 }
 
+void test_inertial_dyno_compiles_controls_without_a_fake_rpm_lane() {
+    ScheduleFixture fixture;
+    configure_short_held_schedule(fixture);
+    fixture.scenario.mode = InertialDyno{
+        fixture.builder.resolved(1500.0, "dyno.initial_engine_speed_rpm"),
+        fixture.builder.resolved(0.25, "dyno.initial_theta_rad"),
+        fixture.builder.resolved(1.0, "dyno.equivalent_inertia_kg_m2"),
+        {
+            TrajectoryInterpolation::right_continuous_hold,
+            {{0.0, 0.4}, {0.5, 0.9}},
+            fixture.builder.add_resolution("dyno.throttle"),
+        },
+        {},
+        "piecewise-linear-brake-torque-v1",
+        fixture.builder.resolved(method("inertial-crank-dynamics-v1", 1),
+                                 "dyno.crank_dynamics_method"),
+        fixture.builder.resolved(6500.0, "dyno.target_engine_speed_rpm"),
+        fixture.builder.resolved(method("piecewise-linear-brake-torque-v1", 1),
+                                 "dyno.brake_torque_method"),
+    };
+
+    auto controls =
+        require_control_schedule(compile_scenario_control_schedule(fixture.scenario));
+    expect(controls.rate() == RationalRateHz{4, 1} &&
+               controls.first_step_index() == 0U && controls.sample_count() == 6U &&
+               controls.initial_theta_rad() == 0.25,
+           "inertial controls have the wrong fixed-rate extent or initial angle");
+
+    auto &source = std::get<InertialDyno>(fixture.scenario.mode);
+    source.initial_theta_rad.value = 9.0;
+    source.throttle_01.points.clear();
+    fixture.scenario.operating_state.value.clear();
+
+    auto cursor = controls.fresh_cursor();
+    const auto first = cursor.next();
+    const auto second = cursor.next();
+    const auto throttle_boundary = cursor.next();
+    const auto operating_boundary = cursor.next();
+    expect(first.has_value() && first->sample_index == 0U &&
+               first->step_end_index == 1U && first->requested_throttle == 0.4 &&
+               first->operating_state.fuel_enabled && second.has_value() &&
+               second->requested_throttle == 0.4,
+           "inertial control cursor lost its immutable step-zero controls");
+    expect(throttle_boundary.has_value() && throttle_boundary->sample_index == 2U &&
+               throttle_boundary->requested_throttle == 0.9 &&
+               throttle_boundary->operating_state.fuel_enabled,
+           "inertial throttle boundary was not right-continuous");
+    expect(operating_boundary.has_value() && operating_boundary->sample_index == 3U &&
+               !operating_boundary->operating_state.fuel_enabled,
+           "inertial operating-state boundary was not right-continuous");
+
+    const auto rejected = compile_kinematic_scenario_schedule(fixture.scenario);
+    expect(std::holds_alternative<ValidationReport>(rejected),
+           "inertial controls were silently materialized as a kinematic RPM lane");
+}
+
 void test_admission_rejections() {
     {
         ScheduleFixture fixture;
@@ -304,6 +372,7 @@ void run_tests() {
     test_held_speed_snapshot_boundaries_and_completion();
     test_held_speed_horizon_is_not_materialized();
     test_prescribed_sweep_behavior_is_preserved();
+    test_inertial_dyno_compiles_controls_without_a_fake_rpm_lane();
     test_admission_rejections();
 }
 

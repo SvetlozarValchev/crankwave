@@ -47,6 +47,7 @@ class LowOrderEngineCoreV1Runtime final {
     // advance call or any move, assignment, or destruction of this runtime.
     // Completion and failure are terminal and stable.
     [[nodiscard]] LowOrderEngineCoreV1AdvanceResult advance();
+    [[nodiscard]] LowOrderEngineCoreV1AdvanceResult advance(PostStepCrankMotion motion);
     [[nodiscard]] bool faulted() const noexcept;
     [[nodiscard]] bool completed() const noexcept;
     [[nodiscard]] std::uint64_t produced_sample_count() const noexcept;
@@ -65,6 +66,8 @@ class LowOrderEngineCoreV1Runtime final {
           const LegacyMechanismStep *mechanics = nullptr) const;
     [[nodiscard]] LowOrderEngineCoreV1AdvanceResult
     fail(contract::FailureContext failure);
+    [[nodiscard]] LowOrderEngineCoreV1AdvanceResult
+    advance_with_motion(std::optional<PostStepCrankMotion> motion);
 
     LegacyLowOrderMechanicsSession mechanics_;
     LegacyLowOrderGasSession gas_;

@@ -13,7 +13,87 @@ namespace engine_sim_offline::simulation {
 namespace detail {
 struct KinematicScenarioScheduleFactory;
 struct KinematicScenarioScheduleStorage;
+struct ScenarioControlScheduleFactory;
+struct ScenarioControlScheduleStorage;
 } // namespace detail
+
+struct ScheduledScenarioControls {
+    std::uint64_t sample_index = 0;
+    std::uint64_t step_end_index = 0;
+    double requested_throttle = 0.0;
+    contract::OperatingState operating_state;
+
+    friend bool operator==(const ScheduledScenarioControls &,
+                           const ScheduledScenarioControls &) = default;
+};
+
+// Controls have an independent cursor because crank motion is not a control lane:
+// a kinematic scenario reads RPM from its immutable trajectory, while a dynamic
+// owner supplies the post-step motion produced by its crank integrator.
+class ScenarioControlCursor final {
+  public:
+    ScenarioControlCursor(const ScenarioControlCursor &) = delete;
+    ScenarioControlCursor &operator=(const ScenarioControlCursor &) = delete;
+    ScenarioControlCursor(ScenarioControlCursor &&other) noexcept;
+    ScenarioControlCursor &operator=(ScenarioControlCursor &&other) noexcept;
+
+    // Completion is stable: once this returns nullopt, all later calls do too.
+    [[nodiscard]] std::optional<ScheduledScenarioControls> next() noexcept;
+    [[nodiscard]] bool completed() const noexcept;
+
+  private:
+    ScenarioControlCursor(
+        std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage,
+        std::uint64_t first_step_index) noexcept;
+
+    std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage_;
+    std::uint64_t first_step_index_ = 0;
+    std::uint64_t next_sample_offset_ = 0;
+    std::size_t next_operating_state_boundary_ = 0;
+    std::size_t next_throttle_boundary_ = 0;
+    contract::OperatingState operating_state_;
+    double requested_throttle_ = 0.0;
+
+    friend class ScenarioControlSchedule;
+};
+
+// Immutable fixed-rate controls shared by kinematic and dynamically driven
+// mechanics. It deliberately contains no RPM lane.
+class ScenarioControlSchedule final {
+  public:
+    ScenarioControlSchedule(const ScenarioControlSchedule &) = default;
+    ScenarioControlSchedule(ScenarioControlSchedule &&) noexcept = default;
+    ScenarioControlSchedule &operator=(const ScenarioControlSchedule &) = default;
+    ScenarioControlSchedule &operator=(ScenarioControlSchedule &&) noexcept = default;
+
+    [[nodiscard]] const contract::RationalRateHz &rate() const noexcept;
+    [[nodiscard]] std::uint64_t first_step_index() const noexcept;
+    [[nodiscard]] std::uint64_t sample_count() const noexcept;
+    [[nodiscard]] double initial_theta_rad() const noexcept;
+    [[nodiscard]] ScenarioControlCursor fresh_cursor() const noexcept;
+
+  private:
+    ScenarioControlSchedule(
+        contract::RationalRateHz rate, std::uint64_t first_step_index,
+        std::uint64_t sample_count, double initial_theta_rad,
+        std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage) noexcept;
+
+    contract::RationalRateHz rate_;
+    std::uint64_t first_step_index_ = 0;
+    std::uint64_t sample_count_ = 0;
+    double initial_theta_rad_ = 0.0;
+    std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage_;
+
+    friend struct detail::ScenarioControlScheduleFactory;
+};
+
+using ScenarioControlScheduleResult =
+    std::variant<ScenarioControlSchedule, contract::ValidationReport>;
+
+// Compiles control lanes for held speed, prescribed kinematics, and inertial
+// dyno scenarios. Motion-specific admission remains with the motion owner.
+[[nodiscard]] ScenarioControlScheduleResult
+compile_scenario_control_schedule(const contract::RenderScenario &scenario);
 
 struct ScheduledScenarioStep {
     std::uint64_t sample_index = 0;
@@ -74,6 +154,7 @@ class KinematicScenarioSchedule final {
     [[nodiscard]] double initial_theta_rad() const noexcept;
     [[nodiscard]] std::optional<double>
     rpm_at_sample_offset(std::uint64_t sample_offset) const noexcept;
+    [[nodiscard]] ScenarioControlSchedule control_schedule() const noexcept;
     [[nodiscard]] KinematicScenarioCursor fresh_cursor() const noexcept;
 
   private:

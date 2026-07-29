@@ -84,6 +84,17 @@ using LegacyMechanicsAdvanceResult =
     std::variant<std::reference_wrapper<const LegacyMechanismStep>,
                  LegacyMechanicsCompleted, contract::FailureContext>;
 
+// Motion is sampled at the same post-step boundary as the existing kinematic RPM
+// lane. Dynamic owners compute this value; mechanics remains responsible for crank
+// angle integration, event crossing, and geometry at that resolved motion.
+struct PostStepCrankMotion {
+    double engine_speed_rpm = 0.0;
+    double angular_displacement_rad = 0.0;
+
+    friend bool operator==(const PostStepCrankMotion &,
+                           const PostStepCrankMotion &) = default;
+};
+
 class LegacyLowOrderMechanicsSession final {
   public:
     LegacyLowOrderMechanicsSession(const LegacyLowOrderMechanicsSession &) = delete;
@@ -97,6 +108,7 @@ class LegacyLowOrderMechanicsSession final {
     // The returned reference is session-owned and remains valid only until the next
     // advance call. Completion and failure are terminal and stable.
     [[nodiscard]] LegacyMechanicsAdvanceResult advance();
+    [[nodiscard]] LegacyMechanicsAdvanceResult advance(PostStepCrankMotion motion);
     [[nodiscard]] bool completed() const noexcept;
     [[nodiscard]] std::span<const CenteredSliderCrankCylinder>
     cylinder_models() const noexcept;
@@ -108,9 +120,10 @@ class LegacyLowOrderMechanicsSession final {
     };
 
     LegacyLowOrderMechanicsSession(
-        KinematicScenarioCursor scenario_cursor, contract::RationalRateHz rate,
-        double crank_tdc_reference_rad, double initial_theta_cycle_rad,
-        std::vector<CylinderModel> cylinders,
+        ScenarioControlCursor control_cursor,
+        std::optional<KinematicScenarioCursor> kinematic_cursor,
+        contract::RationalRateHz rate, double crank_tdc_reference_rad,
+        double initial_theta_cycle_rad, std::vector<CylinderModel> cylinders,
         std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
         double limiter_speed_rpm, double limiter_hold_s, bool limiter_enabled,
         std::string model_id, std::string profile_id, std::string scenario_id,
@@ -121,8 +134,11 @@ class LegacyLowOrderMechanicsSession final {
           std::string state_summary,
           std::optional<contract::CylinderId> cylinder_id = std::nullopt,
           std::optional<contract::RouteId> route_id = std::nullopt) const;
+    [[nodiscard]] LegacyMechanicsAdvanceResult
+    advance_with_motion(std::optional<PostStepCrankMotion> motion);
 
-    KinematicScenarioCursor scenario_cursor_;
+    ScenarioControlCursor control_cursor_;
+    std::optional<KinematicScenarioCursor> kinematic_cursor_;
     contract::RationalRateHz rate_;
     double crank_tdc_reference_rad_ = 0.0;
     double step_s_ = 0.0;

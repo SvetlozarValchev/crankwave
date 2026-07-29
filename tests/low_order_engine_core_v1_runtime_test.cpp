@@ -178,6 +178,25 @@ void test_core_ignores_capture_transport_policy() {
            "capture transport policy leaked into the shared physics core");
 }
 
+void test_core_pairs_external_post_step_motion_with_the_same_gas_transaction() {
+    auto request = make_short_request();
+    const auto &core =
+        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
+            .core;
+    auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
+        request.engine, request.scenario, core));
+
+    constexpr double kExternalRpm = 1800.0;
+    auto result = runtime.advance(simulation::PostStepCrankMotion{kExternalRpm, 0.017});
+    const auto *step = std::get_if<simulation::LowOrderEngineCoreV1StepView>(&result);
+    expect(step != nullptr && step->mechanics.get().engine_speed_rpm == kExternalRpm &&
+               step->mechanics.get().sample_index == 0U &&
+               step->gas.get().sample_index == 0U &&
+               step->mechanics.get().timestamp_tick == step->gas.get().timestamp_tick &&
+               runtime.produced_sample_count() == 1U,
+           "external post-step motion was not paired with one gas transaction");
+}
+
 void test_canonical_bmw_operating_profile_uses_limiter_disabled_core() {
     auto profile_result = profiles::make_bmw_m52b28_operating_profile();
     const auto *profile =
@@ -256,6 +275,7 @@ void run_tests() {
     test_prescribed_transaction_and_stable_completion();
     test_held_speed_reuses_core_without_m3_loss_policy();
     test_core_ignores_capture_transport_policy();
+    test_core_pairs_external_post_step_motion_with_the_same_gas_transaction();
     test_canonical_bmw_operating_profile_uses_limiter_disabled_core();
 }
 

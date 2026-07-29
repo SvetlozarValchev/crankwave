@@ -305,6 +305,39 @@ CoreRuntimeFactory::MechanicsCompileResult compile_fixture(MechanicsFixture &fix
         std::get<KinematicScenarioSchedule>(schedule_result));
 }
 
+void configure_inertial_controls(MechanicsFixture &fixture) {
+    fixture.scenario.mode = InertialDyno{
+        fixture.builder.resolved(1000.0, "scenario.mode.initial_engine_speed_rpm"),
+        fixture.builder.resolved(0.0, "scenario.mode.initial_theta_rad"),
+        fixture.builder.resolved(1.0, "scenario.mode.equivalent_inertia_kg_m2"),
+        {
+            TrajectoryInterpolation::right_continuous_hold,
+            {{0.0, 0.25}, {0.0002, 0.75}},
+            fixture.builder.add_resolution("scenario.mode.throttle_01.dynamic"),
+        },
+        {},
+        "piecewise-linear-brake-torque-v1",
+        fixture.builder.resolved(method("inertial-crank-dynamics-v1", 1),
+                                 "scenario.mode.crank_dynamics_method"),
+        fixture.builder.resolved(6500.0, "scenario.mode.target_engine_speed_rpm"),
+        fixture.builder.resolved(method("piecewise-linear-brake-torque-v1", 1),
+                                 "scenario.mode.brake_torque_method"),
+    };
+}
+
+CoreRuntimeFactory::MechanicsCompileResult
+compile_dynamic_fixture(MechanicsFixture &fixture) {
+    auto schedule_result = compile_scenario_control_schedule(fixture.scenario);
+    if (auto *report = std::get_if<ValidationReport>(&schedule_result)) {
+        return std::move(*report);
+    }
+    const auto &core =
+        std::get<LegacyLowOrderV1Profile>(fixture.engine.physics_profile).core;
+    return CoreRuntimeFactory::compile_mechanics(
+        fixture.engine, core, fixture.scenario,
+        std::get<ScenarioControlSchedule>(schedule_result));
+}
+
 void expect_compile_rejected(MechanicsFixture &fixture,
                              std::string_view expected_path) {
     auto result = compile_fixture(fixture);
@@ -408,6 +441,52 @@ void test_mechanics_accepts_compiled_held_speed_schedule() {
            "held-speed schedule changed while entering mechanics");
 }
 
+void test_mechanics_accepts_external_post_step_motion_for_inertial_controls() {
+    MechanicsFixture fixture;
+    configure_inertial_controls(fixture);
+    auto session = require_session(compile_dynamic_fixture(fixture));
+
+    auto first_result = session.advance(PostStepCrankMotion{1250.0, 0.02});
+    const auto &first = require_step(first_result);
+    expect(first.sample_index == 0U && first.step_end_index == 1U &&
+               first.engine_speed_rpm == 1250.0 &&
+               first.requested_throttle_01 == 0.25 && first.theta_unwrapped_rad == 0.02,
+           "external post-step motion lost the first dynamic controls");
+    expect_near(first.angular_speed_rad_s, 1250.0 * kLegacyRpmScale, 0.0,
+                "external post-step RPM changed during mechanics resolution");
+
+    auto second_result = session.advance(PostStepCrankMotion{1500.0, 0.021});
+    const auto &second = require_step(second_result);
+    expect(second.sample_index == 1U && second.engine_speed_rpm == 1500.0 &&
+               second.requested_throttle_01 == 0.25 &&
+               second.angular_acceleration_rad_s2 > 0.0,
+           "external motion did not advance as one coherent dynamic step");
+
+    auto third_result = session.advance(PostStepCrankMotion{1750.0, 0.022});
+    const auto &third = require_step(third_result);
+    expect(third.sample_index == 2U && third.requested_throttle_01 == 0.75 &&
+               !third.operating_state.ignition_enabled,
+           "dynamic mechanics did not apply its right-continuous controls");
+    auto fourth_result = session.advance(PostStepCrankMotion{2000.0, 0.023});
+    require_step(fourth_result);
+    expect(session.completed(),
+           "externally driven mechanics did not complete at the control horizon");
+
+    MechanicsFixture missing_motion_fixture;
+    configure_inertial_controls(missing_motion_fixture);
+    auto missing_motion =
+        require_session(compile_dynamic_fixture(missing_motion_fixture));
+    const auto failure = missing_motion.advance();
+    const auto *context = std::get_if<FailureContext>(&failure);
+    const auto repeated = missing_motion.advance(PostStepCrankMotion{1250.0, 0.02});
+    const auto *repeated_context = std::get_if<FailureContext>(&repeated);
+    expect(context != nullptr &&
+               context->detail_code == "legacy-mechanics-external-motion-required" &&
+               repeated_context != nullptr &&
+               repeated_context->detail_code == context->detail_code,
+           "dynamic mechanics did not fail closed when motion was omitted");
+}
+
 void test_mechanics_uniform_limiter_disabled_policy() {
     MechanicsFixture fixture;
     for (auto &point : fixture.scenario.operating_state.value) {
@@ -493,6 +572,7 @@ void run_tests() {
     test_limiter_strict_threshold_and_timer_edges();
     test_mechanics_session_step_order_and_completion();
     test_mechanics_accepts_compiled_held_speed_schedule();
+    test_mechanics_accepts_external_post_step_motion_for_inertial_controls();
     test_mechanics_uniform_limiter_disabled_policy();
     test_mechanics_compile_rejections();
 }

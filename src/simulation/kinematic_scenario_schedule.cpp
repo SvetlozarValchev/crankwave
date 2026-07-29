@@ -30,11 +30,25 @@ struct ConstantRpmLane {
 
 using RpmLane = std::variant<SampledRpmLane, ConstantRpmLane>;
 
-struct KinematicScenarioScheduleStorage {
-    RpmLane rpm;
+struct ScenarioControlScheduleStorage {
     std::uint64_t sample_count = 0;
     std::vector<OperatingStateBoundary> operating_state;
     std::vector<ThrottleBoundary> throttle;
+};
+
+struct KinematicScenarioScheduleStorage {
+    RpmLane rpm;
+    std::shared_ptr<const ScenarioControlScheduleStorage> controls;
+};
+
+struct ScenarioControlScheduleFactory {
+    static ScenarioControlSchedule
+    make(contract::RationalRateHz rate, std::uint64_t first_step_index,
+         std::uint64_t sample_count, double initial_theta_rad,
+         std::shared_ptr<const ScenarioControlScheduleStorage> storage) noexcept {
+        return {rate, first_step_index, sample_count, initial_theta_rad,
+                std::move(storage)};
+    }
 };
 
 struct KinematicScenarioScheduleFactory {
@@ -204,6 +218,96 @@ void compile_throttle_boundaries(ValidationReport &report,
 
 } // namespace
 
+ScenarioControlCursor::ScenarioControlCursor(
+    std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage,
+    std::uint64_t first_step_index) noexcept
+    : storage_(std::move(storage)), first_step_index_(first_step_index) {}
+
+ScenarioControlCursor::ScenarioControlCursor(ScenarioControlCursor &&other) noexcept
+    : storage_(std::move(other.storage_)),
+      first_step_index_(std::exchange(other.first_step_index_, 0)),
+      next_sample_offset_(std::exchange(other.next_sample_offset_, 0)),
+      next_operating_state_boundary_(
+          std::exchange(other.next_operating_state_boundary_, 0)),
+      next_throttle_boundary_(std::exchange(other.next_throttle_boundary_, 0)),
+      operating_state_(other.operating_state_),
+      requested_throttle_(other.requested_throttle_) {}
+
+ScenarioControlCursor &
+ScenarioControlCursor::operator=(ScenarioControlCursor &&other) noexcept {
+    if (this == &other) {
+        return *this;
+    }
+    storage_ = std::move(other.storage_);
+    first_step_index_ = std::exchange(other.first_step_index_, 0);
+    next_sample_offset_ = std::exchange(other.next_sample_offset_, 0);
+    next_operating_state_boundary_ =
+        std::exchange(other.next_operating_state_boundary_, 0);
+    next_throttle_boundary_ = std::exchange(other.next_throttle_boundary_, 0);
+    operating_state_ = other.operating_state_;
+    requested_throttle_ = other.requested_throttle_;
+    return *this;
+}
+
+std::optional<ScheduledScenarioControls> ScenarioControlCursor::next() noexcept {
+    if (!storage_ || completed()) {
+        return std::nullopt;
+    }
+
+    const auto sample_index = first_step_index_ + next_sample_offset_;
+    while (next_operating_state_boundary_ < storage_->operating_state.size() &&
+           storage_->operating_state[next_operating_state_boundary_].step_index <=
+               sample_index) {
+        operating_state_ =
+            storage_->operating_state[next_operating_state_boundary_].state;
+        ++next_operating_state_boundary_;
+    }
+    while (next_throttle_boundary_ < storage_->throttle.size() &&
+           storage_->throttle[next_throttle_boundary_].step_index <= sample_index) {
+        requested_throttle_ = storage_->throttle[next_throttle_boundary_].value;
+        ++next_throttle_boundary_;
+    }
+
+    ++next_sample_offset_;
+    return ScheduledScenarioControls{
+        sample_index,
+        sample_index + 1U,
+        requested_throttle_,
+        operating_state_,
+    };
+}
+
+bool ScenarioControlCursor::completed() const noexcept {
+    return !storage_ || next_sample_offset_ >= storage_->sample_count;
+}
+
+ScenarioControlSchedule::ScenarioControlSchedule(
+    contract::RationalRateHz rate, std::uint64_t first_step_index,
+    std::uint64_t sample_count, double initial_theta_rad,
+    std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage) noexcept
+    : rate_(rate), first_step_index_(first_step_index), sample_count_(sample_count),
+      initial_theta_rad_(initial_theta_rad), storage_(std::move(storage)) {}
+
+const contract::RationalRateHz &ScenarioControlSchedule::rate() const noexcept {
+    return rate_;
+}
+
+std::uint64_t ScenarioControlSchedule::first_step_index() const noexcept {
+    return first_step_index_;
+}
+
+std::uint64_t ScenarioControlSchedule::sample_count() const noexcept {
+    return storage_ == nullptr ? 0 : sample_count_;
+}
+
+double ScenarioControlSchedule::initial_theta_rad() const noexcept {
+    return initial_theta_rad_;
+}
+
+ScenarioControlCursor ScenarioControlSchedule::fresh_cursor() const noexcept {
+    return {storage_, first_step_index_};
+}
+
 KinematicScenarioCursor::KinematicScenarioCursor(
     std::shared_ptr<const detail::KinematicScenarioScheduleStorage> storage,
     std::uint64_t first_step_index) noexcept
@@ -243,16 +347,17 @@ std::optional<ScheduledScenarioStep> KinematicScenarioCursor::next() noexcept {
 
     const auto sample_index =
         first_step_index_ + static_cast<std::uint64_t>(next_sample_offset_);
-    while (next_operating_state_boundary_ < storage_->operating_state.size() &&
-           storage_->operating_state[next_operating_state_boundary_].step_index <=
+    const auto &controls = *storage_->controls;
+    while (next_operating_state_boundary_ < controls.operating_state.size() &&
+           controls.operating_state[next_operating_state_boundary_].step_index <=
                sample_index) {
         operating_state_ =
-            storage_->operating_state[next_operating_state_boundary_].state;
+            controls.operating_state[next_operating_state_boundary_].state;
         ++next_operating_state_boundary_;
     }
-    while (next_throttle_boundary_ < storage_->throttle.size() &&
-           storage_->throttle[next_throttle_boundary_].step_index <= sample_index) {
-        requested_throttle_ = storage_->throttle[next_throttle_boundary_].value;
+    while (next_throttle_boundary_ < controls.throttle.size() &&
+           controls.throttle[next_throttle_boundary_].step_index <= sample_index) {
+        requested_throttle_ = controls.throttle[next_throttle_boundary_].value;
         ++next_throttle_boundary_;
     }
 
@@ -278,7 +383,8 @@ std::optional<ScheduledScenarioStep> KinematicScenarioCursor::next() noexcept {
 }
 
 bool KinematicScenarioCursor::completed() const noexcept {
-    return !storage_ || next_sample_offset_ >= storage_->sample_count;
+    return !storage_ || !storage_->controls ||
+           next_sample_offset_ >= storage_->controls->sample_count;
 }
 
 KinematicScenarioSchedule::KinematicScenarioSchedule(
@@ -328,8 +434,86 @@ std::optional<double> KinematicScenarioSchedule::rpm_at_sample_offset(
         storage_->rpm);
 }
 
+ScenarioControlSchedule KinematicScenarioSchedule::control_schedule() const noexcept {
+    return detail::ScenarioControlScheduleFactory::make(
+        rate_, first_step_index_, sample_count_, initial_theta_rad_,
+        storage_ == nullptr ? nullptr : storage_->controls);
+}
+
 KinematicScenarioCursor KinematicScenarioSchedule::fresh_cursor() const noexcept {
     return {storage_, first_step_index_};
+}
+
+ScenarioControlScheduleResult
+compile_scenario_control_schedule(const contract::RenderScenario &scenario) {
+    ValidationReport report;
+    append_rate_report(report, scenario.rates.physics, "scenario.rates.physics");
+
+    const auto horizon = contract::resolve_frame_index(scenario.total_duration_s.value,
+                                                       scenario.rates.physics);
+    if (!horizon.has_value() || *horizon == 0) {
+        add_issue(report, ContractIssueCode::inconsistent_semantics,
+                  "scenario.total_duration_s.value",
+                  "total duration must resolve to a positive integral physics-step "
+                  "horizon");
+    }
+
+    double initial_theta_rad = 0.0;
+    std::vector<detail::OperatingStateBoundary> operating_state;
+    std::vector<detail::ThrottleBoundary> throttle;
+    if (const auto *held = std::get_if<contract::HeldSpeed>(&scenario.mode)) {
+        initial_theta_rad = held->initial_theta_rad.value;
+        if (!std::isfinite(initial_theta_rad)) {
+            add_issue(report, ContractIssueCode::invalid_value,
+                      "scenario.mode.initial_theta_rad.value",
+                      "initial crank angle must be finite");
+        }
+        if (!std::isfinite(held->throttle_01.value) || held->throttle_01.value < 0.0 ||
+            held->throttle_01.value > 1.0) {
+            add_issue(report, ContractIssueCode::invalid_value,
+                      "scenario.mode.throttle_01.value",
+                      "throttle must be finite and in [0, 1]");
+        }
+        throttle.push_back({0, held->throttle_01.value});
+    } else if (const auto *sweep =
+                   std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode)) {
+        initial_theta_rad = sweep->trajectory.initial_theta_rad.value;
+        if (!std::isfinite(initial_theta_rad)) {
+            add_issue(report, ContractIssueCode::invalid_value,
+                      "scenario.mode.trajectory.initial_theta_rad.value",
+                      "initial crank angle must be finite");
+        }
+        compile_throttle_boundaries(report, scenario, sweep->throttle_01, horizon,
+                                    throttle);
+    } else if (const auto *dyno = std::get_if<contract::InertialDyno>(&scenario.mode)) {
+        initial_theta_rad = dyno->initial_theta_rad.value;
+        if (!std::isfinite(initial_theta_rad)) {
+            add_issue(report, ContractIssueCode::invalid_value,
+                      "scenario.mode.initial_theta_rad.value",
+                      "initial crank angle must be finite");
+        }
+        compile_throttle_boundaries(report, scenario, dyno->throttle_01, horizon,
+                                    throttle);
+    } else {
+        add_issue(report, ContractIssueCode::unsupported_value, "scenario.mode",
+                  "control scheduling supports only HeldSpeed, "
+                  "PrescribedKinematicSweep, and InertialDyno modes");
+        return report;
+    }
+
+    compile_operating_state_boundaries(report, scenario, horizon, operating_state);
+    if (!report.ok()) {
+        return report;
+    }
+
+    auto mutable_storage = std::make_shared<detail::ScenarioControlScheduleStorage>();
+    mutable_storage->sample_count = *horizon;
+    mutable_storage->operating_state = std::move(operating_state);
+    mutable_storage->throttle = std::move(throttle);
+    std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage =
+        std::move(mutable_storage);
+    return detail::ScenarioControlScheduleFactory::make(
+        scenario.rates.physics, 0U, *horizon, initial_theta_rad, std::move(storage));
 }
 
 KinematicScenarioScheduleResult
@@ -459,11 +643,17 @@ compile_kinematic_scenario_schedule(const contract::RenderScenario &scenario) {
         return report;
     }
 
+    auto mutable_control_storage =
+        std::make_shared<detail::ScenarioControlScheduleStorage>();
+    mutable_control_storage->sample_count = sample_count;
+    mutable_control_storage->operating_state = std::move(operating_state);
+    mutable_control_storage->throttle = std::move(throttle);
+    std::shared_ptr<const detail::ScenarioControlScheduleStorage> control_storage =
+        std::move(mutable_control_storage);
+
     auto mutable_storage = std::make_shared<detail::KinematicScenarioScheduleStorage>();
     mutable_storage->rpm = std::move(rpm_lane);
-    mutable_storage->sample_count = sample_count;
-    mutable_storage->operating_state = std::move(operating_state);
-    mutable_storage->throttle = std::move(throttle);
+    mutable_storage->controls = std::move(control_storage);
     std::shared_ptr<const detail::KinematicScenarioScheduleStorage> storage =
         std::move(mutable_storage);
     return detail::KinematicScenarioScheduleFactory::make(

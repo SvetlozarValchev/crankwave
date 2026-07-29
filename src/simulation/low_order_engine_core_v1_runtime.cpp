@@ -60,6 +60,16 @@ LowOrderEngineCoreV1Runtime::fail(contract::FailureContext failure) {
 }
 
 LowOrderEngineCoreV1AdvanceResult LowOrderEngineCoreV1Runtime::advance() {
+    return advance_with_motion(std::nullopt);
+}
+
+LowOrderEngineCoreV1AdvanceResult
+LowOrderEngineCoreV1Runtime::advance(PostStepCrankMotion motion) {
+    return advance_with_motion(motion);
+}
+
+LowOrderEngineCoreV1AdvanceResult LowOrderEngineCoreV1Runtime::advance_with_motion(
+    std::optional<PostStepCrankMotion> motion) {
     if (terminal_fault_.has_value()) {
         return *terminal_fault_;
     }
@@ -77,7 +87,8 @@ LowOrderEngineCoreV1AdvanceResult LowOrderEngineCoreV1Runtime::advance() {
         return LowOrderEngineCoreV1Completed{committed_sample_count};
     }
 
-    auto mechanics_result = mechanics_.advance();
+    auto mechanics_result =
+        motion.has_value() ? mechanics_.advance(*motion) : mechanics_.advance();
     if (const auto *failure =
             std::get_if<contract::FailureContext>(&mechanics_result)) {
         return fail(*failure);

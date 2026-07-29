@@ -29,13 +29,16 @@ bool finite_step_scalars(const LegacyMechanismStep &step) noexcept {
 } // namespace
 
 LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
-    KinematicScenarioCursor scenario_cursor, contract::RationalRateHz rate,
-    double crank_tdc_reference_rad, double initial_theta_cycle_rad,
-    std::vector<CylinderModel> cylinders, std::vector<LegacyTrianglePoint> timing_curve,
-    double timing_curve_radius_rad_s, double limiter_speed_rpm, double limiter_hold_s,
-    bool limiter_enabled, std::string model_id, std::string profile_id,
-    std::string scenario_id, contract::EngineId engine_id)
-    : scenario_cursor_(std::move(scenario_cursor)), rate_(rate),
+    ScenarioControlCursor control_cursor,
+    std::optional<KinematicScenarioCursor> kinematic_cursor,
+    contract::RationalRateHz rate, double crank_tdc_reference_rad,
+    double initial_theta_cycle_rad, std::vector<CylinderModel> cylinders,
+    std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
+    double limiter_speed_rpm, double limiter_hold_s, bool limiter_enabled,
+    std::string model_id, std::string profile_id, std::string scenario_id,
+    contract::EngineId engine_id)
+    : control_cursor_(std::move(control_cursor)),
+      kinematic_cursor_(std::move(kinematic_cursor)), rate_(rate),
       crank_tdc_reference_rad_(crank_tdc_reference_rad), step_s_(1.0 / 10000.0),
       filter_alpha_(step_s_ / (100.0 + step_s_)), cylinders_(std::move(cylinders)),
       maximum_event_count_(cylinders_.size() + 1U),
@@ -83,32 +86,97 @@ contract::FailureContext LegacyLowOrderMechanicsSession::fault(
 }
 
 LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance() {
+    return advance_with_motion(std::nullopt);
+}
+
+LegacyMechanicsAdvanceResult
+LegacyLowOrderMechanicsSession::advance(PostStepCrankMotion motion) {
+    return advance_with_motion(motion);
+}
+
+LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion(
+    std::optional<PostStepCrankMotion> motion) {
     if (terminal_fault_.has_value()) {
         return *terminal_fault_;
     }
-    const auto scheduled = scenario_cursor_.next();
-    if (!scheduled.has_value()) {
+    if (control_cursor_.completed()) {
+        if (kinematic_cursor_.has_value() && !kinematic_cursor_->completed()) {
+            terminal_fault_ =
+                fault(contract::FailureKind::contract_violation,
+                      "legacy-mechanics-control-motion-horizon-mismatch",
+                      "control horizon ended before the kinematic motion lane");
+            return *terminal_fault_;
+        }
         return LegacyMechanicsCompleted{produced_sample_count_};
+    }
+    if (!motion.has_value() && !kinematic_cursor_.has_value()) {
+        terminal_fault_ =
+            fault(contract::FailureKind::contract_violation,
+                  "legacy-mechanics-external-motion-required",
+                  "dynamic mechanics requires one finite post-step crank-motion input");
+        return *terminal_fault_;
+    }
+    if (motion.has_value()) {
+        if (!std::isfinite(motion->engine_speed_rpm) ||
+            motion->engine_speed_rpm < 0.0 ||
+            !std::isfinite(motion->angular_displacement_rad) ||
+            !(motion->angular_displacement_rad > 0.0) ||
+            !(motion->angular_displacement_rad < 4.0 * kLegacyPi)) {
+            terminal_fault_ =
+                fault(contract::FailureKind::contract_violation,
+                      "legacy-mechanics-invalid-post-step-motion",
+                      "external post-step RPM must be finite and nonnegative; angular "
+                      "displacement must be finite, positive, and less than one "
+                      "engine cycle per physics step");
+            return *terminal_fault_;
+        }
+    }
+
+    const auto controls = control_cursor_.next();
+    if (!controls.has_value()) {
+        terminal_fault_ = fault(contract::FailureKind::contract_violation,
+                                "legacy-mechanics-control-horizon-mismatch",
+                                "control cursor lost an expected physics step");
+        return *terminal_fault_;
+    }
+    std::optional<ScheduledScenarioStep> kinematic;
+    if (kinematic_cursor_.has_value()) {
+        kinematic = kinematic_cursor_->next();
+        if (!kinematic.has_value() ||
+            kinematic->sample_index != controls->sample_index ||
+            kinematic->step_end_index != controls->step_end_index ||
+            kinematic->requested_throttle != controls->requested_throttle ||
+            kinematic->operating_state != controls->operating_state) {
+            terminal_fault_ = fault(
+                contract::FailureKind::contract_violation,
+                "legacy-mechanics-control-motion-step-mismatch",
+                "compiled control and kinematic motion cursors lost step alignment");
+            return *terminal_fault_;
+        }
     }
 
     step_.events.clear();
     step_.rate = rate_;
-    step_.sample_index = scheduled->sample_index;
-    step_.step_end_index = scheduled->step_end_index;
-    step_.timestamp_tick = scheduled->step_end_index;
-    step_.operating_state = scheduled->operating_state;
-    step_.requested_throttle_01 = scheduled->requested_throttle;
-    step_.engine_speed_rpm = scheduled->rpm;
+    step_.sample_index = controls->sample_index;
+    step_.step_end_index = controls->step_end_index;
+    step_.timestamp_tick = controls->step_end_index;
+    step_.operating_state = controls->operating_state;
+    step_.requested_throttle_01 = controls->requested_throttle;
+    step_.engine_speed_rpm =
+        motion.has_value() ? motion->engine_speed_rpm : kinematic->rpm;
 
     step_.omega_legacy_rad_s = -step_.engine_speed_rpm * kLegacyRpmScale;
     step_.angular_speed_rad_s = -step_.omega_legacy_rad_s;
+    const double angular_displacement_rad = motion.has_value()
+                                                ? motion->angular_displacement_rad
+                                                : step_.angular_speed_rad_s * step_s_;
     step_.angular_acceleration_rad_s2 =
         (step_.angular_speed_rad_s - previous_angular_speed_rad_s_) / step_s_;
-    body_angle_psi_rad_ = std::fmod(
-        body_angle_psi_rad_ + step_.omega_legacy_rad_s * step_s_, 4.0 * kLegacyPi);
+    body_angle_psi_rad_ =
+        std::fmod(body_angle_psi_rad_ - angular_displacement_rad, 4.0 * kLegacyPi);
     theta_cycle_rad_ = legacy_positive_mod(
         -(body_angle_psi_rad_ - crank_tdc_reference_rad_), 4.0 * kLegacyPi);
-    theta_unwrapped_rad_ += step_.angular_speed_rad_s * step_s_;
+    theta_unwrapped_rad_ += angular_displacement_rad;
     previous_angular_speed_rad_s_ = step_.angular_speed_rad_s;
     step_.body_angle_psi_rad = body_angle_psi_rad_;
     step_.theta_cycle_rad = theta_cycle_rad_;
@@ -237,7 +305,8 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance() {
 }
 
 bool LegacyLowOrderMechanicsSession::completed() const noexcept {
-    return !terminal_fault_.has_value() && scenario_cursor_.completed();
+    return !terminal_fault_.has_value() && control_cursor_.completed() &&
+           (!kinematic_cursor_.has_value() || kinematic_cursor_->completed());
 }
 
 std::span<const CenteredSliderCrankCylinder>

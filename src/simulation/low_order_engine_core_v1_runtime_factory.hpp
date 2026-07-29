@@ -22,6 +22,12 @@ struct LowOrderEngineCoreV1RuntimeFactory {
                       const contract::RenderScenario &scenario,
                       const KinematicScenarioSchedule &schedule);
 
+    [[nodiscard]] static MechanicsCompileResult
+    compile_mechanics(const contract::EngineSpec &engine,
+                      const contract::LowOrderEngineCoreV1 &core,
+                      const contract::RenderScenario &scenario,
+                      const ScenarioControlSchedule &schedule);
+
     [[nodiscard]] static GasCompileResult
     compile_gas(const contract::EngineSpec &engine,
                 const contract::LowOrderEngineCoreV1 &core,
