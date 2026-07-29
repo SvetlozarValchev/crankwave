@@ -562,7 +562,7 @@ replacement starts before acceptance.
         - [x] Freeze the incompatible fixed-horizon sampling contract, result,
               canonical BMW migration, evidence replacement, and removal policy.
         - [x] Implement the no-compatibility production cutover and focused checks.
-        - [ ] Execute from a clean commit and publish all nine points atomically.
+        - [x] Execute from a clean commit and publish all nine points atomically.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.
 - [x] Add the inertial dyno.
 - [x] Render its natural BMW pull, then stop for user listening.
