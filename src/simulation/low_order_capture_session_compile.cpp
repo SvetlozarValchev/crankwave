@@ -1,4 +1,4 @@
-#include "simulation/legacy_low_order_simulation.hpp"
+#include "simulation/low_order_capture_session.hpp"
 
 #include "simulation/low_order_capture_buffer.hpp"
 #include "simulation/low_order_capture_plan.hpp"
@@ -35,24 +35,24 @@ void require(ValidationReport &report, bool condition, ContractIssueCode code,
 
 } // namespace
 
-LegacySimulationCompileResult
-compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
-                                            const contract::RenderScenario &scenario) {
+LowOrderCaptureCompileResult
+compile_low_order_capture_session(const contract::EngineSpec &engine,
+                                  const contract::RenderScenario &scenario,
+                                  const contract::Sha256Digest &) {
     ValidationReport report;
     const auto *profile =
         std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile);
     const auto *sweep = std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode);
     require(report, profile != nullptr, ContractIssueCode::unsupported_value,
-            "engine.physics_profile",
-            "legacy capture requires a LegacyLowOrderV1Profile");
+            "engine.physics_profile", "M3 capture requires a LegacyLowOrderV1Profile");
     require(report, sweep != nullptr, ContractIssueCode::unsupported_value,
-            "scenario.mode", "M3 legacy capture requires a prescribed kinematic sweep");
+            "scenario.mode", "M3 capture requires a prescribed kinematic sweep");
     if (sweep != nullptr) {
         require(report,
                 exact_m3_fixed_rate_rpm_method(sweep->trajectory.kinematic_resolution),
                 ContractIssueCode::unsupported_value,
                 "scenario.mode.trajectory.kinematic_resolution",
-                "M3 legacy capture requires its exact fixed-rate RPM method "
+                "M3 capture requires its exact fixed-rate RPM method "
                 "configuration");
     }
     if (!report.ok() || profile == nullptr || sweep == nullptr) {
@@ -75,7 +75,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
             scenario.rates.physics == contract::RationalRateHz{10000, 1} &&
                 scenario.rates.capture == contract::RationalRateHz{10000, 1},
             ContractIssueCode::unsupported_value, "scenario.rates",
-            "legacy capture requires exact 10000/1 Hz physics and capture clocks");
+            "M3 capture requires exact 10000/1 Hz physics and capture clocks");
     if (!report.ok()) {
         return report;
     }
@@ -99,7 +99,7 @@ compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
     auto core_runtime = std::get<LowOrderEngineCoreV1Runtime>(std::move(core_result));
 
     detail::LowOrderCaptureBuffer capture{std::move(capture_plan.capture_buffer)};
-    return LegacyLowOrderSimulationSession{
+    return LowOrderCaptureSession{
         std::move(core_runtime),
         *torque_accounting,
         std::move(capture),

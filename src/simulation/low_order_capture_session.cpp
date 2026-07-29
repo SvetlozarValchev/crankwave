@@ -1,4 +1,4 @@
-#include "simulation/legacy_low_order_simulation.hpp"
+#include "simulation/low_order_capture_session.hpp"
 
 #include "simulation/low_order_capture_buffer.hpp"
 
@@ -10,7 +10,7 @@
 
 namespace engine_sim_offline::simulation {
 
-LegacyLowOrderSimulationSession::LegacyLowOrderSimulationSession(
+LowOrderCaptureSession::LowOrderCaptureSession(
     LowOrderEngineCoreV1Runtime core,
     LegacyFixedCrankTorqueAccountingPlan torque_accounting,
     detail::LowOrderCaptureBuffer capture, std::uint64_t expected_samples,
@@ -22,17 +22,18 @@ LegacyLowOrderSimulationSession::LegacyLowOrderSimulationSession(
       profile_id_(std::move(profile_id)), scenario_id_(std::move(scenario_id)),
       engine_id_(engine_id) {}
 
-LegacyLowOrderSimulationSession::LegacyLowOrderSimulationSession(
-    LegacyLowOrderSimulationSession &&) noexcept = default;
+LowOrderCaptureSession::LowOrderCaptureSession(LowOrderCaptureSession &&) noexcept =
+    default;
 
-LegacyLowOrderSimulationSession &LegacyLowOrderSimulationSession::operator=(
-    LegacyLowOrderSimulationSession &&) noexcept = default;
+LowOrderCaptureSession &
+LowOrderCaptureSession::operator=(LowOrderCaptureSession &&) noexcept = default;
 
-LegacyLowOrderSimulationSession::~LegacyLowOrderSimulationSession() = default;
+LowOrderCaptureSession::~LowOrderCaptureSession() = default;
 
-contract::FailureContext LegacyLowOrderSimulationSession::fault(
-    contract::FailureKind kind, std::string detail_code, std::string state_summary,
-    const LegacyMechanismStep *mechanics) const {
+contract::FailureContext
+LowOrderCaptureSession::fault(contract::FailureKind kind, std::string detail_code,
+                              std::string state_summary,
+                              const LegacyMechanismStep *mechanics) const {
     const std::uint64_t sample_index =
         mechanics != nullptr ? mechanics->sample_index : published_sample_count_;
     const std::uint64_t step_end_index =
@@ -58,16 +59,16 @@ contract::FailureContext LegacyLowOrderSimulationSession::fault(
     };
 }
 
-LegacySimulationAdvanceResult
-LegacyLowOrderSimulationSession::fail(contract::FailureContext failure) {
+LowOrderCaptureAdvanceResult
+LowOrderCaptureSession::fail(contract::FailureContext failure) {
     if (!terminal_fault_.has_value()) {
         terminal_fault_ = std::move(failure);
     }
     return *terminal_fault_;
 }
 
-LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_block(
-    const LegacyCaptureBlockConsumer &consumer) {
+LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
+    const LowOrderCaptureBlockConsumer &consumer) {
     if (terminal_fault_.has_value()) {
         return *terminal_fault_;
     }
@@ -76,13 +77,13 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
     }
     if (consumer_callback_active_) {
         return fail(fault(contract::FailureKind::contract_violation,
-                          "legacy-capture-consumer-reentrant",
+                          "low-order-capture-consumer-reentrant",
                           "capture consumer re-entered its session while a borrowed "
                           "view was active"));
     }
     if (!consumer) {
         return fail(fault(contract::FailureKind::contract_violation,
-                          "legacy-capture-consumer-missing",
+                          "low-order-capture-consumer-missing",
                           "capture publication requires a synchronous consumer"));
     }
     if (published_sample_count_ >= expected_samples_) {
@@ -90,10 +91,10 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
             core_.produced_sample_count() != expected_samples_ || !core_.completed()) {
             return fail(fault(
                 contract::FailureKind::contract_violation,
-                "legacy-simulation-completion-count-mismatch",
+                "low-order-capture-completion-count-mismatch",
                 "mechanics, gas, and published capture counts diverged at completion"));
         }
-        terminal_completion_ = LegacySimulationCompleted{
+        terminal_completion_ = LowOrderCaptureCompleted{
             published_sample_count_,
             published_block_count_,
         };
@@ -114,7 +115,7 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
                     expected_samples_) {
                 return fail(
                     fault(contract::FailureKind::contract_violation,
-                          "legacy-mechanics-premature-completion",
+                          "low-order-core-premature-completion",
                           "mechanics completed before the admitted capture horizon"));
             }
             break;
@@ -154,7 +155,7 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
 
     if (capture_->frame_count() == 0U) {
         return fail(fault(contract::FailureKind::contract_violation,
-                          "legacy-capture-empty-block",
+                          "low-order-capture-empty-block",
                           "active simulation produced no capture frames"));
     }
 
@@ -163,7 +164,7 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
     if (!report.ok()) {
         const auto &issue = report.issues.front();
         return fail(fault(contract::FailureKind::contract_violation,
-                          "legacy-capture-block-invalid",
+                          "low-order-capture-block-invalid",
                           "path=" + issue.path + "; " + issue.message, last_mechanics));
     }
 
@@ -177,7 +178,7 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
             return *terminal_fault_;
         }
         return fail(fault(contract::FailureKind::contract_violation,
-                          "legacy-capture-consumer-threw",
+                          "low-order-capture-consumer-threw",
                           "capture consumer threw: " + std::string{exception.what()},
                           last_mechanics));
     } catch (...) {
@@ -185,9 +186,10 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
         if (terminal_fault_.has_value()) {
             return *terminal_fault_;
         }
-        return fail(fault(
-            contract::FailureKind::contract_violation, "legacy-capture-consumer-threw",
-            "capture consumer threw a non-standard exception", last_mechanics));
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "low-order-capture-consumer-threw",
+                          "capture consumer threw a non-standard exception",
+                          last_mechanics));
     }
     consumer_callback_active_ = false;
     if (terminal_fault_.has_value()) {
@@ -195,12 +197,12 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
     }
     if (!accepted) {
         return fail(fault(contract::FailureKind::contract_violation,
-                          "legacy-capture-consumer-rejected",
+                          "low-order-capture-consumer-rejected",
                           "capture consumer rejected a complete validated block",
                           last_mechanics));
     }
 
-    const LegacySimulationBlockPublished published{
+    const LowOrderCaptureBlockPublished published{
         published_block_count_,
         capture_->first_sample_index(),
         capture_->frame_count(),
@@ -211,19 +213,19 @@ LegacySimulationAdvanceResult LegacyLowOrderSimulationSession::publish_next_bloc
     return published;
 }
 
-bool LegacyLowOrderSimulationSession::faulted() const noexcept {
+bool LowOrderCaptureSession::faulted() const noexcept {
     return terminal_fault_.has_value();
 }
 
-bool LegacyLowOrderSimulationSession::completed() const noexcept {
+bool LowOrderCaptureSession::completed() const noexcept {
     return terminal_completion_.has_value();
 }
 
-std::uint64_t LegacyLowOrderSimulationSession::published_sample_count() const noexcept {
+std::uint64_t LowOrderCaptureSession::published_sample_count() const noexcept {
     return published_sample_count_;
 }
 
-std::uint64_t LegacyLowOrderSimulationSession::published_block_count() const noexcept {
+std::uint64_t LowOrderCaptureSession::published_block_count() const noexcept {
     return published_block_count_;
 }
 

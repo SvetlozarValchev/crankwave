@@ -386,7 +386,7 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                 expected_block *
                 presentation::AdmittedPresentationCalibration::capture_frames_per_block;
             FirstCause first_cause;
-            std::optional<simulation::LegacySimulationAdvanceResult> simulation_result;
+            std::optional<simulation::LowOrderCaptureAdvanceResult> simulation_result;
 
             stage = ExecutionStage::simulation;
             try {
@@ -499,7 +499,7 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
             }
 
             if (const auto *completed =
-                    std::get_if<simulation::LegacySimulationCompleted>(
+                    std::get_if<simulation::LowOrderCaptureCompleted>(
                         &*simulation_result)) {
                 if (completed->sample_count != expected_input_frame_count ||
                     completed->block_count != total_block_count ||
@@ -526,8 +526,7 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
             }
 
             const auto &published =
-                std::get<simulation::LegacySimulationBlockPublished>(
-                    *simulation_result);
+                std::get<simulation::LowOrderCaptureBlockPublished>(*simulation_result);
             const auto expected_end =
                 expected_first_frame +
                 presentation::AdmittedPresentationCalibration::capture_frames_per_block;

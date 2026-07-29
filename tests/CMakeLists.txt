@@ -975,18 +975,18 @@ add_test(
 )
 
 add_executable(
-    engine_sim_offline_legacy_low_order_capture_tests
-    legacy_low_order_capture_test.cpp
+    engine_sim_offline_low_order_capture_session_tests
+    low_order_capture_session_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_legacy_low_order_capture_tests
+    engine_sim_offline_low_order_capture_session_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_legacy_low_order_capture_tests
+    engine_sim_offline_low_order_capture_session_tests
     PRIVATE
         engine_sim_offline::artifacts
         engine_sim_offline::profiles
@@ -994,8 +994,8 @@ target_link_libraries(
 )
 
 add_test(
-    NAME simulation.legacy_low_order_capture
-    COMMAND engine_sim_offline_legacy_low_order_capture_tests
+    NAME simulation.low_order_capture_session
+    COMMAND engine_sim_offline_low_order_capture_session_tests
 )
 
 add_executable(

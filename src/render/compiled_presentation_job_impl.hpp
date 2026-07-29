@@ -6,7 +6,7 @@
 #include "presentation/presentation_calibration_compiler.hpp"
 #include "presentation/presentation_render_session.hpp"
 #include "render/compiled_presentation_job.hpp"
-#include "simulation/legacy_low_order_simulation.hpp"
+#include "simulation/low_order_capture_session.hpp"
 
 #include <utility>
 #include <vector>
@@ -24,7 +24,7 @@ class CompiledPresentationJob::Implementation final {
                        compiled_kernels,
                    presentation::PresentationRenderPlan presentation_plan,
                    contract::RenderManifestContent manifest_basis,
-                   simulation::LegacyLowOrderSimulationSession simulation,
+                   simulation::LowOrderCaptureSession simulation,
                    excitation::CapturedExhaustExcitationSession excitation)
         : request(std::move(request)), determinism(std::move(determinism)),
           random_plan(std::move(random_plan)), calibration(std::move(calibration)),
@@ -42,7 +42,7 @@ class CompiledPresentationJob::Implementation final {
     std::vector<presentation::CompiledPresentationConvolutionKernel> compiled_kernels;
     presentation::PresentationRenderPlan presentation_plan;
     contract::RenderManifestContent manifest_basis;
-    simulation::LegacyLowOrderSimulationSession simulation;
+    simulation::LowOrderCaptureSession simulation;
     excitation::CapturedExhaustExcitationSession excitation;
 };
 

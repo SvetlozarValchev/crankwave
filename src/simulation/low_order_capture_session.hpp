@@ -15,29 +15,29 @@
 
 namespace engine_sim_offline::simulation {
 
-using LegacyCaptureBlockConsumer =
+using LowOrderCaptureBlockConsumer =
     std::function<bool(const contract::CaptureBlockView &)>;
 
-struct LegacySimulationBlockPublished {
+struct LowOrderCaptureBlockPublished {
     std::uint64_t block_ordinal = 0;
     std::uint64_t first_sample_index = 0;
     std::uint32_t frame_count = 0;
     std::uint64_t published_sample_count = 0;
 
-    friend bool operator==(const LegacySimulationBlockPublished &,
-                           const LegacySimulationBlockPublished &) = default;
+    friend bool operator==(const LowOrderCaptureBlockPublished &,
+                           const LowOrderCaptureBlockPublished &) = default;
 };
 
-struct LegacySimulationCompleted {
+struct LowOrderCaptureCompleted {
     std::uint64_t sample_count = 0;
     std::uint64_t block_count = 0;
 
-    friend bool operator==(const LegacySimulationCompleted &,
-                           const LegacySimulationCompleted &) = default;
+    friend bool operator==(const LowOrderCaptureCompleted &,
+                           const LowOrderCaptureCompleted &) = default;
 };
 
-using LegacySimulationAdvanceResult =
-    std::variant<LegacySimulationBlockPublished, LegacySimulationCompleted,
+using LowOrderCaptureAdvanceResult =
+    std::variant<LowOrderCaptureBlockPublished, LowOrderCaptureCompleted,
                  contract::FailureContext>;
 
 namespace detail {
@@ -45,28 +45,26 @@ class LowOrderCaptureBuffer;
 }
 
 /**
- * One admitted legacy-low-order simulation job.
+ * One admitted low-order capture job.
  *
  * The mechanics and gas sessions are deliberately private and advance only as one
  * transaction here. A caller can therefore neither feed a step from another
  * mechanics session into gas nor observe a half-built capture block. Capture views
  * borrow session-owned storage and are valid only for the synchronous consumer call.
  */
-class LegacyLowOrderSimulationSession final {
+class LowOrderCaptureSession final {
   public:
-    LegacyLowOrderSimulationSession(const LegacyLowOrderSimulationSession &) = delete;
-    LegacyLowOrderSimulationSession &
-    operator=(const LegacyLowOrderSimulationSession &) = delete;
-    LegacyLowOrderSimulationSession(LegacyLowOrderSimulationSession &&) noexcept;
-    LegacyLowOrderSimulationSession &
-    operator=(LegacyLowOrderSimulationSession &&) noexcept;
-    ~LegacyLowOrderSimulationSession();
+    LowOrderCaptureSession(const LowOrderCaptureSession &) = delete;
+    LowOrderCaptureSession &operator=(const LowOrderCaptureSession &) = delete;
+    LowOrderCaptureSession(LowOrderCaptureSession &&) noexcept;
+    LowOrderCaptureSession &operator=(LowOrderCaptureSession &&) noexcept;
+    ~LowOrderCaptureSession();
 
     // Builds, validates, and synchronously publishes at most one declared-capacity
     // block.
     // Consumer rejection or an exception is a stable terminal contract failure.
-    [[nodiscard]] LegacySimulationAdvanceResult
-    publish_next_block(const LegacyCaptureBlockConsumer &consumer);
+    [[nodiscard]] LowOrderCaptureAdvanceResult
+    publish_next_block(const LowOrderCaptureBlockConsumer &consumer);
 
     [[nodiscard]] bool faulted() const noexcept;
     [[nodiscard]] bool completed() const noexcept;
@@ -74,18 +72,18 @@ class LegacyLowOrderSimulationSession final {
     [[nodiscard]] std::uint64_t published_block_count() const noexcept;
 
   private:
-    LegacyLowOrderSimulationSession(
-        LowOrderEngineCoreV1Runtime core,
-        LegacyFixedCrankTorqueAccountingPlan torque_accounting,
-        detail::LowOrderCaptureBuffer capture, std::uint64_t expected_samples,
-        std::string model_id, std::string profile_id, std::string scenario_id,
-        contract::EngineId engine_id);
+    LowOrderCaptureSession(LowOrderEngineCoreV1Runtime core,
+                           LegacyFixedCrankTorqueAccountingPlan torque_accounting,
+                           detail::LowOrderCaptureBuffer capture,
+                           std::uint64_t expected_samples, std::string model_id,
+                           std::string profile_id, std::string scenario_id,
+                           contract::EngineId engine_id);
 
     [[nodiscard]] contract::FailureContext
     fault(contract::FailureKind kind, std::string detail_code,
           std::string state_summary,
           const LegacyMechanismStep *mechanics = nullptr) const;
-    [[nodiscard]] LegacySimulationAdvanceResult fail(contract::FailureContext failure);
+    [[nodiscard]] LowOrderCaptureAdvanceResult fail(contract::FailureContext failure);
 
     LowOrderEngineCoreV1Runtime core_;
     LegacyFixedCrankTorqueAccountingPlan torque_accounting_;
@@ -98,21 +96,24 @@ class LegacyLowOrderSimulationSession final {
     std::string scenario_id_;
     contract::EngineId engine_id_;
     bool consumer_callback_active_ = false;
-    std::optional<LegacySimulationCompleted> terminal_completion_;
+    std::optional<LowOrderCaptureCompleted> terminal_completion_;
     std::optional<contract::FailureContext> terminal_fault_;
 
-    friend std::variant<LegacyLowOrderSimulationSession, contract::ValidationReport>
-    compile_legacy_low_order_simulation_session(const contract::EngineSpec &,
-                                                const contract::RenderScenario &);
+    friend std::variant<LowOrderCaptureSession, contract::ValidationReport>
+    compile_low_order_capture_session(const contract::EngineSpec &,
+                                      const contract::RenderScenario &,
+                                      const contract::Sha256Digest &);
 };
 
-using LegacySimulationCompileResult =
-    std::variant<LegacyLowOrderSimulationSession, contract::ValidationReport>;
+using LowOrderCaptureCompileResult =
+    std::variant<LowOrderCaptureSession, contract::ValidationReport>;
 
 // Compiles one coherent mechanics+gas+capture session. It retains no references to
 // either request and has no fixture-reader or presentation dependency.
-[[nodiscard]] LegacySimulationCompileResult
-compile_legacy_low_order_simulation_session(const contract::EngineSpec &engine,
-                                            const contract::RenderScenario &scenario);
+// The request identity is reserved for profile policies that publish request-bound
+// evidence; the M3 fixed-loss policy accepts but does not interpret it.
+[[nodiscard]] LowOrderCaptureCompileResult compile_low_order_capture_session(
+    const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
+    const contract::Sha256Digest &simulation_request_identity_v2_sha256);
 
 } // namespace engine_sim_offline::simulation

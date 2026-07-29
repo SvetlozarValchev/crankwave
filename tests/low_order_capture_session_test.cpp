@@ -3,7 +3,7 @@
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
-#include "simulation/legacy_low_order_simulation.hpp"
+#include "simulation/low_order_capture_session.hpp"
 #include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
 #include <algorithm>
@@ -155,6 +155,12 @@ encode_capture_block(const CaptureBlockView &block) {
     return request;
 }
 
+[[nodiscard]] Sha256Digest nonzero_request_identity() {
+    Sha256Digest identity;
+    identity.bytes.back() = 1U;
+    return identity;
+}
+
 [[nodiscard]] LegacyLowOrderMechanicsSession
 require_mechanics(CoreRuntimeFactory::MechanicsCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
@@ -171,12 +177,12 @@ require_gas(CoreRuntimeFactory::GasCompileResult result) {
     return std::get<LegacyLowOrderGasSession>(std::move(result));
 }
 
-[[nodiscard]] LegacyLowOrderSimulationSession
-require_simulation(LegacySimulationCompileResult result) {
+[[nodiscard]] LowOrderCaptureSession
+require_simulation(LowOrderCaptureCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
         fail_report("short BMW capture request failed admission", *report);
     }
-    return std::get<LegacyLowOrderSimulationSession>(std::move(result));
+    return std::get<LowOrderCaptureSession>(std::move(result));
 }
 
 [[nodiscard]] const LegacyMechanismStep &
@@ -651,8 +657,8 @@ void verify_events(const CaptureBlockView &block,
 
 void test_short_bmw_capture_mapping_and_completion() {
     const BmwM52b28ParityRequest request = make_short_bmw_request();
-    auto capture = require_simulation(
-        compile_legacy_low_order_simulation_session(request.engine, request.scenario));
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario, nonzero_request_identity()));
     auto schedule_result = compile_kinematic_scenario_schedule(request.scenario);
     if (const auto *report = std::get_if<ValidationReport>(&schedule_result)) {
         fail_report("short BMW schedule failed admission", *report);
@@ -738,7 +744,7 @@ void test_short_bmw_capture_mapping_and_completion() {
 
         expect(callback_count == 1U,
                "publish_next_block did not call its consumer exactly once");
-        const auto *published = std::get_if<LegacySimulationBlockPublished>(&result);
+        const auto *published = std::get_if<LowOrderCaptureBlockPublished>(&result);
         expect(published != nullptr && published->block_ordinal == block_ordinal &&
                    published->first_sample_index == expected_first_sample &&
                    published->frame_count == callback_frame_count &&
@@ -760,7 +766,7 @@ void test_short_bmw_capture_mapping_and_completion() {
         ++completion_callback_count;
         return true;
     });
-    const auto *completed = std::get_if<LegacySimulationCompleted>(&completion);
+    const auto *completed = std::get_if<LowOrderCaptureCompleted>(&completion);
     expect(completed != nullptr && completed->sample_count == kShortRunStepCount &&
                completed->block_count == 7U && completion_callback_count == 0U &&
                capture.completed() && !capture.faulted(),
@@ -770,7 +776,7 @@ void test_short_bmw_capture_mapping_and_completion() {
         ++completion_callback_count;
         return true;
     });
-    const auto *repeated_completion = std::get_if<LegacySimulationCompleted>(&repeated);
+    const auto *repeated_completion = std::get_if<LowOrderCaptureCompleted>(&repeated);
     expect(repeated_completion != nullptr &&
                repeated_completion->sample_count == completed->sample_count &&
                repeated_completion->block_count == completed->block_count &&
@@ -787,7 +793,7 @@ void test_short_bmw_capture_mapping_and_completion() {
 void test_consumer_rejection_is_a_stable_terminal_fault() {
     const BmwM52b28ParityRequest request = make_short_bmw_request();
     auto capture = require_simulation(
-        compile_legacy_low_order_simulation_session(request.engine, request.scenario));
+        compile_low_order_capture_session(request.engine, request.scenario, {}));
     std::size_t callback_count = 0U;
     auto rejected = capture.publish_next_block([&](const CaptureBlockView &block) {
         ++callback_count;
@@ -817,7 +823,7 @@ void test_consumer_rejection_is_a_stable_terminal_fault() {
 void test_consumer_exception_is_a_stable_terminal_fault() {
     const BmwM52b28ParityRequest request = make_short_bmw_request();
     auto capture = require_simulation(
-        compile_legacy_low_order_simulation_session(request.engine, request.scenario));
+        compile_low_order_capture_session(request.engine, request.scenario, {}));
     std::size_t callback_count = 0U;
     auto rejected = capture.publish_next_block([&](const CaptureBlockView &) -> bool {
         ++callback_count;
@@ -845,7 +851,7 @@ void test_consumer_exception_is_a_stable_terminal_fault() {
 void test_reentrant_publication_preserves_outer_view_and_faults() {
     const BmwM52b28ParityRequest request = make_short_bmw_request();
     auto capture = require_simulation(
-        compile_legacy_low_order_simulation_session(request.engine, request.scenario));
+        compile_low_order_capture_session(request.engine, request.scenario, {}));
     std::size_t outer_callback_count = 0U;
     std::size_t nested_callback_count = 0U;
     std::optional<FailureContext> nested_fault;
@@ -879,7 +885,7 @@ void test_reentrant_publication_preserves_outer_view_and_faults() {
     const auto *outer_fault = std::get_if<FailureContext>(&outer);
     expect(nested_fault.has_value() && outer_fault != nullptr &&
                outer_callback_count == 1U && nested_callback_count == 0U &&
-               nested_fault->detail_code == "legacy-capture-consumer-reentrant" &&
+               nested_fault->detail_code == "low-order-capture-consumer-reentrant" &&
                outer_fault->kind == nested_fault->kind &&
                outer_fault->detail_code == nested_fault->detail_code &&
                outer_fault->state_summary == nested_fault->state_summary &&
@@ -903,7 +909,7 @@ void test_reentrant_publication_preserves_outer_view_and_faults() {
 void expect_simulation_compile_rejected(const BmwM52b28ParityRequest &request,
                                         std::string_view mutation) {
     auto result =
-        compile_legacy_low_order_simulation_session(request.engine, request.scenario);
+        compile_low_order_capture_session(request.engine, request.scenario, {});
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr && !report->ok(),
            std::string{mutation} + " was admitted by the top-level compiler");
@@ -914,7 +920,7 @@ void test_declared_capture_capacity_drives_publication() {
     request.scenario.quality.value.capture_block_capacity_frames = 37U;
     request.scenario.quality.value.event_journal_capacity_records = 37U * 19U;
     auto capture = require_simulation(
-        compile_legacy_low_order_simulation_session(request.engine, request.scenario));
+        compile_low_order_capture_session(request.engine, request.scenario, {}));
 
     std::size_t callback_count = 0U;
     const auto result = capture.publish_next_block([&](const CaptureBlockView &block) {
@@ -929,7 +935,7 @@ void test_declared_capture_capacity_drives_publication() {
         }
         return true;
     });
-    const auto *published = std::get_if<LegacySimulationBlockPublished>(&result);
+    const auto *published = std::get_if<LowOrderCaptureBlockPublished>(&result);
     expect(published != nullptr && published->frame_count == 37U &&
                published->published_sample_count == 37U && callback_count == 1U,
            "dynamic-capacity block was not published atomically");
@@ -988,7 +994,7 @@ int main() {
     try {
         run_tests();
     } catch (const std::exception &error) {
-        std::cerr << "legacy_low_order_capture_test: " << error.what() << '\n';
+        std::cerr << "low_order_capture_session_test: " << error.what() << '\n';
         return 1;
     }
     return 0;

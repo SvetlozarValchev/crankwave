@@ -8,7 +8,7 @@
 #include "render/render_job_derivation.hpp"
 #include "render/render_job_failure.hpp"
 #include "render/render_request.hpp"
-#include "simulation/legacy_low_order_simulation.hpp"
+#include "simulation/low_order_capture_session.hpp"
 
 #include <algorithm>
 #include <array>
@@ -269,8 +269,8 @@ compile_presentation_job(const RenderSpecification &specification,
         },
     };
 
-    auto simulation_result = simulation::compile_legacy_low_order_simulation_session(
-        inputs.engine, inputs.scenario);
+    auto simulation_result = simulation::compile_low_order_capture_session(
+        inputs.engine, inputs.scenario, contract::Sha256Digest{});
     if (std::holds_alternative<contract::ValidationReport>(simulation_result)) {
         return compiler_failure(
             std::move(request), contract::FailureKind::incomplete_source_route,
@@ -278,8 +278,8 @@ compile_presentation_job(const RenderSpecification &specification,
             "the resolved engine and scenario are valid but unavailable to the "
             "complete simulation executor");
     }
-    auto simulation = std::get<simulation::LegacyLowOrderSimulationSession>(
-        std::move(simulation_result));
+    auto simulation =
+        std::get<simulation::LowOrderCaptureSession>(std::move(simulation_result));
 
     const auto &legacy_profile =
         std::get<contract::LegacyLowOrderV1Profile>(inputs.engine.physics_profile);
