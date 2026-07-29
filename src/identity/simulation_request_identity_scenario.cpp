@@ -331,6 +331,8 @@ write_load_target(CanonicalJsonWriter &writer,
                                        const contract::InertialDyno &dyno) {
     return writer.begin_object() && writer.key("initial_engine_speed_rpm") &&
            write_resolved(writer, dyno.initial_engine_speed_rpm, write_f64) &&
+           writer.key("target_engine_speed_rpm") &&
+           write_resolved(writer, dyno.target_engine_speed_rpm, write_f64) &&
            writer.key("initial_theta_rad") &&
            write_resolved(writer, dyno.initial_theta_rad, write_f64) &&
            writer.key("equivalent_inertia_kg_m2") &&
@@ -345,6 +347,8 @@ write_load_target(CanonicalJsonWriter &writer,
                        }) &&
            writer.key("brake_curve_resolution_id") &&
            writer.string_value(dyno.brake_curve_resolution_id) &&
+           writer.key("brake_torque_method") &&
+           write_resolved(writer, dyno.brake_torque_method, write_method_identity) &&
            writer.key("crank_dynamics_method") &&
            write_resolved(writer, dyno.crank_dynamics_method, write_method_identity) &&
            writer.end_object();

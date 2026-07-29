@@ -9,6 +9,7 @@
 #include <bit>
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -677,12 +678,35 @@ ValidationReport validate(const RenderScenario &scenario,
                                   "scenario.mode.initial_theta_rad");
                 validate_resolved(report, mode.equivalent_inertia_kg_m2, provenance,
                                   "scenario.mode.equivalent_inertia_kg_m2");
+                validate_resolved(report, mode.target_engine_speed_rpm, provenance,
+                                  "scenario.mode.target_engine_speed_rpm");
                 require(report,
-                        finite_nonnegative(mode.initial_engine_speed_rpm.value) &&
+                        finite_positive(mode.initial_engine_speed_rpm.value) &&
                             finite(mode.initial_theta_rad.value) &&
-                            finite_positive(mode.equivalent_inertia_kg_m2.value),
+                            finite_positive(mode.equivalent_inertia_kg_m2.value) &&
+                            finite_positive(mode.target_engine_speed_rpm.value) &&
+                            mode.target_engine_speed_rpm.value >
+                                mode.initial_engine_speed_rpm.value,
                         ContractIssueCode::invalid_value, "mode",
-                        "inertial-dyno initial state and inertia are invalid");
+                        "inertial dyno requires a positive initial speed and inertia "
+                        "plus an upward target speed");
+                const auto *convergence =
+                    std::get_if<ConvergenceSettling>(&scenario.preparation);
+                require(report, convergence != nullptr,
+                        ContractIssueCode::unsupported_value, "preparation",
+                        "inertial dyno requires convergence preparation before "
+                        "release");
+                if (convergence != nullptr) {
+                    require(report,
+                            std::bit_cast<std::uint64_t>(
+                                convergence->maximum_preparation_duration_s.value) ==
+                                std::bit_cast<std::uint64_t>(
+                                    scenario.audible_start_s.value),
+                            ContractIssueCode::inconsistent_semantics,
+                            "preparation.maximum_preparation_duration_s.value",
+                            "inertial-dyno release is exactly the convergence cutoff "
+                            "and audible-start boundary");
+                }
                 validate_trajectory(report, mode.throttle_01, provenance,
                                     scenario.total_duration_s.value, true, false,
                                     "scenario.mode.throttle_01");
@@ -710,10 +734,34 @@ ValidationReport validate(const RenderScenario &scenario,
                                 "brake-curve speeds must be strictly increasing");
                     }
                 }
+                if (!mode.brake_curve.empty() &&
+                    finite_positive(mode.initial_engine_speed_rpm.value) &&
+                    finite_positive(mode.target_engine_speed_rpm.value)) {
+                    constexpr double radians_per_second_per_rpm =
+                        std::numbers::pi_v<double> / 30.0;
+                    const double initial_angular_speed =
+                        mode.initial_engine_speed_rpm.value *
+                        radians_per_second_per_rpm;
+                    const double target_angular_speed =
+                        mode.target_engine_speed_rpm.value * radians_per_second_per_rpm;
+                    require(report,
+                            mode.brake_curve.front().angular_speed_rad_s <=
+                                    initial_angular_speed &&
+                                mode.brake_curve.back().angular_speed_rad_s >=
+                                    target_angular_speed,
+                            ContractIssueCode::inconsistent_semantics,
+                            "mode.brake_curve",
+                            "passive brake curve must bracket the requested initial-to-"
+                            "target pull without extrapolation");
+                }
                 validate_resolved(report, mode.crank_dynamics_method, provenance,
                                   "scenario.mode.crank_dynamics_method");
                 append_prefixed(report, validate(mode.crank_dynamics_method.value),
                                 "mode.crank_dynamics_method");
+                validate_resolved(report, mode.brake_torque_method, provenance,
+                                  "scenario.mode.brake_torque_method");
+                append_prefixed(report, validate(mode.brake_torque_method.value),
+                                "mode.brake_torque_method");
             }
         },
         scenario.mode);

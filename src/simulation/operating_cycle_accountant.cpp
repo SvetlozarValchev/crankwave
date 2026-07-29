@@ -123,8 +123,9 @@ std::optional<OperatingCycleAccountingError> OperatingCycleAccountant::validate_
         };
     }
 
-    if (!std::isfinite(sample.engine_speed_rpm) ||
-        !same_binary64(sample.engine_speed_rpm, plan_.engine_speed_rpm)) {
+    if (!std::isfinite(sample.engine_speed_rpm) || sample.engine_speed_rpm <= 0.0 ||
+        (!plan_.derive_mean_engine_speed_from_cycle_duration &&
+         !same_binary64(sample.engine_speed_rpm, plan_.engine_speed_rpm))) {
         return OperatingCycleAccountingError{
             OperatingCycleAccountingErrorCode::engine_speed_mismatch,
             sample.sample_index,
@@ -279,9 +280,15 @@ OperatingCycleAccountant::advance(const OperatingCycleSample &sample) {
             });
         }
 
+        const double duration_s =
+            indicated_cycle.end_time_s - indicated_cycle.start_time_s;
+        const double cycle_mean_engine_speed_rpm =
+            plan_.derive_mean_engine_speed_from_cycle_duration
+                ? 120.0 / duration_s
+                : plan_.engine_speed_rpm;
         const auto loss_calculation = calculate_chen_flynn_cycle_mean_loss(
             plan_.aggregate_loss, {
-                                      plan_.engine_speed_rpm,
+                                      cycle_mean_engine_speed_rpm,
                                       plan_.stroke_m,
                                       loss_inputs,
                                   });
@@ -302,20 +309,27 @@ OperatingCycleAccountant::advance(const OperatingCycleSample &sample) {
         const double brake_work_j = (indicated_cycle.indicated_gas_work_j -
                                      loss.positive_aggregate_loss_work_j) +
                                     starter_work_j;
-        const double duration_s =
-            indicated_cycle.end_time_s - indicated_cycle.start_time_s;
         const double mean_brake_torque_nm = brake_work_j / kFourStrokeCycleRadians;
         const double net_bmep_pa =
             brake_work_j / plan_.quadrature.total_displacement_m3;
         const double mean_brake_power_w = brake_work_j / duration_s;
-        if (!std::isfinite(brake_work_j) || !std::isfinite(mean_brake_torque_nm) ||
+        if (!std::isfinite(cycle_mean_engine_speed_rpm) ||
+            !(cycle_mean_engine_speed_rpm > 0.0) ||
+            !std::isfinite(brake_work_j) || !std::isfinite(mean_brake_torque_nm) ||
             !std::isfinite(net_bmep_pa) || !std::isfinite(mean_brake_power_w)) {
             return fail(OperatingCycleAccountingErrorCode::nonfinite_result,
                         sample.sample_index);
         }
         completed = OperatingCompletedCycle{
-            indicated_cycle, std::move(peak_evidence), loss,        starter_work_j,
-            brake_work_j,    mean_brake_torque_nm,     net_bmep_pa, mean_brake_power_w,
+            indicated_cycle,
+            std::move(peak_evidence),
+            cycle_mean_engine_speed_rpm,
+            loss,
+            starter_work_j,
+            brake_work_j,
+            mean_brake_torque_nm,
+            net_bmep_pa,
+            mean_brake_power_w,
         };
         if (completed_cycle_count_ == std::numeric_limits<std::uint64_t>::max()) {
             return fail(OperatingCycleAccountingErrorCode::nonfinite_result,

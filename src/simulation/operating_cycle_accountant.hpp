@@ -35,6 +35,10 @@ struct OperatingCycleAccountingPlan {
     contract::TorqueTermMask starter_terms = 0;
     std::vector<OperatingCylinderAccountingPlan> cylinders;
     std::vector<contract::GasVolumeId> physically_resolved_gas_volumes;
+    // Held operation bit-binds every sample to engine_speed_rpm. Inertial operation
+    // admits any finite positive sample speed and derives the Chen-Flynn cycle mean
+    // from the represented 4*pi cycle duration instead.
+    bool derive_mean_engine_speed_from_cycle_duration = false;
 
     friend bool operator==(const OperatingCycleAccountingPlan &,
                            const OperatingCycleAccountingPlan &) = default;
@@ -73,6 +77,7 @@ struct OperatingCompletedCycle {
     // and are never promoted as brake/net values.
     CompletedFourStrokeCycle indicated_quadrature;
     std::vector<OperatingCylinderPeakPressure> cylinder_peak_pressures;
+    double cycle_mean_engine_speed_rpm = 0.0;
     ChenFlynnCycleMeanLossResult aggregate_loss;
     double starter_work_j = 0.0;
     double brake_work_j = 0.0;

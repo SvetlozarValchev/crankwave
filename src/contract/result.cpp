@@ -2,7 +2,9 @@
 
 #include "validation_support.hpp"
 
+#include <bit>
 #include <cmath>
+#include <numbers>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -51,6 +53,14 @@ bool known(ActiveBoundKind value) noexcept {
         return true;
     }
     return false;
+}
+
+bool same_binary64(double lhs, double rhs) noexcept {
+    return std::bit_cast<std::uint64_t>(lhs) == std::bit_cast<std::uint64_t>(rhs);
+}
+
+double angular_speed_rad_s(double engine_speed_rpm) noexcept {
+    return engine_speed_rpm * (std::numbers::pi_v<double> / 30.0);
 }
 
 bool valid_candidate(const ReachabilityCandidate &candidate) noexcept {
@@ -333,6 +343,193 @@ ValidationReport validate(const ReachedTarget &reached) {
     return report;
 }
 
+ValidationReport validate(const InertialDynoResult &inertial_dyno) {
+    using detail::append_prefixed;
+    using detail::finite;
+    using detail::finite_nonnegative;
+    using detail::finite_positive;
+    using detail::require;
+
+    ValidationReport report;
+    require(report, !inertial_dyno.simulation_request_identity_v2_sha256.is_zero(),
+            ContractIssueCode::invalid_value, "simulation_request_identity_v2_sha256",
+            "inertial-dyno result requires a nonzero canonical simulation-request "
+            "identity");
+    require(report,
+            finite_positive(inertial_dyno.start_engine_speed_rpm) &&
+                finite_positive(inertial_dyno.target_engine_speed_rpm) &&
+                finite_positive(inertial_dyno.release_engine_speed_rpm) &&
+                finite_nonnegative(inertial_dyno.end_engine_speed_rpm) &&
+                finite_nonnegative(inertial_dyno.minimum_engine_speed_rpm) &&
+                finite_positive(inertial_dyno.maximum_engine_speed_rpm) &&
+                inertial_dyno.target_engine_speed_rpm >
+                    inertial_dyno.start_engine_speed_rpm &&
+                inertial_dyno.target_engine_speed_rpm >
+                    inertial_dyno.release_engine_speed_rpm &&
+                inertial_dyno.minimum_engine_speed_rpm <=
+                    inertial_dyno.maximum_engine_speed_rpm,
+            ContractIssueCode::invalid_value, "engine_speed_rpm",
+            "inertial-dyno speeds must be finite, nonnegative, ordered, and retain an "
+            "upward target not already reached during preparation");
+
+    const auto inside_extrema = [&](double rpm) {
+        return finite(rpm) && rpm >= inertial_dyno.minimum_engine_speed_rpm &&
+               rpm <= inertial_dyno.maximum_engine_speed_rpm;
+    };
+    require(report,
+            inside_extrema(inertial_dyno.start_engine_speed_rpm) &&
+                inside_extrema(inertial_dyno.release_engine_speed_rpm) &&
+                inside_extrema(inertial_dyno.end_engine_speed_rpm),
+            ContractIssueCode::inconsistent_semantics, "engine_speed_rpm",
+            "retained start, release, and end speeds must lie inside the reported "
+            "full-horizon extrema");
+    require(report,
+            inertial_dyno.release_frame_index > 0 &&
+                inertial_dyno.end_frame_index > inertial_dyno.release_frame_index,
+            ContractIssueCode::invalid_value, "release_frame_index",
+            "inertial release must precede the fixed-horizon end frame");
+
+    if (inertial_dyno.first_target_reached_frame_index.has_value()) {
+        require(report,
+                *inertial_dyno.first_target_reached_frame_index >=
+                        inertial_dyno.release_frame_index &&
+                    *inertial_dyno.first_target_reached_frame_index <=
+                        inertial_dyno.end_frame_index &&
+                    inertial_dyno.maximum_engine_speed_rpm >=
+                        inertial_dyno.target_engine_speed_rpm,
+                ContractIssueCode::inconsistent_semantics,
+                "first_target_reached_frame_index",
+                "a retained first target crossing must lie in the released interval "
+                "and the reported maximum must reach the target");
+    } else {
+        require(report,
+                inertial_dyno.maximum_engine_speed_rpm <
+                    inertial_dyno.target_engine_speed_rpm,
+                ContractIssueCode::inconsistent_semantics,
+                "first_target_reached_frame_index",
+                "an omitted target crossing requires a maximum below the target");
+    }
+
+    require(report, finite_positive(inertial_dyno.equivalent_inertia_kg_m2),
+            ContractIssueCode::invalid_value, "equivalent_inertia_kg_m2",
+            "inertial-dyno equivalent inertia must be finite and positive");
+    require(report, is_valid_semantic_id(inertial_dyno.brake_curve_resolution_id),
+            ContractIssueCode::invalid_value, "brake_curve_resolution_id",
+            "inertial-dyno brake-curve resolution ID must be canonical");
+    append_prefixed(report, validate(inertial_dyno.brake_torque_method),
+                    "brake_torque_method");
+    append_prefixed(report, validate(inertial_dyno.crank_dynamics_method),
+                    "crank_dynamics_method");
+
+    const auto &energy = inertial_dyno.energy_balance;
+    require(report,
+            finite(energy.net_shaft_work_j) &&
+                finite_nonnegative(energy.passive_brake_absorbed_work_j) &&
+                finite(energy.kinetic_energy_change_j) && finite(energy.residual_j),
+            ContractIssueCode::invalid_value, "energy_balance",
+            "inertial-dyno work, kinetic-energy change, and residual must be "
+            "finite, with a nonnegative passive-brake absorbed-work magnitude");
+
+    const double release_omega =
+        angular_speed_rad_s(inertial_dyno.release_engine_speed_rpm);
+    const double end_omega = angular_speed_rad_s(inertial_dyno.end_engine_speed_rpm);
+    const double expected_kinetic_energy_change_j =
+        0.5 * inertial_dyno.equivalent_inertia_kg_m2 *
+        (end_omega * end_omega - release_omega * release_omega);
+    require(report,
+            detail::nearly_equal(energy.kinetic_energy_change_j,
+                                 expected_kinetic_energy_change_j, 1e-9, 64.0),
+            ContractIssueCode::inconsistent_semantics,
+            "energy_balance.kinetic_energy_change_j",
+            "kinetic-energy change must match the reported inertia and "
+            "release/end speeds");
+
+    const double expected_residual_j =
+        (energy.net_shaft_work_j - energy.passive_brake_absorbed_work_j) -
+        energy.kinetic_energy_change_j;
+    require(report,
+            detail::nearly_equal(energy.residual_j, expected_residual_j, 1e-9, 64.0),
+            ContractIssueCode::inconsistent_semantics, "energy_balance.residual_j",
+            "energy residual must equal net shaft work minus passive-brake work "
+            "and kinetic-energy change");
+    return report;
+}
+
+ValidationReport
+validate(const InertialDynoResult &inertial_dyno,
+         const RenderScenario &requested_scenario,
+         const Sha256Digest &expected_simulation_request_identity_v2_sha256) {
+    using detail::require;
+
+    auto report = validate(inertial_dyno);
+    require(report,
+            !expected_simulation_request_identity_v2_sha256.is_zero() &&
+                inertial_dyno.simulation_request_identity_v2_sha256 ==
+                    expected_simulation_request_identity_v2_sha256,
+            ContractIssueCode::inconsistent_semantics,
+            "simulation_request_identity_v2_sha256",
+            "inertial-dyno result must retain the caller-supplied canonical v2 "
+            "simulation-request identity");
+
+    const auto *requested_mode = std::get_if<InertialDyno>(&requested_scenario.mode);
+    require(report, requested_mode != nullptr,
+            ContractIssueCode::inconsistent_semantics, "conditions",
+            "only a requested inertial-dyno scenario may own an inertial result");
+    if (requested_mode == nullptr) {
+        return report;
+    }
+
+    require(report,
+            same_binary64(inertial_dyno.start_engine_speed_rpm,
+                          requested_mode->initial_engine_speed_rpm.value) &&
+                same_binary64(inertial_dyno.target_engine_speed_rpm,
+                              requested_mode->target_engine_speed_rpm.value) &&
+                same_binary64(inertial_dyno.equivalent_inertia_kg_m2,
+                              requested_mode->equivalent_inertia_kg_m2.value),
+            ContractIssueCode::inconsistent_semantics, "conditions",
+            "inertial-dyno start speed, target speed, and equivalent inertia must "
+            "exactly match the request");
+    require(report,
+            inertial_dyno.brake_curve_resolution_id ==
+                    requested_mode->brake_curve_resolution_id &&
+                inertial_dyno.brake_torque_method ==
+                    requested_mode->brake_torque_method.value &&
+                inertial_dyno.crank_dynamics_method ==
+                    requested_mode->crank_dynamics_method.value,
+            ContractIssueCode::inconsistent_semantics, "methods",
+            "inertial-dyno brake-curve, brake evaluation, and crank-dynamics "
+            "identities must exactly match the request");
+
+    const auto release_frame = resolve_frame_index(
+        requested_scenario.audible_start_s.value, requested_scenario.rates.physics);
+    const auto end_frame = resolve_frame_index(
+        requested_scenario.total_duration_s.value, requested_scenario.rates.physics);
+    require(report,
+            release_frame.has_value() && end_frame.has_value() &&
+                inertial_dyno.release_frame_index == *release_frame &&
+                inertial_dyno.end_frame_index == *end_frame,
+            ContractIssueCode::inconsistent_semantics, "release_frame_index",
+            "inertial-dyno release and end frames must exactly match audible start "
+            "and the fixed render horizon");
+
+    if (!requested_mode->brake_curve.empty() &&
+        detail::finite_nonnegative(inertial_dyno.minimum_engine_speed_rpm) &&
+        detail::finite_nonnegative(inertial_dyno.maximum_engine_speed_rpm)) {
+        const double minimum_omega =
+            angular_speed_rad_s(inertial_dyno.minimum_engine_speed_rpm);
+        const double maximum_omega =
+            angular_speed_rad_s(inertial_dyno.maximum_engine_speed_rpm);
+        require(
+            report,
+            minimum_omega >= requested_mode->brake_curve.front().angular_speed_rad_s &&
+                maximum_omega <= requested_mode->brake_curve.back().angular_speed_rad_s,
+            ContractIssueCode::inconsistent_semantics, "engine_speed_rpm",
+            "reported speed extrema must remain inside the requested passive "
+            "brake curve without extrapolation");
+    }
+    return report;
+}
+
 ValidationReport validate(const UnreachableTarget &unreachable) {
     using detail::append_prefixed;
     using detail::finite;
@@ -516,6 +713,20 @@ validate(const RenderResult &result, const RenderScenario &requested_scenario,
                                  requested_scenario, simulation_inputs.resolved.engine,
                                  expected_simulation_request_identity_v2_sha256),
                         "success.held_speed_operating_point");
+                }
+                const auto is_inertial_dyno =
+                    std::holds_alternative<InertialDyno>(requested_scenario.mode);
+                require(report, outcome.inertial_dyno.has_value() == is_inertial_dyno,
+                        ContractIssueCode::inconsistent_semantics,
+                        "success.inertial_dyno",
+                        "exactly an inertial-dyno success requires typed inertial "
+                        "completion evidence");
+                if (outcome.inertial_dyno.has_value()) {
+                    append_prefixed(
+                        report,
+                        validate(*outcome.inertial_dyno, requested_scenario,
+                                 expected_simulation_request_identity_v2_sha256),
+                        "success.inertial_dyno");
                 }
             } else if constexpr (std::is_same_v<T, UnreachableTarget>) {
                 append_prefixed(report, validate(outcome), "unreachable");

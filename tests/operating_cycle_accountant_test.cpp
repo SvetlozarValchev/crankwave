@@ -311,6 +311,27 @@ void test_post_quadrature_loss_failure_does_not_count_an_operating_cycle() {
            "post-quadrature loss failure published a nonexistent operating cycle");
 }
 
+void test_inertial_mode_derives_cycle_mean_speed_from_duration() {
+    auto dynamic_plan = plan();
+    dynamic_plan.derive_mean_engine_speed_from_cycle_duration = true;
+    auto accountant = make_accountant(std::move(dynamic_plan));
+    const auto state = pressures(500000.0, 700000.0);
+    constexpr double kCycleDurationS = 0.05;
+
+    (void)accountant.advance(state.view(0, 0.0, 0.0, 100.0, 1500.0));
+    const auto result = accountant.advance(
+        state.view(1, kCycleRadians, kCycleDurationS, 100.0, 5000.0));
+    const auto &crossing =
+        require_crossing(result, "variable-speed represented cycle did not close");
+    expect(crossing.completed_cycle.has_value(),
+           "variable-speed represented cycle was discarded");
+    const auto &cycle = *crossing.completed_cycle;
+    expect_near(cycle.cycle_mean_engine_speed_rpm, 2400.0, 0.0,
+                "inertial cycle mean RPM was not derived from duration");
+    expect_near(cycle.aggregate_loss.mean_piston_speed_m_s, 8.0, 0.0,
+                "Chen-Flynn did not consume duration-derived cycle mean RPM");
+}
+
 void test_move_leaves_one_working_accountant() {
     auto source = make_accountant();
     const auto start = pressures(200000.0, 300000.0);
@@ -343,6 +364,7 @@ int main() {
     test_exact_start_boundary_is_included_in_cycle_peaks();
     test_plan_and_sample_shapes_fail_closed();
     test_post_quadrature_loss_failure_does_not_count_an_operating_cycle();
+    test_inertial_mode_derives_cycle_mean_speed_from_duration();
     test_move_leaves_one_working_accountant();
     return 0;
 }

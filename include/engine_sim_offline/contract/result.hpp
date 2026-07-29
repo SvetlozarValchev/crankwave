@@ -336,6 +336,54 @@ struct HeldSpeedOperatingPointResult {
                            const HeldSpeedOperatingPointResult &) = default;
 };
 
+// Work is accumulated only over the released inertial interval
+// [release_frame_index, end_frame_index]. Passive-brake work is a positive
+// absorbed-work magnitude. The signed residual is evaluated as
+//
+//   (net_shaft_work_j - passive_brake_absorbed_work_j)
+//       - kinetic_energy_change_j.
+//
+// Retaining all three terms makes the residual independently recomputable instead
+// of accepting an unauditable scalar quality claim.
+struct InertialDynoEnergyBalanceEvidence {
+    double net_shaft_work_j = 0.0;
+    double passive_brake_absorbed_work_j = 0.0;
+    double kinetic_energy_change_j = 0.0;
+    double residual_j = 0.0;
+
+    friend bool operator==(const InertialDynoEnergyBalanceEvidence &,
+                           const InertialDynoEnergyBalanceEvidence &) = default;
+};
+
+// A successful inertial result always represents completion of the requested fixed
+// render horizon. first_target_reached_frame_index is evidence about the pull, not an
+// early-terminal instruction: audio continues through end_frame_index whether or not
+// the target was reached.
+struct InertialDynoResult {
+    Sha256Digest simulation_request_identity_v2_sha256;
+    // Start is physics frame zero; release is the exact preparation-cutoff frame.
+    // Extrema cover every represented physics-frame state from start through end.
+    double start_engine_speed_rpm = 0.0;
+    double target_engine_speed_rpm = 0.0;
+    double release_engine_speed_rpm = 0.0;
+    double end_engine_speed_rpm = 0.0;
+    double minimum_engine_speed_rpm = 0.0;
+    double maximum_engine_speed_rpm = 0.0;
+    // All frame identities are on the request's physics-rate grid. A target is
+    // first reached by the earliest represented post-step state at or above it.
+    std::uint64_t release_frame_index = 0;
+    std::uint64_t end_frame_index = 0;
+    std::optional<std::uint64_t> first_target_reached_frame_index;
+    double equivalent_inertia_kg_m2 = 0.0;
+    std::string brake_curve_resolution_id;
+    MethodIdentity brake_torque_method;
+    MethodIdentity crank_dynamics_method;
+    InertialDynoEnergyBalanceEvidence energy_balance;
+
+    friend bool operator==(const InertialDynoResult &,
+                           const InertialDynoResult &) = default;
+};
+
 struct UnreachableTarget {
     double target_net_bmep_pa = 0.0;
     double achieved_net_bmep_pa = 0.0;
@@ -359,6 +407,7 @@ struct RenderSuccess {
     RenderManifest manifest;
     std::optional<ReachedTarget> reached_target;
     std::optional<HeldSpeedOperatingPointResult> held_speed_operating_point;
+    std::optional<InertialDynoResult> inertial_dyno;
 };
 
 struct RenderFailure {
@@ -379,6 +428,11 @@ validate(const HeldSpeedOperatingPointResult &operating_point);
 [[nodiscard]] ValidationReport
 validate(const HeldSpeedOperatingPointResult &operating_point,
          const RenderScenario &requested_scenario, const EngineSpec &engine,
+         const Sha256Digest &expected_simulation_request_identity_v2_sha256);
+[[nodiscard]] ValidationReport validate(const InertialDynoResult &inertial_dyno);
+[[nodiscard]] ValidationReport
+validate(const InertialDynoResult &inertial_dyno,
+         const RenderScenario &requested_scenario,
          const Sha256Digest &expected_simulation_request_identity_v2_sha256);
 [[nodiscard]] ValidationReport validate(const UnreachableTarget &unreachable);
 [[nodiscard]] ValidationReport validate(const RenderFailure &failure);

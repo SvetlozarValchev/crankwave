@@ -194,6 +194,12 @@ struct InertialDyno {
     std::vector<BrakeTorquePoint> brake_curve;
     std::string brake_curve_resolution_id;
     ResolvedValue<MethodIdentity> crank_dynamics_method;
+    // A pull remains a fixed-horizon render. This target identifies the requested
+    // upward crossing for result evidence; reaching it does not end capture early.
+    ResolvedValue<double> target_engine_speed_rpm;
+    // Evaluation/interpolation of the authored passive curve is executable method
+    // identity, distinct from provenance for the curve values themselves.
+    ResolvedValue<MethodIdentity> brake_torque_method;
 
     friend bool operator==(const InertialDyno &, const InertialDyno &) = default;
 };

@@ -411,7 +411,8 @@ void run_scenario_manifest_contract_tests() {
     };
     expect(validate(first, builder.provenance, source_matrix).ok(),
            "valid completed render manifest was rejected");
-    const RenderResult held_success = RenderSuccess{first, std::nullopt, std::nullopt};
+    const RenderResult held_success =
+        RenderSuccess{first, std::nullopt, std::nullopt, std::nullopt};
     expect(validate(held_success, simulation_inputs(content).scenario, Sha256Digest{},
                     builder.provenance, source_matrix)
                .ok(),
@@ -664,6 +665,8 @@ void run_scenario_manifest_contract_tests() {
         },
         "",
         {method("inertial-dyno-v1", 23), ""},
+        {1800.0, ""},
+        {method("piecewise-linear-passive-brake-v1", 24), ""},
     };
     auto inertial_capable_engine = load_engine;
     inertial_capable_engine.torque_capability.value.instantaneous_net_shaft = {
@@ -750,8 +753,8 @@ void run_scenario_manifest_contract_tests() {
             1024,
         },
     };
-    const RenderResult reached_result =
-        RenderSuccess{load_manifest, requested_reached, std::nullopt};
+    const RenderResult reached_result = RenderSuccess{
+        load_manifest, requested_reached, std::nullopt, std::nullopt};
     expect(!validate(reached_result, load_scenario, Sha256Digest{},
                      load_builder.provenance, source_matrix)
                 .ok(),

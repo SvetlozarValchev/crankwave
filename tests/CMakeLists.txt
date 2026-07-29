@@ -826,6 +826,21 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_inertial_dyno_result_contract_tests
+    inertial_dyno_result_contract_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_inertial_dyno_result_contract_tests
+    PRIVATE engine_sim_offline::contract
+)
+
+add_test(
+    NAME contract.inertial_dyno_result
+    COMMAND engine_sim_offline_inertial_dyno_result_contract_tests
+)
+
+add_executable(
     engine_sim_offline_operating_cycle_accountant_tests
     operating_cycle_accountant_test.cpp
 )
@@ -844,6 +859,27 @@ target_link_libraries(
 add_test(
     NAME simulation.operating_cycle_accountant
     COMMAND engine_sim_offline_operating_cycle_accountant_tests
+)
+
+add_executable(
+    engine_sim_offline_inertial_crank_dynamics_tests
+    inertial_crank_dynamics_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_inertial_crank_dynamics_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_inertial_crank_dynamics_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.inertial_crank_dynamics
+    COMMAND engine_sim_offline_inertial_crank_dynamics_tests
 )
 
 add_executable(
