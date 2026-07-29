@@ -6,17 +6,17 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 namespace engine_sim_offline::simulation {
 
 LowOrderCaptureSession::LowOrderCaptureSession(
-    LowOrderEngineCoreV1Runtime core,
-    LegacyFixedCrankTorqueAccountingPlan torque_accounting,
+    LowOrderEngineCoreV1Runtime core, ProfilePolicy profile_policy,
     detail::LowOrderCaptureBuffer capture, std::uint64_t expected_samples,
     std::string model_id, std::string profile_id, std::string scenario_id,
     contract::EngineId engine_id)
-    : core_(std::move(core)), torque_accounting_(torque_accounting),
+    : core_(std::move(core)), profile_policy_(std::move(profile_policy)),
       capture_(std::make_unique<detail::LowOrderCaptureBuffer>(std::move(capture))),
       expected_samples_(expected_samples), model_id_(std::move(model_id)),
       profile_id_(std::move(profile_id)), scenario_id_(std::move(scenario_id)),
@@ -94,9 +94,24 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
                 "low-order-capture-completion-count-mismatch",
                 "mechanics, gas, and published capture counts diverged at completion"));
         }
+        std::optional<contract::HeldSpeedOperatingPointResult> operating_point;
+        if (const auto *policy =
+                std::get_if<LowOrderOperatingPointV1Runtime>(&profile_policy_)) {
+            if (policy->accepted_sample_count() != expected_samples_ ||
+                !policy->finalized() || policy->faulted() ||
+                !policy->operating_point_result().has_value()) {
+                return fail(fault(
+                    contract::FailureKind::contract_violation,
+                    "low-order-operating-policy-completion-disagreed",
+                    "held-speed policy did not finish the exact capture horizon with "
+                    "one converged operating-point result"));
+            }
+            operating_point = *policy->operating_point_result();
+        }
         terminal_completion_ = LowOrderCaptureCompleted{
             published_sample_count_,
             published_block_count_,
+            std::move(operating_point),
         };
         return *terminal_completion_;
     }
@@ -125,17 +140,39 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
         const auto &mechanics = core_step.mechanics.get();
         const auto &gas = core_step.gas.get();
         last_mechanics = &mechanics;
-        const auto torque_evaluation = evaluate_legacy_fixed_crank_torque_accounting(
-            torque_accounting_, mechanics.angular_speed_rad_s,
-            gas.indicated_gas_torque_nm);
-        const auto *torque = std::get_if<contract::TorqueTelemetry>(&torque_evaluation);
-        if (torque == nullptr) {
-            return fail(fault(contract::FailureKind::numerical_failure,
-                              "legacy-fixed-crank-torque-accounting-failed",
-                              "M3 torque accountant produced no finite telemetry",
-                              &mechanics));
+        auto torque_evaluation = std::visit(
+            [&](auto &policy)
+                -> std::variant<contract::TorqueTelemetry, contract::FailureContext> {
+                using Policy = std::decay_t<decltype(policy)>;
+                if constexpr (std::is_same_v<Policy,
+                                             LegacyFixedCrankTorqueAccountingPlan>) {
+                    auto evaluated = evaluate_legacy_fixed_crank_torque_accounting(
+                        policy, mechanics.angular_speed_rad_s,
+                        gas.indicated_gas_torque_nm);
+                    if (const auto *torque =
+                            std::get_if<contract::TorqueTelemetry>(&evaluated)) {
+                        return *torque;
+                    }
+                    return fault(contract::FailureKind::numerical_failure,
+                                 "legacy-fixed-crank-torque-accounting-failed",
+                                 "fixed-crank torque accountant produced no finite "
+                                 "telemetry",
+                                 &mechanics);
+                } else {
+                    auto evaluated = policy.advance(mechanics, gas);
+                    if (const auto *step =
+                            std::get_if<LowOrderOperatingPointV1Step>(&evaluated)) {
+                        return step->capture_torque;
+                    }
+                    return std::get<contract::FailureContext>(std::move(evaluated));
+                }
+            },
+            profile_policy_);
+        if (auto *failure = std::get_if<contract::FailureContext>(&torque_evaluation)) {
+            return fail(std::move(*failure));
         }
-        if (auto buffer_failure = capture_->append(mechanics, gas, *torque);
+        const auto &torque = std::get<contract::TorqueTelemetry>(torque_evaluation);
+        if (auto buffer_failure = capture_->append(mechanics, gas, torque);
             buffer_failure.has_value()) {
             auto failure =
                 fault(buffer_failure->kind, std::move(buffer_failure->detail_code),

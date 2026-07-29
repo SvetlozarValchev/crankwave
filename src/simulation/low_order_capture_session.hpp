@@ -5,6 +5,7 @@
 #include "engine_sim_offline/contract/scenario.hpp"
 #include "simulation/legacy_fixed_crank_torque_accounting.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
+#include "simulation/low_order_operating_point_v1_runtime.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -31,6 +32,7 @@ struct LowOrderCaptureBlockPublished {
 struct LowOrderCaptureCompleted {
     std::uint64_t sample_count = 0;
     std::uint64_t block_count = 0;
+    std::optional<contract::HeldSpeedOperatingPointResult> held_speed_operating_point;
 
     friend bool operator==(const LowOrderCaptureCompleted &,
                            const LowOrderCaptureCompleted &) = default;
@@ -72,8 +74,11 @@ class LowOrderCaptureSession final {
     [[nodiscard]] std::uint64_t published_block_count() const noexcept;
 
   private:
+    using ProfilePolicy = std::variant<LegacyFixedCrankTorqueAccountingPlan,
+                                       LowOrderOperatingPointV1Runtime>;
+
     LowOrderCaptureSession(LowOrderEngineCoreV1Runtime core,
-                           LegacyFixedCrankTorqueAccountingPlan torque_accounting,
+                           ProfilePolicy profile_policy,
                            detail::LowOrderCaptureBuffer capture,
                            std::uint64_t expected_samples, std::string model_id,
                            std::string profile_id, std::string scenario_id,
@@ -86,7 +91,7 @@ class LowOrderCaptureSession final {
     [[nodiscard]] LowOrderCaptureAdvanceResult fail(contract::FailureContext failure);
 
     LowOrderEngineCoreV1Runtime core_;
-    LegacyFixedCrankTorqueAccountingPlan torque_accounting_;
+    ProfilePolicy profile_policy_;
     std::unique_ptr<detail::LowOrderCaptureBuffer> capture_;
     std::uint64_t expected_samples_ = 0;
     std::uint64_t published_sample_count_ = 0;

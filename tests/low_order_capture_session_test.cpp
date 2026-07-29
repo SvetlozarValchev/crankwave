@@ -1,4 +1,6 @@
+#include "contract_test_support.hpp"
 #include "engine_sim_offline/artifacts/telemetry_encoder.hpp"
+#include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
 #include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
@@ -13,6 +15,7 @@
 #include <exception>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -40,6 +43,10 @@ inline constexpr double kShortRunRpm = 2400.0;
 inline constexpr double kShortRunDurationS =
     static_cast<double>(kShortRunStepCount) / 10000.0;
 inline constexpr double kOuterStepS = 1.0 / 10000.0;
+inline constexpr double kOperatingHeldRpm = 3000.0;
+inline constexpr double kOperatingCutoffTimeS = 0.22;
+inline constexpr double kOperatingTotalDurationS = 0.3;
+inline constexpr std::uint32_t kOperatingCyclesPerBlock = 2U;
 inline constexpr CaptureValidityMask kMechanism =
     capture_validity_mask(CaptureValidity::mechanism);
 inline constexpr CaptureValidityMask kThermodynamic =
@@ -159,6 +166,78 @@ encode_capture_block(const CaptureBlockView &block) {
     Sha256Digest identity;
     identity.bytes.back() = 1U;
     return identity;
+}
+
+struct OperatingCaptureRequest {
+    EngineSpec engine;
+    RenderScenario scenario;
+    Sha256Digest request_identity;
+};
+
+[[nodiscard]] OperatingCaptureRequest
+make_operating_capture_request(double torque_tolerance_nm = 1.0e9,
+                               double pressure_tolerance_pa = 1.0e12) {
+    auto profile_result = make_bmw_m52b28_operating_profile();
+    const auto *canonical = std::get_if<BmwM52b28OperatingProfile>(&profile_result);
+    if (canonical == nullptr) {
+        fail_report("canonical BMW operating profile construction failed",
+                    std::get<ValidationReport>(profile_result));
+    }
+
+    EngineSpec engine = canonical->engine;
+    const auto &profile =
+        std::get<LowOrderOperatingPointV1Profile>(engine.physics_profile);
+    engine_sim_offline::contract::test::InputBuilder builder;
+    auto scenario = engine_sim_offline::contract::test::make_scenario(builder, engine);
+    scenario.scenario_id = "bmw-m52b28-operating-capture-integration";
+    scenario.fuel.fuel_id.value = profile.core.fuel.fuel_id.value;
+    scenario.fuel.lower_heating_value_j_per_kg.value =
+        profile.core.fuel.energy_density_j_per_kg.value;
+    scenario.fuel.stoichiometric_air_fuel_mass_ratio.value =
+        profile.core.fuel.molecular_afr.value;
+    scenario.initial_thermal_state.oil_temperature_k.value =
+        profile.aggregate_loss.required_oil_temperature_k.value;
+    scenario.preparation = ConvergenceSettling{
+        builder.resolved(engine_sim_offline::contract::
+                             adjacent_cycle_block_mean_convergence_method_identity(),
+                         "scenario.preparation.method"),
+        builder.resolved(0.0, "scenario.preparation.minimum_warm_up_duration_s"),
+        builder.resolved(0.0, "scenario.preparation.minimum_settling_duration_s"),
+        builder.resolved(kOperatingCutoffTimeS,
+                         "scenario.preparation.maximum_preparation_duration_s"),
+        builder.resolved<std::uint32_t>(kOperatingCyclesPerBlock,
+                                        "scenario.preparation.comparison_cycle_count"),
+        builder.resolved(torque_tolerance_nm,
+                         "scenario.preparation.cycle_mean_torque_tolerance_nm"),
+        builder.resolved(pressure_tolerance_pa,
+                         "scenario.preparation.pressure_tolerance_pa"),
+    };
+    scenario.operating_state.value = {
+        {
+            "held-running",
+            0.0,
+            {true, true, false, true, false},
+        },
+    };
+    scenario.total_duration_s.value = kOperatingTotalDurationS;
+    scenario.audible_start_s.value = kOperatingCutoffTimeS;
+    scenario.audible_duration_s.value =
+        kOperatingTotalDurationS - kOperatingCutoffTimeS;
+    scenario.rates.physics = {10000U, 1U};
+    scenario.rates.capture = scenario.rates.physics;
+    scenario.quality.value.capture_block_capacity_frames = 200U;
+    scenario.quality.value.event_journal_capacity_records = 3800U;
+    scenario.mode = HeldSpeed{
+        builder.resolved(kOperatingHeldRpm, "scenario.mode.engine_speed_rpm"),
+        builder.resolved(profile.core.mechanism.crank.crank_tdc_reference_rad.value,
+                         "scenario.mode.initial_theta_rad"),
+        builder.resolved(0.85, "scenario.mode.throttle_01"),
+    };
+    return {
+        std::move(engine),
+        std::move(scenario),
+        nonzero_request_identity(),
+    };
 }
 
 [[nodiscard]] LegacyLowOrderMechanicsSession
@@ -768,9 +847,12 @@ void test_short_bmw_capture_mapping_and_completion() {
     });
     const auto *completed = std::get_if<LowOrderCaptureCompleted>(&completion);
     expect(completed != nullptr && completed->sample_count == kShortRunStepCount &&
-               completed->block_count == 7U && completion_callback_count == 0U &&
-               capture.completed() && !capture.faulted(),
-           "capture completion is not terminal or callback-free");
+               completed->block_count == 7U &&
+               !completed->held_speed_operating_point.has_value() &&
+               completion_callback_count == 0U && capture.completed() &&
+               !capture.faulted(),
+           "M3 capture completion is not terminal, callback-free, or free of "
+           "held-speed evidence");
 
     auto repeated = capture.publish_next_block([&](const CaptureBlockView &) {
         ++completion_callback_count;
@@ -788,6 +870,98 @@ void test_short_bmw_capture_mapping_and_completion() {
                activity.combustion_heat && activity.event,
            "short capture did not exercise bidirectional flow, pressure, combustion, "
            "and events");
+}
+
+void test_operating_capture_publishes_request_bound_completion_evidence() {
+    const auto request = make_operating_capture_request();
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario, request.request_identity));
+
+    std::uint64_t callback_count = 0U;
+    std::optional<LowOrderCaptureCompleted> completion;
+    while (!completion.has_value()) {
+        auto result = capture.publish_next_block([&](const CaptureBlockView &block) {
+            ++callback_count;
+            const auto report = validate(block, request.engine, request.scenario);
+            if (!report.ok()) {
+                fail_report("operating capture block failed request validation",
+                            report);
+            }
+            return true;
+        });
+        if (const auto *failure = std::get_if<FailureContext>(&result)) {
+            throw std::runtime_error{
+                "operating capture faulted: " + failure->detail_code + "; " +
+                failure->state_summary};
+        }
+        if (const auto *completed = std::get_if<LowOrderCaptureCompleted>(&result)) {
+            completion = *completed;
+        }
+    }
+
+    const auto expected_frames = resolve_frame_index(
+        request.scenario.total_duration_s.value, request.scenario.rates.capture);
+    expect(expected_frames.has_value() &&
+               completion->sample_count == *expected_frames &&
+               completion->block_count == 15U && callback_count == 15U &&
+               completion->held_speed_operating_point.has_value() &&
+               capture.completed() && !capture.faulted(),
+           "operating capture did not publish one complete typed held result");
+    const auto report =
+        validate(*completion->held_speed_operating_point, request.scenario,
+                 request.engine, request.request_identity);
+    if (!report.ok()) {
+        fail_report("operating completion evidence failed request validation", report);
+    }
+}
+
+void test_operating_capture_rejects_zero_request_identity() {
+    const auto request = make_operating_capture_request();
+    const auto result = compile_low_order_capture_session(
+        request.engine, request.scenario, Sha256Digest{});
+    const auto *report = std::get_if<ValidationReport>(&result);
+    expect(report != nullptr && !report->ok() &&
+               std::ranges::any_of(report->issues,
+                                   [](const ContractIssue &issue) {
+                                       return issue.path ==
+                                              "simulation_request_identity_v2_sha256";
+                                   }),
+           "operating capture admitted a zero simulation-request identity");
+}
+
+void test_operating_nonconvergence_does_not_publish_cutoff_block() {
+    const auto request =
+        make_operating_capture_request(std::numeric_limits<double>::denorm_min(),
+                                       std::numeric_limits<double>::denorm_min());
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario, request.request_identity));
+
+    std::uint64_t callback_count = 0U;
+    FailureContext cutoff_failure;
+    while (cutoff_failure.detail_code.empty()) {
+        auto result = capture.publish_next_block([&](const CaptureBlockView &) {
+            ++callback_count;
+            return true;
+        });
+        if (const auto *failure = std::get_if<FailureContext>(&result)) {
+            cutoff_failure = *failure;
+            break;
+        }
+        expect(std::holds_alternative<LowOrderCaptureBlockPublished>(result),
+               "nonconverged operating capture completed instead of failing");
+    }
+
+    const auto cutoff_frame =
+        resolve_frame_index(kOperatingCutoffTimeS, request.scenario.rates.physics);
+    expect(cutoff_frame == 2200U &&
+               cutoff_failure.kind == FailureKind::preparation_not_converged &&
+               cutoff_failure.detail_code == kPreparationNotConvergedDetailCode &&
+               cutoff_failure.step_end_index == *cutoff_frame &&
+               callback_count == 10U && capture.published_block_count() == 10U &&
+               capture.published_sample_count() == 2000U && capture.faulted() &&
+               !capture.completed(),
+           "nonconvergence published the 200-frame block containing the fixed "
+           "preparation cutoff");
 }
 
 void test_consumer_rejection_is_a_stable_terminal_fault() {
@@ -981,6 +1155,9 @@ void test_capture_partition_admission_rejection() {
 
 void run_tests() {
     test_short_bmw_capture_mapping_and_completion();
+    test_operating_capture_publishes_request_bound_completion_evidence();
+    test_operating_capture_rejects_zero_request_identity();
+    test_operating_nonconvergence_does_not_publish_cutoff_block();
     test_declared_capture_capacity_drives_publication();
     test_consumer_rejection_is_a_stable_terminal_fault();
     test_consumer_exception_is_a_stable_terminal_fault();

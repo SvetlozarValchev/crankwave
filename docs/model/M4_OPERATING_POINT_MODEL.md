@@ -121,7 +121,8 @@ implementations. Exact BMW profile validation admits the two engine-owned
 cycle-accounting identities, while scenario and held-result validation admit the
 scenario-owned convergence identity. Each comparison includes ID, version, and
 configuration digest, not merely ID and version. The bounded convergence observer is
-implemented and pinned; its composition into the held-speed executor remains pending.
+composed into the held-speed executor as the operating policy of the sole low-order
+capture session.
 
 For the first BMW profile, the binary64 values are exact:
 
@@ -204,9 +205,13 @@ policy and is not duplicated in the engine profile.
 
 This variant was added to the executable-profile union atomically with its authored
 and resolved validation, method policy, topology/root mapping, randomness access,
-final manifest wire, and request-identity wire. Until an operating capture producer
-exists, presentation-job compilation rejects this profile before execution. There is
-never an admitted-but-silently-treated-as-M3 fallback.
+final manifest wire, and request-identity wire. The sole low-order capture session
+selects exactly one profile policy: the M3 fixed-crank accountant or this M4
+complete-cycle/convergence runtime. Both consume the same transactional core step
+inside the same block loop; neither policy can instantiate, evaluate, or fall back to
+the other. A cutoff failure terminalizes the session before the containing capture
+block reaches its consumer. Successful M4 completion alone retains the request-bound
+typed held-speed result.
 
 The canonical BMW factory now constructs this profile directly from the reusable
 low-order core under a fresh operating provenance root. Its exact validator pins the
