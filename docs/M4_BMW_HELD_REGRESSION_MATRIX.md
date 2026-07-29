@@ -1,7 +1,10 @@
 # M4 BMW held operating-regression matrix
 
-Status: implemented as the sole held-listening surface; clean-commit execution,
-four-clip publication, and user listening acceptance remain open
+Status: implemented as the sole held-listening surface; four clips published from a
+clean commit; user listening acceptance remains open
+
+Execution paths, identities, operating results, timings, and hashes are recorded in
+[`M4_BMW_HELD_REGRESSION_LISTENING_GATE.md`](M4_BMW_HELD_REGRESSION_LISTENING_GATE.md).
 
 This gate replaces the single BMW held listening request with one small, exact
 RPM/throttle cross. It broadens the audible operating regression set without adding a
