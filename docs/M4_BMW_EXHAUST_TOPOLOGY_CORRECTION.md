@@ -271,6 +271,9 @@ Therefore:
 2. The only fidelity work allowed to build on this checkpoint before listening is the
    first bounded M5 exhaust transfer/radiation slice needed to give the corrected
    front/rear routes physically justified distinction and RPM-tracking character.
+   This allowed an isolated candidate behind the accepted path. It did not authorize
+   replacing valve/source semantics, conditioning, and IR together or deleting the
+   accepted renderer before listening.
 3. That slice must preserve regular six-cylinder firing and may not use static route
    imbalance as a timbre control.
 4. As soon as one complete candidate can produce idle-region, held-load, and natural

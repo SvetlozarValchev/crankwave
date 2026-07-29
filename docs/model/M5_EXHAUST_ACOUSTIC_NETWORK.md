@@ -2,7 +2,11 @@
 
 Status: **prescribed-flow linear acoustic concept rejected; recovery required**
 
-Decision owner: user
+Listening decision owner: user
+
+Architecture author: agent. The user approved continuing the bounded M5
+investigation, but the wholesale source/conditioning/IR replacement and pre-acceptance
+production cutover were not separately presented for explicit approval.
 
 Frozen: 2026-07-29 after the accepted M4 BMW operating-point work and the rejected
 equal-route listening diagnostic
@@ -511,6 +515,24 @@ pressure-source character and it does not solve the coupled nonlinear cylinder,
 valve, mean-flow, and duct dynamics that would make this a defensible physical
 replacement. Higher-rate kinematics or a validity low-pass would make the same
 synthetic concept numerically cleaner, not turn it into an engine.
+
+The associated process failure was treating a mathematically complete acoustic
+network as one audible hypothesis. In fact the attempt simultaneously changed:
+
+- valve/port source semantics from primary pressure to total valve volume flow;
+- excitation mapping and source impedance;
+- route grouping and gain;
+- resampling and bandwidth;
+- pipe, junction, and boundary transfer;
+- radiation/presentation; and
+- the generic IR, jitter, and air-noise conditioning.
+
+The small implementation commits made those equations reviewable but did not make the
+audible experiment incremental. No playable candidate existed until all changes were
+combined. Commit `33b3ad8` then removed the accepted renderer before user acceptance,
+misapplying the greenfield/no-compatibility requirement. A greenfield product may have
+one current implementation, but the candidate must first pass the plan's temporary
+A/B listening gate.
 
 The corrective gate above is superseded. Recovery now requires:
 

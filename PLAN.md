@@ -621,11 +621,25 @@ outlet radiation derivative emphasizes them. Equal, delayed-near-duplicate outle
 routes also make the remaining firing cadence unnaturally repetitive. M6 is blocked
 until the isolated M5 source/acoustic replacement is redesigned and accepted by ear.
 
+The first attempt also violated this plan's isolation procedure. It classified valve
+flow, excitation, runner/pipe waves, junction/boundary losses, outlet radiation, and
+presentation as one "exhaust subsystem," even though the hypothesis list below names
+them as separate seams. Commit `33b3ad8` then removed the accepted pressure-source,
+conditioning, and IR path before the replacement had passed listening. That inverted
+the hard rule at lines 245--246: superseded code is removed after acceptance, not
+before it. General approval to continue M5 was not explicit approval for this
+wholesale cutover.
+
 For each hypothesis:
 
-- [x] Document one deficiency, established replacement, expected result, and cost.
-- [x] Replace one subsystem behind an existing physical seam.
-- [x] Run focused invariant/convergence checks.
+- [ ] Document one deficiency, established replacement, expected result, and cost.
+      The first attempt documented an experimental bundle, not an established
+      replacement.
+- [ ] Replace one subsystem behind an existing physical seam. The first attempt
+      replaced several separately listed seams together.
+- [ ] Run focused invariant/convergence checks. Structural unit invariants passed, but
+      the source-rate and admitted-bandwidth assumptions did not converge to physical
+      behavior.
 - [x] Render the canonical pull and every affected regression clip against the previous
       accepted commit.
 - [x] Stop for user listening.
