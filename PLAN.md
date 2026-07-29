@@ -507,7 +507,7 @@ replacement starts before acceptance.
         the six admitted method identities the complete algorithm authority.
   - [x] Seal executable plan and manifest basis into one opaque job, then connect its
         sole terminal path to atomic sink publication.
-- [ ] Add the held-speed brake dyno.
+- [x] Add the held-speed brake dyno.
   - [x] Implement fixture-free, indexed four-stroke torque-angle quadrature without
         claiming that arbitrary supplied terms are complete net torque.
   - [x] Add the resolved accessory condition and a separate M4 BMW operating profile
@@ -522,14 +522,14 @@ replacement starts before acceptance.
     - [x] Instantiate and prove the BMW M4 operating profile.
   - [x] Generalize the kinematic schedule for O(1)-storage held-speed operation while
         preserving the accepted M3 trajectory exactly.
-  - [ ] Admit and prove phase-aligned pressure plus cycle-torque convergence.
+  - [x] Admit and prove phase-aligned pressure plus cycle-torque convergence.
     - [x] Freeze a stochastic block-mean convergence method that reuses the exact
           cycle-boundary evidence rather than running a second angle detector.
     - [x] Implement and independently test the bounded convergence observer and
           complete-cycle operating accountant primitives.
     - [x] Implement and verify the frozen convergence method in the held-speed
           executor.
-  - [ ] Publish a typed held-speed operating-point result and prove M3 remains
+  - [x] Publish a typed held-speed operating-point result and prove M3 remains
         rejected for held-speed use.
 - [ ] Render a modest BMW torque sweep with declared conditions and sourced plausibility
       bounds.
@@ -554,6 +554,11 @@ already accepted exhaust presentation. They are not yet the complete
 production-listenable source set: that claim remains gated by user-accepted M5
 fidelity work and the applicable exhaust, intake, mechanical, raw-master, and
 audition-master requirements in M6.
+
+The user accepted the first canonical held-speed listening point on 2026-07-29.
+That gate is recorded in [`docs/M4_BMW_HELD_SPEED_LISTENING_GATE.md`](docs/M4_BMW_HELD_SPEED_LISTENING_GATE.md).
+The next requested listening artifact is the M4 inertial-dyno climb; it must be driven
+by simulated shaft dynamics rather than relabelling the accepted M3 prescribed sweep.
 
 ### M5 — Isolated offline-fidelity upgrades
 
