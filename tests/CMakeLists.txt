@@ -1296,7 +1296,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         PRIVATE
             engine_sim_offline::profiles
             engine_sim_offline::render
-            engine_sim_offline::presentation
+            engine_sim_offline_bmw_p18_render_specification
             engine_sim_offline_reference_parity_v1_reader
             engine_sim_offline_p18_reference_catalog
             engine_sim_offline_p18_reference_fixture

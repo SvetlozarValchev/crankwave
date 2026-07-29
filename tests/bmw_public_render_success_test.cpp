@@ -3,7 +3,7 @@
 #include "engine_sim_offline/render.hpp"
 #include "engine_sim_offline/request_identity.hpp"
 
-#include "presentation/presentation_method_registry.hpp"
+#include "reference/bmw_p18_render_specification.hpp"
 #include "reference/p18_reference_catalog.hpp"
 #include "reference/p18_reference_fixture_loader.hpp"
 #include "reference/reference_parity_v1_reader.hpp"
@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <array>
-#include <bit>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -34,9 +33,6 @@ namespace {
 
 using namespace engine_sim_offline;
 using namespace engine_sim_offline::reference;
-
-constexpr std::string_view kCombinedProvenanceDigestGrammar =
-    "engine-sim-offline.bmw-public-render-provenance-ledger-digest.v1";
 
 struct PublicAudioGolden {
     P18ReferenceAudioArtifact artifact = P18ReferenceAudioArtifact::exhaust_0_dry;
@@ -180,85 +176,6 @@ make_public_request(const std::filesystem::path &fixture_root,
     return std::move(*request);
 }
 
-[[nodiscard]] double binary64(P18ExpectedBinary64 expected) noexcept {
-    return std::bit_cast<double>(expected.expected_ieee754_bits);
-}
-
-class CombinedProvenanceBuilder {
-  public:
-    CombinedProvenanceBuilder(contract::ProvenanceLedger public_request_provenance,
-                              const P18ReferenceCatalogV1 &catalog,
-                              const contract::Sha256Digest &configured_ir_sha256)
-        : provenance_(std::move(public_request_provenance)) {
-        provenance_.bundle.id = "bmw-m52b28-public-render-provenance-v1";
-        provenance_.evidence.push_back({
-            "p18-presentation-renderer-record",
-            "reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md",
-            std::string{"repository content"},
-            lineage_digest(catalog, P18ReferenceLineageFile::renderer_algorithm_record),
-            contract::RightsDisposition::local_evaluation_only,
-        });
-        provenance_.evidence.push_back({
-            "smooth-39-ir",
-            "reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav",
-            std::string{"repository content"},
-            configured_ir_sha256,
-            contract::RightsDisposition::local_evaluation_only,
-        });
-        provenance_.claims.push_back({
-            "bmw-m52b28-public-render-presentation-claim",
-            contract::ProvenanceOrigin::reference_fixture,
-            {
-                {
-                    "p18-presentation-renderer-record",
-                    "complete file: frozen presentation calibration and methods",
-                },
-                {
-                    "smooth-39-ir",
-                    "complete file: configured static impulse response",
-                },
-            },
-            std::nullopt,
-        });
-    }
-
-    template <class Value>
-    [[nodiscard]] contract::ResolvedValue<Value> resolved(Value value,
-                                                          std::string parameter_path) {
-        auto id =
-            "bmw-m52b28-public-render-resolution-" + std::to_string(next_resolution_++);
-        provenance_.resolutions.push_back({
-            id,
-            std::move(parameter_path),
-            contract::ResolutionMode::authored,
-            "bmw-m52b28-public-render-presentation-claim",
-            std::nullopt,
-            {},
-        });
-        return {std::move(value), std::move(id)};
-    }
-
-    [[nodiscard]] contract::ProvenanceLedger finish() && {
-        provenance_.bundle.sha256 = contract::canonical_provenance_ledger_digest(
-            provenance_, kCombinedProvenanceDigestGrammar);
-        return std::move(provenance_);
-    }
-
-  private:
-    [[nodiscard]] static contract::Sha256Digest
-    lineage_digest(const P18ReferenceCatalogV1 &catalog, P18ReferenceLineageFile file) {
-        const auto found = std::ranges::find(catalog.expected_lineage_files, file,
-                                             &P18ExpectedLineageFile::file);
-        if (found == catalog.expected_lineage_files.end()) {
-            throw std::logic_error{"P1.8 lineage catalog is incomplete"};
-        }
-        return found->expected_sha256;
-    }
-
-    contract::ProvenanceLedger provenance_;
-    std::uint32_t next_resolution_ = 1;
-};
-
 [[nodiscard]] const P18ExpectedRoute &
 expected_route(const P18ReferenceCatalogV1 &catalog, P18ReferenceRoute route) {
     const auto found =
@@ -267,135 +184,6 @@ expected_route(const P18ReferenceCatalogV1 &catalog, P18ReferenceRoute route) {
         throw std::logic_error{"P1.8 route catalog is incomplete"};
     }
     return *found;
-}
-
-[[nodiscard]] contract::PresentationCalibration make_presentation(
-    CombinedProvenanceBuilder &builder, const contract::EngineSpec &engine,
-    std::string_view provenance_schema_id, const P18ReferenceCatalogV1 &catalog,
-    const contract::Sha256Digest &configured_ir_sha256) {
-    const auto &policy = catalog.expected_presentation;
-    const auto &media = policy.expected_configured_ir_media;
-    const auto &scalars = policy.expected_scalars;
-    const auto &methods = presentation::implemented_presentation_method_identities();
-
-    contract::PresentationCalibration result;
-    result.schema_version = 2;
-    result.calibration_id = std::string{catalog.expected_presentation_calibration_id};
-    result.engine_profile_id =
-        builder.resolved(engine.profile_id.value, "presentation.engine_profile_id");
-    result.methods = {
-        builder.resolved(methods.reconstruction, "presentation.methods.reconstruction"),
-        builder.resolved(methods.conditioning, "presentation.methods.conditioning"),
-        builder.resolved(methods.impulse_response_conversion,
-                         "presentation.methods.impulse_response_conversion"),
-        builder.resolved(methods.convolution, "presentation.methods.convolution"),
-        builder.resolved(methods.publication, "presentation.methods.publication"),
-        builder.resolved(methods.audition_mix, "presentation.methods.audition_mix"),
-    };
-    result.conditioning = {
-        builder.resolved(binary64(scalars.expected_jitter_scale),
-                         "presentation.conditioning.jitter_scale"),
-        builder.resolved(binary64(scalars.expected_jitter_modulation_cutoff_hz),
-                         "presentation.conditioning.jitter_modulation_cutoff_hz"),
-        builder.resolved(binary64(scalars.expected_derivative_mix_01),
-                         "presentation.conditioning.derivative_mix_01"),
-        builder.resolved(binary64(scalars.expected_air_noise_mix_01),
-                         "presentation.conditioning.air_noise_mix_01"),
-        builder.resolved(binary64(scalars.expected_air_noise_cutoff_hz),
-                         "presentation.conditioning.air_noise_cutoff_hz"),
-    };
-    result.assets.push_back({
-        media.expected_asset_id,
-        builder.resolved(std::string{media.expected_semantic_id},
-                         "presentation.assets.smooth-39.semantic_id"),
-        builder.resolved(std::string{media.expected_evidence_source_id},
-                         "presentation.assets.smooth-39.evidence_source_id"),
-        builder.resolved(configured_ir_sha256,
-                         "presentation.assets.smooth-39.content_sha256"),
-        builder.resolved(
-            contract::AudioMediaContract{
-                media.expected_encoding,
-                media.expected_channel_layout,
-                media.expected_sample_rate,
-                media.expected_frame_count,
-            },
-            "presentation.assets.smooth-39.media"),
-    });
-    for (const auto &route : catalog.expected_routes) {
-        const auto prefix =
-            "presentation.routes." + std::string{route.expected_semantic_id};
-        result.routes.push_back({
-            route.expected_route_id,
-            media.expected_asset_id,
-            builder.resolved(binary64(scalars.expected_impulse_response_gain_linear),
-                             prefix + ".impulse_response_gain_linear"),
-            builder.resolved(binary64(scalars.expected_wet_mix_01),
-                             prefix + ".wet_mix_01"),
-        });
-    }
-    result.publication.calibration_gain_linear =
-        builder.resolved(binary64(scalars.expected_publication_calibration_gain_linear),
-                         "presentation.publication.calibration_gain_linear");
-    result.audition = {
-        builder.resolved(
-            std::vector<contract::RouteId>{
-                expected_route(catalog, policy.expected_audition_route_order[0])
-                    .expected_route_id,
-                expected_route(catalog, policy.expected_audition_route_order[1])
-                    .expected_route_id,
-            },
-            "presentation.audition.selected_routes"),
-        builder.resolved(binary64(scalars.expected_audition_monitoring_gain_linear),
-                         "presentation.audition.monitoring_gain_linear"),
-        builder.resolved(binary64(scalars.expected_audition_fade_in_duration_s),
-                         "presentation.audition.fade_in_duration_s"),
-        builder.resolved(binary64(scalars.expected_audition_fade_out_duration_s),
-                         "presentation.audition.fade_out_duration_s"),
-    };
-    result.provenance_schema_id = provenance_schema_id;
-    return result;
-}
-
-[[nodiscard]] contract::ResolvedRandomnessPolicy
-make_randomness(CombinedProvenanceBuilder &builder) {
-    return {
-        builder.resolved(std::string{"baked.loaded_acceleration"},
-                         "randomness.seed_namespace_id"),
-        builder.resolved(contract::pcg32_generator_method_identity(),
-                         "randomness.generator"),
-        builder.resolved(contract::component_seed_derivation_method_identity(),
-                         "randomness.derivation"),
-    };
-}
-
-template <class Request>
-[[nodiscard]] RenderSpecification
-make_specification(const Request &request, const P18ReferenceCatalogV1 &catalog,
-                   std::vector<std::byte> configured_ir_bytes) {
-    const auto configured_ir_sha256 = contract::sha256(configured_ir_bytes);
-    CombinedProvenanceBuilder builder{
-        request.provenance,
-        catalog,
-        configured_ir_sha256,
-    };
-    auto presentation =
-        make_presentation(builder, request.engine, request.provenance.schema_id,
-                          catalog, configured_ir_sha256);
-    auto randomness = make_randomness(builder);
-    return {
-        request.engine,
-        std::move(presentation),
-        std::move(randomness),
-        std::move(builder).finish(),
-        contract::bmw_m52b28_reference_source_matrix_v1(),
-        {
-            {
-                catalog.expected_presentation.expected_configured_ir_media
-                    .expected_asset_id,
-                std::move(configured_ir_bytes),
-            },
-        },
-    };
 }
 
 [[nodiscard]] RenderSinkStatus sink_protocol_error(std::string message) {
@@ -870,7 +658,6 @@ void expect_legacy_held_speed_rejected(const RenderSpecification &specification,
 }
 
 void expect_operating_render_contract(
-    const P18ReferenceCatalogV1 &catalog,
     const std::vector<std::byte> &configured_ir_bytes) {
     auto request_result = profiles::make_bmw_m52b28_held_speed_listening_request();
     const auto *request =
@@ -882,7 +669,8 @@ void expect_operating_render_contract(
     }
     expect_valid(profiles::validate_bmw_m52b28_held_speed_listening_request(*request),
                  "canonical BMW held-speed listening request validation failed");
-    auto specification = make_specification(*request, catalog, configured_ir_bytes);
+    auto specification = reference::make_bmw_p18_render_specification(
+        request->engine, request->provenance, configured_ir_bytes);
     expect_valid(contract::validate_render_admission(
                      specification.engine, specification.presentation,
                      specification.randomness, request->scenario,
@@ -979,7 +767,8 @@ void run(const std::filesystem::path &fixture_root,
     expect(contract::sha256(ir_bytes) == verified_ir_sha256,
            "configured-IR payload changed after verified fixture preflight");
 
-    auto specification = make_specification(request, catalog, std::move(ir_bytes));
+    auto specification = reference::make_bmw_p18_render_specification(
+        request.engine, request.provenance, std::move(ir_bytes));
     expect(specification.engine == request.engine &&
                specification.asset_payloads.size() == 1 &&
                specification.asset_payloads.front().bytes.size() ==
@@ -1027,8 +816,7 @@ void run(const std::filesystem::path &fixture_root,
             ->expected_byte_count);
     expect_exact_audio(sink, oracle_wave_bytes, specification, request.scenario,
                        catalog);
-    expect_operating_render_contract(catalog,
-                                     specification.asset_payloads.front().bytes);
+    expect_operating_render_contract(specification.asset_payloads.front().bytes);
 
     const auto elapsed =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - started);
