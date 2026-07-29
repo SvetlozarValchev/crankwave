@@ -176,7 +176,7 @@ void test_exact_profile_authorities(
            "canonical BMW operating identity changed");
 
     constexpr std::string_view kExpectedBundleSha256 =
-        "bb562ba16501e540a23b53d54aa1caa23af9c4e53d468d8011409cdcc258c2fd";
+        "42c1f2121315e166f1eb65807cc6140a62f8a4892cf74a532894a94c5091e5e9";
     const auto actual_bundle_sha256 = digest_hex(profile.provenance.bundle.sha256);
     if (actual_bundle_sha256 != kExpectedBundleSha256) {
         std::cerr << "BMW operating profile provenance SHA-256: "
@@ -265,7 +265,7 @@ void test_exact_profile_authorities(
            "admitted M3 method authority is not its truthful frozen record");
 
     expect(digest_hex(digest_from_evidence(profile, "m5-exhaust-acoustic-network")) ==
-               "74645a085c7b563a891d32348f5abca9d921e168ebe94c341c2fb93de09e0121",
+               "1c2e314846d8f86144e7ae7018a4adaab469fe5fe8ccdfe04d57ae73bcbc31ac",
            "M5 exhaust acoustic authority is not its frozen record");
 
     constexpr std::array<std::string_view, 3> kLocalEvaluationEvidence{
@@ -400,7 +400,7 @@ void test_exact_m5_exhaust_acoustic_assembly(
             methods[index]->value.id == kMethodIds[index] &&
                 methods[index]->value.version == 1 &&
                 digest_hex(methods[index]->value.configuration_sha256) ==
-                    "74645a085c7b563a891d32348f5abca9d921e168ebe94c341c2fb93de09e0121",
+                    "1c2e314846d8f86144e7ae7018a4adaab469fe5fe8ccdfe04d57ae73bcbc31ac",
             "canonical BMW M5 acoustic method identity changed");
     }
 

@@ -27,7 +27,7 @@ constexpr std::string_view kModelRecordSha256 =
 constexpr std::string_view kRequestRecordSha256 =
     "c64ab8b9c2f8c78a151222d889865269be19cc521e6852c46ddf3450869e75e4";
 constexpr std::string_view kM5ExhaustAcousticNetworkSha256 =
-    "74645a085c7b563a891d32348f5abca9d921e168ebe94c341c2fb93de09e0121";
+    "1c2e314846d8f86144e7ae7018a4adaab469fe5fe8ccdfe04d57ae73bcbc31ac";
 
 constexpr std::string_view kLegacyAssetClaimId = "bmw-m52b28-legacy-asset-claim";
 constexpr std::string_view kReferenceFixtureClaimId =

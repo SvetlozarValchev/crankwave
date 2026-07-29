@@ -44,8 +44,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.85,
             47U,
             78U,
-            "c8e57eaac36b27fc3c4ee8451bcd5bb73e8c8bb1c22adbabd854cffdd0e4c5c3",
-            "d69a6669824fd0809b8db38367631ee1d780ea92c4700be9e8b5289a84d94f88",
+            "f348df29a34ed379c806950bd23fda7681b66543174f21083f08e1cc1227083b",
+            "3d7e1114d188ee908020f68f9d2bcb306f1050dfd454d55301dad9ac6cc086ca",
         },
         {
             "rpm3000-throttle0p25",
@@ -54,8 +54,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.25,
             127U,
             158U,
-            "a46e49d5994b42b4665418d6f57474f8eda37587719e95c9c1e28752fce7bc7a",
-            "d69a6669824fd0809b8db38367631ee1d780ea92c4700be9e8b5289a84d94f88",
+            "39284c68c8cbc743bef888595f9fa483e4a678e2ecbfeb7fd2ccfafa03384281",
+            "3d7e1114d188ee908020f68f9d2bcb306f1050dfd454d55301dad9ac6cc086ca",
         },
         {
             "rpm3000-throttle0p85",
@@ -64,8 +64,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.85,
             127U,
             158U,
-            "30d0efec3cb6e48cff9e9c762a030be184e1d18d60cf854f215e33407aa20a0d",
-            "d69a6669824fd0809b8db38367631ee1d780ea92c4700be9e8b5289a84d94f88",
+            "4c9a113150462726e38744aed793a6177c1dff4fc48aa200d45c295406c736fc",
+            "3d7e1114d188ee908020f68f9d2bcb306f1050dfd454d55301dad9ac6cc086ca",
         },
         {
             "rpm6500-throttle0p85",
@@ -74,8 +74,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.85,
             315U,
             346U,
-            "aae8da21837e9fdd9fc1b08e8e0a2f7177b799fdfa567423b55bbd4ee1394b45",
-            "d69a6669824fd0809b8db38367631ee1d780ea92c4700be9e8b5289a84d94f88",
+            "0878c167a1c632049dcf369ecc939ee218eef14f6c85af00724c5294ecff7a18",
+            "3d7e1114d188ee908020f68f9d2bcb306f1050dfd454d55301dad9ac6cc086ca",
         },
     }};
 

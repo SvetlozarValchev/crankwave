@@ -44,8 +44,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldIdleLowLoadPointCoun
             0.0,
             UINT64_C(42),
             UINT64_C(73),
-            "670d07bdecf197e90dc48c920ea2758d14bd719b4ce70c2598f254a76d5392f6",
-            "d69a6669824fd0809b8db38367631ee1d780ea92c4700be9e8b5289a84d94f88",
+            "df70159bfca1a16636a14c755f06cf97041e357607cdb9b6a267a834d17dad83",
+            "3d7e1114d188ee908020f68f9d2bcb306f1050dfd454d55301dad9ac6cc086ca",
         },
         {
             "rpm1500-throttle0p10",
@@ -54,8 +54,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldIdleLowLoadPointCoun
             0.10,
             UINT64_C(127),
             UINT64_C(158),
-            "97b064912d987125062e9730787eac82a8674e37a988103614d8c3de4ab3b14f",
-            "d69a6669824fd0809b8db38367631ee1d780ea92c4700be9e8b5289a84d94f88",
+            "abb7397db0932bec26b42b1092f93e077a3b653b69b9d2966489ef6134ab1043",
+            "3d7e1114d188ee908020f68f9d2bcb306f1050dfd454d55301dad9ac6cc086ca",
         },
     }};
 
