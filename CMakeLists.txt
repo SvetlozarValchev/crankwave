@@ -564,6 +564,34 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
         engine_sim_offline_p18_reference_fixture
     )
 
+    add_library(
+        engine_sim_offline_m4_bmw_torque_sweep_evidence
+        STATIC
+            src/reference/bmw_m52b28_torque_sweep_evidence.cpp
+            src/reference/bmw_m52b28_torque_sweep_evidence_encoder.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_m4_bmw_torque_sweep_evidence
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_m4_bmw_torque_sweep_evidence
+        PUBLIC
+            engine_sim_offline::contract
+            engine_sim_offline::build_options
+        PRIVATE
+            engine_sim_offline::profiles
+            engine_sim_offline::request_identity
+            engine_sim_offline::simulation
+            engine_sim_offline_renderer_determinism
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_m4_bmw_torque_sweep_evidence
+    )
+
 endif()
 
 if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS AND
@@ -606,6 +634,43 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS AND
     )
     engine_sim_offline_finalize_renderer_numeric_policy(
         engine_sim_offline_m4_bmw_listening
+    )
+
+    add_executable(
+        engine_sim_offline_m4_bmw_torque_sweep
+        src/reference/m4_bmw_torque_sweep_main.cpp
+    )
+
+    set_target_properties(
+        engine_sim_offline_m4_bmw_torque_sweep
+        PROPERTIES OUTPUT_NAME engine-sim-offline-m4-bmw-torque-sweep
+    )
+
+    target_include_directories(
+        engine_sim_offline_m4_bmw_torque_sweep
+        PRIVATE
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_options(
+        engine_sim_offline_m4_bmw_torque_sweep
+        PRIVATE LINKER:--no-as-needed
+    )
+
+    target_link_libraries(
+        engine_sim_offline_m4_bmw_torque_sweep
+        PRIVATE
+            engine_sim_offline::artifacts
+            engine_sim_offline::profiles
+            engine_sim_offline_m4_bmw_torque_sweep_evidence
+            engine_sim_offline_renderer_determinism
+            m
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_m4_bmw_torque_sweep
+    )
+    engine_sim_offline_finalize_renderer_numeric_policy(
+        engine_sim_offline_m4_bmw_torque_sweep
     )
 endif()
 
@@ -670,6 +735,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
         engine_sim_offline_p18_reference_catalog
         engine_sim_offline_bmw_p18_render_specification
         engine_sim_offline_p18_reference_fixture
+        engine_sim_offline_m4_bmw_torque_sweep_evidence
     )
 endif()
 if(TARGET engine_sim_offline_m4_bmw_listening)
@@ -679,12 +745,24 @@ if(TARGET engine_sim_offline_m4_bmw_listening)
         engine_sim_offline_m4_bmw_listening
     )
 endif()
+if(TARGET engine_sim_offline_m4_bmw_torque_sweep)
+    list(
+        APPEND
+        _engine_sim_offline_numeric_policy_targets
+        engine_sim_offline_m4_bmw_torque_sweep
+    )
+endif()
 foreach(_target IN LISTS _engine_sim_offline_numeric_policy_targets)
     engine_sim_offline_assert_renderer_numeric_policy("${_target}")
 endforeach()
 if(TARGET engine_sim_offline_m4_bmw_listening)
     engine_sim_offline_assert_final_renderer_numeric_policy(
         engine_sim_offline_m4_bmw_listening
+    )
+endif()
+if(TARGET engine_sim_offline_m4_bmw_torque_sweep)
+    engine_sim_offline_assert_final_renderer_numeric_policy(
+        engine_sim_offline_m4_bmw_torque_sweep
     )
 endif()
 unset(_engine_sim_offline_numeric_policy_targets)

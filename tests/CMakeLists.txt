@@ -1240,6 +1240,30 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_bmw_m52b28_torque_sweep_evidence_tests
+    bmw_m52b28_torque_sweep_evidence_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_bmw_m52b28_torque_sweep_evidence_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_bmw_m52b28_torque_sweep_evidence_tests
+    PRIVATE engine_sim_offline_m4_bmw_torque_sweep_evidence
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_bmw_m52b28_torque_sweep_evidence_tests
+)
+
+add_test(
+    NAME reference.bmw_m52b28_torque_sweep_evidence
+    COMMAND engine_sim_offline_bmw_m52b28_torque_sweep_evidence_tests
+)
+
+add_executable(
     engine_sim_offline_bmw_m52b28_held_speed_listening_request_tests
     bmw_m52b28_held_speed_listening_request_test.cpp
 )

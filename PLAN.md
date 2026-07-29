@@ -540,7 +540,7 @@ replacement starts before acceptance.
     - [x] Freeze the exact sweep points, conditions, comparison rules, and evidence
           record before executing any point.
     - [x] Implement and verify the canonical sweep request set.
-    - [ ] Implement and verify the bounded runner and canonical evidence encoder.
+    - [x] Implement and verify the bounded runner and canonical evidence encoder.
     - [ ] Execute from a clean commit and publish the complete evidence record.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.
 - [x] Add the inertial dyno.
