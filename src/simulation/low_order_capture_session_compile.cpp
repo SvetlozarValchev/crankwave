@@ -51,16 +51,18 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     std::optional<LegacyFixedCrankTorqueAccountingPlan> legacy_torque_accounting;
     if (legacy_profile != nullptr) {
         require(report, sweep != nullptr, ContractIssueCode::unsupported_value,
-                "scenario.mode",
-                "fixed-crank capture requires a prescribed kinematic sweep");
+                "scenario.mode", "M3 capture requires a prescribed kinematic sweep");
     }
     if (legacy_profile != nullptr && sweep != nullptr) {
         require(report,
                 exact_m3_fixed_rate_rpm_method(sweep->trajectory.kinematic_resolution),
                 ContractIssueCode::unsupported_value,
                 "scenario.mode.trajectory.kinematic_resolution",
-                "fixed-crank capture requires its exact fixed-rate RPM method "
+                "M3 capture requires its exact fixed-rate RPM method "
                 "configuration");
+        if (!report.ok()) {
+            return report;
+        }
         auto accounting_result = compile_legacy_fixed_crank_torque_accounting(
             engine, legacy_profile->fixed_crank_loss);
         if (auto *accounting_report =
@@ -75,8 +77,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
                 scenario.rates.physics == contract::RationalRateHz{10000, 1} &&
                     scenario.rates.capture == contract::RationalRateHz{10000, 1},
                 ContractIssueCode::unsupported_value, "scenario.rates",
-                "fixed-crank capture requires exact 10000/1 Hz physics and "
-                "capture clocks");
+                "M3 capture requires exact 10000/1 Hz physics and capture clocks");
     }
     if (!report.ok()) {
         return report;
@@ -135,6 +136,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
         std::move(core_runtime),
         std::move(*profile_policy),
         std::move(capture),
+        scenario.rates.capture,
         capture_plan.capture_horizon_frames,
         engine.methods.gas_exchange.value.id,
         engine.profile_id.value,

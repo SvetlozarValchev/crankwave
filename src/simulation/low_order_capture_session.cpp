@@ -13,12 +13,12 @@ namespace engine_sim_offline::simulation {
 
 LowOrderCaptureSession::LowOrderCaptureSession(
     LowOrderEngineCoreV1Runtime core, ProfilePolicy profile_policy,
-    detail::LowOrderCaptureBuffer capture, std::uint64_t expected_samples,
-    std::string model_id, std::string profile_id, std::string scenario_id,
-    contract::EngineId engine_id)
+    detail::LowOrderCaptureBuffer capture, contract::RationalRateHz rate,
+    std::uint64_t expected_samples, std::string model_id, std::string profile_id,
+    std::string scenario_id, contract::EngineId engine_id)
     : core_(std::move(core)), profile_policy_(std::move(profile_policy)),
       capture_(std::make_unique<detail::LowOrderCaptureBuffer>(std::move(capture))),
-      expected_samples_(expected_samples), model_id_(std::move(model_id)),
+      rate_(rate), expected_samples_(expected_samples), model_id_(std::move(model_id)),
       profile_id_(std::move(profile_id)), scenario_id_(std::move(scenario_id)),
       engine_id_(engine_id) {}
 
@@ -45,7 +45,8 @@ LowOrderCaptureSession::fault(contract::FailureKind kind, std::string detail_cod
         profile_id_,
         sample_index,
         step_end_index,
-        static_cast<double>(step_end_index) / 10000.0,
+        static_cast<double>(step_end_index) * static_cast<double>(rate_.denominator) /
+            static_cast<double>(rate_.numerator),
         mechanics != nullptr ? mechanics->theta_unwrapped_rad : 0.0,
         engine_id_,
         std::nullopt,
@@ -155,8 +156,7 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
                     }
                     return fault(contract::FailureKind::numerical_failure,
                                  "legacy-fixed-crank-torque-accounting-failed",
-                                 "fixed-crank torque accountant produced no finite "
-                                 "telemetry",
+                                 "M3 torque accountant produced no finite telemetry",
                                  &mechanics);
                 } else {
                     auto evaluated = policy.advance(mechanics, gas);

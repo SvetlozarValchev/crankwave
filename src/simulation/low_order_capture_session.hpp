@@ -80,6 +80,7 @@ class LowOrderCaptureSession final {
     LowOrderCaptureSession(LowOrderEngineCoreV1Runtime core,
                            ProfilePolicy profile_policy,
                            detail::LowOrderCaptureBuffer capture,
+                           contract::RationalRateHz rate,
                            std::uint64_t expected_samples, std::string model_id,
                            std::string profile_id, std::string scenario_id,
                            contract::EngineId engine_id);
@@ -93,6 +94,7 @@ class LowOrderCaptureSession final {
     LowOrderEngineCoreV1Runtime core_;
     ProfilePolicy profile_policy_;
     std::unique_ptr<detail::LowOrderCaptureBuffer> capture_;
+    contract::RationalRateHz rate_;
     std::uint64_t expected_samples_ = 0;
     std::uint64_t published_sample_count_ = 0;
     std::uint64_t published_block_count_ = 0;
