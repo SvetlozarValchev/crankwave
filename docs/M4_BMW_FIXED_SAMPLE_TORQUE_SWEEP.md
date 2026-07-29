@@ -5,11 +5,11 @@ Recorded: 2026-07-29
 
 ## Outcome
 
-The first clean execution of the sole fixed-horizon production path completed all
-nine canonical BMW M52B28 full-throttle points. Every point retained the latest 32
-complete four-stroke cycles at the fixed `6.44 s` preparation horizon. The runner
-published one complete v2 evidence set; it did not retry, interpolate, extend a
-horizon, or use a superseded convergence path.
+The current clean execution of the sole fixed-horizon production path completed all
+nine canonical BMW M52B28 full-throttle points after the held-matrix model-authority
+update. Every point retained the latest 32 complete four-stroke cycles at the fixed
+`6.44 s` preparation horizon. The runner published one complete v2 evidence set; it
+did not retry, interpolate, extend a horizon, or use a superseded convergence path.
 
 | RPM | Net torque (N*m) | Mean power (kW) | Sample cycles |
 |---:|---:|---:|---:|
@@ -29,19 +29,19 @@ is a generic low-order Chen-Flynn model prediction, not a calibrated BMW torque 
 
 ## Clean execution identity
 
-- source commit: `7d47297e19e24c7d8de25d32d0618243e4be982f`
-- source tree: `394ac161d2c68d40ec9a9905fb5280ab40919e1d`
+- source commit: `071a086c0a079f3aa4e43de707b75551664b0cf2`
+- source tree: `d083e805c5762c0c927e3ac8cf5dd161464e7804`
 - branch: `clean-room/bmw-baseline`
 - build: Release, Clang `21.1.8`, target
   `engine_sim_offline_m4_bmw_torque_sweep`
 - command:
-  `build-m4-fixed-sampling-clang/engine-sim-offline-m4-bmw-torque-sweep artifacts/m4-fixed-horizon-7d47297-torque-sweep`
-- total simulated-job wall time reported by the evidence: `26.384 s`
-- per-point elapsed time: `2.903..3.009 s`; the evidence runner executes the nine
+  `build-m4-fixed-sampling-clang/engine-sim-offline-m4-bmw-torque-sweep artifacts/m4-fixed-horizon-071a086-torque-sweep`
+- total simulated-job wall time reported by the evidence: `25.983 s`
+- per-point elapsed time: `2.874..2.914 s`; the evidence runner executes the nine
   points sequentially
-- evidence file: `artifacts/m4-fixed-horizon-7d47297-torque-sweep/bmw-m52b28-m4-torque-sweep-v2.json`
+- evidence file: `artifacts/m4-fixed-horizon-071a086-torque-sweep/bmw-m52b28-m4-torque-sweep-v2.json`
 - evidence SHA-256:
-  `4063cf7bd7e752ed1fefd92fa0aac4c27ff176370861b79f1ba5eb16ddb3b8bb`
+  `42229dd7d05329dea7ffc6e0b61ac59b9556169078be6092f7a1a2771fb922b0`
 
 The output directory is a local ignored artifact. The evidence itself embeds the
 source commit, exact request-v3 digests, provenance digest, method identity, sample
