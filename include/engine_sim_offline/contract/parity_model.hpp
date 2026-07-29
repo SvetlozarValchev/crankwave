@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/contract/common.hpp"
+#include "engine_sim_offline/contract/exhaust_acoustics.hpp"
 #include "engine_sim_offline/contract/provenance.hpp"
 #include "engine_sim_offline/contract/torque.hpp"
 
@@ -620,6 +621,7 @@ struct AuthoredLowOrderOperatingPointV1Profile {
     AuthoredAccessoryConfigurationIdentityV1 accessory_configuration;
     AuthoredMechanicallyDisengagedStarterV1 starter;
     AuthoredValue<MethodSelection> cycle_quadrature;
+    AuthoredExhaustAcousticAssembly exhaust_acoustics;
 
     friend bool operator==(const AuthoredLowOrderOperatingPointV1Profile &,
                            const AuthoredLowOrderOperatingPointV1Profile &) = default;
@@ -631,6 +633,7 @@ struct LowOrderOperatingPointV1Profile {
     AccessoryConfigurationIdentityV1 accessory_configuration;
     MechanicallyDisengagedStarterV1 starter;
     ResolvedValue<MethodIdentity> cycle_quadrature;
+    ExhaustAcousticAssembly exhaust_acoustics;
 
     friend bool operator==(const LowOrderOperatingPointV1Profile &,
                            const LowOrderOperatingPointV1Profile &) = default;

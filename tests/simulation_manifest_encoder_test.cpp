@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdlib>
 #include <iostream>
@@ -29,9 +30,9 @@ constexpr std::string_view kExpectedM3ManifestSha256 =
 constexpr std::string_view kExpectedM3RequestIdentitySha256 =
     "1207d68feb48e8abc65d232229a36c698dfcd2dea79d253b3f1b6e185ee280b8";
 constexpr std::string_view kExpectedM4ManifestSha256 =
-    "8b605391ea8a668e228ce342bbd3ea4a46cb2c90fa565c00415d84362429150f";
+    "66a5b77ffd2099735aa4ae74eced3452bd20bbad3498d25650401670ccbe7999";
 constexpr std::string_view kExpectedM4RequestIdentitySha256 =
-    "25b828ba5daa2824cb0212828c67443c7b9bdba54f26d6a256451324fa61149e";
+    "e24bfc8470bc5f1dbb4c1970ad7a06f8170e50392b75acf3674ae4502341c541";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -333,37 +334,115 @@ void configure_synthetic_m4_wire_fixture(SimulationFixture &fixture) {
     const auto path = [kRoot](std::string_view suffix) {
         return std::string{kRoot} + "." + std::string{suffix};
     };
-    engine.physics_profile = LowOrderOperatingPointV1Profile{
-        std::move(legacy.core),
-        {
-            fixture.builder.resolved(1.25, path("aggregate_loss.constant_fmep_bar")),
-            fixture.builder.resolved(0.004,
-                                     path("aggregate_loss.peak_pressure_coefficient")),
-            fixture.builder.resolved(
-                0.03, path("aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m")),
-            fixture.builder.resolved(
-                0.002, path("aggregate_loss."
-                            "mean_piston_speed_squared_coefficient_bar_s2_per_m2")),
-            fixture.builder.resolved(370.0,
-                                     path("aggregate_loss.required_oil_temperature_k")),
-            fixture.builder.resolved(friction_pump_and_accessory_torque_term_mask(),
-                                     path("aggregate_loss.included_terms")),
-        },
-        {
-            fixture.builder.resolved(std::string{"encoder-accessory-configuration-v1"},
-                                     path("accessory_configuration.configuration_id")),
-            fixture.builder.resolved(digest(1),
-                                     path("accessory_configuration.content_sha256")),
-        },
-        {
-            fixture.builder.resolved(true, path("starter.mechanically_disengaged")),
-            fixture.builder.resolved(torque_term_mask(TorqueTerm::starter),
-                                     path("starter.included_terms")),
-        },
+    LowOrderOperatingPointV1Profile operating;
+    operating.core = std::move(legacy.core);
+    operating.aggregate_loss = {
+        fixture.builder.resolved(1.25, path("aggregate_loss.constant_fmep_bar")),
+        fixture.builder.resolved(0.004,
+                                 path("aggregate_loss.peak_pressure_coefficient")),
         fixture.builder.resolved(
-            method("four-stroke-piecewise-linear-cycle-quadrature-v1", 61),
-            path("cycle_quadrature")),
+            0.03, path("aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m")),
+        fixture.builder.resolved(
+            0.002, path("aggregate_loss."
+                        "mean_piston_speed_squared_coefficient_bar_s2_per_m2")),
+        fixture.builder.resolved(370.0,
+                                 path("aggregate_loss.required_oil_temperature_k")),
+        fixture.builder.resolved(friction_pump_and_accessory_torque_term_mask(),
+                                 path("aggregate_loss.included_terms")),
     };
+    operating.accessory_configuration = {
+        fixture.builder.resolved(std::string{"encoder-accessory-configuration-v1"},
+                                 path("accessory_configuration.configuration_id")),
+        fixture.builder.resolved(digest(1),
+                                 path("accessory_configuration.content_sha256")),
+    };
+    operating.starter = {
+        fixture.builder.resolved(true, path("starter.mechanically_disengaged")),
+        fixture.builder.resolved(torque_term_mask(TorqueTerm::starter),
+                                 path("starter.included_terms")),
+    };
+    operating.cycle_quadrature = fixture.builder.resolved(
+        method("four-stroke-piecewise-linear-cycle-quadrature-v1", 61),
+        path("cycle_quadrature"));
+    const auto acoustic_path = [&](std::string_view suffix) {
+        return path("exhaust_acoustics." + std::string{suffix});
+    };
+    const auto acoustic_method = [&](std::string id, std::uint8_t byte,
+                                     std::string_view role) {
+        return fixture.builder.resolved(method(std::move(id), byte),
+                                        acoustic_path("methods." + std::string{role}));
+    };
+    auto &acoustics = operating.exhaust_acoustics;
+    acoustics.assembly_id =
+        fixture.builder.resolved(std::string{"encoder-declared-test-cell-open-pipe"},
+                                 acoustic_path("assembly_id"));
+    acoustics.methods = {
+        acoustic_method("ideal-pseudo-gas-source-properties", 63, "source_properties"),
+        acoustic_method("causal-bandlimited-rational-resampling", 64, "reconstruction"),
+        acoustic_method("uniform-cylindrical-digital-waveguide", 65, "waveguide"),
+        acoustic_method("ideal-compact-pressure-junction", 66, "junction"),
+        acoustic_method("causal-unflanged-pipe-reflection", 67, "outlet_reflection"),
+        acoustic_method("compact-monopole-free-field-radiation", 68,
+                        "exterior_radiation"),
+    };
+    acoustics.source_interval_rate = fixture.builder.resolved(
+        RationalRateHz{80000, 1}, acoustic_path("source_interval_rate"));
+    acoustics.acoustic_rate = fixture.builder.resolved(RationalRateHz{192000, 1},
+                                                       acoustic_path("acoustic_rate"));
+    acoustics.universal_gas_constant_j_per_mol_k = fixture.builder.resolved(
+        8.31446261815324, acoustic_path("universal_gas_constant_j_per_mol_k"));
+    acoustics.source_molar_mass_kg_per_mol = fixture.builder.resolved(
+        0.02897, acoustic_path("source_molar_mass_kg_per_mol"));
+    acoustics.source_heat_capacity_ratio =
+        fixture.builder.resolved(1.4, acoustic_path("source_heat_capacity_ratio"));
+    acoustics.pa_per_full_scale =
+        fixture.builder.resolved(256.0, acoustic_path("pa_per_full_scale"));
+    acoustics.ducts = {
+        {
+            AcousticDuctId{1},
+            fixture.builder.resolved(std::string{"primary-1"},
+                                     acoustic_path("ducts.primary-1.semantic_id")),
+            fixture.builder.resolved(AcousticDuctKind::primary,
+                                     acoustic_path("ducts.primary-1.kind")),
+            fixture.builder.resolved(0.3, acoustic_path("ducts.primary-1.length_m")),
+            fixture.builder.resolved(0.042,
+                                     acoustic_path("ducts.primary-1.inner_diameter_m")),
+            fixture.builder.resolved(
+                800.0, acoustic_path("ducts.primary-1.reference_temperature_k")),
+            fixture.builder.resolved(
+                0.1, acoustic_path("ducts.primary-1.propagation_loss_np_per_m")),
+        },
+        {
+            AcousticDuctId{2},
+            fixture.builder.resolved(std::string{"downstream-1"},
+                                     acoustic_path("ducts.downstream-1.semantic_id")),
+            fixture.builder.resolved(AcousticDuctKind::downstream,
+                                     acoustic_path("ducts.downstream-1.kind")),
+            fixture.builder.resolved(1.5, acoustic_path("ducts.downstream-1.length_m")),
+            fixture.builder.resolved(
+                0.046, acoustic_path("ducts.downstream-1.inner_diameter_m")),
+            fixture.builder.resolved(
+                600.0, acoustic_path("ducts.downstream-1.reference_temperature_k")),
+            fixture.builder.resolved(
+                0.1, acoustic_path("ducts.downstream-1.propagation_loss_np_per_m")),
+        },
+    };
+    acoustics.primary_bindings = {
+        {CylinderId{1}, PortId{2}, AcousticDuctId{1}, AcousticJunctionId{1}}};
+    acoustics.junctions = {{
+        AcousticJunctionId{1},
+        fixture.builder.resolved(std::string{"junction-1"},
+                                 acoustic_path("junctions.junction-1.semantic_id")),
+        {AcousticDuctId{1}},
+        AcousticDuctId{2},
+    }};
+    acoustics.outlets = {{
+        RouteId{1},
+        AcousticDuctId{2},
+        fixture.builder.resolved(
+            1.0, acoustic_path("outlets.exhaust.outlet-1.observation_distance_m")),
+    }};
+    engine.physics_profile = std::move(operating);
     engine.methods.losses.value = method("chen-flynn-cycle-mean-aggregate-loss-v1", 62);
     engine.torque_capability.value = {
         {
@@ -423,16 +502,19 @@ void configure_synthetic_m4_wire_fixture(SimulationFixture &fixture) {
         manifest_document.find("\"accessory_configuration\":", aggregate_loss);
     const auto starter = manifest_document.find("\"starter\":", accessory);
     const auto quadrature = manifest_document.find("\"cycle_quadrature\":", starter);
+    const auto exhaust_acoustics =
+        manifest_document.find("\"exhaust_acoustics\":", quadrature);
     const auto torque_capability =
-        manifest_document.find("\"torque_capability\":", quadrature);
+        manifest_document.find("\"torque_capability\":", exhaust_acoustics);
     expect(profile != std::string::npos && core != std::string::npos &&
                aggregate_loss != std::string::npos && accessory != std::string::npos &&
                starter != std::string::npos && quadrature != std::string::npos &&
+               exhaust_acoustics != std::string::npos &&
                torque_capability != std::string::npos && profile < core &&
                core < aggregate_loss && aggregate_loss < accessory &&
                accessory < starter && starter < quadrature &&
-               quadrature < torque_capability,
-           "M4 profile tag or five-member direct wire order changed");
+               quadrature < exhaust_acoustics && exhaust_acoustics < torque_capability,
+           "operating profile tag or six-member direct wire order changed");
     const auto stale_fixed_loss =
         manifest_document.find("\"fixed_crank_loss\":", profile);
     expect(stale_fixed_loss == std::string::npos ||
@@ -448,8 +530,11 @@ void configure_synthetic_m4_wire_fixture(SimulationFixture &fixture) {
             manifest_document.find(
                 "\"cycle_quadrature\":{\"value\":{\"id\":"
                 "\"four-stroke-piecewise-linear-cycle-quadrature-v1\"",
-                starter) != std::string::npos,
-        "one or more direct M4 profile members were omitted or flattened");
+                starter) != std::string::npos &&
+            manifest_document.find("\"exhaust_acoustics\":{\"assembly_id\":{\"value\":"
+                                   "\"encoder-declared-test-cell-open-pipe\"",
+                                   quadrature) != std::string::npos,
+        "one or more direct operating profile members were omitted or flattened");
 
     constexpr std::string_view kSamplingPrefix =
         "\"preparation\":{\"kind\":\"fixed_horizon_cycle_sampling\",\"value\":{"
@@ -476,6 +561,18 @@ void configure_synthetic_m4_wire_fixture(SimulationFixture &fixture) {
            "identical M4 requests produced different identity encodings");
     expect(as_string(first_identity.bytes).find(kSamplingPrefix) != std::string::npos,
            "M4 request identity omitted the fixed-horizon sampling method");
+
+    auto changed_engine = resolved.engine;
+    auto &changed_acoustics =
+        std::get<LowOrderOperatingPointV1Profile>(changed_engine.physics_profile)
+            .exhaust_acoustics;
+    changed_acoustics.ducts.front().length_m.value =
+        std::nextafter(changed_acoustics.ducts.front().length_m.value, 1.0);
+    const auto changed_identity = require_request_identity_encoding(
+        changed_engine, resolved.scenario, fixture.manifest.content.provenance);
+    expect(changed_identity.sha256 != first_identity.sha256 &&
+               changed_identity.bytes != first_identity.bytes,
+           "exhaust acoustic assembly content did not refresh request identity");
 
     return {
         digest_hex(sha256(first_manifest)),

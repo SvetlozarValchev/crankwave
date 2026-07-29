@@ -259,6 +259,60 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_operating_profile() {
     };
     profile.cycle_quadrature = authored(
         MethodSelection{"four-stroke-piecewise-linear-cycle-quadrature-v1", 1});
+    const auto acoustic_method = [](std::string id) {
+        return authored(MethodSelection{std::move(id), 1});
+    };
+    profile.exhaust_acoustics.assembly_id =
+        authored(std::string{"declared-test-cell-open-pipe"});
+    profile.exhaust_acoustics.methods = {
+        acoustic_method("ideal-pseudo-gas-source-properties"),
+        acoustic_method("causal-bandlimited-rational-resampling"),
+        acoustic_method("uniform-cylindrical-digital-waveguide"),
+        acoustic_method("ideal-compact-pressure-junction"),
+        acoustic_method("causal-unflanged-pipe-reflection"),
+        acoustic_method("compact-monopole-free-field-radiation"),
+    };
+    profile.exhaust_acoustics.source_interval_rate = authored(RationalRateHz{80000, 1});
+    profile.exhaust_acoustics.acoustic_rate = authored(RationalRateHz{192000, 1});
+    profile.exhaust_acoustics.universal_gas_constant_j_per_mol_k =
+        authored(8.31446261815324);
+    profile.exhaust_acoustics.source_molar_mass_kg_per_mol = authored(0.02897);
+    profile.exhaust_acoustics.source_heat_capacity_ratio = authored(1.4);
+    profile.exhaust_acoustics.pa_per_full_scale = authored(256.0);
+    profile.exhaust_acoustics.ducts = {
+        {
+            authored(std::string{"primary-1"}),
+            authored(AcousticDuctKind::primary),
+            authored(0.3),
+            authored(0.042),
+            authored(800.0),
+            authored(0.1),
+        },
+        {
+            authored(std::string{"downstream-1"}),
+            authored(AcousticDuctKind::downstream),
+            authored(1.5),
+            authored(0.046),
+            authored(600.0),
+            authored(0.1),
+        },
+    };
+    profile.exhaust_acoustics.primary_bindings.push_back({
+        authored(std::string{"cylinder-1"}),
+        authored(std::string{"exhaust-port-1"}),
+        authored(std::string{"primary-1"}),
+        authored(std::string{"junction-1"}),
+    });
+    profile.exhaust_acoustics.junctions.push_back({
+        authored(std::string{"junction-1"}),
+        {authored(std::string{"primary-1"})},
+        authored(std::string{"downstream-1"}),
+    });
+    profile.exhaust_acoustics.outlets.push_back({
+        authored(std::string{"exhaust.outlet-1"}),
+        authored(std::string{"downstream-1"}),
+        authored(1.0),
+    });
     return profile;
 }
 
@@ -446,6 +500,82 @@ EngineSpec make_resolved_operating_engine(InputBuilder &builder) {
     profile.cycle_quadrature = builder.resolved(
         method("four-stroke-piecewise-linear-cycle-quadrature-v1", 82),
         path("cycle_quadrature"));
+    auto &acoustics = profile.exhaust_acoustics;
+    const auto acoustic_path = [&](std::string_view suffix) {
+        return path("exhaust_acoustics." + std::string{suffix});
+    };
+    const auto acoustic_method = [&](std::string id, std::uint8_t byte,
+                                     std::string_view role) {
+        return builder.resolved(method(std::move(id), byte),
+                                acoustic_path("methods." + std::string{role}));
+    };
+    acoustics.assembly_id = builder.resolved(
+        std::string{"declared-test-cell-open-pipe"}, acoustic_path("assembly_id"));
+    acoustics.methods = {
+        acoustic_method("ideal-pseudo-gas-source-properties", 91, "source_properties"),
+        acoustic_method("causal-bandlimited-rational-resampling", 92, "reconstruction"),
+        acoustic_method("uniform-cylindrical-digital-waveguide", 93, "waveguide"),
+        acoustic_method("ideal-compact-pressure-junction", 94, "junction"),
+        acoustic_method("causal-unflanged-pipe-reflection", 95, "outlet_reflection"),
+        acoustic_method("compact-monopole-free-field-radiation", 96,
+                        "exterior_radiation"),
+    };
+    acoustics.source_interval_rate = builder.resolved(
+        RationalRateHz{80000, 1}, acoustic_path("source_interval_rate"));
+    acoustics.acoustic_rate =
+        builder.resolved(RationalRateHz{192000, 1}, acoustic_path("acoustic_rate"));
+    acoustics.universal_gas_constant_j_per_mol_k = builder.resolved(
+        8.31446261815324, acoustic_path("universal_gas_constant_j_per_mol_k"));
+    acoustics.source_molar_mass_kg_per_mol =
+        builder.resolved(0.02897, acoustic_path("source_molar_mass_kg_per_mol"));
+    acoustics.source_heat_capacity_ratio =
+        builder.resolved(1.4, acoustic_path("source_heat_capacity_ratio"));
+    acoustics.pa_per_full_scale =
+        builder.resolved(256.0, acoustic_path("pa_per_full_scale"));
+    acoustics.ducts = {
+        {
+            AcousticDuctId{1},
+            builder.resolved(std::string{"primary-1"},
+                             acoustic_path("ducts.primary-1.semantic_id")),
+            builder.resolved(AcousticDuctKind::primary,
+                             acoustic_path("ducts.primary-1.kind")),
+            builder.resolved(0.3, acoustic_path("ducts.primary-1.length_m")),
+            builder.resolved(0.042, acoustic_path("ducts.primary-1.inner_diameter_m")),
+            builder.resolved(800.0,
+                             acoustic_path("ducts.primary-1.reference_temperature_k")),
+            builder.resolved(
+                0.1, acoustic_path("ducts.primary-1.propagation_loss_np_per_m")),
+        },
+        {
+            AcousticDuctId{2},
+            builder.resolved(std::string{"downstream-1"},
+                             acoustic_path("ducts.downstream-1.semantic_id")),
+            builder.resolved(AcousticDuctKind::downstream,
+                             acoustic_path("ducts.downstream-1.kind")),
+            builder.resolved(1.5, acoustic_path("ducts.downstream-1.length_m")),
+            builder.resolved(0.046,
+                             acoustic_path("ducts.downstream-1.inner_diameter_m")),
+            builder.resolved(
+                600.0, acoustic_path("ducts.downstream-1.reference_temperature_k")),
+            builder.resolved(
+                0.1, acoustic_path("ducts.downstream-1.propagation_loss_np_per_m")),
+        },
+    };
+    acoustics.primary_bindings.push_back(
+        {CylinderId{1}, PortId{2}, AcousticDuctId{1}, AcousticJunctionId{1}});
+    acoustics.junctions.push_back({
+        AcousticJunctionId{1},
+        builder.resolved(std::string{"junction-1"},
+                         acoustic_path("junctions.junction-1.semantic_id")),
+        {AcousticDuctId{1}},
+        AcousticDuctId{2},
+    });
+    acoustics.outlets.push_back({
+        RouteId{1},
+        AcousticDuctId{2},
+        builder.resolved(
+            1.0, acoustic_path("outlets.exhaust.outlet-1.observation_distance_m")),
+    });
     engine.physics_profile = std::move(profile);
     engine.methods.losses.value =
         method("chen-flynn-cycle-mean-aggregate-loss-v1", 81);

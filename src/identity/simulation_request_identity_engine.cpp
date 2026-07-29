@@ -848,6 +848,139 @@ write_physics_profile_alternative(CanonicalJsonWriter &writer,
            writer.end_object();
 }
 
+[[nodiscard]] bool write_acoustic_duct_kind(CanonicalJsonWriter &writer,
+                                            contract::AcousticDuctKind kind) {
+    switch (kind) {
+    case contract::AcousticDuctKind::primary:
+        return writer.string_value("primary");
+    case contract::AcousticDuctKind::downstream:
+        return writer.string_value("downstream");
+    case contract::AcousticDuctKind::unspecified:
+        break;
+    }
+    return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                       "acoustic duct kind is unspecified or unknown");
+}
+
+[[nodiscard]] bool
+write_exhaust_acoustic_methods(CanonicalJsonWriter &writer,
+                               const contract::ExhaustAcousticMethods &methods) {
+    return writer.begin_object() && writer.key("source_properties") &&
+           write_resolved(writer, methods.source_properties, write_method_identity) &&
+           writer.key("reconstruction") &&
+           write_resolved(writer, methods.reconstruction, write_method_identity) &&
+           writer.key("waveguide") &&
+           write_resolved(writer, methods.waveguide, write_method_identity) &&
+           writer.key("junction") &&
+           write_resolved(writer, methods.junction, write_method_identity) &&
+           writer.key("outlet_reflection") &&
+           write_resolved(writer, methods.outlet_reflection, write_method_identity) &&
+           writer.key("exterior_radiation") &&
+           write_resolved(writer, methods.exterior_radiation, write_method_identity) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_acoustic_duct(CanonicalJsonWriter &writer,
+                                       const contract::AcousticDuctSpec &duct) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, duct.id) && writer.key("semantic_id") &&
+           write_resolved(writer, duct.semantic_id, write_string) &&
+           writer.key("kind") &&
+           write_resolved(writer, duct.kind, write_acoustic_duct_kind) &&
+           writer.key("length_m") && write_resolved(writer, duct.length_m, write_f64) &&
+           writer.key("inner_diameter_m") &&
+           write_resolved(writer, duct.inner_diameter_m, write_f64) &&
+           writer.key("reference_temperature_k") &&
+           write_resolved(writer, duct.reference_temperature_k, write_f64) &&
+           writer.key("propagation_loss_np_per_m") &&
+           write_resolved(writer, duct.propagation_loss_np_per_m, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_exhaust_primary_binding(CanonicalJsonWriter &writer,
+                              const contract::ExhaustPrimaryBinding &binding) {
+    return writer.begin_object() && writer.key("cylinder_id") &&
+           write_stable_id(writer, binding.cylinder_id) &&
+           writer.key("exhaust_port_id") &&
+           write_stable_id(writer, binding.exhaust_port_id) &&
+           writer.key("primary_duct_id") &&
+           write_stable_id(writer, binding.primary_duct_id) &&
+           writer.key("junction_id") && write_stable_id(writer, binding.junction_id) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_exhaust_acoustic_junction(CanonicalJsonWriter &writer,
+                                const contract::ExhaustAcousticJunction &junction) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, junction.id) && writer.key("semantic_id") &&
+           write_resolved(writer, junction.semantic_id, write_string) &&
+           writer.key("primary_duct_ids") &&
+           write_stable_id_array(writer, junction.primary_duct_ids) &&
+           writer.key("downstream_duct_id") &&
+           write_stable_id(writer, junction.downstream_duct_id) && writer.end_object();
+}
+
+[[nodiscard]] bool
+write_exhaust_acoustic_outlet(CanonicalJsonWriter &writer,
+                              const contract::ExhaustAcousticOutlet &outlet) {
+    return writer.begin_object() && writer.key("route_id") &&
+           write_stable_id(writer, outlet.route_id) &&
+           writer.key("downstream_duct_id") &&
+           write_stable_id(writer, outlet.downstream_duct_id) &&
+           writer.key("observation_distance_m") &&
+           write_resolved(writer, outlet.observation_distance_m, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_exhaust_acoustic_assembly(CanonicalJsonWriter &writer,
+                                const contract::ExhaustAcousticAssembly &assembly) {
+    return writer.begin_object() && writer.key("assembly_id") &&
+           write_resolved(writer, assembly.assembly_id, write_string) &&
+           writer.key("methods") &&
+           write_exhaust_acoustic_methods(writer, assembly.methods) &&
+           writer.key("source_interval_rate") &&
+           write_resolved(writer, assembly.source_interval_rate, write_rational_rate) &&
+           writer.key("acoustic_rate") &&
+           write_resolved(writer, assembly.acoustic_rate, write_rational_rate) &&
+           writer.key("universal_gas_constant_j_per_mol_k") &&
+           write_resolved(writer, assembly.universal_gas_constant_j_per_mol_k,
+                          write_f64) &&
+           writer.key("source_molar_mass_kg_per_mol") &&
+           write_resolved(writer, assembly.source_molar_mass_kg_per_mol, write_f64) &&
+           writer.key("source_heat_capacity_ratio") &&
+           write_resolved(writer, assembly.source_heat_capacity_ratio, write_f64) &&
+           writer.key("pa_per_full_scale") &&
+           write_resolved(writer, assembly.pa_per_full_scale, write_f64) &&
+           writer.key("ducts") &&
+           write_array(
+               writer, assembly.ducts,
+               [](CanonicalJsonWriter &output, const contract::AcousticDuctSpec &duct) {
+                   return write_acoustic_duct(output, duct);
+               }) &&
+           writer.key("primary_bindings") &&
+           write_array(writer, assembly.primary_bindings,
+                       [](CanonicalJsonWriter &output,
+                          const contract::ExhaustPrimaryBinding &binding) {
+                           return write_exhaust_primary_binding(output, binding);
+                       }) &&
+           writer.key("junctions") &&
+           write_array(writer, assembly.junctions,
+                       [](CanonicalJsonWriter &output,
+                          const contract::ExhaustAcousticJunction &junction) {
+                           return write_exhaust_acoustic_junction(output, junction);
+                       }) &&
+           writer.key("outlets") &&
+           write_array(writer, assembly.outlets,
+                       [](CanonicalJsonWriter &output,
+                          const contract::ExhaustAcousticOutlet &outlet) {
+                           return write_exhaust_acoustic_outlet(output, outlet);
+                       }) &&
+           writer.end_object();
+}
+
 [[nodiscard]] bool write_physics_profile_alternative(
     CanonicalJsonWriter &writer,
     const contract::LowOrderOperatingPointV1Profile &profile) {
@@ -863,6 +996,8 @@ write_physics_profile_alternative(CanonicalJsonWriter &writer,
            write_mechanically_disengaged_starter(writer, profile.starter) &&
            writer.key("cycle_quadrature") &&
            write_resolved(writer, profile.cycle_quadrature, write_method_identity) &&
+           writer.key("exhaust_acoustics") &&
+           write_exhaust_acoustic_assembly(writer, profile.exhaust_acoustics) &&
            writer.end_object() && writer.end_object();
 }
 

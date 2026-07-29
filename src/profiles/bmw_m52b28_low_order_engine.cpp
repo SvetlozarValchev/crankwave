@@ -149,6 +149,126 @@ contract::LegacyFlameSpeedPoint make_flame_speed_point(BmwProvenanceBuilder &bui
     };
 }
 
+contract::ExhaustAcousticAssembly
+build_m5_exhaust_acoustic_assembly(BmwProvenanceBuilder &builder) {
+    using contract::AcousticDuctId;
+    using contract::AcousticDuctKind;
+    using contract::AcousticJunctionId;
+    using contract::CylinderId;
+    using contract::PortId;
+    using contract::RouteId;
+
+    const auto path = [&builder](std::string_view suffix) {
+        return builder.profile_path("exhaust_acoustics." + std::string{suffix});
+    };
+    const auto method = [&](std::string id, std::string_view role) {
+        return builder.resolved(m5_exhaust_acoustic_method_identity(std::move(id)),
+                                path("methods." + std::string{role}),
+                                Source::implemented_method);
+    };
+    const auto duct = [&](AcousticDuctId id, std::string semantic_id,
+                          AcousticDuctKind kind, double length_m,
+                          double inner_diameter_m, double temperature_k) {
+        const std::string base = "ducts." + semantic_id;
+        return contract::AcousticDuctSpec{
+            id,
+            builder.resolved(semantic_id, path(base + ".semantic_id"),
+                             Source::profile_contract),
+            builder.resolved(kind, path(base + ".kind"), Source::profile_contract),
+            builder.resolved(length_m, path(base + ".length_m"),
+                             Source::profile_contract),
+            builder.resolved(inner_diameter_m, path(base + ".inner_diameter_m"),
+                             Source::profile_contract),
+            builder.resolved(temperature_k, path(base + ".reference_temperature_k"),
+                             Source::profile_contract),
+            builder.resolved(0.10, path(base + ".propagation_loss_np_per_m"),
+                             Source::profile_contract),
+        };
+    };
+
+    contract::ExhaustAcousticAssembly assembly;
+    assembly.assembly_id =
+        builder.resolved(std::string{"declared-test-cell-twin-open-pipe"},
+                         path("assembly_id"), Source::profile_contract);
+    assembly.methods = {
+        method("ideal-pseudo-gas-source-properties", "source_properties"),
+        method("causal-bandlimited-rational-resampling", "reconstruction"),
+        method("uniform-cylindrical-digital-waveguide", "waveguide"),
+        method("ideal-compact-pressure-junction", "junction"),
+        method("causal-unflanged-pipe-reflection", "outlet_reflection"),
+        method("compact-monopole-free-field-radiation", "exterior_radiation"),
+    };
+    assembly.source_interval_rate =
+        builder.resolved(contract::RationalRateHz{80000, 1},
+                         path("source_interval_rate"), Source::profile_contract);
+    assembly.acoustic_rate =
+        builder.resolved(contract::RationalRateHz{192000, 1}, path("acoustic_rate"),
+                         Source::profile_contract);
+    assembly.universal_gas_constant_j_per_mol_k =
+        builder.resolved(8.31446261815324, path("universal_gas_constant_j_per_mol_k"),
+                         Source::profile_contract);
+    assembly.source_molar_mass_kg_per_mol = builder.resolved(
+        0.02897, path("source_molar_mass_kg_per_mol"), Source::profile_contract);
+    assembly.source_heat_capacity_ratio = builder.resolved(
+        1.4, path("source_heat_capacity_ratio"), Source::profile_contract);
+    assembly.pa_per_full_scale =
+        builder.resolved(256.0, path("pa_per_full_scale"), Source::profile_contract);
+
+    for (std::uint32_t number = 1; number <= 6; ++number) {
+        assembly.ducts.push_back(duct(AcousticDuctId{number},
+                                      numbered_id("primary-", number),
+                                      AcousticDuctKind::primary, 0.300, 0.042, 800.0));
+    }
+    assembly.ducts.push_back(duct(AcousticDuctId{7}, "downstream-front",
+                                  AcousticDuctKind::downstream, 1.500, 0.046, 600.0));
+    assembly.ducts.push_back(duct(AcousticDuctId{8}, "downstream-rear",
+                                  AcousticDuctKind::downstream, 1.500, 0.046, 600.0));
+
+    assembly.junctions = {
+        {
+            AcousticJunctionId{1},
+            builder.resolved(std::string{"junction-front"},
+                             path("junctions.junction-front.semantic_id"),
+                             Source::profile_contract),
+            {AcousticDuctId{1}, AcousticDuctId{2}, AcousticDuctId{3}},
+            AcousticDuctId{7},
+        },
+        {
+            AcousticJunctionId{2},
+            builder.resolved(std::string{"junction-rear"},
+                             path("junctions.junction-rear.semantic_id"),
+                             Source::profile_contract),
+            {AcousticDuctId{4}, AcousticDuctId{5}, AcousticDuctId{6}},
+            AcousticDuctId{8},
+        },
+    };
+    for (std::uint32_t number = 1; number <= 6; ++number) {
+        assembly.primary_bindings.push_back({
+            CylinderId{number},
+            PortId{number * 2U},
+            AcousticDuctId{number},
+            AcousticJunctionId{number <= 3U ? 1U : 2U},
+        });
+    }
+    assembly.outlets = {
+        {
+            RouteId{1},
+            AcousticDuctId{7},
+            builder.resolved(1.0,
+                             path("outlets.exhaust.reference.0.observation_distance_m"),
+                             Source::profile_contract),
+        },
+        {
+            RouteId{2},
+            AcousticDuctId{8},
+            builder.resolved(1.0,
+                             path("outlets.exhaust.reference.1.observation_distance_m"),
+                             Source::profile_contract),
+        },
+    };
+    return assembly;
+}
+
 } // namespace
 
 contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
@@ -947,6 +1067,7 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
         profile.cycle_quadrature = builder.resolved(
             simulation::four_stroke_piecewise_linear_cycle_quadrature_method_identity(),
             profile_path("cycle_quadrature"), Source::implemented_method);
+        profile.exhaust_acoustics = build_m5_exhaust_acoustic_assembly(builder);
         engine.physics_profile = std::move(profile);
         engine.torque_capability = builder.resolved(
             contract::TorqueCapability{

@@ -346,6 +346,7 @@ exhaust**, not the stock E36 exhaust:
 | outlet | unflanged sharp-edged open pipe | declared evaluation termination |
 | observation distance | 1.0 m | declared free-field QA projection |
 | ambient observation temperature | scenario ambient | scenario |
+| raw-WAV calibration | 256 Pa per full scale | declared evaluation headroom convention; about 142 dB SPL peak at the one-metre reference, not measured BMW data |
 
 All six primaries and both downstream pipes are pairwise equal in the initial
 candidate. Rasp must emerge from valve-flow timing, physical propagation, junction and

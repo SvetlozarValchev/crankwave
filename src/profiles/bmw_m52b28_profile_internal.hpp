@@ -85,6 +85,9 @@ class BmwProvenanceBuilder {
 [[nodiscard]] contract::MethodIdentity legacy_low_order_method();
 [[nodiscard]] contract::MethodIdentity fixed_rate_rpm_method();
 [[nodiscard]] contract::MethodIdentity derived_method(std::string id);
+
+[[nodiscard]] contract::MethodIdentity
+m5_exhaust_acoustic_method_identity(std::string id);
 [[nodiscard]] contract::Sha256Digest bmw_m52b28_operating_accessory_descriptor_sha256();
 
 [[nodiscard]] contract::EngineSpec

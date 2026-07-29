@@ -2243,6 +2243,8 @@ void validate_resolved_profile_specific(
     validate_resolved_accessory_evidence(
         report, profile.accessory_configuration, provenance);
     validate_operating_geometry(report, profile.core, engine);
+    report.append(validate(profile.exhaust_acoustics, engine, provenance,
+                           std::string(root) + ".exhaust_acoustics"));
     detail::require(
         report, engine.torque_capability.value == kOperatingTorqueCapability,
         ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",

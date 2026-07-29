@@ -8,6 +8,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -115,7 +116,8 @@ void expect_mutation_rejected(const profiles::BmwM52b28OperatingProfile &exact,
 [[nodiscard]] bool is_operating_profile_specific_suffix(std::string_view suffix) {
     return suffix.starts_with(".aggregate_loss.") ||
            suffix.starts_with(".accessory_configuration.") ||
-           suffix.starts_with(".starter.") || suffix == ".cycle_quadrature";
+           suffix.starts_with(".starter.") ||
+           suffix.starts_with(".exhaust_acoustics.") || suffix == ".cycle_quadrature";
 }
 
 [[nodiscard]] std::set<std::string>
@@ -154,7 +156,7 @@ void test_exact_profile_authorities(
            "canonical BMW operating identity changed");
 
     constexpr std::string_view kExpectedBundleSha256 =
-        "f6e6ff0e27a3f9ddef9fc6435c39de2fc826265a298a88c144042423c1f7be44";
+        "ea5ec591525420b6d74137da38e931b103d848d00ba200500f71c60df5e5414e";
     const auto actual_bundle_sha256 = digest_hex(profile.provenance.bundle.sha256);
     if (actual_bundle_sha256 != kExpectedBundleSha256) {
         std::cerr << "BMW operating profile provenance SHA-256: "
@@ -242,6 +244,10 @@ void test_exact_profile_authorities(
                    "435441890e0a5f8d01e81995f64f33d4c554144f5b1436895e6816f6db85e34c",
            "admitted M3 method authority is not its truthful frozen record");
 
+    expect(digest_hex(digest_from_evidence(profile, "m5-exhaust-acoustic-network")) ==
+               "74645a085c7b563a891d32348f5abca9d921e168ebe94c341c2fb93de09e0121",
+           "M5 exhaust acoustic authority is not its frozen record");
+
     constexpr std::array<std::string_view, 3> kLocalEvaluationEvidence{
         "reference-fixture-manifest",
         "reference-parity-evidence",
@@ -257,6 +263,102 @@ void test_exact_profile_authorities(
     }
 }
 
+void test_exact_m5_exhaust_acoustic_assembly(
+    const profiles::BmwM52b28OperatingProfile &profile) {
+    const auto &assembly = operating_profile(profile).exhaust_acoustics;
+    expect(assembly.assembly_id.value == "declared-test-cell-twin-open-pipe" &&
+               assembly.source_interval_rate.value ==
+                   contract::RationalRateHz{80000, 1} &&
+               assembly.acoustic_rate.value == contract::RationalRateHz{192000, 1} &&
+               assembly.universal_gas_constant_j_per_mol_k.value == 8.31446261815324 &&
+               assembly.source_molar_mass_kg_per_mol.value == 0.02897 &&
+               assembly.source_heat_capacity_ratio.value == 1.4 &&
+               assembly.pa_per_full_scale.value == 256.0,
+           "canonical BMW M5 acoustic assembly scalars changed");
+
+    constexpr std::array<std::string_view, 6> kMethodIds{
+        "ideal-pseudo-gas-source-properties",
+        "causal-bandlimited-rational-resampling",
+        "uniform-cylindrical-digital-waveguide",
+        "ideal-compact-pressure-junction",
+        "causal-unflanged-pipe-reflection",
+        "compact-monopole-free-field-radiation",
+    };
+    const std::array<const contract::ResolvedValue<contract::MethodIdentity> *, 6>
+        methods{
+            &assembly.methods.source_properties, &assembly.methods.reconstruction,
+            &assembly.methods.waveguide,         &assembly.methods.junction,
+            &assembly.methods.outlet_reflection, &assembly.methods.exterior_radiation,
+        };
+    for (std::size_t index = 0; index < methods.size(); ++index) {
+        expect(
+            methods[index]->value.id == kMethodIds[index] &&
+                methods[index]->value.version == 1 &&
+                digest_hex(methods[index]->value.configuration_sha256) ==
+                    "74645a085c7b563a891d32348f5abca9d921e168ebe94c341c2fb93de09e0121",
+            "canonical BMW M5 acoustic method identity changed");
+    }
+
+    expect(assembly.ducts.size() == 8 && assembly.primary_bindings.size() == 6 &&
+               assembly.junctions.size() == 2 && assembly.outlets.size() == 2,
+           "canonical BMW M5 acoustic assembly cardinality changed");
+    for (std::size_t index = 0; index < 6; ++index) {
+        const auto number = static_cast<std::uint32_t>(index + 1U);
+        const auto &duct = assembly.ducts[index];
+        const auto &binding = assembly.primary_bindings[index];
+        expect(duct.id == contract::AcousticDuctId{number} &&
+                   duct.semantic_id.value == "primary-" + std::to_string(number) &&
+                   duct.kind.value == contract::AcousticDuctKind::primary &&
+                   duct.length_m.value == 0.300 &&
+                   duct.inner_diameter_m.value == 0.042 &&
+                   duct.reference_temperature_k.value == 800.0 &&
+                   duct.propagation_loss_np_per_m.value == 0.10,
+               "canonical BMW M5 primary geometry changed");
+        expect(binding.cylinder_id == contract::CylinderId{number} &&
+                   binding.exhaust_port_id == contract::PortId{number * 2U} &&
+                   binding.primary_duct_id == contract::AcousticDuctId{number} &&
+                   binding.junction_id ==
+                       contract::AcousticJunctionId{number <= 3U ? 1U : 2U},
+               "canonical BMW M5 cylinder/primary/junction binding changed");
+    }
+    for (std::size_t index = 0; index < 2; ++index) {
+        const auto &duct = assembly.ducts[index + 6U];
+        expect(
+            duct.id ==
+                    contract::AcousticDuctId{static_cast<std::uint32_t>(index + 7U)} &&
+                duct.semantic_id.value ==
+                    (index == 0 ? "downstream-front" : "downstream-rear") &&
+                duct.kind.value == contract::AcousticDuctKind::downstream &&
+                duct.length_m.value == 1.500 && duct.inner_diameter_m.value == 0.046 &&
+                duct.reference_temperature_k.value == 600.0 &&
+                duct.propagation_loss_np_per_m.value == 0.10,
+            "canonical BMW M5 downstream geometry changed");
+    }
+    expect(assembly.junctions[0].id == contract::AcousticJunctionId{1} &&
+               assembly.junctions[0].semantic_id.value == "junction-front" &&
+               assembly.junctions[0].primary_duct_ids ==
+                   std::vector<contract::AcousticDuctId>{contract::AcousticDuctId{1},
+                                                         contract::AcousticDuctId{2},
+                                                         contract::AcousticDuctId{3}} &&
+               assembly.junctions[0].downstream_duct_id ==
+                   contract::AcousticDuctId{7} &&
+               assembly.junctions[1].id == contract::AcousticJunctionId{2} &&
+               assembly.junctions[1].semantic_id.value == "junction-rear" &&
+               assembly.junctions[1].primary_duct_ids ==
+                   std::vector<contract::AcousticDuctId>{contract::AcousticDuctId{4},
+                                                         contract::AcousticDuctId{5},
+                                                         contract::AcousticDuctId{6}} &&
+               assembly.junctions[1].downstream_duct_id == contract::AcousticDuctId{8},
+           "canonical BMW M5 1-2-3 / 4-5-6 junction topology changed");
+    expect(assembly.outlets[0].route_id == contract::RouteId{1} &&
+               assembly.outlets[0].downstream_duct_id == contract::AcousticDuctId{7} &&
+               assembly.outlets[0].observation_distance_m.value == 1.0 &&
+               assembly.outlets[1].route_id == contract::RouteId{2} &&
+               assembly.outlets[1].downstream_duct_id == contract::AcousticDuctId{8} &&
+               assembly.outlets[1].observation_distance_m.value == 1.0,
+           "canonical BMW M5 unflanged one-metre outlet binding changed");
+}
+
 void test_exact_evidence_files(const profiles::BmwM52b28OperatingProfile &profile,
                                const char *model_record_path,
                                const char *accessory_descriptor_path,
@@ -270,6 +372,12 @@ void test_exact_evidence_files(const profiles::BmwM52b28OperatingProfile &profil
     expect(file_sha256(topology_correction_path) ==
                digest_from_evidence(profile, "m4-bmw-exhaust-topology-correction"),
            "BMW M4 exhaust correction bytes do not match their provenance evidence");
+    const auto m5_network_path =
+        std::filesystem::path{topology_correction_path}.parent_path() / "model" /
+        "M5_EXHAUST_ACOUSTIC_NETWORK.md";
+    expect(file_sha256(m5_network_path.c_str()) ==
+               digest_from_evidence(profile, "m5-exhaust-acoustic-network"),
+           "BMW M5 exhaust acoustic bytes do not match their provenance evidence");
 }
 
 void test_fresh_core_provenance_and_shared_values(
@@ -484,6 +592,25 @@ void test_exact_mutation_rejection(const profiles::BmwM52b28OperatingProfile &ex
                 UINT8_C(0x80);
         });
     expect_mutation_rejected(
+        exact, "changed M5 primary length was accepted", [&](auto &changed) {
+            mutate_operating(changed).exhaust_acoustics.ducts[0].length_m.value = 0.38;
+        });
+    expect_mutation_rejected(exact, "cross-bound M5 primary was accepted",
+                             [&](auto &changed) {
+                                 mutate_operating(changed)
+                                     .exhaust_acoustics.primary_bindings[0]
+                                     .junction_id = contract::AcousticJunctionId{2};
+                             });
+    expect_mutation_rejected(
+        exact, "changed M5 acoustic method was accepted", [&](auto &changed) {
+            mutate_operating(changed).exhaust_acoustics.methods.waveguide.value.id +=
+                "-changed";
+        });
+    expect_mutation_rejected(
+        exact, "changed M5 Pa calibration was accepted", [&](auto &changed) {
+            mutate_operating(changed).exhaust_acoustics.pa_per_full_scale.value = 128.0;
+        });
+    expect_mutation_rejected(
         exact, "changed torque capability was accepted", [&](auto &changed) {
             changed.engine.torque_capability.value.cycle_mean_net_shaft.completeness =
                 contract::Completeness::incomplete;
@@ -573,6 +700,7 @@ void run_tests(const char *model_record_path, const char *accessory_descriptor_p
                const char *topology_correction_path) {
     const auto exact = make_exact_profile();
     test_exact_profile_authorities(exact);
+    test_exact_m5_exhaust_acoustic_assembly(exact);
     test_exact_evidence_files(exact, model_record_path, accessory_descriptor_path,
                               topology_correction_path);
     test_fresh_core_provenance_and_shared_values(exact);
