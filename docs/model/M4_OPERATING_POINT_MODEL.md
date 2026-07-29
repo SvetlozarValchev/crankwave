@@ -717,14 +717,19 @@ warm stock-accessory condition; `101325 Pa`, `298.15 K`, and zero relative humid
 the profile fuel; initial gas/crankcase temperature `298.15 K`; wall, coolant, and oil
 temperature `363.15 K`; fired running state with ignition, fuel, and dyno enabled and
 starter plus limiter disabled; public seed `0xC0FFEE`; and `10000 Hz` physics/capture
-rates. No point reuses mutable state from another point.
+rates plus `192000 Hz` source-processing, acoustic, and delivery rates. Initial crank
+angle is exactly the operating core's `crank_tdc_reference_rad`. The sole operating
+state point is ID `torque-sweep-held-running` at time zero. No point reuses mutable
+state from another point.
 
-Every session has a fixed `6.44 s` convergence cutoff, 16 cycles per adjacent
-comparison block, `0.75 N*m` cycle-mean torque tolerance, and `1500 Pa` phase-aligned
-pressure tolerance. A `0.02 s` post-cutoff evidence tail makes the complete scenario
-`6.46 s`; it is transport continuity evidence, not an audible clip. The capture block
-capacity is 200 frames and the event-journal capacity is 3800 records. Each scenario
-ID is
+Every session has zero minimum warm-up and minimum settling duration, a fixed `6.44 s`
+maximum convergence cutoff and audible start, 16 cycles per adjacent comparison
+block, `0.75 N*m` cycle-mean torque tolerance, and `1500 Pa` phase-aligned pressure
+tolerance. Audible duration is exactly `0.02 s`, making total duration exactly
+`6.46 s`; this post-cutoff evidence tail is transport continuity evidence, not an
+audible clip. The capture block capacity is 200 frames and the event-journal capacity
+is 3800 records. Each scenario uses `RenderQuality` ID
+`low-order-operating-point-torque-sweep-v1`, version 1. Each scenario ID is
 `bmw-m52b28-held-<rpm>rpm-full-throttle-torque-sweep-v1`.
 
 Only a request-bound, complete, converged `HeldSpeedOperatingPointResult` contributes
@@ -735,8 +740,74 @@ different tolerances and no interpolation over a failed point.
 The evidence record retains, for every point, the canonical simulation-request digest,
 RPM, throttle, indicated-gas, aggregate-loss, starter, and net-shaft cycle-mean torque,
 net BMEP, mean power, the two convergence residuals and tolerances, completed-cycle
-ranges, applicability label, and elapsed time. It also retains the clean source commit
-and a SHA-256 over its canonical JSON bytes.
+ranges, applicability label, and elapsed time. It also retains the clean source commit.
+The publication is exactly `bmw-m52b28-m4-torque-sweep-v1.json` plus
+`bmw-m52b28-m4-torque-sweep-v1.json.sha256`; the lowercase SHA-256 sidecar covers the
+complete canonical JSON bytes and is not a self-referential member of that JSON. The
+sidecar is exactly 64 lowercase hexadecimal digits, two ASCII spaces, the JSON base
+filename, and one final LF.
+
+The JSON wire schema is
+`engine-sim-offline.bmw-m52b28-torque-sweep-evidence.v1`; its canonical grammar is
+`engine-sim-offline.bmw-m52b28-torque-sweep-evidence-canonical-json.v1`. Encoding is
+compact UTF-8 JSON with no BOM, insignificant whitespace, or final newline. Object
+members occur only in the following written order:
+
+1. root: `wire_schema`, `schema_version`, `source_commit`,
+   `model_record_sha256`, `engine_profile_id`, `conditions`, `points`, `comparisons`,
+   `warnings`, `execution`;
+2. conditions: `ambient_pressure_pa_abs`, `ambient_temperature_k`,
+   `relative_humidity_01`, `gas_temperature_k`, `wall_temperature_k`,
+   `coolant_temperature_k`, `oil_temperature_k`, `crankcase_pressure_pa_abs`,
+   `crankcase_temperature_k`, `total_displacement_m3`, `fuel_id`,
+   `lower_heating_value_j_per_kg`,
+   `stoichiometric_air_fuel_mass_ratio`, `accessory_configuration_id`,
+   `accessory_configuration_sha256`, `initial_theta_rad`, `throttle_01`,
+   `public_seed`, `physics_rate_numerator`, `physics_rate_denominator`,
+   `convergence_method_id`, `convergence_method_version`,
+   `convergence_method_configuration_sha256`, `comparison_cycle_count`,
+   `cutoff_frame`, `tail_frame_count`;
+3. each point: `scenario_id`, `simulation_request_v2_sha256`,
+   `provenance_bundle_sha256`, `engine_speed_rpm`, `throttle_01`,
+   `indicated_gas_torque_nm`, `aggregate_loss_torque_nm`, `starter_torque_nm`,
+   `net_shaft_torque_nm`, `net_bmep_pa`, `mean_power_w`, `torque_residual_nm`,
+   `torque_tolerance_nm`, `pressure_residual_pa`, `pressure_tolerance_pa`,
+   `block_a_first_cycle`, `block_a_last_cycle`, `block_b_first_cycle`,
+   `block_b_last_cycle`, `applicability_label`, `elapsed_ns`;
+4. comparisons: `torque_at_3950_nm`, `torque_at_3950_to_280_ratio`,
+   `power_at_5300_w`, `power_at_5300_to_142000_ratio`,
+   `sampled_maximum_torque_nm`, `sampled_maximum_torque_rpm`,
+   `sampled_maximum_torque_to_280_ratio`, `sampled_maximum_power_w`,
+   `sampled_maximum_power_rpm`, `sampled_maximum_power_to_142000_ratio`,
+   `gross_error_lower_ratio`, `gross_error_upper_ratio`;
+5. execution: `point_count`, `total_elapsed_ns`.
+
+`schema_version` is exactly the unsigned decimal JSON integer `1`; `point_count` is
+also an unsigned decimal JSON integer. Strings and booleans use canonical JSON scalar
+syntax. Every binary64 value and every other integer is a quoted fixed-width lowercase
+hexadecimal bit pattern: binary64 as
+`0x` plus 16 digits, SHA-256 as 64 digits, and frame/seed/elapsed/cycle integers as
+`0x` plus 16 digits. `warnings` is an ordered array of stable strings: torque warning
+first, then power warning. The exact strings are
+`sampled-maximum-torque-outside-warning-ratio` and
+`sampled-maximum-power-outside-warning-ratio`. A warning is present only when its
+finite ratio is strictly less than `0.5` or strictly greater than `1.5`; an endpoint
+does not warn. The array is empty when neither sampled-maximum ratio trips.
+
+For each point the runner independently encodes simulation-request-v2 from that
+point's fresh engine, scenario, and finished provenance bundle, supplies that digest
+to the runtime, then requires the returned result to bind the same digest. A mutated
+held-listening request or a reused provenance ledger is not an admissible shortcut.
+
+The nine points execute sequentially in the frozen ascending-RPM order. Timing uses
+`std::chrono::steady_clock`. A point's `elapsed_ns` interval starts immediately before
+constructing its runtime/session and ends immediately after obtaining and validating
+the complete, converged, request-bound typed result. The total interval starts
+immediately before encoding the first point's simulation-request-v2 identity and ends
+immediately after validating the ninth point's result. It therefore includes all nine
+request-identity encodes and the small sequential runner overhead between point
+intervals. Both durations use `duration_cast<nanoseconds>` and must fit the unsigned
+64-bit evidence field.
 
 Comparison is deterministic and does not fit the model:
 

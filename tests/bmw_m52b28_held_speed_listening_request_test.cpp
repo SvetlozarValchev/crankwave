@@ -22,9 +22,9 @@ namespace {
 using namespace engine_sim_offline;
 
 constexpr std::string_view kExpectedRequestIdentitySha256 =
-    "7b503e180d3e3c08691243875cf18ea107a43d71f126163d7732b550c4ee06ba";
+    "55e6fc6d76746c59a6d313035c165168b8418898a7a5f8cb06a33a7073ca4523";
 constexpr std::string_view kExpectedProvenanceSha256 =
-    "fbd4f4cbfbe95e31d20d636cf219b4c776b0be0d49eda647e78707c27adc85bd";
+    "05bdb20fa7b3039346b2eb8710739d62c865328dff6a43e83d62396049701d60";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -143,9 +143,18 @@ void test_identity_and_mutation_rejection(
     const auto identity = request_identity(request);
     expect(identity.sha256 == contract::sha256(identity.bytes),
            "held-speed request identity digest did not cover its bytes");
-    expect(digest_hex(identity.sha256) == kExpectedRequestIdentitySha256,
+    const auto request_sha256 = digest_hex(identity.sha256);
+    if (request_sha256 != kExpectedRequestIdentitySha256) {
+        std::cerr << "BMW held-speed request SHA-256: " << request_sha256 << '\n';
+    }
+    expect(request_sha256 == kExpectedRequestIdentitySha256,
            "held-speed request identity changed");
-    expect(digest_hex(request.provenance.bundle.sha256) == kExpectedProvenanceSha256,
+    const auto provenance_sha256 = digest_hex(request.provenance.bundle.sha256);
+    if (provenance_sha256 != kExpectedProvenanceSha256) {
+        std::cerr << "BMW held-speed provenance SHA-256: " << provenance_sha256
+                  << '\n';
+    }
+    expect(provenance_sha256 == kExpectedProvenanceSha256,
            "held-speed request provenance identity changed");
 
     auto changed = request;
