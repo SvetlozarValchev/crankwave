@@ -1085,6 +1085,11 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         lane.piston_area_m2 = admitted.piston_area_m2;
         lane.exhaust_primary_cross_section_area_m2 =
             head.exhaust_runner_cross_section_area_m2.value;
+        lane.experimental_primary_audio.initialize(
+            session.ambient_pressure_pa_, initial_gas_temperature_k,
+            admitted.exhaust_primary_volume_m3 /
+                head.exhaust_runner_cross_section_area_m2.value,
+            head.exhaust_runner_cross_section_area_m2.value, session.gas_step_s_);
         const bool seeded =
             lane.random.seed(admitted.pcg32_initial_state, admitted.pcg32_stream);
         if (!seeded) {
@@ -1134,6 +1139,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         output.valves.exhaust_port_id = topology.exhaust_port_id;
         output.flame = {};
         output.flame.global_mixture = session.inert_mixture_;
+        output.experimental_primary_audio =
+            lane.experimental_primary_audio.observation();
     }
 
     session.fuel_.molecular_mass_kg_per_mol = fuel.molecular_mass_kg_per_mol.value;

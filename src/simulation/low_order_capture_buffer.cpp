@@ -223,12 +223,10 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
             },
         });
 
-        const auto &primary =
-            gas.gas_volumes[binding.exhaust_primary_volume_index].cell;
         parity_cylinders_.push_back({
-            legacy_gas_pressure_pa(primary),
-            legacy_gas_directional_dynamic_pressure_pa(primary, 1.0, 0.0),
-            legacy_gas_directional_dynamic_pressure_pa(primary, -1.0, 0.0),
+            gas_cylinder.experimental_primary_audio.static_pressure_pa_abs,
+            gas_cylinder.experimental_primary_audio.dynamic_pressure_forward_pa,
+            gas_cylinder.experimental_primary_audio.dynamic_pressure_reverse_pa,
         });
     }
 

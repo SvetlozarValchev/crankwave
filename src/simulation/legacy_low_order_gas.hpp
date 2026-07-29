@@ -2,6 +2,7 @@
 
 #include "engine_sim_offline/contract/result.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
+#include "simulation/experimental_primary_duct.hpp"
 #include "simulation/kinematic_scenario_schedule.hpp"
 #include "simulation/legacy_combustion_primitives.hpp"
 #include "simulation/legacy_fixed_valvetrain.hpp"
@@ -66,6 +67,7 @@ struct LegacyCylinderGasStepState {
     double latest_signed_intake_transfer_mol = 0.0;
     double latest_signed_exhaust_transfer_mol = 0.0;
     double indicated_gas_torque_nm = 0.0;
+    ExperimentalPrimaryDuct::Observation experimental_primary_audio;
 
     friend bool operator==(const LegacyCylinderGasStepState &,
                            const LegacyCylinderGasStepState &) = default;
@@ -151,6 +153,7 @@ class LegacyLowOrderGasSession final {
         double bore_m = 0.0;
         double piston_area_m2 = 0.0;
         double exhaust_primary_cross_section_area_m2 = 0.0;
+        ExperimentalPrimaryDuct experimental_primary_audio;
         std::array<double, kLegacyCombustionHistorySampleCount>
             piston_speed_history_m_s{};
         std::array<double, kLegacyCombustionHistorySampleCount> pressure_history_pa{};

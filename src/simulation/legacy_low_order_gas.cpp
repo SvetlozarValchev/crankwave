@@ -707,6 +707,21 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
             }
 
             auto &exhaust_edge = step_.flow_edges[lane.exhaust_valve_edge_index];
+            if (!lane.experimental_primary_audio.advance(
+                    legacy_gas_pressure_pa(chamber), legacy_gas_temperature_k(chamber),
+                    public_cylinder.valves.exhaust_valve_k)) {
+                terminal_fault_ =
+                    fault(contract::FailureKind::numerical_failure,
+                          "experimental-primary-duct-numerical-failure",
+                          "one-way listening-spike duct produced a non-finite, "
+                          "nonphysical, or CFL-unsafe state",
+                          public_cylinder.cylinder_id, public_cylinder.exhaust_port_id,
+                          public_cylinder.exhaust_primary_volume_id,
+                          exhaust_edge.flow_edge_id, public_cylinder.exhaust_route_id);
+                return *terminal_fault_;
+            }
+            public_cylinder.experimental_primary_audio =
+                lane.experimental_primary_audio.observation();
             const auto exhaust_flow =
                 legacy_transfer_gas(chamber, primary,
                                     LegacyFiniteGasTransferParameters{
