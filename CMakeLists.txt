@@ -640,6 +640,47 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS AND
     )
 
     add_executable(
+        engine_sim_offline_m5_bmw_physical_listening
+        src/reference/m5_bmw_physical_exhaust_listening_main.cpp
+        src/experimental/bmw_physical_input_capture.cpp
+        src/experimental/physical_exhaust_network.cpp
+        src/experimental/physical_listening_wav.cpp
+    )
+
+    set_target_properties(
+        engine_sim_offline_m5_bmw_physical_listening
+        PROPERTIES OUTPUT_NAME engine-sim-offline-m5-bmw-physical-listening
+    )
+
+    target_include_directories(
+        engine_sim_offline_m5_bmw_physical_listening
+        PRIVATE
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_options(
+        engine_sim_offline_m5_bmw_physical_listening
+        PRIVATE LINKER:--no-as-needed
+    )
+
+    target_link_libraries(
+        engine_sim_offline_m5_bmw_physical_listening
+        PRIVATE
+            engine_sim_offline::artifacts
+            engine_sim_offline::presentation
+            engine_sim_offline::profiles
+            engine_sim_offline::request_identity
+            engine_sim_offline::simulation
+            m
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_m5_bmw_physical_listening
+    )
+    engine_sim_offline_finalize_renderer_numeric_policy(
+        engine_sim_offline_m5_bmw_physical_listening
+    )
+
+    add_executable(
         engine_sim_offline_m4_bmw_torque_sweep
         src/reference/m4_bmw_torque_sweep_main.cpp
     )
