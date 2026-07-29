@@ -547,6 +547,10 @@ replacement starts before acceptance.
       - [ ] Diagnose whether the limiting cylinder-pressure residual is continued
             settling or stationary deterministic cycle variation before changing any
             cutoff, block size, tolerance, or model behavior.
+        - [x] Freeze the first minimal three-cutoff diagnostic and its bit-exact
+              production-failure guard before exposing detailed failure evidence.
+        - [ ] Preserve the existing typed failed-convergence evidence through a
+              read-only session accessor, run the diagnostic, and record its result.
       - [ ] Freeze any evidence-justified correction under a new exact request
             identity, then execute and publish all nine points atomically.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.

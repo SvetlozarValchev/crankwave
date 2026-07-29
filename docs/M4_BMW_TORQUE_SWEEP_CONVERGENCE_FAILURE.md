@@ -83,3 +83,57 @@ combustion behavior before making that distinction would be outcome-driven tunin
 The next checkpoint is diagnostic-only evidence using the already computed cycle and
 pressure observables. Any resulting change must be frozen explicitly under a new
 request identity before the complete sweep is executed again.
+
+## Frozen first diagnostic
+
+The first diagnostic is intentionally smaller than a statistical calibration study.
+It does not change production simulation math, the frozen request, block size, or
+tolerances, and it does not add a second convergence method.
+
+One read-only accessor will preserve the existing
+`AdjacentCycleBlockConvergenceError` after the held runtime has already terminalized.
+It exposes the complete two-block evidence that the runtime currently reduces to a
+`FailureContext`; it cannot affect convergence or resume a failed session. A focused
+test must prove that the public failure remains exactly unchanged.
+
+A reference-only diagnostic then executes the canonical `2500 rpm` engine and state at
+three fixed convergence cutoffs:
+
+| Cutoff | Total horizon | Purpose |
+|---:|---:|---|
+| `6.44 s` (`64400` frames) | `6.46 s` (`64600` frames) | bit-exact reproduction of the frozen failure |
+| `12.88 s` (`128800` frames) | `12.90 s` (`129000` frames) | first later deterministic window |
+| `25.76 s` (`257600` frames) | `25.78 s` (`257800` frames) | second later deterministic window |
+
+The `6.44 s` case is the unchanged canonical request. Each later diagnostic request is
+an in-memory copy that changes only its scenario ID, maximum preparation duration,
+audible start, and total horizon; audible duration remains `0.02 s`. Ambient, thermal
+state, engine, operating state, throttle, RPM, seed, rates, convergence method,
+two-by-16-cycle block size, and both tolerances remain bit-identical. Each diagnostic
+scenario receives its own request-v2 identity. Every emitted capture block is still
+validated.
+
+For each cutoff the diagnostic records, from either the typed successful result or the
+typed terminal convergence error:
+
+- settled/nonconverged status and exact binary64 residuals and tolerances;
+- both completed-cycle ordinal ranges and the limiting gas-volume ID;
+- every physical volume's two block-mean boundary pressures; and
+- the 32 retained per-cycle end-boundary pressures for `cylinder.1`, plus the four
+  retained work lanes needed to audit the torque reduction.
+
+The `6.44 s` diagnostic is admissible only if its public `FailureContext` and retained
+typed evidence reproduce the recorded residual bits, block ordinals, and limiting
+volume exactly. Later results are descriptive deterministic windows, not independent
+physical trials. No automatic significance test or tolerance change follows from
+three windows:
+
+- consistently moving late-window means with falling residuals supports continued
+  settling;
+- stable late-window means with repeatedly excessive adjacent-block residuals supports
+  a deterministic cycle-variation floor for `N=16`; and
+- any mixed pattern remains inconclusive and causes a longer diagnostic, not tuning.
+
+The diagnostic executable and accessor are temporary investigation scaffolding. Once
+the result is recorded and a model decision is frozen, they are removed unless they
+prove to be a small, generally useful failure-observability seam.
