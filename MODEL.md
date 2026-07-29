@@ -57,6 +57,9 @@ The following records have distinct authority:
     torque-accounting, convergence, and applicability rules introduced by M4.
 12. This document owns model meaning and admission; the focused contract records own
     concrete C++ types, schemas, and API signatures.
+13. `docs/model/M5_EXHAUST_ACOUSTIC_NETWORK.md` owns the first bounded one-way
+    exhaust source-capture, pipe-network, junction, termination, radiation, declared
+    evaluation-geometry, verification, and listening-cutover contract.
 
 If two authorities conflict, implementation stops and the contradiction is recorded.
 Code must not silently choose the easier interpretation. The liked oracle is

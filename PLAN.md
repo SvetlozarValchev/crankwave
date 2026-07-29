@@ -602,9 +602,15 @@ recorded in
 
 ### M5 — Isolated offline-fidelity upgrades
 
+The first bounded replacement is frozen in
+[`docs/model/M5_EXHAUST_ACOUSTIC_NETWORK.md`](docs/model/M5_EXHAUST_ACOUSTIC_NETWORK.md).
+It replaces the M4 operating profile's empirical exhaust excitation/presentation with
+an 80 kHz six-port source capture and a passive two-outlet 192 kHz acoustic network;
+its exact geometry is declared evaluation data, not fabricated OEM BMW measurement.
+
 For each hypothesis:
 
-- [ ] Document one deficiency, established replacement, expected result, and cost.
+- [x] Document one deficiency, established replacement, expected result, and cost.
 - [ ] Replace one subsystem behind an existing physical seam.
 - [ ] Run focused invariant/convergence checks.
 - [ ] Render the canonical pull and every affected regression clip against the previous
