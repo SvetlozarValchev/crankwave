@@ -538,8 +538,8 @@ replacement starts before acceptance.
         the modeled sweep.
   - [ ] Compare only complete converged shaft results and publish the sweep evidence.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.
-- [ ] Add the inertial dyno.
-- [ ] Render its natural BMW pull, then stop for user listening.
+- [x] Add the inertial dyno.
+- [x] Render its natural BMW pull, then stop for user listening.
 - [ ] Add stable idle/low-load behavior.
 - [ ] Render idle/low-load behavior, then stop for user listening.
 - [ ] Add throttle application, lift, and ordinary-overrun behavior.
@@ -556,9 +556,12 @@ fidelity work and the applicable exhaust, intake, mechanical, raw-master, and
 audition-master requirements in M6.
 
 The user accepted the first canonical held-speed listening point on 2026-07-29.
-That gate is recorded in [`docs/M4_BMW_HELD_SPEED_LISTENING_GATE.md`](docs/M4_BMW_HELD_SPEED_LISTENING_GATE.md).
-The next requested listening artifact is the M4 inertial-dyno climb; it must be driven
-by simulated shaft dynamics rather than relabelling the accepted M3 prescribed sweep.
+That gate is recorded in
+[`docs/M4_BMW_HELD_SPEED_LISTENING_GATE.md`](docs/M4_BMW_HELD_SPEED_LISTENING_GATE.md).
+The user accepted the natural inertial-dyno climb on the same date. It is driven by
+simulated shaft dynamics rather than relabelling the accepted M3 prescribed sweep;
+the gate is recorded in
+[`docs/M4_BMW_INERTIAL_DYNO_LISTENING_GATE.md`](docs/M4_BMW_INERTIAL_DYNO_LISTENING_GATE.md).
 
 ### M5 — Isolated offline-fidelity upgrades
 

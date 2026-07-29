@@ -32,6 +32,7 @@ Listening acceptance approves this clip as an audio regression point. It does no
 approve the reported torque as manufacturer-plausible: `354.88 N*m` is a warning to
 be resolved by the planned held-point sweep and landmark comparison.
 
-The user next requested a dyno climb. M4 must produce that with admitted inertial
-shaft dynamics; the M3 prescribed-RPM pull may remain an accepted comparator but must
-not be relabelled as an M4 natural pull.
+The subsequently accepted natural dyno climb is recorded in
+[`M4_BMW_INERTIAL_DYNO_LISTENING_GATE.md`](M4_BMW_INERTIAL_DYNO_LISTENING_GATE.md).
+The M3 prescribed-RPM pull remains an accepted comparator but is not relabelled as an
+M4 natural pull.
