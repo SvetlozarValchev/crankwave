@@ -331,4 +331,14 @@ std::uint64_t LowOrderCaptureSession::published_block_count() const noexcept {
     return published_block_count_;
 }
 
+const std::optional<AdjacentCycleBlockConvergenceError> &
+LowOrderCaptureSession::held_speed_convergence_finalization_error() const noexcept {
+    if (const auto *policy =
+            std::get_if<LowOrderOperatingPointV1Runtime>(&profile_policy_)) {
+        return policy->convergence_finalization_error();
+    }
+    static const std::optional<AdjacentCycleBlockConvergenceError> kNoError;
+    return kNoError;
+}
+
 } // namespace engine_sim_offline::simulation

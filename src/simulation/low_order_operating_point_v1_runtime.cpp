@@ -611,22 +611,27 @@ LowOrderOperatingPointV1Runtime::observe_completed_cycle(
 std::optional<contract::FailureContext>
 LowOrderOperatingPointV1Runtime::finalize_at_cutoff(
     const LegacyMechanismStep &mechanics) {
-    const auto result = convergence_.finalize_at_fixed_cutoff();
-    if (const auto *error = std::get_if<AdjacentCycleBlockConvergenceError>(&result)) {
+    auto result = convergence_.finalize_at_fixed_cutoff();
+    if (auto *error = std::get_if<AdjacentCycleBlockConvergenceError>(&result)) {
         if (error->code ==
             AdjacentCycleBlockConvergenceErrorCode::insufficient_cycles) {
-            return fault(
-                contract::FailureKind::preparation_not_converged,
-                std::string{contract::kPreparationInsufficientCyclesDetailCode},
-                convergence_failure_summary(*error), &mechanics);
+            auto failure =
+                fault(contract::FailureKind::preparation_not_converged,
+                      std::string{contract::kPreparationInsufficientCyclesDetailCode},
+                      convergence_failure_summary(*error), &mechanics);
+            convergence_finalization_error_ = std::move(*error);
+            return failure;
         }
         if (error->code == AdjacentCycleBlockConvergenceErrorCode::nonconverged) {
             if (!error->evidence.has_value()) {
-                return fault(contract::FailureKind::contract_violation,
-                             "operating-nonconvergence-evidence-missing",
-                             "nonconverged fixed-cutoff result omitted its evaluated "
-                             "residual evidence",
-                             &mechanics);
+                auto failure =
+                    fault(contract::FailureKind::contract_violation,
+                          "operating-nonconvergence-evidence-missing",
+                          "nonconverged fixed-cutoff result omitted its evaluated "
+                          "residual evidence",
+                          &mechanics);
+                convergence_finalization_error_ = std::move(*error);
+                return failure;
             }
             const auto &evidence = *error->evidence;
             auto failure =
@@ -646,14 +651,17 @@ LowOrderOperatingPointV1Runtime::finalize_at_cutoff(
                     evidence.pressure_tolerance_pa,
                 },
             };
+            convergence_finalization_error_ = std::move(*error);
             return failure;
         }
-        return fault(error->code ==
-                             AdjacentCycleBlockConvergenceErrorCode::nonfinite_result
-                         ? contract::FailureKind::numerical_failure
-                         : contract::FailureKind::contract_violation,
-                     "operating-convergence-finalization-failed",
-                     convergence_failure_summary(*error), &mechanics);
+        auto failure = fault(
+            error->code == AdjacentCycleBlockConvergenceErrorCode::nonfinite_result
+                ? contract::FailureKind::numerical_failure
+                : contract::FailureKind::contract_violation,
+            "operating-convergence-finalization-failed",
+            convergence_failure_summary(*error), &mechanics);
+        convergence_finalization_error_ = std::move(*error);
+        return failure;
     }
 
     auto point =
@@ -778,6 +786,11 @@ LowOrderOperatingPointV1Runtime::fixed_cutoff_frame_count() const noexcept {
 const std::optional<contract::HeldSpeedOperatingPointResult> &
 LowOrderOperatingPointV1Runtime::operating_point_result() const noexcept {
     return operating_point_result_;
+}
+
+const std::optional<AdjacentCycleBlockConvergenceError> &
+LowOrderOperatingPointV1Runtime::convergence_finalization_error() const noexcept {
+    return convergence_finalization_error_;
 }
 
 } // namespace engine_sim_offline::simulation

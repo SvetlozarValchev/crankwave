@@ -74,6 +74,8 @@ class LowOrderCaptureSession final {
     [[nodiscard]] bool completed() const noexcept;
     [[nodiscard]] std::uint64_t published_sample_count() const noexcept;
     [[nodiscard]] std::uint64_t published_block_count() const noexcept;
+    [[nodiscard]] const std::optional<AdjacentCycleBlockConvergenceError> &
+    held_speed_convergence_finalization_error() const noexcept;
 
   private:
     using ProfilePolicy =

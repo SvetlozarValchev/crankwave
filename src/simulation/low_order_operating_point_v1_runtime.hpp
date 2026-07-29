@@ -49,6 +49,8 @@ class LowOrderOperatingPointV1Runtime final {
     [[nodiscard]] std::uint64_t fixed_cutoff_frame_count() const noexcept;
     [[nodiscard]] const std::optional<contract::HeldSpeedOperatingPointResult> &
     operating_point_result() const noexcept;
+    [[nodiscard]] const std::optional<AdjacentCycleBlockConvergenceError> &
+    convergence_finalization_error() const noexcept;
 
   private:
     struct ExpectedCylinderTransaction {
@@ -115,6 +117,7 @@ class LowOrderOperatingPointV1Runtime final {
     std::string scenario_id_;
     contract::EngineId engine_id_;
     std::optional<contract::HeldSpeedOperatingPointResult> operating_point_result_;
+    std::optional<AdjacentCycleBlockConvergenceError> convergence_finalization_error_;
     std::optional<contract::FailureContext> terminal_fault_;
 
     friend std::variant<LowOrderOperatingPointV1Runtime,
