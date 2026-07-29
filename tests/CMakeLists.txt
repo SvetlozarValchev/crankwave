@@ -512,6 +512,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_exhaust_acoustic_session_tests
+    exhaust_acoustic_session_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_exhaust_acoustic_session_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_exhaust_acoustic_session_tests
+    PRIVATE engine_sim_offline::acoustics
+)
+
+add_test(
+    NAME acoustics.exhaust_acoustic_session
+    COMMAND engine_sim_offline_exhaust_acoustic_session_tests
+)
+
+add_executable(
     engine_sim_offline_component_seed_derivation_tests
     component_seed_derivation_test.cpp
 )

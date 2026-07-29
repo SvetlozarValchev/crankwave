@@ -321,6 +321,7 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_dsp)
 add_library(
     engine_sim_offline_acoustics
     STATIC
+        src/acoustics/exhaust_acoustic_session.cpp
         src/acoustics/ideal_compact_junction.cpp
         src/acoustics/unflanged_pipe_outlet.cpp
         src/acoustics/uniform_cylindrical_waveguide.cpp
@@ -338,7 +339,10 @@ target_include_directories(
 
 target_link_libraries(
     engine_sim_offline_acoustics
-    PUBLIC engine_sim_offline::build_options
+    PUBLIC
+        engine_sim_offline::build_options
+        engine_sim_offline::contract
+        engine_sim_offline::dsp
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_acoustics)
 
