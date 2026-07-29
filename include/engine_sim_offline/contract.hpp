@@ -3,6 +3,7 @@
 #include "engine_sim_offline/contract/capture.hpp"
 #include "engine_sim_offline/contract/common.hpp"
 #include "engine_sim_offline/contract/engine.hpp"
+#include "engine_sim_offline/contract/exhaust_acoustics.hpp"
 #include "engine_sim_offline/contract/parity_model.hpp"
 #include "engine_sim_offline/contract/presentation.hpp"
 #include "engine_sim_offline/contract/provenance.hpp"

@@ -244,6 +244,7 @@ add_executable(
     authored_profile_contract_test.cpp
     capture_contract_test.cpp
     contract_test_main.cpp
+    exhaust_acoustics_contract_test.cpp
     parity_model_contract_test.cpp
     primitives_contract_test.cpp
     randomness_contract_test.cpp

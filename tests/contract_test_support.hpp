@@ -886,6 +886,7 @@ void run_primitives_contract_tests();
 void run_authored_profile_contract_tests();
 void run_parity_model_contract_tests();
 void run_capture_contract_tests();
+void run_exhaust_acoustics_contract_tests();
 void run_randomness_contract_tests();
 void run_scenario_manifest_contract_tests();
 
