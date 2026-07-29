@@ -1,6 +1,6 @@
 # M5 exhaust acoustic network
 
-Status: **frozen for bounded implementation; listening acceptance pending**
+Status: **first implementation rejected by listening; redesign required**
 
 Decision owner: user
 
@@ -84,9 +84,10 @@ muffler work cannot excuse it.
 
 ## 3. Source capture contract
 
-The current ordinary `PortCaptureSample` is a post-step 10 kHz observation. Its mass
-flow is the sum of eight gas transfers, so it has at most 5 kHz source bandwidth. M5
-adds an exhaust-only substep lane without changing the accepted gas calculation:
+The current ordinary `PortCaptureSample` is a post-step 10 kHz observation. The first
+M5 design incorrectly inferred that its summed mass flow established at most 5 kHz of
+physical source bandwidth, then exposed an exhaust-only substep lane without changing
+the accepted gas calculation:
 
 ```text
 outer capture rate       = 10,000 Hz
@@ -125,6 +126,13 @@ U_src   = mdot / rho_src
 are a truthful projection of the retained low-order gas model, not a claim that burned
 exhaust has dry-air composition. A later mixture-property model changes the gas model
 and source projection together.
+
+The listening rejection proved that the eight records are not eight independently
+time-resolved physical states. Chamber volume, mechanism angle, and valve state advance
+only at the 10 kHz outer boundary and remain frozen across all eight gas transfers.
+Publishing those relaxation iterations at 80 kHz creates discontinuities every outer
+frame and fixed 10/20/30 kHz clock lines. They are numerical integration structure,
+not resolved valve-flow bandwidth. This invalidates the first source contract.
 
 Capture records are appended only after the corresponding transfer and all affected
 cells pass the existing finite/physical checks. A failed gas substep publishes no
@@ -458,3 +466,52 @@ production excitation/presentation implementation from non-reference targets.
 Rejection keeps the structural/capture evidence only if it is independently correct,
 records the audible failure, and redesigns the isolated acoustic model rather than
 building later work on it.
+
+## 12. Listening rejection and forensic result
+
+The user rejected the complete `32fb288` candidate on 2026-07-29 as bad, synthetic,
+and robotic. The prior `0.5` audition gain removed PCM24 clipping but did not change
+the Float32 physical stems or their timbre. Read-only comparison against the accepted
+M4 held and dyno artifacts isolated two audible failures upstream of mastering:
+
+1. At 3,000 rpm / 0.85 throttle, approximately 97% of the 30 Hz--20 kHz M5 master
+   energy is above 5 kHz, versus approximately 0.03% in accepted M4. Its 10 kHz and
+   20 kHz lines are respectively about 13 dB and 17 dB above the 150 Hz firing
+   fundamental. Across the dyno, the dominant spectral bin remains at approximately
+   20 kHz in 84 of 86 analysis frames rather than rising with RPM.
+2. The front and rear stems are equal-level, near-duplicate waveforms delayed by one
+   firing interval. At loaded held points their best-delay correlation is
+   approximately 0.95--0.99. Their coherent master therefore cancels half-firing
+   structure and repeats the remaining firing waveform almost perfectly.
+
+The first failure follows directly from the false source-bandwidth premise above. The
+80-to-192 kHz resampler admits content to approximately 38 kHz, and the compact
+far-field formula then differentiates outlet volume velocity. The differentiation is
+valid for a smooth volume-flow history but strongly emphasizes the injected outer-step
+discontinuities. The fixed lines also lie above the current downstream ducts'
+approximately 6.2 kHz single-plane-mode limit and outside the cited outlet
+approximation's declared `ka <= 2` accuracy range.
+
+No evidence identified a valve-flow sign, cylinder-to-route mapping, junction
+scattering, outlet polarity, crop, stem sum, or mastering-gain error. The ideal
+prescribed-flow Norton boundary, one-way acoustic coupling, identical evaluation
+geometry, and coherent same-point outlet projection remain model limitations, but
+they do not explain away the fixed solver-clock carrier.
+
+The corrective gate is therefore:
+
+1. advance mechanism geometry and valvetrain state at every published source interval,
+   or stop claiming the gas relaxations are a higher-rate source;
+2. enforce the admitted single-mode bandwidth before the radiation derivative and
+   report it in artifacts;
+3. expose source, pre-radiation outlet flow, each pressure stem, and coherent sum as
+   inspectable diagnostics;
+4. require fixed solver-clock lines to fall below the RPM-following engine orders;
+5. render only one 3,000 rpm / 0.85 held clip plus route solo/full diagnostics and stop
+   for listening before rerendering the complete matrix; and
+6. only after that gate passes, replace the prescribed-flow boundary with a finite or
+   coupled valve/cylinder impedance and author measured exhaust geometry.
+
+Post-process-only diagnostic files may remove the radiation derivative or restrict the
+result to the plane-wave validity band to localize the failure. They are not accepted
+audio, a production fix, or authority to continue to M6.

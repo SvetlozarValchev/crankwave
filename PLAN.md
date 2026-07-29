@@ -608,14 +608,23 @@ It replaces the M4 operating profile's empirical exhaust excitation/presentation
 an 80 kHz six-port source capture and a passive two-outlet 192 kHz acoustic network;
 its exact geometry is declared evaluation data, not fabricated OEM BMW measurement.
 
+The first complete candidate at `32fb288` was rejected by user listening on
+2026-07-29 as synthetic and robotic. Forensics found fixed 10/20/30 kHz simulation
+clock lines rather than extra engine detail: mechanics, chamber volume, and valve
+state advance at 10 kHz while the published "80 kHz source" is eight gas relaxations
+under each frozen outer state. The resampler preserves those discontinuities and the
+outlet radiation derivative emphasizes them. Equal, delayed-near-duplicate outlet
+routes also make the remaining firing cadence unnaturally repetitive. M6 is blocked
+until the isolated M5 source/acoustic replacement is redesigned and accepted by ear.
+
 For each hypothesis:
 
 - [x] Document one deficiency, established replacement, expected result, and cost.
-- [ ] Replace one subsystem behind an existing physical seam.
-- [ ] Run focused invariant/convergence checks.
-- [ ] Render the canonical pull and every affected regression clip against the previous
+- [x] Replace one subsystem behind an existing physical seam.
+- [x] Run focused invariant/convergence checks.
+- [x] Render the canonical pull and every affected regression clip against the previous
       accepted commit.
-- [ ] Stop for user listening.
+- [x] Stop for user listening.
 - [ ] Accept and remove the old path, or reject and redesign.
 
 Hypotheses remain separate: integration/event handling, valve/port flow, control-volume
