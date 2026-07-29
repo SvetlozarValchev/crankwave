@@ -948,9 +948,9 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
         engine.torque_capability = builder.resolved(
             contract::TorqueCapability{
                 {
-                    contract::Availability::unavailable,
-                    contract::Completeness::incomplete,
-                    0,
+                    contract::Availability::available,
+                    contract::Completeness::complete,
+                    contract::known_torque_term_mask(),
                     0,
                 },
                 {
@@ -959,7 +959,7 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
                     contract::known_torque_term_mask(),
                     0,
                 },
-                false,
+                true,
             },
             "engine.torque_capability", Source::profile_contract);
     } else {

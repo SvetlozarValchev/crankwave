@@ -54,9 +54,9 @@ constexpr TorqueTermMask kOperatingStarterTerms =
     torque_term_mask(TorqueTerm::starter);
 constexpr TorqueCapability kOperatingTorqueCapability{
     {
-        Availability::unavailable,
-        Completeness::incomplete,
-        0,
+        Availability::available,
+        Completeness::complete,
+        known_torque_term_mask(),
         0,
     },
     {
@@ -65,7 +65,7 @@ constexpr TorqueCapability kOperatingTorqueCapability{
         known_torque_term_mask(),
         0,
     },
-    false,
+    true,
 };
 
 template <class T>
@@ -2257,9 +2257,8 @@ void validate_resolved_profile_specific(
     detail::require(
         report, engine.torque_capability.value == kOperatingTorqueCapability,
         ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",
-        "operating-point profile exposes unavailable instantaneous net torque, "
-        "complete cycle-mean net torque over all known terms, and no equivalent "
-        "inertia");
+        "operating-point profile requires complete instantaneous and cycle-mean net "
+        "torque coverage plus admitted equivalent inertia");
 }
 
 } // namespace

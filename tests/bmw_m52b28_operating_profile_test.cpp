@@ -154,7 +154,7 @@ void test_exact_profile_authorities(
            "canonical BMW operating identity changed");
 
     constexpr std::string_view kExpectedBundleSha256 =
-        "8ef710da9284f9355c9ea78d37383ff187bf895041f182a9223d61155ffe13e6";
+        "2cec3df34ec4d7d01d7a41e1fad8fb14c2b2a02e172b8de4bdb8cbacde954a18";
     const auto actual_bundle_sha256 = digest_hex(profile.provenance.bundle.sha256);
     if (actual_bundle_sha256 != kExpectedBundleSha256) {
         std::cerr << "BMW operating profile provenance SHA-256: "
@@ -211,9 +211,9 @@ void test_exact_profile_authorities(
 
     const contract::TorqueCapability expected_capability{
         {
-            contract::Availability::unavailable,
-            contract::Completeness::incomplete,
-            0,
+            contract::Availability::available,
+            contract::Completeness::complete,
+            UINT64_C(0xff),
             0,
         },
         {
@@ -222,7 +222,7 @@ void test_exact_profile_authorities(
             UINT64_C(0xff),
             0,
         },
-        false,
+        true,
     };
     expect(profile.engine.torque_capability.value == expected_capability,
            "canonical BMW torque capability changed");

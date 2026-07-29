@@ -181,23 +181,26 @@ The exact torque capability is:
 
 ```text
 instantaneous_net_shaft =
-  unavailable, incomplete, included_terms=0, omitted_terms=0
+  available, complete-within-the-admitted-causal-mean-value-method,
+  included_terms=0xff, omitted_terms=0
 cycle_mean_net_shaft =
   available, complete, included_terms=0xff, omitted_terms=0
-equivalent_inertia_available = false
+equivalent_inertia_available = true
 ```
 
-Consequently the per-frame `friction_pump_and_accessory`,
-`instantaneous_net_shaft`, actuator, and dyno-reaction quantities remain unavailable.
-The operating result exposes aggregate loss and complete shaft output only at
-completed-cycle/block resolution.
+The instantaneous capability is not a physical component-friction waveform. It is
+available only through the admitted causal one-cycle-lagged aggregate-loss closure;
+held results continue to expose the same-cycle aggregate loss and complete shaft
+output at completed-cycle/block resolution.
 
-The profile admits only `HeldSpeed` with `ConvergenceSettling`, finite positive RPM,
-the exact oil condition above, and a fired held-running state at every journal point:
-ignition, fuel, and dyno enabled; starter and limiter disabled. The scenario contains
-no accessory selector; the profile owns that condition. Reused core values must be
-resolved afresh under the new provenance root—an M3 object and its
-`ResolutionRecord`s may not be shallow-copied and relabelled.
+The profile admits `HeldSpeed` and `InertialDyno`, both with
+`ConvergenceSettling`, finite positive running speed, the exact oil condition above,
+and a fired running state at every journal point: ignition, fuel, and dyno enabled;
+starter and limiter disabled. `HeldSpeed` constrains speed during capture;
+`InertialDyno` releases the converged state into the admitted crank-dynamics method.
+The scenario contains no accessory selector; the profile owns that condition. Reused
+core values must be resolved afresh under the new provenance root—an M3 object and
+its `ResolutionRecord`s may not be shallow-copied and relabelled.
 
 The scenario's conventional stoichiometric mass-AFR metadata is not the core's
 dimensionless molecular ratio. For this inherited pseudo-gas model it is derived in
@@ -213,13 +216,14 @@ policy and is not duplicated in the engine profile.
 
 This variant was added to the executable-profile union atomically with its authored
 and resolved validation, method policy, topology/root mapping, randomness access,
-final manifest wire, and request-identity wire. The sole low-order capture session
-selects exactly one profile policy: the M3 fixed-crank accountant or this M4
-complete-cycle/convergence runtime. Both consume the same transactional core step
-inside the same block loop; neither policy can instantiate, evaluate, or fall back to
-the other. A cutoff failure terminalizes the session before the containing capture
-block reaches its consumer. Successful M4 completion alone retains the request-bound
-typed held-speed result.
+final manifest wire, and request-identity wire. The low-order capture runtime selects
+exactly one profile policy: the M3 fixed-crank accountant or this M4
+complete-cycle/convergence policy, with the latter selecting constrained held capture
+or released inertial capture from the scenario. Both consume the same transactional
+core step inside the same block loop; neither policy can instantiate, evaluate, or
+fall back to the other. A cutoff failure terminalizes the session before the
+containing capture block reaches its consumer. Successful M4 completion alone retains
+the request-bound typed operating result.
 
 The canonical BMW profile factory constructs this profile directly from the reusable
 low-order core under a fresh operating provenance root. Its exact validator pins the
@@ -523,8 +527,9 @@ until an engaged-starter model exists.
 
 Chen–Flynn supplies no oil-temperature law. This M4 profile admits only the fixed warm
 oil state `363.15 K` and rejects other oil temperatures rather than inventing a
-correction. It admits positive held speed only. It does not claim cold-oil, oil-grade,
-reverse, startup, transient, or changed-accessory accuracy.
+correction. It admits positive running speed for held and inertial-dyno operation. It
+does not claim cold-oil, oil-grade, reverse, startup, transient, or
+changed-accessory accuracy.
 
 The correlation is cycle-mean. M4 does not emit a constant-through-cycle bookkeeping
 torque and must not describe one as an instantaneous friction waveform.
@@ -540,8 +545,10 @@ this explicit model-form limitation.
 
 Held speed prescribes constant positive RPM and throttle while the test cell supplies
 the balancing reaction. Equivalent inertia is not needed for mean reaction over a
-periodic complete cycle, but instantaneous actuator/dyno reaction remains unavailable
-until equivalent inertia and its derivative are admitted.
+periodic complete cycle. The constrained held result intentionally reports the
+complete same-cycle reaction at cycle/block resolution rather than fabricating a
+per-frame actuator waveform. The separate inertial result reports shaft motion and
+energy evidence under its admitted equivalent inertia and brake law.
 
 The convergence method is
 `adjacent-nonoverlapping-cycle-block-mean-v1`, version 1. It is a deterministic
@@ -639,8 +646,9 @@ is total brake work divided by the summed cycle duration.
 A typed held-speed result records at least RPM, throttle, ambient/thermal/fuel/
 accessory/starter conditions, completed-cycle range, indicated work, aggregate loss
 work, starter work, brake work, net torque, net BMEP, mean power, convergence
-residuals, and the generic-prior applicability label. Per-frame instantaneous actuator
-and dyno reaction remain unavailable.
+residuals, and the generic-prior applicability label. The held result does not expose
+a per-frame actuator/dyno reaction; that omission is a boundary of constrained held
+capture, not a missing inertial-dyno implementation.
 
 ## 6. BMW manufacturer plausibility landmarks
 

@@ -790,9 +790,11 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
             using Profile = std::decay_t<decltype(profile)>;
             if constexpr (std::is_same_v<Profile,
                                          LowOrderOperatingPointV1Profile>) {
-                if (!std::holds_alternative<HeldSpeed>(scenario.mode)) {
+                if (!std::holds_alternative<HeldSpeed>(scenario.mode) &&
+                    !std::holds_alternative<InertialDyno>(scenario.mode)) {
                     report.add(ContractIssueCode::unsupported_value, "mode",
-                               "operating-point v1 admits only held-speed mode");
+                               "operating-point v1 admits held-speed and inertial-"
+                               "dyno modes");
                 }
                 const auto *convergence =
                     std::get_if<ConvergenceSettling>(&scenario.preparation);
