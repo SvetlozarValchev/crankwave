@@ -1,7 +1,12 @@
 # M4 BMW held idle-region and low-load gate
 
-Status: frozen before implementation
+Status: implemented at `4b651273e007553a793762f847ba237a9ee3396f`; awaiting
+user listening
 Frozen: 2026-07-29
+
+Execution identities, operating results, timings, hashes, and listening paths are
+recorded in
+[`M4_BMW_HELD_IDLE_LOW_LOAD_LISTENING_GATE.md`](M4_BMW_HELD_IDLE_LOW_LOAD_LISTENING_GATE.md).
 
 This gate extends the accepted BMW held operating regression set into the idle-speed
 region and a materially lower-load condition. It uses the same engine, held-speed test

@@ -566,7 +566,8 @@ replacement starts before acceptance.
 - [x] Render low/middle/high RPM and load clips, then stop for user listening.
 - [x] Add the inertial dyno.
 - [x] Render its natural BMW pull, then stop for user listening.
-- [ ] Add stable idle/low-load behavior.
+- [x] Add stable externally held idle-region/low-load audio behavior without claiming
+      self-regulated free idle.
 - [ ] Render idle/low-load behavior, then stop for user listening.
 - [ ] Add throttle application, lift, and ordinary-overrun behavior.
 - [ ] Render those transients, then stop for user listening.
@@ -591,6 +592,9 @@ The user accepted the natural inertial-dyno climb on the same date. It is driven
 simulated shaft dynamics rather than relabelling the accepted M3 prescribed sweep;
 the gate is recorded in
 [`docs/M4_BMW_INERTIAL_DYNO_LISTENING_GATE.md`](docs/M4_BMW_INERTIAL_DYNO_LISTENING_GATE.md).
+The exact held idle-region/low-load boundary and pending listening evidence are
+recorded in
+[`docs/M4_BMW_HELD_IDLE_LOW_LOAD_LISTENING_GATE.md`](docs/M4_BMW_HELD_IDLE_LOW_LOAD_LISTENING_GATE.md).
 
 ### M5 — Isolated offline-fidelity upgrades
 
