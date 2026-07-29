@@ -97,7 +97,33 @@ to `81386e3`. It did not incrementally enhance the baseline: it replaced the sou
 observable, routing/presentation contract, transfer model, radiation, artifacts, and
 manifest together.
 
-## 4. Recovery and future comparison rule
+## 4. Verified recovery
+
+Commit `3f5fa1c` mechanically restored the complete accepted runtime, contract,
+manifest, build, and test cluster from `ffcc45c` as the sole implementation. It
+removed the rejected M5 acoustic runtime rather than retaining a selectable legacy
+path.
+
+The clean recovery commit passed all `68 / 68` tests and rendered this natural dyno:
+
+```text
+artifacts/listening/bmw-m52b28-recovered-last-good-3f5fa1c/
+  audio/master.reference.audition.wav
+```
+
+The render completed in `15.25 s`. Its complete WAVE file, including metadata, is
+byte-for-byte identical to the tracked listening oracle:
+
+```text
+87eda586902fbcf7e015161a84688c74e486285c99150c1a6fb3bc9c4382c444
+```
+
+No cleanup or new sound work was included after this proof. In particular, the
+previously approved dead compression-ignition-field cleanup is deliberately deferred
+until after the user reaccepts this recovered audio, so it can remain a separate,
+audibly verified change.
+
+## 5. Recovery and future comparison rule
 
 Recovery means making the `4b65127`/`ffcc45c` sound-producing behavior the sole
 current path again, not adding a legacy switch or maintaining two implementations.
