@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -28,6 +29,8 @@ struct LowOrderCylinderChamberCaptureBinding {
 // The physical inventory has its own exact ascending GasVolumeId order so cycle
 // accounting never depends on authored vector order.
 struct LowOrderCapturePlan {
+    std::string engine_profile_id;
+    std::string scenario_id;
     detail::LowOrderCaptureBufferPlan capture_buffer;
     std::uint64_t capture_horizon_frames = 0;
     std::vector<contract::GasVolumeId> physical_gas_volume_ids;

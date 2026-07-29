@@ -168,6 +168,8 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
     const auto &selected_core = *core;
 
     LowOrderCapturePlan compiled;
+    compiled.engine_profile_id = engine.profile_id.value;
+    compiled.scenario_id = scenario.scenario_id;
     auto &plan = compiled.capture_buffer;
     plan.engine_id = engine.id;
     plan.rate = scenario.rates.capture;

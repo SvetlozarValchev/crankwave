@@ -1045,6 +1045,29 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_low_order_operating_point_v1_runtime_tests
+    low_order_operating_point_v1_runtime_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_low_order_operating_point_v1_runtime_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_low_order_operating_point_v1_runtime_tests
+    PRIVATE
+        engine_sim_offline::profiles
+        engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.low_order_operating_point_v1_runtime
+    COMMAND engine_sim_offline_low_order_operating_point_v1_runtime_tests
+)
+
+add_executable(
     engine_sim_offline_legacy_low_order_exhaust_excitation_tests
     legacy_low_order_exhaust_excitation_test.cpp
 )

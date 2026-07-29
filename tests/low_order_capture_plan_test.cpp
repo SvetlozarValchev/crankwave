@@ -93,11 +93,13 @@ void test_physical_inventory_is_stable_and_excludes_atmosphere() {
         request.scenario.total_duration_s.value, request.scenario.rates.capture);
 
     expect(expected_horizon.has_value() &&
+               baseline.engine_profile_id == request.engine.profile_id.value &&
+               baseline.scenario_id == request.scenario.scenario_id &&
                baseline.capture_horizon_frames == *expected_horizon &&
                baseline.capture_buffer.declared_block_capacity_frames == 200U &&
                baseline.capture_buffer.declared_event_capacity_records == 3800U &&
                baseline.capture_buffer.maximum_events_per_frame == 19U,
-           "capture horizon or bounded storage capacities changed");
+           "capture ownership, horizon, or bounded storage capacities changed");
     expect(!expected.empty() && baseline.physical_gas_volume_ids == expected &&
                std::ranges::none_of(
                    baseline.physical_gas_volume_ids,
