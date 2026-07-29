@@ -818,6 +818,7 @@ target_link_libraries(
     PRIVATE
         engine_sim_offline::profiles
         engine_sim_offline::request_identity
+        engine_sim_offline::simulation
 )
 
 add_test(
@@ -1288,6 +1289,33 @@ engine_sim_offline_enable_renderer_numeric_policy(
 add_test(
     NAME profiles.bmw_m52b28_held_regression_request_set
     COMMAND engine_sim_offline_bmw_m52b28_held_regression_request_set_tests
+)
+
+add_executable(
+    engine_sim_offline_bmw_m52b28_held_idle_low_load_request_set_tests
+    bmw_m52b28_held_idle_low_load_request_set_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_bmw_m52b28_held_idle_low_load_request_set_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_bmw_m52b28_held_idle_low_load_request_set_tests
+    PRIVATE
+        engine_sim_offline::profiles
+        engine_sim_offline::request_identity
+        engine_sim_offline::simulation
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_bmw_m52b28_held_idle_low_load_request_set_tests
+)
+
+add_test(
+    NAME profiles.bmw_m52b28_held_idle_low_load_request_set
+    COMMAND engine_sim_offline_bmw_m52b28_held_idle_low_load_request_set_tests
 )
 
 if(TARGET engine_sim_offline_m4_bmw_listening AND

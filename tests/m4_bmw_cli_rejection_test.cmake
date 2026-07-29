@@ -31,11 +31,37 @@ if(unknown_result EQUAL 0 OR
     message(FATAL_ERROR "unknown listening token did not fail closed")
 endif()
 
+foreach(rejected_alias IN ITEMS
+        rpm700-throttle0
+        rpm1500-throttle0p10
+        held-idle-region
+        held-low-load)
+    execute_process(
+        COMMAND
+            "${LISTENING_EXE}"
+            "${rejected_alias}"
+            "${scratch}"
+            "${scratch}/unused"
+        WORKING_DIRECTORY "${scratch}"
+        RESULT_VARIABLE rejected_alias_result
+        OUTPUT_VARIABLE rejected_alias_stdout
+        ERROR_VARIABLE rejected_alias_stderr
+    )
+    if(rejected_alias_result EQUAL 0 OR
+       NOT rejected_alias_stderr MATCHES
+           "listening mode must be exactly one of")
+        message(FATAL_ERROR
+            "listening CLI accepted noncanonical alias ${rejected_alias}")
+    endif()
+endforeach()
+
 foreach(held_token IN ITEMS
         held-rpm1500-throttle0p85
         held-rpm3000-throttle0p25
         held-rpm3000-throttle0p85
-        held-rpm6500-throttle0p85)
+        held-rpm6500-throttle0p85
+        held-idle-region-rpm700-throttle0
+        held-low-load-rpm1500-throttle0p10)
     execute_process(
         COMMAND
             "${LISTENING_EXE}"

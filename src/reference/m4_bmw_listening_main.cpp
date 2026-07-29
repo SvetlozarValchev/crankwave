@@ -1,6 +1,7 @@
 #include "reference/bmw_p18_render_specification.hpp"
 
 #include "engine_sim_offline/artifacts/directory_render_sink.hpp"
+#include "engine_sim_offline/profiles/bmw_m52b28_held_idle_low_load_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_held_regression_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_inertial_dyno_listening_request.hpp"
 #include "reference/p18_reference_catalog.hpp"
@@ -34,6 +35,8 @@ enum class ListeningMode : std::uint8_t {
     held_rpm3000_throttle0p25,
     held_rpm3000_throttle0p85,
     held_rpm6500_throttle0p85,
+    held_idle_region_rpm700_throttle0,
+    held_low_load_rpm1500_throttle0p10,
     inertial,
 };
 
@@ -126,14 +129,21 @@ read_verified_configured_ir(const std::filesystem::path &fixture_root) {
     if (mode == "held-rpm6500-throttle0p85") {
         return ListeningMode::held_rpm6500_throttle0p85;
     }
+    if (mode == "held-idle-region-rpm700-throttle0") {
+        return ListeningMode::held_idle_region_rpm700_throttle0;
+    }
+    if (mode == "held-low-load-rpm1500-throttle0p10") {
+        return ListeningMode::held_low_load_rpm1500_throttle0p10;
+    }
     if (mode == "inertial") {
         return ListeningMode::inertial;
     }
     throw std::invalid_argument{
         "listening mode must be exactly one of "
         "'held-rpm1500-throttle0p85', 'held-rpm3000-throttle0p25', "
-        "'held-rpm3000-throttle0p85', 'held-rpm6500-throttle0p85', or "
-        "'inertial'"};
+        "'held-rpm3000-throttle0p85', 'held-rpm6500-throttle0p85', "
+        "'held-idle-region-rpm700-throttle0', "
+        "'held-low-load-rpm1500-throttle0p10', or 'inertial'"};
 }
 
 [[nodiscard]] std::string_view listening_mode_name(ListeningMode mode) noexcept {
@@ -146,6 +156,10 @@ read_verified_configured_ir(const std::filesystem::path &fixture_root) {
         return "held-rpm3000-throttle0p85";
     case ListeningMode::held_rpm6500_throttle0p85:
         return "held-rpm6500-throttle0p85";
+    case ListeningMode::held_idle_region_rpm700_throttle0:
+        return "held-idle-region-rpm700-throttle0";
+    case ListeningMode::held_low_load_rpm1500_throttle0p10:
+        return "held-low-load-rpm1500-throttle0p10";
     case ListeningMode::inertial:
         return "inertial";
     }
@@ -154,6 +168,11 @@ read_verified_configured_ir(const std::filesystem::path &fixture_root) {
 
 [[nodiscard]] bool is_held_mode(ListeningMode mode) noexcept {
     return mode != ListeningMode::inertial;
+}
+
+[[nodiscard]] bool is_held_idle_low_load_mode(ListeningMode mode) noexcept {
+    return mode == ListeningMode::held_idle_region_rpm700_throttle0 ||
+           mode == ListeningMode::held_low_load_rpm1500_throttle0p10;
 }
 
 [[nodiscard]] std::size_t held_point_index(ListeningMode mode) {
@@ -166,13 +185,47 @@ read_verified_configured_ir(const std::filesystem::path &fixture_root) {
         return 2U;
     case ListeningMode::held_rpm6500_throttle0p85:
         return 3U;
+    case ListeningMode::held_idle_region_rpm700_throttle0:
+    case ListeningMode::held_low_load_rpm1500_throttle0p10:
     case ListeningMode::inertial:
         break;
     }
-    throw std::logic_error{"inertial mode has no held-regression point"};
+    throw std::logic_error{"non-regression mode has no held-regression point"};
+}
+
+[[nodiscard]] std::size_t held_idle_low_load_point_index(ListeningMode mode) {
+    switch (mode) {
+    case ListeningMode::held_idle_region_rpm700_throttle0:
+        return 0U;
+    case ListeningMode::held_low_load_rpm1500_throttle0p10:
+        return 1U;
+    case ListeningMode::held_rpm1500_throttle0p85:
+    case ListeningMode::held_rpm3000_throttle0p25:
+    case ListeningMode::held_rpm3000_throttle0p85:
+    case ListeningMode::held_rpm6500_throttle0p85:
+    case ListeningMode::inertial:
+        break;
+    }
+    throw std::logic_error{"non-idle-low-load mode has no held idle/low-load point"};
 }
 
 [[nodiscard]] ListeningRequest make_listening_request(ListeningMode mode) {
+    if (is_held_idle_low_load_mode(mode)) {
+        auto result = profiles::make_bmw_m52b28_held_idle_low_load_request_set();
+        if (auto *request_set =
+                std::get_if<profiles::BmwM52b28HeldIdleLowLoadRequestSet>(&result)) {
+            auto &request = request_set->at(held_idle_low_load_point_index(mode));
+            return {
+                std::move(request.engine),
+                std::move(request.scenario),
+                std::move(request.provenance),
+            };
+        }
+        throw std::runtime_error{
+            "canonical M4 BMW held idle/low-load request-set construction failed" +
+            validation_report_text(std::get<contract::ValidationReport>(result))};
+    }
+
     if (is_held_mode(mode)) {
         auto result = profiles::make_bmw_m52b28_held_regression_request_set();
         if (auto *request_set =
@@ -223,7 +276,9 @@ int run(int argc, char **argv) {
         throw std::invalid_argument{
             "usage: engine-sim-offline-m4-bmw-listening "
             "<held-rpm1500-throttle0p85|held-rpm3000-throttle0p25|"
-            "held-rpm3000-throttle0p85|held-rpm6500-throttle0p85|inertial> "
+            "held-rpm3000-throttle0p85|held-rpm6500-throttle0p85|"
+            "held-idle-region-rpm700-throttle0|"
+            "held-low-load-rpm1500-throttle0p10|inertial> "
             "<fixture-root> <new-output-directory>"};
     }
     const auto mode = parse_listening_mode(argv[1]);

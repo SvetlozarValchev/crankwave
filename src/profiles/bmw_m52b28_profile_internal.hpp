@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/profiles/bmw_m52b28_full_throttle_torque_sweep_request.hpp"
+#include "engine_sim_offline/profiles/bmw_m52b28_held_idle_low_load_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_held_regression_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_inertial_dyno_listening_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
@@ -117,6 +118,14 @@ build_bmw_m52b28_held_regression_scenario(BmwProvenanceBuilder &builder,
                                           const contract::EngineSpec &engine,
                                           std::size_t point_index);
 
+[[nodiscard]] std::string_view
+bmw_m52b28_held_idle_low_load_point_key(std::size_t point_index);
+
+[[nodiscard]] contract::RenderScenario
+build_bmw_m52b28_held_idle_low_load_scenario(BmwProvenanceBuilder &builder,
+                                             const contract::EngineSpec &engine,
+                                             std::size_t point_index);
+
 [[nodiscard]] contract::RenderScenario
 build_bmw_m52b28_full_throttle_torque_sweep_scenario(BmwProvenanceBuilder &builder,
                                                      const contract::EngineSpec &engine,
@@ -137,6 +146,12 @@ build_bmw_m52b28_held_regression_request_unvalidated(std::size_t point_index);
 
 [[nodiscard]] BmwM52b28HeldRegressionRequestSet
 build_bmw_m52b28_held_regression_request_set_unvalidated();
+
+[[nodiscard]] BmwM52b28HeldIdleLowLoadRequest
+build_bmw_m52b28_held_idle_low_load_request_unvalidated(std::size_t point_index);
+
+[[nodiscard]] BmwM52b28HeldIdleLowLoadRequestSet
+build_bmw_m52b28_held_idle_low_load_request_set_unvalidated();
 
 [[nodiscard]] BmwM52b28FullThrottleTorqueSweepRequest
 build_bmw_m52b28_full_throttle_torque_sweep_request_unvalidated(
