@@ -199,6 +199,14 @@ no accessory selector; the profile owns that condition. Reused core values must 
 resolved afresh under the new provenance root—an M3 object and its
 `ResolutionRecord`s may not be shallow-copied and relabelled.
 
+The scenario's conventional stoichiometric mass-AFR metadata is not the core's
+dimensionless molecular ratio. For this inherited pseudo-gas model it is derived in
+the exact written order
+`(molecular_afr / 0.25) * (0.02897 / fuel_molecular_mass_kg_per_mol)`.
+The first BMW profile therefore declares `14.484999999999998`, not `12.5`. The
+runtime bit-binds the reported operating condition to that conversion even though the
+legacy gas solver consumes the molecular representation directly.
+
 `ConvergenceSettling` gains a leading
 `ResolvedValue<MethodIdentity> method` member. Convergence remains scenario/test-cell
 policy and is not duplicated in the engine profile.

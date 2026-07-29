@@ -194,7 +194,9 @@ make_operating_capture_request(double torque_tolerance_nm = 1.0e9,
     scenario.fuel.lower_heating_value_j_per_kg.value =
         profile.core.fuel.energy_density_j_per_kg.value;
     scenario.fuel.stoichiometric_air_fuel_mass_ratio.value =
-        profile.core.fuel.molecular_afr.value;
+        legacy_pseudo_gas_stoichiometric_mass_afr(
+            profile.core.fuel.molecular_afr.value,
+            profile.core.fuel.molecular_mass_kg_per_mol.value);
     scenario.initial_thermal_state.oil_temperature_k.value =
         profile.aggregate_loss.required_oil_temperature_k.value;
     scenario.preparation = ConvergenceSettling{

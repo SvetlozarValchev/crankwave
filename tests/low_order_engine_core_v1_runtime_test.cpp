@@ -1,6 +1,7 @@
 #include "contract_test_support.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
 #include "profiles/bmw_m52b28_profile_internal.hpp"
+#include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
 
 #include <algorithm>
@@ -195,7 +196,9 @@ void test_canonical_bmw_operating_profile_uses_limiter_disabled_core() {
     scenario.fuel.lower_heating_value_j_per_kg.value =
         operating.core.fuel.energy_density_j_per_kg.value;
     scenario.fuel.stoichiometric_air_fuel_mass_ratio.value =
-        operating.core.fuel.molecular_afr.value;
+        simulation::legacy_pseudo_gas_stoichiometric_mass_afr(
+            operating.core.fuel.molecular_afr.value,
+            operating.core.fuel.molecular_mass_kg_per_mol.value);
     scenario.initial_thermal_state.oil_temperature_k.value =
         operating.aggregate_loss.required_oil_temperature_k.value;
     scenario.preparation = contract::ConvergenceSettling{

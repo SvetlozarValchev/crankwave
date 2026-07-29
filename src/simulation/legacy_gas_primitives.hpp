@@ -6,7 +6,18 @@ namespace engine_sim_offline::simulation {
 
 inline constexpr double kLegacyGasConstantJPerMolK = 8.31446261815324;
 inline constexpr double kLegacyAirMolarMassKgPerMol = 0.02897;
+inline constexpr double kLegacyDryAirOxygenMolarFraction = 0.25;
 inline constexpr int kLegacyGasDegreesOfFreedom = 5;
+
+// Converts the legacy pseudo-gas fuel's molecular stoichiometric ratio into the
+// conventional mass-AFR metadata carried by RenderScenario. The gas solver consumes
+// the molecular representation; this exact written-order conversion prevents the
+// two quantities from being mislabeled as equal.
+[[nodiscard]] inline double legacy_pseudo_gas_stoichiometric_mass_afr(
+    double molecular_afr, double fuel_molecular_mass_kg_per_mol) noexcept {
+    return (molecular_afr / kLegacyDryAirOxygenMolarFraction) *
+           (kLegacyAirMolarMassKgPerMol / fuel_molecular_mass_kg_per_mol);
+}
 
 // Molar fractions are intentionally stored independently. The legacy method never
 // performs a final normalization pass after an admitted transfer or reaction.

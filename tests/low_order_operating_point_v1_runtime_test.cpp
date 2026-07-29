@@ -1,5 +1,6 @@
 #include "contract_test_support.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
+#include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
 #include "simulation/low_order_operating_point_v1_runtime.hpp"
@@ -55,7 +56,9 @@ struct Fixture {
     scenario.fuel.lower_heating_value_j_per_kg.value =
         profile.core.fuel.energy_density_j_per_kg.value;
     scenario.fuel.stoichiometric_air_fuel_mass_ratio.value =
-        profile.core.fuel.molecular_afr.value;
+        simulation::legacy_pseudo_gas_stoichiometric_mass_afr(
+            profile.core.fuel.molecular_afr.value,
+            profile.core.fuel.molecular_mass_kg_per_mol.value);
     scenario.initial_thermal_state.oil_temperature_k.value =
         profile.aggregate_loss.required_oil_temperature_k.value;
     scenario.preparation = contract::ConvergenceSettling{
@@ -224,7 +227,7 @@ void test_capture_plan_transplants_are_rejected() {
            "runtime compiler admitted a capture plan from another scenario");
 }
 
-void test_scenario_fuel_afr_is_exactly_bound_to_core() {
+void test_scenario_mass_afr_is_exactly_bound_to_core_conversion() {
     auto value = fixture();
     const auto plan = capture_plan(value);
     value.scenario.fuel.stoichiometric_air_fuel_mass_ratio.value =
@@ -241,8 +244,8 @@ void test_scenario_fuel_afr_is_exactly_bound_to_core() {
                        return issue.path ==
                               "scenario.fuel.stoichiometric_air_fuel_mass_ratio.value";
                    }),
-           "runtime compiler admitted scenario AFR that was not bit-exact with the "
-           "engine core");
+           "runtime compiler admitted scenario mass AFR that was not bit-exact "
+           "with the core pseudo-gas conversion");
 }
 
 void test_capture_reports_absent_instantaneous_models_truthfully() {
@@ -422,7 +425,7 @@ void test_insufficient_cycles_have_distinct_failure_without_residuals() {
 
 void run_tests() {
     test_capture_plan_transplants_are_rejected();
-    test_scenario_fuel_afr_is_exactly_bound_to_core();
+    test_scenario_mass_afr_is_exactly_bound_to_core_conversion();
     test_capture_reports_absent_instantaneous_models_truthfully();
     test_runtime_rejects_foreign_controls_and_shape();
     test_complete_cycle_evidence_reaches_public_result();

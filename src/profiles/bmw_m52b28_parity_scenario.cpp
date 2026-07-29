@@ -1,4 +1,5 @@
 #include "profiles/bmw_m52b28_profile_internal.hpp"
+#include "simulation/legacy_gas_primitives.hpp"
 
 #include <cstdint>
 #include <string>
@@ -36,14 +37,15 @@ build_bmw_m52b28_parity_scenario(BmwProvenanceBuilder &builder,
                          "scenario.fuel.fuel_id", Source::legacy_asset),
         builder.resolved(48.1e6, "scenario.fuel.lower_heating_value_j_per_kg",
                          Source::legacy_asset),
-        builder.derived((12.5 / 0.25) * (0.02897 / 0.100),
-                        "scenario.fuel.stoichiometric_air_fuel_mass_ratio",
-                        derived_method("legacy-pseudo-gas-mass-afr-v1"),
-                        {
-                            "engine.physics.legacy-low-order-v1.fuel.molecular_afr",
-                            "engine.physics.legacy-low-order-v1.fuel."
-                            "molecular_mass_kg_per_mol",
-                        }),
+        builder.derived(
+            simulation::legacy_pseudo_gas_stoichiometric_mass_afr(12.5, 0.100),
+            "scenario.fuel.stoichiometric_air_fuel_mass_ratio",
+            derived_method("legacy-pseudo-gas-mass-afr-v1"),
+            {
+                "engine.physics.legacy-low-order-v1.fuel.molecular_afr",
+                "engine.physics.legacy-low-order-v1.fuel."
+                "molecular_mass_kg_per_mol",
+            }),
     };
     scenario.initial_thermal_state = {
         builder.resolved(298.15, "scenario.initial_thermal_state.gas_temperature_k",
@@ -89,11 +91,9 @@ build_bmw_m52b28_parity_scenario(BmwProvenanceBuilder &builder,
         "scenario.operating_state", Source::profile_contract);
 
     scenario.total_duration_s =
-        builder.resolved(17.0, "scenario.total_duration_s",
-                         Source::profile_contract);
+        builder.resolved(17.0, "scenario.total_duration_s", Source::profile_contract);
     scenario.audible_start_s =
-        builder.resolved(2.0, "scenario.audible_start_s",
-                         Source::profile_contract);
+        builder.resolved(2.0, "scenario.audible_start_s", Source::profile_contract);
     scenario.audible_duration_s =
         builder.derived(15.0, "scenario.audible_duration_s",
                         derived_method("scenario-audible-duration-subtraction-v1"),
@@ -106,9 +106,7 @@ build_bmw_m52b28_parity_scenario(BmwProvenanceBuilder &builder,
         {10000, 1}, {10000, 1}, {192000, 1}, {192000, 1}, {192000, 1},
     };
     scenario.rates_resolution_id =
-        builder
-            .resolved(scenario.rates, "scenario.rates",
-                      Source::profile_contract)
+        builder.resolved(scenario.rates, "scenario.rates", Source::profile_contract)
             .resolution_id;
     scenario.quality = builder.resolved(
         contract::RenderQuality{
@@ -119,8 +117,7 @@ build_bmw_m52b28_parity_scenario(BmwProvenanceBuilder &builder,
         },
         "scenario.quality", Source::profile_contract);
     scenario.public_seed = builder.resolved<std::uint64_t>(
-        UINT64_C(12648430), "scenario.public_seed",
-        Source::profile_contract);
+        UINT64_C(12648430), "scenario.public_seed", Source::profile_contract);
 
     contract::FixedRateRpmTrajectory rpm{
         {10000, 1},

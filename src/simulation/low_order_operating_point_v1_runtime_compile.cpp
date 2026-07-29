@@ -1,6 +1,7 @@
 #include "simulation/low_order_operating_point_v1_runtime.hpp"
 
 #include "simulation/cycle_accounting_method_registry.hpp"
+#include "simulation/legacy_gas_primitives.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -136,14 +137,17 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
         return report;
     }
 
+    const double expected_mass_afr = legacy_pseudo_gas_stoichiometric_mass_afr(
+        profile->core.fuel.molecular_afr.value,
+        profile->core.fuel.molecular_mass_kg_per_mol.value);
     require(report,
             std::bit_cast<std::uint64_t>(
                 scenario.fuel.stoichiometric_air_fuel_mass_ratio.value) ==
-                std::bit_cast<std::uint64_t>(profile->core.fuel.molecular_afr.value),
+                std::bit_cast<std::uint64_t>(expected_mass_afr),
             ContractIssueCode::inconsistent_semantics,
             "scenario.fuel.stoichiometric_air_fuel_mass_ratio.value",
-            "operating runtime requires scenario stoichiometric AFR to exactly match "
-            "the admitted engine-core molecular AFR");
+            "operating runtime requires scenario stoichiometric mass AFR to exactly "
+            "match the admitted pseudo-gas molecular-to-mass conversion");
 
     report.append(admit_implemented_cycle_accounting_methods(engine, *profile));
     require(report,

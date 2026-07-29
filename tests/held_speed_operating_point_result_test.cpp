@@ -27,6 +27,7 @@ constexpr double kStepSeconds = 1.0 / 10000.0;
 constexpr double kHeldRpm = 3000.0;
 constexpr double kCutoffTimeS = 0.22;
 constexpr std::uint32_t kCyclesPerBlock = 2;
+constexpr double kBmwM52b28StoichiometricMassAfr = 14.484999999999998;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -208,8 +209,7 @@ Fixture fixture() {
         resolved(operating_profile.core.fuel.fuel_id.value, "result-test-fuel-id"),
         resolved(operating_profile.core.fuel.energy_density_j_per_kg.value,
                  "result-test-fuel-lhv"),
-        resolved(operating_profile.core.fuel.molecular_afr.value,
-                 "result-test-fuel-afr"),
+        resolved(kBmwM52b28StoichiometricMassAfr, "result-test-fuel-afr"),
     };
     scenario.initial_thermal_state = {
         resolved(350.0, "result-test-gas-temperature"),
