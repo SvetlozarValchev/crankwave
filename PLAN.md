@@ -539,7 +539,7 @@ replacement starts before acceptance.
   - [ ] Compare only complete converged shaft results and publish the sweep evidence.
     - [x] Freeze the exact sweep points, conditions, comparison rules, and evidence
           record before executing any point.
-    - [ ] Implement and verify the canonical sweep request set.
+    - [x] Implement and verify the canonical sweep request set.
     - [ ] Implement and verify the bounded runner and canonical evidence encoder.
     - [ ] Execute from a clean commit and publish the complete evidence record.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.

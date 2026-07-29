@@ -1,26 +1,13 @@
 #include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 
-#include <cstdint>
 #include <string>
 
 namespace engine_sim_offline::profiles::detail {
-namespace {
 
-constexpr double kHeldEngineSpeedRpm = 3000.0;
-constexpr double kHeldThrottle01 = 0.85;
-constexpr double kMaximumPreparationDurationS = 3.22;
-constexpr double kAudibleDurationS = 15.0;
-constexpr double kTotalDurationS = 18.22;
-constexpr std::uint32_t kComparisonCycleCount = 16U;
-constexpr double kCycleMeanTorqueToleranceNm = 0.25;
-constexpr double kBoundaryPressureTolerancePa = 1500.0;
-
-} // namespace
-
-contract::RenderScenario
-build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
-                                               const contract::EngineSpec &engine) {
+contract::RenderScenario build_bmw_m52b28_held_speed_scenario(
+    BmwProvenanceBuilder &builder, const contract::EngineSpec &engine,
+    const BmwM52b28HeldSpeedScenarioParameters &parameters) {
     using Source = BmwResolutionSource;
 
     const auto &profile =
@@ -29,7 +16,7 @@ build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
 
     contract::RenderScenario scenario;
     scenario.schema_version = 1U;
-    scenario.scenario_id = "bmw-m52b28-held-3000rpm-listening-v1";
+    scenario.scenario_id = std::string{parameters.scenario_id};
     scenario.engine_profile_id = std::string{builder.engine_profile_id()};
 
     scenario.ambient = {
@@ -84,36 +71,38 @@ build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
                          Source::profile_contract),
         builder.resolved(0.0, "scenario.preparation.minimum_settling_duration_s",
                          Source::profile_contract),
-        builder.resolved(kMaximumPreparationDurationS,
+        builder.resolved(parameters.maximum_preparation_duration_s,
                          "scenario.preparation.maximum_preparation_duration_s",
                          Source::profile_contract),
-        builder.resolved(kComparisonCycleCount,
+        builder.resolved(parameters.comparison_cycle_count,
                          "scenario.preparation.comparison_cycle_count",
                          Source::profile_contract),
-        builder.resolved(kCycleMeanTorqueToleranceNm,
+        builder.resolved(parameters.cycle_mean_torque_tolerance_nm,
                          "scenario.preparation.cycle_mean_torque_tolerance_nm",
                          Source::profile_contract),
-        builder.resolved(kBoundaryPressureTolerancePa,
+        builder.resolved(parameters.pressure_tolerance_pa,
                          "scenario.preparation.pressure_tolerance_pa",
                          Source::profile_contract),
     };
     scenario.operating_state = builder.resolved(
         std::vector<contract::OperatingStatePoint>{
             {
-                "held-running",
+                std::string{parameters.operating_state_event_id},
                 0.0,
                 {true, true, false, true, false},
             },
         },
         "scenario.operating_state", Source::profile_contract);
 
-    scenario.total_duration_s = builder.resolved(
-        kTotalDurationS, "scenario.total_duration_s", Source::profile_contract);
-    scenario.audible_start_s =
-        builder.resolved(kMaximumPreparationDurationS, "scenario.audible_start_s",
+    scenario.total_duration_s =
+        builder.resolved(parameters.total_duration_s, "scenario.total_duration_s",
                          Source::profile_contract);
-    scenario.audible_duration_s = builder.resolved(
-        kAudibleDurationS, "scenario.audible_duration_s", Source::profile_contract);
+    scenario.audible_start_s =
+        builder.resolved(parameters.maximum_preparation_duration_s,
+                         "scenario.audible_start_s", Source::profile_contract);
+    scenario.audible_duration_s =
+        builder.resolved(parameters.evidence_duration_s, "scenario.audible_duration_s",
+                         Source::profile_contract);
 
     scenario.rates = {
         {10000U, 1U}, {10000U, 1U}, {192000U, 1U}, {192000U, 1U}, {192000U, 1U},
@@ -123,7 +112,7 @@ build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
             .resolution_id;
     scenario.quality = builder.resolved(
         contract::RenderQuality{
-            "low-order-operating-point-listening-v1",
+            std::string{parameters.quality_profile_id},
             1U,
             200U,
             3800U,
@@ -133,11 +122,11 @@ build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
         UINT64_C(12648430), "scenario.public_seed", Source::profile_contract);
 
     scenario.mode = contract::HeldSpeed{
-        builder.resolved(kHeldEngineSpeedRpm, "scenario.mode.engine_speed_rpm",
+        builder.resolved(parameters.engine_speed_rpm, "scenario.mode.engine_speed_rpm",
                          Source::profile_contract),
         builder.resolved(core.mechanism.crank.crank_tdc_reference_rad.value,
                          "scenario.mode.initial_theta_rad", Source::profile_contract),
-        builder.resolved(kHeldThrottle01, "scenario.mode.throttle_01",
+        builder.resolved(parameters.throttle_01, "scenario.mode.throttle_01",
                          Source::profile_contract),
     };
     scenario.mode_resolution_id =
@@ -147,6 +136,26 @@ build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
             .resolution_id;
     scenario.provenance_schema_id = std::string{builder.provenance_schema_id()};
     return scenario;
+}
+
+contract::RenderScenario
+build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
+                                               const contract::EngineSpec &engine) {
+    return build_bmw_m52b28_held_speed_scenario(
+        builder, engine,
+        {
+            "bmw-m52b28-held-3000rpm-listening-v1",
+            "held-running",
+            3000.0,
+            0.85,
+            3.22,
+            16U,
+            0.25,
+            1500.0,
+            15.0,
+            18.22,
+            "low-order-operating-point-listening-v1",
+        });
 }
 
 } // namespace engine_sim_offline::profiles::detail

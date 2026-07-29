@@ -1,10 +1,12 @@
 #pragma once
 
+#include "engine_sim_offline/profiles/bmw_m52b28_full_throttle_torque_sweep_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_held_speed_listening_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_inertial_dyno_listening_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_parity_request.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <span>
@@ -95,9 +97,32 @@ build_bmw_m52b28_parity_scenario(BmwProvenanceBuilder &builder,
 build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
                                                const contract::EngineSpec &engine);
 
+struct BmwM52b28HeldSpeedScenarioParameters {
+    std::string_view scenario_id;
+    std::string_view operating_state_event_id;
+    double engine_speed_rpm = 0.0;
+    double throttle_01 = 0.0;
+    double maximum_preparation_duration_s = 0.0;
+    std::uint32_t comparison_cycle_count = 0U;
+    double cycle_mean_torque_tolerance_nm = 0.0;
+    double pressure_tolerance_pa = 0.0;
+    double evidence_duration_s = 0.0;
+    double total_duration_s = 0.0;
+    std::string_view quality_profile_id;
+};
+
+[[nodiscard]] contract::RenderScenario build_bmw_m52b28_held_speed_scenario(
+    BmwProvenanceBuilder &builder, const contract::EngineSpec &engine,
+    const BmwM52b28HeldSpeedScenarioParameters &parameters);
+
 [[nodiscard]] contract::RenderScenario
-build_bmw_m52b28_inertial_dyno_listening_scenario(
-    BmwProvenanceBuilder &builder, const contract::EngineSpec &engine);
+build_bmw_m52b28_full_throttle_torque_sweep_scenario(BmwProvenanceBuilder &builder,
+                                                     const contract::EngineSpec &engine,
+                                                     std::size_t point_index);
+
+[[nodiscard]] contract::RenderScenario
+build_bmw_m52b28_inertial_dyno_listening_scenario(BmwProvenanceBuilder &builder,
+                                                  const contract::EngineSpec &engine);
 
 [[nodiscard]] BmwM52b28ParityRequest
 build_bmw_m52b28_parity_request_unvalidated(std::vector<double> post_step_rpm);
@@ -107,6 +132,13 @@ build_bmw_m52b28_operating_profile_unvalidated();
 
 [[nodiscard]] BmwM52b28HeldSpeedListeningRequest
 build_bmw_m52b28_held_speed_listening_request_unvalidated();
+
+[[nodiscard]] BmwM52b28FullThrottleTorqueSweepRequest
+build_bmw_m52b28_full_throttle_torque_sweep_request_unvalidated(
+    std::size_t point_index);
+
+[[nodiscard]] BmwM52b28FullThrottleTorqueSweepRequestSet
+build_bmw_m52b28_full_throttle_torque_sweep_request_set_unvalidated();
 
 [[nodiscard]] BmwM52b28InertialDynoListeningRequest
 build_bmw_m52b28_inertial_dyno_listening_request_unvalidated();

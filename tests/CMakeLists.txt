@@ -1213,6 +1213,33 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_bmw_m52b28_full_throttle_torque_sweep_request_tests
+    bmw_m52b28_full_throttle_torque_sweep_request_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_bmw_m52b28_full_throttle_torque_sweep_request_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_bmw_m52b28_full_throttle_torque_sweep_request_tests
+    PRIVATE
+        engine_sim_offline::profiles
+        engine_sim_offline::request_identity
+        engine_sim_offline::simulation
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_bmw_m52b28_full_throttle_torque_sweep_request_tests
+)
+
+add_test(
+    NAME profiles.bmw_m52b28_full_throttle_torque_sweep_request
+    COMMAND engine_sim_offline_bmw_m52b28_full_throttle_torque_sweep_request_tests
+)
+
+add_executable(
     engine_sim_offline_bmw_m52b28_held_speed_listening_request_tests
     bmw_m52b28_held_speed_listening_request_test.cpp
 )
