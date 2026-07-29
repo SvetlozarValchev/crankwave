@@ -1,7 +1,7 @@
 # M4 BMW held idle-region and low-load gate
 
-Status: implemented at `4b651273e007553a793762f847ba237a9ee3396f`; awaiting
-user listening
+Status: implemented at `4b651273e007553a793762f847ba237a9ee3396f` and accepted
+by user listening on 2026-07-29
 Frozen: 2026-07-29
 
 Execution identities, operating results, timings, hashes, and listening paths are

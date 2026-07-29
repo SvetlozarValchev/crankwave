@@ -1,6 +1,6 @@
 # M4 BMW held idle-region and low-load listening gate
 
-Status: awaiting user listening
+Status: accepted by user listening on 2026-07-29
 Recorded: 2026-07-29
 
 ## Execution
@@ -57,13 +57,12 @@ neither clips. Their large level difference is an uncorrected result of the comm
 accepted presentation; no point-specific normalization, gain, EQ, noise, or IR was
 introduced.
 
-## Listening decision
+## Listening acceptance
 
-Please judge the 700-rpm file for clean, cycle-resolved low-speed behavior, then compare
-the 1500-rpm / 0.10 file with the accepted 1500-rpm / 0.85 anchor for a believable
-lower-load change. The first file will be substantially quieter, so playback gain may
-need to be raised.
+The user listened to both new files and answered "yes" when asked whether the 700-rpm
+sound was clean and the 1500-rpm / 0.10 clip was a believable lower-load counterpart.
+This accepts the two clips as the held idle-region/low-load audio baseline.
 
-Work stops here. Acceptance would close only this held idle-region/low-load audio gate.
-It would not claim self-regulated free idle, BMW torque calibration, load-target
-solving, transients, physical intake/mechanical sources, or an M5 fidelity improvement.
+Acceptance closes only this gate. It does not claim self-regulated free idle, BMW
+torque calibration, load-target solving, transients, physical intake/mechanical
+sources, or an M5 fidelity improvement.

@@ -568,7 +568,7 @@ replacement starts before acceptance.
 - [x] Render its natural BMW pull, then stop for user listening.
 - [x] Add stable externally held idle-region/low-load audio behavior without claiming
       self-regulated free idle.
-- [ ] Render idle/low-load behavior, then stop for user listening.
+- [x] Render idle/low-load behavior, then stop for user listening.
 - [ ] Add throttle application, lift, and ordinary-overrun behavior.
 - [ ] Render those transients, then stop for user listening.
 - [ ] Freeze the pull and affected clips as the minimum regression set.
