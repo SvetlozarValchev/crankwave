@@ -183,7 +183,7 @@ make_presentation(RenderProvenanceBuilder &builder,
                          ResolutionAuthority::presentation_method),
     };
     result.monitoring = {
-        builder.resolved(1.0, "presentation.monitoring.gain_linear",
+        builder.resolved(0.5, "presentation.monitoring.gain_linear",
                          ResolutionAuthority::presentation_monitoring),
         builder.resolved(0.02, "presentation.monitoring.fade_in_duration_s",
                          ResolutionAuthority::presentation_monitoring),

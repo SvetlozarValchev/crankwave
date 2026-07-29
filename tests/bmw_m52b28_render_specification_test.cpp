@@ -59,7 +59,7 @@ void test_canonical_render_specification() {
             specification.presentation.methods.coherent_two_outlet_audition.value ==
                 methods.coherent_two_outlet_audition,
         "BMW render specification changed the exact presentation methods");
-    expect(specification.presentation.monitoring.gain_linear.value == 1.0 &&
+    expect(specification.presentation.monitoring.gain_linear.value == 0.5 &&
                specification.presentation.monitoring.fade_in_duration_s.value == 0.02 &&
                specification.presentation.monitoring.fade_out_duration_s.value == 0.02,
            "BMW render specification changed its common audition transform");

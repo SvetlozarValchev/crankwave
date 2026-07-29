@@ -443,6 +443,14 @@ Publish raw Pa-calibrated stems/master, separately labelled common-gain listenin
 copies, route solos, route-muted deltas, manifests, hashes, and single/concurrent
 timings. Compare against the immutable accepted M4 files under the same audible crop.
 
+The first complete matrix rendered with unity audition gain and exposed PCM24
+saturation before listening: the largest raw-master magnitude was `1.545777` at the
+3,000 rpm / 0.25-throttle point, while the dyno and 3,000 rpm / 0.85-throttle point
+also exceeded full scale. The physical Float32 pressure stems and raw master remain
+unchanged. The sole audition transform therefore uses one explicit `0.5` monitoring
+gain for every scenario, leaving about `2.23 dBFS` of peak headroom over this frozen
+matrix without limiting, normalization, or scenario-specific gain.
+
 Then **stop**. Do not add a silencer, nonlinear layer, intake, mechanical sound,
 transients, cycle variation, or another M5 hypothesis until the user accepts or rejects
 the cadence and exhaust character by ear. Acceptance removes the superseded M4
