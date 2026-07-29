@@ -322,6 +322,7 @@ add_library(
     engine_sim_offline_acoustics
     STATIC
         src/acoustics/ideal_compact_junction.cpp
+        src/acoustics/unflanged_pipe_outlet.cpp
         src/acoustics/uniform_cylindrical_waveguide.cpp
 )
 add_library(
