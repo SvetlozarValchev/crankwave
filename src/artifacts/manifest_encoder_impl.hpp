@@ -1,6 +1,6 @@
 #pragma once
 
-#include "canonical_json_writer.hpp"
+#include "identity/simulation_request_identity_writer.hpp"
 
 #include "engine_sim_offline/contract/render_manifest.hpp"
 #include "engine_sim_offline/render.hpp"
@@ -12,20 +12,18 @@
 
 namespace engine_sim_offline::artifacts::detail {
 
+using identity::detail::CanonicalJsonWriter;
+using identity::detail::write_method_identity;
+using identity::detail::write_provenance_bundle_ref;
+using identity::detail::write_rational_rate;
+using identity::detail::write_render_rates;
+using identity::detail::write_resolved;
+
 using ManifestInputsWriter = bool (*)(CanonicalJsonWriter &,
                                       const contract::SimulationManifestInputs &);
 
-[[nodiscard]] bool write_rational_rate(CanonicalJsonWriter &writer,
-                                       const contract::RationalRateHz &rate);
-[[nodiscard]] bool write_render_rates(CanonicalJsonWriter &writer,
-                                      const contract::RenderRates &rates);
-[[nodiscard]] bool write_method_identity(CanonicalJsonWriter &writer,
-                                         const contract::MethodIdentity &method);
 [[nodiscard]] bool write_audio_contract(CanonicalJsonWriter &writer,
                                         const contract::AudioContract &audio);
-[[nodiscard]] bool
-write_provenance_bundle_ref(CanonicalJsonWriter &writer,
-                            const contract::ProvenanceBundleRef &provenance);
 [[nodiscard]] bool
 write_completed_manifest_content(CanonicalJsonWriter &writer,
                                  const contract::RenderManifestContent &content,
@@ -35,15 +33,6 @@ write_completed_manifest_content(CanonicalJsonWriter &writer,
 [[nodiscard]] RenderSinkError
 manifest_writer_error(const CanonicalJsonWriter &writer,
                       std::string_view detail_code_domain);
-
-template <class T, class WriteValue>
-[[nodiscard]] bool write_resolved(CanonicalJsonWriter &writer,
-                                  const contract::ResolvedValue<T> &resolved,
-                                  WriteValue write_value) {
-    return writer.begin_object() && writer.key("value") &&
-           write_value(writer, resolved.value) && writer.key("resolution_id") &&
-           writer.string_value(resolved.resolution_id) && writer.end_object();
-}
 
 [[nodiscard]] bool
 write_presentation_calibration(CanonicalJsonWriter &writer,

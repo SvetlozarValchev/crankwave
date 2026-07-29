@@ -1,6 +1,6 @@
 #include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
 
-#include "simulation_manifest_encoder_impl.hpp"
+#include "manifest_encoder_impl.hpp"
 
 #include <exception>
 #include <new>
@@ -39,12 +39,14 @@ write_simulation_manifest_inputs(CanonicalJsonWriter &writer,
     return writer.begin_object() && writer.key("kind") &&
            writer.string_value("simulation_v4") && writer.key("value") &&
            writer.begin_object() && writer.key("resolved") && writer.begin_object() &&
-           writer.key("engine") && write_engine_spec(writer, resolved.engine) &&
+           writer.key("engine") &&
+           identity::detail::write_engine_spec(writer, resolved.engine) &&
            writer.key("presentation") &&
            write_presentation_calibration(writer, resolved.presentation) &&
            writer.key("randomness") &&
            write_randomness_policy(writer, resolved.randomness) &&
-           writer.key("scenario") && write_render_scenario(writer, resolved.scenario) &&
+           writer.key("scenario") &&
+           identity::detail::write_render_scenario(writer, resolved.scenario) &&
            writer.end_object() && writer.end_object() && writer.end_object();
 }
 
@@ -111,38 +113,6 @@ encode_simulation_manifest_v5(const contract::RenderManifest &manifest) {
     } catch (...) {
         return detail::exception_failure("simulation-manifest", "simulation manifest",
                                          nullptr);
-    }
-}
-
-SimulationRequestIdentityEncodingResult
-encode_simulation_request_identity_v2(const contract::EngineSpec &engine,
-                                      const contract::RenderScenario &scenario,
-                                      const contract::ProvenanceBundleRef &provenance) {
-    try {
-        detail::CanonicalJsonWriter writer;
-        std::vector<std::byte> bytes;
-        const bool encoded =
-            writer.begin_object() && writer.key("wire_schema") &&
-            writer.string_value(kSimulationRequestIdentityWireSchemaV2) &&
-            writer.key("engine") && detail::write_engine_spec(writer, engine) &&
-            writer.key("scenario") && detail::write_render_scenario(writer, scenario) &&
-            writer.key("provenance") &&
-            detail::write_provenance_bundle_ref(writer, provenance) &&
-            writer.end_object() && writer.finish(bytes);
-        if (!encoded) {
-            return detail::manifest_writer_error(writer, "simulation-request-identity");
-        }
-        const auto sha256 = contract::sha256(bytes);
-        return SimulationRequestIdentityEncoding{std::move(bytes), sha256};
-    } catch (const std::bad_alloc &) {
-        return detail::allocation_failure("simulation-request-identity",
-                                          "simulation request identity");
-    } catch (const std::exception &error) {
-        return detail::exception_failure("simulation-request-identity",
-                                         "simulation request identity", &error);
-    } catch (...) {
-        return detail::exception_failure("simulation-request-identity",
-                                         "simulation request identity", nullptr);
     }
 }
 

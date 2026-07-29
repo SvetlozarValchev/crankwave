@@ -358,6 +358,7 @@ target_link_libraries(
     engine_sim_offline_simulation_manifest_encoder_tests
     PRIVATE
         engine_sim_offline::artifacts
+        engine_sim_offline::request_identity
 )
 
 add_test(
@@ -1092,8 +1093,8 @@ target_include_directories(
 target_link_libraries(
     engine_sim_offline_bmw_m52b28_parity_request_tests
     PRIVATE
-        engine_sim_offline::artifacts
         engine_sim_offline::profiles
+        engine_sim_offline::request_identity
         engine_sim_offline_reference_parity_v1_reader
         engine_sim_offline_p18_reference_fixture
 )

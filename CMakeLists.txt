@@ -82,6 +82,38 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_contract)
 
 add_library(
+    engine_sim_offline_request_identity
+    STATIC
+        src/identity/canonical_json_writer.cpp
+        src/identity/simulation_request_identity.cpp
+        src/identity/simulation_request_identity_engine.cpp
+        src/identity/simulation_request_identity_scenario.cpp
+        src/identity/simulation_request_identity_writer.cpp
+)
+add_library(
+    engine_sim_offline::request_identity
+    ALIAS engine_sim_offline_request_identity
+)
+
+target_include_directories(
+    engine_sim_offline_request_identity
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_request_identity
+    PUBLIC
+        engine_sim_offline::contract
+        engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_request_identity
+)
+
+add_library(
     engine_sim_offline_profiles
     STATIC
         src/profiles/bmw_m52b28_operating_profile.cpp
@@ -193,13 +225,14 @@ target_link_libraries(
     PUBLIC
         engine_sim_offline::contract
         engine_sim_offline::build_options
+    PRIVATE
+        engine_sim_offline::request_identity
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_render)
 
 add_library(
     engine_sim_offline_artifacts
     STATIC
-        src/artifacts/canonical_json_writer.cpp
         src/artifacts/directory_render_sink.cpp
         src/artifacts/directory_render_sink_commit.cpp
         src/artifacts/directory_render_sink_lifecycle.cpp
@@ -209,8 +242,6 @@ add_library(
         src/artifacts/manifest_encoder_presentation.cpp
         src/artifacts/secure_filesystem_support.cpp
         src/artifacts/simulation_manifest_encoder.cpp
-        src/artifacts/simulation_manifest_encoder_engine.cpp
-        src/artifacts/simulation_manifest_encoder_scenario.cpp
         src/artifacts/telemetry_encoder.cpp
         src/artifacts/telemetry_encoder_rows.cpp
         src/artifacts/telemetry_encoder_validation.cpp
@@ -235,6 +266,8 @@ target_link_libraries(
     PUBLIC
         engine_sim_offline::contract
         engine_sim_offline::build_options
+    PRIVATE
+        engine_sim_offline::request_identity
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_artifacts)
 

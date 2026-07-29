@@ -1,4 +1,4 @@
-#include "simulation_manifest_encoder_impl.hpp"
+#include "identity/simulation_request_identity_writer.hpp"
 
 #include "engine_sim_offline/contract/parity_model.hpp"
 #include "engine_sim_offline/contract/torque.hpp"
@@ -9,7 +9,7 @@
 #include <string_view>
 #include <variant>
 
-namespace engine_sim_offline::artifacts::detail {
+namespace engine_sim_offline::identity::detail {
 namespace {
 
 template <class Range, class WriteElement>
@@ -999,4 +999,4 @@ bool write_engine_spec(CanonicalJsonWriter &writer,
            writer.string_value(engine.provenance_schema_id) && writer.end_object();
 }
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace engine_sim_offline::identity::detail

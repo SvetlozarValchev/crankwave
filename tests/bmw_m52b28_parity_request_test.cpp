@@ -1,5 +1,5 @@
-#include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_parity_request.hpp"
+#include "engine_sim_offline/request_identity.hpp"
 
 #include "reference/p18_reference_seed_reader.hpp"
 #include "reference/reference_parity_v1_reader.hpp"
@@ -96,12 +96,12 @@ fixed_rpm(const profiles::BmwM52b28ParityRequest &request) {
             .trajectory.rpm);
 }
 
-[[nodiscard]] artifacts::SimulationRequestIdentityEncoding
+[[nodiscard]] identity::SimulationRequestIdentityEncoding
 encode_request_identity(const profiles::BmwM52b28ParityRequest &request) {
-    auto result = artifacts::encode_simulation_request_identity_v2(
+    auto result = identity::encode_simulation_request_identity_v2(
         request.engine, request.scenario, request.provenance.bundle);
     const auto *encoding =
-        std::get_if<artifacts::SimulationRequestIdentityEncoding>(&result);
+        std::get_if<identity::SimulationRequestIdentityEncoding>(&result);
     expect(encoding != nullptr, "exact BMW request identity failed to encode");
     return *encoding;
 }

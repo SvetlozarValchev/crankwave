@@ -1,4 +1,4 @@
-#include "simulation_manifest_encoder_impl.hpp"
+#include "identity/simulation_request_identity_writer.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -7,7 +7,7 @@
 #include <string>
 #include <variant>
 
-namespace engine_sim_offline::artifacts::detail {
+namespace engine_sim_offline::identity::detail {
 namespace {
 
 template <class Range, class WriteElement>
@@ -438,4 +438,4 @@ bool write_render_scenario(CanonicalJsonWriter &writer,
            writer.string_value(scenario.provenance_schema_id) && writer.end_object();
 }
 
-} // namespace engine_sim_offline::artifacts::detail
+} // namespace engine_sim_offline::identity::detail

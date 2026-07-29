@@ -1,4 +1,5 @@
 #include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
+#include "engine_sim_offline/request_identity.hpp"
 
 #include "contract_test_support.hpp"
 
@@ -21,6 +22,7 @@ using namespace engine_sim_offline;
 using namespace engine_sim_offline::artifacts;
 using namespace engine_sim_offline::contract;
 using namespace engine_sim_offline::contract::test;
+using namespace engine_sim_offline::identity;
 
 constexpr std::string_view kExpectedM3ManifestSha256 =
     "0e4cbb48c58ef148d8f8e8ca3b63b0729cd403775bb7151beba0f9bfa565a713";
@@ -99,7 +101,8 @@ require_request_identity_encoding(const EngineSpec &engine,
                                   const RenderScenario &scenario,
                                   const ProvenanceBundleRef &provenance) {
     auto result = encode_simulation_request_identity_v2(engine, scenario, provenance);
-    if (const auto *error = std::get_if<RenderSinkError>(&result)) {
+    if (const auto *error =
+            std::get_if<SimulationRequestIdentityError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
     }
     return std::move(std::get<SimulationRequestIdentityEncoding>(result));
@@ -122,11 +125,10 @@ void expect_request_identity_error(const EngineSpec &engine,
                                    std::string_view detail_code) {
     const auto result =
         encode_simulation_request_identity_v2(engine, scenario, provenance);
-    const auto *error = std::get_if<RenderSinkError>(&result);
+    const auto *error =
+        std::get_if<SimulationRequestIdentityError>(&result);
     expect(error != nullptr,
            "invalid simulation request identity unexpectedly encoded");
-    expect(error->kind == RenderSinkErrorKind::protocol_violation,
-           "invalid simulation request identity returned the wrong error kind");
     expect(error->detail_code == detail_code,
            "invalid simulation request identity returned the wrong detail code");
 }
