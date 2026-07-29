@@ -431,64 +431,21 @@ net-torque-form-capability = {
 }
 
 presentation-calibration = {
-  "schema_version": 2,
+  "schema_version": 1,
   "calibration_id": tstr,
   "engine_profile_id": resolved<tstr>,
   "methods": presentation-methods,
-  "conditioning": presentation-conditioning,
-  "assets": [* audio-asset-spec],
-  "routes": [* route-presentation],
-  "publication": stem-publication,
-  "audition": audition-mix,
+  "monitoring": presentation-monitoring,
   "provenance_schema_id": tstr
 }
 
 presentation-methods = {
-  "reconstruction": resolved<method-identity>,
-  "conditioning": resolved<method-identity>,
-  "impulse_response_conversion": resolved<method-identity>,
-  "convolution": resolved<method-identity>,
-  "publication": resolved<method-identity>,
-  "audition_mix": resolved<method-identity>
+  "calibrated_pressure_publication": resolved<method-identity>,
+  "coherent_two_outlet_audition": resolved<method-identity>
 }
 
-presentation-conditioning = {
-  "jitter_scale": resolved<f64-bits>,
-  "jitter_modulation_cutoff_hz": resolved<f64-bits>,
-  "derivative_mix_01": resolved<f64-bits>,
-  "air_noise_mix_01": resolved<f64-bits>,
-  "air_noise_cutoff_hz": resolved<f64-bits>
-}
-
-audio-asset-spec = {
-  "id": stable-id,
-  "semantic_id": resolved<tstr>,
-  "evidence_source_id": resolved<tstr>,
-  "content_sha256": resolved<sha256>,
-  "media": resolved<audio-media-contract>
-}
-
-audio-media-contract = {
-  "encoding": audio-sample-encoding,
-  "channel_layout": audio-channel-layout,
-  "sample_rate": rational-rate-hz,
-  "frame_count": u64-hex
-}
-
-route-presentation = {
-  "route_id": stable-id,
-  "impulse_response_asset_id": stable-id,
-  "impulse_response_gain_linear": resolved<f64-bits>,
-  "wet_mix_01": resolved<f64-bits>
-}
-
-stem-publication = {
-  "calibration_gain_linear": resolved<f64-bits>
-}
-
-audition-mix = {
-  "selected_routes": resolved<route-id-array>,
-  "monitoring_gain_linear": resolved<f64-bits>,
+presentation-monitoring = {
+  "gain_linear": resolved<f64-bits>,
   "fade_in_duration_s": resolved<f64-bits>,
   "fade_out_duration_s": resolved<f64-bits>
 }
@@ -734,13 +691,11 @@ random-plan = {
   "generator": method-identity,
   "public_seed": u64-hex,
   "derivation": method-identity,
-  "component_seeds": [* component-seed]
+  "combustion_seeds": [* combustion-seed]
 }
 
-component-seed = {
-  "kind": random-component-kind,
-  "cylinder_id": stable-id / null,
-  "route_id": stable-id / null,
+combustion-seed = {
+  "cylinder_id": stable-id,
   "initial_state": u64-hex,
   "stream": u64-hex
 }
@@ -832,7 +787,6 @@ resolved<t> = {
 }
 
 cylinder-id-array = [* stable-id]
-route-id-array = [* stable-id]
 
 ; StableId<T> is a direct native JSON u32, not an object with a value member.
 stable-id = u32
@@ -859,27 +813,17 @@ gas-volume-kind =
 legacy-restriction-calibration = "carb_at_1p5_inhg" / "cfm_at_28_inh2o"
 trajectory-interpolation = "right_continuous_hold" / "linear"
 
-random-component-kind =
-  "combustion" /
-  "presentation_jitter" /
-  "presentation_air_noise" /
-  "starter"
-
 source-route-kind =
   "exhaust_outlet" /
   "intake_inlet" /
   "mechanical_engine" /
   "mechanical_starter"
 
-audio-sample-encoding = "pcm_s16le" / "float32le" / "pcm_s24le"
-audio-channel-layout = "mono"
 artifact-kind = "audio" / "telemetry" / "routing_report" / "validation_report"
 distribution-intent = "local_evaluation" / "distributable"
 output-bus-kind =
   "master_engine_raw" /
-  "master_engine_audition" /
-  "master_reference_raw" /
-  "master_reference_audition"
+  "master_engine_audition"
 route-disposition = "rendered" / "not_applicable"
 omission-kind =
   "source_route" /

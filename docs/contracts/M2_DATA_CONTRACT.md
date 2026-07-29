@@ -95,7 +95,7 @@ For example, the following are distinct bindings:
 ```text
 scenario.ambient.pressure_pa_abs
 scenario.crankcase.pressure_pa_abs
-presentation.conditioning.air_noise_cutoff_hz
+presentation.monitoring.gain_linear
 engine.cylinders.<cylinder-semantic-id>.bore_m
 ```
 
@@ -420,10 +420,10 @@ substitute for a required source route.
 
 Both domains own artifact roles explicitly. Every required audio artifact has exactly
 one source-route or output-bus owner. A rendered route owns its required artifacts and
-has no omission reason, and it must have an admitted presentation configuration. A
-`not_applicable` route owns no artifacts, has no presentation configuration, and must
-carry a policy-owned reason in the source matrix; the manifest must reproduce that
-reason exactly. “Not implemented” is not made equivalent to `not_applicable`.
+has no omission reason. A `not_applicable` route owns no artifacts and must carry a
+policy-owned reason in the source matrix; the manifest must reproduce that reason
+exactly. Presentation does not carry a second per-route configuration or selection
+list. “Not implemented” is not made equivalent to `not_applicable`.
 
 ## 9. Source matrix and presentation calibration
 
@@ -442,70 +442,51 @@ A source matrix is an independently selected policy object. It fixes:
 then requires exact equality with the selected matrix; the renderer cannot silently
 drop a route, weaken a media contract, or relabel ownership.
 
-The built-in `bmw_m52b28_reference_source_matrix_v1()` is the typed counterpart of the
-frozen M2/M3 reference matrix. It requires exactly two local-evaluation exhaust
-reference routes, their dry/configured-IR/selected stems, and raw/audition reference
-masters at the frozen delivery shape. It is intentionally not the production source
-matrix. For isolated fixture replay, `exhaust_outlet` is only this matrix's routing
-classification; the captured runtime buses are not asserted to be physical
-exhaust-outlet observables. Its typed omissions mirror the frozen reference capsule's
-explicit absence of intake, mechanical engine, starter, drivetrain, tire/road,
-spatial-scene, and non-pull-behavior evidence. They remain part of `OutputContract`,
-so a manifest cannot silently erase the limitations while claiming the approved
-matrix. The detailed evidence remains in
-[`SOURCE_MATRIX.md`](../../reference/oracles/bmw-m52b28/SOURCE_MATRIX.md).
+The built-in `bmw_m52b28_exhaust_acoustic_source_matrix()` is the typed counterpart
+of the frozen M5 BMW exhaust-acoustic matrix. It requires exactly two physical outlet
+routes, one Pa-calibrated Float32 pressure stem for each, and raw Float32 plus audition
+PCM24 engine masters at the 192 kHz, 15-second delivery shape. Its typed omissions
+keep intake, engine mechanical, starter, drivetrain, tire/road, spatial-scene, and
+unverified scenario behavior absent from completeness claims. They remain part of
+`OutputContract`, so a manifest cannot silently erase those limitations. The exact
+policy is frozen in
+[`M5_BMW_EXHAUST_ACOUSTIC_SOURCE_MATRIX.md`](M5_BMW_EXHAUST_ACOUSTIC_SOURCE_MATRIX.md).
+
+The old M2/M3 reference matrix remains historical oracle documentation only; it is no
+longer a public factory or product output contract.
 
 Production completeness remains governed by
 [`PRODUCTION_SOURCE_MATRIX.md`](../PRODUCTION_SOURCE_MATRIX.md) and is later work.
 
 ### 9.2 `PresentationCalibration`
 
-Presentation is one-way and downstream of physical capture/excitation.
-`PresentationCalibration` resolves:
+Presentation is one-way and downstream of the physical exhaust-acoustic network.
+`PresentationCalibration` has one exact greenfield schema version and resolves only:
 
-- exact schema version 2, with no schema-1 compatibility interpretation;
-- versioned, configuration-hashed reconstruction, conditioning, IR-conversion,
-  convolution, publication, and audition methods;
-- jitter, derivative, and air-noise conditioning values;
-- content-addressed audio assets with evidence identity and exact media shape;
-- per-route IR asset, gain, and wet selection;
-- publication calibration gain;
-- ordered audition-route reduction, monitoring gain, and edge fades.
+- the engine-profile identity;
+- the configuration-hashed calibrated-pressure Float32 publication method;
+- the configuration-hashed coherent two-outlet PCM24 audition method;
+- one common audition monitoring gain and fade-in/fade-out durations;
+- the provenance identity for those leaves.
 
-Those six method identities are the complete current presentation-algorithm
-authority. Their configuration digests cover the executable block partition,
-filter/kernel preparation, state, crop, tail, mastering, and publication conventions;
-there is no second caller-authored algorithm record that can drift from execution.
+There is no reconstruction, synthetic jitter, derivative/noise conditioning, impulse
+response asset, convolution, per-route wet selection, separate publication gain, or
+selected-route list in this contract. The engine's physical exhaust-acoustic assembly
+owns `pa_per_full_scale`; publication applies that calibration exactly once. The two
+finite outlet pressures are consumed in ascending stable `RouteId` order, published
+as Float32 pressure stems, and coherently summed into the raw Float32 master. The one
+monitoring gain and edge fades affect only the PCM24 audition derivative.
 
-The ordered audition route vector is an arithmetic reduction order, not merely a set.
-Engine, scenario, and presentation profile IDs must agree. Assets must link to
-content-addressed provenance evidence whose digest exactly matches the asset, route
-and asset references must resolve, filter cutoffs must be below the
-source-processing Nyquist rate, and fades must fit in the audible interval.
-The current convolution-presentation validator admits configured exhaust routes only;
-it does not falsely claim intake or mechanical presentation support.
+Engine, scenario, and presentation profile IDs must agree. The admitted context has
+exactly two distinct ordered exhaust-outlet routes and exact 192,000 Hz acoustic and
+delivery rates, so no hidden resampler or nonphysical source can enter presentation.
+Both fade durations must resolve to exact delivery-frame indices and fit together in
+the audible interval. Method configuration digests are implementation-owned content
+identities; admission must match those exact identities before execution.
 
-The historical frozen BMW reference evidence separately pins its former P1.8 method
-IDs and versions and the immutable complete renderer record at SHA-256
-`0e6b1183d421088b4d0b49ea96545034b5ef338363e5ae2e30d81c182c96a008`,
-conditioning constants, `smooth_39` asset identity/media/hash, the
-calibration-route order (`exhaust.reference.0`, then `exhaust.reference.1`), IR
-gain/wet selection, `2^-26` publication calibration, the same audition reduction
-order, audition gain/fades, clock plan, and `[2 s, 17 s)` retained interval. Method
-configuration digests in current execution come only from the implementation; the
-historical record is oracle evidence, not an execution input or compatibility
-surface.
-
-The associated capture transport must hold the fixed 200-frame block and its
-worst-case `19 * 200 = 3,800` event records. Method configuration digests remain
-content identities supplied by the implementation; admission does not substitute a
-hard-coded digest for them. Constants including the
-3,840-frame source partition, 9,600-frame convolution limit, 65,536-point transform,
-6,907-frame source support, 30,071-coefficient kernel identity, zero history,
-continuous crop state, and no-tail policy are fixed by the content-addressed
-[`P18_PRESENTATION_RENDERER.md`](../../reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md).
-That record remains immutable audit evidence and is not accepted as current
-configuration.
+The former P1.8 reconstruction/conditioning/IR/convolution renderer remains historical
+oracle evidence only. None of its methods, assets, random streams, route selections,
+or calibration values is an accepted product input or compatibility surface.
 
 ## 10. `RenderManifest`
 
@@ -518,7 +499,7 @@ configuration.
 - build/toolchain, loaded runtime-provider, compiled numeric-policy, floating-point,
   instruction-set, worker, and reduction identities;
 - the resolved rate plan;
-- public seed, generator/derivation methods, and typed component-owned random streams;
+- public seed, generator/derivation methods, and typed per-cylinder combustion seeds;
 - the exact resolved output contract;
 - one route record per resolved engine route;
 - exact output-bus records;
@@ -529,23 +510,19 @@ The current determinism envelope requires the admitted libstdc++, glibc
 libm, and libgcc_s providers; numeric policy
 `x86-64-v1-binary64-x87-extended-strict-v1`; ISA profile `x86-64-v1`; one serial
 stable-order worker; strict IEEE-754 binary64, round-to-nearest/ties-to-even; no FMA
-contraction; and no flush-to-zero or denormals-are-zero. Component seeds are typed and
-owned by a cylinder or route
-according to their stochastic role; duplicate kind/owner streams are rejected.
+contraction; and no flush-to-zero or denormals-are-zero. Combustion seeds are typed and
+owned by a nonzero stable cylinder ID; duplicate cylinder streams are rejected.
 Executable method identities live once in the resolved engine, presentation,
 randomness policy, scenario, and initialized random plan rather than in a second
 manifest inventory that could silently drift. The random plan's generator and
 derivation must equal the resolved policy. Its component inventory, order, and seed
 pairs are independently recomputed from the explicit namespace, public seed, and
-configured topology. The legacy-low-order profile's retained combustion initializations
-are executable cache values only and must equal that canonical derivation.
-Current combustion requires one initialized lane per cylinder; current presentation
-jitter and air noise require one initialized lane of each kind per configured route
-even at zero scale because those executors still instantiate them. Presentation
-advances both route-owned generators; combustion draws only for accepted ignition
-events. The plan does not claim runtime draw counts. Historical P1.8 evidence
-separately pins its former generator, derivation, seed, and four route-owned
-presentation stream pairs in
+configured cylinder topology. The low-order profile's retained combustion
+initializations are executable cache values only and must equal that canonical
+derivation. Current combustion requires one initialized lane per cylinder and draws
+only for accepted ignition events. Presentation owns and advances no random stream.
+The plan does not claim runtime draw counts. Historical P1.8 evidence separately pins
+its former generator, derivation, seed, and route-owned presentation stream pairs in
 [`P18_PRESENTATION_RENDERER.md`](../../reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md).
 Those records are audit evidence only; their generator is not admitted by the current
 simulation contract.
@@ -579,16 +556,15 @@ success.
 
 ## 11. M2 contract versus M3 exact profile
 
-M2 owns the general seams and the narrow accepted reference-presentation path:
+M2 owns the general contract seams:
 
 - authored/resolved/provenance representation;
 - scenario, torque, reachability, capture, route, bus, artifact, and manifest types;
-- the frozen two-route reference source/output policy;
-- the exact P1.8 presentation configuration record.
+- source/output policy representation;
+- the minimal physical-pressure presentation record.
 
-M2 fixture rendering is allowed to bypass physics only through the isolated,
-test/reference audit adapter described by the frozen matrix. That adapter is not a
-public render input and must not become a simulator dependency.
+P1.8 fixture rendering is isolated historical audit tooling. It is not a public render
+input and must not become a simulator or product-presentation dependency.
 
 The `LegacyLowOrderV1Profile` schema already exists because an `EngineSpec` must name
 the exact executable method and every input before physics implementation begins. It

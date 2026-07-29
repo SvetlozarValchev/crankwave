@@ -13,7 +13,7 @@ Machine schema:
 [`schemas/render_manifest_simulation_v6.cddl`](../../schemas/render_manifest_simulation_v6.cddl)
 
 Schema SHA-256:
-`054bd338c6c9cb17f2e52d1307b8eaed3ed633e41214ca0318213448e46f02ca`
+`8296e12aff53d4fb938a9a740a01d2cd918dcab5caba22ebc8fdef0b541ce301`
 
 ## 1. Scope and admission
 
@@ -267,9 +267,9 @@ members:
 
 - `EngineSpec`: identity, topology, all eight selected methods, the complete
   executable physics profile, torque capability, and provenance schema binding;
-- `PresentationCalibration` schema 2: all six exact configuration-hashed methods,
-  conditioning values, audio assets, per-route presentation, publication
-  calibration, audition policy, and provenance schema binding;
+- `PresentationCalibration` schema 1: the exact configuration-hashed calibrated
+  pressure-publication and coherent two-outlet audition methods, the common
+  audition-only monitoring gain and edge fades, and provenance schema binding;
 - `ResolvedRandomnessPolicy`: the explicit seed namespace plus exact generator and
   derivation method identities, with provenance binding for all three leaves; and
 - `RenderScenario`: ambient, fuel, thermal and crankcase state, preparation,
@@ -282,11 +282,13 @@ scalars, table abscissae/ordinates, trajectory points, angles, times, gains, and
 tolerances retain exact binary64 identity. All resolved leaves retain their
 `resolution_id`; the wire must not flatten provenance out of the request.
 
-The six presentation method identities jointly own reconstruction, conditioning,
-strict IR decoding/conversion, convolution, stem publication, audition reduction,
-mastering, container, timeline, crop, and tail conventions. There is no second
-caller-authored algorithm record that can describe behavior the executable methods
-do not perform.
+The two presentation method identities jointly own calibrated Float32 pressure-stem
+and coherent raw-master publication plus the common-gain/faded PCM24 audition
+derivative, including container, timeline, crop, and tail conventions. The physical
+exhaust network already supplies 192 kHz radiated outlet pressure; presentation does
+not reconstruct, differentiate, randomize, convolve, or select routes. There is no
+second caller-authored algorithm record that can describe behavior the executable
+methods do not perform.
 
 The seed namespace is not inferred from `RenderScenario::scenario_id`. Reusing an
 accepted stochastic domain or selecting a new one is therefore an explicit,
@@ -303,16 +305,14 @@ currently admitted identities are:
   `0e86ea38fb2e681bb6463b3916c6ad30536f6af05cb0be1b00d3cacb763593b4`.
 
 Admission recompiles the provisioned plan from the namespace, scenario public seed,
-and stable topology. The current executors instantiate one combustion lane per
-cylinder and one air-noise plus one jitter lane per configured presentation route
-even when the corresponding scale is zero, so all are recorded. Its canonical order is
-combustion by ascending stable cylinder ID, then air noise by ascending stable route
-ID, then jitter by ascending stable route ID. Each coordinate is derived under its
-fixed `combustion`, `synth_air_noise`, or `synth_jitter` domain with component index
-equal to the nonzero stable owner ID minus one. Container reordering or inserting a
-new owner therefore cannot rekey an existing component. Both the complete ordered
-plan and the engine profile's retained combustion initializations must equal this
-derivation; changing only a namespace, cached seed, or manifest seed is invalid.
+and stable topology. The current executor instantiates exactly one combustion lane
+per cylinder; presentation owns no stochastic stream. Canonical seed order is
+ascending stable cylinder ID. Each coordinate uses the fixed `combustion` domain and
+component index equal to the nonzero stable cylinder ID minus one, so container
+reordering or inserting a new owner cannot rekey an existing cylinder. Both the
+complete ordered combustion plan and the engine profile's retained combustion
+initializations must equal this derivation; changing only a namespace, cached seed,
+or manifest seed is invalid.
 
 The current `ExecutablePhysicsProfile` has exactly two typed alternatives:
 
@@ -450,8 +450,8 @@ retain the meanings and admission constraints established by the typed manifest:
 - standard-library, math-library, compiler-runtime, numeric-policy,
   instruction-set, and floating-point fields describe the providers and arithmetic
   policy that actually executed;
-- component seeds identify the lanes initialized by the simulation and presentation
-  stages and exactly equal the independently recompiled provisioned random plan;
+- combustion seeds identify the per-cylinder lanes initialized by simulation and
+  exactly equal the independently recompiled provisioned random plan;
 - actual draw counts and cadence are runtime execution evidence, not assertions made
   by this preflight inventory;
 - artifact byte counts and hashes cover complete emitted files; and
@@ -471,12 +471,14 @@ rewrite, infer, or substitute them.
 The opaque simulation job derives publication names from the same admitted values; it
 does not accept a second caller-built path or INFO-metadata description.
 
-For each admitted rendered exhaust route, the three
-`SourceRouteRequirement::artifact_roles` entries are the method-owned positional
-tuple `dry`, `configured_ir`, and `selected`, in that order. The job copies those
-identities into the corresponding named plan fields; it does not infer signal meaning
-from role spelling or artifact-list order. A different count or ownership mapping is
-not executable by this presentation method and fails before transaction begin.
+For each admitted rendered exhaust route,
+`SourceRouteRequirement::artifact_roles` contains exactly one method-owned radiated
+pressure-stem role. The job binds the two roles to the physical exhaust assembly's
+front/rear outlet route IDs; it does not infer signal meaning from role spelling or
+artifact-list order. The output contract additionally contains exactly one raw engine
+master and one audition engine master. A different count, bus kind, or ownership
+mapping is not executable by this presentation method and fails before transaction
+begin.
 
 For each admitted audio requirement, its artifact path is `audio/`, followed by the
 artifact role with every `/` byte replaced by lowercase `%2f`, followed by `.wav`.
@@ -492,7 +494,7 @@ The audition WAVE INFO values are derived exactly as these ASCII concatenations:
 ```text
 ICMT = engine=<engine.engine_id.value>;profile=<engine.profile_id.value>;scenario=<scenario.scenario_id>;presentation=<presentation.calibration_id>;source_matrix=<source_matrix.id>
 INAM = engine=<engine.engine_id.value>;scenario=<scenario.scenario_id>
-ISFT = engine-sim-offline;method=<presentation.methods.audition_mix.value.id>;version=<shortest-u32-decimal>;configuration_sha256=<64-lowercase-hex>
+ISFT = engine-sim-offline;method=<presentation.methods.coherent_two_outlet_audition.value.id>;version=<shortest-u32-decimal>;configuration_sha256=<64-lowercase-hex>
 ```
 
 The job validates all three derived strings as nonempty, NUL-free, and at most 4,096

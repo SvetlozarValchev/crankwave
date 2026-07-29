@@ -1,5 +1,7 @@
 #include "contract_test_support.hpp"
 
+#include "engine_sim_offline/profiles/bmw_m52b28_inertial_dyno_listening_request.hpp"
+#include "engine_sim_offline/profiles/bmw_m52b28_render_specification.hpp"
 #include "engine_sim_offline/render.hpp"
 
 #include <cstddef>
@@ -53,30 +55,18 @@ struct RequestFixture {
     RenderScenario scenario;
 
     RequestFixture() {
-        auto content = make_manifest_content(builder);
-        auto &resolved = simulation_inputs(content);
-        specification.engine = std::move(resolved.engine);
-        specification.presentation = std::move(resolved.presentation);
-        specification.randomness = std::move(resolved.randomness);
-        specification.provenance = builder.provenance;
-        specification.source_matrix = make_source_matrix();
-        const std::vector asset_bytes{
-            std::byte{0x52},
-            std::byte{0x49},
-            std::byte{0x46},
-            std::byte{0x46},
-        };
-        const auto asset_digest = sha256(asset_bytes);
-        specification.presentation.assets.front().content_sha256.value = asset_digest;
-        for (auto &evidence : specification.provenance.evidence) {
-            if (evidence.id ==
-                specification.presentation.assets.front().evidence_source_id.value) {
-                evidence.content_sha256 = asset_digest;
-            }
+        auto request_result =
+            profiles::make_bmw_m52b28_inertial_dyno_listening_request();
+        auto *request =
+            std::get_if<profiles::BmwM52b28InertialDynoListeningRequest>(
+                &request_result);
+        if (request == nullptr) {
+            throw std::runtime_error{
+                "canonical BMW render request did not construct"};
         }
-        specification.asset_payloads.push_back(
-            {specification.presentation.assets.front().id, asset_bytes});
-        scenario = std::move(resolved.scenario);
+        scenario = request->scenario;
+        specification = profiles::make_bmw_m52b28_render_specification(
+            std::move(request->engine), std::move(request->provenance));
     }
 };
 
@@ -95,45 +85,6 @@ void expect_request_valid_failure(const RenderResult &result,
 }
 
 void run_tests() {
-    {
-        RequestFixture fixture;
-        CountingSink sink;
-        const auto first = render(fixture.specification, fixture.scenario, sink);
-        const auto &failure =
-            expect_failure(first, FailureKind::incomplete_source_route,
-                           "valid request did not fail at the unadmitted route");
-        expect(failure.context.detail_code == "render-pipeline-not-admitted",
-               "unadmitted route did not use its stable detail code");
-        expect(failure.validation.ok(),
-               "unadmitted route unexpectedly carried preflight diagnostics");
-        expect(sink.calls == 0,
-               "valid fail-closed request touched the sink transaction");
-        expect_request_valid_failure(
-            first, fixture,
-            "valid fail-closed result violated the request-aware result contract");
-
-        const auto second = render(fixture.specification, fixture.scenario, sink);
-        const auto &second_failure =
-            expect_failure(second, FailureKind::incomplete_source_route,
-                           "repeated preflight changed failure kind");
-        expect(failure.context == second_failure.context &&
-                   failure.validation.issues == second_failure.validation.issues,
-               "repeated preflight did not return deterministic diagnostics");
-        auto different_specification = fixture.specification;
-        different_specification.engine.display_name.value = "Different engine name";
-        expect(!engine_sim_offline::validate(first, different_specification,
-                                             fixture.scenario)
-                    .ok(),
-               "failure validated against a different resolved engine");
-        different_specification = fixture.specification;
-        different_specification.randomness.seed_namespace_id.value += ".different";
-        expect(!engine_sim_offline::validate(first, different_specification,
-                                             fixture.scenario)
-                    .ok(),
-               "failure validated against a different randomness policy");
-        expect(sink.calls == 0, "repeated preflight touched the sink");
-    }
-
     {
         RequestFixture fixture;
         CountingSink sink;
@@ -309,25 +260,7 @@ void run_tests() {
 
     {
         RequestFixture fixture;
-        fixture.specification.asset_payloads.front().bytes.front() = std::byte{0x00};
-        CountingSink sink;
-        const auto result = render(fixture.specification, fixture.scenario, sink);
-        expect_failure(result, FailureKind::invalid_specification,
-                       "asset payload digest mismatch passed preflight");
-        auto different_invalid_payload = fixture.specification;
-        different_invalid_payload.asset_payloads.front().bytes.front() =
-            std::byte{0x01};
-        expect(!engine_sim_offline::validate(result, different_invalid_payload,
-                                             fixture.scenario)
-                    .ok(),
-               "failure rebound to different bytes with identical diagnostics");
-        expect(sink.calls == 0, "invalid asset payload touched the sink");
-    }
-
-    {
-        RequestFixture fixture;
-        fixture.specification.source_matrix.id =
-            bmw_m52b28_reference_source_matrix_v1().id;
+        fixture.specification.source_matrix.sha256.bytes.front() ^= 0x01U;
         CountingSink sink;
         const auto result = render(fixture.specification, fixture.scenario, sink);
         expect_failure(result, FailureKind::invalid_specification,
@@ -361,6 +294,9 @@ void run_tests() {
 
     {
         RequestFixture fixture;
+        fixture.specification.source_matrix.id =
+            "bmw-m52b28-distributable-source-matrix-test";
+        fixture.specification.source_matrix.sha256 = digest(42);
         fixture.specification.source_matrix.distribution =
             DistributionIntent::distributable;
         fixture.specification.provenance.evidence.front().rights =

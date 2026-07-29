@@ -5,41 +5,35 @@
 namespace engine_sim_offline::presentation {
 namespace {
 
-constexpr std::string_view kRouteStemPublicationMethodDescriptor =
+constexpr std::string_view kCalibratedPressurePublicationMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
-method=two-route-wet-selection-float32-wave-publication-v1
+method=calibrated-two-outlet-pressure-float32-wave-publication-v1
 version=1
-operation=two-route-dry-configured-ir-selected-stem-publication
-topology=exactly-two-distinct-ordered-exhaust-routes-and-three-stems-per-route
-route_input=one-finite-binary64-dry-sample-and-one-finite-binary64-configured-ir-sample-per-route-per-source-frame
-resolved_argument_1=per-route-wet_mix_01
-resolved_argument_1_domain=finite-canonical-binary64-in-closed-interval-0..1;negative-zero-is-rejected
-selected=wet-mix-01*configured-ir+(binary64-1-wet-mix-01)*dry-in-written-order
-selection_execution=every-processed-source-frame-including-pre-audible-frames
-publication_inputs=dry,configured-ir,selected-in-that-order-per-route
-resolved_argument_2=calibration_gain_linear
-resolved_argument_2_domain=finite-binary64-strictly-greater-than-positive-zero;both-signed-zeros-are-rejected
-timeline_unit=complete-3840-source-frame-blocks-at-192000/1-hz
-timeline_input_mapping=each-complete-200-frame-block-at-10000/1-hz-produces-exactly-3840-source-frames-and-returns-the-reconstruction-clock-to-zero-phase
-timeline_domain=positive-total-block-count-and-pre-audible-block-count-strictly-less-than-total
-timeline_arithmetic=total-and-pre-audible-block-count-times-3840-must-be-representable-as-u64
-published_interval=complete-block-ordinals-pre-audible-block-count-through-total-block-count-minus-one
-pre_audible_policy=process-selection-and-continuous-convolution-state-but-publish-no-samples
-crop_state_policy=no-reconstruction-conditioning-convolution-or-random-state-is-reset-at-the-pre-audible-boundary
-tail_policy=truncate-at-timeline-end-with-no-convolution-zero-extension-or-tail-flush
-published_frame_mapping=one-output-frame-per-published-source-frame-in-input-order
-published_stem_order=route-0-dry,route-0-configured-ir,route-0-selected,route-1-dry,route-1-configured-ir,route-1-selected
-publication_round_1=float32(input)-using-nearest-ties-to-even
-publication_round_1_validation=result-must-be-finite
-calibration=binary64(publication-round-1)-times-calibration-gain-linear-in-written-order
-publication_round_2=float32(calibration)-using-nearest-ties-to-even
-publication_round_2_validation=result-must-be-finite
-output=exactly-six-finite-float32-mono-route-stem-streams
+operation=publish-two-physical-outlet-pressure-stems-and-their-coherent-raw-master
+topology=exactly-two-distinct-exhaust-outlet-routes
+route_order=ascending-stable-nonzero-route-id
+route_input=one-finite-binary64-radiated-pressure-pa-sample-per-route-per-acoustic-frame
+acoustic_rate_hz=192000/1
+delivery_rate_hz=192000/1
+resampling=none
+resolved_calibration=engine-physical-exhaust-acoustic-assembly-pa_per_full_scale
+resolved_calibration_domain=finite-canonical-positive-binary64
+route_calibration=binary64-pressure-pa-divided-by-pa-per-full-scale-in-written-order
+route_publication=float32(route-calibration)-using-nearest-ties-to-even
+route_publication_validation=result-must-be-finite
+raw_master_reduction=float32(route-0-publication-plus-route-1-publication)-in-route-order
+raw_master_validation=result-must-be-finite
+published_interval=scenario-audible-interval-after-continuous-pre-audible-acoustic-execution
+crop_state_policy=no-acoustic-state-is-reset-at-the-audible-boundary
+tail_policy=truncate-at-scenario-timeline-end-with-no-network-tail-flush
+published_frame_mapping=one-output-frame-per-audible-acoustic-frame-in-input-order
+output_order=route-0-pressure,route-1-pressure,master-engine-raw
+output=exactly-three-finite-float32-mono-streams
 clipping=none
 limiting=none
 dither=none
 normalization=none
-float32_wave_count=exactly-six-one-per-published-stem
+float32_wave_count=exactly-three-one-per-output-stream
 float32_wave_byte_order=little-endian
 float32_wave_header=58-bytes-riff-wave-fmt18-fact4-data-in-that-order
 float32_wave_format=ieee-float-format-tag-3;mono;192000-hz;byte-rate-768000;block-align-4;bits-per-sample-32;fmt-extension-size-0
@@ -55,19 +49,18 @@ binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-daz
 float32_execution=ieee754-binary32-nearest-ties-to-even-no-fma-no-ftz-no-daz
 )method";
 
-constexpr std::string_view kOrderedTwoRouteAuditionMethodDescriptor =
+constexpr std::string_view kCoherentTwoOutletAuditionMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
-method=ordered-two-route-quarter-sine-pcm24-wave-master-v1
+method=coherent-two-outlet-quarter-sine-pcm24-wave-audition-v1
 version=1
-operation=ordered-two-route-float32-audition-mix-quarter-sine-fades-and-pcm24-master
-route_selection=exactly-two-distinct-resolved-routes-in-declared-vector-order
-route_input=one-finite-float32-sample-per-selected-route-per-frame
+operation=monitor-fade-and-quantize-the-coherent-two-outlet-raw-master
+input=one-finite-float32-calibrated-coherent-two-outlet-raw-master-sample-per-frame
 delivery_rate_hz=192000/1
-resolved_argument_1=monitoring_gain_linear
+resolved_argument_1=monitoring-gain-linear
 resolved_argument_1_domain=finite-binary64-that-rounds-nearest-ties-even-to-finite-positive-float32
-resolved_argument_2=fade_in_duration_s
+resolved_argument_2=fade-in-duration-s
 resolved_argument_2_domain=finite-canonical-nonnegative-binary64-resolving-to-an-exact-delivery-frame-index
-resolved_argument_3=fade_out_duration_s
+resolved_argument_3=fade-out-duration-s
 resolved_argument_3_domain=finite-canonical-nonnegative-binary64-resolving-to-an-exact-delivery-frame-index
 duration_resolution=contract-resolve-frame-index-at-reduced-rate-192000/1
 duration_resolution_arithmetic=x87-extended(duration-times-192000-divided-by-1)-then-std-round-long-double-half-away-from-zero-with-8-times-binary64-epsilon-times-max(1,absolute-frames)-tolerance
@@ -75,9 +68,7 @@ duration_resolution_bound=resolved-frame-index-less-than-or-equal-to-2^53-minus-
 audible_frame_count=positive-resolved-integer
 fade_fit=fade-in-frame-count-plus-fade-out-frame-count-less-than-or-equal-to-audible-frame-count
 monitoring_gain_compile=float32(monitoring-gain-linear)-using-nearest-ties-to-even
-raw_mix=float32(route-0-selected-plus-route-1-selected)-in-declared-route-order
-raw_mix_validation=result-must-be-finite
-monitor=float32(raw-mix-times-compiled-monitoring-gain)-in-written-order
+monitor=float32(raw-master-times-compiled-monitoring-gain)-in-written-order
 monitor_validation=result-must-be-finite
 fade_pi_binary64_bits=0x400921fb54442d18
 quarter_sine_ratio=binary64(k)/binary64(fade-frame-count)
@@ -98,12 +89,10 @@ pcm24_code=floor(s32/256)-including-toward-negative-infinity-correction-for-nega
 pcm24_range=integer-negative-8388608-through-positive-8388607
 pcm24_serialization=low-24-bits-in-little-endian-byte-order
 frame_execution=serial-ascending-frame-order
-clipping=pcm24-saturation-only;focused-helper-reports-saturation;integrated-artifact-path-retains-only-the-saturated-code
+clipping=pcm24-saturation-only
 limiting=none
 dither=none
 normalization=none
-raw_master_output=finite-raw-mix-float32-samples-before-monitoring-gain
-raw_master_wave=classic-58-byte-ieee-float32-mono-192000-hz-fmt18-fact4-data-container-identical-to-publication-wave-layout
 audition_metadata_input=job-owned-comment-title-software-byte-strings
 audition_metadata_domain=each-nonempty-without-embedded-nul-and-at-most-4096-bytes
 audition_wave_byte_order=little-endian
@@ -127,18 +116,19 @@ transcendentals=std-sin-binary64-under-render-determinism-envelope
 external_numeric_authority=renderer-build-source-standard-library-math-runtime-and-thread-numeric-environment-identities
 )method";
 
-static_assert(detail::canonical_lf_descriptor(kRouteStemPublicationMethodDescriptor));
 static_assert(
-    detail::canonical_lf_descriptor(kOrderedTwoRouteAuditionMethodDescriptor));
+    detail::canonical_lf_descriptor(kCalibratedPressurePublicationMethodDescriptor));
+static_assert(
+    detail::canonical_lf_descriptor(kCoherentTwoOutletAuditionMethodDescriptor));
 
 } // namespace
 
-std::string_view route_stem_publication_method_descriptor() noexcept {
-    return kRouteStemPublicationMethodDescriptor;
+std::string_view calibrated_pressure_publication_method_descriptor() noexcept {
+    return kCalibratedPressurePublicationMethodDescriptor;
 }
 
-std::string_view ordered_two_route_audition_method_descriptor() noexcept {
-    return kOrderedTwoRouteAuditionMethodDescriptor;
+std::string_view coherent_two_outlet_audition_method_descriptor() noexcept {
+    return kCoherentTwoOutletAuditionMethodDescriptor;
 }
 
 } // namespace engine_sim_offline::presentation

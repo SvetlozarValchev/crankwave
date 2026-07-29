@@ -1,4 +1,3 @@
-#include "presentation/presentation_calibration_compiler.hpp"
 #include "presentation/presentation_method_registry.hpp"
 #include "render/compiled_presentation_job.hpp"
 #include "render/render_job_derivation.hpp"
@@ -47,15 +46,7 @@ struct ResolutionBuilder {
     contract::ProvenanceLedger provenance{
         "engine-sim-offline.provenance.v1",
         {"render-job-derivation-inputs-v1", digest(1)},
-        {
-            {
-                "configured-ir-source",
-                "assets/configured-ir.wav",
-                std::nullopt,
-                digest(11),
-                contract::RightsDisposition::permitted,
-            },
-        },
+        {},
         {
             {
                 "claim",
@@ -112,73 +103,22 @@ struct ResolutionBuilder {
 [[nodiscard]] contract::PresentationCalibration
 make_presentation(ResolutionBuilder &builder, const contract::EngineSpec &engine) {
     contract::PresentationCalibration presentation;
-    presentation.schema_version = 2;
+    presentation.schema_version = 1;
     presentation.calibration_id = "test-presentation-v1";
     presentation.engine_profile_id =
         builder.resolved(engine.profile_id.value, "presentation.engine_profile_id");
 
     const auto &methods = presentation::implemented_presentation_method_identities();
     presentation.methods = {
-        builder.resolved(methods.reconstruction, "presentation.methods.reconstruction"),
-        builder.resolved(methods.conditioning, "presentation.methods.conditioning"),
-        builder.resolved(methods.impulse_response_conversion,
-                         "presentation.methods.impulse_response_conversion"),
-        builder.resolved(methods.convolution, "presentation.methods.convolution"),
-        builder.resolved(methods.publication, "presentation.methods.publication"),
-        builder.resolved(methods.audition_mix, "presentation.methods.audition_mix"),
+        builder.resolved(methods.calibrated_pressure_publication,
+                         "presentation.methods.calibrated_pressure_publication"),
+        builder.resolved(methods.coherent_two_outlet_audition,
+                         "presentation.methods.coherent_two_outlet_audition"),
     };
-    presentation.conditioning = {
-        builder.resolved(0.5, "presentation.conditioning.jitter_scale"),
-        builder.resolved(10000.0,
-                         "presentation.conditioning.jitter_modulation_cutoff_hz"),
-        builder.resolved(0.01, "presentation.conditioning.derivative_mix_01"),
-        builder.resolved(1.0, "presentation.conditioning.air_noise_mix_01"),
-        builder.resolved(2000.0, "presentation.conditioning.air_noise_cutoff_hz"),
-    };
-    presentation.assets = {
-        {
-            contract::AudioAssetId{1},
-            builder.resolved(std::string{"configured-ir"},
-                             "presentation.assets.configured-ir.semantic_id"),
-            builder.resolved(std::string{"configured-ir-source"},
-                             "presentation.assets.configured-ir.evidence_source_id"),
-            builder.resolved(digest(11),
-                             "presentation.assets.configured-ir.content_sha256"),
-            builder.resolved(
-                contract::AudioMediaContract{
-                    contract::AudioSampleEncoding::pcm_s16le,
-                    contract::AudioChannelLayout::mono,
-                    {44100, 1},
-                    128,
-                },
-                "presentation.assets.configured-ir.media"),
-        },
-    };
-    presentation.routes = {
-        {
-            contract::RouteId{2},
-            contract::AudioAssetId{1},
-            builder.resolved(
-                0.001, "presentation.routes.route.two.impulse_response_gain_linear"),
-            builder.resolved(0.5, "presentation.routes.route.two.wet_mix_01"),
-        },
-        {
-            contract::RouteId{1},
-            contract::AudioAssetId{1},
-            builder.resolved(
-                0.001, "presentation.routes.route.one.impulse_response_gain_linear"),
-            builder.resolved(1.0, "presentation.routes.route.one.wet_mix_01"),
-        },
-    };
-    presentation.publication.calibration_gain_linear =
-        builder.resolved(0x1.0p-26, "presentation.publication.calibration_gain_linear");
-    presentation.audition = {
-        builder.resolved(
-            std::vector<contract::RouteId>{contract::RouteId{2}, contract::RouteId{1}},
-            "presentation.audition.selected_routes"),
-        builder.resolved(0.75, "presentation.audition.monitoring_gain_linear"),
-        builder.resolved(0.02, "presentation.audition.fade_in_duration_s"),
-        builder.resolved(0.02, "presentation.audition.fade_out_duration_s"),
+    presentation.monitoring = {
+        builder.resolved(0.75, "presentation.monitoring.gain_linear"),
+        builder.resolved(0.02, "presentation.monitoring.fade_in_duration_s"),
+        builder.resolved(0.02, "presentation.monitoring.fade_out_duration_s"),
     };
     presentation.provenance_schema_id = builder.provenance.schema_id;
     return presentation;
@@ -225,22 +165,14 @@ make_scenario(const contract::EngineSpec &engine) {
             contract::SourceRouteKind::exhaust_outlet,
             contract::RouteDisposition::rendered,
             "",
-            {
-                "stem/route.two.dry",
-                "stem/route.two.configured_ir",
-                "stem/route.two.selected",
-            },
+            {"stem/route.two.pressure"},
         },
         {
             "route.one",
             contract::SourceRouteKind::exhaust_outlet,
             contract::RouteDisposition::rendered,
             "",
-            {
-                "stem/route.one.dry",
-                "stem/route.one.configured_ir",
-                "stem/route.one.selected",
-            },
+            {"stem/route.one.pressure"},
         },
     };
     matrix.required_output_buses = {
@@ -259,15 +191,9 @@ make_scenario(const contract::EngineSpec &engine) {
     matrix.required_artifacts = {
         {"master/engine.audition", contract::ArtifactKind::audio, audition_audio,
          false},
-        {"stem/route.two.selected", contract::ArtifactKind::audio, float_audio, false},
-        {"stem/route.one.configured_ir", contract::ArtifactKind::audio, float_audio,
-         true},
+        {"stem/route.two.pressure", contract::ArtifactKind::audio, float_audio, false},
         {"master/engine.raw", contract::ArtifactKind::audio, float_audio, false},
-        {"stem/route.two.dry", contract::ArtifactKind::audio, float_audio, true},
-        {"stem/route.one.selected", contract::ArtifactKind::audio, float_audio, false},
-        {"stem/route.two.configured_ir", contract::ArtifactKind::audio, float_audio,
-         true},
-        {"stem/route.one.dry", contract::ArtifactKind::audio, float_audio, true},
+        {"stem/route.one.pressure", contract::ArtifactKind::audio, float_audio, false},
     };
     return matrix;
 }
@@ -275,11 +201,8 @@ make_scenario(const contract::EngineSpec &engine) {
 struct ProjectionFixture {
     ResolutionBuilder builder;
     contract::RenderRequestRecord request;
-    presentation::AdmittedPresentationCalibration calibration;
 
-    ProjectionFixture()
-        : request(make_request(builder)),
-          calibration(compile_calibration(request, builder.provenance)) {}
+    ProjectionFixture() : request(make_request(builder)) {}
 
   private:
     [[nodiscard]] static contract::RenderRequestRecord
@@ -296,23 +219,7 @@ struct ProjectionFixture {
             },
             builder.provenance,
             make_source_matrix(),
-            {},
         };
-    }
-
-    [[nodiscard]] static presentation::AdmittedPresentationCalibration
-    compile_calibration(const contract::RenderRequestRecord &request,
-                        const contract::ProvenanceLedger &provenance) {
-        auto result = presentation::compile_presentation_calibration(
-            request.resolved_inputs.presentation, request.resolved_inputs.engine,
-            request.resolved_inputs.scenario, provenance);
-        if (!std::holds_alternative<presentation::AdmittedPresentationCalibration>(
-                result)) {
-            throw std::runtime_error{
-                "valid render-job projection fixture failed calibration admission"};
-        }
-        return std::get<presentation::AdmittedPresentationCalibration>(
-            std::move(result));
     }
 };
 
@@ -383,13 +290,15 @@ void test_audition_metadata_projection() {
     inputs.engine.engine_id.value = "engine-id";
     inputs.engine.profile_id.value = "profile-id";
     inputs.presentation.calibration_id = "presentation-id";
-    inputs.presentation.methods.audition_mix.value.id = "audition-method";
-    inputs.presentation.methods.audition_mix.value.version = 42;
-    for (std::size_t index = 0; index < inputs.presentation.methods.audition_mix.value
-                                            .configuration_sha256.bytes.size();
+    auto &audition_method =
+        inputs.presentation.methods.coherent_two_outlet_audition.value;
+    audition_method.id = "audition-method";
+    audition_method.version = 42;
+    for (std::size_t index = 0;
+         index < audition_method.configuration_sha256.bytes.size();
          ++index) {
-        inputs.presentation.methods.audition_mix.value.configuration_sha256
-            .bytes[index] = static_cast<std::uint8_t>(index);
+        audition_method.configuration_sha256.bytes[index] =
+            static_cast<std::uint8_t>(index);
     }
     inputs.scenario.scenario_id = "scenario-id";
 
@@ -414,13 +323,14 @@ void test_audition_metadata_projection() {
     const auto *error = std::get_if<RenderJobDerivationError>(&oversized);
     expect(error != nullptr &&
                error->code == RenderJobDerivationErrorCode::audition_metadata_invalid &&
-               error->path == "presentation.audition.metadata",
+               error->path == "presentation.monitoring.metadata",
            "oversized audition metadata escaped its fixed bound");
 }
 
 void test_complete_projection() {
     ProjectionFixture fixture;
-    auto result = derive_render_job_projection(fixture.request, fixture.calibration);
+    auto result = derive_render_job_projection(
+        fixture.request, std::array{contract::RouteId{1}, contract::RouteId{2}});
     const auto *projection = std::get_if<RenderJobProjection>(&result);
     expect(projection != nullptr, "valid complete render-job projection was rejected");
 
@@ -440,20 +350,15 @@ void test_complete_projection() {
                    contract::OutputBusKind::master_engine_raw,
            "manifest output buses did not retain source-matrix order");
 
-    const auto &route_0 = projection->route_artifacts[0];
-    const auto &route_1 = projection->route_artifacts[1];
-    expect(route_0.dry.role == "stem/route.one.dry" &&
-               route_0.dry.relative_path == "audio/stem%2froute.one.dry.wav" &&
-               route_0.configured_ir.role == "stem/route.one.configured_ir" &&
-               route_0.selected.role == "stem/route.one.selected" &&
-               route_1.dry.role == "stem/route.two.dry" &&
-               route_1.configured_ir.role == "stem/route.two.configured_ir" &&
-               route_1.selected.role == "stem/route.two.selected",
-           "route artifact positions or derived paths changed");
-    expect(route_0.dry.diagnostic && route_0.configured_ir.diagnostic &&
-               !route_0.selected.diagnostic && route_1.dry.diagnostic &&
-               route_1.configured_ir.diagnostic && !route_1.selected.diagnostic,
-           "artifact diagnostic policy was not copied exactly");
+    const auto &route_0 = projection->outlet_pressure_artifacts[0];
+    const auto &route_1 = projection->outlet_pressure_artifacts[1];
+    expect(route_0.role == "stem/route.one.pressure" &&
+               route_0.relative_path == "audio/stem%2froute.one.pressure.wav" &&
+               route_1.role == "stem/route.two.pressure" &&
+               route_1.relative_path == "audio/stem%2froute.two.pressure.wav",
+           "outlet pressure artifact positions or derived paths changed");
+    expect(!route_0.diagnostic && !route_1.diagnostic,
+           "physical outlet pressure stems unexpectedly became diagnostic");
     expect(projection->raw_master_artifact.role == "master/engine.raw" &&
                projection->raw_master_artifact.relative_path ==
                    "audio/master%2fengine.raw.wav" &&
@@ -464,7 +369,8 @@ void test_complete_projection() {
            "master bus selection inferred order instead of bus kind");
 
     const auto &method =
-        fixture.request.resolved_inputs.presentation.methods.audition_mix.value;
+        fixture.request.resolved_inputs.presentation.methods
+            .coherent_two_outlet_audition.value;
     expect(projection->audition_metadata.comment ==
                    "engine=test-engine;profile=test-engine-profile;"
                    "scenario=test-dyno-pull;presentation=test-presentation-v1;"

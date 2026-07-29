@@ -18,7 +18,7 @@ namespace {
 enum class ExecutionStage : std::uint8_t {
     presentation_transaction,
     simulation,
-    excitation,
+    acoustics,
     presentation,
     finalization,
     manifest_completion,
@@ -106,8 +106,8 @@ class NumericControlRecovery final {
         return "presentation transaction";
     case ExecutionStage::simulation:
         return "simulation";
-    case ExecutionStage::excitation:
-        return "excitation";
+    case ExecutionStage::acoustics:
+        return "exhaust acoustics";
     case ExecutionStage::presentation:
         return "presentation";
     case ExecutionStage::finalization:
@@ -126,8 +126,8 @@ class NumericControlRecovery final {
         return "presentation-transaction-failed";
     case ExecutionStage::simulation:
         return "simulation-execution-threw";
-    case ExecutionStage::excitation:
-        return "excitation-execution-threw";
+    case ExecutionStage::acoustics:
+        return "exhaust-acoustic-execution-threw";
     case ExecutionStage::presentation:
         return "presentation-execution-threw";
     case ExecutionStage::finalization:
@@ -252,13 +252,16 @@ exception_failure(contract::RenderRequestRecord request, ExecutionStage stage,
                 " exhausted process memory; no retry or fallback was attempted",
             sample_index, sample_index, scenario_time(sample_index));
     } catch (const std::domain_error &failure) {
-        const auto kind = stage == ExecutionStage::presentation
-                              ? contract::FailureKind::numerical_failure
-                              : contract::FailureKind::contract_violation;
+        const auto kind =
+            stage == ExecutionStage::presentation || stage == ExecutionStage::acoustics
+                ? contract::FailureKind::numerical_failure
+                : contract::FailureKind::contract_violation;
         return make_job_failure(
             std::move(request), kind,
             std::string(stage == ExecutionStage::presentation
                             ? std::string_view{"presentation-numerical-failure"}
+                        : stage == ExecutionStage::acoustics
+                            ? std::string_view{"exhaust-acoustic-numerical-failure"}
                             : exception_detail_code(stage)),
             "compiled-presentation-job-v1",
             std::string(stage_name(stage)) + " failed: " + failure.what(), sample_index,
@@ -338,9 +341,8 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
 
     ExecutionStage stage = ExecutionStage::presentation_transaction;
     try {
-        // Cancellation belongs to this job coordinator. Passing the caller token
-        // into a nested session would allow a callback wrapper to relabel it as a
-        // consumer rejection.
+        // Cancellation belongs to this coordinator. Nested sessions therefore
+        // cannot relabel caller cancellation as consumer rejection.
         presentation::PresentationRenderSession presentation{
             sink, std::move(implementation->presentation_plan), RenderControl{}};
         if (const auto failure = revalidate_numeric_environment(
@@ -350,23 +352,16 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                                                *failure);
         }
 
-        const auto total_block_count = implementation->calibration.total_block_count();
-        const auto pre_audible_block_count =
-            implementation->calibration.pre_audible_block_count();
-        const auto expected_input_frame_count =
-            total_block_count *
-            presentation::AdmittedPresentationCalibration::capture_frames_per_block;
-        const auto expected_source_frame_count =
-            total_block_count *
-            presentation::AdmittedPresentationCalibration::source_frames_per_block;
-        const auto expected_pre_audible_source_frame_count =
-            pre_audible_block_count *
-            presentation::AdmittedPresentationCalibration::source_frames_per_block;
-        const auto expected_published_block_count =
-            total_block_count - pre_audible_block_count;
-        const auto expected_published_source_frame_count =
-            expected_published_block_count *
-            presentation::AdmittedPresentationCalibration::source_frames_per_block;
+        const auto expected_capture_frame_count =
+            implementation->expected_capture_frame_count;
+        const auto expected_source_interval_count =
+            implementation->expected_source_interval_count;
+        const auto expected_acoustic_frame_count =
+            implementation->expected_acoustic_frame_count;
+        const auto expected_pre_audible_frame_count =
+            implementation->expected_pre_audible_frame_count;
+        const auto expected_published_frame_count =
+            expected_acoustic_frame_count - expected_pre_audible_frame_count;
         std::optional<contract::HeldSpeedOperatingPointResult>
             held_speed_operating_point;
         std::optional<contract::InertialDynoResult> inertial_dyno;
@@ -378,18 +373,19 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                 return cancellation_failure(
                     std::move(implementation->request),
                     "render-cancelled-between-blocks",
-                    "cancellation was observed between complete 200-frame "
-                    "simulation blocks",
+                    "cancellation was observed between complete simulation blocks",
                     sample_index);
             }
 
             const auto expected_block =
                 implementation->simulation.published_block_count();
             const auto expected_first_frame =
-                expected_block *
-                presentation::AdmittedPresentationCalibration::capture_frames_per_block;
+                implementation->simulation.published_sample_count();
             FirstCause first_cause;
             std::optional<simulation::LowOrderCaptureAdvanceResult> simulation_result;
+            std::optional<std::uint64_t> callback_capture_frame_count;
+            std::optional<std::uint64_t> callback_source_end_interval;
+            std::optional<std::uint64_t> callback_acoustic_end_frame;
 
             stage = ExecutionStage::simulation;
             try {
@@ -398,12 +394,9 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                         if (first_cause.present()) {
                             return false;
                         }
-
                         if (capture.clock().first_sample_index !=
                                 expected_first_frame ||
-                            capture.frame_count() !=
-                                presentation::AdmittedPresentationCalibration::
-                                    capture_frames_per_block) {
+                            capture.frame_count() == 0U) {
                             first_cause.record(CoordinatorFailure{
                                 contract::FailureKind::contract_violation,
                                 "simulation-capture-extent-disagreed",
@@ -413,73 +406,63 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                             });
                             return false;
                         }
+                        callback_capture_frame_count = capture.frame_count();
+
+                        if (!capture.exhaust_port_substeps().has_value()) {
+                            first_cause.record(CoordinatorFailure{
+                                contract::FailureKind::contract_violation,
+                                "simulation-exhaust-source-missing",
+                                "the production simulation callback omitted the "
+                                "mandatory exhaust-port substep source lane",
+                                expected_first_frame,
+                            });
+                            return false;
+                        }
 
                         try {
-                            auto excitation_result = implementation->excitation.process_block(
-                                capture,
-                                [&](const presentation::ExhaustExcitationBlockView
-                                        &excitation_block,
-                                    const excitation::
-                                        ExhaustExcitationDiagnosticBlockView &)
-                                    -> bool {
-                                    try {
-                                        presentation.process(excitation_block);
-                                        if (const auto failure =
-                                                revalidate_numeric_environment(
-                                                    implementation->determinism
-                                                        .numeric_environment(),
-                                                    "presentation block callback",
-                                                    expected_first_frame +
-                                                        presentation::
-                                                            AdmittedPresentationCalibration::
-                                                                capture_frames_per_block)) {
-                                            first_cause.record(*failure);
-                                            return false;
-                                        }
-                                        return true;
-                                    } catch (...) {
-                                        determinism::detail::
-                                            restore_admitted_renderer_numeric_controls();
-                                        first_cause.record(ExecutionStage::presentation,
-                                                           std::current_exception());
-                                        return false;
-                                    }
-                                });
-
-                            if (auto *failure = std::get_if<contract::FailureContext>(
-                                    &excitation_result)) {
-                                first_cause.record(std::move(*failure));
-                                return false;
-                            }
-
-                            const auto &published =
-                                std::get<excitation::ExhaustExcitationBlockPublished>(
-                                    excitation_result);
-                            const auto expected_end =
-                                expected_first_frame +
-                                presentation::AdmittedPresentationCalibration::
-                                    capture_frames_per_block;
-                            if (published.block_ordinal != expected_block ||
-                                published.first_frame_index != expected_first_frame ||
-                                published.frame_count !=
-                                    presentation::AdmittedPresentationCalibration::
-                                        capture_frames_per_block ||
-                                published.published_frame_count != expected_end) {
+                            stage = ExecutionStage::acoustics;
+                            const auto &exhaust_source =
+                                *capture.exhaust_port_substeps();
+                            callback_source_end_interval =
+                                exhaust_source.clock().first_sample_index +
+                                exhaust_source.interval_count();
+                            const auto acoustic_first =
+                                implementation->acoustics.acoustic_frames_produced();
+                            auto pressure =
+                                implementation->acoustics.process(exhaust_source);
+                            const auto acoustic_frame_count = pressure.frame_count();
+                            if (pressure.first_frame_index != acoustic_first ||
+                                pressure.rate != implementation->request.resolved_inputs
+                                                     .scenario.rates.acoustic ||
+                                acoustic_frame_count == 0U ||
+                                implementation->acoustics.source_intervals_consumed() !=
+                                    *callback_source_end_interval) {
                                 first_cause.record(CoordinatorFailure{
                                     contract::FailureKind::contract_violation,
-                                    "excitation-publication-extent-disagreed",
-                                    "the excitation publication disagreed with the "
-                                    "opaque job block identity",
+                                    "exhaust-acoustic-publication-extent-disagreed",
+                                    "the exhaust-acoustic pressure block disagreed "
+                                    "with the opaque job clock",
                                     expected_first_frame,
                                 });
+                                return false;
+                            }
+                            callback_acoustic_end_frame =
+                                acoustic_first + acoustic_frame_count;
+
+                            stage = ExecutionStage::presentation;
+                            presentation.process(pressure);
+                            if (const auto failure = revalidate_numeric_environment(
+                                    implementation->determinism.numeric_environment(),
+                                    "physical presentation block callback",
+                                    expected_first_frame + capture.frame_count())) {
+                                first_cause.record(*failure);
                                 return false;
                             }
                             return true;
                         } catch (...) {
                             determinism::detail::
                                 restore_admitted_renderer_numeric_controls();
-                            first_cause.record(ExecutionStage::excitation,
-                                               std::current_exception());
+                            first_cause.record(stage, std::current_exception());
                             return false;
                         }
                     }));
@@ -494,7 +477,17 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                     std::move(implementation->request), first_cause.take(),
                     implementation->simulation.published_sample_count());
             }
-
+            if (!simulation_result.has_value()) {
+                return coordinator_failure(
+                    std::move(implementation->request),
+                    {
+                        contract::FailureKind::contract_violation,
+                        "simulation-result-missing",
+                        "the simulation executor returned without a terminal or "
+                        "published-block result",
+                        expected_first_frame,
+                    });
+            }
             if (auto *failure =
                     std::get_if<contract::FailureContext>(&*simulation_result)) {
                 return contract::RenderFailure{
@@ -503,27 +496,29 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
 
             if (auto *completed = std::get_if<simulation::LowOrderCaptureCompleted>(
                     &*simulation_result)) {
-                if (completed->sample_count != expected_input_frame_count ||
-                    completed->block_count != total_block_count ||
+                if (callback_capture_frame_count.has_value() ||
+                    callback_source_end_interval.has_value() ||
+                    callback_acoustic_end_frame.has_value() ||
+                    completed->sample_count != expected_capture_frame_count ||
                     implementation->simulation.published_sample_count() !=
-                        expected_input_frame_count ||
+                        expected_capture_frame_count ||
                     implementation->simulation.published_block_count() !=
-                        total_block_count ||
-                    implementation->excitation.next_frame_index() !=
-                        expected_input_frame_count ||
-                    implementation->excitation.published_block_count() !=
-                        total_block_count ||
-                    implementation->excitation.faulted()) {
+                        completed->block_count ||
+                    implementation->acoustics.source_intervals_consumed() !=
+                        expected_source_interval_count ||
+                    implementation->acoustics.acoustic_frames_produced() !=
+                        expected_acoustic_frame_count) {
                     return coordinator_failure(
                         std::move(implementation->request),
                         {
                             contract::FailureKind::contract_violation,
                             "pipeline-completion-count-disagreed",
-                            "simulation and excitation completion counts disagreed "
-                            "with the opaque job timeline",
+                            "simulation and exhaust-acoustic completion counts "
+                            "disagreed with the opaque job timeline",
                             implementation->simulation.published_sample_count(),
                         });
                 }
+
                 const bool requires_held_speed_operating_point =
                     std::holds_alternative<contract::LowOrderOperatingPointV1Profile>(
                         implementation->request.resolved_inputs.engine
@@ -537,9 +532,8 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                         {
                             contract::FailureKind::contract_violation,
                             "pipeline-operating-result-presence-disagreed",
-                            "simulation completion carried held-speed evidence if "
-                            "and only if the opaque job requested an operating "
-                            "held-speed profile",
+                            "simulation completion carried held-speed evidence if and "
+                            "only if the request selected held-speed operation",
                             implementation->simulation.published_sample_count(),
                         });
                 }
@@ -563,6 +557,7 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                             });
                     }
                 }
+
                 const bool requires_inertial_dyno =
                     std::holds_alternative<contract::InertialDyno>(
                         implementation->request.resolved_inputs.scenario.mode);
@@ -572,9 +567,8 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                         {
                             contract::FailureKind::contract_violation,
                             "pipeline-inertial-result-presence-disagreed",
-                            "simulation completion carried inertial-dyno evidence "
-                            "if and only if the opaque job requested an inertial "
-                            "dyno scenario",
+                            "simulation completion carried inertial-dyno evidence if "
+                            "and only if the request selected an inertial dyno",
                             implementation->simulation.published_sample_count(),
                         });
                 }
@@ -591,7 +585,8 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                                 contract::FailureKind::contract_violation,
                                 "pipeline-inertial-result-invalid",
                                 "request-bound inertial-dyno evidence failed "
-                                "validation before presentation finalization",
+                                "validation "
+                                "before presentation finalization",
                                 implementation->simulation.published_sample_count(),
                             });
                     }
@@ -601,27 +596,39 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
 
             const auto &published =
                 std::get<simulation::LowOrderCaptureBlockPublished>(*simulation_result);
+            if (!callback_capture_frame_count.has_value() ||
+                !callback_source_end_interval.has_value() ||
+                !callback_acoustic_end_frame.has_value()) {
+                return coordinator_failure(
+                    std::move(implementation->request),
+                    {
+                        contract::FailureKind::contract_violation,
+                        "physical-pipeline-callback-missing",
+                        "the simulation reported a published block without one "
+                        "complete acoustic/presentation callback",
+                        expected_first_frame,
+                    });
+            }
             const auto expected_end =
-                expected_first_frame +
-                presentation::AdmittedPresentationCalibration::capture_frames_per_block;
+                expected_first_frame + *callback_capture_frame_count;
             if (published.block_ordinal != expected_block ||
                 published.first_sample_index != expected_first_frame ||
-                published.frame_count != presentation::AdmittedPresentationCalibration::
-                                             capture_frames_per_block ||
+                published.frame_count != *callback_capture_frame_count ||
                 published.published_sample_count != expected_end ||
                 implementation->simulation.published_sample_count() != expected_end ||
                 implementation->simulation.published_block_count() !=
                     expected_block + 1 ||
-                implementation->excitation.next_frame_index() != expected_end ||
-                implementation->excitation.published_block_count() !=
-                    expected_block + 1) {
+                implementation->acoustics.acoustic_frames_produced() !=
+                    *callback_acoustic_end_frame ||
+                implementation->acoustics.source_intervals_consumed() !=
+                    *callback_source_end_interval) {
                 return coordinator_failure(
                     std::move(implementation->request),
                     {
                         contract::FailureKind::contract_violation,
                         "pipeline-block-count-disagreed",
-                        "simulation and excitation block progress disagreed with "
-                        "the opaque job timeline",
+                        "simulation and exhaust-acoustic block progress disagreed "
+                        "with the opaque job timeline",
                         expected_first_frame,
                     });
             }
@@ -646,15 +653,11 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                                                *failure);
         }
         const auto &stats = evidence.stats();
-        if (stats.input_frame_count != expected_input_frame_count ||
-            stats.processed_block_count != total_block_count ||
-            stats.pre_audible_block_count != pre_audible_block_count ||
-            stats.published_block_count != expected_published_block_count ||
-            stats.processed_source_frame_count != expected_source_frame_count ||
-            stats.pre_audible_source_frame_count !=
-                expected_pre_audible_source_frame_count ||
-            stats.published_source_frame_count !=
-                expected_published_source_frame_count) {
+        if (stats.input_frame_count != expected_acoustic_frame_count ||
+            stats.processed_block_count !=
+                implementation->simulation.published_block_count() ||
+            stats.pre_audible_frame_count != expected_pre_audible_frame_count ||
+            stats.published_frame_count != expected_published_frame_count) {
             return coordinator_failure(
                 std::move(implementation->request),
                 {

@@ -47,8 +47,6 @@ enum class OutputBusKind : std::uint8_t {
     unspecified,
     master_engine_raw,
     master_engine_audition,
-    master_reference_raw,
-    master_reference_audition,
 };
 
 enum class RouteDisposition : std::uint8_t {
@@ -115,7 +113,7 @@ validate_evidence_rights(const ProvenanceLedger &provenance,
                          DistributionIntent distribution);
 
 // The immutable policy counterpart of
-// reference/oracles/bmw-m52b28/SOURCE_MATRIX.md ("frozen v1").
-[[nodiscard]] const SourceMatrixContract &bmw_m52b28_reference_source_matrix_v1();
+// docs/contracts/M5_BMW_EXHAUST_ACOUSTIC_SOURCE_MATRIX.md.
+[[nodiscard]] const SourceMatrixContract &bmw_m52b28_exhaust_acoustic_source_matrix();
 
 } // namespace engine_sim_offline::contract

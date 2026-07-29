@@ -2,7 +2,6 @@
 
 #include "artifacts/audition_wav_encoder.hpp"
 #include "engine_sim_offline/contract/result.hpp"
-#include "presentation/presentation_calibration_compiler.hpp"
 #include "presentation/presentation_render_session.hpp"
 
 #include <array>
@@ -38,9 +37,8 @@ using AuditionMetadataResult =
 
 struct RenderJobProjection {
     contract::OutputContract output_contract;
-    std::array<presentation::PresentationRouteArtifacts,
-               presentation::AdmittedPresentationCalibration::route_count>
-        route_artifacts;
+    std::array<PendingArtifact, presentation::kPresentationExhaustOutletCount>
+        outlet_pressure_artifacts;
     PendingArtifact raw_master_artifact;
     PendingArtifact audition_master_artifact;
     artifacts::AuditionWaveMetadata audition_metadata;
@@ -59,6 +57,7 @@ derive_audition_metadata(const contract::ResolvedRenderInputs &inputs,
 
 [[nodiscard]] RenderJobProjectionResult derive_render_job_projection(
     const contract::RenderRequestRecord &request,
-    const presentation::AdmittedPresentationCalibration &calibration);
+    const std::array<contract::RouteId, presentation::kPresentationExhaustOutletCount>
+        &outlet_route_ids);
 
 } // namespace engine_sim_offline::render_detail

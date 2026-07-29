@@ -253,7 +253,9 @@ add_executable(
 
 target_link_libraries(
     engine_sim_offline_contract_tests
-    PRIVATE engine_sim_offline::contract
+    PRIVATE
+        engine_sim_offline::contract
+        engine_sim_offline::profiles
 )
 
 add_test(
@@ -268,7 +270,9 @@ add_executable(
 
 target_link_libraries(
     engine_sim_offline_render_tests
-    PRIVATE engine_sim_offline::render
+    PRIVATE
+        engine_sim_offline::profiles
+        engine_sim_offline::render
 )
 
 add_test(
@@ -359,36 +363,13 @@ target_link_libraries(
     engine_sim_offline_simulation_manifest_encoder_tests
     PRIVATE
         engine_sim_offline::artifacts
+        engine_sim_offline::profiles
         engine_sim_offline::request_identity
 )
 
 add_test(
     NAME artifacts.simulation_manifest_encoder
     COMMAND engine_sim_offline_simulation_manifest_encoder_tests
-)
-
-add_executable(
-    engine_sim_offline_p18_reference_catalog_tests
-    p18_reference_catalog_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_p18_reference_catalog_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_p18_reference_catalog_tests
-    PRIVATE
-        engine_sim_offline::artifacts
-        engine_sim_offline::presentation
-        engine_sim_offline_p18_reference_catalog
-)
-
-add_test(
-    NAME reference.p18_catalog
-    COMMAND engine_sim_offline_p18_reference_catalog_tests
 )
 
 add_executable(
@@ -548,113 +529,6 @@ add_test(
 )
 
 add_executable(
-    engine_sim_offline_causal_reconstruction_tests
-    causal_reconstruction_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_causal_reconstruction_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_causal_reconstruction_tests
-    PRIVATE engine_sim_offline::presentation
-)
-
-add_test(
-    NAME presentation.causal_reconstruction
-    COMMAND engine_sim_offline_causal_reconstruction_tests
-)
-
-add_executable(
-    engine_sim_offline_route_conditioning_tests
-    route_conditioning_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_route_conditioning_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_route_conditioning_tests
-    PRIVATE engine_sim_offline::presentation
-)
-
-add_test(
-    NAME presentation.route_conditioning
-    COMMAND engine_sim_offline_route_conditioning_tests
-)
-
-add_executable(
-    engine_sim_offline_exhaust_source_stage_tests
-    exhaust_source_stage_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_exhaust_source_stage_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_exhaust_source_stage_tests
-    PRIVATE engine_sim_offline::presentation
-)
-
-add_test(
-    NAME presentation.exhaust_source_stage
-    COMMAND engine_sim_offline_exhaust_source_stage_tests
-)
-
-add_executable(
-    engine_sim_offline_pcm16_ir_decoder_tests
-    pcm16_ir_decoder_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_pcm16_ir_decoder_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_pcm16_ir_decoder_tests
-    PRIVATE engine_sim_offline::presentation
-)
-
-add_test(
-    NAME presentation.pcm16_ir_decoder
-    COMMAND engine_sim_offline_pcm16_ir_decoder_tests
-)
-
-add_executable(
-    engine_sim_offline_static_ir_conversion_tests
-    static_ir_conversion_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_static_ir_conversion_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_static_ir_conversion_tests
-    PRIVATE engine_sim_offline::presentation
-)
-
-add_test(
-    NAME presentation.static_ir_conversion
-    COMMAND
-        engine_sim_offline_static_ir_conversion_tests
-        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav
-)
-
-add_executable(
     engine_sim_offline_presentation_method_registry_tests
     presentation_method_registry_test.cpp
 )
@@ -676,99 +550,18 @@ add_test(
 )
 
 add_executable(
-    engine_sim_offline_presentation_calibration_compiler_tests
-    presentation_calibration_compiler_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_presentation_calibration_compiler_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
+    engine_sim_offline_presentation_contract_tests
+    presentation_contract_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_presentation_calibration_compiler_tests
-    PRIVATE engine_sim_offline::presentation
-)
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_presentation_calibration_compiler_tests
+    engine_sim_offline_presentation_contract_tests
+    PRIVATE engine_sim_offline::contract
 )
 
 add_test(
-    NAME presentation.calibration_compiler
-    COMMAND engine_sim_offline_presentation_calibration_compiler_tests
-)
-
-add_executable(
-    engine_sim_offline_presentation_asset_compiler_tests
-    presentation_asset_compiler_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_presentation_asset_compiler_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_presentation_asset_compiler_tests
-    PRIVATE
-        engine_sim_offline::presentation
-        $<$<PLATFORM_ID:Linux>:m>
-)
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_presentation_asset_compiler_tests
-)
-
-add_test(
-    NAME presentation.asset_compiler
-    COMMAND
-        engine_sim_offline_presentation_asset_compiler_tests
-        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav
-)
-
-add_executable(
-    engine_sim_offline_fixed_fft_convolution_tests
-    fixed_fft_convolution_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_fixed_fft_convolution_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_fixed_fft_convolution_tests
-    PRIVATE engine_sim_offline::presentation
-)
-
-add_test(
-    NAME presentation.fixed_fft_convolution
-    COMMAND engine_sim_offline_fixed_fft_convolution_tests
-)
-
-add_executable(
-    engine_sim_offline_p18_reference_audit_reader_tests
-    p18_reference_audit_reader_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_p18_reference_audit_reader_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_p18_reference_audit_reader_tests
-    PRIVATE engine_sim_offline_p18_reference_fixture
-)
-
-add_test(
-    NAME reference.p18_audit_reader
-    COMMAND
-        engine_sim_offline_p18_reference_audit_reader_tests
-        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/reference-audit.bin
+    NAME presentation.contract
+    COMMAND engine_sim_offline_presentation_contract_tests
 )
 
 add_executable(
@@ -1190,29 +983,6 @@ add_test(
 )
 
 add_executable(
-    engine_sim_offline_legacy_low_order_exhaust_excitation_tests
-    legacy_low_order_exhaust_excitation_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_legacy_low_order_exhaust_excitation_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_legacy_low_order_exhaust_excitation_tests
-    PRIVATE
-        engine_sim_offline::excitation
-        engine_sim_offline::profiles
-)
-
-add_test(
-    NAME excitation.legacy_low_order_exhaust
-    COMMAND engine_sim_offline_legacy_low_order_exhaust_excitation_tests
-)
-
-add_executable(
     engine_sim_offline_bmw_m52b28_mechanics_parity_tests
     bmw_m52b28_mechanics_parity_test.cpp
 )
@@ -1239,34 +1009,6 @@ add_test(
     COMMAND
         engine_sim_offline_bmw_m52b28_mechanics_parity_tests
         ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/reference-parity.bin
-)
-
-add_executable(
-    engine_sim_offline_bmw_m52b28_parity_request_tests
-    bmw_m52b28_parity_request_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_bmw_m52b28_parity_request_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_bmw_m52b28_parity_request_tests
-    PRIVATE
-        engine_sim_offline::profiles
-        engine_sim_offline::request_identity
-        engine_sim_offline_reference_parity_v1_reader
-        engine_sim_offline_p18_reference_fixture
-)
-
-add_test(
-    NAME profiles.bmw_m52b28_parity_request
-    COMMAND
-        engine_sim_offline_bmw_m52b28_parity_request_tests
-        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/reference-parity.bin
-        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/component-seeds.bin
 )
 
 add_executable(
@@ -1297,6 +1039,29 @@ add_test(
         ${PROJECT_SOURCE_DIR}/docs/model/M4_OPERATING_POINT_MODEL.md
         ${PROJECT_SOURCE_DIR}/data/profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json
         ${PROJECT_SOURCE_DIR}/docs/M4_BMW_EXHAUST_TOPOLOGY_CORRECTION.md
+)
+
+add_executable(
+    engine_sim_offline_bmw_m52b28_render_specification_tests
+    bmw_m52b28_render_specification_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_bmw_m52b28_render_specification_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_bmw_m52b28_render_specification_tests
+    PRIVATE
+        engine_sim_offline::profiles
+        engine_sim_offline::presentation
+)
+
+add_test(
+    NAME profiles.bmw_m52b28_render_specification
+    COMMAND engine_sim_offline_bmw_m52b28_render_specification_tests
 )
 
 add_executable(
@@ -1404,19 +1169,6 @@ add_test(
     COMMAND engine_sim_offline_bmw_m52b28_held_idle_low_load_request_set_tests
 )
 
-if(TARGET engine_sim_offline_m4_bmw_listening AND
-   TARGET engine_sim_offline_m4_bmw_torque_sweep)
-    add_test(
-        NAME reference.m4_bmw_cli_rejection
-        COMMAND
-            ${CMAKE_COMMAND}
-            -DLISTENING_EXE=$<TARGET_FILE:engine_sim_offline_m4_bmw_listening>
-            -DTORQUE_EXE=$<TARGET_FILE:engine_sim_offline_m4_bmw_torque_sweep>
-            -DTEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/m4_bmw_cli_rejection_test.cmake
-    )
-endif()
-
 add_executable(
     engine_sim_offline_bmw_m52b28_inertial_dyno_listening_request_tests
     bmw_m52b28_inertial_dyno_listening_request_test.cpp
@@ -1442,56 +1194,6 @@ engine_sim_offline_enable_renderer_numeric_policy(
 add_test(
     NAME profiles.bmw_m52b28_inertial_dyno_listening_request
     COMMAND engine_sim_offline_bmw_m52b28_inertial_dyno_listening_request_tests
-)
-
-add_executable(
-    engine_sim_offline_p18_reference_seed_reader_tests
-    p18_reference_seed_reader_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_p18_reference_seed_reader_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_p18_reference_seed_reader_tests
-    PRIVATE engine_sim_offline_p18_reference_fixture
-)
-
-add_test(
-    NAME reference.p18_seed_reader
-    COMMAND
-        engine_sim_offline_p18_reference_seed_reader_tests
-        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/component-seeds.bin
-)
-
-add_executable(
-    engine_sim_offline_p18_reference_fixture_loader_tests
-    p18_reference_fixture_loader_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_p18_reference_fixture_loader_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_p18_reference_fixture_loader_tests
-    PRIVATE
-        engine_sim_offline::artifacts
-        engine_sim_offline::presentation
-        engine_sim_offline_p18_reference_catalog
-        engine_sim_offline_p18_reference_fixture
-)
-
-add_test(
-    NAME reference.p18_fixture_loader
-    COMMAND
-        engine_sim_offline_p18_reference_fixture_loader_tests
-        ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18
 )
 
 add_executable(
@@ -1521,49 +1223,6 @@ add_test(
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    add_executable(
-        engine_sim_offline_bmw_public_render_success_tests
-        bmw_public_render_success_test.cpp
-    )
-
-    target_include_directories(
-        engine_sim_offline_bmw_public_render_success_tests
-        PRIVATE
-            ${PROJECT_SOURCE_DIR}/src
-    )
-
-    target_link_libraries(
-        engine_sim_offline_bmw_public_render_success_tests
-        PRIVATE
-            engine_sim_offline::profiles
-            engine_sim_offline::render
-            engine_sim_offline_bmw_p18_render_specification
-            engine_sim_offline_reference_parity_v1_reader
-            engine_sim_offline_p18_reference_catalog
-            engine_sim_offline_p18_reference_fixture
-            m
-    )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_bmw_public_render_success_tests
-    )
-
-    # The production source stamp deliberately fails closed for Debug and
-    # multi-config generators. Keep this integration gate registered only where a
-    # successful public render is representable.
-    if(NOT CMAKE_CONFIGURATION_TYPES AND CMAKE_BUILD_TYPE STREQUAL "Release")
-        add_test(
-            NAME render.bmw_public_success
-            COMMAND
-                engine_sim_offline_bmw_public_render_success_tests
-                ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18
-                ${PROJECT_SOURCE_DIR}/reference/oracles/bmw-m52b28/bmw-m52b28-5th-gear-equivalent-dyno-1500-6500rpm.wav
-        )
-        set_tests_properties(
-            render.bmw_public_success
-            PROPERTIES TIMEOUT 240
-        )
-    endif()
-
     add_executable(
         engine_sim_offline_linux_execution_facts_tests
         linux_execution_facts_test.cpp
@@ -1613,38 +1272,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         NAME presentation.session_boundary
         COMMAND engine_sim_offline_presentation_render_session_boundary_tests
     )
-
-    if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS)
-        add_executable(
-            engine_sim_offline_bmw_full_presentation_comparator_tests
-            bmw_full_presentation_comparator_test.cpp
-        )
-
-        target_include_directories(
-            engine_sim_offline_bmw_full_presentation_comparator_tests
-            PRIVATE
-                ${PROJECT_SOURCE_DIR}/src
-        )
-
-        target_link_libraries(
-            engine_sim_offline_bmw_full_presentation_comparator_tests
-            PRIVATE
-                engine_sim_offline_presentation_session
-                engine_sim_offline_p18_reference_catalog
-                engine_sim_offline_p18_reference_fixture
-                $<$<PLATFORM_ID:Linux>:m>
-        )
-        engine_sim_offline_enable_renderer_numeric_policy(
-            engine_sim_offline_bmw_full_presentation_comparator_tests
-        )
-
-        add_test(
-            NAME reference.bmw_full_presentation_comparator
-            COMMAND
-                engine_sim_offline_bmw_full_presentation_comparator_tests
-                ${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18
-        )
-    endif()
 
 endif()
 

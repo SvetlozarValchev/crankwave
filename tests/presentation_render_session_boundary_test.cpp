@@ -1,16 +1,18 @@
 #include "presentation/presentation_render_session.hpp"
 
-#include "dsp/source_conditioning_primitives.hpp"
+#include "acoustics/exhaust_acoustic_session.hpp"
 #include "presentation/mastering.hpp"
 
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <exception>
 #include <iostream>
-#include <memory>
+#include <limits>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -25,42 +27,16 @@ namespace {
 using namespace engine_sim_offline;
 using namespace engine_sim_offline::presentation;
 
-constexpr presentation::ExhaustSourceRouteIds kSyntheticRouteIds{
-    contract::RouteId{1},
-    contract::RouteId{2},
-};
-
-constexpr std::array<presentation::RouteConditioningSeeds,
-                     presentation::kExhaustExcitationRouteCount>
-    kSyntheticSeeds{
-        presentation::RouteConditioningSeeds{
-            {UINT64_C(0x9e2b91cd0dc51cfc), UINT64_C(0x1ae6ee3019603abb)},
-            {UINT64_C(0x75bc579d4c90a640), UINT64_C(0x7e4ef6200e7c70c1)},
-        },
-        presentation::RouteConditioningSeeds{
-            {UINT64_C(0xdb7540a0c8b54d74), UINT64_C(0x41ddcdeb066bf214)},
-            {UINT64_C(0x208e57f73615bd95), UINT64_C(0x786d92e584c43b78)},
-        },
+constexpr std::array<contract::RouteId, kPresentationExhaustOutletCount>
+    kSyntheticRouteIds{
+        contract::RouteId{101},
+        contract::RouteId{202},
     };
-constexpr presentation::RouteConditioningCalibration kSyntheticConditioning{
-    0.5, 10000.0, std::bit_cast<double>(UINT64_C(0x3f847ae140000000)), 1.0, 2000.0,
-};
 
 void expect(bool condition, const char *message) {
     if (!condition) {
         throw std::runtime_error{message};
     }
-}
-
-[[nodiscard]] std::string digest_hex(const contract::Sha256Digest &digest) {
-    static constexpr char kHex[] = "0123456789abcdef";
-    std::string result;
-    result.reserve(digest.bytes.size() * 2);
-    for (const auto byte : digest.bytes) {
-        result.push_back(kHex[byte >> 4U]);
-        result.push_back(kHex[byte & 0x0fU]);
-    }
-    return result;
 }
 
 template <class Exception, class Function>
@@ -103,6 +79,11 @@ class RecordingSink final : public RenderSink {
         std::size_t byte_count = 0;
     };
 
+    struct Payload {
+        std::string role;
+        std::vector<std::byte> bytes;
+    };
+
     bool reject_begin = false;
     bool reject_first_declaration = false;
     bool reject_first_write = false;
@@ -114,6 +95,7 @@ class RecordingSink final : public RenderSink {
     std::vector<PendingArtifact> declarations;
     std::vector<Write> writes;
     std::vector<contract::ArtifactRecord> seals;
+    std::vector<Payload> payloads;
 
     [[nodiscard]] RenderSinkStatus
     begin_transaction(const contract::OutputContract &) override {
@@ -130,6 +112,7 @@ class RecordingSink final : public RenderSink {
         if (reject_first_declaration && declarations.size() == 1) {
             return rejected("injected_first_declaration_failure");
         }
+        payloads.push_back({artifact.role, {}});
         return std::nullopt;
     }
 
@@ -145,6 +128,16 @@ class RecordingSink final : public RenderSink {
             next_write_error.reset();
             return error;
         }
+        const auto payload = std::ranges::find(payloads, chunk.role, &Payload::role);
+        if (payload == payloads.end() || chunk.byte_offset != payload->bytes.size()) {
+            return RenderSinkError{
+                RenderSinkErrorKind::protocol_violation,
+                "recording_sink_noncontiguous_write",
+                "recording sink received a noncontiguous artifact write",
+            };
+        }
+        payload->bytes.insert(payload->bytes.end(), chunk.bytes.begin(),
+                              chunk.bytes.end());
         return std::nullopt;
     }
 
@@ -162,160 +155,187 @@ class RecordingSink final : public RenderSink {
     void abort() noexcept override {
         ++abort_calls;
     }
+
+    [[nodiscard]] const std::vector<std::byte> &payload(std::string_view role) const {
+        const auto found = std::ranges::find(payloads, role, &Payload::role);
+        if (found == payloads.end()) {
+            throw std::logic_error{"recording sink has no requested payload"};
+        }
+        return found->bytes;
+    }
 };
 
-[[nodiscard]] PresentationRenderPlan
-make_plan(const std::shared_ptr<const dsp::FixedConvolutionKernel> &route_0_ir,
-          const std::shared_ptr<const dsp::FixedConvolutionKernel> &route_1_ir,
-          std::uint64_t total_block_count = 850,
-          std::uint64_t pre_audible_block_count = 100,
-          std::array<double, kExhaustExcitationRouteCount> wet_mix_01 = {1.0, 1.0}) {
-    contract::OutputContract output_contract;
-    output_contract.source_matrix_id = "test.synthetic.presentation-session-boundary";
-    output_contract.distribution = contract::DistributionIntent::local_evaluation;
-
-    const auto published_block_count = total_block_count - pre_audible_block_count;
-    const auto audible_frame_count =
-        published_block_count * presentation::kSourceFramesPerMethodBlock;
-
+[[nodiscard]] PresentationRenderPlan make_plan(std::uint64_t total_frame_count = 8,
+                                               std::uint64_t pre_audible_frame_count = 3,
+                                               float audition_gain = 0.5F) {
+    const auto audible_frame_count = total_frame_count - pre_audible_frame_count;
     const contract::AudioContract float_audio{
-        {192000, 1},
-        audible_frame_count,
-        "mono",
-        "float32le",
-    };
+        {192000, 1}, audible_frame_count, "mono", "float32le"};
     const contract::AudioContract audition_audio{
-        {192000, 1},
-        audible_frame_count,
-        "mono",
-        "pcm_s24le",
+        {192000, 1}, audible_frame_count, "mono", "pcm_s24le"};
+
+    const std::array<PendingArtifact, kPresentationAudioArtifactCount> artifacts{
+        PendingArtifact{"test.outlet.front.pressure", contract::ArtifactKind::audio,
+                        "audio/front-pressure.wav", float_audio, false},
+        PendingArtifact{"test.outlet.rear.pressure", contract::ArtifactKind::audio,
+                        "audio/rear-pressure.wav", float_audio, false},
+        PendingArtifact{"test.master.raw", contract::ArtifactKind::audio,
+                        "audio/master-raw.wav", float_audio, false},
+        PendingArtifact{"test.master.audition", contract::ArtifactKind::audio,
+                        "audio/master-audition.wav", audition_audio, false},
     };
 
-    std::array<PendingArtifact, kPresentationAudioArtifactCount> audio_artifacts;
-    for (std::size_t index = 0; index < audio_artifacts.size(); ++index) {
-        const auto role = "test.synthetic.audio." + std::to_string(index);
-        const auto path = "audio/synthetic-" + std::to_string(index) + ".wav";
-        const auto &audio =
-            index + 1 == audio_artifacts.size() ? audition_audio : float_audio;
-        audio_artifacts[index] = {
-            role, contract::ArtifactKind::audio, path, audio, false,
-        };
-        output_contract.required_artifacts.push_back({
-            role,
-            contract::ArtifactKind::audio,
-            audio,
-            false,
-        });
-    }
+    contract::OutputContract output_contract;
+    output_contract.source_matrix_id = "test.pressure-presentation";
+    output_contract.distribution = contract::DistributionIntent::local_evaluation;
     output_contract.required_source_routes = {
         {
-            "test.synthetic.exhaust.0",
+            "test.outlet.front",
             contract::SourceRouteKind::exhaust_outlet,
             contract::RouteDisposition::rendered,
             "",
-            {audio_artifacts[0].role, audio_artifacts[1].role, audio_artifacts[2].role},
+            {artifacts[0].role},
         },
         {
-            "test.synthetic.exhaust.1",
+            "test.outlet.rear",
             contract::SourceRouteKind::exhaust_outlet,
             contract::RouteDisposition::rendered,
             "",
-            {audio_artifacts[3].role, audio_artifacts[4].role, audio_artifacts[5].role},
+            {artifacts[1].role},
         },
     };
     output_contract.required_output_buses = {
         {
-            "test.synthetic.master.raw",
+            "test.master.raw",
             contract::OutputBusKind::master_engine_raw,
-            {audio_artifacts[6].role},
+            {artifacts[2].role},
         },
         {
-            "test.synthetic.master.audition",
+            "test.master.audition",
             contract::OutputBusKind::master_engine_audition,
-            {audio_artifacts[7].role},
+            {artifacts[3].role},
         },
     };
+    for (const auto &artifact : artifacts) {
+        output_contract.required_artifacts.push_back({
+            artifact.role, artifact.kind, artifact.audio, artifact.diagnostic});
+    }
 
-    const auto fade_frame_count =
-        std::min<std::uint64_t>(3'840, audible_frame_count / 2);
+    const auto fade_frames = std::min<std::uint64_t>(2, audible_frame_count / 2);
     return {
         std::move(output_contract),
-        {total_block_count, pre_audible_block_count,
-         PresentationTailPolicy::truncate_at_timeline_end},
-        implemented_presentation_method_identities(),
-        kSyntheticConditioning,
-        {{
-            {
-                kSyntheticRouteIds[0],
-                "test.synthetic.exhaust.0",
-                kSyntheticSeeds[0],
-                route_0_ir,
-                wet_mix_01[0],
-                {audio_artifacts[0], audio_artifacts[1], audio_artifacts[2]},
-            },
-            {
-                kSyntheticRouteIds[1],
-                "test.synthetic.exhaust.1",
-                kSyntheticSeeds[1],
-                route_1_ir,
-                wet_mix_01[1],
-                {audio_artifacts[3], audio_artifacts[4], audio_artifacts[5]},
-            },
-        }},
-        dsp::kSourcePublicationCalibration,
         {
-            kSyntheticRouteIds,
-            MasteringSettings{audible_frame_count, fade_frame_count, fade_frame_count,
-                              128.0F},
-            {"Synthetic presentation session", "Synthetic render", "test-suite"},
-            audio_artifacts[6],
-            audio_artifacts[7],
+            total_frame_count,
+            pre_audible_frame_count,
+            PresentationTailPolicy::truncate_at_timeline_end,
+        },
+        {{
+            {kSyntheticRouteIds[0], "test.outlet.front", artifacts[0]},
+            {kSyntheticRouteIds[1], "test.outlet.rear", artifacts[1]},
+        }},
+        10.0,
+        {
+            MasteringSettings{audible_frame_count, fade_frames, fade_frames,
+                              audition_gain},
+            {"Synthetic pressure presentation", "Synthetic render", "test-suite"},
+            artifacts[2],
+            artifacts[3],
         },
     };
 }
 
-[[nodiscard]] std::shared_ptr<const dsp::FixedConvolutionKernel>
-make_synthetic_kernel(std::uint32_t initial_state = UINT32_C(0x6a09e667)) {
-    std::vector<double> coefficients(dsp::FixedConvolutionKernel::coefficient_count);
-    std::uint32_t state = initial_state;
-    for (double &coefficient : coefficients) {
-        state = state * UINT32_C(1664525) + UINT32_C(1013904223);
-        const std::int64_t centered =
-            static_cast<std::int64_t>(state) - INT64_C(2147483648);
-        coefficient = static_cast<double>(centered) * 0x1p-47;
+[[nodiscard]] acoustics::ExhaustAcousticPressureBlock
+make_block(std::uint64_t first_frame_index, std::size_t frame_count,
+           contract::RationalRateHz rate = {192000, 1},
+           std::array<contract::RouteId, kPresentationExhaustOutletCount> route_ids =
+               kSyntheticRouteIds) {
+    acoustics::ExhaustAcousticPressureBlock block{
+        rate,
+        first_frame_index,
+        {
+            acoustics::RadiatedExhaustOutletBlock{route_ids[0],
+                                                  std::vector<double>(frame_count)},
+            acoustics::RadiatedExhaustOutletBlock{route_ids[1],
+                                                  std::vector<double>(frame_count)},
+        },
+    };
+    for (std::size_t frame = 0; frame < frame_count; ++frame) {
+        const auto global = first_frame_index + frame;
+        block.outlets[0].pressure_pa[frame] =
+            static_cast<double>(global + 1U);
+        block.outlets[1].pressure_pa[frame] =
+            -0.25 * static_cast<double>(global + 1U);
     }
-    auto fft_plan = std::make_shared<const dsp::FixedFftPlan>();
-    return std::make_shared<const dsp::FixedConvolutionKernel>(coefficients,
-                                                               std::move(fft_plan));
+    return block;
 }
 
-void fill_block(std::array<presentation::ExhaustExcitationFrame,
-                           presentation::kExcitationFramesPerMethodBlock> &frames,
-                std::uint64_t block_ordinal) {
-    for (std::size_t frame = 0; frame < frames.size(); ++frame) {
-        const auto global = block_ordinal * frames.size() + frame;
-        for (std::size_t route = 0; route < kExhaustExcitationRouteCount; ++route) {
-            const auto code =
-                static_cast<std::int64_t>((global + 1) * (route + 3) % 29) - 14;
-            frames[frame].route_values_engine_sim_source_unit[route] =
-                static_cast<double>(code) * 0.125;
+[[nodiscard]] std::uint32_t read_u32le(std::span<const std::byte> bytes,
+                                       std::size_t offset) {
+    if (offset > bytes.size() || bytes.size() - offset < 4U) {
+        throw std::runtime_error{"truncated WAVE u32"};
+    }
+    return std::to_integer<std::uint32_t>(bytes[offset]) |
+           (std::to_integer<std::uint32_t>(bytes[offset + 1U]) << 8U) |
+           (std::to_integer<std::uint32_t>(bytes[offset + 2U]) << 16U) |
+           (std::to_integer<std::uint32_t>(bytes[offset + 3U]) << 24U);
+}
+
+[[nodiscard]] std::span<const std::byte>
+wave_data(std::span<const std::byte> bytes) {
+    if (bytes.size() < 12U || std::memcmp(bytes.data(), "RIFF", 4U) != 0 ||
+        std::memcmp(bytes.data() + 8U, "WAVE", 4U) != 0) {
+        throw std::runtime_error{"payload is not a RIFF/WAVE file"};
+    }
+    std::size_t offset = 12U;
+    while (offset <= bytes.size() && bytes.size() - offset >= 8U) {
+        const auto chunk_size = static_cast<std::size_t>(read_u32le(bytes, offset + 4U));
+        const auto payload_offset = offset + 8U;
+        if (chunk_size > bytes.size() - payload_offset) {
+            throw std::runtime_error{"truncated WAVE chunk"};
         }
+        if (std::memcmp(bytes.data() + offset, "data", 4U) == 0) {
+            return bytes.subspan(payload_offset, chunk_size);
+        }
+        offset = payload_offset + chunk_size + (chunk_size & 1U);
     }
+    throw std::runtime_error{"WAVE file has no data chunk"};
 }
 
-[[nodiscard]] presentation::ExhaustExcitationBlockView
-make_block(std::array<presentation::ExhaustExcitationFrame,
-                      presentation::kExcitationFramesPerMethodBlock> &frames,
-           std::uint64_t first_frame_index = 0,
-           contract::RationalRateHz sample_rate = presentation::kExcitationRateHz,
-           std::array<contract::RouteId, presentation::kExhaustExcitationRouteCount>
-               route_ids = kSyntheticRouteIds) {
-    return presentation::ExhaustExcitationBlockView::borrow_for_callback(
-        first_frame_index, sample_rate, route_ids, frames);
+[[nodiscard]] std::vector<float>
+decode_float32_wave(const std::vector<std::byte> &wave) {
+    const auto data = wave_data(wave);
+    if (data.size() % 4U != 0U) {
+        throw std::runtime_error{"Float32 WAVE payload is not frame-aligned"};
+    }
+    std::vector<float> result;
+    result.reserve(data.size() / 4U);
+    for (std::size_t offset = 0; offset < data.size(); offset += 4U) {
+        result.push_back(std::bit_cast<float>(read_u32le(data, offset)));
+    }
+    return result;
 }
 
-void test_failed_begin_does_not_abort_or_write(
-    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+[[nodiscard]] std::vector<std::int32_t>
+decode_pcm24_wave(const std::vector<std::byte> &wave) {
+    const auto data = wave_data(wave);
+    if (data.size() % 3U != 0U) {
+        throw std::runtime_error{"PCM24 WAVE payload is not frame-aligned"};
+    }
+    std::vector<std::int32_t> result;
+    result.reserve(data.size() / 3U);
+    for (std::size_t offset = 0; offset < data.size(); offset += 3U) {
+        std::uint32_t bits = std::to_integer<std::uint32_t>(data[offset]) |
+                             (std::to_integer<std::uint32_t>(data[offset + 1U]) << 8U) |
+                             (std::to_integer<std::uint32_t>(data[offset + 2U]) << 16U);
+        if ((bits & UINT32_C(0x00800000)) != 0U) {
+            bits |= UINT32_C(0xff000000);
+        }
+        result.push_back(static_cast<std::int32_t>(bits));
+    }
+    return result;
+}
+
+void test_failed_begin_does_not_abort_or_write() {
     RecordingSink sink;
     sink.reject_begin = true;
 
@@ -325,57 +345,14 @@ void test_failed_begin_does_not_abort_or_write(
         "injected recording-sink failure",
     };
     expect_sink_failure(
-        [&] { PresentationRenderSession session{sink, make_plan(kernel, kernel)}; },
-        expected,
-        "presentation session construction accepted a failed transaction begin");
+        [&] { PresentationRenderSession session{sink, make_plan()}; }, expected,
+        "presentation construction accepted a failed transaction begin");
     expect(sink.begin_calls == 1 && sink.declarations.empty() && sink.writes.empty() &&
                sink.seals.empty() && sink.commit_calls == 0 && sink.abort_calls == 0,
            "failed transaction begin wrote output or issued an abort");
 }
 
-void test_invalid_first_block_aborts_once(
-    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel,
-    bool use_wrong_rate) {
-    RecordingSink sink;
-    std::array<presentation::ExhaustExcitationFrame,
-               presentation::kExcitationFramesPerMethodBlock>
-        frames{};
-
-    {
-        PresentationRenderSession session{sink, make_plan(kernel, kernel)};
-        const auto header_write_count = sink.writes.size();
-        expect(header_write_count != 0,
-               "valid presentation session construction emitted no WAVE headers");
-
-        if (use_wrong_rate) {
-            expect_throw<std::invalid_argument>(
-                [&] {
-                    session.process(
-                        make_block(frames, 0, contract::RationalRateHz{9999, 1}));
-                },
-                "presentation session accepted the wrong first-block sample rate");
-        } else {
-            auto routes = kSyntheticRouteIds;
-            std::swap(routes[0], routes[1]);
-            expect_throw<std::invalid_argument>(
-                [&] {
-                    session.process(
-                        make_block(frames, 0, presentation::kExcitationRateHz, routes));
-                },
-                "presentation session accepted swapped first-block routes");
-        }
-
-        expect(session.state() == PresentationRenderSessionState::aborted &&
-                   sink.writes.size() == header_write_count && sink.seals.empty() &&
-                   sink.commit_calls == 0 && sink.abort_calls == 1,
-               "invalid first block did not abort exactly once before publication");
-    }
-    expect(sink.abort_calls == 1 && sink.commit_calls == 0,
-           "invalid first-block destruction aborted twice or committed");
-}
-
-void test_rejected_first_declaration_aborts_constructor_once(
-    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+void test_rejected_first_declaration_aborts_constructor_once() {
     RecordingSink sink;
     sink.reject_first_declaration = true;
 
@@ -385,37 +362,34 @@ void test_rejected_first_declaration_aborts_constructor_once(
         "injected recording-sink failure",
     };
     expect_sink_failure(
-        [&] { PresentationRenderSession session{sink, make_plan(kernel, kernel)}; },
-        expected,
-        "presentation session construction accepted a rejected declaration");
+        [&] { PresentationRenderSession session{sink, make_plan()}; }, expected,
+        "presentation construction accepted a rejected declaration");
     expect(sink.begin_calls == 1 && sink.declarations.size() == 1 &&
                sink.writes.empty() && sink.seals.empty() && sink.commit_calls == 0 &&
                sink.abort_calls == 1,
            "rejected declaration leaked or multiply aborted its transaction");
 }
 
-void test_pre_requested_stop_leaves_sink_idle(
-    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+void test_pre_requested_stop_leaves_sink_idle() {
     RecordingSink sink;
     std::stop_source stop;
     stop.request_stop();
 
     expect_throw<std::runtime_error>(
         [&] {
-            PresentationRenderSession session{sink, make_plan(kernel, kernel),
+            PresentationRenderSession session{sink, make_plan(),
                                               RenderControl{stop.get_token()}};
         },
-        "presentation session construction accepted a pre-requested stop");
+        "presentation construction accepted a pre-requested stop");
     expect(sink.begin_calls == 0 && sink.declarations.empty() && sink.writes.empty() &&
                sink.seals.empty() && sink.commit_calls == 0 && sink.abort_calls == 0,
            "pre-requested stop touched the idle sink");
 }
 
-void test_destructor_aborts_successful_construction_once(
-    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+void test_destructor_aborts_successful_construction_once() {
     RecordingSink sink;
     {
-        PresentationRenderSession session{sink, make_plan(kernel, kernel)};
+        PresentationRenderSession session{sink, make_plan()};
         expect(sink.begin_calls == 1 &&
                    sink.declarations.size() == kPresentationAudioArtifactCount &&
                    !sink.writes.empty() && sink.seals.empty() &&
@@ -423,11 +397,10 @@ void test_destructor_aborts_successful_construction_once(
                "active presentation session had an invalid initial sink lifecycle");
     }
     expect(sink.abort_calls == 1 && sink.commit_calls == 0,
-           "active presentation session destructor did not abort exactly once");
+           "active presentation destructor did not abort exactly once");
 }
 
-void test_rejected_first_header_write_aborts_constructor_once(
-    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+void test_rejected_first_header_write_aborts_constructor_once() {
     RecordingSink sink;
     sink.reject_first_write = true;
 
@@ -437,9 +410,8 @@ void test_rejected_first_header_write_aborts_constructor_once(
         "injected recording-sink failure",
     };
     expect_sink_failure(
-        [&] { PresentationRenderSession session{sink, make_plan(kernel, kernel)}; },
-        expected,
-        "presentation session construction accepted a rejected first WAVE header");
+        [&] { PresentationRenderSession session{sink, make_plan()}; }, expected,
+        "presentation construction accepted a rejected first WAVE header");
     expect(sink.begin_calls == 1 &&
                sink.declarations.size() == kPresentationAudioArtifactCount &&
                sink.writes.size() == 1 && sink.seals.empty() &&
@@ -447,11 +419,40 @@ void test_rejected_first_header_write_aborts_constructor_once(
            "rejected first WAVE header leaked or multiply aborted its transaction");
 }
 
-void test_rejected_payload_write_preserves_sink_error(
-    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+void test_invalid_first_block_aborts_once() {
+    RecordingSink wrong_rate_sink;
+    {
+        PresentationRenderSession session{wrong_rate_sink, make_plan()};
+        const auto header_write_count = wrong_rate_sink.writes.size();
+        expect_throw<std::invalid_argument>(
+            [&] { session.process(make_block(0, 2, {191999, 1})); },
+            "presentation accepted the wrong acoustic sample rate");
+        expect(session.state() == PresentationRenderSessionState::aborted &&
+                   wrong_rate_sink.writes.size() == header_write_count &&
+                   wrong_rate_sink.abort_calls == 1,
+               "wrong-rate input did not abort before payload publication");
+    }
+    expect(wrong_rate_sink.abort_calls == 1,
+           "wrong-rate destruction aborted the transaction twice");
+
+    RecordingSink swapped_routes_sink;
+    {
+        PresentationRenderSession session{swapped_routes_sink, make_plan()};
+        auto routes = kSyntheticRouteIds;
+        std::swap(routes[0], routes[1]);
+        expect_throw<std::invalid_argument>(
+            [&] { session.process(make_block(0, 2, {192000, 1}, routes)); },
+            "presentation accepted swapped acoustic outlet routes");
+        expect(session.state() == PresentationRenderSessionState::aborted &&
+                   swapped_routes_sink.abort_calls == 1,
+               "swapped outlet routes did not abort exactly once");
+    }
+}
+
+void test_rejected_payload_write_preserves_sink_error() {
     RecordingSink sink;
     {
-        PresentationRenderSession session{sink, make_plan(kernel, kernel, 1, 0)};
+        PresentationRenderSession session{sink, make_plan(2, 0)};
         const auto writes_before_payload = sink.writes.size();
         const RenderSinkError expected{
             RenderSinkErrorKind::protocol_violation,
@@ -460,10 +461,8 @@ void test_rejected_payload_write_preserves_sink_error(
         };
         sink.next_write_error = expected;
 
-        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
-        fill_block(frames, 0);
         expect_sink_failure(
-            [&] { session.process(make_block(frames)); }, expected,
+            [&] { session.process(make_block(0, 2)); }, expected,
             "payload sink rejection was flattened into a WAVE callback error");
         expect(session.state() == PresentationRenderSessionState::aborted &&
                    sink.writes.size() == writes_before_payload + 1 &&
@@ -472,18 +471,171 @@ void test_rejected_payload_write_preserves_sink_error(
                "payload sink rejection did not abort exactly once");
     }
     expect(sink.abort_calls == 1 && sink.commit_calls == 0,
-           "payload sink failure destruction retried transaction cleanup");
+           "payload failure destruction retried transaction cleanup");
 }
 
-void test_manifest_evidence_mismatch_aborts_before_commit(
-    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+struct RenderedOutput {
+    PresentationRenderStats stats;
+    std::array<contract::ArtifactRecord, kPresentationAudioArtifactCount> records;
+    std::array<std::vector<std::byte>, kPresentationAudioArtifactCount> wave_bytes;
+    std::size_t abort_calls = 0;
+};
+
+[[nodiscard]] RenderedOutput render_partitioned(std::span<const std::size_t> partitions) {
     RecordingSink sink;
-    const auto plan = make_plan(kernel, kernel, 1, 0);
+    PresentationRenderStats stats;
+    std::array<contract::ArtifactRecord, kPresentationAudioArtifactCount> records;
+    {
+        PresentationRenderSession session{sink, make_plan()};
+        std::uint64_t first_frame = 0;
+        for (const auto frame_count : partitions) {
+            session.process(make_block(first_frame, frame_count));
+            first_frame += frame_count;
+        }
+        const auto evidence = session.finish();
+        stats = evidence.stats();
+        records = evidence.artifacts();
+        expect(session.state() == PresentationRenderSessionState::sealed,
+               "completed pressure render did not seal");
+    }
+
+    std::array<std::vector<std::byte>, kPresentationAudioArtifactCount> wave_bytes;
+    for (std::size_t index = 0; index < records.size(); ++index) {
+        wave_bytes[index] = sink.payload(records[index].role);
+    }
+    return {stats, records, std::move(wave_bytes), sink.abort_calls};
+}
+
+void test_pressure_calibration_crop_mastering_and_partition_invariance() {
+    constexpr std::array<std::size_t, 3> split{2, 4, 2};
+    constexpr std::array<std::size_t, 1> joined{8};
+    const auto partitioned = render_partitioned(split);
+    const auto one_block = render_partitioned(joined);
+
+    expect(partitioned.stats == PresentationRenderStats{8, 3, 3, 5},
+           "frame-domain pressure timeline produced incorrect exact counts");
+    expect(one_block.stats == PresentationRenderStats{8, 1, 3, 5},
+           "one-block pressure timeline produced incorrect exact counts");
+    expect(partitioned.records == one_block.records &&
+               partitioned.wave_bytes == one_block.wave_bytes,
+           "pressure presentation output depends on input block partitioning");
+    expect(partitioned.abort_calls == 1 && one_block.abort_calls == 1,
+           "sealed uncommitted pressure render leaked its transaction");
+
+    const auto front = decode_float32_wave(partitioned.wave_bytes[0]);
+    const auto rear = decode_float32_wave(partitioned.wave_bytes[1]);
+    const auto raw = decode_float32_wave(partitioned.wave_bytes[2]);
+    const auto audition = decode_pcm24_wave(partitioned.wave_bytes[3]);
+    expect(front.size() == 5 && rear.size() == 5 && raw.size() == 5 &&
+               audition.size() == 5,
+           "pressure presentation published the wrong audible frame horizon");
+
+    const MasteringSettings mastering{5, 2, 2, 0.5F};
+    for (std::size_t frame = 0; frame < 5; ++frame) {
+        const auto global = frame + 3U;
+        const float expected_front =
+            static_cast<float>(static_cast<double>(global + 1U) / 10.0);
+        const float expected_rear =
+            static_cast<float>((-0.25 * static_cast<double>(global + 1U)) / 10.0);
+        const auto expected_mastered =
+            master_frame(expected_front, expected_rear, frame, mastering);
+        expect(std::bit_cast<std::uint32_t>(front[frame]) ==
+                       std::bit_cast<std::uint32_t>(expected_front) &&
+                   std::bit_cast<std::uint32_t>(rear[frame]) ==
+                       std::bit_cast<std::uint32_t>(expected_rear),
+               "outlet stem did not contain the sole Pa/full-scale conversion");
+        expect(std::bit_cast<std::uint32_t>(raw[frame]) ==
+                   std::bit_cast<std::uint32_t>(expected_mastered.raw),
+               "raw master was not the coherent Float32 outlet sum");
+        expect(audition[frame] == expected_mastered.pcm24,
+               "audition master differed from one common gain plus deterministic "
+               "fade");
+    }
+}
+
+void test_invalid_or_incomplete_plan_and_schedule_fail_closed() {
+    RecordingSink invalid_calibration_sink;
+    auto invalid_calibration_plan = make_plan();
+    invalid_calibration_plan.pa_per_full_scale = 0.0;
+    expect_throw<std::invalid_argument>(
+        [&] {
+            PresentationRenderSession session{invalid_calibration_sink,
+                                              std::move(invalid_calibration_plan)};
+        },
+        "presentation accepted zero Pa/full-scale calibration");
+    expect(invalid_calibration_sink.begin_calls == 0 &&
+               invalid_calibration_sink.abort_calls == 0,
+           "invalid Pa calibration touched the sink");
+
+    RecordingSink mismatched_mastering_sink;
+    auto mismatched_mastering_plan = make_plan();
+    mismatched_mastering_plan.master.mastering = MasteringSettings{6, 2, 2, 0.5F};
+    expect_throw<std::invalid_argument>(
+        [&] {
+            PresentationRenderSession session{mismatched_mastering_sink,
+                                              std::move(mismatched_mastering_plan)};
+        },
+        "presentation accepted mastering with a different frame horizon");
+    expect(mismatched_mastering_sink.begin_calls == 0 &&
+               mismatched_mastering_sink.abort_calls == 0,
+           "mismatched mastering touched the sink");
+
+    RecordingSink misbound_route_sink;
+    auto misbound_route_plan = make_plan();
+    std::swap(misbound_route_plan.outlets[0].pressure_stem_artifact,
+              misbound_route_plan.outlets[1].pressure_stem_artifact);
+    expect_throw<std::invalid_argument>(
+        [&] {
+            PresentationRenderSession session{misbound_route_sink,
+                                              std::move(misbound_route_plan)};
+        },
+        "presentation accepted pressure stems under the wrong outlet owners");
+    expect(misbound_route_sink.begin_calls == 0 &&
+               misbound_route_sink.abort_calls == 0,
+           "misbound pressure stem touched the sink");
+
+    RecordingSink incomplete_sink;
+    PresentationRenderSession incomplete{incomplete_sink, make_plan()};
+    incomplete.process(make_block(0, 4));
+    expect_throw<std::logic_error>([&] { static_cast<void>(incomplete.finish()); },
+                                   "presentation finalized an incomplete timeline");
+    expect(incomplete.state() == PresentationRenderSessionState::aborted &&
+               incomplete_sink.abort_calls == 1 && incomplete_sink.seals.empty(),
+           "incomplete presentation did not abort before artifact sealing");
+}
+
+void test_nonfinite_and_discontinuous_input_fail_before_payload() {
+    RecordingSink nonfinite_sink;
+    {
+        PresentationRenderSession session{nonfinite_sink, make_plan()};
+        const auto writes_before = nonfinite_sink.writes.size();
+        auto block = make_block(0, 2);
+        block.outlets[1].pressure_pa[1] =
+            std::numeric_limits<double>::quiet_NaN();
+        expect_throw<std::domain_error>([&] { session.process(block); },
+                                        "presentation accepted non-finite pressure");
+        expect(nonfinite_sink.writes.size() == writes_before &&
+                   nonfinite_sink.abort_calls == 1,
+               "non-finite pressure reached payload publication");
+    }
+
+    RecordingSink discontinuous_sink;
+    {
+        PresentationRenderSession session{discontinuous_sink, make_plan()};
+        expect_throw<std::invalid_argument>(
+            [&] { session.process(make_block(1, 2)); },
+            "presentation accepted a discontinuous acoustic frame clock");
+        expect(discontinuous_sink.abort_calls == 1,
+               "discontinuous pressure block did not abort exactly once");
+    }
+}
+
+void test_manifest_evidence_mismatch_aborts_before_commit() {
+    RecordingSink sink;
+    const auto plan = make_plan(2, 0);
     {
         PresentationRenderSession session{sink, plan};
-        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
-        fill_block(frames, 0);
-        session.process(make_block(frames));
+        session.process(make_block(0, 2));
         const auto evidence = session.finish();
 
         contract::RenderManifest mismatched;
@@ -506,212 +658,18 @@ void test_manifest_evidence_mismatch_aborts_before_commit(
            "manifest-mismatch destruction retried transaction cleanup");
 }
 
-void test_complete_evidence_rejects_incomplete_manifest_before_commit(
-    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
-    RecordingSink sink;
-    const auto plan = make_plan(kernel, kernel, 1, 0);
-    {
-        PresentationRenderSession session{sink, plan};
-        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
-        fill_block(frames, 0);
-        session.process(make_block(frames));
-        const auto evidence = session.finish();
-
-        contract::RenderManifest incomplete;
-        incomplete.content.output_contract = plan.output_contract;
-        incomplete.content.artifacts.assign(evidence.artifacts().begin(),
-                                            evidence.artifacts().end());
-        incomplete.execution = evidence.execution().facts();
-        expect_throw<std::logic_error>(
-            [&] {
-                session.commit(evidence, incomplete, contract::ProvenanceLedger{},
-                               contract::SourceMatrixContract{});
-            },
-            "session committed a structurally incomplete manifest");
-        expect(session.state() == PresentationRenderSessionState::aborted &&
-                   sink.commit_calls == 0 && sink.abort_calls == 1,
-               "invalid completed manifest reached the terminal sink commit");
-    }
-    expect(sink.commit_calls == 0 && sink.abort_calls == 1,
-           "invalid-manifest destruction retried transaction cleanup");
-}
-
-void test_variable_timeline_and_route_settings(
-    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
-    const auto alternate_kernel = make_synthetic_kernel(UINT32_C(0xbb67ae85));
-    RecordingSink sink;
-    {
-        PresentationRenderSession session{
-            sink, make_plan(kernel, alternate_kernel, 3, 1, {0.0, 1.0})};
-        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
-        for (std::uint64_t block = 0; block < 3; ++block) {
-            fill_block(frames, block);
-            session.process(
-                make_block(frames, block * kExcitationFramesPerMethodBlock));
-        }
-
-        const auto evidence = session.finish();
-        constexpr std::array<std::string_view, kPresentationAudioArtifactCount>
-            expected_sha256{
-                "8b5dd66b5b6d7942d4ff11d0d2b7d640bea0d9fc284607463bc8e776c08d86f0",
-                "1fb47102925ae4e92190bf24e6db21613d7dac42ad64d9ca6e0a89d21d3aa1af",
-                "8b5dd66b5b6d7942d4ff11d0d2b7d640bea0d9fc284607463bc8e776c08d86f0",
-                "cb42469d3b3c1cc3d47af3e99320986a7e140824ea7d1a42f039eb1e252fca16",
-                "faeea41b9a09810e67cf9f52db38518fe5ed23bbe0fb96e0df7d225eb5ff76e9",
-                "faeea41b9a09810e67cf9f52db38518fe5ed23bbe0fb96e0df7d225eb5ff76e9",
-                "e49960a51ef6dcb60282f7eef128812e26dcdc351f0c1cd334dd17be3e933e31",
-                "5ecf2631c5340687ae822660635296e66e2a1dd02b9545f12c2b4ac1397998a4",
-            };
-        for (std::size_t index = 0; index < evidence.artifacts().size(); ++index) {
-            const auto &record = evidence.artifacts()[index];
-            const auto expected_byte_count = index + 1 == evidence.artifacts().size()
-                                                 ? UINT64_C(23206)
-                                                 : UINT64_C(30778);
-            expect(record.byte_count == expected_byte_count &&
-                       digest_hex(record.payload_sha256) == expected_sha256[index],
-                   "generic presentation integration golden changed");
-        }
-        expect(session.state() == PresentationRenderSessionState::sealed,
-               "variable presentation timeline did not seal");
-        expect(evidence.stats() ==
-                   PresentationRenderStats{600, 3, 1, 2, 11'520, 3'840, 7'680},
-               "variable presentation timeline produced incorrect exact counts");
-        expect(sink.seals.size() == kPresentationAudioArtifactCount,
-               "variable presentation timeline did not seal all artifacts");
-        for (const auto &record : evidence.artifacts()) {
-            expect(record.audio.has_value() && record.audio->frame_count == 7'680,
-                   "variable presentation artifact has the wrong frame horizon");
-        }
-        expect(evidence.artifacts()[0].payload_sha256 ==
-                   evidence.artifacts()[2].payload_sha256,
-               "zero-wet route did not select its dry signal exactly");
-        expect(evidence.artifacts()[4].payload_sha256 ==
-                   evidence.artifacts()[5].payload_sha256,
-               "fully wet route did not select its configured-IR signal exactly");
-        expect(evidence.artifacts()[1].payload_sha256 !=
-                   evidence.artifacts()[4].payload_sha256,
-               "distinct per-route IR kernels were silently collapsed");
-    }
-    expect(sink.abort_calls == 1 && sink.commit_calls == 0,
-           "sealed variable presentation did not close its uncommitted transaction");
-
-    RecordingSink zero_preparation_sink;
-    {
-        PresentationRenderSession session{zero_preparation_sink,
-                                          make_plan(kernel, kernel, 1, 0)};
-        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
-        fill_block(frames, 0);
-        session.process(make_block(frames));
-        const auto evidence = session.finish();
-        expect(evidence.stats() ==
-                   PresentationRenderStats{200, 1, 0, 1, 3'840, 0, 3'840},
-               "zero-preparation presentation timeline changed its exact counts");
-    }
-    expect(zero_preparation_sink.abort_calls == 1,
-           "zero-preparation sealed session leaked its transaction");
-}
-
-void test_invalid_or_incomplete_timeline_fails_closed(
-    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
-    RecordingSink invalid_method_sink;
-    auto invalid_method_plan = make_plan(kernel, kernel);
-    invalid_method_plan.methods.conditioning.version += 1;
-    expect_throw<std::invalid_argument>(
-        [&] {
-            PresentationRenderSession session{invalid_method_sink,
-                                              std::move(invalid_method_plan)};
-        },
-        "presentation accepted a method outside the implemented identity set");
-    expect(invalid_method_sink.begin_calls == 0 && invalid_method_sink.abort_calls == 0,
-           "invalid presentation method touched the sink");
-
-    RecordingSink invalid_conditioning_sink;
-    auto invalid_conditioning_plan = make_plan(kernel, kernel);
-    invalid_conditioning_plan.conditioning.air_noise_mix_01 = 1.1;
-    expect_throw<std::invalid_argument>(
-        [&] {
-            PresentationRenderSession session{invalid_conditioning_sink,
-                                              std::move(invalid_conditioning_plan)};
-        },
-        "presentation accepted conditioning outside the executable domain");
-    expect(invalid_conditioning_sink.begin_calls == 0 &&
-               invalid_conditioning_sink.abort_calls == 0,
-           "invalid presentation conditioning touched the sink");
-
-    RecordingSink negative_zero_wet_sink;
-    auto negative_zero_wet_plan = make_plan(kernel, kernel, 850, 100, {-0.0, 1.0});
-    expect_throw<std::invalid_argument>(
-        [&] {
-            PresentationRenderSession session{negative_zero_wet_sink,
-                                              std::move(negative_zero_wet_plan)};
-        },
-        "presentation accepted negative-zero wet mix");
-    expect(negative_zero_wet_sink.begin_calls == 0 &&
-               negative_zero_wet_sink.abort_calls == 0,
-           "negative-zero presentation wet mix touched the sink");
-
-    RecordingSink invalid_sink;
-    auto invalid_plan = make_plan(kernel, kernel);
-    invalid_plan.timeline.pre_audible_block_count =
-        invalid_plan.timeline.total_block_count;
-    expect_throw<std::invalid_argument>(
-        [&] {
-            PresentationRenderSession session{invalid_sink, std::move(invalid_plan)};
-        },
-        "presentation accepted a timeline without an audible interval");
-    expect(invalid_sink.begin_calls == 0 && invalid_sink.abort_calls == 0,
-           "invalid presentation timeline touched the sink");
-
-    RecordingSink unspecified_tail_sink;
-    auto unspecified_tail_plan = make_plan(kernel, kernel);
-    unspecified_tail_plan.timeline.tail_policy = PresentationTailPolicy::unspecified;
-    expect_throw<std::invalid_argument>(
-        [&] {
-            PresentationRenderSession session{unspecified_tail_sink,
-                                              std::move(unspecified_tail_plan)};
-        },
-        "presentation accepted an unspecified convolution-tail policy");
-    expect(unspecified_tail_sink.begin_calls == 0 &&
-               unspecified_tail_sink.abort_calls == 0,
-           "unspecified presentation tail policy touched the sink");
-
-    RecordingSink misbound_role_sink;
-    auto misbound_role_plan = make_plan(kernel, kernel);
-    std::swap(misbound_role_plan.routes[0].artifacts.dry,
-              misbound_role_plan.routes[1].artifacts.dry);
-    expect_throw<std::invalid_argument>(
-        [&] {
-            PresentationRenderSession session{misbound_role_sink,
-                                              std::move(misbound_role_plan)};
-        },
-        "presentation accepted an artifact role under the wrong route");
-    expect(misbound_role_sink.begin_calls == 0 && misbound_role_sink.abort_calls == 0,
-           "misbound presentation artifact role touched the sink");
-
-    RecordingSink incomplete_sink;
-    PresentationRenderSession incomplete{incomplete_sink,
-                                         make_plan(kernel, kernel, 2, 1)};
-    expect_throw<std::logic_error>([&] { static_cast<void>(incomplete.finish()); },
-                                   "presentation finalized an incomplete timeline");
-    expect(incomplete.state() == PresentationRenderSessionState::aborted &&
-               incomplete_sink.abort_calls == 1 && incomplete_sink.seals.empty(),
-           "incomplete presentation did not abort before artifact sealing");
-}
-
 void run_tests() {
-    const auto kernel = make_synthetic_kernel();
-    test_failed_begin_does_not_abort_or_write(kernel);
-    test_rejected_first_declaration_aborts_constructor_once(kernel);
-    test_pre_requested_stop_leaves_sink_idle(kernel);
-    test_invalid_first_block_aborts_once(kernel, false);
-    test_invalid_first_block_aborts_once(kernel, true);
-    test_destructor_aborts_successful_construction_once(kernel);
-    test_rejected_first_header_write_aborts_constructor_once(kernel);
-    test_rejected_payload_write_preserves_sink_error(kernel);
-    test_variable_timeline_and_route_settings(kernel);
-    test_invalid_or_incomplete_timeline_fails_closed(kernel);
-    test_manifest_evidence_mismatch_aborts_before_commit(kernel);
-    test_complete_evidence_rejects_incomplete_manifest_before_commit(kernel);
+    test_failed_begin_does_not_abort_or_write();
+    test_rejected_first_declaration_aborts_constructor_once();
+    test_pre_requested_stop_leaves_sink_idle();
+    test_destructor_aborts_successful_construction_once();
+    test_rejected_first_header_write_aborts_constructor_once();
+    test_invalid_first_block_aborts_once();
+    test_rejected_payload_write_preserves_sink_error();
+    test_pressure_calibration_crop_mastering_and_partition_invariance();
+    test_invalid_or_incomplete_plan_and_schedule_fail_closed();
+    test_nonfinite_and_discontinuous_input_fail_before_payload();
+    test_manifest_evidence_mismatch_aborts_before_commit();
 }
 
 } // namespace

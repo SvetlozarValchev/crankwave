@@ -7,58 +7,31 @@
 
 namespace engine_sim_offline::presentation {
 
-inline constexpr std::string_view kCausalReconstructionMethodId =
-    "causal-kaiser-sinc-257tap-4096phase-10000-to-192000-binary64-v1";
-inline constexpr std::uint32_t kCausalReconstructionMethodVersion = 1;
+inline constexpr std::string_view kCalibratedPressurePublicationMethodId =
+    "calibrated-two-outlet-pressure-float32-wave-publication-v1";
+inline constexpr std::uint32_t kCalibratedPressurePublicationMethodVersion = 1;
 
-inline constexpr std::string_view kRouteConditioningMethodId =
-    "route-jitter-dc-derivative-air-noise-binary64-v1";
-inline constexpr std::uint32_t kRouteConditioningMethodVersion = 1;
-
-inline constexpr std::string_view kStaticIrConversionMethodId =
-    "static-ir-blackman-sinc-24tap-4096phase-44100-to-192000-binary64-v1";
-inline constexpr std::uint32_t kStaticIrConversionMethodVersion = 1;
-
-inline constexpr std::string_view kFixedOverlapSaveConvolutionMethodId =
-    "fixed-causal-overlap-save-radix2-dit-fft-65536-binary64-v1";
-inline constexpr std::uint32_t kFixedOverlapSaveConvolutionMethodVersion = 1;
-
-inline constexpr std::string_view kRouteStemPublicationMethodId =
-    "two-route-wet-selection-float32-wave-publication-v1";
-inline constexpr std::uint32_t kRouteStemPublicationMethodVersion = 1;
-
-inline constexpr std::string_view kOrderedTwoRouteAuditionMethodId =
-    "ordered-two-route-quarter-sine-pcm24-wave-master-v1";
-inline constexpr std::uint32_t kOrderedTwoRouteAuditionMethodVersion = 1;
+inline constexpr std::string_view kCoherentTwoOutletAuditionMethodId =
+    "coherent-two-outlet-quarter-sine-pcm24-wave-audition-v1";
+inline constexpr std::uint32_t kCoherentTwoOutletAuditionMethodVersion = 1;
 
 struct PresentationMethodIdentities {
-    contract::MethodIdentity reconstruction;
-    contract::MethodIdentity conditioning;
-    contract::MethodIdentity impulse_response_conversion;
-    contract::MethodIdentity convolution;
-    contract::MethodIdentity publication;
-    contract::MethodIdentity audition_mix;
+    contract::MethodIdentity calibrated_pressure_publication;
+    contract::MethodIdentity coherent_two_outlet_audition;
 
     friend bool operator==(const PresentationMethodIdentities &,
                            const PresentationMethodIdentities &) = default;
 };
 
-[[nodiscard]] std::string_view causal_reconstruction_method_descriptor() noexcept;
-[[nodiscard]] std::string_view route_conditioning_method_descriptor() noexcept;
-[[nodiscard]] std::string_view static_ir_conversion_method_descriptor() noexcept;
 [[nodiscard]] std::string_view
-fixed_overlap_save_convolution_method_descriptor() noexcept;
-[[nodiscard]] std::string_view route_stem_publication_method_descriptor() noexcept;
-[[nodiscard]] std::string_view ordered_two_route_audition_method_descriptor() noexcept;
+calibrated_pressure_publication_method_descriptor() noexcept;
+[[nodiscard]] std::string_view
+coherent_two_outlet_audition_method_descriptor() noexcept;
 
-[[nodiscard]] const contract::MethodIdentity &causal_reconstruction_method_identity();
-[[nodiscard]] const contract::MethodIdentity &route_conditioning_method_identity();
-[[nodiscard]] const contract::MethodIdentity &static_ir_conversion_method_identity();
 [[nodiscard]] const contract::MethodIdentity &
-fixed_overlap_save_convolution_method_identity();
-[[nodiscard]] const contract::MethodIdentity &route_stem_publication_method_identity();
+calibrated_pressure_publication_method_identity();
 [[nodiscard]] const contract::MethodIdentity &
-ordered_two_route_audition_method_identity();
+coherent_two_outlet_audition_method_identity();
 
 [[nodiscard]] const PresentationMethodIdentities &
 implemented_presentation_method_identities();

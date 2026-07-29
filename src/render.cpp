@@ -3,11 +3,8 @@
 #include "render/compiled_presentation_job.hpp"
 #include "render/render_request.hpp"
 
-#include <algorithm>
-#include <ranges>
 #include <string>
 #include <type_traits>
-#include <unordered_set>
 #include <utility>
 
 namespace engine_sim_offline {
@@ -39,41 +36,6 @@ ValidationReport validate_structure(const RenderSpecification &specification,
                         specification.source_matrix),
                     "specification");
 
-    std::unordered_set<std::uint32_t> payload_ids;
-    for (std::size_t index = 0; index < specification.asset_payloads.size(); ++index) {
-        const auto &payload = specification.asset_payloads[index];
-        const auto path = "specification.asset_payloads[" + std::to_string(index) + "]";
-        if (!payload.id.valid()) {
-            report.add(ContractIssueCode::invalid_value, path + ".id",
-                       "asset payload ID must be nonzero");
-        }
-        if (!payload_ids.insert(payload.id.value).second) {
-            report.add(ContractIssueCode::duplicate_identity, path + ".id",
-                       "asset payload IDs must be unique");
-        }
-        const auto asset = std::ranges::find(specification.presentation.assets,
-                                             payload.id, &contract::AudioAssetSpec::id);
-        if (asset == specification.presentation.assets.end()) {
-            report.add(ContractIssueCode::dangling_reference, path + ".id",
-                       "asset payload is absent from the presentation calibration");
-            continue;
-        }
-        if (payload.bytes.empty()) {
-            report.add(ContractIssueCode::missing_value, path + ".bytes",
-                       "asset payload bytes must be present");
-        } else if (contract::sha256(payload.bytes) != asset->content_sha256.value) {
-            report.add(ContractIssueCode::inconsistent_semantics, path + ".bytes",
-                       "asset payload SHA-256 must match the presentation "
-                       "calibration");
-        }
-    }
-    for (const auto &asset : specification.presentation.assets) {
-        if (!payload_ids.contains(asset.id.value)) {
-            report.add(ContractIssueCode::missing_value, "specification.asset_payloads",
-                       "every presentation asset requires one content-addressed "
-                       "payload");
-        }
-    }
     return report;
 }
 
@@ -230,13 +192,6 @@ contract::ValidationReport validate(const contract::RenderResult &result,
                         std::string(outcome_path) +
                             " result must retain the exact requested randomness "
                             "policy");
-                require(report,
-                        outcome.request.asset_payloads ==
-                            render_detail::asset_payload_identities(specification),
-                        std::string(outcome_path) + ".request.asset_payloads",
-                        std::string(outcome_path) +
-                            " result must retain the exact requested asset identities");
-
                 if constexpr (std::is_same_v<Outcome, contract::RenderFailure>) {
                     if (outcome.context.kind == FailureKind::invalid_specification) {
                         require(report, !structural.ok(), "failure.context.kind",

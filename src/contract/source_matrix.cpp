@@ -50,8 +50,6 @@ bool valid_output_bus_kind(OutputBusKind kind) {
     switch (kind) {
     case OutputBusKind::master_engine_raw:
     case OutputBusKind::master_engine_audition:
-    case OutputBusKind::master_reference_raw:
-    case OutputBusKind::master_reference_audition:
         return true;
     case OutputBusKind::unspecified:
         return false;
@@ -286,7 +284,7 @@ ValidationReport validate_evidence_rights(const ProvenanceLedger &provenance,
     return report;
 }
 
-const SourceMatrixContract &bmw_m52b28_reference_source_matrix_v1() {
+const SourceMatrixContract &bmw_m52b28_exhaust_acoustic_source_matrix() {
     static const SourceMatrixContract source_matrix = [] {
         constexpr RationalRateHz delivery_rate{192000, 1};
         constexpr std::uint64_t frame_count = 2880000;
@@ -304,83 +302,70 @@ const SourceMatrixContract &bmw_m52b28_reference_source_matrix_v1() {
         };
 
         SourceMatrixContract result;
-        result.id = "bmw-m52b28-reference-source-matrix-v1";
+        result.id = "bmw-m52b28-exhaust-acoustic-source-matrix";
         result.sha256.bytes = {
-            0xc7, 0x9a, 0x07, 0x1f, 0xd8, 0xaf, 0xe4, 0x6c, 0xab, 0x0b, 0x67,
-            0xb4, 0x04, 0x53, 0x71, 0x79, 0x26, 0x18, 0x24, 0xc0, 0xba, 0xd3,
-            0xa5, 0xfc, 0xc0, 0x71, 0xe0, 0x59, 0xc9, 0x9f, 0xd9, 0x11,
+            0xe0, 0xd7, 0x33, 0x76, 0x91, 0x91, 0x46, 0x75, 0x66, 0x32, 0x28,
+            0xc5, 0x89, 0xdc, 0xb6, 0x57, 0xcd, 0x87, 0x64, 0xba, 0xb8, 0x37,
+            0xd8, 0x5c, 0x23, 0xab, 0xf6, 0xce, 0xc8, 0xf0, 0xf6, 0x16,
         };
         result.distribution = DistributionIntent::local_evaluation;
         result.required_source_routes = {
             {
-                "exhaust.reference.0",
+                "exhaust.outlet.front",
                 SourceRouteKind::exhaust_outlet,
                 RouteDisposition::rendered,
                 "",
-                {
-                    "exhaust.reference.0.dry",
-                    "exhaust.reference.0.configured_ir",
-                    "exhaust.reference.0.selected",
-                },
+                {"exhaust.outlet.front.pressure"},
             },
             {
-                "exhaust.reference.1",
+                "exhaust.outlet.rear",
                 SourceRouteKind::exhaust_outlet,
                 RouteDisposition::rendered,
                 "",
-                {
-                    "exhaust.reference.1.dry",
-                    "exhaust.reference.1.configured_ir",
-                    "exhaust.reference.1.selected",
-                },
+                {"exhaust.outlet.rear.pressure"},
             },
         };
         result.required_output_buses = {
             {
-                "master.reference.raw",
-                OutputBusKind::master_reference_raw,
-                {"master.reference.raw"},
+                "master.engine.raw",
+                OutputBusKind::master_engine_raw,
+                {"master.engine.raw"},
             },
             {
-                "master.reference.audition",
-                OutputBusKind::master_reference_audition,
-                {"master.reference.audition"},
+                "master.engine.audition",
+                OutputBusKind::master_engine_audition,
+                {"master.engine.audition"},
             },
         };
         result.required_artifacts = {
-            {"exhaust.reference.0.dry", ArtifactKind::audio, float32_mono, true},
-            {"exhaust.reference.0.configured_ir", ArtifactKind::audio, float32_mono,
-             true},
-            {"exhaust.reference.0.selected", ArtifactKind::audio, float32_mono, false},
-            {"exhaust.reference.1.dry", ArtifactKind::audio, float32_mono, true},
-            {"exhaust.reference.1.configured_ir", ArtifactKind::audio, float32_mono,
-             true},
-            {"exhaust.reference.1.selected", ArtifactKind::audio, float32_mono, false},
-            {"master.reference.raw", ArtifactKind::audio, float32_mono, false},
-            {"master.reference.audition", ArtifactKind::audio, pcm24_mono, false},
+            {"exhaust.outlet.front.pressure", ArtifactKind::audio, float32_mono, false},
+            {"exhaust.outlet.rear.pressure", ArtifactKind::audio, float32_mono, false},
+            {"master.engine.raw", ArtifactKind::audio, float32_mono, false},
+            {"master.engine.audition", ArtifactKind::audio, pcm24_mono, false},
         };
         result.declared_omissions = {
             {
                 "intake",
                 OmissionKind::source_route,
-                "Absent from the exhaust-only reference; it cannot be inferred from "
-                "the master.",
+                "No intake-acoustic route is implemented or inferred from the "
+                "exhaust or master.",
             },
             {
                 "mechanical.engine",
                 OmissionKind::source_route,
-                "Absent as a separately observable reference route.",
+                "No separately observable engine-mechanical route is implemented.",
             },
             {
                 "mechanical.starter",
                 OmissionKind::source_route,
-                "The preserved pull begins with an already-running engine.",
+                "No starter route is present in this already-running-engine "
+                "checkpoint.",
             },
             {
                 "drivetrain",
                 OmissionKind::external_system,
-                "Transmission and drivetrain radiation are outside this neutral "
-                "engine reference.",
+                "Transmission and drivetrain radiation are outside the engine "
+                "asset.",
             },
             {
                 "vehicle.tire-road",
@@ -390,14 +375,14 @@ const SourceMatrixContract &bmw_m52b28_reference_source_matrix_v1() {
             {
                 "presentation.spatial-field",
                 OmissionKind::presentation_scene,
-                "The static IR is coloration, not a documented cabin, environment, "
-                "microphone, or spatial field.",
+                "No cabin, environment, microphone scene, or spatial field is "
+                "claimed.",
             },
             {
                 "scenario.non-pull-behaviors",
                 OmissionKind::scenario_behavior,
-                "Startup, shutdown, idle, overrun, fuel cut, and limiter behavior are "
-                "not exercised by this pull.",
+                "Startup, shutdown, fuel cut, limiter, and dedicated overrun behavior "
+                "are not established by this checkpoint.",
             },
         };
         return result;

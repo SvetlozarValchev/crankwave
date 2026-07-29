@@ -108,6 +108,23 @@ void expect_mutation_rejected(const profiles::BmwM52b28OperatingProfile &exact,
     return value.starts_with(prefix);
 }
 
+[[nodiscard]] std::string_view
+resolution_parameter_path(const contract::ProvenanceLedger &provenance,
+                          std::string_view resolution_id) {
+    const auto resolution = std::ranges::find(
+        provenance.resolutions, resolution_id, &contract::ResolutionRecord::id);
+    expect(resolution != provenance.resolutions.end(),
+           "resolved BMW value has no provenance resolution");
+    return resolution->parameter_path;
+}
+
+void replace_all(std::string &value, std::string_view from, std::string_view to) {
+    for (std::size_t offset = value.find(from); offset != std::string::npos;
+         offset = value.find(from, offset + to.size())) {
+        value.replace(offset, from.size(), to);
+    }
+}
+
 [[nodiscard]] bool is_legacy_profile_specific_suffix(std::string_view suffix) {
     return suffix == ".mechanism.crank.fixed_crank_friction_magnitude_nm" ||
            suffix == ".losses.included_terms" || suffix == ".losses.omitted_terms";
@@ -128,11 +145,14 @@ core_resolution_suffixes(const contract::ProvenanceLedger &provenance,
         if (!starts_with(resolution.parameter_path, root)) {
             continue;
         }
-        const auto suffix =
-            std::string_view{resolution.parameter_path}.substr(root.size());
+        auto suffix = resolution.parameter_path.substr(root.size());
         if ((legacy && is_legacy_profile_specific_suffix(suffix)) ||
             (!legacy && is_operating_profile_specific_suffix(suffix))) {
             continue;
+        }
+        if (!legacy) {
+            replace_all(suffix, ".exhaust.outlet.front", ".exhaust.reference.0");
+            replace_all(suffix, ".exhaust.outlet.rear", ".exhaust.reference.1");
         }
         expect(result.emplace(suffix).second,
                "duplicate core resolution suffix was admitted");
@@ -156,7 +176,7 @@ void test_exact_profile_authorities(
            "canonical BMW operating identity changed");
 
     constexpr std::string_view kExpectedBundleSha256 =
-        "ea5ec591525420b6d74137da38e931b103d848d00ba200500f71c60df5e5414e";
+        "bb562ba16501e540a23b53d54aa1caa23af9c4e53d468d8011409cdcc258c2fd";
     const auto actual_bundle_sha256 = digest_hex(profile.provenance.bundle.sha256);
     if (actual_bundle_sha256 != kExpectedBundleSha256) {
         std::cerr << "BMW operating profile provenance SHA-256: "
@@ -263,6 +283,91 @@ void test_exact_profile_authorities(
     }
 }
 
+void test_exact_operating_exhaust_semantics(
+    const profiles::BmwM52b28OperatingProfile &profile) {
+    const auto &engine = profile.engine;
+    const auto route_front = std::ranges::find(engine.routes, contract::RouteId{1},
+                                               &contract::RouteSpec::id);
+    const auto route_rear = std::ranges::find(engine.routes, contract::RouteId{2},
+                                              &contract::RouteSpec::id);
+    const auto collector_front =
+        std::ranges::find(engine.gas_volumes, contract::GasVolumeId{21},
+                          &contract::GasVolumeSpec::id);
+    const auto collector_rear =
+        std::ranges::find(engine.gas_volumes, contract::GasVolumeId{22},
+                          &contract::GasVolumeSpec::id);
+    const auto outlet_edge_front =
+        std::ranges::find(engine.flow_edges, contract::FlowEdgeId{33},
+                          &contract::FlowEdgeSpec::id);
+    const auto outlet_edge_rear =
+        std::ranges::find(engine.flow_edges, contract::FlowEdgeId{34},
+                          &contract::FlowEdgeSpec::id);
+    expect(route_front != engine.routes.end() && route_rear != engine.routes.end() &&
+               collector_front != engine.gas_volumes.end() &&
+               collector_rear != engine.gas_volumes.end() &&
+               outlet_edge_front != engine.flow_edges.end() &&
+               outlet_edge_rear != engine.flow_edges.end(),
+           "canonical BMW physical exhaust identities disappeared");
+    expect(route_front->semantic_id.value == "exhaust.outlet.front" &&
+               route_rear->semantic_id.value == "exhaust.outlet.rear" &&
+               collector_front->semantic_id.value == "exhaust.collector.front" &&
+               collector_rear->semantic_id.value == "exhaust.collector.rear" &&
+               outlet_edge_front->semantic_id.value ==
+                   "flow.collector-outlet.front" &&
+               outlet_edge_rear->semantic_id.value ==
+                   "flow.collector-outlet.rear",
+           "canonical BMW operating exhaust retained anonymous route semantics");
+
+    expect(resolution_parameter_path(profile.provenance,
+                                     route_front->semantic_id.resolution_id) ==
+                   "engine.routes.exhaust.outlet.front.semantic_id" &&
+               resolution_parameter_path(profile.provenance,
+                                         route_rear->semantic_id.resolution_id) ==
+                   "engine.routes.exhaust.outlet.rear.semantic_id" &&
+               resolution_parameter_path(profile.provenance,
+                                         collector_front->semantic_id.resolution_id) ==
+                   "engine.gas_volumes.exhaust.collector.front.semantic_id" &&
+               resolution_parameter_path(profile.provenance,
+                                         collector_rear->semantic_id.resolution_id) ==
+                   "engine.gas_volumes.exhaust.collector.rear.semantic_id" &&
+               resolution_parameter_path(
+                   profile.provenance,
+                   outlet_edge_front->semantic_id.resolution_id) ==
+                   "engine.flow_edges.flow.collector-outlet.front.semantic_id" &&
+               resolution_parameter_path(
+                   profile.provenance,
+                   outlet_edge_rear->semantic_id.resolution_id) ==
+                   "engine.flow_edges.flow.collector-outlet.rear.semantic_id",
+           "canonical BMW operating exhaust provenance paths disagree with their "
+           "semantics");
+
+    for (const auto &resolution : profile.provenance.resolutions) {
+        expect(resolution.parameter_path.find("exhaust.reference.") ==
+                       std::string::npos &&
+                   resolution.parameter_path.find("exhaust.collector.0") ==
+                       std::string::npos &&
+                   resolution.parameter_path.find("exhaust.collector.1") ==
+                       std::string::npos &&
+                   resolution.parameter_path.find("flow.collector-outlet.0") ==
+                       std::string::npos &&
+                   resolution.parameter_path.find("flow.collector-outlet.1") ==
+                       std::string::npos,
+               "canonical BMW operating provenance retained an anonymous exhaust "
+               "path");
+        for (const auto &dependency : resolution.dependency_parameter_paths) {
+            expect(dependency.find("exhaust.reference.") == std::string::npos &&
+                       dependency.find("exhaust.collector.0") == std::string::npos &&
+                       dependency.find("exhaust.collector.1") == std::string::npos &&
+                       dependency.find("flow.collector-outlet.0") ==
+                           std::string::npos &&
+                       dependency.find("flow.collector-outlet.1") ==
+                           std::string::npos,
+                   "canonical BMW operating dependency retained an anonymous "
+                   "exhaust path");
+        }
+    }
+}
+
 void test_exact_m5_exhaust_acoustic_assembly(
     const profiles::BmwM52b28OperatingProfile &profile) {
     const auto &assembly = operating_profile(profile).exhaust_acoustics;
@@ -353,9 +458,21 @@ void test_exact_m5_exhaust_acoustic_assembly(
     expect(assembly.outlets[0].route_id == contract::RouteId{1} &&
                assembly.outlets[0].downstream_duct_id == contract::AcousticDuctId{7} &&
                assembly.outlets[0].observation_distance_m.value == 1.0 &&
+               resolution_parameter_path(
+                   profile.provenance,
+                   assembly.outlets[0].observation_distance_m.resolution_id) ==
+                   std::string{kOperatingRoot} +
+                       ".exhaust_acoustics.outlets.exhaust.outlet.front."
+                       "observation_distance_m" &&
                assembly.outlets[1].route_id == contract::RouteId{2} &&
                assembly.outlets[1].downstream_duct_id == contract::AcousticDuctId{8} &&
-               assembly.outlets[1].observation_distance_m.value == 1.0,
+               assembly.outlets[1].observation_distance_m.value == 1.0 &&
+               resolution_parameter_path(
+                   profile.provenance,
+                   assembly.outlets[1].observation_distance_m.resolution_id) ==
+                   std::string{kOperatingRoot} +
+                       ".exhaust_acoustics.outlets.exhaust.outlet.rear."
+                       "observation_distance_m",
            "canonical BMW M5 unflanged one-metre outlet binding changed");
 }
 
@@ -394,6 +511,10 @@ void test_fresh_core_provenance_and_shared_values(
         core_resolution_suffixes(profile.provenance, kOperatingRoot, false);
     expect(!legacy_suffixes.empty() && legacy_suffixes == operating_suffixes,
            "M3 and operating profiles do not resolve the same core leaf inventory");
+
+    expect(parity.engine.routes[0].semantic_id.value == "exhaust.reference.0" &&
+               parity.engine.routes[1].semantic_id.value == "exhaust.reference.1",
+           "operating route cutover mutated the isolated M3 reference oracle");
 
     for (const auto &resolution : profile.provenance.resolutions) {
         expect(starts_with(resolution.id, kOperatingResolutionPrefix),
@@ -700,6 +821,7 @@ void run_tests(const char *model_record_path, const char *accessory_descriptor_p
                const char *topology_correction_path) {
     const auto exact = make_exact_profile();
     test_exact_profile_authorities(exact);
+    test_exact_operating_exhaust_semantics(exact);
     test_exact_m5_exhaust_acoustic_assembly(exact);
     test_exact_evidence_files(exact, model_record_path, accessory_descriptor_path,
                               topology_correction_path);
