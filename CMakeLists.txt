@@ -672,6 +672,45 @@ if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS AND
     engine_sim_offline_finalize_renderer_numeric_policy(
         engine_sim_offline_m4_bmw_torque_sweep
     )
+
+    add_executable(
+        engine_sim_offline_m4_bmw_held_settling_diagnostic
+        src/reference/bmw_m52b28_held_settling_diagnostic.cpp
+        src/reference/m4_bmw_held_settling_diagnostic_main.cpp
+    )
+
+    set_target_properties(
+        engine_sim_offline_m4_bmw_held_settling_diagnostic
+        PROPERTIES
+            OUTPUT_NAME engine-sim-offline-m4-bmw-held-settling-diagnostic
+    )
+
+    target_include_directories(
+        engine_sim_offline_m4_bmw_held_settling_diagnostic
+        PRIVATE
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_options(
+        engine_sim_offline_m4_bmw_held_settling_diagnostic
+        PRIVATE LINKER:--no-as-needed
+    )
+
+    target_link_libraries(
+        engine_sim_offline_m4_bmw_held_settling_diagnostic
+        PRIVATE
+            engine_sim_offline::profiles
+            engine_sim_offline::request_identity
+            engine_sim_offline::simulation
+            engine_sim_offline_renderer_determinism
+            m
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_m4_bmw_held_settling_diagnostic
+    )
+    engine_sim_offline_finalize_renderer_numeric_policy(
+        engine_sim_offline_m4_bmw_held_settling_diagnostic
+    )
 endif()
 
 if(ENGINE_SIM_OFFLINE_BUILD_CLI)
@@ -752,6 +791,13 @@ if(TARGET engine_sim_offline_m4_bmw_torque_sweep)
         engine_sim_offline_m4_bmw_torque_sweep
     )
 endif()
+if(TARGET engine_sim_offline_m4_bmw_held_settling_diagnostic)
+    list(
+        APPEND
+        _engine_sim_offline_numeric_policy_targets
+        engine_sim_offline_m4_bmw_held_settling_diagnostic
+    )
+endif()
 foreach(_target IN LISTS _engine_sim_offline_numeric_policy_targets)
     engine_sim_offline_assert_renderer_numeric_policy("${_target}")
 endforeach()
@@ -763,6 +809,11 @@ endif()
 if(TARGET engine_sim_offline_m4_bmw_torque_sweep)
     engine_sim_offline_assert_final_renderer_numeric_policy(
         engine_sim_offline_m4_bmw_torque_sweep
+    )
+endif()
+if(TARGET engine_sim_offline_m4_bmw_held_settling_diagnostic)
+    engine_sim_offline_assert_final_renderer_numeric_policy(
+        engine_sim_offline_m4_bmw_held_settling_diagnostic
     )
 endif()
 unset(_engine_sim_offline_numeric_policy_targets)
