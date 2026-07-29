@@ -121,6 +121,9 @@ add_library(
         src/profiles/bmw_m52b28_operating_profile_validation.cpp
         src/profiles/bmw_m52b28_low_order_engine.cpp
         src/profiles/bmw_m52b28_profile_provenance.cpp
+        src/profiles/bmw_m52b28_held_speed_listening_request.cpp
+        src/profiles/bmw_m52b28_held_speed_listening_scenario.cpp
+        src/profiles/bmw_m52b28_held_speed_listening_validation.cpp
         src/profiles/bmw_m52b28_parity_request.cpp
         src/profiles/bmw_m52b28_parity_scenario.cpp
         src/profiles/bmw_m52b28_parity_validation.cpp

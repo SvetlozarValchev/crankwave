@@ -39,8 +39,7 @@ constexpr std::string_view kDeclaredDefaultClaimId =
     "bmw-m52b28-declared-default-claim";
 constexpr std::string_view kDerivedValueClaimId = "bmw-m52b28-derived-value-claim";
 
-constexpr std::string_view kOperatingCoreClaimId =
-    "bmw-m52b28-operating-core-claim";
+constexpr std::string_view kOperatingCoreClaimId = "bmw-m52b28-operating-core-claim";
 constexpr std::string_view kOperatingReferenceFixtureClaimId =
     "bmw-m52b28-operating-reference-fixture-claim";
 constexpr std::string_view kOperatingReferenceComponentSeedClaimId =
@@ -137,7 +136,7 @@ constexpr std::array<EvidenceDefinition, 14> kOperatingEvidenceDefinitions{{
         "operating-point-model-record",
         "docs/model/M4_OPERATING_POINT_MODEL.md",
         kRepositoryContentRevision,
-        "a7c0464848bbb0631cfe24e1ce62b62117b5ef0ecbed3c2b9f3dcf96c16e4ab5",
+        "31de29849ced4f84f5564094744159a07ba004ff57b4567a60da8ee771a63c96",
         contract::RightsDisposition::permitted,
     },
     {
@@ -269,8 +268,8 @@ struct ResolutionSourceDefinition {
     return {std::string{evidence_id}, std::string{claim_locator}};
 }
 
-[[nodiscard]] ResolutionSourceDefinition
-resolution_source(BmwProfileKind profile_kind, BmwResolutionSource source) {
+[[nodiscard]] ResolutionSourceDefinition resolution_source(BmwProfileKind profile_kind,
+                                                           BmwResolutionSource source) {
     if (profile_kind == BmwProfileKind::parity_request_v1) {
         switch (source) {
         case BmwResolutionSource::legacy_asset:
@@ -280,8 +279,7 @@ resolution_source(BmwProfileKind profile_kind, BmwResolutionSource source) {
         case BmwResolutionSource::reference_trajectory:
             return {contract::ResolutionMode::authored, kReferenceTrajectoryClaimId};
         case BmwResolutionSource::reference_component_seed:
-            return {contract::ResolutionMode::authored,
-                    kReferenceComponentSeedClaimId};
+            return {contract::ResolutionMode::authored, kReferenceComponentSeedClaimId};
         case BmwResolutionSource::profile_contract:
             return {contract::ResolutionMode::authored, kScenarioClaimId};
         case BmwResolutionSource::declared_default:
@@ -309,11 +307,9 @@ resolution_source(BmwProfileKind profile_kind, BmwResolutionSource source) {
             return {contract::ResolutionMode::declared_default,
                     kOperatingDeclaredDefaultClaimId};
         case BmwResolutionSource::operating_literature:
-            return {contract::ResolutionMode::authored,
-                    kOperatingLiteratureClaimId};
+            return {contract::ResolutionMode::authored, kOperatingLiteratureClaimId};
         case BmwResolutionSource::accessory_configuration:
-            return {contract::ResolutionMode::authored,
-                    kOperatingAccessoryClaimId};
+            return {contract::ResolutionMode::authored, kOperatingAccessoryClaimId};
         case BmwResolutionSource::implemented_method:
             return {contract::ResolutionMode::authored, kOperatingMethodClaimId};
         case BmwResolutionSource::reference_trajectory:
@@ -326,10 +322,9 @@ resolution_source(BmwProfileKind profile_kind, BmwResolutionSource source) {
 
 [[nodiscard]] std::string resolution_id(BmwProfileKind profile_kind,
                                         std::uint32_t sequence) {
-    const std::string_view prefix =
-        profile_kind == BmwProfileKind::parity_request_v1
-            ? "bmw-m52b28-m3-resolution-"
-            : "bmw-m52b28-operating-profile-resolution-";
+    const std::string_view prefix = profile_kind == BmwProfileKind::parity_request_v1
+                                        ? "bmw-m52b28-m3-resolution-"
+                                        : "bmw-m52b28-operating-profile-resolution-";
     return std::string{prefix} + std::to_string(sequence);
 }
 
@@ -422,7 +417,8 @@ BmwProvenanceBuilder::BmwProvenanceBuilder(BmwProfileKind profile_kind)
             contract::ProvenanceOrigin::scenario,
             {
                 citation("operating-point-model-record",
-                         "section 1.1: exact profile identity and accounting"),
+                         "sections 1.1-1.2: exact profile and listening-request "
+                         "identity and accounting"),
             },
             std::nullopt,
         });
@@ -581,14 +577,14 @@ std::string BmwProvenanceBuilder::add_resolution(std::string parameter_path,
     return id;
 }
 
-std::string BmwProvenanceBuilder::add_derived_resolution(
-    std::string parameter_path, contract::MethodIdentity method,
-    std::vector<std::string> dependencies) {
+std::string
+BmwProvenanceBuilder::add_derived_resolution(std::string parameter_path,
+                                             contract::MethodIdentity method,
+                                             std::vector<std::string> dependencies) {
     auto id = resolution_id(profile_kind_, next_resolution_++);
-    const auto claim_id =
-        profile_kind_ == BmwProfileKind::parity_request_v1
-            ? kDerivedValueClaimId
-            : kOperatingDerivedValueClaimId;
+    const auto claim_id = profile_kind_ == BmwProfileKind::parity_request_v1
+                              ? kDerivedValueClaimId
+                              : kOperatingDerivedValueClaimId;
     ledger_.resolutions.push_back({
         id,
         std::move(parameter_path),
@@ -601,10 +597,9 @@ std::string BmwProvenanceBuilder::add_derived_resolution(
 }
 
 contract::ProvenanceLedger BmwProvenanceBuilder::finish() {
-    const auto grammar =
-        profile_kind_ == BmwProfileKind::parity_request_v1
-            ? kDigestGrammar
-            : kOperatingDigestGrammar;
+    const auto grammar = profile_kind_ == BmwProfileKind::parity_request_v1
+                             ? kDigestGrammar
+                             : kOperatingDigestGrammar;
     ledger_.bundle.sha256 =
         contract::canonical_provenance_ledger_digest(ledger_, grammar);
     return std::move(ledger_);
@@ -626,10 +621,9 @@ std::string_view BmwProvenanceBuilder::provenance_schema_id() const noexcept {
 }
 
 std::string BmwProvenanceBuilder::profile_path(std::string_view suffix) const {
-    const std::string_view root =
-        profile_kind_ == BmwProfileKind::parity_request_v1
-            ? "engine.physics.legacy-low-order-v1"
-            : "engine.physics.low-order-operating-point-v1";
+    const std::string_view root = profile_kind_ == BmwProfileKind::parity_request_v1
+                                      ? "engine.physics.legacy-low-order-v1"
+                                      : "engine.physics.low-order-operating-point-v1";
     return std::string{root} + "." + std::string{suffix};
 }
 
@@ -657,10 +651,8 @@ contract::MethodIdentity derived_method(std::string id) {
     };
 }
 
-contract::Sha256Digest
-bmw_m52b28_operating_accessory_descriptor_sha256() {
-    return digest(
-        "ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97");
+contract::Sha256Digest bmw_m52b28_operating_accessory_descriptor_sha256() {
+    return digest("ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97");
 }
 
 } // namespace engine_sim_offline::profiles::detail

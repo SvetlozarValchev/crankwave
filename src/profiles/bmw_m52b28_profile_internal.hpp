@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine_sim_offline/profiles/bmw_m52b28_held_speed_listening_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_parity_request.hpp"
 
@@ -80,8 +81,7 @@ class BmwProvenanceBuilder {
 [[nodiscard]] contract::MethodIdentity legacy_low_order_method();
 [[nodiscard]] contract::MethodIdentity fixed_rate_rpm_method();
 [[nodiscard]] contract::MethodIdentity derived_method(std::string id);
-[[nodiscard]] contract::Sha256Digest
-bmw_m52b28_operating_accessory_descriptor_sha256();
+[[nodiscard]] contract::Sha256Digest bmw_m52b28_operating_accessory_descriptor_sha256();
 
 [[nodiscard]] contract::EngineSpec
 build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder);
@@ -90,11 +90,18 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder);
 build_bmw_m52b28_parity_scenario(BmwProvenanceBuilder &builder,
                                  std::vector<double> post_step_rpm);
 
+[[nodiscard]] contract::RenderScenario
+build_bmw_m52b28_held_speed_listening_scenario(BmwProvenanceBuilder &builder,
+                                               const contract::EngineSpec &engine);
+
 [[nodiscard]] BmwM52b28ParityRequest
 build_bmw_m52b28_parity_request_unvalidated(std::vector<double> post_step_rpm);
 
 [[nodiscard]] BmwM52b28OperatingProfile
 build_bmw_m52b28_operating_profile_unvalidated();
+
+[[nodiscard]] BmwM52b28HeldSpeedListeningRequest
+build_bmw_m52b28_held_speed_listening_request_unvalidated();
 
 [[nodiscard]] contract::ValidationReport
 validate_bmw_m52b28_parity_rpm_input(std::span<const double> post_step_rpm);

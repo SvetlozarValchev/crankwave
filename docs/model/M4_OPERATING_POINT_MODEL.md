@@ -221,12 +221,53 @@ the other. A cutoff failure terminalizes the session before the containing captu
 block reaches its consumer. Successful M4 completion alone retains the request-bound
 typed held-speed result.
 
-The canonical BMW factory now constructs this profile directly from the reusable
+The canonical BMW profile factory constructs this profile directly from the reusable
 low-order core under a fresh operating provenance root. Its exact validator pins the
 coefficient bits, oil and accessory conditions, torque partition, implemented method
-identities, capability statement, and complete provenance bundle. It does not yet
-construct a held-speed scenario; that scenario becomes canonical with the convergence
-executor so its preparation policy cannot be guessed prematurely.
+identities, capability statement, and complete provenance bundle. The listening
+request factory separately rebuilds that engine and its held-speed scenario through one
+fresh builder before finishing one shared ledger; it never copies the completed profile
+or relabels an M3 request.
+
+### 1.2 First canonical held-speed listening request
+
+`make_bmw_m52b28_held_speed_listening_request()` has no calibration arguments. Its
+exact first listening point is:
+
+| Field | Canonical value |
+|---|---:|
+| Scenario ID | `bmw-m52b28-held-3000rpm-listening-v1` |
+| Engine speed | `3000 rpm` |
+| Throttle | `0.85` |
+| Minimum warm-up / settling | `0 s` / `0 s` |
+| Maximum preparation / audible start | `3.22 s` |
+| Comparison cycles per block | `16` |
+| Cycle-mean torque tolerance | `0.25 N*m` |
+| Boundary-pressure tolerance | `1500 Pa` |
+| Audible duration / total duration | `15.0 s` / `18.22 s` |
+| Physics / capture rates | `10000 Hz` / `10000 Hz` |
+| Source / acoustic / delivery rates | `192000 Hz` / `192000 Hz` / `192000 Hz` |
+| Capture block / event capacities | `200` frames / `3800` records |
+| Public seed | `0xC0FFEE` |
+
+The original `0.22 s`, two-cycle-block candidate was run as a diagnostic on these
+same engine, ambient, thermal, fuel, held-control, and numeric-envelope conditions. At
+its cutoff the adjacent blocks differed by `146.38408799394455 N*m` and
+`285912.14626085013 Pa`. Treating that state as converged would therefore have required
+meaningless placeholder-scale tolerances, so it was rejected rather than frozen.
+
+The selected `3.22 s`, 16-cycle-block calibration retained the latest adjacent
+complete-cycle blocks and measured residuals of `0.14219052207965888 N*m` and
+`870.20266385539435 Pa`. The round admitted bounds (`0.25 N*m`, `1500 Pa`) leave finite
+margin around that deterministic reference observation while remaining materially
+tighter than the rejected early transient. The request test executes the core through
+the fixed cutoff and requires a request-bound settled result; it does not merely inspect
+the authored constants.
+
+The resulting integer horizons are `32200` preparation and `182200` total physics/
+capture frames, plus `2880000` audible and `3498240` total 192 kHz frames. At the
+declared 200-frame capture block capacity, the complete run is 911 blocks, of which 750
+cover the audible interval.
 
 The reused `legacy_low_order_v1` method configuration retains the admitted M3 content
 identity `435441890e0a5f8d01e81995f64f33d4c554144f5b1436895e6816f6db85e34c`.
