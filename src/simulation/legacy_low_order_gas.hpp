@@ -81,6 +81,15 @@ struct LegacyExhaustRouteGasStepState {
                            const LegacyExhaustRouteGasStepState &) = default;
 };
 
+struct LegacyExhaustPortSubstepState {
+    contract::CylinderId cylinder_id;
+    contract::PortId exhaust_port_id;
+    contract::ExhaustPortSubstepCaptureSample sample;
+
+    friend bool operator==(const LegacyExhaustPortSubstepState &,
+                           const LegacyExhaustPortSubstepState &) = default;
+};
+
 struct LegacyLowOrderGasStep {
     contract::RationalRateHz rate;
     std::uint64_t sample_index = 0;
@@ -90,6 +99,8 @@ struct LegacyLowOrderGasStep {
     std::vector<LegacyFlowEdgeStepState> flow_edges;
     std::vector<LegacyCylinderGasStepState> cylinders;
     std::vector<LegacyExhaustRouteGasStepState> exhaust_routes;
+    // Interval-major: eight gas substeps, then canonical cylinder/exhaust-port order.
+    std::vector<LegacyExhaustPortSubstepState> exhaust_port_substeps;
     std::vector<ScheduledMechanismEvent> events;
     double indicated_gas_torque_nm = 0.0;
 };

@@ -992,6 +992,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     }
     session.step_.cylinders.resize(engine.cylinders.size());
     session.step_.exhaust_routes.resize(public_exhaust_route_count);
+    session.step_.exhaust_port_substeps.reserve(
+        static_cast<std::size_t>(kLegacyGasSubstepCount) * engine.cylinders.size());
     session.step_.events.reserve(maximum_event_count);
 
     const double initial_gas_temperature_k =

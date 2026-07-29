@@ -60,6 +60,8 @@ LowOrderCaptureBuffer::LowOrderCaptureBuffer(LowOrderCaptureBufferPlan plan)
     engine_.reserve(capacity);
     cylinders_.reserve(capacity * plan_.cylinders.size());
     ports_.reserve(capacity * plan_.ports.size());
+    exhaust_port_substeps_.reserve(capacity * kLegacyGasSubstepCount *
+                                   plan_.exhaust_substep_ports.size());
     gas_volumes_.reserve(capacity * plan_.gas_volumes.size());
     flow_edges_.reserve(capacity * plan_.flow_edges.size());
     routes_.reserve(capacity * plan_.routes.size());
@@ -75,6 +77,7 @@ void LowOrderCaptureBuffer::begin_block(std::uint64_t first_sample_index) noexce
     engine_.clear();
     cylinders_.clear();
     ports_.clear();
+    exhaust_port_substeps_.clear();
     gas_volumes_.clear();
     flow_edges_.clear();
     routes_.clear();
@@ -103,6 +106,10 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
         gas.gas_volumes.size() != plan_.gas_volumes.size() ||
         gas.flow_edges.size() != plan_.flow_edges.size() ||
         gas.exhaust_routes.size() != plan_.route_bindings.size() ||
+        gas.exhaust_port_substeps.size() !=
+            static_cast<std::size_t>(kLegacyGasSubstepCount) *
+                plan_.exhaust_substep_ports.size() ||
+        plan_.exhaust_substep_ports.size() != plan_.cylinders.size() ||
         plan_.cylinder_bindings.size() != plan_.cylinders.size() ||
         plan_.port_bindings.size() != plan_.ports.size() ||
         plan_.route_bindings.size() != plan_.routes.size()) {
@@ -127,6 +134,24 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
             auto failure = shape_fault(
                 "mechanics and gas cylinder identity/order differ from capture");
             failure.cylinder_id = expected;
+            return failure;
+        }
+    }
+    for (std::size_t index = 0; index < gas.exhaust_port_substeps.size(); ++index) {
+        const auto interval_index = index / plan_.exhaust_substep_ports.size();
+        const auto port_index = index % plan_.exhaust_substep_ports.size();
+        const auto &expected_port = plan_.exhaust_substep_ports[port_index];
+        const auto &actual = gas.exhaust_port_substeps[index];
+        if (actual.cylinder_id != expected_port.cylinder_id ||
+            actual.exhaust_port_id != expected_port.id ||
+            actual.sample.outer_sample_index != expected_sample_index ||
+            actual.sample.gas_substep_ordinal !=
+                static_cast<std::uint8_t>(interval_index)) {
+            auto failure = shape_fault(
+                "gas exhaust transfer identity, interval, or canonical lane order "
+                "differs from capture");
+            failure.cylinder_id = expected_port.cylinder_id;
+            failure.port_id = expected_port.id;
             return failure;
         }
     }
@@ -258,6 +283,10 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
         });
     }
 
+    for (const auto &substep : gas.exhaust_port_substeps) {
+        exhaust_port_substeps_.push_back(substep.sample);
+    }
+
     for (const auto &volume : gas.gas_volumes) {
         if (!volume.physically_resolved) {
             gas_volumes_.push_back({});
@@ -336,6 +365,19 @@ contract::CaptureBlockView LowOrderCaptureBuffer::view() const noexcept {
         contract::EventJournalView::borrow_for_callback(event_offsets_, events_);
     const auto parity = contract::ReferenceParityBlockView::borrow_for_callback(
         filtered_engine_speed_rpm_, parity_cylinders_);
+    const auto source_first_sample_index =
+        first_sample_index_ * static_cast<std::uint64_t>(kLegacyGasSubstepCount);
+    const auto source_interval_count =
+        frame_count_ * static_cast<std::uint32_t>(kLegacyGasSubstepCount);
+    const auto exhaust_substeps =
+        contract::ExhaustPortSubstepCaptureView::borrow_for_callback(
+            contract::CaptureClock{
+                contract::RationalRateHz{80000U, 1U},
+                source_first_sample_index,
+                source_first_sample_index + 1U,
+                contract::SamplePhase::post_step,
+            },
+            source_interval_count, plan_.exhaust_substep_ports, exhaust_port_substeps_);
     return contract::CaptureBlockView::borrow_for_callback(
         layout,
         contract::CaptureClock{
@@ -346,7 +388,7 @@ contract::CaptureBlockView LowOrderCaptureBuffer::view() const noexcept {
         },
         frame_count_, plan_.declared_block_capacity_frames,
         plan_.declared_event_capacity_records, engine_, cylinders_, ports_,
-        gas_volumes_, flow_edges_, routes_, journal, parity);
+        gas_volumes_, flow_edges_, routes_, journal, parity, exhaust_substeps);
 }
 
 std::uint32_t LowOrderCaptureBuffer::frame_count() const noexcept {

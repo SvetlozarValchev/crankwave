@@ -63,6 +63,16 @@ find_exhaust_profile_index(const contract::LowOrderEngineCoreV1 &core,
                                static_cast<std::size_t>(frame_count);
 }
 
+[[nodiscard]] bool
+exhaust_substep_reserve_representable(std::size_t exhaust_port_count,
+                                      std::uint32_t frame_count) noexcept {
+    constexpr std::size_t kSubstepsPerOuterFrame = 8U;
+    return exhaust_port_count <=
+               std::numeric_limits<std::size_t>::max() / kSubstepsPerOuterFrame &&
+           reserve_product_representable(exhaust_port_count * kSubstepsPerOuterFrame,
+                                         frame_count);
+}
+
 void append_layout_issues(ValidationReport &report,
                           const detail::LowOrderCaptureBufferPlan &plan) {
     const auto layout = contract::CaptureLayoutView::borrow_for_callback(
@@ -143,6 +153,19 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
             "scenario.total_duration_s.value",
             "low-order capture horizon must resolve to a positive integral frame "
             "count");
+    constexpr std::uint64_t kGasSubstepsPerOuterFrame = 8U;
+    require(report,
+            horizon.has_value() &&
+                *horizon <= (std::numeric_limits<std::uint64_t>::max() - 1U) /
+                                kGasSubstepsPerOuterFrame,
+            ContractIssueCode::unsupported_value, "scenario.total_duration_s.value",
+            "capture horizon exceeds the representable 80 kHz post-interval clock");
+    require(report,
+            scenario.quality.value.capture_block_capacity_frames <=
+                std::numeric_limits<std::uint32_t>::max() / kGasSubstepsPerOuterFrame,
+            ContractIssueCode::unsupported_value,
+            "scenario.quality.value.capture_block_capacity_frames",
+            "capture block exceeds the uint32 exhaust-source interval count");
 
     require(report,
             reserve_product_representable(
@@ -159,6 +182,9 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
                     scenario.quality.value.capture_block_capacity_frames) &&
                 reserve_product_representable(
                     engine.routes.size(),
+                    scenario.quality.value.capture_block_capacity_frames) &&
+                exhaust_substep_reserve_representable(
+                    engine.cylinders.size(),
                     scenario.quality.value.capture_block_capacity_frames),
             ContractIssueCode::unsupported_value, "engine",
             "capture entity count overflows bounded frame-major storage");
@@ -180,6 +206,7 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
     plan.maximum_events_per_frame = *maximum_events;
 
     plan.cylinders.reserve(engine.cylinders.size());
+    plan.exhaust_substep_ports.reserve(engine.cylinders.size());
     for (const auto &cylinder : engine.cylinders) {
         plan.cylinders.push_back(cylinder.id);
     }
@@ -243,6 +270,20 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
         }
         const auto &topology =
             selected_core.mechanism.cylinders[*profile_index].topology;
+        const auto exhaust_port = find_id_index(engine.ports, topology.exhaust_port_id);
+        const bool exhaust_port_identity_matches =
+            exhaust_port.has_value() &&
+            engine.ports[*exhaust_port].cylinder_id == engine.cylinders[index].id &&
+            engine.ports[*exhaust_port].kind.value == contract::PortKind::exhaust;
+        require(report, exhaust_port_identity_matches,
+                ContractIssueCode::inconsistent_semantics,
+                "engine.cylinders[" + std::to_string(index) + "]",
+                "M5 source lane requires one canonical exhaust port per cylinder");
+        if (exhaust_port_identity_matches) {
+            const auto &port = engine.ports[*exhaust_port];
+            plan.exhaust_substep_ports.push_back(
+                {port.id, port.cylinder_id, port.kind.value});
+        }
         const auto chamber =
             find_id_index(engine.gas_volumes, topology.chamber_volume_id);
         const auto primary =

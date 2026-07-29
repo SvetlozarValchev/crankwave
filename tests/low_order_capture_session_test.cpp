@@ -479,6 +479,7 @@ struct Activity {
     bool nonzero_directional_pressure = false;
     bool combustion_heat = false;
     bool event = false;
+    bool exhaust_substep_flow = false;
 };
 
 void verify_layout(const CaptureLayoutView &layout,
@@ -534,6 +535,82 @@ void verify_frame(const CaptureBlockView &block, std::size_t frame,
                   const BmwM52b28ParityRequest &request,
                   const LegacyMechanismStep &mechanics,
                   const LegacyLowOrderGasStep &gas, Activity &activity) {
+    expect(block.exhaust_port_substeps().has_value(),
+           "low-order capture omitted its M5 exhaust substep lane");
+    const auto &exhaust_substeps = *block.exhaust_port_substeps();
+    expect(exhaust_substeps.clock() ==
+                   CaptureClock{{80000, 1},
+                                block.clock().first_sample_index * 8U,
+                                block.clock().first_sample_index * 8U + 1U,
+                                SamplePhase::post_step} &&
+               exhaust_substeps.interval_count() == block.frame_count() * 8U &&
+               exhaust_substeps.ports().size() == gas.cylinders.size() &&
+               exhaust_substeps.samples().size() ==
+                   static_cast<std::size_t>(block.frame_count()) * 8U *
+                       gas.cylinders.size() &&
+               gas.exhaust_port_substeps.size() == 8U * gas.cylinders.size(),
+           "M5 exhaust source clock or interval-major shape changed");
+    for (std::size_t cylinder_index = 0; cylinder_index < gas.cylinders.size();
+         ++cylinder_index) {
+        const auto &gas_cylinder = gas.cylinders[cylinder_index];
+        expect(exhaust_substeps.ports()[cylinder_index] ==
+                   PortIdentity{gas_cylinder.exhaust_port_id, gas_cylinder.cylinder_id,
+                                PortKind::exhaust},
+               "M5 exhaust source port identity/order changed");
+    }
+    constexpr double kSpecificGasConstant =
+        kLegacyGasConstantJPerMolK / kLegacyAirMolarMassKgPerMol;
+    constexpr double kSubstepDurationS = (1.0 / 10000.0) / 8.0;
+    for (std::size_t substep = 0; substep < 8U; ++substep) {
+        for (std::size_t cylinder_index = 0; cylinder_index < gas.cylinders.size();
+             ++cylinder_index) {
+            const auto &source =
+                gas.exhaust_port_substeps[substep * gas.cylinders.size() +
+                                          cylinder_index];
+            const auto *actual =
+                exhaust_substeps.sample(frame * 8U + substep, cylinder_index);
+            expect(actual != nullptr && *actual == source.sample &&
+                       source.cylinder_id ==
+                           gas.cylinders[cylinder_index].cylinder_id &&
+                       source.exhaust_port_id ==
+                           gas.cylinders[cylinder_index].exhaust_port_id,
+                   "M5 exhaust transfer changed identity, lane order, or payload");
+            const bool primary_upstream =
+                actual->upstream == ExhaustTransferUpstream::primary;
+            const double upstream_pressure_pa = primary_upstream
+                                                    ? actual->primary_pressure_pa_abs
+                                                    : actual->chamber_pressure_pa_abs;
+            const double upstream_temperature_k = primary_upstream
+                                                      ? actual->primary_temperature_k
+                                                      : actual->chamber_temperature_k;
+            expect(actual->outer_sample_index == gas.sample_index &&
+                       actual->gas_substep_ordinal == substep &&
+                       std::signbit(actual->signed_transferred_amount_mol) ==
+                           primary_upstream &&
+                       std::signbit(actual->signed_mass_flow_kg_s) ==
+                           primary_upstream &&
+                       actual->signed_mass_flow_kg_s ==
+                           (actual->signed_transferred_amount_mol *
+                            kLegacyAirMolarMassKgPerMol) /
+                               kSubstepDurationS &&
+                       actual->upstream_density_kg_m3 ==
+                           upstream_pressure_pa /
+                               (kSpecificGasConstant * upstream_temperature_k) &&
+                       actual->upstream_sound_speed_m_s ==
+                           std::sqrt(legacy_gas_heat_capacity_ratio() *
+                                     kSpecificGasConstant * upstream_temperature_k) &&
+                       actual->effective_flow_area_availability ==
+                           Availability::unavailable &&
+                       actual->effective_flow_area_m2 == 0.0 &&
+                       !std::signbit(actual->effective_flow_area_m2),
+                   "M5 exhaust source sign, timing, gas projection, or area "
+                   "availability changed");
+            activity.exhaust_substep_flow =
+                activity.exhaust_substep_flow ||
+                actual->signed_transferred_amount_mol != 0.0;
+        }
+    }
+
     const auto *engine = block.engine_sample(frame);
     expect(engine != nullptr, "frame-major engine accessor rejected a valid frame");
     expect(engine->validity == (kMechanism | kGasExchange | kTorque) &&
@@ -749,6 +826,7 @@ void test_short_bmw_capture_mapping_and_completion() {
 
     Activity activity;
     std::uint64_t next_sample_index = 0U;
+    std::uint64_t next_exhaust_source_interval = 0U;
     std::uint64_t published_sample_count = 0U;
     std::uint64_t block_ordinal = 0U;
     while (next_sample_index < kShortRunStepCount) {
@@ -767,6 +845,13 @@ void test_short_bmw_capture_mapping_and_completion() {
                            block.declared_block_capacity_frames() == 200U &&
                            block.declared_event_journal_capacity_records() == 3800U,
                        "capture block clock or declared bounds changed");
+                expect(block.exhaust_port_substeps().has_value() &&
+                           block.exhaust_port_substeps()->clock() ==
+                               CaptureClock{{80000, 1},
+                                            next_exhaust_source_interval,
+                                            next_exhaust_source_interval + 1U,
+                                            SamplePhase::post_step},
+                       "M5 source blocks lost exact post-interval clock continuity");
                 expect(block.frame_count() ==
                            std::min<std::uint64_t>(200U, kShortRunStepCount -
                                                              expected_first_sample),
@@ -776,7 +861,10 @@ void test_short_bmw_capture_mapping_and_completion() {
                            block.ports().size() == block.frame_count() * 12U &&
                            block.gas_volumes().size() == block.frame_count() * 22U &&
                            block.flow_edges().size() == block.frame_count() * 34U &&
-                           block.source_routes().size() == block.frame_count() * 2U,
+                           block.source_routes().size() == block.frame_count() * 2U &&
+                           block.exhaust_port_substeps().has_value() &&
+                           block.exhaust_port_substeps()->samples().size() ==
+                               block.frame_count() * 8U * 6U,
                        "capture arrays are not canonical frame-major shapes");
                 verify_layout(block.layout(), request);
                 const auto report = validate(block, request.engine, request.scenario);
@@ -803,6 +891,8 @@ void test_short_bmw_capture_mapping_and_completion() {
                     ++next_sample_index;
                 }
                 verify_events(block, expected_events, activity);
+                next_exhaust_source_interval +=
+                    block.exhaust_port_substeps()->interval_count();
                 expect(block.engine_sample(block.frame_count()) == nullptr &&
                            block.cylinder_sample(
                                0U, block.layout().cylinders().size()) == nullptr &&
@@ -835,7 +925,8 @@ void test_short_bmw_capture_mapping_and_completion() {
         ++block_ordinal;
     }
 
-    expect(block_ordinal == 7U && published_sample_count == kShortRunStepCount,
+    expect(block_ordinal == 7U && published_sample_count == kShortRunStepCount &&
+               next_exhaust_source_interval == kShortRunStepCount * 8U,
            "short capture did not end with six full blocks and one partial block");
     std::size_t completion_callback_count = 0U;
     auto completion = capture.publish_next_block([&](const CaptureBlockView &) {
@@ -864,7 +955,8 @@ void test_short_bmw_capture_mapping_and_completion() {
 
     expect(activity.nonzero_edge_flow && activity.positive_edge_flow &&
                activity.negative_edge_flow && activity.nonzero_directional_pressure &&
-               activity.combustion_heat && activity.event,
+               activity.combustion_heat && activity.event &&
+               activity.exhaust_substep_flow,
            "short capture did not exercise bidirectional flow, pressure, combustion, "
            "and events");
 }

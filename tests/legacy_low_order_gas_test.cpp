@@ -132,8 +132,7 @@ struct CompiledSessions {
         request.engine, low_order_core(request), request.scenario, schedule));
     auto gas = require_gas(CoreRuntimeFactory::compile_gas(
         request.engine, low_order_core(request), request.scenario,
-        schedule.control_schedule(),
-        mechanics.cylinder_models()));
+        schedule.control_schedule(), mechanics.cylinder_models()));
     return {std::move(mechanics), std::move(gas)};
 }
 
@@ -452,6 +451,7 @@ void accumulate_activity(const LegacyLowOrderGasStep &step,
            left.gas_volumes == right.gas_volumes &&
            left.flow_edges == right.flow_edges && left.cylinders == right.cylinders &&
            left.exhaust_routes == right.exhaust_routes &&
+           left.exhaust_port_substeps == right.exhaust_port_substeps &&
            same_events(left.events, right.events) &&
            left.indicated_gas_torque_nm == right.indicated_gas_torque_nm;
 }
@@ -518,8 +518,7 @@ void expect_gas_compile_rejected(const BmwM52b28ParityRequest &request,
         request.engine, low_order_core(request), request.scenario, schedule));
     auto result = CoreRuntimeFactory::compile_gas(
         request.engine, low_order_core(request), request.scenario,
-        schedule.control_schedule(),
-        mechanics.cylinder_models());
+        schedule.control_schedule(), mechanics.cylinder_models());
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr, std::string{context} + " compiled successfully");
     const bool has_expected_issue = std::any_of(
@@ -561,8 +560,7 @@ void test_gas_method_admission_rejection() {
             require_schedule(compile_kinematic_scenario_schedule(request.scenario));
         auto gas = require_gas(CoreRuntimeFactory::compile_gas(
             request.engine, low_order_core(request), request.scenario,
-            schedule.control_schedule(),
-            mechanics.cylinder_models()));
+            schedule.control_schedule(), mechanics.cylinder_models()));
         expect(gas.produced_sample_count() == 0U,
                "fresh held-speed gas session published samples during admission");
     }

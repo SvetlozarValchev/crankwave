@@ -221,6 +221,87 @@ struct PortCaptureSample {
     double valve_lift_m = 0.0;
 };
 
+enum class ExhaustTransferUpstream : std::uint8_t {
+    chamber,
+    primary,
+};
+
+/**
+ * One accepted exhaust-valve gas-transfer interval.
+ *
+ * The containing ExhaustPortSubstepCaptureView supplies cylinder/port identity by
+ * fixed lane order. Positive transfer and mass flow are cylinder -> primary.
+ * Thermodynamic values are the immediately-pre-transfer states; the upstream gas
+ * properties therefore select the chamber for positive flow and the primary for
+ * negative flow, including the legacy primary-side negative-zero tie.
+ */
+struct ExhaustPortSubstepCaptureSample {
+    std::uint64_t outer_sample_index = 0;
+    std::uint8_t gas_substep_ordinal = 0;
+    CaptureValidityMask validity = 0;
+    double chamber_pressure_pa_abs = 0.0;
+    double chamber_temperature_k = 0.0;
+    double primary_pressure_pa_abs = 0.0;
+    double primary_temperature_k = 0.0;
+    double signed_transferred_amount_mol = 0.0;
+    double signed_mass_flow_kg_s = 0.0;
+    ExhaustTransferUpstream upstream = ExhaustTransferUpstream::chamber;
+    double upstream_density_kg_m3 = 0.0;
+    double upstream_sound_speed_m_s = 0.0;
+    double valve_lift_m = 0.0;
+    double effective_molar_flow_conductance_m2_sqrt_mol_per_kg = 0.0;
+    Availability effective_flow_area_availability = Availability::unavailable;
+    double effective_flow_area_m2 = 0.0;
+
+    friend bool operator==(const ExhaustPortSubstepCaptureSample &,
+                           const ExhaustPortSubstepCaptureSample &) = default;
+};
+
+/**
+ * Callback-scoped, interval-major M5 exhaust source lane.
+ *
+ * `samples[interval * ports.size() + port]` is the transfer for that fixed exhaust
+ * port lane. The view and all referenced storage obey CaptureBlockView's synchronous
+ * callback lifetime rule.
+ */
+class ExhaustPortSubstepCaptureView {
+  public:
+    template <class PortRange, class SampleRange>
+        requires detail::CallbackBorrowRange<PortRange, PortIdentity> &&
+                 detail::CallbackBorrowRange<SampleRange,
+                                             ExhaustPortSubstepCaptureSample>
+    [[nodiscard]] static ExhaustPortSubstepCaptureView
+    borrow_for_callback(CaptureClock clock, std::uint32_t interval_count,
+                        PortRange &&ports, SampleRange &&samples) noexcept {
+        return {
+            clock,
+            interval_count,
+            detail::callback_span<PortIdentity>(std::forward<PortRange>(ports)),
+            detail::callback_span<ExhaustPortSubstepCaptureSample>(
+                std::forward<SampleRange>(samples)),
+        };
+    }
+
+    [[nodiscard]] const CaptureClock &clock() const noexcept;
+    [[nodiscard]] std::uint32_t interval_count() const noexcept;
+    [[nodiscard]] std::span<const PortIdentity> ports() const noexcept;
+    [[nodiscard]] std::span<const ExhaustPortSubstepCaptureSample>
+    samples() const noexcept;
+    [[nodiscard]] const ExhaustPortSubstepCaptureSample *
+    sample(std::size_t interval_index, std::size_t port_index) const noexcept;
+
+  private:
+    ExhaustPortSubstepCaptureView(
+        CaptureClock clock, std::uint32_t interval_count,
+        std::span<const PortIdentity> ports,
+        std::span<const ExhaustPortSubstepCaptureSample> samples) noexcept;
+
+    CaptureClock clock_;
+    std::uint32_t interval_count_ = 0;
+    std::span<const PortIdentity> ports_;
+    std::span<const ExhaustPortSubstepCaptureSample> samples_;
+};
+
 struct GasVolumeCaptureSample {
     CaptureValidityMask validity = 0;
     double volume_m3 = 0.0;
@@ -406,7 +487,8 @@ class CaptureBlockView {
         CylinderRange &&cylinders, PortRange &&ports, GasVolumeRange &&gas_volumes,
         FlowEdgeRange &&flow_edges, SourceRouteRange &&source_routes,
         EventJournalView event_journal,
-        std::optional<ReferenceParityBlockView> reference_parity =
+        std::optional<ReferenceParityBlockView> reference_parity = std::nullopt,
+        std::optional<ExhaustPortSubstepCaptureView> exhaust_port_substeps =
             std::nullopt) noexcept {
         return {
             layout,
@@ -427,6 +509,7 @@ class CaptureBlockView {
                 std::forward<SourceRouteRange>(source_routes)),
             event_journal,
             reference_parity,
+            exhaust_port_substeps,
         };
     }
 
@@ -446,6 +529,8 @@ class CaptureBlockView {
     [[nodiscard]] const EventJournalView &event_journal() const noexcept;
     [[nodiscard]] const std::optional<ReferenceParityBlockView> &
     reference_parity() const noexcept;
+    [[nodiscard]] const std::optional<ExhaustPortSubstepCaptureView> &
+    exhaust_port_substeps() const noexcept;
 
     [[nodiscard]] const EngineCaptureSample *
     engine_sample(std::size_t frame_index) const noexcept;
@@ -468,18 +553,19 @@ class CaptureBlockView {
                                    std::size_t route_index) const noexcept;
 
   private:
-    CaptureBlockView(CaptureLayoutView layout, CaptureClock clock,
-                     std::uint32_t frame_count,
-                     std::uint32_t declared_block_capacity_frames,
-                     std::uint32_t declared_event_journal_capacity_records,
-                     std::span<const EngineCaptureSample> engine,
-                     std::span<const CylinderCaptureSample> cylinders,
-                     std::span<const PortCaptureSample> ports,
-                     std::span<const GasVolumeCaptureSample> gas_volumes,
-                     std::span<const FlowEdgeCaptureSample> flow_edges,
-                     std::span<const SourceRouteCaptureSample> source_routes,
-                     EventJournalView event_journal,
-                     std::optional<ReferenceParityBlockView> reference_parity) noexcept;
+    CaptureBlockView(
+        CaptureLayoutView layout, CaptureClock clock, std::uint32_t frame_count,
+        std::uint32_t declared_block_capacity_frames,
+        std::uint32_t declared_event_journal_capacity_records,
+        std::span<const EngineCaptureSample> engine,
+        std::span<const CylinderCaptureSample> cylinders,
+        std::span<const PortCaptureSample> ports,
+        std::span<const GasVolumeCaptureSample> gas_volumes,
+        std::span<const FlowEdgeCaptureSample> flow_edges,
+        std::span<const SourceRouteCaptureSample> source_routes,
+        EventJournalView event_journal,
+        std::optional<ReferenceParityBlockView> reference_parity,
+        std::optional<ExhaustPortSubstepCaptureView> exhaust_port_substeps) noexcept;
 
     CaptureLayoutView layout_;
     CaptureClock clock_;
@@ -494,9 +580,11 @@ class CaptureBlockView {
     std::span<const SourceRouteCaptureSample> source_routes_;
     EventJournalView event_journal_;
     std::optional<ReferenceParityBlockView> reference_parity_;
+    std::optional<ExhaustPortSubstepCaptureView> exhaust_port_substeps_;
 };
 
 [[nodiscard]] ValidationReport validate(const CaptureLayoutView &layout);
+[[nodiscard]] ValidationReport validate(const ExhaustPortSubstepCaptureView &substeps);
 [[nodiscard]] ValidationReport validate(const CaptureBlockView &block);
 [[nodiscard]] ValidationReport validate(const CaptureBlockView &block,
                                         const EngineSpec &engine,

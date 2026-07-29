@@ -8,6 +8,7 @@
 #include <limits>
 #include <numbers>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -22,6 +23,16 @@ constexpr CaptureValidityMask kKnownCaptureValidity =
     capture_validity_mask(CaptureValidity::gas_exchange) |
     capture_validity_mask(CaptureValidity::combustion) |
     capture_validity_mask(CaptureValidity::torque);
+
+constexpr std::uint64_t kExhaustSourceRateHz = 80000U;
+constexpr std::uint32_t kGasSubstepsPerOuterFrame = 8U;
+constexpr double kPseudoGasMolarMassKgPerMol = 0.02897;
+constexpr double kUniversalGasConstantJPerMolK = 8.31446261815324;
+constexpr double kPseudoGasHeatCapacityRatio = 1.4;
+constexpr double kPseudoGasSpecificConstantJPerKgK =
+    kUniversalGasConstantJPerMolK / kPseudoGasMolarMassKgPerMol;
+constexpr double kGasSubstepDurationS =
+    (1.0 / 10000.0) / static_cast<double>(kGasSubstepsPerOuterFrame);
 
 bool has_validity(CaptureValidityMask mask, CaptureValidity flag) noexcept {
     return (mask & capture_validity_mask(flag)) != 0;
@@ -122,6 +133,15 @@ bool any_torque_quantity_available(const TorqueTelemetry &telemetry) noexcept {
 
 bool known(SamplePhase value) noexcept {
     return value == SamplePhase::pre_step || value == SamplePhase::post_step;
+}
+
+bool known(ExhaustTransferUpstream value) noexcept {
+    return value == ExhaustTransferUpstream::chamber ||
+           value == ExhaustTransferUpstream::primary;
+}
+
+bool known(Availability value) noexcept {
+    return value == Availability::available || value == Availability::unavailable;
 }
 
 bool known(PortKind value) noexcept {
@@ -366,6 +386,37 @@ double CaptureClock::timestamp_s(std::uint32_t frame_offset) const noexcept {
                                static_cast<long double>(rate.numerator));
 }
 
+ExhaustPortSubstepCaptureView::ExhaustPortSubstepCaptureView(
+    CaptureClock clock, std::uint32_t interval_count,
+    std::span<const PortIdentity> ports,
+    std::span<const ExhaustPortSubstepCaptureSample> samples) noexcept
+    : clock_(clock), interval_count_(interval_count), ports_(ports), samples_(samples) {
+}
+
+const CaptureClock &ExhaustPortSubstepCaptureView::clock() const noexcept {
+    return clock_;
+}
+
+std::uint32_t ExhaustPortSubstepCaptureView::interval_count() const noexcept {
+    return interval_count_;
+}
+
+std::span<const PortIdentity> ExhaustPortSubstepCaptureView::ports() const noexcept {
+    return ports_;
+}
+
+std::span<const ExhaustPortSubstepCaptureSample>
+ExhaustPortSubstepCaptureView::samples() const noexcept {
+    return samples_;
+}
+
+const ExhaustPortSubstepCaptureSample *
+ExhaustPortSubstepCaptureView::sample(std::size_t interval_index,
+                                      std::size_t port_index) const noexcept {
+    return frame_major_at(samples_, interval_count_, ports_.size(), interval_index,
+                          port_index);
+}
+
 ReferenceParityBlockView::ReferenceParityBlockView(
     std::span<const double> filtered_engine_speed_rpm,
     std::span<const ReferenceParityCylinderSample> cylinders) noexcept
@@ -404,13 +455,15 @@ CaptureBlockView::CaptureBlockView(
     std::span<const FlowEdgeCaptureSample> flow_edges,
     std::span<const SourceRouteCaptureSample> source_routes,
     EventJournalView event_journal,
-    std::optional<ReferenceParityBlockView> reference_parity) noexcept
+    std::optional<ReferenceParityBlockView> reference_parity,
+    std::optional<ExhaustPortSubstepCaptureView> exhaust_port_substeps) noexcept
     : layout_(layout), clock_(clock), frame_count_(frame_count),
       declared_block_capacity_frames_(declared_block_capacity_frames),
       declared_event_journal_capacity_records_(declared_event_journal_capacity_records),
       engine_(engine), cylinders_(cylinders), ports_(ports), gas_volumes_(gas_volumes),
       flow_edges_(flow_edges), source_routes_(source_routes),
-      event_journal_(event_journal), reference_parity_(reference_parity) {}
+      event_journal_(event_journal), reference_parity_(reference_parity),
+      exhaust_port_substeps_(exhaust_port_substeps) {}
 
 const CaptureLayoutView &CaptureBlockView::layout() const noexcept {
     return layout_;
@@ -465,6 +518,11 @@ const EventJournalView &CaptureBlockView::event_journal() const noexcept {
 const std::optional<ReferenceParityBlockView> &
 CaptureBlockView::reference_parity() const noexcept {
     return reference_parity_;
+}
+
+const std::optional<ExhaustPortSubstepCaptureView> &
+CaptureBlockView::exhaust_port_substeps() const noexcept {
+    return exhaust_port_substeps_;
 }
 
 const EngineCaptureSample *
@@ -668,6 +726,206 @@ ValidationReport validate(const CaptureLayoutView &layout) {
     return report;
 }
 
+ValidationReport validate(const ExhaustPortSubstepCaptureView &substeps) {
+    using detail::append_prefixed;
+    using detail::finite;
+    using detail::require;
+
+    ValidationReport report;
+    append_prefixed(report, validate(substeps.clock().rate), "clock.rate");
+    require(report, substeps.clock().rate == RationalRateHz{kExhaustSourceRateHz, 1U},
+            ContractIssueCode::inconsistent_semantics, "clock.rate",
+            "exhaust-port substeps require the exact 80000/1 Hz source clock");
+    require(report, substeps.clock().phase == SamplePhase::post_step,
+            ContractIssueCode::inconsistent_semantics, "clock.phase",
+            "exhaust-port substeps are post-transfer interval samples");
+    require(report, substeps.interval_count() > 0U, ContractIssueCode::invalid_value,
+            "interval_count", "exhaust-port substep interval count must be positive");
+    require(report, substeps.interval_count() % kGasSubstepsPerOuterFrame == 0U,
+            ContractIssueCode::inconsistent_shape, "interval_count",
+            "exhaust-port interval count must contain eight intervals per outer "
+            "frame");
+    require(report,
+            substeps.clock().first_sample_index % kGasSubstepsPerOuterFrame == 0U,
+            ContractIssueCode::inconsistent_semantics, "clock.first_sample_index",
+            "first exhaust source interval must align to an outer-frame boundary");
+
+    std::uint64_t expected_first_timestamp = 0U;
+    const bool timestamp_representable = checked_add_u64(
+        substeps.clock().first_sample_index, 1U, expected_first_timestamp);
+    require(report,
+            timestamp_representable &&
+                substeps.clock().first_timestamp_tick == expected_first_timestamp,
+            ContractIssueCode::inconsistent_semantics, "clock.first_timestamp_tick",
+            "post-interval timestamp tick must equal source interval index plus one");
+
+    require(report, !substeps.ports().empty(), ContractIssueCode::missing_value,
+            "ports", "exhaust-port substep lane requires at least one port");
+    std::unordered_set<std::uint32_t> port_ids;
+    std::unordered_set<std::uint32_t> cylinder_ids;
+    for (std::size_t index = 0; index < substeps.ports().size(); ++index) {
+        const auto &port = substeps.ports()[index];
+        const auto path = "ports[" + std::to_string(index) + "]";
+        require(report, port.id.valid(), ContractIssueCode::invalid_value, path + ".id",
+                "exhaust source port ID must be nonzero");
+        require(report, port.cylinder_id.valid(), ContractIssueCode::invalid_value,
+                path + ".cylinder_id", "exhaust source cylinder ID must be nonzero");
+        require(report, port.kind == PortKind::exhaust,
+                ContractIssueCode::inconsistent_semantics, path + ".kind",
+                "exhaust substep source lanes admit exhaust ports only");
+        require(report, port_ids.insert(port.id.value).second,
+                ContractIssueCode::duplicate_identity, path + ".id",
+                "exhaust source port IDs must be unique");
+        require(report, cylinder_ids.insert(port.cylinder_id.value).second,
+                ContractIssueCode::duplicate_identity, path + ".cylinder_id",
+                "each cylinder must own exactly one exhaust source lane");
+    }
+
+    std::size_t expected_sample_count = 0U;
+    const bool shape_representable = checked_product(
+        substeps.interval_count(), substeps.ports().size(), expected_sample_count);
+    require(report, shape_representable, ContractIssueCode::invalid_value, "samples",
+            "exhaust substep sample shape overflows size_t");
+    if (shape_representable) {
+        require(report, substeps.samples().size() == expected_sample_count,
+                ContractIssueCode::inconsistent_shape, "samples",
+                "sample count must equal interval count times exhaust-port count");
+    }
+
+    const auto first_outer_sample_index =
+        substeps.clock().first_sample_index / kGasSubstepsPerOuterFrame;
+    for (std::size_t index = 0; index < substeps.samples().size(); ++index) {
+        const auto &sample = substeps.samples()[index];
+        if (substeps.ports().empty()) {
+            break;
+        }
+        const auto require_sample = [&](bool condition, ContractIssueCode code,
+                                        std::string_view suffix,
+                                        std::string_view message) {
+            if (!condition) {
+                report.add(code,
+                           "samples[" + std::to_string(index) + "]" +
+                               std::string{suffix},
+                           std::string{message});
+            }
+        };
+        const auto interval_index = index / substeps.ports().size();
+        const auto expected_outer_sample_index =
+            first_outer_sample_index + interval_index / kGasSubstepsPerOuterFrame;
+        const auto expected_substep_ordinal =
+            static_cast<std::uint8_t>(interval_index % kGasSubstepsPerOuterFrame);
+        require_sample(sample.outer_sample_index == expected_outer_sample_index,
+                       ContractIssueCode::inconsistent_semantics, ".outer_sample_index",
+                       "source record outer index disagrees with its exact 8:1 "
+                       "clock mapping");
+        require_sample(sample.gas_substep_ordinal == expected_substep_ordinal,
+                       ContractIssueCode::inconsistent_semantics,
+                       ".gas_substep_ordinal",
+                       "source record substep ordinal disagrees with "
+                       "interval-major order");
+
+        require_sample(
+            known_mask(sample.validity) &&
+                has_validity(sample.validity, CaptureValidity::thermodynamic_state) &&
+                has_validity(sample.validity, CaptureValidity::gas_exchange),
+            ContractIssueCode::invalid_value, ".validity",
+            "exhaust transfer requires thermodynamic and gas-exchange "
+            "validity");
+        require_sample(all_finite({
+                           sample.chamber_pressure_pa_abs,
+                           sample.chamber_temperature_k,
+                           sample.primary_pressure_pa_abs,
+                           sample.primary_temperature_k,
+                           sample.signed_transferred_amount_mol,
+                           sample.signed_mass_flow_kg_s,
+                           sample.upstream_density_kg_m3,
+                           sample.upstream_sound_speed_m_s,
+                           sample.valve_lift_m,
+                           sample.effective_molar_flow_conductance_m2_sqrt_mol_per_kg,
+                           sample.effective_flow_area_m2,
+                       }),
+                       ContractIssueCode::invalid_value, "",
+                       "exhaust transfer record contains a nonfinite value");
+        require_sample(
+            sample.chamber_pressure_pa_abs > 0.0 &&
+                sample.chamber_temperature_k > 0.0 &&
+                sample.primary_pressure_pa_abs > 0.0 &&
+                sample.primary_temperature_k > 0.0 &&
+                sample.upstream_density_kg_m3 > 0.0 &&
+                sample.upstream_sound_speed_m_s > 0.0 && sample.valve_lift_m >= 0.0 &&
+                sample.effective_molar_flow_conductance_m2_sqrt_mol_per_kg >= 0.0,
+            ContractIssueCode::invalid_value, "",
+            "valid exhaust transfer values are outside their physical domain");
+
+        require_sample(known(sample.upstream), ContractIssueCode::unsupported_value,
+                       ".upstream", "exhaust transfer upstream side is not recognized");
+        if (known(sample.upstream)) {
+            const bool upstream_is_primary =
+                sample.upstream == ExhaustTransferUpstream::primary;
+            require_sample(std::signbit(sample.signed_transferred_amount_mol) ==
+                                   upstream_is_primary &&
+                               std::signbit(sample.signed_mass_flow_kg_s) ==
+                                   upstream_is_primary,
+                           ContractIssueCode::inconsistent_semantics, ".upstream",
+                           "flow sign must select chamber for positive and primary for "
+                           "negative transfer, including signed zero");
+
+            const double upstream_pressure_pa = upstream_is_primary
+                                                    ? sample.primary_pressure_pa_abs
+                                                    : sample.chamber_pressure_pa_abs;
+            const double upstream_temperature_k = upstream_is_primary
+                                                      ? sample.primary_temperature_k
+                                                      : sample.chamber_temperature_k;
+            const double expected_density =
+                upstream_pressure_pa /
+                (kPseudoGasSpecificConstantJPerKgK * upstream_temperature_k);
+            const double expected_sound_speed =
+                std::sqrt(kPseudoGasHeatCapacityRatio *
+                          kPseudoGasSpecificConstantJPerKgK * upstream_temperature_k);
+            require_sample(sample.upstream_density_kg_m3 == expected_density,
+                           ContractIssueCode::inconsistent_semantics,
+                           ".upstream_density_kg_m3",
+                           "upstream density must be the exact retained pseudo-gas "
+                           "projection");
+            require_sample(sample.upstream_sound_speed_m_s == expected_sound_speed,
+                           ContractIssueCode::inconsistent_semantics,
+                           ".upstream_sound_speed_m_s",
+                           "upstream sound speed must be the exact retained pseudo-gas "
+                           "projection");
+        }
+
+        const double expected_mass_flow =
+            (sample.signed_transferred_amount_mol * kPseudoGasMolarMassKgPerMol) /
+            kGasSubstepDurationS;
+        require_sample(sample.signed_mass_flow_kg_s == expected_mass_flow,
+                       ContractIssueCode::inconsistent_semantics,
+                       ".signed_mass_flow_kg_s",
+                       "mass flow must be the exact interval-mean signed transfer "
+                       "rate");
+
+        require_sample(known(sample.effective_flow_area_availability),
+                       ContractIssueCode::unsupported_value,
+                       ".effective_flow_area_availability",
+                       "effective-area availability is not recognized");
+        if (sample.effective_flow_area_availability == Availability::available) {
+            require_sample(finite(sample.effective_flow_area_m2) &&
+                               sample.effective_flow_area_m2 >= 0.0,
+                           ContractIssueCode::invalid_value, ".effective_flow_area_m2",
+                           "available effective flow area must be finite and "
+                           "nonnegative");
+        } else if (sample.effective_flow_area_availability ==
+                   Availability::unavailable) {
+            require_sample(sample.effective_flow_area_m2 == 0.0,
+                           ContractIssueCode::inconsistent_semantics,
+                           ".effective_flow_area_m2",
+                           "unavailable effective flow area must keep its canonical "
+                           "zero payload");
+        }
+    }
+
+    return report;
+}
+
 ValidationReport validate(const CaptureBlockView &block) {
     using detail::append_prefixed;
     using detail::finite;
@@ -722,6 +980,65 @@ ValidationReport validate(const CaptureBlockView &block) {
                   "flow_edges");
     require_shape(block.source_routes().size(), block.layout().routes().size(),
                   "source_routes");
+
+    if (block.exhaust_port_substeps().has_value()) {
+        const auto &substeps = *block.exhaust_port_substeps();
+        append_prefixed(report, validate(substeps), "exhaust_port_substeps");
+
+        const bool source_first_representable =
+            block.clock().first_sample_index <=
+            std::numeric_limits<std::uint64_t>::max() / kGasSubstepsPerOuterFrame;
+        require(report,
+                source_first_representable &&
+                    substeps.clock().first_sample_index ==
+                        block.clock().first_sample_index * kGasSubstepsPerOuterFrame,
+                ContractIssueCode::inconsistent_semantics,
+                "exhaust_port_substeps.clock.first_sample_index",
+                "exhaust source clock must begin at exactly eight times the outer "
+                "sample index");
+
+        const auto expected_interval_count =
+            static_cast<std::uint64_t>(block.frame_count()) * kGasSubstepsPerOuterFrame;
+        require(report,
+                expected_interval_count <= std::numeric_limits<std::uint32_t>::max() &&
+                    substeps.interval_count() == expected_interval_count,
+                ContractIssueCode::inconsistent_shape,
+                "exhaust_port_substeps.interval_count",
+                "exhaust source lane must contain eight intervals per outer frame");
+
+        const auto exhaust_port_count = static_cast<std::size_t>(
+            std::ranges::count_if(block.layout().ports(), [](const auto &port) {
+                return port.kind == PortKind::exhaust;
+            }));
+        require(report,
+                exhaust_port_count == block.layout().cylinders().size() &&
+                    substeps.ports().size() == exhaust_port_count,
+                ContractIssueCode::inconsistent_shape, "exhaust_port_substeps.ports",
+                "substep lane must contain exactly one exhaust port per cylinder");
+
+        const auto comparable_ports =
+            std::min(substeps.ports().size(), block.layout().cylinders().size());
+        for (std::size_t cylinder_index = 0; cylinder_index < comparable_ports;
+             ++cylinder_index) {
+            const auto cylinder_id = block.layout().cylinders()[cylinder_index];
+            const PortIdentity *expected_port = nullptr;
+            std::size_t matching_port_count = 0U;
+            for (const auto &port : block.layout().ports()) {
+                if (port.cylinder_id == cylinder_id && port.kind == PortKind::exhaust) {
+                    expected_port = &port;
+                    ++matching_port_count;
+                }
+            }
+            require(report,
+                    matching_port_count == 1U && expected_port != nullptr &&
+                        substeps.ports()[cylinder_index] == *expected_port,
+                    ContractIssueCode::inconsistent_semantics,
+                    "exhaust_port_substeps.ports[" + std::to_string(cylinder_index) +
+                        "]",
+                    "exhaust source lane identity/order must follow canonical "
+                    "cylinder order");
+        }
+    }
 
     for (std::size_t index = 0; index < block.engine().size(); ++index) {
         const auto &sample = block.engine()[index];
