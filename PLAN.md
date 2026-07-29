@@ -64,14 +64,13 @@ Throttle, load, and RPM cannot all be independent commands.
 
 | Scenario mode | Authoritative inputs | Results |
 |---|---|---|
-| Held speed | fixed RPM, throttle, and operating state | settled net torque and achieved load |
+| Held speed | fixed RPM, throttle, and operating state | sampled cycle-mean net torque and achieved load |
 | Prescribed kinematic sweep | RPM trajectory, throttle, and operating state | actuator torque and inertia-corrected net torque |
 | Load-target held capture | fixed RPM, target load, and operating state | solved throttle, achieved load, or unreachable-target error |
 | Inertial dyno | throttle and brake/resistance | RPM trajectory and torque |
 
 Every scenario also declares ambient pressure/temperature, fuel, initial thermal state,
-warm-up/settling policy, ignition/events, duration, rates, quality, and deterministic
-seed.
+preparation policy, ignition/events, duration, rates, quality, and deterministic seed.
 
 ### Load and torque
 
@@ -517,12 +516,13 @@ replacement starts before acceptance.
           profile adapter, and prove unchanged M3 behavior and identity.
     - [x] Freeze the typed M4 accessory, aggregate-loss, starter, and operating-profile
           contract.
-    - [x] Replace the transitional simulation-v4 wire with the sole simulation-v5
-          wire for the explicit M3 and M4 profile forms.
+    - [x] Replace the previous manifest/request grammar with the sole current v6/v3
+          wire identities for the explicit M3 and M4 profile forms.
     - [x] Instantiate and prove the BMW M4 operating profile.
   - [x] Generalize the kinematic schedule for O(1)-storage held-speed operation while
         preserving the accepted M3 trajectory exactly.
-  - [x] Admit and prove phase-aligned pressure plus cycle-torque convergence.
+  - [x] Implement phase-aligned pressure and complete-cycle torque evidence; diagnose
+        and delete the subsequently rejected adjacent-block convergence gate.
     - [x] Freeze a stochastic block-mean convergence method that reuses the exact
           cycle-boundary evidence rather than running a second angle detector.
     - [x] Implement and independently test the bounded convergence observer and
@@ -531,20 +531,20 @@ replacement starts before acceptance.
           executor.
   - [x] Publish a typed held-speed operating-point result and prove M3 remains
         rejected for held-speed use.
-- [ ] Render a modest BMW torque sweep with declared conditions and sourced plausibility
+- [x] Render a modest BMW torque sweep with declared conditions and sourced plausibility
       bounds.
   - [x] Freeze the original-M52 manufacturer landmarks, variant guard, derivations,
         missing-condition caveats, and warning-only gross-error policy before seeing
         the modeled sweep.
-  - [ ] Compare only complete converged shaft results and publish the sweep evidence.
+  - [x] Compare only complete fixed-sample shaft results and publish the sweep evidence.
     - [x] Freeze the exact sweep points, conditions, comparison rules, and evidence
           record before executing any point.
     - [x] Implement and verify the canonical sweep request set.
     - [x] Implement and verify the bounded runner and canonical evidence encoder.
-    - [ ] Execute from a clean commit and publish the complete evidence record.
+    - [x] Execute from a clean commit and publish the complete evidence record.
       - [x] Run the frozen v1 set once, record its fail-closed 2500 rpm pressure
             nonconvergence, and prove that no partial evidence was published.
-      - [ ] Diagnose whether the limiting cylinder-pressure residual is continued
+      - [x] Diagnose whether the limiting cylinder-pressure residual is continued
             settling or stationary deterministic cycle variation before changing any
             cutoff, block size, tolerance, or model behavior.
         - [x] Freeze the first minimal three-cutoff diagnostic and its bit-exact
@@ -557,7 +557,7 @@ replacement starts before acceptance.
           - [x] Freeze the bounded cross-RPM diagnostic, reduction, decision envelope,
                 extension rule, concurrency bound, and non-publication behavior.
           - [x] Implement, execute from a clean commit, and record the result.
-      - [ ] Replace the rejected equality gate and publish a complete fixed-sample
+      - [x] Replace the rejected equality gate and publish a complete fixed-sample
             torque sweep under new exact identities.
         - [x] Freeze the incompatible fixed-horizon sampling contract, result,
               canonical BMW migration, evidence replacement, and removal policy.
