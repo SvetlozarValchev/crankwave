@@ -551,6 +551,8 @@ void expect_exact_manifest(const contract::RenderSuccess &success,
            "prescribed BMW render fabricated a reached-target result");
     expect(!success.held_speed_operating_point.has_value(),
            "M3 prescribed BMW render fabricated held-speed operating evidence");
+    expect(!success.inertial_dyno.has_value(),
+           "M3 prescribed BMW render fabricated inertial-dyno evidence");
     expect(sink.committed_manifest.has_value() &&
                sink.committed_manifest->content == manifest.content &&
                sink.committed_manifest->execution == manifest.execution,
@@ -699,7 +701,8 @@ void expect_operating_render_contract(
                sink.commit_calls == 1 && sink.abort_calls == 0,
            "successful M4 render violated sink transaction cardinality");
     expect(!success->reached_target.has_value() &&
-               success->held_speed_operating_point.has_value(),
+               success->held_speed_operating_point.has_value() &&
+               !success->inertial_dyno.has_value(),
            "M4 held-speed success omitted its exclusive operating evidence");
     expect(success->manifest.content.inputs.resolved.scenario == request->scenario,
            "M4 success manifest did not retain the exact held-speed scenario");

@@ -369,6 +369,7 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
             presentation::AdmittedPresentationCalibration::source_frames_per_block;
         std::optional<contract::HeldSpeedOperatingPointResult>
             held_speed_operating_point;
+        std::optional<contract::InertialDynoResult> inertial_dyno;
 
         while (true) {
             const auto sample_index =
@@ -523,14 +524,14 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                             implementation->simulation.published_sample_count(),
                         });
                 }
-                const bool requires_operating_point =
+                const bool requires_held_speed_operating_point =
                     std::holds_alternative<contract::LowOrderOperatingPointV1Profile>(
                         implementation->request.resolved_inputs.engine
                             .physics_profile) &&
                     std::holds_alternative<contract::HeldSpeed>(
                         implementation->request.resolved_inputs.scenario.mode);
                 if (completed->held_speed_operating_point.has_value() !=
-                    requires_operating_point) {
+                    requires_held_speed_operating_point) {
                     return coordinator_failure(
                         std::move(implementation->request),
                         {
@@ -558,6 +559,39 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
                                 "pipeline-operating-result-invalid",
                                 "request-bound held-speed evidence failed validation "
                                 "before presentation finalization",
+                                implementation->simulation.published_sample_count(),
+                            });
+                    }
+                }
+                const bool requires_inertial_dyno =
+                    std::holds_alternative<contract::InertialDyno>(
+                        implementation->request.resolved_inputs.scenario.mode);
+                if (completed->inertial_dyno.has_value() != requires_inertial_dyno) {
+                    return coordinator_failure(
+                        std::move(implementation->request),
+                        {
+                            contract::FailureKind::contract_violation,
+                            "pipeline-inertial-result-presence-disagreed",
+                            "simulation completion carried inertial-dyno evidence "
+                            "if and only if the opaque job requested an inertial "
+                            "dyno scenario",
+                            implementation->simulation.published_sample_count(),
+                        });
+                }
+                inertial_dyno = std::move(completed->inertial_dyno);
+                if (inertial_dyno.has_value()) {
+                    const auto report = contract::validate(
+                        *inertial_dyno,
+                        implementation->request.resolved_inputs.scenario,
+                        implementation->simulation_request_identity_v2_sha256);
+                    if (!report.ok()) {
+                        return coordinator_failure(
+                            std::move(implementation->request),
+                            {
+                                contract::FailureKind::contract_violation,
+                                "pipeline-inertial-result-invalid",
+                                "request-bound inertial-dyno evidence failed "
+                                "validation before presentation finalization",
                                 implementation->simulation.published_sample_count(),
                             });
                     }
@@ -647,6 +681,7 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
             std::move(manifest),
             std::nullopt,
             std::move(held_speed_operating_point),
+            std::move(inertial_dyno),
         };
     } catch (...) {
         determinism::detail::restore_admitted_renderer_numeric_controls();

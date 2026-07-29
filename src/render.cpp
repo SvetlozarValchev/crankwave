@@ -164,19 +164,20 @@ contract::ValidationReport validate(const contract::RenderResult &result,
                                     const contract::RenderScenario &scenario) {
     ValidationReport report;
     contract::Sha256Digest simulation_request_identity_v2_sha256;
-    const bool requires_held_speed_operating_evidence = std::visit(
+    const bool requires_operating_evidence_identity = std::visit(
         [&](const auto &outcome) {
             using Outcome = std::decay_t<decltype(outcome)>;
             if constexpr (std::is_same_v<Outcome, contract::RenderSuccess>) {
                 return std::holds_alternative<
                            contract::LowOrderOperatingPointV1Profile>(
                            specification.engine.physics_profile) &&
-                       std::holds_alternative<contract::HeldSpeed>(scenario.mode);
+                       (std::holds_alternative<contract::HeldSpeed>(scenario.mode) ||
+                        std::holds_alternative<contract::InertialDyno>(scenario.mode));
             }
             return false;
         },
         result);
-    if (requires_held_speed_operating_evidence) {
+    if (requires_operating_evidence_identity) {
         const auto encoded_request_identity =
             identity::encode_simulation_request_identity_v2(
                 specification.engine, scenario, specification.provenance.bundle);

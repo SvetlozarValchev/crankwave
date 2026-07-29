@@ -1,7 +1,7 @@
 #include "reference/bmw_p18_render_specification.hpp"
 
 #include "engine_sim_offline/artifacts/directory_render_sink.hpp"
-#include "engine_sim_offline/profiles/bmw_m52b28_held_speed_listening_request.hpp"
+#include "engine_sim_offline/profiles/bmw_m52b28_inertial_dyno_listening_request.hpp"
 #include "reference/p18_reference_catalog.hpp"
 #include "reference/p18_reference_fixture_loader.hpp"
 
@@ -98,10 +98,10 @@ read_verified_configured_ir(const std::filesystem::path &fixture_root) {
     return bytes;
 }
 
-[[nodiscard]] profiles::BmwM52b28HeldSpeedListeningRequest make_listening_request() {
-    auto result = profiles::make_bmw_m52b28_held_speed_listening_request();
+[[nodiscard]] profiles::BmwM52b28InertialDynoListeningRequest make_listening_request() {
+    auto result = profiles::make_bmw_m52b28_inertial_dyno_listening_request();
     if (auto *request =
-            std::get_if<profiles::BmwM52b28HeldSpeedListeningRequest>(&result)) {
+            std::get_if<profiles::BmwM52b28InertialDynoListeningRequest>(&result)) {
         return std::move(*request);
     }
     throw std::runtime_error{
@@ -118,7 +118,7 @@ read_verified_configured_ir(const std::filesystem::path &fixture_root) {
     }
     const auto &unreachable = std::get<contract::UnreachableTarget>(result);
     throw std::runtime_error{
-        "M4 BMW held-speed request unexpectedly returned unreachable-target (" +
+        "M4 BMW inertial-dyno request unexpectedly returned unreachable-target (" +
         unreachable.context.detail_code + "): " + unreachable.context.state_summary};
 }
 
@@ -174,13 +174,17 @@ int run(int argc, char **argv) {
             "successful M4 BMW render did not commit its directory transaction"};
     }
     if (success->reached_target.has_value() ||
-        !success->held_speed_operating_point.has_value()) {
+        success->held_speed_operating_point.has_value() ||
+        !success->inertial_dyno.has_value()) {
         throw std::runtime_error{
-            "successful M4 BMW held-speed render has the wrong operating evidence"};
+            "successful M4 BMW inertial-dyno render has the wrong operating evidence"};
     }
 
-    const auto &operating = *success->held_speed_operating_point;
-    const auto &reported = operating.reported_block();
+    const auto &operating = *success->inertial_dyno;
+    if (!operating.first_target_reached_frame_index.has_value()) {
+        throw std::runtime_error{
+            "M4 BMW inertial-dyno pull did not reach its target speed"};
+    }
     const auto audition = output_directory / "audio/master.reference.audition.wav";
     const double command_seconds =
         std::chrono::duration<double>(std::chrono::steady_clock::now() -
@@ -189,16 +193,26 @@ int run(int argc, char **argv) {
     std::cout << std::setprecision(17) << "output=" << output_directory.string() << '\n'
               << "audition=" << audition.string() << '\n'
               << "scenario=" << request.scenario.scenario_id << '\n'
-              << "engine_speed_rpm=" << operating.conditions.engine_speed_rpm << '\n'
-              << "throttle_01=" << operating.conditions.throttle_01 << '\n'
-              << "net_torque_nm=" << reported.cycle_mean_torque.net_shaft.value_nm
+              << "start_engine_speed_rpm=" << operating.start_engine_speed_rpm << '\n'
+              << "release_engine_speed_rpm=" << operating.release_engine_speed_rpm
               << '\n'
-              << "net_bmep_pa=" << reported.net_bmep_pa << '\n'
-              << "mean_power_w=" << reported.mean_power_w << '\n'
-              << "torque_residual_nm=" << operating.convergence.torque_residual_nm
+              << "target_engine_speed_rpm=" << operating.target_engine_speed_rpm << '\n'
+              << "end_engine_speed_rpm=" << operating.end_engine_speed_rpm << '\n'
+              << "minimum_engine_speed_rpm=" << operating.minimum_engine_speed_rpm
               << '\n'
-              << "pressure_residual_pa=" << operating.convergence.pressure_residual_pa
+              << "maximum_engine_speed_rpm=" << operating.maximum_engine_speed_rpm
               << '\n'
+              << "release_frame_index=" << operating.release_frame_index << '\n'
+              << "first_target_reached_frame_index="
+              << *operating.first_target_reached_frame_index << '\n'
+              << "end_frame_index=" << operating.end_frame_index << '\n'
+              << "net_shaft_work_j=" << operating.energy_balance.net_shaft_work_j
+              << '\n'
+              << "passive_brake_absorbed_work_j="
+              << operating.energy_balance.passive_brake_absorbed_work_j << '\n'
+              << "kinetic_energy_change_j="
+              << operating.energy_balance.kinetic_energy_change_j << '\n'
+              << "energy_residual_j=" << operating.energy_balance.residual_j << '\n'
               << "render_seconds=" << render_seconds << '\n'
               << "total_command_seconds=" << command_seconds << '\n';
     return EXIT_SUCCESS;
