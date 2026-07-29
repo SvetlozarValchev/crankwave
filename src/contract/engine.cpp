@@ -8,7 +8,6 @@
 #include <numbers>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -1065,13 +1064,6 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
         [&](const auto &profile) {
             validate_authored_low_order_core_topology(report, definition, profile.core,
                                                       profile_support::root(profile));
-            if constexpr (std::is_same_v<std::decay_t<decltype(profile)>,
-                                         AuthoredLowOrderOperatingPointV1Profile>) {
-                report.append(validate(profile.exhaust_acoustics, definition,
-                                       definition.provenance,
-                                       std::string(profile_support::root(profile)) +
-                                           ".exhaust_acoustics"));
-            }
         },
         definition.physics_profile);
     return report;

@@ -1,31 +1,30 @@
 #include "render/compiled_presentation_job.hpp"
 
-#include "acoustics/exhaust_acoustic_session.hpp"
 #include "determinism/renderer_determinism_envelope.hpp"
 #include "engine_sim_offline/request_identity.hpp"
-#include "presentation/mastering.hpp"
-#include "presentation/presentation_method_registry.hpp"
-#include "presentation/presentation_render_session.hpp"
+#include "excitation/captured_exhaust_excitation.hpp"
+#include "presentation/presentation_asset_compiler.hpp"
+#include "presentation/presentation_calibration_compiler.hpp"
 #include "render/compiled_presentation_job_impl.hpp"
 #include "render/render_job_derivation.hpp"
 #include "render/render_job_failure.hpp"
 #include "render/render_request.hpp"
 #include "simulation/low_order_capture_session.hpp"
 
+#include <algorithm>
 #include <array>
-#include <cstdint>
-#include <exception>
+#include <bit>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <ranges>
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace engine_sim_offline::render_detail {
 namespace {
-
-constexpr std::uint32_t kExhaustSourceIntervalsPerCaptureFrame = 8U;
 
 [[nodiscard]] contract::RenderFailure
 compiler_failure(contract::RenderRequestRecord request, contract::FailureKind kind,
@@ -34,12 +33,61 @@ compiler_failure(contract::RenderRequestRecord request, contract::FailureKind ki
                             "compiled-presentation-job-v1", std::move(state_summary));
 }
 
-[[nodiscard]] const contract::RouteSpec *
-find_engine_route(const contract::EngineSpec &engine,
-                  contract::RouteId route_id) noexcept {
+[[nodiscard]] bool
+kernel_matches(const presentation::CompiledPresentationConvolutionKernel &kernel,
+               const presentation::CompiledPresentationAsset &asset,
+               const contract::MethodIdentity &convolution_method) {
+    const auto &key = kernel.key();
+    return key.raw_payload_identity == asset.raw_payload_identity() &&
+           key.conversion_method == asset.conversion_method() &&
+           key.configured_gain_binary64_bits ==
+               std::bit_cast<std::uint64_t>(asset.configured_gain().value) &&
+           key.coefficient_f64le_identity == asset.coefficient_f64le_identity() &&
+           key.convolution_method == convolution_method;
+}
+
+[[nodiscard]] std::optional<presentation::RouteConditioningSeeds>
+route_seeds(const contract::RandomPlan &plan, contract::RouteId route_id) {
+    const contract::ComponentSeed *jitter = nullptr;
+    const contract::ComponentSeed *air_noise = nullptr;
+    for (const auto &seed : plan.component_seeds) {
+        if (seed.route_id != route_id) {
+            continue;
+        }
+        if (seed.kind == contract::RandomComponentKind::presentation_jitter) {
+            if (jitter != nullptr) {
+                return std::nullopt;
+            }
+            jitter = &seed;
+        } else if (seed.kind == contract::RandomComponentKind::presentation_air_noise) {
+            if (air_noise != nullptr) {
+                return std::nullopt;
+            }
+            air_noise = &seed;
+        }
+    }
+    if (jitter == nullptr || air_noise == nullptr) {
+        return std::nullopt;
+    }
+    return presentation::RouteConditioningSeeds{
+        {jitter->initial_state, jitter->stream},
+        {air_noise->initial_state, air_noise->stream},
+    };
+}
+
+[[nodiscard]] const contract::AudioAssetSpec *
+find_asset(const contract::PresentationCalibration &presentation,
+           contract::AudioAssetId id) {
     const auto found =
-        std::ranges::find(engine.routes, route_id, &contract::RouteSpec::id);
-    return found == engine.routes.end() ? nullptr : &*found;
+        std::ranges::find(presentation.assets, id, &contract::AudioAssetSpec::id);
+    return found == presentation.assets.end() ? nullptr : &*found;
+}
+
+[[nodiscard]] const RenderAssetPayload *
+find_payload(const RenderSpecification &specification, contract::AudioAssetId id) {
+    const auto found =
+        std::ranges::find(specification.asset_payloads, id, &RenderAssetPayload::id);
+    return found == specification.asset_payloads.end() ? nullptr : &*found;
 }
 
 } // namespace
@@ -72,8 +120,10 @@ compile_presentation_job(const RenderSpecification &specification,
             std::move(request_identity_result))
             .sha256;
 
-    // Admit and retain the numeric identity before simulation or acoustic session
-    // construction can perform floating-point work.
+    // Admit and retain the numeric identity before any IR conversion, FFT
+    // construction, or simulation compilation can perform floating-point work.
+    // Source/runtime identity remains below so a structurally unsupported pipeline
+    // keeps its more specific failure precedence.
     const auto numeric_before_compilation = determinism::renderer_numeric_environment();
     const auto *admitted_numeric = std::get_if<determinism::RendererNumericEnvironment>(
         &numeric_before_compilation);
@@ -86,59 +136,21 @@ compile_presentation_job(const RenderSpecification &specification,
     }
     const auto compiled_numeric_identity = *admitted_numeric;
 
-    const auto presentation_method_report =
-        presentation::admit_implemented_presentation_methods(
-            inputs.presentation.methods);
-    if (!presentation_method_report.ok()) {
+    auto calibration_result = presentation::compile_presentation_calibration(
+        inputs.presentation, inputs.engine, inputs.scenario, request.provenance);
+    if (std::holds_alternative<presentation::PresentationCalibrationCompileError>(
+            calibration_result)) {
         return compiler_failure(
             std::move(request), contract::FailureKind::incomplete_source_route,
-            "physical-presentation-methods-not-admitted",
-            "the resolved presentation selects a method identity other than the "
-            "exact implemented physical-pressure publication path");
+            "render-pipeline-not-admitted",
+            "the resolved presentation calibration is structurally valid but not "
+            "supported by the complete executable route");
     }
-
-    const auto *operating_profile =
-        std::get_if<contract::LowOrderOperatingPointV1Profile>(
-            &inputs.engine.physics_profile);
-    if (operating_profile == nullptr ||
-        operating_profile->exhaust_acoustics.outlets.size() !=
-            presentation::kPresentationExhaustOutletCount) {
-        return compiler_failure(
-            std::move(request), contract::FailureKind::incomplete_source_route,
-            "exhaust-acoustic-profile-not-admitted",
-            "the production renderer requires one operating profile with exactly "
-            "two physical exhaust outlets");
-    }
-    const auto capture_block_capacity =
-        inputs.scenario.quality.value.capture_block_capacity_frames;
-    if (capture_block_capacity == 0U ||
-        capture_block_capacity >
-            dsp::SixChannelCausalResampler::maximum_input_frames_per_call /
-                kExhaustSourceIntervalsPerCaptureFrame) {
-        return compiler_failure(
-            std::move(request), contract::FailureKind::incomplete_source_route,
-            "exhaust-acoustic-block-capacity-not-admitted",
-            "the capture block capacity exceeds the bounded physical exhaust "
-            "reconstruction call");
-    }
-
-    std::array<contract::RouteId, presentation::kPresentationExhaustOutletCount>
-        outlet_route_ids{};
-    for (std::size_t index = 0; index < outlet_route_ids.size(); ++index) {
-        outlet_route_ids[index] =
-            operating_profile->exhaust_acoustics.outlets[index].route_id;
-    }
-    if (!outlet_route_ids[0].valid() ||
-        outlet_route_ids[0].value >= outlet_route_ids[1].value) {
-        return compiler_failure(
-            std::move(request), contract::FailureKind::incomplete_source_route,
-            "exhaust-acoustic-outlet-order-not-admitted",
-            "the physical pressure publication method requires two outlets in "
-            "strictly ascending stable route-ID order");
-    }
+    auto calibration = std::get<presentation::AdmittedPresentationCalibration>(
+        std::move(calibration_result));
 
     auto random_result = contract::compile_random_plan(
-        inputs.randomness, inputs.engine, inputs.scenario);
+        inputs.randomness, inputs.engine, inputs.presentation, inputs.scenario);
     if (std::holds_alternative<contract::ValidationReport>(random_result)) {
         return compiler_failure(
             std::move(request), contract::FailureKind::contract_violation,
@@ -147,7 +159,7 @@ compile_presentation_job(const RenderSpecification &specification,
     }
     auto random_plan = std::get<contract::RandomPlan>(std::move(random_result));
 
-    auto projection_result = derive_render_job_projection(request, outlet_route_ids);
+    auto projection_result = derive_render_job_projection(request, calibration);
     if (std::holds_alternative<RenderJobDerivationError>(projection_result)) {
         return compiler_failure(
             std::move(request), contract::FailureKind::incomplete_source_route,
@@ -156,86 +168,107 @@ compile_presentation_job(const RenderSpecification &specification,
     }
     auto projection = std::get<RenderJobProjection>(std::move(projection_result));
 
-    const auto total_acoustic_frame_count = contract::resolve_frame_index(
-        inputs.scenario.total_duration_s.value, inputs.scenario.rates.acoustic);
-    const auto pre_audible_frame_count = contract::resolve_frame_index(
-        inputs.scenario.audible_start_s.value, inputs.scenario.rates.acoustic);
-    const auto audible_frame_count = contract::resolve_frame_index(
-        inputs.scenario.audible_duration_s.value, inputs.scenario.rates.acoustic);
-    const auto fade_in_frame_count = contract::resolve_frame_index(
-        inputs.presentation.monitoring.fade_in_duration_s.value,
-        inputs.scenario.rates.acoustic);
-    const auto fade_out_frame_count = contract::resolve_frame_index(
-        inputs.presentation.monitoring.fade_out_duration_s.value,
-        inputs.scenario.rates.acoustic);
-    const auto capture_frame_count = contract::resolve_frame_index(
-        inputs.scenario.total_duration_s.value, inputs.scenario.rates.capture);
-    const auto source_interval_count = contract::resolve_frame_index(
-        inputs.scenario.total_duration_s.value,
-        operating_profile->exhaust_acoustics.source_interval_rate.value);
-    if (!total_acoustic_frame_count.has_value() ||
-        !pre_audible_frame_count.has_value() || !audible_frame_count.has_value() ||
-        !fade_in_frame_count.has_value() || !fade_out_frame_count.has_value() ||
-        !capture_frame_count.has_value() || !source_interval_count.has_value() ||
-        *pre_audible_frame_count > *total_acoustic_frame_count ||
-        *audible_frame_count !=
-            *total_acoustic_frame_count - *pre_audible_frame_count) {
-        return compiler_failure(
-            std::move(request), contract::FailureKind::contract_violation,
-            "physical-presentation-timeline-not-admitted",
-            "the resolved scenario does not form one exact capture/acoustic "
-            "presentation timeline");
-    }
+    std::vector<presentation::CompiledPresentationAsset> compiled_assets;
+    std::vector<presentation::CompiledPresentationConvolutionKernel> compiled_kernels;
+    compiled_assets.reserve(calibration.route_count);
+    compiled_kernels.reserve(calibration.route_count);
+    std::array<std::shared_ptr<const dsp::FixedConvolutionKernel>,
+               presentation::AdmittedPresentationCalibration::route_count>
+        route_kernels;
 
-    std::optional<presentation::MasteringSettings> mastering;
-    std::optional<acoustics::ExhaustAcousticSession> acoustic_session;
-    try {
-        mastering.emplace(
-            *audible_frame_count, *fade_in_frame_count, *fade_out_frame_count,
-            static_cast<float>(
-                inputs.presentation.monitoring.gain_linear.value));
-        acoustic_session.emplace(operating_profile->exhaust_acoustics,
-                                 acoustics::ExhaustAcousticEnvironment{
-                                     inputs.scenario.ambient.pressure_pa_abs.value,
-                                     inputs.scenario.ambient.temperature_k.value,
-                                 });
-    } catch (const std::exception &error) {
-        return compiler_failure(
-            std::move(request), contract::FailureKind::incomplete_source_route,
-            "exhaust-acoustic-session-not-admitted",
-            "the resolved physical exhaust or mastering session is not executable: " +
-                std::string{error.what()});
-    }
-
-    std::array<presentation::PresentationOutletRenderPlan,
-               presentation::kPresentationExhaustOutletCount>
-        outlet_plans{};
-    for (std::size_t index = 0; index < outlet_plans.size(); ++index) {
-        const auto *route = find_engine_route(inputs.engine, outlet_route_ids[index]);
-        if (route == nullptr) {
+    for (std::size_t route_index = 0; route_index < calibration.route_count;
+         ++route_index) {
+        const auto &route = calibration.routes()[route_index];
+        const auto *asset =
+            find_asset(inputs.presentation, route.impulse_response_asset_id());
+        const auto *payload =
+            find_payload(specification, route.impulse_response_asset_id());
+        if (asset == nullptr || payload == nullptr) {
             return compiler_failure(
                 std::move(request), contract::FailureKind::contract_violation,
-                "exhaust-outlet-route-binding-lost",
-                "an admitted acoustic outlet lost its engine route binding");
+                "presentation-asset-binding-lost",
+                "an admitted presentation route lost its verified asset binding");
         }
-        outlet_plans[index] = {
-            outlet_route_ids[index],
-            route->semantic_id.value,
-            std::move(projection.outlet_pressure_artifacts[index]),
+
+        auto asset_result = presentation::compile_presentation_asset(
+            *asset, {payload->id, payload->bytes},
+            inputs.presentation.methods.impulse_response_conversion.value,
+            route.impulse_response_gain_linear());
+        if (std::holds_alternative<presentation::PresentationAssetCompileError>(
+                asset_result)) {
+            return compiler_failure(
+                std::move(request), contract::FailureKind::incomplete_source_route,
+                "presentation-asset-not-admitted",
+                "a content-addressed presentation asset is not executable by the "
+                "admitted static-IR method");
+        }
+        auto compiled_asset =
+            std::get<presentation::CompiledPresentationAsset>(std::move(asset_result));
+
+        const auto &convolution_method = inputs.presentation.methods.convolution.value;
+        const auto existing =
+            std::ranges::find_if(compiled_kernels, [&](const auto &kernel) {
+                return kernel_matches(kernel, compiled_asset, convolution_method);
+            });
+        if (existing != compiled_kernels.end()) {
+            route_kernels[route_index] = existing->kernel();
+        } else {
+            auto kernel_result = presentation::compile_presentation_convolution_kernel(
+                compiled_asset, convolution_method);
+            if (std::holds_alternative<
+                    presentation::PresentationConvolutionKernelCompileError>(
+                    kernel_result)) {
+                return compiler_failure(
+                    std::move(request), contract::FailureKind::incomplete_source_route,
+                    "presentation-kernel-not-admitted",
+                    "a verified presentation asset cannot produce the admitted "
+                    "convolution kernel");
+            }
+            compiled_kernels.push_back(
+                std::get<presentation::CompiledPresentationConvolutionKernel>(
+                    std::move(kernel_result)));
+            route_kernels[route_index] = compiled_kernels.back().kernel();
+        }
+        compiled_assets.push_back(std::move(compiled_asset));
+    }
+
+    std::array<presentation::PresentationRouteRenderPlan,
+               presentation::AdmittedPresentationCalibration::route_count>
+        route_plans;
+    for (std::size_t route_index = 0; route_index < route_plans.size(); ++route_index) {
+        const auto &route = calibration.routes()[route_index];
+        const auto seeds = route_seeds(random_plan, route.route_id());
+        if (!seeds.has_value()) {
+            return compiler_failure(
+                std::move(request), contract::FailureKind::contract_violation,
+                "presentation-random-plan-incomplete",
+                "the admitted random plan lacks one unique jitter and air-noise "
+                "stream for a presentation route");
+        }
+        route_plans[route_index] = {
+            route.route_id(),
+            projection.routes[route_index].semantic_id,
+            *seeds,
+            route_kernels[route_index],
+            route.wet_mix_01(),
+            projection.route_artifacts[route_index],
         };
     }
 
     presentation::PresentationRenderPlan presentation_plan{
         projection.output_contract,
         {
-            *total_acoustic_frame_count,
-            *pre_audible_frame_count,
+            calibration.total_block_count(),
+            calibration.pre_audible_block_count(),
             presentation::PresentationTailPolicy::truncate_at_timeline_end,
         },
-        std::move(outlet_plans),
-        acoustic_session->pa_per_full_scale(),
+        calibration.methods(),
+        calibration.conditioning(),
+        std::move(route_plans),
+        calibration.publication_calibration_gain_linear().value,
         {
-            std::move(*mastering),
+            calibration.audition_route_ids(),
+            calibration.mastering(),
             projection.audition_metadata,
             projection.raw_master_artifact,
             projection.audition_master_artifact,
@@ -254,8 +287,24 @@ compile_presentation_job(const RenderSpecification &specification,
     auto simulation =
         std::get<simulation::LowOrderCaptureSession>(std::move(simulation_result));
 
+    const auto *core = std::visit(
+        [](const auto &profile) { return &profile.core; },
+        inputs.engine.physics_profile);
+    auto excitation_result =
+        excitation::compile_captured_exhaust_excitation_session(inputs.engine, *core);
+    if (std::holds_alternative<contract::ValidationReport>(excitation_result)) {
+        return compiler_failure(
+            std::move(request), contract::FailureKind::incomplete_source_route,
+            "excitation-profile-not-admitted",
+            "the resolved engine is valid but unavailable to the captured-exhaust "
+            "executor");
+    }
+    auto excitation = std::get<excitation::CapturedExhaustExcitationSession>(
+        std::move(excitation_result));
+
     // Compilation itself is inside the numeric identity boundary. A control change
-    // during simulation/acoustic/session construction invalidates the job.
+    // during asset/kernel/session construction invalidates the job rather than
+    // sealing values computed under two environments.
     const auto numeric_after_compilation = determinism::renderer_numeric_environment();
     const auto *observed_numeric = std::get_if<determinism::RendererNumericEnvironment>(
         &numeric_after_compilation);
@@ -306,10 +355,10 @@ compile_presentation_job(const RenderSpecification &specification,
     return CompiledPresentationJob{
         std::make_unique<CompiledPresentationJob::Implementation>(
             std::move(request), simulation_request_identity_v3_sha256,
-            std::move(determinism), std::move(presentation_plan),
-            std::move(manifest_basis), std::move(simulation),
-            std::move(*acoustic_session), *capture_frame_count, *source_interval_count,
-            *total_acoustic_frame_count, *pre_audible_frame_count)};
+            std::move(determinism), std::move(random_plan), std::move(calibration),
+            std::move(compiled_assets), std::move(compiled_kernels),
+            std::move(presentation_plan), std::move(manifest_basis),
+            std::move(simulation), std::move(excitation))};
 }
 
 } // namespace engine_sim_offline::render_detail

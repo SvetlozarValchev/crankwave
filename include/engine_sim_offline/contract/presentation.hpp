@@ -12,45 +12,143 @@ namespace engine_sim_offline::contract {
 
 struct RenderScenario;
 
-// The only two presentation transforms in the product path. Acoustic simulation
-// already produces the two physical outlet pressures at the delivery rate; there is
-// no reconstruction, synthetic conditioning, asset convolution, or route selection
-// hidden behind this contract.
+enum class AudioSampleEncoding : std::uint8_t {
+    pcm_s16le,
+    float32le,
+    pcm_s24le,
+};
+
+enum class AudioChannelLayout : std::uint8_t {
+    mono,
+};
+
+struct AudioMediaContract {
+    AudioSampleEncoding encoding = AudioSampleEncoding::pcm_s16le;
+    AudioChannelLayout channel_layout = AudioChannelLayout::mono;
+    RationalRateHz sample_rate;
+    std::uint64_t frame_count = 0;
+
+    friend bool operator==(const AudioMediaContract &,
+                           const AudioMediaContract &) = default;
+};
+
+struct AuthoredAudioAssetRef {
+    AuthoredValue<std::string> semantic_id;
+    AuthoredValue<std::string> evidence_source_id;
+    AuthoredValue<Sha256Digest> content_sha256;
+    AuthoredValue<AudioMediaContract> media;
+
+    friend bool operator==(const AuthoredAudioAssetRef &,
+                           const AuthoredAudioAssetRef &) = default;
+};
+
+struct AudioAssetSpec {
+    AudioAssetId id;
+    ResolvedValue<std::string> semantic_id;
+    ResolvedValue<std::string> evidence_source_id;
+    ResolvedValue<Sha256Digest> content_sha256;
+    ResolvedValue<AudioMediaContract> media;
+
+    friend bool operator==(const AudioAssetSpec &, const AudioAssetSpec &) = default;
+};
+
 struct AuthoredPresentationMethods {
-    AuthoredValue<MethodSelection> calibrated_pressure_publication;
-    AuthoredValue<MethodSelection> coherent_two_outlet_audition;
+    AuthoredValue<MethodSelection> reconstruction;
+    AuthoredValue<MethodSelection> conditioning;
+    AuthoredValue<MethodSelection> impulse_response_conversion;
+    AuthoredValue<MethodSelection> convolution;
+    AuthoredValue<MethodSelection> publication;
+    AuthoredValue<MethodSelection> audition_mix;
 
     friend bool operator==(const AuthoredPresentationMethods &,
                            const AuthoredPresentationMethods &) = default;
 };
 
 struct PresentationMethods {
-    ResolvedValue<MethodIdentity> calibrated_pressure_publication;
-    ResolvedValue<MethodIdentity> coherent_two_outlet_audition;
+    ResolvedValue<MethodIdentity> reconstruction;
+    ResolvedValue<MethodIdentity> conditioning;
+    ResolvedValue<MethodIdentity> impulse_response_conversion;
+    ResolvedValue<MethodIdentity> convolution;
+    ResolvedValue<MethodIdentity> publication;
+    ResolvedValue<MethodIdentity> audition_mix;
 
     friend bool operator==(const PresentationMethods &,
                            const PresentationMethods &) = default;
 };
 
-// One audition-only gain follows the coherent outlet sum. Float32 pressure
-// publication has no independently tunable gain: its Pa/full-scale calibration is
-// owned by the engine's physical exhaust-acoustic assembly.
-struct AuthoredPresentationMonitoring {
-    AuthoredValue<double> gain_linear;
+struct AuthoredPresentationConditioning {
+    AuthoredValue<double> jitter_scale;
+    AuthoredValue<double> jitter_modulation_cutoff_hz;
+    AuthoredValue<double> derivative_mix_01;
+    AuthoredValue<double> air_noise_mix_01;
+    AuthoredValue<double> air_noise_cutoff_hz;
+
+    friend bool operator==(const AuthoredPresentationConditioning &,
+                           const AuthoredPresentationConditioning &) = default;
+};
+
+struct PresentationConditioning {
+    ResolvedValue<double> jitter_scale;
+    ResolvedValue<double> jitter_modulation_cutoff_hz;
+    ResolvedValue<double> derivative_mix_01;
+    ResolvedValue<double> air_noise_mix_01;
+    ResolvedValue<double> air_noise_cutoff_hz;
+
+    friend bool operator==(const PresentationConditioning &,
+                           const PresentationConditioning &) = default;
+};
+
+struct AuthoredRoutePresentation {
+    AuthoredValue<std::string> route_semantic_id;
+    AuthoredValue<std::string> impulse_response_asset_id;
+    AuthoredValue<double> impulse_response_gain_linear;
+    AuthoredValue<double> wet_mix_01;
+
+    friend bool operator==(const AuthoredRoutePresentation &,
+                           const AuthoredRoutePresentation &) = default;
+};
+
+struct RoutePresentation {
+    RouteId route_id;
+    AudioAssetId impulse_response_asset_id;
+    ResolvedValue<double> impulse_response_gain_linear;
+    ResolvedValue<double> wet_mix_01;
+
+    friend bool operator==(const RoutePresentation &,
+                           const RoutePresentation &) = default;
+};
+
+struct AuthoredStemPublication {
+    AuthoredValue<double> calibration_gain_linear;
+
+    friend bool operator==(const AuthoredStemPublication &,
+                           const AuthoredStemPublication &) = default;
+};
+
+struct StemPublication {
+    ResolvedValue<double> calibration_gain_linear;
+
+    friend bool operator==(const StemPublication &, const StemPublication &) = default;
+};
+
+struct AuthoredAuditionMix {
+    AuthoredValue<std::vector<std::string>> selected_route_semantic_ids;
+    AuthoredValue<double> monitoring_gain_linear;
     AuthoredValue<double> fade_in_duration_s;
     AuthoredValue<double> fade_out_duration_s;
 
-    friend bool operator==(const AuthoredPresentationMonitoring &,
-                           const AuthoredPresentationMonitoring &) = default;
+    friend bool operator==(const AuthoredAuditionMix &,
+                           const AuthoredAuditionMix &) = default;
 };
 
-struct PresentationMonitoring {
-    ResolvedValue<double> gain_linear;
+struct AuditionMix {
+    // Vector order is the deterministic arithmetic reduction order.
+    ResolvedValue<std::vector<RouteId>> selected_routes;
+    ResolvedValue<double> monitoring_gain_linear;
     ResolvedValue<double> fade_in_duration_s;
     ResolvedValue<double> fade_out_duration_s;
 
-    friend bool operator==(const PresentationMonitoring &,
-                           const PresentationMonitoring &) = default;
+    friend bool operator==(const AuditionMix &, const AuditionMix &) = default;
 };
 
 struct AuthoredPresentationCalibration {
@@ -58,7 +156,11 @@ struct AuthoredPresentationCalibration {
     std::string calibration_id;
     AuthoredValue<std::string> engine_profile_id;
     AuthoredPresentationMethods methods;
-    AuthoredPresentationMonitoring monitoring;
+    AuthoredPresentationConditioning conditioning;
+    std::vector<AuthoredAudioAssetRef> assets;
+    std::vector<AuthoredRoutePresentation> routes;
+    AuthoredStemPublication publication;
+    AuthoredAuditionMix audition;
     ProvenanceLedger provenance;
 
     friend bool operator==(const AuthoredPresentationCalibration &,
@@ -70,7 +172,11 @@ struct PresentationCalibration {
     std::string calibration_id;
     ResolvedValue<std::string> engine_profile_id;
     PresentationMethods methods;
-    PresentationMonitoring monitoring;
+    PresentationConditioning conditioning;
+    std::vector<AudioAssetSpec> assets;
+    std::vector<RoutePresentation> routes;
+    StemPublication publication;
+    AuditionMix audition;
     std::string provenance_schema_id;
 
     friend bool operator==(const PresentationCalibration &,
@@ -90,6 +196,8 @@ struct PresentationValidationContext {
     std::string engine_profile_id;
     std::vector<PresentationSourceRouteContext> routes;
     RenderRates rates;
+    double total_duration_s = 0.0;
+    double audible_start_s = 0.0;
     double audible_duration_s = 0.0;
 
     friend bool operator==(const PresentationValidationContext &,
@@ -105,5 +213,4 @@ validate(const AuthoredPresentationCalibration &calibration);
 [[nodiscard]] ValidationReport validate(const PresentationCalibration &calibration,
                                         const PresentationValidationContext &context,
                                         const ProvenanceLedger &provenance);
-
 } // namespace engine_sim_offline::contract

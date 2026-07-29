@@ -407,6 +407,10 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             ContractIssueCode::invalid_value, "engine.physics_profile.fuel",
             "spark-gasoline fuel data are outside the admitted finite physical "
             "domain");
+    require(report, !fuel.compression_ignition_enabled.value,
+            ContractIssueCode::unsupported_value,
+            "engine.physics_profile.fuel.compression_ignition_enabled.value",
+            "legacy_low_order_v1 gas session does not admit compression ignition");
     require(report, scenario.fuel.fuel_id.value == fuel.fuel_id.value,
             ContractIssueCode::inconsistent_semantics, "scenario.fuel.fuel_id.value",
             "scenario and executable physics profile must select the same fuel");
@@ -992,8 +996,6 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     }
     session.step_.cylinders.resize(engine.cylinders.size());
     session.step_.exhaust_routes.resize(public_exhaust_route_count);
-    session.step_.exhaust_port_substeps.reserve(
-        static_cast<std::size_t>(kLegacyGasSubstepCount) * engine.cylinders.size());
     session.step_.events.reserve(maximum_event_count);
 
     const double initial_gas_temperature_k =

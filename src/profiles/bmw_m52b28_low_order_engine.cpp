@@ -74,14 +74,14 @@ make_restriction(BmwProvenanceBuilder &builder,
     };
 }
 
-contract::LegacyValveFlowPoint make_valve_flow_point(BmwProvenanceBuilder &builder,
-                                                     std::string_view table_name,
-                                                     std::uint32_t lift_index,
-                                                     double source_cfm,
-                                                     double millimetre_source) {
+contract::LegacyValveFlowPoint
+make_valve_flow_point(BmwProvenanceBuilder &builder, std::string_view table_name,
+                      std::uint32_t lift_index, double source_cfm,
+                      double millimetre_source) {
     const std::string sample_id = numbered_id("lift-", lift_index);
-    const std::string base_path = builder.profile_path(
-        "gas_path.head." + std::string(table_name) + "." + sample_id);
+    const std::string base_path =
+        builder.profile_path("gas_path.head." + std::string(table_name) + "." +
+                             sample_id);
     const std::string source_cfm_path = base_path + ".source_cfm_at_28_inh2o";
     return {
         builder.resolved(sample_id, base_path + ".sample_id", Source::legacy_asset),
@@ -134,8 +134,8 @@ contract::LegacyTimingPoint make_timing_point(BmwProvenanceBuilder &builder,
     };
 }
 
-contract::LegacyFlameSpeedPoint make_flame_speed_point(BmwProvenanceBuilder &builder,
-                                                       std::uint32_t turbulence) {
+contract::LegacyFlameSpeedPoint
+make_flame_speed_point(BmwProvenanceBuilder &builder, std::uint32_t turbulence) {
     const std::string sample_id = numbered_id("turbulence-", turbulence);
     const std::string base_path =
         builder.profile_path("fuel.turbulence_to_flame_speed_ratio." + sample_id);
@@ -149,169 +149,15 @@ contract::LegacyFlameSpeedPoint make_flame_speed_point(BmwProvenanceBuilder &bui
     };
 }
 
-contract::ExhaustAcousticAssembly
-build_m5_exhaust_acoustic_assembly(BmwProvenanceBuilder &builder) {
-    using contract::AcousticDuctId;
-    using contract::AcousticDuctKind;
-    using contract::AcousticJunctionId;
-    using contract::CylinderId;
-    using contract::PortId;
-    using contract::RouteId;
-
-    const auto path = [&builder](std::string_view suffix) {
-        return builder.profile_path("exhaust_acoustics." + std::string{suffix});
-    };
-    const auto method = [&](std::string id, std::string_view role) {
-        return builder.resolved(m5_exhaust_acoustic_method_identity(std::move(id)),
-                                path("methods." + std::string{role}),
-                                Source::implemented_method);
-    };
-    const auto duct = [&](AcousticDuctId id, std::string semantic_id,
-                          AcousticDuctKind kind, double length_m,
-                          double inner_diameter_m, double temperature_k) {
-        const std::string base = "ducts." + semantic_id;
-        return contract::AcousticDuctSpec{
-            id,
-            builder.resolved(semantic_id, path(base + ".semantic_id"),
-                             Source::profile_contract),
-            builder.resolved(kind, path(base + ".kind"), Source::profile_contract),
-            builder.resolved(length_m, path(base + ".length_m"),
-                             Source::profile_contract),
-            builder.resolved(inner_diameter_m, path(base + ".inner_diameter_m"),
-                             Source::profile_contract),
-            builder.resolved(temperature_k, path(base + ".reference_temperature_k"),
-                             Source::profile_contract),
-            builder.resolved(0.10, path(base + ".propagation_loss_np_per_m"),
-                             Source::profile_contract),
-        };
-    };
-
-    contract::ExhaustAcousticAssembly assembly;
-    assembly.assembly_id =
-        builder.resolved(std::string{"declared-test-cell-twin-open-pipe"},
-                         path("assembly_id"), Source::profile_contract);
-    assembly.methods = {
-        method("ideal-pseudo-gas-source-properties", "source_properties"),
-        method("causal-bandlimited-rational-resampling", "reconstruction"),
-        method("uniform-cylindrical-digital-waveguide", "waveguide"),
-        method("ideal-compact-pressure-junction", "junction"),
-        method("causal-unflanged-pipe-reflection", "outlet_reflection"),
-        method("compact-monopole-free-field-radiation", "exterior_radiation"),
-    };
-    assembly.source_interval_rate =
-        builder.resolved(contract::RationalRateHz{80000, 1},
-                         path("source_interval_rate"), Source::profile_contract);
-    assembly.acoustic_rate =
-        builder.resolved(contract::RationalRateHz{192000, 1}, path("acoustic_rate"),
-                         Source::profile_contract);
-    assembly.universal_gas_constant_j_per_mol_k =
-        builder.resolved(8.31446261815324, path("universal_gas_constant_j_per_mol_k"),
-                         Source::profile_contract);
-    assembly.source_molar_mass_kg_per_mol = builder.resolved(
-        0.02897, path("source_molar_mass_kg_per_mol"), Source::profile_contract);
-    assembly.source_heat_capacity_ratio = builder.resolved(
-        1.4, path("source_heat_capacity_ratio"), Source::profile_contract);
-    assembly.pa_per_full_scale =
-        builder.resolved(256.0, path("pa_per_full_scale"), Source::profile_contract);
-
-    for (std::uint32_t number = 1; number <= 6; ++number) {
-        assembly.ducts.push_back(duct(AcousticDuctId{number},
-                                      numbered_id("primary-", number),
-                                      AcousticDuctKind::primary, 0.300, 0.042, 800.0));
-    }
-    assembly.ducts.push_back(duct(AcousticDuctId{7}, "downstream-front",
-                                  AcousticDuctKind::downstream, 1.500, 0.046, 600.0));
-    assembly.ducts.push_back(duct(AcousticDuctId{8}, "downstream-rear",
-                                  AcousticDuctKind::downstream, 1.500, 0.046, 600.0));
-
-    assembly.junctions = {
-        {
-            AcousticJunctionId{1},
-            builder.resolved(std::string{"junction-front"},
-                             path("junctions.junction-front.semantic_id"),
-                             Source::profile_contract),
-            {AcousticDuctId{1}, AcousticDuctId{2}, AcousticDuctId{3}},
-            AcousticDuctId{7},
-        },
-        {
-            AcousticJunctionId{2},
-            builder.resolved(std::string{"junction-rear"},
-                             path("junctions.junction-rear.semantic_id"),
-                             Source::profile_contract),
-            {AcousticDuctId{4}, AcousticDuctId{5}, AcousticDuctId{6}},
-            AcousticDuctId{8},
-        },
-    };
-    for (std::uint32_t number = 1; number <= 6; ++number) {
-        assembly.primary_bindings.push_back({
-            CylinderId{number},
-            PortId{number * 2U},
-            AcousticDuctId{number},
-            AcousticJunctionId{number <= 3U ? 1U : 2U},
-        });
-    }
-    assembly.outlets = {
-        {
-            RouteId{1},
-            AcousticDuctId{7},
-            builder.resolved(1.0,
-                             path("outlets.exhaust.outlet.front."
-                                  "observation_distance_m"),
-                             Source::profile_contract),
-        },
-        {
-            RouteId{2},
-            AcousticDuctId{8},
-            builder.resolved(1.0,
-                             path("outlets.exhaust.outlet.rear."
-                                  "observation_distance_m"),
-                             Source::profile_contract),
-        },
-    };
-    return assembly;
-}
-
 } // namespace
 
-contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
+contract::EngineSpec
+build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
     const bool operating_profile =
         builder.profile_kind() == BmwProfileKind::low_order_operating_point_v1;
     const auto profile_path = [&builder](std::string_view suffix) {
         return builder.profile_path(suffix);
     };
-    const auto exhaust_route_for_cylinder =
-        [operating_profile](std::uint32_t cylinder_number) {
-            if (operating_profile) {
-                return contract::RouteId{cylinder_number <= 3U ? 1U : 2U};
-            }
-            return contract::RouteId{cylinder_number % 2U == 0U ? 1U : 2U};
-        };
-    const auto collector_for_route = [](contract::RouteId route_id) {
-        return contract::GasVolumeId{route_id == contract::RouteId{1} ? 21U : 22U};
-    };
-    const auto semantic_id_for_route = [operating_profile](
-                                           contract::RouteId route_id) {
-        if (operating_profile) {
-            return route_id == contract::RouteId{1} ? "exhaust.outlet.front"
-                                                    : "exhaust.outlet.rear";
-        }
-        return route_id == contract::RouteId{1} ? "exhaust.reference.0"
-                                                : "exhaust.reference.1";
-    };
-    const std::string route_1_semantic_id =
-        semantic_id_for_route(contract::RouteId{1});
-    const std::string route_2_semantic_id =
-        semantic_id_for_route(contract::RouteId{2});
-    const std::string collector_1_semantic_id =
-        operating_profile ? "exhaust.collector.front" : "exhaust.collector.0";
-    const std::string collector_2_semantic_id =
-        operating_profile ? "exhaust.collector.rear" : "exhaust.collector.1";
-    const std::string collector_outlet_1_semantic_id =
-        operating_profile ? "flow.collector-outlet.front"
-                          : "flow.collector-outlet.0";
-    const std::string collector_outlet_2_semantic_id =
-        operating_profile ? "flow.collector-outlet.rear"
-                          : "flow.collector-outlet.1";
     const double centimetre_source = 1.0 / 100.0;
     const double millimetre_source = 1.0 / 1000.0;
     const double gram_source = 1.0 / 1000.0;
@@ -373,8 +219,9 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
     engine.id = contract::EngineId{1};
     engine.engine_id = builder.resolved(std::string{"bmw-m52b28"}, "engine.engine_id",
                                         Source::legacy_asset);
-    engine.profile_id = builder.resolved(std::string{builder.engine_profile_id()},
-                                         "engine.profile_id", Source::profile_contract);
+    engine.profile_id =
+        builder.resolved(std::string{builder.engine_profile_id()},
+                         "engine.profile_id", Source::profile_contract);
     engine.display_name = builder.resolved(std::string{"BMW M52B28"},
                                            "engine.display_name", Source::legacy_asset);
     engine.cycle = builder.resolved(contract::EngineCycle::four_stroke, "engine.cycle",
@@ -388,8 +235,7 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
     engine.banks.push_back({
         contract::BankId{1},
         builder.resolved(std::string{"bank.inline-1"},
-                         "engine.banks.bank.inline-1.semantic_id",
-                         Source::profile_contract),
+                         "engine.banks.bank.inline-1.semantic_id", Source::profile_contract),
     });
 
     for (std::uint32_t index = 0; index < 6; ++index) {
@@ -461,8 +307,7 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
                              Source::profile_contract),
             cylinder_id,
             builder.resolved(contract::PortKind::intake,
-                             "engine.ports." + intake_id + ".kind",
-                             Source::profile_contract),
+                             "engine.ports." + intake_id + ".kind", Source::profile_contract),
         });
         engine.ports.push_back({
             contract::PortId{2 * number},
@@ -470,8 +315,7 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
                              Source::profile_contract),
             cylinder_id,
             builder.resolved(contract::PortKind::exhaust,
-                             "engine.ports." + exhaust_id + ".kind",
-                             Source::profile_contract),
+                             "engine.ports." + exhaust_id + ".kind", Source::profile_contract),
         });
     }
 
@@ -480,8 +324,7 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
         const std::string base_path = "engine.gas_volumes." + semantic_id;
         engine.gas_volumes.push_back({
             contract::GasVolumeId{id},
-            builder.resolved(semantic_id, base_path + ".semantic_id",
-                             Source::profile_contract),
+            builder.resolved(semantic_id, base_path + ".semantic_id", Source::profile_contract),
             builder.resolved(kind, base_path + ".kind", Source::profile_contract),
         });
     };
@@ -496,10 +339,8 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
         add_volume(5 + 3 * index, numbered_id("exhaust.primary.", number),
                    contract::GasVolumeKind::exhaust_primary);
     }
-    add_volume(21, collector_1_semantic_id,
-               contract::GasVolumeKind::exhaust_collector);
-    add_volume(22, collector_2_semantic_id,
-               contract::GasVolumeKind::exhaust_collector);
+    add_volume(21, "exhaust.collector.0", contract::GasVolumeKind::exhaust_collector);
+    add_volume(22, "exhaust.collector.1", contract::GasVolumeKind::exhaust_collector);
 
     const auto add_edge = [&](std::uint32_t id, std::string semantic_id,
                               std::uint32_t endpoint_0, std::uint32_t endpoint_1) {
@@ -520,8 +361,7 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
         const std::uint32_t runner_volume = 3 + 3 * index;
         const std::uint32_t cylinder_volume = 4 + 3 * index;
         const std::uint32_t primary_volume = 5 + 3 * index;
-        const auto collector_volume =
-            collector_for_route(exhaust_route_for_cylinder(number));
+        const std::uint32_t collector_volume = number % 2 == 0 ? 21 : 22;
         add_edge(edge_base, numbered_id("flow.plenum-to-runner.", number), 2,
                  runner_volume);
         add_edge(edge_base + 1, numbered_id("flow.intake-valve.", number),
@@ -529,22 +369,22 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
         add_edge(edge_base + 2, numbered_id("flow.exhaust-valve.", number),
                  cylinder_volume, primary_volume);
         add_edge(edge_base + 3, numbered_id("flow.primary-to-collector.", number),
-                 primary_volume, collector_volume.value);
+                 primary_volume, collector_volume);
         add_edge(edge_base + 4, numbered_id("flow.blowby.", number), cylinder_volume,
                  1);
     }
-    add_edge(33, collector_outlet_1_semantic_id, 1, 21);
-    add_edge(34, collector_outlet_2_semantic_id, 1, 22);
+    add_edge(33, "flow.collector-outlet.0", 1, 21);
+    add_edge(34, "flow.collector-outlet.1", 1, 22);
 
     engine.routes = {
         {
             contract::RouteId{1},
-            builder.resolved(route_1_semantic_id,
-                             "engine.routes." + route_1_semantic_id +
-                                 ".semantic_id",
+            builder.resolved(std::string{"exhaust.reference.0"},
+                             "engine.routes.exhaust.reference.0."
+                             "semantic_id",
                              Source::profile_contract),
             builder.resolved(contract::SourceRouteKind::exhaust_outlet,
-                             "engine.routes." + route_1_semantic_id + ".kind",
+                             "engine.routes.exhaust.reference.0.kind",
                              Source::profile_contract),
             contract::GasVolumeId{21},
             std::nullopt,
@@ -552,12 +392,12 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
         },
         {
             contract::RouteId{2},
-            builder.resolved(route_2_semantic_id,
-                             "engine.routes." + route_2_semantic_id +
-                                 ".semantic_id",
+            builder.resolved(std::string{"exhaust.reference.1"},
+                             "engine.routes.exhaust.reference.1."
+                             "semantic_id",
                              Source::profile_contract),
             builder.resolved(contract::SourceRouteKind::exhaust_outlet,
-                             "engine.routes." + route_2_semantic_id + ".kind",
+                             "engine.routes.exhaust.reference.1.kind",
                              Source::profile_contract),
             contract::GasVolumeId{22},
             std::nullopt,
@@ -566,7 +406,8 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
     };
 
     const auto core_method_source =
-        operating_profile ? Source::implemented_method : Source::profile_contract;
+        operating_profile ? Source::implemented_method
+                          : Source::profile_contract;
     engine.methods = {
         builder.resolved(legacy_low_order_method(), "engine.methods.mechanism",
                          core_method_source),
@@ -585,7 +426,8 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
                 ? simulation::chen_flynn_cycle_mean_aggregate_loss_method_identity()
                 : legacy_low_order_method(),
             "engine.methods.losses",
-            operating_profile ? Source::implemented_method : Source::profile_contract),
+            operating_profile ? Source::implemented_method
+                              : Source::profile_contract),
         builder.resolved(legacy_low_order_method(), "engine.methods.excitation",
                          core_method_source),
     };
@@ -617,7 +459,9 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
         const std::string cylinder_path =
             profile_path("mechanism.cylinders." + semantic_id);
         const std::uint32_t topology_base = 3 + 5 * index;
-        const contract::RouteId exhaust_route_id = exhaust_route_for_cylinder(number);
+        const contract::RouteId exhaust_route_id{
+            number % 2 == 0 ? 1U : 2U,
+        };
         core.mechanism.cylinders.push_back({
             {
                 contract::CylinderId{number},
@@ -787,8 +631,7 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
                 builder.resolved(1.0, route_path + ".velocity_decay",
                                  Source::legacy_asset),
                 builder.resolved(audio_volume, route_path + ".audio_volume_linear",
-                                 operating_profile ? Source::profile_contract
-                                                   : Source::legacy_asset),
+                                 Source::legacy_asset),
                 make_restriction(
                     builder, contract::LegacyRestrictionCalibration::carb_at_1p5_inhg,
                     200.0, route_path + ".primary_to_collector"),
@@ -799,16 +642,15 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
         });
     };
     add_exhaust_route(contract::RouteId{1}, contract::GasVolumeId{21},
-                      contract::FlowEdgeId{33}, route_1_semantic_id,
-                      operating_profile ? 1.0 : 0.5);
+                      contract::FlowEdgeId{33}, "exhaust.reference.0", 0.5);
     add_exhaust_route(contract::RouteId{2}, contract::GasVolumeId{22},
-                      contract::FlowEdgeId{34}, route_2_semantic_id, 1.0);
+                      contract::FlowEdgeId{34}, "exhaust.reference.1", 1.0);
     core.gas_path.piston_blowby = make_restriction(
         builder, contract::LegacyRestrictionCalibration::cfm_at_28_inh2o, 0.1,
         profile_path("gas_path.piston_blowby"));
 
-    core.valvetrain.intake.shape = make_cam_shape(builder, "intake", millimetre_source,
-                                                  inch_source, degree_source);
+    core.valvetrain.intake.shape = make_cam_shape(
+        builder, "intake", millimetre_source, inch_source, degree_source);
     core.valvetrain.exhaust.shape = make_cam_shape(
         builder, "exhaust", millimetre_source, inch_source, degree_source);
     for (std::uint32_t index = 0; index < 6; ++index) {
@@ -848,7 +690,8 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
                          Source::legacy_asset);
     for (std::uint32_t rpm = 0; rpm <= 7000; rpm += 1000) {
         const double advance = (rpm < 2000 ? 10.0 : 30.0) * degree_source;
-        core.ignition.timing_curve.push_back(make_timing_point(builder, rpm, advance));
+        core.ignition.timing_curve.push_back(
+            make_timing_point(builder, rpm, advance));
     }
     core.ignition.limiter_speed_rpm = builder.resolved(
         8000.0, profile_path("ignition.limiter_speed_rpm"), Source::legacy_asset);
@@ -881,6 +724,8 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
         10.0, profile_path("fuel.maximum_dilution_effect"), Source::legacy_asset);
     core.fuel.lbv_multiplier = builder.resolved(
         1.0, profile_path("fuel.lbv_multiplier"), Source::legacy_asset);
+    core.fuel.compression_ignition_enabled = builder.resolved(
+        false, profile_path("fuel.compression_ignition_enabled"), Source::legacy_asset);
     core.fuel.turbulence_to_flame_speed_ratio_triangle_radius = builder.resolved(
         5.0,
         profile_path("fuel."
@@ -922,12 +767,12 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
     const contract::TorqueTermMask omitted_terms =
         contract::known_torque_term_mask() & ~included_terms;
     if (!operating_profile) {
-        fixed_crank_loss.included_terms =
-            builder.resolved(included_terms, profile_path("losses.included_terms"),
-                             Source::profile_contract);
-        fixed_crank_loss.omitted_terms =
-            builder.resolved(omitted_terms, profile_path("losses.omitted_terms"),
-                             Source::profile_contract);
+        fixed_crank_loss.included_terms = builder.resolved(
+            included_terms, profile_path("losses.included_terms"),
+            Source::profile_contract);
+        fixed_crank_loss.omitted_terms = builder.resolved(
+            omitted_terms, profile_path("losses.omitted_terms"),
+            Source::profile_contract);
     }
 
     core.excitation.reference_atmosphere_pa_abs = builder.resolved(
@@ -982,29 +827,25 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
             contract::RouteId{1},
             builder.resolved(
                 exhaust_system_length_m,
-                profile_path("reference_excitation.routes." + route_1_semantic_id +
-                             ".exhaust_system_length_m"),
+                profile_path("reference_excitation.routes."
+                             "exhaust.reference.0.exhaust_system_length_m"),
                 Source::reference_fixture),
-            builder.resolved(operating_profile ? 1.0 : 0.5,
-                             profile_path("reference_excitation.routes." +
-                                          route_1_semantic_id +
-                                          ".audio_volume_linear"),
-                             operating_profile ? Source::profile_contract
-                                               : Source::reference_fixture),
+            builder.resolved(0.5,
+                             profile_path("reference_excitation.routes."
+                                          "exhaust.reference.0.audio_volume_linear"),
+                             Source::reference_fixture),
         },
         {
             contract::RouteId{2},
             builder.resolved(
                 exhaust_system_length_m,
-                profile_path("reference_excitation.routes." + route_2_semantic_id +
-                             ".exhaust_system_length_m"),
+                profile_path("reference_excitation.routes."
+                             "exhaust.reference.1.exhaust_system_length_m"),
                 Source::reference_fixture),
             builder.resolved(1.0,
-                             profile_path("reference_excitation.routes." +
-                                          route_2_semantic_id +
-                                          ".audio_volume_linear"),
-                             operating_profile ? Source::profile_contract
-                                               : Source::reference_fixture),
+                             profile_path("reference_excitation.routes."
+                                          "exhaust.reference.1.audio_volume_linear"),
+                             Source::reference_fixture),
         },
     };
 
@@ -1012,9 +853,12 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
     const contract::RationalRateHz delay_rate{10000, 1};
     for (std::uint32_t index = 0; index < 6; ++index) {
         const std::uint32_t number = index + 1;
-        const contract::RouteId route_id = exhaust_route_for_cylinder(number);
+        const contract::RouteId route_id{
+            number % 2 == 0 ? 1U : 2U,
+        };
         const std::string cylinder_id = numbered_id("cylinder-", number);
-        const std::string route_id_text = semantic_id_for_route(route_id);
+        const std::string route_id_text =
+            number % 2 == 0 ? "exhaust.reference.0" : "exhaust.reference.1";
         const std::string cylinder_path =
             profile_path("reference_excitation.cylinder_paths." + cylinder_id);
         const std::string excitation_route_path =
@@ -1052,11 +896,12 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
         contract::LowOrderOperatingPointV1Profile profile;
         profile.core = std::move(core);
         profile.aggregate_loss = {
-            builder.resolved(0.4, profile_path("aggregate_loss.constant_fmep_bar"),
-                             Source::operating_literature),
-            builder.resolved(0.005,
-                             profile_path("aggregate_loss.peak_pressure_coefficient"),
-                             Source::operating_literature),
+            builder.resolved(
+                0.4, profile_path("aggregate_loss.constant_fmep_bar"),
+                Source::operating_literature),
+            builder.resolved(
+                0.005, profile_path("aggregate_loss.peak_pressure_coefficient"),
+                Source::operating_literature),
             builder.resolved(
                 0.09,
                 profile_path(
@@ -1067,32 +912,38 @@ contract::EngineSpec build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &bui
                 profile_path("aggregate_loss."
                              "mean_piston_speed_squared_coefficient_bar_s2_per_m2"),
                 Source::operating_literature),
-            builder.resolved(363.15,
-                             profile_path("aggregate_loss.required_oil_temperature_k"),
-                             Source::declared_default),
-            builder.resolved(contract::friction_pump_and_accessory_torque_term_mask(),
-                             profile_path("aggregate_loss.included_terms"),
-                             Source::profile_contract),
+            builder.resolved(
+                363.15,
+                profile_path("aggregate_loss.required_oil_temperature_k"),
+                Source::declared_default),
+            builder.resolved(
+                contract::friction_pump_and_accessory_torque_term_mask(),
+                profile_path("aggregate_loss.included_terms"),
+                Source::profile_contract),
         };
         profile.accessory_configuration = {
-            builder.resolved(std::string{"bmw-m52b28-warm-stock-accessories-v1"},
-                             profile_path("accessory_configuration.configuration_id"),
-                             Source::accessory_configuration),
-            builder.resolved(bmw_m52b28_operating_accessory_descriptor_sha256(),
-                             profile_path("accessory_configuration.content_sha256"),
-                             Source::accessory_configuration),
+            builder.resolved(
+                std::string{"bmw-m52b28-warm-stock-accessories-v1"},
+                profile_path("accessory_configuration.configuration_id"),
+                Source::accessory_configuration),
+            builder.resolved(
+                bmw_m52b28_operating_accessory_descriptor_sha256(),
+                profile_path("accessory_configuration.content_sha256"),
+                Source::accessory_configuration),
         };
         profile.starter = {
-            builder.resolved(true, profile_path("starter.mechanically_disengaged"),
-                             Source::profile_contract),
-            builder.resolved(contract::torque_term_mask(contract::TorqueTerm::starter),
-                             profile_path("starter.included_terms"),
-                             Source::profile_contract),
+            builder.resolved(
+                true, profile_path("starter.mechanically_disengaged"),
+                Source::profile_contract),
+            builder.resolved(
+                contract::torque_term_mask(contract::TorqueTerm::starter),
+                profile_path("starter.included_terms"),
+                Source::profile_contract),
         };
         profile.cycle_quadrature = builder.resolved(
-            simulation::four_stroke_piecewise_linear_cycle_quadrature_method_identity(),
+            simulation::
+                four_stroke_piecewise_linear_cycle_quadrature_method_identity(),
             profile_path("cycle_quadrature"), Source::implemented_method);
-        profile.exhaust_acoustics = build_m5_exhaust_acoustic_assembly(builder);
         engine.physics_profile = std::move(profile);
         engine.torque_capability = builder.resolved(
             contract::TorqueCapability{

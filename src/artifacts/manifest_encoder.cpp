@@ -86,10 +86,39 @@ write_floating_point(CanonicalJsonWriter &writer,
            writer.end_object();
 }
 
-[[nodiscard]] bool write_combustion_seed(CanonicalJsonWriter &writer,
-                                         const contract::CombustionSeed &seed) {
-    return writer.begin_object() && writer.key("cylinder_id") &&
-           writer.uint32_value(seed.cylinder_id.value) &&
+[[nodiscard]] std::string_view
+random_component_kind(contract::RandomComponentKind kind) noexcept {
+    switch (kind) {
+    case contract::RandomComponentKind::combustion:
+        return "combustion";
+    case contract::RandomComponentKind::presentation_jitter:
+        return "presentation_jitter";
+    case contract::RandomComponentKind::presentation_air_noise:
+        return "presentation_air_noise";
+    case contract::RandomComponentKind::starter:
+        return "starter";
+    case contract::RandomComponentKind::unspecified:
+        break;
+    }
+    return {};
+}
+
+template <class Id>
+[[nodiscard]] bool write_optional_id(CanonicalJsonWriter &writer,
+                                     const std::optional<Id> &id) {
+    return id.has_value() ? writer.uint32_value(id->value) : writer.null_value();
+}
+
+[[nodiscard]] bool write_component_seed(CanonicalJsonWriter &writer,
+                                        const contract::ComponentSeed &seed) {
+    const auto kind = random_component_kind(seed.kind);
+    if (kind.empty()) {
+        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                           "random component kind is not encodable");
+    }
+    return writer.begin_object() && writer.key("kind") && writer.string_value(kind) &&
+           writer.key("cylinder_id") && write_optional_id(writer, seed.cylinder_id) &&
+           writer.key("route_id") && write_optional_id(writer, seed.route_id) &&
            writer.key("initial_state") && writer.uint64_hex_value(seed.initial_state) &&
            writer.key("stream") && writer.uint64_hex_value(seed.stream) &&
            writer.end_object();
@@ -102,11 +131,11 @@ write_floating_point(CanonicalJsonWriter &writer,
           writer.key("public_seed") &&
           writer.uint64_hex_value(randomness.public_seed) && writer.key("derivation") &&
           write_method_identity(writer, randomness.derivation) &&
-          writer.key("combustion_seeds") && writer.begin_array())) {
+          writer.key("component_seeds") && writer.begin_array())) {
         return false;
     }
-    for (const auto &seed : randomness.combustion_seeds) {
-        if (!write_combustion_seed(writer, seed)) {
+    for (const auto &seed : randomness.component_seeds) {
+        if (!write_component_seed(writer, seed)) {
             return false;
         }
     }

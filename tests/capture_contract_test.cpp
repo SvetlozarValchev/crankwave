@@ -49,13 +49,6 @@ concept CanBorrowEventJournal = requires(OffsetRange &&offsets, EventRange &&eve
                                           std::forward<EventRange>(events));
 };
 
-template <class PortRange, class SampleRange>
-concept CanBorrowExhaustSubsteps = requires(PortRange &&ports, SampleRange &&samples) {
-    ExhaustPortSubstepCaptureView::borrow_for_callback(
-        CaptureClock{}, 1U, std::forward<PortRange>(ports),
-        std::forward<SampleRange>(samples));
-};
-
 template <class EngineRange, class CylinderRange, class PortRange, class VolumeRange,
           class EdgeRange, class RouteRange>
 concept CanBorrowCaptureBlock =
@@ -84,7 +77,6 @@ using PortSamples = std::array<PortCaptureSample, 1>;
 using VolumeSamples = std::array<GasVolumeCaptureSample, 1>;
 using EdgeSamples = std::array<FlowEdgeCaptureSample, 1>;
 using RouteSamples = std::array<SourceRouteCaptureSample, 1>;
-using ExhaustSubstepSamples = std::array<ExhaustPortSubstepCaptureSample, 1>;
 
 static_assert(
     CanBorrowCaptureLayout<CylinderIds &, PortIdentities &, VolumeIdentities &,
@@ -99,9 +91,6 @@ static_assert(CanBorrowReferenceParity<ParitySpeeds &, ParityCylinders &>);
 static_assert(!CanBorrowReferenceParity<std::vector<double>, ParityCylinders &>);
 static_assert(CanBorrowEventJournal<EventOffsets &, Events &>);
 static_assert(!CanBorrowEventJournal<std::vector<std::uint32_t>, Events &>);
-static_assert(CanBorrowExhaustSubsteps<PortIdentities &, ExhaustSubstepSamples &>);
-static_assert(
-    !CanBorrowExhaustSubsteps<std::vector<PortIdentity>, ExhaustSubstepSamples &>);
 static_assert(CanBorrowCaptureBlock<EngineSamples &, CylinderSamples &, PortSamples &,
                                     VolumeSamples &, EdgeSamples &, RouteSamples &>);
 static_assert(!CanBorrowCaptureBlock<std::vector<EngineCaptureSample>,
@@ -437,92 +426,6 @@ void run_capture_contract_tests() {
            "engine torque validity rejected meaningful available telemetry");
     engine[0].torque.instantaneous_indicated_gas = {};
     engine[0].validity = mechanism;
-
-    constexpr double pseudo_gas_molar_mass_kg_per_mol = 0.02897;
-    constexpr double gas_constant_j_per_mol_k = 8.31446261815324;
-    constexpr double specific_gas_constant_j_per_kg_k =
-        gas_constant_j_per_mol_k / pseudo_gas_molar_mass_kg_per_mol;
-    constexpr double gas_substep_s = (1.0 / 10000.0) / 8.0;
-    const std::array exhaust_source_ports{
-        PortIdentity{PortId{1}, CylinderId{1}, PortKind::exhaust},
-    };
-    std::array<ExhaustPortSubstepCaptureSample, 16> exhaust_source_samples{};
-    for (std::size_t interval = 0; interval < exhaust_source_samples.size();
-         ++interval) {
-        auto &sample = exhaust_source_samples[interval];
-        const bool reverse_tie = (interval % 2U) != 0U;
-        sample.outer_sample_index = interval / 8U;
-        sample.gas_substep_ordinal = static_cast<std::uint8_t>(interval % 8U);
-        sample.validity = thermodynamic | gas_exchange;
-        sample.chamber_pressure_pa_abs = 120000.0;
-        sample.chamber_temperature_k = 600.0;
-        sample.primary_pressure_pa_abs = 100000.0;
-        sample.primary_temperature_k = 500.0;
-        sample.signed_transferred_amount_mol = reverse_tie ? -0.0 : 1.0e-7;
-        sample.signed_mass_flow_kg_s =
-            (sample.signed_transferred_amount_mol * pseudo_gas_molar_mass_kg_per_mol) /
-            gas_substep_s;
-        sample.upstream = reverse_tie ? ExhaustTransferUpstream::primary
-                                      : ExhaustTransferUpstream::chamber;
-        const double upstream_pressure_pa = reverse_tie
-                                                ? sample.primary_pressure_pa_abs
-                                                : sample.chamber_pressure_pa_abs;
-        const double upstream_temperature_k =
-            reverse_tie ? sample.primary_temperature_k : sample.chamber_temperature_k;
-        sample.upstream_density_kg_m3 =
-            upstream_pressure_pa /
-            (specific_gas_constant_j_per_kg_k * upstream_temperature_k);
-        sample.upstream_sound_speed_m_s =
-            std::sqrt(1.4 * specific_gas_constant_j_per_kg_k * upstream_temperature_k);
-        sample.valve_lift_m = 0.001;
-        sample.effective_molar_flow_conductance_m2_sqrt_mol_per_kg =
-            0.00002748668227937587;
-        sample.effective_flow_area_availability = Availability::unavailable;
-        sample.effective_flow_area_m2 = 0.0;
-    }
-    const auto make_exhaust_source = [&](CaptureClock clock,
-                                         std::uint32_t interval_count) {
-        return ExhaustPortSubstepCaptureView::borrow_for_callback(
-            clock, interval_count, exhaust_source_ports, exhaust_source_samples);
-    };
-    const CaptureClock exhaust_source_clock{{80000, 1}, 0U, 1U, SamplePhase::post_step};
-    const auto valid_exhaust_source = make_exhaust_source(exhaust_source_clock, 16U);
-    expect(validate(valid_exhaust_source).ok(),
-           "valid M5 exhaust-port substep source lane was rejected");
-    expect(valid_exhaust_source.sample(15U, 0U) == &exhaust_source_samples[15] &&
-               valid_exhaust_source.sample(16U, 0U) == nullptr &&
-               valid_exhaust_source.sample(0U, 1U) == nullptr,
-           "M5 exhaust substep interval-major accessor changed");
-
-    auto wrong_exhaust_clock = exhaust_source_clock;
-    wrong_exhaust_clock.rate = {10000, 1};
-    expect(has_issue(validate(make_exhaust_source(wrong_exhaust_clock, 16U)),
-                     ContractIssueCode::inconsistent_semantics, "clock.rate"),
-           "exhaust source lane accepted a non-80 kHz clock");
-    expect(has_issue(validate(make_exhaust_source(exhaust_source_clock, 8U)),
-                     ContractIssueCode::inconsistent_shape, "samples"),
-           "exhaust source lane accepted a truncated declared interval count");
-
-    exhaust_source_samples[0].upstream = ExhaustTransferUpstream::primary;
-    expect(has_issue(validate(valid_exhaust_source),
-                     ContractIssueCode::inconsistent_semantics, "samples[0].upstream"),
-           "exhaust source lane accepted a transfer sign/upstream mismatch");
-    exhaust_source_samples[0].upstream = ExhaustTransferUpstream::chamber;
-
-    exhaust_source_samples[0].effective_flow_area_m2 = 0.0001;
-    expect(has_issue(validate(valid_exhaust_source),
-                     ContractIssueCode::inconsistent_semantics,
-                     "samples[0].effective_flow_area_m2"),
-           "unavailable exhaust-valve area accepted a fabricated numeric area");
-    exhaust_source_samples[0].effective_flow_area_m2 = 0.0;
-
-    exhaust_source_samples[0].upstream_sound_speed_m_s = -1.0;
-    expect(has_issue(validate(valid_exhaust_source), ContractIssueCode::invalid_value,
-                     "samples[0]"),
-           "exhaust source lane accepted a nonphysical upstream sound speed");
-    exhaust_source_samples[0].upstream_sound_speed_m_s =
-        std::sqrt(1.4 * specific_gas_constant_j_per_kg_k *
-                  exhaust_source_samples[0].chamber_temperature_k);
 
     engine[0].torque.starter = {
         12.0,

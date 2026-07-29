@@ -57,10 +57,20 @@ struct FailureContext {
     friend bool operator==(const FailureContext &, const FailureContext &) = default;
 };
 
+struct AssetPayloadIdentity {
+    AudioAssetId id;
+    std::uint64_t byte_count = 0;
+    Sha256Digest payload_sha256;
+
+    friend bool operator==(const AssetPayloadIdentity &,
+                           const AssetPayloadIdentity &) = default;
+};
+
 struct RenderRequestRecord {
     ResolvedRenderInputs resolved_inputs;
     ProvenanceLedger provenance;
     SourceMatrixContract source_matrix;
+    std::vector<AssetPayloadIdentity> asset_payloads;
 
     friend bool operator==(const RenderRequestRecord &,
                            const RenderRequestRecord &) = default;

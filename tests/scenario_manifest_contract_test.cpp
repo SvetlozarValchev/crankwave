@@ -1,4 +1,4 @@
-#include "canonical_manifest_test_support.hpp"
+#include "contract_test_support.hpp"
 
 #include <algorithm>
 #include <array>
@@ -39,83 +39,12 @@ FailureContext unreachable_context() {
     };
 }
 
-void test_bmw_exhaust_acoustic_source_matrix() {
-    const auto &matrix = bmw_m52b28_exhaust_acoustic_source_matrix();
-    const Sha256Digest expected_digest{{
-        0xe0, 0xd7, 0x33, 0x76, 0x91, 0x91, 0x46, 0x75, 0x66, 0x32, 0x28,
-        0xc5, 0x89, 0xdc, 0xb6, 0x57, 0xcd, 0x87, 0x64, 0xba, 0xb8, 0x37,
-        0xd8, 0x5c, 0x23, 0xab, 0xf6, 0xce, 0xc8, 0xf0, 0xf6, 0x16,
-    }};
-    expect(validate(matrix).ok(), "canonical BMW source matrix was rejected");
-    expect(matrix.id == "bmw-m52b28-exhaust-acoustic-source-matrix" &&
-               matrix.sha256 == expected_digest &&
-               matrix.distribution == DistributionIntent::local_evaluation,
-           "canonical BMW source-matrix identity changed");
-
-    constexpr std::array<std::string_view, 2> route_ids{
-        "exhaust.outlet.front",
-        "exhaust.outlet.rear",
-    };
-    constexpr std::array<std::string_view, 2> route_artifacts{
-        "exhaust.outlet.front.pressure",
-        "exhaust.outlet.rear.pressure",
-    };
-    expect(matrix.required_source_routes.size() == route_ids.size(),
-           "BMW source matrix does not contain exactly two exhaust outlets");
-    for (std::size_t index = 0; index < route_ids.size(); ++index) {
-        const auto &route = matrix.required_source_routes[index];
-        expect(route.semantic_id == route_ids[index] &&
-                   route.kind == SourceRouteKind::exhaust_outlet &&
-                   route.disposition == RouteDisposition::rendered &&
-                   route.disposition_reason.empty() &&
-                   route.artifact_roles.size() == 1 &&
-                   route.artifact_roles.front() == route_artifacts[index],
-               "BMW exhaust-outlet source requirement changed");
-    }
-
-    expect(matrix.required_output_buses.size() == 2 &&
-               matrix.required_output_buses[0] ==
-                   OutputBusRequirement{"master.engine.raw",
-                                        OutputBusKind::master_engine_raw,
-                                        {"master.engine.raw"}} &&
-               matrix.required_output_buses[1] ==
-                   OutputBusRequirement{"master.engine.audition",
-                                        OutputBusKind::master_engine_audition,
-                                        {"master.engine.audition"}},
-           "BMW engine-master source requirements changed");
-
-    expect(matrix.required_artifacts.size() == 4,
-           "BMW source matrix does not require exactly four artifacts");
-    constexpr std::array<std::string_view, 4> artifact_roles{
-        "exhaust.outlet.front.pressure",
-        "exhaust.outlet.rear.pressure",
-        "master.engine.raw",
-        "master.engine.audition",
-    };
-    for (std::size_t index = 0; index < artifact_roles.size(); ++index) {
-        const auto &artifact = matrix.required_artifacts[index];
-        expect(artifact.role == artifact_roles[index] &&
-                   artifact.kind == ArtifactKind::audio && artifact.audio.has_value() &&
-                   !artifact.diagnostic &&
-                   artifact.audio->sample_rate == RationalRateHz{192000, 1} &&
-                   artifact.audio->frame_count == 2880000 &&
-                   artifact.audio->channel_layout_id == "mono" &&
-                   artifact.audio->sample_encoding_id ==
-                       (index == 3 ? "pcm_s24le" : "float32le"),
-               "BMW source-matrix audio requirement changed");
-    }
-    expect(matrix.declared_omissions.size() == 7,
-           "BMW exhaust-only matrix no longer states all known omissions");
-}
-
 } // namespace
 
 void run_scenario_manifest_contract_tests() {
-    test_bmw_exhaust_acoustic_source_matrix();
-
     InputBuilder builder;
     auto content = make_manifest_content(builder);
-    auto source_matrix = make_source_matrix();
+    const auto source_matrix = make_source_matrix();
 
     expect(validate(builder.provenance).ok(), "valid provenance ledger was rejected");
     expect(validate(source_matrix).ok(), "valid source matrix was rejected");
@@ -430,14 +359,6 @@ void run_scenario_manifest_contract_tests() {
     expect(!validate_for_engine(missing_operating_state, operating_engine).ok(),
            "operating profile accepted an empty operating-state journal");
 
-    // Manifest/result validation uses the canonical two-outlet product request.
-    // The compact one-cylinder fixture above remains intentionally scoped to
-    // engine/scenario unit validation and is not a publishable presentation input.
-    auto canonical_manifest = make_canonical_manifest_fixture();
-    content = canonical_manifest.content;
-    builder.provenance = canonical_manifest.provenance();
-    source_matrix = canonical_manifest.source_matrix();
-
     expect(validate(content, builder.provenance, source_matrix).ok(),
            "valid render manifest content was rejected");
 
@@ -451,6 +372,22 @@ void run_scenario_manifest_contract_tests() {
                                          "schema_version"),
                "unsupported simulation manifest schema was accepted");
     }
+
+    auto mismatched_asset_evidence = content;
+    simulation_inputs(mismatched_asset_evidence)
+        .presentation.assets[0]
+        .content_sha256.value = digest(31);
+    report = validate(mismatched_asset_evidence, builder.provenance, source_matrix);
+    expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
+                                     "content_sha256"),
+           "presentation asset digest was allowed to disagree with its evidence");
+
+    auto unconfigured_rendered_route = content;
+    simulation_inputs(unconfigured_rendered_route).presentation.routes.clear();
+    report = validate(unconfigured_rendered_route, builder.provenance, source_matrix);
+    expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
+                                     "routes[0].disposition"),
+           "manifest claimed a rendered route without presentation configuration");
 
     RenderManifest first{
         content,
@@ -482,6 +419,13 @@ void run_scenario_manifest_contract_tests() {
     };
     expect(validate(first, builder.provenance, source_matrix).ok(),
            "valid completed render manifest was rejected");
+    const RenderResult held_success =
+        RenderSuccess{first, std::nullopt, std::nullopt, std::nullopt};
+    expect(validate(held_success, simulation_inputs(content).scenario, Sha256Digest{},
+                    builder.provenance, source_matrix)
+               .ok(),
+           "held-speed success result was rejected");
+
     const RenderFailure runtime_failure{
         FailureContext{
             FailureKind::incomplete_source_route,
@@ -506,6 +450,7 @@ void run_scenario_manifest_contract_tests() {
             simulation_inputs(content),
             builder.provenance,
             source_matrix,
+            {},
         },
         {},
     };
@@ -591,11 +536,11 @@ void run_scenario_manifest_contract_tests() {
            "manifest seed was allowed to drift from the resolved scenario");
 
     auto missing_active_stream = content;
-    missing_active_stream.randomness.combustion_seeds.pop_back();
+    missing_active_stream.randomness.component_seeds.pop_back();
     report = validate(missing_active_stream, builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_shape,
-                                     "randomness.combustion_seeds"),
-           "active combustion was accepted without its cylinder stream");
+                                     "randomness.component_seeds"),
+           "active presentation air noise was accepted without its route stream");
 
     auto wrong_frame_count = content;
     --wrong_frame_count.artifacts[0].audio->frame_count;
@@ -619,8 +564,7 @@ void run_scenario_manifest_contract_tests() {
            "artifact path traversal was accepted");
 
     auto colliding_path = content;
-    colliding_path.artifacts[1].relative_path =
-        "AUDIO/EXHAUST.OUTLET.FRONT.PRESSURE.WAV";
+    colliding_path.artifacts[1].relative_path = "AUDIO/EXHAUST-OUTLET-1.WAV";
     report = validate(colliding_path, builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::duplicate_identity,
                                      "artifacts[1].relative_path"),
@@ -912,6 +856,7 @@ void run_scenario_manifest_contract_tests() {
         simulation_inputs(load_content),
         load_builder.provenance,
         source_matrix,
+        {},
     };
     const RenderResult unreachable_result = matching_unreachable;
     expect(!validate(unreachable_result, load_scenario, Sha256Digest{},

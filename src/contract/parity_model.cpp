@@ -254,6 +254,7 @@ void visit_fuel(const Fuel &fuel, const std::string &base, Function function) {
     function(fuel.maximum_turbulence_effect, base + ".maximum_turbulence_effect");
     function(fuel.maximum_dilution_effect, base + ".maximum_dilution_effect");
     function(fuel.lbv_multiplier, base + ".lbv_multiplier");
+    function(fuel.compression_ignition_enabled, base + ".compression_ignition_enabled");
     function(fuel.turbulence_to_flame_speed_ratio_triangle_radius,
              base + ".turbulence_to_flame_speed_ratio_triangle_radius");
     for (const auto &point : fuel.turbulence_to_flame_speed_ratio) {
@@ -851,6 +852,11 @@ void validate_authored_low_order_core_domains(ValidationReport &report,
                 !fuel.turbulence_to_flame_speed_ratio.empty(),
             ContractIssueCode::invalid_value, "fuel",
             "legacy fuel parameters are outside their domain");
+    require(report, !fuel.compression_ignition_enabled.value,
+            ContractIssueCode::inconsistent_semantics,
+            "fuel.compression_ignition_enabled.value",
+            "the admitted spark-ignition profile cannot enable compression "
+            "ignition");
     validate_sample_ids(report, fuel.turbulence_to_flame_speed_ratio,
                         "fuel.turbulence_to_flame_speed_ratio");
     for (std::size_t index = 0; index < fuel.turbulence_to_flame_speed_ratio.size();
@@ -1782,6 +1788,11 @@ void validate_low_order_core_domains(ValidationReport &report,
                 !fuel.turbulence_to_flame_speed_ratio.empty(),
             ContractIssueCode::invalid_value, "fuel",
             "legacy fuel parameters are outside their domain");
+    require(report, !fuel.compression_ignition_enabled.value,
+            ContractIssueCode::inconsistent_semantics,
+            "fuel.compression_ignition_enabled.value",
+            "the admitted spark-ignition profile cannot enable compression "
+            "ignition");
     validate_sample_ids(report, fuel.turbulence_to_flame_speed_ratio,
                         "fuel.turbulence_to_flame_speed_ratio");
     for (std::size_t index = 0; index < fuel.turbulence_to_flame_speed_ratio.size();
@@ -2243,8 +2254,6 @@ void validate_resolved_profile_specific(
     validate_resolved_accessory_evidence(
         report, profile.accessory_configuration, provenance);
     validate_operating_geometry(report, profile.core, engine);
-    report.append(validate(profile.exhaust_acoustics, engine, provenance,
-                           std::string(root) + ".exhaust_acoustics"));
     detail::require(
         report, engine.torque_capability.value == kOperatingTorqueCapability,
         ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",

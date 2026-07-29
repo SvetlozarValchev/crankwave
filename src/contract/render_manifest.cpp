@@ -100,6 +100,8 @@ bool valid_output_bus_kind(OutputBusKind kind) {
     switch (kind) {
     case OutputBusKind::master_engine_raw:
     case OutputBusKind::master_engine_audition:
+    case OutputBusKind::master_reference_raw:
+    case OutputBusKind::master_reference_audition:
         return true;
     case OutputBusKind::unspecified:
         return false;
@@ -113,6 +115,19 @@ bool valid_route_disposition(RouteDisposition disposition) {
     case RouteDisposition::not_applicable:
         return true;
     case RouteDisposition::unspecified:
+        return false;
+    }
+    return false;
+}
+
+bool valid_random_component_kind(RandomComponentKind kind) {
+    switch (kind) {
+    case RandomComponentKind::combustion:
+    case RandomComponentKind::presentation_jitter:
+    case RandomComponentKind::presentation_air_noise:
+    case RandomComponentKind::starter:
+        return true;
+    case RandomComponentKind::unspecified:
         return false;
     }
     return false;
@@ -264,6 +279,7 @@ struct ManifestRouteView {
 };
 
 struct ManifestInputView {
+    const PresentationCalibration *presentation = nullptr;
     const EngineSpec *simulation_engine = nullptr;
     std::vector<ManifestRouteView> routes;
     RenderRates rates;
@@ -274,6 +290,7 @@ struct ManifestInputView {
 
 ManifestInputView make_input_view(const SimulationManifestInputs &inputs) {
     ManifestInputView view;
+    view.presentation = &inputs.resolved.presentation;
     view.simulation_engine = &inputs.resolved.engine;
     view.routes.reserve(inputs.resolved.engine.routes.size());
     for (const auto &route : inputs.resolved.engine.routes) {
@@ -308,16 +325,16 @@ ValidationReport validate_render_admission(const EngineSpec &engine,
     append_prefixed(report, validate(presentation, engine, scenario, provenance),
                     "presentation");
     append_prefixed(report, validate(randomness, provenance), "randomness");
-    auto random_plan = compile_random_plan(randomness, engine, scenario);
+    auto random_plan = compile_random_plan(randomness, engine, presentation, scenario);
     if (auto *plan_report = std::get_if<ValidationReport>(&random_plan)) {
         append_prefixed(report, std::move(*plan_report), "random_plan");
     }
 
-    const auto &bmw_source_matrix = bmw_m52b28_exhaust_acoustic_source_matrix();
-    if (source_matrix.id == bmw_source_matrix.id) {
-        require(report, source_matrix == bmw_source_matrix,
+    const auto &bmw_baseline = bmw_m52b28_reference_source_matrix_v1();
+    if (source_matrix.id == bmw_baseline.id) {
+        require(report, source_matrix == bmw_baseline,
                 ContractIssueCode::inconsistent_semantics, "source_matrix",
-                "the canonical BMW source matrix must exactly match its frozen "
+                "the built-in BMW baseline matrix must exactly match its approved "
                 "contract");
     }
 
@@ -358,10 +375,16 @@ ValidationReport validate_render_admission(const EngineSpec &engine,
         require(report, engine_route.kind.value == requirement->kind,
                 ContractIssueCode::inconsistent_semantics, path + ".kind",
                 "resolved engine route kind must match the selected source matrix");
-        require(report, requirement->disposition == RouteDisposition::rendered,
-                ContractIssueCode::unsupported_value, path,
-                "the physical-pressure presentation requires both exhaust outlets "
-                "to be rendered");
+        const auto presentation_configured = std::ranges::any_of(
+            presentation.routes, [&](const RoutePresentation &route) {
+                return route.route_id == engine_route.id;
+            });
+        require(report,
+                presentation_configured ==
+                    (requirement->disposition == RouteDisposition::rendered),
+                ContractIssueCode::inconsistent_semantics, path,
+                "exactly rendered source-matrix routes require presentation "
+                "configuration");
     }
 
     for (std::size_t index = 0; index < source_matrix.required_source_routes.size();
@@ -493,50 +516,116 @@ ValidationReport validate(const RenderManifestContent &content,
     require(report, content.randomness.public_seed == input_view.public_seed,
             ContractIssueCode::inconsistent_semantics, "randomness.public_seed",
             "manifest random seed must equal the selected input public seed");
-    std::unordered_set<std::uint32_t> combustion_seed_ids;
+    std::unordered_set<std::string> component_seed_ids;
     std::unordered_map<std::uint32_t, std::uint32_t> combustion_seed_count;
-    for (std::size_t index = 0; index < content.randomness.combustion_seeds.size();
+    std::unordered_map<std::uint32_t, std::uint32_t> jitter_seed_count;
+    std::unordered_map<std::uint32_t, std::uint32_t> air_noise_seed_count;
+    for (std::size_t index = 0; index < content.randomness.component_seeds.size();
          ++index) {
-        const auto &seed = content.randomness.combustion_seeds[index];
-        const auto path =
-            "randomness.combustion_seeds[" + std::to_string(index) + "]";
-        require(report, seed.cylinder_id.valid(), ContractIssueCode::invalid_value,
-                path + ".cylinder_id", "combustion seed owner must be nonzero");
+        const auto &seed = content.randomness.component_seeds[index];
+        const auto path = "randomness.component_seeds[" + std::to_string(index) + "]";
+        require(report, valid_random_component_kind(seed.kind),
+                ContractIssueCode::unsupported_value, path + ".kind",
+                "random component kind must be recognized");
+        const auto cylinder_owned = seed.kind == RandomComponentKind::combustion;
+        const auto route_owned =
+            seed.kind == RandomComponentKind::presentation_jitter ||
+            seed.kind == RandomComponentKind::presentation_air_noise ||
+            seed.kind == RandomComponentKind::starter;
         require(report,
-                input_view.simulation_engine != nullptr &&
-                    std::ranges::any_of(input_view.simulation_engine->cylinders,
-                                        [&](const CylinderSpec &cylinder) {
-                                            return cylinder.id == seed.cylinder_id;
-                                        }),
-                ContractIssueCode::dangling_reference, path + ".cylinder_id",
-                "combustion seed requires a known simulated cylinder");
+                cylinder_owned ==
+                        (seed.cylinder_id.has_value() && !seed.route_id.has_value()) &&
+                    route_owned ==
+                        (seed.route_id.has_value() && !seed.cylinder_id.has_value()),
+                ContractIssueCode::inconsistent_semantics, path,
+                "random seed owner must match its component kind");
+        if (seed.cylinder_id.has_value()) {
+            require(report,
+                    input_view.simulation_engine != nullptr &&
+                        std::ranges::any_of(input_view.simulation_engine->cylinders,
+                                            [&](const CylinderSpec &cylinder) {
+                                                return cylinder.id == *seed.cylinder_id;
+                                            }),
+                    ContractIssueCode::dangling_reference, path + ".cylinder_id",
+                    "combustion seed requires a simulated input and known cylinder");
+        }
+        if (seed.route_id.has_value()) {
+            const auto route = std::ranges::find(input_view.routes, *seed.route_id,
+                                                 &ManifestRouteView::route_id);
+            require(report, route != input_view.routes.end(),
+                    ContractIssueCode::dangling_reference, path + ".route_id",
+                    "presentation/starter seed references an unknown route");
+            if (route != input_view.routes.end() &&
+                seed.kind == RandomComponentKind::starter) {
+                require(report, route->kind == SourceRouteKind::mechanical_starter,
+                        ContractIssueCode::inconsistent_semantics, path + ".route_id",
+                        "starter randomness must belong to a starter route");
+            }
+            if (route != input_view.routes.end() &&
+                (seed.kind == RandomComponentKind::presentation_jitter ||
+                 seed.kind == RandomComponentKind::presentation_air_noise)) {
+                require(report,
+                        std::ranges::any_of(
+                            input_view.presentation->routes,
+                            [&](const RoutePresentation &presentation_route) {
+                                return presentation_route.route_id == *seed.route_id;
+                            }),
+                        ContractIssueCode::inconsistent_semantics, path + ".route_id",
+                        "presentation randomness must belong to a configured route");
+            }
+        }
         require(report,
                 seed.stream <= (std::numeric_limits<std::uint64_t>::max() >> 1U),
                 ContractIssueCode::invalid_value, path + ".stream",
                 "PCG32 stream selector must fit before odd-increment encoding");
-        if (!combustion_seed_ids.insert(seed.cylinder_id.value).second) {
+        const auto owner_value =
+            seed.cylinder_id.has_value()
+                ? seed.cylinder_id->value
+                : (seed.route_id.has_value() ? seed.route_id->value : 0U);
+        const auto seed_key = std::to_string(static_cast<std::uint8_t>(seed.kind)) +
+                              ":" + std::to_string(owner_value);
+        if (!component_seed_ids.insert(seed_key).second) {
             report.add(ContractIssueCode::duplicate_identity, path,
-                       "each cylinder owns exactly one combustion stream");
+                       "each stochastic component owns exactly one stream");
         }
-        ++combustion_seed_count[seed.cylinder_id.value];
+        if (seed.route_id.has_value() &&
+            seed.kind == RandomComponentKind::presentation_jitter) {
+            ++jitter_seed_count[seed.route_id->value];
+        }
+        if (seed.route_id.has_value() &&
+            seed.kind == RandomComponentKind::presentation_air_noise) {
+            ++air_noise_seed_count[seed.route_id->value];
+        }
+        if (seed.cylinder_id.has_value() &&
+            seed.kind == RandomComponentKind::combustion) {
+            ++combustion_seed_count[seed.cylinder_id->value];
+        }
     }
     if (input_view.simulation_engine != nullptr) {
         for (const auto &cylinder : input_view.simulation_engine->cylinders) {
             require(report, combustion_seed_count[cylinder.id.value] == 1,
-                    ContractIssueCode::inconsistent_shape,
-                    "randomness.combustion_seeds",
+                    ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
                     "implemented combustion requires exactly one initialized stream "
                     "per cylinder");
         }
     }
+    for (const auto &route : input_view.presentation->routes) {
+        require(report, jitter_seed_count[route.route_id.value] == 1,
+                ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
+                "implemented presentation jitter requires exactly one initialized "
+                "stream per configured route");
+        require(report, air_noise_seed_count[route.route_id.value] == 1,
+                ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
+                "implemented presentation air noise requires exactly one initialized "
+                "stream per configured route");
+    }
     auto expected_random_plan = compile_random_plan(
         content.inputs.resolved.randomness, content.inputs.resolved.engine,
-        content.inputs.resolved.scenario);
+        content.inputs.resolved.presentation, content.inputs.resolved.scenario);
     if (const auto *expected = std::get_if<RandomPlan>(&expected_random_plan)) {
         require(report, content.randomness == *expected,
-                ContractIssueCode::inconsistent_semantics,
-                "randomness.combustion_seeds",
-                "initialized combustion plan must exactly equal canonical component "
+                ContractIssueCode::inconsistent_semantics, "randomness.component_seeds",
+                "initialized random plan must exactly equal canonical component "
                 "derivation and ordering");
     }
     require(report, content.output_contract == resolve_output_contract(source_matrix),
@@ -705,6 +794,18 @@ ValidationReport validate(const RenderManifestContent &content,
                     "manifest source-route disposition, reason, and artifact "
                     "ownership must exactly match the selected source matrix");
         }
+
+        const auto presentation_configured = std::ranges::any_of(
+            input_view.presentation->routes,
+            [&](const RoutePresentation &presentation_route) {
+                return presentation_route.route_id == route.route_id;
+            });
+        require(report,
+                presentation_configured ==
+                    (route.disposition == RouteDisposition::rendered),
+                ContractIssueCode::inconsistent_semantics, path + ".disposition",
+                "exactly rendered selected routes must have a presentation "
+                "configuration");
 
         if (route.disposition == RouteDisposition::rendered) {
             require(report,

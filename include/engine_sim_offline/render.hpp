@@ -9,8 +9,17 @@
 #include <stop_token>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace engine_sim_offline {
+
+struct RenderAssetPayload {
+    contract::AudioAssetId id;
+    std::vector<std::byte> bytes;
+
+    friend bool operator==(const RenderAssetPayload &,
+                           const RenderAssetPayload &) = default;
+};
 
 // The resolved, immutable input selected for one render. The scenario remains a
 // separate argument so request/result matching is explicit at the API boundary.
@@ -20,6 +29,7 @@ struct RenderSpecification {
     contract::ResolvedRandomnessPolicy randomness;
     contract::ProvenanceLedger provenance;
     contract::SourceMatrixContract source_matrix;
+    std::vector<RenderAssetPayload> asset_payloads;
 
     friend bool operator==(const RenderSpecification &,
                            const RenderSpecification &) = default;

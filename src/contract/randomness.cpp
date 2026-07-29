@@ -1,6 +1,7 @@
 #include "engine_sim_offline/contract/randomness.hpp"
 
 #include "engine_sim_offline/contract/engine.hpp"
+#include "engine_sim_offline/contract/presentation.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
 #include "sha256_stream.hpp"
 #include "validation_support.hpp"
@@ -224,6 +225,13 @@ derive_component_seed(const Sha256Digest &capture_random_key,
     return path;
 }
 
+struct PlannedComponent {
+    RandomComponentKind kind = RandomComponentKind::unspecified;
+    std::optional<CylinderId> cylinder_id;
+    std::optional<RouteId> route_id;
+    ComponentSeedCoordinate coordinate;
+};
+
 struct LowOrderCoreVisitor {
     [[nodiscard]] const LowOrderEngineCoreV1 &
     operator()(const LegacyLowOrderV1Profile &profile) const noexcept {
@@ -386,6 +394,7 @@ derive_component_seeds(const ComponentSeedDerivationRequest &request) {
 
 RandomPlanCompilationResult
 compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &engine,
+                    const PresentationCalibration &presentation,
                     const RenderScenario &scenario) {
     ValidationReport report;
     detail::require(report, is_valid_semantic_id(policy.seed_namespace_id.value),
@@ -407,6 +416,15 @@ compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &en
     }
     const auto &core = low_order_core(engine.physics_profile);
 
+    detail::require(
+        report,
+        presentation.routes.size() <=
+            (std::numeric_limits<std::size_t>::max() - engine.cylinders.size()) / 2U,
+        ContractIssueCode::unsupported_value, "component_inventory",
+        "provisioned stochastic component inventory size is not representable");
+    if (!report.ok()) {
+        return report;
+    }
     std::vector<const CylinderSpec *> cylinders;
     cylinders.reserve(engine.cylinders.size());
     for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
@@ -418,8 +436,48 @@ compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &en
     }
     std::ranges::sort(cylinders, {},
                       [](const auto *cylinder) { return cylinder->id.value; });
+
+    std::vector<const RoutePresentation *> routes;
+    routes.reserve(presentation.routes.size());
+    for (std::size_t index = 0; index < presentation.routes.size(); ++index) {
+        const auto &route = presentation.routes[index];
+        detail::require(report, route.route_id.valid(),
+                        ContractIssueCode::invalid_value,
+                        "presentation.routes[" + std::to_string(index) + "].route_id",
+                        "random component owner must have a stable nonzero ID");
+        routes.push_back(&route);
+    }
+    std::ranges::sort(routes, {},
+                      [](const auto *route) { return route->route_id.value; });
     if (!report.ok()) {
         return report;
+    }
+
+    std::vector<PlannedComponent> components;
+    components.reserve(cylinders.size() + routes.size() * 2U);
+    for (const auto *cylinder : cylinders) {
+        components.push_back({
+            RandomComponentKind::combustion,
+            cylinder->id,
+            std::nullopt,
+            {"combustion", static_cast<std::uint64_t>(cylinder->id.value - 1U)},
+        });
+    }
+    for (const auto *route : routes) {
+        components.push_back({
+            RandomComponentKind::presentation_air_noise,
+            std::nullopt,
+            route->route_id,
+            {"synth_air_noise", static_cast<std::uint64_t>(route->route_id.value - 1U)},
+        });
+    }
+    for (const auto *route : routes) {
+        components.push_back({
+            RandomComponentKind::presentation_jitter,
+            std::nullopt,
+            route->route_id,
+            {"synth_jitter", static_cast<std::uint64_t>(route->route_id.value - 1U)},
+        });
     }
 
     RandomPlan plan{
@@ -431,10 +489,9 @@ compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &en
     ComponentSeedDerivationRequest request;
     request.seed_namespace_id = policy.seed_namespace_id.value;
     request.public_seed = scenario.public_seed.value;
-    request.ordered_components.reserve(cylinders.size());
-    for (const auto *cylinder : cylinders) {
-        request.ordered_components.push_back(
-            {"combustion", static_cast<std::uint64_t>(cylinder->id.value - 1U)});
+    request.ordered_components.reserve(components.size());
+    for (const auto &component : components) {
+        request.ordered_components.push_back(component.coordinate);
     }
 
     auto derivation_result = derive_component_seeds(request);
@@ -444,19 +501,25 @@ compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &en
         return report;
     }
     const auto &derived = std::get<ComponentSeedDerivation>(derivation_result);
-    plan.combustion_seeds.reserve(derived.ordered_components.size());
-    for (std::size_t index = 0; index < cylinders.size(); ++index) {
-        const auto cylinder_id = cylinders[index]->id;
+    plan.component_seeds.reserve(derived.ordered_components.size());
+    for (std::size_t index = 0; index < components.size(); ++index) {
+        const auto &component = components[index];
         const auto &initialization = derived.ordered_components[index].initialization;
-        plan.combustion_seeds.push_back({
-            cylinder_id,
+        plan.component_seeds.push_back({
+            component.kind,
+            component.cylinder_id,
+            component.route_id,
             initialization.initial_state,
             initialization.stream,
         });
 
+        if (component.kind != RandomComponentKind::combustion ||
+            !component.cylinder_id.has_value()) {
+            continue;
+        }
         const auto &streams = core.combustion_random_streams;
         const auto stored = std::ranges::find(
-            streams, cylinder_id,
+            streams, *component.cylinder_id,
             &LegacyCombustionRandomStream::cylinder_id);
         const auto stored_ordinal = static_cast<std::size_t>(
             stored - streams.begin());

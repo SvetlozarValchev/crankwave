@@ -26,8 +26,6 @@ constexpr std::string_view kModelRecordSha256 =
     "435441890e0a5f8d01e81995f64f33d4c554144f5b1436895e6816f6db85e34c";
 constexpr std::string_view kRequestRecordSha256 =
     "c64ab8b9c2f8c78a151222d889865269be19cc521e6852c46ddf3450869e75e4";
-constexpr std::string_view kM5ExhaustAcousticNetworkSha256 =
-    "1c2e314846d8f86144e7ae7018a4adaab469fe5fe8ccdfe04d57ae73bcbc31ac";
 
 constexpr std::string_view kLegacyAssetClaimId = "bmw-m52b28-legacy-asset-claim";
 constexpr std::string_view kReferenceFixtureClaimId =
@@ -133,26 +131,12 @@ constexpr std::array<EvidenceDefinition, 9> kEvidenceDefinitions{{
     },
 }};
 
-constexpr std::array<EvidenceDefinition, 16> kOperatingEvidenceDefinitions{{
+constexpr std::array<EvidenceDefinition, 14> kOperatingEvidenceDefinitions{{
     {
         "operating-point-model-record",
         "docs/model/M4_OPERATING_POINT_MODEL.md",
         kRepositoryContentRevision,
-        "f838428cc76eff5622f02e57d1c91ddf6448e9467327be5dc82c7727d19b7cb2",
-        contract::RightsDisposition::permitted,
-    },
-    {
-        "m4-bmw-exhaust-topology-correction",
-        "docs/M4_BMW_EXHAUST_TOPOLOGY_CORRECTION.md",
-        kRepositoryContentRevision,
-        "de1ea26b3cfad577ca23a2d0b139fd631de0505b8d79a8e38e35a5588907a125",
-        contract::RightsDisposition::permitted,
-    },
-    {
-        "m5-exhaust-acoustic-network",
-        "docs/model/M5_EXHAUST_ACOUSTIC_NETWORK.md",
-        kRepositoryContentRevision,
-        kM5ExhaustAcousticNetworkSha256,
+        "254eaf8994ac9884c9ef7e6e14844f2ac751f75d47d227d19a2d587a69f6eb00",
         contract::RightsDisposition::permitted,
     },
     {
@@ -433,15 +417,8 @@ BmwProvenanceBuilder::BmwProvenanceBuilder(BmwProfileKind profile_kind)
             contract::ProvenanceOrigin::scenario,
             {
                 citation("operating-point-model-record",
-                         "sections 1.1-1.4: exact profile, corrected exhaust graph, "
-                         "and listening-request "
+                         "sections 1.1-1.2: exact profile and listening-request "
                          "identity and accounting"),
-                citation("m4-bmw-exhaust-topology-correction",
-                         "sections 1 and 5: exact M4-only manifold grouping and "
-                         "equal gross route authority"),
-                citation("m5-exhaust-acoustic-network",
-                         "sections 1-8: exact M5 assembly topology, declared "
-                         "geometry, gas constants, and evaluation calibration"),
             },
             std::nullopt,
         });
@@ -467,9 +444,6 @@ BmwProvenanceBuilder::BmwProvenanceBuilder(BmwProfileKind profile_kind)
                          "complete admitted shared-core method configuration"),
                 citation("operating-point-model-record",
                          "sections 1.1-3: admitted method roles"),
-                citation("m5-exhaust-acoustic-network",
-                         "sections 3-7: exact exhaust source, reconstruction, "
-                         "waveguide, junction, termination, and radiation methods"),
             },
             std::nullopt,
         });
@@ -674,14 +648,6 @@ contract::MethodIdentity derived_method(std::string id) {
         std::move(id),
         1,
         digest(kModelRecordSha256),
-    };
-}
-
-contract::MethodIdentity m5_exhaust_acoustic_method_identity(std::string id) {
-    return {
-        std::move(id),
-        1,
-        digest(kM5ExhaustAcousticNetworkSha256),
     };
 }
 

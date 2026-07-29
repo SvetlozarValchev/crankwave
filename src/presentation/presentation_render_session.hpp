@@ -1,9 +1,13 @@
 #pragma once
 
 #include "artifacts/audition_wav_encoder.hpp"
+#include "dsp/fixed_fft.hpp"
 #include "engine_sim_offline/render.hpp"
 #include "execution/linux_execution_facts.hpp"
+#include "presentation/exhaust_excitation_block.hpp"
+#include "presentation/exhaust_source_stage.hpp"
 #include "presentation/mastering.hpp"
+#include "presentation/presentation_method_registry.hpp"
 
 #include <array>
 #include <cstddef>
@@ -14,69 +18,77 @@
 #include <string_view>
 #include <utility>
 
-namespace engine_sim_offline::acoustics {
-struct ExhaustAcousticPressureBlock;
-}
-
 namespace engine_sim_offline::presentation {
 
-inline constexpr std::size_t kPresentationExhaustOutletCount = 2;
-inline constexpr std::size_t kPresentationAudioArtifactCount = 4;
-inline constexpr std::size_t kMaximumPresentationInputFramesPerBlock = 3'840;
+inline constexpr std::size_t kPresentationAudioArtifactCount = 8;
 
 enum class PresentationTailPolicy : std::uint8_t {
     unspecified,
     truncate_at_timeline_end,
 };
 
-// The timeline is expressed directly on the acoustic output clock. Input block
-// partitioning has no bearing on the preparation crop or published frame horizon.
 struct PresentationTimeline {
-    std::uint64_t total_acoustic_frame_count = 0;
-    std::uint64_t pre_audible_frame_count = 0;
+    std::uint64_t total_block_count = 0;
+    std::uint64_t pre_audible_block_count = 0;
     PresentationTailPolicy tail_policy = PresentationTailPolicy::unspecified;
 
     friend bool operator==(const PresentationTimeline &,
                            const PresentationTimeline &) = default;
 };
 
-struct PresentationOutletRenderPlan {
-    contract::RouteId route_id;
-    std::string route_semantic_id;
-    PendingArtifact pressure_stem_artifact;
+struct PresentationRouteArtifacts {
+    PendingArtifact dry;
+    PendingArtifact configured_ir;
+    PendingArtifact selected;
 };
 
-struct PresentationMasterRenderPlan {
+struct PresentationRouteRenderPlan {
+    contract::RouteId route_id;
+    std::string route_semantic_id;
+    RouteConditioningSeeds conditioning_seeds;
+    std::shared_ptr<const dsp::FixedConvolutionKernel> configured_ir;
+    double wet_mix_01 = 0.0;
+    PresentationRouteArtifacts artifacts;
+};
+
+struct PresentationAuditionRenderPlan {
+    std::array<contract::RouteId, kExhaustExcitationRouteCount> selected_route_ids;
     MasteringSettings mastering;
-    artifacts::AuditionWaveMetadata audition_metadata;
+    artifacts::AuditionWaveMetadata metadata;
     PendingArtifact raw_master_artifact;
     PendingArtifact audition_master_artifact;
 };
 
-// One physical presentation path: calibrated outlet pressures, their coherent raw
-// sum, and one common-gain listening derivative. pa_per_full_scale is the sole
-// conversion from the acoustic session's Pa domain into the WAVE full-scale domain.
+// The renderer's fixed signal topology is expressed through named, route-owned
+// artifacts rather than a caller-defined positional array. The output contract must
+// bind every supplied role to the same route or output bus before a sink is touched.
 struct PresentationRenderPlan {
     contract::OutputContract output_contract;
     PresentationTimeline timeline;
-    std::array<PresentationOutletRenderPlan, kPresentationExhaustOutletCount> outlets;
-    double pa_per_full_scale = 0.0;
-    PresentationMasterRenderPlan master;
+    PresentationMethodIdentities methods;
+    RouteConditioningCalibration conditioning;
+    std::array<PresentationRouteRenderPlan, kExhaustExcitationRouteCount> routes;
+    double publication_calibration_gain_linear = 0.0;
+    PresentationAuditionRenderPlan audition;
 };
 
 struct PresentationRenderStats {
     std::uint64_t input_frame_count = 0;
     std::uint64_t processed_block_count = 0;
-    std::uint64_t pre_audible_frame_count = 0;
-    std::uint64_t published_frame_count = 0;
+    std::uint64_t pre_audible_block_count = 0;
+    std::uint64_t published_block_count = 0;
+    std::uint64_t processed_source_frame_count = 0;
+    std::uint64_t pre_audible_source_frame_count = 0;
+    std::uint64_t published_source_frame_count = 0;
 
     friend bool operator==(const PresentationRenderStats &,
                            const PresentationRenderStats &) = default;
 };
 
-// Evidence that the session streamed and sealed all four role-bound artifacts and
-// then finished its live execution observation. Publication authority remains with
-// the admitted-job boundary that binds this evidence to a complete manifest.
+// Evidence that the session actually streamed and sealed all eight role-bound
+// artifacts and then finished its live execution observation. This is deliberately
+// not publication authority: callers can inspect or move it, but only a future
+// admitted-job boundary may bind it to a manifest and commit it.
 class SealedPresentationEvidence final {
   public:
     SealedPresentationEvidence(const SealedPresentationEvidence &) = delete;
@@ -105,7 +117,9 @@ class SealedPresentationEvidence final {
     friend class PresentationRenderSession;
 };
 
-// Preserves exact transactional endpoint rejection through WAVE callback boundaries.
+// Preserves the exact transactional endpoint rejection through WAVE callback
+// boundaries. The opaque render job maps this typed failure to the public failure
+// taxonomy without guessing from an encoder's callback-rejected diagnostic.
 class PresentationSinkFailure final : public std::runtime_error {
   public:
     PresentationSinkFailure(std::string_view operation, RenderSinkError error);
@@ -123,14 +137,17 @@ enum class PresentationRenderSessionState : std::uint8_t {
     aborted,
 };
 
-// One bounded serial transaction. Every input block is raw radiated pressure from the
-// acoustic network at 192 kHz. The session performs no reconstruction, source
-// conditioning, route-specific gain, convolution, wet selection, or fallback.
+// One bounded, serial, fixture-free presentation transaction. The caller pushes
+// complete ExhaustExcitationBlockView values; this type has no fixture path, decoder,
+// audit, or comparator dependency. It owns all stateful DSP, WAVE encoders, bounded
+// scratch, output hashing, sink lifecycle, and the live execution observation.
 //
 // Cancellation is observed before transaction begin, between complete input blocks,
 // and once before finalization. Any failure after a successful sink begin aborts
 // exactly once. A commit attempt is terminal because RenderSink owns cleanup on both
-// commit success and commit failure.
+// commit success and commit failure. This low-level session cannot construct a
+// manifest: the opaque admitted job must derive and validate it from the same request
+// that produced the executable plan.
 class PresentationRenderSession final {
   public:
     PresentationRenderSession(RenderSink &sink, PresentationRenderPlan plan,
@@ -142,10 +159,13 @@ class PresentationRenderSession final {
     PresentationRenderSession(PresentationRenderSession &&) = delete;
     PresentationRenderSession &operator=(PresentationRenderSession &&) = delete;
 
-    void process(const acoustics::ExhaustAcousticPressureBlock &input);
+    void process(ExhaustExcitationBlockView input);
 
     [[nodiscard]] SealedPresentationEvidence finish();
 
+    // Requires the completed manifest to contain exactly this session's retained
+    // artifact and execution evidence, revalidates the complete contract, and then
+    // makes the sink's sole terminal commit attempt.
     void commit(const SealedPresentationEvidence &evidence,
                 const contract::RenderManifest &manifest,
                 const contract::ProvenanceLedger &provenance,

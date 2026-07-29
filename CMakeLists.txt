@@ -21,8 +21,8 @@ option(
     "${PROJECT_IS_TOP_LEVEL}"
 )
 option(
-    ENGINE_SIM_OFFLINE_BUILD_TOOLS
-    "Build BMW listening and engineering tools"
+    ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS
+    "Build isolated local-evaluation tools that can read frozen reference fixtures"
     OFF
 )
 
@@ -52,7 +52,6 @@ add_library(
         src/contract/capture.cpp
         src/contract/common.cpp
         src/contract/engine.cpp
-        src/contract/exhaust_acoustics.cpp
         src/contract/held_speed_operating_point_result.cpp
         src/contract/parity_model.cpp
         src/contract/presentation.cpp
@@ -122,7 +121,6 @@ add_library(
         src/profiles/bmw_m52b28_operating_profile_validation.cpp
         src/profiles/bmw_m52b28_low_order_engine.cpp
         src/profiles/bmw_m52b28_profile_provenance.cpp
-        src/profiles/bmw_m52b28_render_specification.cpp
         src/profiles/bmw_m52b28_full_throttle_torque_sweep_request.cpp
         src/profiles/bmw_m52b28_full_throttle_torque_sweep_scenario.cpp
         src/profiles/bmw_m52b28_full_throttle_torque_sweep_validation.cpp
@@ -214,9 +212,7 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_simulation)
 
 target_link_libraries(
     engine_sim_offline_profiles
-    PRIVATE
-        engine_sim_offline_simulation
-        engine_sim_offline::presentation
+    PRIVATE engine_sim_offline_simulation
 )
 
 add_library(
@@ -300,7 +296,6 @@ add_library(
         src/dsp/causal_reconstruction_table.cpp
         src/dsp/fixed_fft.cpp
         src/dsp/pcg32.cpp
-        src/dsp/six_channel_causal_resampler.cpp
         src/dsp/source_conditioning_primitives.cpp
         src/dsp/static_ir_conversion.cpp
 )
@@ -322,39 +317,20 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_dsp)
 
 add_library(
-    engine_sim_offline_acoustics
-    STATIC
-        src/acoustics/exhaust_acoustic_session.cpp
-        src/acoustics/ideal_compact_junction.cpp
-        src/acoustics/unflanged_pipe_outlet.cpp
-        src/acoustics/uniform_cylindrical_waveguide.cpp
-)
-add_library(
-    engine_sim_offline::acoustics
-    ALIAS engine_sim_offline_acoustics
-)
-
-target_include_directories(
-    engine_sim_offline_acoustics
-    PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-)
-
-target_link_libraries(
-    engine_sim_offline_acoustics
-    PUBLIC
-        engine_sim_offline::build_options
-        engine_sim_offline::contract
-        engine_sim_offline::dsp
-)
-engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_acoustics)
-
-add_library(
     engine_sim_offline_presentation
     STATIC
+        src/presentation/causal_reconstruction.cpp
+        src/presentation/exhaust_source_stage.cpp
         src/presentation/mastering.cpp
+        src/presentation/overlap_save_convolver.cpp
+        src/presentation/pcm16_ir_decoder.cpp
+        src/presentation/presentation_asset_compiler.cpp
+        src/presentation/presentation_calibration_compiler.cpp
+        src/presentation/presentation_method_descriptors_asset.cpp
         src/presentation/presentation_method_descriptors_output.cpp
+        src/presentation/presentation_method_descriptors_source.cpp
         src/presentation/presentation_method_registry.cpp
+        src/presentation/route_conditioning.cpp
 )
 add_library(
     engine_sim_offline::presentation
@@ -375,6 +351,31 @@ target_link_libraries(
         engine_sim_offline::dsp
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_presentation)
+
+add_library(
+    engine_sim_offline_excitation
+    STATIC
+        src/excitation/captured_exhaust_excitation.cpp
+        src/excitation/captured_exhaust_excitation_compile.cpp
+)
+add_library(
+    engine_sim_offline::excitation
+    ALIAS engine_sim_offline_excitation
+)
+
+target_include_directories(
+    engine_sim_offline_excitation
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_excitation
+    PUBLIC
+        engine_sim_offline::contract
+    PRIVATE engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_excitation)
 
 add_library(
     engine_sim_offline_execution
@@ -465,13 +466,13 @@ target_link_libraries(
     engine_sim_offline_render
     PRIVATE
         engine_sim_offline::simulation
-        engine_sim_offline::acoustics
+        engine_sim_offline::excitation
         engine_sim_offline::presentation
         engine_sim_offline::presentation_session
         engine_sim_offline_renderer_determinism
 )
 
-if(ENGINE_SIM_OFFLINE_BUILD_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
+if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     add_library(
         engine_sim_offline_reference_parity_v1_reader
         STATIC
@@ -491,6 +492,79 @@ if(ENGINE_SIM_OFFLINE_BUILD_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     )
     engine_sim_offline_enable_renderer_numeric_policy(
         engine_sim_offline_reference_parity_v1_reader
+    )
+
+    add_library(
+        engine_sim_offline_p18_reference_catalog
+        STATIC
+            src/reference/p18_reference_catalog.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_p18_reference_catalog
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_p18_reference_catalog
+        PUBLIC
+            engine_sim_offline::contract
+            engine_sim_offline::build_options
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_p18_reference_catalog
+    )
+
+    add_library(
+        engine_sim_offline_bmw_p18_render_specification
+        STATIC
+            src/reference/bmw_p18_render_specification.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_bmw_p18_render_specification
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_bmw_p18_render_specification
+        PUBLIC
+            engine_sim_offline::contract
+            engine_sim_offline::build_options
+        PRIVATE
+            engine_sim_offline::presentation
+            engine_sim_offline_p18_reference_catalog
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_bmw_p18_render_specification
+    )
+
+    add_library(
+        engine_sim_offline_p18_reference_fixture
+        STATIC
+            src/reference/p18_reference_audit_reader.cpp
+            src/reference/p18_reference_fixture_loader.cpp
+            src/reference/p18_reference_seed_reader.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_p18_reference_fixture
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    )
+
+    target_link_libraries(
+        engine_sim_offline_p18_reference_fixture
+        PUBLIC
+            engine_sim_offline::artifacts
+            engine_sim_offline::presentation
+            engine_sim_offline_p18_reference_catalog
+        PRIVATE engine_sim_offline::build_options
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_p18_reference_fixture
     )
 
     add_library(
@@ -523,41 +597,46 @@ if(ENGINE_SIM_OFFLINE_BUILD_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
 
 endif()
 
-if(ENGINE_SIM_OFFLINE_BUILD_TOOLS AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS AND
+   CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(
-        engine_sim_offline_bmw_listening
-        src/cli/bmw_listening_main.cpp
+        engine_sim_offline_m4_bmw_listening
+        src/reference/m4_bmw_listening_main.cpp
     )
 
     set_target_properties(
-        engine_sim_offline_bmw_listening
-        PROPERTIES OUTPUT_NAME engine-sim-offline-bmw-listening
+        engine_sim_offline_m4_bmw_listening
+        PROPERTIES OUTPUT_NAME engine-sim-offline-m4-bmw-listening
     )
 
     target_include_directories(
-        engine_sim_offline_bmw_listening
+        engine_sim_offline_m4_bmw_listening
         PRIVATE
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
     )
 
     target_link_options(
-        engine_sim_offline_bmw_listening
+        engine_sim_offline_m4_bmw_listening
         PRIVATE LINKER:--no-as-needed
     )
 
     target_link_libraries(
-        engine_sim_offline_bmw_listening
+        engine_sim_offline_m4_bmw_listening
         PRIVATE
             engine_sim_offline::artifacts
+            engine_sim_offline::presentation
             engine_sim_offline::profiles
             engine_sim_offline::render
+            engine_sim_offline_bmw_p18_render_specification
+            engine_sim_offline_p18_reference_catalog
+            engine_sim_offline_p18_reference_fixture
             m
     )
     engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_bmw_listening
+        engine_sim_offline_m4_bmw_listening
     )
     engine_sim_offline_finalize_renderer_numeric_policy(
-        engine_sim_offline_bmw_listening
+        engine_sim_offline_m4_bmw_listening
     )
 
     add_executable(
@@ -647,16 +726,27 @@ set(
     engine_sim_offline_artifacts
     engine_sim_offline_dsp
     engine_sim_offline_presentation
+    engine_sim_offline_excitation
     engine_sim_offline_execution
     engine_sim_offline_presentation_session
     engine_sim_offline_renderer_determinism
 )
-if(ENGINE_SIM_OFFLINE_BUILD_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
+if(ENGINE_SIM_OFFLINE_BUILD_REFERENCE_TOOLS OR ENGINE_SIM_OFFLINE_BUILD_TESTS)
     list(
         APPEND
         _engine_sim_offline_numeric_policy_targets
         engine_sim_offline_reference_parity_v1_reader
+        engine_sim_offline_p18_reference_catalog
+        engine_sim_offline_bmw_p18_render_specification
+        engine_sim_offline_p18_reference_fixture
         engine_sim_offline_m4_bmw_torque_sweep_evidence
+    )
+endif()
+if(TARGET engine_sim_offline_m4_bmw_listening)
+    list(
+        APPEND
+        _engine_sim_offline_numeric_policy_targets
+        engine_sim_offline_m4_bmw_listening
     )
 endif()
 if(TARGET engine_sim_offline_m4_bmw_torque_sweep)
@@ -666,19 +756,12 @@ if(TARGET engine_sim_offline_m4_bmw_torque_sweep)
         engine_sim_offline_m4_bmw_torque_sweep
     )
 endif()
-if(TARGET engine_sim_offline_bmw_listening)
-    list(
-        APPEND
-        _engine_sim_offline_numeric_policy_targets
-        engine_sim_offline_bmw_listening
-    )
-endif()
 foreach(_target IN LISTS _engine_sim_offline_numeric_policy_targets)
     engine_sim_offline_assert_renderer_numeric_policy("${_target}")
 endforeach()
-if(TARGET engine_sim_offline_bmw_listening)
+if(TARGET engine_sim_offline_m4_bmw_listening)
     engine_sim_offline_assert_final_renderer_numeric_policy(
-        engine_sim_offline_bmw_listening
+        engine_sim_offline_m4_bmw_listening
     )
 endif()
 if(TARGET engine_sim_offline_m4_bmw_torque_sweep)

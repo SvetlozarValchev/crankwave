@@ -57,9 +57,6 @@ The following records have distinct authority:
     torque-accounting, convergence, and applicability rules introduced by M4.
 12. This document owns model meaning and admission; the focused contract records own
     concrete C++ types, schemas, and API signatures.
-13. `docs/model/M5_EXHAUST_ACOUSTIC_NETWORK.md` owns the first bounded one-way
-    exhaust source-capture, pipe-network, junction, termination, radiation, declared
-    evaluation-geometry, verification, and listening-cutover contract.
 
 If two authorities conflict, implementation stops and the contradiction is recorded.
 Code must not silently choose the easier interpretation. The liked oracle is
@@ -705,13 +702,6 @@ M3 reproduces the reference asset's fixed ignition curve, rev limit, mixture gat
 per-cylinder ignition event, deterministic component stream, fuel reaction
 stoichiometry, flame-speed input functions, and geometric propagating-flame burn.
 It does not introduce a Wiebe burn law in M3.
-
-Ignition mode belongs to the engine/combustion-model selection. The current engine
-contract selects `spark_ignition`; its gasoline fuel record therefore contains no
-second compression-ignition Boolean. The disabled diesel knob from the development
-fork was never evaluated by this implementation and is not retained as schema data.
-A future compression-ignition engine requires an explicit admitted combustion model
-and its actual parameters, not a switch on the fuel record.
 
 The source-named ignition quantity `p_o2/p_fuel/molecular_afr` is accepted only in
 `[0.5, 1.9]`; the name is preserved for parity even though it is not the conventional

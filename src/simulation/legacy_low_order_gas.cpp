@@ -236,7 +236,6 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
     step_.step_end_index = mechanics.step_end_index;
     step_.timestamp_tick = mechanics.timestamp_tick;
     step_.events.clear();
-    step_.exhaust_port_substeps.clear();
     current_theta_unwrapped_rad_ = std::isfinite(mechanics.theta_unwrapped_rad)
                                        ? mechanics.theta_unwrapped_rad
                                        : 0.0;
@@ -708,12 +707,6 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
             }
 
             auto &exhaust_edge = step_.flow_edges[lane.exhaust_valve_edge_index];
-            const double chamber_pressure_before_pa = legacy_gas_pressure_pa(chamber);
-            const double chamber_temperature_before_k =
-                legacy_gas_temperature_k(chamber);
-            const double primary_pressure_before_pa = legacy_gas_pressure_pa(primary);
-            const double primary_temperature_before_k =
-                legacy_gas_temperature_k(primary);
             const auto exhaust_flow =
                 legacy_transfer_gas(chamber, primary,
                                     LegacyFiniteGasTransferParameters{
@@ -736,46 +729,6 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
                                public_cylinder.exhaust_route_id)) {
                 return *terminal_fault_;
             }
-            const bool chamber_is_upstream =
-                exhaust_flow.source_endpoint == LegacyGasEndpoint::endpoint_0;
-            const double upstream_pressure_pa = chamber_is_upstream
-                                                    ? chamber_pressure_before_pa
-                                                    : primary_pressure_before_pa;
-            const double upstream_temperature_k = chamber_is_upstream
-                                                      ? chamber_temperature_before_k
-                                                      : primary_temperature_before_k;
-            const double specific_gas_constant_j_per_kg_k =
-                kLegacyGasConstantJPerMolK / kLegacyAirMolarMassKgPerMol;
-            step_.exhaust_port_substeps.push_back({
-                public_cylinder.cylinder_id,
-                public_cylinder.exhaust_port_id,
-                contract::ExhaustPortSubstepCaptureSample{
-                    step_.sample_index,
-                    static_cast<std::uint8_t>(substep),
-                    contract::capture_validity_mask(
-                        contract::CaptureValidity::thermodynamic_state) |
-                        contract::capture_validity_mask(
-                            contract::CaptureValidity::gas_exchange),
-                    chamber_pressure_before_pa,
-                    chamber_temperature_before_k,
-                    primary_pressure_before_pa,
-                    primary_temperature_before_k,
-                    exhaust_flow.signed_amount_mol,
-                    (exhaust_flow.signed_amount_mol * kLegacyAirMolarMassKgPerMol) /
-                        gas_step_s_,
-                    chamber_is_upstream ? contract::ExhaustTransferUpstream::chamber
-                                        : contract::ExhaustTransferUpstream::primary,
-                    upstream_pressure_pa /
-                        (specific_gas_constant_j_per_kg_k * upstream_temperature_k),
-                    std::sqrt(legacy_gas_heat_capacity_ratio() *
-                              specific_gas_constant_j_per_kg_k *
-                              upstream_temperature_k),
-                    public_cylinder.valves.exhaust_lift_m,
-                    public_cylinder.valves.exhaust_valve_k,
-                    contract::Availability::unavailable,
-                    0.0,
-                },
-            });
             legacy_limit_gas_to_sonic_velocity(chamber);
             if (!validate_cell(
                     lane.chamber_volume_index, "cylinder-sonic-bound-after-exhaust",
@@ -905,17 +858,6 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
                 return *terminal_fault_;
             }
         }
-    }
-
-    const auto expected_exhaust_substep_count =
-        static_cast<std::size_t>(kLegacyGasSubstepCount) * cylinders_.size();
-    if (step_.exhaust_port_substeps.size() != expected_exhaust_substep_count) {
-        terminal_fault_ =
-            fault(contract::FailureKind::contract_violation,
-                  "legacy-gas-exhaust-substep-shape-invalid",
-                  "accepted gas step did not retain exactly one exhaust transfer per "
-                  "substep and cylinder");
-        return *terminal_fault_;
     }
 
     step_.indicated_gas_torque_nm = 0.0;

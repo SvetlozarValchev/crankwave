@@ -49,7 +49,6 @@ struct LowOrderCaptureBufferPlan {
     std::uint32_t maximum_events_per_frame = 0;
     std::vector<contract::CylinderId> cylinders;
     std::vector<contract::PortIdentity> ports;
-    std::vector<contract::PortIdentity> exhaust_substep_ports;
     std::vector<contract::GasVolumeIdentity> gas_volumes;
     std::vector<contract::FlowEdgeIdentity> flow_edges;
     std::vector<contract::RouteIdentity> routes;
@@ -84,7 +83,6 @@ class LowOrderCaptureBuffer final {
     std::vector<contract::EngineCaptureSample> engine_;
     std::vector<contract::CylinderCaptureSample> cylinders_;
     std::vector<contract::PortCaptureSample> ports_;
-    std::vector<contract::ExhaustPortSubstepCaptureSample> exhaust_port_substeps_;
     std::vector<contract::GasVolumeCaptureSample> gas_volumes_;
     std::vector<contract::FlowEdgeCaptureSample> flow_edges_;
     std::vector<contract::SourceRouteCaptureSample> routes_;

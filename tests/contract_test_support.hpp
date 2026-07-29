@@ -346,6 +346,8 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
     core.fuel.maximum_dilution_effect =
         builder.resolved(10.0, path("fuel.maximum_dilution_effect"));
     core.fuel.lbv_multiplier = builder.resolved(1.0, path("fuel.lbv_multiplier"));
+    core.fuel.compression_ignition_enabled =
+        builder.resolved(false, path("fuel.compression_ignition_enabled"));
     core.fuel.turbulence_to_flame_speed_ratio_triangle_radius = builder.resolved(
         5.0, path("fuel.turbulence_to_flame_speed_ratio_triangle_radius"));
     const auto make_flame_point = [&](std::string id, double turbulence, double ratio) {
@@ -581,7 +583,7 @@ inline EngineSpec make_engine(InputBuilder &builder) {
 inline PresentationCalibration make_presentation(InputBuilder &builder,
                                                  const EngineSpec &engine) {
     PresentationCalibration presentation;
-    presentation.schema_version = 1;
+    presentation.schema_version = 2;
     presentation.calibration_id = "contract-test-presentation-v1";
     presentation.engine_profile_id =
         builder.resolved(engine.profile_id.value, "presentation.engine_profile_id");
@@ -591,15 +593,52 @@ inline PresentationCalibration make_presentation(InputBuilder &builder,
                                 "presentation.methods." + path);
     };
     presentation.methods = {
-        resolved_method("calibrated-pressure-publication-v1", 20,
-                        "calibrated_pressure_publication"),
-        resolved_method("coherent-two-outlet-audition-v1", 21,
-                        "coherent_two_outlet_audition"),
+        resolved_method("reconstruction-v1", 20, "reconstruction"),
+        resolved_method("conditioning-v1", 21, "conditioning"),
+        resolved_method("ir-conversion-v1", 22, "impulse_response_conversion"),
+        resolved_method("convolution-v1", 23, "convolution"),
+        resolved_method("publication-v1", 24, "publication"),
+        resolved_method("audition-mix-v1", 25, "audition_mix"),
     };
-    presentation.monitoring = {
-        builder.resolved(1.0, "presentation.monitoring.gain_linear"),
-        builder.resolved(0.02, "presentation.monitoring.fade_in_duration_s"),
-        builder.resolved(0.02, "presentation.monitoring.fade_out_duration_s"),
+    presentation.conditioning = {
+        builder.resolved(0.5, "presentation.conditioning.jitter_scale"),
+        builder.resolved(10000.0,
+                         "presentation.conditioning.jitter_modulation_cutoff_hz"),
+        builder.resolved(0.01, "presentation.conditioning.derivative_mix_01"),
+        builder.resolved(1.0, "presentation.conditioning.air_noise_mix_01"),
+        builder.resolved(2000.0, "presentation.conditioning.air_noise_cutoff_hz"),
+    };
+    presentation.assets.push_back({
+        AudioAssetId{1},
+        builder.resolved(std::string{"test-ir"},
+                         "presentation.assets.test-ir.semantic_id"),
+        builder.resolved(std::string{"test-ir-source"},
+                         "presentation.assets.test-ir.evidence_source_id"),
+        builder.resolved(digest(30), "presentation.assets.test-ir.content_sha256"),
+        builder.resolved(
+            AudioMediaContract{
+                AudioSampleEncoding::pcm_s16le,
+                AudioChannelLayout::mono,
+                {48000, 1},
+                128,
+            },
+            "presentation.assets.test-ir.media"),
+    });
+    presentation.routes.push_back({
+        RouteId{1},
+        AudioAssetId{1},
+        builder.resolved(0.001, "presentation.routes.exhaust.outlet-1."
+                                "impulse_response_gain_linear"),
+        builder.resolved(1.0, "presentation.routes.exhaust.outlet-1.wet_mix_01"),
+    });
+    presentation.publication.calibration_gain_linear =
+        builder.resolved(0x1.0p-26, "presentation.publication.calibration_gain_linear");
+    presentation.audition = {
+        builder.resolved(std::vector<RouteId>{RouteId{1}},
+                         "presentation.audition.selected_routes"),
+        builder.resolved(1.0, "presentation.audition.monitoring_gain_linear"),
+        builder.resolved(0.02, "presentation.audition.fade_in_duration_s"),
+        builder.resolved(0.02, "presentation.audition.fade_out_duration_s"),
     };
     presentation.provenance_schema_id = builder.provenance.schema_id;
     return presentation;
@@ -794,7 +833,7 @@ inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
         "serial-stable-order",
     };
     content.rates = scenario.rates;
-    auto random_plan = compile_random_plan(randomness, engine, scenario);
+    auto random_plan = compile_random_plan(randomness, engine, presentation, scenario);
     expect(std::holds_alternative<RandomPlan>(random_plan),
            "valid fixture random plan failed compilation");
     content.randomness = std::get<RandomPlan>(std::move(random_plan));
@@ -849,7 +888,6 @@ void run_primitives_contract_tests();
 void run_authored_profile_contract_tests();
 void run_parity_model_contract_tests();
 void run_capture_contract_tests();
-void run_exhaust_acoustics_contract_tests();
 void run_randomness_contract_tests();
 void run_scenario_manifest_contract_tests();
 

@@ -68,11 +68,13 @@ project_artifact(const contract::OutputContract &output, std::string_view role,
 }
 
 [[nodiscard]] bool is_raw_bus(contract::OutputBusKind kind) noexcept {
-    return kind == contract::OutputBusKind::master_engine_raw;
+    return kind == contract::OutputBusKind::master_engine_raw ||
+           kind == contract::OutputBusKind::master_reference_raw;
 }
 
 [[nodiscard]] bool is_audition_bus(contract::OutputBusKind kind) noexcept {
-    return kind == contract::OutputBusKind::master_engine_audition;
+    return kind == contract::OutputBusKind::master_engine_audition ||
+           kind == contract::OutputBusKind::master_reference_audition;
 }
 
 } // namespace
@@ -111,8 +113,7 @@ derive_audition_metadata(const contract::ResolvedRenderInputs &inputs,
     const auto &engine = inputs.engine;
     const auto &presentation = inputs.presentation;
     const auto &scenario = inputs.scenario;
-    const auto &method =
-        presentation.methods.coherent_two_outlet_audition.value;
+    const auto &method = presentation.methods.audition_mix.value;
 
     artifacts::AuditionWaveMetadata metadata;
     metadata.comment = "engine=" + engine.engine_id.value +
@@ -131,7 +132,7 @@ derive_audition_metadata(const contract::ResolvedRenderInputs &inputs,
         !valid_metadata_field(metadata.title) ||
         !valid_metadata_field(metadata.software)) {
         return error(RenderJobDerivationErrorCode::audition_metadata_invalid,
-                     "presentation.monitoring.metadata",
+                     "presentation.audition.metadata",
                      "derived audition INFO fields must be nonempty, NUL-free, and "
                      "at most 4096 bytes");
     }
@@ -140,35 +141,26 @@ derive_audition_metadata(const contract::ResolvedRenderInputs &inputs,
 
 RenderJobProjectionResult derive_render_job_projection(
     const contract::RenderRequestRecord &request,
-    const std::array<contract::RouteId, presentation::kPresentationExhaustOutletCount>
-        &outlet_route_ids) {
+    const presentation::AdmittedPresentationCalibration &calibration) {
     RenderJobProjection projection;
     projection.output_contract =
         contract::resolve_output_contract(request.source_matrix);
 
     if (request.source_matrix.required_source_routes.size() !=
-            presentation::kPresentationExhaustOutletCount ||
+            calibration.route_count ||
         projection.output_contract.required_artifacts.size() !=
             presentation::kPresentationAudioArtifactCount) {
         return error(RenderJobDerivationErrorCode::route_projection_failed,
                      "source_matrix",
                      "the admitted presentation job requires exactly two rendered "
-                     "outlet routes and four audio artifacts");
+                     "routes and eight audio artifacts");
     }
 
-    if (!outlet_route_ids[0].valid() || !outlet_route_ids[1].valid() ||
-        outlet_route_ids[0] == outlet_route_ids[1]) {
-        return error(RenderJobDerivationErrorCode::route_projection_failed,
-                     "engine.physics_profile.exhaust_acoustics.outlets",
-                     "the physical exhaust assembly requires two unique nonzero "
-                     "outlet route identities");
-    }
-
-    projection.routes.reserve(outlet_route_ids.size());
+    projection.routes.reserve(calibration.route_count);
     std::unordered_set<std::string> projected_roles;
-    for (std::size_t route_index = 0; route_index < outlet_route_ids.size();
+    for (std::size_t route_index = 0; route_index < calibration.route_count;
          ++route_index) {
-        const auto route_id = outlet_route_ids[route_index];
+        const auto route_id = calibration.routes()[route_index].route_id();
         const auto engine_route = std::ranges::find(
             request.resolved_inputs.engine.routes, route_id, &contract::RouteSpec::id);
         if (engine_route == request.resolved_inputs.engine.routes.end()) {
@@ -184,27 +176,37 @@ RenderJobProjectionResult derive_render_job_projection(
         if (required == request.source_matrix.required_source_routes.end() ||
             required->kind != contract::SourceRouteKind::exhaust_outlet ||
             required->disposition != contract::RouteDisposition::rendered ||
-            required->artifact_roles.size() != 1) {
+            required->artifact_roles.size() != 3) {
             return error(RenderJobDerivationErrorCode::route_projection_failed,
                          "source_matrix.required_source_routes",
-                         "each physical exhaust outlet requires exactly one pressure "
-                         "stem artifact role");
+                         "each admitted exhaust route requires positional "
+                         "dry/configured-IR/selected artifact roles");
         }
 
-        const auto &role = required->artifact_roles.front();
-        if (!projected_roles.insert(role).second) {
-            return error(RenderJobDerivationErrorCode::artifact_projection_failed,
-                         "source_matrix.required_source_routes.artifact_roles",
-                         "one audio artifact role was projected more than once");
+        auto &route_artifacts = projection.route_artifacts[route_index];
+        std::array<PendingArtifact *, 3> destinations{
+            &route_artifacts.dry,
+            &route_artifacts.configured_ir,
+            &route_artifacts.selected,
+        };
+        for (std::size_t artifact_index = 0; artifact_index < destinations.size();
+             ++artifact_index) {
+            const auto &role = required->artifact_roles[artifact_index];
+            if (!projected_roles.insert(role).second) {
+                return error(RenderJobDerivationErrorCode::artifact_projection_failed,
+                             "source_matrix.required_source_routes.artifact_roles",
+                             "one audio artifact role was projected more than once");
+            }
+            auto pending =
+                project_artifact(projection.output_contract, role,
+                                 "source_matrix.required_source_routes.artifact_roles");
+            if (auto *projection_error =
+                    std::get_if<RenderJobDerivationError>(&pending)) {
+                return std::move(*projection_error);
+            }
+            *destinations[artifact_index] =
+                std::get<PendingArtifact>(std::move(pending));
         }
-        auto pending =
-            project_artifact(projection.output_contract, role,
-                             "source_matrix.required_source_routes.artifact_roles");
-        if (auto *projection_error = std::get_if<RenderJobDerivationError>(&pending)) {
-            return std::move(*projection_error);
-        }
-        projection.outlet_pressure_artifacts[route_index] =
-            std::get<PendingArtifact>(std::move(pending));
 
         projection.routes.push_back({
             route_id,
@@ -272,8 +274,8 @@ RenderJobProjectionResult derive_render_job_projection(
         projected_roles.size() != presentation::kPresentationAudioArtifactCount) {
         return error(RenderJobDerivationErrorCode::artifact_projection_failed,
                      "source_matrix.required_artifacts",
-                     "projected outlet-pressure and master artifact roles are not "
-                     "the exact required set");
+                     "projected presentation artifact roles are not the exact "
+                     "required set");
     }
 
     auto metadata =

@@ -1,13 +1,15 @@
 #pragma once
 
-#include "acoustics/exhaust_acoustic_session.hpp"
 #include "determinism/renderer_determinism_envelope.hpp"
+#include "excitation/captured_exhaust_excitation.hpp"
+#include "presentation/presentation_asset_compiler.hpp"
+#include "presentation/presentation_calibration_compiler.hpp"
 #include "presentation/presentation_render_session.hpp"
 #include "render/compiled_presentation_job.hpp"
 #include "simulation/low_order_capture_session.hpp"
 
-#include <cstdint>
 #include <utility>
+#include <vector>
 
 namespace engine_sim_offline::render_detail {
 
@@ -16,36 +18,36 @@ class CompiledPresentationJob::Implementation final {
     Implementation(contract::RenderRequestRecord request,
                    contract::Sha256Digest simulation_request_identity_v3_sha256,
                    determinism::RendererDeterminismEnvelope determinism,
+                   contract::RandomPlan random_plan,
+                   presentation::AdmittedPresentationCalibration calibration,
+                   std::vector<presentation::CompiledPresentationAsset> compiled_assets,
+                   std::vector<presentation::CompiledPresentationConvolutionKernel>
+                       compiled_kernels,
                    presentation::PresentationRenderPlan presentation_plan,
                    contract::RenderManifestContent manifest_basis,
                    simulation::LowOrderCaptureSession simulation,
-                   acoustics::ExhaustAcousticSession acoustics,
-                   std::uint64_t expected_capture_frame_count,
-                   std::uint64_t expected_source_interval_count,
-                   std::uint64_t expected_acoustic_frame_count,
-                   std::uint64_t expected_pre_audible_frame_count)
+                   excitation::CapturedExhaustExcitationSession excitation)
         : request(std::move(request)),
           simulation_request_identity_v3_sha256(simulation_request_identity_v3_sha256),
-          determinism(std::move(determinism)),
+          determinism(std::move(determinism)), random_plan(std::move(random_plan)),
+          calibration(std::move(calibration)),
+          compiled_assets(std::move(compiled_assets)),
+          compiled_kernels(std::move(compiled_kernels)),
           presentation_plan(std::move(presentation_plan)),
           manifest_basis(std::move(manifest_basis)), simulation(std::move(simulation)),
-          acoustics(std::move(acoustics)),
-          expected_capture_frame_count(expected_capture_frame_count),
-          expected_source_interval_count(expected_source_interval_count),
-          expected_acoustic_frame_count(expected_acoustic_frame_count),
-          expected_pre_audible_frame_count(expected_pre_audible_frame_count) {}
+          excitation(std::move(excitation)) {}
 
     contract::RenderRequestRecord request;
     contract::Sha256Digest simulation_request_identity_v3_sha256;
     determinism::RendererDeterminismEnvelope determinism;
+    contract::RandomPlan random_plan;
+    presentation::AdmittedPresentationCalibration calibration;
+    std::vector<presentation::CompiledPresentationAsset> compiled_assets;
+    std::vector<presentation::CompiledPresentationConvolutionKernel> compiled_kernels;
     presentation::PresentationRenderPlan presentation_plan;
     contract::RenderManifestContent manifest_basis;
     simulation::LowOrderCaptureSession simulation;
-    acoustics::ExhaustAcousticSession acoustics;
-    std::uint64_t expected_capture_frame_count = 0;
-    std::uint64_t expected_source_interval_count = 0;
-    std::uint64_t expected_acoustic_frame_count = 0;
-    std::uint64_t expected_pre_audible_frame_count = 0;
+    excitation::CapturedExhaustExcitationSession excitation;
 };
 
 } // namespace engine_sim_offline::render_detail

@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -14,6 +15,7 @@
 namespace engine_sim_offline::contract {
 
 struct EngineSpec;
+struct PresentationCalibration;
 struct RenderScenario;
 
 inline constexpr std::string_view kPcg32GeneratorMethodId =
@@ -43,6 +45,14 @@ struct ResolvedRandomnessPolicy {
 
     friend bool operator==(const ResolvedRandomnessPolicy &,
                            const ResolvedRandomnessPolicy &) = default;
+};
+
+enum class RandomComponentKind : std::uint8_t {
+    unspecified,
+    combustion,
+    presentation_jitter,
+    presentation_air_noise,
+    starter,
 };
 
 // One stable stochastic component coordinate. Domain IDs use the canonical
@@ -119,23 +129,24 @@ using ComponentSeedDerivationResult =
 [[nodiscard]] ComponentSeedDerivationResult
 derive_component_seeds(const ComponentSeedDerivationRequest &request);
 
-struct CombustionSeed {
-    CylinderId cylinder_id;
+struct ComponentSeed {
+    RandomComponentKind kind = RandomComponentKind::unspecified;
+    std::optional<CylinderId> cylinder_id;
+    std::optional<RouteId> route_id;
     std::uint64_t initial_state = 0;
     std::uint64_t stream = 0;
 
-    friend bool operator==(const CombustionSeed &, const CombustionSeed &) = default;
+    friend bool operator==(const ComponentSeed &, const ComponentSeed &) = default;
 };
 
 // The provisioned randomness plan is retained separately from the resolved policy so
-// a manifest records both what was requested and the exact per-cylinder combustion
-// lanes initialized by the admitted executor. Presentation is deterministic and owns
-// no random stream.
+// a manifest records both what was requested and the exact component lanes initialized
+// by the admitted executors. It does not claim a runtime draw count or cadence.
 struct RandomPlan {
     MethodIdentity generator;
     std::uint64_t public_seed = 0;
     MethodIdentity derivation;
-    std::vector<CombustionSeed> combustion_seeds;
+    std::vector<ComponentSeed> component_seeds;
 
     friend bool operator==(const RandomPlan &, const RandomPlan &) = default;
 };
@@ -146,13 +157,15 @@ struct RandomPlan {
 using RandomPlanCompilationResult = std::variant<RandomPlan, ValidationReport>;
 
 // Compiles the only executable random plan from the admitted policy and stochastic
-// consumer. Seed order is ascending stable cylinder ID. Each derivation index is its
-// nonzero cylinder ID minus one, so container reordering or insertion does not rekey
-// an existing cylinder. The current engine profile's resolved combustion seed values
-// are checked as cached executable values; they have no independent authority and must
-// equal this derivation exactly.
+// consumers. Component order is ascending stable cylinder ID, then ascending stable
+// route ID for air noise, then ascending stable route ID for jitter. Each derivation
+// index is its nonzero stable owner ID minus one, so container reordering or insertion
+// does not rekey an existing owner. The current engine profile's resolved combustion
+// seed values are checked as cached executable values; they have no independent
+// authority and must equal this derivation exactly.
 [[nodiscard]] RandomPlanCompilationResult
 compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &engine,
+                    const PresentationCalibration &presentation,
                     const RenderScenario &scenario);
 
 } // namespace engine_sim_offline::contract

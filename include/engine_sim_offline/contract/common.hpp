@@ -30,8 +30,6 @@ using GasVolumeId = StableId<struct GasVolumeIdTag>;
 using FlowEdgeId = StableId<struct FlowEdgeIdTag>;
 using RouteId = StableId<struct RouteIdTag>;
 using AudioAssetId = StableId<struct AudioAssetIdTag>;
-using AcousticDuctId = StableId<struct AcousticDuctIdTag>;
-using AcousticJunctionId = StableId<struct AcousticJunctionIdTag>;
 
 struct Sha256Digest {
     std::array<std::uint8_t, 32> bytes{};
