@@ -163,6 +163,7 @@ add_library(
         src/simulation/legacy_gas_primitives.cpp
         src/simulation/legacy_ignition_schedule.cpp
         src/simulation/inertial_crank_dynamics.cpp
+        src/simulation/inertial_dyno_method_registry.cpp
         src/simulation/legacy_low_order_gas.cpp
         src/simulation/legacy_low_order_gas_compile.cpp
         src/simulation/low_order_capture_buffer.cpp

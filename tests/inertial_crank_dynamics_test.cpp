@@ -1,4 +1,7 @@
 #include "simulation/inertial_crank_dynamics.hpp"
+#include "simulation/inertial_dyno_method_registry.hpp"
+
+#include "engine_sim_offline/contract/common.hpp"
 
 #include <cmath>
 #include <cstdlib>
@@ -8,6 +11,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <span>
 #include <utility>
 #include <variant>
 
@@ -133,6 +137,29 @@ void test_configuration_admission_and_owned_snapshot() {
     value.passive_brake_curve[1].angular_speed_rad_s = 9.0;
     expect_configuration_error(
         value, InertialCrankConfigurationIssue::unstable_brake_speed_order, 1U);
+}
+
+void test_method_identities_bind_canonical_descriptors() {
+    const auto crank_descriptor = rigid_crank_zoh_work_energy_method_descriptor();
+    const auto brake_descriptor =
+        piecewise_linear_positive_speed_passive_brake_method_descriptor();
+    const auto &crank = rigid_crank_zoh_work_energy_method_identity();
+    const auto &brake =
+        piecewise_linear_positive_speed_passive_brake_method_identity();
+
+    expect(crank.id == kRigidCrankZohWorkEnergyMethodId && crank.version == 1U &&
+               crank.configuration_sha256 ==
+                   engine_sim_offline::contract::sha256(std::as_bytes(
+                       std::span<const char>{crank_descriptor.data(),
+                                             crank_descriptor.size()})),
+           "crank-dynamics identity is not bound to its canonical descriptor");
+    expect(brake.id == kPiecewiseLinearPositiveSpeedPassiveBrakeMethodId &&
+               brake.version == 1U &&
+               brake.configuration_sha256 ==
+                   engine_sim_offline::contract::sha256(std::as_bytes(
+                       std::span<const char>{brake_descriptor.data(),
+                                             brake_descriptor.size()})),
+           "passive-brake identity is not bound to its canonical descriptor");
 }
 
 void test_piecewise_linear_brake_and_energy_consistent_update() {
@@ -344,6 +371,7 @@ void test_stall_is_distinct_and_reverse_is_never_published() {
 
 void run_tests() {
     test_configuration_admission_and_owned_snapshot();
+    test_method_identities_bind_canonical_descriptors();
     test_piecewise_linear_brake_and_energy_consistent_update();
     test_endpoint_admission_and_causal_zero_order_hold();
     test_invalid_step_inputs_are_typed();
