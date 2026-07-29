@@ -602,6 +602,10 @@ recorded in
 
 ### M5 — Isolated offline-fidelity upgrades
 
+The authoritative last-good audible floor and exact post-baseline commit timeline are
+recorded in
+[`docs/M4_BMW_LAST_GOOD_AUDIO_BASELINE.md`](docs/M4_BMW_LAST_GOOD_AUDIO_BASELINE.md).
+
 The first bounded replacement is frozen in
 [`docs/model/M5_EXHAUST_ACOUSTIC_NETWORK.md`](docs/model/M5_EXHAUST_ACOUSTIC_NETWORK.md).
 It replaces the M4 operating profile's empirical exhaust excitation/presentation with

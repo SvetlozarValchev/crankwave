@@ -1,6 +1,6 @@
 # M4 BMW exhaust topology correction
 
-Status: **frozen for implementation; listening acceptance pending**
+Status: **implemented structurally, rejected as an audible replacement**
 
 Decision owner: user
 
@@ -85,6 +85,10 @@ volume from `0.5` to `1.0` nearly removed the six-event loping, which isolates t
 static gain as the dominant cause. The user rejected that diagnostic as too smooth
 and lacking the expected raspy character. Therefore neither the inherited imbalance
 nor equalizing two otherwise duplicate paths is an accepted production answer.
+
+The user's subsequently confirmed last-good authority is the inherited dyno `A`, now
+tracked and pinned in
+[`M4_BMW_LAST_GOOD_AUDIO_BASELINE.md`](M4_BMW_LAST_GOOD_AUDIO_BASELINE.md).
 
 ## 3. Physical and listening evidence boundary
 

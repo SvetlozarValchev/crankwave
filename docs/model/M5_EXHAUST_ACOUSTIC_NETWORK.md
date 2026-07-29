@@ -1,6 +1,6 @@
 # M5 exhaust acoustic network
 
-Status: **first implementation rejected by listening; redesign required**
+Status: **prescribed-flow linear acoustic concept rejected; recovery required**
 
 Decision owner: user
 
@@ -498,20 +498,32 @@ prescribed-flow Norton boundary, one-way acoustic coupling, identical evaluation
 geometry, and coherent same-point outlet projection remain model limitations, but
 they do not explain away the fixed solver-clock carrier.
 
-The corrective gate is therefore:
+Post-process-only diagnostics then removed the radiation derivative, restricted the
+full master to the plane-wave validity band, and isolated one outlet. The user heard
+both the validity-band full master and the validity-band route solo as a synthetic
+sound wave rather than an engine. Therefore the fixed solver-clock carrier and
+coherent twin-route comb are confirmed defects, but removing them is not sufficient.
 
-1. advance mechanism geometry and valvetrain state at every published source interval,
-   or stop claiming the gas relaxations are a higher-rate source;
-2. enforce the admitted single-mode bandwidth before the radiation derivative and
-   report it in artifacts;
-3. expose source, pre-radiation outlet flow, each pressure stem, and coherent sum as
-   inspectable diagnostics;
-4. require fixed solver-clock lines to fall below the RPM-following engine orders;
-5. render only one 3,000 rpm / 0.85 held clip plus route solo/full diagnostics and stop
-   for listening before rerendering the complete matrix; and
-6. only after that gate passes, replace the prescribed-flow boundary with a finite or
-   coupled valve/cylinder impedance and author measured exhaust geometry.
+The foundational failure is the source/model boundary: total quasi-steady valve
+volume flow is imposed as an infinite-authority Norton source into a deterministic
+linear network of ideal pipes and junctions. It does not preserve the accepted
+pressure-source character and it does not solve the coupled nonlinear cylinder,
+valve, mean-flow, and duct dynamics that would make this a defensible physical
+replacement. Higher-rate kinematics or a validity low-pass would make the same
+synthetic concept numerically cleaner, not turn it into an engine.
 
-Post-process-only diagnostic files may remove the radiation derivative or restrict the
-result to the plane-wave validity band to localize the failure. They are not accepted
-audio, a production fix, or authority to continue to M6.
+The corrective gate above is superseded. Recovery now requires:
+
+1. restore the tracked `4b65127`/`ffcc45c` last-good audible floor as the sole current
+   renderer, with no old/new switch;
+2. remove the rejected M5 runtime rather than retaining it as a future production
+   option;
+3. retain this document and the diagnostic artifacts only as failure evidence;
+4. freeze a research-backed coupled source/propagation replacement before
+   implementation; and
+5. change and audition one physical seam at a time against the exact tracked
+   last-good dyno, retaining the accepted implementation until the user accepts the
+   replacement by ear.
+
+The exact baseline is pinned in
+[`../M4_BMW_LAST_GOOD_AUDIO_BASELINE.md`](../M4_BMW_LAST_GOOD_AUDIO_BASELINE.md).
