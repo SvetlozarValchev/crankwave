@@ -341,6 +341,10 @@ AdjacentCycleBlockConvergenceObserver::finalize_at_fixed_cutoff() {
         };
         WorkSums block_a_work;
         WorkSums block_b_work;
+        std::vector<AdjacentCycleBlockCompletedCycle> block_a_cycles;
+        std::vector<AdjacentCycleBlockCompletedCycle> block_b_cycles;
+        block_a_cycles.reserve(cycles_per_block);
+        block_b_cycles.reserve(cycles_per_block);
         const auto accumulate_work = [](WorkSums &sum, const StoredCycle &cycle) {
             sum.indicated_gas_work_j += cycle.indicated_gas_work_j;
             sum.positive_aggregate_loss_work_j += cycle.positive_aggregate_loss_work_j;
@@ -350,10 +354,30 @@ AdjacentCycleBlockConvergenceObserver::finalize_at_fixed_cutoff() {
                    std::isfinite(sum.positive_aggregate_loss_work_j) &&
                    std::isfinite(sum.starter_work_j) && std::isfinite(sum.brake_work_j);
         };
+        const auto completed_cycle = [&](const StoredCycle &cycle) {
+            AdjacentCycleBlockCompletedCycle result{
+                cycle.completed_cycle_ordinal,
+                cycle.indicated_gas_work_j,
+                cycle.positive_aggregate_loss_work_j,
+                cycle.starter_work_j,
+                cycle.brake_work_j,
+                {},
+            };
+            result.end_boundary_pressures.reserve(volume_count);
+            for (std::size_t volume_index = 0; volume_index < volume_count;
+                 ++volume_index) {
+                result.end_boundary_pressures.push_back({
+                    plan_.physical_gas_volume_ids[volume_index],
+                    cycle.end_boundary_pressures_pa_abs[volume_index],
+                });
+            }
+            return result;
+        };
 
         for (std::size_t cycle_index = 0; cycle_index < cycles_per_block;
              ++cycle_index) {
             const auto &cycle = retained_cycles_[cycle_index];
+            block_a_cycles.push_back(completed_cycle(cycle));
             if (!accumulate_work(block_a_work, cycle)) {
                 AdjacentCycleBlockConvergenceError error;
                 error.code = AdjacentCycleBlockConvergenceErrorCode::nonfinite_result;
@@ -377,6 +401,7 @@ AdjacentCycleBlockConvergenceObserver::finalize_at_fixed_cutoff() {
         for (std::size_t cycle_index = cycles_per_block;
              cycle_index < retained_cycle_capacity_; ++cycle_index) {
             const auto &cycle = retained_cycles_[cycle_index];
+            block_b_cycles.push_back(completed_cycle(cycle));
             if (!accumulate_work(block_b_work, cycle)) {
                 AdjacentCycleBlockConvergenceError error;
                 error.code = AdjacentCycleBlockConvergenceErrorCode::nonfinite_result;
@@ -468,6 +493,7 @@ AdjacentCycleBlockConvergenceObserver::finalize_at_fixed_cutoff() {
             {
                 cycle_range(retained_cycles_.front(),
                             retained_cycles_[cycles_per_block - 1U]),
+                std::move(block_a_cycles),
                 block_a_work.indicated_gas_work_j,
                 block_a_work.positive_aggregate_loss_work_j,
                 block_a_work.starter_work_j,
@@ -477,6 +503,7 @@ AdjacentCycleBlockConvergenceObserver::finalize_at_fixed_cutoff() {
             {
                 cycle_range(retained_cycles_[cycles_per_block],
                             retained_cycles_.back()),
+                std::move(block_b_cycles),
                 block_b_work.indicated_gas_work_j,
                 block_b_work.positive_aggregate_loss_work_j,
                 block_b_work.starter_work_j,

@@ -225,6 +225,33 @@ validate_pressure_means(const std::vector<MeanBoundaryPressurePa> &pressures) {
     return report;
 }
 
+[[nodiscard]] ValidationReport
+validate_end_boundary_pressures(const std::vector<EndBoundaryPressurePa> &pressures) {
+    using detail::finite_positive;
+    using detail::require;
+
+    ValidationReport report;
+    require(report, !pressures.empty(), ContractIssueCode::missing_value, "",
+            "a completed cycle requires every physical end-boundary pressure");
+    for (std::size_t index = 0; index < pressures.size(); ++index) {
+        const auto &pressure = pressures[index];
+        const auto path = "[" + std::to_string(index) + "]";
+        require(report, pressure.gas_volume_id.valid(),
+                ContractIssueCode::invalid_value, path + ".gas_volume_id",
+                "end-boundary pressure gas-volume ID must be nonzero");
+        require(report, finite_positive(pressure.pressure_pa_abs),
+                ContractIssueCode::invalid_value, path + ".pressure_pa_abs",
+                "end-boundary absolute pressure must be finite and positive");
+        if (index != 0) {
+            require(report, pressures[index - 1].gas_volume_id < pressure.gas_volume_id,
+                    ContractIssueCode::inconsistent_shape, path + ".gas_volume_id",
+                    "end-boundary pressures must use strictly ascending stable "
+                    "gas-volume IDs");
+        }
+    }
+    return report;
+}
+
 struct WorkSums {
     double indicated_gas_work_j = 0.0;
     double aggregate_loss_work_j = 0.0;
@@ -233,7 +260,8 @@ struct WorkSums {
 };
 
 [[nodiscard]] ValidationReport
-validate_completed_cycle_work(const HeldSpeedCycleBlockEvidence &block) {
+validate_completed_cycle_evidence(const HeldSpeedCycleBlockEvidence &block) {
+    using detail::append_prefixed;
     using detail::finite;
     using detail::finite_positive;
     using detail::require;
@@ -247,9 +275,11 @@ validate_completed_cycle_work(const HeldSpeedCycleBlockEvidence &block) {
             "cycles");
 
     WorkSums sums;
+    std::vector<GasVolumeId> pressure_ids;
+    std::vector<double> pressure_sums;
     for (std::size_t index = 0; index < block.completed_cycles.size(); ++index) {
         const auto &cycle = block.completed_cycles[index];
-        const auto path = "[" + std::to_string(index) + "]";
+        const auto path = "completed_cycles[" + std::to_string(index) + "]";
         const bool ordinal_representable =
             block.cycles.first_completed_cycle_ordinal <=
             std::numeric_limits<std::uint64_t>::max() - index;
@@ -279,6 +309,42 @@ validate_completed_cycle_work(const HeldSpeedCycleBlockEvidence &block) {
                 "cycle brake work must exactly reproduce (indicated minus "
                 "aggregate loss) plus starter in the declared evaluation "
                 "order");
+        append_prefixed(report,
+                        validate_end_boundary_pressures(cycle.end_boundary_pressures),
+                        path + ".end_boundary_pressures");
+
+        if (index == 0) {
+            pressure_ids.reserve(cycle.end_boundary_pressures.size());
+            pressure_sums.assign(cycle.end_boundary_pressures.size(), 0.0);
+            for (const auto &pressure : cycle.end_boundary_pressures) {
+                pressure_ids.push_back(pressure.gas_volume_id);
+            }
+        } else {
+            require(report, cycle.end_boundary_pressures.size() == pressure_ids.size(),
+                    ContractIssueCode::inconsistent_shape,
+                    path + ".end_boundary_pressures",
+                    "every completed cycle must retain the same physical "
+                    "end-boundary pressure shape");
+        }
+        const auto pressure_count =
+            std::min(cycle.end_boundary_pressures.size(), pressure_ids.size());
+        for (std::size_t pressure_index = 0; pressure_index < pressure_count;
+             ++pressure_index) {
+            const auto &pressure = cycle.end_boundary_pressures[pressure_index];
+            const auto pressure_path = path + ".end_boundary_pressures[" +
+                                       std::to_string(pressure_index) + "]";
+            require(report, pressure.gas_volume_id == pressure_ids[pressure_index],
+                    ContractIssueCode::inconsistent_semantics,
+                    pressure_path + ".gas_volume_id",
+                    "completed-cycle pressure lanes must retain identical "
+                    "ascending gas-volume identity");
+            pressure_sums[pressure_index] += pressure.pressure_pa_abs;
+            require(report, finite(pressure_sums[pressure_index]),
+                    ContractIssueCode::invalid_value,
+                    pressure_path + ".pressure_pa_abs",
+                    "stable left-to-right end-boundary pressure reduction "
+                    "overflowed");
+        }
 
         sums.indicated_gas_work_j += cycle.indicated_gas_work_j;
         sums.aggregate_loss_work_j += cycle.aggregate_loss_work_j;
@@ -301,6 +367,32 @@ validate_completed_cycle_work(const HeldSpeedCycleBlockEvidence &block) {
         "all four block work totals must exactly reproduce the retained "
         "per-cycle values by stable left-to-right reduction from canonical "
         "positive zero");
+
+    require(report, block.mean_boundary_pressures.size() == pressure_ids.size(),
+            ContractIssueCode::inconsistent_shape, "mean_boundary_pressures",
+            "published pressure means must contain exactly the retained "
+            "completed-cycle pressure lanes");
+    const auto mean_count =
+        std::min(block.mean_boundary_pressures.size(), pressure_ids.size());
+    const double cycle_count = static_cast<double>(block.cycles.completed_cycle_count);
+    for (std::size_t pressure_index = 0; pressure_index < mean_count;
+         ++pressure_index) {
+        const auto &published = block.mean_boundary_pressures[pressure_index];
+        const auto path =
+            "mean_boundary_pressures[" + std::to_string(pressure_index) + "]";
+        require(report, published.gas_volume_id == pressure_ids[pressure_index],
+                ContractIssueCode::inconsistent_semantics, path + ".gas_volume_id",
+                "published pressure means must retain the exact completed-cycle "
+                "pressure-lane identities");
+        const double canonical_mean = pressure_sums[pressure_index] / cycle_count;
+        require(report,
+                finite(canonical_mean) &&
+                    same_binary64(published.pressure_pa_abs, canonical_mean),
+                ContractIssueCode::inconsistent_semantics, path + ".pressure_pa_abs",
+                "published pressure mean must exactly reproduce the canonical "
+                "+0-seeded left-to-right completed-cycle reduction divided by "
+                "the declared binary64 cycle count");
+    }
     return report;
 }
 
@@ -316,7 +408,7 @@ validate_cycle_block(const HeldSpeedCycleBlockEvidence &block,
     append_prefixed(report,
                     validate_cycle_range(block.cycles, cycle_reference_theta_rad),
                     "cycles");
-    append_prefixed(report, validate_completed_cycle_work(block), "completed_cycles");
+    report.append(validate_completed_cycle_evidence(block));
     append_prefixed(report, validate_torque_breakdown(block.cycle_mean_torque),
                     "cycle_mean_torque");
     append_prefixed(report, validate_pressure_means(block.mean_boundary_pressures),

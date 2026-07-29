@@ -27,6 +27,15 @@ enum class FailureKind : std::uint8_t {
     preparation_not_converged,
 };
 
+inline constexpr std::string_view kPreparationNotConvergedDetailCode =
+    "preparation-not-converged";
+inline constexpr std::string_view kPreparationInsufficientCyclesDetailCode =
+    "preparation-insufficient-complete-cycles";
+inline constexpr std::string_view kCycleMeanTorqueResidualNmQuantityId =
+    "cycle-mean-torque-residual-nm";
+inline constexpr std::string_view kBoundaryPressureResidualPaQuantityId =
+    "boundary-pressure-residual-pa";
+
 struct FailureTolerance {
     std::string quantity_id;
     double attempted_value = 0.0;
@@ -166,6 +175,14 @@ struct MeanBoundaryPressurePa {
                            const MeanBoundaryPressurePa &) = default;
 };
 
+struct EndBoundaryPressurePa {
+    GasVolumeId gas_volume_id;
+    double pressure_pa_abs = 0.0;
+
+    friend bool operator==(const EndBoundaryPressurePa &,
+                           const EndBoundaryPressurePa &) = default;
+};
+
 // These are completed-cycle/block means. Aggregate loss is the signed
 // running-direction contribution, so its value is negative at admitted positive
 // held speed. The corresponding block aggregate_loss_work_j below is a positive
@@ -180,23 +197,25 @@ struct CycleMeanTorqueBreakdown {
                            const CycleMeanTorqueBreakdown &) = default;
 };
 
-// Source work retained for every complete cycle in a convergence block. The
-// contract reduces these records in written order, starting from canonical +0, so
-// no independently supplied block total can forge a shaft-work claim.
-struct HeldSpeedCycleWorkEvidence {
+// Source evidence retained for every complete cycle in a convergence block. The
+// contract reduces work and each ascending end-boundary pressure lane in written
+// order, starting from canonical +0, so no independently supplied block total or
+// mean can forge a convergence claim.
+struct HeldSpeedCompletedCycleEvidence {
     std::uint64_t completed_cycle_ordinal = 0;
     double indicated_gas_work_j = 0.0;
     double aggregate_loss_work_j = 0.0;
     double starter_work_j = 0.0;
     double brake_work_j = 0.0;
+    std::vector<EndBoundaryPressurePa> end_boundary_pressures;
 
-    friend bool operator==(const HeldSpeedCycleWorkEvidence &,
-                           const HeldSpeedCycleWorkEvidence &) = default;
+    friend bool operator==(const HeldSpeedCompletedCycleEvidence &,
+                           const HeldSpeedCompletedCycleEvidence &) = default;
 };
 
 struct HeldSpeedCycleBlockEvidence {
     CompletedCycleRangeEvidence cycles;
-    std::vector<HeldSpeedCycleWorkEvidence> completed_cycles;
+    std::vector<HeldSpeedCompletedCycleEvidence> completed_cycles;
     double indicated_gas_work_j = 0.0;
     double aggregate_loss_work_j = 0.0;
     double starter_work_j = 0.0;

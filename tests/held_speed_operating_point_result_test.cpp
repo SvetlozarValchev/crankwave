@@ -115,15 +115,21 @@ block(std::uint64_t first_ordinal, OperatingPointBoundaryEvidence start_boundary
         aggregate_loss_work_j / static_cast<double>(kCyclesPerBlock);
     const double cycle_brake_work_j =
         (cycle_indicated_work_j - cycle_aggregate_loss_work_j) + starter_work_j;
-    std::vector<HeldSpeedCycleWorkEvidence> completed_cycles;
+    std::vector<HeldSpeedCompletedCycleEvidence> completed_cycles;
     for (std::uint32_t index = 0; index < kCyclesPerBlock; ++index) {
-        completed_cycles.push_back({
-            first_ordinal + index,
-            cycle_indicated_work_j,
-            cycle_aggregate_loss_work_j,
-            starter_work_j,
-            cycle_brake_work_j,
-        });
+        HeldSpeedCompletedCycleEvidence completed_cycle{
+            first_ordinal + index, cycle_indicated_work_j, cycle_aggregate_loss_work_j,
+            starter_work_j,        cycle_brake_work_j,     {},
+        };
+        completed_cycle.end_boundary_pressures.reserve(pressures.size());
+        const double pressure_delta_pa = index == 0 ? -10.0 : 10.0;
+        for (const auto &pressure : pressures) {
+            completed_cycle.end_boundary_pressures.push_back({
+                pressure.gas_volume_id,
+                pressure.pressure_pa_abs + pressure_delta_pa,
+            });
+        }
+        completed_cycles.push_back(std::move(completed_cycle));
     }
     expect(cycle_brake_work_j * static_cast<double>(kCyclesPerBlock) == brake_work_j,
            "test block brake-work input disagrees with per-cycle source work");
@@ -430,6 +436,25 @@ void run_tests() {
     expect(!validate(forged_cycle_work).ok(),
            "per-cycle work mutation escaped exact stable block reduction");
 
+    auto forged_pressure_means = valid.result;
+    for (auto *cycle_block : {&forged_pressure_means.convergence.block_a,
+                              &forged_pressure_means.convergence.block_b}) {
+        for (auto &pressure : cycle_block->mean_boundary_pressures) {
+            pressure.pressure_pa_abs += 1000.0;
+        }
+    }
+    expect(!validate(forged_pressure_means).ok(),
+           "coordinated forged A/B pressure means escaped retained per-cycle "
+           "pressure reduction");
+
+    auto forged_cycle_pressure = valid.result;
+    forged_cycle_pressure.convergence.block_b.completed_cycles.front()
+        .end_boundary_pressures.front()
+        .pressure_pa_abs += 1.0;
+    expect(!validate(forged_cycle_pressure).ok(),
+           "per-cycle end-boundary pressure mutation escaped exact stable block "
+           "reduction");
+
     auto transplanted_ordinals = valid.result;
     auto rewrite_ordinals = [](HeldSpeedCycleBlockEvidence &cycle_block,
                                std::uint64_t first) {
@@ -543,14 +568,43 @@ void run_tests() {
 
     FailureContext convergence_failure;
     convergence_failure.kind = FailureKind::preparation_not_converged;
-    convergence_failure.detail_code = "preparation-not-converged";
+    convergence_failure.detail_code = std::string{kPreparationNotConvergedDetailCode};
     convergence_failure.model_id = "operating-point-session-v1";
     convergence_failure.profile_id = "bmw-m52b28-low-order-operating-point-v1";
     convergence_failure.state_summary =
         "fixed preparation cutoff reached before both residuals converged";
     convergence_failure.attempted_recovery = "none";
+    convergence_failure.tolerances = {
+        {
+            std::string{kCycleMeanTorqueResidualNmQuantityId},
+            2.0,
+            1.0,
+        },
+        {
+            std::string{kBoundaryPressureResidualPaQuantityId},
+            20.0,
+            50.0,
+        },
+    };
     expect(validate(convergence_failure).ok(),
-           "preparation-not-converged failure kind was not admitted");
+           "evaluated preparation nonconvergence evidence was not admitted");
+
+    auto missing_residuals = convergence_failure;
+    missing_residuals.tolerances.clear();
+    expect(!validate(missing_residuals).ok(),
+           "evaluated preparation nonconvergence omitted residual evidence");
+
+    auto insufficient_cycles = convergence_failure;
+    insufficient_cycles.detail_code =
+        std::string{kPreparationInsufficientCyclesDetailCode};
+    insufficient_cycles.tolerances.clear();
+    expect(validate(insufficient_cycles).ok(),
+           "insufficient-cycle preparation failure was not admitted");
+
+    insufficient_cycles.tolerances = convergence_failure.tolerances;
+    expect(!validate(insufficient_cycles).ok(),
+           "insufficient-cycle preparation failure published unevaluated "
+           "residual evidence");
 }
 
 } // namespace

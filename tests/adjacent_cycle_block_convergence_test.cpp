@@ -343,6 +343,37 @@ void test_exact_window_math_and_inclusive_boundaries() {
                    std::bit_cast<std::uint64_t>(0.0) &&
                evidence.block_b.total_brake_work_j == brake_works[2] + brake_works[3],
            "coherent A/B work-lane sums changed");
+    expect(evidence.block_a.completed_cycles.size() == 2U &&
+               evidence.block_b.completed_cycles.size() == 2U,
+           "convergence evidence did not retain the exact complete-cycle window");
+    for (std::size_t index = 0; index < brake_works.size(); ++index) {
+        const auto &retained = index < 2U
+                                   ? evidence.block_a.completed_cycles[index]
+                                   : evidence.block_b.completed_cycles[index - 2U];
+        expect(retained.completed_cycle_ordinal == 40U + index &&
+                   retained.indicated_gas_work_j == indicated_works[index] &&
+                   retained.positive_aggregate_loss_work_j == loss_works[index] &&
+                   std::bit_cast<std::uint64_t>(retained.starter_work_j) ==
+                       std::bit_cast<std::uint64_t>(0.0) &&
+                   retained.brake_work_j == brake_works[index] &&
+                   retained.end_boundary_pressures.size() == 3U,
+               "per-cycle evidence changed identity, work lanes, or pressure shape");
+        const std::array expected_ids{
+            contract::GasVolumeId{2},
+            contract::GasVolumeId{7},
+            contract::GasVolumeId{11},
+        };
+        for (std::size_t pressure_index = 0; pressure_index < expected_ids.size();
+             ++pressure_index) {
+            expect(
+                retained.end_boundary_pressures[pressure_index].gas_volume_id ==
+                        expected_ids[pressure_index] &&
+                    retained.end_boundary_pressures[pressure_index].pressure_pa_abs ==
+                        pressures[index][pressure_index],
+                "per-cycle end-boundary pressure evidence changed identity, "
+                "order, or value");
+        }
+    }
     expect_near(evidence.torque_residual_nm, 2.0, 1.0e-12,
                 "inclusive torque residual changed");
     expect(evidence.pressure_means.size() == 3U,
@@ -389,12 +420,19 @@ void test_latest_window_no_early_success_and_nonconvergence() {
 
     const auto finalized = value.finalize_at_fixed_cutoff();
     const auto *error = std::get_if<AdjacentCycleBlockConvergenceError>(&finalized);
-    expect(error != nullptr &&
-               error->code == AdjacentCycleBlockConvergenceErrorCode::nonconverged &&
-               error->evidence.has_value() && !error->evidence->settled &&
-               error->evidence->block_a.range.first_cycle_ordinal == 2U &&
-               error->evidence->block_b.range.first_cycle_ordinal == 3U,
-           "fixed-cutoff evaluation did not use the latest 2N cycles");
+    expect(
+        error != nullptr &&
+            error->code == AdjacentCycleBlockConvergenceErrorCode::nonconverged &&
+            error->evidence.has_value() && !error->evidence->settled &&
+            error->evidence->block_a.range.first_cycle_ordinal == 2U &&
+            error->evidence->block_b.range.first_cycle_ordinal == 3U &&
+            error->evidence->block_a.completed_cycles.size() == 1U &&
+            error->evidence->block_b.completed_cycles.size() == 1U &&
+            error->evidence->block_a.completed_cycles.front().completed_cycle_ordinal ==
+                2U &&
+            error->evidence->block_b.completed_cycles.front().completed_cycle_ordinal ==
+                3U,
+        "fixed-cutoff evaluation did not use the latest 2N cycles");
     expect_near(error->evidence->block_a.mean_brake_torque_nm, 20.0, 1.0e-12,
                 "latest block A torque changed");
     expect_near(error->evidence->block_b.mean_brake_torque_nm, 10.0, 1.0e-12,

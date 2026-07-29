@@ -244,6 +244,55 @@ ValidationReport validate(const FailureContext &context) {
                 ContractIssueCode::invalid_value, path,
                 "attempted value and tolerance must be finite");
     }
+    if (context.kind == FailureKind::preparation_not_converged) {
+        const bool insufficient_cycles =
+            context.detail_code == kPreparationInsufficientCyclesDetailCode;
+        const bool residual_nonconvergence =
+            context.detail_code == kPreparationNotConvergedDetailCode;
+        require(report, insufficient_cycles || residual_nonconvergence,
+                ContractIssueCode::inconsistent_semantics, "detail_code",
+                "preparation failure must distinguish insufficient complete cycles "
+                "from an evaluated nonconverged residual window");
+        if (insufficient_cycles) {
+            require(report, context.tolerances.empty(),
+                    ContractIssueCode::inconsistent_shape, "tolerances",
+                    "insufficient-cycle preparation failure cannot publish "
+                    "unevaluated residual records");
+        }
+        if (residual_nonconvergence) {
+            require(report, context.tolerances.size() == 2U,
+                    ContractIssueCode::inconsistent_shape, "tolerances",
+                    "evaluated nonconvergence requires exactly torque then "
+                    "boundary-pressure residual records");
+            if (context.tolerances.size() >= 2U) {
+                const auto &torque = context.tolerances[0];
+                const auto &pressure = context.tolerances[1];
+                require(report,
+                        torque.quantity_id == kCycleMeanTorqueResidualNmQuantityId &&
+                            pressure.quantity_id ==
+                                kBoundaryPressureResidualPaQuantityId,
+                        ContractIssueCode::inconsistent_semantics, "tolerances",
+                        "nonconvergence residual records must use the canonical torque "
+                        "then boundary-pressure identities");
+                const bool valid_residuals =
+                    finite_nonnegative(torque.attempted_value) &&
+                    detail::finite_positive(torque.tolerance) &&
+                    finite_nonnegative(pressure.attempted_value) &&
+                    detail::finite_positive(pressure.tolerance);
+                require(report, valid_residuals, ContractIssueCode::invalid_value,
+                        "tolerances",
+                        "nonconvergence residuals must be finite and nonnegative "
+                        "with finite positive tolerances");
+                require(report,
+                        valid_residuals &&
+                            (torque.attempted_value > torque.tolerance ||
+                             pressure.attempted_value > pressure.tolerance),
+                        ContractIssueCode::inconsistent_semantics, "tolerances",
+                        "evaluated preparation failure requires at least one "
+                        "residual above its inclusive convergence tolerance");
+            }
+        }
+    }
     return report;
 }
 

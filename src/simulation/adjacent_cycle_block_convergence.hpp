@@ -76,8 +76,21 @@ struct AdjacentCycleBlockRange {
                            const AdjacentCycleBlockRange &) = default;
 };
 
+struct AdjacentCycleBlockCompletedCycle {
+    std::uint64_t completed_cycle_ordinal = 0;
+    double indicated_gas_work_j = 0.0;
+    double positive_aggregate_loss_work_j = 0.0;
+    double starter_work_j = 0.0;
+    double brake_work_j = 0.0;
+    std::vector<AdjacentCycleBlockPressure> end_boundary_pressures;
+
+    friend bool operator==(const AdjacentCycleBlockCompletedCycle &,
+                           const AdjacentCycleBlockCompletedCycle &) = default;
+};
+
 struct AdjacentCycleBlockMean {
     AdjacentCycleBlockRange range;
+    std::vector<AdjacentCycleBlockCompletedCycle> completed_cycles;
     double total_indicated_gas_work_j = 0.0;
     double total_positive_aggregate_loss_work_j = 0.0;
     double total_starter_work_j = 0.0;
