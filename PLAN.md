@@ -554,6 +554,9 @@ replacement starts before acceptance.
         - [ ] Compare fixed trailing 32-cycle estimates at predeclared `6.44 s` and
               `12.88 s` cutoffs across all nine RPMs before freezing an honest v2
               initialization-deletion and sampling policy.
+          - [x] Freeze the bounded cross-RPM diagnostic, reduction, decision envelope,
+                extension rule, concurrency bound, and non-publication behavior.
+          - [ ] Implement, execute from a clean commit, and record the result.
       - [ ] Freeze any evidence-justified correction under a new exact request
             identity, then execute and publish all nine points atomically.
 - [ ] Render low/middle/high RPM and load clips, then stop for user listening.

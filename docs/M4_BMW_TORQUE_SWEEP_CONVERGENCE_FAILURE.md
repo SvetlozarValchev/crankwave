@@ -181,3 +181,72 @@ The next bounded diagnostic will evaluate all nine RPMs at predeclared `6.44 s` 
 choose an initialization-deletion horizon, not to hunt for a passing adjacent pair.
 If that cross-RPM evidence is adequate, v2 will report honest fixed-horizon,
 fixed-sample evidence and will not call the result “converged.”
+
+## Frozen cross-RPM fixed-sample diagnostic
+
+Before the v2 preparation policy is written, one bounded diagnostic will test whether
+`6.44 s` is an adequate initialization-deletion horizon across the complete frozen
+RPM set. It changes no engine, simulation, audio, convergence, or publication code.
+
+Each of the nine canonical RPM points executes from fresh state at both `6.44 s` and
+`12.88 s`. The first execution is the exact canonical v1 request. The later in-memory
+copy changes only its scenario ID, maximum preparation duration, audible start, and
+total horizon (`12.90 s`); audible duration remains `0.02 s`. All other request fields
+and the public seed remain bit-identical. Each request has its own request-v2 identity,
+and every capture block is validated. At most nine independent workers run—one per
+RPM—and each worker executes its earlier window before its later window. Results are
+reported in ascending canonical RPM order regardless of completion order.
+
+Whether the old v1 equality gate happens to pass is recorded but does not select a
+window. From its typed success or typed terminal evidence, each execution combines
+the retained adjacent blocks into the same fixed trailing sample of `M = 32` complete
+cycles. Chronological binary64 reductions report:
+
+- totals for indicated-gas, positive aggregate-loss, starter, and brake work;
+- each per-cycle brake-torque sample as that cycle's brake work divided by `4*pi`,
+  and its chronological 32-cycle mean;
+- each per-cycle end-boundary pressure and chronological 32-cycle mean for every
+  physical gas volume; and
+- the deterministic within-window RMS dispersion of the torque and pressure samples.
+
+For a scalar `q`, the descriptive between-horizon check is frozen before execution:
+
+```text
+mean(q) = chronological_sum(q[0..31]) / 32
+rms_dispersion(q) = sqrt(
+    chronological_sum((q[i] - mean(q))^2, i=0..31) / 32)
+delta = abs(mean_later(q) - mean_earlier(q))
+envelope = existing_absolute_floor(q)
+         + max(rms_dispersion_earlier(q), rms_dispersion_later(q))
+```
+
+The existing absolute floor is `0.75 N*m` for cycle brake torque and `1500 Pa` for
+each volume pressure. Those underlying v1 floor constants remain numerically
+unchanged; this diagnostic envelope explicitly adds one within-window RMS scale. The
+coefficient on RMS dispersion is exactly unity: the check asks whether a
+separated-window mean shift exceeds that stated sum. It was not fitted to a residual
+or selected as a statistical confidence level. The model already declares nonzero
+deterministic per-ignition variation, so ignoring that scale would repeat the v1
+category error. This is a deterministic engineering diagnostic, not an independence
+assumption, probability statement, hypothesis test, or proof of stationarity.
+
+A point supports the `6.44 s` initialization horizon only if its torque delta and
+every per-volume pressure delta are within their respective envelopes. If a point is
+outside, only that preidentified point is extended to the already declared `25.76 s`
+cutoff and the same `12.88 s` versus `25.76 s` comparison is recorded. There is no
+retry with altered constants. The outcomes are exact:
+
+- if all nine `6.44 s` versus `12.88 s` comparisons are inside, v2 may use one global
+  `6.44 s` deletion horizon;
+- otherwise, if every required `12.88 s` versus `25.76 s` extension is inside, v2 may
+  use one global `12.88 s` deletion horizon; and
+- if any required extension remains outside, the diagnostic is inconclusive and v2
+  is not frozen.
+
+Any admitted v2 uses the selected horizon and a trailing 32-complete-cycle sample,
+with honest fixed-sample evidence and no convergence claim. It replaces the rejected
+v1 production policy rather than creating a parallel legacy path.
+
+The diagnostic writes no repository artifact. Its deterministic stdout report and
+the decision-bearing subset recorded here are sufficient; the final torque sweep
+remains the only atomic published evidence set.
