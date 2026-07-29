@@ -1,14 +1,17 @@
 # M4 BMW inertial-dyno listening gate
 
-Status: accepted by user listening on 2026-07-29
+Status: original artifact accepted by user listening on 2026-07-29; current
+fixed-sample rerender is PCM-identical
 
 Source commit: `f3657973f510dae7dd5c43e3458ccf34752562e6`
 
-The canonical M4 BMW M52B28 inertial-dyno scenario holds a converged warm engine at
+The originally accepted M4 BMW M52B28 inertial-dyno scenario holds the warm engine at
 `1500 rpm`, then releases it at `0.85` throttle against a declared `40 N*m` passive
 brake and `7.9 kg*m^2` total crank-referred test-cell inertia. Crank speed is advanced
 from modeled shaft torque and inertia; it is neither prescribed nor clamped to the
-listening target.
+listening target. This artifact predates the sole fixed-horizon sampling cutover; its
+current replacement and exact PCM comparison are recorded in
+[`M4_FIXED_SAMPLE_AUDIO_REGRESSION.md`](M4_FIXED_SAMPLE_AUDIO_REGRESSION.md).
 
 Listening file:
 
@@ -19,11 +22,11 @@ artifacts/listening/bmw-m52b28-m4-inertial-dyno-1500-6500rpm/audio/
 
 The audition WAVE SHA-256 is
 `2ed325c5a031c6a5e19e5db24473d4898ddcefbff1141a65e4f22a3083a9890f`.
-The complete transactional publication contains eight WAVE artifacts, the
-simulation-v5 manifest, and its SHA-256 sidecar. The manifest SHA-256 is
+The historical transactional publication contains eight WAVE artifacts, its
+then-current manifest, and its SHA-256 sidecar. The manifest SHA-256 is
 `15ac8cef1da2d684288ab6a14f27b921d0c393a01bad003eed9198aa69fcda4a`.
 
-The request-bound result reported:
+The historical request-bound result reported:
 
 - preparation release: frame `64400`, exactly `1500 rpm`;
 - first `6500 rpm` target crossing: frame `207679`, `14.3279 s` after release;
