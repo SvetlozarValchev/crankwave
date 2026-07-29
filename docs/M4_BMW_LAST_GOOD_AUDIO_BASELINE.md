@@ -122,15 +122,26 @@ The user listened to this recovered render on 2026-07-30 and explicitly reaccept
 it. Commit `3f5fa1c` and the hash above are therefore the current audible return point,
 not merely a mechanically reconstructed historical candidate.
 
-No cleanup or new sound work was included in this proof. In particular, the
-previously approved dead compression-ignition-field cleanup remains a separate future
-change so it cannot be hidden inside the audible recovery.
+No cleanup or new sound work was included in that recovery proof. After the user
+accepted it, commit `f40fbb6` separately removed the dead
+`compression_ignition_enabled` schema field and regenerated the affected canonical
+identities from this accepted topology. All `68 / 68` tests passed. Its dyno render:
+
+```text
+artifacts/listening/bmw-m52b28-compression-field-removed-f40fbb6/
+  audio/master.reference.audition.wav
+```
+
+completed in `15.16 s` and remained byte-for-byte identical to the tracked oracle,
+with WAVE SHA-256
+`87eda586902fbcf7e015161a84688c74e486285c99150c1a6fb3bc9c4382c444`.
+The cleanup is therefore proven audio-neutral rather than hidden inside the recovery.
 
 ## 5. Recovery and future comparison rule
 
 Recovery means making the `4b65127`/`ffcc45c` sound-producing behavior the sole
 current path again, not adding a legacy switch or maintaining two implementations.
-The unrelated removal of the dead compression-ignition flag may remain. The rejected
+The unrelated removal of the dead compression-ignition field remains. The rejected
 M5 runtime is not a foundation for further fidelity work; its documentation remains
 as failure evidence.
 
