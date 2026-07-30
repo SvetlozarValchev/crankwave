@@ -1,0 +1,130 @@
+{
+  "schema_id": "engine-sim-offline.accessory-configuration.v1",
+  "configuration_id": "bmw-m52tub28-cleanroom-warm-generic-accessories-v1",
+  "engine_id": "bmw-m52tub28-cleanroom",
+  "serialization": "utf-8-json-lf-with-one-final-lf-byte-identity-v1",
+  "operating_condition": {
+    "operation": "warm-positive-speed-held-running",
+    "ignition": "enabled",
+    "fuel": "enabled",
+    "dyno_speed_control": "enabled",
+    "starter_control": "disabled",
+    "limiter": "disabled",
+    "load_transients": "none",
+    "oil_temperature_k": {
+      "decimal": "363.15",
+      "binary64_bits": "0x4076b26666666666"
+    }
+  },
+  "modeled_inventory": [
+    {
+      "component": "engine-internal-friction",
+      "state": "warm-running",
+      "scope": [
+        "crank_friction",
+        "piston_ring_friction",
+        "bearing_friction",
+        "valvetrain_friction"
+      ],
+      "treatment": "undifferentiated-part-of-aggregate-generic-prior"
+    },
+    {
+      "component": "engine-oil-pump-and-oil-churning",
+      "state": "driven-warm-running",
+      "scope": [
+        "pump_and_oil"
+      ],
+      "treatment": "undifferentiated-part-of-aggregate-generic-prior"
+    },
+    {
+      "component": "generic-belt-driven-accessories",
+      "state": "installed-warm-steady-running",
+      "scope": [
+        "accessory"
+      ],
+      "treatment": "undifferentiated-part-of-aggregate-generic-prior"
+    }
+  ],
+  "aggregate_loss": {
+    "method_id": "chen-flynn-cycle-mean-aggregate-loss-v1",
+    "method_version": 1,
+    "coefficients": {
+      "constant_fmep_bar": {
+        "decimal": "0.4",
+        "binary64_bits": "0x3fd999999999999a"
+      },
+      "peak_pressure_coefficient": {
+        "decimal": "0.005",
+        "binary64_bits": "0x3f747ae147ae147b"
+      },
+      "mean_piston_speed_coefficient_bar_s_per_m": {
+        "decimal": "0.09",
+        "binary64_bits": "0x3fb70a3d70a3d70a"
+      },
+      "mean_piston_speed_squared_coefficient_bar_s2_per_m2": {
+        "decimal": "0.0009",
+        "binary64_bits": "0x3f4d7dbf487fcb92"
+      }
+    },
+    "included_terms": [
+      {
+        "name": "crank_friction",
+        "bit": "0x02"
+      },
+      {
+        "name": "piston_ring_friction",
+        "bit": "0x04"
+      },
+      {
+        "name": "bearing_friction",
+        "bit": "0x08"
+      },
+      {
+        "name": "valvetrain_friction",
+        "bit": "0x10"
+      },
+      {
+        "name": "pump_and_oil",
+        "bit": "0x20"
+      },
+      {
+        "name": "accessory",
+        "bit": "0x40"
+      }
+    ],
+    "included_terms_mask": "0x7e",
+    "component_loss_outputs": "not-admitted"
+  },
+  "starter": {
+    "component": "starter-motor-and-drive",
+    "state": "installed-mechanically-disengaged",
+    "control": "disabled",
+    "included_in_aggregate_loss": false,
+    "included_terms": [
+      {
+        "name": "starter",
+        "bit": "0x80"
+      }
+    ],
+    "included_terms_mask": "0x80",
+    "completed_cycle_work_j": {
+      "decimal": "+0.0",
+      "binary64_bits": "0x0000000000000000"
+    }
+  },
+  "accounting_partition": {
+    "indicated_gas_terms_mask": "0x01",
+    "aggregate_loss_terms_mask": "0x7e",
+    "starter_terms_mask": "0x80",
+    "complete_union_terms_mask": "0xff",
+    "pairwise_disjoint": true
+  },
+  "claim_boundary": {
+    "loss_coefficients": "generic-four-stroke-prior",
+    "source_mr_loss_measurement": false,
+    "source_mr_accessory_inventory": false,
+    "source_mr_accessory_load_measurement": false,
+    "component_loss_inference": false,
+    "statement": "This descriptor supplies the current executor's generic Chen-Flynn warm-running policy only. The M52TUB28 clean-room source does not declare these loss coefficients or an accessory inventory; this file is neither a BMW measurement nor a component-level loss claim."
+  }
+}
