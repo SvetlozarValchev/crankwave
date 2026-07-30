@@ -40,6 +40,7 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
         authored(5.0),
         authored(5.9),
         authored(0.2),
+        authored(10.0),
     };
     core.mechanism.cylinders.push_back({
         {
@@ -444,6 +445,12 @@ void run_authored_profile_contract_tests() {
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {
             profile.core.mechanism.crank.crankshaft_mass_kg.value =
                 std::numeric_limits<double>::quiet_NaN();
+        });
+    expect_authored_mutation_rejected(
+        "negative authored running crank friction was accepted",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.core.mechanism.crank.running_friction_torque_magnitude_nm.value =
+                -0.1;
         });
     expect_authored_mutation_rejected(
         "unknown authored restriction calibration was accepted",

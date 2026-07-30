@@ -128,6 +128,8 @@ void visit_crank(const Crank &crank, const std::string &base, Function function)
     function(crank.flywheel_mass_kg, base + ".flywheel_mass_kg");
     function(crank.authored_crank_inertia_kg_m2,
              base + ".authored_crank_inertia_kg_m2");
+    function(crank.running_friction_torque_magnitude_nm,
+             base + ".running_friction_torque_magnitude_nm");
 }
 
 template <class Restriction, class Function>
@@ -563,7 +565,8 @@ void validate_authored_low_order_core_domains(
             finite(crank.crank_tdc_reference_rad.value) &&
                 finite_positive(crank.crankshaft_mass_kg.value) &&
                 finite_positive(crank.flywheel_mass_kg.value) &&
-                finite_positive(crank.authored_crank_inertia_kg_m2.value),
+                finite_positive(crank.authored_crank_inertia_kg_m2.value) &&
+                finite_nonnegative(crank.running_friction_torque_magnitude_nm.value),
             ContractIssueCode::invalid_value, "mechanism.crank",
             "crank assembly values are outside their physical domain");
     require(report, !core.mechanism.cylinders.empty(), ContractIssueCode::missing_value,
@@ -1057,7 +1060,8 @@ void validate_low_order_core_domains(ValidationReport &report,
             finite(crank.crank_tdc_reference_rad.value) &&
                 finite_positive(crank.crankshaft_mass_kg.value) &&
                 finite_positive(crank.flywheel_mass_kg.value) &&
-                finite_positive(crank.authored_crank_inertia_kg_m2.value),
+                finite_positive(crank.authored_crank_inertia_kg_m2.value) &&
+                finite_nonnegative(crank.running_friction_torque_magnitude_nm.value),
             ContractIssueCode::invalid_value, "mechanism.crank",
             "crank assembly values are outside their physical domain");
     require(report,

@@ -183,6 +183,8 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
         builder.resolved(5.0, path("mechanism.crank.crankshaft_mass_kg")),
         builder.resolved(5.9, path("mechanism.crank.flywheel_mass_kg")),
         builder.resolved(0.2, path("mechanism.crank.authored_crank_inertia_kg_m2")),
+        builder.resolved(10.0,
+                         path("mechanism.crank.running_friction_torque_magnitude_nm")),
     };
     LegacyCylinderAssembly cylinder;
     cylinder.topology = {

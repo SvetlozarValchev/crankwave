@@ -93,6 +93,7 @@ template <template <class> class Field> struct LegacyCrankAssemblyT {
     Field<double> crankshaft_mass_kg;
     Field<double> flywheel_mass_kg;
     Field<double> authored_crank_inertia_kg_m2;
+    Field<double> running_friction_torque_magnitude_nm;
 
     friend bool operator==(const LegacyCrankAssemblyT &,
                            const LegacyCrankAssemblyT &) = default;

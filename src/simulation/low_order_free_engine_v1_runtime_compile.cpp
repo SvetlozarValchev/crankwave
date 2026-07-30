@@ -1,6 +1,7 @@
 #include "simulation/low_order_free_engine_v1_runtime.hpp"
 
 #include "simulation/cycle_accounting_method_registry.hpp"
+#include "simulation/engine_sim_v1_transient_friction.hpp"
 #include "simulation/free_engine_method_registry.hpp"
 
 #include <bit>
@@ -90,6 +91,17 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         return report;
     }
 
+    const auto crank_friction_calculation =
+        calculate_engine_sim_v1_positive_speed_crank_friction(
+            {profile->core.mechanism.crank.running_friction_torque_magnitude_nm.value});
+    const auto *crank_friction =
+        std::get_if<EngineSimV1PositiveSpeedCrankFriction>(&crank_friction_calculation);
+    require(report, crank_friction != nullptr, ContractIssueCode::invalid_value,
+            "engine.physics_profile.mechanism.crank."
+            "running_friction_torque_magnitude_nm.value",
+            "free-engine runtime requires finite nonnegative pristine crank "
+            "friction");
+
     report.append(admit_implemented_cycle_accounting_methods(engine, *profile));
     require(report,
             free_engine->crank_dynamics_method.value ==
@@ -132,8 +144,8 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
             ContractIssueCode::inconsistent_semantics, "scenario.audible_start_s.value",
             "free-engine release and fixed horizon must resolve to ordered integral "
             "physics frames matching capture");
-    if (!report.ok() || !release_frame.has_value() || !end_frame.has_value() ||
-        free_engine->throttle_01.points.empty() ||
+    if (!report.ok() || crank_friction == nullptr || !release_frame.has_value() ||
+        !end_frame.has_value() || free_engine->throttle_01.points.empty() ||
         free_engine->external_resisting_torque_nm.points.empty()) {
         return report;
     }
@@ -264,6 +276,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         free_engine->initial_engine_speed_rpm.value,
         free_engine->initial_theta_rad.value,
         free_engine->total_equivalent_inertia_kg_m2.value,
+        crank_friction->torque_nm,
         "low-order-free-engine-v1",
         engine.profile_id.value,
         scenario.scenario_id,

@@ -39,6 +39,8 @@ double legacy_si_value(const authoring::Quantity &quantity) {
     const double centimetre = 1.0 / 100.0;
     const double millimetre = 1.0 / 1000.0;
     const double inch = centimetre * 2.54;
+    const double foot = inch * 12.0;
+    const double pound_force = 4.44822;
     const double cc = centimetre * centimetre * centimetre;
     if (quantity.unit == "1" || quantity.unit == "rad" ||
         quantity.unit == "m" || quantity.unit == "m2" ||
@@ -65,6 +67,9 @@ double legacy_si_value(const authoring::Quantity &quantity) {
     }
     if (quantity.unit == "in") {
         return quantity.value * inch;
+    }
+    if (quantity.unit == "lb*ft") {
+        return quantity.value * (pound_force * foot);
     }
     if (quantity.unit == "cm2") {
         return quantity.value * (centimetre * centimetre);

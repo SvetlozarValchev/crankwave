@@ -228,6 +228,7 @@
         "mass",
         "flywheel_mass",
         "moment_of_inertia",
+        "friction_torque",
         "tdc_reference_angle",
         "journals"
       ],
@@ -237,12 +238,7 @@
         "mass": { "$ref": "#/$defs/quantity" },
         "flywheel_mass": { "$ref": "#/$defs/quantity" },
         "moment_of_inertia": { "$ref": "#/$defs/quantity" },
-        "friction_torque": {
-          "anyOf": [
-            { "$ref": "#/$defs/quantity" },
-            { "type": "null" }
-          ]
-        },
+        "friction_torque": { "$ref": "#/$defs/quantity" },
         "tdc_reference_angle": { "$ref": "#/$defs/quantity" },
         "journals": {
           "type": "array",

@@ -493,11 +493,12 @@ For FreeEngine, the compiler derives the engine baseline with the versioned
 cycle-mean centered slider-crank kinetic-energy method, adds optional
 `attached_inertia`, and gives the resolved total to the crank integrator. The BMW
 M52B28 baseline is `0.2108686520185204 kg*m^2`; its neutral fixture has zero attached
-inertia and zero external resistance. The pristine-engine-sim regression gate requires
-the full-throttle 1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`.
+inertia and zero external resistance. The existing interactive-scenario smoke requires
+its full-throttle 1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`.
 
-That gate calibrates neutral acceleration, not every loss mechanism. Gas-exchange
-pumping is already present inside the cylinder pressure-volume work. The remaining
+That smoke starts from a short part-throttle preparation and is not the controlled
+pristine ablation oracle. It guards the interactive recipe only. Gas-exchange pumping
+is already present inside the cylinder pressure-volume work. The remaining
 closed-throttle discrepancy is an immediate parity failure caused by using a generic
 one-cycle-lagged Chen--Flynn aggregate in place of pristine engine-sim's authored
 crank friction and executable piston-wall-friction path.

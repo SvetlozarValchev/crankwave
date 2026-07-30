@@ -15,6 +15,8 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
                          crank_base + ".flywheel_mass_kg"),
         emitter.authored(legacy_si_value(context.crankshaft->moment_of_inertia),
                          crank_base + ".authored_crank_inertia_kg_m2"),
+        emitter.authored(legacy_si_value(*context.crankshaft->friction_torque),
+                         crank_base + ".running_friction_torque_magnitude_nm"),
     };
 
     for (const auto &cylinder : source.cylinders) {

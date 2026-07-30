@@ -14,7 +14,6 @@
 namespace engine_sim_offline::simulation {
 namespace {
 
-constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
 constexpr double kRpmPerRadianPerSecond = 30.0 / std::numbers::pi_v<double>;
 
 [[nodiscard]] contract::TorqueValueNm
@@ -30,6 +29,20 @@ available_torque(double value_nm, contract::TorqueTermMask terms) noexcept {
 }
 
 [[nodiscard]] contract::TorqueValueNm
+available_classified_torque(double value_nm, contract::TorqueTermMask included_terms,
+                            contract::TorqueTermMask omitted_terms) noexcept {
+    return {
+        value_nm,
+        contract::Availability::available,
+        omitted_terms == 0 ? contract::Completeness::complete
+                           : contract::Completeness::incomplete,
+        contract::QuantityUnavailableReason::none,
+        included_terms,
+        omitted_terms,
+    };
+}
+
+[[nodiscard]] contract::TorqueValueNm
 unavailable_torque(contract::QuantityUnavailableReason reason) noexcept {
     return {
         0.0,
@@ -41,11 +54,12 @@ unavailable_torque(contract::QuantityUnavailableReason reason) noexcept {
     };
 }
 
-[[nodiscard]] contract::QuantityValue available_quantity(double value) noexcept {
+[[nodiscard]] contract::QuantityValue
+available_incomplete_quantity(double value) noexcept {
     return {
         value,
         contract::Availability::available,
-        contract::Completeness::complete,
+        contract::Completeness::incomplete,
         contract::QuantityUnavailableReason::none,
     };
 }
@@ -61,18 +75,25 @@ unavailable_quantity(contract::QuantityUnavailableReason reason) noexcept {
 }
 
 [[nodiscard]] contract::TorqueTelemetry
-preparation_capture_torque(double indicated_gas_torque_nm) noexcept {
+preparation_capture_torque(double indicated_gas_torque_nm,
+                           double applied_crank_friction_torque_nm) noexcept {
+    const auto crank_friction =
+        contract::torque_term_mask(contract::TorqueTerm::crank_friction);
+    const auto starter = contract::torque_term_mask(contract::TorqueTerm::starter);
+    const auto applied_net_terms =
+        contract::indicated_gas_torque_term_mask() | crank_friction | starter;
     contract::TorqueTelemetry result;
     result.instantaneous_indicated_gas = available_torque(
         indicated_gas_torque_nm, contract::indicated_gas_torque_term_mask());
     result.pumping_partition =
         unavailable_torque(contract::QuantityUnavailableReason::model_not_admitted);
-    result.friction_pump_and_accessory =
-        unavailable_torque(contract::QuantityUnavailableReason::model_not_admitted);
-    result.starter = available_torque(
-        0.0, contract::torque_term_mask(contract::TorqueTerm::starter));
-    result.instantaneous_net_shaft =
-        unavailable_torque(contract::QuantityUnavailableReason::model_not_admitted);
+    result.friction_pump_and_accessory = available_classified_torque(
+        applied_crank_friction_torque_nm, crank_friction,
+        contract::friction_pump_and_accessory_torque_term_mask() & ~crank_friction);
+    result.starter = available_torque(0.0, starter);
+    result.instantaneous_net_shaft = available_classified_torque(
+        indicated_gas_torque_nm + applied_crank_friction_torque_nm, applied_net_terms,
+        contract::known_torque_term_mask() & ~applied_net_terms);
     result.cycle_mean_net_shaft =
         unavailable_torque(contract::QuantityUnavailableReason::required_input_missing);
     result.actuator =
@@ -92,34 +113,38 @@ preparation_capture_torque(double indicated_gas_torque_nm) noexcept {
 
 [[nodiscard]] contract::TorqueTelemetry
 released_capture_torque(const detail::PositiveSpeedRigidCrankZohStep &motion,
-                        const OperatingCompletedCycle &latest_cycle,
                         double applied_indicated_gas_torque_nm,
-                        double applied_lagged_loss_torque_nm) noexcept {
+                        double applied_crank_friction_torque_nm) noexcept {
+    const auto crank_friction =
+        contract::torque_term_mask(contract::TorqueTerm::crank_friction);
+    const auto starter = contract::torque_term_mask(contract::TorqueTerm::starter);
+    const auto applied_net_terms =
+        contract::indicated_gas_torque_term_mask() | crank_friction | starter;
     contract::TorqueTelemetry result;
     result.instantaneous_indicated_gas = available_torque(
         applied_indicated_gas_torque_nm, contract::indicated_gas_torque_term_mask());
     result.pumping_partition =
         unavailable_torque(contract::QuantityUnavailableReason::model_not_admitted);
-    result.friction_pump_and_accessory =
-        available_torque(applied_lagged_loss_torque_nm,
-                         contract::friction_pump_and_accessory_torque_term_mask());
-    result.starter = available_torque(
-        0.0, contract::torque_term_mask(contract::TorqueTerm::starter));
-    result.instantaneous_net_shaft =
-        available_torque(motion.input.held_upstream_engine_torque_nm,
-                         contract::known_torque_term_mask());
-    result.cycle_mean_net_shaft = available_torque(
-        latest_cycle.cycle_mean_brake_torque_nm, contract::known_torque_term_mask());
+    result.friction_pump_and_accessory = available_classified_torque(
+        applied_crank_friction_torque_nm, crank_friction,
+        contract::friction_pump_and_accessory_torque_term_mask() & ~crank_friction);
+    result.starter = available_torque(0.0, starter);
+    result.instantaneous_net_shaft = available_classified_torque(
+        motion.input.held_upstream_engine_torque_nm, applied_net_terms,
+        contract::known_torque_term_mask() & ~applied_net_terms);
+    result.cycle_mean_net_shaft = unavailable_torque(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
     result.actuator = available_torque(-motion.input.held_resisting_torque_nm, 0);
     result.dyno_reaction = available_torque(motion.input.held_resisting_torque_nm, 0);
-    result.cycle_work_j = available_quantity(latest_cycle.brake_work_j);
-    result.net_bmep_pa =
-        available_quantity(latest_cycle.net_brake_mean_effective_pressure_pa);
+    result.cycle_work_j = unavailable_quantity(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
+    result.net_bmep_pa = unavailable_quantity(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
     result.instantaneous_power_w =
-        available_quantity(motion.input.held_upstream_engine_torque_nm *
-                           motion.input.initial_state.angular_speed_rad_s);
-    result.cycle_mean_power_w =
-        available_quantity(latest_cycle.cycle_mean_brake_power_w);
+        available_incomplete_quantity(motion.input.held_upstream_engine_torque_nm *
+                                      motion.input.initial_state.angular_speed_rad_s);
+    result.cycle_mean_power_w = unavailable_quantity(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
     return result;
 }
 
@@ -173,7 +198,8 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
     std::vector<OperatingGasVolumePressureSample> pressure_samples,
     contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
     std::uint64_t release_frame_index, double initial_engine_speed_rpm,
-    double initial_theta_rad, double equivalent_inertia_kg_m2, std::string model_id,
+    double initial_theta_rad, double equivalent_inertia_kg_m2,
+    double applied_positive_speed_crank_friction_torque_nm, std::string model_id,
     std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
     : control_cursor_(std::move(control_cursor)), accountant_(std::move(accountant)),
       sampler_(std::move(sampler)),
@@ -185,6 +211,8 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
               static_cast<double>(rate.numerator)),
       initial_engine_speed_rpm_(initial_engine_speed_rpm),
       equivalent_inertia_kg_m2_(equivalent_inertia_kg_m2),
+      applied_positive_speed_crank_friction_torque_nm_(
+          applied_positive_speed_crank_friction_torque_nm),
       crank_state_{initial_theta_rad,
                    initial_engine_speed_rpm * std::numbers::pi_v<double> / 30.0},
       model_id_(std::move(model_id)), profile_id_(std::move(profile_id)),
@@ -357,25 +385,6 @@ LowOrderFreeEngineV1Runtime::update_accounting(const LegacyMechanismStep &mechan
     }
 
     latest_completed_cycle_ = *crossing->completed_cycle;
-    const auto &cycle = *latest_completed_cycle_;
-    const double represented_angle_rad = cycle.indicated_quadrature.end_theta_rad -
-                                         cycle.indicated_quadrature.start_theta_rad;
-    if (!std::isfinite(represented_angle_rad) || !(represented_angle_rad > 0.0)) {
-        return fault(contract::FailureKind::contract_violation,
-                     "free-engine-loss-cycle-angle-disagreed",
-                     "completed aggregate-loss cycle had no finite positive span",
-                     &mechanics);
-    }
-    const double lagged_loss_torque_nm =
-        -cycle.aggregate_loss.positive_aggregate_loss_work_j / kFourStrokeCycleRadians;
-    if (!std::isfinite(lagged_loss_torque_nm) || lagged_loss_torque_nm > 0.0) {
-        return fault(contract::FailureKind::numerical_failure,
-                     "free-engine-lagged-loss-nonfinite",
-                     "completed aggregate loss did not produce a finite resisting "
-                     "cycle-mean torque",
-                     &mechanics);
-    }
-    applied_lagged_loss_torque_nm_ = lagged_loss_torque_nm;
     return std::nullopt;
 }
 
@@ -392,13 +401,12 @@ LowOrderFreeEngineV1Runtime::finalize_preparation(
     }
     (void)std::get<FixedHorizonCycleSampled>(result);
     if (!previous_indicated_gas_torque_nm_.has_value() ||
-        !applied_lagged_loss_torque_nm_.has_value() ||
         !latest_completed_cycle_.has_value()) {
         return fault(
             contract::FailureKind::contract_violation,
             "free-engine-release-state-incomplete",
             "release requires fixed-horizon trailing-cycle evidence, prior committed "
-            "indicated torque, and one completed aggregate-loss cycle",
+            "indicated torque, and one completed observed cycle",
             &mechanics);
     }
     preparation_finalized_ = true;
@@ -509,21 +517,23 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
         }
         return LowOrderFreeEngineV1StepView{
             std::cref(mechanics), std::cref(gas),
-            preparation_capture_torque(gas.indicated_gas_torque_nm)};
+            preparation_capture_torque(
+                gas.indicated_gas_torque_nm,
+                applied_positive_speed_crank_friction_torque_nm_)};
     }
 
     if (!preparation_finalized_ || !previous_indicated_gas_torque_nm_.has_value() ||
-        !applied_lagged_loss_torque_nm_.has_value() ||
         !latest_completed_cycle_.has_value()) {
         return fail(
             fault(contract::FailureKind::contract_violation,
                   "free-engine-causal-input-missing",
                   "released motion requires finalized preparation, prior committed "
-                  "indicated torque, and completed one-cycle-lag loss"));
+                  "indicated torque, and complete preparation-cycle evidence"));
     }
 
     const double applied_indicated = *previous_indicated_gas_torque_nm_;
-    const double applied_loss = *applied_lagged_loss_torque_nm_;
+    const double applied_crank_friction =
+        applied_positive_speed_crank_friction_torque_nm_;
     const double applied_external_resisting_torque_nm =
         overrides.has_external_resisting_torque_nm
             ? overrides.external_resisting_torque_nm
@@ -531,7 +541,7 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     const auto motion_calculation = detail::advance_positive_speed_rigid_crank_zoh({
         equivalent_inertia_kg_m2_,
         crank_state_,
-        applied_indicated + applied_loss,
+        applied_indicated + applied_crank_friction,
         applied_external_resisting_torque_nm,
         step_s_,
     });
@@ -576,9 +586,9 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
 
     // This frame reports exactly the prior committed engine torque and current
     // right-continuous external resistance used for its motion. Newly committed
-    // gas and loss state become causal input only for the following frame.
-    const auto capture_torque = released_capture_torque(
-        motion, *latest_completed_cycle_, applied_indicated, applied_loss);
+    // gas state becomes causal input only for the following frame.
+    const auto capture_torque =
+        released_capture_torque(motion, applied_indicated, applied_crank_friction);
     if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
         return fail(std::move(*failure));
     }

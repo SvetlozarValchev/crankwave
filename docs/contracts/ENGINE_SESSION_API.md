@@ -404,9 +404,9 @@ independent and defaults to positive zero; it is not used to duplicate engine lo
 
 The BMW M52B28 resolves an engine baseline of
 `0.2108686520185204 kg*m^2`. Its neutral fixture has zero attached inertia and zero
-external resistance. A headless regression commands full throttle at the 1,500-rpm
-release and requires the first 7,000-rpm crossing in `0.44`--`0.50 s`, the measured
-pristine-engine-sim envelope.
+external resistance. A headless interactive-recipe smoke requires its first
+7,000-rpm crossing in `0.44`--`0.50 s`. That recipe begins with a short part-throttle
+preparation, so the range is not the controlled pristine-engine-sim ablation envelope.
 
 This gate does not claim coastdown parity. Closed-throttle coast remains separate
 source-friction work. Gas-exchange pumping already contributes through cylinder

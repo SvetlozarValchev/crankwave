@@ -59,7 +59,8 @@ class LowOrderFreeEngineV1Runtime final {
         std::vector<OperatingGasVolumePressureSample> pressure_samples,
         contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
         std::uint64_t release_frame_index, double initial_engine_speed_rpm,
-        double initial_theta_rad, double equivalent_inertia_kg_m2, std::string model_id,
+        double initial_theta_rad, double equivalent_inertia_kg_m2,
+        double applied_positive_speed_crank_friction_torque_nm, std::string model_id,
         std::string profile_id, std::string scenario_id, contract::EngineId engine_id);
 
     [[nodiscard]] contract::FailureContext
@@ -90,9 +91,9 @@ class LowOrderFreeEngineV1Runtime final {
     double step_s_ = 0.0;
     double initial_engine_speed_rpm_ = 0.0;
     double equivalent_inertia_kg_m2_ = 0.0;
+    double applied_positive_speed_crank_friction_torque_nm_ = 0.0;
     detail::PositiveSpeedRigidCrankState crank_state_;
     std::optional<double> previous_indicated_gas_torque_nm_;
-    std::optional<double> applied_lagged_loss_torque_nm_;
     std::optional<OperatingCompletedCycle> latest_completed_cycle_;
     std::string model_id_;
     std::string profile_id_;

@@ -512,9 +512,10 @@ not a second engine-friction term.
 
 For the BMW M52B28 fixture, the engine-derived baseline and neutral total are both
 `0.2108686520185204 kg*m^2`, and neutral external resistance is zero. The regression
-gate applies full throttle at the 1,500-rpm release and requires the first 7,000-rpm
-crossing in `0.44`--`0.50 s`, matching the pristine-engine-sim envelope. This closes
-the neutral acceleration discrepancy only. Closed-throttle coastdown still differs.
+smoke for the interactive recipe requires its first 7,000-rpm crossing in
+`0.44`--`0.50 s`. Its short part-throttle preparation differs from the controlled
+pristine ablation and therefore guards that recipe rather than claiming transient
+parity. Closed-throttle coastdown still differs.
 Gas-exchange pumping is already part of indicated cylinder pressure-volume work; it
 is not a missing second loss term. The mismatch is the provisional use of a generic
 one-cycle-lagged Chen--Flynn aggregate in place of pristine engine-sim's authored

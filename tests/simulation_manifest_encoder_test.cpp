@@ -25,13 +25,13 @@ using namespace engine_sim_offline::contract::test;
 using namespace engine_sim_offline::identity;
 
 constexpr std::string_view kExpectedCanonicalManifestSha256 =
-    "a05c79bf8f09379a1b2b1f1a5edf853dfae68337540d8bc417b0ec59665a86b0";
+    "887c8bb9ea92e4a2451b7e4d2f51307dd694e99eab5c43096b89d63abc13a6e6";
 constexpr std::string_view kExpectedCanonicalRequestIdentitySha256 =
-    "259424fef012835995cf8fa51d46a9609c3ac8e23f8275060532ff98bafa66b3";
+    "ad47f9d644e11a2053fee87e48c6e878de8ef85a3af2c74210e6412e9e2c109a";
 constexpr std::string_view kExpectedCustomizedManifestSha256 =
-    "62f9a89fb71ca5a047d05a2532f456a77ffe11118ac93e21b6ef1cb452ff4257";
+    "28e9576c9a40a295248f9d7e89669a7624d30e9487ea69c5e211795ec7aecb72";
 constexpr std::string_view kExpectedCustomizedRequestIdentitySha256 =
-    "316b56a11aa2dd0c24ec2a0676ae6b8720f5f2789aac22f7a782dcb803ff6ae0";
+    "47fa477a602f2aa331b3d84f3e06e93be2b49dd9cf1a5542278d6ad40a3ad600";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -186,6 +186,8 @@ struct GoldenHashes {
         "\"physics_profile\":{\"kind\":\"low_order_operating_point_v1\",\"value\":{"
         "\"core\":{\"mechanism\":{\"crank\":{\"crank_tdc_reference_rad\":";
     const auto profile = manifest_document.find(kProfilePrefix);
+    const auto running_crank_friction =
+        manifest_document.find("\"running_friction_torque_magnitude_nm\":", profile);
     const auto aggregate_loss = manifest_document.find("\"aggregate_loss\":{", profile);
     const auto accessory_configuration =
         manifest_document.find("\"accessory_configuration\":{", aggregate_loss);
@@ -195,10 +197,14 @@ struct GoldenHashes {
         manifest_document.find("\"cycle_quadrature\":{", starter);
     const auto torque_capability =
         manifest_document.find("\"torque_capability\":", cycle_quadrature);
-    expect(profile != std::string::npos && aggregate_loss != std::string::npos &&
+    expect(profile != std::string::npos &&
+               running_crank_friction != std::string::npos &&
+               aggregate_loss != std::string::npos &&
                accessory_configuration != std::string::npos &&
                starter != std::string::npos && cycle_quadrature != std::string::npos &&
-               torque_capability != std::string::npos && profile < aggregate_loss &&
+               torque_capability != std::string::npos &&
+               profile < running_crank_friction &&
+               running_crank_friction < aggregate_loss &&
                aggregate_loss < accessory_configuration &&
                accessory_configuration < starter && starter < cycle_quadrature &&
                cycle_quadrature < torque_capability,

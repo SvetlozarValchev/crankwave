@@ -3,7 +3,7 @@
   "fixture": "bmw-m52b28-short-live-parity",
   "pcm_sample_count": 7680,
   "inputs": {
-    "engine_json_sha256": "cab335b64740c23eca817bc821cd052df86ff76a28c0171824595af7edc01c05",
+    "engine_json_sha256": "1a2d0df3e7201f9b83ccabb4c5d24f77b3e3d32584114dc58a5b1f215305aa23",
     "scenario_json_sha256": "d6fd503c52508ece656c7672218bf0936e7ba0e310d2038a8be0e982b547b6fb",
     "impulse_response_sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc",
     "accessory_configuration_sha256": "ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97"

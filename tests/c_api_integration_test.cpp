@@ -431,8 +431,8 @@ void run(const std::filesystem::path &repository_root) {
     }
     expect(free_wot_crossing_time_s >= 0.44 &&
                free_wot_crossing_time_s <= 0.50,
-           "BMW neutral FreeEngine WOT 1,500-to-7,000-rpm trajectory "
-           "regressed outside the pristine-engine-sim envelope");
+           "BMW interactive FreeEngine WOT smoke trajectory regressed outside "
+           "its scenario-specific envelope");
 
     expect(eso_destroy_session(context, session_a) == ESO_STATUS_OK &&
                eso_destroy_session(context, session_b) == ESO_STATUS_OK &&

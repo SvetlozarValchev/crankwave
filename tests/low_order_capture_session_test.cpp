@@ -1019,17 +1019,26 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
 
     const auto &released = high.frames[release_frame];
     const auto &released_net = released.torque.instantaneous_net_shaft;
+    const auto &released_friction =
+        released.torque.friction_pump_and_accessory;
     const auto &released_actuator = released.torque.actuator;
     const auto &released_reaction = released.torque.dyno_reaction;
+    const double expected_crank_friction_nm =
+        -engine_sim_offline::test::operating_profile(high_throttle_request.engine)
+             .core.mechanism.crank.running_friction_torque_magnitude_nm.value;
     expect(!released.limiter_enabled &&
                released.requested_external_resisting_torque_nm ==
                    kFreeEngineInitialResistingTorqueNm &&
+               released_friction.availability == Availability::available &&
+               std::bit_cast<std::uint64_t>(released_friction.value_nm) ==
+                   std::bit_cast<std::uint64_t>(expected_crank_friction_nm) &&
                released_net.availability == Availability::available &&
                released_actuator.availability == Availability::available &&
                released_reaction.availability == Availability::available &&
                released_actuator.value_nm == -kFreeEngineInitialResistingTorqueNm &&
                released_reaction.value_nm == kFreeEngineInitialResistingTorqueNm,
-           "first released free-engine frame did not expose its applied load");
+           "first released free-engine frame did not expose its exact source crank "
+           "friction and applied load");
     const double expected_release_alpha =
         (released_net.value_nm - kFreeEngineInitialResistingTorqueNm) /
         kFreeEngineEquivalentInertiaKgM2;

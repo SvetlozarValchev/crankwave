@@ -374,6 +374,9 @@ write_legacy_cylinder_assembly(CanonicalJsonWriter &writer,
            write_resolved(writer, crank.flywheel_mass_kg, write_f64) &&
            writer.key("authored_crank_inertia_kg_m2") &&
            write_resolved(writer, crank.authored_crank_inertia_kg_m2, write_f64) &&
+           writer.key("running_friction_torque_magnitude_nm") &&
+           write_resolved(writer, crank.running_friction_torque_magnitude_nm,
+                          write_f64) &&
            writer.end_object();
 }
 

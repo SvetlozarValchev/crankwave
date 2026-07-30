@@ -297,7 +297,7 @@ make_engine_document(const SyntheticAssets &assets) {
     crankshaft.mass = quantity(13.0, "kg");
     crankshaft.flywheel_mass = quantity(7.5, "kg");
     crankshaft.moment_of_inertia = quantity(0.19, "kg*m2");
-    crankshaft.friction_torque = std::nullopt;
+    crankshaft.friction_torque = quantity(10.0, "lb*ft");
     crankshaft.tdc_reference_angle = quantity(0.0, "deg");
 
     constexpr std::array<double, kCylinderCount> journal_phases_deg{
@@ -1034,6 +1034,11 @@ void test_rig_compiles_to_immutable_si_descriptors() {
         require_value(std::move(resolved_result), "mixed-unit rig resolution failed");
     expect(resolved.rig.has_value(), "resolved engine package omitted its rig");
     const auto &rig = *resolved.rig;
+    const auto &physics = std::get<contract::LowOrderOperatingPointV1Profile>(
+        resolved.engine.physics_profile);
+    expect(physics.core.mechanism.crank.running_friction_torque_magnitude_nm.value ==
+               10.0 * (4.44822 * ((1.0 / 100.0) * 2.54 * 12.0)),
+           "running crank friction lost the legacy lb-ft operation order");
     expect(rig.semantic_id.value == "fixture-bench" && rig.runtime_id == 1U &&
                rig.vehicle.has_value() && rig.transmission.has_value() &&
                rig.dyno_defaults.has_value(),
@@ -1063,6 +1068,13 @@ void test_rig_compiles_to_immutable_si_descriptors() {
                           "rig.transmission.gears.gear-low.authored_ordinal";
                }),
            "authored gear order is absent from resolved provenance");
+    expect(std::ranges::any_of(
+               resolved.provenance.resolutions, [](const auto &resolution) {
+                   return resolution.parameter_path ==
+                          "engine.physics.low-order-operating-point-v1."
+                          "mechanism.crank.running_friction_torque_magnitude_nm";
+               }),
+           "running crank friction is absent from resolved provenance");
     expect(rig.dyno_defaults->minimum_engine_speed_rad_s.value == 100.0 &&
                rig.dyno_defaults->maximum_engine_speed_rad_s.value ==
                    6500.0 * (2.0 * std::numbers::pi_v<double> / 60.0) &&

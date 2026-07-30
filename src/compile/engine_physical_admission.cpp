@@ -65,10 +65,10 @@ void admit_engine_physical_model(ModelContext &resolved,
     const auto &engine = resolved.document.engine;
     using authoring::DiagnosticCode;
 
-    if (resolved.crankshaft->friction_torque.has_value()) {
-        add(report, DiagnosticCode::unsupported_capability,
+    if (!resolved.crankshaft->friction_torque.has_value()) {
+        add(report, DiagnosticCode::missing_value,
             "/engine/crankshafts/0/friction_torque",
-            "Chen-Flynn accounting is the sole friction authority in this profile");
+            "the positive-speed crank friction magnitude must be explicit");
     }
     std::unordered_set<std::string> declared_journals;
     for (const auto &journal : engine.journals) {

@@ -346,6 +346,7 @@
           "value": 0.206881602991773,
           "unit": "kg*m2"
         },
+        "friction_torque": {"value": 10, "unit": "lb*ft"},
         "tdc_reference_angle": {"value": 120, "unit": "deg"},
         "journals": [
           "journal-1",

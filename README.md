@@ -48,9 +48,10 @@ inertia, and gives only that resolved total to the crank integrator.
 
 For the BMW M52B28 fixture, the derived engine baseline is
 `0.2108686520185204 kg*m^2`; neutral uses no attached inertia and no external
-resistance. The headless pristine-engine-sim gate requires a full-throttle
-1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`. This acceleration calibration does
-not establish transient parity. Gas-exchange pumping is already present in indicated
+resistance. The headless interactive-recipe smoke requires a full-throttle
+1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`; its short part-throttle preparation
+differs from the controlled pristine oracle and does not establish transient parity.
+Gas-exchange pumping is already present in indicated
 pressure-volume work; the remaining coastdown discrepancy comes from using a generic
 one-cycle-lagged Chen--Flynn aggregate instead of pristine engine-sim's crank and
 piston-wall friction. Restoring that source behavior is the current checkpoint. A
