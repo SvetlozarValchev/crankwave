@@ -1026,19 +1026,26 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
     const double expected_crank_friction_nm =
         -engine_sim_offline::test::operating_profile(high_throttle_request.engine)
              .core.mechanism.crank.running_friction_torque_magnitude_nm.value;
+    const auto expected_source_friction_terms =
+        torque_term_mask(TorqueTerm::crank_friction) |
+        torque_term_mask(TorqueTerm::piston_ring_friction);
     expect(!released.limiter_enabled &&
                released.requested_external_resisting_torque_nm ==
                    kFreeEngineInitialResistingTorqueNm &&
                released_friction.availability == Availability::available &&
-               std::bit_cast<std::uint64_t>(released_friction.value_nm) ==
-                   std::bit_cast<std::uint64_t>(expected_crank_friction_nm) &&
+               released_friction.completeness == Completeness::incomplete &&
+               released_friction.included_terms == expected_source_friction_terms &&
+               released_friction.value_nm < expected_crank_friction_nm &&
                released_net.availability == Availability::available &&
+               released_net.value_nm ==
+                   released.torque.instantaneous_indicated_gas.value_nm +
+                       released_friction.value_nm &&
                released_actuator.availability == Availability::available &&
                released_reaction.availability == Availability::available &&
                released_actuator.value_nm == -kFreeEngineInitialResistingTorqueNm &&
                released_reaction.value_nm == kFreeEngineInitialResistingTorqueNm,
-           "first released free-engine frame did not expose its exact source crank "
-           "friction and applied load");
+           "first released free-engine frame did not expose its source crank plus "
+           "piston-wall friction and applied load");
     const double expected_release_alpha =
         (released_net.value_nm - kFreeEngineInitialResistingTorqueNm) /
         kFreeEngineEquivalentInertiaKgM2;

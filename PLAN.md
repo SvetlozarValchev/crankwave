@@ -498,10 +498,12 @@ its full-throttle 1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`.
 
 That smoke starts from a short part-throttle preparation and is not the controlled
 pristine ablation oracle. It guards the interactive recipe only. Gas-exchange pumping
-is already present inside the cylinder pressure-volume work. The remaining
-closed-throttle discrepancy is an immediate parity failure caused by using a generic
-one-cycle-lagged Chen--Flynn aggregate in place of pristine engine-sim's authored
-crank friction and executable piston-wall-friction path.
+is already present inside the cylinder pressure-volume work. FreeEngine motion now
+uses pristine engine-sim's authored crank friction and executable one-step-lagged
+piston-wall law. Its clean centered inverse-dynamics wall reaction has passed direct
+held and coast comparison. The controlled response gate also passes: WOT differs by
+`0.0126 s`, every coast crossing by at most `0.0065 s`, and the long natural-balance
+mean is `1,043.605 RPM` versus pristine `1,041.953 RPM`.
 
 Pristine engine-sim commit
 `85f7c3b959a908ed5232ede4f1a4ac7eafe6b630` is the transient behavioral authority.
@@ -521,7 +523,7 @@ names that role explicitly or removes it.
    throttle, limiter, and external resisting torque. Derive engine baseline inertia,
    add only explicit attached inertia, default the neutral external resistance to
    zero, and preserve the accepted renderer. The initial gas-plus-Chen--Flynn motion
-   closure remains provisional until the source-friction gate below is complete.
+   closure was provisional and is no longer the FreeEngine motion authority.
 3. Publish those free-engine controls and physical telemetry through `EngineSession`,
    the C ABI, and WASM. Stop for a BMW warm-running free-rev listening checkpoint.
 4. Replace Chen--Flynn as the FreeEngine motion authority with pristine engine-sim's

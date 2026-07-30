@@ -3,6 +3,8 @@
 #include "simulation/cycle_accounting_method_registry.hpp"
 #include "simulation/engine_sim_v1_transient_friction.hpp"
 #include "simulation/free_engine_method_registry.hpp"
+#include "simulation/legacy_gas_primitives.hpp"
+#include "simulation/legacy_mechanics_primitives.hpp"
 
 #include <bit>
 #include <numbers>
@@ -219,6 +221,100 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         return report;
     }
 
+    std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders;
+    const auto &mechanism = profile->core.mechanism;
+    piston_wall_cylinders.reserve(mechanism.cylinders.size());
+    for (std::size_t index = 0; index < mechanism.cylinders.size(); ++index) {
+        const auto &assembly = mechanism.cylinders[index];
+        const auto &parameters = assembly.parameters;
+        const auto chamber_gas_index =
+            find_capture_volume_index(capture_plan,
+                                      assembly.topology.chamber_volume_id);
+        const auto geometry = derive_legacy_cylinder_geometry(
+            parameters.bore_m.value, parameters.crank_radius_m.value,
+            parameters.connecting_rod_length_m.value, parameters.deck_height_m.value,
+            parameters.piston_compression_height_m.value,
+            parameters.head_chamber_volume_m3.value,
+            parameters.piston_displacement_term_m3.value);
+        const double geometric_tdc_rad = legacy_wrap_2pi(
+            mechanism.crank.crank_tdc_reference_rad.value +
+            parameters.journal_angle_rad.value - kLegacyPi / 2.0);
+        const auto initial_mechanism = evaluate_centered_slider_crank(
+            {
+                assembly.topology.cylinder_id,
+                geometric_tdc_rad,
+                geometry.piston_area_m2,
+                parameters.crank_radius_m.value,
+                parameters.connecting_rod_length_m.value,
+                geometry.clearance_volume_m3,
+                parameters.ignition_wire_angle_rad.value,
+            },
+            free_engine->initial_theta_rad.value,
+            free_engine->initial_engine_speed_rpm.value * kLegacyRpmScale);
+        const double initial_chamber_pressure_pa_abs =
+            initial_mechanism.valid
+                ? legacy_gas_pressure_pa(legacy_initialize_gas_cell(
+                      scenario.ambient.pressure_pa_abs.value,
+                      initial_mechanism.chamber_volume_m3,
+                      scenario.initial_thermal_state.gas_temperature_k.value,
+                      LegacyGasMixture{0.0, 1.0, 0.0}))
+                : 0.0;
+        const EngineSimV1PistonWallCylinderPlan friction_plan{
+            geometry.piston_area_m2,
+            parameters.crank_radius_m.value,
+            parameters.connecting_rod_length_m.value,
+            parameters.piston_mass_kg.value,
+            parameters.connecting_rod_mass_kg.value,
+            parameters.connecting_rod_inertia_kg_m2.value,
+            scenario.crankcase.pressure_pa_abs.value,
+        };
+        const auto initial_stage = stage_engine_sim_v1_piston_wall_friction({
+            friction_plan,
+            legacy_wrap_2pi(free_engine->initial_theta_rad.value -
+                            geometric_tdc_rad),
+            free_engine->initial_engine_speed_rpm.value * kLegacyRpmScale,
+            initial_chamber_pressure_pa_abs,
+            0.0,
+        });
+        require(report, chamber_gas_index.has_value(),
+                ContractIssueCode::dangling_reference,
+                "engine.physics_profile.mechanism.cylinders[" +
+                    std::to_string(index) + "].topology.chamber_volume_id",
+                "free-engine piston-wall cylinder chamber is absent from the "
+                "captured gas transaction");
+        require(report,
+                std::holds_alternative<EngineSimV1PistonWallFrictionStage>(
+                    initial_stage),
+                ContractIssueCode::invalid_value,
+                "engine.physics_profile.mechanism.cylinders[" +
+                    std::to_string(index) + "].parameters",
+                "free-engine piston-wall source law rejected the resolved "
+                "centered-slider mechanism");
+        if (chamber_gas_index.has_value() &&
+            std::holds_alternative<EngineSimV1PistonWallFrictionStage>(
+                initial_stage)) {
+            piston_wall_cylinders.push_back({
+                assembly.topology.cylinder_id,
+                assembly.topology.chamber_volume_id,
+                index,
+                *chamber_gas_index,
+                geometric_tdc_rad,
+                initial_chamber_pressure_pa_abs,
+                friction_plan,
+            });
+        }
+    }
+    require(report,
+            !piston_wall_cylinders.empty() &&
+                piston_wall_cylinders.size() == mechanism.cylinders.size(),
+            ContractIssueCode::inconsistent_shape,
+            "engine.physics_profile.mechanism.cylinders",
+            "free-engine piston-wall inventory must cover every mechanism "
+            "cylinder exactly once");
+    if (!report.ok()) {
+        return report;
+    }
+
     auto accountant_result = compile_operating_cycle_accountant({
         {
             profile->core.mechanism.crank.crank_tdc_reference_rad.value,
@@ -270,6 +366,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         std::get<FixedHorizonCycleSampler>(std::move(sampling_result)),
         std::move(physical_gas_step_indices),
         std::move(pressure_samples),
+        std::move(piston_wall_cylinders),
         scenario.rates.physics,
         execution_extent,
         *release_frame,

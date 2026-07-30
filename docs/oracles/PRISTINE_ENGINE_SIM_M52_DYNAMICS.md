@@ -79,6 +79,51 @@ The earlier 1,260--1,275-RPM observation was only about three seconds after lift
 was not equilibrium. The stock long-running balance is approximately 1,042 RPM. It is
 a natural physical balance, not a regulated-idle controller.
 
+## Clean centered-reaction acceptance
+
+The clean runtime does not import the pristine general-purpose constraint solver. It
+uses the same piston-friction constants, written operation order, sign branch, and
+one-step retained-wall timing, while resolving the admitted centered slider-crank's
+wall reaction by full piston-and-midpoint-rod inverse dynamics.
+
+That replacement was compared per cylinder directly with the pristine
+`LineConstraint` result:
+
+| State | Samples | Wall-force MAE | L1-relative | Correlation |
+|---|---:|---:|---:|---:|
+| Held 1,500 RPM WOT | 4,800 | 6.724 N | 1.346% | 0.999768 |
+| Held 6,000 RPM WOT | 4,800 | 16.103 N | 1.358% | 0.999635 |
+| First 0.1 s after 6,000-RPM lift/release | 6,000 | 13.172 N | 1.440% | 0.999332 |
+
+Substituting actual constraint-solver kinematics into the same inverse dynamics
+reconstructs its wall reaction to approximately `1e-12 N`, confirming the equations,
+signs, and tick alignment. The remaining difference is constraint drift, peaking near
+`123 um` at 6,000 RPM. Feeding the clean ideal reaction into the following source
+friction step changes applied piston friction by less than `0.4%` L1 in all three
+probes. A piston-only textbook side-force shortcut reached `27%`--`38%` L1 error at
+6,000 RPM and is rejected.
+
+## Clean end-to-end friction checkpoint
+
+The authored BMW JSON was then run through the clean FreeEngine session with the same
+five-second held-WOT preparation and exact release controls:
+
+| Response | Pristine | Clean | Absolute error |
+|---|---:|---:|---:|
+| WOT 1,500 to 7,000 RPM | 0.4399 s | 0.4525 s | 0.0126 s |
+| Coast 6,000 to 5,000 RPM | 0.3711 s | 0.3656 s | 0.0055 s |
+| Coast 6,000 to 4,000 RPM | 0.6665 s | 0.6636 s | 0.0029 s |
+| Coast 6,000 to 3,000 RPM | 1.0626 s | 1.0561 s | 0.0065 s |
+| Coast 6,000 to 2,000 RPM | 1.6702 s | 1.6654 s | 0.0048 s |
+| Coast 6,000 to 1,500 RPM | 2.1667 s | 2.1645 s | 0.0022 s |
+
+The tracked short gate admits at most `0.015 s` WOT error and `0.010 s` error at every
+coast crossing. Its optional 60-second balance probe measures the inclusive
+22.5--60.0-second post-release window. The clean result is `1,043.605 RPM` mean with a
+`996.270--1,082.267 RPM` range, compared with the pristine `1,041.953 RPM` mean and
+`997.340--1,088.587 RPM` range. This closes the crank-plus-piston friction response
+checkpoint; it does not claim that instantaneous crank acceleration is yet equivalent.
+
 ## Retained scratch evidence
 
 Ignored working evidence lives under `.work/upstream-friction-ablation/`:
@@ -87,6 +132,15 @@ Ignored working evidence lives under `.work/upstream-friction-ablation/`:
 - `coast-{stock,no-crank,no-piston,neither}.jsonl`;
 - `wot-from-held-1500.txt`;
 - `coast-from-held-6000.txt`.
+
+The centered-reaction comparison lives under `.work/upstream-wall-reaction/`:
+
+- `held-1500-trace.csv`, SHA-256
+  `ead4600062ea52e590c3fb763d4bb770fefd1160e81a3d7b30329f6120b5bb62`;
+- `held-6000-trace.csv`, SHA-256
+  `a63bc11298684cb1d876753f9ae1c59caade4ad434d94e3dba8df61fbfd232f9`;
+- `coast-6000-trace.csv`, SHA-256
+  `024a2d5927e704f3a637e3edea1835ed254f0a0b935d3459efb0bebe326ab703`.
 
 Their SHA-256 identities, in that order followed by
 `wot-{stock,no-crank,no-piston,neither}` and

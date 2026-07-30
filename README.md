@@ -51,10 +51,15 @@ For the BMW M52B28 fixture, the derived engine baseline is
 resistance. The headless interactive-recipe smoke requires a full-throttle
 1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`; its short part-throttle preparation
 differs from the controlled pristine oracle and does not establish transient parity.
-Gas-exchange pumping is already present in indicated
-pressure-volume work; the remaining coastdown discrepancy comes from using a generic
-one-cycle-lagged Chen--Flynn aggregate instead of pristine engine-sim's crank and
-piston-wall friction. Restoring that source behavior is the current checkpoint. A
+Gas-exchange pumping is already present in indicated pressure-volume work. FreeEngine
+motion now applies pristine engine-sim's authored crank friction plus its executable
+one-step-lagged piston-wall law; the wall reaction is resolved by the admitted
+centered-slider inverse dynamics instead of importing the legacy constraint solver.
+Direct held and coast traces put that replacement within `1.44%` aggregate wall-force
+error and below `0.4%` one-step friction-force error. Chen--Flynn remains observed
+cycle evidence only and does not advance FreeEngine RPM. The controlled friction
+response gate now passes: WOT differs from pristine by `0.0126 s`, all coast crossings
+by at most `0.0065 s`, and long natural-balance mean by `1.652 RPM`. A
 drivetrain, gears, starter control, regulated idle, and arbitrary live presentation
 edits remain explicit missing capabilities rather than UI-only approximations.
 

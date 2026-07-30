@@ -408,11 +408,17 @@ external resistance. A headless interactive-recipe smoke requires its first
 7,000-rpm crossing in `0.44`--`0.50 s`. That recipe begins with a short part-throttle
 preparation, so the range is not the controlled pristine-engine-sim ablation envelope.
 
-This gate does not claim coastdown parity. Closed-throttle coast remains separate
-source-friction work. Gas-exchange pumping already contributes through cylinder
-pressure-volume torque. The generic one-cycle-lagged Chen--Flynn result is not a
-source-equivalent transient loss and must not be globally retuned or stacked with the
-pristine crank and piston-wall mechanisms merely to force one trajectory to match.
+This interactive gate does not claim coastdown parity. Gas-exchange pumping already
+contributes through cylinder pressure-volume torque. FreeEngine applies the authored
+pristine crank-friction magnitude and the pristine C++ piston-wall law with its
+previous-step wall-reaction dependency. A full midpoint-rod centered-slider inverse
+dynamics replaces the legacy constraint solver for that reaction; direct held and
+coast traces keep its resulting one-step friction-force difference below `0.4%` L1.
+The generic one-cycle-lagged Chen--Flynn result is retained as cycle evidence only and
+does not advance FreeEngine RPM. The controlled friction response gate passes: WOT
+differs from pristine by `0.0126 s`, every coast crossing by at most `0.0065 s`, and
+the long natural-balance mean by `1.652 RPM`. The frozen pristine oracle remains the
+authority for each subsequent mechanics slice.
 
 ### 5.2 Future mode controls
 

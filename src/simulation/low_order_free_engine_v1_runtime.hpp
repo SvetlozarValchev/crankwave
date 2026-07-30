@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/contract/result.hpp"
+#include "simulation/engine_sim_v1_transient_friction.hpp"
 #include "simulation/fixed_horizon_cycle_sampling.hpp"
 #include "simulation/kinematic_scenario_schedule.hpp"
 #include "simulation/low_order_capture_plan.hpp"
@@ -17,6 +18,20 @@
 #include <vector>
 
 namespace engine_sim_offline::simulation {
+
+struct LowOrderFreeEngineV1PistonWallCylinderPlan {
+    contract::CylinderId cylinder_id;
+    contract::GasVolumeId chamber_volume_id;
+    std::size_t mechanism_cylinder_index = 0;
+    std::size_t chamber_gas_step_index = 0;
+    double geometric_tdc_rad = 0.0;
+    double initial_chamber_pressure_pa_abs = 0.0;
+    EngineSimV1PistonWallCylinderPlan friction;
+
+    friend bool operator==(const LowOrderFreeEngineV1PistonWallCylinderPlan &,
+                           const LowOrderFreeEngineV1PistonWallCylinderPlan &) =
+        default;
+};
 
 struct LowOrderFreeEngineV1StepView {
     std::reference_wrapper<const LegacyMechanismStep> mechanics;
@@ -57,6 +72,8 @@ class LowOrderFreeEngineV1Runtime final {
         FixedHorizonCycleSampler sampler,
         std::vector<std::size_t> physical_gas_step_indices,
         std::vector<OperatingGasVolumePressureSample> pressure_samples,
+        std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan>
+            piston_wall_cylinders,
         contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
         std::uint64_t release_frame_index, double initial_engine_speed_rpm,
         double initial_theta_rad, double equivalent_inertia_kg_m2,
@@ -77,12 +94,27 @@ class LowOrderFreeEngineV1Runtime final {
                               const LegacyMechanismStep &mechanics);
     [[nodiscard]] std::optional<contract::FailureContext>
     finalize_preparation(const LegacyMechanismStep &mechanics);
+    [[nodiscard]] std::optional<contract::FailureContext>
+    stage_piston_wall_friction();
+    [[nodiscard]] std::optional<contract::FailureContext>
+    calculate_next_piston_wall_reactions(double angular_acceleration_rad_s2);
+    [[nodiscard]] std::optional<contract::FailureContext>
+    commit_next_piston_wall_boundary(const LegacyMechanismStep &mechanics,
+                                     const LegacyLowOrderGasStep &gas);
 
     ScenarioControlCursor control_cursor_;
     OperatingCycleAccountant accountant_;
     FixedHorizonCycleSampler sampler_;
     std::vector<std::size_t> physical_gas_step_indices_;
     std::vector<OperatingGasVolumePressureSample> pressure_samples_;
+    std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders_;
+    std::vector<double> piston_wall_boundary_phase_rad_;
+    std::vector<double> piston_wall_boundary_pressure_pa_abs_;
+    std::vector<double> retained_piston_wall_reaction_magnitude_n_;
+    std::vector<EngineSimV1PistonWallFrictionStage> piston_wall_stages_;
+    std::vector<double> candidate_piston_wall_reaction_magnitude_n_;
+    std::vector<double> next_piston_wall_boundary_phase_rad_;
+    std::vector<double> next_piston_wall_boundary_pressure_pa_abs_;
     contract::RationalRateHz rate_;
     LowOrderExecutionExtent execution_extent_ =
         LowOrderExecutionExtent::finite_scenario(0U);
@@ -92,6 +124,9 @@ class LowOrderFreeEngineV1Runtime final {
     double initial_engine_speed_rpm_ = 0.0;
     double equivalent_inertia_kg_m2_ = 0.0;
     double applied_positive_speed_crank_friction_torque_nm_ = 0.0;
+    double piston_wall_boundary_angular_speed_rad_s_ = 0.0;
+    double applied_piston_wall_friction_torque_nm_ = 0.0;
+    std::uint64_t piston_wall_boundary_index_ = 0;
     detail::PositiveSpeedRigidCrankState crank_state_;
     std::optional<double> previous_indicated_gas_torque_nm_;
     std::optional<OperatingCompletedCycle> latest_completed_cycle_;

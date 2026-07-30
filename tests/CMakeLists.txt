@@ -1402,6 +1402,40 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_bmw_m52b28_free_engine_source_parity_tests
+    bmw_m52b28_free_engine_source_parity_test.cpp
+    bmw_m52b28_render_gate_support.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_bmw_m52b28_free_engine_source_parity_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_bmw_m52b28_free_engine_source_parity_tests
+    PRIVATE
+        engine_sim_offline::bake
+        engine_sim_offline::compile
+        engine_sim_offline::simulation
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_bmw_m52b28_free_engine_source_parity_tests
+)
+
+add_test(
+    NAME simulation.bmw_m52b28_free_engine_source_parity
+    COMMAND
+        engine_sim_offline_bmw_m52b28_free_engine_source_parity_tests
+        ${PROJECT_SOURCE_DIR}
+)
+set_tests_properties(
+    simulation.bmw_m52b28_free_engine_source_parity
+    PROPERTIES TIMEOUT 240
+)
+
+add_executable(
     engine_sim_offline_low_order_capture_plan_tests
     low_order_capture_plan_test.cpp
 )

@@ -76,23 +76,28 @@ unavailable_quantity(contract::QuantityUnavailableReason reason) noexcept {
 
 [[nodiscard]] contract::TorqueTelemetry
 preparation_capture_torque(double indicated_gas_torque_nm,
-                           double applied_crank_friction_torque_nm) noexcept {
+                           double applied_source_friction_torque_nm) noexcept {
     const auto crank_friction =
         contract::torque_term_mask(contract::TorqueTerm::crank_friction);
+    const auto piston_friction =
+        contract::torque_term_mask(contract::TorqueTerm::piston_ring_friction);
+    const auto applied_friction_terms = crank_friction | piston_friction;
     const auto starter = contract::torque_term_mask(contract::TorqueTerm::starter);
     const auto applied_net_terms =
-        contract::indicated_gas_torque_term_mask() | crank_friction | starter;
+        contract::indicated_gas_torque_term_mask() | applied_friction_terms | starter;
     contract::TorqueTelemetry result;
     result.instantaneous_indicated_gas = available_torque(
         indicated_gas_torque_nm, contract::indicated_gas_torque_term_mask());
     result.pumping_partition =
         unavailable_torque(contract::QuantityUnavailableReason::model_not_admitted);
     result.friction_pump_and_accessory = available_classified_torque(
-        applied_crank_friction_torque_nm, crank_friction,
-        contract::friction_pump_and_accessory_torque_term_mask() & ~crank_friction);
+        applied_source_friction_torque_nm, applied_friction_terms,
+        contract::friction_pump_and_accessory_torque_term_mask() &
+            ~applied_friction_terms);
     result.starter = available_torque(0.0, starter);
     result.instantaneous_net_shaft = available_classified_torque(
-        indicated_gas_torque_nm + applied_crank_friction_torque_nm, applied_net_terms,
+        indicated_gas_torque_nm + applied_source_friction_torque_nm,
+        applied_net_terms,
         contract::known_torque_term_mask() & ~applied_net_terms);
     result.cycle_mean_net_shaft =
         unavailable_torque(contract::QuantityUnavailableReason::required_input_missing);
@@ -114,20 +119,24 @@ preparation_capture_torque(double indicated_gas_torque_nm,
 [[nodiscard]] contract::TorqueTelemetry
 released_capture_torque(const detail::PositiveSpeedRigidCrankZohStep &motion,
                         double applied_indicated_gas_torque_nm,
-                        double applied_crank_friction_torque_nm) noexcept {
+                        double applied_source_friction_torque_nm) noexcept {
     const auto crank_friction =
         contract::torque_term_mask(contract::TorqueTerm::crank_friction);
+    const auto piston_friction =
+        contract::torque_term_mask(contract::TorqueTerm::piston_ring_friction);
+    const auto applied_friction_terms = crank_friction | piston_friction;
     const auto starter = contract::torque_term_mask(contract::TorqueTerm::starter);
     const auto applied_net_terms =
-        contract::indicated_gas_torque_term_mask() | crank_friction | starter;
+        contract::indicated_gas_torque_term_mask() | applied_friction_terms | starter;
     contract::TorqueTelemetry result;
     result.instantaneous_indicated_gas = available_torque(
         applied_indicated_gas_torque_nm, contract::indicated_gas_torque_term_mask());
     result.pumping_partition =
         unavailable_torque(contract::QuantityUnavailableReason::model_not_admitted);
     result.friction_pump_and_accessory = available_classified_torque(
-        applied_crank_friction_torque_nm, crank_friction,
-        contract::friction_pump_and_accessory_torque_term_mask() & ~crank_friction);
+        applied_source_friction_torque_nm, applied_friction_terms,
+        contract::friction_pump_and_accessory_torque_term_mask() &
+            ~applied_friction_terms);
     result.starter = available_torque(0.0, starter);
     result.instantaneous_net_shaft = available_classified_torque(
         motion.input.held_upstream_engine_torque_nm, applied_net_terms,
@@ -196,6 +205,7 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
     FixedHorizonCycleSampler sampler,
     std::vector<std::size_t> physical_gas_step_indices,
     std::vector<OperatingGasVolumePressureSample> pressure_samples,
+    std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders,
     contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
     std::uint64_t release_frame_index, double initial_engine_speed_rpm,
     double initial_theta_rad, double equivalent_inertia_kg_m2,
@@ -204,7 +214,16 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
     : control_cursor_(std::move(control_cursor)), accountant_(std::move(accountant)),
       sampler_(std::move(sampler)),
       physical_gas_step_indices_(std::move(physical_gas_step_indices)),
-      pressure_samples_(std::move(pressure_samples)), rate_(rate),
+      pressure_samples_(std::move(pressure_samples)),
+      piston_wall_cylinders_(std::move(piston_wall_cylinders)),
+      piston_wall_boundary_phase_rad_(piston_wall_cylinders_.size()),
+      piston_wall_boundary_pressure_pa_abs_(piston_wall_cylinders_.size()),
+      retained_piston_wall_reaction_magnitude_n_(piston_wall_cylinders_.size(), 0.0),
+      piston_wall_stages_(piston_wall_cylinders_.size()),
+      candidate_piston_wall_reaction_magnitude_n_(piston_wall_cylinders_.size()),
+      next_piston_wall_boundary_phase_rad_(piston_wall_cylinders_.size()),
+      next_piston_wall_boundary_pressure_pa_abs_(piston_wall_cylinders_.size()),
+      rate_(rate),
       execution_extent_(execution_extent),
       release_frame_index_(release_frame_index),
       step_s_(static_cast<double>(rate.denominator) /
@@ -213,10 +232,19 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
       equivalent_inertia_kg_m2_(equivalent_inertia_kg_m2),
       applied_positive_speed_crank_friction_torque_nm_(
           applied_positive_speed_crank_friction_torque_nm),
+      piston_wall_boundary_angular_speed_rad_s_(initial_engine_speed_rpm *
+                                                kLegacyRpmScale),
       crank_state_{initial_theta_rad,
                    initial_engine_speed_rpm * std::numbers::pi_v<double> / 30.0},
       model_id_(std::move(model_id)), profile_id_(std::move(profile_id)),
-      scenario_id_(std::move(scenario_id)), engine_id_(engine_id) {}
+      scenario_id_(std::move(scenario_id)), engine_id_(engine_id) {
+    for (std::size_t index = 0; index < piston_wall_cylinders_.size(); ++index) {
+        piston_wall_boundary_phase_rad_[index] = legacy_wrap_2pi(
+            initial_theta_rad - piston_wall_cylinders_[index].geometric_tdc_rad);
+        piston_wall_boundary_pressure_pa_abs_[index] =
+            piston_wall_cylinders_[index].initial_chamber_pressure_pa_abs;
+    }
+}
 
 contract::FailureContext LowOrderFreeEngineV1Runtime::fault(
     contract::FailureKind kind, std::string detail_code, std::string state_summary,
@@ -254,6 +282,156 @@ LowOrderFreeEngineV1Runtime::fail(contract::FailureContext failure) {
         terminal_fault_ = std::move(failure);
     }
     return *terminal_fault_;
+}
+
+std::optional<contract::FailureContext>
+LowOrderFreeEngineV1Runtime::stage_piston_wall_friction() {
+    if (piston_wall_boundary_index_ != accepted_sample_count_ ||
+        piston_wall_cylinders_.empty() ||
+        piston_wall_boundary_phase_rad_.size() != piston_wall_cylinders_.size() ||
+        piston_wall_boundary_pressure_pa_abs_.size() !=
+            piston_wall_cylinders_.size() ||
+        retained_piston_wall_reaction_magnitude_n_.size() !=
+            piston_wall_cylinders_.size() ||
+        piston_wall_stages_.size() != piston_wall_cylinders_.size()) {
+        return fault(contract::FailureKind::contract_violation,
+                     "free-engine-piston-wall-state-disagreed",
+                     "piston-wall state is not aligned with the current left "
+                     "physics boundary");
+    }
+
+    double total_torque_nm = 0.0;
+    for (std::size_t index = 0; index < piston_wall_cylinders_.size(); ++index) {
+        const auto &cylinder = piston_wall_cylinders_[index];
+        const auto calculation = stage_engine_sim_v1_piston_wall_friction({
+            cylinder.friction,
+            piston_wall_boundary_phase_rad_[index],
+            piston_wall_boundary_angular_speed_rad_s_,
+            piston_wall_boundary_pressure_pa_abs_[index],
+            retained_piston_wall_reaction_magnitude_n_[index],
+        });
+        if (const auto *error =
+                std::get_if<EngineSimV1PistonWallError>(&calculation)) {
+            return fault(
+                contract::FailureKind::numerical_failure,
+                "free-engine-piston-wall-friction-stage-failed",
+                "source piston-wall friction rejected the current left boundary; "
+                "issue=" +
+                    std::to_string(static_cast<std::uint32_t>(error->issue)),
+                nullptr, cylinder.chamber_volume_id);
+        }
+        piston_wall_stages_[index] =
+            std::get<EngineSimV1PistonWallFrictionStage>(calculation);
+        total_torque_nm +=
+            piston_wall_stages_[index].generalized_friction_torque_nm;
+    }
+    if (!std::isfinite(total_torque_nm)) {
+        return fault(contract::FailureKind::numerical_failure,
+                     "free-engine-piston-wall-torque-nonfinite",
+                     "summed source piston-wall generalized torque is nonfinite");
+    }
+    applied_piston_wall_friction_torque_nm_ = total_torque_nm;
+    return std::nullopt;
+}
+
+std::optional<contract::FailureContext>
+LowOrderFreeEngineV1Runtime::calculate_next_piston_wall_reactions(
+    double angular_acceleration_rad_s2) {
+    if (piston_wall_stages_.size() != piston_wall_cylinders_.size() ||
+        candidate_piston_wall_reaction_magnitude_n_.size() !=
+            piston_wall_cylinders_.size()) {
+        return fault(contract::FailureKind::contract_violation,
+                     "free-engine-piston-wall-candidate-shape-disagreed",
+                     "piston-wall stage and candidate inventories differ");
+    }
+    for (std::size_t index = 0; index < piston_wall_cylinders_.size(); ++index) {
+        const auto calculation = calculate_engine_sim_v1_next_piston_wall_reaction(
+            piston_wall_stages_[index], angular_acceleration_rad_s2);
+        if (const auto *error =
+                std::get_if<EngineSimV1PistonWallError>(&calculation)) {
+            return fault(
+                contract::FailureKind::numerical_failure,
+                "free-engine-piston-wall-reaction-failed",
+                "source-derived centered piston-wall reaction rejected the current "
+                "left boundary; issue=" +
+                    std::to_string(static_cast<std::uint32_t>(error->issue)),
+                nullptr, piston_wall_cylinders_[index].chamber_volume_id);
+        }
+        candidate_piston_wall_reaction_magnitude_n_[index] =
+            std::get<EngineSimV1PistonWallReaction>(calculation)
+                .wall_reaction_magnitude_n;
+    }
+    return std::nullopt;
+}
+
+std::optional<contract::FailureContext>
+LowOrderFreeEngineV1Runtime::commit_next_piston_wall_boundary(
+    const LegacyMechanismStep &mechanics, const LegacyLowOrderGasStep &gas) {
+    if (mechanics.sample_index != piston_wall_boundary_index_ ||
+        mechanics.step_end_index != piston_wall_boundary_index_ + 1U ||
+        gas.sample_index != mechanics.sample_index ||
+        gas.step_end_index != mechanics.step_end_index ||
+        mechanics.cylinders.size() != piston_wall_cylinders_.size() ||
+        next_piston_wall_boundary_phase_rad_.size() !=
+            piston_wall_cylinders_.size() ||
+        next_piston_wall_boundary_pressure_pa_abs_.size() !=
+            piston_wall_cylinders_.size()) {
+        return fault(contract::FailureKind::contract_violation,
+                     "free-engine-piston-wall-boundary-shape-disagreed",
+                     "committed mechanics and gas do not match the compiled "
+                     "piston-wall inventory",
+                     &mechanics);
+    }
+
+    for (std::size_t index = 0; index < piston_wall_cylinders_.size(); ++index) {
+        const auto &plan = piston_wall_cylinders_[index];
+        if (plan.mechanism_cylinder_index >= mechanics.cylinders.size() ||
+            plan.chamber_gas_step_index >= gas.gas_volumes.size()) {
+            return fault(contract::FailureKind::contract_violation,
+                         "free-engine-piston-wall-boundary-index-invalid",
+                         "compiled piston-wall index is outside the committed "
+                         "mechanics or gas transaction",
+                         &mechanics, plan.chamber_volume_id);
+        }
+        const auto &mechanism =
+            mechanics.cylinders[plan.mechanism_cylinder_index];
+        const auto &chamber = gas.gas_volumes[plan.chamber_gas_step_index];
+        if (mechanism.cylinder_id != plan.cylinder_id ||
+            !chamber.physically_resolved ||
+            chamber.gas_volume_id != plan.chamber_volume_id) {
+            return fault(contract::FailureKind::contract_violation,
+                         "free-engine-piston-wall-boundary-identity-disagreed",
+                         "committed mechanics or chamber identity differs from its "
+                         "compiled piston-wall binding",
+                         &mechanics, plan.chamber_volume_id);
+        }
+        const double pressure_pa_abs = legacy_gas_pressure_pa(chamber.cell);
+        if (!std::isfinite(mechanism.phase_rad) ||
+            !std::isfinite(pressure_pa_abs) || !(pressure_pa_abs > 0.0)) {
+            return fault(contract::FailureKind::numerical_failure,
+                         "free-engine-piston-wall-boundary-nonphysical",
+                         "next piston-wall phase or chamber pressure is nonphysical",
+                         &mechanics, plan.chamber_volume_id);
+        }
+        next_piston_wall_boundary_phase_rad_[index] = mechanism.phase_rad;
+        next_piston_wall_boundary_pressure_pa_abs_[index] = pressure_pa_abs;
+    }
+    if (!std::isfinite(mechanics.angular_speed_rad_s) ||
+        !(mechanics.angular_speed_rad_s > 0.0)) {
+        return fault(contract::FailureKind::nonphysical_state,
+                     "free-engine-piston-wall-speed-nonpositive",
+                     "next piston-wall boundary requires positive angular speed",
+                     &mechanics);
+    }
+
+    retained_piston_wall_reaction_magnitude_n_ =
+        candidate_piston_wall_reaction_magnitude_n_;
+    piston_wall_boundary_phase_rad_ = next_piston_wall_boundary_phase_rad_;
+    piston_wall_boundary_pressure_pa_abs_ =
+        next_piston_wall_boundary_pressure_pa_abs_;
+    piston_wall_boundary_angular_speed_rad_s_ = mechanics.angular_speed_rad_s;
+    piston_wall_boundary_index_ = mechanics.step_end_index;
+    return std::nullopt;
 }
 
 std::optional<contract::FailureContext>
@@ -457,6 +635,9 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
                   "physics clock"
                 : "free-engine load cursor lost the next contiguous physics step"));
     }
+    if (auto failure = stage_piston_wall_friction(); failure.has_value()) {
+        return fail(std::move(*failure));
+    }
 
     if (accepted_sample_count_ < release_frame_index_) {
         if (overrides.any()) {
@@ -474,6 +655,10 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
         resolved_overrides.has_external_resisting_torque_nm = true;
         resolved_overrides.external_resisting_torque_nm =
             controls->external_resisting_torque_nm;
+        if (auto failure = calculate_next_piston_wall_reactions(0.0);
+            failure.has_value()) {
+            return fail(std::move(*failure));
+        }
         auto core_result =
             core.advance({initial_engine_speed_rpm_, held_angular_displacement_rad},
                          resolved_overrides);
@@ -507,6 +692,10 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
         if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
             return fail(std::move(*failure));
         }
+        if (auto failure = commit_next_piston_wall_boundary(mechanics, gas);
+            failure.has_value()) {
+            return fail(std::move(*failure));
+        }
         previous_indicated_gas_torque_nm_ = gas.indicated_gas_torque_nm;
         crank_state_ = {mechanics.theta_unwrapped_rad, omega};
         ++accepted_sample_count_;
@@ -519,7 +708,8 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
             std::cref(mechanics), std::cref(gas),
             preparation_capture_torque(
                 gas.indicated_gas_torque_nm,
-                applied_positive_speed_crank_friction_torque_nm_)};
+                applied_positive_speed_crank_friction_torque_nm_ +
+                    applied_piston_wall_friction_torque_nm_)};
     }
 
     if (!preparation_finalized_ || !previous_indicated_gas_torque_nm_.has_value() ||
@@ -532,8 +722,9 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     }
 
     const double applied_indicated = *previous_indicated_gas_torque_nm_;
-    const double applied_crank_friction =
-        applied_positive_speed_crank_friction_torque_nm_;
+    const double applied_source_friction =
+        applied_positive_speed_crank_friction_torque_nm_ +
+        applied_piston_wall_friction_torque_nm_;
     const double applied_external_resisting_torque_nm =
         overrides.has_external_resisting_torque_nm
             ? overrides.external_resisting_torque_nm
@@ -541,7 +732,7 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     const auto motion_calculation = detail::advance_positive_speed_rigid_crank_zoh({
         equivalent_inertia_kg_m2_,
         crank_state_,
-        applied_indicated + applied_crank_friction,
+        applied_indicated + applied_source_friction,
         applied_external_resisting_torque_nm,
         step_s_,
     });
@@ -564,6 +755,11 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     }
     const auto &motion =
         std::get<detail::PositiveSpeedRigidCrankZohStep>(motion_calculation);
+    if (auto failure =
+            calculate_next_piston_wall_reactions(motion.angular_acceleration_rad_s2);
+        failure.has_value()) {
+        return fail(std::move(*failure));
+    }
     const double post_step_rpm =
         motion.final_state.angular_speed_rad_s * kRpmPerRadianPerSecond;
     auto resolved_overrides = overrides;
@@ -588,8 +784,12 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     // right-continuous external resistance used for its motion. Newly committed
     // gas state becomes causal input only for the following frame.
     const auto capture_torque =
-        released_capture_torque(motion, applied_indicated, applied_crank_friction);
+        released_capture_torque(motion, applied_indicated, applied_source_friction);
     if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
+        return fail(std::move(*failure));
+    }
+    if (auto failure = commit_next_piston_wall_boundary(mechanics, gas);
+        failure.has_value()) {
         return fail(std::move(*failure));
     }
     previous_indicated_gas_torque_nm_ = gas.indicated_gas_torque_nm;
