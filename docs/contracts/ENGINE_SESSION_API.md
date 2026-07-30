@@ -1,16 +1,16 @@
 # Portable engine compile and session API
 
-Status: portable C++ session, exact C ABI, and fixed-memory WASM module implemented;
-browser transport and HTML workbench are the next adapter
+Status: portable C++ session, exact C ABI, fixed-memory WASM module, browser transport,
+and HTML workbench implemented
 
 Applies to: JSON engine authoring, immutable engine compilation, mutable simulation
 sessions, native offline rendering, WASM preview, runtime control ownership, streaming
 audio buses, telemetry, and fail-closed adapter behavior
 
-This contract records the implemented native/WASM session boundary and the intended
-browser adapter around that same boundary. Future capabilities are called out
-explicitly. It is not a compatibility surface for `.mr`, engine-sim, the failed
-offline fork, or historical milestone-specific types.
+This contract records the implemented native/WASM session boundary and browser adapter
+around that same boundary. Future capabilities are called out explicitly. It is not a
+compatibility surface for `.mr`, engine-sim, the failed offline fork, or historical
+milestone-specific types.
 
 ## 1. Goals and non-goals
 
@@ -68,16 +68,15 @@ WAV/telemetry sink            bounded PCM ring
                               Web Audio graph
 ```
 
-Both `EngineSession` boxes are implemented by the same C++ sources. The browser
-Worker/ring delivery beneath the WASM box is the next adapter. Offline and interactive
-execution differ only in pacing and publication:
+Both `EngineSession` boxes are implemented by the same C++ sources. Offline and
+interactive execution differ only in pacing and publication:
 
 - Native offline rendering calls `process_block()` as quickly as the machine allows and
   sends the resulting blocks to artifact encoders.
 - The browser Worker calls the same C ABI `process` entry only far enough ahead to keep
   a bounded playback ring supplied.
-- The future AudioWorklet will consume already-produced audio. It will not contain
-  another engine model.
+- The AudioWorklet consumes already-produced audio. It does not contain another engine
+  model.
 
 The native bake boundary is a publication adapter over this session API. It owns the
 unpaced loop and artifact transaction but has no separately maintained simulation or
@@ -530,50 +529,64 @@ and each target's exact telemetry/PCM hashes live in
 
 ## 11. Browser adapter
 
-The C ABI and WASM module are implemented. The browser transport around them has this
-required architecture:
+The implemented browser transport has this architecture:
 
 ```text
 main/UI thread
   - fetch JSON and assets
   - edit and validate authoring input
-  - send rebuild requests and live commands
-  - display telemetry and failures
+  - post rebuild requests and live commands
+  - display posted telemetry, adapter statistics, and failures
 
 dedicated Worker
   - instantiate WASM
-  - compile CompiledScenario
-  - own EngineSession
+  - compile and atomically replace CompiledScenario
+  - own the live EngineSession
   - render exact 3,840-frame/20 ms session blocks ahead of playback
-  - adapt the canonical master from 192 kHz to the AudioContext rate
-  - write device-rate PCM and telemetry rings
+  - adapt the selected canonical bus from 192 kHz to the AudioContext rate
+  - write the bounded device-rate PCM ring
+  - run fresh unpaced sessions for canonical WAV export
 
 AudioWorklet
   - read PCM ring
   - consume 128-frame Web Audio render quanta
-  - apply final click-safe mute/master/crossfade
-  - report underruns
+  - apply bounded fade-to-zero and recovery ramps
+  - count genuine streaming underruns
 ```
 
 The full simulator does not run in the AudioWorklet. The Worker produces one exact
 3,840-frame session block at a time; at 192 kHz that is 20 ms. A versioned Worker-side
-output-rate adapter converts only the canonical master to the actual
+129-tap windowed-sinc adapter converts the selected canonical bus to the actual
 `AudioContext.sampleRate` and writes device-rate frames to the shared PCM ring. The
-AudioWorklet merely consumes that ring in the callback's actual frame count. This
+AudioWorklet merely consumes that ring in each callback's actual frame count. This
 preserves the executable method quantum without pretending that the simulator supports
-arbitrary callback-sized calls.
+arbitrary callback-sized calls or moving DSP into JavaScript.
+
+Startup has an explicit `preparing` state. The Worker processes bounded four-block
+turns, completes the scenario's preparation, and fills the requested playback lead
+before it publishes the shared ring to the UI. It marks the ring `streaming` only
+after that priming gate. A paused, drained, or replaced session is therefore not
+misreported as a streaming underrun. Resume re-primes a ring that no longer has the
+requested lead.
 
 The Worker maintains a bounded lead selected by the adapter. A UI command carries an
 absolute delivery-frame target that must not already have been generated and must not
-fall inside preparation. The Worker must enqueue it before processing the containing
+fall inside preparation. The Worker enqueues it before processing the containing
 20 ms block. Audio already in the ring cannot be changed retroactively, so ring fill
-plus one method quantum defines the measured control lead; the UI must display that
-latency rather than claim zero-latency response.
+plus one method quantum defines the measured control lead; the UI displays that
+latency rather than claiming zero-latency response.
 
-The PCM transport will be a single-producer/single-consumer ring in
-`SharedArrayBuffer`, with atomic read/write indices. Controls and telemetry will use
-separate bounded rings so UI traffic cannot corrupt PCM ownership. The AudioWorklet
-never waits for the Worker.
+PCM transport is one fixed-capacity single-producer/single-consumer
+`SharedArrayBuffer` ring with atomic read/write indices and counters. Controls,
+telemetry, errors, and low-rate adapter statistics use structured `postMessage`
+traffic. They do not share or mutate PCM ownership, and there are no unused
+control/telemetry ring protocols. The AudioWorklet never waits for the Worker.
+
+Browser WAV export creates a fresh unpaced session through the same C API, selects the
+same canonical bus, and replays the accepted live-control journal at its exact delivery
+frames. It serializes deterministic mono Float32 WAVE bytes in memory. The preview WAV
+is target-specific WASM evidence; authoritative PCM24 artifact publication and
+manifests remain native-adapter responsibilities.
 
 Browser requirements:
 
@@ -583,18 +596,25 @@ Browser requirements:
   `Cross-Origin-Embedder-Policy: require-corp` or an explicitly validated equivalent;
 - the adapter verifies `crossOriginIsolated` before creating shared transport;
 - audio starts only after the required user gesture;
-- the initial accepted transport uses the current 128-frame Web Audio render quantum
-  and still checks each callback's actual frame count rather than overrunning a view;
+- the accepted transport accommodates the current 128-frame Web Audio render quantum
+  while checking each callback's actual frame count rather than overrunning a view;
 - output-rate conversion occurs in the Worker after the canonical 192 kHz master and
   before the shared device-delivery ring;
 - no asset fetch, JSON parse, WASM compilation, memory growth, blocking lock, or
   unbounded logging occurs in the AudioWorklet callback.
 
-A MessagePort-copy fallback may be implemented for diagnostics, but it is not the
-accepted low-latency path and must identify its added latency and allocation behavior.
 If cross-origin isolation or AudioWorklet is unavailable, the harness reports an
 unsupported capability instead of silently using `ScriptProcessorNode` or another
-renderer.
+renderer. There is no MessagePort-copy audio fallback or JavaScript engine renderer.
+
+The real-module integration exports 7,680 canonical Float32 samples with SHA-256
+`77484393b278ec40a84b4bde7d2dae31f01894e94a6a47cd17fd16ccb1787413`.
+The headless Chrome gate exports the full 11,520,056-byte BMW Float32 WAVE with
+SHA-256
+`69f9a94faa6c5dcef56acd8f8de9d60266b0d51d9983f9406014d44bb6d3ca13`
+and begins live playback from a primed ring with zero startup underrun frames/events.
+The reproducible gate is
+[`verify-browser-workbench.sh`](../../scripts/verify-browser-workbench.sh).
 
 Relevant platform references:
 
@@ -651,41 +671,48 @@ The Worker may refill after a transient underrun, but the UI keeps the fault vis
 A recurring underrun fails the realtime-preview performance gate. It does not alter
 offline render quality.
 
-### 12.6 Future replacement failure
+### 12.6 Adapter replacement failure
 
-The implemented core does not swap sessions. A future adapter may make an inactive
-replacement audible only after complete compilation, session creation, preparation,
-and an explicit adapter-owned swap. Failure at any earlier step must leave the current
-session untouched; no state transfer is implied.
+The core itself does not swap sessions. The browser adapter compiles and creates a
+replacement before committing it, then disposes the previous program. A parse,
+validation, asset, or session-creation failure restores the prior adapter state and
+leaves the previous program/session available. Successful replacement deliberately
+starts a fresh session; no physical state transfer, seamless crossfade, or hidden
+partial mutation is implied.
 
-## 13. Future minimum HTML harness
+## 13. HTML authoring workbench
 
-The harness is not implemented yet. Its first useful surface contains:
+The implemented workbench provides:
 
-- one raw JSON editor and an explicit **Apply/rebuild** action;
-- path-addressed compile diagnostics;
-- engine/scenario identity and current dirty/rebuild state;
-- authored scenario mode selection;
-- the currently admitted live throttle, ignition, and fuel controls for inertial dyno;
-- RPM input or display according to the selected ownership mode;
-- read-only named-bus meters and adapter-owned monitoring;
-- start, stop, new-session/restart, and canonical dyno-pull actions;
-- simulation realtime factor, worker lead, ring fill, callback underrun, and control
-  latency display;
-- downloadable preview WAV rendered by the same session API in an unpaced Worker job.
+- raw engine and scenario JSON editors, local open/save/format actions, a destructured
+  scalar property inspector, and explicit **Apply & rebuild**;
+- declared-asset discovery, file selection, and path-addressed validation/compile
+  diagnostics;
+- engine/scenario identity, current dirty/rebuild state, selected publication bus, and
+  the exact capabilities reported by the compiled session;
+- throttle, ignition, and fuel controls only for the admitted inertial-dyno session;
+- start, stop, restart, and canonical dyno actions;
+- RPM, torque, power, recent telemetry trace, simulation realtime factor, measured
+  worker lead, ring fill, and real callback-underrun counters;
+- deterministic downloadable Float32 WAV export from a fresh unpaced session using the
+  same C ABI and the accepted control journal.
 
-The harness does not need a complete visual engine-sim GUI before it can accelerate
-sound authoring. Its first acceptance gate is that one BMW JSON definition compiles,
-the established listening baseline is reproduced through the portable session, and
-throttle/ignition/dyno interaction remains clean without underruns on the development
-PC.
+The workbench does not invent unsupported RPM/load/gear/starter controls, display fake
+per-bus meters, or mutate structural JSON directly inside a running solver. Route
+selection creates a fresh session. Structural edits become active only after an
+explicit successful rebuild.
+
+The full browser gate compiles the BMW fixture, exports the complete 15-second dyno,
+starts and primes live playback, applies throttle, stops cleanly, selects another
+route, and reports zero startup underruns on the development PC.
 
 ## 14. Implementation order
 
 The authoritative execution sequence is [`PLAN.md`](../../PLAN.md). The native
 session/bake cutover is checkpoint 8; C ABI and WASM are checkpoint 9; the
-Worker/ring/AudioWorklet transport and workbench are checkpoint 10. Later control
-capabilities remain fail-closed until they are individually implemented.
+Worker/ring/AudioWorklet transport and workbench are checkpoint 10. All three are
+implemented and sealed. Later control capabilities remain fail-closed until they are
+individually implemented.
 
 Each step preserves one implementation path. No temporary browser synthesizer,
 pre-recorded engine loop, or compatibility parser becomes a production dependency.

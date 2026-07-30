@@ -22,7 +22,10 @@ represented but fail closed until their executor support exists. There is no exe
 C++ engine factory; product engines enter only through JSON compilation.
 
 The JSON cutover is an authoring and packaging change. It must reproduce the accepted
-renderer before it is allowed to change an audio algorithm.
+renderer before it is allowed to change an audio algorithm. The implemented browser
+workbench compiles those same documents through the fixed-memory WASM C ABI, streams
+one selected canonical bus through a bounded PCM ring, and exports a fresh unpaced
+session. It does not expand the executor's admitted engine or live-control capability.
 
 ## What was audited
 
@@ -66,9 +69,11 @@ RPM, load, and throttle cannot all be independent authoritative inputs:
 | Load-target held point | RPM and target load/BMEP | Throttle |
 | External RPM follower | RPM trajectory and throttle | Cylinder state and reaction torque telemetry |
 
-The first browser workbench can support held RPM and external RPM follower before full
-free-running drivetrain dynamics. It is still realtime audio: the same block processor
-runs ahead of the audio device rather than tying simulation steps to UI frames.
+The current browser workbench executes all admitted authored scenario modes, but live
+controls are exposed only for `inertial_dyno`, where throttle, ignition, and fuel are
+implemented. Interactive held-RPM targets and external-RPM following remain future
+session capabilities. Preview is still realtime audio: the same block processor runs
+ahead of the audio device rather than tying simulation steps to UI frames.
 
 ## Authoring, units, curves, and graph semantics
 
@@ -85,10 +90,11 @@ runs ahead of the audio device rather than tying simulation steps to UI frames.
    physical bounds, and assets, then emits one immutable canonical-SI resolved model.
 5. Defaults and authoring conveniences are expanded during compilation. Diagnostics
    identify both the object ID and JSON Pointer of the authored error.
-6. Structural edits produce a new compiled definition and a new session. A future
-   browser adapter may restart or crossfade between independent sessions; the core
-   does not reset, swap, or transfer state. Only throttle, ignition-enabled, and
-   fuel-enabled are currently mutable in an active inertial-dyno session.
+6. Structural edits produce a new compiled definition and a new session. The browser
+   adapter atomically retains the current program on compile/session-creation failure
+   and replaces it with a fresh session after success; it does not crossfade or transfer
+   physical state. Only throttle, ignition-enabled, and fuel-enabled are currently
+   mutable in an active inertial-dyno session.
 
 ### Identity and graph rules
 
@@ -280,11 +286,11 @@ record per block.
 | Relative humidity, coolant temperature, and oil temperature | Session/render request metadata/applicability conditions | **Admission/evidence only** in the current low-order executor; oil temperature must match the loss-profile condition | Do not present these as live sound or power controls until an implemented subsystem consumes them. |
 | Quality telemetry capacity | Session output allocation policy | **Low-order executed** as returned-record capacity; each exact block currently returns one final engine-capture record, while authored telemetry-channel selection still fails closed | Browser transport preserves the same record boundary without confusing it with PCM or the internal event journal. |
 | Ignition, fuel, starter, dyno/limiter enable events | Timestamped session controls | **Partial**; ignition and fuel are public absolute-delivery-frame live controls for inertial dyno, while starter/dyno/limiter remain authored offline events only | Block-boundary and in-block ignition/fuel timing fixture; other payloads remain rejected until implemented. |
-| Realtime throttle | Timestamped live controls | **Partial**; public absolute-delivery-frame throttle executes in inertial-dyno sessions after preparation; browser transport is not built | Audible inertial-dyno throttle response without restart. |
+| Realtime throttle | Timestamped live controls | **Partial**; public absolute-delivery-frame throttle executes in inertial-dyno sessions after preparation and the browser Worker exposes that transport | Audible inertial-dyno throttle response without restart. |
 | Realtime RPM/load mode command | Mode-specific timestamped control | **Missing** as a public live API | RPM follower and held-dyno browser fixtures. |
 | Gear and clutch controls | Timestamped live controls | **Missing** with vehicle/transmission | Vehicle fixture shifts under load. |
 | Realtime-safe presentation knobs | Timestamped parameter controls | **Missing** as public API despite typed defaults | Click-free gain/wet/HF/noise changes. |
-| Master/stems/telemetry block output | Session block result | **Low-order executed** as public borrowed route dry/IR/selected buses, raw/audition masters, and one telemetry record per exact 3,840-frame block; authored bus/telemetry subset selection remains absent | The future Worker puts these exact blocks into a ring consumed as 128-frame AudioWorklet pulls. |
+| Master/stems/telemetry block output | Session block result | **Low-order executed** as public borrowed route dry/IR/selected buses, raw/audition masters, and one telemetry record per exact 3,840-frame block; the browser Worker publishes one selected bus through the shared PCM ring and posts telemetry, while authored bus/telemetry subset selection and simultaneous browser stem publication remain absent | Route selection reaches the exact named core bus; 128-frame AudioWorklet pulls never change the 3,840-frame engine-session quantum. |
 
 ## Deliberate exclusions
 

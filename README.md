@@ -27,6 +27,15 @@ same boundary with fixed 128 MiB memory. A pinned headless gate checks all publi
 exports, wasm32 numeric admission, exact native/WASM semantic state, target-specific
 hashes, and tight continuous telemetry/PCM error bounds.
 
+The browser workbench is implemented on that ABI. Its Worker owns compilation and the
+mutable WASM session, primes a bounded shared PCM ring, and converts the selected
+canonical 192 kHz bus to the device rate. The AudioWorklet only drains that ring.
+Engine/scenario edits rebuild atomically; a failed compile leaves the current program
+available. The currently admitted inertial-dyno live controls are throttle, ignition,
+and fuel. RPM/load ownership, a drivetrain, gears, starter control, and arbitrary live
+presentation edits remain explicit missing capabilities rather than UI-only
+approximations.
+
 The compiler accepts the currently executable low-order topology without inspecting an
 engine name and fails closed on unsupported capabilities. Cylinder and
 exhaust/presentation-route execution is count-derived rather than fixed to the BMW
@@ -49,7 +58,9 @@ engine.json + scenario.json + assets
             /             \
        native WAV       fixed-memory WASM
                               |
-                      browser adapter next
+                   Worker + PCM ring
+                              |
+                       AudioWorklet + UI
 ```
 
 The BMW now remains only as JSON data, an automated byte-identity migration fixture,
@@ -93,6 +104,28 @@ The reproducible native/WASM parity gate uses a pinned Emscripten container:
 ```bash
 scripts/verify-wasm-parity.sh
 ```
+
+Build and serve the local browser workbench:
+
+```bash
+scripts/build-workbench.sh
+node scripts/serve-workbench.mjs
+```
+
+Open the URL printed by the server. It serves only the staged `web`, `data`, and
+`reference` trees and supplies the cross-origin-isolation headers required by shared
+audio memory. The complete automated browser gate builds the pinned WASM target, runs
+the focused JavaScript and real-module integration tests, checks those headers, and
+drives the full UI in headless Chrome:
+
+```bash
+scripts/verify-browser-workbench.sh
+```
+
+Browser export is a deterministic Float32 WAVE produced by a fresh unpaced WASM
+session. Native publication remains the authoritative PCM24 artifact path. Both use
+the same C++ session/DSP implementation, while their admitted numeric environments
+retain independently exact hashes and are compared by the native/WASM parity gate.
 
 ```bash
 build/engine-sim-offline --help

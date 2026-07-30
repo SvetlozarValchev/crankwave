@@ -1,12 +1,12 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — JSON authoring and interactive runtime cutover
+Status: complete — JSON authoring and interactive runtime cutover sealed
 
 Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-30
 
-Current checkpoint: **10 — build the interactive HTML workbench**
+Current checkpoint: **complete — checkpoints 1 through 10 sealed**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -357,6 +357,31 @@ predeclared tight bounds. The reproducible gate is
 
 Gate: the browser can load the JSON BMW, react to controls, run the canonical dyno, and
 export core-identical PCM without depending on the native CLI.
+
+Completed evidence: the staged workbench loads and edits the strict engine/scenario
+documents, resolves their declared assets, and atomically replaces the active compiled
+program only after a successful rebuild. A dedicated Worker owns the fixed-memory WASM
+module and the same C ABI/session used by the native renderer. It primes a bounded
+single-producer/single-consumer shared PCM ring before publishing it, converts the
+canonical 192 kHz selected bus through one versioned 129-tap device-rate resampler, and
+leaves the AudioWorklet responsible only for bounded delivery and click-safe
+silence/recovery.
+
+The real-module integration fixture exports 7,680 canonical WASM Float32 samples with
+SHA-256
+`77484393b278ec40a84b4bde7d2dae31f01894e94a6a47cd17fd16ccb1787413`.
+The full 15-second BMW browser dyno exports a 11,520,056-byte Float32 WAVE with
+SHA-256
+`69f9a94faa6c5dcef56acd8f8de9d60266b0d51d9983f9406014d44bb6d3ca13`;
+its 11,520,000-byte PCM payload has SHA-256
+`15064e6b093aecf8fe7184f2f0eeb9bae324a5b16d6e3867dbfb9695794bda0f`.
+The development-PC headless run completes that export in under 15 seconds. Live
+startup completes 333 bounded preparation/lead-fill blocks in about 4.6 seconds,
+publishes 10,544 device frames for a requested 9,600-frame lead, and records zero
+startup underrun frames or events. The browser gate also proves admitted throttle,
+ignition, and fuel controls, route selection, failed-rebuild retention, stop/restart,
+cross-origin-isolation headers, and exact WAV framing:
+[`scripts/verify-browser-workbench.sh`](scripts/verify-browser-workbench.sh).
 
 ## 6. Cutover acceptance policy
 

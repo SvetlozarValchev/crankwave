@@ -524,6 +524,9 @@ if(ENGINE_SIM_OFFLINE_BUILD_WASM)
     )
     engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_wasm)
     engine_sim_offline_configure_wasm_numeric_target(engine_sim_offline_wasm)
+
+    include(cmake/EngineSimOfflineWorkbench.cmake)
+    engine_sim_offline_add_web_workbench(engine_sim_offline_wasm)
 endif()
 
 add_library(

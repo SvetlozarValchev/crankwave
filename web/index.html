@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A local, browser-native workbench for engine-sim-offline JSON engines."
+    />
+    <title>Engine Sim Offline · Workbench</title>
+    <link rel="stylesheet" href="/web/styles.css" />
+  </head>
+  <body>
+    <noscript>
+      <div class="fatal-banner">
+        This workbench requires JavaScript. Nothing is uploaded; all compilation
+        and rendering runs in your browser.
+      </div>
+    </noscript>
+
+    <div id="isolation-gate" class="fatal-banner" role="alert" hidden>
+      <strong>Isolated browser context required.</strong>
+      Shared audio memory is unavailable. First run
+      <code>scripts/build-workbench.sh</code>, then
+      <code>node scripts/serve-workbench.mjs</code> and open the URL it prints.
+      The build stages the WASM module; the server supplies COOP/COEP on localhost.
+      There is intentionally no degraded ScriptProcessor fallback.
+    </div>
+
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Engine Sim Offline workbench">
+        <span class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </span>
+        <span>
+          <span class="brand-kicker">ENGINE SIM OFFLINE</span>
+          <span class="brand-title">Authoring Workbench</span>
+        </span>
+      </a>
+
+      <div class="environment-strip" aria-label="Runtime status">
+        <span id="isolation-status" class="status-chip">
+          <span class="status-dot"></span>
+          Isolation
+        </span>
+        <span id="worker-status" class="status-chip">
+          <span class="status-dot"></span>
+          Runtime offline
+        </span>
+        <span id="build-status" class="status-chip">
+          <span class="status-dot"></span>
+          Not built
+        </span>
+      </div>
+
+      <div class="topbar-actions">
+        <button id="load-baseline-button" class="button button-quiet" type="button">
+          Load BMW baseline
+        </button>
+        <button id="build-button" class="button button-primary" type="button">
+          <span class="button-icon" aria-hidden="true">↻</span>
+          Apply &amp; rebuild
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="panel authoring-panel" aria-labelledby="authoring-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">INPUT CONTRACT</p>
+            <h1 id="authoring-title">Engine package</h1>
+          </div>
+          <span id="dirty-indicator" class="small-badge" hidden>Edited</span>
+        </div>
+
+        <div class="document-tabs" role="tablist" aria-label="JSON documents">
+          <button
+            id="engine-tab"
+            class="document-tab is-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="engine-editor"
+            data-document="engine"
+          >
+            Engine
+            <span id="engine-error-count" class="tab-count" hidden>0</span>
+          </button>
+          <button
+            id="scenario-tab"
+            class="document-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="scenario-editor"
+            data-document="scenario"
+          >
+            Scenario
+            <span id="scenario-error-count" class="tab-count" hidden>0</span>
+          </button>
+        </div>
+
+        <div class="editor-toolbar" aria-label="Document actions">
+          <button id="open-document-button" class="tool-button" type="button">
+            Open JSON
+          </button>
+          <button id="save-document-button" class="tool-button" type="button">
+            Save
+          </button>
+          <button id="format-document-button" class="tool-button" type="button">
+            Format
+          </button>
+          <span class="toolbar-spacer"></span>
+          <span id="document-name" class="document-name">engine.json</span>
+        </div>
+
+        <input
+          id="engine-file-input"
+          class="visually-hidden"
+          type="file"
+          accept=".json,application/json"
+        />
+        <input
+          id="scenario-file-input"
+          class="visually-hidden"
+          type="file"
+          accept=".json,application/json"
+        />
+
+        <div class="editor-stack">
+          <textarea
+            id="engine-editor"
+            class="json-editor"
+            aria-label="Engine JSON"
+            spellcheck="false"
+            wrap="off"
+          ></textarea>
+          <textarea
+            id="scenario-editor"
+            class="json-editor"
+            aria-label="Scenario JSON"
+            spellcheck="false"
+            wrap="off"
+            hidden
+          ></textarea>
+          <div class="editor-footer">
+            <span id="parse-status">Waiting for a document</span>
+            <span id="cursor-status">Ln 1, Col 1</span>
+          </div>
+        </div>
+
+        <details class="inspector" open>
+          <summary>
+            <span>
+              <span class="summary-title">Property inspector</span>
+              <span class="summary-note">Scalar values, grouped by JSON path</span>
+            </span>
+            <span id="inspector-count" class="small-badge">0 fields</span>
+          </summary>
+          <div id="inspector-tree" class="inspector-tree">
+            <p class="empty-state">Load a valid JSON document to inspect it.</p>
+          </div>
+        </details>
+
+        <section class="asset-section" aria-labelledby="asset-title">
+          <div class="section-heading">
+            <div>
+              <h2 id="asset-title">Referenced assets</h2>
+              <p>Binary and configuration payloads stay local to this tab.</p>
+            </div>
+            <button id="add-assets-button" class="tool-button" type="button">
+              Select files
+            </button>
+          </div>
+          <input id="asset-file-input" class="visually-hidden" type="file" multiple />
+          <div id="asset-list" class="asset-list">
+            <p class="empty-state">No external assets discovered.</p>
+          </div>
+        </section>
+      </section>
+
+      <section class="monitor-column" aria-label="Engine session">
+        <section class="panel session-panel" aria-labelledby="session-title">
+          <div class="panel-heading session-heading">
+            <div>
+              <p class="eyebrow">SESSION</p>
+              <h2 id="session-title">No engine loaded</h2>
+              <p id="session-subtitle" class="session-subtitle">
+                Apply valid engine and scenario JSON to create a session.
+              </p>
+            </div>
+            <span id="session-state" class="state-badge" data-state="idle">Idle</span>
+          </div>
+
+          <div class="transport" aria-label="Session transport">
+            <button id="start-button" class="transport-button transport-primary" type="button" disabled>
+              <span aria-hidden="true">▶</span>
+              Start
+            </button>
+            <button id="stop-button" class="transport-button" type="button" disabled>
+              <span aria-hidden="true">■</span>
+              Stop
+            </button>
+            <button id="restart-button" class="transport-button" type="button" disabled>
+              <span aria-hidden="true">↺</span>
+              Restart
+            </button>
+            <span class="transport-divider"></span>
+            <button id="dyno-button" class="transport-button dyno-button" type="button" disabled>
+              Run canonical dyno
+            </button>
+            <span id="gesture-note" class="gesture-note">
+              Start is the required audio gesture.
+            </span>
+          </div>
+
+          <div class="telemetry-grid">
+            <article class="metric metric-rpm">
+              <div class="metric-label">Engine speed</div>
+              <div class="metric-reading">
+                <strong id="rpm-value">—</strong>
+                <span>RPM</span>
+              </div>
+              <div class="meter">
+                <span id="rpm-meter"></span>
+              </div>
+            </article>
+            <article class="metric">
+              <div class="metric-label">Net shaft torque</div>
+              <div class="metric-reading">
+                <strong id="torque-value">—</strong>
+                <span>N·m</span>
+              </div>
+              <div id="torque-status" class="metric-status">Unavailable</div>
+            </article>
+            <article class="metric">
+              <div class="metric-label">Instantaneous power</div>
+              <div class="metric-reading">
+                <strong id="power-value">—</strong>
+                <span>kW</span>
+              </div>
+              <div id="power-status" class="metric-status">Unavailable</div>
+            </article>
+          </div>
+
+          <div class="trace">
+            <div class="trace-header">
+              <div>
+                <span class="trace-title">Run trace</span>
+                <span class="trace-legend"><i class="rpm-line"></i> RPM</span>
+                <span class="trace-legend"><i class="torque-line"></i> Torque</span>
+              </div>
+              <span id="elapsed-value" class="monospace">00:00.000</span>
+            </div>
+            <canvas id="telemetry-canvas" aria-label="RPM and torque history"></canvas>
+          </div>
+
+          <div class="monitor-controls">
+            <label class="select-field">
+              <span>Monitor bus</span>
+              <select id="bus-select" disabled>
+                <option>No published buses</option>
+              </select>
+            </label>
+            <button id="export-button" class="button button-quiet" type="button" disabled>
+              Export run as WAV
+            </button>
+          </div>
+        </section>
+
+        <div class="lower-grid">
+          <section class="panel control-panel" aria-labelledby="controls-title">
+            <div class="panel-heading compact">
+              <div>
+                <p class="eyebrow">LIVE CONTROL</p>
+                <h2 id="controls-title">Operating state</h2>
+              </div>
+              <span id="controls-admission" class="small-badge">Not admitted</span>
+            </div>
+
+            <label class="throttle-control">
+              <span class="control-label">
+                <span>Throttle</span>
+                <output id="throttle-output" for="throttle-input">85%</output>
+              </span>
+              <input
+                id="throttle-input"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="85"
+                disabled
+              />
+              <span class="range-scale"><span>Closed</span><span>Wide open</span></span>
+            </label>
+
+            <div class="toggle-row">
+              <button
+                id="ignition-button"
+                class="switch-control"
+                type="button"
+                role="switch"
+                aria-checked="true"
+                disabled
+              >
+                <span class="switch-track"><span></span></span>
+                <span>
+                  <strong>Ignition</strong>
+                  <small id="ignition-label">On</small>
+                </span>
+              </button>
+              <button
+                id="fuel-button"
+                class="switch-control"
+                type="button"
+                role="switch"
+                aria-checked="true"
+                disabled
+              >
+                <span class="switch-track"><span></span></span>
+                <span>
+                  <strong>Fuel</strong>
+                  <small id="fuel-label">On</small>
+                </span>
+              </button>
+            </div>
+
+            <p class="control-footnote">
+              Controls are enabled only when the compiled scenario admits them.
+              Gear and load controls are deliberately absent from this contract.
+            </p>
+          </section>
+
+          <section class="panel runtime-panel" aria-labelledby="runtime-title">
+            <div class="panel-heading compact">
+              <div>
+                <p class="eyebrow">DELIVERY</p>
+                <h2 id="runtime-title">Runtime health</h2>
+              </div>
+              <span id="realtime-health" class="small-badge">Waiting</span>
+            </div>
+
+            <dl class="runtime-stats">
+              <div>
+                <dt>Ring fill</dt>
+                <dd id="ring-fill-value">—</dd>
+              </div>
+              <div>
+                <dt>Control lead</dt>
+                <dd id="lead-value">—</dd>
+              </div>
+              <div>
+                <dt>Underruns</dt>
+                <dd id="underrun-value">0</dd>
+              </div>
+              <div>
+                <dt>Realtime factor</dt>
+                <dd id="realtime-factor-value">—</dd>
+              </div>
+            </dl>
+            <div class="fill-track" aria-hidden="true">
+              <span id="ring-fill-meter"></span>
+            </div>
+            <p id="runtime-detail" class="runtime-detail">
+              The simulation runs in a Worker. The AudioWorklet only drains
+              output-rate PCM from shared memory.
+            </p>
+          </section>
+        </div>
+
+        <section class="panel diagnostics-panel" aria-labelledby="diagnostics-title">
+          <div class="panel-heading compact">
+            <div>
+              <p class="eyebrow">VALIDATION</p>
+              <h2 id="diagnostics-title">Diagnostics</h2>
+            </div>
+            <button id="clear-diagnostics-button" class="tool-button" type="button">
+              Clear view
+            </button>
+          </div>
+          <div id="diagnostics-list" class="diagnostics-list" aria-live="polite">
+            <div class="diagnostic-empty">
+              <span aria-hidden="true">✓</span>
+              No diagnostics reported.
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast-region" class="toast-region" aria-live="polite"></div>
+
+    <template id="asset-row-template">
+      <article class="asset-row">
+        <div class="asset-kind-icon" aria-hidden="true">A</div>
+        <div class="asset-description">
+          <strong class="asset-id"></strong>
+          <span class="asset-path"></span>
+        </div>
+        <span class="asset-kind small-badge"></span>
+        <span class="asset-state"></span>
+        <button class="asset-choose tool-button" type="button">Choose</button>
+      </article>
+    </template>
+
+    <script type="module" src="/web/app.js"></script>
+  </body>
+</html>

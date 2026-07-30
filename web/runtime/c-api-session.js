@@ -1,0 +1,807 @@
+import {
+  AudioBusKind,
+  BlockPhase,
+  ControlKind,
+  ESO_CANONICAL_SAMPLE_RATE,
+  ESO_INVALID_HANDLE,
+  Layout,
+  ProcessKind,
+  QUANTITY_FIELDS,
+  TORQUE_FIELDS,
+  audioBusKindName,
+  blockPhaseName,
+} from "./c-api-abi.js";
+import { EngineSimRuntimeError } from "./c-api-errors.js";
+
+function decimal(value) {
+  return value.toString(10);
+}
+
+function exactRate(numerator, denominator, label) {
+  if (denominator === 0n) {
+    throw new EngineSimRuntimeError(`${label} has a zero denominator`, {
+      operation: "inspect-session",
+      detailCode: "browser-runtime-invalid-rational-rate",
+      diagnostics: [],
+    });
+  }
+  const value = Number(numerator) / Number(denominator);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new EngineSimRuntimeError(`${label} is not a finite positive rate`, {
+      operation: "inspect-session",
+      detailCode: "browser-runtime-invalid-rational-rate",
+      diagnostics: [],
+    });
+  }
+  return value;
+}
+
+function normalizeU64(value, label) {
+  let result;
+  try {
+    result = BigInt(value);
+  } catch {
+    throw new TypeError(`${label} must be an unsigned 64-bit integer`);
+  }
+  if (result < 0n || result > 0xffff_ffff_ffff_ffffn) {
+    throw new RangeError(`${label} is outside the unsigned 64-bit range`);
+  }
+  return result;
+}
+
+function readQuantity(view, pointer) {
+  const layout = Layout.quantityValue;
+  return {
+    value: view.getFloat64(pointer + layout.value, true),
+    availability: view.getUint32(pointer + layout.availability, true),
+    completeness: view.getUint32(pointer + layout.completeness, true),
+    unavailableReason: view.getUint32(pointer + layout.unavailableReason, true),
+  };
+}
+
+function readTorqueValue(view, pointer) {
+  const layout = Layout.torqueValue;
+  return {
+    valueNm: view.getFloat64(pointer + layout.value, true),
+    availability: view.getUint32(pointer + layout.availability, true),
+    completeness: view.getUint32(pointer + layout.completeness, true),
+    unavailableReason: view.getUint32(pointer + layout.unavailableReason, true),
+    includedTerms: decimal(view.getBigUint64(pointer + layout.includedTerms, true)),
+    omittedTerms: decimal(view.getBigUint64(pointer + layout.omittedTerms, true)),
+  };
+}
+
+function readTelemetry(view, pointer) {
+  const layout = Layout.engineTelemetry;
+  const torque = {};
+  let fieldPointer = pointer + layout.torque;
+  for (const name of TORQUE_FIELDS) {
+    torque[name] = readTorqueValue(view, fieldPointer);
+    fieldPointer += Layout.torqueValue.size;
+  }
+  for (const name of QUANTITY_FIELDS) {
+    torque[name] = readQuantity(view, fieldPointer);
+    fieldPointer += Layout.quantityValue.size;
+  }
+  return {
+    physicsStepEnd: decimal(
+      view.getBigUint64(pointer + layout.physicsStepEnd, true),
+    ),
+    engineStepEndIndex: decimal(
+      view.getBigUint64(pointer + layout.engineStepEndIndex, true),
+    ),
+    validityMask: view.getUint32(pointer + layout.validityMask, true),
+    ignitionEnabled:
+      view.getUint32(pointer + layout.ignitionEnabled, true) !== 0,
+    fuelEnabled: view.getUint32(pointer + layout.fuelEnabled, true) !== 0,
+    starterEnabled: view.getUint32(pointer + layout.starterEnabled, true) !== 0,
+    dynoEnabled: view.getUint32(pointer + layout.dynoEnabled, true) !== 0,
+    limiterCutActive:
+      view.getUint32(pointer + layout.limiterCutActive, true) !== 0,
+    thetaRad: view.getFloat64(pointer + layout.theta, true),
+    thetaCycleRad: view.getFloat64(pointer + layout.thetaCycle, true),
+    angularSpeedRadS: view.getFloat64(pointer + layout.angularSpeed, true),
+    angularAccelerationRadS2: view.getFloat64(
+      pointer + layout.angularAcceleration,
+      true,
+    ),
+    engineSpeedRpm: view.getFloat64(pointer + layout.engineSpeedRpm, true),
+    requestedThrottle01: view.getFloat64(
+      pointer + layout.requestedThrottle,
+      true,
+    ),
+    resolvedThrottle01: view.getFloat64(
+      pointer + layout.resolvedThrottle,
+      true,
+    ),
+    intakePlatePosition01: view.getFloat64(
+      pointer + layout.intakePlatePosition,
+      true,
+    ),
+    mainFlowMultiplier01: view.getFloat64(
+      pointer + layout.mainFlowMultiplier,
+      true,
+    ),
+    torque,
+  };
+}
+
+function readProcessInfo(view, pointer) {
+  const layout = Layout.processInfo;
+  const kind = view.getUint32(pointer + layout.kind, true);
+  const phase = view.getUint32(pointer + layout.blockPhase, true);
+  return {
+    kind: kind === ProcessKind.block ? "block" : "completed",
+    kindCode: kind,
+    blockPhase: blockPhaseName(phase),
+    blockPhaseCode: phase,
+    blockOrdinal: decimal(view.getBigUint64(pointer + layout.blockOrdinal, true)),
+    firstPhysicsFrame: decimal(
+      view.getBigUint64(pointer + layout.firstPhysicsFrame, true),
+    ),
+    physicsFrameCount: view.getUint32(
+      pointer + layout.physicsFrameCount,
+      true,
+    ),
+    firstDeliveryFrame: decimal(
+      view.getBigUint64(pointer + layout.firstDeliveryFrame, true),
+    ),
+    deliveryFrameCount: view.getUint32(
+      pointer + layout.deliveryFrameCount,
+      true,
+    ),
+    telemetryWritten: view.getUint32(pointer + layout.telemetryWritten, true),
+    completedPhysicsFrameCount: decimal(
+      view.getBigUint64(pointer + layout.completedPhysicsFrames, true),
+    ),
+    completedDeliveryFrameCount: decimal(
+      view.getBigUint64(pointer + layout.completedDeliveryFrames, true),
+    ),
+    completedBlockCount: decimal(
+      view.getBigUint64(pointer + layout.completedBlockCount, true),
+    ),
+    liveControlsAccepted:
+      view.getUint32(pointer + layout.liveControlsAccepted, true) !== 0,
+    hasHeldSpeedOperatingPoint:
+      view.getUint32(pointer + layout.hasHeldSpeedOperatingPoint, true) !== 0,
+    hasInertialDynoResult:
+      view.getUint32(pointer + layout.hasInertialDynoResult, true) !== 0,
+  };
+}
+
+export class EngineSimSession {
+  #client;
+  #module;
+  #heap;
+  #context;
+  #handle;
+  #descriptor;
+  #buses;
+  #auditionBusIndex;
+  #audioPointer = 0;
+  #audioCopyPointer = 0;
+  #telemetryPointer = 0;
+  #processPointer = 0;
+  #disposed = false;
+  #terminal = false;
+  #nextDeliveryFrame = 0n;
+  #nextControlSequence = 1n;
+
+  constructor(client, handle) {
+    this.#client = client;
+    this.#module = client.module;
+    this.#heap = client.heap;
+    this.#context = client.context;
+    this.#handle = handle;
+    try {
+      this.#descriptor = this.#readDescriptor();
+      this.#buses = this.#readBuses();
+      const audition = this.#buses.filter(
+        (bus) => bus.kindCode === AudioBusKind.engineAuditionMaster,
+      );
+      if (audition.length !== 1) {
+        throw new EngineSimRuntimeError(
+          `the session exposes ${audition.length} audition master buses`,
+          {
+            operation: "inspect-session",
+            detailCode: "browser-runtime-audition-bus-cardinality",
+            diagnostics: [],
+          },
+        );
+      }
+      this.#auditionBusIndex = audition[0].index;
+      if (
+        audition[0].sampleRateHz !== ESO_CANONICAL_SAMPLE_RATE ||
+        this.#descriptor.deliveryRateHz !== ESO_CANONICAL_SAMPLE_RATE
+      ) {
+        throw new EngineSimRuntimeError(
+          "the browser runtime admits only a canonical 192 kHz master",
+          {
+            operation: "inspect-session",
+            detailCode: "browser-runtime-noncanonical-master-rate",
+            diagnostics: [],
+          },
+        );
+      }
+      for (const bus of this.#buses) {
+        if (bus.sampleRateHz !== ESO_CANONICAL_SAMPLE_RATE) {
+          throw new EngineSimRuntimeError(
+            `audio bus ${bus.id} is not at the canonical 192 kHz rate`,
+            {
+              operation: "inspect-session",
+              detailCode: "browser-runtime-noncanonical-bus-rate",
+              diagnostics: [],
+            },
+          );
+        }
+      }
+      const maximumChannels = Math.max(
+        ...this.#buses.map((bus) => bus.channelCount),
+      );
+      const maximumSamples =
+        this.#descriptor.maximumDeliveryFramesPerProcessCall *
+        maximumChannels;
+      this.#audioPointer = this.#heap.allocate(
+        maximumSamples * Float32Array.BYTES_PER_ELEMENT,
+        "audition-master process block",
+      );
+      this.#audioCopyPointer = this.#heap.allocate(
+        Layout.audioCopyBuffer.size,
+        "audio-copy descriptor",
+      );
+      this.#telemetryPointer = this.#heap.allocate(
+        this.#descriptor.maximumTelemetryFramesPerProcessCall *
+          Layout.engineTelemetry.size,
+        "engine telemetry block",
+      );
+      this.#processPointer = this.#heap.allocate(
+        Layout.processInfo.size,
+        "process result",
+      );
+    } catch (error) {
+      this.dispose();
+      throw error;
+    }
+  }
+
+  get descriptor() {
+    this.#assertAlive();
+    return this.#descriptor;
+  }
+
+  get buses() {
+    this.#assertAlive();
+    return this.#buses;
+  }
+
+  get auditionBus() {
+    this.#assertAlive();
+    return this.#buses[this.#auditionBusIndex];
+  }
+
+  get auditionBusIndex() {
+    this.#assertAlive();
+    return this.#auditionBusIndex;
+  }
+
+  get terminal() {
+    return this.#terminal;
+  }
+
+  get nextDeliveryFrame() {
+    return this.#nextDeliveryFrame;
+  }
+
+  get firstAudibleDeliveryFrame() {
+    return (
+      this.#descriptor.preparationBlockCountBigInt *
+      BigInt(this.#descriptor.deliveryFramesPerBlock)
+    );
+  }
+
+  enqueueControls(controls) {
+    this.#assertAlive();
+    if (!this.#descriptor.acceptsLiveControls) {
+      throw new EngineSimRuntimeError(
+        "this session mode does not accept live controls",
+        {
+          operation: "enqueue-controls",
+          detailCode: "browser-runtime-controls-unavailable",
+          diagnostics: [],
+        },
+      );
+    }
+    if (!Array.isArray(controls) || controls.length === 0) {
+      throw new TypeError("controls must be a non-empty array");
+    }
+    if (controls.length > this.#descriptor.controlCommandQueueCapacity) {
+      throw new EngineSimRuntimeError(
+        "control batch exceeds the session queue capacity",
+        {
+          operation: "enqueue-controls",
+          detailCode: "browser-runtime-control-capacity",
+          diagnostics: [],
+        },
+      );
+    }
+    const pointer = this.#heap.allocate(
+      controls.length * Layout.controlCommand.size,
+      "live-control command batch",
+    );
+    const rejection = this.#heap.allocate(
+      Layout.controlRejection.size,
+      "live-control rejection",
+    );
+    try {
+      const view = this.#heap.view;
+      let priorFrame = null;
+      for (let index = 0; index < controls.length; ++index) {
+        const input = controls[index];
+        const frame = normalizeU64(input.deliveryFrame, "control deliveryFrame");
+        if (priorFrame !== null && frame < priorFrame) {
+          throw new TypeError("controls must be ordered by deliveryFrame");
+        }
+        priorFrame = frame;
+        const base = pointer + index * Layout.controlCommand.size;
+        view.setBigUint64(base + Layout.controlCommand.deliveryFrame, frame, true);
+        view.setBigUint64(
+          base + Layout.controlCommand.sequence,
+          this.#nextControlSequence,
+          true,
+        );
+        ++this.#nextControlSequence;
+        switch (input.kind) {
+          case "throttle": {
+            if (
+              typeof input.value !== "number" ||
+              !Number.isFinite(input.value) ||
+              input.value < 0 ||
+              input.value > 1
+            ) {
+              throw new TypeError("throttle control value must be in [0, 1]");
+            }
+            view.setUint32(base + Layout.controlCommand.kind, ControlKind.throttle, true);
+            view.setFloat64(base + Layout.controlCommand.throttle, input.value, true);
+            break;
+          }
+          case "ignition":
+            view.setUint32(
+              base + Layout.controlCommand.kind,
+              ControlKind.ignitionEnabled,
+              true,
+            );
+            if (typeof input.value !== "boolean") {
+              throw new TypeError("ignition control value must be boolean");
+            }
+            view.setUint32(
+              base + Layout.controlCommand.enabled,
+              input.value ? 1 : 0,
+              true,
+            );
+            break;
+          case "fuel":
+            view.setUint32(
+              base + Layout.controlCommand.kind,
+              ControlKind.fuelEnabled,
+              true,
+            );
+            if (typeof input.value !== "boolean") {
+              throw new TypeError("fuel control value must be boolean");
+            }
+            view.setUint32(
+              base + Layout.controlCommand.enabled,
+              input.value ? 1 : 0,
+              true,
+            );
+            break;
+          default:
+            throw new EngineSimRuntimeError(
+              `unsupported live control: ${String(input.kind)}`,
+              {
+                operation: "enqueue-controls",
+                detailCode: "browser-runtime-unsupported-control",
+                diagnostics: [],
+              },
+            );
+        }
+      }
+      const status = this.#module._eso_session_enqueue_controls(
+        this.#context,
+        this.#handle,
+        pointer,
+        controls.length,
+        rejection,
+      );
+      this.#client.assertStatus(status, "enqueue-controls");
+      return { accepted: controls.length };
+    } finally {
+      this.#heap.free(rejection);
+      this.#heap.free(pointer);
+    }
+  }
+
+  processBlock(busIndex = this.#auditionBusIndex) {
+    this.#assertAlive();
+    const audio = Layout.audioCopyBuffer;
+    if (
+      !Number.isSafeInteger(busIndex) ||
+      busIndex < 0 ||
+      busIndex >= this.#buses.length
+    ) {
+      throw new EngineSimRuntimeError(
+        `audio bus index ${String(busIndex)} is outside the session descriptor`,
+        {
+          operation: "process-session",
+          detailCode: "browser-runtime-audio-bus-index-invalid",
+          diagnostics: [],
+        },
+      );
+    }
+    const bus = this.#buses[busIndex];
+    const maximumSamples =
+      this.#descriptor.maximumDeliveryFramesPerProcessCall * bus.channelCount;
+    const view = this.#heap.view;
+    this.#heap.bytes.fill(
+      0,
+      this.#audioCopyPointer,
+      this.#audioCopyPointer + audio.size,
+    );
+    this.#heap.bytes.fill(
+      0,
+      this.#processPointer,
+      this.#processPointer + Layout.processInfo.size,
+    );
+    view.setUint32(
+      this.#audioCopyPointer + audio.busIndex,
+      busIndex,
+      true,
+    );
+    view.setUint32(
+      this.#audioCopyPointer + audio.samples,
+      this.#audioPointer,
+      true,
+    );
+    view.setUint32(
+      this.#audioCopyPointer + audio.sampleCapacity,
+      maximumSamples,
+      true,
+    );
+    const status = this.#module._eso_session_process(
+      this.#context,
+      this.#handle,
+      this.#audioCopyPointer,
+      1,
+      this.#telemetryPointer,
+      this.#descriptor.maximumTelemetryFramesPerProcessCall,
+      this.#processPointer,
+    );
+    this.#client.assertStatus(status, "process-session");
+    const process = readProcessInfo(view, this.#processPointer);
+    const telemetry = [];
+    for (let index = 0; index < process.telemetryWritten; ++index) {
+      telemetry.push(
+        readTelemetry(
+          view,
+          this.#telemetryPointer + index * Layout.engineTelemetry.size,
+        ),
+      );
+    }
+    const samplesWritten = view.getUint32(
+      this.#audioCopyPointer + audio.samplesWritten,
+      true,
+    );
+    if (samplesWritten > maximumSamples) {
+      throw new EngineSimRuntimeError(
+        "the C API reported more audio samples than the supplied buffer can hold",
+        {
+          operation: "process-session",
+          detailCode: "browser-runtime-audio-write-overflow",
+          diagnostics: [],
+        },
+      );
+    }
+    const samples = new Float32Array(samplesWritten);
+    samples.set(
+      new Float32Array(
+        this.#heap.buffer,
+        this.#audioPointer,
+        samplesWritten,
+      ),
+    );
+    if (process.kindCode === ProcessKind.completed) {
+      this.#terminal = true;
+    } else if (process.kindCode === ProcessKind.block) {
+      this.#nextDeliveryFrame =
+        BigInt(process.firstDeliveryFrame) + BigInt(process.deliveryFrameCount);
+    } else {
+      throw new EngineSimRuntimeError(
+        `the C API returned unknown process kind ${process.kindCode}`,
+        {
+          operation: "process-session",
+          detailCode: "browser-runtime-process-kind-invalid",
+          diagnostics: [],
+        },
+      );
+    }
+    return {
+      process,
+      telemetry,
+      samples,
+      bus,
+      audible: process.blockPhaseCode === BlockPhase.audible,
+    };
+  }
+
+  dispose() {
+    if (this.#disposed) {
+      return;
+    }
+    this.#disposed = true;
+    this.#heap?.free(this.#processPointer);
+    this.#heap?.free(this.#telemetryPointer);
+    this.#heap?.free(this.#audioCopyPointer);
+    this.#heap?.free(this.#audioPointer);
+    this.#processPointer = 0;
+    this.#telemetryPointer = 0;
+    this.#audioCopyPointer = 0;
+    this.#audioPointer = 0;
+    if (
+      this.#client &&
+      this.#handle !== ESO_INVALID_HANDLE
+    ) {
+      const status = this.#module._eso_destroy_session(
+        this.#context,
+        this.#handle,
+      );
+      this.#handle = ESO_INVALID_HANDLE;
+      this.#client.assertStatus(status, "destroy-session");
+    }
+  }
+
+  #readDescriptor() {
+    const pointer = this.#heap.allocate(
+      Layout.sessionDescriptor.size,
+      "session descriptor",
+    );
+    try {
+      const status = this.#module._eso_session_get_descriptor(
+        this.#context,
+        this.#handle,
+        pointer,
+      );
+      this.#client.assertStatus(status, "inspect-session");
+      const view = this.#heap.view;
+      const layout = Layout.sessionDescriptor;
+      const physicsNumerator = view.getBigUint64(
+        pointer + layout.physicsRateNumerator,
+        true,
+      );
+      const physicsDenominator = view.getBigUint64(
+        pointer + layout.physicsRateDenominator,
+        true,
+      );
+      const deliveryNumerator = view.getBigUint64(
+        pointer + layout.deliveryRateNumerator,
+        true,
+      );
+      const deliveryDenominator = view.getBigUint64(
+        pointer + layout.deliveryRateDenominator,
+        true,
+      );
+      const totalBlocks = view.getBigUint64(
+        pointer + layout.totalBlockCount,
+        true,
+      );
+      const preparationBlocks = view.getBigUint64(
+        pointer + layout.preparationBlockCount,
+        true,
+      );
+      const descriptor = {
+        maximumDeliveryFramesPerProcessCall: view.getUint32(
+          pointer + layout.maximumDeliveryFrames,
+          true,
+        ),
+        controlCommandQueueCapacity: view.getUint32(
+          pointer + layout.controlQueueCapacity,
+          true,
+        ),
+        maximumTelemetryFramesPerProcessCall: view.getUint32(
+          pointer + layout.maximumTelemetryFrames,
+          true,
+        ),
+        physicsRate: {
+          numerator: decimal(physicsNumerator),
+          denominator: decimal(physicsDenominator),
+        },
+        physicsRateHz: exactRate(
+          physicsNumerator,
+          physicsDenominator,
+          "physics rate",
+        ),
+        deliveryRate: {
+          numerator: decimal(deliveryNumerator),
+          denominator: decimal(deliveryDenominator),
+        },
+        deliveryRateHz: exactRate(
+          deliveryNumerator,
+          deliveryDenominator,
+          "delivery rate",
+        ),
+        physicsFramesPerBlock: view.getUint32(
+          pointer + layout.physicsFramesPerBlock,
+          true,
+        ),
+        deliveryFramesPerBlock: view.getUint32(
+          pointer + layout.deliveryFramesPerBlock,
+          true,
+        ),
+        totalBlockCount: decimal(totalBlocks),
+        totalBlockCountBigInt: totalBlocks,
+        preparationBlockCount: decimal(preparationBlocks),
+        preparationBlockCountBigInt: preparationBlocks,
+        audioBusCount: view.getUint32(pointer + layout.audioBusCount, true),
+        acceptsLiveControls:
+          view.getUint32(pointer + layout.acceptsLiveControls, true) !== 0,
+        engineIdUtf8Bytes: view.getUint32(pointer + layout.engineIdBytes, true),
+        scenarioIdUtf8Bytes: view.getUint32(
+          pointer + layout.scenarioIdBytes,
+          true,
+        ),
+      };
+      const identity = this.#readIdentity(descriptor);
+      descriptor.engineId = identity.engineId;
+      descriptor.scenarioId = identity.scenarioId;
+      return descriptor;
+    } finally {
+      this.#heap.free(pointer);
+    }
+  }
+
+  #readIdentity(descriptor) {
+    const engine = this.#heap.allocate(
+      descriptor.engineIdUtf8Bytes + 1,
+      "session engine identity",
+    );
+    const scenario = this.#heap.allocate(
+      descriptor.scenarioIdUtf8Bytes + 1,
+      "session scenario identity",
+    );
+    const buffers = this.#heap.allocate(
+      Layout.sessionIdentityBuffers.size,
+      "session identity buffers",
+    );
+    try {
+      const view = this.#heap.view;
+      const layout = Layout.sessionIdentityBuffers;
+      view.setUint32(buffers + layout.engineData, engine, true);
+      view.setUint32(
+        buffers + layout.engineCapacity,
+        descriptor.engineIdUtf8Bytes + 1,
+        true,
+      );
+      view.setUint32(buffers + layout.scenarioData, scenario, true);
+      view.setUint32(
+        buffers + layout.scenarioCapacity,
+        descriptor.scenarioIdUtf8Bytes + 1,
+        true,
+      );
+      const status = this.#module._eso_session_copy_identity(
+        this.#context,
+        this.#handle,
+        buffers,
+      );
+      this.#client.assertStatus(status, "copy-session-identity");
+      return {
+        engineId: this.#heap.decodeUtf8(engine, descriptor.engineIdUtf8Bytes),
+        scenarioId: this.#heap.decodeUtf8(
+          scenario,
+          descriptor.scenarioIdUtf8Bytes,
+        ),
+      };
+    } finally {
+      this.#heap.free(buffers);
+      this.#heap.free(scenario);
+      this.#heap.free(engine);
+    }
+  }
+
+  #readBuses() {
+    const pointer = this.#heap.allocate(
+      Layout.audioBusDescriptor.size,
+      "audio-bus descriptor",
+    );
+    const idBuffer = this.#heap.allocate(
+      Layout.mutableUtf8Buffer.size,
+      "audio-bus id buffer",
+    );
+    try {
+      const result = [];
+      for (let index = 0; index < this.#descriptor.audioBusCount; ++index) {
+        const status = this.#module._eso_session_get_audio_bus_descriptor(
+          this.#context,
+          this.#handle,
+          index,
+          pointer,
+        );
+        this.#client.assertStatus(status, "inspect-audio-bus");
+        const view = this.#heap.view;
+        const layout = Layout.audioBusDescriptor;
+        const numerator = view.getBigUint64(
+          pointer + layout.sampleRateNumerator,
+          true,
+        );
+        const denominator = view.getBigUint64(
+          pointer + layout.sampleRateDenominator,
+          true,
+        );
+        const idBytes = view.getUint32(pointer + layout.idBytes, true);
+        const idPointer = this.#heap.allocate(idBytes + 1, "audio-bus id");
+        try {
+          view.setUint32(
+            idBuffer + Layout.mutableUtf8Buffer.data,
+            idPointer,
+            true,
+          );
+          view.setUint32(
+            idBuffer + Layout.mutableUtf8Buffer.capacity,
+            idBytes + 1,
+            true,
+          );
+          const copyStatus = this.#module._eso_session_copy_audio_bus_id(
+            this.#context,
+            this.#handle,
+            index,
+            idBuffer,
+          );
+          this.#client.assertStatus(copyStatus, "copy-audio-bus-id");
+          const kind = view.getUint32(pointer + layout.kind, true);
+          const hasRouteId = view.getUint32(pointer + layout.hasRouteId, true) !== 0;
+          result.push({
+            index,
+            id: this.#heap.decodeUtf8(idPointer, idBytes),
+            kind: audioBusKindName(kind),
+            kindCode: kind,
+            channelCount: view.getUint32(pointer + layout.channelCount, true),
+            sampleRate: {
+              numerator: decimal(numerator),
+              denominator: decimal(denominator),
+            },
+            sampleRateHz: exactRate(
+              numerator,
+              denominator,
+              `audio bus ${index} rate`,
+            ),
+            routeId: hasRouteId
+              ? view.getUint32(pointer + layout.routeId, true)
+              : null,
+          });
+        } finally {
+          this.#heap.free(idPointer);
+        }
+      }
+      return result;
+    } finally {
+      this.#heap.free(idBuffer);
+      this.#heap.free(pointer);
+    }
+  }
+
+  #assertAlive() {
+    if (this.#disposed) {
+      throw new EngineSimRuntimeError("the engine session is disposed", {
+        operation: "session",
+        detailCode: "browser-runtime-session-disposed",
+        diagnostics: [],
+      });
+    }
+    if (this.#terminal) {
+      throw new EngineSimRuntimeError("the engine session is terminal", {
+        operation: "session",
+        detailCode: "browser-runtime-session-terminal",
+        diagnostics: [],
+      });
+    }
+  }
+}
+
+export { normalizeU64 };
