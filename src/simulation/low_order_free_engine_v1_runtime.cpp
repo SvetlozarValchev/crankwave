@@ -3,6 +3,7 @@
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <limits>
@@ -96,8 +97,7 @@ preparation_capture_torque(double indicated_gas_torque_nm,
             ~applied_friction_terms);
     result.starter = available_torque(0.0, starter);
     result.instantaneous_net_shaft = available_classified_torque(
-        indicated_gas_torque_nm + applied_source_friction_torque_nm,
-        applied_net_terms,
+        indicated_gas_torque_nm + applied_source_friction_torque_nm, applied_net_terms,
         contract::known_torque_term_mask() & ~applied_net_terms);
     result.cycle_mean_net_shaft =
         unavailable_torque(contract::QuantityUnavailableReason::required_input_missing);
@@ -117,8 +117,8 @@ preparation_capture_torque(double indicated_gas_torque_nm,
 }
 
 [[nodiscard]] contract::TorqueTelemetry released_capture_torque(
-    const detail::PositiveSpeedConfigurationDependentCrankZohStep &motion,
-    double applied_indicated_gas_torque_nm,
+    double held_upstream_engine_torque_nm, double held_resisting_torque_nm,
+    double initial_angular_speed_rad_s, double applied_indicated_gas_torque_nm,
     double applied_source_friction_torque_nm) noexcept {
     const auto crank_friction =
         contract::torque_term_mask(contract::TorqueTerm::crank_friction);
@@ -139,19 +139,18 @@ preparation_capture_torque(double indicated_gas_torque_nm,
             ~applied_friction_terms);
     result.starter = available_torque(0.0, starter);
     result.instantaneous_net_shaft = available_classified_torque(
-        motion.input.held_upstream_engine_torque_nm, applied_net_terms,
+        held_upstream_engine_torque_nm, applied_net_terms,
         contract::known_torque_term_mask() & ~applied_net_terms);
     result.cycle_mean_net_shaft = unavailable_torque(
         contract::QuantityUnavailableReason::cycle_integration_not_admitted);
-    result.actuator = available_torque(-motion.input.held_resisting_torque_nm, 0);
-    result.dyno_reaction = available_torque(motion.input.held_resisting_torque_nm, 0);
+    result.actuator = available_torque(-held_resisting_torque_nm, 0);
+    result.dyno_reaction = available_torque(held_resisting_torque_nm, 0);
     result.cycle_work_j = unavailable_quantity(
         contract::QuantityUnavailableReason::cycle_integration_not_admitted);
     result.net_bmep_pa = unavailable_quantity(
         contract::QuantityUnavailableReason::cycle_integration_not_admitted);
-    result.instantaneous_power_w =
-        available_incomplete_quantity(motion.input.held_upstream_engine_torque_nm *
-                                      motion.input.initial_state.angular_speed_rad_s);
+    result.instantaneous_power_w = available_incomplete_quantity(
+        held_upstream_engine_torque_nm * initial_angular_speed_rad_s);
     result.cycle_mean_power_w = unavailable_quantity(
         contract::QuantityUnavailableReason::cycle_integration_not_admitted);
     return result;
@@ -201,17 +200,18 @@ sampling_failure_summary(const FixedHorizonCycleSamplingError &error) {
 } // namespace
 
 LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
-    ScenarioControlCursor control_cursor, OperatingCycleAccountant accountant,
-    FixedHorizonCycleSampler sampler,
+    ScenarioControlCursor control_cursor,
+    std::optional<OperatingCycleAccountant> accountant,
+    std::optional<FixedHorizonCycleSampler> sampler,
     std::vector<std::size_t> physical_gas_step_indices,
     std::vector<OperatingGasVolumePressureSample> pressure_samples,
     CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan,
     std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders,
     contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
     std::uint64_t release_frame_index, double initial_engine_speed_rpm,
-    double initial_theta_rad, double applied_positive_speed_crank_friction_torque_nm,
-    std::string model_id, std::string profile_id, std::string scenario_id,
-    contract::EngineId engine_id)
+    double initial_theta_rad, bool cold_bootstrap,
+    double applied_positive_speed_crank_friction_torque_nm, std::string model_id,
+    std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
     : control_cursor_(std::move(control_cursor)), accountant_(std::move(accountant)),
       sampler_(std::move(sampler)),
       physical_gas_step_indices_(std::move(physical_gas_step_indices)),
@@ -237,7 +237,11 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
       crank_state_{initial_theta_rad,
                    initial_engine_speed_rpm * std::numbers::pi_v<double> / 30.0},
       model_id_(std::move(model_id)), profile_id_(std::move(profile_id)),
-      scenario_id_(std::move(scenario_id)), engine_id_(engine_id) {
+      scenario_id_(std::move(scenario_id)), engine_id_(engine_id),
+      preparation_finalized_(cold_bootstrap) {
+    if (cold_bootstrap) {
+        previous_indicated_gas_torque_nm_ = 0.0;
+    }
     for (std::size_t index = 0; index < piston_wall_cylinders_.size(); ++index) {
         piston_wall_boundary_phase_rad_[index] = legacy_wrap_2pi(
             initial_theta_rad - piston_wall_cylinders_[index].geometric_tdc_rad);
@@ -289,8 +293,7 @@ LowOrderFreeEngineV1Runtime::stage_piston_wall_friction() {
     if (piston_wall_boundary_index_ != accepted_sample_count_ ||
         piston_wall_cylinders_.empty() ||
         piston_wall_boundary_phase_rad_.size() != piston_wall_cylinders_.size() ||
-        piston_wall_boundary_pressure_pa_abs_.size() !=
-            piston_wall_cylinders_.size() ||
+        piston_wall_boundary_pressure_pa_abs_.size() != piston_wall_cylinders_.size() ||
         retained_piston_wall_reaction_magnitude_n_.size() !=
             piston_wall_cylinders_.size() ||
         piston_wall_stages_.size() != piston_wall_cylinders_.size()) {
@@ -310,8 +313,7 @@ LowOrderFreeEngineV1Runtime::stage_piston_wall_friction() {
             piston_wall_boundary_pressure_pa_abs_[index],
             retained_piston_wall_reaction_magnitude_n_[index],
         });
-        if (const auto *error =
-                std::get_if<EngineSimV1PistonWallError>(&calculation)) {
+        if (const auto *error = std::get_if<EngineSimV1PistonWallError>(&calculation)) {
             return fault(
                 contract::FailureKind::numerical_failure,
                 "free-engine-piston-wall-friction-stage-failed",
@@ -322,8 +324,7 @@ LowOrderFreeEngineV1Runtime::stage_piston_wall_friction() {
         }
         piston_wall_stages_[index] =
             std::get<EngineSimV1PistonWallFrictionStage>(calculation);
-        total_torque_nm +=
-            piston_wall_stages_[index].generalized_friction_torque_nm;
+        total_torque_nm += piston_wall_stages_[index].generalized_friction_torque_nm;
     }
     if (!std::isfinite(total_torque_nm)) {
         return fault(contract::FailureKind::numerical_failure,
@@ -347,8 +348,7 @@ LowOrderFreeEngineV1Runtime::calculate_next_piston_wall_reactions(
     for (std::size_t index = 0; index < piston_wall_cylinders_.size(); ++index) {
         const auto calculation = calculate_engine_sim_v1_next_piston_wall_reaction(
             piston_wall_stages_[index], angular_acceleration_rad_s2);
-        if (const auto *error =
-                std::get_if<EngineSimV1PistonWallError>(&calculation)) {
+        if (const auto *error = std::get_if<EngineSimV1PistonWallError>(&calculation)) {
             return fault(
                 contract::FailureKind::numerical_failure,
                 "free-engine-piston-wall-reaction-failed",
@@ -372,8 +372,7 @@ LowOrderFreeEngineV1Runtime::commit_next_piston_wall_boundary(
         gas.sample_index != mechanics.sample_index ||
         gas.step_end_index != mechanics.step_end_index ||
         mechanics.cylinders.size() != piston_wall_cylinders_.size() ||
-        next_piston_wall_boundary_phase_rad_.size() !=
-            piston_wall_cylinders_.size() ||
+        next_piston_wall_boundary_phase_rad_.size() != piston_wall_cylinders_.size() ||
         next_piston_wall_boundary_pressure_pa_abs_.size() !=
             piston_wall_cylinders_.size()) {
         return fault(contract::FailureKind::contract_violation,
@@ -393,11 +392,9 @@ LowOrderFreeEngineV1Runtime::commit_next_piston_wall_boundary(
                          "mechanics or gas transaction",
                          &mechanics, plan.chamber_volume_id);
         }
-        const auto &mechanism =
-            mechanics.cylinders[plan.mechanism_cylinder_index];
+        const auto &mechanism = mechanics.cylinders[plan.mechanism_cylinder_index];
         const auto &chamber = gas.gas_volumes[plan.chamber_gas_step_index];
-        if (mechanism.cylinder_id != plan.cylinder_id ||
-            !chamber.physically_resolved ||
+        if (mechanism.cylinder_id != plan.cylinder_id || !chamber.physically_resolved ||
             chamber.gas_volume_id != plan.chamber_volume_id) {
             return fault(contract::FailureKind::contract_violation,
                          "free-engine-piston-wall-boundary-identity-disagreed",
@@ -406,8 +403,8 @@ LowOrderFreeEngineV1Runtime::commit_next_piston_wall_boundary(
                          &mechanics, plan.chamber_volume_id);
         }
         const double pressure_pa_abs = legacy_gas_pressure_pa(chamber.cell);
-        if (!std::isfinite(mechanism.phase_rad) ||
-            !std::isfinite(pressure_pa_abs) || !(pressure_pa_abs > 0.0)) {
+        if (!std::isfinite(mechanism.phase_rad) || !std::isfinite(pressure_pa_abs) ||
+            !(pressure_pa_abs > 0.0)) {
             return fault(contract::FailureKind::numerical_failure,
                          "free-engine-piston-wall-boundary-nonphysical",
                          "next piston-wall phase or chamber pressure is nonphysical",
@@ -417,18 +414,20 @@ LowOrderFreeEngineV1Runtime::commit_next_piston_wall_boundary(
         next_piston_wall_boundary_pressure_pa_abs_[index] = pressure_pa_abs;
     }
     if (!std::isfinite(mechanics.angular_speed_rad_s) ||
-        !(mechanics.angular_speed_rad_s > 0.0)) {
+        mechanics.angular_speed_rad_s < 0.0 ||
+        (mechanics.angular_speed_rad_s == 0.0 &&
+         std::signbit(mechanics.angular_speed_rad_s))) {
         return fault(contract::FailureKind::nonphysical_state,
-                     "free-engine-piston-wall-speed-nonpositive",
-                     "next piston-wall boundary requires positive angular speed",
+                     "free-engine-piston-wall-speed-invalid",
+                     "next piston-wall boundary requires canonical nonnegative "
+                     "angular speed",
                      &mechanics);
     }
 
     retained_piston_wall_reaction_magnitude_n_ =
         candidate_piston_wall_reaction_magnitude_n_;
     piston_wall_boundary_phase_rad_ = next_piston_wall_boundary_phase_rad_;
-    piston_wall_boundary_pressure_pa_abs_ =
-        next_piston_wall_boundary_pressure_pa_abs_;
+    piston_wall_boundary_pressure_pa_abs_ = next_piston_wall_boundary_pressure_pa_abs_;
     piston_wall_boundary_angular_speed_rad_s_ = mechanics.angular_speed_rad_s;
     piston_wall_boundary_index_ = mechanics.step_end_index;
     return std::nullopt;
@@ -450,7 +449,13 @@ LowOrderFreeEngineV1Runtime::observe_preparation_cycle(
             pressure.pressure_pa_abs,
         });
     }
-    const auto result = sampler_.observe({
+    if (!sampler_.has_value()) {
+        return fault(contract::FailureKind::contract_violation,
+                     "free-engine-preparation-sampler-missing",
+                     "warm preparation observed a cycle without a compiled sampler",
+                     &mechanics);
+    }
+    const auto result = sampler_->observe({
         completed.indicated_quadrature.completed_cycle_ordinal,
         {
             completed.indicated_quadrature.start_boundary,
@@ -507,6 +512,10 @@ LowOrderFreeEngineV1Runtime::update_accounting(const LegacyMechanismStep &mechan
                      &mechanics);
     }
 
+    if (!accountant_.has_value()) {
+        return std::nullopt;
+    }
+
     for (std::size_t index = 0; index < physical_gas_step_indices_.size(); ++index) {
         const auto gas_index = physical_gas_step_indices_[index];
         if (gas_index >= gas.gas_volumes.size()) {
@@ -531,7 +540,7 @@ LowOrderFreeEngineV1Runtime::update_accounting(const LegacyMechanismStep &mechan
     const double time_s = static_cast<double>(mechanics.step_end_index) *
                           static_cast<double>(rate_.denominator) /
                           static_cast<double>(rate_.numerator);
-    const auto accounting = accountant_.advance({
+    const auto accounting = accountant_->advance({
         mechanics.sample_index,
         time_s,
         mechanics.theta_unwrapped_rad,
@@ -569,7 +578,13 @@ LowOrderFreeEngineV1Runtime::update_accounting(const LegacyMechanismStep &mechan
 std::optional<contract::FailureContext>
 LowOrderFreeEngineV1Runtime::finalize_preparation(
     const LegacyMechanismStep &mechanics) {
-    auto result = sampler_.finalize_at_fixed_horizon();
+    if (!sampler_.has_value() || !accountant_.has_value()) {
+        return fault(contract::FailureKind::contract_violation,
+                     "free-engine-preparation-components-missing",
+                     "warm preparation requires its cycle accountant and sampler",
+                     &mechanics);
+    }
+    auto result = sampler_->finalize_at_fixed_horizon();
     if (const auto *error = std::get_if<FixedHorizonCycleSamplingError>(&result)) {
         return fault(error->code == FixedHorizonCycleSamplingErrorCode::nonfinite_result
                          ? contract::FailureKind::numerical_failure
@@ -641,11 +656,11 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
 
     if (accepted_sample_count_ < release_frame_index_) {
         if (overrides.any()) {
-            return fail(fault(
-                contract::FailureKind::contract_violation,
-                "free-engine-live-controls-during-held-preparation",
-                "live throttle, ignition, fuel, limiter, and external-resistance "
-                "overrides are not admitted during fixed held preparation"));
+            return fail(
+                fault(contract::FailureKind::contract_violation,
+                      "free-engine-live-controls-during-held-preparation",
+                      "live throttle, ignition, fuel, limiter, and external-resistance "
+                      "overrides are not admitted during fixed held preparation"));
         }
         const double omega =
             initial_engine_speed_rpm_ * std::numbers::pi_v<double> / 30.0;
@@ -680,13 +695,12 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
                 std::bit_cast<std::uint64_t>(controls->requested_throttle) &&
             mechanics.operating_state == controls->operating_state;
         const auto &state = mechanics.operating_state;
-        if (!exact_held_controls || !state.ignition_enabled || !state.fuel_enabled ||
-            state.starter_enabled || state.dyno_enabled) {
+        if (!exact_held_controls || state.starter_enabled || state.dyno_enabled) {
             return fail(fault(
                 contract::FailureKind::contract_violation,
                 "free-engine-held-condition-disagreed",
                 "preparation transaction differs from the compiled RPM, throttle, "
-                "or warm fired free-engine state",
+                "or starter-off and dyno-off free-engine state",
                 &mechanics));
         }
         if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
@@ -712,23 +726,34 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
                     applied_piston_wall_friction_torque_nm_)};
     }
 
-    if (!preparation_finalized_ || !previous_indicated_gas_torque_nm_.has_value() ||
-        !latest_completed_cycle_.has_value()) {
-        return fail(
-            fault(contract::FailureKind::contract_violation,
-                  "free-engine-causal-input-missing",
-                  "released motion requires finalized preparation, prior committed "
-                  "indicated torque, and complete preparation-cycle evidence"));
+    if (!preparation_finalized_ || !previous_indicated_gas_torque_nm_.has_value()) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "free-engine-causal-input-missing",
+                          "released motion requires finalized preparation and prior "
+                          "committed indicated torque"));
     }
 
     const double applied_indicated = *previous_indicated_gas_torque_nm_;
-    const double applied_source_friction =
-        applied_positive_speed_crank_friction_torque_nm_ +
-        applied_piston_wall_friction_torque_nm_;
+    constexpr double applied_starter_torque_nm = 0.0;
     const double applied_external_resisting_torque_nm =
         overrides.has_external_resisting_torque_nm
             ? overrides.external_resisting_torque_nm
             : controls->external_resisting_torque_nm;
+    const double applied_crank_friction_torque_nm =
+        crank_state_.angular_speed_rad_s > 0.0
+            ? applied_positive_speed_crank_friction_torque_nm_
+            : std::clamp(applied_external_resisting_torque_nm -
+                             (applied_indicated +
+                              applied_piston_wall_friction_torque_nm_ +
+                              applied_starter_torque_nm),
+                         applied_positive_speed_crank_friction_torque_nm_,
+                         -applied_positive_speed_crank_friction_torque_nm_);
+    const double applied_source_friction =
+        applied_crank_friction_torque_nm + applied_piston_wall_friction_torque_nm_;
+    const double applied_upstream_engine_torque_nm =
+        applied_starter_torque_nm == 0.0
+            ? applied_indicated + applied_source_friction
+            : applied_indicated + applied_source_friction + applied_starter_torque_nm;
     const auto inertia_calculation =
         evaluate_centered_slider_crank_configuration_inertia(
             configuration_inertia_plan_, crank_state_.theta_rad);
@@ -744,38 +769,27 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     }
     const auto &inertia =
         std::get<CenteredSliderCrankConfigurationInertia>(inertia_calculation);
-    const auto motion_calculation =
-        detail::advance_positive_speed_configuration_dependent_crank_zoh({
+    auto motion_calculation =
+        detail::advance_nonnegative_speed_configuration_dependent_crank_zoh({
             inertia.total_inertia_kg_m2,
             inertia.total_derivative_kg_m2_per_rad,
             crank_state_,
-            applied_indicated + applied_source_friction,
+            applied_upstream_engine_torque_nm,
             applied_external_resisting_torque_nm,
             step_s_,
         });
-    if (const auto *error =
-            std::get_if<detail::PositiveSpeedConfigurationDependentCrankZohInputError>(
-                &motion_calculation)) {
+    if (const auto *error = std::get_if<
+            detail::NonnegativeSpeedConfigurationDependentCrankZohInputError>(
+            &motion_calculation)) {
         return fail(
             fault(contract::FailureKind::numerical_failure,
                   "free-engine-crank-dynamics-failed",
-                  "positive-speed configuration-dependent crank step rejected "
+                  "nonnegative-speed configuration-dependent crank step rejected "
                   "input; issue=" +
                       std::to_string(static_cast<std::uint32_t>(error->issue))));
     }
-    if (const auto *stall =
-            std::get_if<detail::PositiveSpeedConfigurationDependentCrankZohStall>(
-                &motion_calculation)) {
-        return fail(fault(
-            contract::FailureKind::nonphysical_state, "free-engine-crank-stalled",
-            "external resistance reached zero speed before the end of the physics "
-            "step; stop-time-s=" +
-                std::to_string(stall->stall_time_s) +
-                "; stop-theta-rad=" + std::to_string(stall->stall_theta_rad)));
-    }
-    const auto &motion =
-        std::get<detail::PositiveSpeedConfigurationDependentCrankZohStep>(
-            motion_calculation);
+    auto motion = std::get<detail::NonnegativeSpeedConfigurationDependentCrankZohStep>(
+        motion_calculation);
     if (auto failure =
             calculate_next_piston_wall_reactions(motion.angular_acceleration_rad_s2);
         failure.has_value()) {
@@ -805,9 +819,14 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     // right-continuous external resistance used for its motion. Newly committed
     // gas state becomes causal input only for the following frame.
     const auto capture_torque =
-        released_capture_torque(motion, applied_indicated, applied_source_friction);
-    if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
-        return fail(std::move(*failure));
+        released_capture_torque(motion.input.held_upstream_engine_torque_nm,
+                                motion.input.held_resisting_torque_nm,
+                                motion.input.initial_state.angular_speed_rad_s,
+                                applied_indicated, applied_source_friction);
+    if (mechanics.engine_speed_rpm > 0.0) {
+        if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
+            return fail(std::move(*failure));
+        }
     }
     if (auto failure = commit_next_piston_wall_boundary(mechanics, gas);
         failure.has_value()) {

@@ -51,18 +51,21 @@ void ScenarioResolver::compile_mode() {
             using T = std::decay_t<decltype(mode)>;
             if constexpr (std::is_same_v<T, authoring::FreeEngineMode>) {
                 const auto &method = simulation::
-                    warm_running_free_engine_centered_slider_crank_method_identity();
+                    nonnegative_speed_free_engine_centered_slider_crank_method_identity();
                 const auto method_validation = contract::validate(method);
                 if (!method_validation.ok()) {
                     append_contract_report(report_, method_validation,
                                            authoring::DiagnosticCode::internal_failure,
                                            "");
                 }
-                if (!(request_input_.authored_initial_engine_speed_rpm > 0.0)) {
+                if (!std::isfinite(request_input_.authored_initial_engine_speed_rpm) ||
+                    request_input_.authored_initial_engine_speed_rpm < 0.0 ||
+                    (request_input_.authored_initial_engine_speed_rpm == 0.0 &&
+                     std::signbit(request_input_.authored_initial_engine_speed_rpm))) {
                     add(authoring::DiagnosticCode::out_of_range,
                         "/initial_state/engine_speed",
-                        "warm-running free-engine execution requires a positive "
-                        "initial engine speed");
+                        "free-engine execution requires a finite canonical "
+                        "nonnegative initial engine speed");
                 }
 
                 contract::FreeEngine free_engine;

@@ -29,9 +29,9 @@ struct LowOrderFreeEngineV1PistonWallCylinderPlan {
     double initial_chamber_pressure_pa_abs = 0.0;
     EngineSimV1PistonWallCylinderPlan friction;
 
-    friend bool operator==(const LowOrderFreeEngineV1PistonWallCylinderPlan &,
-                           const LowOrderFreeEngineV1PistonWallCylinderPlan &) =
-        default;
+    friend bool
+    operator==(const LowOrderFreeEngineV1PistonWallCylinderPlan &,
+               const LowOrderFreeEngineV1PistonWallCylinderPlan &) = default;
 };
 
 struct LowOrderFreeEngineV1StepView {
@@ -44,9 +44,10 @@ using LowOrderFreeEngineV1AdvanceResult =
     std::variant<LowOrderFreeEngineV1StepView, LowOrderEngineCoreV1Completed,
                  contract::FailureContext>;
 
-// Owns warm held preparation and the subsequent unconstrained positive-speed crank
-// motion around one shared low-order core. The core retains all gas, flame,
-// randomness, pressure-history, and event state across the release boundary.
+// Owns either warm held preparation or a zero-duration cold bootstrap followed by
+// nonnegative crank motion around one shared low-order core. The core retains all
+// gas, flame, randomness, pressure-history, and event state across the release
+// boundary. Reverse rotation is not part of this runtime.
 class LowOrderFreeEngineV1Runtime final {
   public:
     LowOrderFreeEngineV1Runtime(const LowOrderFreeEngineV1Runtime &) = delete;
@@ -69,15 +70,16 @@ class LowOrderFreeEngineV1Runtime final {
 
   private:
     LowOrderFreeEngineV1Runtime(
-        ScenarioControlCursor control_cursor, OperatingCycleAccountant accountant,
-        FixedHorizonCycleSampler sampler,
+        ScenarioControlCursor control_cursor,
+        std::optional<OperatingCycleAccountant> accountant,
+        std::optional<FixedHorizonCycleSampler> sampler,
         std::vector<std::size_t> physical_gas_step_indices,
         std::vector<OperatingGasVolumePressureSample> pressure_samples,
         CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan,
         std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders,
         contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
         std::uint64_t release_frame_index, double initial_engine_speed_rpm,
-        double initial_theta_rad,
+        double initial_theta_rad, bool cold_bootstrap,
         double applied_positive_speed_crank_friction_torque_nm, std::string model_id,
         std::string profile_id, std::string scenario_id, contract::EngineId engine_id);
 
@@ -95,8 +97,7 @@ class LowOrderFreeEngineV1Runtime final {
                               const LegacyMechanismStep &mechanics);
     [[nodiscard]] std::optional<contract::FailureContext>
     finalize_preparation(const LegacyMechanismStep &mechanics);
-    [[nodiscard]] std::optional<contract::FailureContext>
-    stage_piston_wall_friction();
+    [[nodiscard]] std::optional<contract::FailureContext> stage_piston_wall_friction();
     [[nodiscard]] std::optional<contract::FailureContext>
     calculate_next_piston_wall_reactions(double angular_acceleration_rad_s2);
     [[nodiscard]] std::optional<contract::FailureContext>
@@ -104,8 +105,8 @@ class LowOrderFreeEngineV1Runtime final {
                                      const LegacyLowOrderGasStep &gas);
 
     ScenarioControlCursor control_cursor_;
-    OperatingCycleAccountant accountant_;
-    FixedHorizonCycleSampler sampler_;
+    std::optional<OperatingCycleAccountant> accountant_;
+    std::optional<FixedHorizonCycleSampler> sampler_;
     std::vector<std::size_t> physical_gas_step_indices_;
     std::vector<OperatingGasVolumePressureSample> pressure_samples_;
     CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan_;

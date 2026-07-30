@@ -12,6 +12,7 @@
 #include <exception>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -462,16 +463,12 @@ void test_mechanics_uses_authored_direct_throttle_transform() {
     auto session = require_session(compile_fixture(fixture));
     auto result = session.advance();
     const auto &step = require_step(result);
-    const auto expected =
-        evaluate_legacy_direct_throttle(0.25, 1.65, 0.99715);
-    expect_near(step.resolved_engine_throttle_01,
-                expected.resolved_engine_throttle_01, 0.0,
-                "mechanics ignored the authored direct-throttle gamma");
-    expect_near(step.intake_plate_position_01,
-                expected.intake_plate_position_01, 0.0,
+    const auto expected = evaluate_legacy_direct_throttle(0.25, 1.65, 0.99715);
+    expect_near(step.resolved_engine_throttle_01, expected.resolved_engine_throttle_01,
+                0.0, "mechanics ignored the authored direct-throttle gamma");
+    expect_near(step.intake_plate_position_01, expected.intake_plate_position_01, 0.0,
                 "mechanics ignored the authored idle plate position");
-    expect_near(step.main_flow_multiplier_01,
-                expected.main_flow_multiplier_01, 0.0,
+    expect_near(step.main_flow_multiplier_01, expected.main_flow_multiplier_01, 0.0,
                 "mechanics changed the authored intake flow attenuation");
 }
 
@@ -519,6 +516,71 @@ void test_mechanics_accepts_external_post_step_motion_for_inertial_controls() {
                repeated_context != nullptr &&
                repeated_context->detail_code == context->detail_code,
            "dynamic mechanics did not fail closed when motion was omitted");
+}
+
+void test_mechanics_accepts_canonical_external_zero_motion() {
+    MechanicsFixture fixture;
+    configure_inertial_controls(fixture);
+    auto session = require_session(compile_dynamic_fixture(fixture));
+
+    auto stopped_result = session.advance(PostStepCrankMotion{0.0, 0.0});
+    const auto &stopped = require_step(stopped_result);
+    expect(stopped.sample_index == 0U && stopped.step_end_index == 1U &&
+               stopped.requested_throttle_01 == 0.25 &&
+               std::bit_cast<std::uint64_t>(stopped.engine_speed_rpm) ==
+                   std::bit_cast<std::uint64_t>(0.0) &&
+               std::bit_cast<std::uint64_t>(stopped.angular_speed_rad_s) ==
+                   std::bit_cast<std::uint64_t>(0.0),
+           "canonical stopped motion did not advance one complete mechanics step");
+    expect(std::bit_cast<std::uint64_t>(stopped.body_angle_psi_rad) ==
+                   std::bit_cast<std::uint64_t>(0.0) &&
+               std::bit_cast<std::uint64_t>(stopped.theta_cycle_rad) ==
+                   std::bit_cast<std::uint64_t>(0.0) &&
+               std::bit_cast<std::uint64_t>(stopped.theta_unwrapped_rad) ==
+                   std::bit_cast<std::uint64_t>(0.0),
+           "canonical stopped motion changed the crank angle");
+    expect(stopped.events.empty() && !stopped.cylinders.front().spark_crossed,
+           "canonical stopped motion emitted a spark crossing");
+    const double stopped_theta_cycle_rad = stopped.theta_cycle_rad;
+    const double stopped_theta_unwrapped_rad = stopped.theta_unwrapped_rad;
+
+    auto resolved_speed_result = session.advance(PostStepCrankMotion{1250.0, 0.0});
+    const auto &resolved_speed = require_step(resolved_speed_result);
+    expect(resolved_speed.sample_index == 1U &&
+               resolved_speed.engine_speed_rpm == 1250.0 &&
+               resolved_speed.theta_cycle_rad == stopped_theta_cycle_rad &&
+               resolved_speed.theta_unwrapped_rad == stopped_theta_unwrapped_rad &&
+               resolved_speed.events.empty() &&
+               !resolved_speed.cylinders.front().spark_crossed,
+           "zero displacement with positive post-step RPM changed crank phase");
+
+    auto moving_result = session.advance(PostStepCrankMotion{1250.0, 0.02});
+    const auto &moving = require_step(moving_result);
+    expect(moving.sample_index == 2U && moving.theta_unwrapped_rad == 0.02,
+           "positive external motion changed after admitting stopped motion");
+}
+
+void test_mechanics_rejects_noncanonical_external_motion() {
+    const double infinity = std::numeric_limits<double>::infinity();
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const std::array invalid_motions{
+        PostStepCrankMotion{-0.0, 0.0},     PostStepCrankMotion{-1.0, 0.0},
+        PostStepCrankMotion{infinity, 0.0}, PostStepCrankMotion{nan, 0.0},
+        PostStepCrankMotion{0.0, -0.0},     PostStepCrankMotion{0.0, -1.0e-12},
+        PostStepCrankMotion{0.0, infinity}, PostStepCrankMotion{0.0, nan},
+    };
+
+    for (const auto motion : invalid_motions) {
+        MechanicsFixture fixture;
+        configure_inertial_controls(fixture);
+        auto session = require_session(compile_dynamic_fixture(fixture));
+        const auto result = session.advance(motion);
+        const auto *failure = std::get_if<FailureContext>(&result);
+        expect(failure != nullptr &&
+                   failure->detail_code == "legacy-mechanics-invalid-post-step-motion",
+               "external mechanics admitted negative zero, a negative value, or a "
+               "nonfinite motion scalar");
+    }
 }
 
 void test_mechanics_uniform_limiter_disabled_policy() {
@@ -680,6 +742,8 @@ void run_tests() {
     test_mechanics_accepts_compiled_held_speed_schedule();
     test_mechanics_uses_authored_direct_throttle_transform();
     test_mechanics_accepts_external_post_step_motion_for_inertial_controls();
+    test_mechanics_accepts_canonical_external_zero_motion();
+    test_mechanics_rejects_noncanonical_external_motion();
     test_mechanics_uniform_limiter_disabled_policy();
     test_mechanics_applies_live_limiter_and_external_resistance();
     test_mechanics_compile_rejections();

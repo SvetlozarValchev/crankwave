@@ -27,6 +27,10 @@ bool finite_step_scalars(const LegacyMechanismStep &step) noexcept {
            std::isfinite(step.limiter_timer_s);
 }
 
+bool finite_canonical_nonnegative(double value) noexcept {
+    return std::isfinite(value) && value >= 0.0 && !std::signbit(value);
+}
+
 } // namespace
 
 LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
@@ -37,8 +41,7 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
     std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
     double throttle_gamma, double idle_throttle_plate_position_01,
     double limiter_speed_rpm, double limiter_hold_s, std::string model_id,
-    std::string profile_id, std::string scenario_id,
-    contract::EngineId engine_id)
+    std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
     : control_cursor_(std::move(control_cursor)),
       kinematic_cursor_(std::move(kinematic_cursor)), rate_(rate),
       crank_tdc_reference_rad_(crank_tdc_reference_rad), step_s_(1.0 / 10000.0),
@@ -93,8 +96,8 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance() {
     return advance_with_motion(std::nullopt, {});
 }
 
-LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance(
-    const LiveControlOverrides &overrides) {
+LegacyMechanicsAdvanceResult
+LegacyLowOrderMechanicsSession::advance(const LiveControlOverrides &overrides) {
     return advance_with_motion(std::nullopt, overrides);
 }
 
@@ -103,14 +106,14 @@ LegacyLowOrderMechanicsSession::advance(PostStepCrankMotion motion) {
     return advance_with_motion(motion, {});
 }
 
-LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance(
-    PostStepCrankMotion motion, const LiveControlOverrides &overrides) {
+LegacyMechanicsAdvanceResult
+LegacyLowOrderMechanicsSession::advance(PostStepCrankMotion motion,
+                                        const LiveControlOverrides &overrides) {
     return advance_with_motion(motion, overrides);
 }
 
 LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion(
-    std::optional<PostStepCrankMotion> motion,
-    const LiveControlOverrides &overrides) {
+    std::optional<PostStepCrankMotion> motion, const LiveControlOverrides &overrides) {
     if (terminal_fault_.has_value()) {
         return *terminal_fault_;
     }
@@ -132,12 +135,11 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
         return *terminal_fault_;
     }
     if (overrides.has_throttle &&
-        (!std::isfinite(overrides.throttle_01) ||
-         overrides.throttle_01 < 0.0 || overrides.throttle_01 > 1.0)) {
-        terminal_fault_ = fault(
-            contract::FailureKind::contract_violation,
-            "legacy-mechanics-invalid-live-throttle",
-            "live throttle override must be finite and in [0, 1]");
+        (!std::isfinite(overrides.throttle_01) || overrides.throttle_01 < 0.0 ||
+         overrides.throttle_01 > 1.0)) {
+        terminal_fault_ = fault(contract::FailureKind::contract_violation,
+                                "legacy-mechanics-invalid-live-throttle",
+                                "live throttle override must be finite and in [0, 1]");
         return *terminal_fault_;
     }
     if (overrides.has_external_resisting_torque_nm &&
@@ -151,17 +153,15 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
         return *terminal_fault_;
     }
     if (motion.has_value()) {
-        if (!std::isfinite(motion->engine_speed_rpm) ||
-            motion->engine_speed_rpm < 0.0 ||
-            !std::isfinite(motion->angular_displacement_rad) ||
-            !(motion->angular_displacement_rad > 0.0) ||
+        if (!finite_canonical_nonnegative(motion->engine_speed_rpm) ||
+            !finite_canonical_nonnegative(motion->angular_displacement_rad) ||
             !(motion->angular_displacement_rad < 4.0 * kLegacyPi)) {
             terminal_fault_ =
                 fault(contract::FailureKind::contract_violation,
                       "legacy-mechanics-invalid-post-step-motion",
-                      "external post-step RPM must be finite and nonnegative; angular "
-                      "displacement must be finite, positive, and less than one "
-                      "engine cycle per physics step");
+                      "external post-step RPM and angular displacement must be finite "
+                      "canonical nonnegative values; angular displacement must be "
+                      "less than one engine cycle per physics step");
             return *terminal_fault_;
         }
     }
@@ -210,12 +210,10 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
         step_.operating_state.limiter_enabled = overrides.limiter_enabled;
     }
     step_.requested_throttle_01 =
-        overrides.has_throttle ? overrides.throttle_01
-                               : controls->requested_throttle;
-    step_.external_resisting_torque_nm =
-        overrides.has_external_resisting_torque_nm
-            ? overrides.external_resisting_torque_nm
-            : 0.0;
+        overrides.has_throttle ? overrides.throttle_01 : controls->requested_throttle;
+    step_.external_resisting_torque_nm = overrides.has_external_resisting_torque_nm
+                                             ? overrides.external_resisting_torque_nm
+                                             : 0.0;
     step_.engine_speed_rpm =
         motion.has_value() ? motion->engine_speed_rpm : kinematic->rpm;
 
@@ -226,21 +224,21 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
                                                 : step_.angular_speed_rad_s * step_s_;
     step_.angular_acceleration_rad_s2 =
         (step_.angular_speed_rad_s - previous_angular_speed_rad_s_) / step_s_;
-    body_angle_psi_rad_ =
-        std::fmod(body_angle_psi_rad_ - angular_displacement_rad, 4.0 * kLegacyPi);
-    theta_cycle_rad_ = legacy_positive_mod(
-        -(body_angle_psi_rad_ - crank_tdc_reference_rad_), 4.0 * kLegacyPi);
-    theta_unwrapped_rad_ += angular_displacement_rad;
+    if (angular_displacement_rad > 0.0) {
+        body_angle_psi_rad_ =
+            std::fmod(body_angle_psi_rad_ - angular_displacement_rad, 4.0 * kLegacyPi);
+        theta_cycle_rad_ = legacy_positive_mod(
+            -(body_angle_psi_rad_ - crank_tdc_reference_rad_), 4.0 * kLegacyPi);
+        theta_unwrapped_rad_ += angular_displacement_rad;
+    }
     previous_angular_speed_rad_s_ = step_.angular_speed_rad_s;
     step_.body_angle_psi_rad = body_angle_psi_rad_;
     step_.theta_cycle_rad = theta_cycle_rad_;
     step_.theta_unwrapped_rad = theta_unwrapped_rad_;
 
     const auto throttle = evaluate_legacy_direct_throttle(
-        step_.requested_throttle_01, throttle_gamma_,
-        idle_throttle_plate_position_01_);
-    step_.resolved_engine_throttle_01 =
-        throttle.resolved_engine_throttle_01;
+        step_.requested_throttle_01, throttle_gamma_, idle_throttle_plate_position_01_);
+    step_.resolved_engine_throttle_01 = throttle.resolved_engine_throttle_01;
     step_.intake_plate_position_01 = throttle.intake_plate_position_01;
     step_.main_flow_multiplier_01 = throttle.main_flow_multiplier_01;
 

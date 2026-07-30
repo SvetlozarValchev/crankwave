@@ -39,6 +39,47 @@ FailureContext unreachable_context() {
     };
 }
 
+void configure_stopped_free_engine(InputBuilder &builder, RenderScenario &scenario) {
+    std::erase_if(builder.provenance.resolutions, [](const auto &resolution) {
+        return resolution.parameter_path.starts_with("scenario.mode.");
+    });
+
+    scenario.scenario_id = "stopped-free-engine-contract";
+    scenario.mode = FreeEngine{
+        builder.resolved(0.0, "scenario.mode.initial_engine_speed_rpm"),
+        builder.resolved(0.0, "scenario.mode.initial_theta_rad"),
+        builder.resolved(0.20, "scenario.mode.engine_baseline_inertia_kg_m2"),
+        builder.resolved(0.0, "scenario.mode.attached_inertia_kg_m2"),
+        builder.resolved(0.20, "scenario.mode.total_equivalent_inertia_kg_m2"),
+        {
+            TrajectoryInterpolation::right_continuous_hold,
+            {{0.0, 0.0}},
+            builder.add_resolution("scenario.mode.throttle_01"),
+        },
+        {
+            TrajectoryInterpolation::right_continuous_hold,
+            {{0.0, 0.0}},
+            builder.add_resolution("scenario.mode.external_resisting_torque_nm"),
+        },
+        builder.resolved(method("free-engine-contract-test-v1", 73),
+                         "scenario.mode.crank_dynamics_method"),
+    };
+    scenario.mode_resolution_id = builder.add_resolution("scenario.mode.kind");
+    scenario.preparation = FixedSettling{
+        builder.resolved(0.0, "scenario.preparation.warm_up_duration_s"),
+        builder.resolved(0.0, "scenario.preparation.settling_duration_s"),
+    };
+    scenario.audible_start_s.value = 0.0;
+    scenario.audible_duration_s.value = scenario.total_duration_s.value;
+    scenario.operating_state.value = {
+        {
+            "stopped",
+            0.0,
+            OperatingState{false, false, false, false, false},
+        },
+    };
+}
+
 } // namespace
 
 void run_scenario_manifest_contract_tests() {
@@ -343,6 +384,95 @@ void run_scenario_manifest_contract_tests() {
     missing_operating_state.operating_state.value.clear();
     expect(!validate_for_engine(missing_operating_state, operating_engine).ok(),
            "operating profile accepted an empty operating-state journal");
+
+    InputBuilder stopped_free_engine_builder;
+    auto stopped_free_engine_content =
+        make_manifest_content(stopped_free_engine_builder);
+    const auto stopped_free_engine =
+        simulation_inputs(stopped_free_engine_content).engine;
+    auto stopped_free_engine_scenario =
+        simulation_inputs(stopped_free_engine_content).scenario;
+    const auto fixed_horizon_preparation = stopped_free_engine_scenario.preparation;
+    configure_stopped_free_engine(stopped_free_engine_builder,
+                                  stopped_free_engine_scenario);
+
+    expect(
+        validate(stopped_free_engine_scenario, stopped_free_engine_builder.provenance)
+            .ok(),
+        "canonical zero-speed free engine with immediate zero settling was "
+        "rejected");
+    expect(validate_for_engine(stopped_free_engine_scenario, stopped_free_engine).ok(),
+           "free engine rejected ignition and fuel off while starter and dyno were "
+           "off");
+
+    auto negative_zero_initial_speed = stopped_free_engine_scenario;
+    std::get<FreeEngine>(negative_zero_initial_speed.mode)
+        .initial_engine_speed_rpm.value = -0.0;
+    auto free_engine_report =
+        validate(negative_zero_initial_speed, stopped_free_engine_builder.provenance);
+    expect(!free_engine_report.ok() &&
+               has_issue(free_engine_report, ContractIssueCode::invalid_value, "mode"),
+           "free engine accepted negative-zero initial speed");
+
+    auto negative_zero_warm_up = stopped_free_engine_scenario;
+    std::get<FixedSettling>(negative_zero_warm_up.preparation)
+        .warm_up_duration_s.value = -0.0;
+    free_engine_report =
+        validate(negative_zero_warm_up, stopped_free_engine_builder.provenance);
+    expect(!free_engine_report.ok() &&
+               has_issue(free_engine_report, ContractIssueCode::inconsistent_semantics,
+                         "preparation"),
+           "stopped free engine accepted negative-zero warm-up duration");
+
+    auto negative_zero_settling = stopped_free_engine_scenario;
+    std::get<FixedSettling>(negative_zero_settling.preparation)
+        .settling_duration_s.value = -0.0;
+    free_engine_report =
+        validate(negative_zero_settling, stopped_free_engine_builder.provenance);
+    expect(!free_engine_report.ok() &&
+               has_issue(free_engine_report, ContractIssueCode::inconsistent_semantics,
+                         "preparation"),
+           "stopped free engine accepted negative-zero settling duration");
+
+    auto negative_zero_audible_start = stopped_free_engine_scenario;
+    negative_zero_audible_start.audible_start_s.value = -0.0;
+    free_engine_report =
+        validate(negative_zero_audible_start, stopped_free_engine_builder.provenance);
+    expect(!free_engine_report.ok() &&
+               has_issue(free_engine_report, ContractIssueCode::inconsistent_semantics,
+                         "preparation"),
+           "stopped free engine accepted negative-zero audible start");
+
+    auto zero_speed_fixed_horizon = stopped_free_engine_scenario;
+    zero_speed_fixed_horizon.preparation = fixed_horizon_preparation;
+    zero_speed_fixed_horizon.audible_start_s.value = 2.0;
+    zero_speed_fixed_horizon.audible_duration_s.value = 1.0;
+    free_engine_report =
+        validate(zero_speed_fixed_horizon, stopped_free_engine_builder.provenance);
+    expect(!free_engine_report.ok() &&
+               has_issue(free_engine_report, ContractIssueCode::inconsistent_semantics,
+                         "preparation"),
+           "zero-speed free engine accepted fixed-horizon preparation");
+
+    auto positive_speed_fixed_settling = stopped_free_engine_scenario;
+    std::get<FreeEngine>(positive_speed_fixed_settling.mode)
+        .initial_engine_speed_rpm.value = 1500.0;
+    free_engine_report =
+        validate(positive_speed_fixed_settling, stopped_free_engine_builder.provenance);
+    expect(!free_engine_report.ok() &&
+               has_issue(free_engine_report, ContractIssueCode::unsupported_value,
+                         "preparation"),
+           "positive-speed free engine accepted fixed settling");
+
+    auto starter_enabled_free_engine = stopped_free_engine_scenario;
+    starter_enabled_free_engine.operating_state.value.front().state.starter_enabled =
+        true;
+    free_engine_report =
+        validate_for_engine(starter_enabled_free_engine, stopped_free_engine);
+    expect(!free_engine_report.ok() &&
+               has_issue(free_engine_report, ContractIssueCode::inconsistent_semantics,
+                         "operating_state.value"),
+           "free engine admitted starter engagement before starter capability");
 
     expect(validate(content, builder.provenance, source_matrix).ok(),
            "valid render manifest content was rejected");

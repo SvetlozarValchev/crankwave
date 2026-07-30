@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -37,6 +38,45 @@ using engine_sim_offline::contract::test::expect;
 
 [[nodiscard]] authoring::RationalRate rate(std::uint64_t numerator) {
     return {numerator, 1U, "Hz"};
+}
+
+void test_free_engine_method_identity_is_bound_to_nonnegative_semantics() {
+    constexpr std::string_view kExpectedId =
+        "nonnegative-speed-free-engine-centered-slider-crank-v1";
+    const auto descriptor = engine_sim_offline::simulation::
+        nonnegative_speed_free_engine_centered_slider_crank_method_descriptor();
+    const auto descriptor_digest = contract::sha256(
+        std::as_bytes(std::span<const char>{descriptor.data(), descriptor.size()}));
+    const auto &identity = engine_sim_offline::simulation::
+        nonnegative_speed_free_engine_centered_slider_crank_method_identity();
+
+    expect(!descriptor.empty() && descriptor.back() == '\n' &&
+               descriptor.find('\r') == std::string_view::npos &&
+               descriptor.find('\0') == std::string_view::npos,
+           "free-engine method descriptor is not canonical LF text");
+    expect(
+        identity.id == kExpectedId &&
+            identity.id == engine_sim_offline::simulation::
+                               kNonnegativeSpeedFreeEngineCenteredSliderCrankMethodId &&
+            identity.version ==
+                engine_sim_offline::simulation::
+                    kNonnegativeSpeedFreeEngineCenteredSliderCrankMethodVersion &&
+            identity.configuration_sha256 == descriptor_digest &&
+            contract::validate(identity).ok() &&
+            &identity ==
+                &engine_sim_offline::simulation::
+                    nonnegative_speed_free_engine_centered_slider_crank_method_identity(),
+        "free-engine method identity is invalid, unstable, or detached from its "
+        "canonical descriptor");
+    expect(descriptor.find("positive-speed-arithmetic=") != std::string_view::npos &&
+               descriptor.find("cold-bootstrap=") != std::string_view::npos &&
+               descriptor.find("stall-commit=") != std::string_view::npos &&
+               descriptor.find("rest-constraint=") != std::string_view::npos &&
+               descriptor.find("rest-motion=") != std::string_view::npos &&
+               descriptor.find("reverse=unsupported-and-never-published") !=
+                   std::string_view::npos,
+           "free-engine method descriptor lost nonnegative-speed execution "
+           "semantics");
 }
 
 [[nodiscard]] authoring::ScenarioDocument held_speed_scenario(std::string engine_id,
@@ -266,10 +306,11 @@ void test_held_speed_resolution_on_the_integer_clock() {
                free_engine.external_resisting_torque_nm.points.size() == 2U &&
                free_engine.external_resisting_torque_nm.points.front().value == 10.0,
            "free-engine controls changed during SI resolution");
-    expect(free_engine.crank_dynamics_method.value ==
-               engine_sim_offline::simulation::
-                   warm_running_free_engine_centered_slider_crank_method_identity(),
-           "free-engine resolver selected the wrong crank-dynamics method");
+    expect(
+        free_engine.crank_dynamics_method.value ==
+            engine_sim_offline::simulation::
+                nonnegative_speed_free_engine_centered_slider_crank_method_identity(),
+        "free-engine resolver selected the wrong crank-dynamics method");
     expect(!free_engine.initial_engine_speed_rpm.resolution_id.empty() &&
                !free_engine.engine_baseline_inertia_kg_m2.resolution_id.empty() &&
                !free_engine.attached_inertia_kg_m2.resolution_id.empty() &&
@@ -355,6 +396,7 @@ void test_held_speed_resolution_on_the_integer_clock() {
 
 int main() {
     try {
+        test_free_engine_method_identity_is_bound_to_nonnegative_semantics();
         test_held_speed_resolution_on_the_integer_clock();
         std::cout << "scenario resolver tests passed\n";
         return EXIT_SUCCESS;

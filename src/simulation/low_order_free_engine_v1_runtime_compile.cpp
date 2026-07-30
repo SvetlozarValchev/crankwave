@@ -8,6 +8,7 @@
 #include "simulation/legacy_mechanics_primitives.hpp"
 
 #include <bit>
+#include <cmath>
 #include <numbers>
 #include <optional>
 #include <ranges>
@@ -77,22 +78,36 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
     const auto *profile =
         std::get_if<contract::LowOrderOperatingPointV1Profile>(&engine.physics_profile);
     const auto *free_engine = std::get_if<contract::FreeEngine>(&scenario.mode);
-    const auto *preparation =
+    const auto *fixed_horizon =
         std::get_if<contract::FixedHorizonCycleSampling>(&scenario.preparation);
+    const auto *fixed_settling =
+        std::get_if<contract::FixedSettling>(&scenario.preparation);
     require(report, profile != nullptr, ContractIssueCode::unsupported_value,
             "engine.physics_profile",
             "free-engine runtime requires low_order_operating_point_v1");
     require(report, free_engine != nullptr, ContractIssueCode::unsupported_value,
             "scenario.mode", "free-engine runtime requires FreeEngine mode");
-    require(report, preparation != nullptr, ContractIssueCode::unsupported_value,
-            "scenario.preparation",
-            "free-engine runtime requires fixed-horizon cycle sampling");
     require(report, !simulation_request_identity_v3_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v3_sha256",
             "free-engine runtime requires the canonical nonzero request identity");
-    if (profile == nullptr || free_engine == nullptr || preparation == nullptr) {
+    if (profile == nullptr || free_engine == nullptr) {
         return report;
     }
+    const bool cold_bootstrap = free_engine->initial_engine_speed_rpm.value == 0.0;
+    require(report,
+            cold_bootstrap
+                ? fixed_settling != nullptr &&
+                      fixed_settling->warm_up_duration_s.value == 0.0 &&
+                      !std::signbit(fixed_settling->warm_up_duration_s.value) &&
+                      fixed_settling->settling_duration_s.value == 0.0 &&
+                      !std::signbit(fixed_settling->settling_duration_s.value)
+                : fixed_horizon != nullptr,
+            ContractIssueCode::unsupported_value, "scenario.preparation",
+            cold_bootstrap
+                ? "zero-speed free-engine runtime requires canonical zero-duration "
+                  "fixed settling"
+                : "positive-speed free-engine runtime requires fixed-horizon cycle "
+                  "sampling");
 
     const auto crank_friction_calculation =
         calculate_engine_sim_v1_positive_speed_crank_friction(
@@ -108,17 +123,20 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
     report.append(admit_implemented_cycle_accounting_methods(engine, *profile));
     require(report,
             free_engine->crank_dynamics_method.value ==
-                warm_running_free_engine_centered_slider_crank_method_identity(),
+                nonnegative_speed_free_engine_centered_slider_crank_method_identity(),
             ContractIssueCode::unsupported_value,
             "scenario.mode.crank_dynamics_method.value",
-            "free-engine runtime requires its exact warm-running centered-slider "
-            "crank method identity");
-    require(report,
-            preparation->method.value ==
-                contract::fixed_horizon_cycle_sampling_method_identity(),
-            ContractIssueCode::unsupported_value, "scenario.preparation.method.value",
-            "free-engine runtime requires the exact implemented fixed-horizon "
-            "sampling method");
+            "free-engine runtime requires its exact nonnegative-speed "
+            "centered-slider crank method identity");
+    if (fixed_horizon != nullptr) {
+        require(report,
+                fixed_horizon->method.value ==
+                    contract::fixed_horizon_cycle_sampling_method_identity(),
+                ContractIssueCode::unsupported_value,
+                "scenario.preparation.method.value",
+                "positive-speed free-engine runtime requires the exact implemented "
+                "fixed-horizon sampling method");
+    }
     require(report, scenario.rates.physics == scenario.rates.capture,
             ContractIssueCode::inconsistent_semantics, "scenario.rates",
             "free-engine runtime requires identical physics and capture clocks");
@@ -141,12 +159,13 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         scenario.total_duration_s.value, scenario.rates.physics);
     const auto finite_execution = execution_extent.finite_physics_frame_count();
     require(report,
-            release_frame.has_value() && *release_frame > 0U && end_frame.has_value() &&
+            release_frame.has_value() && end_frame.has_value() &&
                 *end_frame > *release_frame &&
+                (cold_bootstrap ? *release_frame == 0U : *release_frame > 0U) &&
                 (!finite_execution.has_value() || *finite_execution == *end_frame),
             ContractIssueCode::inconsistent_semantics, "scenario.audible_start_s.value",
-            "free-engine release and fixed horizon must resolve to ordered integral "
-            "physics frames matching capture");
+            "free-engine release and horizon must resolve to ordered integral "
+            "physics frames matching capture; cold bootstrap releases at frame zero");
     if (!report.ok() || crank_friction == nullptr || !release_frame.has_value() ||
         !end_frame.has_value() || free_engine->throttle_01.points.empty() ||
         free_engine->external_resisting_torque_nm.points.empty()) {
@@ -254,18 +273,17 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
     for (std::size_t index = 0; index < mechanism.cylinders.size(); ++index) {
         const auto &assembly = mechanism.cylinders[index];
         const auto &parameters = assembly.parameters;
-        const auto chamber_gas_index =
-            find_capture_volume_index(capture_plan,
-                                      assembly.topology.chamber_volume_id);
+        const auto chamber_gas_index = find_capture_volume_index(
+            capture_plan, assembly.topology.chamber_volume_id);
         const auto geometry = derive_legacy_cylinder_geometry(
             parameters.bore_m.value, parameters.crank_radius_m.value,
             parameters.connecting_rod_length_m.value, parameters.deck_height_m.value,
             parameters.piston_compression_height_m.value,
             parameters.head_chamber_volume_m3.value,
             parameters.piston_displacement_term_m3.value);
-        const double geometric_tdc_rad = legacy_wrap_2pi(
-            mechanism.crank.crank_tdc_reference_rad.value +
-            parameters.journal_angle_rad.value - kLegacyPi / 2.0);
+        const double geometric_tdc_rad =
+            legacy_wrap_2pi(mechanism.crank.crank_tdc_reference_rad.value +
+                            parameters.journal_angle_rad.value - kLegacyPi / 2.0);
         const auto initial_mechanism = evaluate_centered_slider_crank(
             {
                 assembly.topology.cylinder_id,
@@ -297,29 +315,27 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         };
         const auto initial_stage = stage_engine_sim_v1_piston_wall_friction({
             friction_plan,
-            legacy_wrap_2pi(free_engine->initial_theta_rad.value -
-                            geometric_tdc_rad),
+            legacy_wrap_2pi(free_engine->initial_theta_rad.value - geometric_tdc_rad),
             free_engine->initial_engine_speed_rpm.value * kLegacyRpmScale,
             initial_chamber_pressure_pa_abs,
             0.0,
         });
         require(report, chamber_gas_index.has_value(),
                 ContractIssueCode::dangling_reference,
-                "engine.physics_profile.mechanism.cylinders[" +
-                    std::to_string(index) + "].topology.chamber_volume_id",
+                "engine.physics_profile.mechanism.cylinders[" + std::to_string(index) +
+                    "].topology.chamber_volume_id",
                 "free-engine piston-wall cylinder chamber is absent from the "
                 "captured gas transaction");
-        require(report,
-                std::holds_alternative<EngineSimV1PistonWallFrictionStage>(
-                    initial_stage),
-                ContractIssueCode::invalid_value,
-                "engine.physics_profile.mechanism.cylinders[" +
-                    std::to_string(index) + "].parameters",
-                "free-engine piston-wall source law rejected the resolved "
-                "centered-slider mechanism");
+        require(
+            report,
+            std::holds_alternative<EngineSimV1PistonWallFrictionStage>(initial_stage),
+            ContractIssueCode::invalid_value,
+            "engine.physics_profile.mechanism.cylinders[" + std::to_string(index) +
+                "].parameters",
+            "free-engine piston-wall source law rejected the resolved "
+            "centered-slider mechanism");
         if (chamber_gas_index.has_value() &&
-            std::holds_alternative<EngineSimV1PistonWallFrictionStage>(
-                initial_stage)) {
+            std::holds_alternative<EngineSimV1PistonWallFrictionStage>(initial_stage)) {
             configuration_inertia_plan.cylinders.push_back({
                 geometric_tdc_rad,
                 parameters.crank_radius_m.value,
@@ -368,55 +384,62 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         return report;
     }
 
-    auto accountant_result = compile_operating_cycle_accountant({
-        {
-            profile->core.mechanism.crank.crank_tdc_reference_rad.value,
-            engine.total_displacement_m3.value,
-        },
-        {
-            profile->aggregate_loss.constant_fmep_bar.value,
-            profile->aggregate_loss.peak_pressure_coefficient.value,
-            profile->aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m.value,
-            profile->aggregate_loss.mean_piston_speed_squared_coefficient_bar_s2_per_m2
-                .value,
-        },
-        free_engine->initial_engine_speed_rpm.value,
-        stroke_m,
-        profile->starter.mechanically_disengaged.value,
-        contract::indicated_gas_torque_term_mask(),
-        profile->aggregate_loss.included_terms.value,
-        profile->starter.included_terms.value,
-        std::move(cylinders),
-        capture_plan.physical_gas_volume_ids,
-        true,
-    });
-    if (const auto *error =
-            std::get_if<OperatingCycleAccountingError>(&accountant_result)) {
-        report.add(ContractIssueCode::unsupported_value, "engine.physics_profile",
-                   "free-engine variable-speed accountant rejected the admitted "
-                   "profile; code=" +
-                       std::to_string(static_cast<std::uint32_t>(error->code)));
-        return report;
-    }
+    std::optional<OperatingCycleAccountant> accountant;
+    std::optional<FixedHorizonCycleSampler> sampler;
+    if (!cold_bootstrap) {
+        auto accountant_result = compile_operating_cycle_accountant({
+            {
+                profile->core.mechanism.crank.crank_tdc_reference_rad.value,
+                engine.total_displacement_m3.value,
+            },
+            {
+                profile->aggregate_loss.constant_fmep_bar.value,
+                profile->aggregate_loss.peak_pressure_coefficient.value,
+                profile->aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m.value,
+                profile->aggregate_loss
+                    .mean_piston_speed_squared_coefficient_bar_s2_per_m2.value,
+            },
+            free_engine->initial_engine_speed_rpm.value,
+            stroke_m,
+            profile->starter.mechanically_disengaged.value,
+            contract::indicated_gas_torque_term_mask(),
+            profile->aggregate_loss.included_terms.value,
+            profile->starter.included_terms.value,
+            std::move(cylinders),
+            capture_plan.physical_gas_volume_ids,
+            true,
+        });
+        if (const auto *error =
+                std::get_if<OperatingCycleAccountingError>(&accountant_result)) {
+            report.add(ContractIssueCode::unsupported_value, "engine.physics_profile",
+                       "free-engine variable-speed accountant rejected the admitted "
+                       "profile; code=" +
+                           std::to_string(static_cast<std::uint32_t>(error->code)));
+            return report;
+        }
+        accountant.emplace(
+            std::get<OperatingCycleAccountant>(std::move(accountant_result)));
 
-    auto sampling_result = compile_fixed_horizon_cycle_sampler({
-        preparation->method.value,
-        preparation->trailing_complete_cycle_count.value,
-        preparation->fixed_preparation_horizon_s.value,
-        capture_plan.physical_gas_volume_ids,
-    });
-    if (const auto *error =
-            std::get_if<FixedHorizonCycleSamplingError>(&sampling_result)) {
-        report.add(ContractIssueCode::unsupported_value, "scenario.preparation",
-                   "free-engine fixed-horizon sampler rejected preparation; code=" +
-                       std::to_string(static_cast<std::uint32_t>(error->code)));
-        return report;
+        auto sampling_result = compile_fixed_horizon_cycle_sampler({
+            fixed_horizon->method.value,
+            fixed_horizon->trailing_complete_cycle_count.value,
+            fixed_horizon->fixed_preparation_horizon_s.value,
+            capture_plan.physical_gas_volume_ids,
+        });
+        if (const auto *error =
+                std::get_if<FixedHorizonCycleSamplingError>(&sampling_result)) {
+            report.add(ContractIssueCode::unsupported_value, "scenario.preparation",
+                       "free-engine fixed-horizon sampler rejected preparation; code=" +
+                           std::to_string(static_cast<std::uint32_t>(error->code)));
+            return report;
+        }
+        sampler.emplace(std::get<FixedHorizonCycleSampler>(std::move(sampling_result)));
     }
 
     return LowOrderFreeEngineV1Runtime{
         control_schedule.fresh_cursor(),
-        std::get<OperatingCycleAccountant>(std::move(accountant_result)),
-        std::get<FixedHorizonCycleSampler>(std::move(sampling_result)),
+        std::move(accountant),
+        std::move(sampler),
         std::move(physical_gas_step_indices),
         std::move(pressure_samples),
         std::move(configuration_inertia_plan),
@@ -426,6 +449,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         *release_frame,
         free_engine->initial_engine_speed_rpm.value,
         free_engine->initial_theta_rad.value,
+        cold_bootstrap,
         crank_friction->torque_nm,
         "low-order-free-engine-v1",
         engine.profile_id.value,

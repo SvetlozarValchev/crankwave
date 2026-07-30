@@ -790,7 +790,9 @@ ValidationReport validate(const RenderScenario &scenario,
                 const double expected_total = mode.engine_baseline_inertia_kg_m2.value +
                                               mode.attached_inertia_kg_m2.value;
                 require(report,
-                        finite_positive(mode.initial_engine_speed_rpm.value) &&
+                        finite_nonnegative(mode.initial_engine_speed_rpm.value) &&
+                            !(mode.initial_engine_speed_rpm.value == 0.0 &&
+                              std::signbit(mode.initial_engine_speed_rpm.value)) &&
                             finite(mode.initial_theta_rad.value) &&
                             finite_positive(mode.engine_baseline_inertia_kg_m2.value) &&
                             finite_nonnegative(mode.attached_inertia_kg_m2.value) &&
@@ -800,14 +802,33 @@ ValidationReport validate(const RenderScenario &scenario,
                                 std::bit_cast<std::uint64_t>(
                                     mode.total_equivalent_inertia_kg_m2.value),
                         ContractIssueCode::invalid_value, "mode",
-                        "free engine requires a positive initial speed, a positive "
-                        "engine inertia, a positive-zero-or-positive attachment, "
-                        "their exact finite total, and a finite crank angle");
+                        "free engine requires a canonical nonnegative initial speed, "
+                        "a positive engine inertia, a positive-zero-or-positive "
+                        "attachment, their exact finite total, and a finite crank "
+                        "angle");
                 const auto *sampling =
                     std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
-                require(report, sampling != nullptr,
-                        ContractIssueCode::unsupported_value, "preparation",
-                        "free engine requires fixed-horizon sampling before release");
+                const auto *settling =
+                    std::get_if<FixedSettling>(&scenario.preparation);
+                if (mode.initial_engine_speed_rpm.value > 0.0) {
+                    require(report, sampling != nullptr,
+                            ContractIssueCode::unsupported_value, "preparation",
+                            "positive-speed free engine requires fixed-horizon cycle "
+                            "sampling before release");
+                } else {
+                    require(report,
+                            settling != nullptr &&
+                                settling->warm_up_duration_s.value == 0.0 &&
+                                !std::signbit(settling->warm_up_duration_s.value) &&
+                                settling->settling_duration_s.value == 0.0 &&
+                                !std::signbit(settling->settling_duration_s.value) &&
+                                scenario.audible_start_s.value == 0.0 &&
+                                !std::signbit(scenario.audible_start_s.value),
+                            ContractIssueCode::inconsistent_semantics, "preparation",
+                            "zero-speed free engine requires canonical zero-duration "
+                            "fixed settling and an immediate canonical-zero audible "
+                            "start");
+                }
                 if (sampling != nullptr) {
                     require(report,
                             std::bit_cast<std::uint64_t>(
@@ -863,20 +884,26 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                                "operating-point v1 admits held-speed, inertial-dyno, "
                                "and free-engine modes");
                 }
-                const auto *sampling =
-                    std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
-                if (sampling == nullptr) {
-                    report.add(
-                        ContractIssueCode::unsupported_value, "preparation",
-                        "operating-point v1 requires fixed-horizon cycle sampling");
-                } else if (std::bit_cast<std::uint64_t>(
-                               sampling->fixed_preparation_horizon_s.value) !=
-                           std::bit_cast<std::uint64_t>(
-                               scenario.audible_start_s.value)) {
-                    report.add(ContractIssueCode::inconsistent_semantics,
-                               "preparation.fixed_preparation_horizon_s.value",
-                               "operating-point preparation horizon must exactly equal "
-                               "audible start");
+                const bool free_engine =
+                    std::holds_alternative<FreeEngine>(scenario.mode);
+                if (!free_engine) {
+                    const auto *sampling =
+                        std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
+                    if (sampling == nullptr) {
+                        report.add(
+                            ContractIssueCode::unsupported_value, "preparation",
+                            "held and inertial operating-point execution requires "
+                            "fixed-horizon cycle sampling");
+                    } else if (std::bit_cast<std::uint64_t>(
+                                   sampling->fixed_preparation_horizon_s.value) !=
+                               std::bit_cast<std::uint64_t>(
+                                   scenario.audible_start_s.value)) {
+                        report.add(
+                            ContractIssueCode::inconsistent_semantics,
+                            "preparation.fixed_preparation_horizon_s.value",
+                            "operating-point preparation horizon must exactly equal "
+                            "audible start");
+                    }
                 }
 
                 if (std::bit_cast<std::uint64_t>(
@@ -889,28 +916,27 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                                "operating-profile applicability condition");
                 }
 
-                const auto fired_running =
+                const bool operating_state_admitted =
                     !scenario.operating_state.value.empty() &&
                     std::ranges::all_of(
                         scenario.operating_state.value, [&](const auto &point) {
                             const auto &state = point.state;
-                            if (!state.ignition_enabled || !state.fuel_enabled ||
-                                state.starter_enabled) {
-                                return false;
+                            if (free_engine) {
+                                return !state.starter_enabled && !state.dyno_enabled;
                             }
-                            if (std::holds_alternative<FreeEngine>(scenario.mode)) {
-                                return !state.dyno_enabled;
-                            }
-                            return state.dyno_enabled && !state.limiter_enabled;
+                            return state.ignition_enabled && state.fuel_enabled &&
+                                   !state.starter_enabled && state.dyno_enabled &&
+                                   !state.limiter_enabled;
                         });
-                if (!fired_running) {
+                if (!operating_state_admitted) {
                     report.add(
                         ContractIssueCode::inconsistent_semantics,
                         "operating_state.value",
-                        std::holds_alternative<FreeEngine>(scenario.mode)
-                            ? "free-engine operating-point v1 requires fired running "
-                              "state with the starter and dyno disabled at every "
-                              "journal point"
+                        free_engine
+                            ? "free-engine operating-point v1 currently requires the "
+                              "starter and dyno disabled at every journal point; "
+                              "ignition and fuel may change while the crank remains "
+                              "dynamically owned"
                             : "operating-point v1 requires fired held-running state at "
                               "every journal point");
                 }
