@@ -307,6 +307,7 @@ actuator torque.
 | prescribed trajectory | The scenario supplies `theta`, `omega`, and `alpha`; no crank dynamics integrator also advances them. | Actuator torque is the algebraic residual required to impose that trajectory. |
 | held-speed/load-target | The scenario holds `theta`/`omega` on its declared speed trajectory while the controller searches a bounded engine actuator such as throttle. | Test-cell actuator torque is the algebraic residual; target reachability is reported separately. |
 | inertial dyno | The dynamics integrator alone advances `theta` and `omega`. | Declared brake/resistance supplies actuator torque; no trajectory simultaneously overwrites motion. |
+| free engine | The dynamics integrator alone advances `theta` and `omega` from engine torque and the resolved total crank-referred inertia. | An optional nonnegative external resisting-torque trajectory is subtracted from engine torque; omission means positive zero. |
 
 A prescribed-RPM sweep therefore measures the actuator needed to impose the path; it
 does not directly measure a steady torque curve.
@@ -487,9 +488,35 @@ did not evaluate the analytic torque equation above. M3 therefore treats that eq
 as the clean mechanism's post-step indicated-torque definition, not a claim of
 source-dyno torque parity.
 
-For non-prescribed scenarios, equivalent inertia derives from the kinetic energy of
-the declared crank, piston, and connecting-rod mass model. No general constraint
-solver is introduced solely to obtain rigid slider-crank motion.
+For non-prescribed FreeEngine scenarios, engine inertia is not authored again in the
+scenario. The versioned
+`centered-slider-crank-cycle-mean-equivalent-inertia-v1` method evaluates 4,096
+uniform midpoint samples over one slider-crank revolution. It adds the authored crank
+inertia once to the full-cycle mean piston translation, connecting-rod center
+translation, and connecting-rod rotation kinetic-energy contributions. This produces
+one constant crank-referred engine baseline without introducing a general constraint
+solver solely to obtain rigid slider-crank motion.
+
+The optional scenario `attached_inertia` is a nonnegative crank-referred addition and
+defaults to canonical positive zero. The compiler resolves
+
+```text
+free_engine_total_inertia
+    = engine_baseline_inertia + attached_inertia
+```
+
+under the versioned `free-engine-equivalent-inertia-sum-v1` method, and the runtime
+integrates that total. The optional `external_resisting_torque` trajectory likewise
+defaults to one right-continuous positive-zero point. It is an external test-rig load,
+not a second engine-friction term.
+
+For the BMW M52B28 fixture, the engine-derived baseline and neutral total are both
+`0.2108686520185204 kg*m^2`, and neutral external resistance is zero. The regression
+gate applies full throttle at the 1,500-rpm release and requires the first 7,000-rpm
+crossing in `0.44`--`0.50 s`, matching the pristine-engine-sim envelope. This closes
+the neutral acceleration discrepancy only. Closed-throttle coastdown still differs;
+Chen--Flynn is therefore not globally retuned to conceal missing closed-throttle
+pumping or piston-friction behavior. Those mechanisms remain separate work.
 
 ### 10.2 Fixed valvetrain and conductance
 
@@ -795,7 +822,8 @@ actuator torque is explicitly unavailable rather than guessed or copied from the
 fixture's dyno lane. M3 still publishes indicated gas torque and its named incomplete
 net torque. The full prescribed-scenario actuator result becomes mandatory only after
 those mechanics are closed; this limitation cannot be hidden when labeling torque or
-power.
+power. This M3 prescribed-motion limitation is distinct from the later operating-
+profile FreeEngine method described above.
 
 ### 10.7 Frozen reference excitation
 

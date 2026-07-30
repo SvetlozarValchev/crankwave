@@ -139,6 +139,13 @@ operating context without changing the engine:
   requires them;
 - optional audition-only drivetrain context.
 
+A `free_engine` mode does not author a replacement total engine inertia. Its optional
+`attached_inertia` is a nonnegative crank-referred addition, and its optional
+`external_resisting_torque` is a nonnegative right-continuous trajectory. Omission of
+either resolves to canonical positive zero. The compiler derives the engine baseline
+with the versioned cycle-mean centered slider-crank kinetic-energy method and resolves
+the runtime total as baseline plus attachment.
+
 `quality.process_block_capacity_frames` is measured in delivery-rate PCM frames. The
 current method requires capacity for at least 3,840 frames and always returns exactly
 3,840 delivery frames per successful block. A larger authored capacity does not change
@@ -249,9 +256,10 @@ delivery-frame target falls inside the preparation interval is rejected with
 Both execution kinds run the same authored preparation through the exact release
 boundary, preserving crank, gas, combustion, random, filter, convolution, and
 resampler state. At that boundary, `open_ended` resolves one right-continuous snapshot
-of every authored operating-state, throttle, and external-resistance lane. A boundary
-exactly at release participates in the snapshot. Boundaries strictly after release
-belong to the finite recording procedure and do not automatically drive the
+of every authored operating-state, throttle, and external-resisting-torque lane. The
+declared positive-zero default participates when that optional lane is omitted. A
+boundary exactly at release participates in the snapshot. Boundaries strictly after
+release belong to the finite recording procedure and do not automatically drive the
 interactive bench. The release snapshot then remains in force until a live command
 replaces that lane.
 
@@ -363,7 +371,7 @@ compiled scenario selects exactly one mode.
 | prescribed/external speed | Authored trajectory executes; live commands are rejected | authored RPM trajectory, engine telemetry, audio |
 | held speed/load-target held | Authored target executes; live commands are rejected | operating-point evidence, engine telemetry, audio |
 | `inertial_dyno` | Finite-scenario execution admits live throttle, ignition, and fuel after preparation | simulated RPM trajectory, dyno result evidence, engine telemetry, audio |
-| `free_engine` | Finite or open-ended execution admits live throttle, ignition, fuel, limiter, and external resisting torque after preparation | simulated crank RPM, requested external load, engine telemetry, audio |
+| `free_engine` | Finite or open-ended execution admits live throttle, ignition, fuel, limiter, and external resisting torque after preparation | simulated crank RPM, requested external resisting torque, engine telemetry, audio |
 
 `open_ended` is currently a FreeEngine-only lifetime. The other modes remain exact
 finite recording procedures even where they admit live controls.
@@ -378,7 +386,33 @@ A later compiled-package audio follower may authoritatively consume RPM and a
 versioned host load coordinate. That is a different capability from the full physics
 session and must identify its load normalization and coast semantics.
 
-### 5.1 Future mode controls
+### 5.1 FreeEngine inertia and neutral calibration
+
+FreeEngine compilation resolves three distinct values:
+
+```text
+engine_baseline_inertia_kg_m2
+attached_inertia_kg_m2
+total_equivalent_inertia_kg_m2
+```
+
+The first is derived by
+`centered-slider-crank-cycle-mean-equivalent-inertia-v1`, the second is authored or
+declared-default positive zero, and the third is their versioned exact sum. Only the
+total enters the crank dynamics integrator. The external resisting-torque lane is
+independent and defaults to positive zero; it is not used to duplicate engine losses.
+
+The BMW M52B28 resolves an engine baseline of
+`0.2108686520185204 kg*m^2`. Its neutral fixture has zero attached inertia and zero
+external resistance. A headless regression commands full throttle at the 1,500-rpm
+release and requires the first 7,000-rpm crossing in `0.44`--`0.50 s`, the measured
+pristine-engine-sim envelope.
+
+This gate does not claim coastdown parity. Closed-throttle coast remains separate
+pumping and piston-friction work; Chen--Flynn must not be globally retuned merely to
+force that one trajectory to match.
+
+### 5.2 Future mode controls
 
 Live imposed RPM, held-RPM targets, brake torque, dyno controller targets, and motion
 mode changes are not implemented. When added, they must preserve the ownership rules
@@ -386,7 +420,7 @@ above and be capability-described rather than accepted by an untyped generic pay
 Changing motion mode will require a new session unless a later explicit transition is
 designed and implemented.
 
-### 5.2 Gear and clutch
+### 5.3 Gear and clutch
 
 Gear ratios, final drive, wheel inertia, and road load do not belong in
 `authoring::EnginePackageDocument`.
@@ -422,6 +456,7 @@ Current classification:
 | gear/clutch context | not implemented as live commands |
 | audition master, route monitor gain, mute, IR wet mix | not implemented as live commands |
 | motion ownership mode and initial state | `session_recreate` |
+| FreeEngine attached inertia or authored external resisting-torque trajectory | `session_recreate` |
 | delivery sample rate, output bus layout, capacities, quality, seed | `session_recreate` |
 | ambient or initial thermal state | `session_recreate` |
 | banks, cylinders, firing order, crank geometry, inertias | `program_recompile` |
@@ -703,9 +738,7 @@ renderer. There is no MessagePort-copy audio fallback or JavaScript engine rende
 The real-module integration exports 7,680 canonical Float32 samples with SHA-256
 `77484393b278ec40a84b4bde7d2dae31f01894e94a6a47cd17fd16ccb1787413`.
 The headless Chrome gate exports the complete 3,840,056-byte BMW warm-running
-free-rev Float32 WAVE with
-SHA-256
-`f7cad8870381669e105a2ac7e092c17e74b2ec2ff9b4747df3befc1329087e11`,
+free-rev Float32 WAVE and pins its current SHA-256 in the executable browser test,
 continues past the authored 5.5-second horizon, verifies Stop/Start state continuity
 and fresh Restart state, and reports zero startup underrun frames/events.
 The reproducible gate is

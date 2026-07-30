@@ -40,9 +40,20 @@ canonical 192 kHz bus to the device rate. The AudioWorklet only drains that ring
 Engine/scenario edits rebuild atomically; a failed compile leaves the current program
 available. Inertial-dyno sessions admit live throttle, ignition, and fuel. Free-engine
 sessions add live limiter state and external resisting torque while resolving crank
-RPM from engine torque, declared inertia, and load. A drivetrain, gears, starter
-control, regulated idle, and arbitrary live presentation edits remain explicit
-missing capabilities rather than UI-only approximations.
+RPM from engine torque and engine-owned inertia. A `free_engine` scenario may add
+`attached_inertia` and an `external_resisting_torque` trajectory; omission of either
+means canonical positive zero. The compiler derives the engine baseline with the
+versioned cycle-mean centered slider-crank kinetic-energy method, adds any attached
+inertia, and gives only that resolved total to the crank integrator.
+
+For the BMW M52B28 fixture, the derived engine baseline is
+`0.2108686520185204 kg*m^2`; neutral uses no attached inertia and no external
+resistance. The headless pristine-engine-sim gate requires a full-throttle
+1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`. This acceleration calibration does
+not authorize a global Chen--Flynn loss retune: the remaining closed-throttle
+coastdown discrepancy needs separate pumping and piston-friction work. A drivetrain,
+gears, starter control, regulated idle, and arbitrary live presentation edits remain
+explicit missing capabilities rather than UI-only approximations.
 
 The compiler accepts the currently executable low-order topology without inspecting an
 engine name and fails closed on unsupported capabilities. Cylinder and

@@ -13,7 +13,7 @@ Machine schema:
 [`schemas/render_manifest_simulation_v6.cddl`](../../schemas/render_manifest_simulation_v6.cddl)
 
 Schema SHA-256:
-`054bd338c6c9cb17f2e52d1307b8eaed3ed633e41214ca0318213448e46f02ca`
+`b1f71b9be97552e6275257218ff59f3495ad678d0a54c11471d57b6ba8111f48`
 
 ## 1. Scope and admission
 
@@ -337,6 +337,7 @@ All already-typed `RenderScenario` variants have canonical tags:
 | `PrescribedKinematicSweep` | `prescribed_kinematic_sweep` |
 | `LoadTargetHeldCapture` | `load_target_held_capture` |
 | `InertialDyno` | `inertial_dyno` |
+| `FreeEngine` | `free_engine` |
 | `ScalarTrajectory` in `RpmTrajectory::rpm` | `scalar_trajectory` |
 | `FixedRateRpmTrajectory` in `RpmTrajectory::rpm` | `fixed_rate_rpm` |
 
@@ -346,6 +347,30 @@ physics method available: engine/scenario validation, torque capability,
 reachability, renderer admission, and implementation availability remain separate
 requirements. The exact M3 BMW request still uses only fixed settling, a prescribed
 kinematic sweep, and fixed-rate RPM.
+
+The resolved FreeEngine wire value is:
+
+```text
+free-engine = {
+  "initial_engine_speed_rpm": resolved<f64-bits>,
+  "initial_theta_rad": resolved<f64-bits>,
+  "engine_baseline_inertia_kg_m2": resolved<f64-bits>,
+  "attached_inertia_kg_m2": resolved<f64-bits>,
+  "total_equivalent_inertia_kg_m2": resolved<f64-bits>,
+  "throttle_01": scalar-trajectory,
+  "external_resisting_torque_nm": scalar-trajectory,
+  "crank_dynamics_method": resolved<method-identity>
+}
+```
+
+The authoring fields `attached_inertia` and `external_resisting_torque` are optional,
+but the resolved wire never omits their values: each omission becomes canonical
+positive zero, with the torque default represented as one time-zero
+right-continuous-hold point. Engine baseline inertia is derived by the versioned
+cycle-mean centered slider-crank kinetic-energy method; total equivalent inertia is
+the versioned sum of that baseline and the attachment, and is the value integrated at
+runtime. The BMW neutral baseline and total are both
+`0.2108686520185204 kg*m^2`.
 
 The CDDL lists all recognized non-`unspecified` enum strings needed by these records.
 The exact BMW validator remains narrower than the representational enum sets. For

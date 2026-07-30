@@ -6,7 +6,8 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-30
 
-Current checkpoint: **operating bench 2 — warm-running free-engine dynamics**
+Current checkpoint: **operating bench 2 — calibrated warm-running neutral FreeEngine
+dynamics**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -95,11 +96,16 @@ products built on this boundary.
 
 `scenario.json` owns one finite operating and recording request:
 
-- held-speed, prescribed-speed, or inertial-dyno ownership;
+- free-engine, held-speed, prescribed-speed, or inertial-dyno ownership;
 - throttle and other control trajectories;
 - ignition, fuel-cut, limiter, startup/shutdown, and other events only when implemented;
 - ambient, fuel, initial thermal state, preparation, duration, rates, quality, and seed;
 - output selection and render destination policy that is not part of the engine asset.
+
+A FreeEngine request does not replace the engine's inertia with a scenario total.
+`attached_inertia` is an optional nonnegative crank-referred addition, and
+`external_resisting_torque` is an optional nonnegative right-continuous trajectory.
+Omitting either means canonical positive zero.
 
 RPM, throttle, and load cannot all be authoritative simultaneously. Each scenario mode
 declares which values are commands and which are results. Interactive sessions use the
@@ -380,8 +386,8 @@ The real-module integration fixture exports 7,680 canonical WASM Float32 samples
 SHA-256
 `77484393b278ec40a84b4bde7d2dae31f01894e94a6a47cd17fd16ccb1787413`.
 The complete BMW warm-running free-rev browser capture exports a 3,840,056-byte
-Float32 WAVE with SHA-256
-`f7cad8870381669e105a2ac7e092c17e74b2ec2ff9b4747df3befc1329087e11`.
+Float32 WAVE whose current SHA-256 is pinned by the browser integration gate rather
+than duplicated in this roadmap.
 The browser gate also proves open-ended playback beyond its authored 5.5-second
 horizon, admitted throttle and external-resistance controls, Stop/Start state
 continuity, fresh Restart state, route selection, cross-origin-isolation headers,
@@ -483,14 +489,27 @@ Each session has one explicit motion owner:
 
 No mode may hide a prescribed pitch ramp behind a “natural” or “dyno” label.
 
+For FreeEngine, the compiler derives the engine baseline with the versioned
+cycle-mean centered slider-crank kinetic-energy method, adds optional
+`attached_inertia`, and gives the resolved total to the crank integrator. The BMW
+M52B28 baseline is `0.2108686520185204 kg*m^2`; its neutral fixture has zero attached
+inertia and zero external resistance. The pristine-engine-sim regression gate requires
+the full-throttle 1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`.
+
+That gate calibrates neutral acceleration, not every loss mechanism. The
+closed-throttle coastdown discrepancy does not justify globally retuning Chen--Flynn;
+closed-throttle pumping and piston-friction behavior must be isolated as later work.
+
 ### 9.3 Vertical slices and commit boundaries
 
 1. Compile immutable rig, vehicle, transmission, dyno-default, and mode-control data
    from the current JSON vocabulary. Remove any parsed-but-never-executable ambiguity.
    The rig and warm-running free-engine request contracts are complete.
 2. Implement positive-RPM neutral free-engine dynamics with live ignition, fuel,
-   throttle, limiter, and external resisting load. Preserve the accepted renderer and
-   use the existing complete instantaneous net-shaft torque path.
+   throttle, limiter, and external resisting torque. Derive engine baseline inertia,
+   add only explicit attached inertia, default the neutral external resistance to
+   zero, preserve the accepted renderer, and use the existing complete instantaneous
+   net-shaft torque path.
 3. Publish those free-engine controls and physical telemetry through `EngineSession`,
    the C ABI, and WASM. Stop for a BMW warm-running free-rev listening checkpoint.
 4. Add normal stopped/stalled crank state and non-fired cranking as a separate

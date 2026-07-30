@@ -64,16 +64,25 @@ RPM, load, and throttle cannot all be independent authoritative inputs:
 
 | Mode | Host supplies | Simulator resolves |
 |---|---|---|
-| Free engine/vehicle | Throttle, ignition, starter, gear, clutch, external resisting load | RPM and produced torque |
+| Free engine/vehicle | Throttle, ignition, starter, gear, clutch, optional external resisting torque | RPM and produced torque |
 | Held dyno | Throttle and target RPM | Required dyno torque and engine state |
 | Load-target held point | RPM and target load/BMEP | Throttle |
 | External RPM follower | RPM trajectory and throttle | Cylinder state and reaction torque telemetry |
 
-The current browser workbench executes all admitted authored scenario modes, but live
-controls are exposed only for `inertial_dyno`, where throttle, ignition, and fuel are
-implemented. Interactive held-RPM targets and external-RPM following remain future
-session capabilities. Preview is still realtime audio: the same block processor runs
-ahead of the audio device rather than tying simulation steps to UI frames.
+For `free_engine`, the scenario may declare nonnegative `attached_inertia` and an
+`external_resisting_torque` trajectory. Both are optional and default to canonical
+positive zero. The compiler derives engine baseline inertia from the engine mechanism
+using the versioned cycle-mean centered slider-crank kinetic-energy method, adds only
+the declared attachment, and supplies the resolved total to crank dynamics. The BMW
+M52B28 neutral baseline is `0.2108686520185204 kg*m^2`, with no attached inertia or
+external resistance.
+
+The current browser workbench executes all admitted authored scenario modes.
+`inertial_dyno` exposes live throttle, ignition, and fuel; `free_engine` additionally
+exposes limiter state and external resisting torque. Interactive held-RPM targets and
+external-RPM following remain future session capabilities. Preview is still realtime
+audio: the same block processor runs ahead of the audio device rather than tying
+simulation steps to UI frames.
 
 ## Authoring, units, curves, and graph semantics
 
