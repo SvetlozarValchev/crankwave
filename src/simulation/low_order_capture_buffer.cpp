@@ -23,15 +23,9 @@ constexpr auto kCombustion =
     contract::capture_validity_mask(contract::CaptureValidity::combustion);
 constexpr auto kTorque =
     contract::capture_validity_mask(contract::CaptureValidity::torque);
-
-[[nodiscard]] contract::MixtureFractions
-capture_mixture(const LegacyGasMixture &mixture) noexcept {
-    return {
-        mixture.fuel_fraction,
-        mixture.inert_fraction,
-        mixture.oxygen_fraction,
-    };
-}
+// Measured worst-case drift across 120 simulated seconds is 1.863e-12. Keep
+// the repair window deliberately close to the public 1e-12 admission boundary.
+constexpr double kLegacyMixtureRoundoffRepairEnvelope = 4.0e-12;
 
 [[nodiscard]] LowOrderCaptureBufferFault shape_fault(std::string detail) {
     LowOrderCaptureBufferFault result;
@@ -52,6 +46,33 @@ capture_mixture(const LegacyGasMixture &mixture) noexcept {
 }
 
 } // namespace
+
+contract::MixtureFractions
+capture_mixture_for_contract(const LegacyGasMixture &mixture) noexcept {
+    const contract::MixtureFractions raw{
+        mixture.fuel_fraction,
+        mixture.inert_fraction,
+        mixture.oxygen_fraction,
+    };
+    const double sum = raw.fuel + raw.inert + raw.oxygen;
+    const double unity_error = std::abs(sum - 1.0);
+    if (!std::isfinite(sum) || !(sum > 0.0) ||
+        unity_error <= contract::kMixtureFractionUnityTolerance ||
+        unity_error > kLegacyMixtureRoundoffRepairEnvelope) {
+        return raw;
+    }
+
+    // This is an observation-boundary conversion only. Feeding normalization back
+    // into LegacyGasCell would diverge from engine-sim's transfer/reaction arithmetic
+    // and could change combustion and audio. The narrow envelope repairs accumulated
+    // binary64 roundoff; grossly off-unity, negative, and nonfinite mixtures remain
+    // invalid and are rejected by the capture contract.
+    return {
+        raw.fuel / sum,
+        raw.inert / sum,
+        raw.oxygen / sum,
+    };
+}
 
 LowOrderCaptureBuffer::LowOrderCaptureBuffer(LowOrderCaptureBufferPlan plan)
     : plan_(std::move(plan)) {
@@ -211,7 +232,7 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
             legacy_gas_pressure_pa(chamber),
             legacy_gas_temperature_k(chamber),
             chamber.amount_mol,
-            capture_mixture(chamber.mixture),
+            capture_mixture_for_contract(chamber.mixture),
             gas_cylinder.outer_step_combustion_heat_release_j,
             gas_cylinder.flame.radial_travel_m,
             gas_cylinder.flame.axial_travel_m,
@@ -275,7 +296,7 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
             volume.cell.thermal_energy_j,
             volume.cell.momentum_x_kg_m_s,
             volume.cell.momentum_y_kg_m_s,
-            capture_mixture(volume.cell.mixture),
+            capture_mixture_for_contract(volume.cell.mixture),
         });
     }
 

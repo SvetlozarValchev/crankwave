@@ -12,6 +12,12 @@
 
 namespace engine_sim_offline::simulation::detail {
 
+// Legacy engine-sim evolves the three species fractions independently and does not
+// renormalize after transfers. Preserve that solver state, but project accumulated
+// common-scale roundoff back onto the public capture contract's fraction simplex.
+[[nodiscard]] contract::MixtureFractions
+capture_mixture_for_contract(const LegacyGasMixture &mixture) noexcept;
+
 struct LowOrderCapturePortBinding {
     std::size_t cylinder_index = 0;
     std::size_t duct_volume_index = 0;

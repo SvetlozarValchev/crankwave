@@ -480,6 +480,38 @@ find_cylinder(const LegacyMechanismStep &mechanics, CylinderId id) {
     return {value.fuel_fraction, value.inert_fraction, value.oxygen_fraction};
 }
 
+void test_capture_projection_normalizes_only_out_of_contract_roundoff() {
+    const LegacyGasMixture exact{0.05, 0.74, 0.21};
+    expect(engine_sim_offline::simulation::detail::capture_mixture_for_contract(
+               exact) == mixture(exact),
+           "capture projection changed an already admitted legacy mixture");
+
+    // Exact plenum state from the reported M52TUB28 open-ended rev/lift failure.
+    const LegacyGasMixture drifted{
+        0.023264048640971431,
+        0.74480183102433828,
+        0.23193412033569039,
+    };
+    const double raw_sum =
+        drifted.fuel_fraction + drifted.inert_fraction + drifted.oxygen_fraction;
+    expect(std::abs(raw_sum - 1.0) > kMixtureFractionUnityTolerance,
+           "roundoff regression fixture no longer exceeds the public tolerance");
+
+    const auto projected =
+        engine_sim_offline::simulation::detail::capture_mixture_for_contract(drifted);
+    const double projected_sum = projected.fuel + projected.inert + projected.oxygen;
+    expect(std::abs(projected_sum - 1.0) <= kMixtureFractionUnityTolerance &&
+               projected.fuel == drifted.fuel_fraction / raw_sum &&
+               projected.inert == drifted.inert_fraction / raw_sum &&
+               projected.oxygen == drifted.oxygen_fraction / raw_sum,
+           "capture projection did not remove common-scale legacy mixture drift");
+
+    const LegacyGasMixture grossly_invalid{0.2, 0.2, 0.2};
+    expect(engine_sim_offline::simulation::detail::capture_mixture_for_contract(
+               grossly_invalid) == mixture(grossly_invalid),
+           "capture projection masked a grossly off-unity legacy mixture");
+}
+
 void expect_positive_zero(double value, std::string_view field) {
     expect(value == 0.0 && !std::signbit(value),
            std::string{field} + " is not canonical positive zero");
@@ -1674,6 +1706,7 @@ void test_capture_partition_admission_rejection(
 }
 
 void run_tests(const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    test_capture_projection_normalizes_only_out_of_contract_roundoff();
     test_authored_capture_mapping_and_completion(canonical);
     test_operating_capture_publishes_request_bound_completion_evidence(canonical);
     test_operating_capture_rejects_zero_request_identity(canonical);
