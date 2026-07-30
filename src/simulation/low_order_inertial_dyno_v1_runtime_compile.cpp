@@ -87,12 +87,6 @@ LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
 
     report.append(admit_implemented_cycle_accounting_methods(engine, *profile));
     require(report,
-            dyno->throttle_01.points.size() == 1U &&
-                dyno->throttle_01.points.front().time_s == 0.0,
-            ContractIssueCode::unsupported_value, "scenario.mode.throttle_01",
-            "inertial runtime v1 requires exactly one constant throttle value at "
-            "time zero");
-    require(report,
             dyno->crank_dynamics_method.value ==
                 rigid_crank_zoh_work_energy_method_identity(),
             ContractIssueCode::unsupported_value,

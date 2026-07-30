@@ -142,14 +142,6 @@ void ScenarioResolver::compile_mode() {
                 }
                 auto throttle = scalar_trajectory(mode.throttle_01, "/mode/throttle_01",
                                                   true, true);
-                if (throttle.points.size() != 1U ||
-                    (throttle.points.size() == 1U &&
-                     throttle.points.front().time_s != 0.0)) {
-                    add(authoring::DiagnosticCode::unsupported_capability,
-                        "/mode/throttle_01",
-                        "current inertial-dyno execution requires exactly one "
-                        "constant throttle point at time zero");
-                }
 
                 contract::InertialDyno dyno;
                 dyno.initial_engine_speed_rpm.value =

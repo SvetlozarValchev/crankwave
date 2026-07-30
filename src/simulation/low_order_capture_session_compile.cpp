@@ -81,21 +81,8 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
         return report;
     }
 
-    auto core_result = [&]() {
-        if (inertial == nullptr) {
-            return compile_low_order_engine_core_v1_runtime(engine, scenario, *core,
-                                                            random_plan);
-        }
-        auto held_preparation_scenario = scenario;
-        held_preparation_scenario.mode = contract::HeldSpeed{
-            inertial->initial_engine_speed_rpm,
-            inertial->initial_theta_rad,
-            {inertial->throttle_01.points.front().value,
-             inertial->throttle_01.resolution_id},
-        };
-        return compile_low_order_engine_core_v1_runtime(
-            engine, held_preparation_scenario, *core, random_plan);
-    }();
+    auto core_result = compile_low_order_engine_core_v1_runtime(
+        engine, scenario, *core, random_plan);
     if (const auto *core_report = std::get_if<ValidationReport>(&core_result)) {
         return *core_report;
     }

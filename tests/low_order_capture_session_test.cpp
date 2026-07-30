@@ -822,7 +822,14 @@ void test_operating_capture_rejects_zero_request_identity(
 }
 
 void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(
-    const engine_sim_offline::test::AuthoredEngineFixture &request) {
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    auto request = canonical;
+    auto &dyno = std::get<InertialDyno>(request.scenario.mode);
+    dyno.throttle_01.points = {
+        {0.0, 0.85},
+        {6.45, 0.80},
+        {6.46, 0.85},
+    };
     const auto request_identity = nonzero_request_identity();
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
@@ -832,8 +839,15 @@ void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(
     std::optional<LowOrderCaptureCompleted> completion;
     double first_released_rpm = 0.0;
     double last_rpm = 0.0;
+    double throttle_before_boundary = 0.0;
+    double throttle_at_boundary = 0.0;
+    double throttle_after_boundary = 0.0;
     const auto release_frame = *resolve_frame_index(
         request.scenario.audible_start_s.value, request.scenario.rates.capture);
+    const auto throttle_boundary_frame =
+        *resolve_frame_index(6.45, request.scenario.rates.capture);
+    const auto throttle_restore_frame =
+        *resolve_frame_index(6.46, request.scenario.rates.capture);
     while (!completion.has_value()) {
         auto result = capture.publish_next_block([&](const CaptureBlockView &block) {
             const auto report = validate(block, request.engine, request.scenario);
@@ -841,10 +855,18 @@ void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(
                 fail_report("inertial capture block failed validation", report);
             }
             for (const auto &frame : block.engine()) {
-                if (block.clock().first_sample_index +
-                        static_cast<std::uint64_t>(&frame - block.engine().data()) ==
-                    release_frame) {
+                const auto frame_index =
+                    block.clock().first_sample_index +
+                    static_cast<std::uint64_t>(&frame - block.engine().data());
+                if (frame_index == release_frame) {
                     first_released_rpm = frame.engine_speed_rpm;
+                }
+                if (frame_index + 1U == throttle_boundary_frame) {
+                    throttle_before_boundary = frame.requested_throttle_01;
+                } else if (frame_index == throttle_boundary_frame) {
+                    throttle_at_boundary = frame.requested_throttle_01;
+                } else if (frame_index == throttle_restore_frame) {
+                    throttle_after_boundary = frame.requested_throttle_01;
                 }
                 last_rpm = frame.engine_speed_rpm;
             }
@@ -863,8 +885,12 @@ void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(
 
     expect(completion->inertial_dyno.has_value() &&
                !completion->held_speed_operating_point.has_value() &&
-               first_released_rpm > 1500.0 && last_rpm > first_released_rpm,
-           "inertial capture did not publish an accelerating released motion lane");
+               first_released_rpm > 1500.0 && last_rpm > first_released_rpm &&
+               throttle_before_boundary == 0.85 &&
+               throttle_at_boundary == 0.80 &&
+               throttle_after_boundary == 0.85,
+           "inertial capture did not execute its authored throttle timeline on the "
+           "dynamic motion lane");
     const auto report =
         validate(*completion->inertial_dyno, request.scenario, request_identity);
     if (!report.ok()) {

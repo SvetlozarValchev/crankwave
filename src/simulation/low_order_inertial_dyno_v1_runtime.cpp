@@ -1,6 +1,7 @@
 #include "simulation/low_order_inertial_dyno_v1_runtime.hpp"
 
 #include "simulation/legacy_gas_primitives.hpp"
+#include "simulation/legacy_mechanics_primitives.hpp"
 
 #include <cmath>
 #include <numbers>
@@ -361,10 +362,13 @@ LowOrderInertialDynoV1AdvanceResult LowOrderInertialDynoV1Runtime::advance(
         }
         const double omega =
             initial_engine_speed_rpm_ * std::numbers::pi_v<double> / 30.0;
-        // Preparation is a true held-speed test-cell constraint. Use the core's
-        // compiled constant-speed lane so its boundary evidence retains the exact
-        // held-motion arithmetic; external motion begins only at release.
-        auto core_result = core.advance(overrides);
+        // Preparation is a true held-speed test-cell constraint. Supply the same
+        // post-step motion arithmetic as the legacy held-speed lane while leaving
+        // controls owned by the inertial scenario's complete authored timeline.
+        const double held_angular_displacement_rad =
+            initial_engine_speed_rpm_ * kLegacyRpmScale * step_s_;
+        auto core_result = core.advance(
+            {initial_engine_speed_rpm_, held_angular_displacement_rad}, overrides);
         if (const auto *failure = std::get_if<contract::FailureContext>(&core_result)) {
             return fail(*failure);
         }
