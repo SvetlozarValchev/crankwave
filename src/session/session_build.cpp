@@ -15,16 +15,27 @@
 namespace engine_sim_offline::session_detail {
 namespace {
 
-[[nodiscard]] EngineSessionError build_error(EngineSessionErrorCode code,
-                                              std::string detail_code,
-                                              std::string message) {
+[[nodiscard]] EngineSessionError
+build_error(EngineSessionErrorCode code, std::string detail_code, std::string message) {
     return {code, std::move(detail_code), std::move(message), std::nullopt};
 }
 
-[[nodiscard]] bool kernel_matches(
-    const presentation::CompiledPresentationConvolutionKernel &kernel,
-    const presentation::CompiledPresentationAsset &asset,
-    const contract::MethodIdentity &convolution_method) {
+[[nodiscard]] std::string with_first_issue(std::string message,
+                                           const contract::ValidationReport &report) {
+    if (!report.issues.empty()) {
+        message += " (";
+        message += report.issues.front().path;
+        message += ": ";
+        message += report.issues.front().message;
+        message += ')';
+    }
+    return message;
+}
+
+[[nodiscard]] bool
+kernel_matches(const presentation::CompiledPresentationConvolutionKernel &kernel,
+               const presentation::CompiledPresentationAsset &asset,
+               const contract::MethodIdentity &convolution_method) {
     const auto &key = kernel.key();
     return key.raw_payload_identity == asset.raw_payload_identity() &&
            key.conversion_method == asset.conversion_method() &&
@@ -47,8 +58,7 @@ route_seeds(const contract::RandomPlan &plan, contract::RouteId route_id) {
                 return std::nullopt;
             }
             jitter = &seed;
-        } else if (seed.kind ==
-                   contract::RandomComponentKind::presentation_air_noise) {
+        } else if (seed.kind == contract::RandomComponentKind::presentation_air_noise) {
             if (air_noise != nullptr) {
                 return std::nullopt;
             }
@@ -121,23 +131,20 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
     }
 
     auto identity_result = identity::encode_simulation_request_identity_v3(
-        engine, scenario, random_plan,
-        scenario_contracts.combined_provenance.bundle);
+        engine, scenario, random_plan, scenario_contracts.combined_provenance.bundle);
     if (const auto *error =
             std::get_if<identity::SimulationRequestIdentityError>(&identity_result)) {
         return build_error(EngineSessionErrorCode::invalid_compiled_scenario,
                            error->detail_code, error->message);
     }
-    const auto request_identity =
-        std::get<identity::SimulationRequestIdentityEncoding>(
-            std::move(identity_result))
-            .sha256;
+    const auto request_identity = std::get<identity::SimulationRequestIdentityEncoding>(
+                                      std::move(identity_result))
+                                      .sha256;
 
     auto calibration_result = presentation::compile_presentation_calibration(
         presentation_contract, engine, scenario,
         scenario_contracts.combined_provenance);
-    if (std::holds_alternative<
-            presentation::PresentationCalibrationCompileError>(
+    if (std::holds_alternative<presentation::PresentationCalibrationCompileError>(
             calibration_result)) {
         return build_error(
             EngineSessionErrorCode::unsupported_configuration,
@@ -145,13 +152,11 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
             "the compiled scenario is unavailable to the executable presentation "
             "method");
     }
-    auto calibration =
-        std::get<presentation::AdmittedPresentationCalibration>(
-            std::move(calibration_result));
+    auto calibration = std::get<presentation::AdmittedPresentationCalibration>(
+        std::move(calibration_result));
 
     std::vector<presentation::CompiledPresentationAsset> compiled_assets;
-    std::vector<presentation::CompiledPresentationConvolutionKernel>
-        compiled_kernels;
+    std::vector<presentation::CompiledPresentationConvolutionKernel> compiled_kernels;
     std::vector<std::shared_ptr<const dsp::FixedConvolutionKernel>> route_kernels(
         calibration.route_count());
     compiled_assets.reserve(calibration.route_count());
@@ -178,8 +183,8 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
             *asset, {asset->id, payload->bytes},
             presentation_contract.methods.impulse_response_conversion.value,
             route.impulse_response_gain_linear());
-        if (std::holds_alternative<
-                presentation::PresentationAssetCompileError>(asset_result)) {
+        if (std::holds_alternative<presentation::PresentationAssetCompileError>(
+                asset_result)) {
             return build_error(
                 EngineSessionErrorCode::unsupported_configuration,
                 "session-presentation-asset-not-admitted",
@@ -187,8 +192,7 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
                 "method");
         }
         auto compiled_asset =
-            std::get<presentation::CompiledPresentationAsset>(
-                std::move(asset_result));
+            std::get<presentation::CompiledPresentationAsset>(std::move(asset_result));
 
         const auto &convolution_method =
             presentation_contract.methods.convolution.value;
@@ -199,9 +203,8 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
         if (existing != compiled_kernels.end()) {
             route_kernels[route_index] = existing->kernel();
         } else {
-            auto kernel_result =
-                presentation::compile_presentation_convolution_kernel(
-                    compiled_asset, convolution_method);
+            auto kernel_result = presentation::compile_presentation_convolution_kernel(
+                compiled_asset, convolution_method);
             if (std::holds_alternative<
                     presentation::PresentationConvolutionKernelCompileError>(
                     kernel_result)) {
@@ -225,9 +228,8 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
         calibration.publication_calibration_gain_linear().value;
     audio_plan.audition_monitoring_gain_linear =
         calibration.mastering().monitoring_gain_linear();
-    audio_plan.audition_route_ids.assign(
-        calibration.audition_route_ids().begin(),
-        calibration.audition_route_ids().end());
+    audio_plan.audition_route_ids.assign(calibration.audition_route_ids().begin(),
+                                         calibration.audition_route_ids().end());
     audio_plan.routes.reserve(calibration.route_count());
     for (std::size_t route_index = 0; route_index < calibration.route_count();
          ++route_index) {
@@ -255,43 +257,42 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
                   kEngineSessionPhysicsFramesPerBlock);
     auto simulation_result = simulation::compile_low_order_capture_session(
         engine, scenario, random_plan, request_identity, execution_extent);
-    if (std::holds_alternative<contract::ValidationReport>(simulation_result)) {
+    if (const auto *report =
+            std::get_if<contract::ValidationReport>(&simulation_result)) {
         return build_error(
             EngineSessionErrorCode::unsupported_configuration,
             "session-simulation-profile-not-admitted",
-            "the compiled engine and scenario are unavailable to the simulation "
-            "executor");
+            with_first_issue(
+                "the compiled engine and scenario are unavailable to the simulation "
+                "executor",
+                *report));
     }
-    auto simulation = std::get<simulation::LowOrderCaptureSession>(
-        std::move(simulation_result));
+    auto simulation =
+        std::get<simulation::LowOrderCaptureSession>(std::move(simulation_result));
 
-    const auto *core =
-        std::visit([](const auto &profile) { return &profile.core; },
-                   engine.physics_profile);
+    const auto *core = std::visit([](const auto &profile) { return &profile.core; },
+                                  engine.physics_profile);
     auto excitation_result =
         excitation::compile_captured_exhaust_excitation_session(engine, *core);
-    if (std::holds_alternative<contract::ValidationReport>(excitation_result)) {
+    if (const auto *report =
+            std::get_if<contract::ValidationReport>(&excitation_result)) {
         return build_error(
             EngineSessionErrorCode::unsupported_configuration,
             "session-excitation-profile-not-admitted",
-            "the compiled engine is unavailable to the exhaust excitation "
-            "executor");
+            with_first_issue(
+                "the compiled engine is unavailable to the exhaust excitation "
+                "executor",
+                *report));
     }
-    auto excitation =
-        std::get<excitation::CapturedExhaustExcitationSession>(
-            std::move(excitation_result));
+    auto excitation = std::get<excitation::CapturedExhaustExcitationSession>(
+        std::move(excitation_result));
 
-    auto presentation = std::make_unique<presentation::PresentationAudioSession>(
-        std::move(audio_plan));
+    auto presentation =
+        std::make_unique<presentation::PresentationAudioSession>(std::move(audio_plan));
     return BuiltSessionComponents{
-        compiled_scenario,
-        execution_kind,
-        request_identity,
-        std::move(random_plan),
-        std::move(calibration),
-        std::move(simulation),
-        std::move(excitation),
-        std::move(presentation),
+        compiled_scenario,      execution_kind,          request_identity,
+        std::move(random_plan), std::move(calibration),  std::move(simulation),
+        std::move(excitation),  std::move(presentation),
     };
 }
 
