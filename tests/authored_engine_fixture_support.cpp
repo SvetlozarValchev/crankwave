@@ -1,9 +1,9 @@
 #include "authored_engine_fixture_support.hpp"
 
+#include "compile/compiled_scenario_view.hpp"
 #include "compile/scenario_resolver.hpp"
 #include "engine_sim_offline/authoring/parse.hpp"
 #include "engine_sim_offline/compile.hpp"
-#include "render/compiled_scenario_projection.hpp"
 
 #include <fstream>
 #include <iterator>
@@ -123,13 +123,14 @@ load_canonical_authored_engine_fixture(const std::filesystem::path &repository_r
                           "authored engine compilation failed");
     auto scenario = require(compile::compile_scenario(engine, scenario_document),
                             "authored scenario compilation failed");
-    auto projection = render_detail::CompiledScenarioAccess::project(scenario);
+    const auto inputs =
+        compile::detail::CompiledScenarioViewAccess::inputs(scenario);
     return {
-        std::move(projection.specification.engine),
-        std::move(projection.specification.presentation),
-        std::move(projection.specification.randomness),
-        std::move(projection.scenario),
-        projection.specification.provenance.bundle,
+        inputs.engine.engine,
+        inputs.engine.presentation,
+        inputs.engine.randomness,
+        inputs.scenario.scenario,
+        inputs.scenario.combined_provenance.bundle,
     };
 }
 

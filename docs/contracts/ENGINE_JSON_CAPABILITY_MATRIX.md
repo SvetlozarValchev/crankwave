@@ -85,9 +85,10 @@ runs ahead of the audio device rather than tying simulation steps to UI frames.
    physical bounds, and assets, then emits one immutable canonical-SI resolved model.
 5. Defaults and authoring conveniences are expanded during compilation. Diagnostics
    identify both the object ID and JSON Pointer of the authored error.
-6. Structural edits produce a new compiled definition. A realtime session either
-   restarts or crossfades to it. Only explicitly designated scalar controls may mutate
-   an active session.
+6. Structural edits produce a new compiled definition and a new session. A future
+   browser adapter may restart or crossfade between independent sessions; the core
+   does not reset, swap, or transfer state. Only throttle, ignition-enabled, and
+   fuel-enabled are currently mutable in an active inertial-dyno session.
 
 ### Identity and graph rules
 
@@ -258,6 +259,15 @@ route kinds so they can be added without replacing the accepted exhaust renderer
 
 ## Rig, session, and live-control capability matrix
 
+The current executable session quantum is exact: 200 physics frames at 10 kHz become
+3,840 delivery frames at 192 kHz, or 20 ms per `process_block()` call.
+`quality.process_block_capacity_frames` is delivery-frame capacity and must be at least
+3,840; a larger value does not change the current quantum.
+`quality.event_queue_capacity` bounds caller-authored timestamped control commands, not
+the internal simulation event journal. `quality.telemetry_capacity_frames` bounds
+records returned per call; the current session emits one final-engine-sample telemetry
+record per block.
+
 | Pristine capability | Intended owner | Current status | Acceptance requirement |
 |---|---|---|---|
 | Vehicle mass, drag coefficient, frontal area, differential ratio, tire radius, rolling-resistance force | Package `rig.vehicle` | **Missing** | BMW fifth-gear coast/load fixture. |
@@ -268,13 +278,13 @@ route kinds so they can be added without replacing the accepted exhaust renderer
 | Inertial dyno with inertia and brake curve | Session/render request | **Typed core** | Existing BMW inertial pull and torque evidence. |
 | Ambient pressure/temperature, initial gas/wall state, crankcase, fuel, seed, render rates, preparation | Session/render request and rig defaults | **Typed core and executed** | Native and WASM resolve the same request identity. |
 | Relative humidity, coolant temperature, and oil temperature | Session/render request metadata/applicability conditions | **Admission/evidence only** in the current low-order executor; oil temperature must match the loss-profile condition | Do not present these as live sound or power controls until an implemented subsystem consumes them. |
-| Quality telemetry capacity | Session output allocation policy | **Retained request material only**; authored telemetry channels currently fail closed | Reject or hide it in the workbench until `EngineSession` publishes bounded telemetry. |
-| Ignition, fuel, starter, dyno/limiter enable events | Timestamped session controls | **Typed core** for scheduled offline events; no public realtime session API | Block-boundary and in-block event timing fixture. |
-| Realtime throttle | Timestamped live controls | **Partial**; trajectories exist, no browser/live block API | Audible held-RPM throttle response without restart. |
+| Quality telemetry capacity | Session output allocation policy | **Low-order executed** as returned-record capacity; each exact block currently returns one final engine-capture record, while authored telemetry-channel selection still fails closed | Browser transport preserves the same record boundary without confusing it with PCM or the internal event journal. |
+| Ignition, fuel, starter, dyno/limiter enable events | Timestamped session controls | **Partial**; ignition and fuel are public absolute-delivery-frame live controls for inertial dyno, while starter/dyno/limiter remain authored offline events only | Block-boundary and in-block ignition/fuel timing fixture; other payloads remain rejected until implemented. |
+| Realtime throttle | Timestamped live controls | **Partial**; public absolute-delivery-frame throttle executes in inertial-dyno sessions after preparation; browser transport is not built | Audible inertial-dyno throttle response without restart. |
 | Realtime RPM/load mode command | Mode-specific timestamped control | **Missing** as a public live API | RPM follower and held-dyno browser fixtures. |
 | Gear and clutch controls | Timestamped live controls | **Missing** with vehicle/transmission | Vehicle fixture shifts under load. |
 | Realtime-safe presentation knobs | Timestamped parameter controls | **Missing** as public API despite typed defaults | Click-free gain/wet/HF/noise changes. |
-| Master/stems/telemetry block output | Session block result | **Partial**; native batch audio and internal block sessions exist, authored telemetry output is rejected | Same compiled engine feeds offline clips and AudioWorklet stream. |
+| Master/stems/telemetry block output | Session block result | **Low-order executed** as public borrowed route dry/IR/selected buses, raw/audition masters, and one telemetry record per exact 3,840-frame block; authored bus/telemetry subset selection remains absent | The future Worker puts these exact blocks into a ring consumed as 128-frame AudioWorklet pulls. |
 
 ## Deliberate exclusions
 

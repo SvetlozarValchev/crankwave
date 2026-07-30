@@ -280,15 +280,14 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
         }
     }
 
-    std::vector<contract::CylinderId> expected_spark_cylinders;
-    expected_spark_cylinders.reserve(mechanics.cylinders.size());
+    expected_spark_cylinders_.clear();
     for (const auto &cylinder : mechanics.cylinders) {
         if (cylinder.spark_crossed) {
-            expected_spark_cylinders.push_back(cylinder.cylinder_id);
+            expected_spark_cylinders_.push_back(cylinder.cylinder_id);
         }
     }
     if ((!mechanics.operating_state.ignition_enabled || previous_limiter_cut_active_) &&
-        !expected_spark_cylinders.empty()) {
+        !expected_spark_cylinders_.empty()) {
         terminal_fault_ = fault(
             contract::FailureKind::event_schedule_violation,
             "legacy-gas-mechanics-event-invalid",
@@ -304,8 +303,8 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
         bool valid = event.ordinal_within_step == static_cast<std::uint8_t>(index);
         if (const auto *spark = std::get_if<contract::SparkCrossing>(&event.payload)) {
             valid = valid && !limiter_event_seen &&
-                    spark_event_count < expected_spark_cylinders.size() &&
-                    spark->cylinder_id == expected_spark_cylinders[spark_event_count] &&
+                    spark_event_count < expected_spark_cylinders_.size() &&
+                    spark->cylinder_id == expected_spark_cylinders_[spark_event_count] &&
                     std::isfinite(spark->raw_saved_angle_rad) &&
                     std::isfinite(spark->raw_current_angle_rad) &&
                     std::isfinite(spark->adjusted_current_angle_rad) &&
@@ -317,7 +316,7 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
         } else if (const auto *limiter =
                        std::get_if<contract::LimiterStateChanged>(&event.payload)) {
             valid = valid && !limiter_event_seen &&
-                    spark_event_count == expected_spark_cylinders.size() &&
+                    spark_event_count == expected_spark_cylinders_.size() &&
                     limiter->old_active == previous_limiter_cut_active_ &&
                     limiter->new_active == mechanics.limiter_cut_active &&
                     limiter->old_active != limiter->new_active &&
@@ -339,7 +338,7 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
             return *terminal_fault_;
         }
     }
-    if (spark_event_count != expected_spark_cylinders.size() ||
+    if (spark_event_count != expected_spark_cylinders_.size() ||
         (!limiter_event_seen &&
          mechanics.limiter_cut_active != previous_limiter_cut_active_)) {
         terminal_fault_ = fault(

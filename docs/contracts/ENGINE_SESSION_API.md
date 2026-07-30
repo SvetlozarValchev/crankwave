@@ -1,32 +1,35 @@
 # Portable engine compile and session API
 
-Status: proposed greenfield contract; not yet implemented
+Status: portable native C++ session core implemented; C ABI, WASM, browser transport,
+and HTML harness remain future work
 
 Applies to: JSON engine authoring, immutable engine compilation, mutable simulation
 sessions, native offline rendering, WASM preview, runtime control ownership, streaming
 audio buses, telemetry, and fail-closed adapter behavior
 
-This contract defines one simulation and presentation implementation that can run
-unpaced for an offline bake or incrementally for an interactive preview. It is not a
-compatibility surface for `.mr`, engine-sim, the failed offline fork, or historical
-milestone-specific types.
+This contract records the implemented native session boundary and the intended browser
+adapter around that same boundary. Future capabilities are called out explicitly. It is
+not a compatibility surface for `.mr`, engine-sim, the failed offline fork, or
+historical milestone-specific types.
 
 ## 1. Goals and non-goals
 
-The API must:
+The implemented native API:
 
-- compile a versioned JSON engine definition and its referenced assets into one
-  immutable executable program;
-- create any number of independent mutable sessions from that program;
-- process bounded audio blocks without using wall time;
-- accept timestamped controls with explicit RPM and load ownership;
-- expose named audio buses and bounded telemetry;
-- use the same physics, excitation, and presentation code in native offline and WASM
-  interactive execution;
-- reject unsupported configuration and ownership conflicts instead of substituting a
+- compiles versioned JSON engine/scenario definitions and their referenced assets into
+  one immutable `CompiledScenario`;
+- creates independent mutable sessions from a compiled scenario;
+- processes one exact 20 ms method quantum without using wall time;
+- accepts the currently implemented typed, timestamped controls where the scenario mode
+  admits them;
+- exposes named borrowed audio buses and bounded telemetry;
+- rejects unsupported configuration and ownership conflicts instead of substituting a
   fallback sound;
-- permit an authoring UI to rebuild an engine without corrupting the currently
-  playing session.
+- uses the same physics, excitation, and presentation implementation as the native
+  bake adapter.
+
+The planned C ABI, WASM build, Worker/ring adapter, and authoring UI will wrap this
+implementation rather than introduce another engine renderer.
 
 The first implementation does not promise:
 
@@ -37,22 +40,22 @@ The first implementation does not promise:
 - that the full simulator will always meet an audio callback deadline;
 - a second reduced-fidelity realtime renderer.
 
-## 2. One implementation, two pacing adapters
+## 2. One implementation, native now and browser next
 
 ```text
-engine JSON + assets
+engine JSON + scenario JSON + assets
         |
         v
-compile_engine()
+compile package
         |
         v
-immutable EngineProgram
+immutable CompiledScenario
         |
         +---------------------------+
         |                           |
         v                           v
 native EngineSession          WASM EngineSession
-unpaced process() loop        worker-paced process() loop
+unpaced process_block loop    Worker-paced process_block loop
         |                           |
         v                           v
 WAV/telemetry sink            bounded PCM ring
@@ -64,17 +67,20 @@ WAV/telemetry sink            bounded PCM ring
                               Web Audio graph
 ```
 
-Offline and interactive execution differ only in pacing and publication:
+The native left-hand path is implemented. The browser right-hand path is the next
+adapter and does not exist yet. Offline and interactive execution differ only in
+pacing and publication:
 
-- Native offline rendering calls `process()` as quickly as the machine allows and
+- Native offline rendering calls `process_block()` as quickly as the machine allows and
   sends the resulting blocks to artifact encoders.
-- The browser worker calls the same `process()` function only far enough ahead to
-  keep a bounded playback ring supplied.
-- The AudioWorklet consumes already-produced audio. It does not contain another
-  engine model.
+- The browser Worker will call the same `process_block()` function only far enough
+  ahead to keep a bounded playback ring supplied.
+- The future AudioWorklet will consume already-produced audio. It will not contain
+  another engine model.
 
-The existing whole-render boundary may become a convenience adapter over this session
-API. It must not retain a separately maintained simulation or presentation path.
+The native bake boundary is a publication adapter over this session API. It owns the
+unpaced loop and artifact transaction but has no separately maintained simulation or
+presentation path.
 
 ## 3. Contract layers
 
@@ -82,7 +88,7 @@ Three inputs have deliberately different lifetimes.
 
 ### 3.1 Engine definition
 
-`EngineDefinitionDocument` is authored JSON. It contains durable engine and default
+`authoring::EnginePackageDocument` is authored JSON. It contains durable engine and default
 presentation data:
 
 - identity and schema version;
@@ -109,7 +115,7 @@ BMW, Honda, or Toyota code branch.
 
 ### 3.2 Session configuration
 
-`SessionConfiguration` selects one execution context without changing the engine:
+The compiled scenario selects one execution context without changing the engine:
 
 - one motion-ownership mode;
 - audio delivery sample rate and requested bus layout;
@@ -117,29 +123,35 @@ BMW, Honda, or Toyota code branch.
 - ambient and initial thermal conditions;
 - initial crank angle, RPM, and operating state;
 - deterministic public seed;
-- bounded process, event, and telemetry capacities;
+- bounded delivery-block, caller control-command, and returned-telemetry capacities;
 - test-cell inertia, brake curve, or held-speed controller where the selected mode
   requires them;
 - optional audition-only drivetrain context.
 
+`quality.process_block_capacity_frames` is measured in delivery-rate PCM frames. The
+current method requires capacity for at least 3,840 frames and always returns exactly
+3,840 delivery frames per successful block. A larger authored capacity does not change
+that method quantum. `quality.event_queue_capacity` bounds caller-authored live control
+commands; it is not the internal combustion/event journal. The unfortunately named
+`quality.telemetry_capacity_frames` bounds telemetry records returned by one process
+call; the current session returns one record.
+
 Changing the motion mode, delivery rate, quality profile, seed, bus layout, initial
-state, or bounded capacities creates a new session. It is not a hot control.
+state, or bounded capacities requires creating a new session.
 
 ### 3.3 Live controls
 
 Live controls are typed, timestamped commands sent after session creation. They do not
-modify the engine document or compiled program. Commands include, where admitted by
-the selected mode:
+modify the engine document or compiled scenario. The implemented payloads are:
 
-- requested throttle;
-- ignition, fuel, starter, dyno, and limiter enable state;
-- externally imposed RPM;
-- brake torque, dyno target, or load-controller target;
-- clutch position and selected gear as test-cell or presentation context;
-- route monitoring gain, route mute, impulse-response wet mix, and audition master
-  gain;
-- explicit startup, shutdown, shift, and reset-related events supported by the
-  compiled engine.
+- requested throttle in `[0, 1]`;
+- ignition enabled;
+- fuel enabled.
+
+The current session admits those live payloads only for `inertial_dyno` ownership.
+Starter, limiter, imposed RPM, brake/dyno targets, gear/clutch, presentation monitoring,
+and lifecycle commands are not live session capabilities yet. Their presence in an
+authored offline scenario does not imply a corresponding live command.
 
 No untyped string-to-value property mutation enters the processing path.
 
@@ -147,53 +159,39 @@ No untyped string-to-value property mutation enters the processing path.
 
 ### 4.1 Compile
 
-Conceptually:
+The caller parses JSON and supplies every referenced asset byte.
+`compile_engine()` validates and resolves an `authoring::EnginePackageDocument` into an
+immutable `CompiledEngine`. `compile_scenario()` validates and resolves an
+`authoring::ScenarioDocument` against that exact engine and returns a
+`CompiledScenario` that retains it.
 
-```cpp
-CompileEngineResult compile_engine(
-    std::span<const std::byte> engine_json,
-    const EngineAssetProvider &assets,
-    const CompileEngineOptions &options);
-```
+Compilation performs no filesystem, URL, browser, thread, or process-global access.
+Session creation compiles random, simulation, excitation, resampling,
+presentation-asset, and convolution state before processing begins.
 
-Compilation:
-
-1. parses the declared JSON schema version;
-2. validates types, units, ranges, identities, and references;
-3. validates complete cylinder, intake, exhaust, ignition, and source routing;
-4. resolves declared defaults and records each resolution;
-5. verifies and decodes referenced assets;
-6. compiles flow tables, valve/cam data, timing schedules, resampling state,
-   convolution kernels, and other immutable method data;
-7. calculates memory and per-block cost bounds;
-8. returns either an immutable `EngineProgram` or path-bearing diagnostics.
-
-Compilation may allocate, decode files, hash assets, and use worker threads supplied by
-the adapter. It never runs on the audio rendering thread.
-
-An `EngineProgram`:
+A `CompiledScenario`:
 
 - is immutable after successful compilation;
 - owns or content-addresses every byte needed to create a session;
 - is safe to share across independent sessions;
-- exposes engine, route, bus, capability, and parameter descriptors;
-- carries the exact schema, method, asset, and program identities required for
-  manifests;
+- exposes IDs, stable-ID assignments, provenance, the retained `CompiledEngine`, assets
+  through that engine, and session capacities;
+- retains the immutable resolved contracts and identities used internally by sessions
+  and native baking;
 - contains no mutable process state.
 
 ### 4.2 Create
 
-Conceptually:
+The implemented entry point is:
 
 ```cpp
-CreateSessionResult create_session(
-    std::shared_ptr<const EngineProgram> program,
-    const SessionConfiguration &configuration);
+EngineSessionCreateResult create_engine_session(
+    const compile::CompiledScenario &scenario);
 ```
 
-Session creation validates the selected capabilities and ownership mode, reserves all
-bounded processing storage, creates per-session DSP and random state, and returns a
-mutable `EngineSession`.
+Session creation validates the selected capabilities and ownership mode, compiles
+method-owned simulation, excitation, DSP, and IR-kernel state, reserves bounded
+processing storage, and returns a mutable `EngineSession`.
 
 One session:
 
@@ -203,98 +201,109 @@ One session:
 - creates no hidden global thread pool;
 - performs no file or network I/O;
 - never observes wall time;
-- is independent from every other session created from the same program.
+- is independent from every other session created from the same compiled scenario.
 
-### 4.3 Reset and prime
+### 4.3 Preparation
 
-`reset(initial_state)` returns a session to a declared state and clears queued
-controls, event journals, filter histories, resampler histories, and accumulated
-telemetry. It does not preserve undocumented acoustic tails.
+A new session starts from the initial state and preparation policy compiled into its
+scenario. There is no reset operation on the implemented session.
 
-If a method needs causal preparation, the caller chooses one explicit policy:
+`process_block()` returns preparation blocks with
+`EngineSessionBlockPhase::preparation`; the native artifact publisher discards those
+blocks and begins publication at the first `audible` block. The descriptor reports the
+exact preparation block count, so this boundary is explicit rather than an implicit
+warm-up.
 
-- process and retain the preparation audio;
-- process preparation and discard it before the audible frame;
-- restore a validated, method-compatible state snapshot.
-
-There is no implicit warm-up of an unspecified duration.
+Live commands may be queued before processing begins, but any command whose absolute
+delivery-frame target falls inside the preparation interval is rejected with
+`unavailable_during_preparation`. The first legal target is
+`preparation_block_count * 3840`.
 
 ### 4.4 Enqueue controls
 
-Conceptually:
+The implemented operation is:
 
 ```cpp
-ControlResult enqueue_controls(
-    EngineSession &session,
-    std::span<const ControlCommand> commands);
+std::optional<EngineControlRejection> EngineSession::enqueue_controls(
+    std::span<const EngineControlCommand> commands);
 ```
 
 Every command contains:
 
 - an absolute delivery-frame index relative to the session origin;
 - a strictly increasing caller sequence number;
-- one typed control or event payload;
-- an explicit interpolation or ramp policy when the value is continuous.
+- one of the three implemented typed control payloads.
 
 Delivery-frame indices, not milliseconds or wall-clock timestamps, are authoritative.
 The selected numerical method defines the causal projection from a delivery frame to
 its internal physics/control clock. A command that cannot be represented under that
 method is rejected during enqueue or session creation.
 
-Commands must be ordered and must not target a frame already generated by
-`process()`. A late command, a full command queue, an invalid range, or a command not
-owned by the selected mode is rejected. The session never silently applies it “as
-soon as possible.”
+Commands must have nondecreasing delivery frames, strictly increasing unique sequence
+numbers, and must target a frame that can still be generated by `process_block()`. A
+late command, a full command queue, an invalid throttle, a preparation or post-horizon
+target, a terminal session, or a command not owned by the selected mode is rejected
+atomically. The session never silently applies it “as soon as possible.”
 
 ### 4.5 Process
 
-Conceptually:
+The implemented operation is:
 
 ```cpp
-ProcessResult process(
-    EngineSession &session,
-    std::uint32_t delivery_frame_count,
-    AudioBusBlockSet output,
-    TelemetryBlock *telemetry);
+EngineSessionProcessResult EngineSession::process_block();
 ```
 
-`process()`:
+One successful `process_block()` call:
 
-- advances exactly the requested number of delivery frames or returns a typed failure;
-- accepts any positive frame count up to the session's declared maximum;
-- writes planar `float32` samples to every requested bus;
+- advances exactly 200 physics frames at 10,000 Hz and 3,840 delivery frames at
+  192,000 Hz: one 20 ms method quantum;
+- returns borrowed planar `float32` spans for every advertised bus;
 - advances all internal clocks by integer/rational schedule state;
-- consumes commands causally over the requested half-open frame interval;
-- returns bounded telemetry and event records for that same interval;
+- consumes controls causally over that half-open physics/delivery interval;
+- returns one bounded telemetry record containing the final engine-capture sample of
+  the block;
 - performs no JSON parsing, asset decoding, filesystem access, network access, or
   thread creation;
-- performs no unbounded allocation after session creation;
+- returns only bounded borrowed PCM/telemetry spans and never accumulates
+  duration-sized output;
 - does not select a different model because a deadline is near.
 
-Caller block size is transport, not model resolution. Given the same program,
-configuration, reset state, and command stream, splitting a horizon into different
-valid `process()` calls must not change the resulting sample or telemetry sequence on
-the same declared build and numeric runtime.
+The 3,840-frame size is currently part of the executable method, not a caller transport
+choice. It matches the existing FFT/resampling arithmetic and is required to preserve
+the accepted BMW byte output. The descriptor publishes both exact block sizes. A
+scenario with `process_block_capacity_frames < 3840` is rejected; a larger capacity
+does not authorize a different call size.
 
-### 4.6 Drain and destroy
+`process_block()` returns blocks until the compiled finite horizon is exhausted, then
+returns a stable `EngineSessionCompleted`. A terminal processing error is likewise
+stable on later calls. Completion and diagnostic alternatives are owning values and may
+allocate when copied across the public boundary. The current internal capture-contract
+validator also uses bounded transient allocations per block; checkpoint 9 removes
+those before admitting the fixed-memory WASM boundary.
 
-An explicit `begin_drain()` prevents new physical controls and requests any declared
-presentation tail. `process()` continues until it returns `drained`. Tail length is
-bounded and reported by the compiled program.
+`EngineSessionCompleted::live_controls_accepted` records whether the run diverged from
+the authored control trajectory. If it is true, scenario-request-bound held-speed and
+inertial-dyno result evidence is withheld instead of being mislabeled with the authored
+request identity. The block telemetry and PCM still describe the executed controlled
+session. A later command-journal identity may admit authoritative controlled-run
+results; the current API does not fabricate one.
 
-Destroying a session releases only that session's mutable state. Destroying an engine
-program is legal only after all sessions and pending replacements release it.
+### 4.6 Destroy
+
+Destroying a session releases only that session's mutable state. There is no implemented
+drain or reusable-session reset operation. A different initial state or another run
+requires a new session from the immutable compiled scenario.
 
 ## 5. Motion and control ownership
 
 Throttle, load, and RPM cannot all be simultaneous authoritative commands. Every
-session selects exactly one mode.
+compiled scenario selects exactly one mode.
 
-| Mode | Authoritative live inputs | Session results | Rejected conflicts |
-|---|---|---|---|
-| `external_speed` | RPM trajectory, throttle, operating-state events | torque, achieved load, audio | brake or dyno commands that claim RPM ownership |
-| `held_speed` | held RPM or held-RPM target, throttle, operating-state events | required actuator/dyno reaction, torque, achieved load, audio | external RPM trajectory and inertial brake ownership |
-| `inertial_dyno` | throttle, operating-state events, brake/dyno controls | simulated RPM trajectory, torque, achieved load, audio | externally imposed RPM |
+| Mode | Current live-session status | Session results |
+|---|---|---|
+| prescribed/external speed | Authored trajectory executes; live commands are rejected | authored RPM trajectory, engine telemetry, audio |
+| held speed/load-target held | Authored target executes; live commands are rejected | operating-point evidence, engine telemetry, audio |
+| `inertial_dyno` | Live throttle, ignition, and fuel commands are admitted after preparation | simulated RPM trajectory, dyno result evidence, engine telemetry, audio |
 
 `external_speed` is appropriate for a host game or editor scrubber that already owns
 drivetrain RPM. The full simulator still calculates achieved load from its physical
@@ -306,52 +315,47 @@ A later compiled-package audio follower may authoritatively consume RPM and a
 versioned host load coordinate. That is a different capability from the full physics
 session and must identify its load normalization and coast semantics.
 
-### 5.1 Dyno controls
+### 5.1 Future mode controls
 
-`held_speed` may expose a dyno-enable control and target RPM owned by its speed
-controller. `inertial_dyno` may expose brake torque, a brake-curve multiplier, or a
-versioned dyno controller target. The exact admitted control set is returned by the
-session descriptor.
-
-Disabling a dyno does not silently switch motion mode. Any such change requires a new
-session or an explicitly modeled state transition supported by that mode.
+Live imposed RPM, held-RPM targets, brake torque, dyno controller targets, and motion
+mode changes are not implemented. When added, they must preserve the ownership rules
+above and be capability-described rather than accepted by an untyped generic payload.
+Changing motion mode will require a new session unless a later explicit transition is
+designed and implemented.
 
 ### 5.2 Gear and clutch
 
 Gear ratios, final drive, wheel inertia, and road load do not belong in
-`EngineDefinitionDocument`.
+`authoring::EnginePackageDocument`.
 
-The minimal API permits `gear_index` and `clutch_01` as context/events:
-
-- in `external_speed`, they may drive shift sounds or presentation behavior, while the
-  host remains responsible for sending the resulting RPM;
-- in `held_speed` and `inertial_dyno`, they have no mechanical effect unless the
-  session explicitly includes an audition test-cell drivetrain;
-- selecting an unsupported gear is rejected rather than interpreted approximately.
+The implemented session API has no gear or clutch live payload. A future
+`gear_index`/`clutch_01` context must remain separate from engine definition and may
+only have mechanical effect when an explicit test-cell drivetrain owns that behavior.
 
 An eventual road-audition model is a separate test-cell definition composed with the
-engine program. It must declare which subsystem owns crank motion and equivalent
+compiled scenario. It must declare which subsystem owns crank motion and equivalent
 inertia.
 
-## 6. Hot controls versus rebuilds
+## 6. Current mutation boundary
 
-The API exposes parameter descriptors with one of three mutation classes:
+There are three practical mutation boundaries:
 
 | Class | Meaning |
 |---|---|
-| `hot` | Timestamped command may change it in an existing session. |
-| `session_recreate` | Engine program is reusable, but a new session is required. |
+| `implemented live command` | Timestamped command may change it in an existing session under its admitted mode. |
+| `session_recreate` | The compiled scenario is reusable, but a new session is required. |
 | `program_recompile` | JSON or asset change must compile a new immutable program. |
 
-Minimum classification:
+Current classification:
 
 | Field family | Class |
 |---|---|
-| throttle request | `hot` |
-| ignition/fuel/starter/limiter enable | `hot` |
-| mode-owned RPM, brake, or controller target | `hot` |
-| gear/clutch context | `hot` when supported |
-| audition master, route monitor gain, mute, IR wet mix | `hot`, with declared ramping |
+| throttle request | implemented live command for `inertial_dyno` after preparation |
+| ignition/fuel enable | implemented live command for `inertial_dyno` after preparation |
+| starter/limiter enable | not implemented as live commands |
+| mode-owned RPM, brake, or controller target | not implemented as live commands |
+| gear/clutch context | not implemented as live commands |
+| audition master, route monitor gain, mute, IR wet mix | not implemented as live commands |
 | motion ownership mode and initial state | `session_recreate` |
 | delivery sample rate, output bus layout, capacities, quality, seed | `session_recreate` |
 | ambient or initial thermal state | `session_recreate` |
@@ -364,52 +368,41 @@ Minimum classification:
 | impulse-response asset or convolution method | `program_recompile` |
 | source-route graph and authored default calibration | `program_recompile` |
 
-An authored default can also have a hot preview override. For example, changing a
-route monitoring gain is hot, while saving that value into `engine.json` produces a
-new program identity on the next compile. A physical exhaust length is never
-misrepresented as a gain-like hot control.
-
-When JSON changes, the adapter compiles an inactive replacement. A successful
-replacement may:
-
-1. stop and reset at an explicit boundary; or
-2. create and prime a second session, then crossfade at the delivery boundary.
-
-State transfer between different programs is forbidden unless a versioned method
-validates that the relevant state layouts and meanings are compatible. Compilation
-failure leaves the currently playing program untouched.
+There is currently no generic parameter-descriptor mutation API, no route-monitoring
+override, no session reset, and no cross-session state transfer. A future editor can
+compile an inactive replacement and create a second session before swapping or
+crossfading at an adapter-owned delivery boundary. Compilation failure must leave the
+playing session untouched. Physical geometry remains a recompile, never a gain-like
+preview control.
 
 ## 7. Audio bus contract
 
-The engine program exposes stable bus descriptors:
+The session descriptor exposes stable bus descriptors:
 
 ```text
-BusDescriptor
+EngineAudioBusDescriptor
   id
-  source kind
+  bus kind
+  optional exhaust route ID
   channel count
   delivery sample rate
-  presentation disposition
-  tail bound
 ```
 
-Bus IDs are semantic and are not inferred from vector position. The supported source
-kinds include:
+Bus IDs are semantic and are not inferred from vector position. The implemented,
+mono, 192 kHz buses are:
 
-- one or more exhaust outlet routes;
-- one or more intake inlet routes;
-- engine mechanical routes;
-- starter mechanical routes;
-- a raw declared master;
+- for every exhaust outlet route: dry, configured-IR, and configured-selected signals;
+- a raw master;
 - an audition master.
 
-Only routes actually implemented and admitted by the compiled program are advertised.
-An absent intake or mechanical model is an absent capability, not a silent bus.
+Every successful block returns all advertised buses as borrowed `float32` spans of
+exactly 3,840 samples. The spans remain valid only until the next enqueue/process
+operation, session move, or session destruction. File publishers must consume or copy
+them before advancing the session.
 
-The session configuration selects an ordered subset of advertised buses. `process()`
-receives one correctly sized planar buffer per selected bus and writes exactly the
-requested frame range. A mismatched bus ID, channel count, sample rate, pointer range,
-or capacity fails before the session advances.
+Intake and mechanical buses are not currently advertised. Their absence is an explicit
+missing capability, not a silent placeholder. Caller-selected bus subsets and
+caller-owned output buffers are also not part of the implemented C++ surface.
 
 The audition master is a convenience listening mix. Game hosts should normally consume
 separate buses and own spatial placement, distance attenuation, occlusion,
@@ -421,33 +414,28 @@ typed processing failure, never silently clipped into validity.
 
 ## 8. Telemetry and capability discovery
 
-Before session creation, the caller may query the program for:
+After session creation, `EngineSession::descriptor()` returns:
 
-- engine and schema identity;
-- supported motion modes;
-- source and audio bus descriptors;
-- supported live controls and their ranges, units, interpolation, and mutation class;
-- required and maximum block sizes;
-- internal and admissible delivery rates;
-- tail, memory, and estimated cost bounds;
-- torque and load telemetry capabilities.
+- engine and scenario IDs;
+- caller control-command and returned-telemetry capacities;
+- the exact 10 kHz physics and 192 kHz delivery rates;
+- the exact 200/3,840 frames per block;
+- total and preparation block counts;
+- all audio bus descriptors;
+- whether this session admits the implemented live controls.
 
-Each processed block may return bounded:
+Each block identifies its ordinal, preparation/audible phase, and exact half-open
+physics and delivery ranges. It returns one `EngineTelemetryFrame`: the final
+`EngineCaptureSample` of that block plus its physics-step end. That capture carries its
+own validity mask and currently available crank angle, angular motion/RPM, requested
+and resolved throttle, intake command, ignition/fuel/starter/dyno/limiter state, and
+torque telemetry.
 
-- delivery and physics frame ranges;
-- requested and resolved throttle;
-- RPM, angular speed, crank angle, and RPM slope;
-- instantaneous and cycle-mean torque forms that the method supports;
-- achieved signed net BMEP and mapped power where supported;
-- ignition, fuel, starter, limiter, and dyno state;
-- selected gear and clutch context;
-- per-bus peak, RMS, and fault flags;
-- typed combustion, limiter, starter, shutdown, and shift events;
-- cumulative simulation fault and dropped-telemetry counts.
-
-Telemetry availability is capability-described. A missing torque model does not return
-zero torque. Event and telemetry buffers are caller-owned and bounded; overflow is
-reported with the exact dropped count and does not overwrite memory.
+The authored `telemetry_capacity_frames` is a returned-record bound. It is not an audio
+frame count and it does not reserve the internal combustion event journal. The current
+method requires at least one record and returns exactly one per successful block.
+Caller-selected telemetry channels, per-bus meters, event streams, and dropped-record
+counters remain future capabilities.
 
 Browser transport statistics such as ring fill, callback underruns, worker lead, and
 estimated wall-clock realtime factor belong to the browser adapter. They are not
@@ -455,26 +443,28 @@ physical engine telemetry.
 
 ## 9. Deterministic offline execution
 
-Offline rendering constructs an engine program and session, resets them once, queues
-the complete scenario command stream on integer delivery frames, and calls
-`process()` until the declared horizon and optional tail are complete.
+`bake()` creates a fresh session and runs it to completion without queuing additional
+controls. A caller driving `EngineSession` directly may enqueue typed commands before
+each affected block. The finite horizon returns `EngineSessionCompleted`; it does not
+reset or drain the session. The native publisher discards blocks explicitly marked as
+preparation and encodes audible blocks.
 
 Deterministic execution requires:
 
-- immutable program and asset identities;
+- immutable compiled-scenario and asset identities;
 - complete session configuration;
 - explicit seed and initial state;
 - integer-frame controls with stable sequence numbers;
 - versioned clock projection and interpolation methods;
 - no wall-clock or audio-device input;
-- no callback-size-dependent numerical method;
+- the exact 200/3,840-frame executable method quantum;
 - a recorded build, target, numeric runtime, and method identity.
 
-The same build, target, numeric runtime, program, configuration, and command stream
-must be byte-stable. Native and WASM builds are not presumed byte-identical because
-their math libraries, compiler lowering, SIMD, and runtime environments may differ.
-Cross-target equivalence is accepted only under separately declared numeric and
-listening tolerances.
+The same build, target, numeric runtime, compiled scenario, configuration, and command
+stream must be byte-stable. Native and WASM builds are not presumed byte-identical
+because their math libraries, compiler lowering, SIMD, and runtime environments may
+differ. Cross-target equivalence is accepted only under separately declared numeric
+and listening tolerances.
 
 The browser preview is not authoritative artifact evidence. A downloadable browser
 WAV may be useful for iteration, but a production manifest identifies whether it came
@@ -483,42 +473,41 @@ environment.
 
 ## 10. Portable ABI
 
-The semantic API is implemented in C++. Native embedders may use typed C++ wrappers.
-WASM and other foreign runtimes use a thin versioned C ABI with opaque integer handles.
-Conceptually it provides:
+The semantic API is implemented in C++. A C ABI for WASM and other foreign runtimes is
+future work. It should expose opaque generation-checked handles around the implemented
+lifecycle, conceptually:
 
 ```text
 api_version
-compile_engine_json
-destroy_engine_program
-query_engine_program
+compile_engine_package
+destroy_compiled_scenario
+query_compiled_scenario
 create_session
 destroy_session
-reset_session
 enqueue_control_batch
-process_session
-begin_session_drain
+process_session_block
 copy_last_diagnostics
 ```
 
-ABI rules:
+Future ABI rules:
 
 - no C++ exception crosses the boundary;
 - every call returns an explicit status;
 - diagnostics are copied into caller-owned buffers;
 - JSON appears only at compile time;
-- audio, controls, and telemetry use fixed-layout structs and caller-owned spans;
+- audio, controls, and telemetry use fixed-layout structs and bounded views;
 - sizes, alignments, endianness, enum values, and schema versions are explicit;
 - handles are generation-checked so stale handles fail;
 - WASM linear-memory growth is disabled while exported buffer views are active;
 - the core owns no DOM, Web Audio, filesystem, URL, fetch, or JavaScript object.
 
-The JavaScript wrapper may offer promises around compile and session creation, but
-`process_session` itself is synchronous.
+The JavaScript wrapper may offer promises around compile and session creation, but the
+future `process_session_block` call remains synchronous and preserves the exact method
+quantum.
 
-## 11. Browser adapter
+## 11. Future browser adapter
 
-The initial browser architecture is:
+The browser adapter is not implemented yet. Its required architecture is:
 
 ```text
 main/UI thread
@@ -529,26 +518,36 @@ main/UI thread
 
 dedicated Worker
   - instantiate WASM
-  - compile EngineProgram
+  - compile CompiledScenario
   - own EngineSession
-  - render bounded chunks ahead of playback
-  - write PCM and telemetry rings
+  - render exact 3,840-frame/20 ms session blocks ahead of playback
+  - adapt the canonical master from 192 kHz to the AudioContext rate
+  - write device-rate PCM and telemetry rings
 
 AudioWorklet
   - read PCM ring
-  - copy to Web Audio outputs
+  - consume 128-frame Web Audio render quanta
   - apply final click-safe mute/master/crossfade
   - report underruns
 ```
 
-The full simulator does not initially run in the AudioWorklet. This avoids making a
-variable-cost physics step responsible for the browser's hard audio callback deadline.
-The Worker maintains a bounded lead selected by the adapter, initially expected to be
-approximately 20–50 ms on the development PC. The UI displays the measured queued
-control latency rather than claiming zero-latency response.
+The full simulator does not run in the AudioWorklet. The Worker produces one exact
+3,840-frame session block at a time; at 192 kHz that is 20 ms. A versioned Worker-side
+output-rate adapter converts only the canonical master to the actual
+`AudioContext.sampleRate` and writes device-rate frames to the shared PCM ring. The
+AudioWorklet merely consumes that ring in the callback's actual frame count. This
+preserves the executable method quantum without pretending that the simulator supports
+arbitrary callback-sized calls.
 
-The PCM transport is a single-producer/single-consumer ring in
-`SharedArrayBuffer`, with atomic read/write indices. Controls and telemetry use
+The Worker maintains a bounded lead selected by the adapter. A UI command carries an
+absolute delivery-frame target that must not already have been generated and must not
+fall inside preparation. The Worker must enqueue it before processing the containing
+20 ms block. Audio already in the ring cannot be changed retroactively, so ring fill
+plus one method quantum defines the measured control lead; the UI must display that
+latency rather than claim zero-latency response.
+
+The PCM transport will be a single-producer/single-consumer ring in
+`SharedArrayBuffer`, with atomic read/write indices. Controls and telemetry will use
 separate bounded rings so UI traffic cannot corrupt PCM ownership. The AudioWorklet
 never waits for the Worker.
 
@@ -560,10 +559,10 @@ Browser requirements:
   `Cross-Origin-Embedder-Policy: require-corp` or an explicitly validated equivalent;
 - the adapter verifies `crossOriginIsolated` before creating shared transport;
 - audio starts only after the required user gesture;
-- the implementation uses each callback's actual frame count rather than hardcoding
-  128;
-- the Worker resamples from the engine's admitted internal/presentation rate to the
-  actual `AudioContext.sampleRate`;
+- the initial accepted transport uses the current 128-frame Web Audio render quantum
+  and still checks each callback's actual frame count rather than overrunning a view;
+- output-rate conversion occurs in the Worker after the canonical 192 kHz master and
+  before the shared device-delivery ring;
 - no asset fetch, JSON parse, WASM compilation, memory growth, blocking lock, or
   unbounded logging occurs in the AudioWorklet callback.
 
@@ -591,13 +590,13 @@ Examples include malformed JSON, unsupported schema or method, duplicate IDs, da
 routing, invalid units/ranges, missing assets, asset hash mismatch, unsupported
 topology, or cost/memory bounds beyond the selected target.
 
-No partial program is returned. If compilation was a live editor rebuild, the active
-program and session continue unchanged.
+No partial compiled scenario is returned. If compilation was a live editor rebuild,
+the active compiled scenario and session continue unchanged.
 
 ### 12.2 Session-creation failure
 
 Examples include unsupported motion mode, output rate, bus set, quality, initial state,
-or capacity. No session is returned and the engine program remains reusable.
+or capacity. No session is returned and the compiled scenario remains reusable.
 
 ### 12.3 Control rejection
 
@@ -609,8 +608,8 @@ command stream.
 
 Examples include non-finite physical state, solver failure, internal buffer-bound
 violation, invalid caller audio storage, or an invariant violation. Processing failure
-is terminal for that session unless its code explicitly declares reset recovery. The
-core never returns fabricated audio, stale repeated samples, a tone, or a lower-fidelity
+is terminal for that session. The same error remains observable on later calls. The core
+never returns fabricated audio, stale repeated samples, a tone, or a lower-fidelity
 method.
 
 ### 12.5 Browser underrun
@@ -628,26 +627,25 @@ The Worker may refill after a transient underrun, but the UI keeps the fault vis
 A recurring underrun fails the realtime-preview performance gate. It does not alter
 offline render quality.
 
-### 12.6 Replacement failure
+### 12.6 Future replacement failure
 
-An inactive replacement program or session becomes audible only after complete
-compilation, session creation, preparation, and an explicit swap command. Failure at
-any earlier step leaves the current session untouched. A swap that requires reset is
-labelled as a reset; it is not disguised as continuous state transfer.
+The implemented core does not swap sessions. A future adapter may make an inactive
+replacement audible only after complete compilation, session creation, preparation,
+and an explicit adapter-owned swap. Failure at any earlier step must leave the current
+session untouched; no state transfer is implied.
 
-## 13. Minimum HTML harness
+## 13. Future minimum HTML harness
 
-The first useful harness contains:
+The harness is not implemented yet. Its first useful surface contains:
 
 - one raw JSON editor and an explicit **Apply/rebuild** action;
 - path-addressed compile diagnostics;
-- engine/program identity and current dirty/rebuild state;
-- `external_speed`, `held_speed`, and `inertial_dyno` mode selection where admitted;
-- throttle, ignition, fuel, starter, limiter, and dyno controls;
+- engine/scenario identity and current dirty/rebuild state;
+- authored scenario mode selection;
+- the currently admitted live throttle, ignition, and fuel controls for inertial dyno;
 - RPM input or display according to the selected ownership mode;
-- optional gear/clutch context clearly separated from engine authoring;
-- per-bus mute, monitoring gain, meter, and master wet/dry controls;
-- start, stop, reset, and canonical dyno-pull actions;
+- read-only named-bus meters and adapter-owned monitoring;
+- start, stop, new-session/restart, and canonical dyno-pull actions;
 - simulation realtime factor, worker lead, ring fill, callback underrun, and control
   latency display;
 - downloadable preview WAV rendered by the same session API in an unpaced Worker job.
@@ -660,17 +658,10 @@ PC.
 
 ## 14. Implementation order
 
-1. Freeze the neutral JSON capability schema and path-addressed diagnostics.
-2. Refactor the current accepted BMW path behind immutable `EngineProgram` and
-   mutable block-streaming `EngineSession`.
-3. Prove an offline render through repeated `process()` calls matches the accepted
-   native listening baseline.
-4. Add the versioned C ABI without browser types in the core.
-5. Build the Worker, shared PCM transport, and minimal AudioWorklet consumer.
-6. Add the HTML harness and explicit authoring rebuild flow.
-7. Add interactive external-speed and inertial-dyno controls.
-8. Measure callback underruns, worker lead, control latency, native render time, and
-   concurrent throughput.
+The authoritative execution sequence is [`PLAN.md`](../../PLAN.md). The native
+session/bake cutover is checkpoint 8; C ABI and WASM are checkpoint 9; the
+Worker/ring/AudioWorklet transport and workbench are checkpoint 10. Later control
+capabilities remain fail-closed until they are individually implemented.
 
 Each step preserves one implementation path. No temporary browser synthesizer,
 pre-recorded engine loop, or compatibility parser becomes a production dependency.

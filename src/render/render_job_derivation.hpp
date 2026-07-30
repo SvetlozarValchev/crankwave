@@ -3,7 +3,7 @@
 #include "artifacts/audition_wav_encoder.hpp"
 #include "engine_sim_offline/contract/result.hpp"
 #include "presentation/presentation_calibration_compiler.hpp"
-#include "presentation/presentation_render_session.hpp"
+#include "render/native_presentation_publisher.hpp"
 
 #include <cstdint>
 #include <string>
@@ -37,7 +37,7 @@ using AuditionMetadataResult =
 
 struct RenderJobProjection {
     contract::OutputContract output_contract;
-    std::vector<presentation::PresentationRouteArtifacts> route_artifacts;
+    std::vector<NativePresentationRouteArtifacts> route_artifacts;
     PendingArtifact raw_master_artifact;
     PendingArtifact audition_master_artifact;
     artifacts::AuditionWaveMetadata audition_metadata;

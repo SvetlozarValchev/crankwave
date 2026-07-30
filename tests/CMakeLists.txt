@@ -26,7 +26,6 @@ target_link_libraries(
     PUBLIC
         engine_sim_offline::authoring
         engine_sim_offline::compile
-        engine_sim_offline::render
 )
 
 add_executable(
@@ -113,7 +112,7 @@ target_link_libraries(
     engine_sim_offline_compiler_integration_tests
     PRIVATE
         engine_sim_offline::compile
-        engine_sim_offline::render
+        engine_sim_offline::session
 )
 engine_sim_offline_enable_renderer_numeric_policy(
     engine_sim_offline_compiler_integration_tests
@@ -126,6 +125,43 @@ add_test(
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(
+        engine_sim_offline_engine_session_tests
+        engine_session_test.cpp
+        bmw_m52b28_render_gate_support.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_engine_session_tests
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(
+        engine_sim_offline_engine_session_tests
+        PRIVATE
+            engine_sim_offline::compile
+            engine_sim_offline::presentation
+            engine_sim_offline::session
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_engine_session_tests
+    )
+
+    if(NOT CMAKE_CONFIGURATION_TYPES AND
+       CMAKE_BUILD_TYPE STREQUAL "Release")
+        add_test(
+            NAME session.engine_session
+            COMMAND
+                engine_sim_offline_engine_session_tests
+                ${PROJECT_SOURCE_DIR}
+        )
+        set_tests_properties(
+            session.engine_session
+            PROPERTIES TIMEOUT 240
+        )
+    endif()
+
+    add_executable(
         engine_sim_offline_bmw_m52b28_authored_json_render_gate_tests
         bmw_m52b28_authored_json_render_gate_test.cpp
         bmw_m52b28_render_gate_support.cpp
@@ -136,7 +172,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         engine_sim_offline_bmw_m52b28_authored_json_render_gate_tests
         PRIVATE
             engine_sim_offline::compile
-            engine_sim_offline::render
+            engine_sim_offline::bake
     )
     engine_sim_offline_enable_renderer_numeric_policy(
         engine_sim_offline_bmw_m52b28_authored_json_render_gate_tests
@@ -253,7 +289,7 @@ add_executable(
 
 target_link_libraries(
     engine_sim_offline_renderer_numeric_policy_consumer_tests
-    PRIVATE engine_sim_offline::render
+    PRIVATE engine_sim_offline::bake
 )
 
 add_test(
@@ -408,21 +444,6 @@ add_test(
 )
 
 add_executable(
-    engine_sim_offline_render_tests
-    render_api_test.cpp
-)
-
-target_link_libraries(
-    engine_sim_offline_render_tests
-    PRIVATE engine_sim_offline::render
-)
-
-add_test(
-    NAME render.api
-    COMMAND engine_sim_offline_render_tests
-)
-
-add_executable(
     engine_sim_offline_render_job_derivation_tests
     render_job_derivation_test.cpp
 )
@@ -436,7 +457,7 @@ target_include_directories(
 target_link_libraries(
     engine_sim_offline_render_job_derivation_tests
     PRIVATE
-        engine_sim_offline::render
+        engine_sim_offline::bake
         engine_sim_offline::presentation
 )
 engine_sim_offline_enable_renderer_numeric_policy(
@@ -446,27 +467,6 @@ engine_sim_offline_enable_renderer_numeric_policy(
 add_test(
     NAME render.job_derivation
     COMMAND engine_sim_offline_render_job_derivation_tests
-)
-
-add_executable(
-    engine_sim_offline_schedule_tests
-    render_schedule_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_schedule_tests
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_schedule_tests
-    PRIVATE engine_sim_offline::render
-)
-
-add_test(
-    NAME render.schedule
-    COMMAND engine_sim_offline_schedule_tests
 )
 
 add_executable(
@@ -808,6 +808,54 @@ target_link_libraries(
 add_test(
     NAME presentation.fixed_fft_convolution
     COMMAND engine_sim_offline_fixed_fft_convolution_tests
+)
+
+add_executable(
+    engine_sim_offline_presentation_audio_session_tests
+    presentation_audio_session_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_presentation_audio_session_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_presentation_audio_session_tests
+    PRIVATE engine_sim_offline::presentation
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_presentation_audio_session_tests
+)
+
+add_test(
+    NAME presentation.audio_session
+    COMMAND engine_sim_offline_presentation_audio_session_tests
+)
+
+add_executable(
+    engine_sim_offline_session_control_timeline_tests
+    session_control_timeline_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_session_control_timeline_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_session_control_timeline_tests
+    PRIVATE engine_sim_offline::session
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_session_control_timeline_tests
+)
+
+add_test(
+    NAME session.control_timeline
+    COMMAND engine_sim_offline_session_control_timeline_tests
 )
 
 add_executable(
@@ -1375,6 +1423,36 @@ add_test(
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_executable(
+        engine_sim_offline_native_presentation_publisher_tests
+        native_presentation_publisher_test.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_native_presentation_publisher_tests
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(
+        engine_sim_offline_native_presentation_publisher_tests
+        PRIVATE
+            engine_sim_offline::bake
+            engine_sim_offline::authoring
+            engine_sim_offline::session
+            $<$<PLATFORM_ID:Linux>:m>
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_native_presentation_publisher_tests
+    )
+
+    add_test(
+        NAME render.native_presentation_publisher
+        COMMAND
+            engine_sim_offline_native_presentation_publisher_tests
+            ${PROJECT_SOURCE_DIR}
+    )
+
+    add_executable(
         engine_sim_offline_linux_execution_facts_tests
         linux_execution_facts_test.cpp
     )
@@ -1396,32 +1474,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_test(
         NAME execution.linux_facts
         COMMAND engine_sim_offline_linux_execution_facts_tests
-    )
-
-    add_executable(
-        engine_sim_offline_presentation_render_session_boundary_tests
-        presentation_render_session_boundary_test.cpp
-    )
-
-    target_include_directories(
-        engine_sim_offline_presentation_render_session_boundary_tests
-        PRIVATE
-            ${PROJECT_SOURCE_DIR}/src
-    )
-
-    target_link_libraries(
-        engine_sim_offline_presentation_render_session_boundary_tests
-        PRIVATE
-            engine_sim_offline_presentation_session
-            $<$<PLATFORM_ID:Linux>:m>
-    )
-    engine_sim_offline_enable_renderer_numeric_policy(
-        engine_sim_offline_presentation_render_session_boundary_tests
-    )
-
-    add_test(
-        NAME presentation.session_boundary
-        COMMAND engine_sim_offline_presentation_render_session_boundary_tests
     )
 
 endif()

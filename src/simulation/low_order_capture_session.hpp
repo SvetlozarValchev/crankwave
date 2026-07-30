@@ -4,21 +4,67 @@
 #include "engine_sim_offline/contract/randomness.hpp"
 #include "engine_sim_offline/contract/result.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
+#include "simulation/live_control.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
 #include "simulation/low_order_inertial_dyno_v1_runtime.hpp"
 #include "simulation/low_order_operating_point_v1_runtime.hpp"
 
+#include <concepts>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <variant>
 
 namespace engine_sim_offline::simulation {
 
-using LowOrderCaptureBlockConsumer =
-    std::function<bool(const contract::CaptureBlockView &)>;
+/**
+ * Non-owning, synchronous callback for one capture publication.
+ *
+ * The target is borrowed only for the duration of publish_next_block(). Keeping this
+ * seam as a context pointer plus function pointer prevents type-erasure storage from
+ * allocating on the block-producing path.
+ */
+class LowOrderCaptureBlockConsumer final {
+  public:
+    constexpr LowOrderCaptureBlockConsumer() noexcept = default;
+
+    template <class Consumer>
+        requires(!std::same_as<std::remove_cvref_t<Consumer>,
+                               LowOrderCaptureBlockConsumer> &&
+                 std::is_object_v<std::remove_reference_t<Consumer>> &&
+                 std::invocable<Consumer &, const contract::CaptureBlockView &> &&
+                 std::convertible_to<
+                     std::invoke_result_t<Consumer &,
+                                          const contract::CaptureBlockView &>,
+                     bool>)
+    LowOrderCaptureBlockConsumer(Consumer &&consumer) noexcept
+        : context_(const_cast<void *>(static_cast<const void *>(
+              std::addressof(consumer)))),
+          invoke_([](void *context,
+                     const contract::CaptureBlockView &block) -> bool {
+              using Target = std::remove_reference_t<Consumer>;
+              return static_cast<bool>(
+                  std::invoke(*static_cast<Target *>(context), block));
+          }) {}
+
+    [[nodiscard]] explicit constexpr operator bool() const noexcept {
+        return context_ != nullptr && invoke_ != nullptr;
+    }
+
+    [[nodiscard]] bool operator()(const contract::CaptureBlockView &block) const {
+        return invoke_(context_, block);
+    }
+
+  private:
+    void *context_ = nullptr;
+    bool (*invoke_)(void *, const contract::CaptureBlockView &) = nullptr;
+};
+
+static_assert(std::is_trivially_copyable_v<LowOrderCaptureBlockConsumer>);
 
 struct LowOrderCaptureBlockPublished {
     std::uint64_t block_ordinal = 0;
@@ -69,6 +115,9 @@ class LowOrderCaptureSession final {
     // Consumer rejection or an exception is a stable terminal contract failure.
     [[nodiscard]] LowOrderCaptureAdvanceResult
     publish_next_block(const LowOrderCaptureBlockConsumer &consumer);
+    [[nodiscard]] LowOrderCaptureAdvanceResult
+    publish_next_block(const LowOrderCaptureBlockConsumer &consumer,
+                       const detail::LowOrderLiveControlProvider &live_controls);
 
     [[nodiscard]] bool faulted() const noexcept;
     [[nodiscard]] bool completed() const noexcept;
@@ -92,6 +141,9 @@ class LowOrderCaptureSession final {
           std::string state_summary,
           const LegacyMechanismStep *mechanics = nullptr) const;
     [[nodiscard]] LowOrderCaptureAdvanceResult fail(contract::FailureContext failure);
+    [[nodiscard]] LowOrderCaptureAdvanceResult
+    publish_next_block_impl(const LowOrderCaptureBlockConsumer &consumer,
+                            const detail::LowOrderLiveControlProvider *live_controls);
 
     LowOrderEngineCoreV1Runtime core_;
     ProfilePolicy profile_policy_;

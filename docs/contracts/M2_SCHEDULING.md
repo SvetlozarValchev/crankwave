@@ -1,14 +1,18 @@
 # M2 deterministic scheduling and bounded streaming
 
-Status: normative implementation record for the M2 scheduling/streaming checkbox
+Status: retired historical implementation record; current block ownership is defined
+by [`ENGINE_SESSION_API.md`](ENGINE_SESSION_API.md)
 
 Applies to: fixed-rate horizon resolution, method-owned block partitioning,
 constant-memory traversal, capture-clock coverage, deterministic cancellation points,
 and the frozen P1.8 schedule
 
-This checkpoint does not decode the BMW fixture, simulate an engine, generate an
+This document preserves the reasoning behind the former standalone schedule types.
+Those types have been deleted rather than retained as a compatibility layer. This
+checkpoint did not decode the BMW fixture, simulate an engine, generate an
 excitation signal, run DSP, serialize telemetry/WAV files, or admit render success. It
-establishes the clock and transport rules those stages must use.
+established the clock and transport rules those stages used. Present-tense statements
+below describe repository state at that checkpoint.
 
 ## 1. Integer clock resolution
 

@@ -211,6 +211,7 @@ class LegacyLowOrderGasSession final {
     IntakeLane intake_;
     std::vector<RouteLane> routes_;
     std::vector<CylinderLane> cylinders_;
+    std::vector<contract::CylinderId> expected_spark_cylinders_;
     FuelModel fuel_;
     std::string model_id_;
     std::string profile_id_;

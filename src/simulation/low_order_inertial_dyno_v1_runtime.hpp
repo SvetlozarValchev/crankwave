@@ -42,9 +42,13 @@ class LowOrderInertialDynoV1Runtime final {
 
     [[nodiscard]] LowOrderInertialDynoV1AdvanceResult
     advance(LowOrderEngineCoreV1Runtime &core);
+    [[nodiscard]] LowOrderInertialDynoV1AdvanceResult
+    advance(LowOrderEngineCoreV1Runtime &core,
+            const LiveControlOverrides &overrides);
 
     [[nodiscard]] bool faulted() const noexcept;
     [[nodiscard]] bool finalized() const noexcept;
+    [[nodiscard]] bool held_preparation_active() const noexcept;
     [[nodiscard]] std::uint64_t accepted_sample_count() const noexcept;
     [[nodiscard]] std::uint64_t release_frame_index() const noexcept;
     [[nodiscard]] const std::optional<contract::InertialDynoResult> &

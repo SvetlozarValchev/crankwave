@@ -14,22 +14,22 @@ dead fields, or a general-purpose scripting language.
 
 The accepted engine-sim-equivalent exhaust audio path, low-order simulation, dyno
 scenarios, block presentation pipeline, WAV publication, and telemetry are implemented.
-The strict engine/scenario JSON authoring contract, parser, and generic immutable
-compiler boundary and native renderer are now in place. The compiler accepts the
-currently executable low-order topology without inspecting an engine name and fails
-closed on unsupported capabilities. A compiled JSON scenario enters the existing
-renderer directly through an ownership-safe generic boundary. The BMW JSON migration
-fixture reproduces every sound-bearing PCM byte of the user-approved inertial dyno.
-JSON compilation is now the only production path: the temporary BMW factories, exact
-BMW validators, profile selector surface, and fixed-crank compatibility profile have
-been removed. Cylinder and exhaust/presentation-route execution is count-derived and
-session-owned rather than fixed to the BMW fixture's six cylinders and two routes. A
-separate inline-twin/one-route fixture now compiles through the executable pipeline;
-topologies whose physical semantics are not implemented still fail closed. The native
-CLI resolves engine-relative assets inside an explicit asset root and atomically
-publishes a new output directory.
+Strict engine/scenario JSON compilation is the only production input path. A compiled
+scenario creates one mutable `EngineSession`, whose bounded `process_block()` method
+owns the simulation, excitation, resampling, presentation, control, and telemetry
+state. Native baking is an unpaced loop over that same method followed by transactional
+artifact publication; there is no second whole-render implementation.
 
-The active cutover replaces that profile with:
+The compiler accepts the currently executable low-order topology without inspecting an
+engine name and fails closed on unsupported capabilities. Cylinder and
+exhaust/presentation-route execution is count-derived rather than fixed to the BMW
+fixture's six cylinders and two routes. A separate inline-twin/one-route fixture reaches
+the same session boundary. The BMW JSON migration fixture reproduces every
+sound-bearing PCM byte of the user-approved inertial dyno. The native CLI resolves
+engine-relative assets inside an explicit asset root and atomically publishes a new
+output directory.
+
+The current production flow is:
 
 ```text
 engine.json + scenario.json + assets
@@ -40,7 +40,7 @@ engine.json + scenario.json + assets
                   |
         PCM buses + telemetry
             /             \
-       native WAV       WASM preview
+       native WAV       planned WASM preview
 ```
 
 The BMW now remains only as JSON data, an automated byte-identity migration fixture,

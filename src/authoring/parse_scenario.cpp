@@ -664,26 +664,30 @@ void parse_quality(DocumentReader &reader, JsonValue value, std::string_view pat
 
     const auto require_capacity =
         [&](std::uint32_t capacity, std::uint32_t maximum,
-            std::string_view member) {
+            std::string_view member, std::string_view meaning) {
             const auto member_path = pointer_member(path, member);
             if (capacity == 0U) {
                 reader.add(DiagnosticCode::out_of_range, member_path,
-                           "capacity must be positive");
+                           std::string{meaning} + " must be positive");
             } else if (capacity > maximum) {
                 reader.add(DiagnosticCode::resource_limit, member_path,
-                           "capacity exceeds the configured authoring limit of " +
+                           std::string{meaning} +
+                               " exceeds the configured authoring limit of " +
                                std::to_string(maximum));
             }
         };
     require_capacity(output.process_block_capacity_frames,
                      reader.limits().maximum_process_block_capacity_frames,
-                     "process_block_capacity_frames");
+                     "process_block_capacity_frames",
+                     "maximum delivery-frame process-call capacity");
     require_capacity(output.event_queue_capacity,
                      reader.limits().maximum_event_queue_capacity,
-                     "event_queue_capacity");
+                     "event_queue_capacity",
+                     "caller control-command queue capacity");
     require_capacity(output.telemetry_capacity_frames,
                      reader.limits().maximum_telemetry_capacity_frames,
-                     "telemetry_capacity_frames");
+                     "telemetry_capacity_frames",
+                     "returned telemetry-frame capacity");
 }
 
 void parse_output(DocumentReader &reader, JsonValue value, std::string_view path,

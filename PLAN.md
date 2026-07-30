@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-30
 
-Current checkpoint: **8 — establish `EngineSession`**
+Current checkpoint: **9 — compile and verify WASM**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -27,11 +27,11 @@ engine.json + scenario.json + referenced assets
                          |
                     EngineSession
                          |
-        timestamped controls and processBlock()
+        timestamped controls and process_block()
                          |
              PCM buses + physical telemetry
                   /                     \
-       unpaced native render        WASM block stream
+       unpaced native bake          WASM block stream
               |                           |
      WAV/manifest/CLI          Worker -> ring buffer -> AudioWorklet
                                           |
@@ -140,12 +140,12 @@ The fixture proves that plumbing and architecture changes preserve the accepted 
 It does not define the JSON vocabulary, impose a six-cylinder/two-route product limit,
 or remain as an executable BMW factory.
 
-During checkpoints 2--5, the current hardcoded BMW factory may exist only as a
-migration-test oracle, never as an alternate production input. After resolved identity
-and PCM equality are proven, checkpoint 6 deletes the factory and its exact BMW
-validators/provenance builders. The tracked historical WAV, the new JSON-compiled
-request-identity and WAV goldens, and the focused automated test remain. The old
-BMW-specific provenance and request hash do not become compatibility targets.
+During checkpoints 2--5, the hardcoded BMW factory existed only as a migration-test
+oracle, never as an alternate production input. Checkpoint 6 deleted that factory and
+its exact BMW validators and provenance builders after resolved identity and PCM
+equality were proven. The tracked historical WAV, JSON-compiled request/WAV goldens,
+and focused automated test remain. The old BMW-specific provenance and request hash
+did not become compatibility targets.
 
 Core 192 kHz PCM and the encoded PCM24 `data` chunk must remain byte-identical through
 the cutover. The generic WAV container receives a new deterministic golden because its
@@ -154,7 +154,7 @@ retaining obsolete IDs merely to reproduce the historical whole-file hash is for
 Browser device-rate conversion is compared before that final adapter; an AudioContext
 resampler is not expected to reproduce a 192 kHz WAV container.
 
-The completed checkpoint-4 generic identities are:
+The current generic identities are:
 
 ```text
 simulation request SHA-256: a07360b0a7a780850e601e1316113f4541b852195a361c79549005ea1f487c7e
@@ -262,25 +262,50 @@ ordered-N-route container is 8,640,586 bytes with SHA-256
 ### 8. Establish `EngineSession`
 
 - Expose immutable compiled configuration separately from mutable session state.
-- Add a bounded `processBlock()` API accepting timestamped control/event changes and
+- Add a bounded `process_block()` API accepting timestamped control/event changes and
   returning PCM buses plus telemetry.
 - Route the existing simulation -> capture -> excitation -> presentation chain through
   that API.
 - Implement native offline rendering as an unpaced loop over the same session.
-- Treat structural/config edits as compile-and-create-session operations; realtime
-  throttle, ignition, fuel, and operating commands change session control state.
+- Treat structural/config edits as compile-and-create-session operations. The current
+  inertial-dyno session admits timestamped throttle, ignition, and fuel commands only
+  after preparation; other live commands fail closed.
 
 Gate: the old whole-render orchestration is gone, native block and offline paths are one
 implementation, and the BMW PCM remains byte-identical for every tested block and for
 the complete render.
+
+Completed evidence: `CompiledScenario -> EngineSession::process_block()` is the sole
+simulation/excitation/presentation execution path. The native `bake()` adapter drives
+that session unpaced and owns only deterministic evidence plus transactional artifact
+publication. The former public `render()` API, opaque whole-render job, fused
+presentation session, and standalone render scheduler are deleted.
+
+The BMW session exposes 1,072 exact 20 ms blocks: 322 preparation and 750 audible.
+Every audible block quantizes byte-for-byte to the accepted 8,640,000-byte PCM24
+payload with SHA-256
+`176010069c88c99a3cc8262099fa5f02eba3af9517b1c92e148d88ace869756f`.
+The clean native bake retains simulation-request SHA-256
+`a07360b0a7a780850e601e1316113f4541b852195a361c79549005ea1f487c7e`
+and the 8,640,586-byte audition WAVE SHA-256
+`f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552`.
+
+Timestamped throttle, ignition, and fuel controls are causally projected into the
+inertial-dyno physics clock. Preparation, late, post-horizon, and terminal commands
+fail explicitly. A controlled run withholds authored-request-bound dyno evidence until
+a later command-journal identity exists. Simulation owns neutral control values while
+the session layer owns ordering and projection, so the portable target graph remains
+acyclic.
 
 ### 9. Compile and verify WASM
 
 - Isolate the portable core from Linux execution inspection, filesystem sinks, native
   threads, and process-global assumptions.
 - Expose JSON compilation, session creation/destruction, control submission,
-  `processBlock()`, PCM retrieval, telemetry, and structured errors.
+  `process_block()`, PCM retrieval, telemetry, and structured errors.
 - Use preallocated/bounded memory across the realtime block boundary.
+- Remove the current transient per-block capture-contract validation allocations before
+  admitting the fixed-memory WASM target.
 - Add a headless WASM parity runner; do not implement a second JavaScript simulator or
   DSP path.
 

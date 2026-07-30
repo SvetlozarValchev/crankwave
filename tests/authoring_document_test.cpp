@@ -527,6 +527,10 @@ void test_complete_scenario_and_exact_integer_wire_values() {
     expect(scenario.rates.physics.numerator == 20000U &&
                scenario.rates.physics.denominator == 1U,
            "exact rational rate changed");
+    expect(scenario.quality.process_block_capacity_frames == 4096U &&
+               scenario.quality.event_queue_capacity == 64U &&
+               scenario.quality.telemetry_capacity_frames == 96000U,
+           "session process/control/telemetry capacities changed during parsing");
     expect(scenario.events.size() == 1U,
            "scenario event was not retained");
     const auto *conditioning =
@@ -578,6 +582,27 @@ void test_semantic_ranges_limits_and_mixed_duration_units() {
                           DiagnosticCode::resource_limit,
                           "/quality/process_block_capacity_frames"),
            "quality capacity limit was not enforced");
+
+    std::string empty_control_queue = valid_scenario_json();
+    replace_once(empty_control_queue, R"json("event_queue_capacity": 64)json",
+                 R"json("event_queue_capacity": 0)json");
+    const auto empty_control_queue_result =
+        parse_scenario_document(empty_control_queue);
+    expect(has_diagnostic(require_report(empty_control_queue_result),
+                          DiagnosticCode::out_of_range,
+                          "/quality/event_queue_capacity"),
+           "zero caller control-command capacity was accepted");
+
+    std::string empty_telemetry = valid_scenario_json();
+    replace_once(empty_telemetry,
+                 R"json("telemetry_capacity_frames": 96000)json",
+                 R"json("telemetry_capacity_frames": 0)json");
+    const auto empty_telemetry_result =
+        parse_scenario_document(empty_telemetry);
+    expect(has_diagnostic(require_report(empty_telemetry_result),
+                          DiagnosticCode::out_of_range,
+                          "/quality/telemetry_capacity_frames"),
+           "zero returned telemetry capacity was accepted");
 }
 
 void test_syntax_diagnostic_location() {

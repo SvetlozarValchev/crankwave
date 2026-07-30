@@ -60,16 +60,27 @@ LowOrderEngineCoreV1Runtime::fail(contract::FailureContext failure) {
 }
 
 LowOrderEngineCoreV1AdvanceResult LowOrderEngineCoreV1Runtime::advance() {
-    return advance_with_motion(std::nullopt);
+    return advance_with_motion(std::nullopt, {});
+}
+
+LowOrderEngineCoreV1AdvanceResult LowOrderEngineCoreV1Runtime::advance(
+    const LiveControlOverrides &overrides) {
+    return advance_with_motion(std::nullopt, overrides);
 }
 
 LowOrderEngineCoreV1AdvanceResult
 LowOrderEngineCoreV1Runtime::advance(PostStepCrankMotion motion) {
-    return advance_with_motion(motion);
+    return advance_with_motion(motion, {});
+}
+
+LowOrderEngineCoreV1AdvanceResult LowOrderEngineCoreV1Runtime::advance(
+    PostStepCrankMotion motion, const LiveControlOverrides &overrides) {
+    return advance_with_motion(motion, overrides);
 }
 
 LowOrderEngineCoreV1AdvanceResult LowOrderEngineCoreV1Runtime::advance_with_motion(
-    std::optional<PostStepCrankMotion> motion) {
+    std::optional<PostStepCrankMotion> motion,
+    const LiveControlOverrides &overrides) {
     if (terminal_fault_.has_value()) {
         return *terminal_fault_;
     }
@@ -87,8 +98,9 @@ LowOrderEngineCoreV1AdvanceResult LowOrderEngineCoreV1Runtime::advance_with_moti
         return LowOrderEngineCoreV1Completed{committed_sample_count};
     }
 
-    auto mechanics_result =
-        motion.has_value() ? mechanics_.advance(*motion) : mechanics_.advance();
+    auto mechanics_result = motion.has_value()
+                                ? mechanics_.advance(*motion, overrides)
+                                : mechanics_.advance(overrides);
     if (const auto *failure =
             std::get_if<contract::FailureContext>(&mechanics_result)) {
         return fail(*failure);

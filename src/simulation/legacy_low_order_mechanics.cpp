@@ -86,16 +86,27 @@ contract::FailureContext LegacyLowOrderMechanicsSession::fault(
 }
 
 LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance() {
-    return advance_with_motion(std::nullopt);
+    return advance_with_motion(std::nullopt, {});
+}
+
+LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance(
+    const LiveControlOverrides &overrides) {
+    return advance_with_motion(std::nullopt, overrides);
 }
 
 LegacyMechanicsAdvanceResult
 LegacyLowOrderMechanicsSession::advance(PostStepCrankMotion motion) {
-    return advance_with_motion(motion);
+    return advance_with_motion(motion, {});
+}
+
+LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance(
+    PostStepCrankMotion motion, const LiveControlOverrides &overrides) {
+    return advance_with_motion(motion, overrides);
 }
 
 LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion(
-    std::optional<PostStepCrankMotion> motion) {
+    std::optional<PostStepCrankMotion> motion,
+    const LiveControlOverrides &overrides) {
     if (terminal_fault_.has_value()) {
         return *terminal_fault_;
     }
@@ -114,6 +125,15 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
             fault(contract::FailureKind::contract_violation,
                   "legacy-mechanics-external-motion-required",
                   "dynamic mechanics requires one finite post-step crank-motion input");
+        return *terminal_fault_;
+    }
+    if (overrides.has_throttle &&
+        (!std::isfinite(overrides.throttle_01) ||
+         overrides.throttle_01 < 0.0 || overrides.throttle_01 > 1.0)) {
+        terminal_fault_ = fault(
+            contract::FailureKind::contract_violation,
+            "legacy-mechanics-invalid-live-throttle",
+            "live throttle override must be finite and in [0, 1]");
         return *terminal_fault_;
     }
     if (motion.has_value()) {
@@ -161,7 +181,15 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
     step_.step_end_index = controls->step_end_index;
     step_.timestamp_tick = controls->step_end_index;
     step_.operating_state = controls->operating_state;
-    step_.requested_throttle_01 = controls->requested_throttle;
+    if (overrides.has_ignition_enabled) {
+        step_.operating_state.ignition_enabled = overrides.ignition_enabled;
+    }
+    if (overrides.has_fuel_enabled) {
+        step_.operating_state.fuel_enabled = overrides.fuel_enabled;
+    }
+    step_.requested_throttle_01 =
+        overrides.has_throttle ? overrides.throttle_01
+                               : controls->requested_throttle;
     step_.engine_speed_rpm =
         motion.has_value() ? motion->engine_speed_rpm : kinematic->rpm;
 

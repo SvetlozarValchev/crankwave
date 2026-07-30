@@ -81,4 +81,8 @@ const contract::ProvenanceLedger &CompiledScenario::provenance() const noexcept 
     return storage_->resolved.combined_provenance;
 }
 
+const CompiledSessionCapacities &CompiledScenario::session_capacities() const noexcept {
+    return storage_->resolved.request_input.session_capacities;
+}
+
 } // namespace engine_sim_offline::compile

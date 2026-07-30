@@ -19,8 +19,8 @@ struct AuthoredEngineFixture {
     contract::ProvenanceBundleRef provenance_bundle;
 };
 
-// Loads the canonical authored migration fixture only through JSON parse, generic
-// compilation, and the same immutable projection used by the renderer.
+// Loads the canonical authored migration fixture only through JSON parse and generic
+// compilation.
 [[nodiscard]] AuthoredEngineFixture
 load_canonical_authored_engine_fixture(const std::filesystem::path &repository_root);
 

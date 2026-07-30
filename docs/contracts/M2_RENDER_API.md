@@ -1,13 +1,18 @@
 # M2 render API and CLI shell
 
-Status: normative interface record for the current M2 render-boundary checkbox
+Status: retired historical record; the current public native boundary is
+[`bake.hpp`](../../include/engine_sim_offline/bake.hpp) over
+[`session.hpp`](../../include/engine_sim_offline/session.hpp), with the retained sink
+protocol in [`publication.hpp`](../../include/engine_sim_offline/publication.hpp)
 
 Applies to: resolved render-request ownership, preflight admission, typed rejection,
 sink transaction semantics, and the initial headless CLI
 
-This checkpoint creates the one public orchestration boundary. It does not implement a
-simulator, fixture decoder, DSP route, serializer, or file sink, and therefore makes no
-audio-quality claim.
+This document records the former M2 orchestration boundary and is not a current API
+contract. The `render()` API described below has been deleted; no compatibility wrapper
+is retained. Present-tense statements below describe repository state at that
+checkpoint. The checkpoint did not implement a simulator, fixture decoder, DSP route,
+serializer, or file sink, and therefore made no audio-quality claim.
 
 ## 1. Public boundary
 

@@ -54,7 +54,7 @@ struct ScenarioResolverContext {
 // deterministic request inputs. Nothing in an accepted authored document is silently
 // discarded.
 struct ScenarioRequestInputMaterial {
-    std::uint32_t telemetry_capacity_frames = 0;
+    CompiledSessionCapacities session_capacities;
     double authored_initial_engine_speed_rpm = 0.0;
     std::uint64_t total_physics_frames = 0;
     std::uint64_t audible_delivery_frames = 0;

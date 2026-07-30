@@ -1,10 +1,8 @@
-#include "presentation/presentation_render_session.hpp"
+#include "render/native_presentation_publisher.hpp"
 
-#include "artifacts/audition_wav_encoder.hpp"
 #include "contract/sha256_stream.hpp"
-#include "dsp/source_conditioning_primitives.hpp"
+#include "engine_sim_offline/artifacts/wav_encoder.hpp"
 #include "presentation/mastering.hpp"
-#include "presentation/overlap_save_convolver.hpp"
 
 #include <algorithm>
 #include <array>
@@ -12,8 +10,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <memory>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -21,22 +19,24 @@
 #include <unordered_set>
 #include <utility>
 #include <variant>
+#include <vector>
 
-namespace engine_sim_offline::presentation {
+namespace engine_sim_offline::render_detail {
 namespace {
 
 using artifacts::WavEncoder;
 using artifacts::WavEncodingStatus;
-constexpr std::size_t kInputFramesPerBlock = kExcitationFramesPerMethodBlock;
-constexpr std::size_t kSourceFramesPerBlock = kSourceFramesPerMethodBlock;
+
+constexpr std::size_t kInputFramesPerBlock = kEngineSessionPhysicsFramesPerBlock;
+constexpr std::size_t kSourceFramesPerBlock = kEngineSessionDeliveryFramesPerBlock;
 constexpr std::size_t kMaximumWaveChunkBytes = 16U * 1024U;
 
 [[nodiscard]] constexpr std::size_t stem_count(std::size_t route_count) noexcept {
-    return route_count * kPresentationArtifactsPerRoute;
+    return route_count * kNativePresentationArtifactsPerRoute;
 }
 
 [[nodiscard]] constexpr std::size_t float_wave_count(std::size_t route_count) noexcept {
-    return stem_count(route_count) + 1;
+    return stem_count(route_count) + 1U;
 }
 
 [[nodiscard]] constexpr std::size_t raw_master_index(std::size_t route_count) noexcept {
@@ -59,59 +59,39 @@ audition_master_index(std::size_t route_count) noexcept {
 }
 
 [[nodiscard]] std::uint64_t
-published_block_count(const PresentationRenderPlan &plan) noexcept {
+published_block_count(const NativePresentationPublicationPlan &plan) noexcept {
     return plan.timeline.total_block_count - plan.timeline.pre_audible_block_count;
 }
 
 [[nodiscard]] std::uint64_t
-processed_input_frame_count(const PresentationRenderPlan &plan) {
+processed_input_frame_count(const NativePresentationPublicationPlan &plan) {
     return checked_frame_product(plan.timeline.total_block_count, kInputFramesPerBlock,
-                                 "presentation input horizon");
+                                 "native presentation input horizon");
 }
 
 [[nodiscard]] std::uint64_t
-processed_source_frame_count(const PresentationRenderPlan &plan) {
+processed_source_frame_count(const NativePresentationPublicationPlan &plan) {
     return checked_frame_product(plan.timeline.total_block_count, kSourceFramesPerBlock,
-                                 "presentation source horizon");
+                                 "native presentation source horizon");
 }
 
 [[nodiscard]] std::uint64_t
-pre_audible_source_frame_count(const PresentationRenderPlan &plan) {
+pre_audible_source_frame_count(const NativePresentationPublicationPlan &plan) {
     return checked_frame_product(plan.timeline.pre_audible_block_count,
                                  kSourceFramesPerBlock,
-                                 "presentation pre-audible horizon");
+                                 "native presentation pre-audible horizon");
 }
 
 [[nodiscard]] std::uint64_t
-published_source_frame_count(const PresentationRenderPlan &plan) {
+published_source_frame_count(const NativePresentationPublicationPlan &plan) {
     return checked_frame_product(published_block_count(plan), kSourceFramesPerBlock,
-                                 "presentation audible horizon");
-}
-
-[[nodiscard]] std::vector<contract::RouteId>
-source_route_ids(const PresentationRenderPlan &plan) {
-    std::vector<contract::RouteId> result;
-    result.reserve(plan.routes.size());
-    for (const auto &route : plan.routes) {
-        result.push_back(route.route_id);
-    }
-    return result;
-}
-
-[[nodiscard]] std::vector<RouteConditioningSeeds>
-source_route_seeds(const PresentationRenderPlan &plan) {
-    std::vector<RouteConditioningSeeds> result;
-    result.reserve(plan.routes.size());
-    for (const auto &route : plan.routes) {
-        result.push_back(route.conditioning_seeds);
-    }
-    return result;
+                                 "native presentation audible horizon");
 }
 
 [[nodiscard]] std::vector<PendingArtifact>
-ordered_audio_artifacts(const PresentationRenderPlan &plan) {
+ordered_audio_artifacts(const NativePresentationPublicationPlan &plan) {
     std::vector<PendingArtifact> result;
-    result.reserve(presentation_audio_artifact_count(plan.routes.size()));
+    result.reserve(native_presentation_artifact_count(plan.routes.size()));
     for (const auto &route : plan.routes) {
         result.push_back(route.artifacts.dry);
         result.push_back(route.artifacts.configured_ir);
@@ -122,29 +102,6 @@ ordered_audio_artifacts(const PresentationRenderPlan &plan) {
     return result;
 }
 
-[[nodiscard]] std::vector<std::size_t>
-audition_route_indices(const PresentationRenderPlan &plan) {
-    std::vector<std::size_t> indices;
-    indices.reserve(plan.audition.selected_route_ids.size());
-    for (const auto selected_route_id : plan.audition.selected_route_ids) {
-        const auto found = std::find_if(
-            plan.routes.begin(), plan.routes.end(),
-            [&](const auto &route) { return route.route_id == selected_route_id; });
-        if (found == plan.routes.end()) {
-            throw std::logic_error{
-                "validated audition route is absent from the render plan"};
-        }
-        indices.push_back(static_cast<std::size_t>(found - plan.routes.begin()));
-    }
-    return indices;
-}
-
-[[nodiscard]] ExhaustSourceStage make_source_stage(const PresentationRenderPlan &plan) {
-    const auto route_ids = source_route_ids(plan);
-    const auto route_seeds = source_route_seeds(plan);
-    return ExhaustSourceStage{route_ids, route_seeds, plan.conditioning};
-}
-
 [[nodiscard]] std::string sink_failure_message(std::string_view operation,
                                                const RenderSinkError &error) {
     return std::string(operation) + ": " + error.detail_code + ": " + error.message;
@@ -152,7 +109,7 @@ audition_route_indices(const PresentationRenderPlan &plan) {
 
 void require_sink_success(std::string_view operation, const RenderSinkStatus &status) {
     if (status.has_value()) {
-        throw PresentationSinkFailure{operation, *status};
+        throw NativePresentationSinkFailure{operation, *status};
     }
 }
 
@@ -173,7 +130,7 @@ execution_error(std::string_view operation,
             std::get_if<execution::LinuxExecutionFactsObservation>(&result)) {
         return std::move(*observation);
     }
-    throw execution_error("could not begin presentation execution observation",
+    throw execution_error("could not begin native presentation execution observation",
                           std::get<execution::LinuxExecutionFactsError>(result));
 }
 
@@ -183,81 +140,83 @@ require_execution_finish(execution::LinuxExecutionFactsObservation &&observation
     if (auto *facts = std::get_if<execution::ObservedExecutionFacts>(&result)) {
         return std::move(*facts);
     }
-    throw execution_error("could not finish presentation execution observation",
+    throw execution_error("could not finish native presentation execution observation",
                           std::get<execution::LinuxExecutionFactsError>(result));
 }
 
 [[nodiscard]] bool is_float_audio(const contract::AudioContract &audio,
                                   std::uint64_t expected_frame_count) noexcept {
-    return audio.sample_rate == contract::RationalRateHz{192000, 1} &&
+    return audio.sample_rate == kEngineSessionDeliveryRateHz &&
            audio.frame_count == expected_frame_count &&
            audio.channel_layout_id == "mono" && audio.sample_encoding_id == "float32le";
 }
 
 [[nodiscard]] bool is_audition_audio(const contract::AudioContract &audio,
                                      std::uint64_t expected_frame_count) noexcept {
-    return audio.sample_rate == contract::RationalRateHz{192000, 1} &&
+    return audio.sample_rate == kEngineSessionDeliveryRateHz &&
            audio.frame_count == expected_frame_count &&
            audio.channel_layout_id == "mono" && audio.sample_encoding_id == "pcm_s24le";
 }
 
-void validate_plan(const PresentationRenderPlan &plan) {
+[[nodiscard]] presentation::MasteringSettings
+make_fade_settings(const NativePresentationPublicationPlan &plan) {
+    return {
+        plan.audition.fade.audible_frame_count,
+        plan.audition.fade.fade_in_frame_count,
+        plan.audition.fade.fade_out_frame_count,
+        1.0F,
+    };
+}
+
+void validate_plan(const NativePresentationPublicationPlan &plan) {
     if (plan.timeline.total_block_count == 0 ||
         plan.timeline.pre_audible_block_count >= plan.timeline.total_block_count) {
         throw std::invalid_argument{
-            "presentation timeline requires a positive audible block interval"};
+            "native presentation timeline requires a positive audible block "
+            "interval"};
     }
-    if (plan.timeline.tail_policy != PresentationTailPolicy::truncate_at_timeline_end) {
+    if (plan.timeline.tail_policy !=
+        NativePresentationTailPolicy::truncate_at_timeline_end) {
         throw std::invalid_argument{
-            "presentation timeline requires an explicit supported tail policy"};
+            "native presentation timeline requires an explicit supported tail "
+            "policy"};
     }
-    if (plan.methods != implemented_presentation_method_identities()) {
+    if (plan.methods != presentation::implemented_presentation_method_identities()) {
         throw std::invalid_argument{
-            "presentation methods do not exactly match the executable implementation"};
+            "native presentation methods do not exactly match the executable "
+            "implementation"};
     }
+
     static_cast<void>(processed_input_frame_count(plan));
     static_cast<void>(processed_source_frame_count(plan));
     static_cast<void>(pre_audible_source_frame_count(plan));
     const auto audible_frames = published_source_frame_count(plan);
-    if (plan.audition.mastering.audible_frame_count() != audible_frames) {
+    if (plan.audition.fade.audible_frame_count != audible_frames) {
         throw std::invalid_argument{
-            "presentation mastering horizon differs from the timeline"};
+            "native presentation mastering horizon differs from the timeline"};
     }
-    if (!valid_route_conditioning_calibration(plan.conditioning)) {
-        throw std::invalid_argument{
-            "presentation conditioning calibration is outside the executable domain"};
-    }
-    if (!std::isfinite(plan.publication_calibration_gain_linear) ||
-        plan.publication_calibration_gain_linear <= 0.0) {
-        throw std::invalid_argument{
-            "presentation publication gain must be finite and positive"};
-    }
+    static_cast<void>(make_fade_settings(plan));
     if (plan.routes.empty()) {
         throw std::invalid_argument{
-            "presentation requires at least one rendered route"};
+            "native presentation requires at least one rendered route"};
     }
-    if (!presentation_audio_artifact_count_representable(plan.routes.size())) {
+    if (!native_presentation_artifact_count_representable(plan.routes.size())) {
         throw std::invalid_argument{
-            "presentation route count cannot represent its artifact layout"};
+            "native presentation route count cannot represent its artifact "
+            "layout"};
     }
 
     for (std::size_t route = 0; route < plan.routes.size(); ++route) {
         const auto &configured = plan.routes[route];
-        if (!configured.route_id.valid() || configured.route_semantic_id.empty() ||
-            !configured.configured_ir || !std::isfinite(configured.wet_mix_01) ||
-            configured.wet_mix_01 < 0.0 || configured.wet_mix_01 > 1.0) {
+        if (!configured.route_id.valid() || configured.route_semantic_id.empty()) {
             throw std::invalid_argument{
-                "presentation route requires identities, an IR, and wet mix in [0, 1]"};
-        }
-        if (configured.wet_mix_01 == 0.0 && std::signbit(configured.wet_mix_01)) {
-            throw std::invalid_argument{
-                "presentation wet mix requires canonical positive zero"};
+                "native presentation route requires valid route identities"};
         }
         for (std::size_t prior = 0; prior < route; ++prior) {
             if (configured.route_id == plan.routes[prior].route_id ||
                 configured.route_semantic_id == plan.routes[prior].route_semantic_id) {
                 throw std::invalid_argument{
-                    "presentation route identities must be distinct"};
+                    "native presentation route identities must be distinct"};
             }
         }
 
@@ -276,34 +235,37 @@ void validate_plan(const PresentationRenderPlan &plan) {
             !std::equal(requirement->artifact_roles.begin(),
                         requirement->artifact_roles.end(), artifact_roles.begin())) {
             throw std::invalid_argument{
-                "presentation route artifacts differ from their source-route owner"};
+                "native presentation route artifacts differ from their "
+                "source-route owner"};
         }
     }
+
     if (plan.audition.selected_route_ids.size() != plan.routes.size()) {
         throw std::invalid_argument{
-            "presentation audition must select every rendered route"};
+            "native presentation audition must select every rendered route"};
     }
     std::unordered_set<std::uint32_t> selected_route_ids;
     for (const auto selected : plan.audition.selected_route_ids) {
         if (!selected_route_ids.insert(selected.value).second) {
             throw std::invalid_argument{
-                "presentation audition routes must be distinct"};
+                "native presentation audition routes must be distinct"};
         }
         if (std::ranges::none_of(plan.routes, [&](const auto &route) {
                 return route.route_id == selected;
             })) {
             throw std::invalid_argument{
-                "presentation audition route is absent from the route plan"};
+                "native presentation audition route is absent from the route "
+                "plan"};
         }
     }
 
     if (plan.output_contract.required_source_routes.size() != plan.routes.size() ||
         plan.output_contract.required_output_buses.size() != 2 ||
         plan.output_contract.required_artifacts.size() !=
-            presentation_audio_artifact_count(plan.routes.size())) {
+            native_presentation_artifact_count(plan.routes.size())) {
         throw std::invalid_argument{
-            "presentation requires three artifacts per rendered route and exactly "
-            "two master buses and artifacts"};
+            "native presentation requires three artifacts per rendered route "
+            "and exactly two master buses and artifacts"};
     }
 
     const auto raw_bus = std::ranges::find_if(
@@ -322,7 +284,8 @@ void validate_plan(const PresentationRenderPlan &plan) {
         audition_bus->artifact_roles.front() !=
             plan.audition.audition_master_artifact.role) {
         throw std::invalid_argument{
-            "presentation master artifacts differ from their output-bus owners"};
+            "native presentation master artifacts differ from their "
+            "output-bus owners"};
     }
 
     const auto audio_artifacts = ordered_audio_artifacts(plan);
@@ -343,7 +306,8 @@ void validate_plan(const PresentationRenderPlan &plan) {
             !roles.insert(pending.role).second ||
             !paths.insert(pending.relative_path).second) {
             throw std::invalid_argument{
-                "presentation artifact plan differs from its output contract"};
+                "native presentation artifact plan differs from its output "
+                "contract"};
         }
         const bool media_matches =
             artifact_index < float_wave_count(plan.routes.size())
@@ -351,15 +315,142 @@ void validate_plan(const PresentationRenderPlan &plan) {
                 : is_audition_audio(*pending.audio, audible_frames);
         if (!media_matches) {
             throw std::invalid_argument{
-                "presentation artifact media differs from the accepted "
-                "renderer"};
+                "native presentation artifact media differs from the accepted "
+                "publisher"};
         }
     }
 }
 
-[[nodiscard]] PresentationRenderPlan validated_plan(PresentationRenderPlan plan) {
+[[nodiscard]] NativePresentationPublicationPlan
+validated_plan(NativePresentationPublicationPlan plan) {
     validate_plan(plan);
     return plan;
+}
+
+struct NativePresentationRouteBusBinding {
+    std::array<std::size_t, kNativePresentationArtifactsPerRoute> stems{};
+};
+
+struct NativePresentationBusBinding {
+    std::vector<NativePresentationRouteBusBinding> routes;
+    std::size_t raw_master = 0;
+    std::size_t audition_master = 0;
+    std::size_t bus_count = 0;
+    std::string raw_master_id;
+    std::string audition_master_id;
+};
+
+[[nodiscard]] bool
+same_optional_route(const std::optional<contract::RouteId> &actual,
+                    const std::optional<contract::RouteId> &expected) noexcept {
+    return actual == expected;
+}
+
+[[nodiscard]] bool is_expected_bus(const EngineAudioBusDescriptor &bus,
+                                   EngineAudioBusKind kind,
+                                   const std::optional<contract::RouteId> &route_id,
+                                   std::string_view id) noexcept {
+    return bus.id == id && bus.kind == kind &&
+           same_optional_route(bus.route_id, route_id) && bus.channel_count == 1U &&
+           bus.sample_rate == kEngineSessionDeliveryRateHz;
+}
+
+[[nodiscard]] std::size_t bind_unique_bus(const EngineSessionDescriptor &session,
+                                          std::vector<bool> &claimed,
+                                          EngineAudioBusKind kind,
+                                          std::optional<contract::RouteId> route_id,
+                                          std::string_view id) {
+    std::optional<std::size_t> match;
+    for (std::size_t index = 0; index < session.audio_buses.size(); ++index) {
+        if (!is_expected_bus(session.audio_buses[index], kind, route_id, id)) {
+            continue;
+        }
+        if (match.has_value()) {
+            throw std::invalid_argument{
+                "native presentation session descriptor contains a duplicate "
+                "required audio bus"};
+        }
+        match = index;
+    }
+    if (!match.has_value() || claimed[*match]) {
+        throw std::invalid_argument{
+            "native presentation session descriptor lacks one unique required "
+            "audio bus"};
+    }
+    claimed[*match] = true;
+    return *match;
+}
+
+[[nodiscard]] const contract::OutputBusRequirement &
+require_output_bus(const NativePresentationPublicationPlan &plan,
+                   contract::OutputBusKind kind) {
+    const auto found = std::ranges::find(plan.output_contract.required_output_buses,
+                                         kind, &contract::OutputBusRequirement::kind);
+    if (found == plan.output_contract.required_output_buses.end()) {
+        throw std::invalid_argument{
+            "native presentation plan lacks a required master output bus"};
+    }
+    return *found;
+}
+
+[[nodiscard]] NativePresentationBusBinding
+bind_session_buses(const EngineSessionDescriptor &session,
+                   const NativePresentationPublicationPlan &plan) {
+    if (session.physics_rate != kEngineSessionPhysicsRateHz ||
+        session.delivery_rate != kEngineSessionDeliveryRateHz ||
+        session.physics_frames_per_block != kEngineSessionPhysicsFramesPerBlock ||
+        session.delivery_frames_per_block != kEngineSessionDeliveryFramesPerBlock ||
+        session.total_block_count != plan.timeline.total_block_count ||
+        session.preparation_block_count != plan.timeline.pre_audible_block_count ||
+        session.audio_buses.size() !=
+            native_presentation_artifact_count(plan.routes.size())) {
+        throw std::invalid_argument{
+            "native presentation session descriptor differs from its publication "
+            "timeline or fixed block contract"};
+    }
+
+    NativePresentationBusBinding result;
+    result.routes.resize(plan.routes.size());
+    result.bus_count = session.audio_buses.size();
+    std::vector<bool> claimed(result.bus_count, false);
+
+    constexpr std::array route_kinds{
+        EngineAudioBusKind::exhaust_route_dry,
+        EngineAudioBusKind::exhaust_route_configured_ir,
+        EngineAudioBusKind::exhaust_route_selected,
+    };
+    for (std::size_t route = 0; route < plan.routes.size(); ++route) {
+        const auto &configured = plan.routes[route];
+        const std::array<std::string_view, kNativePresentationArtifactsPerRoute> ids{
+            configured.artifacts.dry.role,
+            configured.artifacts.configured_ir.role,
+            configured.artifacts.selected.role,
+        };
+        for (std::size_t stem = 0; stem < route_kinds.size(); ++stem) {
+            result.routes[route].stems[stem] = bind_unique_bus(
+                session, claimed, route_kinds[stem], configured.route_id, ids[stem]);
+        }
+    }
+
+    const auto &raw =
+        require_output_bus(plan, contract::OutputBusKind::master_engine_raw);
+    const auto &audition =
+        require_output_bus(plan, contract::OutputBusKind::master_engine_audition);
+    result.raw_master_id = raw.semantic_id;
+    result.audition_master_id = audition.semantic_id;
+    result.raw_master =
+        bind_unique_bus(session, claimed, EngineAudioBusKind::engine_raw_master,
+                        std::nullopt, result.raw_master_id);
+    result.audition_master =
+        bind_unique_bus(session, claimed, EngineAudioBusKind::engine_audition_master,
+                        std::nullopt, result.audition_master_id);
+
+    if (std::ranges::any_of(claimed, [](bool value) { return !value; })) {
+        throw std::invalid_argument{
+            "native presentation session descriptor contains an unbound audio "
+            "bus"};
+    }
+    return result;
 }
 
 [[nodiscard]] WavEncoder
@@ -368,7 +459,7 @@ make_float_wave_encoder(std::span<const PendingArtifact> audio_artifacts,
     auto result = artifacts::make_wav_encoder(*audio_artifacts[artifact_index].audio,
                                               {kMaximumWaveChunkBytes});
     if (const auto *error = std::get_if<artifacts::WavEncodingError>(&result)) {
-        throw std::logic_error{"cannot construct Float32 WAVE encoder: " +
+        throw std::logic_error{"cannot construct native Float32 WAVE encoder: " +
                                error->message};
     }
     return std::get<WavEncoder>(std::move(result));
@@ -387,43 +478,20 @@ make_float_wave_encoders(std::span<const PendingArtifact> audio_artifacts,
 }
 
 [[nodiscard]] artifacts::AuditionWaveEncoder
-make_audition_wave_encoder(const PresentationRenderPlan &plan,
+make_audition_wave_encoder(const NativePresentationPublicationPlan &plan,
                            std::span<const PendingArtifact> audio_artifacts) {
     auto result = artifacts::make_audition_wave_encoder(
         *audio_artifacts[audition_master_index(plan.routes.size())].audio,
         plan.audition.metadata, {kMaximumWaveChunkBytes});
     if (const auto *error = std::get_if<artifacts::WavEncodingError>(&result)) {
-        throw std::logic_error{"cannot construct audition WAVE encoder: " +
+        throw std::logic_error{"cannot construct native audition WAVE encoder: " +
                                error->message};
     }
     return std::get<artifacts::AuditionWaveEncoder>(std::move(result));
 }
 
-[[nodiscard]] std::vector<std::unique_ptr<CausalOverlapSaveConvolver>>
-make_convolvers(const PresentationRenderPlan &plan) {
-    std::vector<std::unique_ptr<CausalOverlapSaveConvolver>> result;
-    result.reserve(plan.routes.size());
-    for (const auto &route : plan.routes) {
-        result.push_back(
-            std::make_unique<CausalOverlapSaveConvolver>(route.configured_ir));
-    }
-    return result;
-}
-
-struct RenderScratch {
-    explicit RenderScratch(std::size_t route_count)
-        : conditioned(kSourceFramesPerBlock * route_count), dry(route_count),
-          configured_ir(route_count), selected(route_count),
-          stems(stem_count(route_count)) {}
-
-    std::vector<double> conditioned;
-    std::vector<std::array<double, kSourceFramesPerBlock>> dry;
-    std::vector<std::array<double, kSourceFramesPerBlock>> configured_ir;
-    std::vector<std::array<double, kSourceFramesPerBlock>> selected;
-    std::vector<std::array<float, kSourceFramesPerBlock>> stems;
-    std::array<float, kSourceFramesPerBlock> raw{};
+struct PublicationScratch {
     std::array<std::int32_t, kSourceFramesPerBlock> pcm24{};
-    std::array<MasteredFrame, kSourceFramesPerBlock> mastered{};
 };
 
 struct ArtifactObservation {
@@ -431,8 +499,8 @@ struct ArtifactObservation {
     std::uint64_t byte_count = 0;
 };
 
-struct FinishedSession {
-    PresentationRenderStats stats;
+struct FinishedPublisher {
+    NativePresentationPublicationStats stats;
     std::vector<contract::ArtifactRecord> artifacts;
     execution::ObservedExecutionFacts execution;
 };
@@ -440,37 +508,32 @@ struct FinishedSession {
 [[nodiscard]] std::logic_error
 manifest_validation_error(const contract::ValidationReport &report) {
     if (report.issues.empty()) {
-        return std::logic_error{"complete publication manifest failed validation"};
+        return std::logic_error{
+            "complete native publication manifest failed validation"};
     }
     const auto &first = report.issues.front();
-    return std::logic_error{"complete publication manifest is invalid at " +
+    return std::logic_error{"complete native publication manifest is invalid at " +
                             first.path + ": " + first.message};
 }
 
 } // namespace
 
-class PresentationRenderSession::Implementation final {
+class NativePresentationPublisher::Implementation final {
   public:
-    Implementation(RenderSink &sink, PresentationRenderPlan plan, RenderControl control)
+    Implementation(RenderSink &sink, const EngineSessionDescriptor &session,
+                   NativePresentationPublicationPlan plan, RenderControl control)
         : sink_(sink), plan_(validated_plan(std::move(plan))),
+          buses_(bind_session_buses(session, plan_)),
           audio_artifacts_(ordered_audio_artifacts(plan_)),
           control_(std::move(control)),
-          audition_route_indices_(audition_route_indices(plan_)),
-          source_stage_(make_source_stage(plan_)), convolvers_(make_convolvers(plan_)),
           encoders_(make_float_wave_encoders(audio_artifacts_, plan_.routes.size())),
           audition_(make_audition_wave_encoder(plan_, audio_artifacts_)),
-          scratch_(std::make_unique<RenderScratch>(plan_.routes.size())),
+          fade_settings_(make_fade_settings(plan_)),
           observations_(audio_artifacts_.size()), consumers_(audio_artifacts_.size()) {
-        master_inputs_.reserve(audition_route_indices_.size());
-        for (const auto route_index : audition_route_indices_) {
-            master_inputs_.push_back(
-                std::span<const float>{scratch_->stems[route_index * 3 + 2]});
-        }
         try {
             begin();
         } catch (...) {
-            // A throwing constructor does not run ~Implementation. Close a
-            // successfully begun sink transaction here before member unwinding.
+            // A throwing constructor does not run ~Implementation.
             abort_once();
             throw;
         }
@@ -480,66 +543,44 @@ class PresentationRenderSession::Implementation final {
         abort_once();
     }
 
-    void process(ExhaustExcitationBlockView input) {
-        if (state_ != PresentationRenderSessionState::active) {
+    void process(const EngineSessionBlockView &block) {
+        if (state_ != NativePresentationPublisherState::active) {
             abort_once();
-            throw std::logic_error{"presentation input requires an active session"};
+            throw std::logic_error{
+                "native publication input requires an active publisher"};
         }
         if (stats_.processed_block_count >= plan_.timeline.total_block_count) {
             abort_once();
             throw std::invalid_argument{
-                "presentation received more blocks than its timeline"};
+                "native publication received more blocks than its timeline"};
         }
         if (control_.stop_token.stop_requested()) {
             abort_once();
             throw std::runtime_error{
-                "presentation cancelled between complete input blocks"};
+                "native publication cancelled between complete input blocks"};
         }
 
         try {
-            const auto extent = source_stage_.process(input, scratch_->conditioned);
-            const auto expected_block =
-                static_cast<std::uint64_t>(stats_.processed_block_count);
-            const auto expected_input_frame = expected_block * kInputFramesPerBlock;
-            const auto expected_source_frame = expected_block * kSourceFramesPerBlock;
-            if (extent.first_input_frame_index != expected_input_frame ||
-                extent.first_source_frame_index != expected_source_frame) {
-                throw std::logic_error{"source-stage extent lost session continuity"};
-            }
+            validate_block(block);
 
             stats_.input_frame_count +=
-                static_cast<std::uint64_t>(extent.input_frame_count);
+                static_cast<std::uint64_t>(block.physics_frame_count());
             ++stats_.processed_block_count;
             stats_.processed_source_frame_count +=
-                static_cast<std::uint64_t>(extent.source_frame_count);
+                static_cast<std::uint64_t>(block.delivery_frame_count());
 
-            const auto route_count = plan_.routes.size();
-            for (std::size_t route = 0; route < route_count; ++route) {
-                for (std::size_t frame = 0; frame < kSourceFramesPerBlock; ++frame) {
-                    scratch_->dry[route][frame] =
-                        scratch_->conditioned[frame * route_count + route];
-                }
-                convolvers_[route]->process(scratch_->dry[route],
-                                            scratch_->configured_ir[route]);
-                for (std::size_t frame = 0; frame < kSourceFramesPerBlock; ++frame) {
-                    const double wet_mix = plan_.routes[route].wet_mix_01;
-                    scratch_->selected[route][frame] =
-                        wet_mix * scratch_->configured_ir[route][frame] +
-                        (1.0 - wet_mix) * scratch_->dry[route][frame];
-                }
-            }
-
-            const auto completed_block = stats_.processed_block_count - 1;
+            const auto completed_block = stats_.processed_block_count - 1U;
             if (completed_block < plan_.timeline.pre_audible_block_count) {
                 ++stats_.pre_audible_block_count;
                 stats_.pre_audible_source_frame_count +=
-                    static_cast<std::uint64_t>(extent.source_frame_count);
+                    static_cast<std::uint64_t>(block.delivery_frame_count());
             } else {
-                write_published_block();
-                audible_frame_ += kSourceFramesPerBlock;
+                write_published_block(block);
+                audible_frame_ +=
+                    static_cast<std::uint64_t>(block.delivery_frame_count());
                 ++stats_.published_block_count;
                 stats_.published_source_frame_count +=
-                    static_cast<std::uint64_t>(extent.source_frame_count);
+                    static_cast<std::uint64_t>(block.delivery_frame_count());
             }
         } catch (...) {
             abort_once();
@@ -547,15 +588,16 @@ class PresentationRenderSession::Implementation final {
         }
     }
 
-    [[nodiscard]] FinishedSession finish() {
-        if (state_ != PresentationRenderSessionState::active) {
+    [[nodiscard]] FinishedPublisher finish() {
+        if (state_ != NativePresentationPublisherState::active) {
             abort_once();
             throw std::logic_error{
-                "presentation finalization requires an active session"};
+                "native publication finalization requires an active publisher"};
         }
         if (control_.stop_token.stop_requested()) {
             abort_once();
-            throw std::runtime_error{"presentation cancelled before finalization"};
+            throw std::runtime_error{
+                "native publication cancelled before finalization"};
         }
 
         try {
@@ -564,20 +606,21 @@ class PresentationRenderSession::Implementation final {
                  ++artifact_index) {
                 require_encoding_success(
                     encoders_[artifact_index].finish(consumers_[artifact_index]),
-                    "WAVE finalization failed");
+                    "native WAVE finalization failed");
                 if (encoders_[artifact_index].frames_written() !=
                         published_source_frame_count(plan_) ||
                     encoders_[artifact_index].bytes_emitted() !=
                         observations_[artifact_index].byte_count) {
-                    throw std::logic_error{"Float32 WAVE length changed"};
+                    throw std::logic_error{"native Float32 WAVE length changed"};
                 }
             }
+
             const auto audition_index = audition_master_index(plan_.routes.size());
             require_encoding_success(audition_.finish(consumers_[audition_index]),
-                                     "audition WAVE finalization failed");
+                                     "native audition WAVE finalization failed");
             if (audition_.frames_written() != published_source_frame_count(plan_) ||
                 audition_.bytes_emitted() != observations_[audition_index].byte_count) {
-                throw std::logic_error{"audition WAVE length changed"};
+                throw std::logic_error{"native audition WAVE length changed"};
             }
 
             std::vector<contract::ArtifactRecord> records;
@@ -595,12 +638,13 @@ class PresentationRenderSession::Implementation final {
                     observed.hash.finish(),
                     pending.diagnostic,
                 });
-                require_sink_success("could not seal presentation artifact",
+                require_sink_success("could not seal native presentation artifact",
                                      sink_.seal_artifact(records.back()));
             }
 
             if (!execution_observation_.has_value()) {
-                throw std::logic_error{"presentation lost its execution observation"};
+                throw std::logic_error{
+                    "native presentation lost its execution observation"};
             }
             auto execution =
                 require_execution_finish(std::move(*execution_observation_));
@@ -608,23 +652,28 @@ class PresentationRenderSession::Implementation final {
 
             sealed_artifacts_ = records;
             sealed_execution_ = execution.facts();
-            state_ = PresentationRenderSessionState::sealed;
-            return {stats_, std::move(records), std::move(execution)};
+            state_ = NativePresentationPublisherState::sealed;
+            return {
+                stats_,
+                std::move(records),
+                std::move(execution),
+            };
         } catch (...) {
             abort_once();
             throw;
         }
     }
 
-    void commit(const SealedPresentationEvidence &evidence,
+    void commit(const SealedNativePresentationEvidence &evidence,
                 const contract::RenderManifest &manifest,
                 const contract::ProvenanceLedger &provenance,
                 const contract::SourceMatrixContract &source_matrix) {
-        if (state_ != PresentationRenderSessionState::sealed ||
+        if (state_ != NativePresentationPublisherState::sealed ||
             !sealed_artifacts_.has_value() || !sealed_execution_.has_value()) {
             abort_once();
             throw std::logic_error{
-                "presentation commit requires this session's sealed evidence"};
+                "native presentation commit requires this publisher's sealed "
+                "evidence"};
         }
 
         try {
@@ -638,8 +687,8 @@ class PresentationRenderSession::Implementation final {
                             manifest.content.artifacts.end(),
                             sealed_artifacts_->begin())) {
                 throw std::logic_error{
-                    "commit manifest differs from this session's sealed "
-                    "artifact or execution evidence"};
+                    "commit manifest differs from this native publisher's "
+                    "sealed artifact or execution evidence"};
             }
             const auto report = contract::validate(manifest, provenance, source_matrix);
             if (!report.ok()) {
@@ -650,36 +699,37 @@ class PresentationRenderSession::Implementation final {
             throw;
         }
 
-        // RenderSink::commit is the terminal attempt. Once called, the sink owns
-        // cleanup on both outcomes, so this session must never issue a later abort.
+        // RenderSink::commit is the terminal attempt. The sink owns cleanup
+        // after this call on both success and failure.
         commit_attempted_ = true;
         try {
-            require_sink_success("could not commit presentation",
+            require_sink_success("could not commit native presentation",
                                  sink_.commit(manifest));
-            state_ = PresentationRenderSessionState::committed;
+            state_ = NativePresentationPublisherState::committed;
         } catch (...) {
-            if (state_ != PresentationRenderSessionState::committed) {
-                state_ = PresentationRenderSessionState::aborted;
+            if (state_ != NativePresentationPublisherState::committed) {
+                state_ = NativePresentationPublisherState::aborted;
             }
             throw;
         }
     }
 
-    [[nodiscard]] PresentationRenderSessionState state() const noexcept {
+    [[nodiscard]] NativePresentationPublisherState state() const noexcept {
         return state_;
     }
 
   private:
     void begin() {
         if (control_.stop_token.stop_requested()) {
-            throw std::runtime_error{"presentation cancelled before transaction begin"};
+            throw std::runtime_error{
+                "native presentation cancelled before transaction begin"};
         }
-        require_sink_success("could not begin presentation transaction",
+        require_sink_success("could not begin native presentation transaction",
                              sink_.begin_transaction(plan_.output_contract));
         transaction_begun_ = true;
 
         for (const auto &pending : audio_artifacts_) {
-            require_sink_success("could not declare presentation artifact",
+            require_sink_success("could not declare native presentation artifact",
                                  sink_.declare_artifact(pending));
         }
         for (std::size_t artifact_index = 0; artifact_index < consumers_.size();
@@ -691,25 +741,152 @@ class PresentationRenderSession::Implementation final {
             };
         }
 
-        // This is the exact execution interval start: preflight, transaction setup,
-        // and declarations are complete; the first WAVE bytes and all DSP follow.
+        // Declarations are complete; every native WAVE byte and all
+        // publication work follow this observation boundary.
         execution_observation_.emplace(require_execution_begin());
         for (std::size_t artifact_index = 0; artifact_index < encoders_.size();
              ++artifact_index) {
             require_encoding_success(
                 encoders_[artifact_index].begin(consumers_[artifact_index]),
-                "WAVE header emission failed");
+                "native WAVE header emission failed");
         }
         require_encoding_success(
             audition_.begin(consumers_[audition_master_index(plan_.routes.size())]),
-            "audition WAVE prefix emission failed");
+            "native audition WAVE prefix emission failed");
+    }
+
+    void validate_runtime_bus(const EngineAudioBusBlockView &bus,
+                              EngineAudioBusKind kind,
+                              std::optional<contract::RouteId> route_id,
+                              std::string_view id) const {
+        if (!is_expected_bus(bus.descriptor, kind, route_id, id) ||
+            bus.samples.size() != kSourceFramesPerBlock) {
+            throw std::invalid_argument{
+                "native publication block differs from its prebound session "
+                "audio-bus contract"};
+        }
+    }
+
+    void validate_block(const EngineSessionBlockView &block) const {
+        const auto expected_block = stats_.processed_block_count;
+        const auto expected_input_frame = checked_frame_product(
+            expected_block, kInputFramesPerBlock, "native input continuity");
+        const auto expected_source_frame = checked_frame_product(
+            expected_block, kSourceFramesPerBlock, "native source continuity");
+        const auto expected_phase =
+            expected_block < plan_.timeline.pre_audible_block_count
+                ? EngineSessionBlockPhase::preparation
+                : EngineSessionBlockPhase::audible;
+        if (block.block_ordinal() != expected_block ||
+            block.phase() != expected_phase ||
+            block.first_physics_frame() != expected_input_frame ||
+            block.first_delivery_frame() != expected_source_frame ||
+            block.physics_frame_count() != kInputFramesPerBlock ||
+            block.delivery_frame_count() != kSourceFramesPerBlock ||
+            block.audio_buses().size() != buses_.bus_count) {
+            throw std::invalid_argument{
+                "native publication requires one exact contiguous public session "
+                "quantum"};
+        }
+
+        const auto audio_buses = block.audio_buses();
+        constexpr std::array route_kinds{
+            EngineAudioBusKind::exhaust_route_dry,
+            EngineAudioBusKind::exhaust_route_configured_ir,
+            EngineAudioBusKind::exhaust_route_selected,
+        };
+        for (std::size_t route = 0; route < plan_.routes.size(); ++route) {
+            const auto &configured = plan_.routes[route];
+            const std::array<std::string_view, kNativePresentationArtifactsPerRoute>
+                ids{
+                    configured.artifacts.dry.role,
+                    configured.artifacts.configured_ir.role,
+                    configured.artifacts.selected.role,
+                };
+            for (std::size_t stem = 0; stem < route_kinds.size(); ++stem) {
+                validate_runtime_bus(audio_buses[buses_.routes[route].stems[stem]],
+                                     route_kinds[stem], configured.route_id, ids[stem]);
+            }
+        }
+        validate_runtime_bus(audio_buses[buses_.raw_master],
+                             EngineAudioBusKind::engine_raw_master, std::nullopt,
+                             buses_.raw_master_id);
+        validate_runtime_bus(audio_buses[buses_.audition_master],
+                             EngineAudioBusKind::engine_audition_master, std::nullopt,
+                             buses_.audition_master_id);
+    }
+
+    void prepare_published_block(const EngineSessionBlockView &block) {
+        const auto audio_buses = block.audio_buses();
+        for (std::size_t route = 0; route < plan_.routes.size(); ++route) {
+            for (const auto stem_bus : buses_.routes[route].stems) {
+                for (const float sample : audio_buses[stem_bus].samples) {
+                    if (!std::isfinite(sample)) {
+                        throw std::domain_error{
+                            "native presentation stem was non-finite"};
+                    }
+                }
+            }
+        }
+        for (const float sample : audio_buses[buses_.raw_master].samples) {
+            if (!std::isfinite(sample)) {
+                throw std::domain_error{
+                    "native presentation raw master was non-finite"};
+            }
+        }
+
+        const auto monitor = audio_buses[buses_.audition_master].samples;
+        for (std::size_t frame = 0; frame < monitor.size(); ++frame) {
+            if (!std::isfinite(monitor[frame])) {
+                throw std::domain_error{
+                    "native presentation audition monitor was non-finite"};
+            }
+            const double fade = presentation::audition_fade_gain(audible_frame_ + frame,
+                                                                 fade_settings_);
+            const float faded =
+                static_cast<float>(static_cast<double>(monitor[frame]) * fade);
+            if (!std::isfinite(faded)) {
+                throw std::domain_error{
+                    "native presentation audition fade produced non-finite "
+                    "output"};
+            }
+            scratch_.pcm24[frame] = presentation::quantize_pcm24(faded).pcm24;
+        }
+    }
+
+    void write_published_block(const EngineSessionBlockView &block) {
+        prepare_published_block(block);
+        const auto audio_buses = block.audio_buses();
+
+        for (std::size_t route = 0; route < plan_.routes.size(); ++route) {
+            const auto base = route * kNativePresentationArtifactsPerRoute;
+            for (std::size_t role = 0; role < kNativePresentationArtifactsPerRoute;
+                 ++role) {
+                require_encoding_success(
+                    encoders_[base + role].write_float32_interleaved(
+                        audio_buses[buses_.routes[route].stems[role]].samples,
+                        consumers_[base + role]),
+                    "native stem WAVE payload emission failed");
+            }
+        }
+
+        const auto raw_index = raw_master_index(plan_.routes.size());
+        require_encoding_success(
+            encoders_[raw_index].write_float32_interleaved(
+                audio_buses[buses_.raw_master].samples, consumers_[raw_index]),
+            "native raw-master WAVE payload emission failed");
+
+        const auto audition_index = audition_master_index(plan_.routes.size());
+        require_encoding_success(
+            audition_.write_pcm24(scratch_.pcm24, consumers_[audition_index]),
+            "native audition WAVE payload emission failed");
     }
 
     [[nodiscard]] bool consume_artifact_bytes(std::size_t artifact_index,
                                               std::uint64_t byte_offset,
                                               std::span<const std::byte> bytes) {
         if (artifact_index >= observations_.size() ||
-            state_ != PresentationRenderSessionState::active) {
+            state_ != NativePresentationPublisherState::active) {
             return false;
         }
         auto &observed = observations_[artifact_index];
@@ -718,6 +895,7 @@ class PresentationRenderSession::Implementation final {
                 std::numeric_limits<std::uint64_t>::max() - observed.byte_count) {
             return false;
         }
+
         const auto &role = audio_artifacts_[artifact_index].role;
         const auto status = sink_.write_artifact_chunk({role, byte_offset, bytes});
         if (status.has_value()) {
@@ -734,50 +912,11 @@ class PresentationRenderSession::Implementation final {
     void require_encoding_success(const WavEncodingStatus &status,
                                   std::string_view operation) const {
         if (pending_sink_error_.has_value()) {
-            throw PresentationSinkFailure{operation, *pending_sink_error_};
+            throw NativePresentationSinkFailure{operation, *pending_sink_error_};
         }
         if (status.has_value()) {
             throw std::runtime_error{std::string(operation) + ": " + status->message};
         }
-    }
-
-    void write_published_block() {
-        const auto route_count = plan_.routes.size();
-        for (std::size_t route = 0; route < route_count; ++route) {
-            const auto base = route * 3;
-            for (std::size_t frame = 0; frame < kSourceFramesPerBlock; ++frame) {
-                scratch_->stems[base][frame] = dsp::publish_calibrated_float32(
-                    scratch_->dry[route][frame],
-                    plan_.publication_calibration_gain_linear);
-                scratch_->stems[base + 1][frame] = dsp::publish_calibrated_float32(
-                    scratch_->configured_ir[route][frame],
-                    plan_.publication_calibration_gain_linear);
-                scratch_->stems[base + 2][frame] = dsp::publish_calibrated_float32(
-                    scratch_->selected[route][frame],
-                    plan_.publication_calibration_gain_linear);
-            }
-        }
-
-        master_block(master_inputs_, audible_frame_, plan_.audition.mastering,
-                     scratch_->mastered);
-        for (std::size_t frame = 0; frame < kSourceFramesPerBlock; ++frame) {
-            const auto &mastered = scratch_->mastered[frame];
-            scratch_->raw[frame] = mastered.raw;
-            scratch_->pcm24[frame] = mastered.pcm24;
-        }
-        for (std::size_t stem = 0; stem < stem_count(route_count); ++stem) {
-            require_encoding_success(encoders_[stem].write_float32_interleaved(
-                                         scratch_->stems[stem], consumers_[stem]),
-                                     "stem WAVE payload emission failed");
-        }
-        const auto raw_index = raw_master_index(route_count);
-        require_encoding_success(encoders_[raw_index].write_float32_interleaved(
-                                     scratch_->raw, consumers_[raw_index]),
-                                 "raw-master WAVE payload emission failed");
-        const auto audition_index = audition_master_index(route_count);
-        require_encoding_success(
-            audition_.write_pcm24(scratch_->pcm24, consumers_[audition_index]),
-            "audition WAVE payload emission failed");
     }
 
     void require_complete_schedule() const {
@@ -792,99 +931,99 @@ class PresentationRenderSession::Implementation final {
             stats_.processed_source_frame_count != expected_source_frames ||
             stats_.pre_audible_source_frame_count != expected_pre_audible_frames ||
             stats_.published_source_frame_count != expected_published_frames ||
-            source_stage_.next_input_frame_index() != expected_input_frames ||
-            source_stage_.next_source_frame_index() != expected_source_frames ||
             audible_frame_ != expected_published_frames) {
             throw std::logic_error{
-                "presentation produced an incomplete frame interval"};
+                "native presentation produced an incomplete frame interval"};
         }
     }
 
     void abort_once() noexcept {
         if (!transaction_begun_ || commit_attempted_ ||
-            state_ == PresentationRenderSessionState::committed ||
-            state_ == PresentationRenderSessionState::aborted) {
+            state_ == NativePresentationPublisherState::committed ||
+            state_ == NativePresentationPublisherState::aborted) {
             return;
         }
         sink_.abort();
-        state_ = PresentationRenderSessionState::aborted;
+        state_ = NativePresentationPublisherState::aborted;
     }
 
     RenderSink &sink_;
-    PresentationRenderPlan plan_;
+    NativePresentationPublicationPlan plan_;
+    NativePresentationBusBinding buses_;
     std::vector<PendingArtifact> audio_artifacts_;
     RenderControl control_;
-    std::vector<std::size_t> audition_route_indices_;
-    ExhaustSourceStage source_stage_;
-    std::vector<std::unique_ptr<CausalOverlapSaveConvolver>> convolvers_;
     std::vector<WavEncoder> encoders_;
     artifacts::AuditionWaveEncoder audition_;
-    std::unique_ptr<RenderScratch> scratch_;
-    std::vector<std::span<const float>> master_inputs_;
+    presentation::MasteringSettings fade_settings_;
+    PublicationScratch scratch_;
     std::vector<ArtifactObservation> observations_;
     std::vector<artifacts::WavChunkConsumer> consumers_;
     std::optional<execution::LinuxExecutionFactsObservation> execution_observation_;
-    PresentationRenderStats stats_;
+    NativePresentationPublicationStats stats_;
     std::optional<std::vector<contract::ArtifactRecord>> sealed_artifacts_;
     std::optional<contract::ExecutionFacts> sealed_execution_;
     std::optional<RenderSinkError> pending_sink_error_;
     std::uint64_t audible_frame_ = 0;
-    PresentationRenderSessionState state_ = PresentationRenderSessionState::active;
+    NativePresentationPublisherState state_ = NativePresentationPublisherState::active;
     bool transaction_begun_ = false;
     bool commit_attempted_ = false;
 };
 
-PresentationSinkFailure::PresentationSinkFailure(std::string_view operation,
-                                                 RenderSinkError error)
+NativePresentationSinkFailure::NativePresentationSinkFailure(std::string_view operation,
+                                                             RenderSinkError error)
     : std::runtime_error{sink_failure_message(operation, error)},
       sink_error_(std::move(error)) {}
 
-const RenderSinkError &PresentationSinkFailure::sink_error() const noexcept {
+const RenderSinkError &NativePresentationSinkFailure::sink_error() const noexcept {
     return sink_error_;
 }
 
-const PresentationRenderStats &SealedPresentationEvidence::stats() const noexcept {
+const NativePresentationPublicationStats &
+SealedNativePresentationEvidence::stats() const noexcept {
     return stats_;
 }
 
 std::span<const contract::ArtifactRecord>
-SealedPresentationEvidence::artifacts() const noexcept {
+SealedNativePresentationEvidence::artifacts() const noexcept {
     return artifacts_;
 }
 
 const execution::ObservedExecutionFacts &
-SealedPresentationEvidence::execution() const noexcept {
+SealedNativePresentationEvidence::execution() const noexcept {
     return execution_;
 }
 
-PresentationRenderSession::PresentationRenderSession(RenderSink &sink,
-                                                     PresentationRenderPlan plan,
-                                                     RenderControl control)
-    : implementation_(std::make_unique<Implementation>(sink, std::move(plan),
+NativePresentationPublisher::NativePresentationPublisher(
+    RenderSink &sink, const EngineSessionDescriptor &session,
+    NativePresentationPublicationPlan plan, RenderControl control)
+    : implementation_(std::make_unique<Implementation>(sink, session, std::move(plan),
                                                        std::move(control))) {}
 
-PresentationRenderSession::~PresentationRenderSession() = default;
+NativePresentationPublisher::~NativePresentationPublisher() = default;
 
-void PresentationRenderSession::process(ExhaustExcitationBlockView input) {
-    implementation_->process(input);
+void NativePresentationPublisher::process(const EngineSessionBlockView &block) {
+    implementation_->process(block);
 }
 
-SealedPresentationEvidence PresentationRenderSession::finish() {
+SealedNativePresentationEvidence NativePresentationPublisher::finish() {
     auto finished = implementation_->finish();
-    return {std::move(finished.stats), std::move(finished.artifacts),
-            std::move(finished.execution)};
+    return {
+        std::move(finished.stats),
+        std::move(finished.artifacts),
+        std::move(finished.execution),
+    };
 }
 
-void PresentationRenderSession::commit(
-    const SealedPresentationEvidence &evidence,
+void NativePresentationPublisher::commit(
+    const SealedNativePresentationEvidence &evidence,
     const contract::RenderManifest &manifest,
     const contract::ProvenanceLedger &provenance,
     const contract::SourceMatrixContract &source_matrix) {
     implementation_->commit(evidence, manifest, provenance, source_matrix);
 }
 
-PresentationRenderSessionState PresentationRenderSession::state() const noexcept {
+NativePresentationPublisherState NativePresentationPublisher::state() const noexcept {
     return implementation_->state();
 }
 
-} // namespace engine_sim_offline::presentation
+} // namespace engine_sim_offline::render_detail

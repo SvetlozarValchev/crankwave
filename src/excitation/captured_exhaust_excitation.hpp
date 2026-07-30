@@ -110,9 +110,61 @@ class ExhaustExcitationDiagnosticBlockView final {
     std::span<const double> route_bus_values_;
 };
 
-using ExhaustExcitationConsumer =
-    std::function<bool(const presentation::ExhaustExcitationBlockView &,
-                       const ExhaustExcitationDiagnosticBlockView &)>;
+/**
+ * Non-owning, synchronous callback for one excitation publication.
+ *
+ * The target is borrowed only for the duration of process_block(). The representation
+ * is fixed at a context pointer plus function pointer so callback adaptation cannot
+ * allocate on the block-producing path.
+ */
+class ExhaustExcitationConsumer final {
+  public:
+    constexpr ExhaustExcitationConsumer() noexcept = default;
+
+    template <class Consumer>
+        requires(!std::same_as<std::remove_cvref_t<Consumer>,
+                               ExhaustExcitationConsumer> &&
+                 std::is_object_v<std::remove_reference_t<Consumer>> &&
+                 std::invocable<
+                     Consumer &,
+                     const presentation::ExhaustExcitationBlockView &,
+                     const ExhaustExcitationDiagnosticBlockView &> &&
+                 std::convertible_to<
+                     std::invoke_result_t<
+                         Consumer &,
+                         const presentation::ExhaustExcitationBlockView &,
+                         const ExhaustExcitationDiagnosticBlockView &>,
+                     bool>)
+    ExhaustExcitationConsumer(Consumer &&consumer) noexcept
+        : context_(const_cast<void *>(static_cast<const void *>(
+              std::addressof(consumer)))),
+          invoke_([](
+                      void *context,
+                      const presentation::ExhaustExcitationBlockView &block,
+                      const ExhaustExcitationDiagnosticBlockView &diagnostics)
+                      -> bool {
+              using Target = std::remove_reference_t<Consumer>;
+              return static_cast<bool>(std::invoke(
+                  *static_cast<Target *>(context), block, diagnostics));
+          }) {}
+
+    [[nodiscard]] explicit constexpr operator bool() const noexcept {
+        return context_ != nullptr && invoke_ != nullptr;
+    }
+
+    [[nodiscard]] bool
+    operator()(const presentation::ExhaustExcitationBlockView &block,
+               const ExhaustExcitationDiagnosticBlockView &diagnostics) const {
+        return invoke_(context_, block, diagnostics);
+    }
+
+  private:
+    void *context_ = nullptr;
+    bool (*invoke_)(void *, const presentation::ExhaustExcitationBlockView &,
+                    const ExhaustExcitationDiagnosticBlockView &) = nullptr;
+};
+
+static_assert(std::is_trivially_copyable_v<ExhaustExcitationConsumer>);
 
 struct ExhaustExcitationBlockPublished {
     std::uint64_t block_ordinal = 0;

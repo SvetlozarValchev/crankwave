@@ -84,7 +84,7 @@
   },
   "quality": {
     "id": "listening",
-    "process_block_capacity_frames": 200,
+    "process_block_capacity_frames": 3840,
     "event_queue_capacity": 3800,
     "telemetry_capacity_frames": 1
   },

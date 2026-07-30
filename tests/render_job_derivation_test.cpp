@@ -1,6 +1,5 @@
 #include "presentation/presentation_calibration_compiler.hpp"
 #include "presentation/presentation_method_registry.hpp"
-#include "render/compiled_presentation_job.hpp"
 #include "render/render_job_derivation.hpp"
 
 #include <array>
@@ -10,7 +9,6 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -366,35 +364,6 @@ struct ProjectionFixture {
     }
 };
 
-template <class Job>
-concept LvalueExecutable =
-    requires(Job &job, RenderSink &sink, const RenderSpecification &specification,
-             const contract::RenderScenario &scenario) {
-        job.execute(sink, specification, scenario);
-    };
-
-template <class Job>
-concept RvalueExecutable =
-    requires(Job &&job, RenderSink &sink, const RenderSpecification &specification,
-             const contract::RenderScenario &scenario) {
-        std::move(job).execute(sink, specification, scenario);
-    };
-
-void test_opaque_job_shape() {
-    using Job = CompiledPresentationJob;
-    static_assert(!std::is_default_constructible_v<Job>);
-    static_assert(!std::is_copy_constructible_v<Job>);
-    static_assert(!std::is_copy_assignable_v<Job>);
-    static_assert(std::is_nothrow_move_constructible_v<Job>);
-    static_assert(!std::is_move_assignable_v<Job>);
-    static_assert(std::is_destructible_v<Job>);
-    static_assert(!LvalueExecutable<Job>);
-    static_assert(RvalueExecutable<Job>);
-    static_assert(
-        std::is_same_v<CompiledPresentationJobResult,
-                       std::variant<CompiledPresentationJob, contract::RenderFailure>>);
-}
-
 void test_artifact_path_projection() {
     {
         auto result = derive_audio_artifact_path("exhaust.reference.0.configured_ir");
@@ -554,7 +523,6 @@ void test_dynamic_route_projection() {
 }
 
 void run_tests() {
-    test_opaque_job_shape();
     test_artifact_path_projection();
     test_audition_metadata_projection();
     test_complete_projection();

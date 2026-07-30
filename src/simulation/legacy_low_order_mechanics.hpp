@@ -5,6 +5,7 @@
 #include "engine_sim_offline/contract/scenario.hpp"
 #include "simulation/kinematic_scenario_schedule.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
+#include "simulation/live_control.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -108,7 +109,11 @@ class LegacyLowOrderMechanicsSession final {
     // The returned reference is session-owned and remains valid only until the next
     // advance call. Completion and failure are terminal and stable.
     [[nodiscard]] LegacyMechanicsAdvanceResult advance();
+    [[nodiscard]] LegacyMechanicsAdvanceResult
+    advance(const LiveControlOverrides &overrides);
     [[nodiscard]] LegacyMechanicsAdvanceResult advance(PostStepCrankMotion motion);
+    [[nodiscard]] LegacyMechanicsAdvanceResult
+    advance(PostStepCrankMotion motion, const LiveControlOverrides &overrides);
     [[nodiscard]] bool completed() const noexcept;
     [[nodiscard]] std::span<const CenteredSliderCrankCylinder>
     cylinder_models() const noexcept;
@@ -135,7 +140,8 @@ class LegacyLowOrderMechanicsSession final {
           std::optional<contract::CylinderId> cylinder_id = std::nullopt,
           std::optional<contract::RouteId> route_id = std::nullopt) const;
     [[nodiscard]] LegacyMechanicsAdvanceResult
-    advance_with_motion(std::optional<PostStepCrankMotion> motion);
+    advance_with_motion(std::optional<PostStepCrankMotion> motion,
+                        const LiveControlOverrides &overrides);
 
     ScenarioControlCursor control_cursor_;
     std::optional<KinematicScenarioCursor> kinematic_cursor_;

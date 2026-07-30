@@ -332,6 +332,12 @@ LowOrderInertialDynoV1Runtime::finalize_result(const LegacyMechanismStep &mechan
 
 LowOrderInertialDynoV1AdvanceResult
 LowOrderInertialDynoV1Runtime::advance(LowOrderEngineCoreV1Runtime &core) {
+    return advance(core, {});
+}
+
+LowOrderInertialDynoV1AdvanceResult LowOrderInertialDynoV1Runtime::advance(
+    LowOrderEngineCoreV1Runtime &core,
+    const LiveControlOverrides &overrides) {
     if (terminal_fault_.has_value()) {
         return *terminal_fault_;
     }
@@ -346,12 +352,19 @@ LowOrderInertialDynoV1Runtime::advance(LowOrderEngineCoreV1Runtime &core) {
     }
 
     if (accepted_sample_count_ < release_frame_index_) {
+        if (overrides.any()) {
+            return fail(fault(
+                contract::FailureKind::contract_violation,
+                "inertial-live-controls-during-held-preparation",
+                "live throttle, ignition, and fuel overrides are not admitted while "
+                "the inertial session is producing fixed held-speed evidence"));
+        }
         const double omega =
             initial_engine_speed_rpm_ * std::numbers::pi_v<double> / 30.0;
         // Preparation is a true held-speed test-cell constraint. Use the core's
         // compiled constant-speed lane so its boundary evidence retains the exact
         // held-motion arithmetic; external motion begins only at release.
-        auto core_result = core.advance();
+        auto core_result = core.advance(overrides);
         if (const auto *failure = std::get_if<contract::FailureContext>(&core_result)) {
             return fail(*failure);
         }
@@ -422,7 +435,8 @@ LowOrderInertialDynoV1Runtime::advance(LowOrderEngineCoreV1Runtime &core) {
     const auto &motion = std::get<InertialCrankStepResult>(motion_calculation);
     const double post_step_rpm =
         motion.final_state.angular_speed_rad_s * kRpmPerRadianPerSecond;
-    auto core_result = core.advance({post_step_rpm, motion.angular_displacement_rad});
+    auto core_result =
+        core.advance({post_step_rpm, motion.angular_displacement_rad}, overrides);
     if (const auto *failure = std::get_if<contract::FailureContext>(&core_result)) {
         return fail(*failure);
     }
@@ -480,6 +494,10 @@ bool LowOrderInertialDynoV1Runtime::faulted() const noexcept {
 
 bool LowOrderInertialDynoV1Runtime::finalized() const noexcept {
     return inertial_dyno_result_.has_value();
+}
+
+bool LowOrderInertialDynoV1Runtime::held_preparation_active() const noexcept {
+    return accepted_sample_count_ < release_frame_index_;
 }
 
 std::uint64_t LowOrderInertialDynoV1Runtime::accepted_sample_count() const noexcept {

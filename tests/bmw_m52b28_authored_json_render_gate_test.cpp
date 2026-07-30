@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -77,8 +78,23 @@ void run(const std::filesystem::path &repository_root, const bool compile_only) 
         return;
     }
 
+    std::stop_source cancellation;
+    cancellation.request_stop();
+    gate::VerifyingMemorySink cancelled_sink;
+    const auto cancelled = engine_sim_offline::bake(
+        scenario, cancelled_sink,
+        engine_sim_offline::RenderControl{cancellation.get_token()});
+    const auto *cancelled_failure =
+        std::get_if<contract::RenderFailure>(&cancelled);
+    gate::expect(
+        cancelled_failure != nullptr &&
+            cancelled_failure->context.kind == contract::FailureKind::cancelled &&
+            cancelled_sink.begin_calls == 0U &&
+            engine_sim_offline::validate_bake_result(cancelled, scenario).ok(),
+        "pre-requested bake cancellation touched publication or failed validation");
+
     gate::VerifyingMemorySink sink;
-    const auto result = engine_sim_offline::render(scenario, sink);
+    const auto result = engine_sim_offline::bake(scenario, sink);
     const auto &success = require_success(result);
     const auto oracle = gate::read_bytes(
         repository_root / "reference/oracles/bmw-m52b28/"

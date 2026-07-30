@@ -1,7 +1,7 @@
 #pragma once
 
+#include "engine_sim_offline/bake.hpp"
 #include "engine_sim_offline/compile.hpp"
-#include "engine_sim_offline/render.hpp"
 
 #include <cstddef>
 #include <cstdint>

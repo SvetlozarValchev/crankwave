@@ -250,24 +250,22 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_simulation)
 
 add_library(
-    engine_sim_offline_render
+    engine_sim_offline_bake
     STATIC
-        src/render.cpp
-        src/render/compiled_scenario_projection.cpp
-        src/render/compiled_presentation_job.cpp
-        src/render/compiled_presentation_job_execute.cpp
+        src/bake.cpp
+        src/render/native_bake_plan.cpp
+        src/render/native_presentation_publisher.cpp
         src/render/render_job_derivation.cpp
         src/render/render_job_failure.cpp
         src/render/render_request.cpp
-        src/scheduling/render_schedule.cpp
 )
 add_library(
-    engine_sim_offline::render
-    ALIAS engine_sim_offline_render
+    engine_sim_offline::bake
+    ALIAS engine_sim_offline_bake
 )
 
 target_include_directories(
-    engine_sim_offline_render
+    engine_sim_offline_bake
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     PRIVATE
@@ -275,14 +273,14 @@ target_include_directories(
 )
 
 target_link_libraries(
-    engine_sim_offline_render
+    engine_sim_offline_bake
     PUBLIC
         engine_sim_offline::contract
         engine_sim_offline::build_options
     PRIVATE
         engine_sim_offline::request_identity
 )
-engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_render)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_bake)
 
 add_library(
     engine_sim_offline_artifacts
@@ -359,6 +357,7 @@ add_library(
         src/presentation/mastering.cpp
         src/presentation/overlap_save_convolver.cpp
         src/presentation/pcm16_ir_decoder.cpp
+        src/presentation/presentation_audio_session.cpp
         src/presentation/presentation_asset_compiler.cpp
         src/presentation/presentation_calibration_compiler.cpp
         src/presentation/presentation_method_descriptors_asset.cpp
@@ -413,6 +412,40 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_excitation)
 
 add_library(
+    engine_sim_offline_session
+    STATIC
+        src/session/control_timeline.cpp
+        src/session/engine_session.cpp
+        src/session/session_build.cpp
+)
+add_library(
+    engine_sim_offline::session
+    ALIAS engine_sim_offline_session
+)
+
+target_include_directories(
+    engine_sim_offline_session
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_session
+    PUBLIC
+        engine_sim_offline::compile
+        engine_sim_offline::contract
+        engine_sim_offline::build_options
+    PRIVATE
+        engine_sim_offline::excitation
+        engine_sim_offline::presentation
+        engine_sim_offline::request_identity
+        engine_sim_offline::simulation
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_session)
+
+add_library(
     engine_sim_offline_execution
     STATIC
         src/execution/linux_execution_facts.cpp
@@ -430,34 +463,6 @@ target_link_libraries(
     PRIVATE engine_sim_offline::build_options
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_execution)
-
-add_library(
-    engine_sim_offline_presentation_session
-    STATIC
-        src/presentation/presentation_render_session.cpp
-)
-add_library(
-    engine_sim_offline::presentation_session
-    ALIAS engine_sim_offline_presentation_session
-)
-
-target_include_directories(
-    engine_sim_offline_presentation_session
-    PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-)
-
-target_link_libraries(
-    engine_sim_offline_presentation_session
-    PUBLIC
-        engine_sim_offline::artifacts
-        engine_sim_offline_execution
-        engine_sim_offline::presentation
-    PRIVATE engine_sim_offline::build_options
-)
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_presentation_session
-)
 
 include(cmake/RendererSourceStamp.cmake)
 
@@ -498,13 +503,15 @@ engine_sim_offline_enable_renderer_numeric_policy(
 )
 
 target_link_libraries(
-    engine_sim_offline_render
+    engine_sim_offline_bake
     PRIVATE
         engine_sim_offline::compile
         engine_sim_offline::simulation
         engine_sim_offline::excitation
         engine_sim_offline::presentation
-        engine_sim_offline::presentation_session
+        engine_sim_offline::session
+        engine_sim_offline::artifacts
+        engine_sim_offline_execution
         engine_sim_offline_renderer_determinism
 )
 
@@ -611,7 +618,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             engine_sim_offline::artifacts
             engine_sim_offline::authoring
             engine_sim_offline::compile
-            engine_sim_offline::render
+            engine_sim_offline::bake
     )
     engine_sim_offline_enable_renderer_numeric_policy(
         engine_sim_offline_cli_support
@@ -651,13 +658,13 @@ set(
     _engine_sim_offline_numeric_policy_targets
     engine_sim_offline_contract
     engine_sim_offline_simulation
-    engine_sim_offline_render
+    engine_sim_offline_bake
     engine_sim_offline_artifacts
     engine_sim_offline_dsp
     engine_sim_offline_presentation
     engine_sim_offline_excitation
+    engine_sim_offline_session
     engine_sim_offline_execution
-    engine_sim_offline_presentation_session
     engine_sim_offline_renderer_determinism
 )
 if(ENGINE_SIM_OFFLINE_BUILD_TESTS)

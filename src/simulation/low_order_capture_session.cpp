@@ -70,6 +70,18 @@ LowOrderCaptureSession::fail(contract::FailureContext failure) {
 
 LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
     const LowOrderCaptureBlockConsumer &consumer) {
+    return publish_next_block_impl(consumer, nullptr);
+}
+
+LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
+    const LowOrderCaptureBlockConsumer &consumer,
+    const detail::LowOrderLiveControlProvider &live_controls) {
+    return publish_next_block_impl(consumer, &live_controls);
+}
+
+LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
+    const LowOrderCaptureBlockConsumer &consumer,
+    const detail::LowOrderLiveControlProvider *live_controls) {
     if (terminal_fault_.has_value()) {
         return *terminal_fault_;
     }
@@ -86,6 +98,20 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
         return fail(fault(contract::FailureKind::contract_violation,
                           "low-order-capture-consumer-missing",
                           "capture publication requires a synchronous consumer"));
+    }
+    if (live_controls != nullptr &&
+        (live_controls->context == nullptr ||
+         live_controls->drain_for_physics_step == nullptr)) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "low-order-live-control-provider-invalid",
+                          "live-control provider is incomplete"));
+    }
+    if (live_controls != nullptr &&
+        live_controls->physics_rate != rate_) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "low-order-live-control-rate-mismatch",
+                          "live-control physics rate differs from the admitted "
+                          "capture physics rate"));
     }
     if (published_sample_count_ >= expected_samples_) {
         if (published_sample_count_ != expected_samples_ ||
@@ -134,12 +160,35 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
     capture_->begin_block(published_sample_count_);
     const LegacyMechanismStep *last_mechanics = nullptr;
     for (std::uint32_t frame = 0; frame < capture_->block_capacity_frames(); ++frame) {
+        LiveControlOverrides live_overrides;
+        if (live_controls != nullptr) {
+            const auto drained = live_controls->drain_for_physics_step(
+                live_controls->context, core_.produced_sample_count());
+            if (!drained.valid) {
+                return fail(fault(
+                    contract::FailureKind::contract_violation,
+                    "low-order-live-control-step-mismatch",
+                    "live-control timeline did not resolve the next contiguous "
+                    "physics step"));
+            }
+            live_overrides = drained.overrides;
+            if (live_overrides.any() &&
+                std::holds_alternative<LowOrderOperatingPointV1Runtime>(
+                    profile_policy_)) {
+                return fail(fault(
+                    contract::FailureKind::contract_violation,
+                    "low-order-live-controls-not-admitted-for-held-evidence",
+                    "held-speed operating-point evidence does not admit live "
+                    "throttle, ignition, or fuel overrides"));
+            }
+        }
+
         const LegacyMechanismStep *mechanics_pointer = nullptr;
         const LegacyLowOrderGasStep *gas_pointer = nullptr;
         std::optional<contract::TorqueTelemetry> inertial_capture_torque;
         if (auto *inertial =
                 std::get_if<LowOrderInertialDynoV1Runtime>(&profile_policy_)) {
-            auto result = inertial->advance(core_);
+            auto result = inertial->advance(core_, live_overrides);
             if (const auto *failure = std::get_if<contract::FailureContext>(&result)) {
                 return fail(*failure);
             }
@@ -161,7 +210,7 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
             gas_pointer = &step.gas.get();
             inertial_capture_torque = step.capture_torque;
         } else {
-            auto core_result = core_.advance();
+            auto core_result = core_.advance(live_overrides);
             if (const auto *failure =
                     std::get_if<contract::FailureContext>(&core_result)) {
                 return fail(*failure);

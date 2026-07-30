@@ -73,7 +73,7 @@ using engine_sim_offline::contract::test::expect;
     scenario.rates = {
         rate(10000U), rate(10000U), rate(192000U), rate(192000U), rate(192000U),
     };
-    scenario.quality = {"resolver-production", 256U, 4096U, 1024U};
+    scenario.quality = {"resolver-production", 4096U, 7U, 13U};
     scenario.total_duration = quantity(3.0, "s");
     scenario.audible_start = quantity(2.0, "s");
     scenario.audible_duration = quantity(1.0, "s");
@@ -156,6 +156,21 @@ void test_held_speed_resolution_on_the_integer_clock() {
     expect(resolved.request_input.total_physics_frames == 30000U &&
                resolved.request_input.audible_delivery_frames == 192000U,
            "deterministic request frame material changed");
+    expect(
+        resolved.request_input.session_capacities ==
+            engine_sim_offline::compile::CompiledSessionCapacities{
+                4096U,
+                7U,
+                13U,
+            },
+        "authored session capacities were not retained as delivery/control/"
+        "telemetry bounds");
+    const auto expected_internal_event_capacity =
+        static_cast<std::uint32_t>((3U * engine.cylinders.size() + 1U) * 200U);
+    expect(resolved.scenario.quality.value.capture_block_capacity_frames == 200U &&
+               resolved.scenario.quality.value.event_journal_capacity_records ==
+                   expected_internal_event_capacity,
+           "public session capacities leaked into private capture transport");
     expect(resolved.source_matrix.required_source_routes.size() == 1U &&
                resolved.source_matrix.required_output_buses.size() == 2U &&
                resolved.source_matrix.required_artifacts.size() == 5U,
@@ -201,6 +216,19 @@ void test_held_speed_resolution_on_the_integer_clock() {
                               authoring::DiagnosticCode::unsupported_capability,
                               "/mode/type"),
            "free-engine mode was not rejected as an explicit capability");
+
+    auto undersized_process = document;
+    undersized_process.quality.process_block_capacity_frames = 3839U;
+    const auto undersized_process_result =
+        compile::resolve_scenario_document(undersized_process, context);
+    const auto *undersized_process_report =
+        std::get_if<authoring::DiagnosticReport>(&undersized_process_result);
+    expect(
+        undersized_process_report != nullptr &&
+            has_diagnostic(*undersized_process_report,
+                           authoring::DiagnosticCode::unsupported_capability,
+                           "/quality/process_block_capacity_frames"),
+        "session capacity below the exact delivery method quantum was accepted");
 }
 
 } // namespace

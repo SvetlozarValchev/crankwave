@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -12,6 +13,30 @@
 #include <vector>
 
 namespace engine_sim_offline::compile::detail::scenario_resolution {
+namespace {
+
+// The admitted simulation -> capture -> excitation method currently consumes one
+// exact 200-frame physics block and projects it to one exact 3,840-frame delivery
+// block. These are method-owned execution quanta, not authored session capacities.
+constexpr std::uint32_t kInternalCaptureFramesPerMethodBlock = 200U;
+constexpr std::uint32_t kDeliveryFramesPerMethodBlock = 3840U;
+
+[[nodiscard]] std::optional<std::uint32_t>
+internal_event_journal_capacity(const std::size_t cylinder_count) noexcept {
+    constexpr auto kMaximum =
+        static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max());
+    if (cylinder_count > (kMaximum - 1U) / 3U) {
+        return std::nullopt;
+    }
+    const auto events_per_physics_frame = 3U * cylinder_count + 1U;
+    if (events_per_physics_frame > kMaximum / kInternalCaptureFramesPerMethodBlock) {
+        return std::nullopt;
+    }
+    return static_cast<std::uint32_t>(events_per_physics_frame *
+                                      kInternalCaptureFramesPerMethodBlock);
+}
+
+} // namespace
 
 void ScenarioResolver::compile_common_fields() {
     scenario_.schema_version = 1U;
@@ -75,15 +100,42 @@ void ScenarioResolver::compile_common_fields() {
     scenario_.audible_duration_s.value =
         quantity(document_.audible_duration, authoring::QuantityDimension::duration,
                  "/audible_duration");
+    request_input_.session_capacities = {
+        document_.quality.process_block_capacity_frames,
+        document_.quality.event_queue_capacity,
+        document_.quality.telemetry_capacity_frames,
+    };
+    if (document_.quality.process_block_capacity_frames <
+        kDeliveryFramesPerMethodBlock) {
+        add(authoring::DiagnosticCode::unsupported_capability,
+            "/quality/process_block_capacity_frames",
+            "the current executable method requires capacity for one exact "
+            "3,840-frame delivery block");
+    }
+    if (document_.quality.event_queue_capacity == 0U) {
+        add(authoring::DiagnosticCode::out_of_range, "/quality/event_queue_capacity",
+            "caller control-command queue capacity must be positive");
+    }
+    if (document_.quality.telemetry_capacity_frames == 0U) {
+        add(authoring::DiagnosticCode::out_of_range,
+            "/quality/telemetry_capacity_frames",
+            "returned telemetry-frame capacity must be positive");
+    }
+
+    const auto derived_event_capacity =
+        internal_event_journal_capacity(context_.engine.cylinders.size());
+    if (!derived_event_capacity.has_value()) {
+        add(authoring::DiagnosticCode::unsupported_capability, "/engine",
+            "engine cylinder count cannot be represented by the current bounded "
+            "internal event journal");
+    }
     scenario_.quality.value = {
         document_.quality.id,
         1U,
-        document_.quality.process_block_capacity_frames,
-        document_.quality.event_queue_capacity,
+        kInternalCaptureFramesPerMethodBlock,
+        derived_event_capacity.value_or(0U),
     };
     scenario_.public_seed.value = document_.public_seed;
-    request_input_.telemetry_capacity_frames =
-        document_.quality.telemetry_capacity_frames;
 
     const auto total_physics = contract::resolve_frame_index(
         scenario_.total_duration_s.value, scenario_.rates.physics);

@@ -4,8 +4,8 @@
 
 #include "engine_sim_offline/artifacts/directory_render_sink.hpp"
 #include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
+#include "engine_sim_offline/bake.hpp"
 #include "engine_sim_offline/compile.hpp"
-#include "engine_sim_offline/render.hpp"
 
 #include <array>
 #include <exception>
@@ -260,7 +260,7 @@ render_failure_exit_code(const contract::FailureContext &context) noexcept {
     const auto &output = std::get<NativeOutputDirectory>(output_result);
     artifacts::DirectoryRenderSink sink{output.publication_root,
                                         output.publication_name};
-    const auto result = render(scenario, sink);
+    const auto result = bake(scenario, sink);
     if (const auto *failure = std::get_if<contract::RenderFailure>(&result)) {
         return report_render_failure(standard_error, failure->context);
     }

@@ -18,10 +18,6 @@ struct EnginePackageDocument;
 struct ScenarioDocument;
 } // namespace engine_sim_offline::authoring
 
-namespace engine_sim_offline::render_detail {
-class CompiledScenarioAccess;
-} // namespace engine_sim_offline::render_detail
-
 namespace engine_sim_offline::compile {
 
 using RuntimeObjectId = std::uint32_t;
@@ -83,11 +79,27 @@ struct CompiledAssetView {
     std::span<const std::byte> bytes;
 };
 
+// Session-owned transport limits compiled from scenario authoring. These limits do
+// not describe the simulator's private physics-capture block or its internal engine
+// event journal.
+struct CompiledSessionCapacities {
+    // Maximum delivery-rate PCM frames accepted by one EngineSession process call.
+    std::uint32_t maximum_delivery_frames_per_process_call = 0;
+    // Maximum caller-authored ControlCommand records retained by one session.
+    std::uint32_t control_command_queue_capacity = 0;
+    // Maximum delivery-frame telemetry records returned by one process call.
+    std::uint32_t maximum_telemetry_frames_per_process_call = 0;
+
+    friend bool operator==(const CompiledSessionCapacities &,
+                           const CompiledSessionCapacities &) = default;
+};
+
 namespace detail {
 struct CompiledEngineStorage;
 struct CompiledScenarioStorage;
 class CompiledEngineBuilder;
 class CompiledScenarioBuilder;
+class CompiledScenarioViewAccess;
 } // namespace detail
 
 // Copying either handle shares immutable resolved ownership. CompiledScenario retains
@@ -135,6 +147,7 @@ class CompiledScenario final {
     [[nodiscard]] std::span<const StableIdAssignment>
     stable_id_assignments() const noexcept;
     [[nodiscard]] const contract::ProvenanceLedger &provenance() const noexcept;
+    [[nodiscard]] const CompiledSessionCapacities &session_capacities() const noexcept;
 
   private:
     explicit CompiledScenario(
@@ -143,7 +156,7 @@ class CompiledScenario final {
     std::shared_ptr<const detail::CompiledScenarioStorage> storage_;
 
     friend class detail::CompiledScenarioBuilder;
-    friend class ::engine_sim_offline::render_detail::CompiledScenarioAccess;
+    friend class detail::CompiledScenarioViewAccess;
 };
 
 template <class Value>

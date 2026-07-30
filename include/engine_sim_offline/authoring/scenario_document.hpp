@@ -267,8 +267,11 @@ struct ScenarioRates {
 
 struct ScenarioQuality {
     std::string id;
+    // Maximum delivery-rate PCM frames accepted by one EngineSession process call.
     std::uint32_t process_block_capacity_frames = 0;
+    // Maximum caller-authored ControlCommand records retained by one session.
     std::uint32_t event_queue_capacity = 0;
+    // Maximum delivery-frame telemetry records returned by one process call.
     std::uint32_t telemetry_capacity_frames = 0;
 
     friend bool operator==(const ScenarioQuality &, const ScenarioQuality &) = default;

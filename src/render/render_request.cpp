@@ -6,15 +6,22 @@
 
 namespace engine_sim_offline::render_detail {
 
-std::vector<contract::AssetPayloadIdentity>
-asset_payload_identities(const RenderSpecification &specification) {
+std::vector<contract::AssetPayloadIdentity> asset_payload_identities(
+    const compile::detail::ResolvedEnginePackage &engine_package) {
     std::vector<contract::AssetPayloadIdentity> identities;
-    identities.reserve(specification.asset_payloads.size());
-    for (const auto &payload : specification.asset_payloads) {
+    identities.reserve(engine_package.presentation.assets.size());
+    for (const auto &asset : engine_package.presentation.assets) {
+        const auto payload =
+            std::ranges::find(engine_package.assets, asset.semantic_id.value,
+                              &compile::detail::VerifiedEngineAsset::asset_id);
+        if (payload == engine_package.assets.end() ||
+            payload->kind != compile::AssetKind::audio) {
+            continue;
+        }
         identities.push_back({
-            payload.id,
-            static_cast<std::uint64_t>(payload.bytes.size()),
-            contract::sha256(payload.bytes),
+            asset.id,
+            static_cast<std::uint64_t>(payload->bytes.size()),
+            payload->content_sha256,
         });
     }
     std::ranges::sort(identities, [](const auto &lhs, const auto &rhs) {
@@ -29,15 +36,19 @@ asset_payload_identities(const RenderSpecification &specification) {
     return identities;
 }
 
-contract::RenderRequestRecord
-make_render_request_record(const RenderSpecification &specification,
-                           const contract::RenderScenario &scenario) {
+contract::RenderRequestRecord make_render_request_record(
+    const compile::detail::ResolvedEnginePackage &engine_package,
+    const compile::detail::ResolvedScenarioContracts &scenario) {
     return {
-        {specification.engine, specification.presentation, specification.randomness,
-         scenario},
-        specification.provenance,
-        specification.source_matrix,
-        asset_payload_identities(specification),
+        {
+            engine_package.engine,
+            engine_package.presentation,
+            engine_package.randomness,
+            scenario.scenario,
+        },
+        scenario.combined_provenance,
+        scenario.source_matrix,
+        asset_payload_identities(engine_package),
     };
 }
 

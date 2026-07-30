@@ -3,7 +3,7 @@
 #include "identity/simulation_request_identity_writer.hpp"
 
 #include "engine_sim_offline/contract/render_manifest.hpp"
-#include "engine_sim_offline/render.hpp"
+#include "engine_sim_offline/publication.hpp"
 
 #include <optional>
 #include <span>

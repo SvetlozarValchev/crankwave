@@ -2,9 +2,7 @@
 #include "engine_sim_offline/authoring/scenario_document.hpp"
 #include "engine_sim_offline/compile.hpp"
 #include "engine_sim_offline/contract/common.hpp"
-#include "engine_sim_offline/render.hpp"
-#include "render/compiled_presentation_job.hpp"
-#include "render/compiled_scenario_projection.hpp"
+#include "engine_sim_offline/session.hpp"
 
 #include <algorithm>
 #include <array>
@@ -18,7 +16,6 @@
 #include <ranges>
 #include <span>
 #include <stdexcept>
-#include <stop_token>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -30,48 +27,9 @@ namespace {
 namespace authoring = engine_sim_offline::authoring;
 namespace compile = engine_sim_offline::compile;
 namespace contract = engine_sim_offline::contract;
-namespace render_detail = engine_sim_offline::render_detail;
 
 constexpr std::size_t kCylinderCount = 6U;
 constexpr std::uint32_t kIrSampleRateHz = 44100U;
-
-struct CountingSink final : engine_sim_offline::RenderSink {
-    std::size_t calls = 0;
-
-    engine_sim_offline::RenderSinkStatus
-    begin_transaction(const contract::OutputContract &) override {
-        ++calls;
-        return std::nullopt;
-    }
-
-    engine_sim_offline::RenderSinkStatus
-    declare_artifact(const engine_sim_offline::PendingArtifact &) override {
-        ++calls;
-        return std::nullopt;
-    }
-
-    engine_sim_offline::RenderSinkStatus
-    write_artifact_chunk(const engine_sim_offline::ArtifactChunk &) override {
-        ++calls;
-        return std::nullopt;
-    }
-
-    engine_sim_offline::RenderSinkStatus
-    seal_artifact(const contract::ArtifactRecord &) override {
-        ++calls;
-        return std::nullopt;
-    }
-
-    engine_sim_offline::RenderSinkStatus
-    commit(const contract::RenderManifest &) override {
-        ++calls;
-        return std::nullopt;
-    }
-
-    void abort() noexcept override {
-        ++calls;
-    }
-};
 
 void expect(const bool condition, const std::string_view message) {
     if (!condition) {
@@ -771,7 +729,7 @@ void reorder_harmless_collections(authoring::EnginePackageDocument &package) {
     };
     scenario.quality = {
         "fixture-preview",
-        200U,
+        3840U,
         3800U,
         96000U,
     };
@@ -916,6 +874,13 @@ void test_complete_generic_compile_and_determinism() {
                                   reordered_scenario.stable_id_assignments()) &&
                scenario.provenance() == reordered_scenario.provenance(),
            "generic scenario compilation is not deterministic");
+    expect(scenario.session_capacities() ==
+               compile::CompiledSessionCapacities{
+                   3840U,
+                   3800U,
+                   96000U,
+               },
+           "compiled scenario lost its delivery/control/telemetry capacities");
 
     const auto retained_engine = scenario.engine();
     expect(retained_engine.id() == first.id() &&
@@ -924,66 +889,19 @@ void test_complete_generic_compile_and_determinism() {
                        .bytes.data() == retained_front.bytes.data(),
            "compiled scenario did not retain the exact immutable engine");
 
-    const auto projection = render_detail::CompiledScenarioAccess::project(scenario);
-    const auto reordered_projection =
-        render_detail::CompiledScenarioAccess::project(reordered_scenario);
-    expect(projection.specification == reordered_projection.specification &&
-               projection.scenario == reordered_projection.scenario,
-           "compiled scenario projection changed under harmless document reordering");
-    expect(projection.specification.engine.engine_id.value == retained_engine.id() &&
-               projection.specification.provenance == scenario.provenance() &&
-               projection.specification.asset_payloads.size() == 2U,
-           "compiled scenario projection lost its resolved request identity");
-
-    const auto front_runtime_id = contract::AudioAssetId{
-        require_runtime_id(first, "presentation.audio-asset", "fixture-ir-front")};
-    const auto rear_runtime_id = contract::AudioAssetId{
-        require_runtime_id(first, "presentation.audio-asset", "fixture-ir-rear")};
     const auto retained_rear =
         require_asset(first, compile::AssetKind::audio, "fixture-ir-rear");
-    const auto projected_front =
-        std::ranges::find(projection.specification.asset_payloads, front_runtime_id,
-                          &engine_sim_offline::RenderAssetPayload::id);
-    const auto projected_rear =
-        std::ranges::find(projection.specification.asset_payloads, rear_runtime_id,
-                          &engine_sim_offline::RenderAssetPayload::id);
-    expect(projected_front != projection.specification.asset_payloads.end() &&
-               projected_rear != projection.specification.asset_payloads.end() &&
-               std::ranges::equal(projected_front->bytes, retained_front.bytes) &&
-               std::ranges::equal(projected_rear->bytes, retained_rear.bytes) &&
-               projected_front->bytes.data() != retained_front.bytes.data() &&
-               projected_rear->bytes.data() != retained_rear.bytes.data(),
-           "compiled scenario projection did not own the exact admitted audio bytes");
-
-    std::stop_source cancellation;
-    cancellation.request_stop();
-    CountingSink explicit_sink;
-    CountingSink compiled_sink;
-    const auto explicit_result = engine_sim_offline::render(
-        projection.specification, projection.scenario, explicit_sink,
-        engine_sim_offline::RenderControl{cancellation.get_token()});
-    const auto compiled_result = engine_sim_offline::render(
-        scenario, compiled_sink,
-        engine_sim_offline::RenderControl{cancellation.get_token()});
-    const auto *explicit_failure =
-        std::get_if<contract::RenderFailure>(&explicit_result);
-    const auto *compiled_failure =
-        std::get_if<contract::RenderFailure>(&compiled_result);
-    const auto explicit_validation = engine_sim_offline::validate(
-        explicit_result, projection.specification, projection.scenario);
-    const auto compiled_validation =
-        engine_sim_offline::validate(compiled_result, scenario);
-    expect(explicit_failure != nullptr && compiled_failure != nullptr &&
-               explicit_failure->context.kind == contract::FailureKind::cancelled &&
-               explicit_failure->context == compiled_failure->context &&
-               explicit_failure->request == compiled_failure->request &&
-               explicit_failure->validation.issues ==
-                   compiled_failure->validation.issues &&
-               explicit_sink.calls == 0U && compiled_sink.calls == 0U,
-           "compiled-scenario render did not delegate to the existing admitted path");
-    expect(explicit_validation.ok() && compiled_validation.ok() &&
-               explicit_validation.issues == compiled_validation.issues,
-           "compiled-scenario validation did not delegate to the existing validator");
+    expect(std::ranges::equal(
+               require_asset(reordered, compile::AssetKind::audio,
+                             "fixture-ir-front")
+                   .bytes,
+               retained_front.bytes) &&
+               std::ranges::equal(
+                   require_asset(reordered, compile::AssetKind::audio,
+                                 "fixture-ir-rear")
+                       .bytes,
+                   retained_rear.bytes),
+           "immutable compiled assets changed under harmless document reordering");
 }
 
 void test_inline_twin_one_route_reaches_executable_boundary() {
@@ -998,36 +916,43 @@ void test_inline_twin_one_route_reaches_executable_boundary() {
     scenario_document.engine.value = "fixture-inline-twin";
     auto scenario = require_value(compile::compile_scenario(engine, scenario_document),
                                   "inline-twin one-route scenario compile failed");
-    const auto projection = render_detail::CompiledScenarioAccess::project(scenario);
-
-    expect(projection.specification.engine.cylinders.size() == 2U &&
-               projection.specification.engine.routes.size() == 1U &&
-               projection.specification.presentation.routes.size() == 1U &&
-               projection.specification.source_matrix.required_source_routes.size() ==
-                   1U &&
-               projection.specification.source_matrix.required_artifacts.size() == 5U,
-           "inline-twin did not retain its two-cylinder/one-route executable shape");
-
-    auto executable = render_detail::compile_presentation_job(projection.specification,
-                                                              projection.scenario);
-    if (const auto *failure = std::get_if<contract::RenderFailure>(&executable)) {
-        std::string message =
-            "inline-twin one-route request did not compile into an executable job: " +
-            failure->context.detail_code + ": " + failure->context.state_summary;
-        if (!failure->validation.issues.empty()) {
-            message += " at " + failure->validation.issues.front().path + ": " +
-                       failure->validation.issues.front().message;
-        }
-        throw std::runtime_error{std::move(message)};
+    auto created = engine_sim_offline::create_engine_session(scenario);
+    if (const auto *error =
+            std::get_if<engine_sim_offline::EngineSessionError>(&created)) {
+        throw std::runtime_error{
+            "inline-twin one-route session creation failed: " +
+            error->detail_code + ": " + error->message};
     }
+    auto session =
+        std::get<engine_sim_offline::EngineSession>(std::move(created));
+    const auto descriptor = session.descriptor();
+    expect(descriptor.audio_buses.size() == 5U &&
+               descriptor.capacities.control_command_queue_capacity == 3800U,
+           "inline-twin did not retain its one-route executable session shape");
 
-    CountingSink sink;
-    const auto result =
-        std::move(std::get<render_detail::CompiledPresentationJob>(executable))
-            .execute(sink, projection.specification, projection.scenario);
-    expect(std::holds_alternative<contract::RenderSuccess>(result) &&
-               engine_sim_offline::validate(result, scenario).ok() && sink.calls > 0U,
-           "inline-twin did not execute its complete one-route render");
+    std::uint64_t block_count = 0;
+    while (true) {
+        auto result = session.process_block();
+        if (const auto *block =
+                std::get_if<engine_sim_offline::EngineSessionBlockView>(&result)) {
+            expect(block->audio_buses().size() == 5U,
+                   "inline-twin session block lost a public audio bus");
+            ++block_count;
+            continue;
+        }
+        if (const auto *error =
+                std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
+            throw std::runtime_error{
+                "inline-twin session execution failed: " + error->detail_code +
+                ": " + error->message};
+        }
+        const auto &completion =
+            std::get<engine_sim_offline::EngineSessionCompleted>(result);
+        expect(block_count == descriptor.total_block_count &&
+                   completion.block_count == block_count,
+               "inline-twin session did not execute its complete one-route horizon");
+        break;
+    }
 }
 
 void test_asset_admission_is_exact_and_closed() {

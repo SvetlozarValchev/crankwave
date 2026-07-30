@@ -6,7 +6,6 @@
 #include "presentation/exhaust_source_stage.hpp"
 #include "presentation/mastering.hpp"
 #include "presentation/pcm16_ir_decoder.hpp"
-#include "presentation/presentation_render_session.hpp"
 #include "reference/p18_reference_audit_reader.hpp"
 #include "reference/p18_reference_catalog.hpp"
 #include "reference/p18_reference_seed_reader.hpp"

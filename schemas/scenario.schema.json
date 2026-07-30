@@ -534,18 +534,21 @@
         "id": { "$ref": "#/$defs/id" },
         "process_block_capacity_frames": {
           "type": "integer",
-          "minimum": 1,
-          "maximum": 4294967295
+          "minimum": 3840,
+          "maximum": 4294967295,
+          "description": "Caller-visible delivery-rate PCM frame capacity reserved for one EngineSession process call. The current executable method emits one exact 3,840-frame delivery quantum and requires at least that capacity; a larger capacity does not change the quantum."
         },
         "event_queue_capacity": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 4294967295
+          "maximum": 4294967295,
+          "description": "Maximum caller-authored timestamped live-control commands retained by one EngineSession. This does not size the simulator's internal combustion/event journal."
         },
         "telemetry_capacity_frames": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 4294967295
+          "maximum": 4294967295,
+          "description": "Maximum telemetry records returned by one EngineSession process call. This is a returned-record capacity, not a delivery-audio-frame count or an internal event-journal capacity."
         }
       }
     },
