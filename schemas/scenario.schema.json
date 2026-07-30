@@ -1,0 +1,568 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engine-sim-offline.dev/schemas/scenario.schema.json",
+  "title": "Engine Sim Offline scenario document",
+  "$comment": "This is the single current scenario schema. Cross-reference, unit-dimension, trajectory-authority, and executable-capability checks are performed by the compiler.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "engine",
+    "fuel",
+    "ambient",
+    "initial_thermal_state",
+    "crankcase",
+    "initial_state",
+    "preparation",
+    "mode",
+    "events",
+    "rates",
+    "quality",
+    "total_duration",
+    "audible_start",
+    "audible_duration",
+    "public_seed",
+    "output"
+  ],
+  "properties": {
+    "schema": { "const": "engine-sim-offline/scenario" },
+    "id": { "$ref": "#/$defs/id" },
+    "engine": { "$ref": "#/$defs/id" },
+    "fuel": { "$ref": "#/$defs/id" },
+    "ambient": { "$ref": "#/$defs/ambient" },
+    "initial_thermal_state": { "$ref": "#/$defs/initialThermalState" },
+    "crankcase": { "$ref": "#/$defs/crankcase" },
+    "initial_state": { "$ref": "#/$defs/initialState" },
+    "preparation": { "$ref": "#/$defs/preparation" },
+    "mode": { "$ref": "#/$defs/mode" },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "rates": { "$ref": "#/$defs/rates" },
+    "quality": { "$ref": "#/$defs/quality" },
+    "total_duration": { "$ref": "#/$defs/quantity" },
+    "audible_start": { "$ref": "#/$defs/quantity" },
+    "audible_duration": { "$ref": "#/$defs/quantity" },
+    "public_seed": { "$ref": "#/$defs/uint64Decimal" },
+    "output": { "$ref": "#/$defs/output" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "uint64Decimal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "pattern": "^(0|[1-9][0-9]{0,19})$"
+    },
+    "positiveUint64Decimal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "quantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "properties": {
+        "value": { "type": "number" },
+        "unit": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "standard": {
+          "enum": [null, "carburetor_1p5_inhg", "port_28_inh2o"]
+        }
+      }
+    },
+    "dimension": {
+      "enum": [
+        "dimensionless",
+        "angle",
+        "angular_speed",
+        "area",
+        "density",
+        "duration",
+        "energy_per_mass",
+        "force",
+        "frequency",
+        "length",
+        "mass",
+        "mass_flow_rate",
+        "molar_mass",
+        "moment_of_inertia",
+        "power",
+        "pressure",
+        "speed",
+        "temperature",
+        "torque",
+        "volume",
+        "volume_flow_rate"
+      ]
+    },
+    "fraction": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "scalarTrajectoryPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time", "value"],
+      "properties": {
+        "time": { "$ref": "#/$defs/quantity" },
+        "value": { "$ref": "#/$defs/fraction" }
+      }
+    },
+    "scalarTrajectory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interpolation", "points"],
+      "properties": {
+        "interpolation": { "enum": ["right_continuous_hold", "linear"] },
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/scalarTrajectoryPoint" }
+        }
+      }
+    },
+    "quantityTrajectoryPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time", "value"],
+      "properties": {
+        "time": { "$ref": "#/$defs/quantity" },
+        "value": { "$ref": "#/$defs/quantity" }
+      }
+    },
+    "quantityTrajectory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value_dimension", "interpolation", "points"],
+      "properties": {
+        "value_dimension": { "$ref": "#/$defs/dimension" },
+        "interpolation": { "enum": ["right_continuous_hold", "linear"] },
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/quantityTrajectoryPoint" }
+        }
+      }
+    },
+    "ambient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pressure", "temperature", "relative_humidity_01"],
+      "properties": {
+        "pressure": { "$ref": "#/$defs/quantity" },
+        "temperature": { "$ref": "#/$defs/quantity" },
+        "relative_humidity_01": { "$ref": "#/$defs/fraction" }
+      }
+    },
+    "initialThermalState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gas_temperature",
+        "wall_temperature",
+        "coolant_temperature",
+        "oil_temperature"
+      ],
+      "properties": {
+        "gas_temperature": { "$ref": "#/$defs/quantity" },
+        "wall_temperature": { "$ref": "#/$defs/quantity" },
+        "coolant_temperature": { "$ref": "#/$defs/quantity" },
+        "oil_temperature": { "$ref": "#/$defs/quantity" }
+      }
+    },
+    "crankcase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pressure", "temperature"],
+      "properties": {
+        "pressure": { "$ref": "#/$defs/quantity" },
+        "temperature": { "$ref": "#/$defs/quantity" }
+      }
+    },
+    "initialState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine_speed",
+        "crank_angle",
+        "ignition_enabled",
+        "fuel_enabled",
+        "starter_enabled",
+        "dyno_enabled",
+        "limiter_enabled"
+      ],
+      "properties": {
+        "engine_speed": { "$ref": "#/$defs/quantity" },
+        "crank_angle": { "$ref": "#/$defs/quantity" },
+        "ignition_enabled": { "type": "boolean" },
+        "fuel_enabled": { "type": "boolean" },
+        "starter_enabled": { "type": "boolean" },
+        "dyno_enabled": { "type": "boolean" },
+        "limiter_enabled": { "type": "boolean" }
+      }
+    },
+    "fixedSettlingPreparation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "warm_up_duration", "settling_duration"],
+      "properties": {
+        "type": { "const": "fixed_settling" },
+        "warm_up_duration": { "$ref": "#/$defs/quantity" },
+        "settling_duration": { "$ref": "#/$defs/quantity" }
+      }
+    },
+    "fixedHorizonPreparation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "preparation_duration",
+        "trailing_complete_cycle_count"
+      ],
+      "properties": {
+        "type": { "const": "fixed_horizon" },
+        "preparation_duration": { "$ref": "#/$defs/quantity" },
+        "trailing_complete_cycle_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        }
+      }
+    },
+    "preparation": {
+      "oneOf": [
+        { "$ref": "#/$defs/fixedSettlingPreparation" },
+        { "$ref": "#/$defs/fixedHorizonPreparation" }
+      ]
+    },
+    "freeEngineMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "equivalent_inertia", "resisting_torque"],
+      "properties": {
+        "type": { "const": "free_engine" },
+        "equivalent_inertia": { "$ref": "#/$defs/quantity" },
+        "resisting_torque": { "$ref": "#/$defs/quantityTrajectory" }
+      }
+    },
+    "freeVehicleMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "rig",
+        "initial_gear",
+        "initial_clutch_position_01",
+        "throttle_01"
+      ],
+      "properties": {
+        "type": { "const": "free_vehicle" },
+        "rig": { "$ref": "#/$defs/id" },
+        "initial_gear": { "$ref": "#/$defs/id" },
+        "initial_clutch_position_01": { "$ref": "#/$defs/fraction" },
+        "throttle_01": { "$ref": "#/$defs/scalarTrajectory" }
+      }
+    },
+    "heldSpeedMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "target_engine_speed", "throttle_01"],
+      "properties": {
+        "type": { "const": "held_speed" },
+        "target_engine_speed": { "$ref": "#/$defs/quantity" },
+        "throttle_01": { "$ref": "#/$defs/scalarTrajectory" }
+      }
+    },
+    "loadTargetHeldMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "target_engine_speed",
+        "target_net_bmep",
+        "target_tolerance",
+        "throttle_lower_bound_01",
+        "throttle_upper_bound_01"
+      ],
+      "properties": {
+        "type": { "const": "load_target_held" },
+        "target_engine_speed": { "$ref": "#/$defs/quantity" },
+        "target_net_bmep": { "$ref": "#/$defs/quantity" },
+        "target_tolerance": { "$ref": "#/$defs/quantity" },
+        "throttle_lower_bound_01": { "$ref": "#/$defs/fraction" },
+        "throttle_upper_bound_01": { "$ref": "#/$defs/fraction" }
+      }
+    },
+    "externalSpeedMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "engine_speed", "throttle_01"],
+      "properties": {
+        "type": { "const": "external_speed" },
+        "engine_speed": { "$ref": "#/$defs/quantityTrajectory" },
+        "throttle_01": { "$ref": "#/$defs/scalarTrajectory" }
+      }
+    },
+    "brakeTorquePoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine_speed", "resisting_torque"],
+      "properties": {
+        "engine_speed": { "$ref": "#/$defs/quantity" },
+        "resisting_torque": { "$ref": "#/$defs/quantity" }
+      }
+    },
+    "inertialDynoMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "equivalent_inertia",
+        "throttle_01",
+        "brake_curve",
+        "target_engine_speed"
+      ],
+      "properties": {
+        "type": { "const": "inertial_dyno" },
+        "equivalent_inertia": { "$ref": "#/$defs/quantity" },
+        "throttle_01": { "$ref": "#/$defs/scalarTrajectory" },
+        "brake_curve": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/brakeTorquePoint" }
+        },
+        "target_engine_speed": { "$ref": "#/$defs/quantity" }
+      }
+    },
+    "mode": {
+      "oneOf": [
+        { "$ref": "#/$defs/freeEngineMode" },
+        { "$ref": "#/$defs/freeVehicleMode" },
+        { "$ref": "#/$defs/heldSpeedMode" },
+        { "$ref": "#/$defs/loadTargetHeldMode" },
+        { "$ref": "#/$defs/externalSpeedMode" },
+        { "$ref": "#/$defs/inertialDynoMode" }
+      ]
+    },
+    "operatingStatePatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "operating_state_patch" },
+        "ignition_enabled": { "type": ["boolean", "null"] },
+        "fuel_enabled": { "type": ["boolean", "null"] },
+        "starter_enabled": { "type": ["boolean", "null"] },
+        "dyno_enabled": { "type": ["boolean", "null"] },
+        "limiter_enabled": { "type": ["boolean", "null"] }
+      }
+    },
+    "selectGearEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "gear"],
+      "properties": {
+        "type": { "const": "select_gear" },
+        "gear": { "$ref": "#/$defs/id" }
+      }
+    },
+    "setClutchEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "clutch_position_01"],
+      "properties": {
+        "type": { "const": "set_clutch" },
+        "clutch_position_01": { "$ref": "#/$defs/fraction" }
+      }
+    },
+    "setRouteMonitoringEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "route"],
+      "properties": {
+        "type": { "const": "set_route_monitoring" },
+        "route": { "$ref": "#/$defs/id" },
+        "muted": { "type": ["boolean", "null"] },
+        "gain_linear": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "wet_mix_01": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "setMasterMonitoringEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "gain_linear"],
+      "properties": {
+        "type": { "const": "set_master_monitoring" },
+        "gain_linear": { "type": "number", "minimum": 0 }
+      }
+    },
+    "setConditioningMonitoringEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "anyOf": [
+        {
+          "required": ["jitter_scale"],
+          "properties": {
+            "jitter_scale": { "type": "number", "minimum": 0 }
+          }
+        },
+        {
+          "required": ["derivative_mix_01"],
+          "properties": {
+            "derivative_mix_01": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        {
+          "required": ["air_noise_mix_01"],
+          "properties": {
+            "air_noise_mix_01": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      ],
+      "properties": {
+        "type": { "const": "set_conditioning_monitoring" },
+        "jitter_scale": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "derivative_mix_01": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "air_noise_mix_01": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "lifecycleEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "action"],
+      "properties": {
+        "type": { "const": "lifecycle" },
+        "action": { "enum": ["startup", "shutdown", "reset"] }
+      }
+    },
+    "eventPayload": {
+      "oneOf": [
+        { "$ref": "#/$defs/operatingStatePatch" },
+        { "$ref": "#/$defs/selectGearEvent" },
+        { "$ref": "#/$defs/setClutchEvent" },
+        { "$ref": "#/$defs/setRouteMonitoringEvent" },
+        { "$ref": "#/$defs/setMasterMonitoringEvent" },
+        { "$ref": "#/$defs/setConditioningMonitoringEvent" },
+        { "$ref": "#/$defs/lifecycleEvent" }
+      ]
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "time", "payload"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "time": { "$ref": "#/$defs/quantity" },
+        "payload": { "$ref": "#/$defs/eventPayload" }
+      }
+    },
+    "rationalRate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator", "unit"],
+      "properties": {
+        "numerator": { "$ref": "#/$defs/positiveUint64Decimal" },
+        "denominator": { "$ref": "#/$defs/positiveUint64Decimal" },
+        "unit": { "const": "Hz" }
+      }
+    },
+    "rates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physics",
+        "capture",
+        "source_processing",
+        "acoustics",
+        "delivery"
+      ],
+      "properties": {
+        "physics": { "$ref": "#/$defs/rationalRate" },
+        "capture": { "$ref": "#/$defs/rationalRate" },
+        "source_processing": { "$ref": "#/$defs/rationalRate" },
+        "acoustics": { "$ref": "#/$defs/rationalRate" },
+        "delivery": { "$ref": "#/$defs/rationalRate" }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "process_block_capacity_frames",
+        "event_queue_capacity",
+        "telemetry_capacity_frames"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "process_block_capacity_frames": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "event_queue_capacity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "telemetry_capacity_frames": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["buses", "telemetry_channels"],
+      "properties": {
+        "buses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "telemetry_channels": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        }
+      }
+    }
+  }
+}

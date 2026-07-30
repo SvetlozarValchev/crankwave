@@ -70,8 +70,9 @@ runs ahead of the audio device rather than tying simulation steps to UI frames.
 
 ### Authoring and compilation
 
-1. There is one current schema, with no legacy-version compatibility layer. Unsupported
-   `schema_version` values fail rather than migrate silently.
+1. There is one current schema, identified by the exact root strings
+   `engine-sim-offline/engine` and `engine-sim-offline/scenario`. Other identifiers fail;
+   there is no numeric version field, translator, or legacy migration layer.
 2. Authored JSON is data, not a programming language. It has no imports, aliases,
    expressions, executable nodes, or method chaining.
 3. Reuse is represented by stable IDs and references. External tools/templates may
@@ -162,10 +163,11 @@ exists:
 |---|---|---|---|
 | Engine name and reusable parameter preset | `engine.identity` and authoring templates | **Typed core** for ID/display name; no JSON/template compiler | BMW compiles to the frozen identity without changing audio. |
 | Redline | `engine.limits.redline` | **BMW-sealed** in ignition profile | Limiter boundary and declared redline remain distinct and validated. |
-| Starter speed and torque | `engine.starter.capability` | **Partial**; operating state exists but M4 starter is mechanically disengaged | Crank/catch fixture demonstrates torque, target speed, engagement, and release. |
-| Direct throttle linkage gamma | `engine.controllers.throttle` | **Missing** as a selectable generic controller | A sweep proves the authored command-to-plate curve. |
-| Governor (`min_speed`, `max_speed`, `min_v`, `max_v`, `k_s`, `k_d`, `gamma`) | `engine.controllers.throttle` with `type: "governor"` | **Missing** | Small-engine fixture holds governed speed under a load step. |
-| Dyno min/max/hold step defaults | `rig.default_procedures`, not engine physics | **Typed core** equivalents exist as explicit scenarios | Native and browser UI generate the same held-point sequence. |
+| Starter speed and torque | `engine.starter` with `type: "cranking"`; a separate `mechanically_disengaged` variant states the current operating condition | **Partial**; operating state exists but M4 starter is mechanically disengaged | Crank/catch fixture demonstrates torque, target speed, engagement, and release. |
+| Direct throttle linkage gamma | `engine.throttle_controllers[]` with `type: "direct"` and `engine.throttle_controller` selecting one | **Missing** as an executed generic controller | A sweep proves the authored command-to-plate curve. |
+| Governor (`min_speed`, `max_speed`, signed `min_v`/`max_v`, `k_s`, `k_d`, `gamma`) | `engine.throttle_controllers[]` with `type: "governor"`; velocity bounds are not throttle-output fractions | **Missing** | Small-engine fixture holds governed speed under a load step. |
+| Chen--Flynn cycle-mean loss coefficients and required oil temperature | `engine.losses` with `type: "chen_flynn_cycle_mean"` | **Typed core**; previously sealed in the BMW factory | Generic compilation selects the registered method and derives torque-term accounting without an engine-name branch. |
+| Dyno min/max/hold step defaults | `rig.dyno_defaults`, not engine physics | **Typed core** equivalents exist as explicit scenarios | Native and browser UI generate the same held-point sequence. |
 | Simulation frequency | Session/render quality | **Typed core** through render rates | Identical resolved rates reach native offline and WASM sessions. |
 
 ### Cranktrain, banks, and cylinders
@@ -198,7 +200,7 @@ exists:
 | Multiple, shareable exhaust systems | `engine.exhausts[]` and cylinder route references | **Typed core** for multiple routes; only BMW topology is exercised | Toyota grouping fixture proves sharing and independent collectors. |
 | Collector length/area, outlet restriction, primary length/restriction, velocity decay | Exhaust physical fields | **BMW-sealed** | BMW resolved graph and gas-state regression. |
 | `exhaust.volume` convenience | Compiler authoring convenience deriving `length = volume / area` | **Missing** as JSON convenience | Explicit length and derived length compile to the same resolved model. |
-| General gas volumes and flow edges | `engine.gas_volumes[]` / `engine.flow_edges[]` | **Typed core** graph; low-order executor remains profile-constrained | Validator rejects disconnected/invalid graphs; supported graphs step deterministically. |
+| Executable gas volumes and flow edges | Compiler-derived from authored intakes, heads/ports, cylinders, exhausts, and their stable references | **Typed core** graph; low-order executor remains profile-constrained | Authors state each physical fact once; the compiler deterministically constructs and validates the supported internal graph. |
 
 ### Camshafts and valvetrain
 
@@ -241,6 +243,7 @@ objects merely because pristine MR placed some of them there.
 | Engine `noise` and GUI air-noise mix | Presentation conditioning default/live-safe override | **Typed core** | Noise solo and zero-noise regression. |
 | GUI master volume | Session monitor/output gain | **Partial**; audition monitoring gain exists | It never changes physical stems or canonical raw capture. |
 | One channel per unique exhaust object | Compiler derives source routes from explicit shared exhaust identity | **Typed core** for BMW routes | Shared object produces one route; copied objects remain separate. |
+| Excitation pressure combination, scale, low-speed ramp, propagation constant, delay rate, and accumulation policy | Selected excitation-method configuration, generated by the compiler; physical lengths and audible gains remain authored | **BMW-sealed** constants behind a typed core | Generic method selection reproduces the accepted values without exposing implementation calibration or branching on engine identity. |
 
 Pristine `engine-sim` does not expose a separately audible intake bus. The clean-room
 production source plan's intake, mechanical-engine, and mechanical-starter routes are
@@ -251,7 +254,8 @@ route kinds so they can be added without replacing the accepted exhaust renderer
 
 | Pristine capability | Intended owner | Current status | Acceptance requirement |
 |---|---|---|---|
-| Vehicle mass, drag coefficient, frontal area, differential ratio, tire radius, rolling resistance | Package `rig.vehicle` | **Missing** | BMW fifth-gear coast/load fixture. |
+| Vehicle mass, drag coefficient, frontal area, differential ratio, tire radius, rolling-resistance force | Package `rig.vehicle` | **Missing** | BMW fifth-gear coast/load fixture. |
+| Dyno minimum/maximum speed and hold-step defaults | Package `rig.dyno_defaults`; scenarios remain authoritative for an actual run | **Missing** as reusable UI defaults | Native and browser tools generate the same explicit held-point requests. |
 | Transmission max clutch torque and ordered gear ratios | Package `rig.transmission` | **Missing** | Gear order, clutch slip, and shaft-speed fixture. |
 | Held speed and prescribed RPM sweep | Session/render request | **Typed core** | Existing BMW held points and dyno listening pull. |
 | Load-target held capture | Session/render request | **Typed core** | Converged target/tolerance result. |

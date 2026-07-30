@@ -11,6 +11,36 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_json_parser_tests
+    json_parser_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_json_parser_tests
+    PRIVATE engine_sim_offline::authoring
+)
+
+add_test(
+    NAME authoring.json_parser
+    COMMAND engine_sim_offline_json_parser_tests
+)
+
+add_executable(
+    engine_sim_offline_authoring_document_tests
+    authoring_document_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_authoring_document_tests
+    PRIVATE engine_sim_offline::authoring
+)
+
+add_test(
+    NAME authoring.document
+    COMMAND engine_sim_offline_authoring_document_tests
+)
+
+add_executable(
     engine_sim_offline_renderer_source_stamp_tests
     renderer_source_stamp_test.cpp
 )

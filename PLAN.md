@@ -81,8 +81,10 @@ products built on this boundary.
 
 - identity and display metadata;
 - cycle, layout, banks, cylinders, crank phasing, and firing order;
-- bore, stroke, rod geometry, compression, and other executed mechanism parameters;
-- intake/exhaust volumes, ports, flow edges, manifolds, and route bindings;
+- bore, crank throw, rod/piston/head geometry, and the references from which stroke
+  and compression are derived;
+- intake/exhaust volumes, ports, manifolds, and route bindings; the compiler derives
+  executable gas volumes and flow edges rather than asking authors to duplicate them;
 - valvetrain, ignition, combustion, gas exchange, heat, friction, and accessory
   parameters actually supported by the compiled model;
 - excitation and presentation routes, route gains, conditioning, IR/asset references,
@@ -128,8 +130,9 @@ or remain as an executable BMW factory.
 During checkpoints 2--5, the current hardcoded BMW factory may exist only as a
 migration-test oracle, never as an alternate production input. After resolved identity
 and native WAV equality are proven, checkpoint 6 deletes the factory and its exact BMW
-validators/provenance builders. The tracked WAV, canonical request identity, and
-focused automated test remain.
+validators/provenance builders. The tracked WAV, the new JSON-compiled request-identity
+golden, and the focused automated test remain. The old BMW-specific provenance and
+request hash do not become a compatibility target.
 
 Core 192 kHz PCM and canonical native WAV output must remain byte-identical through
 the cutover. Browser device-rate conversion is compared before that final adapter; an
@@ -169,19 +172,23 @@ documents; rendering is unchanged.
 - Establish one portable `CompiledEngine` boundary suitable for native and WASM use.
 - Fail closed when a syntactically valid request names an unimplemented capability.
 
-Gate: one synthetic non-BMW-shaped input resolves deterministically without adding an
-engine-name branch; rendering is still unchanged.
+Gate: one synthetic non-BMW input within the currently admitted executable topology
+resolves deterministically without an engine-name branch. Configurations outside that
+topology fail with explicit capability diagnostics; rendering is still unchanged.
 
 ### 4. Migrate the accepted BMW to JSON
 
 - Mechanically express the current accepted BMW engine, presentation, assets, and dyno
   scenario in the product JSON contract.
-- Compare JSON-compiled resolved inputs and canonical request identity with the
-  temporary hardcoded factory.
+- Compare an execution-value projection of the JSON-compiled inputs with the temporary
+  hardcoded factory. Resolution IDs and provenance identities are deliberately excluded
+  from that projection.
+- Establish a stable request-identity golden produced by the generic JSON compiler.
 - Do not retune, normalize, “correct,” or reinterpret any sound-producing value.
 
-Gate: the two authoring routes produce identical resolved execution inputs and request
-identity.
+Gate: the two authoring routes produce identical execution values and byte-identical
+PCM/WAV output. The JSON path has a deterministic new request identity; it does not
+emulate the old BMW/MR/fixture provenance solely to preserve an obsolete hash.
 
 ### 5. Make the native JSON renderer real
 

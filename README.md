@@ -14,7 +14,9 @@ dead fields, or a general-purpose scripting language.
 
 The accepted engine-sim-equivalent exhaust audio path, low-order simulation, dyno
 scenarios, block presentation pipeline, WAV publication, and telemetry are implemented.
-They are currently reached through a temporary hardcoded BMW M52B28 profile.
+The strict engine/scenario JSON authoring contract and parser are now the front of the
+cutover; rendering is still reached through a temporary hardcoded BMW M52B28 profile
+until generic compilation lands.
 
 The active cutover replaces that profile with:
 
@@ -31,8 +33,10 @@ engine.json + scenario.json + assets
 ```
 
 The BMW remains only as an automated byte-identity migration fixture. Once JSON
-compilation reproduces its resolved request and accepted output exactly, the executable
-BMW factory is removed. There will not be parallel profile and JSON production paths.
+compilation reproduces its execution values and accepted PCM/WAV exactly, the executable
+BMW factory is removed. The generic compiler intentionally establishes a new request
+identity instead of preserving BMW-specific provenance machinery. There will not be
+parallel profile and JSON production paths.
 
 The authoritative sequence and acceptance gates are in [PLAN.md](PLAN.md). The original
 engine-sim capability mapping is in

@@ -47,6 +47,39 @@ include(cmake/RendererNumericPolicy.cmake)
 engine_sim_offline_define_renderer_numeric_policy()
 
 add_library(
+    engine_sim_offline_authoring
+    STATIC
+        src/authoring/document_reader.cpp
+        src/authoring/json.cpp
+        src/authoring/parse_engine.cpp
+        src/authoring/parse_engine_common.cpp
+        src/authoring/parse_engine_gas.cpp
+        src/authoring/parse_engine_mechanism.cpp
+        src/authoring/parse_engine_presentation.cpp
+        src/authoring/parse_engine_references.cpp
+        src/authoring/parse_engine_systems.cpp
+        src/authoring/parse_engine_valvetrain.cpp
+        src/authoring/parse_scenario.cpp
+)
+add_library(
+    engine_sim_offline::authoring
+    ALIAS engine_sim_offline_authoring
+)
+
+target_include_directories(
+    engine_sim_offline_authoring
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_authoring
+    PUBLIC engine_sim_offline::build_options
+)
+
+add_library(
     engine_sim_offline_contract
     STATIC
         src/contract/capture.cpp
