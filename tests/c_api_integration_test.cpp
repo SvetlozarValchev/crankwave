@@ -161,6 +161,22 @@ void enqueue_live_batch(eso_context_t *context, const eso_session_handle_t sessi
            "typed live-control batch was rejected");
 }
 
+void enqueue_free_live_batch(eso_context_t *context, const eso_session_handle_t session,
+                             const std::uint64_t first_live_frame) {
+    const eso_control_command_t controls[] = {
+        {first_live_frame, 1U, ESO_CONTROL_THROTTLE, 0U, 0.75, 0U},
+        {first_live_frame, 2U, ESO_CONTROL_IGNITION_ENABLED, 1U, 0.0, 0U},
+        {first_live_frame, 3U, ESO_CONTROL_FUEL_ENABLED, 1U, 0.0, 0U},
+        {first_live_frame, 4U, ESO_CONTROL_LIMITER_ENABLED, 0U, 0.0, 0U},
+        {first_live_frame, 5U, ESO_CONTROL_EXTERNAL_RESISTING_TORQUE, 0U, 18.0, 0U},
+    };
+    eso_control_rejection_t rejection{};
+    expect(eso_session_enqueue_controls(context, session, controls, 5U, &rejection) ==
+                   ESO_STATUS_OK &&
+               rejection.code == ESO_ERROR_NONE,
+           "free-engine C session rejected an advertised live control");
+}
+
 void run(const std::filesystem::path &repository_root) {
     eso_context_t *context = nullptr;
     expect(eso_context_create(ESO_C_API_VERSION, &context) == ESO_STATUS_OK &&
@@ -172,8 +188,12 @@ void run(const std::filesystem::path &repository_root) {
     const auto engine_path = repository_root / "data/engines/bmw-m52b28/engine.json";
     const auto scenario_path = repository_root / "data/engines/bmw-m52b28/scenarios/"
                                                  "inertial-dyno-1500-6500rpm.json";
+    const auto free_scenario_path = repository_root /
+                                    "data/engines/bmw-m52b28/scenarios/"
+                                    "warm-running-free-rev-1500rpm.json";
     std::string engine_json = read_text(engine_path);
     std::string scenario_json = read_text(scenario_path);
+    std::string free_scenario_json = read_text(free_scenario_path);
     std::vector<std::uint8_t> ir =
         read_bytes(repository_root /
                    "reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav");
@@ -209,6 +229,11 @@ void run(const std::filesystem::path &repository_root) {
                    ESO_STATUS_OK &&
                scenario != ESO_INVALID_HANDLE,
            "BMW scenario compilation through the C ABI failed");
+    eso_scenario_handle_t free_scenario = ESO_INVALID_HANDLE;
+    expect(eso_compile_scenario_json(context, engine, view(free_scenario_json),
+                                     &free_scenario) == ESO_STATUS_OK &&
+               free_scenario != ESO_INVALID_HANDLE,
+           "BMW free-engine scenario compilation through the C ABI failed");
 
     // Kind bits prevent accidental cross-resource use even though C handle aliases
     // have one fixed integer representation.
@@ -221,8 +246,11 @@ void run(const std::filesystem::path &repository_root) {
            "throwaway session lifecycle failed");
     eso_session_handle_t session_a = ESO_INVALID_HANDLE;
     eso_session_handle_t session_b = ESO_INVALID_HANDLE;
+    eso_session_handle_t free_session = ESO_INVALID_HANDLE;
     expect(eso_create_session(context, scenario, &session_a) == ESO_STATUS_OK &&
                eso_create_session(context, scenario, &session_b) == ESO_STATUS_OK &&
+               eso_create_session(context, free_scenario, &free_session) ==
+                   ESO_STATUS_OK &&
                session_a != stale,
            "generation-checked session slot was not recycled safely");
     eso_session_descriptor_t stale_descriptor{};
@@ -231,12 +259,25 @@ void run(const std::filesystem::path &repository_root) {
            "destroyed session handle remained usable");
 
     eso_session_descriptor_t descriptor{};
-    expect(
-        eso_session_get_descriptor(context, session_a, &descriptor) == ESO_STATUS_OK &&
-            descriptor.physics_frames_per_block == 200U &&
-            descriptor.delivery_frames_per_block == 3840U &&
-            descriptor.audio_bus_count == 8U && descriptor.accepts_live_controls == 1U,
-        "C session descriptor differs from the executable method");
+    constexpr auto kInertialDynoLiveControls =
+        ESO_LIVE_CONTROL_CAPABILITY_THROTTLE |
+        ESO_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED |
+        ESO_LIVE_CONTROL_CAPABILITY_FUEL_ENABLED;
+    expect(eso_session_get_descriptor(context, session_a, &descriptor) ==
+                   ESO_STATUS_OK &&
+               descriptor.physics_frames_per_block == 200U &&
+               descriptor.delivery_frames_per_block == 3840U &&
+               descriptor.audio_bus_count == 8U &&
+               descriptor.live_control_capabilities == kInertialDynoLiveControls,
+           "C session descriptor differs from the executable method");
+    eso_session_descriptor_t free_descriptor{};
+    constexpr auto kFreeEngineLiveControls =
+        kInertialDynoLiveControls | ESO_LIVE_CONTROL_CAPABILITY_LIMITER_ENABLED |
+        ESO_LIVE_CONTROL_CAPABILITY_EXTERNAL_RESISTING_TORQUE;
+    expect(eso_session_get_descriptor(context, free_session, &free_descriptor) ==
+                   ESO_STATUS_OK &&
+               free_descriptor.live_control_capabilities == kFreeEngineLiveControls,
+           "C free-engine descriptor lost its exact live-control capabilities");
     std::vector<char> engine_id(descriptor.engine_id_utf8_bytes + 1U);
     std::vector<char> scenario_id(descriptor.scenario_id_utf8_bytes + 1U);
     eso_session_identity_buffers_t identities{
@@ -253,19 +294,65 @@ void run(const std::filesystem::path &repository_root) {
     const auto bus = audition_bus(context, session_a, descriptor.audio_bus_count);
     const auto first_live_frame =
         descriptor.preparation_block_count * descriptor.delivery_frames_per_block;
+    const auto free_first_live_frame = free_descriptor.preparation_block_count *
+                                       free_descriptor.delivery_frames_per_block;
 
     const eso_control_command_t preparation_control{0U, 1U,  ESO_CONTROL_THROTTLE,
                                                     0U, 0.5, 0U};
     eso_control_rejection_t rejection{};
+    expect(eso_session_enqueue_controls(context, session_a, nullptr, 0U,
+                                        &rejection) ==
+                   ESO_STATUS_CONTROL_REJECTED &&
+               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+           "C session admitted an empty live-control batch");
     expect(eso_session_enqueue_controls(context, session_a, &preparation_control, 1U,
                                         &rejection) == ESO_STATUS_CONTROL_REJECTED &&
                rejection.code == ESO_ERROR_CONTROL_UNAVAILABLE_DURING_PREPARATION,
            "preparation control was not rejected with its typed reason");
+
+    const eso_control_command_t unsupported_controls[] = {
+        {first_live_frame, 1U, ESO_CONTROL_THROTTLE, 0U, 0.5, 0U},
+        {first_live_frame, 2U, ESO_CONTROL_LIMITER_ENABLED, 1U, 0.0, 0U},
+    };
+    expect(eso_session_enqueue_controls(context, session_a, unsupported_controls, 2U,
+                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
+               rejection.code == ESO_ERROR_CONTROL_UNSUPPORTED_FOR_OPERATING_MODE &&
+               rejection.command_index == 1U,
+           "C capability rejection lost the first unsupported command index");
+
+    const eso_control_command_t noncanonical_boolean{
+        free_first_live_frame, 1U, ESO_CONTROL_LIMITER_ENABLED, 1U, 0.5, 0U};
+    expect(eso_session_enqueue_controls(context, free_session, &noncanonical_boolean,
+                                        1U,
+                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
+               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+           "C boundary admitted a boolean control with a scalar payload");
+    const eso_control_command_t signed_zero_boolean{
+        free_first_live_frame, 1U, ESO_CONTROL_LIMITER_ENABLED, 1U, -0.0, 0U};
+    expect(eso_session_enqueue_controls(context, free_session, &signed_zero_boolean, 1U,
+                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
+               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+           "C boundary admitted signed negative zero as canonical scalar zero");
+    const eso_control_command_t noncanonical_scalar{
+        free_first_live_frame, 1U, ESO_CONTROL_EXTERNAL_RESISTING_TORQUE, 1U, 18.0, 0U};
+    expect(eso_session_enqueue_controls(context, free_session, &noncanonical_scalar, 1U,
+                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
+               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+           "C boundary admitted a scalar control with a boolean payload");
+    const eso_control_command_t negative_resistance{
+        free_first_live_frame, 1U, ESO_CONTROL_EXTERNAL_RESISTING_TORQUE, 0U, -1.0, 0U};
+    expect(eso_session_enqueue_controls(context, free_session, &negative_resistance, 1U,
+                                        &rejection) == ESO_STATUS_CONTROL_REJECTED &&
+               rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
+           "C boundary admitted negative external resisting torque");
+
     enqueue_live_batch(context, session_a, first_live_frame, true);
     enqueue_live_batch(context, session_b, first_live_frame);
+    enqueue_free_live_batch(context, free_session, free_first_live_frame);
 
     // A live session owns the shared immutable scenario/engine it needs.
     expect(eso_destroy_scenario(context, scenario) == ESO_STATUS_OK &&
+               eso_destroy_scenario(context, free_scenario) == ESO_STATUS_OK &&
                eso_destroy_engine(context, engine) == ESO_STATUS_OK,
            "compiled parent handles could not be released after session creation");
 
@@ -307,6 +394,7 @@ void run(const std::filesystem::path &repository_root) {
 
     expect(eso_destroy_session(context, session_a) == ESO_STATUS_OK &&
                eso_destroy_session(context, session_b) == ESO_STATUS_OK &&
+               eso_destroy_session(context, free_session) == ESO_STATUS_OK &&
                eso_context_destroy(context) == ESO_STATUS_OK,
            "C API teardown failed");
 }

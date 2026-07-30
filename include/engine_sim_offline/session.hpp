@@ -107,8 +107,36 @@ struct SetEngineFuelEnabled {
                            const SetEngineFuelEnabled &) = default;
 };
 
+struct SetEngineLimiterEnabled {
+    bool enabled = false;
+
+    friend bool operator==(const SetEngineLimiterEnabled &,
+                           const SetEngineLimiterEnabled &) = default;
+};
+
+struct SetEngineExternalResistingTorque {
+    double torque_nm = 0.0;
+
+    friend bool operator==(const SetEngineExternalResistingTorque &,
+                           const SetEngineExternalResistingTorque &) = default;
+};
+
 using EngineControlPayload =
-    std::variant<SetEngineThrottle, SetEngineIgnitionEnabled, SetEngineFuelEnabled>;
+    std::variant<SetEngineThrottle, SetEngineIgnitionEnabled, SetEngineFuelEnabled,
+                 SetEngineLimiterEnabled, SetEngineExternalResistingTorque>;
+
+using EngineLiveControlCapabilityMask = std::uint32_t;
+
+inline constexpr EngineLiveControlCapabilityMask kEngineLiveControlCapabilityThrottle =
+    UINT32_C(1) << 0U;
+inline constexpr EngineLiveControlCapabilityMask
+    kEngineLiveControlCapabilityIgnitionEnabled = UINT32_C(1) << 1U;
+inline constexpr EngineLiveControlCapabilityMask
+    kEngineLiveControlCapabilityFuelEnabled = UINT32_C(1) << 2U;
+inline constexpr EngineLiveControlCapabilityMask
+    kEngineLiveControlCapabilityLimiterEnabled = UINT32_C(1) << 3U;
+inline constexpr EngineLiveControlCapabilityMask
+    kEngineLiveControlCapabilityExternalResistingTorque = UINT32_C(1) << 4U;
 
 struct EngineControlCommand {
     std::uint64_t delivery_frame = 0;
@@ -171,7 +199,7 @@ struct EngineSessionDescriptor {
     std::uint64_t total_block_count = 0;
     std::uint64_t preparation_block_count = 0;
     std::span<const EngineAudioBusDescriptor> audio_buses;
-    bool accepts_live_controls = false;
+    EngineLiveControlCapabilityMask live_control_capabilities = 0U;
 };
 
 struct EngineSessionCompleted {

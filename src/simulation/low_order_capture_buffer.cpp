@@ -185,7 +185,8 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
     engine.dyno_enabled = mechanics.operating_state.dyno_enabled;
     engine.limiter_enabled = mechanics.operating_state.limiter_enabled;
     engine.limiter_cut_active = mechanics.limiter_cut_active;
-    engine.external_resisting_torque_nm = mechanics.external_resisting_torque_nm;
+    engine.requested_external_resisting_torque_nm =
+        mechanics.external_resisting_torque_nm;
     engine.torque = torque;
     engine_.push_back(engine);
 

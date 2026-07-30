@@ -85,6 +85,7 @@ eso_engine_telemetry_t engine_telemetry(const EngineTelemetryFrame &frame) noexc
         engine.fuel_enabled ? 1U : 0U,
         engine.starter_enabled ? 1U : 0U,
         engine.dyno_enabled ? 1U : 0U,
+        engine.limiter_enabled ? 1U : 0U,
         engine.limiter_cut_active ? 1U : 0U,
         engine.theta_rad,
         engine.theta_cycle_rad,
@@ -95,6 +96,7 @@ eso_engine_telemetry_t engine_telemetry(const EngineTelemetryFrame &frame) noexc
         engine.resolved_engine_throttle_01,
         engine.intake_plate_position_01,
         engine.main_flow_multiplier_01,
+        engine.requested_external_resisting_torque_nm,
         torque_telemetry(engine.torque),
     };
 }

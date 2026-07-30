@@ -195,6 +195,15 @@ typedef struct eso_abi_layout {
     uint32_t engine_telemetry_size_bytes;
 } eso_abi_layout_t;
 
+typedef uint32_t eso_live_control_capability_mask_t;
+enum {
+    ESO_LIVE_CONTROL_CAPABILITY_THROTTLE = UINT32_C(1) << 0U,
+    ESO_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED = UINT32_C(1) << 1U,
+    ESO_LIVE_CONTROL_CAPABILITY_FUEL_ENABLED = UINT32_C(1) << 2U,
+    ESO_LIVE_CONTROL_CAPABILITY_LIMITER_ENABLED = UINT32_C(1) << 3U,
+    ESO_LIVE_CONTROL_CAPABILITY_EXTERNAL_RESISTING_TORQUE = UINT32_C(1) << 4U
+};
+
 typedef struct eso_session_descriptor {
     uint32_t maximum_delivery_frames_per_process_call;
     uint32_t control_command_queue_capacity;
@@ -208,7 +217,7 @@ typedef struct eso_session_descriptor {
     uint64_t total_block_count;
     uint64_t preparation_block_count;
     uint32_t audio_bus_count;
-    uint32_t accepts_live_controls;
+    eso_live_control_capability_mask_t live_control_capabilities;
     size_t engine_id_utf8_bytes;
     size_t scenario_id_utf8_bytes;
 } eso_session_descriptor_t;
@@ -241,19 +250,24 @@ typedef uint32_t eso_control_kind_t;
 enum {
     ESO_CONTROL_THROTTLE = 1,
     ESO_CONTROL_IGNITION_ENABLED = 2,
-    ESO_CONTROL_FUEL_ENABLED = 3
+    ESO_CONTROL_FUEL_ENABLED = 3,
+    ESO_CONTROL_LIMITER_ENABLED = 4,
+    ESO_CONTROL_EXTERNAL_RESISTING_TORQUE = 5
 };
 
 /*
- * enabled must be exactly 0 or 1 for boolean controls. throttle_01 is used only
- * by ESO_CONTROL_THROTTLE. Reserved members must be zero.
+ * enabled must be exactly 0 or 1 for boolean controls and zero for scalar
+ * controls. scalar_value must be positive zero for boolean controls; it carries
+ * nonnegative throttle_01 or external resisting torque in N*m for the
+ * corresponding scalar control. Negative zero is not canonical. Reserved
+ * members must be zero.
  */
 typedef struct eso_control_command {
     uint64_t delivery_frame;
     uint64_t sequence;
     eso_control_kind_t kind;
     uint32_t enabled;
-    double throttle_01;
+    double scalar_value;
     uint64_t reserved;
 } eso_control_command_t;
 
@@ -318,6 +332,7 @@ typedef struct eso_engine_telemetry {
     uint32_t fuel_enabled;
     uint32_t starter_enabled;
     uint32_t dyno_enabled;
+    uint32_t limiter_enabled;
     uint32_t limiter_cut_active;
     double theta_rad;
     double theta_cycle_rad;
@@ -328,6 +343,7 @@ typedef struct eso_engine_telemetry {
     double resolved_engine_throttle_01;
     double intake_plate_position_01;
     double main_flow_multiplier_01;
+    double requested_external_resisting_torque_nm;
     eso_torque_telemetry_t torque;
 } eso_engine_telemetry_t;
 

@@ -139,14 +139,15 @@ std::vector<std::byte> read_bytes(const std::filesystem::path &path) {
     return result;
 }
 
-compile::CompiledScenario
-compile_authored_scenario(const std::filesystem::path &repository_root) {
+[[nodiscard]] compile::CompiledScenario
+compile_authored_scenario_file(
+    const std::filesystem::path &repository_root,
+    const std::string_view scenario_filename) {
     const auto engine_path =
         repository_root / "data/engines/bmw-m52b28/engine.json";
     const auto scenario_path =
-        repository_root /
-        "data/engines/bmw-m52b28/scenarios/"
-        "inertial-dyno-1500-6500rpm.json";
+        repository_root / "data/engines/bmw-m52b28/scenarios" /
+        scenario_filename;
 
     auto engine_document = require(
         authoring::parse_engine_document(read_text(engine_path)),
@@ -171,9 +172,26 @@ compile_authored_scenario(const std::filesystem::path &repository_root) {
     auto scenario = require(
         compile::compile_scenario(engine, scenario_document),
         "public scenario compilation failed");
+    return scenario;
+}
+
+compile::CompiledScenario
+compile_authored_scenario(const std::filesystem::path &repository_root) {
+    auto scenario = compile_authored_scenario_file(
+        repository_root, "inertial-dyno-1500-6500rpm.json");
     expect(scenario.id() ==
                "bmw-m52b28-inertial-dyno-1500-6500rpm",
            "public compiled scenario retained the wrong authored ID");
+    return scenario;
+}
+
+compile::CompiledScenario compile_authored_free_engine_scenario(
+    const std::filesystem::path &repository_root) {
+    auto scenario = compile_authored_scenario_file(
+        repository_root, "warm-running-free-rev-1500rpm.json");
+    expect(scenario.id() ==
+               "bmw-m52b28-warm-running-free-rev-1500rpm",
+           "public compiled free-engine scenario retained the wrong authored ID");
     return scenario;
 }
 

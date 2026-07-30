@@ -542,7 +542,7 @@ void verify_frame(const CaptureBlockView &block, std::size_t frame,
                engine->dyno_enabled == mechanics.operating_state.dyno_enabled &&
                engine->limiter_enabled == mechanics.operating_state.limiter_enabled &&
                engine->limiter_cut_active == mechanics.limiter_cut_active &&
-               engine->external_resisting_torque_nm ==
+               engine->requested_external_resisting_torque_nm ==
                    mechanics.external_resisting_torque_nm,
            "engine observable mapping changed");
     expect(engine->torque == expected_torque,
@@ -1008,7 +1008,7 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
     const auto &released_actuator = released.torque.actuator;
     const auto &released_reaction = released.torque.dyno_reaction;
     expect(!released.limiter_enabled &&
-               released.external_resisting_torque_nm ==
+               released.requested_external_resisting_torque_nm ==
                    kFreeEngineInitialResistingTorqueNm &&
                released_net.availability == Availability::available &&
                released_actuator.availability == Availability::available &&
@@ -1030,10 +1030,10 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
                    -kFreeEngineInitialResistingTorqueNm &&
                before_boundary.torque.dyno_reaction.value_nm ==
                    kFreeEngineInitialResistingTorqueNm &&
-               before_boundary.external_resisting_torque_nm ==
+               before_boundary.requested_external_resisting_torque_nm ==
                    kFreeEngineInitialResistingTorqueNm &&
                at_boundary.requested_throttle_01 == 0.15 &&
-               at_boundary.external_resisting_torque_nm ==
+               at_boundary.requested_external_resisting_torque_nm ==
                    kFreeEngineBoundaryResistingTorqueNm &&
                at_boundary.torque.actuator.value_nm ==
                    -kFreeEngineBoundaryResistingTorqueNm &&
@@ -1119,14 +1119,16 @@ void test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
     const auto &released = frames[release_frame];
     const auto &final = frames.back();
     expect(!prepared.limiter_enabled &&
-               prepared.external_resisting_torque_nm ==
+               prepared.requested_external_resisting_torque_nm ==
                    kFreeEngineInitialResistingTorqueNm &&
                released.limiter_enabled && !released.limiter_cut_active &&
-               released.external_resisting_torque_nm == kLiveResistingTorqueNm &&
+               released.requested_external_resisting_torque_nm ==
+                   kLiveResistingTorqueNm &&
                released.torque.actuator.value_nm == -kLiveResistingTorqueNm &&
                released.torque.dyno_reaction.value_nm == kLiveResistingTorqueNm &&
                final.limiter_enabled &&
-               final.external_resisting_torque_nm == kLiveResistingTorqueNm &&
+               final.requested_external_resisting_torque_nm ==
+                   kLiveResistingTorqueNm &&
                final.torque.dyno_reaction.value_nm == kLiveResistingTorqueNm,
            "released FreeEngine did not use and publish live limiter/load state");
     const double expected_release_alpha =

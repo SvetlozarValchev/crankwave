@@ -211,6 +211,8 @@ void append_telemetry_state(std::string &output, const eso_engine_telemetry_t &v
     output.push_back(',');
     append_integer(output, value.dyno_enabled);
     output.push_back(',');
+    append_integer(output, value.limiter_enabled);
+    output.push_back(',');
     append_integer(output, value.limiter_cut_active);
 
     const std::array<const eso_torque_value_nm_t *, 8> torque{
@@ -253,6 +255,7 @@ void append_telemetry_numeric(std::vector<double> &output,
                                     value.resolved_engine_throttle_01,
                                     value.intake_plate_position_01,
                                     value.main_flow_multiplier_01,
+                                    value.requested_external_resisting_torque_nm,
                                     value.torque.instantaneous_indicated_gas.value_nm,
                                     value.torque.pumping_partition.value_nm,
                                     value.torque.friction_pump_and_accessory.value_nm,
@@ -565,7 +568,7 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     metadata.push_back(',');
     append_integer(metadata, descriptor.audio_bus_count);
     metadata.push_back(',');
-    append_integer(metadata, descriptor.accepts_live_controls);
+    append_integer(metadata, descriptor.live_control_capabilities);
     metadata += "],\"buses\":[";
     for (std::size_t index = 0; index < buses.size(); ++index) {
         if (index != 0U) {

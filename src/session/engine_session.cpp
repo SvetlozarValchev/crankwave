@@ -84,6 +84,48 @@ public_control_error(session::ControlTimelineError error) noexcept {
     return "the session control clock rejected an unknown transition";
 }
 
+[[nodiscard]] EngineLiveControlCapabilityMask
+live_control_capabilities(const contract::ScenarioMode &mode) noexcept {
+    if (std::holds_alternative<contract::FreeEngine>(mode)) {
+        return kEngineLiveControlCapabilityThrottle |
+               kEngineLiveControlCapabilityIgnitionEnabled |
+               kEngineLiveControlCapabilityFuelEnabled |
+               kEngineLiveControlCapabilityLimiterEnabled |
+               kEngineLiveControlCapabilityExternalResistingTorque;
+    }
+    if (std::holds_alternative<contract::InertialDyno>(mode)) {
+        return kEngineLiveControlCapabilityThrottle |
+               kEngineLiveControlCapabilityIgnitionEnabled |
+               kEngineLiveControlCapabilityFuelEnabled;
+    }
+    return 0U;
+}
+
+[[nodiscard]] EngineLiveControlCapabilityMask
+required_capability(const EngineControlPayload &payload) noexcept {
+    return std::visit(
+        [](const auto &value) noexcept -> EngineLiveControlCapabilityMask {
+            using Payload = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<Payload, SetEngineThrottle>) {
+                return kEngineLiveControlCapabilityThrottle;
+            } else if constexpr (
+                std::is_same_v<Payload, SetEngineIgnitionEnabled>) {
+                return kEngineLiveControlCapabilityIgnitionEnabled;
+            } else if constexpr (
+                std::is_same_v<Payload, SetEngineFuelEnabled>) {
+                return kEngineLiveControlCapabilityFuelEnabled;
+            } else if constexpr (
+                std::is_same_v<Payload, SetEngineLimiterEnabled>) {
+                return kEngineLiveControlCapabilityLimiterEnabled;
+            } else {
+                static_assert(std::is_same_v<
+                              Payload, SetEngineExternalResistingTorque>);
+                return kEngineLiveControlCapabilityExternalResistingTorque;
+            }
+        },
+        payload);
+}
+
 } // namespace
 
 EngineSessionBlockView::EngineSessionBlockView(
@@ -152,8 +194,8 @@ class EngineSession::Implementation final {
             compile::detail::CompiledScenarioViewAccess::inputs(compiled_scenario_);
         engine_id_ = inputs.engine.engine.engine_id.value;
         scenario_id_ = inputs.scenario.scenario.scenario_id;
-        accepts_live_controls_ = std::holds_alternative<contract::InertialDyno>(
-            inputs.scenario.scenario.mode);
+        live_control_capabilities_ =
+            live_control_capabilities(inputs.scenario.scenario.mode);
         build_audio_bus_descriptors(inputs);
     }
 
@@ -169,14 +211,18 @@ class EngineSession::Implementation final {
             total_block_count_,
             preparation_block_count_,
             audio_bus_descriptors_,
-            accepts_live_controls_,
+            live_control_capabilities_,
         };
     }
 
     [[nodiscard]] std::optional<EngineControlRejection>
     enqueue_controls(std::span<const EngineControlCommand> commands) {
         if (commands.empty()) {
-            return std::nullopt;
+            return EngineControlRejection{
+                EngineControlRejectionCode::invalid_payload,
+                0U,
+                "a live-control batch must contain at least one command",
+            };
         }
         if (terminal_error_.has_value() || terminal_completion_.has_value()) {
             return EngineControlRejection{
@@ -184,14 +230,6 @@ class EngineSession::Implementation final {
                 0U,
                 "live controls cannot be queued after the session reaches a "
                 "terminal state",
-            };
-        }
-        if (!accepts_live_controls_) {
-            return EngineControlRejection{
-                EngineControlRejectionCode::unsupported_for_operating_mode,
-                0U,
-                "live throttle, ignition, and fuel controls are currently admitted "
-                "only for inertial-dyno ownership",
             };
         }
         if (commands.size() > control_scratch_.size()) {
@@ -207,6 +245,15 @@ class EngineSession::Implementation final {
             total_block_count_ * kEngineSessionPhysicsFramesPerBlock;
         for (std::size_t index = 0; index < commands.size(); ++index) {
             const auto &source = commands[index];
+            if ((live_control_capabilities_ & required_capability(source.payload)) ==
+                0U) {
+                return EngineControlRejection{
+                    EngineControlRejectionCode::unsupported_for_operating_mode,
+                    index,
+                    "the requested live control is unavailable for this "
+                    "operating mode",
+                };
+            }
             if (source.delivery_frame < first_live_delivery_frame) {
                 return EngineControlRejection{
                     EngineControlRejectionCode::unavailable_during_preparation,
@@ -246,8 +293,18 @@ class EngineSession::Implementation final {
                     } else if constexpr (
                         std::is_same_v<Payload, SetEngineIgnitionEnabled>) {
                         return session::SetIgnitionEnabled{payload.enabled};
-                    } else {
+                    } else if constexpr (
+                        std::is_same_v<Payload, SetEngineFuelEnabled>) {
                         return session::SetFuelEnabled{payload.enabled};
+                    } else if constexpr (
+                        std::is_same_v<Payload, SetEngineLimiterEnabled>) {
+                        return session::SetLimiterEnabled{payload.enabled};
+                    } else {
+                        static_assert(std::is_same_v<
+                                      Payload,
+                                      SetEngineExternalResistingTorque>);
+                        return session::SetExternalResistingTorque{
+                            payload.torque_nm};
                     }
                 },
                 source.payload);
@@ -584,7 +641,7 @@ class EngineSession::Implementation final {
     std::array<EngineTelemetryFrame, 1> telemetry_{};
     std::uint64_t total_block_count_ = 0;
     std::uint64_t preparation_block_count_ = 0;
-    bool accepts_live_controls_ = false;
+    EngineLiveControlCapabilityMask live_control_capabilities_ = 0U;
     bool has_accepted_live_controls_ = false;
     std::optional<EngineSessionCompleted> terminal_completion_;
     std::optional<EngineSessionError> terminal_error_;

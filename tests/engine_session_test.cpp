@@ -4,6 +4,7 @@
 #include "presentation/mastering.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -155,6 +156,13 @@ void require_pcm_block(
 
 void run(const std::filesystem::path &repository_root) {
     const auto scenario = gate::compile_authored_scenario(repository_root);
+    constexpr auto kInertialDynoLiveControls =
+        kEngineLiveControlCapabilityThrottle |
+        kEngineLiveControlCapabilityIgnitionEnabled |
+        kEngineLiveControlCapabilityFuelEnabled;
+    constexpr auto kFreeEngineLiveControls =
+        kInertialDynoLiveControls | kEngineLiveControlCapabilityLimiterEnabled |
+        kEngineLiveControlCapabilityExternalResistingTorque;
 
     // The complete simulation -> capture -> excitation -> presentation quantum
     // must use only session-owned bounded storage once construction is complete.
@@ -187,10 +195,65 @@ void run(const std::filesystem::path &repository_root) {
             descriptor.total_block_count == 1072U &&
             descriptor.preparation_block_count == 322U &&
             descriptor.audio_buses.size() == 8U &&
-            descriptor.accepts_live_controls &&
+            descriptor.live_control_capabilities == kInertialDynoLiveControls &&
             descriptor.capacities ==
                 compile::CompiledSessionCapacities{3840U, 3800U, 1U},
         "session descriptor differs from the compiled BMW contract");
+
+    const auto first_live_delivery_frame =
+        descriptor.preparation_block_count * kEngineSessionDeliveryFramesPerBlock;
+    auto capability_rejection_session = require_session(scenario);
+    const auto empty_rejection = capability_rejection_session.enqueue_controls({});
+    gate::expect(
+        empty_rejection.has_value() &&
+            empty_rejection->code == EngineControlRejectionCode::invalid_payload,
+        "EngineSession admitted an empty live-control batch");
+    const std::array unsupported_batch{
+        EngineControlCommand{first_live_delivery_frame, 1U, SetEngineThrottle{0.5}},
+        EngineControlCommand{first_live_delivery_frame, 2U,
+                             SetEngineLimiterEnabled{true}},
+        EngineControlCommand{first_live_delivery_frame, 3U, SetEngineFuelEnabled{true}},
+    };
+    const auto limiter_rejection =
+        capability_rejection_session.enqueue_controls(unsupported_batch);
+    gate::expect(limiter_rejection.has_value() &&
+                     limiter_rejection->code ==
+                         EngineControlRejectionCode::unsupported_for_operating_mode &&
+                     limiter_rejection->command_index == 1U,
+                 "inertial-dyno control capability rejection lost the command index");
+    const EngineControlCommand unsupported_resistance{
+        first_live_delivery_frame,
+        1U,
+        SetEngineExternalResistingTorque{12.0},
+    };
+    const auto resistance_rejection = capability_rejection_session.enqueue_controls(
+        std::span{&unsupported_resistance, 1U});
+    gate::expect(resistance_rejection.has_value() &&
+                     resistance_rejection->code ==
+                         EngineControlRejectionCode::unsupported_for_operating_mode &&
+                     resistance_rejection->command_index == 0U,
+                 "inertial dyno admitted external resisting-torque ownership");
+
+    const auto free_scenario =
+        gate::compile_authored_free_engine_scenario(repository_root);
+    auto free_session = require_session(free_scenario);
+    const auto free_descriptor = free_session.descriptor();
+    gate::expect(
+        free_descriptor.scenario_id == "bmw-m52b28-warm-running-free-rev-1500rpm" &&
+            free_descriptor.live_control_capabilities == kFreeEngineLiveControls,
+        "free-engine session did not advertise its exact live-control surface");
+    const auto free_first_live_frame =
+        free_descriptor.preparation_block_count * kEngineSessionDeliveryFramesPerBlock;
+    const std::array free_controls{
+        EngineControlCommand{free_first_live_frame, 1U, SetEngineThrottle{0.75}},
+        EngineControlCommand{free_first_live_frame, 2U, SetEngineIgnitionEnabled{true}},
+        EngineControlCommand{free_first_live_frame, 3U, SetEngineFuelEnabled{true}},
+        EngineControlCommand{free_first_live_frame, 4U, SetEngineLimiterEnabled{false}},
+        EngineControlCommand{free_first_live_frame, 5U,
+                             SetEngineExternalResistingTorque{18.0}},
+    };
+    gate::expect(!free_session.enqueue_controls(free_controls).has_value(),
+                 "free-engine session rejected an advertised live control");
 
     const auto oracle = gate::read_bytes(
         repository_root /

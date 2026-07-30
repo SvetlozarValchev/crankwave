@@ -1,6 +1,7 @@
 #include "c_api/c_api_internal.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <span>
@@ -62,7 +63,7 @@ namespace {
     EngineControlPayload payload;
     switch (input.kind) {
     case ESO_CONTROL_THROTTLE:
-        payload = SetEngineThrottle{input.throttle_01};
+        payload = SetEngineThrottle{input.scalar_value};
         break;
     case ESO_CONTROL_IGNITION_ENABLED:
         payload = SetEngineIgnitionEnabled{input.enabled != 0U};
@@ -70,8 +71,14 @@ namespace {
     case ESO_CONTROL_FUEL_ENABLED:
         payload = SetEngineFuelEnabled{input.enabled != 0U};
         break;
+    case ESO_CONTROL_LIMITER_ENABLED:
+        payload = SetEngineLimiterEnabled{input.enabled != 0U};
+        break;
+    case ESO_CONTROL_EXTERNAL_RESISTING_TORQUE:
+        payload = SetEngineExternalResistingTorque{input.scalar_value};
+        break;
     default:
-        payload = SetEngineThrottle{input.throttle_01};
+        payload = SetEngineThrottle{input.scalar_value};
         break;
     }
     return {input.delivery_frame, input.sequence, std::move(payload)};
@@ -83,10 +90,17 @@ namespace {
     }
     switch (input.kind) {
     case ESO_CONTROL_THROTTLE:
-        return input.enabled == 0U;
+        return input.enabled == 0U && std::isfinite(input.scalar_value) &&
+               !std::signbit(input.scalar_value) && input.scalar_value >= 0.0 &&
+               input.scalar_value <= 1.0;
     case ESO_CONTROL_IGNITION_ENABLED:
     case ESO_CONTROL_FUEL_ENABLED:
-        return input.enabled <= 1U && input.throttle_01 == 0.0;
+    case ESO_CONTROL_LIMITER_ENABLED:
+        return input.enabled <= 1U && input.scalar_value == 0.0 &&
+               !std::signbit(input.scalar_value);
+    case ESO_CONTROL_EXTERNAL_RESISTING_TORQUE:
+        return input.enabled == 0U && std::isfinite(input.scalar_value) &&
+               !std::signbit(input.scalar_value) && input.scalar_value >= 0.0;
     default:
         return false;
     }
@@ -185,7 +199,7 @@ eso_session_get_descriptor(eso_context_t *const context,
             descriptor.total_block_count,
             descriptor.preparation_block_count,
             static_cast<std::uint32_t>(descriptor.audio_buses.size()),
-            descriptor.accepts_live_controls ? 1U : 0U,
+            descriptor.live_control_capabilities,
             descriptor.engine_id.size(),
             descriptor.scenario_id.size(),
         };

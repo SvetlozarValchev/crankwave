@@ -27,6 +27,9 @@ read_bytes(const std::filesystem::path &path);
 // This fixture deliberately exercises only the public parse/compile boundary.
 [[nodiscard]] compile::CompiledScenario
 compile_authored_scenario(const std::filesystem::path &repository_root);
+[[nodiscard]] compile::CompiledScenario
+compile_authored_free_engine_scenario(
+    const std::filesystem::path &repository_root);
 
 struct StoredArtifact {
     PendingArtifact declaration;

@@ -147,7 +147,7 @@ void run_capture_contract_tests() {
         engine[index].intake_plate_position_01 = 0.75;
         engine[index].main_flow_multiplier_01 = 0.5;
         engine[index].limiter_enabled = true;
-        engine[index].external_resisting_torque_nm = 15.0;
+        engine[index].requested_external_resisting_torque_nm = 15.0;
     }
 
     std::array<CylinderCaptureSample, 4> cylinder_samples{};
@@ -446,15 +446,16 @@ void run_capture_contract_tests() {
     engine[0].torque.starter = {};
     engine[0].validity = mechanism;
 
-    engine[0].external_resisting_torque_nm = -1.0;
+    engine[0].requested_external_resisting_torque_nm = -1.0;
     expect(has_issue(validate(valid_block), ContractIssueCode::invalid_value,
-                     "engine[0].external_resisting_torque_nm"),
+                     "engine[0].requested_external_resisting_torque_nm"),
            "negative captured external resisting torque was accepted");
-    engine[0].external_resisting_torque_nm = std::numeric_limits<double>::quiet_NaN();
+    engine[0].requested_external_resisting_torque_nm =
+        std::numeric_limits<double>::quiet_NaN();
     expect(
         has_issue(validate(valid_block), ContractIssueCode::invalid_value, "engine[0]"),
         "nonfinite captured external resisting torque was accepted");
-    engine[0].external_resisting_torque_nm = 15.0;
+    engine[0].requested_external_resisting_torque_nm = 15.0;
 
     cylinder_samples[0].composition.oxygen = 0.20;
     expect(has_issue(validate(valid_block), ContractIssueCode::invalid_value,
