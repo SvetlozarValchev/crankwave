@@ -1,6 +1,7 @@
 #include "compile/scenario_resolver.hpp"
 
 #include "contract_test_support.hpp"
+#include "simulation/free_engine_method_registry.hpp"
 
 #include <array>
 #include <cstdlib>
@@ -252,6 +253,11 @@ void test_held_speed_resolution_on_the_integer_clock() {
                free_engine.external_resisting_torque_nm.points.front().value ==
                    10.0,
            "free-engine controls changed during SI resolution");
+    expect(
+        free_engine.crank_dynamics_method.value ==
+            engine_sim_offline::simulation::
+                warm_running_free_engine_rigid_crank_zoh_work_energy_method_identity(),
+        "free-engine resolver selected the wrong crank-dynamics method");
     expect(!free_engine.initial_engine_speed_rpm.resolution_id.empty() &&
                !free_engine.throttle_01.resolution_id.empty() &&
                !free_engine.external_resisting_torque_nm.resolution_id.empty() &&

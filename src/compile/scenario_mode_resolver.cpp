@@ -1,5 +1,6 @@
 #include "compile/scenario_resolver_internal.hpp"
 
+#include "simulation/free_engine_method_registry.hpp"
 #include "simulation/inertial_dyno_method_registry.hpp"
 
 #include <algorithm>
@@ -47,8 +48,8 @@ void ScenarioResolver::compile_mode() {
         [&](const auto &mode) {
             using T = std::decay_t<decltype(mode)>;
             if constexpr (std::is_same_v<T, authoring::FreeEngineMode>) {
-                const auto &method =
-                    simulation::rigid_crank_zoh_work_energy_method_identity();
+                const auto &method = simulation::
+                    warm_running_free_engine_rigid_crank_zoh_work_energy_method_identity();
                 const auto method_validation = contract::validate(method);
                 if (!method_validation.ok()) {
                     append_contract_report(
