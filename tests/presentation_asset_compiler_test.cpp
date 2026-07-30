@@ -1,5 +1,7 @@
 #include "presentation/presentation_asset_compiler.hpp"
 
+#include "dsp/static_ir_conversion.hpp"
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -57,8 +59,10 @@ void write_u16le(std::vector<std::byte> &bytes, std::size_t offset,
     bytes[offset + 1] = std::byte{static_cast<unsigned char>((value >> 8U) & 0xffU)};
 }
 
-std::vector<std::byte> make_synthetic_pcm16_wave() {
-    std::vector<std::int16_t> samples(kSyntheticSupportFrameCount, 0);
+std::vector<std::byte>
+make_synthetic_pcm16_wave(std::size_t frame_count = kSyntheticSupportFrameCount) {
+    expect(frame_count > 31, "synthetic configured IR is too short");
+    std::vector<std::int16_t> samples(frame_count, 0);
     samples[0] = 32767;
     samples[31] = -12345;
     samples.back() = 101;
@@ -114,14 +118,14 @@ struct Fixture {
     contract::ResolvedValue<double> gain;
 };
 
-Fixture make_fixture() {
-    auto bytes = make_synthetic_pcm16_wave();
+Fixture make_fixture(std::size_t frame_count = kSyntheticSupportFrameCount) {
+    auto bytes = make_synthetic_pcm16_wave(frame_count);
     const contract::Sha256Digest digest = contract::sha256(bytes);
     const contract::AudioMediaContract media{
         contract::AudioSampleEncoding::pcm_s16le,
         contract::AudioChannelLayout::mono,
         {kConfiguredIrSampleRateHz, 1},
-        kSyntheticSupportFrameCount,
+        frame_count,
     };
     return {
         {
@@ -403,7 +407,7 @@ void test_method_and_gain_rejection() {
     }
 }
 
-void test_fixed_kernel_shape_rejection() {
+void test_short_kernel_right_zero_padding() {
     auto fixture = make_fixture();
     write_u16le(fixture.payload.bytes, fixture.payload.bytes.size() - 2, 0);
     fixture.asset.content_sha256.value = contract::sha256(fixture.payload.bytes);
@@ -411,11 +415,41 @@ void test_fixed_kernel_shape_rejection() {
         fixture.asset, payload_view(fixture), fixture.method, fixture.gain);
     const auto &asset = expect_compiled(
         asset_result, "short but valid converted IR asset was rejected");
+    expect(asset.coefficients().size() == dsp::static_ir_target_count(32),
+           "short converted IR has the wrong meaningful coefficient count");
+
+    const auto kernel_result = compile_presentation_convolution_kernel(
+        asset, fixed_overlap_save_convolution_method_identity());
+    const auto &kernel =
+        expect_compiled_kernel(kernel_result, "short converted IR kernel was rejected");
+
+    std::vector<double> expected_coefficients(asset.coefficients().begin(),
+                                              asset.coefficients().end());
+    expected_coefficients.resize(dsp::FixedConvolutionKernel::coefficient_count, 0.0);
+    const dsp::FixedConvolutionKernel expected_kernel{expected_coefficients};
+    expect(kernel.kernel() != nullptr &&
+               std::ranges::equal(kernel.kernel()->spectrum(),
+                                  expected_kernel.spectrum()) &&
+               kernel.key().coefficient_f64le_identity ==
+                   asset.coefficient_f64le_identity() &&
+               asset.coefficient_f64le_identity().byte_count ==
+                   asset.coefficients().size() * sizeof(double),
+           "short converted IR was not deterministically right-zero-padded");
+}
+
+void test_long_kernel_shape_rejection() {
+    auto fixture = make_fixture(kSyntheticSupportFrameCount + 1);
+    const auto asset_result = compile_presentation_asset(
+        fixture.asset, payload_view(fixture), fixture.method, fixture.gain);
+    const auto &asset =
+        expect_compiled(asset_result, "long converted IR asset compilation failed");
+    expect(asset.coefficients().size() > dsp::FixedConvolutionKernel::coefficient_count,
+           "long converted IR test did not exceed fixed kernel capacity");
     expect_kernel_error(
         compile_presentation_convolution_kernel(
             asset, fixed_overlap_save_convolution_method_identity()),
         PresentationConvolutionKernelCompileErrorCode::unsupported_coefficient_shape,
-        "IR support incompatible with the current fixed kernel was accepted");
+        "converted IR longer than the fixed kernel capacity was accepted");
 }
 
 void test_convolution_method_rejection() {
@@ -499,7 +533,8 @@ void run_tests(const std::string &configured_ir_path) {
     test_identity_and_hash_rejection();
     test_media_rejection();
     test_method_and_gain_rejection();
-    test_fixed_kernel_shape_rejection();
+    test_short_kernel_right_zero_padding();
+    test_long_kernel_shape_rejection();
     test_convolution_method_rejection();
     test_empty_meaningful_support_rejection();
     test_canonical_bmw_asset(configured_ir_path);

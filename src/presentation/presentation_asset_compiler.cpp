@@ -262,7 +262,8 @@ PresentationConvolutionKernelCompileResult compile_presentation_convolution_kern
         return kernel_error(PresentationConvolutionKernelCompileErrorCode::
                                 unsupported_convolution_method);
     }
-    if (asset.coefficients().size() != dsp::FixedConvolutionKernel::coefficient_count) {
+    if (asset.coefficients().empty() ||
+        asset.coefficients().size() > dsp::FixedConvolutionKernel::coefficient_count) {
         return kernel_error(PresentationConvolutionKernelCompileErrorCode::
                                 unsupported_coefficient_shape);
     }
@@ -275,8 +276,18 @@ PresentationConvolutionKernelCompileResult compile_presentation_convolution_kern
 
     std::shared_ptr<const dsp::FixedConvolutionKernel> kernel;
     try {
-        kernel =
-            std::make_shared<const dsp::FixedConvolutionKernel>(asset.coefficients());
+        if (asset.coefficients().size() ==
+            dsp::FixedConvolutionKernel::coefficient_count) {
+            kernel = std::make_shared<const dsp::FixedConvolutionKernel>(
+                asset.coefficients());
+        } else {
+            std::vector<double> padded_coefficients(asset.coefficients().begin(),
+                                                    asset.coefficients().end());
+            padded_coefficients.resize(dsp::FixedConvolutionKernel::coefficient_count,
+                                       0.0);
+            kernel = std::make_shared<const dsp::FixedConvolutionKernel>(
+                padded_coefficients);
+        }
     } catch (const std::bad_alloc &) {
         throw;
     } catch (const std::logic_error &) {
