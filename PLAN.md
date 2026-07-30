@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-30
 
-Current checkpoint: **operating bench 1 — executable rig and control contract**
+Current checkpoint: **operating bench 2 — warm-running free-engine dynamics**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -479,22 +479,31 @@ No mode may hide a prescribed pitch ramp behind a “natural” or “dyno” la
 
 1. Compile immutable rig, vehicle, transmission, dyno-default, and mode-control data
    from the current JSON vocabulary. Remove any parsed-but-never-executable ambiguity.
-2. Implement neutral free-engine dynamics with live ignition, starter, throttle,
-   stall/idle, limiter, and external resisting load.
-3. Publish free-engine controls and telemetry through `EngineSession`, the C ABI, and
-   WASM. Stop for a BMW start/idle/free-rev listening checkpoint.
-4. Implement the bounded held-dyno controller with live target RPM and torque limit.
+   The rig and warm-running free-engine request contracts are complete.
+2. Implement positive-RPM neutral free-engine dynamics with live ignition, fuel,
+   throttle, limiter, and external resisting load. Preserve the accepted renderer and
+   use the existing complete instantaneous net-shaft torque path.
+3. Publish those free-engine controls and physical telemetry through `EngineSession`,
+   the C ABI, and WASM. Stop for a BMW warm-running free-rev listening checkpoint.
+4. Add normal stopped/stalled crank state and non-fired cranking as a separate
+   mechanics slice.
+5. Add mechanically engaged starter torque and stop for a BMW crank/catch listening
+   checkpoint.
+6. Add an explicit regulated-idle controller and stop for idle/load-recovery
+   listening. Do not call the current externally held 700-rpm fixture or the natural
+   closed-throttle balance point a regulated idle.
+7. Implement the bounded held-dyno controller with live target RPM and torque limit.
    Run target-driven pull, lift, and ordinary overrun through it; stop for listening.
-5. Implement vehicle inertia and road load, transmission ratios, clutch torque/slip,
+8. Implement vehicle inertia and road load, transmission ratios, clutch torque/slip,
    gears, and service brake. Stop for a neutral/launch/shift/fifth-gear pull check.
-6. Publish drivetrain controls and vehicle telemetry through the same native/WASM
+9. Publish drivetrain controls and vehicle telemetry through the same native/WASM
    boundary.
-7. Replace the current restart-only dyno button with the full operating bench and
+10. Replace the current restart-only dyno button with the full operating bench and
    named scenarios. The UI must capability-gate real backend functions, not infer them
    from generic live-control support.
-8. Add unpaced capture procedures for crank, startup/catch, settled idle, loaded
+11. Add unpaced capture procedures for crank, startup/catch, settled idle, loaded
    rise, part load, coast fall, neutral limiter, limiter lift/recovery, and shutdown.
-9. Freeze the accepted procedures and recordings as the minimum operating regression
+12. Freeze the accepted procedures and recordings as the minimum operating regression
    set before resuming fidelity experiments.
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
