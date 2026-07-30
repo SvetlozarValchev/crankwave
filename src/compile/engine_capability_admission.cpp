@@ -81,10 +81,6 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         add(report, DiagnosticCode::unsupported_schema, "/schema",
             "engine resolver accepts the current engine schema only");
     }
-    if (document.rig.has_value()) {
-        add(report, DiagnosticCode::unsupported_capability, "/rig",
-            "rig compilation is not part of the current executable engine slice");
-    }
     if (engine.cycle != authoring::EngineCycle::four_stroke) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/cycle",
             "legacy_low_order_v1 admits four-stroke engines only");
@@ -267,6 +263,8 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     admit_engine_physical_model(resolved, report);
 
     admit_engine_operating_systems(resolved, report);
+
+    admit_engine_rig(resolved, report);
 
     admit_engine_presentation(document, resolved, report);
 

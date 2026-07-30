@@ -130,6 +130,7 @@ void test_held_speed_resolution_on_the_integer_clock() {
     const auto document = held_speed_scenario(engine.engine_id.value, fuel.authored_id);
     const compile::ScenarioResolverContext context{
         engine,
+        nullptr,
         presentation,
         randomness,
         builder.provenance,

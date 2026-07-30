@@ -39,6 +39,7 @@ struct ScenarioResolverLimits {
 
 struct ScenarioResolverContext {
     const contract::EngineSpec &engine;
+    const ResolvedRigDescriptor *rig;
     const contract::PresentationCalibration &presentation;
     const contract::ResolvedRandomnessPolicy &randomness;
     const contract::ProvenanceLedger &engine_provenance;

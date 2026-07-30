@@ -68,6 +68,22 @@ void assign_engine_runtime_ids(ModelContext &resolved,
     std::vector<std::string> audio_bus_ids;
     std::vector<std::string> accessory_ids{
         resolved.accessory_configuration->id.value};
+    std::vector<std::string> rig_ids;
+    std::vector<std::string> vehicle_ids;
+    std::vector<std::string> transmission_ids;
+    std::vector<std::string> gear_ids;
+    if (document.rig) {
+        rig_ids.push_back(document.rig->id.value);
+        if (document.rig->vehicle) {
+            vehicle_ids.push_back(document.rig->vehicle->id.value);
+        }
+        if (document.rig->transmission) {
+            transmission_ids.push_back(document.rig->transmission->id.value);
+            for (const auto &gear : document.rig->transmission->gears) {
+                gear_ids.push_back(gear.id.value);
+            }
+        }
+    }
     for (const auto &cylinder : engine.cylinders) {
         cylinder_ids.push_back(cylinder.id.value);
         port_ids.push_back(
@@ -138,6 +154,11 @@ void assign_engine_runtime_ids(ModelContext &resolved,
     assign(resolved.ids.accessory_configurations,
            "engine.accessory-configuration", accessory_ids,
            "/engine/accessory_configurations");
+    assign(resolved.ids.rigs, "rig", rig_ids, "/rig");
+    assign(resolved.ids.vehicles, "rig.vehicle", vehicle_ids, "/rig/vehicle");
+    assign(resolved.ids.transmissions, "rig.transmission", transmission_ids,
+           "/rig/transmission");
+    assign(resolved.ids.gears, "rig.gear", gear_ids, "/rig/transmission/gears");
     if (report.has_errors()) {
         return;
     }
@@ -151,6 +172,10 @@ void assign_engine_runtime_ids(ModelContext &resolved,
     append_assignments(resolved.ids, resolved.ids.audio_assets);
     append_assignments(resolved.ids, resolved.ids.audio_buses);
     append_assignments(resolved.ids, resolved.ids.accessory_configurations);
+    append_assignments(resolved.ids, resolved.ids.rigs);
+    append_assignments(resolved.ids, resolved.ids.vehicles);
+    append_assignments(resolved.ids, resolved.ids.transmissions);
+    append_assignments(resolved.ids, resolved.ids.gears);
     std::ranges::sort(
         resolved.ids.assignments,
         [](const auto &left, const auto &right) {

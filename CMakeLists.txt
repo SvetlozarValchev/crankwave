@@ -136,6 +136,7 @@ add_library(
         src/compile/engine_presentation_resolver.cpp
         src/compile/engine_resolution_support.cpp
         src/compile/engine_resolver.cpp
+        src/compile/engine_rig_resolver.cpp
         src/compile/engine_runtime_ids.cpp
         src/compile/engine_topology_resolver.cpp
         src/compile/resolution_builder.cpp

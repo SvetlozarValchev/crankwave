@@ -30,6 +30,10 @@ struct RuntimeIds {
     IdNamespace audio_assets;
     IdNamespace audio_buses;
     IdNamespace accessory_configurations;
+    IdNamespace rigs;
+    IdNamespace vehicles;
+    IdNamespace transmissions;
+    IdNamespace gears;
     std::vector<StableIdAssignment> assignments;
 };
 
@@ -127,6 +131,7 @@ struct AssembledContracts {
     contract::EngineSpec engine;
     contract::PresentationCalibration presentation;
     contract::ResolvedRandomnessPolicy randomness;
+    std::optional<ResolvedRigDescriptor> rig;
     std::vector<ResolvedFuelDescriptor> fuels;
     std::vector<ResolvedAudioBusDescriptor> audio_buses;
 };
@@ -159,6 +164,8 @@ void admit_engine_physical_model(ModelContext &context,
 void admit_engine_operating_systems(ModelContext &context,
                                     authoring::DiagnosticReport &report);
 
+void admit_engine_rig(ModelContext &context, authoring::DiagnosticReport &report);
+
 void attach_asset_evidence(contract::ProvenanceLedger &ledger,
                            const std::vector<VerifiedEngineAsset> &assets);
 
@@ -167,6 +174,9 @@ void attach_asset_evidence(contract::ProvenanceLedger &ledger,
 
 [[nodiscard]] contract::EngineSpec assemble_engine(const ModelContext &context,
                                                    ResolutionEmitter &emitter);
+
+[[nodiscard]] std::optional<ResolvedRigDescriptor>
+assemble_rig(const ModelContext &context, ResolutionEmitter &emitter);
 
 [[nodiscard]] std::string profile_path(std::string_view suffix);
 [[nodiscard]] contract::BankId

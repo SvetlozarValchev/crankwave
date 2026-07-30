@@ -215,6 +215,7 @@ CompiledScenarioBuilder::compile(
         const auto &resolved_engine = engine.storage_->resolved;
         const ScenarioResolverContext context{
             resolved_engine.engine,
+            resolved_engine.rig ? &*resolved_engine.rig : nullptr,
             resolved_engine.presentation,
             resolved_engine.randomness,
             resolved_engine.provenance,

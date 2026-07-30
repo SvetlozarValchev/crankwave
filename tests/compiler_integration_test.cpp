@@ -4,6 +4,8 @@
 #include "engine_sim_offline/contract/common.hpp"
 #include "engine_sim_offline/session.hpp"
 
+#include "compile/engine_resolver.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -12,6 +14,7 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <numbers>
 #include <optional>
 #include <ranges>
 #include <span>
@@ -27,6 +30,7 @@ namespace {
 namespace authoring = engine_sim_offline::authoring;
 namespace compile = engine_sim_offline::compile;
 namespace contract = engine_sim_offline::contract;
+namespace compile_detail = engine_sim_offline::compile::detail;
 
 constexpr std::size_t kCylinderCount = 6U;
 constexpr std::uint32_t kIrSampleRateHz = 44100U;
@@ -744,6 +748,35 @@ void reorder_harmless_collections(authoring::EnginePackageDocument &package) {
     return scenario;
 }
 
+void attach_mixed_unit_rig(authoring::EnginePackageDocument &package) {
+    authoring::RigDefinition rig;
+    rig.id = {"fixture-bench"};
+    rig.vehicle = authoring::VehicleDefinition{
+        {"fixture-car"},
+        quantity(1395000.0, "g"),
+        0.29,
+        quantity(20500.0, "cm2"),
+        2.93,
+        quantity(315.0, "mm"),
+        quantity(165.0, "N"),
+    };
+    rig.transmission = authoring::TransmissionDefinition{
+        {"fixture-five-speed"},
+        quantity(380.0, "N*m"),
+        {
+            {{"gear-low"}, 4.21},
+            {{"gear-high"}, 1.0},
+            {{"gear-reverse"}, -3.7},
+        },
+    };
+    rig.dyno_defaults = authoring::DynoDefaultsDefinition{
+        quantity(100.0, "rad/s"),
+        quantity(6500.0, "rpm"),
+        quantity(25.0, "rad/s"),
+    };
+    package.rig = std::move(rig);
+}
+
 [[nodiscard]] compile::CompiledAssetView
 require_asset(const compile::CompiledEngine &engine, const compile::AssetKind kind,
               const std::string_view id) {
@@ -989,6 +1022,72 @@ void test_asset_admission_is_exact_and_closed() {
     }
 }
 
+void test_rig_compiles_to_immutable_si_descriptors() {
+    const SyntheticAssets assets = make_assets();
+    auto document = make_engine_document(assets);
+    attach_mixed_unit_rig(document);
+    auto views = assets.views();
+
+    auto resolved_result = compile_detail::resolve_engine_package(document, views);
+    auto resolved =
+        require_value(std::move(resolved_result), "mixed-unit rig resolution failed");
+    expect(resolved.rig.has_value(), "resolved engine package omitted its rig");
+    const auto &rig = *resolved.rig;
+    expect(rig.semantic_id.value == "fixture-bench" && rig.runtime_id == 1U &&
+               rig.vehicle.has_value() && rig.transmission.has_value() &&
+               rig.dyno_defaults.has_value(),
+           "resolved rig lost an authored component");
+    const auto near = [](const double left, const double right) {
+        return std::abs(left - right) <= 1.0e-12;
+    };
+    expect(near(rig.vehicle->mass_kg.value, 1395.0) &&
+               near(rig.vehicle->frontal_area_m2.value, 2.05) &&
+               near(rig.vehicle->tire_radius_m.value, 0.315) &&
+               near(rig.vehicle->rolling_resistance_force_n.value, 165.0),
+           "vehicle rig quantities were not canonicalized to SI");
+    expect(rig.transmission->gears.size() == 3U &&
+               rig.transmission->gears[0].semantic_id.value == "gear-low" &&
+               rig.transmission->gears[0].authored_ordinal.value == 1U &&
+               rig.transmission->gears[1].semantic_id.value == "gear-high" &&
+               rig.transmission->gears[1].authored_ordinal.value == 2U &&
+               rig.transmission->gears[2].ratio.value == -3.7,
+           "transmission gear order stopped matching authored order");
+    expect(rig.transmission->gears[0].runtime_id == 2U &&
+               rig.transmission->gears[1].runtime_id == 1U &&
+               rig.transmission->gears[2].runtime_id == 3U,
+           "gear runtime IDs stopped using canonical stable-ID order");
+    expect(std::ranges::any_of(
+               resolved.provenance.resolutions, [](const auto &resolution) {
+                   return resolution.parameter_path ==
+                          "rig.transmission.gears.gear-low.authored_ordinal";
+               }),
+           "authored gear order is absent from resolved provenance");
+    expect(rig.dyno_defaults->minimum_engine_speed_rad_s.value == 100.0 &&
+               rig.dyno_defaults->maximum_engine_speed_rad_s.value ==
+                   6500.0 * (2.0 * std::numbers::pi_v<double> / 60.0) &&
+               rig.dyno_defaults->hold_step_rad_s.value == 25.0,
+           "dyno defaults were not canonicalized to radians per second");
+
+    auto compiled =
+        require_value(compile::compile_engine(document, views),
+                      "public compile rejected the admitted mixed-unit rig");
+    expect(require_runtime_id(compiled, "rig", "fixture-bench") == 1U &&
+               require_runtime_id(compiled, "rig.vehicle", "fixture-car") == 1U &&
+               require_runtime_id(compiled, "rig.transmission", "fixture-five-speed") ==
+                   1U &&
+               require_runtime_id(compiled, "rig.gear", "gear-high") == 1U &&
+               require_runtime_id(compiled, "rig.gear", "gear-low") == 2U,
+           "compiled engine omitted canonical rig runtime IDs");
+
+    auto inconsistent = document;
+    inconsistent.rig->dyno_defaults->minimum_engine_speed = quantity(1000.0, "rpm");
+    inconsistent.rig->dyno_defaults->maximum_engine_speed = quantity(100.0, "rad/s");
+    const auto inconsistent_result = compile::compile_engine(inconsistent, views);
+    require_diagnostic(
+        inconsistent_result, authoring::DiagnosticCode::inconsistent_value,
+        "/rig/dyno_defaults/maximum_engine_speed", "mixed-unit inverted dyno range");
+}
+
 void test_unsupported_capability_fails_closed() {
     const SyntheticAssets assets = make_assets();
     {
@@ -1050,6 +1149,7 @@ int main() {
         test_complete_generic_compile_and_determinism();
         test_inline_twin_one_route_reaches_executable_boundary();
         test_asset_admission_is_exact_and_closed();
+        test_rig_compiles_to_immutable_si_descriptors();
         test_unsupported_capability_fails_closed();
         test_direct_scenario_dto_admission_fails_closed();
         std::cout << "compiler integration tests passed\n";

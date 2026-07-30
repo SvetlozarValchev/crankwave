@@ -165,6 +165,7 @@ AssembledContracts assemble_contracts(const ModelContext &context,
                                       ResolutionEmitter &emitter) {
     AssembledContracts result;
     result.engine = assemble_engine(context, emitter);
+    result.rig = assemble_rig(context, emitter);
     const auto &profile =
         std::get<contract::LowOrderOperatingPointV1Profile>(
             result.engine.physics_profile);

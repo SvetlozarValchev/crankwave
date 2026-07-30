@@ -115,6 +115,7 @@ EngineResolutionResult resolve_engine_package(
             std::move(contracts.engine),
             std::move(contracts.presentation),
             std::move(contracts.randomness),
+            std::move(contracts.rig),
             std::move(context->ids.assignments),
             std::move(provenance),
             std::move(context->assets.values),

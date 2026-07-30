@@ -8,6 +8,7 @@
 #include "engine_sim_offline/contract/randomness.hpp"
 
 #include <cstddef>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -31,6 +32,7 @@ struct ResolvedEnginePackage {
     contract::EngineSpec engine;
     contract::PresentationCalibration presentation;
     contract::ResolvedRandomnessPolicy randomness;
+    std::optional<ResolvedRigDescriptor> rig;
     std::vector<StableIdAssignment> stable_id_assignments;
     contract::ProvenanceLedger provenance;
     std::vector<VerifiedEngineAsset> assets;
