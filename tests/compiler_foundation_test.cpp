@@ -131,6 +131,14 @@ void test_strict_si_quantity_and_rate_conversion() {
     expect_near(coefficient.value, 2000.0, 1.0e-12,
                 "pressure-per-speed coefficient changed");
 
+    const auto mass =
+        require_value(detail::convert_quantity_to_si(
+                          {3086.0, "lb", std::nullopt},
+                          authoring::QuantityDimension::mass, "/vehicle/mass"),
+                      "pound mass conversion failed");
+    expect_near(mass.value, 1399.78605382, 1.0e-10,
+                "pounds did not resolve to kilograms");
+
     const auto rate =
         require_value(detail::convert_rate_to_si({96000U, 2U, "Hz"}, "/rate"),
                       "rate conversion failed");

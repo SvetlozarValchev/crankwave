@@ -119,6 +119,9 @@ conversion(authoring::QuantityDimension dimension, std::string_view unit) noexce
         if (unit == "g") {
             return AffineConversion{0.001, 0.0};
         }
+        if (unit == "lb") {
+            return AffineConversion{0.45359237, 0.0};
+        }
         break;
     case mass_flow_rate:
         if (unit == "kg/s") {

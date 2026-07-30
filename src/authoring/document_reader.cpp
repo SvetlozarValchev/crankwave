@@ -54,7 +54,7 @@ namespace {
     case length:
         return unit == "m" || unit == "cm" || unit == "mm" || unit == "in";
     case mass:
-        return unit == "kg" || unit == "g";
+        return unit == "kg" || unit == "g" || unit == "lb";
     case mass_flow_rate:
         return unit == "kg/s" || unit == "g/s";
     case molar_mass:

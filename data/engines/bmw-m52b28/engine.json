@@ -929,6 +929,37 @@
       }
     ]
   },
+  "rig": {
+    "id": "bmw-m52b28-e36-evaluation",
+    "vehicle": {
+      "id": "bmw-e36-328i",
+      "mass": {"value": 3086, "unit": "lb"},
+      "drag_coefficient": 0.32,
+      "frontal_area": {"value": 3672, "unit": "in2"},
+      "differential_ratio": 3.15,
+      "tire_radius": {"value": 12.2, "unit": "in"},
+      "rolling_resistance_force": {
+        "value": 205.978517819613,
+        "unit": "N"
+      }
+    },
+    "transmission": {
+      "id": "e36-five-speed-evaluation",
+      "maximum_clutch_torque": {"value": 300, "unit": "lb*ft"},
+      "gears": [
+        {"id": "gear-1", "ratio": 4.2},
+        {"id": "gear-2", "ratio": 2.49},
+        {"id": "gear-3", "ratio": 1.66},
+        {"id": "gear-4", "ratio": 1.24},
+        {"id": "gear-5", "ratio": 1}
+      ]
+    },
+    "dyno_defaults": {
+      "minimum_engine_speed": {"value": 1500, "unit": "rpm"},
+      "maximum_engine_speed": {"value": 6500, "unit": "rpm"},
+      "hold_step": {"value": 250, "unit": "rpm"}
+    }
+  },
   "presentation": {
     "assets": [
       {
