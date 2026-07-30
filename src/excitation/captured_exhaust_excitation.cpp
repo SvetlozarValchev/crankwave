@@ -1,5 +1,6 @@
 #include "excitation/captured_exhaust_excitation.hpp"
 
+#include "contract/capture_block_admission.hpp"
 #include "excitation/captured_exhaust_excitation_internal.hpp"
 
 #include <algorithm>
@@ -207,12 +208,19 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
                                  "consumer"));
     }
 
-    const auto validation = contract::validate(block);
-    if (!validation.ok()) {
+    if (!contract::detail::valid_capture_block_after_layout_admission(block)) {
+        // Compilation freezes the exact admitted layout in state. The hot path
+        // checks only block-varying invariants without allocating; an owning
+        // diagnostic is built solely for a rejected block.
+        const auto validation = contract::validate(block);
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
                                  "captured-excitation-block-invalid",
-                                 first_issue_summary(validation)));
+                                 validation.ok()
+                                     ? "allocation-free admitted-layout validation "
+                                       "rejected the capture block without a public "
+                                       "diagnostic"
+                                     : first_issue_summary(validation)));
     }
     if (!exact_layout_matches(state, block.layout())) {
         return fail(state,

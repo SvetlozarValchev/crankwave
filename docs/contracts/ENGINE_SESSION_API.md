@@ -1,20 +1,20 @@
 # Portable engine compile and session API
 
-Status: portable native C++ session core implemented; C ABI, WASM, browser transport,
-and HTML harness remain future work
+Status: portable C++ session, exact C ABI, and fixed-memory WASM module implemented;
+browser transport and HTML workbench are the next adapter
 
 Applies to: JSON engine authoring, immutable engine compilation, mutable simulation
 sessions, native offline rendering, WASM preview, runtime control ownership, streaming
 audio buses, telemetry, and fail-closed adapter behavior
 
-This contract records the implemented native session boundary and the intended browser
-adapter around that same boundary. Future capabilities are called out explicitly. It is
-not a compatibility surface for `.mr`, engine-sim, the failed offline fork, or
-historical milestone-specific types.
+This contract records the implemented native/WASM session boundary and the intended
+browser adapter around that same boundary. Future capabilities are called out
+explicitly. It is not a compatibility surface for `.mr`, engine-sim, the failed
+offline fork, or historical milestone-specific types.
 
 ## 1. Goals and non-goals
 
-The implemented native API:
+The implemented portable API:
 
 - compiles versioned JSON engine/scenario definitions and their referenced assets into
   one immutable `CompiledScenario`;
@@ -28,8 +28,9 @@ The implemented native API:
 - uses the same physics, excitation, and presentation implementation as the native
   bake adapter.
 
-The planned C ABI, WASM build, Worker/ring adapter, and authoring UI will wrap this
-implementation rather than introduce another engine renderer.
+The exact-version C ABI and WASM build wrap that implementation. The Worker/ring
+adapter and authoring UI likewise consume the ABI rather than introduce another
+engine renderer.
 
 The first implementation does not promise:
 
@@ -40,7 +41,7 @@ The first implementation does not promise:
 - that the full simulator will always meet an audio callback deadline;
 - a second reduced-fidelity realtime renderer.
 
-## 2. One implementation, native now and browser next
+## 2. One implementation in native and WASM
 
 ```text
 engine JSON + scenario JSON + assets
@@ -67,14 +68,14 @@ WAV/telemetry sink            bounded PCM ring
                               Web Audio graph
 ```
 
-The native left-hand path is implemented. The browser right-hand path is the next
-adapter and does not exist yet. Offline and interactive execution differ only in
-pacing and publication:
+Both `EngineSession` boxes are implemented by the same C++ sources. The browser
+Worker/ring delivery beneath the WASM box is the next adapter. Offline and interactive
+execution differ only in pacing and publication:
 
 - Native offline rendering calls `process_block()` as quickly as the machine allows and
   sends the resulting blocks to artifact encoders.
-- The browser Worker will call the same `process_block()` function only far enough
-  ahead to keep a bounded playback ring supplied.
+- The browser Worker calls the same C ABI `process` entry only far enough ahead to keep
+  a bounded playback ring supplied.
 - The future AudioWorklet will consume already-produced audio. It will not contain
   another engine model.
 
@@ -277,9 +278,11 @@ does not authorize a different call size.
 `process_block()` returns blocks until the compiled finite horizon is exhausted, then
 returns a stable `EngineSessionCompleted`. A terminal processing error is likewise
 stable on later calls. Completion and diagnostic alternatives are owning values and may
-allocate when copied across the public boundary. The current internal capture-contract
-validator also uses bounded transient allocations per block; checkpoint 9 removes
-those before admitting the fixed-memory WASM boundary.
+allocate when copied across the C++ boundary. The admitted layout is frozen during
+compilation; the block-varying capture validator, simulation, excitation, presentation,
+and caller-buffer C ABI perform no allocation on a warmed successful block. Owning
+diagnostics are constructed only after a block has already failed the allocation-free
+admission check.
 
 `EngineSessionCompleted::live_controls_accepted` records whether the run diverged from
 the authored control trajectory. If it is true, scenario-request-bound held-speed and
@@ -461,10 +464,12 @@ Deterministic execution requires:
 - a recorded build, target, numeric runtime, and method identity.
 
 The same build, target, numeric runtime, compiled scenario, configuration, and command
-stream must be byte-stable. Native and WASM builds are not presumed byte-identical
-because their math libraries, compiler lowering, SIMD, and runtime environments may
-differ. Cross-target equivalence is accepted only under separately declared numeric
-and listening tolerances.
+stream must be byte-stable. The admitted native target uses the existing SysV x87
+extended accumulator; wasm32 uses IEEE binary128 and identifies that difference in the
+two affected presentation method IDs. Native and WASM are therefore independently
+byte-stable, not presumed byte-identical. The headless parity gate requires exact
+topology, clocks, controls, discrete telemetry, and completion state, then applies
+predeclared tight numeric bounds to continuous telemetry and core Float32 PCM.
 
 The browser preview is not authoritative artifact evidence. A downloadable browser
 WAV may be useful for iteration, but a production manifest identifies whether it came
@@ -473,41 +478,60 @@ environment.
 
 ## 10. Portable ABI
 
-The semantic API is implemented in C++. A C ABI for WASM and other foreign runtimes is
-future work. It should expose opaque generation-checked handles around the implemented
-lifecycle, conceptually:
+[`c_api.h`](../../include/engine_sim_offline/c_api.h) is the one implemented foreign
+runtime boundary. It exposes one exact ABI version rather than a family of legacy
+layouts:
 
 ```text
-api_version
-compile_engine_package
-destroy_compiled_scenario
-query_compiled_scenario
-create_session
-destroy_session
-enqueue_control_batch
-process_session_block
-copy_last_diagnostics
+strict engine JSON + caller asset bytes -> compiled engine handle
+compiled engine + strict scenario JSON -> compiled scenario handle
+compiled scenario -> mutable session handle
+timestamped typed controls -> bounded session queue
+session process -> caller-owned PCM buses + POD telemetry
 ```
 
-Future ABI rules:
+The implemented ABI:
 
 - no C++ exception crosses the boundary;
 - every call returns an explicit status;
-- diagnostics are copied into caller-owned buffers;
+- parse/compile diagnostics and related locations are copied into caller-owned buffers;
 - JSON appears only at compile time;
 - audio, controls, and telemetry use fixed-layout structs and bounded views;
-- sizes, alignments, endianness, enum values, and schema versions are explicit;
-- handles are generation-checked so stale handles fail;
-- WASM linear-memory growth is disabled while exported buffer views are active;
+- ABI sizes, endianness, enum values, and the exact version are queryable;
+- handles carry context, kind, slot, and non-wrapping generation checks so stale and
+  wrong-kind handles fail;
+- a session owns the immutable compiled scenario/engine storage it needs, so parent
+  handles may be released after session creation;
+- requested PCM and telemetry buffers are completely preflighted before the session
+  advances;
+- successful control conversion and block processing use session-owned bounded scratch;
+- WASM linear-memory growth is disabled;
 - the core owns no DOM, Web Audio, filesystem, URL, fetch, or JavaScript object.
 
-The JavaScript wrapper may offer promises around compile and session creation, but the
-future `process_session_block` call remains synchronous and preserves the exact method
-quantum.
+The Emscripten module is a 128 MiB fixed-memory wasm32 build with C++ WebAssembly
+exceptions contained behind the C boundary, no filesystem, no native thread, and no
+second JavaScript implementation. The JavaScript wrapper may offer promises around
+compile and session creation, but `eso_session_process` remains synchronous and
+preserves the exact method quantum.
 
-## 11. Future browser adapter
+The reproducible gate is [`verify-wasm-parity.sh`](../../scripts/verify-wasm-parity.sh).
+It uses the pinned Emscripten 6.0.4 container digest recorded by the script, smoke-tests
+all public module exports and the fixed memory, runs the wasm32 binary128 admission
+test, and drives an 18-block controlled BMW fixture through the C ABI on both targets.
+The fixture has exact semantic transcript SHA-256
+`a93959fcc8c7eb83e466b488fcf729a7d2917dd6501724a38a3bf10af99729a8`.
+Its native and WASM bundle hashes are respectively
+`2cc6fe9d1fe4537827476bf6582544acaa92a628c67e78ff8d6149624962a28e` and
+`19d7c36657f561cf5559ff16459d4e64e2cec3ff90e35d193ca88531b77f6b85`.
+Across 7,680 audition samples, observed maximum absolute Float32 PCM error is
+`1.862645149230957e-9` and RMS error is `2.1807662361359516e-11`; the checked ceilings
+and each target's exact telemetry/PCM hashes live in
+[`parity_expectations.json`](../../tests/wasm/parity_expectations.json).
 
-The browser adapter is not implemented yet. Its required architecture is:
+## 11. Browser adapter
+
+The C ABI and WASM module are implemented. The browser transport around them has this
+required architecture:
 
 ```text
 main/UI thread

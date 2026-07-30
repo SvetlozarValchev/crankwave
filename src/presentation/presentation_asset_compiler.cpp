@@ -1,6 +1,7 @@
 #include "presentation/presentation_asset_compiler.hpp"
 
 #include "dsp/static_ir_conversion.hpp"
+#include "numeric/target_extended_precision.hpp"
 
 #include <bit>
 #include <cmath>
@@ -25,9 +26,7 @@ exact_supported_convolution_method(const contract::MethodIdentity &method) {
 }
 
 [[nodiscard]] constexpr bool conversion_environment_available() noexcept {
-    return std::numeric_limits<long double>::radix == 2 &&
-           std::numeric_limits<long double>::digits == 64 &&
-           std::numeric_limits<long double>::max_exponent == 16384;
+    return numeric::target_extended_precision_format_is_admitted();
 }
 
 [[nodiscard]] bool supported_media(const contract::AudioMediaContract &media) noexcept {

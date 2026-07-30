@@ -2,8 +2,8 @@
 
 Engine Sim Offline is a portable engine simulation and audio-rendering core. Its
 product boundary is declarative JSON in and streamed PCM plus physical telemetry out.
-The same C++ session will run unpaced for native WAV rendering and incrementally in
-WASM for an interactive browser workbench.
+The same C++ session runs unpaced for native WAV rendering and incrementally in a
+fixed-memory WASM module for the interactive browser workbench.
 
 The project is a source-informed rewrite. Original engine-sim is a capability and
 behavior oracle, not a runtime dependency. The JSON contract preserves its useful
@@ -19,6 +19,13 @@ scenario creates one mutable `EngineSession`, whose bounded `process_block()` me
 owns the simulation, excitation, resampling, presentation, control, and telemetry
 state. Native baking is an unpaced loop over that same method followed by transactional
 artifact publication; there is no second whole-render implementation.
+
+An exact-version C ABI now exposes strict JSON compilation, immutable engine/scenario
+handles, mutable sessions, typed controls, caller-owned PCM/telemetry, and structured
+diagnostics without leaking C++ types or exceptions. The Emscripten build exports that
+same boundary with fixed 128 MiB memory. A pinned headless gate checks all public
+exports, wasm32 numeric admission, exact native/WASM semantic state, target-specific
+hashes, and tight continuous telemetry/PCM error bounds.
 
 The compiler accepts the currently executable low-order topology without inspecting an
 engine name and fails closed on unsupported capabilities. Cylinder and
@@ -40,7 +47,9 @@ engine.json + scenario.json + assets
                   |
         PCM buses + telemetry
             /             \
-       native WAV       planned WASM preview
+       native WAV       fixed-memory WASM
+                              |
+                      browser adapter next
 ```
 
 The BMW now remains only as JSON data, an automated byte-identity migration fixture,
@@ -77,6 +86,12 @@ A C++20 compiler and CMake 3.21 or newer are required.
 cmake -S . -B build -DENGINE_SIM_OFFLINE_BUILD_TESTS=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
+```
+
+The reproducible native/WASM parity gate uses a pinned Emscripten container:
+
+```bash
+scripts/verify-wasm-parity.sh
 ```
 
 ```bash

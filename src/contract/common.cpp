@@ -1,5 +1,7 @@
 #include "engine_sim_offline/contract/common.hpp"
 
+#include "../numeric/target_extended_precision.hpp"
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -168,7 +170,8 @@ bool is_valid_semantic_id(std::string_view value) noexcept {
 
 std::optional<std::uint64_t> resolve_frame_index(double time_s,
                                                  const RationalRateHz &rate) noexcept {
-    if (!std::isfinite(time_s) || time_s < 0.0 || rate.numerator == 0 ||
+    if (!numeric::target_extended_precision_format_is_admitted() ||
+        !std::isfinite(time_s) || time_s < 0.0 || rate.numerator == 0 ||
         rate.denominator == 0) {
         return std::nullopt;
     }

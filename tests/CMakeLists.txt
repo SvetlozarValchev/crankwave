@@ -10,6 +10,150 @@ add_test(
     COMMAND engine_sim_offline_cxx20_smoke
 )
 
+add_executable(
+    engine_sim_offline_c_api_header_tests
+    c_api_header_test.c
+)
+
+target_link_libraries(
+    engine_sim_offline_c_api_header_tests
+    PRIVATE engine_sim_offline::c_api
+)
+
+add_test(
+    NAME c_api.header_and_context
+    COMMAND engine_sim_offline_c_api_header_tests
+)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(
+        engine_sim_offline_c_api_integration_tests
+        c_api_integration_test.cpp
+    )
+
+    target_link_libraries(
+        engine_sim_offline_c_api_integration_tests
+        PRIVATE engine_sim_offline::c_api
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_c_api_integration_tests
+    )
+
+    add_test(
+        NAME c_api.integration
+        COMMAND
+            engine_sim_offline_c_api_integration_tests
+            ${PROJECT_SOURCE_DIR}
+    )
+    set_tests_properties(
+        c_api.integration
+        PROPERTIES TIMEOUT 120
+    )
+endif()
+
+if(EMSCRIPTEN)
+    add_executable(
+        engine_sim_offline_wasm_numeric_contract_tests
+        wasm_numeric_contract_test.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_wasm_numeric_contract_tests
+        PRIVATE ${PROJECT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(
+        engine_sim_offline_wasm_numeric_contract_tests
+        PRIVATE
+            engine_sim_offline::contract
+            engine_sim_offline::presentation
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_wasm_numeric_contract_tests
+    )
+    engine_sim_offline_configure_wasm_numeric_target(
+        engine_sim_offline_wasm_numeric_contract_tests
+    )
+
+    add_test(
+        NAME wasm.numeric_contract
+        COMMAND engine_sim_offline_wasm_numeric_contract_tests
+    )
+endif()
+
+if(NOT EMSCRIPTEN)
+    add_executable(
+        engine_sim_offline_wasm_parity_native
+        wasm/native_parity_main.cpp
+        wasm/parity_driver.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_wasm_parity_native
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/wasm
+    )
+
+    target_link_libraries(
+        engine_sim_offline_wasm_parity_native
+        PRIVATE
+            engine_sim_offline::build_options
+            engine_sim_offline::c_api
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_wasm_parity_native
+    )
+endif()
+
+if(EMSCRIPTEN AND ENGINE_SIM_OFFLINE_BUILD_WASM)
+    add_executable(
+        engine_sim_offline_wasm_parity_module
+        wasm/parity_driver.cpp
+    )
+    set_target_properties(
+        engine_sim_offline_wasm_parity_module
+        PROPERTIES
+            OUTPUT_NAME engine-sim-offline-wasm-parity
+            SUFFIX ".mjs"
+    )
+
+    target_include_directories(
+        engine_sim_offline_wasm_parity_module
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/wasm
+    )
+
+    target_link_libraries(
+        engine_sim_offline_wasm_parity_module
+        PRIVATE
+            engine_sim_offline::build_options
+            engine_sim_offline::c_api
+    )
+    target_link_options(
+        engine_sim_offline_wasm_parity_module
+        PRIVATE
+            --no-entry
+            -fwasm-exceptions
+            "SHELL:-sMODULARIZE=1"
+            "SHELL:-sEXPORT_ES6=1"
+            "SHELL:-sENVIRONMENT=node"
+            "SHELL:-sFILESYSTEM=0"
+            "SHELL:-sALLOW_MEMORY_GROWTH=0"
+            "SHELL:-sINITIAL_MEMORY=134217728"
+            "SHELL:-sSTACK_SIZE=1048576"
+            "SHELL:-sABORTING_MALLOC=0"
+            "SHELL:-sEXIT_RUNTIME=0"
+            "SHELL:-sSTRICT=1"
+            "SHELL:-sWASM_BIGINT=1"
+            "SHELL:-sEXPORTED_RUNTIME_METHODS=['HEAPU8','HEAPU32']"
+            "SHELL:-sEXPORTED_FUNCTIONS=['_malloc','_free','_eso_wasm_parity_run']"
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_wasm_parity_module
+    )
+    engine_sim_offline_configure_wasm_numeric_target(
+        engine_sim_offline_wasm_parity_module
+    )
+endif()
+
 add_library(
     engine_sim_offline_authored_engine_fixture_support
     STATIC

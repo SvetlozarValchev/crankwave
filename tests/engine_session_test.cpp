@@ -9,10 +9,48 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <new>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <variant>
+
+namespace allocation_probe {
+
+std::size_t allocation_count = 0;
+bool count_allocations = false;
+
+} // namespace allocation_probe
+
+void *operator new(std::size_t size) {
+    if (allocation_probe::count_allocations) {
+        ++allocation_probe::allocation_count;
+    }
+    if (void *allocation = std::malloc(size == 0U ? 1U : size)) {
+        return allocation;
+    }
+    throw std::bad_alloc{};
+}
+
+void *operator new[](std::size_t size) {
+    return ::operator new(size);
+}
+
+void operator delete(void *allocation) noexcept {
+    std::free(allocation);
+}
+
+void operator delete[](void *allocation) noexcept {
+    ::operator delete(allocation);
+}
+
+void operator delete(void *allocation, std::size_t) noexcept {
+    ::operator delete(allocation);
+}
+
+void operator delete[](void *allocation, std::size_t) noexcept {
+    ::operator delete(allocation);
+}
 
 namespace {
 
@@ -117,6 +155,23 @@ void require_pcm_block(
 
 void run(const std::filesystem::path &repository_root) {
     const auto scenario = gate::compile_authored_scenario(repository_root);
+
+    // The complete simulation -> capture -> excitation -> presentation quantum
+    // must use only session-owned bounded storage once construction is complete.
+    // One unmeasured quantum permits no lazy hot-path setup to hide in the guard.
+    auto allocation_session = require_session(scenario);
+    auto warmup = allocation_session.process_block();
+    gate::expect(std::holds_alternative<EngineSessionBlockView>(warmup),
+                 "allocation-guard session did not produce its warm-up block");
+    allocation_probe::allocation_count = 0;
+    allocation_probe::count_allocations = true;
+    auto allocation_guarded = allocation_session.process_block();
+    allocation_probe::count_allocations = false;
+    gate::expect(std::holds_alternative<EngineSessionBlockView>(allocation_guarded),
+                 "allocation-guarded EngineSession quantum did not complete");
+    gate::expect(allocation_probe::allocation_count == 0U,
+                 "EngineSession allocated while processing one complete quantum");
+
     auto session = require_session(scenario);
     const auto descriptor = session.descriptor();
     gate::expect(

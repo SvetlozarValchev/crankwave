@@ -1,5 +1,6 @@
 #include "engine_sim_offline/contract/capture.hpp"
 
+#include "capture_block_admission.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
 #include "validation_support.hpp"
 
@@ -7,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <numbers>
+#include <numeric>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -118,6 +120,102 @@ bool any_torque_quantity_available(const TorqueTelemetry &telemetry) noexcept {
            telemetry.net_bmep_pa.availability == Availability::available ||
            telemetry.instantaneous_power_w.availability == Availability::available ||
            telemetry.cycle_mean_power_w.availability == Availability::available;
+}
+
+bool known(Availability value) noexcept {
+    return value == Availability::available || value == Availability::unavailable;
+}
+
+bool known(Completeness value) noexcept {
+    return value == Completeness::complete || value == Completeness::incomplete;
+}
+
+bool known(QuantityUnavailableReason value) noexcept {
+    switch (value) {
+    case QuantityUnavailableReason::none:
+    case QuantityUnavailableReason::scenario_not_applicable:
+    case QuantityUnavailableReason::model_not_admitted:
+    case QuantityUnavailableReason::equivalent_inertia_missing:
+    case QuantityUnavailableReason::cycle_integration_not_admitted:
+    case QuantityUnavailableReason::not_settled:
+    case QuantityUnavailableReason::required_input_missing:
+        return true;
+    }
+    return false;
+}
+
+bool valid_quantity_value(const QuantityValue &value) noexcept {
+    if (!known(value.availability) || !known(value.completeness) ||
+        !known(value.unavailable_reason)) {
+        return false;
+    }
+    if (value.availability == Availability::available) {
+        return detail::finite(value.value) &&
+               value.unavailable_reason == QuantityUnavailableReason::none;
+    }
+    return value.value == 0.0 && !std::signbit(value.value) &&
+           value.completeness == Completeness::incomplete &&
+           value.unavailable_reason != QuantityUnavailableReason::none;
+}
+
+bool valid_torque_value(const TorqueValueNm &value) noexcept {
+    if (!known(value.availability) || !known(value.completeness) ||
+        !known(value.unavailable_reason) ||
+        ((value.included_terms | value.omitted_terms) &
+         ~known_torque_term_mask()) != 0 ||
+        (value.included_terms & value.omitted_terms) != 0 ||
+        (value.completeness == Completeness::complete &&
+         value.omitted_terms != 0)) {
+        return false;
+    }
+    if (value.availability == Availability::available) {
+        return detail::finite(value.value_nm) &&
+               value.unavailable_reason == QuantityUnavailableReason::none;
+    }
+    return value.value_nm == 0.0 && !std::signbit(value.value_nm) &&
+           value.completeness == Completeness::incomplete &&
+           value.unavailable_reason != QuantityUnavailableReason::none &&
+           value.included_terms == 0 && value.omitted_terms == 0;
+}
+
+bool valid_named_torque_scope(const TorqueValueNm &value,
+                              TorqueTermMask expected_terms) noexcept {
+    return value.availability != Availability::available ||
+           (value.included_terms | value.omitted_terms) == expected_terms;
+}
+
+bool valid_torque_telemetry(const TorqueTelemetry &telemetry) noexcept {
+    if (!valid_torque_value(telemetry.instantaneous_indicated_gas) ||
+        !valid_torque_value(telemetry.pumping_partition) ||
+        !valid_torque_value(telemetry.friction_pump_and_accessory) ||
+        !valid_torque_value(telemetry.starter) ||
+        !valid_torque_value(telemetry.instantaneous_net_shaft) ||
+        !valid_torque_value(telemetry.cycle_mean_net_shaft) ||
+        !valid_torque_value(telemetry.actuator) ||
+        !valid_torque_value(telemetry.dyno_reaction) ||
+        !valid_quantity_value(telemetry.cycle_work_j) ||
+        !valid_quantity_value(telemetry.net_bmep_pa) ||
+        !valid_quantity_value(telemetry.instantaneous_power_w) ||
+        !valid_quantity_value(telemetry.cycle_mean_power_w) ||
+        !valid_named_torque_scope(telemetry.instantaneous_indicated_gas,
+                                  indicated_gas_torque_term_mask()) ||
+        !valid_named_torque_scope(telemetry.pumping_partition, 0) ||
+        !valid_named_torque_scope(
+            telemetry.friction_pump_and_accessory,
+            friction_pump_and_accessory_torque_term_mask()) ||
+        !valid_named_torque_scope(telemetry.starter,
+                                  torque_term_mask(TorqueTerm::starter)) ||
+        !valid_named_torque_scope(telemetry.instantaneous_net_shaft,
+                                  known_torque_term_mask()) ||
+        !valid_named_torque_scope(telemetry.cycle_mean_net_shaft,
+                                  known_torque_term_mask()) ||
+        !valid_named_torque_scope(telemetry.actuator, 0) ||
+        !valid_named_torque_scope(telemetry.dyno_reaction, 0)) {
+        return false;
+    }
+    return telemetry.actuator.availability != Availability::available ||
+           telemetry.dyno_reaction.availability != Availability::available ||
+           telemetry.dyno_reaction.value_nm == -telemetry.actuator.value_nm;
 }
 
 bool known(SamplePhase value) noexcept {
@@ -325,6 +423,394 @@ const Sample *frame_major_at(std::span<const Sample> samples, std::size_t frame_
 }
 
 } // namespace
+
+namespace detail {
+
+bool valid_capture_block_after_layout_admission(
+    const CaptureBlockView &block) noexcept {
+    const auto &layout = block.layout();
+    const auto &clock = block.clock();
+    if (clock.rate.numerator == 0 || clock.rate.denominator == 0 ||
+        std::gcd(clock.rate.numerator, clock.rate.denominator) != 1 ||
+        !known(clock.phase) || block.frame_count() == 0 ||
+        block.declared_block_capacity_frames() == 0 ||
+        block.frame_count() > block.declared_block_capacity_frames() ||
+        block.declared_event_journal_capacity_records() == 0 ||
+        block.event_journal().events().size() >
+            block.declared_event_journal_capacity_records()) {
+        return false;
+    }
+
+    std::uint64_t timestamp_end = 0;
+    if (!checked_add_u64(clock.first_timestamp_tick, block.frame_count() - 1U,
+                         timestamp_end)) {
+        return false;
+    }
+
+    const auto frame_count = static_cast<std::size_t>(block.frame_count());
+    const auto shape_matches =
+        [frame_count](std::size_t actual, std::size_t entity_count) noexcept {
+            std::size_t expected = 0;
+            return checked_product(frame_count, entity_count, expected) &&
+                   actual == expected;
+        };
+    if (!shape_matches(block.engine().size(), 1U) ||
+        !shape_matches(block.cylinders().size(), layout.cylinders().size()) ||
+        !shape_matches(block.ports().size(), layout.ports().size()) ||
+        !shape_matches(block.gas_volumes().size(), layout.gas_volumes().size()) ||
+        !shape_matches(block.flow_edges().size(), layout.flow_edges().size()) ||
+        !shape_matches(block.source_routes().size(), layout.routes().size())) {
+        return false;
+    }
+
+    for (std::size_t index = 0; index < block.engine().size(); ++index) {
+        const auto &sample = block.engine()[index];
+        if (!known_mask(sample.validity) ||
+            !all_finite({
+                sample.theta_rad,
+                sample.theta_cycle_rad,
+                sample.angular_speed_rad_s,
+                sample.angular_acceleration_rad_s2,
+                sample.engine_speed_rpm,
+                sample.requested_throttle_01,
+                sample.resolved_engine_throttle_01,
+                sample.intake_plate_position_01,
+                sample.main_flow_multiplier_01,
+            }) ||
+            sample.theta_cycle_rad < 0.0 ||
+            sample.theta_cycle_rad >= 4.0 * std::numbers::pi ||
+            !unit_interval(sample.requested_throttle_01) ||
+            !unit_interval(sample.resolved_engine_throttle_01) ||
+            !unit_interval(sample.intake_plate_position_01) ||
+            !unit_interval(sample.main_flow_multiplier_01) ||
+            (index != 0 &&
+             sample.step_end_index <= block.engine()[index - 1].step_end_index) ||
+            !valid_torque_telemetry(sample.torque)) {
+            return false;
+        }
+        if (has_validity(sample.validity, CaptureValidity::torque)) {
+            if (!any_torque_quantity_available(sample.torque)) {
+                return false;
+            }
+        } else if (!all_torque_quantities_unavailable(sample.torque)) {
+            return false;
+        }
+    }
+
+    for (const auto &sample : block.cylinders()) {
+        if (!known_mask(sample.validity) ||
+            !all_finite({
+                sample.chamber_volume_m3,
+                sample.chamber_dvolume_dtheta_m3_per_rad,
+                sample.piston_velocity_m_s,
+                sample.pressure_pa_abs,
+                sample.temperature_k,
+                sample.amount_mol,
+                sample.combustion_heat_release_j,
+                sample.flame_radius_m,
+                sample.flame_axial_travel_m,
+            }) ||
+            !valid_composition_for_amount(sample.composition, sample.amount_mol) ||
+            !valid_torque_value(sample.indicated_gas_torque)) {
+            return false;
+        }
+        if (has_validity(sample.validity, CaptureValidity::mechanism) &&
+            sample.chamber_volume_m3 <= 0.0) {
+            return false;
+        }
+        if (has_validity(sample.validity,
+                         CaptureValidity::thermodynamic_state) &&
+            (sample.pressure_pa_abs <= 0.0 || sample.temperature_k <= 0.0 ||
+             sample.amount_mol < 0.0)) {
+            return false;
+        }
+        if (has_validity(sample.validity, CaptureValidity::torque)) {
+            if (sample.indicated_gas_torque.availability !=
+                    Availability::available ||
+                sample.indicated_gas_torque.included_terms !=
+                    torque_term_mask(TorqueTerm::indicated_gas) ||
+                sample.indicated_gas_torque.omitted_terms != 0) {
+                return false;
+            }
+        } else if (sample.indicated_gas_torque.availability !=
+                   Availability::unavailable) {
+            return false;
+        }
+    }
+
+    for (const auto &sample : block.ports()) {
+        if (!known_mask(sample.validity) ||
+            !all_finite({
+                sample.pressure_pa_abs,
+                sample.temperature_k,
+                sample.signed_mass_flow_kg_s,
+                sample.effective_flow_area_m2,
+                sample.effective_molar_flow_conductance_m2_sqrt_mol_per_kg,
+                sample.valve_lift_m,
+            })) {
+            return false;
+        }
+        if (has_validity(sample.validity, CaptureValidity::gas_exchange) &&
+            (sample.pressure_pa_abs <= 0.0 || sample.temperature_k <= 0.0 ||
+             sample.effective_flow_area_m2 < 0.0 ||
+             sample.effective_molar_flow_conductance_m2_sqrt_mol_per_kg <
+                 0.0 ||
+             sample.valve_lift_m < 0.0)) {
+            return false;
+        }
+    }
+
+    for (const auto &sample : block.gas_volumes()) {
+        if (!known_mask(sample.validity) ||
+            !all_finite({
+                sample.volume_m3,
+                sample.pressure_pa_abs,
+                sample.temperature_k,
+                sample.amount_mol,
+                sample.thermal_energy_j,
+                sample.momentum_x_kg_m_s,
+                sample.momentum_y_kg_m_s,
+            }) ||
+            !valid_composition_for_amount(sample.composition, sample.amount_mol)) {
+            return false;
+        }
+        if (has_validity(sample.validity,
+                         CaptureValidity::thermodynamic_state) &&
+            (sample.volume_m3 <= 0.0 || sample.pressure_pa_abs <= 0.0 ||
+             sample.temperature_k <= 0.0 || sample.amount_mol < 0.0 ||
+             sample.thermal_energy_j < 0.0)) {
+            return false;
+        }
+    }
+
+    for (const auto &sample : block.flow_edges()) {
+        if (!known_mask(sample.validity) ||
+            !finite(sample.signed_mass_flow_kg_s)) {
+            return false;
+        }
+    }
+
+    const auto route_count = layout.routes().size();
+    for (std::size_t index = 0; index < block.source_routes().size(); ++index) {
+        const auto &sample = block.source_routes()[index];
+        if (sample.valueless_by_exception() || route_count == 0) {
+            return false;
+        }
+        const auto route_kind = layout.routes()[index % route_count].kind;
+        const auto *gas = std::get_if<GasSourceRouteCaptureSample>(&sample);
+        const auto *mechanical =
+            std::get_if<MechanicalSourceRouteCaptureSample>(&sample);
+        if (!((is_gas_source_route(route_kind) && gas != nullptr) ||
+              (is_mechanical_source_route(route_kind) &&
+               mechanical != nullptr))) {
+            return false;
+        }
+        if (gas != nullptr &&
+            (!known_mask(gas->validity) ||
+             !all_finite({
+                 gas->pressure_pa_abs,
+                 gas->temperature_k,
+                 gas->signed_mass_flow_kg_s,
+                 gas->effective_area_m2,
+             }) ||
+             (has_validity(gas->validity, CaptureValidity::gas_exchange) &&
+              (gas->pressure_pa_abs <= 0.0 || gas->temperature_k <= 0.0 ||
+               gas->effective_area_m2 < 0.0)))) {
+            return false;
+        }
+        if (mechanical != nullptr &&
+            (!known_mask(mechanical->validity) ||
+             !all_finite(mechanical->force_xyz_n) ||
+             !all_finite(mechanical->torque_xyz_nm))) {
+            return false;
+        }
+    }
+
+    std::size_t expected_offset_count = 0;
+    const auto &offsets = block.event_journal().offsets();
+    const auto &events = block.event_journal().events();
+    if (!checked_add(frame_count, 1U, expected_offset_count) ||
+        offsets.size() != expected_offset_count || offsets.front() != 0 ||
+        offsets.back() != events.size()) {
+        return false;
+    }
+
+    const auto valid_event = [&](const EngineEvent &event) noexcept {
+        if (event.payload.valueless_by_exception()) {
+            return false;
+        }
+        return std::visit(
+            [&](const auto &payload) noexcept {
+                using Payload = std::decay_t<decltype(payload)>;
+                if constexpr (std::is_same_v<Payload, SparkCrossing>) {
+                    return contains_cylinder(layout, payload.cylinder_id) &&
+                           all_finite({
+                               payload.raw_saved_angle_rad,
+                               payload.raw_current_angle_rad,
+                               payload.adjusted_current_angle_rad,
+                               payload.adjusted_spark_angle_rad,
+                               payload.timing_advance_rad,
+                           });
+                } else if constexpr (
+                    std::is_same_v<Payload, LimiterStateChanged>) {
+                    return payload.old_active != payload.new_active &&
+                           finite_nonnegative(payload.resulting_timer_s);
+                } else if constexpr (
+                    std::is_same_v<Payload, IgnitionAccepted>) {
+                    return contains_cylinder(layout, payload.cylinder_id) &&
+                           unit_interval(payload.efficiency_01) &&
+                           finite_nonnegative(payload.flame_speed_m_s);
+                } else if constexpr (
+                    std::is_same_v<Payload, IgnitionRejected>) {
+                    return contains_cylinder(layout, payload.cylinder_id) &&
+                           known(payload.reason);
+                } else {
+                    return contains_cylinder(layout, payload.cylinder_id) &&
+                           payload.gas_substep_index <= 7U &&
+                           known(payload.reason);
+                }
+            },
+            event.payload);
+    };
+
+    const bool has_reference_parity = block.reference_parity().has_value();
+    for (std::size_t frame = 0; frame < frame_count; ++frame) {
+        const auto begin = offsets[frame];
+        const auto end = offsets[frame + 1U];
+        if (begin > end || end > events.size()) {
+            return false;
+        }
+
+        std::array<std::size_t, 4> category_counts{};
+        std::optional<EventCategory> previous_category;
+        std::optional<std::size_t> previous_spark_cylinder;
+        std::optional<std::size_t> previous_ignition_cylinder;
+        std::optional<std::uint8_t> previous_extinction_substep;
+        std::optional<std::size_t> previous_extinction_cylinder;
+        std::uint8_t previous_ordinal = 0;
+        for (std::uint32_t event_index = begin; event_index < end;
+             ++event_index) {
+            const auto &event = events[event_index];
+            if (event.frame_offset != frame ||
+                (event_index != begin &&
+                 event.ordinal_within_step <= previous_ordinal) ||
+                !valid_event(event)) {
+                return false;
+            }
+            previous_ordinal = event.ordinal_within_step;
+            if (!has_reference_parity) {
+                continue;
+            }
+
+            const auto category = event_category(event.payload);
+            ++category_counts[static_cast<std::size_t>(category)];
+            if (previous_category.has_value() &&
+                category < *previous_category) {
+                return false;
+            }
+            previous_category = category;
+
+            const auto cylinder_id = event_cylinder_id(event.payload);
+            const auto order =
+                cylinder_id.has_value()
+                    ? cylinder_order(layout, *cylinder_id)
+                    : std::optional<std::size_t>{};
+            if (category == EventCategory::spark && order.has_value()) {
+                if (previous_spark_cylinder.has_value() &&
+                    *order <= *previous_spark_cylinder) {
+                    return false;
+                }
+                previous_spark_cylinder = order;
+            } else if (category == EventCategory::ignition &&
+                       order.has_value()) {
+                if (previous_ignition_cylinder.has_value() &&
+                    *order <= *previous_ignition_cylinder) {
+                    return false;
+                }
+                previous_ignition_cylinder = order;
+            } else if (category == EventCategory::extinction &&
+                       order.has_value()) {
+                const auto substep =
+                    std::get<FlameExtinguished>(event.payload)
+                        .gas_substep_index;
+                if (previous_extinction_substep.has_value() &&
+                    previous_extinction_cylinder.has_value() &&
+                    !(substep > *previous_extinction_substep ||
+                      (substep == *previous_extinction_substep &&
+                       *order > *previous_extinction_cylinder))) {
+                    return false;
+                }
+                previous_extinction_substep = substep;
+                previous_extinction_cylinder = order;
+            }
+        }
+
+        if (has_reference_parity) {
+            const auto cylinder_count = layout.cylinders().size();
+            std::size_t cylinder_event_capacity = 0;
+            std::size_t composed_event_capacity = 0;
+            if (category_counts[static_cast<std::size_t>(
+                    EventCategory::spark)] > cylinder_count ||
+                category_counts[static_cast<std::size_t>(
+                    EventCategory::limiter)] > 1U ||
+                category_counts[static_cast<std::size_t>(
+                    EventCategory::ignition)] > cylinder_count ||
+                category_counts[static_cast<std::size_t>(
+                    EventCategory::extinction)] > cylinder_count ||
+                !checked_product(cylinder_count, 3U,
+                                 cylinder_event_capacity) ||
+                !checked_add(cylinder_event_capacity, 1U,
+                             composed_event_capacity) ||
+                end - begin > composed_event_capacity) {
+                return false;
+            }
+        }
+    }
+
+    if (!has_reference_parity) {
+        return true;
+    }
+
+    const auto &parity = *block.reference_parity();
+    std::uint64_t expected_first_timestamp = 0;
+    std::uint64_t expected_last_step = 0;
+    if (clock.rate != RationalRateHz{10000U, 1U} ||
+        clock.phase != SamplePhase::post_step ||
+        !checked_add_u64(clock.first_sample_index, 1U,
+                         expected_first_timestamp) ||
+        clock.first_timestamp_tick != expected_first_timestamp ||
+        !checked_add_u64(clock.first_sample_index, block.frame_count(),
+                         expected_last_step) ||
+        !shape_matches(parity.filtered_engine_speed_rpm().size(), 1U) ||
+        !shape_matches(parity.cylinders().size(),
+                       layout.cylinders().size())) {
+        return false;
+    }
+    for (std::size_t frame = 0; frame < frame_count; ++frame) {
+        std::uint64_t expected_step = 0;
+        if (!checked_add_u64(clock.first_sample_index, frame + 1U,
+                             expected_step) ||
+            block.engine()[frame].step_end_index != expected_step ||
+            !finite(parity.filtered_engine_speed_rpm()[frame])) {
+            return false;
+        }
+    }
+    for (const auto &sample : parity.cylinders()) {
+        if (!all_finite({
+                sample.exhaust_primary_static_pressure_pa_abs,
+                sample.dynamic_pressure_forward_pa,
+                sample.dynamic_pressure_reverse_pa,
+            }) ||
+            sample.exhaust_primary_static_pressure_pa_abs <= 0.0 ||
+            sample.dynamic_pressure_forward_pa < 0.0 ||
+            sample.dynamic_pressure_reverse_pa < 0.0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace detail
 
 CaptureLayoutView::CaptureLayoutView(EngineId engine_id,
                                      std::span<const CylinderId> cylinders,

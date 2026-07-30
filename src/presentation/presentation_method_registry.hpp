@@ -15,8 +15,14 @@ inline constexpr std::string_view kRouteConditioningMethodId =
     "route-jitter-dc-derivative-air-noise-binary64-v1";
 inline constexpr std::uint32_t kRouteConditioningMethodVersion = 1;
 
+#if defined(__wasm32__)
+inline constexpr std::string_view kStaticIrConversionMethodId =
+    "static-ir-blackman-sinc-24tap-4096phase-44100-to-192000-binary64-"
+    "wasm32-binary128-v1";
+#else
 inline constexpr std::string_view kStaticIrConversionMethodId =
     "static-ir-blackman-sinc-24tap-4096phase-44100-to-192000-binary64-v1";
+#endif
 inline constexpr std::uint32_t kStaticIrConversionMethodVersion = 1;
 
 inline constexpr std::string_view kFixedOverlapSaveConvolutionMethodId =
@@ -27,8 +33,14 @@ inline constexpr std::string_view kRouteStemPublicationMethodId =
     "n-route-wet-selection-float32-wave-publication-v1";
 inline constexpr std::uint32_t kRouteStemPublicationMethodVersion = 1;
 
+#if defined(__wasm32__)
+inline constexpr std::string_view kOrderedRouteAuditionMethodId =
+    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-"
+    "wasm32-binary128-v1";
+#else
 inline constexpr std::string_view kOrderedRouteAuditionMethodId =
     "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v1";
+#endif
 inline constexpr std::uint32_t kOrderedRouteAuditionMethodVersion = 1;
 
 struct PresentationMethodIdentities {

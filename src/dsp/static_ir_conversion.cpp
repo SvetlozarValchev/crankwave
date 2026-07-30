@@ -1,5 +1,7 @@
 #include "dsp/static_ir_conversion.hpp"
 
+#include "../numeric/target_extended_precision.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -16,11 +18,10 @@ constexpr long double kMinimumRetainedWeight = static_cast<long double>(1e-8);
 using Limits = StaticIrConversionLimits;
 
 void require_extended_precision_environment() {
-    if constexpr (std::numeric_limits<long double>::radix != 2 ||
-                  std::numeric_limits<long double>::digits != 64 ||
-                  std::numeric_limits<long double>::max_exponent != 16384) {
+    if constexpr (!numeric::target_extended_precision_format_is_admitted()) {
         throw std::runtime_error{
-            "static IR conversion requires x86-extended long double semantics"};
+            "static IR conversion target has no admitted extended-precision "
+            "format"};
     }
 }
 

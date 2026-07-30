@@ -5,10 +5,28 @@
 namespace engine_sim_offline::presentation {
 namespace {
 
+#if defined(__wasm32__)
+#define ENGINE_SIM_OFFLINE_STATIC_IR_METHOD_ID_LITERAL                         \
+    "static-ir-blackman-sinc-24tap-4096phase-44100-to-192000-binary64-"       \
+    "wasm32-binary128-v1"
+#define ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_LABEL "wasm32-binary128-extended"
+#define ENGINE_SIM_OFFLINE_STATIC_IR_OUTPUT_EXTENDED_LABEL "wasm32-binary128"
+#define ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_EXECUTION                        \
+    "wasm32-ieee754-binary128-radix2-113-significand-bits-min-exponent-"      \
+    "minus16381-max-exponent-16384-storage-16-bytes-nearest-ties-to-even"
+#else
+#define ENGINE_SIM_OFFLINE_STATIC_IR_METHOD_ID_LITERAL                         \
+    "static-ir-blackman-sinc-24tap-4096phase-44100-to-192000-binary64-v1"
+#define ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_LABEL "x87-extended"
+#define ENGINE_SIM_OFFLINE_STATIC_IR_OUTPUT_EXTENDED_LABEL "x87"
+#define ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_EXECUTION                        \
+    "x87-radix2-64-significand-bits-min-exponent-minus16381-max-exponent-"     \
+    "16384-storage-16-bytes-nearest-ties-to-even-masked-exceptions"
+#endif
+
 constexpr std::string_view kStaticIrConversionMethodDescriptor =
     "engine-sim-offline.presentation-method-configuration.v1\n"
-    "method=static-ir-blackman-sinc-24tap-4096phase-44100-to-192000-"
-    "binary64-v1\n"
+    "method=" ENGINE_SIM_OFFLINE_STATIC_IR_METHOD_ID_LITERAL "\n"
     "version=1\n"
     "operation=strict-riff-wave-pcm16-decode-to-static-binary64-ir\n"
     "raw_input=nonempty-complete-content-addressed-byte-sequence-of-at-most-"
@@ -73,33 +91,37 @@ constexpr std::string_view kStaticIrConversionMethodDescriptor =
     "tap_boundary=skip-index-less-than-0-or-index-greater-than-or-equal-to-"
     "meaningful-support\n"
     "pass1_order=target-ascending-then-tap-ascending\n"
-    "pass1_accumulator=per-source-x87-extended-initial-positive-zero\n"
+    "pass1_accumulator=per-source-" ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_LABEL
+    "-initial-positive-zero\n"
     "pass1_update=source_weight_sum-plus-binary64-interpolated-weight\n"
     "retained_test=source_weight_sum-strictly-greater-than-binary64-1e-8-"
-    "promoted-to-x87-extended\n"
+    "promoted-to-" ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_LABEL "\n"
     "fallback_order=source-ascending-before-normal-matrix-pass\n"
     "fallback_target=(source_index*192000+22050)/44100-using-u64-integer-"
     "division\n"
-    "fallback_update=target-x87-extended-accumulator-plus-signed-int16-value\n"
+    "fallback_update=target-" ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_LABEL
+    "-accumulator-plus-signed-int16-value\n"
     "pass2_order=target-ascending-then-tap-ascending\n"
     "pass2_skip=out-of-support-or-source-weight-sum-less-than-or-equal-to-"
     "retained-threshold\n"
-    "pass2_contribution=(x87-extended(sample)*x87-extended(weight))/source-"
-    "weight-sum-in-written-order\n"
-    "pass2_update=target-x87-extended-accumulator-plus-contribution\n"
+    "pass2_contribution=(" ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_LABEL
+    "(sample)*" ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_LABEL
+    "(weight))/source-weight-sum-in-written-order\n"
+    "pass2_update=target-" ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_LABEL
+    "-accumulator-plus-contribution\n"
     "coefficient_scale=binary64(configured_gain/binary64(32767))-then-promote-"
-    "to-x87-extended\n"
+    "to-" ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_LABEL "\n"
     "output_order=target-ascending\n"
-    "output_conversion=x87-target-accumulator-times-x87-coefficient-scale-then-"
-    "round-to-binary64\n"
+    "output_conversion=" ENGINE_SIM_OFFLINE_STATIC_IR_OUTPUT_EXTENDED_LABEL
+    "-target-accumulator-times-" ENGINE_SIM_OFFLINE_STATIC_IR_OUTPUT_EXTENDED_LABEL
+    "-coefficient-scale-then-round-to-binary64\n"
     "rate_area_scale=not-applied\n"
     "clipping=none\n"
     "finite_checks=table,interpolation,accumulators,contributions,scale,and-"
     "output-must-remain-finite\n"
     "binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-"
     "no-daz\n"
-    "extended_execution=x87-radix2-64-significand-bits-min-exponent-minus16381-"
-    "max-exponent-16384-storage-16-bytes-nearest-ties-to-even-masked-exceptions\n"
+    "extended_execution=" ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_EXECUTION "\n"
     "transcendentals=std-sin-and-std-cos-binary64-under-render-determinism-"
     "envelope\n"
     "external_numeric_authority=renderer-build-source-standard-library-math-"
@@ -194,3 +216,8 @@ std::string_view fixed_overlap_save_convolution_method_descriptor() noexcept {
 }
 
 } // namespace engine_sim_offline::presentation
+
+#undef ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_EXECUTION
+#undef ENGINE_SIM_OFFLINE_STATIC_IR_EXTENDED_LABEL
+#undef ENGINE_SIM_OFFLINE_STATIC_IR_METHOD_ID_LITERAL
+#undef ENGINE_SIM_OFFLINE_STATIC_IR_OUTPUT_EXTENDED_LABEL

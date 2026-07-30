@@ -1,5 +1,6 @@
 #include "dsp/static_ir_conversion.hpp"
 #include "engine_sim_offline/contract/common.hpp"
+#include "numeric/target_extended_precision.hpp"
 #include "presentation/pcm16_ir_decoder.hpp"
 
 #include <array>
@@ -122,6 +123,14 @@ void test_half_up_counts_and_synthetic_impulse() {
     }
 }
 
+void test_native_extended_precision_contract() {
+    expect(numeric::target_extended_precision_format_is_admitted(),
+           "native extended-precision format was not admitted");
+    expect(numeric::kTargetExtendedPrecisionIdentity ==
+               "linux-x86-64-sysv-x87-extended-strict-v1",
+           "native extended-precision identity changed");
+}
+
 void test_invalid_inputs_fail_before_conversion() {
     constexpr std::array<std::int16_t, 3> source{101, 0, 0};
     expect_throw<std::invalid_argument>(
@@ -204,6 +213,7 @@ void test_canonical_kernel_identity(const std::string &path) {
 }
 
 void run_tests(const std::string &configured_ir_path) {
+    test_native_extended_precision_contract();
     test_half_up_counts_and_synthetic_impulse();
     test_invalid_inputs_fail_before_conversion();
     test_canonical_kernel_identity(configured_ir_path);

@@ -36,9 +36,9 @@ static_ir_target_count(std::size_t meaningful_support_frame_count);
 // The configured gain must be nonnegative and finite. The returned coefficients
 // are binary64 at 192 kHz; this function performs no file I/O or serialization.
 //
-// Exact execution requires radix-2, 64-significand-bit, exponent-16384 long
-// double arithmetic (the x86 extended format used by the reference capture).
-// Unsupported floating-point environments are rejected before allocation.
+// Exact execution uses the compile target's identified extended accumulator:
+// SysV x87 extended on the admitted native target and IEEE binary128 on wasm32.
+// Unsupported or mismatched floating-point formats are rejected before allocation.
 [[nodiscard]] std::vector<double>
 convert_static_ir(std::span<const std::int16_t> decoded_pcm16,
                   std::size_t meaningful_support_frame_count,

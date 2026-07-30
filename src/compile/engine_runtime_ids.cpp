@@ -17,11 +17,13 @@ namespace {
 [[nodiscard]] std::variant<IdNamespace, authoring::DiagnosticReport>
 make_namespace(std::string name, const std::vector<std::string> &semantic_ids,
                std::string_view pointer_base) {
+    std::vector<std::string> json_pointers;
+    json_pointers.reserve(semantic_ids.size());
     std::vector<StableIdSource> sources;
     sources.reserve(semantic_ids.size());
     for (std::size_t index = 0; index < semantic_ids.size(); ++index) {
-        sources.push_back(
-            {semantic_ids[index], pointer_index(pointer_base, index)});
+        json_pointers.push_back(pointer_index(pointer_base, index));
+        sources.push_back({semantic_ids[index], json_pointers.back()});
     }
     auto result = assign_stable_runtime_ids(name, sources);
     if (const auto *report =

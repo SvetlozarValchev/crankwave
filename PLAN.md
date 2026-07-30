@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-30
 
-Current checkpoint: **9 — compile and verify WASM**
+Current checkpoint: **10 — build the interactive HTML workbench**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -314,6 +314,33 @@ telemetry for the same control schedule. Core PCM is compared headlessly against
 predeclared tight sample-error bounds; each target retains its own exact hash. Exact
 cross-target equality is required only if the admitted numeric runtimes actually
 produce it.
+
+Completed evidence: [`c_api.h`](include/engine_sim_offline/c_api.h) is the one
+exact-version foreign-runtime boundary. It owns context/kind/slot/generation-checked
+engine, scenario, and session handles; performs transactional strict JSON
+parse-and-compile; exposes typed controls, caller-owned PCM/telemetry, and structured
+diagnostics; and contains all C++ exceptions. A live session retains the immutable
+compiled inputs it needs after parent handles are released. Caller buffer capacity is
+preflighted before advancement, and successful control submission plus warmed
+`process_block()` use only preallocated bounded storage.
+
+The browser module is an Emscripten wasm32 build with fixed 128 MiB memory, memory
+growth and filesystem disabled, and the same C++ compiler/session/DSP closure as
+native. Native retains its exact SysV x87 method identities; wasm32 identifies its
+IEEE binary128 extended operations separately and fails closed on any other
+long-double format.
+
+The pinned 18-block parity fixture proves exact bus topology, clocks, control
+acceptance/rejection, discrete telemetry, and completion state. Semantic transcript
+SHA-256 is
+`a93959fcc8c7eb83e466b488fcf729a7d2917dd6501724a38a3bf10af99729a8`;
+native/WASM bundle hashes are
+`2cc6fe9d1fe4537827476bf6582544acaa92a628c67e78ff8d6149624962a28e` and
+`19d7c36657f561cf5559ff16459d4e64e2cec3ff90e35d193ca88531b77f6b85`.
+Across 7,680 audition samples, maximum absolute PCM error is
+`1.862645149230957e-9` and RMS error is `2.1807662361359516e-11`, both within the
+predeclared tight bounds. The reproducible gate is
+[`scripts/verify-wasm-parity.sh`](scripts/verify-wasm-parity.sh).
 
 ### 10. Build the interactive HTML workbench
 

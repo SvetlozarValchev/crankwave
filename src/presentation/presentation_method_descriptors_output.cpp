@@ -5,6 +5,17 @@
 namespace engine_sim_offline::presentation {
 namespace {
 
+#if defined(__wasm32__)
+#define ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL                          \
+    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-"           \
+    "wasm32-binary128-v1"
+#define ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL "wasm32-ieee754-binary128"
+#else
+#define ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL                          \
+    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v1"
+#define ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL "x87-extended"
+#endif
+
 constexpr std::string_view kRouteStemPublicationMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
 method=n-route-wet-selection-float32-wave-publication-v1
@@ -57,8 +68,9 @@ float32_execution=ieee754-binary32-nearest-ties-to-even-no-fma-no-ftz-no-daz
 
 constexpr std::string_view kOrderedRouteAuditionMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
-method=ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v1
-version=1
+)method"
+    "method=" ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL "\n"
+    R"method(version=1
 operation=ordered-n-route-serial-float32-audition-mix-quarter-sine-fades-and-pcm24-master
 route_selection=all-r-rendered-routes-exactly-once-in-declared-vector-order
 route_input=one-finite-float32-sample-per-selected-route-per-frame
@@ -70,7 +82,9 @@ resolved_argument_2_domain=finite-canonical-nonnegative-binary64-resolving-to-an
 resolved_argument_3=fade_out_duration_s
 resolved_argument_3_domain=finite-canonical-nonnegative-binary64-resolving-to-an-exact-delivery-frame-index
 duration_resolution=contract-resolve-frame-index-at-reduced-rate-192000/1
-duration_resolution_arithmetic=x87-extended(duration-times-192000-divided-by-1)-then-std-round-long-double-half-away-from-zero-with-8-times-binary64-epsilon-times-max(1,absolute-frames)-tolerance
+)method"
+    "duration_resolution_arithmetic=" ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL
+    R"method((duration-times-192000-divided-by-1)-then-std-round-long-double-half-away-from-zero-with-8-times-binary64-epsilon-times-max(1,absolute-frames)-tolerance
 duration_resolution_bound=resolved-frame-index-less-than-or-equal-to-2^53-minus-1-and-tolerance-strictly-less-than-0.25
 audible_frame_count=positive-resolved-integer
 fade_fit=fade-in-frame-count-plus-fade-out-frame-count-less-than-or-equal-to-audible-frame-count
@@ -141,3 +155,6 @@ std::string_view ordered_route_audition_method_descriptor() noexcept {
 }
 
 } // namespace engine_sim_offline::presentation
+
+#undef ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL
+#undef ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL

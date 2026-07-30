@@ -1,0 +1,26 @@
+{
+  "format": "engine-sim-offline-wasm-parity-expectations-v1",
+  "fixture": "bmw-m52b28-short-live-parity",
+  "pcm_sample_count": 7680,
+  "inputs": {
+    "engine_json_sha256": "aab751b3f70d2c7bad4f39ee6d374aabb448c9b49659e1861d08f7ad3f434ed9",
+    "scenario_json_sha256": "d6fd503c52508ece656c7672218bf0936e7ba0e310d2038a8be0e982b547b6fb",
+    "impulse_response_sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc",
+    "accessory_configuration_sha256": "ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97"
+  },
+  "semantic_sha256": "a93959fcc8c7eb83e466b488fcf729a7d2917dd6501724a38a3bf10af99729a8",
+  "native": {
+    "telemetry_f64le_sha256": "716eaf968de3fcb6346d79e136393b5c5ba6661708a13e01855f0e59c96386ee",
+    "audition_f32le_sha256": "a8e251fa34552f316a257d46c8af81e63ab96b05b073d6eaa23441c4965a34af"
+  },
+  "wasm": {
+    "telemetry_f64le_sha256": "5e7b893d6b606833f41f4c3de754db7c3ef598402356498487f44d0a1df42d43",
+    "audition_f32le_sha256": "77484393b278ec40a84b4bde7d2dae31f01894e94a6a47cd17fd16ccb1787413"
+  },
+  "bounds": {
+    "telemetry_maximum_absolute_error": 2e-7,
+    "telemetry_maximum_relative_error": 2e-11,
+    "pcm_maximum_absolute_error": 2e-9,
+    "pcm_rms_error": 3e-11
+  }
+}

@@ -1,5 +1,6 @@
 #include "simulation/low_order_capture_session.hpp"
 
+#include "contract/capture_block_admission.hpp"
 #include "simulation/low_order_capture_buffer.hpp"
 
 #include <exception>
@@ -297,12 +298,21 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
     }
 
     const auto block = capture_->view();
-    const auto report = contract::validate(block);
-    if (!report.ok()) {
-        const auto &issue = report.issues.front();
+    if (!contract::detail::valid_capture_block_after_layout_admission(block)) {
+        // The buffer owns an immutable layout validated while the capture plan is
+        // compiled. Keep the valid block path allocation-free, but construct the
+        // public owning diagnostic after any block-varying invariant fails.
+        const auto report = contract::validate(block);
+        const auto state_summary =
+            report.ok()
+                ? std::string{
+                      "allocation-free admitted-layout validation rejected the "
+                      "capture block without a public diagnostic"}
+                : "path=" + report.issues.front().path + "; " +
+                      report.issues.front().message;
         return fail(fault(contract::FailureKind::contract_violation,
                           "low-order-capture-block-invalid",
-                          "path=" + issue.path + "; " + issue.message, last_mechanics));
+                          state_summary, last_mechanics));
     }
 
     bool accepted = false;

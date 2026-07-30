@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 project(
     engine_sim_offline
     DESCRIPTION "Offline-native engine simulation and audio rendering"
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
 
 if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
@@ -20,6 +20,14 @@ option(
     "Build the engine-sim-offline command-line shell"
     "${PROJECT_IS_TOP_LEVEL}"
 )
+option(
+    ENGINE_SIM_OFFLINE_BUILD_WASM
+    "Build the fixed-memory browser WebAssembly module"
+    "${EMSCRIPTEN}"
+)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(engine_sim_offline_build_options INTERFACE)
@@ -35,6 +43,7 @@ target_compile_options(
     INTERFACE
         $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-Wall;-Wextra;-Wpedantic;-fno-fast-math;-ffp-contract=off>
         $<$<CXX_COMPILER_ID:MSVC>:/W4;/permissive-;/fp:strict;/Zc:__cplusplus>
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<PLATFORM_ID:Emscripten>>:-fwasm-exceptions;-fno-lto>
 )
 
 include(cmake/RendererNumericPolicy.cmake)
@@ -446,6 +455,78 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_session)
 
 add_library(
+    engine_sim_offline_c_api
+    STATIC
+        src/c_api/compile.cpp
+        src/c_api/context.cpp
+        src/c_api/session.cpp
+        src/c_api/telemetry.cpp
+)
+add_library(
+    engine_sim_offline::c_api
+    ALIAS engine_sim_offline_c_api
+)
+
+target_include_directories(
+    engine_sim_offline_c_api
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_c_api
+    PRIVATE
+        engine_sim_offline::authoring
+        engine_sim_offline::build_options
+        engine_sim_offline::compile
+        engine_sim_offline::session
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_c_api)
+
+if(EMSCRIPTEN OR ENGINE_SIM_OFFLINE_BUILD_WASM)
+    include(cmake/EngineSimOfflineWasm.cmake)
+endif()
+
+if(ENGINE_SIM_OFFLINE_BUILD_WASM)
+    add_executable(
+        engine_sim_offline_wasm
+        src/wasm/module.cpp
+    )
+    set_target_properties(
+        engine_sim_offline_wasm
+        PROPERTIES OUTPUT_NAME engine-sim-offline
+    )
+
+    target_link_libraries(
+        engine_sim_offline_wasm
+        PRIVATE engine_sim_offline::c_api
+    )
+    target_link_options(
+        engine_sim_offline_wasm
+        PRIVATE
+            --no-entry
+            -fwasm-exceptions
+            "SHELL:-sMODULARIZE=1"
+            "SHELL:-sEXPORT_ES6=1"
+            "SHELL:-sENVIRONMENT=web,worker,node"
+            "SHELL:-sFILESYSTEM=0"
+            "SHELL:-sALLOW_MEMORY_GROWTH=0"
+            "SHELL:-sINITIAL_MEMORY=134217728"
+            "SHELL:-sSTACK_SIZE=1048576"
+            "SHELL:-sABORTING_MALLOC=0"
+            "SHELL:-sEXIT_RUNTIME=0"
+            "SHELL:-sSTRICT=1"
+            "SHELL:-sWASM_BIGINT=1"
+            "SHELL:-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','HEAPU8','HEAPU32','HEAPF32']"
+            "SHELL:-sEXPORTED_FUNCTIONS=['_malloc','_free','_eso_api_version','_eso_get_abi_layout','_eso_context_create','_eso_context_destroy','_eso_context_get_last_error','_eso_context_copy_last_error_text','_eso_context_get_diagnostic','_eso_context_copy_diagnostic_text','_eso_context_get_related_diagnostic','_eso_context_copy_related_diagnostic_text','_eso_compile_engine_json','_eso_destroy_engine','_eso_engine_copy_id','_eso_compile_scenario_json','_eso_destroy_scenario','_eso_scenario_copy_id','_eso_create_session','_eso_destroy_session','_eso_session_get_descriptor','_eso_session_copy_identity','_eso_session_get_audio_bus_descriptor','_eso_session_copy_audio_bus_id','_eso_session_enqueue_controls','_eso_session_process']"
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_wasm)
+    engine_sim_offline_configure_wasm_numeric_target(engine_sim_offline_wasm)
+endif()
+
+add_library(
     engine_sim_offline_execution
     STATIC
         src/execution/linux_execution_facts.cpp
@@ -664,9 +745,17 @@ set(
     engine_sim_offline_presentation
     engine_sim_offline_excitation
     engine_sim_offline_session
+    engine_sim_offline_c_api
     engine_sim_offline_execution
     engine_sim_offline_renderer_determinism
 )
+if(TARGET engine_sim_offline_wasm)
+    list(
+        APPEND
+        _engine_sim_offline_numeric_policy_targets
+        engine_sim_offline_wasm
+    )
+endif()
 if(ENGINE_SIM_OFFLINE_BUILD_TESTS)
     list(
         APPEND
