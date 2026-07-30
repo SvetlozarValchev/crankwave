@@ -6,6 +6,9 @@ repository_dir=$(CDPATH= cd -- "${script_dir}/.." && pwd)
 work_dir="${repository_dir}/.work/wasm-parity"
 native_build_dir="${work_dir}/native"
 wasm_build_dir="${work_dir}/wasm"
+native_tmp_dir="${work_dir}/tmp/native"
+wasm_tmp_dir="${work_dir}/tmp/wasm"
+wasm_home_dir="${work_dir}/home"
 native_bundle="${work_dir}/native.bundle"
 wasm_bundle="${work_dir}/wasm.bundle"
 emsdk_image="emscripten/emsdk@sha256:3a0d11e50f072dc2c4bc92e3b05ab1340fb7d4dd152f80b8af35fc1c6f15e644"
@@ -17,7 +20,12 @@ accessory_configuration="${repository_dir}/data/profiles/bmw-m52b28/accessory-co
 expectations="${repository_dir}/tests/wasm/parity_expectations.json"
 
 cmake -E remove_directory "${work_dir}"
-cmake -E make_directory "${work_dir}"
+cmake -E make_directory \
+    "${work_dir}" \
+    "${native_tmp_dir}" \
+    "${wasm_tmp_dir}" \
+    "${wasm_home_dir}"
+export TMPDIR="${native_tmp_dir}"
 
 cmake \
     -S "${repository_dir}" \
@@ -42,7 +50,8 @@ cmake \
 
 docker run --rm \
     --user "$(id -u):$(id -g)" \
-    -e HOME=/tmp \
+    -e HOME=/src/.work/wasm-parity/home \
+    -e TMPDIR=/src/.work/wasm-parity/tmp/wasm \
     -v "${repository_dir}:/src" \
     -w /src \
     "${emsdk_image}" \
