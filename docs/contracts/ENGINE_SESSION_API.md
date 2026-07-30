@@ -409,8 +409,10 @@ release and requires the first 7,000-rpm crossing in `0.44`--`0.50 s`, the measu
 pristine-engine-sim envelope.
 
 This gate does not claim coastdown parity. Closed-throttle coast remains separate
-pumping and piston-friction work; Chen--Flynn must not be globally retuned merely to
-force that one trajectory to match.
+source-friction work. Gas-exchange pumping already contributes through cylinder
+pressure-volume torque. The generic one-cycle-lagged Chen--Flynn result is not a
+source-equivalent transient loss and must not be globally retuned or stacked with the
+pristine crank and piston-wall mechanisms merely to force one trajectory to match.
 
 ### 5.2 Future mode controls
 

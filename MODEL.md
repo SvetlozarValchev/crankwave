@@ -514,9 +514,13 @@ For the BMW M52B28 fixture, the engine-derived baseline and neutral total are bo
 `0.2108686520185204 kg*m^2`, and neutral external resistance is zero. The regression
 gate applies full throttle at the 1,500-rpm release and requires the first 7,000-rpm
 crossing in `0.44`--`0.50 s`, matching the pristine-engine-sim envelope. This closes
-the neutral acceleration discrepancy only. Closed-throttle coastdown still differs;
-Chen--Flynn is therefore not globally retuned to conceal missing closed-throttle
-pumping or piston-friction behavior. Those mechanisms remain separate work.
+the neutral acceleration discrepancy only. Closed-throttle coastdown still differs.
+Gas-exchange pumping is already part of indicated cylinder pressure-volume work; it
+is not a missing second loss term. The mismatch is the provisional use of a generic
+one-cycle-lagged Chen--Flynn aggregate in place of pristine engine-sim's authored
+crank friction and executable piston-wall friction. The active operating-bench plan
+requires those source mechanisms to become the sole FreeEngine loss authority before
+later bench work proceeds.
 
 ### 10.2 Fixed valvetrain and conductance
 
@@ -812,6 +816,12 @@ valvetrain, oil, pump, and accessory losses. The component friction model of San
 and Heywood
 ([SAE 2003-01-0725](https://doi.org/10.4271/2003-01-0725)) is a later candidate, not
 an assumed truth without its required inputs.
+
+The later held-operating-point work introduced Chen--Flynn as a generic cycle-mean
+power-prediction closure. Reusing that result one completed cycle late to advance
+FreeEngine RPM was not pristine transient parity. The active correction will compute
+the source wall reaction for the already admitted centered mechanism and apply the
+source friction law instead; it will not add source friction on top of Chen--Flynn.
 
 Gas-exchange work is integrated from the same cylinder pressure-volume path and is not
 double-counted. In the prescribed sweep, friction affects the reported incomplete net

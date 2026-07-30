@@ -6,8 +6,8 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-30
 
-Current checkpoint: **operating bench 2 — calibrated warm-running neutral FreeEngine
-dynamics**
+Current checkpoint: **operating bench — pristine warm-running FreeEngine transient
+parity**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -496,9 +496,20 @@ M52B28 baseline is `0.2108686520185204 kg*m^2`; its neutral fixture has zero att
 inertia and zero external resistance. The pristine-engine-sim regression gate requires
 the full-throttle 1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`.
 
-That gate calibrates neutral acceleration, not every loss mechanism. The
-closed-throttle coastdown discrepancy does not justify globally retuning Chen--Flynn;
-closed-throttle pumping and piston-friction behavior must be isolated as later work.
+That gate calibrates neutral acceleration, not every loss mechanism. Gas-exchange
+pumping is already present inside the cylinder pressure-volume work. The remaining
+closed-throttle discrepancy is an immediate parity failure caused by using a generic
+one-cycle-lagged Chen--Flynn aggregate in place of pristine engine-sim's authored
+crank friction and executable piston-wall-friction path.
+
+Pristine engine-sim commit
+`85f7c3b959a908ed5232ede4f1a4ac7eafe6b630` is the transient behavioral authority.
+The controlled BMW evidence is frozen in
+[`docs/oracles/PRISTINE_ENGINE_SIM_M52_DYNAMICS.md`](docs/oracles/PRISTINE_ENGINE_SIM_M52_DYNAMICS.md).
+FreeEngine may have exactly one applied mechanical-loss authority. Chen--Flynn must
+not be stacked with source friction or used to advance FreeEngine RPM. It may remain
+temporarily as held-speed prediction evidence until the later power contract either
+names that role explicitly or removes it.
 
 ### 9.3 Vertical slices and commit boundaries
 
@@ -508,29 +519,35 @@ closed-throttle pumping and piston-friction behavior must be isolated as later w
 2. Implement positive-RPM neutral free-engine dynamics with live ignition, fuel,
    throttle, limiter, and external resisting torque. Derive engine baseline inertia,
    add only explicit attached inertia, default the neutral external resistance to
-   zero, preserve the accepted renderer, and use the existing complete instantaneous
-   net-shaft torque path.
+   zero, and preserve the accepted renderer. The initial gas-plus-Chen--Flynn motion
+   closure remains provisional until the source-friction gate below is complete.
 3. Publish those free-engine controls and physical telemetry through `EngineSession`,
    the C ABI, and WASM. Stop for a BMW warm-running free-rev listening checkpoint.
-4. Add normal stopped/stalled crank state and non-fired cranking as a separate
+4. Replace Chen--Flynn as the FreeEngine motion authority with pristine engine-sim's
+   authored running-direction crank friction and its executable one-step-lagged
+   piston-wall friction. Preserve gas-exchange pumping inside indicated torque, match
+   the frozen WOT/coast/natural-balance oracle, and stop for listening. Intermediate
+   crank-only and piston-enabled commits must match their named pristine ablations;
+   they are not unexplained candidate sound models.
+5. Add normal stopped/stalled crank state and non-fired cranking as a separate
    mechanics slice.
-5. Add mechanically engaged starter torque and stop for a BMW crank/catch listening
+6. Add mechanically engaged starter torque and stop for a BMW crank/catch listening
    checkpoint.
-6. Add an explicit regulated-idle controller and stop for idle/load-recovery
+7. Add an explicit regulated-idle controller and stop for idle/load-recovery
    listening. Do not call the current externally held 700-rpm fixture or the natural
    closed-throttle balance point a regulated idle.
-7. Implement the bounded held-dyno controller with live target RPM and torque limit.
+8. Implement the bounded held-dyno controller with live target RPM and torque limit.
    Run target-driven pull, lift, and ordinary overrun through it; stop for listening.
-8. Implement vehicle inertia and road load, transmission ratios, clutch torque/slip,
+9. Implement vehicle inertia and road load, transmission ratios, clutch torque/slip,
    gears, and service brake. Stop for a neutral/launch/shift/fifth-gear pull check.
-9. Publish drivetrain controls and vehicle telemetry through the same native/WASM
+10. Publish drivetrain controls and vehicle telemetry through the same native/WASM
    boundary.
-10. Replace the current restart-only dyno button with the full operating bench and
+11. Replace the current restart-only dyno button with the full operating bench and
    named scenarios. The UI must capability-gate real backend functions, not infer them
    from generic live-control support.
-11. Add unpaced capture procedures for crank, startup/catch, settled idle, loaded
+12. Add unpaced capture procedures for crank, startup/catch, settled idle, loaded
    rise, part load, coast fall, neutral limiter, limiter lift/recovery, and shutdown.
-12. Freeze the accepted procedures and recordings as the minimum operating regression
+13. Freeze the accepted procedures and recordings as the minimum operating regression
    set before resuming fidelity experiments.
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,

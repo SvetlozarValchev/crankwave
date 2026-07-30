@@ -50,10 +50,12 @@ For the BMW M52B28 fixture, the derived engine baseline is
 `0.2108686520185204 kg*m^2`; neutral uses no attached inertia and no external
 resistance. The headless pristine-engine-sim gate requires a full-throttle
 1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`. This acceleration calibration does
-not authorize a global Chen--Flynn loss retune: the remaining closed-throttle
-coastdown discrepancy needs separate pumping and piston-friction work. A drivetrain,
-gears, starter control, regulated idle, and arbitrary live presentation edits remain
-explicit missing capabilities rather than UI-only approximations.
+not establish transient parity. Gas-exchange pumping is already present in indicated
+pressure-volume work; the remaining coastdown discrepancy comes from using a generic
+one-cycle-lagged Chen--Flynn aggregate instead of pristine engine-sim's crank and
+piston-wall friction. Restoring that source behavior is the current checkpoint. A
+drivetrain, gears, starter control, regulated idle, and arbitrary live presentation
+edits remain explicit missing capabilities rather than UI-only approximations.
 
 The compiler accepts the currently executable low-order topology without inspecting an
 engine name and fails closed on unsupported capabilities. Cylinder and
