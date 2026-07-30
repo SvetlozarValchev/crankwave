@@ -13,19 +13,6 @@ namespace {
 using contract::ContractIssueCode;
 using contract::ValidationReport;
 
-constexpr contract::Sha256Digest kM3FixedRateRpmConfigurationSha256{{
-    0xc6, 0x4a, 0xb8, 0xb9, 0xc2, 0xf8, 0xc7, 0x8a, 0x15, 0x12, 0x22,
-    0xd8, 0x89, 0x86, 0x52, 0x69, 0xbe, 0x19, 0xcc, 0x52, 0x1e, 0x68,
-    0x52, 0xc4, 0x6d, 0xdf, 0x34, 0x50, 0x86, 0x9e, 0x75, 0xe4,
-}};
-
-[[nodiscard]] bool exact_m3_fixed_rate_rpm_method(
-    const contract::ResolvedValue<contract::MethodIdentity> &method) noexcept {
-    return method.value.id == "fixed-rate-post-step-rpm-binary64-v1" &&
-           method.value.version == 1U &&
-           method.value.configuration_sha256 == kM3FixedRateRpmConfigurationSha256;
-}
-
 void require(ValidationReport &report, bool condition, ContractIssueCode code,
              std::string path, std::string message) {
     if (!condition) {
@@ -40,47 +27,12 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     const contract::RandomPlan &random_plan,
     const contract::Sha256Digest &simulation_request_identity_v3_sha256) {
     ValidationReport report;
-    const auto *legacy_profile =
-        std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile);
     const auto *operating_profile =
         std::get_if<contract::LowOrderOperatingPointV1Profile>(&engine.physics_profile);
-    const auto *sweep = std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode);
     const auto *inertial = std::get_if<contract::InertialDyno>(&scenario.mode);
-    require(report, legacy_profile != nullptr || operating_profile != nullptr,
-            ContractIssueCode::unsupported_value, "engine.physics_profile",
-            "low-order capture requires an executable low-order profile");
-
-    std::optional<LegacyFixedCrankTorqueAccountingPlan> legacy_torque_accounting;
-    if (legacy_profile != nullptr) {
-        require(report, sweep != nullptr, ContractIssueCode::unsupported_value,
-                "scenario.mode", "M3 capture requires a prescribed kinematic sweep");
-    }
-    if (legacy_profile != nullptr && sweep != nullptr) {
-        require(report,
-                exact_m3_fixed_rate_rpm_method(sweep->trajectory.kinematic_resolution),
-                ContractIssueCode::unsupported_value,
-                "scenario.mode.trajectory.kinematic_resolution",
-                "M3 capture requires its exact fixed-rate RPM method "
-                "configuration");
-        if (!report.ok()) {
-            return report;
-        }
-        auto accounting_result = compile_legacy_fixed_crank_torque_accounting(
-            engine, legacy_profile->fixed_crank_loss);
-        if (auto *accounting_report =
-                std::get_if<ValidationReport>(&accounting_result)) {
-            report.append(std::move(*accounting_report));
-        } else {
-            legacy_torque_accounting = std::get<LegacyFixedCrankTorqueAccountingPlan>(
-                std::move(accounting_result));
-        }
-
-        require(report,
-                scenario.rates.physics == contract::RationalRateHz{10000, 1} &&
-                    scenario.rates.capture == contract::RationalRateHz{10000, 1},
-                ContractIssueCode::unsupported_value, "scenario.rates",
-                "M3 capture requires exact 10000/1 Hz physics and capture clocks");
-    }
+    require(report, operating_profile != nullptr, ContractIssueCode::unsupported_value,
+            "engine.physics_profile",
+            "low-order capture requires the operating-point physics profile");
     if (!report.ok()) {
         return report;
     }
@@ -97,18 +49,9 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     auto capture_plan = std::get<LowOrderCapturePlan>(std::move(capture_plan_result));
 
     std::optional<LowOrderCaptureSession::ProfilePolicy> profile_policy;
-    const contract::LowOrderEngineCoreV1 *core = nullptr;
-    if (legacy_profile != nullptr) {
-        if (!legacy_torque_accounting.has_value()) {
-            report.add(ContractIssueCode::inconsistent_semantics,
-                       "engine.physics_profile.fixed_crank_loss",
-                       "fixed-crank capture lost its compiled torque policy");
-            return report;
-        }
-        profile_policy.emplace(std::in_place_type<LegacyFixedCrankTorqueAccountingPlan>,
-                               *legacy_torque_accounting);
-        core = &legacy_profile->core;
-    } else if (operating_profile != nullptr) {
+    const contract::LowOrderEngineCoreV1 *core =
+        operating_profile != nullptr ? &operating_profile->core : nullptr;
+    if (operating_profile != nullptr) {
         if (inertial != nullptr) {
             auto inertial_result = compile_low_order_inertial_dyno_v1_runtime(
                 engine, scenario, capture_plan, simulation_request_identity_v3_sha256);
@@ -130,7 +73,6 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
                 std::in_place_type<LowOrderOperatingPointV1Runtime>,
                 std::get<LowOrderOperatingPointV1Runtime>(std::move(operating_result)));
         }
-        core = &operating_profile->core;
     }
     if (!profile_policy.has_value() || core == nullptr) {
         report.add(ContractIssueCode::unsupported_value, "engine.physics_profile",

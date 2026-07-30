@@ -164,8 +164,8 @@ inline LegacyRestriction make_restriction(InputBuilder &builder,
     };
 }
 
-inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
-    constexpr std::string_view root = "engine.physics.legacy-low-order-v1";
+inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builder) {
+    constexpr std::string_view root = "engine.physics.low-order-operating-point-v1";
     const auto path = [&](std::string_view suffix) {
         return std::string(root) + "." + std::string(suffix);
     };
@@ -176,17 +176,14 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
     constexpr double kCfmOne = 0.00002748668227937587;
     constexpr double kCfmPointOne = 0.0000027486682279375876;
 
-    LegacyLowOrderV1Profile profile;
+    LowOrderOperatingPointV1Profile profile;
     auto &core = profile.core;
-    auto &fixed_crank_loss = profile.fixed_crank_loss;
     core.mechanism.crank = {
         builder.resolved(0.0, path("mechanism.crank.crank_tdc_reference_rad")),
         builder.resolved(5.0, path("mechanism.crank.crankshaft_mass_kg")),
         builder.resolved(5.9, path("mechanism.crank.flywheel_mass_kg")),
         builder.resolved(0.2, path("mechanism.crank.authored_crank_inertia_kg_m2")),
     };
-    fixed_crank_loss.fixed_crank_friction_magnitude_nm = builder.resolved(
-        10.0, path("mechanism.crank.fixed_crank_friction_magnitude_nm"));
     LegacyCylinderAssembly cylinder;
     cylinder.topology = {
         CylinderId{1},  PortId{1},      PortId{2},     GasVolumeId{2},
@@ -360,16 +357,6 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
         make_flame_point("turbulence-1", 1.0, 2.0),
     };
 
-    const TorqueTermMask included_torque_terms =
-        torque_term_mask(TorqueTerm::indicated_gas) |
-        torque_term_mask(TorqueTerm::crank_friction);
-    const TorqueTermMask omitted_torque_terms =
-        known_torque_term_mask() & ~included_torque_terms;
-    fixed_crank_loss.included_terms =
-        builder.resolved(included_torque_terms, path("losses.included_terms"));
-    fixed_crank_loss.omitted_terms =
-        builder.resolved(omitted_torque_terms, path("losses.omitted_terms"));
-
     core.excitation.reference_atmosphere_pa_abs = builder.resolved(
         101325.0, path("reference_excitation.reference_atmosphere_pa_abs"));
     core.excitation.legacy_propagation_speed_m_s = builder.resolved(
@@ -423,6 +410,31 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
         builder.resolved(1.0, path("reference_excitation.routes.exhaust.outlet-1."
                                    "audio_volume_linear")),
     });
+    profile.aggregate_loss = {
+        builder.resolved(0.4, path("aggregate_loss.constant_fmep_bar")),
+        builder.resolved(0.005, path("aggregate_loss.peak_pressure_coefficient")),
+        builder.resolved(
+            0.09, path("aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m")),
+        builder.resolved(0.0009,
+                         path("aggregate_loss."
+                              "mean_piston_speed_squared_coefficient_bar_s2_per_m2")),
+        builder.resolved(370.0, path("aggregate_loss.required_oil_temperature_k")),
+        builder.resolved(friction_pump_and_accessory_torque_term_mask(),
+                         path("aggregate_loss.included_terms")),
+    };
+    profile.accessory_configuration = {
+        builder.resolved(std::string{"contract-test-accessories-v1"},
+                         path("accessory_configuration.configuration_id")),
+        builder.resolved(digest(1), path("accessory_configuration.content_sha256")),
+    };
+    profile.starter = {
+        builder.resolved(true, path("starter.mechanically_disengaged")),
+        builder.resolved(torque_term_mask(TorqueTerm::starter),
+                         path("starter.included_terms")),
+    };
+    profile.cycle_quadrature =
+        builder.resolved(method("four-stroke-piecewise-linear-cycle-quadrature-v1", 10),
+                         path("cycle_quadrature"));
     return profile;
 }
 
@@ -537,30 +549,25 @@ inline EngineSpec make_engine(InputBuilder &builder) {
         resolve_method("legacy_low_order_v1", 5, "ignition"),
         resolve_method("legacy_low_order_v1", 6, "combustion"),
         resolve_method("legacy_low_order_v1", 7, "heat_transfer"),
-        resolve_method("legacy_low_order_v1", 8, "losses"),
+        resolve_method("chen-flynn-cycle-mean-aggregate-loss-v1", 8, "losses"),
         resolve_method("legacy_low_order_v1", 9, "excitation"),
     };
     spec.physics_profile = make_physics_profile(builder);
-    const TorqueTermMask included_torque_terms =
-        torque_term_mask(TorqueTerm::indicated_gas) |
-        torque_term_mask(TorqueTerm::crank_friction);
-    const TorqueTermMask omitted_torque_terms =
-        known_torque_term_mask() & ~included_torque_terms;
     spec.torque_capability = builder.resolved(
         TorqueCapability{
             {
                 Availability::available,
-                Completeness::incomplete,
-                included_torque_terms,
-                omitted_torque_terms,
+                Completeness::complete,
+                known_torque_term_mask(),
+                0,
             },
             {
-                Availability::unavailable,
-                Completeness::incomplete,
-                0,
+                Availability::available,
+                Completeness::complete,
+                known_torque_term_mask(),
                 0,
             },
-            false,
+            true,
         },
         "engine.torque_capability");
     spec.provenance_schema_id = builder.provenance.schema_id;
@@ -634,7 +641,7 @@ inline PresentationCalibration make_presentation(InputBuilder &builder,
 inline RenderScenario make_scenario(InputBuilder &builder, const EngineSpec &engine) {
     RenderScenario scenario;
     scenario.schema_version = 1;
-    scenario.scenario_id = "prescribed-sweep-smoke";
+    scenario.scenario_id = "held-speed-smoke";
     scenario.engine_profile_id = engine.profile_id.value;
     scenario.ambient = {
         builder.resolved(101325.0, "scenario.ambient.pressure_pa_abs"),
@@ -656,16 +663,19 @@ inline RenderScenario make_scenario(InputBuilder &builder, const EngineSpec &eng
         builder.resolved(101325.0, "scenario.crankcase.pressure_pa_abs"),
         builder.resolved(293.15, "scenario.crankcase.temperature_k"),
     };
-    scenario.preparation = FixedSettling{
-        builder.resolved(1.0, "scenario.preparation.warm_up_duration_s"),
-        builder.resolved(1.0, "scenario.preparation.settling_duration_s"),
+    scenario.preparation = FixedHorizonCycleSampling{
+        builder.resolved(fixed_horizon_cycle_sampling_method_identity(),
+                         "scenario.preparation.method"),
+        builder.resolved(2.0, "scenario.preparation.fixed_preparation_horizon_s"),
+        builder.resolved<std::uint32_t>(
+            32, "scenario.preparation.trailing_complete_cycle_count"),
     };
     scenario.operating_state = builder.resolved(
         std::vector<OperatingStatePoint>{
             {
                 "fired",
                 0.0,
-                OperatingState{true, true, false, true, true},
+                OperatingState{true, true, false, true, false},
             },
         },
         "scenario.operating_state");
@@ -680,31 +690,10 @@ inline RenderScenario make_scenario(InputBuilder &builder, const EngineSpec &eng
                                         "scenario.quality");
     scenario.public_seed =
         builder.resolved<std::uint64_t>(12648430, "scenario.public_seed");
-    const auto physics_frame_count =
-        resolve_frame_index(scenario.total_duration_s.value, scenario.rates.physics);
-    expect(physics_frame_count == 30000U,
-           "default scenario duration did not resolve to 30000 physics frames");
-    FixedRateRpmTrajectory rpm{
-        scenario.rates.physics,
-        0,
-        RpmSampleSemantics::post_step_rpm,
-        std::vector<double>(static_cast<std::size_t>(*physics_frame_count), 3000.0),
-        {},
-        builder.add_resolution("scenario.mode.trajectory.rpm"),
-    };
-    rpm.samples_f64le_sha256 = canonical_binary64_le_sha256(rpm.post_step_rpm);
-    scenario.mode = PrescribedKinematicSweep{
-        {
-            std::move(rpm),
-            builder.resolved(0.0, "scenario.mode.trajectory.initial_theta_rad"),
-            builder.resolved(fixed_rate_rpm_method(),
-                             "scenario.mode.trajectory.kinematic_resolution"),
-        },
-        {
-            TrajectoryInterpolation::right_continuous_hold,
-            {{0.0, 0.85}},
-            builder.add_resolution("scenario.mode.throttle_01"),
-        },
+    scenario.mode = HeldSpeed{
+        builder.resolved(3000.0, "scenario.mode.engine_speed_rpm"),
+        builder.resolved(0.0, "scenario.mode.initial_theta_rad"),
+        builder.resolved(0.85, "scenario.mode.throttle_01"),
     };
     scenario.mode_resolution_id = builder.add_resolution("scenario.mode.kind");
     scenario.provenance_schema_id = builder.provenance.schema_id;

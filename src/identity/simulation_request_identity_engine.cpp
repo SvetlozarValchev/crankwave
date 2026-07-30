@@ -672,17 +672,6 @@ write_legacy_flame_speed_point(CanonicalJsonWriter &writer,
 }
 
 [[nodiscard]] bool
-write_legacy_fixed_crank_loss(CanonicalJsonWriter &writer,
-                              const contract::LegacyFixedCrankLossV1 &loss) {
-    return writer.begin_object() && writer.key("fixed_crank_friction_magnitude_nm") &&
-           write_resolved(writer, loss.fixed_crank_friction_magnitude_nm, write_f64) &&
-           writer.key("included_terms") &&
-           write_resolved(writer, loss.included_terms, write_u64) &&
-           writer.key("omitted_terms") &&
-           write_resolved(writer, loss.omitted_terms, write_u64) && writer.end_object();
-}
-
-[[nodiscard]] bool
 write_legacy_pressure_gains(CanonicalJsonWriter &writer,
                             const contract::LegacyExcitationPressureGains &gains) {
     return writer.begin_object() && writer.key("gauge_static") &&
@@ -774,18 +763,6 @@ write_low_order_engine_core(CanonicalJsonWriter &writer,
            write_legacy_ignition(writer, core.ignition) && writer.key("fuel") &&
            write_legacy_fuel(writer, core.fuel) && writer.key("excitation") &&
            write_legacy_excitation(writer, core.excitation) && writer.end_object();
-}
-
-[[nodiscard]] bool
-write_physics_profile_alternative(CanonicalJsonWriter &writer,
-                                  const contract::LegacyLowOrderV1Profile &profile) {
-    return writer.begin_object() && writer.key("kind") &&
-           writer.string_value("legacy_low_order_v1") && writer.key("value") &&
-           writer.begin_object() && writer.key("core") &&
-           write_low_order_engine_core(writer, profile.core) &&
-           writer.key("fixed_crank_loss") &&
-           write_legacy_fixed_crank_loss(writer, profile.fixed_crank_loss) &&
-           writer.end_object() && writer.end_object();
 }
 
 [[nodiscard]] bool write_chen_flynn_aggregate_loss(

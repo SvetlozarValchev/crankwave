@@ -1,5 +1,4 @@
-#include "engine_sim_offline/profiles/bmw_m52b28_parity_request.hpp"
-
+#include "authored_engine_fixture_support.hpp"
 #include "reference/reference_parity_v1_reader.hpp"
 #include "simulation/legacy_fixed_valvetrain.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
@@ -97,23 +96,66 @@ decode_fixture(const std::vector<std::byte> &bytes) {
     return std::move(*decoded);
 }
 
-[[nodiscard]] profiles::BmwM52b28ParityRequest
-make_request(const reference::DecodedReferenceParityV1 &fixture) {
+[[nodiscard]] test::AuthoredEngineFixture
+make_request(const test::AuthoredEngineFixture &canonical,
+             const reference::DecodedReferenceParityV1 &fixture) {
     std::vector<double> rpm;
     rpm.reserve(fixture.frames.size());
     for (const auto &frame : fixture.frames) {
         rpm.push_back(frame.engine_speed_rpm);
     }
 
-    auto result = profiles::make_bmw_m52b28_parity_request(std::move(rpm));
-    auto *request = std::get_if<profiles::BmwM52b28ParityRequest>(&result);
-    expect(request != nullptr,
-           "decoded RPM lane did not construct the canonical BMW request");
-    return std::move(*request);
+    auto request = test::make_prescribed_fixture(canonical, std::move(rpm));
+    auto &scenario = request.scenario;
+    scenario.scenario_id = "bmw-m52b28-reference-pull-v1";
+    scenario.preparation = contract::FixedSettling{
+        {1.0, "authored-fixture.parity.warm-up"},
+        {1.0, "authored-fixture.parity.settling"},
+    };
+    scenario.operating_state = {
+        {
+            {
+                "direction-acquisition",
+                0.0,
+                {false, true, true, false, true},
+            },
+            {
+                "direction-lock",
+                0.8,
+                {false, true, true, true, true},
+            },
+            {
+                "ignition-handoff",
+                0.9,
+                {true, true, false, true, true},
+            },
+        },
+        "authored-fixture.parity.operating-state",
+    };
+    scenario.total_duration_s.value = 17.0;
+    scenario.audible_start_s.value = 2.0;
+    scenario.audible_duration_s.value = 15.0;
+    scenario.quality.value = {
+        "legacy-low-order-parity-v1",
+        1,
+        200,
+        3800,
+    };
+    auto &sweep = std::get<contract::PrescribedKinematicSweep>(scenario.mode);
+    sweep.throttle_01 = {
+        contract::TrajectoryInterpolation::right_continuous_hold,
+        {
+            {0.0, 0.18},
+            {0.9, 0.12},
+            {1.0, 0.85},
+        },
+        "authored-fixture.parity.throttle",
+    };
+    return request;
 }
 
 [[nodiscard]] simulation::LegacyLowOrderMechanicsSession
-compile_session(const profiles::BmwM52b28ParityRequest &request) {
+compile_session(const test::AuthoredEngineFixture &request) {
     auto schedule_result =
         simulation::compile_kinematic_scenario_schedule(request.scenario);
     if (const auto *report =
@@ -127,9 +169,7 @@ compile_session(const profiles::BmwM52b28ParityRequest &request) {
     }
     const auto &schedule =
         std::get<simulation::KinematicScenarioSchedule>(schedule_result);
-    const auto &core =
-        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
-            .core;
+    const auto &core = test::low_order_core(request.engine);
     auto result =
         simulation::detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
             request.engine, core, request.scenario, schedule);
@@ -145,11 +185,9 @@ compile_session(const profiles::BmwM52b28ParityRequest &request) {
 }
 
 [[nodiscard]] simulation::LegacyFixedValvetrain
-compile_valvetrain(const profiles::BmwM52b28ParityRequest &request) {
-    const auto &profile =
-        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile);
-    auto result =
-        simulation::compile_legacy_fixed_valvetrain(request.engine, profile.core);
+compile_valvetrain(const test::AuthoredEngineFixture &request) {
+    auto result = simulation::compile_legacy_fixed_valvetrain(
+        request.engine, test::low_order_core(request.engine));
     if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
         std::ostringstream message;
         message << "canonical BMW valvetrain request failed to compile";
@@ -231,10 +269,8 @@ void verify_compiled_bmw_geometry(
     }
 }
 
-void verify_compiled_bmw_valvetrain(
-    const simulation::LegacyFixedValvetrain &valvetrain) {
-    constexpr std::array<std::uint32_t, 6> intake_ports{1, 3, 5, 7, 9, 11};
-    constexpr std::array<std::uint32_t, 6> exhaust_ports{2, 4, 6, 8, 10, 12};
+void verify_compiled_bmw_valvetrain(const simulation::LegacyFixedValvetrain &valvetrain,
+                                    const contract::LowOrderEngineCoreV1 &core) {
     constexpr std::array<double, 6> intake_stored_centers{
         0x1.067f5d701d783p+2, 0x1.094a40797a610p+3, 0x1.8c89ef31891d1p+2,
         0x1.2acce4e9d54a3p+3, 0x1.4984a650d34aap+2, 0x1.cf8f38123eef8p+2,
@@ -245,14 +281,15 @@ void verify_compiled_bmw_valvetrain(
     };
 
     const auto bindings = valvetrain.cylinder_bindings();
-    expect(bindings.size() == intake_ports.size(),
+    expect(bindings.size() == core.mechanism.cylinders.size() &&
+               bindings.size() == intake_stored_centers.size(),
            "compiled BMW valvetrain has the wrong cylinder count");
     for (std::size_t index = 0; index < bindings.size(); ++index) {
         const auto &binding = bindings[index];
-        expect(binding.cylinder_id ==
-                       contract::CylinderId{static_cast<std::uint32_t>(index + 1U)} &&
-                   binding.intake_port_id == contract::PortId{intake_ports[index]} &&
-                   binding.exhaust_port_id == contract::PortId{exhaust_ports[index]},
+        const auto &topology = core.mechanism.cylinders[index].topology;
+        expect(binding.cylinder_id == topology.cylinder_id &&
+                   binding.intake_port_id == topology.intake_port_id &&
+                   binding.exhaust_port_id == topology.exhaust_port_id,
                "compiled BMW valve identity, order, or port binding changed");
         expect(same_binary64(binding.intake_stored_lobe_angle_rad,
                              intake_stored_centers[index]) &&
@@ -629,18 +666,17 @@ void verify_frame(const simulation::LegacyMechanismStep &step,
 }
 
 void test_full_bmw_mechanics_parity(const reference::DecodedReferenceParityV1 &fixture,
-                                    const profiles::BmwM52b28ParityRequest &request) {
+                                    const test::AuthoredEngineFixture &request) {
     expect(fixture.frames.size() == reference::kReferenceParityV1RecordCount,
            "frozen BMW fixture frame count changed");
-    const auto &profile =
-        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile);
+    const auto &core = test::low_order_core(request.engine);
     auto session = compile_session(request);
     const auto valvetrain = compile_valvetrain(request);
     const auto models = session.cylinder_models();
     expect(models.size() == reference::kReferenceParityV1CylinderCount,
            "compiled BMW mechanics model count changed");
     verify_compiled_bmw_geometry(models);
-    verify_compiled_bmw_valvetrain(valvetrain);
+    verify_compiled_bmw_valvetrain(valvetrain, core);
 
     const auto &sweep =
         std::get<contract::PrescribedKinematicSweep>(request.scenario.mode);
@@ -664,7 +700,7 @@ void test_full_bmw_mechanics_parity(const reference::DecodedReferenceParityV1 &f
             }
             fail_frame(frame.sample_index, "mechanics completed before fixture end");
         }
-        verify_frame(step->get(), frame, fixture, profile.core.ignition, models,
+        verify_frame(step->get(), frame, fixture, core.ignition, models,
                      previous_theta_cycle_rad, spark_sequence, maximum_angle_error_rad);
         verify_valvetrain_step(valvetrain, step->get(), valve_coverage);
         previous_theta_cycle_rad = step->get().theta_cycle_rad;
@@ -704,11 +740,12 @@ void test_full_bmw_mechanics_parity(const reference::DecodedReferenceParityV1 &f
 
 int main(int argc, char **argv) {
     try {
-        expect(argc == 2,
-               "usage: bmw_m52b28_mechanics_parity_test <reference-parity.bin>");
-        const auto bytes = read_exact_fixture(argv[1]);
+        expect(argc == 3, "usage: bmw_m52b28_mechanics_parity_test <repository-root> "
+                          "<reference-parity.bin>");
+        const auto canonical = test::load_canonical_authored_engine_fixture(argv[1]);
+        const auto bytes = read_exact_fixture(argv[2]);
         const auto fixture = decode_fixture(bytes);
-        const auto request = make_request(fixture);
+        const auto request = make_request(canonical, fixture);
         test_full_bmw_mechanics_parity(fixture, request);
     } catch (const std::exception &error) {
         std::cerr << "BMW M52B28 mechanics parity test failure: " << error.what()

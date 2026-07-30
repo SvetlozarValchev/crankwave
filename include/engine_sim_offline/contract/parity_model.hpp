@@ -504,40 +504,6 @@ struct LowOrderEngineCoreV1 {
                            const LowOrderEngineCoreV1 &) = default;
 };
 
-struct AuthoredLegacyFixedCrankLossV1 {
-    AuthoredValue<double> fixed_crank_friction_magnitude_nm;
-    AuthoredValue<TorqueTermMask> included_terms;
-    AuthoredValue<TorqueTermMask> omitted_terms;
-
-    friend bool operator==(const AuthoredLegacyFixedCrankLossV1 &,
-                           const AuthoredLegacyFixedCrankLossV1 &) = default;
-};
-
-struct LegacyFixedCrankLossV1 {
-    ResolvedValue<double> fixed_crank_friction_magnitude_nm;
-    ResolvedValue<TorqueTermMask> included_terms;
-    ResolvedValue<TorqueTermMask> omitted_terms;
-
-    friend bool operator==(const LegacyFixedCrankLossV1 &,
-                           const LegacyFixedCrankLossV1 &) = default;
-};
-
-struct AuthoredLegacyLowOrderV1Profile {
-    AuthoredLowOrderEngineCoreV1 core;
-    AuthoredLegacyFixedCrankLossV1 fixed_crank_loss;
-
-    friend bool operator==(const AuthoredLegacyLowOrderV1Profile &,
-                           const AuthoredLegacyLowOrderV1Profile &) = default;
-};
-
-struct LegacyLowOrderV1Profile {
-    LowOrderEngineCoreV1 core;
-    LegacyFixedCrankLossV1 fixed_crank_loss;
-
-    friend bool operator==(const LegacyLowOrderV1Profile &,
-                           const LegacyLowOrderV1Profile &) = default;
-};
-
 struct AuthoredChenFlynnCycleMeanAggregateLossV1 {
     AuthoredValue<double> constant_fmep_bar;
     AuthoredValue<double> peak_pressure_coefficient;
@@ -617,10 +583,8 @@ struct LowOrderOperatingPointV1Profile {
 };
 
 using AuthoredExecutablePhysicsProfile =
-    std::variant<AuthoredLegacyLowOrderV1Profile,
-                 AuthoredLowOrderOperatingPointV1Profile>;
-using ExecutablePhysicsProfile =
-    std::variant<LegacyLowOrderV1Profile, LowOrderOperatingPointV1Profile>;
+    std::variant<AuthoredLowOrderOperatingPointV1Profile>;
+using ExecutablePhysicsProfile = std::variant<LowOrderOperatingPointV1Profile>;
 
 [[nodiscard]] ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                                         const ProvenanceLedger &provenance);

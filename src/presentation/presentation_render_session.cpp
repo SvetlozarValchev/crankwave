@@ -280,13 +280,11 @@ void validate_plan(const PresentationRenderPlan &plan) {
 
     const auto raw_bus = std::ranges::find_if(
         plan.output_contract.required_output_buses, [](const auto &bus) {
-            return bus.kind == contract::OutputBusKind::master_engine_raw ||
-                   bus.kind == contract::OutputBusKind::master_reference_raw;
+            return bus.kind == contract::OutputBusKind::master_engine_raw;
         });
     const auto audition_bus = std::ranges::find_if(
         plan.output_contract.required_output_buses, [](const auto &bus) {
-            return bus.kind == contract::OutputBusKind::master_engine_audition ||
-                   bus.kind == contract::OutputBusKind::master_reference_audition;
+            return bus.kind == contract::OutputBusKind::master_engine_audition;
         });
     if (raw_bus == plan.output_contract.required_output_buses.end() ||
         audition_bus == plan.output_contract.required_output_buses.end() ||
@@ -786,8 +784,7 @@ class PresentationRenderSession::Implementation final {
     std::array<artifacts::WavChunkConsumer, kPresentationAudioArtifactCount> consumers_;
     std::optional<execution::LinuxExecutionFactsObservation> execution_observation_;
     PresentationRenderStats stats_;
-    std::optional<std::array<contract::ArtifactRecord,
-                             kPresentationAudioArtifactCount>>
+    std::optional<std::array<contract::ArtifactRecord, kPresentationAudioArtifactCount>>
         sealed_artifacts_;
     std::optional<contract::ExecutionFacts> sealed_execution_;
     std::optional<RenderSinkError> pending_sink_error_;

@@ -100,8 +100,6 @@ bool valid_output_bus_kind(OutputBusKind kind) {
     switch (kind) {
     case OutputBusKind::master_engine_raw:
     case OutputBusKind::master_engine_audition:
-    case OutputBusKind::master_reference_raw:
-    case OutputBusKind::master_reference_audition:
         return true;
     case OutputBusKind::unspecified:
         return false;
@@ -328,14 +326,6 @@ ValidationReport validate_render_admission(const EngineSpec &engine,
     auto random_plan = compile_random_plan(randomness, engine, presentation, scenario);
     if (auto *plan_report = std::get_if<ValidationReport>(&random_plan)) {
         append_prefixed(report, std::move(*plan_report), "random_plan");
-    }
-
-    const auto &bmw_baseline = bmw_m52b28_reference_source_matrix_v1();
-    if (source_matrix.id == bmw_baseline.id) {
-        require(report, source_matrix == bmw_baseline,
-                ContractIssueCode::inconsistent_semantics, "source_matrix",
-                "the built-in BMW baseline matrix must exactly match its approved "
-                "contract");
     }
 
     const auto expected_frames =

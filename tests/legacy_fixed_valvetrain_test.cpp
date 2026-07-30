@@ -38,15 +38,16 @@ constexpr double kExpectedExhaustKAt105CrankDegrees = 0.001214419956248241;
     return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
 
-[[nodiscard]] LegacyLowOrderV1Profile &legacy_profile(EngineSpec &engine) {
-    auto *profile = std::get_if<LegacyLowOrderV1Profile>(&engine.physics_profile);
-    expect(profile != nullptr, "test engine lost its legacy profile");
+[[nodiscard]] LowOrderOperatingPointV1Profile &operating_profile(EngineSpec &engine) {
+    auto *profile =
+        std::get_if<LowOrderOperatingPointV1Profile>(&engine.physics_profile);
+    expect(profile != nullptr, "test engine lost its operating-point profile");
     return *profile;
 }
 
 [[nodiscard]] LegacyFixedValvetrainCompileResult
 compile_fixture_valvetrain(EngineSpec &engine) {
-    return compile_legacy_fixed_valvetrain(engine, legacy_profile(engine).core);
+    return compile_legacy_fixed_valvetrain(engine, operating_profile(engine).core);
 }
 
 [[nodiscard]] double resolved_flow_k(double source_cfm) {
@@ -94,7 +95,7 @@ struct ValvetrainFixture {
     EngineSpec engine;
 
     ValvetrainFixture() : engine(make_engine(builder)) {
-        auto &profile = legacy_profile(engine);
+        auto &profile = operating_profile(engine);
         auto configure_shape = [](LegacyCamShape &shape) {
             const double centimetre_source = 1.0 / 100.0;
             const double inch_source = centimetre_source * 2.54;
@@ -181,7 +182,7 @@ require_valvetrain(LegacyFixedValvetrainCompileResult result) {
 template <class Mutation>
 void expect_compile_rejected(Mutation mutation, std::string_view expected_path) {
     ValvetrainFixture fixture;
-    mutation(fixture.engine, legacy_profile(fixture.engine));
+    mutation(fixture.engine, operating_profile(fixture.engine));
     auto result = compile_fixture_valvetrain(fixture.engine);
     const auto *report = std::get_if<ValidationReport>(&result);
     if (report == nullptr) {
@@ -202,7 +203,7 @@ void expect_compile_rejected(Mutation mutation, std::string_view expected_path) 
 
 void test_exact_lobe_construction_and_bindings() {
     ValvetrainFixture fixture;
-    const auto &profile = legacy_profile(fixture.engine);
+    const auto &profile = operating_profile(fixture.engine);
     auto valvetrain = require_valvetrain(compile_fixture_valvetrain(fixture.engine));
 
     const auto intake = valvetrain.intake_lobe_table();
@@ -366,23 +367,23 @@ void test_sampling_goldens_wrap_and_span_contract() {
 
 void test_focused_admission_failures() {
     expect_compile_rejected(
-        [](EngineSpec &engine, LegacyLowOrderV1Profile &) {
+        [](EngineSpec &engine, LowOrderOperatingPointV1Profile &) {
             engine.methods.valvetrain.value.id = "unsupported-valvetrain";
         },
         "engine.methods.valvetrain");
     expect_compile_rejected(
-        [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             profile.core.valvetrain.intake.lobes[0].cylinder_id =
                 profile.core.valvetrain.intake.lobes[1].cylinder_id;
         },
         "valvetrain.intake.lobes");
     expect_compile_rejected(
-        [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             profile.core.valvetrain.exhaust.lobes.pop_back();
         },
         "valvetrain.exhaust.lobes");
     expect_compile_rejected(
-        [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             auto &cylinder_one = *std::find_if(
                 profile.core.valvetrain.intake.lobes.begin(),
                 profile.core.valvetrain.intake.lobes.end(),
@@ -391,34 +392,34 @@ void test_focused_admission_failures() {
         },
         "valvetrain.intake.lobes");
     expect_compile_rejected(
-        [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             profile.core.gas_path.head.intake_flow[1].lift_m.value =
                 profile.core.gas_path.head.intake_flow[0].lift_m.value;
         },
         "gas_path.head.intake_flow");
     expect_compile_rejected(
-        [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             profile.core.gas_path.head.exhaust_flow.resize(1);
         },
         "gas_path.head.exhaust_flow");
     expect_compile_rejected(
-        [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             profile.core.valvetrain.intake.shape.advance_rad.value =
                 std::numeric_limits<double>::quiet_NaN();
         },
         "valvetrain.intake.shape");
     expect_compile_rejected(
-        [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             profile.core.valvetrain.intake.shape.construction_steps.value = 5;
         },
         "valvetrain.intake.shape");
     expect_compile_rejected(
-        [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             profile.core.valvetrain.intake.shape.maximum_lift_m.value = 0.0005;
         },
         "valvetrain.intake.shape");
     expect_compile_rejected(
-        [](EngineSpec &, LegacyLowOrderV1Profile &profile) {
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             profile.core.valvetrain.exhaust.shape.duration_at_reference_lift_rad.value =
                 std::numeric_limits<double>::denorm_min();
         },

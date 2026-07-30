@@ -1,5 +1,5 @@
+#include "authored_engine_fixture_support.hpp"
 #include "excitation/captured_exhaust_excitation.hpp"
-#include "profiles/bmw_m52b28_profile_internal.hpp"
 
 #include <algorithm>
 #include <array>
@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <filesystem>
 #include <iostream>
 #include <limits>
 #include <optional>
@@ -51,14 +52,10 @@ void expect_same_bits(double actual, double expected, std::string_view message) 
     }
 }
 
-[[nodiscard]] profiles::BmwM52b28ParityRequest make_request() {
-    return profiles::detail::build_bmw_m52b28_parity_request_unvalidated({});
-}
-
 [[nodiscard]] CapturedExhaustExcitationCompileResult
 compile_fixture_session(const EngineSpec &engine) {
-    const auto &core = std::get<LegacyLowOrderV1Profile>(engine.physics_profile).core;
-    return compile_captured_exhaust_excitation_session(engine, core);
+    return compile_captured_exhaust_excitation_session(engine,
+                                                       test::low_order_core(engine));
 }
 
 [[nodiscard]] CapturedExhaustExcitationSession
@@ -357,14 +354,13 @@ void expect_equal_block(const PublishedBlockCopy &actual,
     }
 }
 
-void test_exact_arithmetic_delay_routes_and_continuity() {
-    const auto request = make_request();
-    SyntheticCaptureBlock block_0{request.engine, 0U};
-    SyntheticCaptureBlock block_1{request.engine, kFrames};
+void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine) {
+    SyntheticCaptureBlock block_0{engine, 0U};
+    SyntheticCaptureBlock block_1{engine, kFrames};
     block_0.fill_distinct_excitation();
     block_1.fill_distinct_excitation();
 
-    auto session = require_session(compile_fixture_session(request.engine));
+    auto session = require_session(compile_fixture_session(engine));
     const auto actual_0 = publish(session, block_0.view(), 0U);
     const auto actual_1 = publish(session, block_1.view(), 1U);
 
@@ -433,15 +429,14 @@ void test_exact_arithmetic_delay_routes_and_continuity() {
            "two-block excitation session progress changed");
 }
 
-void test_independent_sessions_are_bit_deterministic() {
-    const auto request = make_request();
-    SyntheticCaptureBlock block_0{request.engine, 0U};
-    SyntheticCaptureBlock block_1{request.engine, kFrames};
+void test_independent_sessions_are_bit_deterministic(const EngineSpec &engine) {
+    SyntheticCaptureBlock block_0{engine, 0U};
+    SyntheticCaptureBlock block_1{engine, kFrames};
     block_0.fill_distinct_excitation();
     block_1.fill_distinct_excitation();
 
-    auto first = require_session(compile_fixture_session(request.engine));
-    auto second = require_session(compile_fixture_session(request.engine));
+    auto first = require_session(compile_fixture_session(engine));
+    auto second = require_session(compile_fixture_session(engine));
     const auto first_0 = publish(first, block_0.view(), 0U);
     const auto second_0 = publish(second, block_0.view(), 0U);
     const auto first_1 = publish(first, block_1.view(), 1U);
@@ -460,14 +455,14 @@ require_fault(const CapturedExhaustExcitationProcessResult &result,
     return *failure;
 }
 
-void test_complete_prevalidation_is_terminal_and_does_not_advance() {
-    const auto request = make_request();
-    SyntheticCaptureBlock malformed{request.engine, 0U};
+void test_complete_prevalidation_is_terminal_and_does_not_advance(
+    const EngineSpec &engine) {
+    SyntheticCaptureBlock malformed{engine, 0U};
     malformed.fill_distinct_excitation();
     malformed.parity_cylinders().back().dynamic_pressure_reverse_pa =
         std::numeric_limits<double>::quiet_NaN();
 
-    auto session = require_session(compile_fixture_session(request.engine));
+    auto session = require_session(compile_fixture_session(engine));
     std::size_t callbacks = 0U;
     const auto first = session.process_block(
         malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
@@ -498,13 +493,12 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance() {
            "prevalidation failure was not stable and state-preserving");
 }
 
-void test_consumer_rejection_and_exception_are_terminal() {
-    const auto request = make_request();
-    SyntheticCaptureBlock block{request.engine, 0U};
+void test_consumer_rejection_and_exception_are_terminal(const EngineSpec &engine) {
+    SyntheticCaptureBlock block{engine, 0U};
     block.fill_distinct_excitation();
 
     {
-        auto session = require_session(compile_fixture_session(request.engine));
+        auto session = require_session(compile_fixture_session(engine));
         std::size_t callbacks = 0U;
         const auto rejected = session.process_block(
             block.view(), [&](const presentation::ExhaustExcitationBlockView &,
@@ -530,7 +524,7 @@ void test_consumer_rejection_and_exception_are_terminal() {
     }
 
     {
-        auto session = require_session(compile_fixture_session(request.engine));
+        auto session = require_session(compile_fixture_session(engine));
         std::size_t callbacks = 0U;
         const auto thrown = session.process_block(
             block.view(),
@@ -557,11 +551,11 @@ void test_consumer_rejection_and_exception_are_terminal() {
     }
 }
 
-void test_reentrant_callback_preserves_outer_views_and_faults() {
-    const auto request = make_request();
-    SyntheticCaptureBlock block{request.engine, 0U};
+void test_reentrant_callback_preserves_outer_views_and_faults(
+    const EngineSpec &engine) {
+    SyntheticCaptureBlock block{engine, 0U};
     block.fill_distinct_excitation();
-    auto session = require_session(compile_fixture_session(request.engine));
+    auto session = require_session(compile_fixture_session(engine));
 
     std::size_t outer_callbacks = 0U;
     std::size_t nested_callbacks = 0U;
@@ -612,48 +606,49 @@ void expect_compile_rejected(EngineSpec engine, std::string_view mutation) {
            std::string{mutation} + " was admitted by the excitation compiler");
 }
 
-void test_compile_rejects_method_profile_rate_and_layout_drift() {
-    const auto request = make_request();
+void test_compile_rejects_method_profile_rate_and_layout_drift(
+    const EngineSpec &canonical_engine) {
     {
-        auto engine = request.engine;
+        auto engine = canonical_engine;
         engine.methods.excitation.value.configuration_sha256.bytes[0] ^= 0x01U;
         expect_compile_rejected(std::move(engine),
                                 "drifted excitation method configuration");
     }
     {
-        auto engine = request.engine;
-        auto &profile = std::get<LegacyLowOrderV1Profile>(engine.physics_profile);
-        profile.core.excitation.cylinder_count_divisor.value = 5.0;
+        auto engine = canonical_engine;
+        test::low_order_core(engine).excitation.cylinder_count_divisor.value = 5.0;
         expect_compile_rejected(std::move(engine), "drifted excitation profile");
     }
     {
-        auto engine = request.engine;
-        auto &profile = std::get<LegacyLowOrderV1Profile>(engine.physics_profile);
-        profile.core.excitation.delay_rate.value = {9999, 1};
+        auto engine = canonical_engine;
+        test::low_order_core(engine).excitation.delay_rate.value = {9999, 1};
         expect_compile_rejected(std::move(engine), "drifted excitation rate");
     }
     {
-        auto engine = request.engine;
+        auto engine = canonical_engine;
         std::swap(engine.cylinders[0], engine.cylinders[1]);
         expect_compile_rejected(std::move(engine),
                                 "drifted same-shape cylinder layout");
     }
 }
 
-void run_tests() {
-    test_exact_arithmetic_delay_routes_and_continuity();
-    test_independent_sessions_are_bit_deterministic();
-    test_complete_prevalidation_is_terminal_and_does_not_advance();
-    test_consumer_rejection_and_exception_are_terminal();
-    test_reentrant_callback_preserves_outer_views_and_faults();
-    test_compile_rejects_method_profile_rate_and_layout_drift();
+void run_tests(const std::filesystem::path &repository_root) {
+    const auto fixture = test::load_canonical_authored_engine_fixture(repository_root);
+    test_exact_arithmetic_delay_routes_and_continuity(fixture.engine);
+    test_independent_sessions_are_bit_deterministic(fixture.engine);
+    test_complete_prevalidation_is_terminal_and_does_not_advance(fixture.engine);
+    test_consumer_rejection_and_exception_are_terminal(fixture.engine);
+    test_reentrant_callback_preserves_outer_views_and_faults(fixture.engine);
+    test_compile_rejects_method_profile_rate_and_layout_drift(fixture.engine);
 }
 
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
     try {
-        run_tests();
+        expect(argc == 2, "usage: legacy_low_order_exhaust_excitation_test "
+                          "<repository-root>");
+        run_tests(argv[1]);
     } catch (const std::exception &error) {
         std::cerr << "legacy low-order exhaust excitation test failed: " << error.what()
                   << '\n';

@@ -134,13 +134,12 @@ void require_authored_legacy_low_order_method(
 void require_authored_chen_flynn_aggregate_loss_method(
     ValidationReport &report, const AuthoredValue<MethodSelection> &method,
     std::string_view path) {
-    detail::require(
-        report,
-        method.value.id == "chen-flynn-cycle-mean-aggregate-loss-v1" &&
-            method.value.version == 1,
-        ContractIssueCode::unsupported_value, std::string(path) + ".value",
-        "operating-point loss accounting requires "
-        "chen-flynn-cycle-mean-aggregate-loss-v1 version 1");
+    detail::require(report,
+                    method.value.id == "chen-flynn-cycle-mean-aggregate-loss-v1" &&
+                        method.value.version == 1,
+                    ContractIssueCode::unsupported_value, std::string(path) + ".value",
+                    "operating-point loss accounting requires "
+                    "chen-flynn-cycle-mean-aggregate-loss-v1 version 1");
 }
 
 void validate_authored_low_order_core_method_policy(
@@ -161,20 +160,12 @@ void validate_authored_low_order_core_method_policy(
                                              "engine.methods.excitation");
 }
 
-void validate_authored_profile_method_policy(ValidationReport &report,
-                                             const AuthoredModelMethods &methods,
-                                             const AuthoredLegacyLowOrderV1Profile &) {
-    validate_authored_low_order_core_method_policy(report, methods);
-    require_authored_legacy_low_order_method(report, methods.losses,
-                                             "engine.methods.losses");
-}
-
 void validate_authored_profile_method_policy(
     ValidationReport &report, const AuthoredModelMethods &methods,
     const AuthoredLowOrderOperatingPointV1Profile &) {
     validate_authored_low_order_core_method_policy(report, methods);
     require_authored_chen_flynn_aggregate_loss_method(report, methods.losses,
-                                                     "engine.methods.losses");
+                                                      "engine.methods.losses");
 }
 
 template <class Id, class ParentFunction>
@@ -387,8 +378,7 @@ void validate_authored_low_order_core_topology(
         intake_topology.plenum_volume_id.value, intake_path + ".idle_bypass_edge_id",
         "legacy idle-bypass edge");
 
-    for (std::size_t index = 0; index < core.gas_path.exhaust_routes.size();
-         ++index) {
+    for (std::size_t index = 0; index < core.gas_path.exhaust_routes.size(); ++index) {
         const auto &exhaust = core.gas_path.exhaust_routes[index];
         const auto path = std::string(physics_root) + ".gas_path.exhaust_routes[" +
                           std::to_string(index) + "].topology";
@@ -1046,11 +1036,11 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
             ContractIssueCode::inconsistent_semantics, "engine.routes",
             "source-route parent graph must be acyclic");
 
-    for_each_authored_method(definition.methods, [&](const auto &method,
-                                                     const std::string &path) {
-        validate_authored(report, method, definition.provenance, path);
-        validate_selection(report, method.value, path + ".value");
-    });
+    for_each_authored_method(
+        definition.methods, [&](const auto &method, const std::string &path) {
+            validate_authored(report, method, definition.provenance, path);
+            validate_selection(report, method.value, path + ".value");
+        });
     std::visit(
         [&](const auto &profile) {
             validate_authored_profile_method_policy(report, definition.methods,

@@ -1,11 +1,12 @@
+#include "authored_engine_fixture_support.hpp"
 #include "engine_sim_offline/contract.hpp"
-#include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
 #include "engine_sim_offline/request_identity.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
 #include <iostream>
 #include <limits>
 #include <numbers>
@@ -27,7 +28,6 @@ constexpr double kStepSeconds = 1.0 / 10000.0;
 constexpr double kHeldRpm = 3000.0;
 constexpr double kFixedPreparationHorizonS = 0.22;
 constexpr std::uint32_t kTrailingCompleteCycleCount = 2;
-constexpr double kBmwM52b28StoichiometricMassAfr = 14.484999999999998;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -195,16 +195,11 @@ Sha256Digest request_identity(const EngineSpec &engine, const RenderScenario &sc
     return encoding->sha256;
 }
 
-Fixture fixture() {
-    auto profile_result = profiles::make_bmw_m52b28_operating_profile();
-    const auto *canonical_profile =
-        std::get_if<profiles::BmwM52b28OperatingProfile>(&profile_result);
-    expect(canonical_profile != nullptr,
-           "canonical BMW operating profile construction failed");
-
-    auto engine = canonical_profile->engine;
-    const auto &operating_profile =
-        std::get<LowOrderOperatingPointV1Profile>(engine.physics_profile);
+Fixture fixture(const std::filesystem::path &repository_root) {
+    const auto canonical =
+        test::load_canonical_authored_engine_fixture(repository_root);
+    auto engine = canonical.engine;
+    const auto &operating_profile = test::operating_profile(engine);
     const double cycle_reference_theta_rad =
         operating_profile.core.mechanism.crank.crank_tdc_reference_rad.value;
 
@@ -221,7 +216,8 @@ Fixture fixture() {
         resolved(operating_profile.core.fuel.fuel_id.value, "result-test-fuel-id"),
         resolved(operating_profile.core.fuel.energy_density_j_per_kg.value,
                  "result-test-fuel-lhv"),
-        resolved(kBmwM52b28StoichiometricMassAfr, "result-test-fuel-afr"),
+        resolved(canonical.scenario.fuel.stoichiometric_air_fuel_mass_ratio.value,
+                 "result-test-fuel-afr"),
     };
     scenario.initial_thermal_state = {
         resolved(350.0, "result-test-gas-temperature"),
@@ -290,7 +286,7 @@ Fixture fixture() {
         sample.brake_work_j /
         (static_cast<double>(kTrailingCompleteCycleCount) * displacement_m3);
 
-    const auto provenance_bundle = canonical_profile->provenance.bundle;
+    const auto provenance_bundle = canonical.provenance_bundle;
     const auto identity = request_identity(engine, scenario, provenance_bundle);
 
     HeldSpeedOperatingPointConditions conditions{
@@ -347,8 +343,8 @@ Fixture fixture() {
     };
 }
 
-void run_tests() {
-    const auto valid = fixture();
+void run_tests(const std::filesystem::path &repository_root) {
+    const auto valid = fixture(repository_root);
 
     expect(validate(valid.result).ok(),
            "valid held-speed operating-point evidence was rejected");
@@ -513,9 +509,11 @@ void run_tests() {
 
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
     try {
-        run_tests();
+        expect(argc == 2,
+               "usage: held_speed_operating_point_result_test <repository-root>");
+        run_tests(argv[1]);
     } catch (const std::exception &error) {
         std::cerr << "Held-speed operating-point result failure: " << error.what()
                   << '\n';

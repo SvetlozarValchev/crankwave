@@ -1,11 +1,9 @@
-#include "contract_test_support.hpp"
+#include "authored_engine_fixture_support.hpp"
 #include "engine_sim_offline/artifacts/telemetry_encoder.hpp"
-#include "engine_sim_offline/profiles/bmw_m52b28_inertial_dyno_listening_request.hpp"
-#include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
-#include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
+#include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_capture_session.hpp"
 #include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
@@ -14,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <filesystem>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -30,7 +29,6 @@
 namespace {
 
 using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::profiles;
 using namespace engine_sim_offline::simulation;
 using engine_sim_offline::artifacts::make_telemetry_encoder;
 using engine_sim_offline::artifacts::TelemetryEncoder;
@@ -39,14 +37,11 @@ using engine_sim_offline::artifacts::TelemetryStreamDescriptor;
 using CoreRuntimeFactory =
     engine_sim_offline::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
 
-inline constexpr std::size_t kShortRunStepCount = 1201U;
-inline constexpr double kShortRunRpm = 2400.0;
-inline constexpr double kShortRunDurationS =
-    static_cast<double>(kShortRunStepCount) / 10000.0;
 inline constexpr double kOuterStepS = 1.0 / 10000.0;
 inline constexpr double kOperatingHeldRpm = 3000.0;
 inline constexpr double kOperatingCutoffTimeS = 0.22;
 inline constexpr double kOperatingTotalDurationS = 0.3;
+inline constexpr std::size_t kOperatingStepCount = 3000U;
 inline constexpr std::uint32_t kOperatingCyclesPerBlock = 2U;
 inline constexpr CaptureValidityMask kMechanism =
     capture_validity_mask(CaptureValidity::mechanism);
@@ -120,94 +115,35 @@ encode_capture_block(const CaptureBlockView &block) {
     return bytes;
 }
 
-[[nodiscard]] PrescribedKinematicSweep &prescribed_sweep(RenderScenario &scenario) {
-    auto *sweep = std::get_if<PrescribedKinematicSweep>(&scenario.mode);
-    expect(sweep != nullptr, "short BMW scenario lost its prescribed sweep");
-    return *sweep;
-}
-
-[[nodiscard]] FixedRateRpmTrajectory &fixed_rpm(RenderScenario &scenario) {
-    auto &sweep = prescribed_sweep(scenario);
-    auto *rpm = std::get_if<FixedRateRpmTrajectory>(&sweep.trajectory.rpm);
-    expect(rpm != nullptr, "short BMW scenario lost its fixed-rate RPM lane");
-    return *rpm;
-}
-
-[[nodiscard]] BmwM52b28ParityRequest make_short_bmw_request() {
-    std::vector<double> rpm(kShortRunStepCount, kShortRunRpm);
-    auto request = engine_sim_offline::profiles::detail::
-        build_bmw_m52b28_parity_request_unvalidated(std::move(rpm));
-
-    request.scenario.scenario_id = "bmw-m52b28-short-capture-integration";
-    request.scenario.total_duration_s.value = kShortRunDurationS;
-    request.scenario.audible_start_s.value = 0.0;
-    request.scenario.audible_duration_s.value = kShortRunDurationS;
-    auto *preparation = std::get_if<FixedSettling>(&request.scenario.preparation);
-    expect(preparation != nullptr,
-           "short BMW scenario lost its fixed preparation policy");
-    preparation->warm_up_duration_s.value = 0.0;
-    preparation->settling_duration_s.value = 0.0;
-    request.scenario.operating_state.value = {
-        {
-            "short-run-fired",
-            0.0,
-            {true, true, false, true, true},
-        },
-    };
-
-    auto &sweep = prescribed_sweep(request.scenario);
-    sweep.throttle_01.points = {{0.0, 0.85}};
-    auto &trajectory = fixed_rpm(request.scenario);
-    trajectory.samples_f64le_sha256 =
-        canonical_binary64_le_sha256(trajectory.post_step_rpm);
-    return request;
-}
-
 [[nodiscard]] Sha256Digest nonzero_request_identity() {
     Sha256Digest identity;
     identity.bytes.back() = 1U;
     return identity;
 }
 
-struct OperatingCaptureRequest {
-    EngineSpec engine;
-    RenderScenario scenario;
-    Sha256Digest request_identity;
-};
-
-[[nodiscard]] OperatingCaptureRequest make_operating_capture_request() {
-    auto profile_result = make_bmw_m52b28_operating_profile();
-    const auto *canonical = std::get_if<BmwM52b28OperatingProfile>(&profile_result);
-    if (canonical == nullptr) {
-        fail_report("canonical BMW operating profile construction failed",
-                    std::get<ValidationReport>(profile_result));
-    }
-
-    EngineSpec engine = canonical->engine;
-    const auto &profile =
-        std::get<LowOrderOperatingPointV1Profile>(engine.physics_profile);
-    engine_sim_offline::contract::test::InputBuilder builder;
-    auto scenario = engine_sim_offline::contract::test::make_scenario(builder, engine);
-    scenario.scenario_id = "bmw-m52b28-operating-capture-integration";
-    scenario.fuel.fuel_id.value = profile.core.fuel.fuel_id.value;
-    scenario.fuel.lower_heating_value_j_per_kg.value =
-        profile.core.fuel.energy_density_j_per_kg.value;
-    scenario.fuel.stoichiometric_air_fuel_mass_ratio.value =
-        legacy_pseudo_gas_stoichiometric_mass_afr(
-            profile.core.fuel.molecular_afr.value,
-            profile.core.fuel.molecular_mass_kg_per_mol.value);
-    scenario.initial_thermal_state.oil_temperature_k.value =
-        profile.aggregate_loss.required_oil_temperature_k.value;
-    scenario.preparation = FixedHorizonCycleSampling{
-        builder.resolved(engine_sim_offline::contract::
-                             fixed_horizon_cycle_sampling_method_identity(),
-                         "scenario.preparation.method"),
-        builder.resolved(kOperatingCutoffTimeS,
-                         "scenario.preparation.fixed_preparation_horizon_s"),
-        builder.resolved<std::uint32_t>(
-            kOperatingCyclesPerBlock,
-            "scenario.preparation.trailing_complete_cycle_count"),
+[[nodiscard]] engine_sim_offline::test::AuthoredEngineFixture
+make_operating_capture_request(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    auto request = canonical;
+    auto &scenario = request.scenario;
+    const auto *inertial = std::get_if<InertialDyno>(&scenario.mode);
+    expect(inertial != nullptr,
+           "canonical authored scenario lost inertial-dyno ownership");
+    auto engine_speed = inertial->initial_engine_speed_rpm;
+    engine_speed.value = kOperatingHeldRpm;
+    const auto initial_theta = inertial->initial_theta_rad;
+    auto throttle = ResolvedValue<double>{
+        inertial->throttle_01.points.front().value,
+        inertial->throttle_01.resolution_id,
     };
+    throttle.value = 0.85;
+    scenario.mode = HeldSpeed{std::move(engine_speed), initial_theta, throttle};
+    scenario.scenario_id = "authored-held-capture-integration";
+    auto *preparation = std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
+    expect(preparation != nullptr,
+           "canonical authored scenario lost fixed-horizon preparation");
+    preparation->fixed_preparation_horizon_s.value = kOperatingCutoffTimeS;
+    preparation->trailing_complete_cycle_count.value = kOperatingCyclesPerBlock;
     scenario.operating_state.value = {
         {
             "held-running",
@@ -223,23 +159,13 @@ struct OperatingCaptureRequest {
     scenario.rates.capture = scenario.rates.physics;
     scenario.quality.value.capture_block_capacity_frames = 200U;
     scenario.quality.value.event_journal_capacity_records = 3800U;
-    scenario.mode = HeldSpeed{
-        builder.resolved(kOperatingHeldRpm, "scenario.mode.engine_speed_rpm"),
-        builder.resolved(profile.core.mechanism.crank.crank_tdc_reference_rad.value,
-                         "scenario.mode.initial_theta_rad"),
-        builder.resolved(0.85, "scenario.mode.throttle_01"),
-    };
-    return {
-        std::move(engine),
-        std::move(scenario),
-        nonzero_request_identity(),
-    };
+    return request;
 }
 
 [[nodiscard]] LegacyLowOrderMechanicsSession
 require_mechanics(CoreRuntimeFactory::MechanicsCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
-        fail_report("short BMW mechanics request failed admission", *report);
+        fail_report("authored mechanics request failed admission", *report);
     }
     return std::get<LegacyLowOrderMechanicsSession>(std::move(result));
 }
@@ -247,7 +173,7 @@ require_mechanics(CoreRuntimeFactory::MechanicsCompileResult result) {
 [[nodiscard]] LegacyLowOrderGasSession
 require_gas(CoreRuntimeFactory::GasCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
-        fail_report("short BMW gas request failed admission", *report);
+        fail_report("authored gas request failed admission", *report);
     }
     return std::get<LegacyLowOrderGasSession>(std::move(result));
 }
@@ -255,19 +181,16 @@ require_gas(CoreRuntimeFactory::GasCompileResult result) {
 [[nodiscard]] LowOrderCaptureSession
 require_simulation(LowOrderCaptureCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
-        fail_report("short BMW capture request failed admission", *report);
+        fail_report("authored capture request failed admission", *report);
     }
     return std::get<LowOrderCaptureSession>(std::move(result));
 }
 
-[[nodiscard]] RandomPlan migration_random_plan(const EngineSpec &engine,
-                                               const RenderScenario &scenario) {
-    auto result = engine_sim_offline::profiles::detail::
-        compile_bmw_m52b28_migration_oracle_random_plan(engine, scenario);
-    if (const auto *report = std::get_if<ValidationReport>(&result)) {
-        fail_report("short BMW random plan failed compilation", *report);
-    }
-    return std::get<RandomPlan>(std::move(result));
+[[nodiscard]] RandomPlan
+fixture_random_plan(const engine_sim_offline::test::AuthoredEngineFixture &authored,
+                    const EngineSpec &engine, const RenderScenario &scenario) {
+    return engine_sim_offline::test::compile_fixture_random_plan(authored, engine,
+                                                                 scenario);
 }
 
 [[nodiscard]] const LegacyMechanismStep &
@@ -281,7 +204,7 @@ require_mechanics_step(LegacyMechanicsAdvanceResult &result,
     const auto *step =
         std::get_if<std::reference_wrapper<const LegacyMechanismStep>>(&result);
     expect(step != nullptr,
-           "independent mechanics completed before the short capture horizon");
+           "independent mechanics completed before the capture horizon");
     return step->get();
 }
 
@@ -358,88 +281,6 @@ void expect_positive_zero(double value, std::string_view field) {
            std::string{field} + " is not canonical positive zero");
 }
 
-void expect_unavailable(const TorqueValueNm &value, QuantityUnavailableReason reason,
-                        std::string_view field) {
-    expect_positive_zero(value.value_nm, field);
-    expect(value.availability == Availability::unavailable &&
-               value.completeness == Completeness::incomplete &&
-               value.unavailable_reason == reason && value.included_terms == 0U &&
-               value.omitted_terms == 0U,
-           std::string{field} + " has the wrong unavailable classification");
-}
-
-void expect_unavailable(const QuantityValue &value, QuantityUnavailableReason reason,
-                        std::string_view field) {
-    expect_positive_zero(value.value, field);
-    expect(value.availability == Availability::unavailable &&
-               value.completeness == Completeness::incomplete &&
-               value.unavailable_reason == reason,
-           std::string{field} + " has the wrong unavailable classification");
-}
-
-void verify_torque(const TorqueTelemetry &actual, const LegacyLowOrderGasStep &gas,
-                   double fixed_crank_friction_magnitude_nm,
-                   double angular_speed_rad_s) {
-    const TorqueTermMask gas_term = torque_term_mask(TorqueTerm::indicated_gas);
-    const TorqueTermMask crank_term = torque_term_mask(TorqueTerm::crank_friction);
-    const TorqueTermMask included = gas_term | crank_term;
-    const TorqueTermMask omitted = known_torque_term_mask() & ~included;
-    const TorqueTermMask friction_scope =
-        friction_pump_and_accessory_torque_term_mask();
-    double crank_friction_torque_nm = 0.0;
-    if (angular_speed_rad_s > 0.0) {
-        crank_friction_torque_nm = -fixed_crank_friction_magnitude_nm;
-    } else if (angular_speed_rad_s < 0.0) {
-        crank_friction_torque_nm = fixed_crank_friction_magnitude_nm;
-    }
-    const double incomplete_modeled_net_torque_nm =
-        gas.indicated_gas_torque_nm + crank_friction_torque_nm;
-
-    expect(actual.instantaneous_indicated_gas ==
-               TorqueValueNm{gas.indicated_gas_torque_nm, Availability::available,
-                             Completeness::complete, QuantityUnavailableReason::none,
-                             gas_term, 0U},
-           "aggregate indicated-gas torque mapping changed");
-    expect_unavailable(actual.pumping_partition,
-                       QuantityUnavailableReason::cycle_integration_not_admitted,
-                       "pumping partition");
-    expect(actual.friction_pump_and_accessory ==
-               TorqueValueNm{crank_friction_torque_nm, Availability::available,
-                             Completeness::incomplete, QuantityUnavailableReason::none,
-                             crank_term, friction_scope & ~crank_term},
-           "incomplete friction/loss torque mapping changed");
-    expect_unavailable(actual.starter, QuantityUnavailableReason::model_not_admitted,
-                       "starter");
-    expect(actual.instantaneous_net_shaft ==
-               TorqueValueNm{incomplete_modeled_net_torque_nm, Availability::available,
-                             Completeness::incomplete, QuantityUnavailableReason::none,
-                             included, omitted},
-           "incomplete instantaneous-net torque mapping changed");
-    expect_unavailable(actual.cycle_mean_net_shaft,
-                       QuantityUnavailableReason::cycle_integration_not_admitted,
-                       "cycle-mean net torque");
-    expect_unavailable(actual.actuator,
-                       QuantityUnavailableReason::equivalent_inertia_missing,
-                       "actuator torque");
-    expect_unavailable(actual.dyno_reaction,
-                       QuantityUnavailableReason::equivalent_inertia_missing,
-                       "dyno reaction");
-    expect_unavailable(actual.cycle_work_j,
-                       QuantityUnavailableReason::cycle_integration_not_admitted,
-                       "cycle work");
-    expect_unavailable(actual.net_bmep_pa,
-                       QuantityUnavailableReason::cycle_integration_not_admitted,
-                       "net BMEP");
-    expect(actual.instantaneous_power_w ==
-               QuantityValue{incomplete_modeled_net_torque_nm * angular_speed_rad_s,
-                             Availability::available, Completeness::incomplete,
-                             QuantityUnavailableReason::none},
-           "incomplete instantaneous-power mapping changed");
-    expect_unavailable(actual.cycle_mean_power_w,
-                       QuantityUnavailableReason::cycle_integration_not_admitted,
-                       "cycle-mean power");
-}
-
 [[nodiscard]] bool same_event_payload(const EngineEventPayload &left,
                                       const EngineEventPayload &right) {
     if (left.index() != right.index()) {
@@ -491,36 +332,34 @@ struct Activity {
     bool event = false;
 };
 
-void verify_layout(const CaptureLayoutView &layout,
-                   const BmwM52b28ParityRequest &request) {
-    expect(layout.engine_id() == request.engine.id,
-           "capture layout lost the engine identity");
-    expect(layout.cylinders().size() == request.engine.cylinders.size() &&
-               layout.ports().size() == request.engine.ports.size() &&
-               layout.gas_volumes().size() == request.engine.gas_volumes.size() &&
-               layout.flow_edges().size() == request.engine.flow_edges.size() &&
-               layout.routes().size() == request.engine.routes.size(),
+void verify_layout(const CaptureLayoutView &layout, const EngineSpec &engine) {
+    expect(layout.engine_id() == engine.id, "capture layout lost the engine identity");
+    expect(layout.cylinders().size() == engine.cylinders.size() &&
+               layout.ports().size() == engine.ports.size() &&
+               layout.gas_volumes().size() == engine.gas_volumes.size() &&
+               layout.flow_edges().size() == engine.flow_edges.size() &&
+               layout.routes().size() == engine.routes.size(),
            "capture layout has the wrong canonical entity counts");
 
     for (std::size_t index = 0; index < layout.cylinders().size(); ++index) {
-        expect(layout.cylinders()[index] == request.engine.cylinders[index].id,
+        expect(layout.cylinders()[index] == engine.cylinders[index].id,
                "capture cylinder identity/order changed");
     }
     for (std::size_t index = 0; index < layout.ports().size(); ++index) {
         const auto &actual = layout.ports()[index];
-        const auto &declared = request.engine.ports[index];
+        const auto &declared = engine.ports[index];
         expect(actual.id == declared.id && actual.cylinder_id == declared.cylinder_id &&
                    actual.kind == declared.kind.value,
                "capture port identity/order changed");
     }
     for (std::size_t index = 0; index < layout.gas_volumes().size(); ++index) {
         expect(layout.gas_volumes()[index] ==
-                   GasVolumeIdentity{request.engine.gas_volumes[index].id,
-                                     request.engine.gas_volumes[index].kind.value},
+                   GasVolumeIdentity{engine.gas_volumes[index].id,
+                                     engine.gas_volumes[index].kind.value},
                "capture gas-volume identity/order changed");
     }
     for (std::size_t index = 0; index < layout.flow_edges().size(); ++index) {
-        const auto &declared = request.engine.flow_edges[index];
+        const auto &declared = engine.flow_edges[index];
         expect(layout.flow_edges()[index] ==
                    FlowEdgeIdentity{declared.id, declared.endpoint_0_volume_id,
                                     declared.endpoint_1_volume_id},
@@ -528,7 +367,7 @@ void verify_layout(const CaptureLayoutView &layout,
     }
     for (std::size_t index = 0; index < layout.routes().size(); ++index) {
         const auto &actual = layout.routes()[index];
-        const auto &declared = request.engine.routes[index];
+        const auto &declared = engine.routes[index];
         const auto anchor =
             declared.emitter_anchor_id.has_value()
                 ? std::optional<std::string>{declared.emitter_anchor_id->value}
@@ -541,9 +380,9 @@ void verify_layout(const CaptureLayoutView &layout,
 }
 
 void verify_frame(const CaptureBlockView &block, std::size_t frame,
-                  const BmwM52b28ParityRequest &request,
-                  const LegacyMechanismStep &mechanics,
-                  const LegacyLowOrderGasStep &gas, Activity &activity) {
+                  const EngineSpec &engine_spec, const LegacyMechanismStep &mechanics,
+                  const LegacyLowOrderGasStep &gas,
+                  const TorqueTelemetry &expected_torque, Activity &activity) {
     const auto *engine = block.engine_sample(frame);
     expect(engine != nullptr, "frame-major engine accessor rejected a valid frame");
     expect(engine->validity == (kMechanism | kGasExchange | kTorque) &&
@@ -565,14 +404,11 @@ void verify_frame(const CaptureBlockView &block, std::size_t frame,
                engine->dyno_enabled == mechanics.operating_state.dyno_enabled &&
                engine->limiter_cut_active == mechanics.limiter_cut_active,
            "engine observable mapping changed");
-    const auto &profile =
-        std::get<LegacyLowOrderV1Profile>(request.engine.physics_profile);
-    verify_torque(engine->torque, gas,
-                  profile.fixed_crank_loss.fixed_crank_friction_magnitude_nm.value,
-                  mechanics.angular_speed_rad_s);
+    expect(engine->torque == expected_torque,
+           "operating-policy torque mapping changed");
 
-    for (std::size_t index = 0; index < request.engine.cylinders.size(); ++index) {
-        const auto id = request.engine.cylinders[index].id;
+    for (std::size_t index = 0; index < engine_spec.cylinders.size(); ++index) {
+        const auto id = engine_spec.cylinders[index].id;
         const auto &mechanism = find_cylinder(mechanics, id);
         const auto &gas_cylinder = find_cylinder(gas, id);
         const auto &chamber = find_volume(gas, gas_cylinder.chamber_volume_id).cell;
@@ -605,8 +441,8 @@ void verify_frame(const CaptureBlockView &block, std::size_t frame,
             gas_cylinder.outer_step_combustion_heat_release_j > 0.0;
     }
 
-    for (std::size_t index = 0; index < request.engine.ports.size(); ++index) {
-        const auto &port = request.engine.ports[index];
+    for (std::size_t index = 0; index < engine_spec.ports.size(); ++index) {
+        const auto &port = engine_spec.ports[index];
         const auto &cylinder = find_cylinder(gas, port.cylinder_id);
         const bool intake = port.kind.value == PortKind::intake;
         const auto duct_id = intake ? cylinder.intake_runner_volume_id
@@ -740,31 +576,61 @@ void verify_events(const CaptureBlockView &block,
     activity.event = activity.event || !events.empty();
 }
 
-void test_short_bmw_capture_mapping_and_completion() {
-    const BmwM52b28ParityRequest request = make_short_bmw_request();
+[[nodiscard]] LowOrderCapturePlan
+require_capture_plan(LowOrderCapturePlanCompileResult result) {
+    if (const auto *report = std::get_if<ValidationReport>(&result)) {
+        fail_report("authored capture plan failed admission", *report);
+    }
+    return std::get<LowOrderCapturePlan>(std::move(result));
+}
+
+[[nodiscard]] LowOrderOperatingPointV1Runtime
+require_operating_runtime(LowOrderOperatingPointV1CompileResult result) {
+    if (const auto *report = std::get_if<ValidationReport>(&result)) {
+        fail_report("authored operating policy failed admission", *report);
+    }
+    return std::get<LowOrderOperatingPointV1Runtime>(std::move(result));
+}
+
+[[nodiscard]] const TorqueTelemetry &
+require_operating_torque(LowOrderOperatingPointV1AdvanceResult &result) {
+    if (const auto *failure = std::get_if<FailureContext>(&result)) {
+        throw std::runtime_error{"independent operating policy faulted: " +
+                                 failure->detail_code + "; " + failure->state_summary};
+    }
+    return std::get<LowOrderOperatingPointV1Step>(result).capture_torque;
+}
+
+void test_authored_capture_mapping_and_completion(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const auto request = make_operating_capture_request(canonical);
+    const auto request_identity = nonzero_request_identity();
+    const auto random_plan =
+        fixture_random_plan(request, request.engine, request.scenario);
     auto capture = require_simulation(compile_low_order_capture_session(
-        request.engine, request.scenario,
-        migration_random_plan(request.engine, request.scenario),
-        nonzero_request_identity()));
+        request.engine, request.scenario, random_plan, request_identity));
     auto schedule_result = compile_kinematic_scenario_schedule(request.scenario);
     if (const auto *report = std::get_if<ValidationReport>(&schedule_result)) {
-        fail_report("short BMW schedule failed admission", *report);
+        fail_report("authored held-speed schedule failed admission", *report);
     }
     const auto &schedule = std::get<KinematicScenarioSchedule>(schedule_result);
-    const auto &core =
-        std::get<LegacyLowOrderV1Profile>(request.engine.physics_profile).core;
+    const auto &core = engine_sim_offline::test::low_order_core(request.engine);
     auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
         request.engine, core, request.scenario, schedule));
     auto gas = require_gas(CoreRuntimeFactory::compile_gas(
-        request.engine, core, request.scenario,
-        migration_random_plan(request.engine, request.scenario),
+        request.engine, core, request.scenario, random_plan,
         schedule.control_schedule(), mechanics.cylinder_models()));
+    const auto capture_plan = require_capture_plan(
+        compile_low_order_capture_plan(request.engine, request.scenario));
+    auto operating =
+        require_operating_runtime(compile_low_order_operating_point_v1_runtime(
+            request.engine, request.scenario, capture_plan, request_identity));
 
     Activity activity;
     std::uint64_t next_sample_index = 0U;
     std::uint64_t published_sample_count = 0U;
     std::uint64_t block_ordinal = 0U;
-    while (next_sample_index < kShortRunStepCount) {
+    while (next_sample_index < kOperatingStepCount) {
         std::size_t callback_count = 0U;
         std::uint32_t callback_frame_count = 0U;
         const std::uint64_t expected_first_sample = next_sample_index;
@@ -781,17 +647,23 @@ void test_short_bmw_capture_mapping_and_completion() {
                            block.declared_event_journal_capacity_records() == 3800U,
                        "capture block clock or declared bounds changed");
                 expect(block.frame_count() ==
-                           std::min<std::uint64_t>(200U, kShortRunStepCount -
+                           std::min<std::uint64_t>(200U, kOperatingStepCount -
                                                              expected_first_sample),
-                       "capture block did not use the bounded canonical partition");
+                       "capture block did not use the bounded declared partition");
                 expect(block.engine().size() == block.frame_count() &&
-                           block.cylinders().size() == block.frame_count() * 6U &&
-                           block.ports().size() == block.frame_count() * 12U &&
-                           block.gas_volumes().size() == block.frame_count() * 22U &&
-                           block.flow_edges().size() == block.frame_count() * 34U &&
-                           block.source_routes().size() == block.frame_count() * 2U,
-                       "capture arrays are not canonical frame-major shapes");
-                verify_layout(block.layout(), request);
+                           block.cylinders().size() ==
+                               block.frame_count() * request.engine.cylinders.size() &&
+                           block.ports().size() ==
+                               block.frame_count() * request.engine.ports.size() &&
+                           block.gas_volumes().size() ==
+                               block.frame_count() *
+                                   request.engine.gas_volumes.size() &&
+                           block.flow_edges().size() ==
+                               block.frame_count() * request.engine.flow_edges.size() &&
+                           block.source_routes().size() ==
+                               block.frame_count() * request.engine.routes.size(),
+                       "capture arrays are not declared frame-major shapes");
+                verify_layout(block.layout(), request.engine);
                 const auto report = validate(block, request.engine, request.scenario);
                 if (!report.ok()) {
                     fail_report("published capture failed request-aware validation",
@@ -807,11 +679,14 @@ void test_short_bmw_capture_mapping_and_completion() {
                     auto gas_result = gas.advance(mechanics_step);
                     const auto &gas_step =
                         require_gas_step(gas_result, next_sample_index);
+                    auto operating_result = operating.advance(mechanics_step, gas_step);
+                    const auto &expected_torque =
+                        require_operating_torque(operating_result);
                     expect(mechanics_step.sample_index == next_sample_index &&
                                gas_step.sample_index == next_sample_index,
                            "independent source sessions left the capture clock");
-                    verify_frame(block, frame, request, mechanics_step, gas_step,
-                                 activity);
+                    verify_frame(block, frame, request.engine, mechanics_step, gas_step,
+                                 expected_torque, activity);
                     expected_events.push_back(gas_step.events);
                     ++next_sample_index;
                 }
@@ -848,46 +723,50 @@ void test_short_bmw_capture_mapping_and_completion() {
         ++block_ordinal;
     }
 
-    expect(block_ordinal == 7U && published_sample_count == kShortRunStepCount,
-           "short capture did not end with six full blocks and one partial block");
+    expect(block_ordinal == 15U && published_sample_count == kOperatingStepCount,
+           "held capture did not end with fifteen complete bounded blocks");
     std::size_t completion_callback_count = 0U;
     auto completion = capture.publish_next_block([&](const CaptureBlockView &) {
         ++completion_callback_count;
         return true;
     });
     const auto *completed = std::get_if<LowOrderCaptureCompleted>(&completion);
-    expect(completed != nullptr && completed->sample_count == kShortRunStepCount &&
-               completed->block_count == 7U &&
-               !completed->held_speed_operating_point.has_value() &&
+    expect(completed != nullptr && completed->sample_count == kOperatingStepCount &&
+               completed->block_count == 15U &&
+               completed->held_speed_operating_point.has_value() &&
+               !completed->inertial_dyno.has_value() &&
+               operating.operating_point_result().has_value() &&
+               *completed->held_speed_operating_point ==
+                   *operating.operating_point_result() &&
                completion_callback_count == 0U && capture.completed() &&
                !capture.faulted(),
-           "M3 capture completion is not terminal, callback-free, or free of "
-           "held-speed evidence");
+           "held capture completion is not terminal, callback-free, or bound to "
+           "the independently evaluated operating result");
 
     auto repeated = capture.publish_next_block([&](const CaptureBlockView &) {
         ++completion_callback_count;
         return true;
     });
     const auto *repeated_completion = std::get_if<LowOrderCaptureCompleted>(&repeated);
-    expect(repeated_completion != nullptr &&
-               repeated_completion->sample_count == completed->sample_count &&
-               repeated_completion->block_count == completed->block_count &&
+    expect(repeated_completion != nullptr && *repeated_completion == *completed &&
                completion_callback_count == 0U,
            "capture completion result is not stable");
 
     expect(activity.nonzero_edge_flow && activity.positive_edge_flow &&
                activity.negative_edge_flow && activity.nonzero_directional_pressure &&
                activity.combustion_heat && activity.event,
-           "short capture did not exercise bidirectional flow, pressure, combustion, "
+           "held capture did not exercise bidirectional flow, pressure, combustion, "
            "and events");
 }
 
-void test_operating_capture_publishes_request_bound_completion_evidence() {
-    const auto request = make_operating_capture_request();
+void test_operating_capture_publishes_request_bound_completion_evidence(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const auto request = make_operating_capture_request(canonical);
+    const auto request_identity = nonzero_request_identity();
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
-        migration_random_plan(request.engine, request.scenario),
-        request.request_identity));
+        fixture_random_plan(request, request.engine, request.scenario),
+        request_identity));
 
     std::uint64_t callback_count = 0U;
     std::optional<LowOrderCaptureCompleted> completion;
@@ -919,19 +798,19 @@ void test_operating_capture_publishes_request_bound_completion_evidence() {
                completion->held_speed_operating_point.has_value() &&
                capture.completed() && !capture.faulted(),
            "operating capture did not publish one complete typed held result");
-    const auto report =
-        validate(*completion->held_speed_operating_point, request.scenario,
-                 request.engine, request.request_identity);
+    const auto report = validate(*completion->held_speed_operating_point,
+                                 request.scenario, request.engine, request_identity);
     if (!report.ok()) {
         fail_report("operating completion evidence failed request validation", report);
     }
 }
 
-void test_operating_capture_rejects_zero_request_identity() {
-    const auto request = make_operating_capture_request();
+void test_operating_capture_rejects_zero_request_identity(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const auto request = make_operating_capture_request(canonical);
     const auto result = compile_low_order_capture_session(
         request.engine, request.scenario,
-        migration_random_plan(request.engine, request.scenario), Sha256Digest{});
+        fixture_random_plan(request, request.engine, request.scenario), Sha256Digest{});
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr && !report->ok() &&
                std::ranges::any_of(report->issues,
@@ -942,17 +821,13 @@ void test_operating_capture_rejects_zero_request_identity() {
            "operating capture admitted a zero simulation-request identity");
 }
 
-void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence() {
-    auto request_result = make_bmw_m52b28_inertial_dyno_listening_request();
-    if (const auto *report = std::get_if<ValidationReport>(&request_result)) {
-        fail_report("canonical inertial request failed admission", *report);
-    }
-    const auto &request =
-        std::get<BmwM52b28InertialDynoListeningRequest>(request_result);
+void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(
+    const engine_sim_offline::test::AuthoredEngineFixture &request) {
     const auto request_identity = nonzero_request_identity();
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
-        migration_random_plan(request.engine, request.scenario), request_identity));
+        fixture_random_plan(request, request.engine, request.scenario),
+        request_identity));
 
     std::optional<LowOrderCaptureCompleted> completion;
     double first_released_rpm = 0.0;
@@ -997,11 +872,13 @@ void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence() {
     }
 }
 
-void test_consumer_rejection_is_a_stable_terminal_fault() {
-    const BmwM52b28ParityRequest request = make_short_bmw_request();
+void test_consumer_rejection_is_a_stable_terminal_fault(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const auto request = make_operating_capture_request(canonical);
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
-        migration_random_plan(request.engine, request.scenario), {}));
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity()));
     std::size_t callback_count = 0U;
     auto rejected = capture.publish_next_block([&](const CaptureBlockView &block) {
         ++callback_count;
@@ -1028,11 +905,13 @@ void test_consumer_rejection_is_a_stable_terminal_fault() {
            "consumer-rejection fault was not stable and callback-free");
 }
 
-void test_consumer_exception_is_a_stable_terminal_fault() {
-    const BmwM52b28ParityRequest request = make_short_bmw_request();
+void test_consumer_exception_is_a_stable_terminal_fault(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const auto request = make_operating_capture_request(canonical);
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
-        migration_random_plan(request.engine, request.scenario), {}));
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity()));
     std::size_t callback_count = 0U;
     auto rejected = capture.publish_next_block([&](const CaptureBlockView &) -> bool {
         ++callback_count;
@@ -1057,11 +936,13 @@ void test_consumer_exception_is_a_stable_terminal_fault() {
            "consumer-exception fault was not stable and callback-free");
 }
 
-void test_reentrant_publication_preserves_outer_view_and_faults() {
-    const BmwM52b28ParityRequest request = make_short_bmw_request();
+void test_reentrant_publication_preserves_outer_view_and_faults(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const auto request = make_operating_capture_request(canonical);
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
-        migration_random_plan(request.engine, request.scenario), {}));
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity()));
     std::size_t outer_callback_count = 0U;
     std::size_t nested_callback_count = 0U;
     std::optional<FailureContext> nested_fault;
@@ -1116,23 +997,27 @@ void test_reentrant_publication_preserves_outer_view_and_faults() {
            "reentrant-publication fault was not stable and callback-free");
 }
 
-void expect_simulation_compile_rejected(const BmwM52b28ParityRequest &request,
-                                        std::string_view mutation) {
+void expect_simulation_compile_rejected(
+    const engine_sim_offline::test::AuthoredEngineFixture &request,
+    std::string_view mutation) {
     auto result = compile_low_order_capture_session(
         request.engine, request.scenario,
-        migration_random_plan(request.engine, request.scenario), {});
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity());
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr && !report->ok(),
            std::string{mutation} + " was admitted by the top-level compiler");
 }
 
-void test_declared_capture_capacity_drives_publication() {
-    auto request = make_short_bmw_request();
+void test_declared_capture_capacity_drives_publication(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    auto request = make_operating_capture_request(canonical);
     request.scenario.quality.value.capture_block_capacity_frames = 37U;
     request.scenario.quality.value.event_journal_capacity_records = 37U * 19U;
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
-        migration_random_plan(request.engine, request.scenario), {}));
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity()));
 
     std::size_t callback_count = 0U;
     const auto result = capture.publish_next_block([&](const CaptureBlockView &block) {
@@ -1153,61 +1038,68 @@ void test_declared_capture_capacity_drives_publication() {
            "dynamic-capacity block was not published atomically");
 }
 
-void test_capture_partition_admission_rejection() {
+void test_capture_partition_admission_rejection(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
     {
-        auto request = make_short_bmw_request();
+        auto request = make_operating_capture_request(canonical);
         request.scenario.rates.capture = {9999, 1};
         expect_simulation_compile_rejected(request, "noncanonical capture clock");
     }
     {
-        auto request = make_short_bmw_request();
+        auto request = make_operating_capture_request(canonical);
         request.scenario.rates.physics = {9999, 1};
         expect_simulation_compile_rejected(request, "noncanonical physics clock");
     }
     {
-        auto request = make_short_bmw_request();
+        auto request = make_operating_capture_request(canonical);
         request.scenario.quality.value.event_journal_capacity_records = 3799U;
         expect_simulation_compile_rejected(request,
                                            "undersized event-journal capacity");
     }
     {
-        auto request = make_short_bmw_request();
-        prescribed_sweep(request.scenario)
-            .trajectory.kinematic_resolution.value.configuration_sha256.bytes[0] ^=
-            0xffU;
+        auto request = make_operating_capture_request(canonical);
+        auto &preparation =
+            std::get<FixedHorizonCycleSampling>(request.scenario.preparation);
+        preparation.method.value.configuration_sha256.bytes[0] ^= 0xffU;
         expect_simulation_compile_rejected(request,
-                                           "wrong fixed-rate RPM method configuration");
+                                           "wrong fixed-horizon method configuration");
     }
     {
-        auto request = make_short_bmw_request();
-        const auto &core =
-            std::get<LegacyLowOrderV1Profile>(request.engine.physics_profile).core;
-        request.scenario.mode = HeldSpeed{
-            {2400.0, "held-speed-rpm"},
-            {core.mechanism.crank.crank_tdc_reference_rad.value, "held-speed-angle"},
-            {0.85, "held-speed-throttle"},
-        };
-        expect_simulation_compile_rejected(request, "M3 held-speed mode");
+        auto request = engine_sim_offline::test::make_prescribed_fixture(
+            canonical, std::vector<double>(kOperatingStepCount, kOperatingHeldRpm));
+        request.scenario.total_duration_s.value = kOperatingTotalDurationS;
+        request.scenario.audible_start_s.value = kOperatingCutoffTimeS;
+        request.scenario.audible_duration_s.value =
+            kOperatingTotalDurationS - kOperatingCutoffTimeS;
+        expect_simulation_compile_rejected(request,
+                                           "prescribed motion with operating profile");
     }
 }
 
-void run_tests() {
-    test_short_bmw_capture_mapping_and_completion();
-    test_operating_capture_publishes_request_bound_completion_evidence();
-    test_operating_capture_rejects_zero_request_identity();
-    test_inertial_capture_publishes_dynamic_motion_and_energy_evidence();
-    test_declared_capture_capacity_drives_publication();
-    test_consumer_rejection_is_a_stable_terminal_fault();
-    test_consumer_exception_is_a_stable_terminal_fault();
-    test_reentrant_publication_preserves_outer_view_and_faults();
-    test_capture_partition_admission_rejection();
+void run_tests(const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    test_authored_capture_mapping_and_completion(canonical);
+    test_operating_capture_publishes_request_bound_completion_evidence(canonical);
+    test_operating_capture_rejects_zero_request_identity(canonical);
+    test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(canonical);
+    test_declared_capture_capacity_drives_publication(canonical);
+    test_consumer_rejection_is_a_stable_terminal_fault(canonical);
+    test_consumer_exception_is_a_stable_terminal_fault(canonical);
+    test_reentrant_publication_preserves_outer_view_and_faults(canonical);
+    test_capture_partition_admission_rejection(canonical);
 }
 
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
     try {
-        run_tests();
+        if (argc != 2) {
+            throw std::runtime_error{
+                "usage: low_order_capture_session_test <repository-root>"};
+        }
+        const auto canonical =
+            engine_sim_offline::test::load_canonical_authored_engine_fixture(
+                std::filesystem::path{argv[1]});
+        run_tests(canonical);
     } catch (const std::exception &error) {
         std::cerr << "low_order_capture_session_test: " << error.what() << '\n';
         return 1;

@@ -4,7 +4,6 @@
 #include "engine_sim_offline/contract/randomness.hpp"
 #include "engine_sim_offline/contract/result.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
-#include "simulation/legacy_fixed_crank_torque_accounting.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
 #include "simulation/low_order_inertial_dyno_v1_runtime.hpp"
 #include "simulation/low_order_operating_point_v1_runtime.hpp"
@@ -78,8 +77,7 @@ class LowOrderCaptureSession final {
 
   private:
     using ProfilePolicy =
-        std::variant<LegacyFixedCrankTorqueAccountingPlan,
-                     LowOrderOperatingPointV1Runtime, LowOrderInertialDynoV1Runtime>;
+        std::variant<LowOrderOperatingPointV1Runtime, LowOrderInertialDynoV1Runtime>;
 
     LowOrderCaptureSession(LowOrderEngineCoreV1Runtime core,
                            ProfilePolicy profile_policy,
@@ -122,8 +120,8 @@ using LowOrderCaptureCompileResult =
 
 // Compiles one coherent mechanics+gas+capture session. It retains no references to
 // either request and has no fixture-reader or presentation dependency.
-// The request identity is reserved for profile policies that publish request-bound
-// evidence; the M3 fixed-loss policy accepts but does not interpret it.
+// The request identity binds operating-point and inertial evidence to the admitted
+// render request.
 [[nodiscard]] LowOrderCaptureCompileResult compile_low_order_capture_session(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const contract::RandomPlan &random_plan,

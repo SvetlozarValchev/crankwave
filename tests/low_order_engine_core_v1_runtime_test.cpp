@@ -1,6 +1,4 @@
-#include "contract_test_support.hpp"
-#include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
-#include "profiles/bmw_m52b28_profile_internal.hpp"
+#include "authored_engine_fixture_support.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
 
@@ -10,6 +8,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -46,7 +45,7 @@ void expect(bool condition, std::string_view message) {
 [[nodiscard]] contract::PrescribedKinematicSweep &
 prescribed_sweep(contract::RenderScenario &scenario) {
     auto *sweep = std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode);
-    expect(sweep != nullptr, "short BMW scenario lost its prescribed sweep");
+    expect(sweep != nullptr, "short authored scenario lost its prescribed sweep");
     return *sweep;
 }
 
@@ -54,24 +53,22 @@ prescribed_sweep(contract::RenderScenario &scenario) {
 fixed_rpm(contract::RenderScenario &scenario) {
     auto &sweep = prescribed_sweep(scenario);
     auto *rpm = std::get_if<contract::FixedRateRpmTrajectory>(&sweep.trajectory.rpm);
-    expect(rpm != nullptr, "short BMW scenario lost its fixed-rate RPM lane");
+    expect(rpm != nullptr, "short authored scenario lost its fixed-rate RPM lane");
     return *rpm;
 }
 
-[[nodiscard]] profiles::BmwM52b28ParityRequest make_short_request() {
+[[nodiscard]] test::AuthoredEngineFixture
+make_short_request(const test::AuthoredEngineFixture &canonical) {
     std::vector<double> rpm(kStepCount, kRpm);
-    auto request =
-        profiles::detail::build_bmw_m52b28_parity_request_unvalidated(std::move(rpm));
-    request.scenario.scenario_id = "bmw-m52b28-short-composite-core";
+    auto request = test::make_prescribed_fixture(canonical, std::move(rpm));
+    request.scenario.scenario_id = "authored-short-composite-core";
     request.scenario.total_duration_s.value = kDurationS;
     request.scenario.audible_start_s.value = 0.0;
     request.scenario.audible_duration_s.value = kDurationS;
-    auto *preparation =
-        std::get_if<contract::FixedSettling>(&request.scenario.preparation);
-    expect(preparation != nullptr,
-           "short BMW scenario lost its fixed preparation policy");
-    preparation->warm_up_duration_s.value = 0.0;
-    preparation->settling_duration_s.value = 0.0;
+    request.scenario.preparation = contract::FixedSettling{
+        {0.0, "authored-fixture.no-warm-up"},
+        {0.0, "authored-fixture.no-settling"},
+    };
     request.scenario.operating_state.value = {
         {
             "short-run-fired",
@@ -95,24 +92,16 @@ require_runtime(simulation::LowOrderEngineCoreV1CompileResult result) {
 }
 
 [[nodiscard]] contract::RandomPlan
-migration_random_plan(const contract::EngineSpec &engine,
-                      const contract::RenderScenario &scenario) {
-    auto result = profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
-        engine, scenario);
-    if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
-        fail_report("valid low-order random plan was rejected", *report);
-    }
-    return std::get<contract::RandomPlan>(std::move(result));
+random_plan(const test::AuthoredEngineFixture &request) {
+    return test::compile_fixture_random_plan(request);
 }
 
-void test_prescribed_transaction_and_stable_completion() {
-    auto request = make_short_request();
-    const auto &core =
-        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
-            .core;
+void test_prescribed_transaction_and_stable_completion(
+    const test::AuthoredEngineFixture &canonical) {
+    auto request = make_short_request(canonical);
+    const auto &core = test::low_order_core(request.engine);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core,
-        migration_random_plan(request.engine, request.scenario)));
+        request.engine, request.scenario, core, random_plan(request)));
     expect(runtime.expected_sample_count() == kStepCount &&
                runtime.produced_sample_count() == 0U && !runtime.completed() &&
                !runtime.faulted(),
@@ -152,11 +141,11 @@ void test_prescribed_transaction_and_stable_completion() {
            "composite completion is not terminal and stable");
 }
 
-void test_held_speed_reuses_core_without_m3_loss_policy() {
-    auto request = make_short_request();
-    auto &profile =
-        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile);
-    profile.fixed_crank_loss.fixed_crank_friction_magnitude_nm.value = -1.0;
+void test_held_speed_reuses_core_without_aggregate_loss_policy(
+    const test::AuthoredEngineFixture &canonical) {
+    auto request = make_short_request(canonical);
+    auto &profile = test::operating_profile(request.engine);
+    profile.aggregate_loss.constant_fmep_bar.value = -1.0;
     request.engine.methods.losses.value.id = "not-consumed-by-core";
     request.scenario.mode = contract::HeldSpeed{
         {kRpm, "held-rpm"},
@@ -165,8 +154,7 @@ void test_held_speed_reuses_core_without_m3_loss_policy() {
     };
 
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, profile.core,
-        migration_random_plan(request.engine, request.scenario)));
+        request.engine, request.scenario, profile.core, random_plan(request)));
     auto result = runtime.advance();
     const auto *step = std::get_if<simulation::LowOrderEngineCoreV1StepView>(&result);
     expect(step != nullptr && step->mechanics.get().engine_speed_rpm == kRpm &&
@@ -175,31 +163,27 @@ void test_held_speed_reuses_core_without_m3_loss_policy() {
            "held speed did not execute through the shared core");
 }
 
-void test_core_ignores_capture_transport_policy() {
-    auto request = make_short_request();
-    const auto &core =
-        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
-            .core;
+void test_core_ignores_capture_transport_policy(
+    const test::AuthoredEngineFixture &canonical) {
+    auto request = make_short_request(canonical);
+    const auto &core = test::low_order_core(request.engine);
     request.scenario.rates.capture = {48000U, 1U};
     request.scenario.quality.value.capture_block_capacity_frames = 0U;
     request.scenario.quality.value.event_journal_capacity_records = 0U;
 
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core,
-        migration_random_plan(request.engine, request.scenario)));
+        request.engine, request.scenario, core, random_plan(request)));
     const auto result = runtime.advance();
     expect(std::holds_alternative<simulation::LowOrderEngineCoreV1StepView>(result),
            "capture transport policy leaked into the shared physics core");
 }
 
-void test_core_pairs_external_post_step_motion_with_the_same_gas_transaction() {
-    auto request = make_short_request();
-    const auto &core =
-        std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
-            .core;
+void test_core_pairs_external_post_step_motion_with_the_same_gas_transaction(
+    const test::AuthoredEngineFixture &canonical) {
+    auto request = make_short_request(canonical);
+    const auto &core = test::low_order_core(request.engine);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core,
-        migration_random_plan(request.engine, request.scenario)));
+        request.engine, request.scenario, core, random_plan(request)));
 
     constexpr double kExternalRpm = 1800.0;
     auto result = runtime.advance(simulation::PostStepCrankMotion{kExternalRpm, 0.017});
@@ -212,36 +196,19 @@ void test_core_pairs_external_post_step_motion_with_the_same_gas_transaction() {
            "external post-step motion was not paired with one gas transaction");
 }
 
-void test_canonical_bmw_operating_profile_uses_limiter_disabled_core() {
-    auto profile_result = profiles::make_bmw_m52b28_operating_profile();
-    const auto *profile =
-        std::get_if<profiles::BmwM52b28OperatingProfile>(&profile_result);
-    if (profile == nullptr) {
-        fail_report("canonical BMW operating profile was rejected",
-                    std::get<contract::ValidationReport>(profile_result));
-    }
-    const auto &operating = std::get<contract::LowOrderOperatingPointV1Profile>(
-        profile->engine.physics_profile);
+void test_canonical_authored_operating_profile_uses_limiter_disabled_core(
+    const test::AuthoredEngineFixture &canonical) {
+    auto engine = canonical.engine;
+    const auto &operating = test::operating_profile(engine);
 
-    contract::test::InputBuilder builder;
-    auto scenario = contract::test::make_scenario(builder, profile->engine);
-    scenario.scenario_id = "bmw-m52b28-operating-core-limiter-disabled";
-    scenario.fuel.fuel_id.value = operating.core.fuel.fuel_id.value;
-    scenario.fuel.lower_heating_value_j_per_kg.value =
-        operating.core.fuel.energy_density_j_per_kg.value;
-    scenario.fuel.stoichiometric_air_fuel_mass_ratio.value =
-        simulation::legacy_pseudo_gas_stoichiometric_mass_afr(
-            operating.core.fuel.molecular_afr.value,
-            operating.core.fuel.molecular_mass_kg_per_mol.value);
-    scenario.initial_thermal_state.oil_temperature_k.value =
-        operating.aggregate_loss.required_oil_temperature_k.value;
-    scenario.preparation = contract::FixedHorizonCycleSampling{
-        builder.resolved(contract::fixed_horizon_cycle_sampling_method_identity(),
-                         "scenario.preparation.method"),
-        builder.resolved(0.1, "scenario.preparation.fixed_preparation_horizon_s"),
-        builder.resolved<std::uint32_t>(
-            1U, "scenario.preparation.trailing_complete_cycle_count"),
-    };
+    auto scenario = canonical.scenario;
+    scenario.scenario_id = "authored-operating-core-limiter-disabled";
+    auto *preparation =
+        std::get_if<contract::FixedHorizonCycleSampling>(&scenario.preparation);
+    expect(preparation != nullptr,
+           "canonical authored scenario lost fixed-horizon preparation");
+    preparation->fixed_preparation_horizon_s.value = 0.1;
+    preparation->trailing_complete_cycle_count.value = 1U;
     scenario.operating_state.value = {
         {
             "held-running",
@@ -252,23 +219,33 @@ void test_canonical_bmw_operating_profile_uses_limiter_disabled_core() {
     scenario.total_duration_s.value = 0.1006;
     scenario.audible_start_s.value = 0.1;
     scenario.audible_duration_s.value = 0.0006;
+    const auto *inertial = std::get_if<contract::InertialDyno>(&scenario.mode);
+    expect(inertial != nullptr,
+           "canonical authored scenario lost inertial-dyno ownership");
+    auto engine_speed = inertial->initial_engine_speed_rpm;
+    engine_speed.value = kRpm;
+    const auto initial_theta = inertial->initial_theta_rad;
+    auto throttle = contract::ResolvedValue<double>{
+        inertial->throttle_01.points.front().value,
+        inertial->throttle_01.resolution_id,
+    };
+    throttle.value = 0.85;
     scenario.mode = contract::HeldSpeed{
-        builder.resolved(kRpm, "scenario.mode.engine_speed_rpm"),
-        builder.resolved(operating.core.mechanism.crank.crank_tdc_reference_rad.value,
-                         "scenario.mode.initial_theta_rad"),
-        builder.resolved(0.85, "scenario.mode.throttle_01"),
+        std::move(engine_speed),
+        initial_theta,
+        std::move(throttle),
     };
 
-    const auto pairing = contract::validate_for_engine(scenario, profile->engine);
+    const auto pairing = contract::validate_for_engine(scenario, engine);
     if (!pairing.ok()) {
-        fail_report("canonical BMW held operating scenario was rejected", pairing);
+        fail_report("canonical authored held operating scenario was rejected", pairing);
     }
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        profile->engine, scenario, operating.core,
-        migration_random_plan(profile->engine, scenario)));
+        engine, scenario, operating.core,
+        test::compile_fixture_random_plan(canonical, engine, scenario)));
     auto result = runtime.advance();
     const auto *step = std::get_if<simulation::LowOrderEngineCoreV1StepView>(&result);
-    expect(step != nullptr, "canonical BMW operating core produced no first step");
+    expect(step != nullptr, "canonical authored operating core produced no first step");
     const auto &mechanics = step->mechanics.get();
     expect(!mechanics.operating_state.limiter_enabled &&
                !mechanics.limiter_cut_active && mechanics.limiter_timer_s == 0.0 &&
@@ -279,22 +256,28 @@ void test_canonical_bmw_operating_profile_uses_limiter_disabled_core() {
                        return std::holds_alternative<contract::LimiterStateChanged>(
                            event.payload);
                    }),
-           "canonical BMW operating core did not preserve disabled-limiter state");
+           "canonical authored operating core did not preserve disabled-limiter "
+           "state");
 }
 
-void run_tests() {
-    test_prescribed_transaction_and_stable_completion();
-    test_held_speed_reuses_core_without_m3_loss_policy();
-    test_core_ignores_capture_transport_policy();
-    test_core_pairs_external_post_step_motion_with_the_same_gas_transaction();
-    test_canonical_bmw_operating_profile_uses_limiter_disabled_core();
+void run_tests(const test::AuthoredEngineFixture &canonical) {
+    test_prescribed_transaction_and_stable_completion(canonical);
+    test_held_speed_reuses_core_without_aggregate_loss_policy(canonical);
+    test_core_ignores_capture_transport_policy(canonical);
+    test_core_pairs_external_post_step_motion_with_the_same_gas_transaction(canonical);
+    test_canonical_authored_operating_profile_uses_limiter_disabled_core(canonical);
 }
 
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
     try {
-        run_tests();
+        if (argc != 2) {
+            throw std::runtime_error{"expected repository root argument"};
+        }
+        const auto canonical = test::load_canonical_authored_engine_fixture(
+            std::filesystem::canonical(argv[1]));
+        run_tests(canonical);
     } catch (const std::exception &error) {
         std::cerr << "Low-order composite runtime failure: " << error.what() << '\n';
         return EXIT_FAILURE;

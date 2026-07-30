@@ -1,6 +1,4 @@
-#include "contract_test_support.hpp"
-#include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
-#include "profiles/bmw_m52b28_profile_internal.hpp"
+#include "authored_engine_fixture_support.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
@@ -11,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <exception>
+#include <filesystem>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -33,23 +32,22 @@ void expect(bool condition, std::string_view message) {
     }
 }
 
+template <class T>
+[[nodiscard]] contract::ResolvedValue<T> resolved(T value, std::string resolution_id) {
+    return {std::move(value), std::move(resolution_id)};
+}
+
 struct Fixture {
+    const test::AuthoredEngineFixture *authored = nullptr;
     contract::EngineSpec engine;
     contract::RenderScenario scenario;
     contract::Sha256Digest request_identity;
 };
 
-[[nodiscard]] Fixture fixture() {
-    auto profile_result = profiles::make_bmw_m52b28_operating_profile();
-    const auto *canonical =
-        std::get_if<profiles::BmwM52b28OperatingProfile>(&profile_result);
-    expect(canonical != nullptr, "canonical BMW operating profile construction failed");
-
-    auto engine = canonical->engine;
-    const auto &profile =
-        std::get<contract::LowOrderOperatingPointV1Profile>(engine.physics_profile);
-    contract::test::InputBuilder builder;
-    auto scenario = contract::test::make_scenario(builder, engine);
+[[nodiscard]] Fixture fixture(const test::AuthoredEngineFixture &authored) {
+    auto engine = authored.engine;
+    const auto &profile = test::operating_profile(engine);
+    auto scenario = authored.scenario;
     scenario.scenario_id = "low-order-operating-runtime-test";
     scenario.fuel.fuel_id.value = profile.core.fuel.fuel_id.value;
     scenario.fuel.lower_heating_value_j_per_kg.value =
@@ -61,13 +59,12 @@ struct Fixture {
     scenario.initial_thermal_state.oil_temperature_k.value =
         profile.aggregate_loss.required_oil_temperature_k.value;
     scenario.preparation = contract::FixedHorizonCycleSampling{
-        builder.resolved(contract::fixed_horizon_cycle_sampling_method_identity(),
-                         "scenario.preparation.method"),
-        builder.resolved(kFixedPreparationHorizonS,
-                         "scenario.preparation.fixed_preparation_horizon_s"),
-        builder.resolved<std::uint32_t>(
-            kTrailingCompleteCycleCount,
-            "scenario.preparation.trailing_complete_cycle_count"),
+        resolved(contract::fixed_horizon_cycle_sampling_method_identity(),
+                 "scenario.preparation.method"),
+        resolved(kFixedPreparationHorizonS,
+                 "scenario.preparation.fixed_preparation_horizon_s"),
+        resolved<std::uint32_t>(kTrailingCompleteCycleCount,
+                                "scenario.preparation.trailing_complete_cycle_count"),
     };
     scenario.operating_state.value = {
         {
@@ -84,15 +81,17 @@ struct Fixture {
     scenario.quality.value.capture_block_capacity_frames = 200U;
     scenario.quality.value.event_journal_capacity_records = 3800U;
     scenario.mode = contract::HeldSpeed{
-        builder.resolved(kHeldRpm, "scenario.mode.engine_speed_rpm"),
-        builder.resolved(profile.core.mechanism.crank.crank_tdc_reference_rad.value,
-                         "scenario.mode.initial_theta_rad"),
-        builder.resolved(0.85, "scenario.mode.throttle_01"),
+        resolved(kHeldRpm, "scenario.mode.engine_speed_rpm"),
+        resolved(profile.core.mechanism.crank.crank_tdc_reference_rad.value,
+                 "scenario.mode.initial_theta_rad"),
+        resolved(0.85, "scenario.mode.throttle_01"),
     };
+    scenario.mode_resolution_id = "scenario.mode";
 
     contract::Sha256Digest request_identity;
     request_identity.bytes.front() = 1U;
     return {
+        &authored,
         std::move(engine),
         std::move(scenario),
         request_identity,
@@ -124,15 +123,12 @@ operating_runtime(const Fixture &value, const simulation::LowOrderCapturePlan &p
 
 [[nodiscard]] simulation::LowOrderEngineCoreV1Runtime
 core_runtime(const Fixture &value) {
-    const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
-        value.engine.physics_profile);
-    auto random_plan_result =
-        profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
-            value.engine, value.scenario);
-    const auto *random_plan = std::get_if<contract::RandomPlan>(&random_plan_result);
-    expect(random_plan != nullptr, "canonical operating random plan was rejected");
+    expect(value.authored != nullptr, "authored fixture context was absent");
+    const auto &profile = test::operating_profile(value.engine);
+    const auto random_plan = test::compile_fixture_random_plan(
+        *value.authored, value.engine, value.scenario);
     auto result = simulation::compile_low_order_engine_core_v1_runtime(
-        value.engine, value.scenario, profile.core, *random_plan);
+        value.engine, value.scenario, profile.core, random_plan);
     const auto *report = std::get_if<contract::ValidationReport>(&result);
     expect(report == nullptr, "canonical operating core was rejected");
     return std::get<simulation::LowOrderEngineCoreV1Runtime>(std::move(result));
@@ -156,8 +152,9 @@ void advance_to_fixed_horizon(simulation::LowOrderEngineCoreV1Runtime &core,
     }
 }
 
-void test_complete_cycle_evidence_reaches_public_result() {
-    auto value = fixture();
+void test_complete_cycle_evidence_reaches_public_result(
+    const test::AuthoredEngineFixture &authored) {
+    auto value = fixture(authored);
     const auto plan = capture_plan(value);
     auto operating = operating_runtime(value, plan);
     auto core = core_runtime(value);
@@ -222,8 +219,9 @@ void test_complete_cycle_evidence_reaches_public_result() {
     }
 }
 
-void test_capture_plan_transplants_are_rejected() {
-    const auto value = fixture();
+void test_capture_plan_transplants_are_rejected(
+    const test::AuthoredEngineFixture &authored) {
+    const auto value = fixture(authored);
     auto plan = capture_plan(value);
     plan.scenario_id = "different-scenario";
     const auto result = simulation::compile_low_order_operating_point_v1_runtime(
@@ -237,8 +235,9 @@ void test_capture_plan_transplants_are_rejected() {
            "runtime compiler admitted a capture plan from another scenario");
 }
 
-void test_scenario_mass_afr_is_exactly_bound_to_core_conversion() {
-    auto value = fixture();
+void test_scenario_mass_afr_is_exactly_bound_to_core_conversion(
+    const test::AuthoredEngineFixture &authored) {
+    auto value = fixture(authored);
     const auto plan = capture_plan(value);
     value.scenario.fuel.stoichiometric_air_fuel_mass_ratio.value =
         std::nextafter(value.scenario.fuel.stoichiometric_air_fuel_mass_ratio.value,
@@ -258,8 +257,9 @@ void test_scenario_mass_afr_is_exactly_bound_to_core_conversion() {
            "with the core pseudo-gas conversion");
 }
 
-void test_capture_reports_absent_instantaneous_models_truthfully() {
-    const auto value = fixture();
+void test_capture_reports_absent_instantaneous_models_truthfully(
+    const test::AuthoredEngineFixture &authored) {
+    const auto value = fixture(authored);
     const auto plan = capture_plan(value);
     auto operating = operating_runtime(value, plan);
     auto core = core_runtime(value);
@@ -279,8 +279,9 @@ void test_capture_reports_absent_instantaneous_models_truthfully() {
         "capture mislabeled an absent instantaneous model as missing input");
 }
 
-void test_runtime_rejects_foreign_controls_and_shape() {
-    const auto value = fixture();
+void test_runtime_rejects_foreign_controls_and_shape(
+    const test::AuthoredEngineFixture &authored) {
+    const auto value = fixture(authored);
     const auto plan = capture_plan(value);
 
     const auto expect_rejected = [&](const auto &mutate,
@@ -365,19 +366,22 @@ void test_runtime_rejects_foreign_controls_and_shape() {
                     "runtime admitted a foreign gas transaction shape");
 }
 
-void run_tests() {
-    test_capture_plan_transplants_are_rejected();
-    test_scenario_mass_afr_is_exactly_bound_to_core_conversion();
-    test_capture_reports_absent_instantaneous_models_truthfully();
-    test_runtime_rejects_foreign_controls_and_shape();
-    test_complete_cycle_evidence_reaches_public_result();
+void run_tests(const std::filesystem::path &repository_root) {
+    const auto authored = test::load_canonical_authored_engine_fixture(repository_root);
+    test_capture_plan_transplants_are_rejected(authored);
+    test_scenario_mass_afr_is_exactly_bound_to_core_conversion(authored);
+    test_capture_reports_absent_instantaneous_models_truthfully(authored);
+    test_runtime_rejects_foreign_controls_and_shape(authored);
+    test_complete_cycle_evidence_reaches_public_result(authored);
 }
 
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
     try {
-        run_tests();
+        expect(argc == 2,
+               "usage: low_order_operating_point_v1_runtime_test <repository-root>");
+        run_tests(argv[1]);
     } catch (const std::exception &error) {
         std::cerr << "low-order operating runtime test failure: " << error.what()
                   << '\n';

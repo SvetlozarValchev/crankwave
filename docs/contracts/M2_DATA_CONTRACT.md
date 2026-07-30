@@ -442,18 +442,12 @@ A source matrix is an independently selected policy object. It fixes:
 then requires exact equality with the selected matrix; the renderer cannot silently
 drop a route, weaken a media contract, or relabel ownership.
 
-The built-in `bmw_m52b28_reference_source_matrix_v1()` is the typed counterpart of the
-frozen M2/M3 reference matrix. It requires exactly two local-evaluation exhaust
-reference routes, their dry/configured-IR/selected stems, and raw/audition reference
-masters at the frozen delivery shape. It is intentionally not the production source
-matrix. For isolated fixture replay, `exhaust_outlet` is only this matrix's routing
-classification; the captured runtime buses are not asserted to be physical
-exhaust-outlet observables. Its typed omissions mirror the frozen reference capsule's
-explicit absence of intake, mechanical engine, starter, drivetrain, tire/road,
-spatial-scene, and non-pull-behavior evidence. They remain part of `OutputContract`,
-so a manifest cannot silently erase the limitations while claiming the approved
-matrix. The detailed evidence remains in
+The old M2/M3 BMW reference matrix is retained only as frozen historical evidence; it
+is not a built-in production policy or an executable engine route. Its two
+local-evaluation exhaust routes, diagnostic stems, reference masters, and explicit
+omissions remain documented in
 [`SOURCE_MATRIX.md`](../../reference/oracles/bmw-m52b28/SOURCE_MATRIX.md).
+Current JSON compilation emits only the generic engine raw/audition output buses.
 
 Production completeness remains governed by
 [`PRODUCTION_SOURCE_MATRIX.md`](../PRODUCTION_SOURCE_MATRIX.md) and is later work.

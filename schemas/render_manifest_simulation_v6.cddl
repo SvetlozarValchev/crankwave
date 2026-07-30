@@ -877,9 +877,7 @@ artifact-kind = "audio" / "telemetry" / "routing_report" / "validation_report"
 distribution-intent = "local_evaluation" / "distributable"
 output-bus-kind =
   "master_engine_raw" /
-  "master_engine_audition" /
-  "master_reference_raw" /
-  "master_reference_audition"
+  "master_engine_audition"
 route-disposition = "rendered" / "not_applicable"
 omission-kind =
   "source_route" /

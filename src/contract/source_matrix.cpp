@@ -50,8 +50,6 @@ bool valid_output_bus_kind(OutputBusKind kind) {
     switch (kind) {
     case OutputBusKind::master_engine_raw:
     case OutputBusKind::master_engine_audition:
-    case OutputBusKind::master_reference_raw:
-    case OutputBusKind::master_reference_audition:
         return true;
     case OutputBusKind::unspecified:
         return false;
@@ -284,125 +282,6 @@ ValidationReport validate_evidence_rights(const ProvenanceLedger &provenance,
         }
     }
     return report;
-}
-
-const SourceMatrixContract &bmw_m52b28_reference_source_matrix_v1() {
-    static const SourceMatrixContract source_matrix = [] {
-        constexpr RationalRateHz delivery_rate{192000, 1};
-        constexpr std::uint64_t frame_count = 2880000;
-        const AudioContract float32_mono{
-            delivery_rate,
-            frame_count,
-            "mono",
-            "float32le",
-        };
-        const AudioContract pcm24_mono{
-            delivery_rate,
-            frame_count,
-            "mono",
-            "pcm_s24le",
-        };
-
-        SourceMatrixContract result;
-        result.id = "bmw-m52b28-reference-source-matrix-v1";
-        result.sha256.bytes = {
-            0xc7, 0x9a, 0x07, 0x1f, 0xd8, 0xaf, 0xe4, 0x6c, 0xab, 0x0b, 0x67,
-            0xb4, 0x04, 0x53, 0x71, 0x79, 0x26, 0x18, 0x24, 0xc0, 0xba, 0xd3,
-            0xa5, 0xfc, 0xc0, 0x71, 0xe0, 0x59, 0xc9, 0x9f, 0xd9, 0x11,
-        };
-        result.distribution = DistributionIntent::local_evaluation;
-        result.required_source_routes = {
-            {
-                "exhaust.reference.0",
-                SourceRouteKind::exhaust_outlet,
-                RouteDisposition::rendered,
-                "",
-                {
-                    "exhaust.reference.0.dry",
-                    "exhaust.reference.0.configured_ir",
-                    "exhaust.reference.0.selected",
-                },
-            },
-            {
-                "exhaust.reference.1",
-                SourceRouteKind::exhaust_outlet,
-                RouteDisposition::rendered,
-                "",
-                {
-                    "exhaust.reference.1.dry",
-                    "exhaust.reference.1.configured_ir",
-                    "exhaust.reference.1.selected",
-                },
-            },
-        };
-        result.required_output_buses = {
-            {
-                "master.reference.raw",
-                OutputBusKind::master_reference_raw,
-                {"master.reference.raw"},
-            },
-            {
-                "master.reference.audition",
-                OutputBusKind::master_reference_audition,
-                {"master.reference.audition"},
-            },
-        };
-        result.required_artifacts = {
-            {"exhaust.reference.0.dry", ArtifactKind::audio, float32_mono, true},
-            {"exhaust.reference.0.configured_ir", ArtifactKind::audio, float32_mono,
-             true},
-            {"exhaust.reference.0.selected", ArtifactKind::audio, float32_mono, false},
-            {"exhaust.reference.1.dry", ArtifactKind::audio, float32_mono, true},
-            {"exhaust.reference.1.configured_ir", ArtifactKind::audio, float32_mono,
-             true},
-            {"exhaust.reference.1.selected", ArtifactKind::audio, float32_mono, false},
-            {"master.reference.raw", ArtifactKind::audio, float32_mono, false},
-            {"master.reference.audition", ArtifactKind::audio, pcm24_mono, false},
-        };
-        result.declared_omissions = {
-            {
-                "intake",
-                OmissionKind::source_route,
-                "Absent from the exhaust-only reference; it cannot be inferred from "
-                "the master.",
-            },
-            {
-                "mechanical.engine",
-                OmissionKind::source_route,
-                "Absent as a separately observable reference route.",
-            },
-            {
-                "mechanical.starter",
-                OmissionKind::source_route,
-                "The preserved pull begins with an already-running engine.",
-            },
-            {
-                "drivetrain",
-                OmissionKind::external_system,
-                "Transmission and drivetrain radiation are outside this neutral "
-                "engine reference.",
-            },
-            {
-                "vehicle.tire-road",
-                OmissionKind::external_system,
-                "Tire, road, and vehicle radiation are outside the engine asset.",
-            },
-            {
-                "presentation.spatial-field",
-                OmissionKind::presentation_scene,
-                "The static IR is coloration, not a documented cabin, environment, "
-                "microphone, or spatial field.",
-            },
-            {
-                "scenario.non-pull-behaviors",
-                OmissionKind::scenario_behavior,
-                "Startup, shutdown, idle, overrun, fuel cut, and limiter behavior are "
-                "not exercised by this pull.",
-            },
-        };
-        return result;
-    }();
-    return source_matrix;
 }
 
 } // namespace engine_sim_offline::contract

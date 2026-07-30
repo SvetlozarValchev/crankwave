@@ -191,8 +191,7 @@ void run_tests() {
         fixture.specification.engine.total_displacement_m3.value =
             std::numeric_limits<double>::infinity();
         CountingSink sink;
-        const auto result =
-            render(fixture.specification, fixture.scenario, sink);
+        const auto result = render(fixture.specification, fixture.scenario, sink);
         expect_failure(
             result, FailureKind::invalid_specification,
             "non-encodable invalid engine did not fail structural preflight");
@@ -200,8 +199,7 @@ void run_tests() {
             result, fixture,
             "invalid-specification failure incorrectly required canonical "
             "request-identity encoding without held operating evidence");
-        expect(sink.calls == 0,
-               "non-encodable invalid engine touched the sink");
+        expect(sink.calls == 0, "non-encodable invalid engine touched the sink");
     }
 
     {
@@ -322,17 +320,6 @@ void run_tests() {
                     .ok(),
                "failure rebound to different bytes with identical diagnostics");
         expect(sink.calls == 0, "invalid asset payload touched the sink");
-    }
-
-    {
-        RequestFixture fixture;
-        fixture.specification.source_matrix.id =
-            bmw_m52b28_reference_source_matrix_v1().id;
-        CountingSink sink;
-        const auto result = render(fixture.specification, fixture.scenario, sink);
-        expect_failure(result, FailureKind::invalid_specification,
-                       "mutated frozen BMW matrix identity passed preflight");
-        expect(sink.calls == 0, "mutated frozen matrix touched the sink");
     }
 
     {

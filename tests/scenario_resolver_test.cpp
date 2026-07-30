@@ -36,10 +36,10 @@ using engine_sim_offline::contract::test::expect;
     return {numerator, 1U, "Hz"};
 }
 
-[[nodiscard]] authoring::ScenarioDocument external_speed_scenario(std::string engine_id,
-                                                                  std::string fuel_id) {
+[[nodiscard]] authoring::ScenarioDocument held_speed_scenario(std::string engine_id,
+                                                              std::string fuel_id) {
     authoring::ScenarioDocument scenario;
-    scenario.id.value = "resolver.external-speed";
+    scenario.id.value = "resolver.held-speed";
     scenario.engine.value = std::move(engine_id);
     scenario.fuel.value = std::move(fuel_id);
     scenario.ambient = {
@@ -60,28 +60,22 @@ using engine_sim_offline::contract::test::expect;
     scenario.initial_state = {
         quantity(3000.0, "rpm"), quantity(0.0, "rad"), true, true, false, true, false,
     };
-    scenario.preparation = authoring::FixedSettlingPreparation{
-        quantity(0.5, "s"),
-        quantity(0.5, "s"),
+    scenario.preparation = authoring::FixedHorizonPreparation{
+        quantity(2.0, "s"),
+        32U,
     };
 
-    authoring::QuantityTrajectory speed;
-    speed.value_dimension = authoring::QuantityDimension::angular_speed;
-    speed.interpolation = authoring::TrajectoryInterpolation::linear;
-    speed.points = {
-        {quantity(0.0, "s"), quantity(3000.0, "rpm")},
-        {quantity(2.0, "s"), quantity(6500.0, "rpm")},
-    };
     authoring::ScalarTrajectory throttle;
     throttle.interpolation = authoring::TrajectoryInterpolation::right_continuous_hold;
     throttle.points = {{quantity(0.0, "s"), 0.85}};
-    scenario.mode = authoring::ExternalSpeedMode{std::move(speed), std::move(throttle)};
+    scenario.mode =
+        authoring::HeldSpeedMode{quantity(3000.0, "rpm"), std::move(throttle)};
     scenario.rates = {
         rate(10000U), rate(10000U), rate(192000U), rate(192000U), rate(192000U),
     };
     scenario.quality = {"resolver-production", 256U, 4096U, 1024U};
-    scenario.total_duration = quantity(2.0, "s");
-    scenario.audible_start = quantity(1.0, "s");
+    scenario.total_duration = quantity(3.0, "s");
+    scenario.audible_start = quantity(2.0, "s");
     scenario.audible_duration = quantity(1.0, "s");
     scenario.public_seed = 42U;
     scenario.output.buses = {
@@ -91,10 +85,7 @@ using engine_sim_offline::contract::test::expect;
     return scenario;
 }
 
-// Isolated contract-algorithm coverage. The greenfield engine compiler currently
-// emits the operating-point profile, whose production admission intentionally rejects
-// external-speed execution until that runtime is broadened in a later checkpoint.
-void test_isolated_external_speed_materialization_on_the_integer_clock() {
+void test_held_speed_resolution_on_the_integer_clock() {
     contract::test::InputBuilder builder;
     auto engine = contract::test::make_engine(builder);
     auto presentation = contract::test::make_presentation(builder, engine);
@@ -106,7 +97,7 @@ void test_isolated_external_speed_materialization_on_the_integer_clock() {
     presentation.provenance_schema_id = compiler_schema;
 
     const auto &profile =
-        std::get<contract::LegacyLowOrderV1Profile>(engine.physics_profile);
+        std::get<contract::LowOrderOperatingPointV1Profile>(engine.physics_profile);
     const compile::ResolvedFuelDescriptor fuel{
         profile.core.fuel.fuel_id.value,
         profile.core.fuel.fuel_id,
@@ -136,8 +127,7 @@ void test_isolated_external_speed_materialization_on_the_integer_clock() {
             false,
         },
     }};
-    const auto document =
-        external_speed_scenario(engine.engine_id.value, fuel.authored_id);
+    const auto document = held_speed_scenario(engine.engine_id.value, fuel.authored_id);
     const compile::ScenarioResolverContext context{
         engine,
         presentation,
@@ -160,14 +150,10 @@ void test_isolated_external_speed_materialization_on_the_integer_clock() {
         throw std::runtime_error{message};
     }
     const auto &resolved = std::get<compile::ResolvedScenarioContracts>(result);
-    const auto &sweep =
-        std::get<contract::PrescribedKinematicSweep>(resolved.scenario.mode);
-    const auto &rpm = std::get<contract::FixedRateRpmTrajectory>(sweep.trajectory.rpm);
-    expect(rpm.post_step_rpm.size() == 20000U,
-           "external speed did not materialize one post-step sample per frame");
-    expect(rpm.post_step_rpm.front() > 3000.0 && rpm.post_step_rpm.back() == 6500.0,
-           "linear external-speed endpoints use the wrong post-step semantics");
-    expect(resolved.request_input.total_physics_frames == 20000U &&
+    const auto &held = std::get<contract::HeldSpeed>(resolved.scenario.mode);
+    expect(held.engine_speed_rpm.value == 3000.0 && held.throttle_01.value == 0.85,
+           "held-speed controls changed during resolution");
+    expect(resolved.request_input.total_physics_frames == 30000U &&
                resolved.request_input.audible_delivery_frames == 192000U,
            "deterministic request frame material changed");
     expect(resolved.source_matrix.required_source_routes.size() == 1U &&
@@ -186,13 +172,13 @@ void test_isolated_external_speed_materialization_on_the_integer_clock() {
            "identical authored scenario did not resolve deterministically");
 
     auto with_events = document;
-    authoring::OperatingStatePatch enable_limiter;
-    enable_limiter.limiter_enabled = true;
-    authoring::OperatingStatePatch disable_limiter;
-    disable_limiter.limiter_enabled = false;
+    authoring::OperatingStatePatch retain_limiter_policy;
+    retain_limiter_policy.limiter_enabled = false;
     with_events.events = {
-        {authoring::ScenarioEventId{"z-event"}, quantity(0.5, "s"), enable_limiter},
-        {authoring::ScenarioEventId{"a-event"}, quantity(0.75, "s"), disable_limiter},
+        {authoring::ScenarioEventId{"z-event"}, quantity(0.5, "s"),
+         retain_limiter_policy},
+        {authoring::ScenarioEventId{"a-event"}, quantity(0.75, "s"),
+         retain_limiter_policy},
     };
     auto event_result = compile::resolve_scenario_document(with_events, context);
     const auto *event_contracts =
@@ -215,17 +201,13 @@ void test_isolated_external_speed_materialization_on_the_integer_clock() {
                               authoring::DiagnosticCode::unsupported_capability,
                               "/mode/type"),
            "free-engine mode was not rejected as an explicit capability");
-
-    expect(compile::fixed_rate_post_step_rpm_method_identity().configuration_sha256 !=
-               contract::test::fixed_rate_rpm_method().configuration_sha256,
-           "generic fixed-rate method retained the BMW request-record digest");
 }
 
 } // namespace
 
 int main() {
     try {
-        test_isolated_external_speed_materialization_on_the_integer_clock();
+        test_held_speed_resolution_on_the_integer_clock();
         std::cout << "scenario resolver tests passed\n";
         return EXIT_SUCCESS;
     } catch (const std::exception &exception) {

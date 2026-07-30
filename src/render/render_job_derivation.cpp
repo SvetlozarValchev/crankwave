@@ -68,13 +68,11 @@ project_artifact(const contract::OutputContract &output, std::string_view role,
 }
 
 [[nodiscard]] bool is_raw_bus(contract::OutputBusKind kind) noexcept {
-    return kind == contract::OutputBusKind::master_engine_raw ||
-           kind == contract::OutputBusKind::master_reference_raw;
+    return kind == contract::OutputBusKind::master_engine_raw;
 }
 
 [[nodiscard]] bool is_audition_bus(contract::OutputBusKind kind) noexcept {
-    return kind == contract::OutputBusKind::master_engine_audition ||
-           kind == contract::OutputBusKind::master_reference_audition;
+    return kind == contract::OutputBusKind::master_engine_audition;
 }
 
 } // namespace

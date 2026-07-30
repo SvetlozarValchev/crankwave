@@ -1,8 +1,6 @@
-#include "artifacts/audition_wav_encoder.hpp"
 #include "dsp/fixed_fft.hpp"
 #include "dsp/source_conditioning_primitives.hpp"
 #include "dsp/static_ir_conversion.hpp"
-#include "engine_sim_offline/artifacts/wav_encoder.hpp"
 #include "engine_sim_offline/contract/source_matrix.hpp"
 #include "presentation/causal_reconstruction.hpp"
 #include "presentation/exhaust_source_stage.hpp"
@@ -30,7 +28,6 @@ namespace {
 
 constexpr std::uint64_t kFixtureAudibleFrameCount = 2'880'000;
 constexpr std::uint64_t kFixtureFadeFrameCount = 3'840;
-constexpr std::uint64_t kFixtureAuditionWaveByteCount = 8'640'302;
 
 using namespace engine_sim_offline;
 using namespace engine_sim_offline::reference;
@@ -208,78 +205,6 @@ void test_identity_and_seed_shape(const P18ReferenceCatalogV1 &catalog) {
     }
 }
 
-void test_source_matrix_alignment(const P18ReferenceCatalogV1 &catalog) {
-    const auto &matrix = contract::bmw_m52b28_reference_source_matrix_v1();
-    expect(contract::validate(matrix).ok(), "frozen source matrix is invalid");
-    expect(matrix.required_source_routes.size() == catalog.expected_routes.size(),
-           "catalog route count differs from the source matrix");
-    expect(matrix.required_artifacts.size() == catalog.expected_audio.size(),
-           "catalog audio count differs from the source matrix");
-
-    for (std::size_t index = 0; index < catalog.expected_routes.size(); ++index) {
-        const auto &expected = catalog.expected_routes[index];
-        const auto &required = matrix.required_source_routes[index];
-        expect(expected.expected_semantic_id == required.semantic_id &&
-                   expected.expected_source_matrix_classification == required.kind &&
-                   required.disposition == contract::RouteDisposition::rendered,
-               "catalog route differs from source-matrix policy");
-        for (const auto &role : required.artifact_roles) {
-            expect(std::ranges::any_of(
-                       catalog.expected_audio,
-                       [&](const auto &audio) { return audio.expected_role == role; }),
-                   "source route owns an audio role absent from the catalog");
-        }
-        expect(required.artifact_roles.size() == 3,
-               "reference exhaust route does not own exactly three stems");
-        for (std::size_t role = 0; role < required.artifact_roles.size(); ++role) {
-            expect(required.artifact_roles[role] ==
-                       catalog.expected_audio[index * 3U + role].expected_role,
-                   "source-route stem order differs from the audio catalog");
-        }
-    }
-
-    for (std::size_t index = 0; index < catalog.expected_audio.size(); ++index) {
-        const auto &expected = catalog.expected_audio[index];
-        const auto &required = matrix.required_artifacts[index];
-        expect(expected.expected_role == required.role &&
-                   required.kind == contract::ArtifactKind::audio &&
-                   required.audio.has_value() &&
-                   expected.expected_diagnostic == required.diagnostic,
-               "catalog audio differs from source-matrix policy");
-        expect(required.audio->sample_rate ==
-                       catalog.expected_capture.expected_rates.delivery &&
-                   required.audio->frame_count ==
-                       catalog.expected_capture.expected_delivery_frame_count,
-               "source-matrix audio media differs from catalog capture");
-
-        if (expected.audio == P18ReferenceAudioArtifact::master_audition) {
-            expect(expected.expected_byte_count == kFixtureAuditionWaveByteCount,
-                   "audition artifact size differs from its WAVE encoder");
-        } else {
-            auto encoder = artifacts::make_wav_encoder(*required.audio);
-            const auto *wave = std::get_if<artifacts::WavEncoder>(&encoder);
-            expect(wave != nullptr &&
-                       wave->expected_byte_count() == expected.expected_byte_count,
-                   "Float32 artifact size differs from its WAVE encoder");
-        }
-    }
-    expect(matrix.required_output_buses.size() == 2,
-           "reference source matrix does not contain two master buses");
-    for (std::size_t index = 0; index < matrix.required_output_buses.size(); ++index) {
-        const auto &bus = matrix.required_output_buses[index];
-        expect(bus.artifact_roles.size() == 1 &&
-                   bus.artifact_roles.front() ==
-                       catalog.expected_audio[6U + index].expected_role,
-               "master-bus ownership differs from the audio catalog");
-        for (const auto &role : bus.artifact_roles) {
-            expect(std::ranges::any_of(
-                       catalog.expected_audio,
-                       [&](const auto &audio) { return audio.expected_role == role; }),
-                   "output bus owns an audio role absent from the catalog");
-        }
-    }
-}
-
 void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
     const auto &capture = catalog.expected_capture;
     const contract::RationalRateHz source_rate{
@@ -440,7 +365,6 @@ int main() {
                "catalog accessor did not return one immutable instance");
         test_ordered_complete_inventory(catalog);
         test_identity_and_seed_shape(catalog);
-        test_source_matrix_alignment(catalog);
         test_subsystem_constant_alignment(catalog);
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';

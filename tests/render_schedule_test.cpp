@@ -349,8 +349,12 @@ void test_method_bounds_are_admitted_explicitly() {
 
 SchedulePolicy accepted_presentation_policy() {
     return {
-        "fixed-rate-exhaust-presentation", 1, 200, 19U * 200U,
-        SamplePhase::post_step,             1,
+        "fixed-rate-exhaust-presentation",
+        1,
+        200,
+        19U * 200U,
+        SamplePhase::post_step,
+        1,
     };
 }
 
@@ -365,9 +369,9 @@ RenderScenario make_accepted_presentation_scenario() {
 
 void test_accepted_presentation_partition_and_mapping() {
     const auto scenario = make_accepted_presentation_scenario();
-    const auto plan = require_plan(
-        compile_render_schedule(scenario, accepted_presentation_policy()),
-        "valid accepted presentation schedule was rejected");
+    const auto plan =
+        require_plan(compile_render_schedule(scenario, accepted_presentation_policy()),
+                     "valid accepted presentation schedule was rejected");
 
     expect(plan.capture_capacity_frames() == 256 &&
                plan.event_journal_capacity_records() == 4096 &&
@@ -418,8 +422,8 @@ void test_accepted_presentation_partition_and_mapping() {
 
     auto insufficient_capacity = scenario;
     insufficient_capacity.quality.value.capture_block_capacity_frames = 199;
-    const auto rejected = compile_render_schedule(insufficient_capacity,
-                                                  accepted_presentation_policy());
+    const auto rejected =
+        compile_render_schedule(insufficient_capacity, accepted_presentation_policy());
     const auto &report = require_rejection(
         rejected, "presentation partition exceeded capacity without rejection");
     expect(has_issue_path(report, "policy.capture_partition_frames"),
@@ -442,9 +446,10 @@ void test_binary64_grid_conversion_and_rejection() {
     scenario.audible_start_s.value = 0.1;
     scenario.audible_duration_s.value = 0.2;
     scenario.quality.value.capture_block_capacity_frames = 257;
-    auto &fixed = std::get<FixedSettling>(scenario.preparation);
-    fixed.warm_up_duration_s.value = 0.05;
-    fixed.settling_duration_s.value = 0.05;
+    scenario.preparation = FixedSettling{
+        {0.05, ""},
+        {0.05, ""},
+    };
     const auto plan =
         require_plan(compile_render_schedule(scenario, generic_policy(257)),
                      "integral 48 kHz binary64 schedule was rejected");
@@ -463,9 +468,10 @@ RenderSchedulePlan make_single_block_plan() {
     scenario.total_duration_s.value = 1.0;
     scenario.audible_start_s.value = 0.0;
     scenario.audible_duration_s.value = 1.0;
-    auto &fixed = std::get<FixedSettling>(scenario.preparation);
-    fixed.warm_up_duration_s.value = 0.0;
-    fixed.settling_duration_s.value = 0.0;
+    scenario.preparation = FixedSettling{
+        {0.0, ""},
+        {0.0, ""},
+    };
     return require_plan(compile_render_schedule(scenario, generic_policy(16)),
                         "single-block cancellation schedule was rejected");
 }

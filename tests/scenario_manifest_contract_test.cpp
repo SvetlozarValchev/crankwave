@@ -66,11 +66,13 @@ void run_scenario_manifest_contract_tests() {
     InputBuilder fixed_rpm_builder;
     auto fixed_rpm_content = make_manifest_content(fixed_rpm_builder);
     auto fixed_rpm_scenario = simulation_inputs(fixed_rpm_content).scenario;
-    const auto default_sweep =
-        std::get<PrescribedKinematicSweep>(fixed_rpm_scenario.mode);
-    const auto throttle_resolution_id = default_sweep.throttle_01.resolution_id;
+    std::erase_if(fixed_rpm_builder.provenance.resolutions, [](const auto &resolution) {
+        return resolution.parameter_path.starts_with("scenario.mode.");
+    });
+    const auto throttle_resolution_id =
+        fixed_rpm_builder.add_resolution("scenario.mode.throttle_01");
     const auto rpm_resolution_id =
-        std::get<FixedRateRpmTrajectory>(default_sweep.trajectory.rpm).resolution_id;
+        fixed_rpm_builder.add_resolution("scenario.mode.trajectory.rpm");
     const auto fixed_rpm_frame_count = resolve_frame_index(
         fixed_rpm_scenario.total_duration_s.value, fixed_rpm_scenario.rates.physics);
     expect(fixed_rpm_frame_count.has_value(),
@@ -89,15 +91,17 @@ void run_scenario_manifest_contract_tests() {
     PrescribedKinematicSweep fixed_sweep;
     fixed_sweep.trajectory.rpm = std::move(fixed_rpm);
     fixed_sweep.trajectory.initial_theta_rad =
-        default_sweep.trajectory.initial_theta_rad;
-    fixed_sweep.trajectory.kinematic_resolution =
-        default_sweep.trajectory.kinematic_resolution;
+        fixed_rpm_builder.resolved(0.0, "scenario.mode.trajectory.initial_theta_rad");
+    fixed_sweep.trajectory.kinematic_resolution = fixed_rpm_builder.resolved(
+        fixed_rate_rpm_method(), "scenario.mode.trajectory.kinematic_resolution");
     fixed_sweep.throttle_01 = {
         TrajectoryInterpolation::right_continuous_hold,
         {{0.0, 0.85}},
         throttle_resolution_id,
     };
     fixed_rpm_scenario.mode = std::move(fixed_sweep);
+    fixed_rpm_scenario.mode_resolution_id =
+        fixed_rpm_builder.add_resolution("scenario.mode.kind");
     expect(validate(fixed_rpm_scenario, fixed_rpm_builder.provenance).ok(),
            "valid owned fixed-rate RPM trajectory was rejected");
 
@@ -212,6 +216,10 @@ void run_scenario_manifest_contract_tests() {
 
     auto discrete_fixed_gap = simulation_inputs(content).scenario;
     discrete_fixed_gap.rates = discrete_audible_gap.rates;
+    discrete_fixed_gap.preparation = FixedSettling{
+        {1.0, ""},
+        {0.9999999999995, ""},
+    };
     std::get<FixedSettling>(discrete_fixed_gap.preparation).settling_duration_s.value =
         0.9999999999995;
     const auto fixed_grid_report = validate_clock_grid(discrete_fixed_gap);
@@ -298,27 +306,6 @@ void run_scenario_manifest_contract_tests() {
            "scenario fuel was allowed to contradict executable engine fuel");
 
     auto operating_engine = simulation_inputs(content).engine;
-    auto legacy_profile =
-        std::get<LegacyLowOrderV1Profile>(operating_engine.physics_profile);
-    LowOrderOperatingPointV1Profile operating_profile;
-    operating_profile.core = std::move(legacy_profile.core);
-    operating_profile.aggregate_loss.required_oil_temperature_k.value = 370.0;
-    operating_engine.physics_profile = std::move(operating_profile);
-    operating_engine.torque_capability.value = {
-        {
-            Availability::unavailable,
-            Completeness::incomplete,
-            0,
-            0,
-        },
-        {
-            Availability::available,
-            Completeness::complete,
-            known_torque_term_mask(),
-            0,
-        },
-        false,
-    };
     auto operating_scenario = sampling_scenario;
     operating_scenario.operating_state.value = {
         {
@@ -331,12 +318,11 @@ void run_scenario_manifest_contract_tests() {
            "valid operating-profile held-speed scenario was rejected");
 
     auto wrong_operating_mode = operating_scenario;
-    wrong_operating_mode.mode = simulation_inputs(content).scenario.mode;
+    wrong_operating_mode.mode = fixed_rpm_scenario.mode;
     expect(!validate_for_engine(wrong_operating_mode, operating_engine).ok(),
            "operating profile accepted a prescribed sweep");
     auto fixed_operating_preparation = operating_scenario;
-    fixed_operating_preparation.preparation =
-        simulation_inputs(content).scenario.preparation;
+    fixed_operating_preparation.preparation = FixedSettling{};
     expect(!validate_for_engine(fixed_operating_preparation, operating_engine).ok(),
            "operating profile accepted fixed preparation");
     auto wrong_operating_oil = operating_scenario;
@@ -420,10 +406,10 @@ void run_scenario_manifest_contract_tests() {
            "valid completed render manifest was rejected");
     const RenderResult held_success =
         RenderSuccess{first, std::nullopt, std::nullopt, std::nullopt};
-    expect(validate(held_success, simulation_inputs(content).scenario, Sha256Digest{},
-                    builder.provenance, source_matrix)
-               .ok(),
-           "held-speed success result was rejected");
+    expect(!validate(held_success, simulation_inputs(content).scenario, Sha256Digest{},
+                     builder.provenance, source_matrix)
+                .ok(),
+           "held-speed success without operating-point evidence was accepted");
 
     const RenderFailure runtime_failure{
         FailureContext{
@@ -609,6 +595,9 @@ void run_scenario_manifest_contract_tests() {
     auto load_content = make_manifest_content(load_builder);
     auto load_engine = simulation_inputs(load_content).engine;
     auto load_scenario = simulation_inputs(load_content).scenario;
+    std::erase_if(load_builder.provenance.resolutions, [](const auto &resolution) {
+        return resolution.parameter_path.starts_with("scenario.mode.");
+    });
     load_scenario.mode = LoadTargetHeldCapture{
         load_builder.resolved(3000.0, "scenario.mode.engine_speed_rpm"),
         load_builder.resolved(0.0, "scenario.mode.initial_theta_rad"),
@@ -619,19 +608,12 @@ void run_scenario_manifest_contract_tests() {
         load_builder.resolved(method("load-search-v1", 22),
                               "scenario.mode.search_method"),
     };
+    load_scenario.mode_resolution_id =
+        load_builder.add_resolution("scenario.mode.kind");
     expect(validate(load_scenario, load_builder.provenance).ok(),
            "finite signed negative net-BMEP target was rejected");
     expect(!validate_for_engine(load_scenario, load_engine).ok(),
-           "legacy incomplete torque model accepted a load-target capture");
-    auto load_capable_engine = load_engine;
-    load_capable_engine.torque_capability.value.cycle_mean_net_shaft = {
-        Availability::available,
-        Completeness::complete,
-        known_torque_term_mask(),
-        0,
-    };
-    expect(validate_for_engine(load_scenario, load_capable_engine).ok(),
-           "synthetic complete cycle-mean capability rejected a load target");
+           "operating-point profile accepted an unsupported load-target capture");
     simulation_inputs(load_content).scenario = load_scenario;
 
     auto inverted_bounds = load_scenario;
@@ -642,7 +624,7 @@ void run_scenario_manifest_contract_tests() {
     expect(!validate(inverted_bounds, load_builder.provenance).ok(),
            "inverted load-search throttle bounds were accepted");
 
-    auto incomplete_torque_engine = load_capable_engine;
+    auto incomplete_torque_engine = load_engine;
     incomplete_torque_engine.torque_capability.value.cycle_mean_net_shaft = {
         Availability::available,
         Completeness::incomplete,
@@ -675,13 +657,6 @@ void run_scenario_manifest_contract_tests() {
         {method("piecewise-linear-passive-brake-v1", 24), ""},
     };
     auto inertial_capable_engine = load_engine;
-    inertial_capable_engine.torque_capability.value.instantaneous_net_shaft = {
-        Availability::available,
-        Completeness::complete,
-        known_torque_term_mask(),
-        0,
-    };
-    inertial_capable_engine.torque_capability.value.equivalent_inertia_available = true;
     expect(validate_for_engine(inertial_scenario, inertial_capable_engine).ok(),
            "synthetic complete instantaneous capability rejected an inertial dyno");
 
@@ -764,7 +739,7 @@ void run_scenario_manifest_contract_tests() {
     expect(!validate(reached_result, load_scenario, Sha256Digest{},
                      load_builder.provenance, source_matrix)
                 .ok(),
-           "legacy incomplete torque model published a load-target result");
+           "unsupported operating-point mode published a load-target result");
 
     auto wrong_reached_search_result = reached_result;
     std::get<RenderSuccess>(wrong_reached_search_result)
@@ -860,7 +835,7 @@ void run_scenario_manifest_contract_tests() {
     expect(!validate(unreachable_result, load_scenario, Sha256Digest{},
                      load_builder.provenance, source_matrix)
                 .ok(),
-           "legacy incomplete torque model published a load-target failure");
+           "unsupported operating-point mode published a load-target failure");
 
     auto wrong_unreachable_search_interval = matching_unreachable;
     wrong_unreachable_search_interval.search.requested_throttle_lower_bound_01 = 0.25;
@@ -892,7 +867,7 @@ void run_scenario_manifest_contract_tests() {
                       Sha256Digest{}, builder.provenance, source_matrix);
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "unreachable"),
-           "prescribed-sweep request accepted an unreachable load-target result");
+           "non-load-target request accepted an unreachable load-target result");
 
     auto inconsistent_unreachable = unreachable;
     inconsistent_unreachable.nearest_feasible =

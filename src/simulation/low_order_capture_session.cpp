@@ -201,22 +201,8 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block(
                 [&](auto &policy) -> std::variant<contract::TorqueTelemetry,
                                                   contract::FailureContext> {
                     using Policy = std::decay_t<decltype(policy)>;
-                    if constexpr (std::is_same_v<
-                                      Policy, LegacyFixedCrankTorqueAccountingPlan>) {
-                        auto evaluated = evaluate_legacy_fixed_crank_torque_accounting(
-                            policy, mechanics.angular_speed_rad_s,
-                            gas.indicated_gas_torque_nm);
-                        if (const auto *torque =
-                                std::get_if<contract::TorqueTelemetry>(&evaluated)) {
-                            return *torque;
-                        }
-                        return fault(
-                            contract::FailureKind::numerical_failure,
-                            "legacy-fixed-crank-torque-accounting-failed",
-                            "M3 torque accountant produced no finite telemetry",
-                            &mechanics);
-                    } else if constexpr (std::is_same_v<
-                                             Policy, LowOrderOperatingPointV1Runtime>) {
+                    if constexpr (std::is_same_v<Policy,
+                                                 LowOrderOperatingPointV1Runtime>) {
                         auto evaluated = policy.advance(mechanics, gas);
                         if (const auto *step =
                                 std::get_if<LowOrderOperatingPointV1Step>(&evaluated)) {

@@ -41,10 +41,6 @@ bool write_output_bus_kind(CanonicalJsonWriter &writer, contract::OutputBusKind 
         return writer.string_value("master_engine_raw");
     case contract::OutputBusKind::master_engine_audition:
         return writer.string_value("master_engine_audition");
-    case contract::OutputBusKind::master_reference_raw:
-        return writer.string_value("master_reference_raw");
-    case contract::OutputBusKind::master_reference_audition:
-        return writer.string_value("master_reference_audition");
     case contract::OutputBusKind::unspecified:
         break;
     }

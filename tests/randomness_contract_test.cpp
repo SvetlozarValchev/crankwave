@@ -128,16 +128,11 @@ void run_randomness_contract_tests() {
         "canonical provisioned component inventory, order, or seed values changed");
 
     auto operating_inputs = content.inputs.resolved;
-    auto legacy_for_operating =
-        std::get<LegacyLowOrderV1Profile>(operating_inputs.engine.physics_profile);
-    LowOrderOperatingPointV1Profile operating_profile;
-    operating_profile.core = std::move(legacy_for_operating.core);
-    operating_inputs.engine.physics_profile = std::move(operating_profile);
     const auto operating_random_plan =
         require_random_plan(operating_inputs.randomness, operating_inputs.engine,
                             operating_inputs.presentation, operating_inputs.scenario);
     expect(operating_random_plan.component_seeds == content.randomness.component_seeds,
-           "operating-profile alternative changed shared-core random ownership");
+           "copying operating-profile inputs changed random ownership");
 
     auto multi_owner_inputs = content.inputs.resolved;
     for (std::uint32_t id = 2; id <= 6; ++id) {
@@ -192,8 +187,8 @@ void run_randomness_contract_tests() {
            "container reordering changed stable-owner plan identity");
 
     auto zero_scale_inputs = multi_owner_inputs;
-    auto &zero_profile =
-        std::get<LegacyLowOrderV1Profile>(zero_scale_inputs.engine.physics_profile);
+    auto &zero_profile = std::get<LowOrderOperatingPointV1Profile>(
+        zero_scale_inputs.engine.physics_profile);
     zero_profile.core.fuel.burning_efficiency_randomness_01.value = 0.0;
     zero_scale_inputs.presentation.conditioning.air_noise_mix_01.value = 0.0;
     zero_scale_inputs.presentation.conditioning.jitter_scale.value = 0.0;

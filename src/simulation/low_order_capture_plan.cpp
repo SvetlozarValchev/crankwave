@@ -91,12 +91,8 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
                                const contract::RenderScenario &scenario) {
     ValidationReport report;
     const contract::LowOrderEngineCoreV1 *core = nullptr;
-    if (const auto *legacy =
-            std::get_if<contract::LegacyLowOrderV1Profile>(&engine.physics_profile)) {
-        core = &legacy->core;
-    } else if (const auto *operating =
-                   std::get_if<contract::LowOrderOperatingPointV1Profile>(
-                       &engine.physics_profile)) {
+    if (const auto *operating = std::get_if<contract::LowOrderOperatingPointV1Profile>(
+            &engine.physics_profile)) {
         core = &operating->core;
     }
     require(report, core != nullptr, ContractIssueCode::missing_value,

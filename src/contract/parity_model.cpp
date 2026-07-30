@@ -26,32 +26,9 @@ namespace {
 constexpr double kLegacyPi = 3.14159265359;
 constexpr double kGasConstant = 8.31446261815324;
 constexpr double kOneSourceScfm = 0.002641 * 453.59237 / 60.0;
-constexpr TorqueTermMask kLegacyIncludedTorqueTerms =
-    torque_term_mask(TorqueTerm::indicated_gas) |
-    torque_term_mask(TorqueTerm::crank_friction);
-constexpr TorqueTermMask kLegacyOmittedTorqueTerms =
-    known_torque_term_mask() & ~kLegacyIncludedTorqueTerms;
-
-constexpr TorqueCapability kLegacyTorqueCapability{
-    {
-        Availability::available,
-        Completeness::incomplete,
-        kLegacyIncludedTorqueTerms,
-        kLegacyOmittedTorqueTerms,
-    },
-    {
-        Availability::unavailable,
-        Completeness::incomplete,
-        0,
-        0,
-    },
-    false,
-};
-
 constexpr TorqueTermMask kOperatingAggregateLossTerms =
     friction_pump_and_accessory_torque_term_mask();
-constexpr TorqueTermMask kOperatingStarterTerms =
-    torque_term_mask(TorqueTerm::starter);
+constexpr TorqueTermMask kOperatingStarterTerms = torque_term_mask(TorqueTerm::starter);
 constexpr TorqueCapability kOperatingTorqueCapability{
     {
         Availability::available,
@@ -285,7 +262,8 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
                                   function);
     }
 
-    visit_intake(core.gas_path.intake, std::string(root) + ".gas_path.intake", function);
+    visit_intake(core.gas_path.intake, std::string(root) + ".gas_path.intake",
+                 function);
     visit_head(core.gas_path.head, std::string(root) + ".gas_path.head", function);
     for (const auto &route : core.gas_path.exhaust_routes) {
         visit_exhaust_parameters(route.parameters,
@@ -304,11 +282,9 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
         }
     };
     visit_camshaft(core.valvetrain.intake, std::string(root) + ".valvetrain.intake");
-    visit_camshaft(core.valvetrain.exhaust,
-                   std::string(root) + ".valvetrain.exhaust");
+    visit_camshaft(core.valvetrain.exhaust, std::string(root) + ".valvetrain.exhaust");
 
-    function(core.ignition.firing_order,
-             std::string(root) + ".ignition.firing_order");
+    function(core.ignition.firing_order, std::string(root) + ".ignition.firing_order");
     function(core.ignition.timing_curve_triangle_radius_rad_s,
              std::string(root) + ".ignition.timing_curve_triangle_radius_rad_s");
     for (const auto &point : core.ignition.timing_curve) {
@@ -360,16 +336,6 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
     }
 }
 
-template <class Loss, class Function>
-void visit_legacy_fixed_crank_loss_fields(const Loss &loss, std::string_view root,
-                                          Function function) {
-    function(loss.fixed_crank_friction_magnitude_nm,
-             std::string(root) +
-                 ".mechanism.crank.fixed_crank_friction_magnitude_nm");
-    function(loss.included_terms, std::string(root) + ".losses.included_terms");
-    function(loss.omitted_terms, std::string(root) + ".losses.omitted_terms");
-}
-
 template <class Profile, class Function>
 void visit_operating_profile_fields(const Profile &profile, std::string_view root,
                                     Function function) {
@@ -380,13 +346,11 @@ void visit_operating_profile_fields(const Profile &profile, std::string_view roo
              aggregate_root + ".peak_pressure_coefficient");
     function(profile.aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m,
              aggregate_root + ".mean_piston_speed_coefficient_bar_s_per_m");
-    function(
-        profile.aggregate_loss.mean_piston_speed_squared_coefficient_bar_s2_per_m2,
-        aggregate_root + ".mean_piston_speed_squared_coefficient_bar_s2_per_m2");
+    function(profile.aggregate_loss.mean_piston_speed_squared_coefficient_bar_s2_per_m2,
+             aggregate_root + ".mean_piston_speed_squared_coefficient_bar_s2_per_m2");
     function(profile.aggregate_loss.required_oil_temperature_k,
              aggregate_root + ".required_oil_temperature_k");
-    function(profile.aggregate_loss.included_terms,
-             aggregate_root + ".included_terms");
+    function(profile.aggregate_loss.included_terms, aggregate_root + ".included_terms");
 
     const auto accessory_root = std::string(root) + ".accessory_configuration";
     function(profile.accessory_configuration.configuration_id,
@@ -587,8 +551,8 @@ void validate_sample_ids(ValidationReport &report, const std::vector<Point> &poi
     }
 }
 
-void validate_authored_low_order_core_domains(ValidationReport &report,
-                                              const AuthoredLowOrderEngineCoreV1 &core) {
+void validate_authored_low_order_core_domains(
+    ValidationReport &report, const AuthoredLowOrderEngineCoreV1 &core) {
     using detail::finite;
     using detail::finite_nonnegative;
     using detail::finite_positive;
@@ -602,9 +566,8 @@ void validate_authored_low_order_core_domains(ValidationReport &report,
                 finite_positive(crank.authored_crank_inertia_kg_m2.value),
             ContractIssueCode::invalid_value, "mechanism.crank",
             "crank assembly values are outside their physical domain");
-    require(report, !core.mechanism.cylinders.empty(),
-            ContractIssueCode::missing_value, "mechanism.cylinders",
-            "legacy mechanism requires at least one cylinder");
+    require(report, !core.mechanism.cylinders.empty(), ContractIssueCode::missing_value,
+            "mechanism.cylinders", "legacy mechanism requires at least one cylinder");
 
     for (std::size_t index = 0; index < core.mechanism.cylinders.size(); ++index) {
         const auto &cylinder = core.mechanism.cylinders[index];
@@ -738,8 +701,7 @@ void validate_authored_low_order_core_domains(ValidationReport &report,
     require(report, !core.gas_path.exhaust_routes.empty(),
             ContractIssueCode::missing_value, "gas_path.exhaust_routes",
             "legacy gas path requires at least one exhaust route");
-    for (std::size_t index = 0; index < core.gas_path.exhaust_routes.size();
-         ++index) {
+    for (std::size_t index = 0; index < core.gas_path.exhaust_routes.size(); ++index) {
         const auto &parameters = core.gas_path.exhaust_routes[index].parameters;
         const auto path =
             "gas_path.exhaust_routes[" + std::to_string(index) + "].parameters";
@@ -796,15 +758,14 @@ void validate_authored_low_order_core_domains(ValidationReport &report,
     validate_camshaft(core.valvetrain.intake, "valvetrain.intake");
     validate_camshaft(core.valvetrain.exhaust, "valvetrain.exhaust");
 
-    require(
-        report,
-        finite_positive(core.ignition.timing_curve_triangle_radius_rad_s.value) &&
-            core.ignition.timing_curve.size() >= 2 &&
-            finite_positive(core.ignition.limiter_speed_rpm.value) &&
-            finite_positive(core.ignition.limiter_hold_s.value) &&
-            finite_positive(core.ignition.declared_redline_rpm.value),
-        ContractIssueCode::invalid_value, "ignition",
-        "ignition curve, limiter, or redline is invalid");
+    require(report,
+            finite_positive(core.ignition.timing_curve_triangle_radius_rad_s.value) &&
+                core.ignition.timing_curve.size() >= 2 &&
+                finite_positive(core.ignition.limiter_speed_rpm.value) &&
+                finite_positive(core.ignition.limiter_hold_s.value) &&
+                finite_positive(core.ignition.declared_redline_rpm.value),
+            ContractIssueCode::invalid_value, "ignition",
+            "ignition curve, limiter, or redline is invalid");
     validate_sample_ids(report, core.ignition.timing_curve, "ignition.timing_curve");
     for (std::size_t index = 0; index < core.ignition.timing_curve.size(); ++index) {
         const auto &point = core.ignition.timing_curve[index];
@@ -815,13 +776,12 @@ void validate_authored_low_order_core_domains(ValidationReport &report,
                 "ignition.timing_curve." + point.sample_id.value,
                 "ignition timing sample is invalid");
         if (index != 0) {
-            require(
-                report,
-                point.angular_speed_rad_s.value >
-                    core.ignition.timing_curve[index - 1].angular_speed_rad_s.value,
-                ContractIssueCode::inconsistent_semantics,
-                "ignition.timing_curve." + point.sample_id.value,
-                "ignition speed samples must be strictly increasing");
+            require(report,
+                    point.angular_speed_rad_s.value >
+                        core.ignition.timing_curve[index - 1].angular_speed_rad_s.value,
+                    ContractIssueCode::inconsistent_semantics,
+                    "ignition.timing_curve." + point.sample_id.value,
+                    "ignition speed samples must be strictly increasing");
         }
     }
 
@@ -867,22 +827,22 @@ void validate_authored_low_order_core_domains(ValidationReport &report,
     }
 
     const auto &excitation = core.excitation;
-    require(report,
-            finite_positive(excitation.reference_atmosphere_pa_abs.value) &&
-                finite_positive(excitation.legacy_propagation_speed_m_s.value) &&
-                finite_nonnegative(excitation.excitation_scale.value) &&
-                finite_nonnegative(excitation.filtered_speed_threshold_rpm.value) &&
-                excitation.filtered_speed_exponent.value > 0 &&
-                finite(excitation.pressure_gains.gauge_static.value) &&
-                finite(excitation.pressure_gains.dynamic_forward.value) &&
-                finite(excitation.pressure_gains.dynamic_reverse.value) &&
-                finite_positive(excitation.cylinder_count_divisor.value) &&
-                finite(excitation.inverse_length_exponent.value) &&
-                detail::nearly_equal(
-                    excitation.cylinder_count_divisor.value,
-                    static_cast<double>(core.mechanism.cylinders.size())),
-            ContractIssueCode::invalid_value, "reference_excitation",
-            "reference excitation values are outside their domain");
+    require(
+        report,
+        finite_positive(excitation.reference_atmosphere_pa_abs.value) &&
+            finite_positive(excitation.legacy_propagation_speed_m_s.value) &&
+            finite_nonnegative(excitation.excitation_scale.value) &&
+            finite_nonnegative(excitation.filtered_speed_threshold_rpm.value) &&
+            excitation.filtered_speed_exponent.value > 0 &&
+            finite(excitation.pressure_gains.gauge_static.value) &&
+            finite(excitation.pressure_gains.dynamic_forward.value) &&
+            finite(excitation.pressure_gains.dynamic_reverse.value) &&
+            finite_positive(excitation.cylinder_count_divisor.value) &&
+            finite(excitation.inverse_length_exponent.value) &&
+            detail::nearly_equal(excitation.cylinder_count_divisor.value,
+                                 static_cast<double>(core.mechanism.cylinders.size())),
+        ContractIssueCode::invalid_value, "reference_excitation",
+        "reference excitation values are outside their domain");
     detail::append_prefixed(report, validate(excitation.delay_rate.value),
                             "reference_excitation.delay_rate.value");
 
@@ -995,23 +955,6 @@ void validate_authored_low_order_core_domains(ValidationReport &report,
     }
 }
 
-void validate_authored_legacy_fixed_crank_loss_domains(
-    ValidationReport &report, const AuthoredLegacyFixedCrankLossV1 &loss) {
-    using detail::finite_nonnegative;
-    using detail::require;
-
-    require(report, finite_nonnegative(loss.fixed_crank_friction_magnitude_nm.value),
-            ContractIssueCode::invalid_value,
-            "mechanism.crank.fixed_crank_friction_magnitude_nm",
-            "fixed crank-friction magnitude must be finite and nonnegative");
-    require(report,
-            loss.included_terms.value == kLegacyIncludedTorqueTerms &&
-                loss.omitted_terms.value == kLegacyOmittedTorqueTerms,
-            ContractIssueCode::inconsistent_semantics, "losses",
-            "legacy loss profile includes only indicated gas and fixed crank "
-            "friction and must explicitly omit every other known torque term");
-}
-
 template <class AggregateLoss, class Accessory, class Starter>
 void validate_operating_accounting_domains(ValidationReport &report,
                                            const AggregateLoss &loss,
@@ -1029,9 +972,9 @@ void validate_operating_accounting_domains(ValidationReport &report,
     bool coefficients_are_canonical = true;
     bool any_positive = false;
     for (const auto coefficient : coefficients) {
-        coefficients_are_canonical =
-            coefficients_are_canonical && std::isfinite(coefficient) &&
-            coefficient >= 0.0 && !std::signbit(coefficient);
+        coefficients_are_canonical = coefficients_are_canonical &&
+                                     std::isfinite(coefficient) && coefficient >= 0.0 &&
+                                     !std::signbit(coefficient);
         any_positive = any_positive || coefficient > 0.0;
     }
     require(report, coefficients_are_canonical && any_positive,
@@ -1075,18 +1018,17 @@ void validate_operating_accounting_domains(ValidationReport &report,
             "cover every known torque term");
 }
 
-void validate_authored_operating_geometry(
-    ValidationReport &report, const AuthoredLowOrderEngineCoreV1 &core) {
+void validate_authored_operating_geometry(ValidationReport &report,
+                                          const AuthoredLowOrderEngineCoreV1 &core) {
     if (core.mechanism.cylinders.empty()) {
         return;
     }
-    const auto expected =
-        std::bit_cast<std::uint64_t>(
-            core.mechanism.cylinders.front().parameters.stroke_m.value);
-    const auto identical = std::ranges::all_of(
-        core.mechanism.cylinders, [&](const auto &cylinder) {
-            return std::bit_cast<std::uint64_t>(
-                       cylinder.parameters.stroke_m.value) == expected;
+    const auto expected = std::bit_cast<std::uint64_t>(
+        core.mechanism.cylinders.front().parameters.stroke_m.value);
+    const auto identical =
+        std::ranges::all_of(core.mechanism.cylinders, [&](const auto &cylinder) {
+            return std::bit_cast<std::uint64_t>(cylinder.parameters.stroke_m.value) ==
+                   expected;
         });
     detail::require(report, identical, ContractIssueCode::inconsistent_semantics,
                     "mechanism.cylinders",
@@ -1684,8 +1626,7 @@ void validate_low_order_core_domains(ValidationReport &report,
         }
     };
     validate_camshaft(core.valvetrain.intake, PortKind::intake, "valvetrain.intake");
-    validate_camshaft(core.valvetrain.exhaust, PortKind::exhaust,
-                      "valvetrain.exhaust");
+    validate_camshaft(core.valvetrain.exhaust, PortKind::exhaust, "valvetrain.exhaust");
 
     require(report,
             core.ignition.firing_order.value.size() == engine.cylinders.size() &&
@@ -1697,15 +1638,14 @@ void validate_low_order_core_domains(ValidationReport &report,
                 ContractIssueCode::dangling_reference, "ignition.firing_order",
                 "firing order references an unknown cylinder");
     }
-    require(
-        report,
-        finite_positive(core.ignition.timing_curve_triangle_radius_rad_s.value) &&
-            core.ignition.timing_curve.size() >= 2 &&
-            finite_positive(core.ignition.limiter_speed_rpm.value) &&
-            finite_positive(core.ignition.limiter_hold_s.value) &&
-            finite_positive(core.ignition.declared_redline_rpm.value),
-        ContractIssueCode::invalid_value, "ignition",
-        "ignition curve, limiter, or redline is invalid");
+    require(report,
+            finite_positive(core.ignition.timing_curve_triangle_radius_rad_s.value) &&
+                core.ignition.timing_curve.size() >= 2 &&
+                finite_positive(core.ignition.limiter_speed_rpm.value) &&
+                finite_positive(core.ignition.limiter_hold_s.value) &&
+                finite_positive(core.ignition.declared_redline_rpm.value),
+            ContractIssueCode::invalid_value, "ignition",
+            "ignition curve, limiter, or redline is invalid");
     validate_sample_ids(report, core.ignition.timing_curve, "ignition.timing_curve");
     for (std::size_t index = 0; index < core.ignition.timing_curve.size(); ++index) {
         const auto &point = core.ignition.timing_curve[index];
@@ -1716,13 +1656,12 @@ void validate_low_order_core_domains(ValidationReport &report,
                 "ignition.timing_curve." + point.sample_id.value,
                 "ignition timing sample is invalid");
         if (index != 0) {
-            require(
-                report,
-                point.angular_speed_rad_s.value >
-                    core.ignition.timing_curve[index - 1].angular_speed_rad_s.value,
-                ContractIssueCode::inconsistent_semantics,
-                "ignition.timing_curve." + point.sample_id.value,
-                "ignition speed samples must be strictly increasing");
+            require(report,
+                    point.angular_speed_rad_s.value >
+                        core.ignition.timing_curve[index - 1].angular_speed_rad_s.value,
+                    ContractIssueCode::inconsistent_semantics,
+                    "ignition.timing_curve." + point.sample_id.value,
+                    "ignition speed samples must be strictly increasing");
         }
     }
 
@@ -1935,34 +1874,11 @@ void validate_low_order_core_domains(ValidationReport &report,
             "excitation cylinder paths must exactly cover the engine cylinders");
 }
 
-void validate_legacy_fixed_crank_loss_domains(ValidationReport &report,
-                                              const LegacyFixedCrankLossV1 &loss,
-                                              const EngineSpec &engine) {
-    using detail::finite_nonnegative;
-    using detail::require;
-
-    require(report, finite_nonnegative(loss.fixed_crank_friction_magnitude_nm.value),
-            ContractIssueCode::invalid_value,
-            "mechanism.crank.fixed_crank_friction_magnitude_nm",
-            "fixed crank-friction magnitude must be finite and nonnegative");
-    require(report,
-            loss.included_terms.value == kLegacyIncludedTorqueTerms &&
-                loss.omitted_terms.value == kLegacyOmittedTorqueTerms,
-            ContractIssueCode::inconsistent_semantics, "losses",
-            "legacy loss profile includes only indicated gas and fixed crank "
-            "friction and must explicitly omit every other known torque term");
-    require(
-        report, engine.torque_capability.value == kLegacyTorqueCapability,
-        ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",
-        "legacy profile exposes only incomplete instantaneous indicated-gas plus "
-        "fixed-crank torque; it has no cycle-mean net torque or equivalent inertia");
-}
-
 [[nodiscard]] bool claim_cites_content_digest(const ProvenanceLedger &provenance,
                                               std::string_view claim_id,
                                               const Sha256Digest &digest) {
-    const auto claim = std::ranges::find(provenance.claims, claim_id,
-                                         &ProvenanceClaim::id);
+    const auto claim =
+        std::ranges::find(provenance.claims, claim_id, &ProvenanceClaim::id);
     if (claim == provenance.claims.end()) {
         return false;
     }
@@ -1976,8 +1892,7 @@ void validate_legacy_fixed_crank_loss_domains(ValidationReport &report,
 }
 
 void validate_authored_accessory_evidence(
-    ValidationReport &report,
-    const AuthoredAccessoryConfigurationIdentityV1 &accessory,
+    ValidationReport &report, const AuthoredAccessoryConfigurationIdentityV1 &accessory,
     const ProvenanceLedger &provenance) {
     detail::require(
         report,
@@ -2035,9 +1950,9 @@ void validate_operating_geometry(ValidationReport &report,
 
     double stable_total_displacement_m3 = 0.0;
     for (const auto *cylinder : cylinders) {
-        const auto displacement_m3 =
-            std::numbers::pi * cylinder->bore_m.value * cylinder->bore_m.value *
-            cylinder->stroke_m.value / 4.0;
+        const auto displacement_m3 = std::numbers::pi * cylinder->bore_m.value *
+                                     cylinder->bore_m.value * cylinder->stroke_m.value /
+                                     4.0;
         stable_total_displacement_m3 += displacement_m3;
     }
     detail::require(
@@ -2045,15 +1960,13 @@ void validate_operating_geometry(ValidationReport &report,
         std::isfinite(stable_total_displacement_m3) &&
             std::bit_cast<std::uint64_t>(stable_total_displacement_m3) ==
                 std::bit_cast<std::uint64_t>(engine.total_displacement_m3.value),
-        ContractIssueCode::inconsistent_semantics,
-        "engine.total_displacement_m3.value",
+        ContractIssueCode::inconsistent_semantics, "engine.total_displacement_m3.value",
         "operating-point total displacement must bit-equal the ascending-CylinderId "
         "stable sum of cylinder swept volumes");
 
     for (const auto &assembly : core.mechanism.cylinders) {
-        const auto engine_cylinder =
-            std::ranges::find(engine.cylinders, assembly.topology.cylinder_id,
-                              &CylinderSpec::id);
+        const auto engine_cylinder = std::ranges::find(
+            engine.cylinders, assembly.topology.cylinder_id, &CylinderSpec::id);
         if (engine_cylinder == engine.cylinders.end()) {
             continue;
         }
@@ -2093,64 +2006,36 @@ void require_chen_flynn_aggregate_loss_method(
 template <class Method>
 void require_cycle_quadrature_method(ValidationReport &report, const Method &method,
                                      std::string_view path) {
-    detail::require(
-        report,
-        method.id == "four-stroke-piecewise-linear-cycle-quadrature-v1" &&
-            method.version == 1,
-        ContractIssueCode::unsupported_value, std::string(path),
-        "operating-point integration requires "
-        "four-stroke-piecewise-linear-cycle-quadrature-v1 version 1");
-}
-
-void validate_authored_profile_specific(ValidationReport &report,
-                                        const AuthoredLegacyLowOrderV1Profile &profile,
-                                        const ProvenanceLedger &provenance,
-                                        std::string_view root) {
-    visit_legacy_fixed_crank_loss_fields(
-        profile.fixed_crank_loss, root,
-        [&](const auto &value, const std::string &path) {
-            validate_authored(report, value, provenance, path);
-        });
-    validate_authored_legacy_fixed_crank_loss_domains(report, profile.fixed_crank_loss);
+    detail::require(report,
+                    method.id == "four-stroke-piecewise-linear-cycle-quadrature-v1" &&
+                        method.version == 1,
+                    ContractIssueCode::unsupported_value, std::string(path),
+                    "operating-point integration requires "
+                    "four-stroke-piecewise-linear-cycle-quadrature-v1 version 1");
 }
 
 void validate_authored_profile_specific(
-    ValidationReport &report,
-    const AuthoredLowOrderOperatingPointV1Profile &profile,
+    ValidationReport &report, const AuthoredLowOrderOperatingPointV1Profile &profile,
     const ProvenanceLedger &provenance, std::string_view root) {
     visit_operating_profile_fields(
         profile, root, [&](const auto &value, const std::string &path) {
             validate_authored(report, value, provenance, path);
         });
-    validate_operating_accounting_domains(
-        report, profile.aggregate_loss, profile.accessory_configuration,
-        profile.starter);
+    validate_operating_accounting_domains(report, profile.aggregate_loss,
+                                          profile.accessory_configuration,
+                                          profile.starter);
     validate_authored_operating_geometry(report, profile.core);
-    validate_authored_accessory_evidence(
-        report, profile.accessory_configuration, provenance);
+    validate_authored_accessory_evidence(report, profile.accessory_configuration,
+                                         provenance);
     require_cycle_quadrature_method(report, profile.cycle_quadrature.value,
                                     "cycle_quadrature.value");
 }
 
 void validate_resolved_profile_specific(ValidationReport &report,
-                                        const LegacyLowOrderV1Profile &profile,
+                                        const LowOrderOperatingPointV1Profile &profile,
                                         const EngineSpec &engine,
                                         const ProvenanceLedger &provenance,
                                         std::string_view root) {
-    require_legacy_low_order_method(report, engine.methods.losses,
-                                    "engine.methods.losses");
-    visit_legacy_fixed_crank_loss_fields(
-        profile.fixed_crank_loss, root,
-        [&](const auto &value, const std::string &path) {
-            validate_resolved(report, value, provenance, path);
-        });
-    validate_legacy_fixed_crank_loss_domains(report, profile.fixed_crank_loss, engine);
-}
-
-void validate_resolved_profile_specific(
-    ValidationReport &report, const LowOrderOperatingPointV1Profile &profile,
-    const EngineSpec &engine, const ProvenanceLedger &provenance,
-    std::string_view root) {
     require_chen_flynn_aggregate_loss_method(report, engine.methods.losses,
                                              "engine.methods.losses");
     visit_operating_profile_fields(
@@ -2161,11 +2046,11 @@ void validate_resolved_profile_specific(
                             "cycle_quadrature.value");
     require_cycle_quadrature_method(report, profile.cycle_quadrature.value,
                                     "cycle_quadrature.value");
-    validate_operating_accounting_domains(
-        report, profile.aggregate_loss, profile.accessory_configuration,
-        profile.starter);
-    validate_resolved_accessory_evidence(
-        report, profile.accessory_configuration, provenance);
+    validate_operating_accounting_domains(report, profile.aggregate_loss,
+                                          profile.accessory_configuration,
+                                          profile.starter);
+    validate_resolved_accessory_evidence(report, profile.accessory_configuration,
+                                         provenance);
     validate_operating_geometry(report, profile.core, engine);
     detail::require(
         report, engine.torque_capability.value == kOperatingTorqueCapability,

@@ -358,7 +358,7 @@ The deterministic content fields have these authorities:
 | `randomness.component_seeds` | the four actually decoded route-owned seed pairs, reordered only into the frozen air-noise route IDs 1/2 then jitter route IDs 1/2 manifest order |
 | `provenance` | the exact sealed observed provenance bundle reference |
 | `determinism` | the exact projection of a live zero-argument production `RendererDeterminismEnvelope` |
-| rates, output contract, routes, and output buses | the frozen capture policy and exact BMW reference source matrix |
+| rates, output contract, routes, and output buses | the frozen historical capture policy and archived BMW reference source matrix |
 | `artifacts` | role/path/byte-count/digest from each sealed artifact record, combined with its source-matrix media and diagnostic policy |
 
 The six combustion seed pairs and starter seed pair remain inherited fixture lineage
@@ -366,17 +366,11 @@ and are not emitted as current execution. The recorded seed-derivation method
 identity remains present because it explains the verified inventory's origin; replay
 does not falsely claim to execute that derivation.
 
-Construction succeeds only when the completed value passes
-`validate(content, provenance.ledger(),
-bmw_m52b28_reference_source_matrix_v1())` and every independently sealed artifact
-matches its frozen comparator. This binds the observed values to manifest schema
-version 2, the exact reference input alternative, the exact provenance bundle, one
-sealed renderer identity, four executed streams, the frozen source matrix, and all
-eight required artifact payloads. Repeated construction from the same sealed evidence
-has the same `RenderManifestContent` identity. Callers can inspect the result's owned
-content and provenance, while the private wrapper constructor prevents them from
-presenting an arbitrary aggregate pair as a successfully constructed
-`P18ReferenceManifestContent`.
+This section records the historical P1.8 construction rule. That retired adapter
+validated the completed value against the frozen BMW reference matrix and every
+independently sealed artifact. The current production graph does not expose that
+matrix or `P18ReferenceManifestContent`; the archived inputs remain test evidence for
+the accepted renderer behavior.
 
 ### 5.4 Observed execution and in-memory completion
 

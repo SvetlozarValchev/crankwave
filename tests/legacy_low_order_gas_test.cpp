@@ -1,4 +1,4 @@
-#include "profiles/bmw_m52b28_profile_internal.hpp"
+#include "authored_engine_fixture_support.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <filesystem>
 #include <functional>
 #include <iostream>
 #include <optional>
@@ -21,8 +22,8 @@
 namespace {
 
 using namespace engine_sim_offline::contract;
-using namespace engine_sim_offline::profiles;
 using namespace engine_sim_offline::simulation;
+using engine_sim_offline::test::AuthoredEngineFixture;
 using CoreRuntimeFactory =
     engine_sim_offline::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
 
@@ -49,32 +50,32 @@ void expect(bool condition, const std::string &message) {
 
 [[nodiscard]] FixedRateRpmTrajectory &fixed_rpm(RenderScenario &scenario) {
     auto *sweep = std::get_if<PrescribedKinematicSweep>(&scenario.mode);
-    expect(sweep != nullptr, "short BMW scenario lost its prescribed sweep");
+    expect(sweep != nullptr, "short authored scenario lost its prescribed sweep");
     auto *rpm = std::get_if<FixedRateRpmTrajectory>(&sweep->trajectory.rpm);
-    expect(rpm != nullptr, "short BMW scenario lost its fixed-rate RPM lane");
+    expect(rpm != nullptr, "short authored scenario lost its fixed-rate RPM lane");
     return *rpm;
 }
 
 [[nodiscard]] PrescribedKinematicSweep &prescribed_sweep(RenderScenario &scenario) {
     auto *sweep = std::get_if<PrescribedKinematicSweep>(&scenario.mode);
-    expect(sweep != nullptr, "short BMW scenario lost its prescribed sweep");
+    expect(sweep != nullptr, "short authored scenario lost its prescribed sweep");
     return *sweep;
 }
 
-[[nodiscard]] BmwM52b28ParityRequest make_short_bmw_request() {
+[[nodiscard]] AuthoredEngineFixture
+make_short_request(const AuthoredEngineFixture &canonical) {
     std::vector<double> rpm(kShortRunStepCount, kShortRunRpm);
-    auto request = engine_sim_offline::profiles::detail::
-        build_bmw_m52b28_parity_request_unvalidated(std::move(rpm));
+    auto request =
+        engine_sim_offline::test::make_prescribed_fixture(canonical, std::move(rpm));
 
-    request.scenario.scenario_id = "bmw-m52b28-short-gas-integration";
+    request.scenario.scenario_id = "authored-short-gas-integration";
     request.scenario.total_duration_s.value = kShortRunDurationS;
     request.scenario.audible_start_s.value = 0.0;
     request.scenario.audible_duration_s.value = kShortRunDurationS;
-    auto *preparation = std::get_if<FixedSettling>(&request.scenario.preparation);
-    expect(preparation != nullptr,
-           "short BMW scenario lost its fixed preparation policy");
-    preparation->warm_up_duration_s.value = 0.0;
-    preparation->settling_duration_s.value = 0.0;
+    request.scenario.preparation = FixedSettling{
+        {0.0, "authored-fixture.no-warm-up"},
+        {0.0, "authored-fixture.no-settling"},
+    };
     request.scenario.operating_state.value = {
         {
             "short-run-fired",
@@ -94,7 +95,7 @@ void expect(bool condition, const std::string &message) {
 [[nodiscard]] LegacyLowOrderMechanicsSession
 require_mechanics(CoreRuntimeFactory::MechanicsCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
-        fail_report("short BMW mechanics request failed admission", *report);
+        fail_report("short authored mechanics request failed admission", *report);
     }
     return std::get<LegacyLowOrderMechanicsSession>(std::move(result));
 }
@@ -102,32 +103,26 @@ require_mechanics(CoreRuntimeFactory::MechanicsCompileResult result) {
 [[nodiscard]] LegacyLowOrderGasSession
 require_gas(CoreRuntimeFactory::GasCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
-        fail_report("short BMW gas request failed admission", *report);
+        fail_report("short authored gas request failed admission", *report);
     }
     return std::get<LegacyLowOrderGasSession>(std::move(result));
 }
 
-[[nodiscard]] RandomPlan require_random_plan(const BmwM52b28ParityRequest &request) {
-    auto result = engine_sim_offline::profiles::detail::
-        compile_bmw_m52b28_migration_oracle_random_plan(request.engine,
-                                                        request.scenario);
-    if (const auto *report = std::get_if<ValidationReport>(&result)) {
-        fail_report("short BMW random plan failed compilation", *report);
-    }
-    return std::get<RandomPlan>(std::move(result));
+[[nodiscard]] RandomPlan require_random_plan(const AuthoredEngineFixture &request) {
+    return engine_sim_offline::test::compile_fixture_random_plan(request);
 }
 
 [[nodiscard]] KinematicScenarioSchedule
 require_schedule(KinematicScenarioScheduleResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
-        fail_report("short BMW schedule failed admission", *report);
+        fail_report("short authored schedule failed admission", *report);
     }
     return std::get<KinematicScenarioSchedule>(std::move(result));
 }
 
 [[nodiscard]] const LowOrderEngineCoreV1 &
-low_order_core(const BmwM52b28ParityRequest &request) {
-    return std::get<LegacyLowOrderV1Profile>(request.engine.physics_profile).core;
+low_order_core(const AuthoredEngineFixture &request) {
+    return engine_sim_offline::test::low_order_core(request.engine);
 }
 
 struct CompiledSessions {
@@ -135,7 +130,7 @@ struct CompiledSessions {
     LegacyLowOrderGasSession gas;
 };
 
-[[nodiscard]] CompiledSessions compile_sessions(const BmwM52b28ParityRequest &request) {
+[[nodiscard]] CompiledSessions compile_sessions(const AuthoredEngineFixture &request) {
     auto schedule =
         require_schedule(compile_kinematic_scenario_schedule(request.scenario));
     auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
@@ -159,7 +154,7 @@ require_mechanics_step(LegacyMechanicsAdvanceResult &result,
     const auto *step =
         std::get_if<std::reference_wrapper<const LegacyMechanismStep>>(&result);
     expect(step != nullptr,
-           "mechanics completed before the short BMW scenario horizon");
+           "mechanics completed before the short authored scenario horizon");
     return step->get();
 }
 
@@ -181,7 +176,7 @@ require_gas_step(LegacyGasAdvanceResult &result, std::uint64_t expected_sample_i
     return std::isfinite(value) && value >= 0.0;
 }
 
-void verify_fresh_layout_and_first_state(const BmwM52b28ParityRequest &request,
+void verify_fresh_layout_and_first_state(const AuthoredEngineFixture &request,
                                          const LegacyMechanismStep &mechanics,
                                          const LegacyLowOrderGasStep &gas) {
     expect(gas.rate == RationalRateHz{10000, 1} && gas.sample_index == 0 &&
@@ -189,7 +184,7 @@ void verify_fresh_layout_and_first_state(const BmwM52b28ParityRequest &request,
            "fresh gas step has the wrong fixed-rate clock");
     expect(gas.gas_volumes.size() == 22U && gas.flow_edges.size() == 34U &&
                gas.cylinders.size() == 6U && gas.exhaust_routes.size() == 2U,
-           "fresh BMW gas layout has the wrong canonical entity counts");
+           "fresh authored gas layout has the wrong canonical entity counts");
     expect(gas.gas_volumes.size() == request.engine.gas_volumes.size() &&
                gas.flow_edges.size() == request.engine.flow_edges.size() &&
                gas.cylinders.size() == request.engine.cylinders.size() &&
@@ -238,19 +233,19 @@ void verify_fresh_layout_and_first_state(const BmwM52b28ParityRequest &request,
                "flow-edge identity/order or fresh value changed");
     }
 
+    const auto &core = low_order_core(request);
     for (std::size_t index = 0; index < gas.cylinders.size(); ++index) {
-        const std::uint32_t number = static_cast<std::uint32_t>(index + 1U);
         const auto &cylinder = gas.cylinders[index];
-        expect(cylinder.cylinder_id == CylinderId{number} &&
-                   cylinder.intake_port_id == PortId{2U * number - 1U} &&
-                   cylinder.exhaust_port_id == PortId{2U * number} &&
+        const auto &declared = core.mechanism.cylinders[index].topology;
+        expect(cylinder.cylinder_id == declared.cylinder_id &&
+                   cylinder.intake_port_id == declared.intake_port_id &&
+                   cylinder.exhaust_port_id == declared.exhaust_port_id &&
                    cylinder.intake_runner_volume_id ==
-                       GasVolumeId{3U + 3U * static_cast<std::uint32_t>(index)} &&
-                   cylinder.chamber_volume_id ==
-                       GasVolumeId{4U + 3U * static_cast<std::uint32_t>(index)} &&
+                       declared.intake_runner_volume_id &&
+                   cylinder.chamber_volume_id == declared.chamber_volume_id &&
                    cylinder.exhaust_primary_volume_id ==
-                       GasVolumeId{5U + 3U * static_cast<std::uint32_t>(index)} &&
-                   cylinder.exhaust_route_id == RouteId{number % 2U == 0U ? 1U : 2U},
+                       declared.exhaust_primary_volume_id &&
+                   cylinder.exhaust_route_id == declared.exhaust_route_id,
                "fresh cylinder gas binding/order changed");
         expect(cylinder.valves.cylinder_id == cylinder.cylinder_id &&
                    cylinder.valves.intake_port_id == cylinder.intake_port_id &&
@@ -273,11 +268,11 @@ void verify_fresh_layout_and_first_state(const BmwM52b28ParityRequest &request,
 
     for (std::size_t index = 0; index < gas.exhaust_routes.size(); ++index) {
         const auto &route = gas.exhaust_routes[index];
-        const auto &declared = request.engine.routes[index];
-        expect(route.route_id == declared.id && declared.source_volume_id.has_value() &&
-                   route.collector_volume_id == *declared.source_volume_id &&
+        const auto &declared = core.gas_path.exhaust_routes[index].topology;
+        expect(route.route_id == declared.route_id &&
+                   route.collector_volume_id == declared.collector_volume_id &&
                    route.collector_outlet_edge_id ==
-                       FlowEdgeId{static_cast<std::uint32_t>(33U + index)} &&
+                       declared.collector_outlet_edge_id &&
                    std::isfinite(route.collector_cross_section_area_m2) &&
                    route.collector_cross_section_area_m2 > 0.0,
                "fresh exhaust-route identity/order changed");
@@ -466,8 +461,9 @@ void accumulate_activity(const LegacyLowOrderGasStep &step,
            left.indicated_gas_torque_nm == right.indicated_gas_torque_nm;
 }
 
-void test_short_bmw_fresh_state_and_deterministic_activity() {
-    const BmwM52b28ParityRequest request = make_short_bmw_request();
+void test_short_authored_fresh_state_and_deterministic_activity(
+    const AuthoredEngineFixture &canonical) {
+    const auto request = make_short_request(canonical);
     CompiledSessions first = compile_sessions(request);
     CompiledSessions second = compile_sessions(request);
     ActivityCoverage coverage;
@@ -511,15 +507,15 @@ void test_short_bmw_fresh_state_and_deterministic_activity() {
            "fresh deterministic sessions did not reach the short horizon cleanly");
     expect(coverage.intake_valve_open && coverage.exhaust_valve_open &&
                coverage.nonzero_flow,
-           "short BMW run did not exercise both valvetrains and real gas flow");
+           "short authored run did not exercise both valvetrains and real gas flow");
     expect(coverage.spark_count > 0U &&
                coverage.ignition_result_count == coverage.spark_count,
-           "short BMW run did not exercise paired spark and ignition events");
+           "short authored run did not exercise paired spark and ignition events");
     expect(coverage.accepted_ignition && coverage.combustion_heat,
-           "short BMW run did not reach accepted, heat-releasing combustion");
+           "short authored run did not reach accepted, heat-releasing combustion");
 }
 
-void expect_gas_compile_rejected(const BmwM52b28ParityRequest &request,
+void expect_gas_compile_rejected(const AuthoredEngineFixture &request,
                                  std::string_view expected_path,
                                  std::string_view context) {
     auto schedule =
@@ -540,7 +536,7 @@ void expect_gas_compile_rejected(const BmwM52b28ParityRequest &request,
            std::string{context} + " rejection omitted the responsible path");
 }
 
-void expect_random_plan_rejected(const BmwM52b28ParityRequest &request,
+void expect_random_plan_rejected(const AuthoredEngineFixture &request,
                                  const RandomPlan &random_plan,
                                  std::string_view expected_path,
                                  std::string_view context) {
@@ -561,25 +557,24 @@ void expect_random_plan_rejected(const BmwM52b28ParityRequest &request,
            std::string{context} + " rejection omitted the responsible path");
 }
 
-void test_gas_method_admission_rejection() {
+void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical) {
     {
-        BmwM52b28ParityRequest request = make_short_bmw_request();
+        auto request = make_short_request(canonical);
         request.engine.methods.gas_exchange.value.version += 1U;
         expect_gas_compile_rejected(request, "engine.methods.gas_exchange",
                                     "unsupported gas method");
     }
 
     {
-        BmwM52b28ParityRequest request = make_short_bmw_request();
-        auto &profile =
-            std::get<LegacyLowOrderV1Profile>(request.engine.physics_profile);
-        profile.core.fuel.lbv_multiplier.value = 0.0;
+        auto request = make_short_request(canonical);
+        engine_sim_offline::test::low_order_core(request.engine)
+            .fuel.lbv_multiplier.value = 0.0;
         expect_gas_compile_rejected(request, "engine.physics_profile.fuel",
                                     "zero flame-speed multiplier");
     }
 
     {
-        const BmwM52b28ParityRequest request = make_short_bmw_request();
+        const auto request = make_short_request(canonical);
         auto random_plan = require_random_plan(request);
         ++random_plan.public_seed;
         expect_random_plan_rejected(request, random_plan, "random_plan.public_seed",
@@ -587,7 +582,7 @@ void test_gas_method_admission_rejection() {
     }
 
     {
-        const BmwM52b28ParityRequest request = make_short_bmw_request();
+        const auto request = make_short_request(canonical);
         auto random_plan = require_random_plan(request);
         random_plan.component_seeds.erase(random_plan.component_seeds.begin());
         expect_random_plan_rejected(request, random_plan, "random_plan.component_seeds",
@@ -595,7 +590,7 @@ void test_gas_method_admission_rejection() {
     }
 
     {
-        BmwM52b28ParityRequest request = make_short_bmw_request();
+        auto request = make_short_request(canonical);
         auto sweep_schedule =
             require_schedule(compile_kinematic_scenario_schedule(request.scenario));
         auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
@@ -615,16 +610,22 @@ void test_gas_method_admission_rejection() {
     }
 }
 
-void run_tests() {
-    test_short_bmw_fresh_state_and_deterministic_activity();
-    test_gas_method_admission_rejection();
+void run_tests(const AuthoredEngineFixture &canonical) {
+    test_short_authored_fresh_state_and_deterministic_activity(canonical);
+    test_gas_method_admission_rejection(canonical);
 }
 
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
     try {
-        run_tests();
+        if (argc != 2) {
+            throw std::runtime_error{"expected repository root argument"};
+        }
+        const auto canonical =
+            engine_sim_offline::test::load_canonical_authored_engine_fixture(
+                std::filesystem::canonical(argv[1]));
+        run_tests(canonical);
     } catch (const std::exception &error) {
         std::cerr << "legacy_low_order_gas_test: " << error.what() << '\n';
         return 1;

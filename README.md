@@ -19,10 +19,11 @@ compiler boundary and native renderer are now in place. The compiler accepts the
 currently executable low-order topology without inspecting an engine name and fails
 closed on unsupported capabilities. A compiled JSON scenario enters the existing
 renderer directly through an ownership-safe generic boundary. The BMW JSON migration
-fixture matches the temporary C++ oracle's complete execution-value projection and
-reproduces every sound-bearing PCM byte of the user-approved inertial dyno. The native
-CLI resolves engine-relative assets inside an explicit asset root and atomically
-publishes a new output directory.
+fixture reproduces every sound-bearing PCM byte of the user-approved inertial dyno.
+JSON compilation is now the only production path: the temporary BMW factories, exact
+BMW validators, profile selector surface, and fixed-crank compatibility profile have
+been removed. The native CLI resolves engine-relative assets inside an explicit asset
+root and atomically publishes a new output directory.
 
 The active cutover replaces that profile with:
 
@@ -38,11 +39,10 @@ engine.json + scenario.json + assets
        native WAV       WASM preview
 ```
 
-The BMW now remains only as an automated byte-identity migration fixture. Its
-temporary C++ factory is a test oracle through the native-CLI checkpoint and is then
-deleted. The generic compiler intentionally establishes new request and WAV-container
-identities instead of preserving BMW-specific provenance machinery; the sound-bearing
-PCM is exact. There will not be parallel profile and JSON production paths.
+The BMW now remains only as JSON data, an automated byte-identity migration fixture,
+and historical evidence. The generic compiler intentionally establishes new request
+and WAV-container identities instead of preserving BMW-specific provenance machinery;
+the sound-bearing PCM is exact. There is no parallel profile production path.
 
 The authoritative sequence and acceptance gates are in [PLAN.md](PLAN.md). The original
 engine-sim capability mapping is in

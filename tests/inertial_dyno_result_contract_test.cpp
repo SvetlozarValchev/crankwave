@@ -154,23 +154,15 @@ void test_inertial_request_has_one_exact_release_and_identified_brake_method() {
     auto content = engine_sim_offline::contract::test::make_manifest_content(builder);
     auto scenario =
         engine_sim_offline::contract::test::simulation_inputs(content).scenario;
-    const auto throttle_resolution_id =
-        std::get<PrescribedKinematicSweep>(scenario.mode)
-            .throttle_01.resolution_id;
-
-    scenario.preparation = FixedHorizonCycleSampling{
-        builder.resolved(fixed_horizon_cycle_sampling_method_identity(),
-                         "scenario.preparation.method"),
-        builder.resolved(2.0, "scenario.preparation.fixed_preparation_horizon_s"),
-        builder.resolved<std::uint32_t>(
-            4, "scenario.preparation.trailing_complete_cycle_count"),
-    };
+    const auto held = std::get<HeldSpeed>(scenario.mode);
+    const auto throttle_resolution_id = held.throttle_01.resolution_id;
+    std::get<FixedHorizonCycleSampling>(scenario.preparation)
+        .trailing_complete_cycle_count.value = 4;
 
     InertialDyno dyno;
     dyno.initial_engine_speed_rpm =
         builder.resolved(1000.0, "scenario.mode.initial_engine_speed_rpm");
-    dyno.initial_theta_rad =
-        builder.resolved(0.0, "scenario.mode.initial_theta_rad");
+    dyno.initial_theta_rad = held.initial_theta_rad;
     dyno.equivalent_inertia_kg_m2 =
         builder.resolved(2.0, "scenario.mode.equivalent_inertia_kg_m2");
     dyno.throttle_01 = {
@@ -185,8 +177,8 @@ void test_inertial_request_has_one_exact_release_and_identified_brake_method() {
         method("semi-implicit-crank", 3), "scenario.mode.crank_dynamics_method");
     dyno.target_engine_speed_rpm =
         builder.resolved(1800.0, "scenario.mode.target_engine_speed_rpm");
-    dyno.brake_torque_method = builder.resolved(
-        method("linear-passive-brake", 2), "scenario.mode.brake_torque_method");
+    dyno.brake_torque_method = builder.resolved(method("linear-passive-brake", 2),
+                                                "scenario.mode.brake_torque_method");
     scenario.mode = std::move(dyno);
 
     expect_valid(validate(scenario, builder.provenance),
@@ -199,8 +191,7 @@ void test_inertial_request_has_one_exact_release_and_identified_brake_method() {
            "inertial request admitted a sampling horizon before audible release");
 
     auto unidentified_brake = scenario;
-    std::get<InertialDyno>(unidentified_brake.mode)
-        .brake_torque_method.value = {};
+    std::get<InertialDyno>(unidentified_brake.mode).brake_torque_method.value = {};
     expect(!validate(unidentified_brake, builder.provenance).ok(),
            "inertial request admitted an unidentified brake evaluator");
 

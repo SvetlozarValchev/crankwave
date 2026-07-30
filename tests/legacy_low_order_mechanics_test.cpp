@@ -223,7 +223,8 @@ struct MechanicsFixture {
 
     MechanicsFixture()
         : engine(make_engine(builder)), scenario(make_scenario(builder, engine)) {
-        auto &profile = std::get<LegacyLowOrderV1Profile>(engine.physics_profile);
+        auto &profile =
+            std::get<LowOrderOperatingPointV1Profile>(engine.physics_profile);
         profile.core.mechanism.cylinders[0].parameters.ignition_wire_angle_rad.value =
             2.0;
         profile.core.ignition.limiter_speed_rpm.value = 300000.0;
@@ -299,7 +300,7 @@ CoreRuntimeFactory::MechanicsCompileResult compile_fixture(MechanicsFixture &fix
         return std::move(*report);
     }
     const auto &core =
-        std::get<LegacyLowOrderV1Profile>(fixture.engine.physics_profile).core;
+        std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile).core;
     return CoreRuntimeFactory::compile_mechanics(
         fixture.engine, core, fixture.scenario,
         std::get<KinematicScenarioSchedule>(schedule_result));
@@ -332,7 +333,7 @@ compile_dynamic_fixture(MechanicsFixture &fixture) {
         return std::move(*report);
     }
     const auto &core =
-        std::get<LegacyLowOrderV1Profile>(fixture.engine.physics_profile).core;
+        std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile).core;
     return CoreRuntimeFactory::compile_mechanics(
         fixture.engine, core, fixture.scenario,
         std::get<ScenarioControlSchedule>(schedule_result));
@@ -521,7 +522,7 @@ void test_mechanics_compile_rejections() {
     {
         MechanicsFixture fixture;
         auto &profile =
-            std::get<LegacyLowOrderV1Profile>(fixture.engine.physics_profile);
+            std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile);
         profile.core.mechanism.cylinders[0].topology.exhaust_route_id = RouteId{999};
         expect_compile_rejected(fixture, "exhaust_route_id");
     }
