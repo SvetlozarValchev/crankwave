@@ -2,6 +2,7 @@
 #include "simulation/kinematic_scenario_schedule.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <exception>
@@ -24,6 +25,10 @@ void expect(bool condition, std::string_view message) {
     if (!condition) {
         throw std::runtime_error{std::string{message}};
     }
+}
+
+[[nodiscard]] bool is_exact_positive_zero(double value) {
+    return std::bit_cast<std::uint64_t>(value) == std::bit_cast<std::uint64_t>(0.0);
 }
 
 KinematicScenarioSchedule require_schedule(KinematicScenarioScheduleResult result) {
@@ -127,8 +132,10 @@ void test_held_speed_snapshot_boundaries_and_completion() {
            "fresh held-speed cursors did not begin independently");
     expect(first_a->sample_index == 0 && first_a->step_end_index == 1 &&
                first_a->rpm == 2750.0 && first_a->requested_throttle == 0.625 &&
+               is_exact_positive_zero(first_a->external_resisting_torque_nm) &&
                first_a->operating_state.fuel_enabled,
-           "held schedule retained mutable source-request state");
+           "held schedule retained mutable source-request state or invented an "
+           "external resisting torque");
 
     const auto second = first_cursor.next();
     const auto third = first_cursor.next();
@@ -235,8 +242,10 @@ void test_prescribed_sweep_behavior_is_preserved() {
     expect(first.has_value() && first->sample_index == 0 &&
                first->step_end_index == 1 && first->rpm == 400000.0 &&
                first->requested_throttle == 0.25 &&
+               is_exact_positive_zero(first->external_resisting_torque_nm) &&
                first->operating_state.ignition_enabled,
-           "sampled schedule changed its first post-step controls");
+           "sampled schedule changed its first post-step controls or invented an "
+           "external resisting torque");
     expect(second.has_value() && second->sample_index == 1 &&
                second->requested_throttle == 0.25 &&
                second->operating_state.ignition_enabled,
@@ -291,9 +300,11 @@ void test_inertial_dyno_compiles_controls_without_a_fake_rpm_lane() {
     const auto operating_boundary = cursor.next();
     expect(first.has_value() && first->sample_index == 0U &&
                first->step_end_index == 1U && first->requested_throttle == 0.4 &&
+               is_exact_positive_zero(first->external_resisting_torque_nm) &&
                first->operating_state.fuel_enabled && second.has_value() &&
                second->requested_throttle == 0.4,
-           "inertial control cursor lost its immutable step-zero controls");
+           "inertial control cursor lost its immutable step-zero controls or "
+           "invented an external resisting torque");
     expect(throttle_boundary.has_value() && throttle_boundary->sample_index == 2U &&
                throttle_boundary->requested_throttle == 0.9 &&
                throttle_boundary->operating_state.fuel_enabled,
@@ -305,6 +316,92 @@ void test_inertial_dyno_compiles_controls_without_a_fake_rpm_lane() {
     const auto rejected = compile_kinematic_scenario_schedule(fixture.scenario);
     expect(std::holds_alternative<ValidationReport>(rejected),
            "inertial controls were silently materialized as a kinematic RPM lane");
+}
+
+void configure_free_engine_control_schedule(ScheduleFixture &fixture) {
+    configure_short_held_schedule(fixture);
+    fixture.scenario.scenario_id = "free-engine-control-schedule-six-step";
+    for (auto &point : fixture.scenario.operating_state.value) {
+        point.state.dyno_enabled = false;
+    }
+    fixture.scenario.mode = FreeEngine{
+        fixture.builder.resolved(1500.0, "free-engine.initial_engine_speed_rpm"),
+        fixture.builder.resolved(0.25, "free-engine.initial_theta_rad"),
+        fixture.builder.resolved(0.25, "free-engine.equivalent_inertia_kg_m2"),
+        {
+            TrajectoryInterpolation::right_continuous_hold,
+            {{0.0, 0.2}, {0.5, 0.8}},
+            fixture.builder.add_resolution("free-engine.throttle"),
+        },
+        {
+            TrajectoryInterpolation::right_continuous_hold,
+            {{0.0, 12.0}, {1.0, 4.0}},
+            fixture.builder.add_resolution("free-engine.external_resisting_torque"),
+        },
+        fixture.builder.resolved(method("inertial-crank-dynamics-v1", 1),
+                                 "free-engine.crank_dynamics_method"),
+    };
+}
+
+void test_free_engine_control_schedule_exposes_external_resisting_torque() {
+    ScheduleFixture fixture;
+    configure_free_engine_control_schedule(fixture);
+    auto controls =
+        require_control_schedule(compile_scenario_control_schedule(fixture.scenario));
+    expect(controls.rate() == RationalRateHz{4, 1} &&
+               controls.first_step_index() == 0U && controls.sample_count() == 6U &&
+               controls.initial_theta_rad() == 0.25,
+           "free-engine controls have the wrong fixed-rate extent or initial angle");
+
+    auto &source = std::get<FreeEngine>(fixture.scenario.mode);
+    source.initial_theta_rad.value = 9.0;
+    source.throttle_01.points.clear();
+    source.external_resisting_torque_nm.points.clear();
+    fixture.scenario.operating_state.value.clear();
+
+    auto cursor = controls.fresh_cursor();
+    const auto first = cursor.next();
+    const auto second = cursor.next();
+    const auto throttle_boundary = cursor.next();
+    const auto operating_boundary = cursor.next();
+    const auto torque_boundary = cursor.next();
+    const auto final = cursor.next();
+    expect(first.has_value() && first->sample_index == 0U &&
+               first->step_end_index == 1U && first->requested_throttle == 0.2 &&
+               first->external_resisting_torque_nm == 12.0 &&
+               first->operating_state.fuel_enabled && second.has_value() &&
+               second->requested_throttle == 0.2 &&
+               second->external_resisting_torque_nm == 12.0,
+           "free-engine cursor lost its immutable step-zero control snapshot");
+    expect(throttle_boundary.has_value() && throttle_boundary->sample_index == 2U &&
+               throttle_boundary->requested_throttle == 0.8 &&
+               throttle_boundary->external_resisting_torque_nm == 12.0,
+           "free-engine throttle boundary was not right-continuous");
+    expect(operating_boundary.has_value() && operating_boundary->sample_index == 3U &&
+               !operating_boundary->operating_state.fuel_enabled &&
+               operating_boundary->external_resisting_torque_nm == 12.0,
+           "free-engine operating-state boundary was not right-continuous");
+    expect(torque_boundary.has_value() && torque_boundary->sample_index == 4U &&
+               torque_boundary->requested_throttle == 0.8 &&
+               torque_boundary->external_resisting_torque_nm == 4.0,
+           "free-engine resisting-torque boundary was not right-continuous");
+    expect(final.has_value() && final->sample_index == 5U &&
+               final->external_resisting_torque_nm == 4.0 && cursor.completed() &&
+               !cursor.next().has_value(),
+           "free-engine control cursor did not complete at its fixed horizon");
+
+    const auto rejected_kinematic =
+        compile_kinematic_scenario_schedule(fixture.scenario);
+    expect(std::holds_alternative<ValidationReport>(rejected_kinematic),
+           "free-engine controls were silently materialized as a kinematic RPM lane");
+
+    ScheduleFixture invalid;
+    configure_free_engine_control_schedule(invalid);
+    std::get<FreeEngine>(invalid.scenario.mode)
+        .external_resisting_torque_nm.interpolation = TrajectoryInterpolation::linear;
+    const auto rejected_controls = compile_scenario_control_schedule(invalid.scenario);
+    expect(std::holds_alternative<ValidationReport>(rejected_controls),
+           "linear free-engine resisting torque was admitted as an RCH schedule");
 }
 
 void test_admission_rejections() {
@@ -373,6 +470,7 @@ void run_tests() {
     test_held_speed_horizon_is_not_materialized();
     test_prescribed_sweep_behavior_is_preserved();
     test_inertial_dyno_compiles_controls_without_a_fake_rpm_lane();
+    test_free_engine_control_schedule_exposes_external_resisting_torque();
     test_admission_rejections();
 }
 

@@ -21,6 +21,7 @@ struct ScheduledScenarioControls {
     std::uint64_t sample_index = 0;
     std::uint64_t step_end_index = 0;
     double requested_throttle = 0.0;
+    double external_resisting_torque_nm = 0.0;
     contract::OperatingState operating_state;
 
     friend bool operator==(const ScheduledScenarioControls &,
@@ -51,8 +52,10 @@ class ScenarioControlCursor final {
     std::uint64_t next_sample_offset_ = 0;
     std::size_t next_operating_state_boundary_ = 0;
     std::size_t next_throttle_boundary_ = 0;
+    std::size_t next_external_resisting_torque_boundary_ = 0;
     contract::OperatingState operating_state_;
     double requested_throttle_ = 0.0;
+    double external_resisting_torque_nm_ = 0.0;
 
     friend class ScenarioControlSchedule;
 };
@@ -90,8 +93,8 @@ class ScenarioControlSchedule final {
 using ScenarioControlScheduleResult =
     std::variant<ScenarioControlSchedule, contract::ValidationReport>;
 
-// Compiles control lanes for held speed, prescribed kinematics, and inertial
-// dyno scenarios. Motion-specific admission remains with the motion owner.
+// Compiles control lanes for held speed, prescribed kinematics, inertial dyno,
+// and free-engine scenarios. Motion-specific admission remains with the motion owner.
 [[nodiscard]] ScenarioControlScheduleResult
 compile_scenario_control_schedule(const contract::RenderScenario &scenario);
 
@@ -100,6 +103,7 @@ struct ScheduledScenarioStep {
     std::uint64_t step_end_index = 0;
     double rpm = 0.0;
     double requested_throttle = 0.0;
+    double external_resisting_torque_nm = 0.0;
     contract::OperatingState operating_state;
 
     friend bool operator==(const ScheduledScenarioStep &,
@@ -129,8 +133,10 @@ class KinematicScenarioCursor final {
     std::uint64_t next_sample_offset_ = 0;
     std::size_t next_operating_state_boundary_ = 0;
     std::size_t next_throttle_boundary_ = 0;
+    std::size_t next_external_resisting_torque_boundary_ = 0;
     contract::OperatingState operating_state_;
     double requested_throttle_ = 0.0;
+    double external_resisting_torque_nm_ = 0.0;
 
     friend class KinematicScenarioSchedule;
 };

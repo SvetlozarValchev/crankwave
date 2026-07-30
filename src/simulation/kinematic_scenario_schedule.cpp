@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -20,6 +21,11 @@ struct ThrottleBoundary {
     double value = 0.0;
 };
 
+struct ExternalResistingTorqueBoundary {
+    std::uint64_t step_index = 0;
+    double value_nm = 0.0;
+};
+
 struct SampledRpmLane {
     std::vector<double> post_step_rpm;
 };
@@ -34,6 +40,7 @@ struct ScenarioControlScheduleStorage {
     std::uint64_t sample_count = 0;
     std::vector<OperatingStateBoundary> operating_state;
     std::vector<ThrottleBoundary> throttle;
+    std::vector<ExternalResistingTorqueBoundary> external_resisting_torque;
 };
 
 struct KinematicScenarioScheduleStorage {
@@ -216,6 +223,79 @@ void compile_throttle_boundaries(ValidationReport &report,
     }
 }
 
+void compile_external_resisting_torque_boundaries(
+    ValidationReport &report, const contract::RenderScenario &scenario,
+    const contract::ScalarTrajectory &torque,
+    const std::optional<std::uint64_t> &horizon,
+    std::vector<detail::ExternalResistingTorqueBoundary> &output) {
+    constexpr std::string_view path = "scenario.mode.external_resisting_torque_nm";
+    if (torque.interpolation !=
+        contract::TrajectoryInterpolation::right_continuous_hold) {
+        add_issue(report, ContractIssueCode::unsupported_value,
+                  std::string{path} + ".interpolation",
+                  "free-engine scheduling supports only right-continuous-hold "
+                  "external resisting torque");
+    }
+    if (torque.points.empty()) {
+        add_issue(report, ContractIssueCode::missing_value,
+                  std::string{path} + ".points",
+                  "right-continuous external resisting torque requires a "
+                  "step-zero boundary");
+        return;
+    }
+
+    output.reserve(torque.points.size());
+    std::optional<std::uint64_t> previous_step;
+    double previous_time_s = 0.0;
+    for (std::size_t index = 0; index < torque.points.size(); ++index) {
+        const auto &point = torque.points[index];
+        const auto point_path =
+            std::string{path} + ".points[" + std::to_string(index) + "]";
+        if (!std::isfinite(point.value) || point.value < 0.0) {
+            add_issue(report, ContractIssueCode::invalid_value, point_path + ".value",
+                      "external resisting torque must be finite and nonnegative");
+        }
+
+        const auto step = resolve_boundary(report, point.time_s, scenario.rates.physics,
+                                           horizon, point_path + ".time_s");
+        if (index == 0) {
+            if (!step.has_value() || *step != 0) {
+                add_issue(report, ContractIssueCode::inconsistent_semantics,
+                          point_path + ".time_s",
+                          "right-continuous external resisting torque must begin at "
+                          "physics step zero");
+            }
+        } else {
+            if (!std::isfinite(point.time_s) || !(point.time_s > previous_time_s)) {
+                add_issue(report, ContractIssueCode::inconsistent_semantics,
+                          point_path + ".time_s",
+                          "external resisting-torque boundaries must be strictly "
+                          "increasing");
+            }
+            if (step.has_value() && previous_step.has_value() &&
+                *step <= *previous_step) {
+                add_issue(report, ContractIssueCode::inconsistent_semantics,
+                          point_path + ".time_s",
+                          "external resisting-torque physics-step boundaries must be "
+                          "strictly increasing");
+            }
+            if (step.has_value() && horizon.has_value() && *step == *horizon) {
+                add_issue(report, ContractIssueCode::unsupported_value,
+                          point_path + ".time_s",
+                          "an external resisting-torque boundary at the final "
+                          "physics horizon is never observed");
+            }
+        }
+        if (step.has_value()) {
+            output.push_back({*step, point.value});
+            previous_step = step;
+        } else {
+            previous_step.reset();
+        }
+        previous_time_s = point.time_s;
+    }
+}
+
 } // namespace
 
 ScenarioControlCursor::ScenarioControlCursor(
@@ -230,8 +310,11 @@ ScenarioControlCursor::ScenarioControlCursor(ScenarioControlCursor &&other) noex
       next_operating_state_boundary_(
           std::exchange(other.next_operating_state_boundary_, 0)),
       next_throttle_boundary_(std::exchange(other.next_throttle_boundary_, 0)),
+      next_external_resisting_torque_boundary_(
+          std::exchange(other.next_external_resisting_torque_boundary_, 0)),
       operating_state_(other.operating_state_),
-      requested_throttle_(other.requested_throttle_) {}
+      requested_throttle_(other.requested_throttle_),
+      external_resisting_torque_nm_(other.external_resisting_torque_nm_) {}
 
 ScenarioControlCursor &
 ScenarioControlCursor::operator=(ScenarioControlCursor &&other) noexcept {
@@ -244,8 +327,11 @@ ScenarioControlCursor::operator=(ScenarioControlCursor &&other) noexcept {
     next_operating_state_boundary_ =
         std::exchange(other.next_operating_state_boundary_, 0);
     next_throttle_boundary_ = std::exchange(other.next_throttle_boundary_, 0);
+    next_external_resisting_torque_boundary_ =
+        std::exchange(other.next_external_resisting_torque_boundary_, 0);
     operating_state_ = other.operating_state_;
     requested_throttle_ = other.requested_throttle_;
+    external_resisting_torque_nm_ = other.external_resisting_torque_nm_;
     return *this;
 }
 
@@ -267,12 +353,21 @@ std::optional<ScheduledScenarioControls> ScenarioControlCursor::next() noexcept 
         requested_throttle_ = storage_->throttle[next_throttle_boundary_].value;
         ++next_throttle_boundary_;
     }
+    while (next_external_resisting_torque_boundary_ <
+               storage_->external_resisting_torque.size() &&
+           storage_->external_resisting_torque[next_external_resisting_torque_boundary_]
+                   .step_index <= sample_index) {
+        external_resisting_torque_nm_ =
+            storage_
+                ->external_resisting_torque[next_external_resisting_torque_boundary_]
+                .value_nm;
+        ++next_external_resisting_torque_boundary_;
+    }
 
     ++next_sample_offset_;
     return ScheduledScenarioControls{
-        sample_index,
-        sample_index + 1U,
-        requested_throttle_,
+        sample_index,        sample_index + 1U,
+        requested_throttle_, external_resisting_torque_nm_,
         operating_state_,
     };
 }
@@ -321,8 +416,11 @@ KinematicScenarioCursor::KinematicScenarioCursor(
       next_operating_state_boundary_(
           std::exchange(other.next_operating_state_boundary_, 0)),
       next_throttle_boundary_(std::exchange(other.next_throttle_boundary_, 0)),
+      next_external_resisting_torque_boundary_(
+          std::exchange(other.next_external_resisting_torque_boundary_, 0)),
       operating_state_(other.operating_state_),
-      requested_throttle_(other.requested_throttle_) {}
+      requested_throttle_(other.requested_throttle_),
+      external_resisting_torque_nm_(other.external_resisting_torque_nm_) {}
 
 KinematicScenarioCursor &
 KinematicScenarioCursor::operator=(KinematicScenarioCursor &&other) noexcept {
@@ -335,8 +433,11 @@ KinematicScenarioCursor::operator=(KinematicScenarioCursor &&other) noexcept {
     next_operating_state_boundary_ =
         std::exchange(other.next_operating_state_boundary_, 0);
     next_throttle_boundary_ = std::exchange(other.next_throttle_boundary_, 0);
+    next_external_resisting_torque_boundary_ =
+        std::exchange(other.next_external_resisting_torque_boundary_, 0);
     operating_state_ = other.operating_state_;
     requested_throttle_ = other.requested_throttle_;
+    external_resisting_torque_nm_ = other.external_resisting_torque_nm_;
     return *this;
 }
 
@@ -360,6 +461,15 @@ std::optional<ScheduledScenarioStep> KinematicScenarioCursor::next() noexcept {
         requested_throttle_ = controls.throttle[next_throttle_boundary_].value;
         ++next_throttle_boundary_;
     }
+    while (next_external_resisting_torque_boundary_ <
+               controls.external_resisting_torque.size() &&
+           controls.external_resisting_torque[next_external_resisting_torque_boundary_]
+                   .step_index <= sample_index) {
+        external_resisting_torque_nm_ =
+            controls.external_resisting_torque[next_external_resisting_torque_boundary_]
+                .value_nm;
+        ++next_external_resisting_torque_boundary_;
+    }
 
     const auto step = ScheduledScenarioStep{
         sample_index,
@@ -376,6 +486,7 @@ std::optional<ScheduledScenarioStep> KinematicScenarioCursor::next() noexcept {
             },
             storage_->rpm),
         requested_throttle_,
+        external_resisting_torque_nm_,
         operating_state_,
     };
     ++next_sample_offset_;
@@ -461,6 +572,7 @@ compile_scenario_control_schedule(const contract::RenderScenario &scenario) {
     double initial_theta_rad = 0.0;
     std::vector<detail::OperatingStateBoundary> operating_state;
     std::vector<detail::ThrottleBoundary> throttle;
+    std::vector<detail::ExternalResistingTorqueBoundary> external_resisting_torque;
     if (const auto *held = std::get_if<contract::HeldSpeed>(&scenario.mode)) {
         initial_theta_rad = held->initial_theta_rad.value;
         if (!std::isfinite(initial_theta_rad)) {
@@ -494,10 +606,23 @@ compile_scenario_control_schedule(const contract::RenderScenario &scenario) {
         }
         compile_throttle_boundaries(report, scenario, dyno->throttle_01, horizon,
                                     throttle);
+    } else if (const auto *free_engine =
+                   std::get_if<contract::FreeEngine>(&scenario.mode)) {
+        initial_theta_rad = free_engine->initial_theta_rad.value;
+        if (!std::isfinite(initial_theta_rad)) {
+            add_issue(report, ContractIssueCode::invalid_value,
+                      "scenario.mode.initial_theta_rad.value",
+                      "initial crank angle must be finite");
+        }
+        compile_throttle_boundaries(report, scenario, free_engine->throttle_01, horizon,
+                                    throttle);
+        compile_external_resisting_torque_boundaries(
+            report, scenario, free_engine->external_resisting_torque_nm, horizon,
+            external_resisting_torque);
     } else {
         add_issue(report, ContractIssueCode::unsupported_value, "scenario.mode",
                   "control scheduling supports only HeldSpeed, "
-                  "PrescribedKinematicSweep, and InertialDyno modes");
+                  "PrescribedKinematicSweep, InertialDyno, and FreeEngine modes");
         return report;
     }
 
@@ -510,6 +635,7 @@ compile_scenario_control_schedule(const contract::RenderScenario &scenario) {
     mutable_storage->sample_count = *horizon;
     mutable_storage->operating_state = std::move(operating_state);
     mutable_storage->throttle = std::move(throttle);
+    mutable_storage->external_resisting_torque = std::move(external_resisting_torque);
     std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage =
         std::move(mutable_storage);
     return detail::ScenarioControlScheduleFactory::make(
