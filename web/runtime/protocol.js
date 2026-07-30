@@ -62,20 +62,28 @@ export function readyMessage(requestId, moduleUrl) {
 export function publicDescriptor(program, selectedBusIndex) {
   const descriptor = program.session.descriptor;
   const totalDeliveryFrames =
-    descriptor.totalBlockCountBigInt *
-    BigInt(descriptor.deliveryFramesPerBlock);
+    descriptor.totalBlockCountBigInt === null
+      ? null
+      : descriptor.totalBlockCountBigInt *
+        BigInt(descriptor.deliveryFramesPerBlock);
   const preparationDeliveryFrames =
     descriptor.preparationBlockCountBigInt *
     BigInt(descriptor.deliveryFramesPerBlock);
   const liveControlCapabilities = descriptor.liveControlCapabilities;
   return {
+    executionKind: descriptor.executionKind,
+    executionKindCode: descriptor.executionKindCode,
+    openEnded: descriptor.executionKind === "open-ended",
     liveControlCapabilities,
     controls: LIVE_CONTROL_CAPABILITIES.filter(
       ({ mask }) => (liveControlCapabilities & mask) !== 0,
     ),
     buses: program.session.buses.map((bus) => ({ ...bus })),
     selectedBusIndex,
-    totalDeliveryFrames: totalDeliveryFrames.toString(10),
+    totalDeliveryFrames:
+      totalDeliveryFrames === null
+        ? null
+        : totalDeliveryFrames.toString(10),
     preparationDeliveryFrames: preparationDeliveryFrames.toString(10),
     deliverySampleRate: descriptor.deliveryRateHz,
     deliveryFramesPerBlock: descriptor.deliveryFramesPerBlock,

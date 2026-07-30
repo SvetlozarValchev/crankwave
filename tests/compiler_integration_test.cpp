@@ -949,7 +949,8 @@ void test_inline_twin_one_route_reaches_executable_boundary() {
     scenario_document.engine.value = "fixture-inline-twin";
     auto scenario = require_value(compile::compile_scenario(engine, scenario_document),
                                   "inline-twin one-route scenario compile failed");
-    auto created = engine_sim_offline::create_engine_session(scenario);
+    auto created = engine_sim_offline::create_engine_session(
+        scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
     if (const auto *error =
             std::get_if<engine_sim_offline::EngineSessionError>(&created)) {
         throw std::runtime_error{

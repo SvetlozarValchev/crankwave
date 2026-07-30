@@ -111,10 +111,12 @@ LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
         scenario.audible_start_s.value, scenario.rates.physics);
     const auto end_frame = contract::resolve_frame_index(
         scenario.total_duration_s.value, scenario.rates.physics);
+    const auto capture_horizon =
+        capture_plan.execution_extent.finite_physics_frame_count();
     require(report,
             release_frame.has_value() && *release_frame > 0U && end_frame.has_value() &&
-                *end_frame > *release_frame &&
-                capture_plan.capture_horizon_frames == *end_frame,
+                *end_frame > *release_frame && capture_horizon.has_value() &&
+                *capture_horizon == *end_frame,
             ContractIssueCode::inconsistent_semantics, "scenario.audible_start_s",
             "inertial release and fixed horizon must resolve to ordered integral "
             "physics frames matching capture");

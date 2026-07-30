@@ -428,8 +428,9 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     }
     const auto scenario_id = copy_scenario_id(owner.get(), handles.scenario);
 
-    if (eso_create_session(owner.get(), handles.scenario, &handles.session) !=
-        ESO_STATUS_OK) {
+    if (eso_create_session(owner.get(), handles.scenario,
+                           ESO_SESSION_EXECUTION_FINITE_SCENARIO,
+                           &handles.session) != ESO_STATUS_OK) {
         return DriverStatus::session;
     }
 
@@ -438,7 +439,8 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
             ESO_STATUS_OK ||
         descriptor.maximum_telemetry_frames_per_process_call == 0U ||
         descriptor.maximum_delivery_frames_per_process_call == 0U ||
-        descriptor.audio_bus_count == 0U) {
+        descriptor.audio_bus_count == 0U ||
+        descriptor.execution_kind != ESO_SESSION_EXECUTION_FINITE_SCENARIO) {
         return DriverStatus::descriptor;
     }
 
@@ -569,6 +571,8 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     append_integer(metadata, descriptor.audio_bus_count);
     metadata.push_back(',');
     append_integer(metadata, descriptor.live_control_capabilities);
+    metadata.push_back(',');
+    append_integer(metadata, descriptor.execution_kind);
     metadata += "],\"buses\":[";
     for (std::size_t index = 0; index < buses.size(); ++index) {
         if (index != 0U) {

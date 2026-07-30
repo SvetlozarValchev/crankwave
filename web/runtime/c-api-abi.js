@@ -3,7 +3,7 @@
 // This module deliberately describes one ABI version. A mismatched module is
 // rejected during startup; there is no compatibility decoder.
 
-export const ESO_C_API_VERSION = 1;
+export const ESO_C_API_VERSION = 2;
 export const ESO_INVALID_HANDLE = 0n;
 export const ESO_CANONICAL_SAMPLE_RATE = 192_000;
 
@@ -52,6 +52,11 @@ export const ControlCapability = Object.freeze({
   fuelEnabled: 1 << 2,
   limiterEnabled: 1 << 3,
   externalResistingTorque: 1 << 4,
+});
+
+export const SessionExecutionKind = Object.freeze({
+  finiteScenario: 1,
+  openEnded: 2,
 });
 
 export const ProcessKind = Object.freeze({
@@ -140,6 +145,17 @@ export function blockPhaseName(phase) {
   }
 }
 
+export function sessionExecutionKindName(kind) {
+  switch (kind) {
+    case SessionExecutionKind.finiteScenario:
+      return "finite-scenario";
+    case SessionExecutionKind.openEnded:
+      return "open-ended";
+    default:
+      return `unknown-session-execution-${kind}`;
+  }
+}
+
 // Every offset is a wasm32 clang C layout offset. Startup checks the public
 // eso_abi_layout_t sizes before any of these layouts are used.
 export const Layout = Object.freeze({
@@ -206,7 +222,7 @@ export const Layout = Object.freeze({
     messageBytes: 16,
   }),
   sessionDescriptor: Object.freeze({
-    size: 88,
+    size: 96,
     maximumDeliveryFrames: 0,
     controlQueueCapacity: 4,
     maximumTelemetryFrames: 8,
@@ -222,6 +238,7 @@ export const Layout = Object.freeze({
     liveControlCapabilities: 76,
     engineIdBytes: 80,
     scenarioIdBytes: 84,
+    executionKind: 88,
   }),
   sessionIdentityBuffers: Object.freeze({
     size: 16,

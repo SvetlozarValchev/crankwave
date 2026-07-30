@@ -93,7 +93,7 @@ products built on this boundary.
   publication buses, and audition mix;
 - optional source/provenance annotations that do not burden normal authoring.
 
-`scenario.json` owns one operating request:
+`scenario.json` owns one finite operating and recording request:
 
 - held-speed, prescribed-speed, or inertial-dyno ownership;
 - throttle and other control trajectories;
@@ -105,6 +105,13 @@ RPM, throttle, and load cannot all be authoritative simultaneously. Each scenari
 declares which values are commands and which are results. Interactive sessions use the
 same rule: imposed-RPM operation, internally dynamic operation, and a later
 load-following mode are distinct capabilities.
+
+Session creation separately requires `finite_scenario` or `open_ended`.
+`finite_scenario` executes the JSON recipe and horizon exactly. `open_ended` is
+currently FreeEngine-only: it executes preparation through the exact release boundary,
+holds the authored right-continuous release snapshot, and continues the same mutable
+crank/gas/random/filter/convolution state until paused, restarted, destroyed, or
+faulted. It does not loop the finite recipe or report elapsed-time completion.
 
 Asset references are relative to the engine asset and are content-verified. Resolution
 generates stable IDs, derived quantities, method selections, and provenance internally;
@@ -335,10 +342,10 @@ long-double format.
 The pinned 18-block parity fixture proves exact bus topology, clocks, control
 acceptance/rejection, discrete telemetry, and completion state. Semantic transcript
 SHA-256 is
-`a93959fcc8c7eb83e466b488fcf729a7d2917dd6501724a38a3bf10af99729a8`;
+`e0b264375b80ef6ec656893235578fc5780b62d8f0d036870b1ba2d79a5591d2`;
 native/WASM bundle hashes are
-`2cc6fe9d1fe4537827476bf6582544acaa92a628c67e78ff8d6149624962a28e` and
-`19d7c36657f561cf5559ff16459d4e64e2cec3ff90e35d193ca88531b77f6b85`.
+`50e3dde5db8e69ec3a869e79f3a2919985aefbabfc066cb04de428ffea0b23de` and
+`22c164d528ff93d38ec266241dcc96b5d0d65aa217a156a43ff51fae11f94219`.
 Across 7,680 audition samples, maximum absolute PCM error is
 `1.862645149230957e-9` and RMS error is `2.1807662361359516e-11`, both within the
 predeclared tight bounds. The reproducible gate is
@@ -352,7 +359,7 @@ predeclared tight bounds. The reproducible gate is
 - Run simulation ahead in a Worker, exchange bounded blocks through a ring buffer, and
   keep the AudioWorklet limited to device delivery.
 - Add start/stop, underrun/load diagnostics, route/stem selection, essential telemetry,
-  a dyno-run command, and WAV export through the same session.
+  a dyno-run command, and WAV export through a fresh finite session on the same API.
 - Adapt from core rate to AudioContext rate only after the canonical master output.
 - Recompile and replace the session explicitly when an engine-structure parameter is
   edited; do not mutate an invalid half-compiled engine.
@@ -372,17 +379,13 @@ silence/recovery.
 The real-module integration fixture exports 7,680 canonical WASM Float32 samples with
 SHA-256
 `77484393b278ec40a84b4bde7d2dae31f01894e94a6a47cd17fd16ccb1787413`.
-The full 15-second BMW browser dyno exports a 11,520,056-byte Float32 WAVE with
-SHA-256
-`69f9a94faa6c5dcef56acd8f8de9d60266b0d51d9983f9406014d44bb6d3ca13`;
-its 11,520,000-byte PCM payload has SHA-256
-`15064e6b093aecf8fe7184f2f0eeb9bae324a5b16d6e3867dbfb9695794bda0f`.
-The development-PC headless run completes that export in under 15 seconds. Live
-startup completes 333 bounded preparation/lead-fill blocks in about 4.6 seconds,
-publishes 10,544 device frames for a requested 9,600-frame lead, and records zero
-startup underrun frames or events. The browser gate also proves admitted throttle,
-ignition, and fuel controls, route selection, failed-rebuild retention, stop/restart,
-cross-origin-isolation headers, and exact WAV framing:
+The complete BMW warm-running free-rev browser capture exports a 3,840,056-byte
+Float32 WAVE with SHA-256
+`f7cad8870381669e105a2ac7e092c17e74b2ec2ff9b4747df3befc1329087e11`.
+The browser gate also proves open-ended playback beyond its authored 5.5-second
+horizon, admitted throttle and external-resistance controls, Stop/Start state
+continuity, fresh Restart state, route selection, cross-origin-isolation headers,
+zero startup underruns, and exact WAV framing:
 [`scripts/verify-browser-workbench.sh`](scripts/verify-browser-workbench.sh).
 
 ## 6. Cutover acceptance policy
@@ -460,6 +463,11 @@ is:
 
 The browser is a client of this contract. It must not synthesize RPM, vehicle motion,
 load, or dyno behavior in JavaScript.
+
+Live browser playback creates an open-ended FreeEngine session. **Stop** pauses
+production and **Start** resumes the same state; **Restart** creates fresh state.
+Authored-capture export creates a separate finite-scenario session. Arbitrary live
+controls beyond the authored horizon are not silently truncated into that export.
 
 ### 9.2 Motion ownership
 

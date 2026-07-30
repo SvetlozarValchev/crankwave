@@ -134,9 +134,9 @@ class LowOrderCaptureSession final {
                            ProfilePolicy profile_policy,
                            detail::LowOrderCaptureBuffer capture,
                            contract::RationalRateHz rate,
-                           std::uint64_t expected_samples, std::string model_id,
-                           std::string profile_id, std::string scenario_id,
-                           contract::EngineId engine_id);
+                           LowOrderExecutionExtent execution_extent,
+                           std::string model_id, std::string profile_id,
+                           std::string scenario_id, contract::EngineId engine_id);
 
     [[nodiscard]] contract::FailureContext
     fault(contract::FailureKind kind, std::string detail_code,
@@ -151,7 +151,8 @@ class LowOrderCaptureSession final {
     ProfilePolicy profile_policy_;
     std::unique_ptr<detail::LowOrderCaptureBuffer> capture_;
     contract::RationalRateHz rate_;
-    std::uint64_t expected_samples_ = 0;
+    LowOrderExecutionExtent execution_extent_ =
+        LowOrderExecutionExtent::finite_scenario(0U);
     std::uint64_t published_sample_count_ = 0;
     std::uint64_t published_block_count_ = 0;
     std::string model_id_;
@@ -166,7 +167,8 @@ class LowOrderCaptureSession final {
     compile_low_order_capture_session(const contract::EngineSpec &,
                                       const contract::RenderScenario &,
                                       const contract::RandomPlan &,
-                                      const contract::Sha256Digest &);
+                                      const contract::Sha256Digest &,
+                                      LowOrderExecutionExtent);
 };
 
 using LowOrderCaptureCompileResult =
@@ -179,6 +181,7 @@ using LowOrderCaptureCompileResult =
 [[nodiscard]] LowOrderCaptureCompileResult compile_low_order_capture_session(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const contract::RandomPlan &random_plan,
-    const contract::Sha256Digest &simulation_request_identity_v3_sha256);
+    const contract::Sha256Digest &simulation_request_identity_v3_sha256,
+    LowOrderExecutionExtent execution_extent);
 
 } // namespace engine_sim_offline::simulation

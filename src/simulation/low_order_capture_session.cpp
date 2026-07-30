@@ -5,6 +5,7 @@
 
 #include <exception>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -15,11 +16,11 @@ namespace engine_sim_offline::simulation {
 LowOrderCaptureSession::LowOrderCaptureSession(
     LowOrderEngineCoreV1Runtime core, ProfilePolicy profile_policy,
     detail::LowOrderCaptureBuffer capture, contract::RationalRateHz rate,
-    std::uint64_t expected_samples, std::string model_id, std::string profile_id,
-    std::string scenario_id, contract::EngineId engine_id)
+    LowOrderExecutionExtent execution_extent, std::string model_id,
+    std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
     : core_(std::move(core)), profile_policy_(std::move(profile_policy)),
       capture_(std::make_unique<detail::LowOrderCaptureBuffer>(std::move(capture))),
-      rate_(rate), expected_samples_(expected_samples), model_id_(std::move(model_id)),
+      rate_(rate), execution_extent_(execution_extent), model_id_(std::move(model_id)),
       profile_id_(std::move(profile_id)), scenario_id_(std::move(scenario_id)),
       engine_id_(engine_id) {}
 
@@ -114,9 +115,10 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
                           "live-control physics rate differs from the admitted "
                           "capture physics rate"));
     }
-    if (published_sample_count_ >= expected_samples_) {
-        if (published_sample_count_ != expected_samples_ ||
-            core_.produced_sample_count() != expected_samples_ || !core_.completed()) {
+    const auto expected_samples = execution_extent_.finite_physics_frame_count();
+    if (expected_samples.has_value() && published_sample_count_ >= *expected_samples) {
+        if (published_sample_count_ != *expected_samples ||
+            core_.produced_sample_count() != *expected_samples || !core_.completed()) {
             return fail(fault(
                 contract::FailureKind::contract_violation,
                 "low-order-capture-completion-count-mismatch",
@@ -126,7 +128,7 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
         std::optional<contract::InertialDynoResult> inertial_dyno;
         if (const auto *policy =
                 std::get_if<LowOrderOperatingPointV1Runtime>(&profile_policy_)) {
-            if (policy->accepted_sample_count() != expected_samples_ ||
+            if (policy->accepted_sample_count() != *expected_samples ||
                 !policy->finalized() || policy->faulted() ||
                 !policy->operating_point_result().has_value()) {
                 return fail(fault(
@@ -138,7 +140,7 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
             operating_point = *policy->operating_point_result();
         } else if (const auto *policy =
                        std::get_if<LowOrderInertialDynoV1Runtime>(&profile_policy_)) {
-            if (policy->accepted_sample_count() != expected_samples_ ||
+            if (policy->accepted_sample_count() != *expected_samples ||
                 !policy->finalized() || policy->faulted() ||
                 !policy->inertial_dyno_result().has_value()) {
                 return fail(fault(
@@ -150,7 +152,7 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
             inertial_dyno = *policy->inertial_dyno_result();
         } else if (const auto *policy =
                        std::get_if<LowOrderFreeEngineV1Runtime>(&profile_policy_)) {
-            if (policy->accepted_sample_count() != expected_samples_ ||
+            if (policy->accepted_sample_count() != *expected_samples ||
                 !policy->finalized() || policy->faulted()) {
                 return fail(fault(
                     contract::FailureKind::contract_violation,
@@ -165,6 +167,15 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
             std::move(inertial_dyno),
         };
         return *terminal_completion_;
+    }
+    if (!expected_samples.has_value() &&
+        (published_block_count_ == std::numeric_limits<std::uint64_t>::max() ||
+         published_sample_count_ > std::numeric_limits<std::uint64_t>::max() -
+                                       capture_->block_capacity_frames())) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "low-order-capture-frame-counter-overflow",
+                          "open-ended capture cannot represent another complete "
+                          "physics block"));
     }
 
     capture_->begin_block(published_sample_count_);
@@ -206,9 +217,10 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
             }
             if (const auto *completed =
                     std::get_if<LowOrderEngineCoreV1Completed>(&result)) {
-                if (completed->sample_count != expected_samples_ ||
+                if (!expected_samples.has_value() ||
+                    completed->sample_count != *expected_samples ||
                     published_sample_count_ + capture_->frame_count() !=
-                        expected_samples_) {
+                        *expected_samples) {
                     return fail(fault(
                         contract::FailureKind::contract_violation,
                         "low-order-core-premature-completion",
@@ -229,9 +241,10 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
             }
             if (const auto *completed =
                     std::get_if<LowOrderEngineCoreV1Completed>(&result)) {
-                if (completed->sample_count != expected_samples_ ||
+                if (!expected_samples.has_value() ||
+                    completed->sample_count != *expected_samples ||
                     published_sample_count_ + capture_->frame_count() !=
-                        expected_samples_) {
+                        *expected_samples) {
                     return fail(fault(
                         contract::FailureKind::contract_violation,
                         "low-order-core-premature-completion",
@@ -252,9 +265,10 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
             }
             if (const auto *completed =
                     std::get_if<LowOrderEngineCoreV1Completed>(&core_result)) {
-                if (completed->sample_count != expected_samples_ ||
+                if (!expected_samples.has_value() ||
+                    completed->sample_count != *expected_samples ||
                     published_sample_count_ + capture_->frame_count() !=
-                        expected_samples_) {
+                        *expected_samples) {
                     return fail(fault(
                         contract::FailureKind::contract_violation,
                         "low-order-core-premature-completion",
@@ -328,7 +342,8 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
             return fail(std::move(failure));
         }
 
-        if (published_sample_count_ + capture_->frame_count() == expected_samples_) {
+        if (expected_samples.has_value() &&
+            published_sample_count_ + capture_->frame_count() == *expected_samples) {
             break;
         }
     }

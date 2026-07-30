@@ -88,7 +88,8 @@ maximum_low_order_events_per_frame(std::size_t cylinder_count) noexcept {
 
 LowOrderCapturePlanCompileResult
 compile_low_order_capture_plan(const contract::EngineSpec &engine,
-                               const contract::RenderScenario &scenario) {
+                               const contract::RenderScenario &scenario,
+                               LowOrderExecutionExtent execution_extent) {
     ValidationReport report;
     const contract::LowOrderEngineCoreV1 *core = nullptr;
     if (const auto *operating = std::get_if<contract::LowOrderOperatingPointV1Profile>(
@@ -139,6 +140,20 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
             "scenario.total_duration_s.value",
             "low-order capture horizon must resolve to a positive integral frame "
             "count");
+    require(report, execution_extent.valid(), ContractIssueCode::invalid_value,
+            "execution_extent",
+            "low-order capture requires a valid finite or open-ended execution "
+            "extent");
+    const auto finite_execution = execution_extent.finite_physics_frame_count();
+    if (finite_execution.has_value()) {
+        require(report, horizon.has_value() && *finite_execution == *horizon,
+                ContractIssueCode::inconsistent_shape, "execution_extent",
+                "finite capture extent must equal the authored scenario horizon");
+    } else {
+        require(report, std::holds_alternative<contract::FreeEngine>(scenario.mode),
+                ContractIssueCode::unsupported_value, "execution_extent",
+                "open-ended low-order capture is admitted only for FreeEngine");
+    }
 
     require(report,
             reserve_product_representable(
@@ -166,6 +181,7 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
     LowOrderCapturePlan compiled;
     compiled.engine_profile_id = engine.profile_id.value;
     compiled.scenario_id = scenario.scenario_id;
+    compiled.execution_extent = execution_extent;
     auto &plan = compiled.capture_buffer;
     plan.engine_id = engine.id;
     plan.rate = scenario.rates.capture;
@@ -370,7 +386,6 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
     if (!report.ok() || !horizon.has_value()) {
         return report;
     }
-    compiled.capture_horizon_frames = *horizon;
     return compiled;
 }
 

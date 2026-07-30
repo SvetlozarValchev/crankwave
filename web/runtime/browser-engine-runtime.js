@@ -2,6 +2,7 @@ import {
   ESO_CANONICAL_SAMPLE_RATE,
   ProcessKind,
   RingState,
+  SessionExecutionKind,
 } from "./c-api-abi.js";
 import { EngineSimCapiClient } from "./c-api-client.js";
 import { EngineSimRuntimeError } from "./c-api-errors.js";
@@ -24,6 +25,21 @@ import {
 
 const RUNTIME_STATS_INTERVAL_MS = 250;
 const PRIMING_CORE_BLOCKS_PER_TURN = 4;
+
+export function liveExecutionKindForScenarioJson(scenarioJson) {
+  if (typeof scenarioJson !== "string") {
+    throw new TypeError("scenarioJson must be an exact JSON string");
+  }
+  try {
+    const document = JSON.parse(scenarioJson);
+    return document?.mode?.type === "free_engine"
+      ? SessionExecutionKind.openEnded
+      : SessionExecutionKind.finiteScenario;
+  } catch {
+    // The native parser remains authoritative for path-bearing JSON diagnostics.
+    return SessionExecutionKind.finiteScenario;
+  }
+}
 
 function runtimeError(message, detailCode, operation = "browser-runtime") {
   return new EngineSimRuntimeError(message, {
@@ -116,7 +132,12 @@ export class BrowserEngineRuntime {
     );
     let replacement;
     try {
-      replacement = this.#client.compile(engineJson, scenarioJson, assets);
+      replacement = this.#client.compile(
+        engineJson,
+        scenarioJson,
+        assets,
+        liveExecutionKindForScenarioJson(scenarioJson),
+      );
     } catch (error) {
       this.#restoreAfterFailedMutation(priorState);
       if ((error.diagnostics?.length ?? 0) !== 0) {
@@ -336,6 +357,7 @@ export class BrowserEngineRuntime {
           requestId,
           encoding: "ieee-float32-le",
           coreIdentical: true,
+          executionKind: result.executionKind,
           sampleRate: result.sampleRate,
           channelCount: result.channelCount,
           frameCount: result.frameCount,
@@ -471,6 +493,16 @@ export class BrowserEngineRuntime {
           this.#selectedBusIndex,
         );
         if (block.process.kindCode === ProcessKind.completed) {
+          if (
+            this.#program.session.descriptor.executionKindCode ===
+            SessionExecutionKind.openEnded
+          ) {
+            throw runtimeError(
+              "the open-ended interactive session completed unexpectedly",
+              "browser-runtime-open-session-completed",
+              "process-session",
+            );
+          }
           const tail = this.#output.resampler.finish();
           this.#completionPending = true;
           if (tail.length !== 0) {
@@ -514,6 +546,16 @@ export class BrowserEngineRuntime {
   }
 
   #finishLiveRun() {
+    if (
+      this.#program.session.descriptor.executionKindCode ===
+      SessionExecutionKind.openEnded
+    ) {
+      throw runtimeError(
+        "the open-ended interactive session reached finite completion",
+        "browser-runtime-open-session-completed",
+        "process-session",
+      );
+    }
     this.#completionPending = false;
     this.#state = "completed";
     if (this.#output.published) {
@@ -583,7 +625,9 @@ export class BrowserEngineRuntime {
   }
 
   #replaceLiveSession() {
-    const replacement = this.#program.createSession();
+    const replacement = this.#program.createSession(
+      this.#program.liveExecutionKind,
+    );
     const previous = this.#program.session;
     this.#program.session = replacement;
     previous.dispose();

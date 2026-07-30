@@ -230,6 +230,13 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
     if (terminal_fault_.has_value()) {
         return *terminal_fault_;
     }
+    if (produced_sample_count_ == std::numeric_limits<std::uint64_t>::max()) {
+        terminal_fault_ =
+            fault(contract::FailureKind::contract_violation,
+                  "legacy-gas-frame-counter-overflow",
+                  "open-ended gas execution exhausted its uint64 physics clock");
+        return *terminal_fault_;
+    }
 
     step_.rate = rate_;
     step_.sample_index = mechanics.sample_index;
@@ -242,8 +249,9 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
 
     const std::uint64_t expected_sample_index =
         first_sample_index_ + produced_sample_count_;
-    if (produced_sample_count_ >= expected_sample_count_ || mechanics.rate != rate_ ||
-        mechanics.sample_index != expected_sample_index ||
+    if ((expected_sample_count_.has_value() &&
+         produced_sample_count_ >= *expected_sample_count_) ||
+        mechanics.rate != rate_ || mechanics.sample_index != expected_sample_index ||
         mechanics.step_end_index != mechanics.sample_index + 1U ||
         mechanics.timestamp_tick != mechanics.step_end_index ||
         mechanics.cylinders.size() != cylinders_.size() ||

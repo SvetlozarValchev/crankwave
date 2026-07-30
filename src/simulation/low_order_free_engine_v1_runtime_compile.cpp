@@ -65,7 +65,8 @@ void require_release_or_later_boundaries(ValidationReport &report,
 LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
-    const contract::Sha256Digest &simulation_request_identity_v3_sha256) {
+    const contract::Sha256Digest &simulation_request_identity_v3_sha256,
+    LowOrderExecutionExtent execution_extent) {
     ValidationReport report;
     report.append(contract::validate_for_engine(scenario, engine));
 
@@ -110,18 +111,24 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
             capture_plan.engine_profile_id == engine.profile_id.value &&
                 capture_plan.scenario_id == scenario.scenario_id &&
                 capture_plan.capture_buffer.engine_id == engine.id &&
-                capture_plan.capture_buffer.rate == scenario.rates.capture,
+                capture_plan.capture_buffer.rate == scenario.rates.capture &&
+                capture_plan.execution_extent == execution_extent,
             ContractIssueCode::inconsistent_semantics, "capture_plan",
             "free-engine capture plan belongs to another engine or scenario");
+    require(report, execution_extent.valid(), ContractIssueCode::invalid_value,
+            "execution_extent",
+            "free-engine runtime requires a valid finite or open-ended execution "
+            "extent");
 
     const auto release_frame = contract::resolve_frame_index(
         scenario.audible_start_s.value, scenario.rates.physics);
     const auto end_frame = contract::resolve_frame_index(
         scenario.total_duration_s.value, scenario.rates.physics);
+    const auto finite_execution = execution_extent.finite_physics_frame_count();
     require(report,
             release_frame.has_value() && *release_frame > 0U && end_frame.has_value() &&
                 *end_frame > *release_frame &&
-                capture_plan.capture_horizon_frames == *end_frame,
+                (!finite_execution.has_value() || *finite_execution == *end_frame),
             ContractIssueCode::inconsistent_semantics, "scenario.audible_start_s.value",
             "free-engine release and fixed horizon must resolve to ordered integral "
             "physics frames matching capture");
@@ -142,7 +149,8 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         return report;
     }
 
-    auto control_schedule_result = compile_scenario_control_schedule(scenario);
+    auto control_schedule_result =
+        compile_scenario_control_schedule(scenario, execution_extent);
     if (auto *nested = std::get_if<ValidationReport>(&control_schedule_result)) {
         return std::move(*nested);
     }
@@ -251,7 +259,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         std::move(physical_gas_step_indices),
         std::move(pressure_samples),
         scenario.rates.physics,
-        *end_frame,
+        execution_extent,
         *release_frame,
         free_engine->initial_engine_speed_rpm.value,
         free_engine->initial_theta_rad.value,

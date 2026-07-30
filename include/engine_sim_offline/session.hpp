@@ -55,6 +55,14 @@ enum class EngineSessionBlockPhase : std::uint8_t {
     audible,
 };
 
+// The compiled scenario is always the authoritative finite recording recipe.
+// Session creation must state whether to execute that exact recipe to completion or
+// use it to initialize a continuous interactive FreeEngine runtime.
+enum class EngineSessionExecutionKind : std::uint8_t {
+    finite_scenario,
+    open_ended,
+};
+
 // All spans borrow storage owned by the producing EngineSession. They remain valid
 // until the next enqueue/process operation, move, or destruction of that session.
 class EngineSessionBlockView final {
@@ -200,6 +208,8 @@ struct EngineSessionDescriptor {
     std::uint64_t preparation_block_count = 0;
     std::span<const EngineAudioBusDescriptor> audio_buses;
     EngineLiveControlCapabilityMask live_control_capabilities = 0U;
+    EngineSessionExecutionKind execution_kind =
+        EngineSessionExecutionKind::finite_scenario;
 };
 
 struct EngineSessionCompleted {
@@ -244,10 +254,14 @@ class EngineSession final {
 
 using EngineSessionCreateResult = std::variant<EngineSession, EngineSessionError>;
 
-// Session creation may allocate and compile immutable IR/kernel data. Returned PCM and
-// telemetry views are bounded by the compiled scenario and borrow session-owned
-// storage. Terminal results and diagnostics are owning values.
+// Session creation may allocate and compile immutable IR/kernel data. Finite sessions
+// execute the authored scenario horizon exactly. Open-ended sessions are admitted only
+// for FreeEngine scenarios and retain crank, gas, random, filter, and convolution state
+// until destroyed; they do not complete merely because the authored recording horizon
+// elapsed. Returned PCM and telemetry views borrow session-owned storage. Terminal
+// results and diagnostics are owning values.
 [[nodiscard]] EngineSessionCreateResult
-create_engine_session(const compile::CompiledScenario &scenario);
+create_engine_session(const compile::CompiledScenario &scenario,
+                      EngineSessionExecutionKind execution_kind);
 
 } // namespace engine_sim_offline

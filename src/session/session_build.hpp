@@ -13,6 +13,8 @@ namespace engine_sim_offline::session_detail {
 
 struct BuiltSessionComponents {
     compile::CompiledScenario compiled_scenario;
+    EngineSessionExecutionKind execution_kind =
+        EngineSessionExecutionKind::finite_scenario;
     contract::Sha256Digest simulation_request_identity;
     contract::RandomPlan random_plan;
     presentation::AdmittedPresentationCalibration calibration;
@@ -25,6 +27,7 @@ using SessionBuildResult =
     std::variant<BuiltSessionComponents, EngineSessionError>;
 
 [[nodiscard]] SessionBuildResult
-build_session_components(const compile::CompiledScenario &scenario);
+build_session_components(const compile::CompiledScenario &scenario,
+                         EngineSessionExecutionKind execution_kind);
 
 } // namespace engine_sim_offline::session_detail

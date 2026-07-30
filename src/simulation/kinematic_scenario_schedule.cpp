@@ -1,6 +1,8 @@
 #include "kinematic_scenario_schedule.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -37,7 +39,8 @@ struct ConstantRpmLane {
 using RpmLane = std::variant<SampledRpmLane, ConstantRpmLane>;
 
 struct ScenarioControlScheduleStorage {
-    std::uint64_t sample_count = 0;
+    LowOrderExecutionExtent execution_extent =
+        LowOrderExecutionExtent::finite_scenario(0U);
     std::vector<OperatingStateBoundary> operating_state;
     std::vector<ThrottleBoundary> throttle;
     std::vector<ExternalResistingTorqueBoundary> external_resisting_torque;
@@ -51,9 +54,9 @@ struct KinematicScenarioScheduleStorage {
 struct ScenarioControlScheduleFactory {
     static ScenarioControlSchedule
     make(contract::RationalRateHz rate, std::uint64_t first_step_index,
-         std::uint64_t sample_count, double initial_theta_rad,
+         LowOrderExecutionExtent execution_extent, double initial_theta_rad,
          std::shared_ptr<const ScenarioControlScheduleStorage> storage) noexcept {
-        return {rate, first_step_index, sample_count, initial_theta_rad,
+        return {rate, first_step_index, execution_extent, initial_theta_rad,
                 std::move(storage)};
     }
 };
@@ -314,7 +317,8 @@ ScenarioControlCursor::ScenarioControlCursor(ScenarioControlCursor &&other) noex
           std::exchange(other.next_external_resisting_torque_boundary_, 0)),
       operating_state_(other.operating_state_),
       requested_throttle_(other.requested_throttle_),
-      external_resisting_torque_nm_(other.external_resisting_torque_nm_) {}
+      external_resisting_torque_nm_(other.external_resisting_torque_nm_),
+      clock_overflowed_(std::exchange(other.clock_overflowed_, false)) {}
 
 ScenarioControlCursor &
 ScenarioControlCursor::operator=(ScenarioControlCursor &&other) noexcept {
@@ -332,15 +336,25 @@ ScenarioControlCursor::operator=(ScenarioControlCursor &&other) noexcept {
     operating_state_ = other.operating_state_;
     requested_throttle_ = other.requested_throttle_;
     external_resisting_torque_nm_ = other.external_resisting_torque_nm_;
+    clock_overflowed_ = std::exchange(other.clock_overflowed_, false);
     return *this;
 }
 
 std::optional<ScheduledScenarioControls> ScenarioControlCursor::next() noexcept {
-    if (!storage_ || completed()) {
+    if (!storage_ || completed() || clock_overflowed_) {
         return std::nullopt;
     }
 
+    if (next_sample_offset_ >
+        std::numeric_limits<std::uint64_t>::max() - first_step_index_) {
+        clock_overflowed_ = true;
+        return std::nullopt;
+    }
     const auto sample_index = first_step_index_ + next_sample_offset_;
+    if (sample_index == std::numeric_limits<std::uint64_t>::max()) {
+        clock_overflowed_ = true;
+        return std::nullopt;
+    }
     while (next_operating_state_boundary_ < storage_->operating_state.size() &&
            storage_->operating_state[next_operating_state_boundary_].step_index <=
                sample_index) {
@@ -373,15 +387,24 @@ std::optional<ScheduledScenarioControls> ScenarioControlCursor::next() noexcept 
 }
 
 bool ScenarioControlCursor::completed() const noexcept {
-    return !storage_ || next_sample_offset_ >= storage_->sample_count;
+    if (!storage_) {
+        return true;
+    }
+    const auto terminal = storage_->execution_extent.finite_physics_frame_count();
+    return terminal.has_value() && next_sample_offset_ >= *terminal;
+}
+
+bool ScenarioControlCursor::clock_overflowed() const noexcept {
+    return clock_overflowed_;
 }
 
 ScenarioControlSchedule::ScenarioControlSchedule(
     contract::RationalRateHz rate, std::uint64_t first_step_index,
-    std::uint64_t sample_count, double initial_theta_rad,
+    LowOrderExecutionExtent execution_extent, double initial_theta_rad,
     std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage) noexcept
-    : rate_(rate), first_step_index_(first_step_index), sample_count_(sample_count),
-      initial_theta_rad_(initial_theta_rad), storage_(std::move(storage)) {}
+    : rate_(rate), first_step_index_(first_step_index),
+      execution_extent_(execution_extent), initial_theta_rad_(initial_theta_rad),
+      storage_(std::move(storage)) {}
 
 const contract::RationalRateHz &ScenarioControlSchedule::rate() const noexcept {
     return rate_;
@@ -391,8 +414,9 @@ std::uint64_t ScenarioControlSchedule::first_step_index() const noexcept {
     return first_step_index_;
 }
 
-std::uint64_t ScenarioControlSchedule::sample_count() const noexcept {
-    return storage_ == nullptr ? 0 : sample_count_;
+const LowOrderExecutionExtent &
+ScenarioControlSchedule::execution_extent() const noexcept {
+    return execution_extent_;
 }
 
 double ScenarioControlSchedule::initial_theta_rad() const noexcept {
@@ -494,8 +518,12 @@ std::optional<ScheduledScenarioStep> KinematicScenarioCursor::next() noexcept {
 }
 
 bool KinematicScenarioCursor::completed() const noexcept {
-    return !storage_ || !storage_->controls ||
-           next_sample_offset_ >= storage_->controls->sample_count;
+    if (!storage_ || !storage_->controls) {
+        return true;
+    }
+    const auto terminal =
+        storage_->controls->execution_extent.finite_physics_frame_count();
+    return terminal.has_value() && next_sample_offset_ >= *terminal;
 }
 
 KinematicScenarioSchedule::KinematicScenarioSchedule(
@@ -547,7 +575,8 @@ std::optional<double> KinematicScenarioSchedule::rpm_at_sample_offset(
 
 ScenarioControlSchedule KinematicScenarioSchedule::control_schedule() const noexcept {
     return detail::ScenarioControlScheduleFactory::make(
-        rate_, first_step_index_, sample_count_, initial_theta_rad_,
+        rate_, first_step_index_,
+        LowOrderExecutionExtent::finite_scenario(sample_count_), initial_theta_rad_,
         storage_ == nullptr ? nullptr : storage_->controls);
 }
 
@@ -556,7 +585,8 @@ KinematicScenarioCursor KinematicScenarioSchedule::fresh_cursor() const noexcept
 }
 
 ScenarioControlScheduleResult
-compile_scenario_control_schedule(const contract::RenderScenario &scenario) {
+compile_scenario_control_schedule(const contract::RenderScenario &scenario,
+                                  LowOrderExecutionExtent execution_extent) {
     ValidationReport report;
     append_rate_report(report, scenario.rates.physics, "scenario.rates.physics");
 
@@ -567,6 +597,22 @@ compile_scenario_control_schedule(const contract::RenderScenario &scenario) {
                   "scenario.total_duration_s.value",
                   "total duration must resolve to a positive integral physics-step "
                   "horizon");
+    }
+    if (!execution_extent.valid()) {
+        add_issue(report, ContractIssueCode::invalid_value, "execution_extent",
+                  "finite execution requires a positive physics-frame count");
+    }
+    const auto finite_execution = execution_extent.finite_physics_frame_count();
+    if (finite_execution.has_value() && horizon.has_value() &&
+        *finite_execution != *horizon) {
+        add_issue(report, ContractIssueCode::inconsistent_shape, "execution_extent",
+                  "finite execution extent must equal the authored scenario "
+                  "physics horizon");
+    }
+    if (execution_extent.is_open_ended() &&
+        !std::holds_alternative<contract::FreeEngine>(scenario.mode)) {
+        add_issue(report, ContractIssueCode::unsupported_value, "execution_extent",
+                  "open-ended control scheduling is admitted only for FreeEngine");
     }
 
     double initial_theta_rad = 0.0;
@@ -631,15 +677,40 @@ compile_scenario_control_schedule(const contract::RenderScenario &scenario) {
         return report;
     }
 
+    if (execution_extent.is_open_ended()) {
+        const auto release = contract::resolve_frame_index(
+            scenario.audible_start_s.value, scenario.rates.physics);
+        if (!release.has_value()) {
+            add_issue(report, ContractIssueCode::inconsistent_semantics,
+                      "scenario.audible_start_s.value",
+                      "open-ended control scheduling requires an exact release "
+                      "physics frame");
+            return report;
+        }
+        // Open execution consumes the authored recipe through the exact release
+        // boundary, then holds that RCH snapshot. Later boundaries belong to the
+        // finite recording procedure and must not drive the interactive bench.
+        std::erase_if(operating_state, [release](const auto &boundary) {
+            return boundary.step_index > *release;
+        });
+        std::erase_if(throttle, [release](const auto &boundary) {
+            return boundary.step_index > *release;
+        });
+        std::erase_if(external_resisting_torque, [release](const auto &boundary) {
+            return boundary.step_index > *release;
+        });
+    }
+
     auto mutable_storage = std::make_shared<detail::ScenarioControlScheduleStorage>();
-    mutable_storage->sample_count = *horizon;
+    mutable_storage->execution_extent = execution_extent;
     mutable_storage->operating_state = std::move(operating_state);
     mutable_storage->throttle = std::move(throttle);
     mutable_storage->external_resisting_torque = std::move(external_resisting_torque);
     std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage =
         std::move(mutable_storage);
     return detail::ScenarioControlScheduleFactory::make(
-        scenario.rates.physics, 0U, *horizon, initial_theta_rad, std::move(storage));
+        scenario.rates.physics, 0U, execution_extent, initial_theta_rad,
+        std::move(storage));
 }
 
 KinematicScenarioScheduleResult
@@ -771,7 +842,8 @@ compile_kinematic_scenario_schedule(const contract::RenderScenario &scenario) {
 
     auto mutable_control_storage =
         std::make_shared<detail::ScenarioControlScheduleStorage>();
-    mutable_control_storage->sample_count = sample_count;
+    mutable_control_storage->execution_extent =
+        LowOrderExecutionExtent::finite_scenario(sample_count);
     mutable_control_storage->operating_state = std::move(operating_state);
     mutable_control_storage->throttle = std::move(throttle);
     std::shared_ptr<const detail::ScenarioControlScheduleStorage> control_storage =

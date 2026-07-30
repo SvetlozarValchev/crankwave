@@ -42,6 +42,7 @@ function ascii(view, offset, length) {
 function assertFloat32WavMatches(message) {
   assert.equal(message.encoding, "ieee-float32-le");
   assert.equal(message.coreIdentical, true);
+  assert.equal(message.executionKind, "finite-scenario");
   assert.equal(message.sampleRate, CANONICAL_SAMPLE_RATE);
   assert.equal(message.channelCount, 1);
   assert.equal(message.frameCount, EXPECTED_FRAME_COUNT);
@@ -162,6 +163,11 @@ async function main() {
     });
     const validBuild = eventFor(events, "built", "valid-build");
     assert.ok(validBuild, "valid build did not publish its descriptor");
+    assert.equal(validBuild.descriptor.executionKind, "finite-scenario");
+    assert.equal(validBuild.descriptor.executionKindCode, 1);
+    assert.equal(validBuild.descriptor.openEnded, false);
+    assert.equal(validBuild.descriptor.totalBlockCount, "18");
+    assert.equal(validBuild.descriptor.totalDeliveryFrames, "69120");
     assert.equal(validBuild.descriptor.liveControlCapabilities, 0b00111);
     assert.deepEqual(
       validBuild.descriptor.controls.map(({ kind }) => kind),
@@ -279,6 +285,7 @@ async function main() {
     });
     const routeExport = eventFor(events, "wav-export", "route-export");
     assert.ok(routeExport);
+    assert.equal(routeExport.executionKind, "finite-scenario");
     assert.equal(routeExport.bus.index, routeBus.index);
     assert.equal(routeExport.frameCount, EXPECTED_FRAME_COUNT);
     assert.notEqual(

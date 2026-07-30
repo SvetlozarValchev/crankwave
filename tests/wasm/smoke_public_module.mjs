@@ -55,7 +55,7 @@ async function main() {
     EXPECTED_MEMORY_BYTES,
     "production module does not use fixed 128 MiB memory",
   );
-  assert.equal(module._eso_api_version(), 1, "unexpected C ABI version");
+  assert.equal(module._eso_api_version(), 2, "unexpected C ABI version");
 
   const layout = module._malloc(40);
   const contextOutput = module._malloc(4);
@@ -66,14 +66,14 @@ async function main() {
     const words = Array.from(
       module.HEAPU32.subarray(layout >>> 2, (layout >>> 2) + 10),
     );
-    assert.deepEqual(words.slice(0, 6), [1, 4, 4, 4, 8, 1]);
+    assert.deepEqual(words.slice(0, 6), [2, 4, 4, 4, 8, 1]);
     assert.ok(words.slice(6).every((value) => value > 0));
 
     module.HEAPU32[contextOutput >>> 2] = 0xffffffff;
-    assert.equal(module._eso_context_create(2, contextOutput), 1);
+    assert.equal(module._eso_context_create(1, contextOutput), 1);
     assert.equal(module.HEAPU32[contextOutput >>> 2], 0);
 
-    assert.equal(module._eso_context_create(1, contextOutput), 0);
+    assert.equal(module._eso_context_create(2, contextOutput), 0);
     const context = module.HEAPU32[contextOutput >>> 2];
     assert.notEqual(context, 0, "context creation returned null");
     assert.equal(module._eso_context_destroy(context), 0);
@@ -84,7 +84,7 @@ async function main() {
 
   process.stdout.write(
     `${JSON.stringify({
-      api_version: 1,
+      api_version: 2,
       pointer_size: 4,
       size_type_size: 4,
       memory_bytes: EXPECTED_MEMORY_BYTES,

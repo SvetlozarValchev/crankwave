@@ -102,12 +102,19 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
             "step zero");
     const auto scenario_horizon = contract::resolve_frame_index(
         scenario.total_duration_s.value, scenario.rates.physics);
-    require(report,
-            scenario_horizon.has_value() &&
-                schedule.sample_count() == *scenario_horizon,
-            ContractIssueCode::inconsistent_shape, "schedule.sample_count",
-            "compiled control schedule length must equal the scenario physics "
-            "horizon");
+    const auto finite_schedule =
+        schedule.execution_extent().finite_physics_frame_count();
+    if (finite_schedule.has_value()) {
+        require(report,
+                scenario_horizon.has_value() && *finite_schedule == *scenario_horizon,
+                ContractIssueCode::inconsistent_shape, "schedule.execution_extent",
+                "compiled finite control schedule length must equal the scenario "
+                "physics horizon");
+    } else {
+        require(report, std::holds_alternative<contract::FreeEngine>(scenario.mode),
+                ContractIssueCode::unsupported_value, "schedule.execution_extent",
+                "open-ended mechanics execution is admitted only for FreeEngine");
+    }
     require(report, scenario.rates.physics == contract::RationalRateHz{10000, 1},
             ContractIssueCode::unsupported_value, "scenario.rates.physics",
             "legacy_low_order_v1 mechanics requires exactly 10000 Hz");

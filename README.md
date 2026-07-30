@@ -15,10 +15,17 @@ dead fields, or a general-purpose scripting language.
 The accepted engine-sim-equivalent exhaust audio path, low-order simulation, dyno
 scenarios, block presentation pipeline, WAV publication, and telemetry are implemented.
 Strict engine/scenario JSON compilation is the only production input path. A compiled
-scenario creates one mutable `EngineSession`, whose bounded `process_block()` method
+scenario can create an independent mutable `EngineSession`, whose bounded
+`process_block()` method
 owns the simulation, excitation, resampling, presentation, control, and telemetry
 state. Native baking is an unpaced loop over that same method followed by transactional
 artifact publication; there is no second whole-render implementation.
+
+Session creation must explicitly select `finite_scenario` or `open_ended`. Native
+baking uses the exact finite scenario recipe. Interactive playback currently admits
+open-ended execution only for FreeEngine: it runs the same preparation, holds the
+authored release-state snapshot, and preserves continuous physical and DSP state until
+the caller restarts, destroys, or faults the session.
 
 An exact-version C ABI now exposes strict JSON compilation, immutable engine/scenario
 handles, mutable sessions, typed controls, caller-owned PCM/telemetry, and structured
@@ -81,10 +88,13 @@ and the shared native/WASM lifecycle is in
   default audio presentation.
 - `scenario.json` owns operating mode, controls/events, ambient state, render horizon,
   rates, quality, and seed.
+- Session creation owns whether that finite recipe is executed to completion or used
+  to initialize an open-ended FreeEngine bench. The choice is mandatory and never
+  implemented by looping a finite clip.
 - Referenced assets such as impulse responses are resolved relative to the engine
   document and content-verified.
-- Offline and realtime execution use one block-processing implementation. Only pacing
-  and delivery differ.
+- Offline and realtime execution use one block-processing implementation. Their
+  lifetime is explicit; pacing and delivery remain adapter policy.
 - Unsupported fields and topologies fail with path-addressed diagnostics. They are
   never accepted and ignored.
 - Structural edits compile a new immutable engine. Timestamped controls modify a
@@ -123,10 +133,12 @@ drives the full UI in headless Chrome:
 scripts/verify-browser-workbench.sh
 ```
 
-Browser export is a deterministic Float32 WAVE produced by a fresh unpaced WASM
-session. Native publication remains the authoritative PCM24 artifact path. Both use
-the same C++ session/DSP implementation, while their admitted numeric environments
-retain independently exact hashes and are compared by the native/WASM parity gate.
+Browser authored-capture export is a deterministic Float32 WAVE produced by a fresh
+unpaced `finite_scenario` WASM session. It is separate from the open-ended interactive
+session and does not silently truncate later live controls. Native publication remains
+the authoritative PCM24 artifact path. Both use the same C++ session/DSP
+implementation, while their admitted numeric environments retain independently exact
+hashes and are compared by the native/WASM parity gate.
 
 ```bash
 build/engine-sim-offline --help

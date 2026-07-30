@@ -193,7 +193,7 @@ class LegacyLowOrderGasSession final {
 
     contract::RationalRateHz rate_;
     std::uint64_t first_sample_index_ = 0;
-    std::uint64_t expected_sample_count_ = 0;
+    std::optional<std::uint64_t> expected_sample_count_;
     std::uint64_t produced_sample_count_ = 0;
     std::size_t maximum_event_count_ = 0;
     double step_s_ = 0.0;

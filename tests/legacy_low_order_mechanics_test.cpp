@@ -328,7 +328,17 @@ void configure_inertial_controls(MechanicsFixture &fixture) {
 
 CoreRuntimeFactory::MechanicsCompileResult
 compile_dynamic_fixture(MechanicsFixture &fixture) {
-    auto schedule_result = compile_scenario_control_schedule(fixture.scenario);
+    const auto frame_count = resolve_frame_index(
+        fixture.scenario.total_duration_s.value, fixture.scenario.rates.physics);
+    if (!frame_count.has_value()) {
+        ValidationReport report;
+        report.add(ContractIssueCode::inconsistent_semantics,
+                   "scenario.total_duration_s.value",
+                   "test fixture has no integral finite physics horizon");
+        return report;
+    }
+    auto schedule_result = compile_scenario_control_schedule(
+        fixture.scenario, LowOrderExecutionExtent::finite_scenario(*frame_count));
     if (auto *report = std::get_if<ValidationReport>(&schedule_result)) {
         return std::move(*report);
     }

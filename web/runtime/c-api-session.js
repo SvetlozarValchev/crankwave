@@ -8,9 +8,11 @@ import {
   Layout,
   ProcessKind,
   QUANTITY_FIELDS,
+  SessionExecutionKind,
   TORQUE_FIELDS,
   audioBusKindName,
   blockPhaseName,
+  sessionExecutionKindName,
 } from "./c-api-abi.js";
 import { EngineSimRuntimeError } from "./c-api-errors.js";
 
@@ -664,6 +666,38 @@ export class EngineSimSession {
         pointer + layout.preparationBlockCount,
         true,
       );
+      const executionKindCode = view.getUint32(
+        pointer + layout.executionKind,
+        true,
+      );
+      if (
+        executionKindCode !== SessionExecutionKind.finiteScenario &&
+        executionKindCode !== SessionExecutionKind.openEnded
+      ) {
+        throw new EngineSimRuntimeError(
+          `the session descriptor has unknown execution kind ${executionKindCode}`,
+          {
+            operation: "inspect-session",
+            detailCode: "browser-runtime-session-execution-kind-invalid",
+            diagnostics: [],
+          },
+        );
+      }
+      const openEnded =
+        executionKindCode === SessionExecutionKind.openEnded;
+      if (
+        (openEnded && totalBlocks !== 0n) ||
+        (!openEnded && totalBlocks === 0n)
+      ) {
+        throw new EngineSimRuntimeError(
+          "the session execution kind and total block count disagree",
+          {
+            operation: "inspect-session",
+            detailCode: "browser-runtime-session-horizon-invalid",
+            diagnostics: [],
+          },
+        );
+      }
       const descriptor = {
         maximumDeliveryFramesPerProcessCall: view.getUint32(
           pointer + layout.maximumDeliveryFrames,
@@ -703,8 +737,10 @@ export class EngineSimSession {
           pointer + layout.deliveryFramesPerBlock,
           true,
         ),
-        totalBlockCount: decimal(totalBlocks),
-        totalBlockCountBigInt: totalBlocks,
+        executionKind: sessionExecutionKindName(executionKindCode),
+        executionKindCode,
+        totalBlockCount: openEnded ? null : decimal(totalBlocks),
+        totalBlockCountBigInt: openEnded ? null : totalBlocks,
         preparationBlockCount: decimal(preparationBlocks),
         preparationBlockCountBigInt: preparationBlocks,
         audioBusCount: view.getUint32(pointer + layout.audioBusCount, true),

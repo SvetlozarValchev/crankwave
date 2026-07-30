@@ -165,9 +165,14 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
 
     const auto controls = control_cursor_.next();
     if (!controls.has_value()) {
-        terminal_fault_ = fault(contract::FailureKind::contract_violation,
-                                "legacy-mechanics-control-horizon-mismatch",
-                                "control cursor lost an expected physics step");
+        terminal_fault_ =
+            fault(contract::FailureKind::contract_violation,
+                  control_cursor_.clock_overflowed()
+                      ? "legacy-mechanics-frame-counter-overflow"
+                      : "legacy-mechanics-control-horizon-mismatch",
+                  control_cursor_.clock_overflowed()
+                      ? "open-ended mechanics exhausted its uint64 physics clock"
+                      : "control cursor lost an expected physics step");
         return *terminal_fault_;
     }
     std::optional<ScheduledScenarioStep> kinematic;

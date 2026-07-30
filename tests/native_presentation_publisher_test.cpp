@@ -253,7 +253,8 @@ compile_short_held_scenario(const std::filesystem::path &repository_root) {
 }
 
 [[nodiscard]] EngineSession require_session(const compile::CompiledScenario &scenario) {
-    auto result = create_engine_session(scenario);
+    auto result =
+        create_engine_session(scenario, EngineSessionExecutionKind::finite_scenario);
     if (const auto *error = std::get_if<EngineSessionError>(&result)) {
         throw std::runtime_error{"publisher fixture session creation failed: " +
                                  session_error_text(*error)};

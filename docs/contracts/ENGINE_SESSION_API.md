@@ -32,6 +32,16 @@ The exact-version C ABI and WASM build wrap that implementation. The Worker/ring
 adapter and authoring UI likewise consume the ABI rather than introduce another
 engine renderer.
 
+Session creation has one mandatory execution-kind choice:
+
+- `finite_scenario` executes the authored scenario as its exact finite recording
+  recipe and may produce request-bound completion evidence;
+- `open_ended` uses the same compiled scenario to initialize a continuous interactive
+  FreeEngine session, but has no elapsed-time completion horizon.
+
+This choice is session lifetime policy rather than another sound model. There is no
+default kind, synthetic long duration, finite-session loop, or compatibility overload.
+
 The first implementation does not promise:
 
 - `.mr` parsing or syntax compatibility;
@@ -68,13 +78,13 @@ WAV/telemetry sink            bounded PCM ring
                               Web Audio graph
 ```
 
-Both `EngineSession` boxes are implemented by the same C++ sources. Offline and
-interactive execution differ only in pacing and publication:
+Both `EngineSession` boxes are implemented by the same C++ sources. They select their
+lifetime explicitly and otherwise differ only in pacing and publication:
 
-- Native offline rendering calls `process_block()` as quickly as the machine allows and
-  sends the resulting blocks to artifact encoders.
-- The browser Worker calls the same C ABI `process` entry only far enough ahead to keep
-  a bounded playback ring supplied.
+- Native offline rendering creates `finite_scenario`, calls `process_block()` as
+  quickly as the machine allows, and sends the resulting blocks to artifact encoders.
+- Interactive browser playback creates `open_ended`; the Worker calls the same C ABI
+  `process` entry only far enough ahead to keep a bounded playback ring supplied.
 - The AudioWorklet consumes already-produced audio. It does not contain another engine
   model.
 
@@ -115,7 +125,8 @@ BMW, Honda, or Toyota code branch.
 
 ### 3.2 Session configuration
 
-The compiled scenario selects one execution context without changing the engine:
+The compiled scenario is an immutable, finite recording recipe. It selects one
+operating context without changing the engine:
 
 - one motion-ownership mode;
 - audio delivery sample rate and requested bus layout;
@@ -139,6 +150,11 @@ call; the current session returns one record.
 Changing the motion mode, delivery rate, quality profile, seed, bus layout, initial
 state, or bounded capacities requires creating a new session.
 
+The scenario's duration and post-release trajectories remain authoritative for
+`finite_scenario`. They do not force an interactive session to stop, nor do they make
+the browser repeat a finite recipe. The required session execution kind owns that
+lifetime decision.
+
 ### 3.3 Live controls
 
 Live controls are typed, timestamped commands sent after session creation. They do not
@@ -146,12 +162,15 @@ modify the engine document or compiled scenario. The implemented payloads are:
 
 - requested throttle in `[0, 1]`;
 - ignition enabled;
-- fuel enabled.
+- fuel enabled;
+- limiter enabled;
+- nonnegative external resisting torque in N m.
 
-The current session admits those live payloads only for `inertial_dyno` ownership.
-Starter, limiter, imposed RPM, brake/dyno targets, gear/clutch, presentation monitoring,
-and lifecycle commands are not live session capabilities yet. Their presence in an
-authored offline scenario does not imply a corresponding live command.
+An inertial-dyno session admits throttle, ignition, and fuel. A FreeEngine session adds
+limiter state and external resisting torque. Starter, imposed RPM, brake/dyno targets,
+gear/clutch, presentation monitoring, and lifecycle commands are not live session
+capabilities yet. Their presence in an authored finite scenario does not imply a
+corresponding live command.
 
 No untyped string-to-value property mutation enters the processing path.
 
@@ -186,12 +205,20 @@ The implemented entry point is:
 
 ```cpp
 EngineSessionCreateResult create_engine_session(
-    const compile::CompiledScenario &scenario);
+    const compile::CompiledScenario &scenario,
+    EngineSessionExecutionKind execution_kind);
 ```
 
-Session creation validates the selected capabilities and ownership mode, compiles
-method-owned simulation, excitation, DSP, and IR-kernel state, reserves bounded
-processing storage, and returns a mutable `EngineSession`.
+`execution_kind` is required and has exactly two values:
+
+- `EngineSessionExecutionKind::finite_scenario`;
+- `EngineSessionExecutionKind::open_ended`.
+
+Session creation validates the selected lifetime, capabilities, and ownership mode,
+compiles method-owned simulation, excitation, DSP, and IR-kernel state, reserves
+bounded processing storage, and returns a mutable `EngineSession`. Open-ended
+execution is currently admitted only for `FreeEngine`; requesting it for any other
+motion owner fails session creation rather than substituting finite execution.
 
 One session:
 
@@ -219,6 +246,15 @@ delivery-frame target falls inside the preparation interval is rejected with
 `unavailable_during_preparation`. The first legal target is
 `preparation_block_count * 3840`.
 
+Both execution kinds run the same authored preparation through the exact release
+boundary, preserving crank, gas, combustion, random, filter, convolution, and
+resampler state. At that boundary, `open_ended` resolves one right-continuous snapshot
+of every authored operating-state, throttle, and external-resistance lane. A boundary
+exactly at release participates in the snapshot. Boundaries strictly after release
+belong to the finite recording procedure and do not automatically drive the
+interactive bench. The release snapshot then remains in force until a live command
+replaces that lane.
+
 ### 4.4 Enqueue controls
 
 The implemented operation is:
@@ -232,7 +268,7 @@ Every command contains:
 
 - an absolute delivery-frame index relative to the session origin;
 - a strictly increasing caller sequence number;
-- one of the three implemented typed control payloads.
+- one of the five implemented typed control payloads.
 
 Delivery-frame indices, not milliseconds or wall-clock timestamps, are authoritative.
 The selected numerical method defines the causal projection from a delivery frame to
@@ -241,9 +277,15 @@ method is rejected during enqueue or session creation.
 
 Commands must have nondecreasing delivery frames, strictly increasing unique sequence
 numbers, and must target a frame that can still be generated by `process_block()`. A
-late command, a full command queue, an invalid throttle, a preparation or post-horizon
-target, a terminal session, or a command not owned by the selected mode is rejected
-atomically. The session never silently applies it “as soon as possible.”
+late command, a full command queue, an invalid payload, a preparation target, a
+finite-session post-horizon target, a terminal session, or a command not owned by the
+selected mode is rejected atomically. Open-ended execution has no authored upper
+horizon check; its timestamps remain subject to exact clock projection and checked
+counter bounds. The session never silently applies a command “as soon as possible.”
+
+Live controls are right-continuous and sticky. Once accepted, a live value supersedes
+the corresponding release-snapshot lane until another live command for that lane is
+applied.
 
 ### 4.5 Process
 
@@ -274,15 +316,26 @@ the accepted BMW byte output. The descriptor publishes both exact block sizes. A
 scenario with `process_block_capacity_frames < 3840` is rejected; a larger capacity
 does not authorize a different call size.
 
-`process_block()` returns blocks until the compiled finite horizon is exhausted, then
-returns a stable `EngineSessionCompleted`. A terminal processing error is likewise
-stable on later calls. Completion and diagnostic alternatives are owning values and may
-allocate when copied across the C++ boundary. The admitted layout is frozen during
+For `finite_scenario`, `process_block()` returns blocks until the exact authored
+horizon is exhausted, then returns a stable `EngineSessionCompleted`. For
+`open_ended`, elapsed scenario time never produces `EngineSessionCompleted`;
+successful calls continue the same mutable physical and DSP state until the owner
+destroys the session or a typed processing failure occurs. A terminal processing error
+is stable on later calls. Completion and diagnostic alternatives are owning values and
+may allocate when copied across the C++ boundary. The admitted layout is frozen during
 compilation; the block-varying capture validator, simulation, excitation, presentation,
 and caller-buffer C ABI perform no allocation on a warmed successful block. Owning
 diagnostics are constructed only after a block has already failed the allocation-free
 admission check.
 
+Open-ended means unbounded by authored elapsed time, not unbounded memory. Processing
+retains the same fixed block storage, bounded command queue, bounded telemetry, and
+constant-size streaming state as finite execution; it accumulates no duration-sized
+PCM or capture history. Frame and block counters advance with checked `uint64_t`
+arithmetic. Exhausting that clock is a typed terminal resource failure before another
+block advances, not a hidden maximum-duration completion.
+
+For a completed finite session,
 `EngineSessionCompleted::live_controls_accepted` records whether the run diverged from
 the authored control trajectory. If it is true, scenario-request-bound held-speed and
 inertial-dyno result evidence is withheld instead of being mislabeled with the authored
@@ -296,6 +349,10 @@ Destroying a session releases only that session's mutable state. There is no imp
 drain or reusable-session reset operation. A different initial state or another run
 requires a new session from the immutable compiled scenario.
 
+Browser **Stop** is not destruction or physical completion: it pauses Worker
+production while preserving the session. **Start** resumes that exact session, and
+**Restart** deliberately destroys it and creates a fresh open-ended session.
+
 ## 5. Motion and control ownership
 
 Throttle, load, and RPM cannot all be simultaneous authoritative commands. Every
@@ -305,8 +362,11 @@ compiled scenario selects exactly one mode.
 |---|---|---|
 | prescribed/external speed | Authored trajectory executes; live commands are rejected | authored RPM trajectory, engine telemetry, audio |
 | held speed/load-target held | Authored target executes; live commands are rejected | operating-point evidence, engine telemetry, audio |
-| `inertial_dyno` | Live throttle, ignition, and fuel commands are admitted after preparation | simulated RPM trajectory, dyno result evidence, engine telemetry, audio |
-| `free_engine` | Live throttle, ignition, fuel, limiter, and external-resisting-torque commands are admitted after preparation | simulated crank RPM, requested external load, engine telemetry, audio |
+| `inertial_dyno` | Finite-scenario execution admits live throttle, ignition, and fuel after preparation | simulated RPM trajectory, dyno result evidence, engine telemetry, audio |
+| `free_engine` | Finite or open-ended execution admits live throttle, ignition, fuel, limiter, and external resisting torque after preparation | simulated crank RPM, requested external load, engine telemetry, audio |
+
+`open_ended` is currently a FreeEngine-only lifetime. The other modes remain exact
+finite recording procedures even where they admit live controls.
 
 `external_speed` is appropriate for a host game or editor scrubber that already owns
 drivetrain RPM. The full simulator still calculates achieved load from its physical
@@ -425,9 +485,16 @@ After session creation, `EngineSession::descriptor()` returns:
 - caller control-command and returned-telemetry capacities;
 - the exact 10 kHz physics and 192 kHz delivery rates;
 - the exact 200/3,840 frames per block;
-- total and preparation block counts;
+- the explicit execution kind;
+- preparation block count;
+- the exact authored total block count for `finite_scenario`, or canonical
+  `0` for `open_ended`;
 - all audio bus descriptors;
 - the exact bit mask of live controls admitted by this session mode.
+
+The execution kind is the discriminator. Callers must not infer open-ended execution
+from the zero count, and JavaScript adapters expose the open-ended total as `null`
+rather than infinity or an invented duration.
 
 Each block identifies its ordinal, preparation/audible phase, and exact half-open
 physics and delivery ranges. It returns one `EngineTelemetryFrame`: the final
@@ -448,11 +515,13 @@ physical engine telemetry.
 
 ## 9. Deterministic offline execution
 
-`bake()` creates a fresh session and runs it to completion without queuing additional
-controls. A caller driving `EngineSession` directly may enqueue typed commands before
-each affected block. The finite horizon returns `EngineSessionCompleted`; it does not
-reset or drain the session. The native publisher discards blocks explicitly marked as
-preparation and encodes audible blocks.
+`bake()` explicitly creates a fresh `finite_scenario` session and runs the authored
+recipe to completion without queuing additional controls. A caller driving a finite
+`EngineSession` directly may enqueue typed commands before each affected block. The
+finite horizon returns `EngineSessionCompleted`; it does not reset or drain the
+session. The native publisher discards blocks explicitly marked as preparation and
+encodes audible blocks. The execution-kind choice does not change any established
+finite bake, WAV, manifest, or deterministic-completion claim.
 
 Deterministic execution requires:
 
@@ -487,13 +556,22 @@ layouts:
 ```text
 strict engine JSON + caller asset bytes -> compiled engine handle
 compiled engine + strict scenario JSON -> compiled scenario handle
-compiled scenario -> mutable session handle
+compiled scenario + required execution kind -> mutable session handle
 timestamped typed controls -> bounded session queue
 session process -> caller-owned PCM buses + POD telemetry
 ```
 
+The creation call is:
+
+```c
+eso_create_session(context, scenario, execution_kind, out_session);
+```
+
+There is no form that omits `execution_kind`.
+
 The implemented ABI:
 
+- the sole accepted exact version is `ESO_C_API_VERSION == 2`;
 - no C++ exception crosses the boundary;
 - every call returns an explicit status;
 - parse/compile diagnostics and related locations are copied into caller-owned buffers;
@@ -504,6 +582,11 @@ The implemented ABI:
   wrong-kind handles fail;
 - a session owns the immutable compiled scenario/engine storage it needs, so parent
   handles may be released after session creation;
+- `eso_create_session` requires exactly
+  `ESO_SESSION_EXECUTION_FINITE_SCENARIO` or
+  `ESO_SESSION_EXECUTION_OPEN_ENDED`;
+- the session descriptor reports that kind and uses canonical
+  `total_block_count == 0` only for open-ended execution;
 - requested PCM and telemetry buffers are completely preflighted before the session
   advances;
 - successful control conversion and block processing use session-owned bounded scratch;
@@ -521,10 +604,10 @@ It uses the pinned Emscripten 6.0.4 container digest recorded by the script, smo
 all public module exports and the fixed memory, runs the wasm32 binary128 admission
 test, and drives an 18-block controlled BMW fixture through the C ABI on both targets.
 The fixture has exact semantic transcript SHA-256
-`a93959fcc8c7eb83e466b488fcf729a7d2917dd6501724a38a3bf10af99729a8`.
+`e0b264375b80ef6ec656893235578fc5780b62d8f0d036870b1ba2d79a5591d2`.
 Its native and WASM bundle hashes are respectively
-`2cc6fe9d1fe4537827476bf6582544acaa92a628c67e78ff8d6149624962a28e` and
-`19d7c36657f561cf5559ff16459d4e64e2cec3ff90e35d193ca88531b77f6b85`.
+`50e3dde5db8e69ec3a869e79f3a2919985aefbabfc066cb04de428ffea0b23de` and
+`22c164d528ff93d38ec266241dcc96b5d0d65aa217a156a43ff51fae11f94219`.
 Across 7,680 audition samples, observed maximum absolute Float32 PCM error is
 `1.862645149230957e-9` and RMS error is `2.1807662361359516e-11`; the checked ceilings
 and each target's exact telemetry/PCM hashes live in
@@ -544,11 +627,11 @@ main/UI thread
 dedicated Worker
   - instantiate WASM
   - compile and atomically replace CompiledScenario
-  - own the live EngineSession
+  - own the open-ended live EngineSession
   - render exact 3,840-frame/20 ms session blocks ahead of playback
   - adapt the selected canonical bus from 192 kHz to the AudioContext rate
   - write the bounded device-rate PCM ring
-  - run fresh unpaced sessions for canonical WAV export
+  - run fresh finite-scenario sessions for authored-capture WAV export
 
 AudioWorklet
   - read PCM ring
@@ -570,7 +653,9 @@ turns, completes the scenario's preparation, and fills the requested playback le
 before it publishes the shared ring to the UI. It marks the ring `streaming` only
 after that priming gate. A paused, drained, or replaced session is therefore not
 misreported as a streaming underrun. Resume re-primes a ring that no longer has the
-requested lead.
+requested lead. Once released, the open-ended session continues the same crank, gas,
+random, filter, convolution, and resampler state; it is not a loop of the authored
+finite clip.
 
 The Worker maintains a bounded lead selected by the adapter. A UI command carries an
 absolute delivery-frame target that must not already have been generated and must not
@@ -585,11 +670,16 @@ telemetry, errors, and low-rate adapter statistics use structured `postMessage`
 traffic. They do not share or mutate PCM ownership, and there are no unused
 control/telemetry ring protocols. The AudioWorklet never waits for the Worker.
 
-Browser WAV export creates a fresh unpaced session through the same C API, selects the
-same canonical bus, and replays the accepted live-control journal at its exact delivery
-frames. It serializes deterministic mono Float32 WAVE bytes in memory. The preview WAV
-is target-specific WASM evidence; authoritative PCM24 artifact publication and
-manifests remain native-adapter responsibilities.
+Browser authored-capture export creates a fresh unpaced `finite_scenario` session
+through the same C API and selects the same canonical bus. It executes the finite
+scenario recipe and serializes deterministic mono Float32 WAVE bytes in memory. This
+operation is separate from the open-ended interactive session: controls accepted
+after the authored horizon cannot be silently truncated or represented as part of that
+finite capture. Exporting an arbitrary interactive interval requires a separately
+bounded recorder or a future explicit replay extent; the current contract does not
+call the live session complete. The preview WAV is target-specific WASM evidence;
+authoritative PCM24 artifact publication and manifests remain native-adapter
+responsibilities.
 
 Browser requirements:
 
@@ -612,10 +702,12 @@ renderer. There is no MessagePort-copy audio fallback or JavaScript engine rende
 
 The real-module integration exports 7,680 canonical Float32 samples with SHA-256
 `77484393b278ec40a84b4bde7d2dae31f01894e94a6a47cd17fd16ccb1787413`.
-The headless Chrome gate exports the full 11,520,056-byte BMW Float32 WAVE with
+The headless Chrome gate exports the complete 3,840,056-byte BMW warm-running
+free-rev Float32 WAVE with
 SHA-256
-`69f9a94faa6c5dcef56acd8f8de9d60266b0d51d9983f9406014d44bb6d3ca13`
-and begins live playback from a primed ring with zero startup underrun frames/events.
+`f7cad8870381669e105a2ac7e092c17e74b2ec2ff9b4747df3befc1329087e11`,
+continues past the authored 5.5-second horizon, verifies Stop/Start state continuity
+and fresh Restart state, and reports zero startup underrun frames/events.
 The reproducible gate is
 [`verify-browser-workbench.sh`](../../scripts/verify-browser-workbench.sh).
 
@@ -643,7 +735,8 @@ the active compiled scenario and session continue unchanged.
 ### 12.2 Session-creation failure
 
 Examples include unsupported motion mode, output rate, bus set, quality, initial state,
-or capacity. No session is returned and the compiled scenario remains reusable.
+capacity, unknown execution kind, or an `open_ended` request for a non-FreeEngine mode.
+No session is returned and the compiled scenario remains reusable.
 
 ### 12.3 Control rejection
 
@@ -695,19 +788,21 @@ The implemented workbench provides:
   the exact capabilities reported by the compiled session;
 - capability-gated throttle, ignition, fuel, limiter, and
   external-resisting-torque controls;
-- start, stop, and restart actions;
+- start, stop, and restart actions, where stop pauses the current open-ended session,
+  start resumes it, and restart creates fresh mutable state;
 - RPM, torque, power, recent telemetry trace, simulation realtime factor, measured
   worker lead, ring fill, and real callback-underrun counters;
-- deterministic downloadable Float32 WAV export from a fresh unpaced session using the
-  same C ABI and the accepted control journal.
+- deterministic downloadable Float32 WAV export of the authored finite capture from a
+  fresh `finite_scenario` session using the same C ABI.
 
 The workbench does not invent unsupported RPM/load/gear/starter controls, display fake
 per-bus meters, or mutate structural JSON directly inside a running solver. Route
 selection creates a fresh session. Structural edits become active only after an
 explicit successful rebuild.
 
-The full browser gate compiles the BMW fixture, exports the complete 15-second dyno,
-starts and primes live playback, applies throttle, stops cleanly, selects another
+The full browser gate compiles the BMW fixture, exports the complete authored
+warm-running free-rev capture, starts and primes open-ended playback, applies throttle,
+continues past the authored horizon, verifies Stop/Start/Restart, selects another
 route, and reports zero startup underruns on the development PC.
 
 ## 14. Implementation order

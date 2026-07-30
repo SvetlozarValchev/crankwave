@@ -3,6 +3,7 @@
 #include "simulation/kinematic_scenario_schedule.hpp"
 #include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -10,11 +11,11 @@ namespace engine_sim_offline::simulation {
 
 LowOrderEngineCoreV1Runtime::LowOrderEngineCoreV1Runtime(
     LegacyLowOrderMechanicsSession mechanics, LegacyLowOrderGasSession gas,
-    std::uint64_t expected_sample_count, contract::RationalRateHz rate,
+    LowOrderExecutionExtent execution_extent, contract::RationalRateHz rate,
     std::string model_id, std::string profile_id, std::string scenario_id,
     contract::EngineId engine_id)
     : mechanics_(std::move(mechanics)), gas_(std::move(gas)),
-      expected_sample_count_(expected_sample_count), rate_(rate),
+      execution_extent_(execution_extent), rate_(rate),
       model_id_(std::move(model_id)), profile_id_(std::move(profile_id)),
       scenario_id_(std::move(scenario_id)), engine_id_(engine_id) {}
 
@@ -85,17 +86,23 @@ LowOrderEngineCoreV1AdvanceResult LowOrderEngineCoreV1Runtime::advance_with_moti
         return *terminal_fault_;
     }
     const auto committed_sample_count = gas_.produced_sample_count();
-    if (committed_sample_count > expected_sample_count_) {
-        return fail(fault("low-order-core-count-exceeds-horizon",
-                          "gas count exceeded the compiled core horizon"));
-    }
-    if (committed_sample_count == expected_sample_count_) {
-        if (!mechanics_.completed()) {
-            return fail(fault(
-                "low-order-core-completion-state-mismatch",
-                "compiled horizon ended before mechanics reached stable completion"));
+    const auto terminal_sample_count = execution_extent_.finite_physics_frame_count();
+    if (terminal_sample_count.has_value()) {
+        if (committed_sample_count > *terminal_sample_count) {
+            return fail(fault("low-order-core-count-exceeds-horizon",
+                              "gas count exceeded the compiled core horizon"));
         }
-        return LowOrderEngineCoreV1Completed{committed_sample_count};
+        if (committed_sample_count == *terminal_sample_count) {
+            if (!mechanics_.completed()) {
+                return fail(fault(
+                    "low-order-core-completion-state-mismatch",
+                    "compiled horizon ended before mechanics reached stable completion"));
+            }
+            return LowOrderEngineCoreV1Completed{committed_sample_count};
+        }
+    } else if (committed_sample_count == std::numeric_limits<std::uint64_t>::max()) {
+        return fail(fault("low-order-core-frame-counter-overflow",
+                          "open-ended core exhausted its uint64 physics clock"));
     }
 
     auto mechanics_result = motion.has_value()
@@ -108,7 +115,8 @@ LowOrderEngineCoreV1AdvanceResult LowOrderEngineCoreV1Runtime::advance_with_moti
     if (const auto *completion =
             std::get_if<LegacyMechanicsCompleted>(&mechanics_result)) {
         if (completion->sample_count != committed_sample_count ||
-            committed_sample_count != expected_sample_count_) {
+            !terminal_sample_count.has_value() ||
+            committed_sample_count != *terminal_sample_count) {
             return fail(fault("low-order-core-premature-completion",
                               "mechanics completed before the compiled core horizon"));
         }
@@ -151,33 +159,44 @@ bool LowOrderEngineCoreV1Runtime::faulted() const noexcept {
 }
 
 bool LowOrderEngineCoreV1Runtime::completed() const noexcept {
-    return !faulted() && mechanics_.completed() &&
-           gas_.produced_sample_count() == expected_sample_count_;
+    const auto terminal = execution_extent_.finite_physics_frame_count();
+    return !faulted() && terminal.has_value() && mechanics_.completed() &&
+           gas_.produced_sample_count() == *terminal;
 }
 
 std::uint64_t LowOrderEngineCoreV1Runtime::produced_sample_count() const noexcept {
     return gas_.produced_sample_count();
 }
 
-std::uint64_t LowOrderEngineCoreV1Runtime::expected_sample_count() const noexcept {
-    return expected_sample_count_;
+const LowOrderExecutionExtent &
+LowOrderEngineCoreV1Runtime::execution_extent() const noexcept {
+    return execution_extent_;
 }
 
 LowOrderEngineCoreV1CompileResult
 compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
                                          const contract::RenderScenario &scenario,
                                          const contract::LowOrderEngineCoreV1 &core,
-                                         const contract::RandomPlan &random_plan) {
+                                         const contract::RandomPlan &random_plan,
+                                         LowOrderExecutionExtent execution_extent) {
     std::optional<KinematicScenarioSchedule> kinematic_schedule;
     std::optional<ScenarioControlSchedule> control_schedule;
     if (std::holds_alternative<contract::InertialDyno>(scenario.mode) ||
         std::holds_alternative<contract::FreeEngine>(scenario.mode)) {
-        auto result = compile_scenario_control_schedule(scenario);
+        auto result = compile_scenario_control_schedule(scenario, execution_extent);
         if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
             return *report;
         }
         control_schedule.emplace(std::get<ScenarioControlSchedule>(std::move(result)));
     } else {
+        if (execution_extent.is_open_ended()) {
+            contract::ValidationReport report;
+            report.add(contract::ContractIssueCode::unsupported_value,
+                       "execution_extent",
+                       "open-ended low-order core execution is admitted only for "
+                       "FreeEngine");
+            return report;
+        }
         auto result = compile_kinematic_scenario_schedule(scenario);
         if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
             return *report;
@@ -211,7 +230,7 @@ compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
     return LowOrderEngineCoreV1Runtime{
         std::move(mechanics),
         std::move(gas),
-        control_schedule->sample_count(),
+        execution_extent,
         control_schedule->rate(),
         engine.methods.gas_exchange.value.id,
         engine.profile_id.value,

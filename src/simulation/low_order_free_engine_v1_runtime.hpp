@@ -57,7 +57,7 @@ class LowOrderFreeEngineV1Runtime final {
         FixedHorizonCycleSampler sampler,
         std::vector<std::size_t> physical_gas_step_indices,
         std::vector<OperatingGasVolumePressureSample> pressure_samples,
-        contract::RationalRateHz rate, std::uint64_t expected_sample_count,
+        contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
         std::uint64_t release_frame_index, double initial_engine_speed_rpm,
         double initial_theta_rad, double equivalent_inertia_kg_m2, std::string model_id,
         std::string profile_id, std::string scenario_id, contract::EngineId engine_id);
@@ -83,7 +83,8 @@ class LowOrderFreeEngineV1Runtime final {
     std::vector<std::size_t> physical_gas_step_indices_;
     std::vector<OperatingGasVolumePressureSample> pressure_samples_;
     contract::RationalRateHz rate_;
-    std::uint64_t expected_sample_count_ = 0;
+    LowOrderExecutionExtent execution_extent_ =
+        LowOrderExecutionExtent::finite_scenario(0U);
     std::uint64_t release_frame_index_ = 0;
     std::uint64_t accepted_sample_count_ = 0;
     double step_s_ = 0.0;
@@ -105,7 +106,8 @@ class LowOrderFreeEngineV1Runtime final {
     compile_low_order_free_engine_v1_runtime(const contract::EngineSpec &,
                                              const contract::RenderScenario &,
                                              const LowOrderCapturePlan &,
-                                             const contract::Sha256Digest &);
+                                             const contract::Sha256Digest &,
+                                             LowOrderExecutionExtent);
 };
 
 using LowOrderFreeEngineV1CompileResult =
@@ -115,6 +117,7 @@ using LowOrderFreeEngineV1CompileResult =
 compile_low_order_free_engine_v1_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
-    const contract::Sha256Digest &simulation_request_identity_v3_sha256);
+    const contract::Sha256Digest &simulation_request_identity_v3_sha256,
+    LowOrderExecutionExtent execution_extent);
 
 } // namespace engine_sim_offline::simulation

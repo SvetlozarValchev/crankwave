@@ -3,6 +3,7 @@ import {
   ESO_C_API_VERSION,
   ESO_INVALID_HANDLE,
   Layout,
+  SessionExecutionKind,
   Status,
   WASM32_ABI_WORDS,
   statusName,
@@ -41,6 +42,18 @@ const REQUIRED_EXPORTS = Object.freeze([
 ]);
 
 const FIXED_WASM_MEMORY_BYTES = 128 * 1024 * 1024;
+
+function requireSessionExecutionKind(value) {
+  if (
+    value !== SessionExecutionKind.finiteScenario &&
+    value !== SessionExecutionKind.openEnded
+  ) {
+    throw new TypeError(
+      "session execution kind must be finiteScenario or openEnded",
+    );
+  }
+  return value;
+}
 
 function assetKind(value) {
   switch (value) {
@@ -110,18 +123,30 @@ export class CompiledEngineProgram {
   #client;
   #disposed = false;
 
-  constructor(client, engine, scenario, session, engineId, scenarioId) {
+  constructor(
+    client,
+    engine,
+    scenario,
+    session,
+    liveExecutionKind,
+    engineId,
+    scenarioId,
+  ) {
     this.#client = client;
     this.engine = engine;
     this.scenario = scenario;
     this.session = session;
+    this.liveExecutionKind = liveExecutionKind;
     this.engineId = engineId;
     this.scenarioId = scenarioId;
   }
 
-  createSession() {
+  createSession(executionKind) {
     this.#assertAlive();
-    return this.#client.createSession(this.scenario);
+    return this.#client.createSession(
+      this.scenario,
+      requireSessionExecutionKind(executionKind),
+    );
   }
 
   dispose() {
@@ -213,11 +238,13 @@ export class EngineSimCapiClient {
     return this.#context;
   }
 
-  compile(engineJson, scenarioJson, assets) {
+  compile(engineJson, scenarioJson, assets, liveExecutionKind) {
     this.#assertAlive();
     const normalizedEngineJson = requireJsonText(engineJson, "engineJson");
     const normalizedScenarioJson = requireJsonText(scenarioJson, "scenarioJson");
     const normalizedAssets = normalizeAssets(assets);
+    const normalizedExecutionKind =
+      requireSessionExecutionKind(liveExecutionKind);
 
     let engine = ESO_INVALID_HANDLE;
     let scenario = ESO_INVALID_HANDLE;
@@ -235,12 +262,23 @@ export class EngineSimCapiClient {
         scenario,
         "copy-scenario-id",
       );
-      session = this.createSession(scenario);
+      session = this.createSession(scenario, normalizedExecutionKind);
+      if (session.descriptor.executionKindCode !== normalizedExecutionKind) {
+        throw new EngineSimRuntimeError(
+          "the created session reported a different execution kind",
+          {
+            operation: "create-session",
+            detailCode: "browser-runtime-session-execution-kind-mismatch",
+            diagnostics: [],
+          },
+        );
+      }
       return new CompiledEngineProgram(
         this,
         engine,
         scenario,
         session,
+        normalizedExecutionKind,
         engineId,
         scenarioId,
       );
@@ -256,13 +294,16 @@ export class EngineSimCapiClient {
     }
   }
 
-  createSession(scenario) {
+  createSession(scenario, executionKind) {
     this.#assertAlive();
+    const normalizedExecutionKind =
+      requireSessionExecutionKind(executionKind);
     const output = this.#heap.allocate(8, "engine-session handle");
     try {
       const status = this.#module._eso_create_session(
         this.#context,
         scenario,
+        normalizedExecutionKind,
         output,
       );
       this.assertStatus(status, "create-session");

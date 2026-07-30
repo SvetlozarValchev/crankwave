@@ -137,6 +137,12 @@ encode_capture_block(const CaptureBlockView &block) {
     return identity;
 }
 
+[[nodiscard]] LowOrderExecutionExtent finite_extent(const RenderScenario &scenario) {
+    const auto frame_count =
+        resolve_frame_index(scenario.total_duration_s.value, scenario.rates.physics);
+    return LowOrderExecutionExtent::finite_scenario(frame_count.value_or(1U));
+}
+
 [[nodiscard]] engine_sim_offline::test::AuthoredEngineFixture
 make_operating_capture_request(
     const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
@@ -303,7 +309,7 @@ drain_free_engine_live_controls(void *context, std::uint64_t physics_step) noexc
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
-        nonzero_request_identity()));
+        nonzero_request_identity(), finite_extent(request.scenario)));
 
     FreeEngineCaptureTrace trace;
     while (true) {
@@ -749,7 +755,8 @@ void test_authored_capture_mapping_and_completion(
     const auto random_plan =
         fixture_random_plan(request, request.engine, request.scenario);
     auto capture = require_simulation(compile_low_order_capture_session(
-        request.engine, request.scenario, random_plan, request_identity));
+        request.engine, request.scenario, random_plan, request_identity,
+        finite_extent(request.scenario)));
     auto schedule_result = compile_kinematic_scenario_schedule(request.scenario);
     if (const auto *report = std::get_if<ValidationReport>(&schedule_result)) {
         fail_report("authored held-speed schedule failed admission", *report);
@@ -761,8 +768,8 @@ void test_authored_capture_mapping_and_completion(
     auto gas = require_gas(CoreRuntimeFactory::compile_gas(
         request.engine, core, request.scenario, random_plan,
         schedule.control_schedule(), mechanics.cylinder_models()));
-    const auto capture_plan = require_capture_plan(
-        compile_low_order_capture_plan(request.engine, request.scenario));
+    const auto capture_plan = require_capture_plan(compile_low_order_capture_plan(
+        request.engine, request.scenario, finite_extent(request.scenario)));
     auto operating =
         require_operating_runtime(compile_low_order_operating_point_v1_runtime(
             request.engine, request.scenario, capture_plan, request_identity));
@@ -907,7 +914,7 @@ void test_operating_capture_publishes_request_bound_completion_evidence(
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
-        request_identity));
+        request_identity, finite_extent(request.scenario)));
 
     std::uint64_t callback_count = 0U;
     std::optional<LowOrderCaptureCompleted> completion;
@@ -951,7 +958,8 @@ void test_operating_capture_rejects_zero_request_identity(
     const auto request = make_operating_capture_request(canonical);
     const auto result = compile_low_order_capture_session(
         request.engine, request.scenario,
-        fixture_random_plan(request, request.engine, request.scenario), Sha256Digest{});
+        fixture_random_plan(request, request.engine, request.scenario), Sha256Digest{},
+        finite_extent(request.scenario));
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr && !report->ok() &&
                std::ranges::any_of(report->issues,
@@ -1075,7 +1083,7 @@ void test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
-        nonzero_request_identity()));
+        nonzero_request_identity(), finite_extent(request.scenario)));
 
     FreeEngineLiveControlContext context{
         0,
@@ -1127,8 +1135,7 @@ void test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
                released.torque.actuator.value_nm == -kLiveResistingTorqueNm &&
                released.torque.dyno_reaction.value_nm == kLiveResistingTorqueNm &&
                final.limiter_enabled &&
-               final.requested_external_resisting_torque_nm ==
-                   kLiveResistingTorqueNm &&
+               final.requested_external_resisting_torque_nm == kLiveResistingTorqueNm &&
                final.torque.dyno_reaction.value_nm == kLiveResistingTorqueNm,
            "released FreeEngine did not use and publish live limiter/load state");
     const double expected_release_alpha =
@@ -1137,6 +1144,86 @@ void test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
     expect_near(released.angular_acceleration_rad_s2, expected_release_alpha,
                 std::max(1.0, std::abs(expected_release_alpha)) * 1e-8,
                 "live resistance did not drive released crank acceleration");
+}
+
+void test_open_free_engine_capture_runs_past_authored_horizon_in_full_blocks(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    constexpr double kReleaseThrottle = 0.60;
+    constexpr double kReleaseResistanceNm = 10.0;
+    constexpr double kIgnoredBoundaryS = 0.24;
+    const auto request = [&] {
+        auto value = make_free_engine_capture_request(
+            canonical, kReleaseThrottle, kFreeEngineInitialResistingTorqueNm,
+            kReleaseResistanceNm, kOperatingCutoffTimeS);
+        auto &free_engine = std::get<FreeEngine>(value.scenario.mode);
+        free_engine.throttle_01.points.push_back({kIgnoredBoundaryS, 0.05});
+        free_engine.external_resisting_torque_nm.points.push_back(
+            {kIgnoredBoundaryS, 200.0});
+        return value;
+    }();
+    const auto release_frame =
+        *resolve_frame_index(kOperatingCutoffTimeS, request.scenario.rates.physics);
+    const auto ignored_boundary_frame =
+        *resolve_frame_index(kIgnoredBoundaryS, request.scenario.rates.physics);
+    const auto authored_horizon = *resolve_frame_index(
+        request.scenario.total_duration_s.value, request.scenario.rates.physics);
+    const auto block_capacity =
+        request.scenario.quality.value.capture_block_capacity_frames;
+    const std::uint64_t block_count = authored_horizon / block_capacity + 1U;
+
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario,
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity(), LowOrderExecutionExtent::open_ended()));
+
+    std::optional<EngineCaptureSample> release;
+    std::optional<EngineCaptureSample> ignored_boundary;
+    std::optional<EngineCaptureSample> last;
+    for (std::uint64_t block_ordinal = 0; block_ordinal < block_count;
+         ++block_ordinal) {
+        const auto result =
+            capture.publish_next_block([&](const CaptureBlockView &block) {
+                expect(block.frame_count() == block_capacity &&
+                           block.clock().first_sample_index ==
+                               block_ordinal * block_capacity,
+                       "open capture did not publish one contiguous full block");
+                for (std::uint32_t offset = 0; offset < block.frame_count(); ++offset) {
+                    const auto sample_index = block.clock().first_sample_index + offset;
+                    if (sample_index == release_frame) {
+                        release = block.engine()[offset];
+                    }
+                    if (sample_index == ignored_boundary_frame) {
+                        ignored_boundary = block.engine()[offset];
+                    }
+                    last = block.engine()[offset];
+                }
+                return true;
+            });
+        const auto *published = std::get_if<LowOrderCaptureBlockPublished>(&result);
+        expect(published != nullptr && published->block_ordinal == block_ordinal &&
+                   published->frame_count == block_capacity,
+               "open capture completed or faulted at its authored horizon");
+    }
+
+    const std::uint64_t expected_frames = block_count * block_capacity;
+    expect(expected_frames > authored_horizon &&
+               capture.published_sample_count() == expected_frames &&
+               capture.published_block_count() == block_count && !capture.completed() &&
+               !capture.faulted(),
+           "open capture did not remain active beyond the finite recipe");
+    expect(release.has_value() && ignored_boundary.has_value() && last.has_value() &&
+               release->requested_throttle_01 == kReleaseThrottle &&
+               release->requested_external_resisting_torque_nm ==
+                   kReleaseResistanceNm &&
+               release->fuel_enabled &&
+               ignored_boundary->requested_throttle_01 == kReleaseThrottle &&
+               ignored_boundary->requested_external_resisting_torque_nm ==
+                   kReleaseResistanceNm &&
+               ignored_boundary->fuel_enabled &&
+               last->requested_throttle_01 == kReleaseThrottle &&
+               last->requested_external_resisting_torque_nm == kReleaseResistanceNm &&
+               last->fuel_enabled,
+           "open capture did not hold the exact release snapshot after release");
 }
 
 void test_free_engine_capture_returns_stable_typed_stall_without_reverse(
@@ -1150,7 +1237,7 @@ void test_free_engine_capture_returns_stable_typed_stall_without_reverse(
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
-        nonzero_request_identity()));
+        nonzero_request_identity(), finite_extent(request.scenario)));
 
     std::size_t callback_count = 0U;
     std::uint64_t observed_frame_count = 0U;
@@ -1220,7 +1307,7 @@ void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
-        request_identity));
+        request_identity, finite_extent(request.scenario)));
 
     std::optional<LowOrderCaptureCompleted> completion;
     double first_released_rpm = 0.0;
@@ -1292,7 +1379,7 @@ void test_inertial_capture_rejects_throttle_transition_during_preparation(
     const auto result = compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
-        nonzero_request_identity());
+        nonzero_request_identity(), finite_extent(request.scenario));
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(
         report != nullptr && !report->ok() &&
@@ -1311,7 +1398,7 @@ void test_consumer_rejection_is_a_stable_terminal_fault(
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
-        nonzero_request_identity()));
+        nonzero_request_identity(), finite_extent(request.scenario)));
     std::size_t callback_count = 0U;
     auto rejected = capture.publish_next_block([&](const CaptureBlockView &block) {
         ++callback_count;
@@ -1344,7 +1431,7 @@ void test_consumer_exception_is_a_stable_terminal_fault(
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
-        nonzero_request_identity()));
+        nonzero_request_identity(), finite_extent(request.scenario)));
     std::size_t callback_count = 0U;
     auto rejected = capture.publish_next_block([&](const CaptureBlockView &) -> bool {
         ++callback_count;
@@ -1375,7 +1462,7 @@ void test_reentrant_publication_preserves_outer_view_and_faults(
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
-        nonzero_request_identity()));
+        nonzero_request_identity(), finite_extent(request.scenario)));
     std::size_t outer_callback_count = 0U;
     std::size_t nested_callback_count = 0U;
     std::optional<FailureContext> nested_fault;
@@ -1436,7 +1523,7 @@ void expect_simulation_compile_rejected(
     auto result = compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
-        nonzero_request_identity());
+        nonzero_request_identity(), finite_extent(request.scenario));
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr && !report->ok(),
            std::string{mutation} + " was admitted by the top-level compiler");
@@ -1450,7 +1537,7 @@ void test_declared_capture_capacity_drives_publication(
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
-        nonzero_request_identity()));
+        nonzero_request_identity(), finite_extent(request.scenario)));
 
     std::size_t callback_count = 0U;
     const auto result = capture.publish_next_block([&](const CaptureBlockView &block) {
@@ -1517,6 +1604,7 @@ void run_tests(const engine_sim_offline::test::AuthoredEngineFixture &canonical)
         canonical);
     test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
         canonical);
+    test_open_free_engine_capture_runs_past_authored_horizon_in_full_blocks(canonical);
     test_free_engine_capture_returns_stable_typed_stall_without_reverse(canonical);
     test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(canonical);
     test_inertial_capture_rejects_throttle_transition_during_preparation(canonical);

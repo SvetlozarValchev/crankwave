@@ -160,7 +160,8 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
             ContractIssueCode::inconsistent_semantics, "scenario.rates",
             "operating runtime requires identical physics and capture clocks");
 
-    auto canonical_plan_result = compile_low_order_capture_plan(engine, scenario);
+    auto canonical_plan_result =
+        compile_low_order_capture_plan(engine, scenario, capture_plan.execution_extent);
     const auto *canonical_plan =
         std::get_if<LowOrderCapturePlan>(&canonical_plan_result);
     if (const auto *nested = std::get_if<ValidationReport>(&canonical_plan_result)) {
@@ -185,12 +186,11 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
                 ContractIssueCode::inconsistent_semantics,
                 "capture_plan.capture_buffer.rate",
                 "capture-plan rate differs from the canonical scenario rate");
-        require(report,
-                capture_plan.capture_horizon_frames ==
-                    canonical_plan->capture_horizon_frames,
-                ContractIssueCode::inconsistent_semantics,
-                "capture_plan.capture_horizon_frames",
-                "capture-plan horizon differs from the canonical scenario horizon");
+        require(
+            report, capture_plan.execution_extent == canonical_plan->execution_extent,
+            ContractIssueCode::inconsistent_semantics, "capture_plan.execution_extent",
+            "capture-plan execution extent differs from the canonical "
+            "scenario extent");
         require(
             report,
             capture_plan.capture_buffer.declared_block_capacity_frames ==
@@ -222,16 +222,17 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
 
     const auto fixed_horizon_frame = contract::resolve_frame_index(
         preparation->fixed_preparation_horizon_s.value, scenario.rates.physics);
+    const auto capture_horizon =
+        capture_plan.execution_extent.finite_physics_frame_count();
     require(report, fixed_horizon_frame.has_value() && *fixed_horizon_frame > 0U,
             ContractIssueCode::inconsistent_semantics,
             "scenario.preparation.fixed_preparation_horizon_s.value",
             "operating preparation horizon must resolve to a positive integral "
             "physics frame");
     require(report,
-            fixed_horizon_frame.has_value() &&
-                *fixed_horizon_frame <= capture_plan.capture_horizon_frames,
-            ContractIssueCode::inconsistent_semantics,
-            "capture_plan.capture_horizon_frames",
+            fixed_horizon_frame.has_value() && capture_horizon.has_value() &&
+                *fixed_horizon_frame <= *capture_horizon,
+            ContractIssueCode::inconsistent_semantics, "capture_plan.execution_extent",
             "capture horizon must include the complete fixed-horizon transaction");
     if (!report.ok() || canonical_plan == nullptr || !fixed_horizon_frame.has_value()) {
         return report;

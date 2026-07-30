@@ -240,17 +240,28 @@ void run(const std::filesystem::path &repository_root) {
     expect(eso_destroy_scenario(context, engine) == ESO_STATUS_INVALID_HANDLE,
            "engine handle was accepted as a scenario handle");
 
+    eso_session_handle_t invalid_execution_session = UINT64_C(123);
+    expect(eso_create_session(context, scenario, 0U, &invalid_execution_session) ==
+                   ESO_STATUS_INVALID_ARGUMENT &&
+               invalid_execution_session == ESO_INVALID_HANDLE,
+           "unknown session execution kind was not rejected atomically");
+
     eso_session_handle_t stale = ESO_INVALID_HANDLE;
-    expect(eso_create_session(context, scenario, &stale) == ESO_STATUS_OK &&
+    expect(eso_create_session(context, scenario, ESO_SESSION_EXECUTION_FINITE_SCENARIO,
+                              &stale) == ESO_STATUS_OK &&
                eso_destroy_session(context, stale) == ESO_STATUS_OK,
            "throwaway session lifecycle failed");
     eso_session_handle_t session_a = ESO_INVALID_HANDLE;
     eso_session_handle_t session_b = ESO_INVALID_HANDLE;
     eso_session_handle_t free_session = ESO_INVALID_HANDLE;
-    expect(eso_create_session(context, scenario, &session_a) == ESO_STATUS_OK &&
-               eso_create_session(context, scenario, &session_b) == ESO_STATUS_OK &&
-               eso_create_session(context, free_scenario, &free_session) ==
-                   ESO_STATUS_OK &&
+    expect(eso_create_session(context, scenario, ESO_SESSION_EXECUTION_FINITE_SCENARIO,
+                              &session_a) == ESO_STATUS_OK &&
+               eso_create_session(context, scenario,
+                                  ESO_SESSION_EXECUTION_FINITE_SCENARIO,
+                                  &session_b) == ESO_STATUS_OK &&
+               eso_create_session(context, free_scenario,
+                                  ESO_SESSION_EXECUTION_FINITE_SCENARIO,
+                                  &free_session) == ESO_STATUS_OK &&
                session_a != stale,
            "generation-checked session slot was not recycled safely");
     eso_session_descriptor_t stale_descriptor{};
@@ -268,7 +279,8 @@ void run(const std::filesystem::path &repository_root) {
                descriptor.physics_frames_per_block == 200U &&
                descriptor.delivery_frames_per_block == 3840U &&
                descriptor.audio_bus_count == 8U &&
-               descriptor.live_control_capabilities == kInertialDynoLiveControls,
+               descriptor.live_control_capabilities == kInertialDynoLiveControls &&
+               descriptor.execution_kind == ESO_SESSION_EXECUTION_FINITE_SCENARIO,
            "C session descriptor differs from the executable method");
     eso_session_descriptor_t free_descriptor{};
     constexpr auto kFreeEngineLiveControls =
@@ -300,8 +312,7 @@ void run(const std::filesystem::path &repository_root) {
     const eso_control_command_t preparation_control{0U, 1U,  ESO_CONTROL_THROTTLE,
                                                     0U, 0.5, 0U};
     eso_control_rejection_t rejection{};
-    expect(eso_session_enqueue_controls(context, session_a, nullptr, 0U,
-                                        &rejection) ==
+    expect(eso_session_enqueue_controls(context, session_a, nullptr, 0U, &rejection) ==
                    ESO_STATUS_CONTROL_REJECTED &&
                rejection.code == ESO_ERROR_CONTROL_INVALID_PAYLOAD,
            "C session admitted an empty live-control batch");

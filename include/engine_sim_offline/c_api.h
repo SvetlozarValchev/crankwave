@@ -15,7 +15,7 @@ extern "C" {
  * This is the only engine-sim-offline C ABI. It is a greenfield, exact-version
  * contract rather than a compatibility family.
  */
-#define ESO_C_API_VERSION UINT32_C(1)
+#define ESO_C_API_VERSION UINT32_C(2)
 #define ESO_INVALID_HANDLE UINT64_C(0)
 
 typedef struct eso_context eso_context_t;
@@ -204,6 +204,12 @@ enum {
     ESO_LIVE_CONTROL_CAPABILITY_EXTERNAL_RESISTING_TORQUE = UINT32_C(1) << 4U
 };
 
+typedef uint32_t eso_session_execution_kind_t;
+enum {
+    ESO_SESSION_EXECUTION_FINITE_SCENARIO = 1,
+    ESO_SESSION_EXECUTION_OPEN_ENDED = 2
+};
+
 typedef struct eso_session_descriptor {
     uint32_t maximum_delivery_frames_per_process_call;
     uint32_t control_command_queue_capacity;
@@ -220,6 +226,12 @@ typedef struct eso_session_descriptor {
     eso_live_control_capability_mask_t live_control_capabilities;
     size_t engine_id_utf8_bytes;
     size_t scenario_id_utf8_bytes;
+    /*
+     * total_block_count is the exact authored horizon for FINITE_SCENARIO and
+     * canonical zero for OPEN_ENDED. The execution kind is the discriminator;
+     * callers must not infer it from the count.
+     */
+    eso_session_execution_kind_t execution_kind;
 } eso_session_descriptor_t;
 
 typedef struct eso_session_identity_buffers {
@@ -428,6 +440,7 @@ eso_status_t eso_scenario_copy_id(eso_context_t *context,
                                   size_t *out_utf8_bytes) ESO_C_API_NOEXCEPT;
 
 eso_status_t eso_create_session(eso_context_t *context, eso_scenario_handle_t scenario,
+                                eso_session_execution_kind_t execution_kind,
                                 eso_session_handle_t *out_session) ESO_C_API_NOEXCEPT;
 eso_status_t eso_destroy_session(eso_context_t *context,
                                  eso_session_handle_t session) ESO_C_API_NOEXCEPT;

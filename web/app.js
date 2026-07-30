@@ -159,8 +159,6 @@ const state = {
   throttleEditPending: false,
   externalResistanceEditPending: false,
   pendingControls: new Map(),
-  controlJournal: [],
-  controlJournalSequence: 0,
   lastAcceptedControlFrame: null,
   audio: {
     context: null,
@@ -936,9 +934,7 @@ function renderLiveState() {
   );
 }
 
-function resetControlJournal() {
-  state.controlJournal.length = 0;
-  state.controlJournalSequence = 0;
+function resetLiveControls() {
   state.lastAcceptedControlFrame = null;
   state.pendingControls.clear();
   state.throttleEditPending = false;
@@ -1043,7 +1039,7 @@ function acceptBuilt(message) {
   state.mutationPriorStates.delete(message.requestId);
   state.requestKinds.delete(message.requestId);
   resetRunPresentation();
-  resetControlJournal();
+  resetLiveControls();
   state.built = {
     engineId: message.engineId,
     scenarioId: message.scenarioId,
@@ -1057,7 +1053,10 @@ function acceptBuilt(message) {
   state.workerDiagnostics = [];
   elements.buildButton.disabled = false;
   elements.sessionTitle.textContent = message.engineId;
-  elements.sessionSubtitle.textContent = message.scenarioId;
+  elements.sessionSubtitle.textContent =
+    message.descriptor.executionKind === "open-ended"
+      ? `${message.scenarioId} · interactive bench`
+      : `${message.scenarioId} · finite authored run`;
   setSessionState("ready");
   setChip(elements.buildStatus, "Build admitted", "good");
   renderDocumentChrome();
@@ -1066,7 +1065,9 @@ function acceptBuilt(message) {
   updateBuiltControls();
   showToast(
     isInitialBuild
-      ? "Engine package compiled and session created."
+      ? message.descriptor.openEnded
+        ? "Engine package compiled. The interactive bench is open-ended."
+        : "Engine package compiled. The authored run is finite."
       : "Monitor bus selected; the live session was reset.",
   );
 }
@@ -1719,7 +1720,7 @@ function admitReadyMessage(message) {
   const counters = schema?.counters;
   if (
     message.protocol !== WORKER_PROTOCOL_ID ||
-    message.apiVersion !== 1 ||
+    message.apiVersion !== 2 ||
     message.canonicalSampleRate !== 192000 ||
     message.structuralEditContract !== "compile-and-replace" ||
     schema?.id !== RING_SCHEMA_ID ||
@@ -1751,7 +1752,7 @@ function acceptWorkerState(message) {
     requestKind === "restart" &&
     ["preparing", "running"].includes(message.state)
   ) {
-    resetControlJournal();
+    resetLiveControls();
   }
   setSessionState(message.state, message.detail ?? "");
   if (message.state === "running") {
@@ -1761,8 +1762,8 @@ function acceptWorkerState(message) {
   } else if (message.state === "ready") {
     setChip(elements.buildStatus, "Build admitted", "good");
   } else if (message.state === "completed") {
-    setChip(elements.buildStatus, "Run complete", "good");
-    showToast("Session completed. The captured run is ready to export.");
+    setChip(elements.buildStatus, "Authored run complete", "good");
+    showToast("The finite authored scenario completed.");
   } else if (message.state === "paused") {
     setChip(elements.buildStatus, "Session stopped", "");
   } else if (message.state === "failed") {
@@ -1777,12 +1778,6 @@ function acceptControlResult(message) {
   const pending = state.pendingControls.get(message.kind);
   if (message.accepted) {
     state.lastAcceptedControlFrame = message.deliveryFrame;
-    state.controlJournal.push({
-      kind: message.kind,
-      value: message.value,
-      deliveryFrame: message.deliveryFrame,
-      order: state.controlJournalSequence++,
-    });
     if (pending?.requestId === message.requestId) {
       pending.deliveryFrame = message.deliveryFrame;
     }
@@ -1983,27 +1978,9 @@ function requestWavExport() {
   if (!state.built) {
     return;
   }
-  const controls = [...state.controlJournal]
-    .sort((left, right) => {
-      const leftFrame = BigInt(left.deliveryFrame);
-      const rightFrame = BigInt(right.deliveryFrame);
-      if (leftFrame < rightFrame) {
-        return -1;
-      }
-      if (leftFrame > rightFrame) {
-        return 1;
-      }
-      return left.order - right.order;
-    })
-    .map(({ kind, value, deliveryFrame }) => ({
-      kind,
-      value,
-      deliveryFrame,
-    }));
   postWorker({
     type: "export-wav",
     requestId: nextRequestId(),
-    controls: controls.length === 0 ? undefined : controls,
   });
 }
 

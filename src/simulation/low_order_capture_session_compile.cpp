@@ -25,7 +25,8 @@ void require(ValidationReport &report, bool condition, ContractIssueCode code,
 LowOrderCaptureCompileResult compile_low_order_capture_session(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const contract::RandomPlan &random_plan,
-    const contract::Sha256Digest &simulation_request_identity_v3_sha256) {
+    const contract::Sha256Digest &simulation_request_identity_v3_sha256,
+    LowOrderExecutionExtent execution_extent) {
     ValidationReport report;
     const auto *operating_profile =
         std::get_if<contract::LowOrderOperatingPointV1Profile>(&engine.physics_profile);
@@ -34,11 +35,19 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     require(report, operating_profile != nullptr, ContractIssueCode::unsupported_value,
             "engine.physics_profile",
             "low-order capture requires the operating-point physics profile");
+    require(report, execution_extent.valid(), ContractIssueCode::invalid_value,
+            "execution_extent",
+            "low-order capture session requires a valid execution extent");
+    require(report, !execution_extent.is_open_ended() || free_engine != nullptr,
+            ContractIssueCode::unsupported_value, "execution_extent",
+            "open-ended low-order capture sessions are admitted only for "
+            "FreeEngine");
     if (!report.ok()) {
         return report;
     }
 
-    auto capture_plan_result = compile_low_order_capture_plan(engine, scenario);
+    auto capture_plan_result =
+        compile_low_order_capture_plan(engine, scenario, execution_extent);
     if (auto *capture_report = std::get_if<ValidationReport>(&capture_plan_result)) {
         for (auto &issue : capture_report->issues) {
             report.issues.push_back(std::move(issue));
@@ -65,15 +74,15 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
                 std::get<LowOrderInertialDynoV1Runtime>(std::move(inertial_result)));
         } else if (free_engine != nullptr) {
             auto free_engine_result = compile_low_order_free_engine_v1_runtime(
-                engine, scenario, capture_plan, simulation_request_identity_v3_sha256);
+                engine, scenario, capture_plan, simulation_request_identity_v3_sha256,
+                execution_extent);
             if (auto *free_engine_report =
                     std::get_if<ValidationReport>(&free_engine_result)) {
                 return std::move(*free_engine_report);
             }
             profile_policy.emplace(
                 std::in_place_type<LowOrderFreeEngineV1Runtime>,
-                std::get<LowOrderFreeEngineV1Runtime>(
-                    std::move(free_engine_result)));
+                std::get<LowOrderFreeEngineV1Runtime>(std::move(free_engine_result)));
         } else {
             auto operating_result = compile_low_order_operating_point_v1_runtime(
                 engine, scenario, capture_plan, simulation_request_identity_v3_sha256);
@@ -94,7 +103,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     }
 
     auto core_result = compile_low_order_engine_core_v1_runtime(
-        engine, scenario, *core, random_plan);
+        engine, scenario, *core, random_plan, execution_extent);
     if (const auto *core_report = std::get_if<ValidationReport>(&core_result)) {
         return *core_report;
     }
@@ -106,7 +115,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
         std::move(*profile_policy),
         std::move(capture),
         scenario.rates.capture,
-        capture_plan.capture_horizon_frames,
+        execution_extent,
         engine.methods.gas_exchange.value.id,
         engine.profile_id.value,
         scenario.scenario_id,

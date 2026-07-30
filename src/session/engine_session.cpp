@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <exception>
+#include <limits>
 #include <memory>
 #include <ranges>
 #include <stdexcept>
@@ -19,6 +20,11 @@
 
 namespace engine_sim_offline {
 namespace {
+
+inline constexpr std::uint64_t kMaximumSessionBlockCount =
+    std::numeric_limits<std::uint64_t>::max() / kEngineSessionDeliveryFramesPerBlock;
+inline constexpr std::uint64_t kMaximumOpenSessionPhysicsFrameCount =
+    kMaximumSessionBlockCount * kEngineSessionPhysicsFramesPerBlock;
 
 [[nodiscard]] EngineSessionError processing_error(
     std::string detail_code, std::string message,
@@ -177,6 +183,7 @@ class EngineSession::Implementation final {
   public:
     explicit Implementation(session_detail::BuiltSessionComponents components)
         : compiled_scenario_(std::move(components.compiled_scenario)),
+          execution_kind_(components.execution_kind),
           simulation_request_identity_(components.simulation_request_identity),
           random_plan_(std::move(components.random_plan)),
           calibration_(std::move(components.calibration)),
@@ -188,7 +195,10 @@ class EngineSession::Implementation final {
               capacities_.control_command_queue_capacity,
               kEngineSessionPhysicsRateHz, kEngineSessionDeliveryRateHz),
           control_scratch_(capacities_.control_command_queue_capacity),
-          total_block_count_(calibration_.total_block_count()),
+          total_block_count_(execution_kind_ ==
+                                     EngineSessionExecutionKind::finite_scenario
+                                 ? calibration_.total_block_count()
+                                 : 0U),
           preparation_block_count_(calibration_.pre_audible_block_count()) {
         const auto inputs =
             compile::detail::CompiledScenarioViewAccess::inputs(compiled_scenario_);
@@ -212,6 +222,7 @@ class EngineSession::Implementation final {
             preparation_block_count_,
             audio_bus_descriptors_,
             live_control_capabilities_,
+            execution_kind_,
         };
     }
 
@@ -241,8 +252,6 @@ class EngineSession::Implementation final {
         }
         const auto first_live_delivery_frame =
             preparation_block_count_ * kEngineSessionDeliveryFramesPerBlock;
-        const auto terminal_physics_frame =
-            total_block_count_ * kEngineSessionPhysicsFramesPerBlock;
         for (std::size_t index = 0; index < commands.size(); ++index) {
             const auto &source = commands[index];
             if ((live_control_capabilities_ & required_capability(source.payload)) ==
@@ -274,12 +283,16 @@ class EngineSession::Implementation final {
                     "session physics clock",
                 };
             }
+            const auto terminal_physics_frame =
+                execution_kind_ == EngineSessionExecutionKind::finite_scenario
+                    ? total_block_count_ * kEngineSessionPhysicsFramesPerBlock
+                    : kMaximumOpenSessionPhysicsFrameCount;
             if (projection.physics_step >= terminal_physics_frame) {
                 return EngineControlRejection{
                     EngineControlRejectionCode::outside_session_horizon,
                     index,
-                    "live controls must target a delivery frame inside the finite "
-                    "session horizon",
+                    "live controls must target a physics step the session can "
+                    "generate",
                 };
             }
             auto &destination = control_scratch_[index];
@@ -334,6 +347,14 @@ class EngineSession::Implementation final {
 
         try {
             const auto expected_block = simulation_.published_block_count();
+            if (expected_block >= kMaximumSessionBlockCount) {
+                return fail({
+                    EngineSessionErrorCode::resource_exhausted,
+                    "session-clock-exhausted",
+                    "the open-ended session exhausted its delivery-frame clock",
+                    std::nullopt,
+                });
+            }
             const auto expected_first_physics =
                 expected_block * kEngineSessionPhysicsFramesPerBlock;
             const auto expected_first_delivery =
@@ -401,6 +422,11 @@ class EngineSession::Implementation final {
             if (auto *completed =
                     std::get_if<simulation::LowOrderCaptureCompleted>(
                         &simulation_result)) {
+                if (execution_kind_ == EngineSessionExecutionKind::open_ended) {
+                    return fail(processing_error(
+                        "open-session-completed-unexpectedly",
+                        "an open-ended simulation reported finite completion"));
+                }
                 return complete(*completed);
             }
 
@@ -568,6 +594,11 @@ class EngineSession::Implementation final {
 
     [[nodiscard]] EngineSessionProcessResult
     complete(const simulation::LowOrderCaptureCompleted &completed) {
+        if (execution_kind_ != EngineSessionExecutionKind::finite_scenario) {
+            return fail(processing_error(
+                "open-session-completion-invalid",
+                "only a finite-scenario session may publish completion evidence"));
+        }
         const auto expected_physics =
             total_block_count_ * kEngineSessionPhysicsFramesPerBlock;
         if (completed.sample_count != expected_physics ||
@@ -624,6 +655,8 @@ class EngineSession::Implementation final {
     }
 
     compile::CompiledScenario compiled_scenario_;
+    EngineSessionExecutionKind execution_kind_ =
+        EngineSessionExecutionKind::finite_scenario;
     contract::Sha256Digest simulation_request_identity_;
     contract::RandomPlan random_plan_;
     presentation::AdmittedPresentationCalibration calibration_;
@@ -702,9 +735,19 @@ class EngineSessionFactory final {
 } // namespace session_detail
 
 EngineSessionCreateResult
-create_engine_session(const compile::CompiledScenario &scenario) {
+create_engine_session(const compile::CompiledScenario &scenario,
+                      const EngineSessionExecutionKind execution_kind) {
     try {
-        auto built = session_detail::build_session_components(scenario);
+        if (execution_kind != EngineSessionExecutionKind::finite_scenario &&
+            execution_kind != EngineSessionExecutionKind::open_ended) {
+            return EngineSessionError{
+                EngineSessionErrorCode::unsupported_configuration,
+                "engine-session-execution-kind-invalid",
+                "engine session creation requires a known execution kind",
+                std::nullopt,
+            };
+        }
+        auto built = session_detail::build_session_components(scenario, execution_kind);
         if (auto *error = std::get_if<EngineSessionError>(&built)) {
             return std::move(*error);
         }

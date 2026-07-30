@@ -89,8 +89,8 @@ void append_prefixed(ValidationReport &destination, const ValidationReport &sour
     return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
 
-[[nodiscard]] bool exact_legacy_method(
-    const contract::ResolvedValue<contract::MethodIdentity> &method) {
+[[nodiscard]] bool
+exact_legacy_method(const contract::ResolvedValue<contract::MethodIdentity> &method) {
     return method.value == contract::legacy_low_order_v1_method_identity();
 }
 
@@ -264,9 +264,14 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     require(report, schedule.first_step_index() == 0U,
             ContractIssueCode::inconsistent_semantics, "schedule.first_step_index",
             "gas session requires a schedule beginning at physics step zero");
-    require(report, schedule.sample_count() > 0U, ContractIssueCode::inconsistent_shape,
-            "schedule.sample_count",
-            "gas session requires a nonempty control schedule");
+    require(report, schedule.execution_extent().valid(),
+            ContractIssueCode::inconsistent_shape, "schedule.execution_extent",
+            "gas session requires a valid finite or open-ended execution extent");
+    require(report,
+            !schedule.execution_extent().is_open_ended() ||
+                std::holds_alternative<contract::FreeEngine>(scenario.mode),
+            ContractIssueCode::unsupported_value, "schedule.execution_extent",
+            "open-ended gas execution is admitted only for FreeEngine");
     require(report,
             random_plan.generator == contract::pcg32_generator_method_identity(),
             ContractIssueCode::unsupported_value, "random_plan.generator",
@@ -955,7 +960,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     LegacyLowOrderGasSession session;
     session.rate_ = schedule.rate();
     session.first_sample_index_ = schedule.first_step_index();
-    session.expected_sample_count_ = schedule.sample_count();
+    session.expected_sample_count_ =
+        schedule.execution_extent().finite_physics_frame_count();
     session.maximum_event_count_ = maximum_event_count;
     session.step_s_ = 1.0 / 10000.0;
     session.gas_step_s_ = session.step_s_ / static_cast<double>(kLegacyGasSubstepCount);

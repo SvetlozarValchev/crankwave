@@ -85,7 +85,8 @@ find_payload(const compile::detail::ResolvedEnginePackage &engine,
 } // namespace
 
 SessionBuildResult
-build_session_components(const compile::CompiledScenario &compiled_scenario) {
+build_session_components(const compile::CompiledScenario &compiled_scenario,
+                         const EngineSessionExecutionKind execution_kind) {
     const auto inputs =
         compile::detail::CompiledScenarioViewAccess::inputs(compiled_scenario);
     const auto &engine_package = inputs.engine;
@@ -93,6 +94,14 @@ build_session_components(const compile::CompiledScenario &compiled_scenario) {
     const auto &engine = engine_package.engine;
     const auto &presentation_contract = engine_package.presentation;
     const auto &scenario = scenario_contracts.scenario;
+
+    if (execution_kind == EngineSessionExecutionKind::open_ended &&
+        !std::holds_alternative<contract::FreeEngine>(scenario.mode)) {
+        return build_error(
+            EngineSessionErrorCode::unsupported_configuration,
+            "open-session-requires-free-engine",
+            "open-ended execution is admitted only for a FreeEngine scenario");
+    }
 
     auto random_result = contract::compile_random_plan(
         engine_package.randomness, engine, presentation_contract, scenario);
@@ -238,8 +247,14 @@ build_session_components(const compile::CompiledScenario &compiled_scenario) {
         });
     }
 
+    const auto execution_extent =
+        execution_kind == EngineSessionExecutionKind::open_ended
+            ? simulation::LowOrderExecutionExtent::open_ended()
+            : simulation::LowOrderExecutionExtent::finite_scenario(
+                  calibration.total_block_count() *
+                  kEngineSessionPhysicsFramesPerBlock);
     auto simulation_result = simulation::compile_low_order_capture_session(
-        engine, scenario, random_plan, request_identity);
+        engine, scenario, random_plan, request_identity, execution_extent);
     if (std::holds_alternative<contract::ValidationReport>(simulation_result)) {
         return build_error(
             EngineSessionErrorCode::unsupported_configuration,
@@ -270,6 +285,7 @@ build_session_components(const compile::CompiledScenario &compiled_scenario) {
         std::move(audio_plan));
     return BuiltSessionComponents{
         compiled_scenario,
+        execution_kind,
         request_identity,
         std::move(random_plan),
         std::move(calibration),

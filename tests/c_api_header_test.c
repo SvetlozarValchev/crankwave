@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-_Static_assert(ESO_C_API_VERSION == 1, "unexpected C ABI version");
+_Static_assert(ESO_C_API_VERSION == 2, "unexpected C ABI version");
 _Static_assert(sizeof(eso_engine_handle_t) == sizeof(uint64_t),
                "engine handle width changed");
 _Static_assert(sizeof(eso_scenario_handle_t) == sizeof(uint64_t),

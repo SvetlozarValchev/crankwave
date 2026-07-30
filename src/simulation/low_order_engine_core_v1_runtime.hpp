@@ -5,6 +5,7 @@
 #include "engine_sim_offline/contract/randomness.hpp"
 #include "engine_sim_offline/contract/result.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
+#include "simulation/execution_extent.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
 
@@ -56,12 +57,12 @@ class LowOrderEngineCoreV1Runtime final {
     [[nodiscard]] bool faulted() const noexcept;
     [[nodiscard]] bool completed() const noexcept;
     [[nodiscard]] std::uint64_t produced_sample_count() const noexcept;
-    [[nodiscard]] std::uint64_t expected_sample_count() const noexcept;
+    [[nodiscard]] const LowOrderExecutionExtent &execution_extent() const noexcept;
 
   private:
     LowOrderEngineCoreV1Runtime(LegacyLowOrderMechanicsSession mechanics,
                                 LegacyLowOrderGasSession gas,
-                                std::uint64_t expected_sample_count,
+                                LowOrderExecutionExtent execution_extent,
                                 contract::RationalRateHz rate, std::string model_id,
                                 std::string profile_id, std::string scenario_id,
                                 contract::EngineId engine_id);
@@ -77,7 +78,8 @@ class LowOrderEngineCoreV1Runtime final {
 
     LegacyLowOrderMechanicsSession mechanics_;
     LegacyLowOrderGasSession gas_;
-    std::uint64_t expected_sample_count_ = 0;
+    LowOrderExecutionExtent execution_extent_ =
+        LowOrderExecutionExtent::finite_scenario(0U);
     contract::RationalRateHz rate_;
     std::string model_id_;
     std::string profile_id_;
@@ -89,7 +91,8 @@ class LowOrderEngineCoreV1Runtime final {
     compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &,
                                              const contract::RenderScenario &,
                                              const contract::LowOrderEngineCoreV1 &,
-                                             const contract::RandomPlan &);
+                                             const contract::RandomPlan &,
+                                             LowOrderExecutionExtent);
 };
 
 using LowOrderEngineCoreV1CompileResult =
@@ -101,6 +104,7 @@ using LowOrderEngineCoreV1CompileResult =
 compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
                                          const contract::RenderScenario &scenario,
                                          const contract::LowOrderEngineCoreV1 &core,
-                                         const contract::RandomPlan &random_plan);
+                                         const contract::RandomPlan &random_plan,
+                                         LowOrderExecutionExtent execution_extent);
 
 } // namespace engine_sim_offline::simulation

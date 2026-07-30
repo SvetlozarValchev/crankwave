@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/contract/scenario.hpp"
+#include "simulation/execution_extent.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -41,6 +42,7 @@ class ScenarioControlCursor final {
     // Completion is stable: once this returns nullopt, all later calls do too.
     [[nodiscard]] std::optional<ScheduledScenarioControls> next() noexcept;
     [[nodiscard]] bool completed() const noexcept;
+    [[nodiscard]] bool clock_overflowed() const noexcept;
 
   private:
     ScenarioControlCursor(
@@ -56,6 +58,7 @@ class ScenarioControlCursor final {
     contract::OperatingState operating_state_;
     double requested_throttle_ = 0.0;
     double external_resisting_torque_nm_ = 0.0;
+    bool clock_overflowed_ = false;
 
     friend class ScenarioControlSchedule;
 };
@@ -71,19 +74,20 @@ class ScenarioControlSchedule final {
 
     [[nodiscard]] const contract::RationalRateHz &rate() const noexcept;
     [[nodiscard]] std::uint64_t first_step_index() const noexcept;
-    [[nodiscard]] std::uint64_t sample_count() const noexcept;
+    [[nodiscard]] const LowOrderExecutionExtent &execution_extent() const noexcept;
     [[nodiscard]] double initial_theta_rad() const noexcept;
     [[nodiscard]] ScenarioControlCursor fresh_cursor() const noexcept;
 
   private:
     ScenarioControlSchedule(
         contract::RationalRateHz rate, std::uint64_t first_step_index,
-        std::uint64_t sample_count, double initial_theta_rad,
+        LowOrderExecutionExtent execution_extent, double initial_theta_rad,
         std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage) noexcept;
 
     contract::RationalRateHz rate_;
     std::uint64_t first_step_index_ = 0;
-    std::uint64_t sample_count_ = 0;
+    LowOrderExecutionExtent execution_extent_ =
+        LowOrderExecutionExtent::finite_scenario(0U);
     double initial_theta_rad_ = 0.0;
     std::shared_ptr<const detail::ScenarioControlScheduleStorage> storage_;
 
@@ -96,7 +100,8 @@ using ScenarioControlScheduleResult =
 // Compiles control lanes for held speed, prescribed kinematics, inertial dyno,
 // and free-engine scenarios. Motion-specific admission remains with the motion owner.
 [[nodiscard]] ScenarioControlScheduleResult
-compile_scenario_control_schedule(const contract::RenderScenario &scenario);
+compile_scenario_control_schedule(const contract::RenderScenario &scenario,
+                                  LowOrderExecutionExtent execution_extent);
 
 struct ScheduledScenarioStep {
     std::uint64_t sample_index = 0;

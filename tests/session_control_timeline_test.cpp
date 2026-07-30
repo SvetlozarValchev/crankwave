@@ -407,6 +407,15 @@ struct SimulationControlFixture {
     }
 };
 
+[[nodiscard]] simulation::LowOrderExecutionExtent
+finite_extent(const contract::RenderScenario &scenario) {
+    const auto frame_count = contract::resolve_frame_index(
+        scenario.total_duration_s.value, scenario.rates.physics);
+    expect(frame_count.has_value(),
+           "test scenario did not resolve to an integral physics horizon");
+    return simulation::LowOrderExecutionExtent::finite_scenario(*frame_count);
+}
+
 [[nodiscard]] bool same_binary64(double left, double right) noexcept {
     return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
@@ -502,10 +511,12 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
 
     auto old_call_shape =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-            fixture.engine, fixture.scenario, profile.core, random_plan));
+            fixture.engine, fixture.scenario, profile.core, random_plan,
+            finite_extent(fixture.scenario)));
     auto explicit_empty =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-            fixture.engine, fixture.scenario, profile.core, random_plan));
+            fixture.engine, fixture.scenario, profile.core, random_plan,
+            finite_extent(fixture.scenario)));
     for (std::uint64_t step_index = 0; step_index < 8; ++step_index) {
         auto old_result = old_call_shape.advance();
         auto empty_result = explicit_empty.advance(LiveControlOverrides{});
@@ -515,10 +526,12 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
 
     auto authored =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-            fixture.engine, fixture.scenario, profile.core, random_plan));
+            fixture.engine, fixture.scenario, profile.core, random_plan,
+            finite_extent(fixture.scenario)));
     auto controlled =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-            fixture.engine, fixture.scenario, profile.core, random_plan));
+            fixture.engine, fixture.scenario, profile.core, random_plan,
+            finite_extent(fixture.scenario)));
     ControlTimeline timeline{3, kPhysicsRate, kDeliveryRate};
     const std::array commands{
         TimestampedControlCommand{97, 1, SetThrottle{0.5}},

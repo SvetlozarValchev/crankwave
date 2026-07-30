@@ -236,7 +236,8 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
         std::get<presentation::AdmittedPresentationCalibration>(
             std::move(calibration_result));
 
-    auto session_result = create_engine_session(compiled_scenario);
+    auto session_result = create_engine_session(
+        compiled_scenario, EngineSessionExecutionKind::finite_scenario);
     if (const auto *error = std::get_if<EngineSessionError>(&session_result)) {
         return session_failure(std::move(request), *error, 0);
     }

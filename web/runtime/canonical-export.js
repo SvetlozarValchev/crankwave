@@ -1,4 +1,8 @@
-import { ESO_CANONICAL_SAMPLE_RATE, ProcessKind } from "./c-api-abi.js";
+import {
+  ESO_CANONICAL_SAMPLE_RATE,
+  ProcessKind,
+  SessionExecutionKind,
+} from "./c-api-abi.js";
 import { EngineSimRuntimeError } from "./c-api-errors.js";
 import { concatenateFloat32, encodeFloat32Wav } from "./wav.js";
 
@@ -44,7 +48,9 @@ export async function runCanonicalExport({
   controls,
   onProgress = () => {},
 }) {
-  const session = program.createSession();
+  const session = program.createSession(
+    SessionExecutionKind.finiteScenario,
+  );
   try {
     const bus = session.buses[busIndex];
     if (!bus) {
@@ -58,6 +64,20 @@ export async function runCanonicalExport({
       );
     }
     const descriptor = session.descriptor;
+    if (
+      descriptor.executionKindCode !==
+        SessionExecutionKind.finiteScenario ||
+      descriptor.totalBlockCountBigInt === null
+    ) {
+      throw new EngineSimRuntimeError(
+        "canonical WAV export requires a finite authored-scenario session",
+        {
+          operation: "export-wav",
+          detailCode: "browser-runtime-export-session-not-finite",
+          diagnostics: [],
+        },
+      );
+    }
     const predictedFrames =
       (descriptor.totalBlockCountBigInt -
         descriptor.preparationBlockCountBigInt) *
@@ -113,6 +133,7 @@ export async function runCanonicalExport({
       pcm,
       wav,
       bus,
+      executionKind: descriptor.executionKind,
       sampleRate: ESO_CANONICAL_SAMPLE_RATE,
       channelCount: bus.channelCount,
       frameCount: pcm.length / bus.channelCount,

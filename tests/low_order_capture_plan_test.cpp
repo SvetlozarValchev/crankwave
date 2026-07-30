@@ -56,6 +56,15 @@ random_plan(const test::AuthoredEngineFixture &request) {
     return test::compile_fixture_random_plan(request);
 }
 
+[[nodiscard]] simulation::LowOrderExecutionExtent
+finite_extent(const contract::RenderScenario &scenario) {
+    const auto frame_count = contract::resolve_frame_index(
+        scenario.total_duration_s.value, scenario.rates.physics);
+    expect(frame_count.has_value(),
+           "test scenario did not resolve to an integral physics horizon");
+    return simulation::LowOrderExecutionExtent::finite_scenario(*frame_count);
+}
+
 [[nodiscard]] std::vector<contract::GasVolumeId>
 expected_physical_inventory(const contract::EngineSpec &engine) {
     std::vector<contract::GasVolumeId> result;
@@ -101,15 +110,16 @@ void test_physical_inventory_is_stable_and_excludes_atmosphere(
     auto request = make_request(canonical);
     const auto &baseline_core = test::low_order_core(request.engine);
     const auto expected = expected_physical_inventory(request.engine);
-    const auto baseline = require_plan(
-        simulation::compile_low_order_capture_plan(request.engine, request.scenario));
+    const auto baseline = require_plan(simulation::compile_low_order_capture_plan(
+        request.engine, request.scenario, finite_extent(request.scenario)));
     const auto expected_horizon = contract::resolve_frame_index(
         request.scenario.total_duration_s.value, request.scenario.rates.capture);
 
     expect(expected_horizon.has_value() &&
                baseline.engine_profile_id == request.engine.profile_id.value &&
                baseline.scenario_id == request.scenario.scenario_id &&
-               baseline.capture_horizon_frames == *expected_horizon &&
+               baseline.execution_extent.finite_physics_frame_count() ==
+                   expected_horizon &&
                baseline.capture_buffer.declared_block_capacity_frames == 200U &&
                baseline.capture_buffer.declared_event_capacity_records == 3800U &&
                baseline.capture_buffer.maximum_events_per_frame == 19U,
@@ -134,8 +144,8 @@ void test_physical_inventory_is_stable_and_excludes_atmosphere(
     auto &reordered_core = test::low_order_core(request.engine);
     std::ranges::rotate(reordered_core.mechanism.cylinders,
                         reordered_core.mechanism.cylinders.begin() + 2U);
-    const auto reordered = require_plan(
-        simulation::compile_low_order_capture_plan(request.engine, request.scenario));
+    const auto reordered = require_plan(simulation::compile_low_order_capture_plan(
+        request.engine, request.scenario, finite_extent(request.scenario)));
     expect(reordered.physical_gas_volume_ids == baseline.physical_gas_volume_ids &&
                reordered.cylinder_chambers == baseline.cylinder_chambers,
            "physical inventory or chamber mapping depends on EngineSpec vector "
@@ -159,7 +169,8 @@ void test_physical_inventory_is_stable_and_excludes_atmosphere(
     rpm.samples_f64le_sha256 =
         contract::canonical_binary64_le_sha256(rpm.post_step_rpm);
     auto core_runtime = simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, reordered_core, random_plan(request));
+        request.engine, request.scenario, reordered_core, random_plan(request),
+        finite_extent(request.scenario));
     if (const auto *report = std::get_if<contract::ValidationReport>(&core_runtime)) {
         std::string message =
             "matching EngineSpec/core cylinder permutation is not executable";
@@ -182,8 +193,8 @@ void test_nonphysical_chamber_topology_is_rejected(
            "fixture has no atmosphere volume");
     core.mechanism.cylinders.front().topology.chamber_volume_id = atmosphere->id;
 
-    const auto result =
-        simulation::compile_low_order_capture_plan(request.engine, request.scenario);
+    const auto result = simulation::compile_low_order_capture_plan(
+        request.engine, request.scenario, finite_extent(request.scenario));
     const auto *report = std::get_if<contract::ValidationReport>(&result);
     expect(report != nullptr && !report->ok() &&
                std::ranges::any_of(
@@ -207,8 +218,8 @@ void test_cylinder_chamber_requires_concrete_engine_role(
            "fixture has no first-cylinder chamber");
     chamber->kind.value = contract::GasVolumeKind::exhaust_collector;
 
-    const auto result =
-        simulation::compile_low_order_capture_plan(request.engine, request.scenario);
+    const auto result = simulation::compile_low_order_capture_plan(
+        request.engine, request.scenario, finite_extent(request.scenario));
     const auto *report = std::get_if<contract::ValidationReport>(&result);
     expect(report != nullptr && !report->ok() &&
                std::ranges::any_of(
@@ -236,8 +247,8 @@ void test_capacity_derivation_is_shape_driven(
     auto request = make_request(canonical);
     request.scenario.quality.value.capture_block_capacity_frames = 37U;
     request.scenario.quality.value.event_journal_capacity_records = 37U * 19U;
-    const auto plan = require_plan(
-        simulation::compile_low_order_capture_plan(request.engine, request.scenario));
+    const auto plan = require_plan(simulation::compile_low_order_capture_plan(
+        request.engine, request.scenario, finite_extent(request.scenario)));
     expect(plan.capture_buffer.declared_block_capacity_frames == 37U &&
                plan.capture_buffer.declared_event_capacity_records == 37U * 19U &&
                plan.capture_buffer.maximum_events_per_frame == 19U,
@@ -245,8 +256,8 @@ void test_capacity_derivation_is_shape_driven(
 
     const auto canonical_profile_id = request.engine.profile_id.value;
     request.scenario.engine_profile_id = canonical_profile_id + "-foreign";
-    const auto transplanted =
-        simulation::compile_low_order_capture_plan(request.engine, request.scenario);
+    const auto transplanted = simulation::compile_low_order_capture_plan(
+        request.engine, request.scenario, finite_extent(request.scenario));
     const auto *transplant_report =
         std::get_if<contract::ValidationReport>(&transplanted);
     expect(transplant_report != nullptr && !transplant_report->ok() &&
@@ -259,8 +270,8 @@ void test_capacity_derivation_is_shape_driven(
 
     request.scenario.engine_profile_id = canonical_profile_id;
     --request.scenario.quality.value.event_journal_capacity_records;
-    const auto insufficient =
-        simulation::compile_low_order_capture_plan(request.engine, request.scenario);
+    const auto insufficient = simulation::compile_low_order_capture_plan(
+        request.engine, request.scenario, finite_extent(request.scenario));
     const auto *report = std::get_if<contract::ValidationReport>(&insufficient);
     expect(report != nullptr && !report->ok() &&
                std::ranges::any_of(report->issues,

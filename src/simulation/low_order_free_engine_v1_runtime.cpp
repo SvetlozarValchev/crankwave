@@ -5,6 +5,7 @@
 
 #include <bit>
 #include <cmath>
+#include <limits>
 #include <numbers>
 #include <string>
 #include <string_view>
@@ -170,7 +171,7 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
     FixedHorizonCycleSampler sampler,
     std::vector<std::size_t> physical_gas_step_indices,
     std::vector<OperatingGasVolumePressureSample> pressure_samples,
-    contract::RationalRateHz rate, std::uint64_t expected_sample_count,
+    contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
     std::uint64_t release_frame_index, double initial_engine_speed_rpm,
     double initial_theta_rad, double equivalent_inertia_kg_m2, std::string model_id,
     std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
@@ -178,7 +179,7 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
       sampler_(std::move(sampler)),
       physical_gas_step_indices_(std::move(physical_gas_step_indices)),
       pressure_samples_(std::move(pressure_samples)), rate_(rate),
-      expected_sample_count_(expected_sample_count),
+      execution_extent_(execution_extent),
       release_frame_index_(release_frame_index),
       step_s_(static_cast<double>(rate.denominator) /
               static_cast<double>(rate.numerator)),
@@ -415,7 +416,9 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     if (terminal_fault_.has_value()) {
         return *terminal_fault_;
     }
-    if (accepted_sample_count_ == expected_sample_count_) {
+    const auto terminal_sample_count = execution_extent_.finite_physics_frame_count();
+    if (terminal_sample_count.has_value() &&
+        accepted_sample_count_ == *terminal_sample_count) {
         if (!terminal_completed_ || !preparation_finalized_ ||
             !control_cursor_.completed() || !core.completed()) {
             return fail(fault(contract::FailureKind::contract_violation,
@@ -425,14 +428,26 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
         }
         return LowOrderEngineCoreV1Completed{accepted_sample_count_};
     }
+    if (!terminal_sample_count.has_value() &&
+        accepted_sample_count_ == std::numeric_limits<std::uint64_t>::max()) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "free-engine-frame-counter-overflow",
+                          "open-ended FreeEngine exhausted its uint64 physics "
+                          "clock"));
+    }
 
     const auto controls = control_cursor_.next();
     if (!controls.has_value() || controls->sample_index != accepted_sample_count_ ||
         controls->step_end_index != accepted_sample_count_ + 1U) {
-        return fail(fault(contract::FailureKind::contract_violation,
-                          "free-engine-control-step-disagreed",
-                          "free-engine load cursor lost the next contiguous physics "
-                          "step"));
+        const bool overflow = control_cursor_.clock_overflowed();
+        return fail(fault(
+            contract::FailureKind::contract_violation,
+            overflow ? "free-engine-frame-counter-overflow"
+                     : "free-engine-control-step-disagreed",
+            overflow
+                ? "open-ended FreeEngine control cursor exhausted its uint64 "
+                  "physics clock"
+                : "free-engine load cursor lost the next contiguous physics step"));
     }
 
     if (accepted_sample_count_ < release_frame_index_) {
@@ -570,7 +585,8 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     previous_indicated_gas_torque_nm_ = gas.indicated_gas_torque_nm;
     crank_state_ = motion.final_state;
     ++accepted_sample_count_;
-    if (accepted_sample_count_ == expected_sample_count_) {
+    if (terminal_sample_count.has_value() &&
+        accepted_sample_count_ == *terminal_sample_count) {
         terminal_completed_ = true;
     }
     return LowOrderFreeEngineV1StepView{std::cref(mechanics), std::cref(gas),

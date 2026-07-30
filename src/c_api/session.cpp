@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -106,6 +107,29 @@ namespace {
     }
 }
 
+[[nodiscard]] std::optional<EngineSessionExecutionKind>
+session_execution_kind(const eso_session_execution_kind_t input) noexcept {
+    switch (input) {
+    case ESO_SESSION_EXECUTION_FINITE_SCENARIO:
+        return EngineSessionExecutionKind::finite_scenario;
+    case ESO_SESSION_EXECUTION_OPEN_ENDED:
+        return EngineSessionExecutionKind::open_ended;
+    default:
+        return std::nullopt;
+    }
+}
+
+[[nodiscard]] eso_session_execution_kind_t
+session_execution_kind(const EngineSessionExecutionKind input) noexcept {
+    switch (input) {
+    case EngineSessionExecutionKind::finite_scenario:
+        return ESO_SESSION_EXECUTION_FINITE_SCENARIO;
+    case EngineSessionExecutionKind::open_ended:
+        return ESO_SESSION_EXECUTION_OPEN_ENDED;
+    }
+    return 0U;
+}
+
 [[nodiscard]] eso_status_t reject_control(eso_context &context,
                                           eso_control_rejection_t &output,
                                           const std::size_t command_index,
@@ -123,6 +147,7 @@ extern "C" {
 
 eso_status_t eso_create_session(eso_context_t *const context,
                                 const eso_scenario_handle_t scenario,
+                                const eso_session_execution_kind_t execution_kind,
                                 eso_session_handle_t *const out_session) noexcept {
     if (context == nullptr) {
         return ESO_STATUS_INVALID_ARGUMENT;
@@ -134,13 +159,20 @@ eso_status_t eso_create_session(eso_context_t *const context,
             return invalid_pointer(*context, "out_session must not be null");
         }
         *out_session = ESO_INVALID_HANDLE;
+        const auto requested_execution = session_execution_kind(execution_kind);
+        if (!requested_execution.has_value()) {
+            return set_error(
+                *context, ESO_STATUS_INVALID_ARGUMENT, ESO_ERROR_STAGE_ARGUMENT,
+                ESO_ERROR_INVALID_ENUM, "c-api-session-execution-kind-invalid",
+                "execution_kind must name finite-scenario or open-ended execution");
+        }
         const auto *compiled = context->scenarios.get(scenario);
         if (compiled == nullptr) {
             return invalid_handle(
                 *context, "compiled-scenario handle is stale, invalid, or wrong-kind");
         }
 
-        auto result = create_engine_session(*compiled);
+        auto result = create_engine_session(*compiled, *requested_execution);
         if (const auto *error = std::get_if<EngineSessionError>(&result)) {
             return set_session_error(*context, ESO_STATUS_SESSION_CREATE_FAILED,
                                      ESO_ERROR_STAGE_SESSION_CREATE, *error);
@@ -202,6 +234,7 @@ eso_session_get_descriptor(eso_context_t *const context,
             descriptor.live_control_capabilities,
             descriptor.engine_id.size(),
             descriptor.scenario_id.size(),
+            session_execution_kind(descriptor.execution_kind),
         };
         clear_error(*context);
         return ESO_STATUS_OK;
@@ -408,8 +441,10 @@ eso_status_t eso_session_process(eso_context_t *const context,
         }
 
         const auto descriptor = entry->session.descriptor();
-        const bool expects_block = !entry->terminal && entry->emitted_block_count <
-                                                           descriptor.total_block_count;
+        const bool expects_block =
+            !entry->terminal &&
+            (descriptor.execution_kind == EngineSessionExecutionKind::open_ended ||
+             entry->emitted_block_count < descriptor.total_block_count);
         if (expects_block) {
             for (std::size_t index = 0; index < audio_buffer_count; ++index) {
                 const auto &buffer = audio_buffers[index];

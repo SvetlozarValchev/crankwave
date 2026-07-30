@@ -3,6 +3,7 @@
 #include "engine_sim_offline/contract/engine.hpp"
 #include "engine_sim_offline/contract/parity_model.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
+#include "simulation/execution_extent.hpp"
 #include "simulation/low_order_capture_buffer.hpp"
 
 #include <cstddef>
@@ -32,7 +33,8 @@ struct LowOrderCapturePlan {
     std::string engine_profile_id;
     std::string scenario_id;
     detail::LowOrderCaptureBufferPlan capture_buffer;
-    std::uint64_t capture_horizon_frames = 0;
+    LowOrderExecutionExtent execution_extent =
+        LowOrderExecutionExtent::finite_scenario(0U);
     std::vector<contract::GasVolumeId> physical_gas_volume_ids;
     std::vector<LowOrderCylinderChamberCaptureBinding> cylinder_chambers;
 };
@@ -48,6 +50,7 @@ maximum_low_order_events_per_frame(std::size_t cylinder_count) noexcept;
 
 [[nodiscard]] LowOrderCapturePlanCompileResult
 compile_low_order_capture_plan(const contract::EngineSpec &engine,
-                               const contract::RenderScenario &scenario);
+                               const contract::RenderScenario &scenario,
+                               LowOrderExecutionExtent execution_extent);
 
 } // namespace engine_sim_offline::simulation

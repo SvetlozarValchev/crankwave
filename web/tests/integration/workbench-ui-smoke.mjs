@@ -16,6 +16,11 @@ function usage() {
   );
 }
 
+function uiDurationSeconds(value) {
+  const match = /^(\d+):(\d+(?:\.\d+)?)$/u.exec(value);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : Number.NaN;
+}
+
 async function waitUntil(operation, predicate, description, timeoutMs = 20_000) {
   const deadline = Date.now() + timeoutMs;
   let latest;
@@ -153,14 +158,19 @@ async function pageState(cdp) {
       worker: text("#worker-status"),
       build: text("#build-status"),
       session: text("#session-state"),
+      sessionSubtitle: text("#session-subtitle"),
       diagnostics: text("#diagnostics-list"),
       rpm: text("#rpm-value"),
+      elapsed: text("#elapsed-value"),
       throttle: document.querySelector("#throttle-output")?.value ?? "",
+      exportLabel: text("#export-button"),
       underruns: text("#underrun-value"),
       busCount: selected?.options?.length ?? 0,
       selectedBus: selected?.value ?? "",
       buildDisabled: document.querySelector("#build-button")?.disabled ?? true,
-      startDisabled: document.querySelector("#start-button")?.disabled ?? true
+      startDisabled: document.querySelector("#start-button")?.disabled ?? true,
+      restartDisabled:
+        document.querySelector("#restart-button")?.disabled ?? true
     };
   })()`);
 }
@@ -236,7 +246,7 @@ async function main() {
       (state) =>
         state.readyState === "complete" &&
         state.isolated &&
-        state.worker === "WASM ABI 1" &&
+        state.worker === "WASM ABI 2" &&
         !state.buildDisabled,
       "isolated workbench and WASM Worker",
     );
@@ -255,6 +265,8 @@ async function main() {
       "the compiled BMW workbench session",
     );
     assert.equal(built.selectedBus, "7");
+    assert.match(built.sessionSubtitle, /interactive bench/u);
+    assert.equal(built.exportLabel, "Export authored scenario WAV");
     assert.match(built.diagnostics, /No diagnostics reported/u);
 
     await cdp.evaluate(`(() => {
@@ -313,6 +325,9 @@ async function main() {
       const throttle = document.querySelector("#throttle-input");
       throttle.value = "20";
       throttle.dispatchEvent(new Event("input", { bubbles: true }));
+      const resistance = document.querySelector("#external-resistance-input");
+      resistance.value = "0";
+      resistance.dispatchEvent(new Event("input", { bubbles: true }));
       return true;
     })()`);
     await waitUntil(
@@ -320,8 +335,14 @@ async function main() {
       (state) => state.throttle === "20%",
       "the accepted 20% throttle command",
     );
-    await delay(500);
-    running = await pageState(cdp);
+    running = await waitUntil(
+      () => pageState(cdp),
+      (state) =>
+        state.session === "Running" &&
+        uiDurationSeconds(state.elapsed) >= 6,
+      "open-ended playback beyond the 5.5 second authored horizon",
+      15_000,
+    );
     assert.equal(running.throttle, "20%");
     assert.equal(running.underruns, "0");
 
@@ -332,6 +353,59 @@ async function main() {
       () => pageState(cdp),
       (state) => state.session === "Paused",
       "paused live session",
+    );
+    const paused = await pageState(cdp);
+    const pausedElapsed = uiDurationSeconds(paused.elapsed);
+    assert.ok(Number.isFinite(pausedElapsed) && pausedElapsed >= 6);
+    await delay(300);
+    assert.equal(
+      uiDurationSeconds((await pageState(cdp)).elapsed),
+      pausedElapsed,
+      "Stop advanced the paused session clock",
+    );
+
+    await cdp.evaluate(
+      `document.querySelector("#start-button").click(); true`,
+    );
+    const resumed = await waitUntil(
+      () => pageState(cdp),
+      (state) =>
+        state.session === "Running" &&
+        state.throttle === "20%" &&
+        uiDurationSeconds(state.elapsed) > pausedElapsed,
+      "resumed live session with retained state",
+    );
+    assert.equal(resumed.underruns, "0");
+
+    await cdp.evaluate(
+      `document.querySelector("#stop-button").click(); true`,
+    );
+    await waitUntil(
+      () => pageState(cdp),
+      (state) => state.session === "Paused" && !state.restartDisabled,
+      "second paused live session",
+    );
+    await cdp.evaluate(
+      `document.querySelector("#restart-button").click(); true`,
+    );
+    const restarted = await waitUntil(
+      () => pageState(cdp),
+      (state) =>
+        state.session === "Running" &&
+        state.throttle === "10%" &&
+        uiDurationSeconds(state.elapsed) < pausedElapsed,
+      "freshly restarted live session",
+      20_000,
+    );
+    assert.equal(restarted.underruns, "0");
+
+    await cdp.evaluate(
+      `document.querySelector("#stop-button").click(); true`,
+    );
+    await waitUntil(
+      () => pageState(cdp),
+      (state) => state.session === "Paused",
+      "paused restarted session",
     );
 
     const selectedRoute = await cdp.evaluate(`(() => {

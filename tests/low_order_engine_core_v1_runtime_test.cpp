@@ -96,13 +96,23 @@ random_plan(const test::AuthoredEngineFixture &request) {
     return test::compile_fixture_random_plan(request);
 }
 
+[[nodiscard]] simulation::LowOrderExecutionExtent
+finite_extent(const contract::RenderScenario &scenario) {
+    const auto frame_count = contract::resolve_frame_index(
+        scenario.total_duration_s.value, scenario.rates.physics);
+    expect(frame_count.has_value(),
+           "test scenario did not resolve to an integral physics horizon");
+    return simulation::LowOrderExecutionExtent::finite_scenario(*frame_count);
+}
+
 void test_prescribed_transaction_and_stable_completion(
     const test::AuthoredEngineFixture &canonical) {
     auto request = make_short_request(canonical);
     const auto &core = test::low_order_core(request.engine);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core, random_plan(request)));
-    expect(runtime.expected_sample_count() == kStepCount &&
+        request.engine, request.scenario, core, random_plan(request),
+        finite_extent(request.scenario)));
+    expect(runtime.execution_extent().finite_physics_frame_count() == kStepCount &&
                runtime.produced_sample_count() == 0U && !runtime.completed() &&
                !runtime.faulted(),
            "fresh composite runtime has the wrong bounded state");
@@ -154,7 +164,8 @@ void test_held_speed_reuses_core_without_aggregate_loss_policy(
     };
 
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, profile.core, random_plan(request)));
+        request.engine, request.scenario, profile.core, random_plan(request),
+        finite_extent(request.scenario)));
     auto result = runtime.advance();
     const auto *step = std::get_if<simulation::LowOrderEngineCoreV1StepView>(&result);
     expect(step != nullptr && step->mechanics.get().engine_speed_rpm == kRpm &&
@@ -172,7 +183,8 @@ void test_core_ignores_capture_transport_policy(
     request.scenario.quality.value.event_journal_capacity_records = 0U;
 
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core, random_plan(request)));
+        request.engine, request.scenario, core, random_plan(request),
+        finite_extent(request.scenario)));
     const auto result = runtime.advance();
     expect(std::holds_alternative<simulation::LowOrderEngineCoreV1StepView>(result),
            "capture transport policy leaked into the shared physics core");
@@ -183,7 +195,8 @@ void test_core_pairs_external_post_step_motion_with_the_same_gas_transaction(
     auto request = make_short_request(canonical);
     const auto &core = test::low_order_core(request.engine);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core, random_plan(request)));
+        request.engine, request.scenario, core, random_plan(request),
+        finite_extent(request.scenario)));
 
     constexpr double kExternalRpm = 1800.0;
     auto result = runtime.advance(simulation::PostStepCrankMotion{kExternalRpm, 0.017});
@@ -242,7 +255,8 @@ void test_canonical_authored_operating_profile_uses_limiter_disabled_core(
     }
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
         engine, scenario, operating.core,
-        test::compile_fixture_random_plan(canonical, engine, scenario)));
+        test::compile_fixture_random_plan(canonical, engine, scenario),
+        finite_extent(scenario)));
     auto result = runtime.advance();
     const auto *step = std::get_if<simulation::LowOrderEngineCoreV1StepView>(&result);
     expect(step != nullptr, "canonical authored operating core produced no first step");

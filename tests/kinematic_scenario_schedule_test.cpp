@@ -55,6 +55,15 @@ ScenarioControlSchedule require_control_schedule(ScenarioControlScheduleResult r
     return std::get<ScenarioControlSchedule>(std::move(result));
 }
 
+LowOrderExecutionExtent finite_extent(const RenderScenario &scenario) {
+    const auto frames =
+        resolve_frame_index(scenario.total_duration_s.value, scenario.rates.physics);
+    if (!frames.has_value()) {
+        throw std::runtime_error{"test scenario has no integral finite horizon"};
+    }
+    return LowOrderExecutionExtent::finite_scenario(*frames);
+}
+
 void expect_rejected(const RenderScenario &scenario, std::string_view path) {
     const auto result = compile_kinematic_scenario_schedule(scenario);
     const auto *report = std::get_if<ValidationReport>(&result);
@@ -281,10 +290,11 @@ void test_inertial_dyno_compiles_controls_without_a_fake_rpm_lane() {
                                  "dyno.brake_torque_method"),
     };
 
-    auto controls =
-        require_control_schedule(compile_scenario_control_schedule(fixture.scenario));
+    auto controls = require_control_schedule(compile_scenario_control_schedule(
+        fixture.scenario, finite_extent(fixture.scenario)));
+    const auto finite_frames = controls.execution_extent().finite_physics_frame_count();
     expect(controls.rate() == RationalRateHz{4, 1} &&
-               controls.first_step_index() == 0U && controls.sample_count() == 6U &&
+               controls.first_step_index() == 0U && finite_frames == 6U &&
                controls.initial_theta_rad() == 0.25,
            "inertial controls have the wrong fixed-rate extent or initial angle");
 
@@ -346,10 +356,11 @@ void configure_free_engine_control_schedule(ScheduleFixture &fixture) {
 void test_free_engine_control_schedule_exposes_external_resisting_torque() {
     ScheduleFixture fixture;
     configure_free_engine_control_schedule(fixture);
-    auto controls =
-        require_control_schedule(compile_scenario_control_schedule(fixture.scenario));
+    auto controls = require_control_schedule(compile_scenario_control_schedule(
+        fixture.scenario, finite_extent(fixture.scenario)));
+    const auto finite_frames = controls.execution_extent().finite_physics_frame_count();
     expect(controls.rate() == RationalRateHz{4, 1} &&
-               controls.first_step_index() == 0U && controls.sample_count() == 6U &&
+               controls.first_step_index() == 0U && finite_frames == 6U &&
                controls.initial_theta_rad() == 0.25,
            "free-engine controls have the wrong fixed-rate extent or initial angle");
 
@@ -399,9 +410,37 @@ void test_free_engine_control_schedule_exposes_external_resisting_torque() {
     configure_free_engine_control_schedule(invalid);
     std::get<FreeEngine>(invalid.scenario.mode)
         .external_resisting_torque_nm.interpolation = TrajectoryInterpolation::linear;
-    const auto rejected_controls = compile_scenario_control_schedule(invalid.scenario);
+    const auto rejected_controls = compile_scenario_control_schedule(
+        invalid.scenario, finite_extent(invalid.scenario));
     expect(std::holds_alternative<ValidationReport>(rejected_controls),
            "linear free-engine resisting torque was admitted as an RCH schedule");
+}
+
+void test_open_free_engine_holds_the_exact_release_snapshot() {
+    ScheduleFixture fixture;
+    configure_free_engine_control_schedule(fixture);
+    fixture.scenario.audible_start_s.value = 0.5;
+    auto controls = require_control_schedule(compile_scenario_control_schedule(
+        fixture.scenario, LowOrderExecutionExtent::open_ended()));
+    expect(controls.execution_extent().is_open_ended(),
+           "open FreeEngine controls were compiled as finite");
+
+    auto cursor = controls.fresh_cursor();
+    std::optional<ScheduledScenarioControls> latest;
+    for (std::uint64_t frame = 0; frame < 12U; ++frame) {
+        latest = cursor.next();
+        expect(latest.has_value() && latest->sample_index == frame,
+               "open FreeEngine cursor stopped at the authored horizon");
+        if (frame >= 2U) {
+            expect(latest->requested_throttle == 0.8 &&
+                       latest->external_resisting_torque_nm == 12.0 &&
+                       latest->operating_state.fuel_enabled,
+                   "open FreeEngine did not hold the exact release-frame RCH "
+                   "snapshot");
+        }
+    }
+    expect(!cursor.completed() && !cursor.clock_overflowed(),
+           "open FreeEngine cursor reported a finite terminal state");
 }
 
 void test_admission_rejections() {
@@ -471,6 +510,7 @@ void run_tests() {
     test_prescribed_sweep_behavior_is_preserved();
     test_inertial_dyno_compiles_controls_without_a_fake_rpm_lane();
     test_free_engine_control_schedule_exposes_external_resisting_torque();
+    test_open_free_engine_holds_the_exact_release_snapshot();
     test_admission_rejections();
 }
 

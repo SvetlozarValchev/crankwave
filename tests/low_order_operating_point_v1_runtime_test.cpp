@@ -44,6 +44,15 @@ struct Fixture {
     contract::Sha256Digest request_identity;
 };
 
+[[nodiscard]] simulation::LowOrderExecutionExtent
+finite_extent(const contract::RenderScenario &scenario) {
+    const auto frame_count = contract::resolve_frame_index(
+        scenario.total_duration_s.value, scenario.rates.physics);
+    expect(frame_count.has_value(),
+           "test scenario did not resolve to an integral physics horizon");
+    return simulation::LowOrderExecutionExtent::finite_scenario(*frame_count);
+}
+
 [[nodiscard]] Fixture fixture(const test::AuthoredEngineFixture &authored) {
     auto engine = authored.engine;
     const auto &profile = test::operating_profile(engine);
@@ -99,8 +108,8 @@ struct Fixture {
 }
 
 [[nodiscard]] simulation::LowOrderCapturePlan capture_plan(const Fixture &value) {
-    auto result =
-        simulation::compile_low_order_capture_plan(value.engine, value.scenario);
+    auto result = simulation::compile_low_order_capture_plan(
+        value.engine, value.scenario, finite_extent(value.scenario));
     const auto *plan = std::get_if<simulation::LowOrderCapturePlan>(&result);
     expect(plan != nullptr, "canonical operating capture plan was rejected");
     return *plan;
@@ -128,7 +137,8 @@ core_runtime(const Fixture &value) {
     const auto random_plan = test::compile_fixture_random_plan(
         *value.authored, value.engine, value.scenario);
     auto result = simulation::compile_low_order_engine_core_v1_runtime(
-        value.engine, value.scenario, profile.core, random_plan);
+        value.engine, value.scenario, profile.core, random_plan,
+        finite_extent(value.scenario));
     const auto *report = std::get_if<contract::ValidationReport>(&result);
     expect(report == nullptr, "canonical operating core was rejected");
     return std::get<simulation::LowOrderEngineCoreV1Runtime>(std::move(result));

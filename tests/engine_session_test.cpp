@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 #include <new>
 #include <span>
 #include <stdexcept>
@@ -104,8 +105,10 @@ wave_data(std::span<const std::byte> wave) {
 }
 
 [[nodiscard]] EngineSession
-require_session(const compile::CompiledScenario &scenario) {
-    auto result = create_engine_session(scenario);
+require_session(const compile::CompiledScenario &scenario,
+                const EngineSessionExecutionKind execution_kind =
+                    EngineSessionExecutionKind::finite_scenario) {
+    auto result = create_engine_session(scenario, execution_kind);
     if (const auto *error = std::get_if<EngineSessionError>(&result)) {
         throw std::runtime_error{"session creation failed: " +
                                  session_error_text(*error)};
@@ -196,6 +199,7 @@ void run(const std::filesystem::path &repository_root) {
             descriptor.preparation_block_count == 322U &&
             descriptor.audio_buses.size() == 8U &&
             descriptor.live_control_capabilities == kInertialDynoLiveControls &&
+            descriptor.execution_kind == EngineSessionExecutionKind::finite_scenario &&
             descriptor.capacities ==
                 compile::CompiledSessionCapacities{3840U, 3800U, 1U},
         "session descriptor differs from the compiled BMW contract");
@@ -254,6 +258,87 @@ void run(const std::filesystem::path &repository_root) {
     };
     gate::expect(!free_session.enqueue_controls(free_controls).has_value(),
                  "free-engine session rejected an advertised live control");
+
+    auto rejected_open_dyno =
+        create_engine_session(scenario, EngineSessionExecutionKind::open_ended);
+    gate::expect(std::holds_alternative<EngineSessionError>(rejected_open_dyno),
+                 "open-ended execution was admitted for a non-FreeEngine scenario");
+
+    auto open_free_session =
+        require_session(free_scenario, EngineSessionExecutionKind::open_ended);
+    const auto open_descriptor = open_free_session.descriptor();
+    gate::expect(
+        open_descriptor.execution_kind == EngineSessionExecutionKind::open_ended &&
+            open_descriptor.total_block_count == 0U &&
+            open_descriptor.preparation_block_count ==
+                free_descriptor.preparation_block_count &&
+            open_descriptor.live_control_capabilities == kFreeEngineLiveControls,
+        "open FreeEngine descriptor does not identify a continuous session");
+
+    const auto command_beyond_authored_horizon =
+        (free_descriptor.total_block_count + 10U) *
+        kEngineSessionDeliveryFramesPerBlock;
+    const EngineControlCommand open_future_command{
+        command_beyond_authored_horizon,
+        1U,
+        SetEngineThrottle{0.2},
+    };
+    gate::expect(
+        !open_free_session.enqueue_controls(std::span{&open_future_command, 1U})
+             .has_value(),
+        "open FreeEngine rejected a control beyond the authored recording horizon");
+
+    constexpr auto maximum_open_block_count =
+        std::numeric_limits<std::uint64_t>::max() /
+        kEngineSessionDeliveryFramesPerBlock;
+    constexpr auto maximum_open_delivery_end =
+        maximum_open_block_count * kEngineSessionDeliveryFramesPerBlock;
+    constexpr auto delivery_frames_spanning_one_physics_step =
+        (kEngineSessionDeliveryFramesPerBlock + kEngineSessionPhysicsFramesPerBlock -
+         1U) /
+        kEngineSessionPhysicsFramesPerBlock;
+    constexpr auto last_open_executable_delivery_frame =
+        maximum_open_delivery_end - delivery_frames_spanning_one_physics_step;
+    const EngineControlCommand last_open_executable_command{
+        last_open_executable_delivery_frame,
+        2U,
+        SetEngineThrottle{0.2},
+    };
+    gate::expect(
+        !open_free_session
+             .enqueue_controls(std::span{&last_open_executable_command, 1U})
+             .has_value(),
+        "open FreeEngine rejected its last causally executable control timestamp");
+    const EngineControlCommand first_open_unexecutable_command{
+        last_open_executable_delivery_frame + 1U,
+        3U,
+        SetEngineThrottle{0.2},
+    };
+    const auto open_clock_rejection = open_free_session.enqueue_controls(
+        std::span{&first_open_unexecutable_command, 1U});
+    gate::expect(open_clock_rejection.has_value() &&
+                     open_clock_rejection->code ==
+                         EngineControlRejectionCode::outside_session_horizon,
+                 "open FreeEngine accepted a control its block clock can never reach");
+
+    const auto open_block_count = free_descriptor.total_block_count + 12U;
+    for (std::uint64_t block_index = 0; block_index < open_block_count; ++block_index) {
+        auto open_result = open_free_session.process_block();
+        if (const auto *error = std::get_if<EngineSessionError>(&open_result)) {
+            throw std::runtime_error{"open FreeEngine session failed: " +
+                                     session_error_text(*error)};
+        }
+        gate::expect(std::holds_alternative<EngineSessionBlockView>(open_result),
+                     "open FreeEngine completed at the authored recording horizon");
+        const auto &block = std::get<EngineSessionBlockView>(open_result);
+        gate::expect(block.block_ordinal() == block_index,
+                     "open FreeEngine block clock became discontinuous");
+        if (block_index == open_descriptor.preparation_block_count + 30U) {
+            gate::expect(block.telemetry().front().engine.requested_throttle_01 == 0.1,
+                         "open FreeEngine executed the finite recipe's post-release "
+                         "free-rev trajectory");
+        }
+    }
 
     const auto oracle = gate::read_bytes(
         repository_root /
