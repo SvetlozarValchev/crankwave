@@ -196,10 +196,17 @@ template <class Id>
 
 [[nodiscard]] bool write_bank(CanonicalJsonWriter &writer,
                               const contract::BankSpec &bank) {
-    return writer.begin_object() && writer.key("id") &&
-           write_stable_id(writer, bank.id) && writer.key("semantic_id") &&
-           write_resolved(writer, bank.semantic_id, write_string) &&
-           writer.end_object();
+    if (!(writer.begin_object() && writer.key("id") &&
+          write_stable_id(writer, bank.id) && writer.key("semantic_id") &&
+          write_resolved(writer, bank.semantic_id, write_string))) {
+        return false;
+    }
+    if (bank.angle_rad.has_value() &&
+        !(writer.key("angle_rad") &&
+          write_resolved(writer, *bank.angle_rad, write_f64))) {
+        return false;
+    }
+    return writer.end_object();
 }
 
 [[nodiscard]] bool write_cylinder(CanonicalJsonWriter &writer,

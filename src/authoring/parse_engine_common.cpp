@@ -150,8 +150,8 @@ void parse_flow_restriction(DocumentReader &reader, JsonValue value,
         read_quantity_member(reader, value, "pressure_drop", path,
                              QuantityDimension::pressure, parsed.pressure_drop,
                              subject_value);
-        require_positive(reader, parsed.rated_flow, pointer_member(path, "rated_flow"),
-                         subject_value);
+        require_nonnegative(reader, parsed.rated_flow,
+                            pointer_member(path, "rated_flow"), subject_value);
         require_positive(reader, parsed.pressure_drop,
                          pointer_member(path, "pressure_drop"), subject_value);
         if (!parsed.rated_flow.standard) {

@@ -1130,12 +1130,39 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
         const auto path = resolved_path("banks", bank.semantic_id.value);
         bank_ids.insert(bank.id.value);
         validate_resolved(report, bank.semantic_id, provenance, path + ".semantic_id");
+        if (bank.angle_rad.has_value()) {
+            validate_resolved(report, *bank.angle_rad, provenance, path + ".angle_rad");
+            require(report, finite(bank.angle_rad->value),
+                    ContractIssueCode::invalid_value, path + ".angle_rad.value",
+                    "bank angle must be finite");
+        }
         require(report, is_valid_semantic_id(bank.semantic_id.value),
                 ContractIssueCode::invalid_value, path + ".semantic_id.value",
                 "bank semantic ID must be canonical");
         if (!bank_semantic_ids.insert(bank.semantic_id.value).second) {
             report.add(ContractIssueCode::duplicate_identity,
                        path + ".semantic_id.value", "bank semantic IDs must be unique");
+        }
+    }
+    if (spec.cylinder_layout.value == CylinderLayoutKind::inline_engine) {
+        require(report,
+                spec.banks.size() == 1U &&
+                    (!spec.banks.front().angle_rad.has_value() ||
+                     detail::nearly_equal(spec.banks.front().angle_rad->value, 0.0)),
+                ContractIssueCode::inconsistent_shape, "engine.banks",
+                "an inline engine requires one zero-angle bank");
+    } else if (spec.cylinder_layout.value == CylinderLayoutKind::vee_engine) {
+        const bool complete_angles = spec.banks.size() == 2U &&
+                                     spec.banks[0].angle_rad.has_value() &&
+                                     spec.banks[1].angle_rad.has_value();
+        require(report, complete_angles, ContractIssueCode::inconsistent_shape,
+                "engine.banks", "a V engine requires two banks with explicit angles");
+        if (complete_angles) {
+            require(report,
+                    !detail::nearly_equal(spec.banks[0].angle_rad->value,
+                                          spec.banks[1].angle_rad->value),
+                    ContractIssueCode::inconsistent_semantics, "engine.banks",
+                    "V-engine bank angles must be distinct");
         }
     }
 

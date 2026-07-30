@@ -1,7 +1,9 @@
 #include "legacy_mechanics_primitives.hpp"
 
+#include <bit>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 
 namespace engine_sim_offline::simulation {
 namespace {
@@ -90,6 +92,26 @@ double legacy_wrap_2pi(double value) noexcept {
 
 double legacy_wrap_4pi(double value) noexcept {
     return legacy_positive_mod(value, 4.0 * kLegacyPi);
+}
+
+LegacyDirectThrottleState evaluate_legacy_direct_throttle(
+    const double requested_throttle_01, const double gamma,
+    const double idle_throttle_plate_position_01) noexcept {
+    // Keep the already accepted BMW gamma-2 path numerically identical while
+    // allowing other authored engine-sim direct-linkage exponents.
+    const double exponentiated =
+        std::bit_cast<std::uint64_t>(gamma) ==
+                std::bit_cast<std::uint64_t>(2.0)
+            ? std::pow(requested_throttle_01, 2.0)
+            : std::pow(requested_throttle_01, gamma);
+    LegacyDirectThrottleState state;
+    state.resolved_engine_throttle_01 = 1.0 - exponentiated;
+    state.intake_plate_position_01 =
+        idle_throttle_plate_position_01 *
+        state.resolved_engine_throttle_01;
+    state.main_flow_multiplier_01 =
+        std::cos(kLegacyPi * state.intake_plate_position_01 / 2.0);
+    return state;
 }
 
 double legacy_triangle_sample(std::span<const LegacyTrianglePoint> points, double x,

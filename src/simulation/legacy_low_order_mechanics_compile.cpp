@@ -142,6 +142,16 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
             ContractIssueCode::invalid_value,
             "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
             "crank TDC reference must be finite");
+    const auto &intake = core.gas_path.intake;
+    require(report,
+            finite_positive(intake.throttle_gamma.value) &&
+                std::isfinite(intake.idle_throttle_plate_position_01.value) &&
+                intake.idle_throttle_plate_position_01.value >= 0.0 &&
+                intake.idle_throttle_plate_position_01.value <= 1.0,
+            ContractIssueCode::invalid_value,
+            "engine.physics_profile.gas_path.intake",
+            "direct throttle gamma must be finite and positive and the idle "
+            "plate position must be finite in [0,1]");
     require(report,
             core.mechanism.cylinders.size() == engine.cylinders.size() &&
                 !core.mechanism.cylinders.empty(),
@@ -287,6 +297,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
         std::move(cylinders),
         std::move(timing_curve),
         ignition.timing_curve_triangle_radius_rad_s.value,
+        intake.throttle_gamma.value,
+        intake.idle_throttle_plate_position_01.value,
         ignition.limiter_speed_rpm.value,
         ignition.limiter_hold_s.value,
         engine.methods.mechanism.value.id,

@@ -82,7 +82,8 @@ engine-spec = {
 
 bank-spec = {
   "id": stable-id,
-  "semantic_id": resolved<tstr>
+  "semantic_id": resolved<tstr>,
+  ? "angle_rad": resolved<f64-bits>
 }
 
 cylinder-spec = {

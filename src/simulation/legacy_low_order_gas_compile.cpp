@@ -21,9 +21,6 @@ using contract::ContractIssueCode;
 using contract::ValidationReport;
 
 constexpr double kLegacyBoundaryWorkVolumeM3 = 1000.0;
-constexpr double kLegacyIntakePlateMultiplier = 0.994;
-constexpr double kLegacyDeprecatedThrottleGamma = 2.0;
-
 struct AdmittedRoute {
     std::size_t public_route_index = 0;
     std::size_t collector_volume_index = 0;
@@ -341,19 +338,13 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             "intake volume, areas, runner length, and velocity decay are outside "
             "the admitted domain");
     require(report,
-            same_binary64(intake.idle_throttle_plate_position_01.value,
-                          kLegacyIntakePlateMultiplier),
-            ContractIssueCode::unsupported_value,
-            "engine.physics_profile.gas_path.intake."
-            "idle_throttle_plate_position_01.value",
-            "the composed mechanics/gas path currently admits the exact v1 0.994 "
-            "plate multiplier");
-    require(report,
-            same_binary64(intake.throttle_gamma.value, kLegacyDeprecatedThrottleGamma),
-            ContractIssueCode::unsupported_value,
-            "engine.physics_profile.gas_path.intake.throttle_gamma.value",
-            "legacy_low_order_v1 preserves the source-deprecated throttle gamma "
-            "datum at 2.0");
+            finite_positive(intake.throttle_gamma.value) &&
+                intake.idle_throttle_plate_position_01.value >= 0.0 &&
+                intake.idle_throttle_plate_position_01.value <= 1.0,
+            ContractIssueCode::invalid_value,
+            "engine.physics_profile.gas_path.intake",
+            "direct throttle gamma must be finite and positive and the idle "
+            "plate position must be finite in [0,1]");
     static_cast<void>(
         admit_restriction(intake.main_throttle, report,
                           "engine.physics_profile.gas_path.intake.main_throttle"));

@@ -84,7 +84,7 @@
       "additionalProperties": false,
       "required": ["value", "unit", "standard"],
       "properties": {
-        "value": { "type": "number", "exclusiveMinimum": 0 },
+        "value": { "type": "number", "minimum": 0 },
         "unit": { "type": "string", "minLength": 1, "maxLength": 32 },
         "standard": {
           "enum": ["carburetor_1p5_inhg", "port_28_inh2o"]

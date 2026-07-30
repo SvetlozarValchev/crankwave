@@ -465,6 +465,7 @@ inline EngineSpec make_engine(InputBuilder &builder) {
     spec.banks.push_back({
         BankId{1},
         builder.resolved(std::string{"bank-1"}, "engine.banks.bank-1.semantic_id"),
+        std::nullopt,
     });
     spec.cylinders.push_back({
         CylinderId{1},

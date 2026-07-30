@@ -452,6 +452,29 @@ void test_mechanics_accepts_compiled_held_speed_schedule() {
            "held-speed schedule changed while entering mechanics");
 }
 
+void test_mechanics_uses_authored_direct_throttle_transform() {
+    MechanicsFixture fixture;
+    auto &profile =
+        std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile);
+    profile.core.gas_path.intake.throttle_gamma.value = 1.65;
+    profile.core.gas_path.intake.idle_throttle_plate_position_01.value = 0.99715;
+
+    auto session = require_session(compile_fixture(fixture));
+    auto result = session.advance();
+    const auto &step = require_step(result);
+    const auto expected =
+        evaluate_legacy_direct_throttle(0.25, 1.65, 0.99715);
+    expect_near(step.resolved_engine_throttle_01,
+                expected.resolved_engine_throttle_01, 0.0,
+                "mechanics ignored the authored direct-throttle gamma");
+    expect_near(step.intake_plate_position_01,
+                expected.intake_plate_position_01, 0.0,
+                "mechanics ignored the authored idle plate position");
+    expect_near(step.main_flow_multiplier_01,
+                expected.main_flow_multiplier_01, 0.0,
+                "mechanics changed the authored intake flow attenuation");
+}
+
 void test_mechanics_accepts_external_post_step_motion_for_inertial_controls() {
     MechanicsFixture fixture;
     configure_inertial_controls(fixture);
@@ -655,6 +678,7 @@ void run_tests() {
     test_limiter_strict_threshold_and_timer_edges();
     test_mechanics_session_step_order_and_completion();
     test_mechanics_accepts_compiled_held_speed_schedule();
+    test_mechanics_uses_authored_direct_throttle_transform();
     test_mechanics_accepts_external_post_step_motion_for_inertial_controls();
     test_mechanics_uniform_limiter_disabled_policy();
     test_mechanics_applies_live_limiter_and_external_resistance();

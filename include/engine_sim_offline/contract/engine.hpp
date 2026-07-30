@@ -145,6 +145,9 @@ struct AuthoredEngineDefinition {
 struct BankSpec {
     BankId id;
     ResolvedValue<std::string> semantic_id;
+    // Inline bank angle is constrained to zero; layouts with geometric bank
+    // separation resolve each authored bank axis explicitly.
+    std::optional<ResolvedValue<double>> angle_rad;
 
     friend bool operator==(const BankSpec &, const BankSpec &) = default;
 };

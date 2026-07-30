@@ -16,8 +16,6 @@
 namespace engine_sim_offline::compile::detail::engine_resolution {
 namespace {
 
-constexpr double kLegacyIntakePlateMultiplier = 0.994;
-
 void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
          std::string path, std::string message) {
     authoring::Diagnostic value;
@@ -138,12 +136,13 @@ void admit_engine_physical_model(ModelContext &resolved,
                 "restriction");
         }
     };
-    if (!same_binary64(resolved.intake->idle_throttle_position_01,
-                       kLegacyIntakePlateMultiplier)) {
+    if (!std::isfinite(resolved.intake->idle_throttle_position_01) ||
+        resolved.intake->idle_throttle_position_01 < 0.0 ||
+        resolved.intake->idle_throttle_position_01 > 1.0) {
         add(report, DiagnosticCode::unsupported_capability,
             "/engine/intakes/0/idle_throttle_position_01",
-            "legacy_low_order_v1 currently admits the exact 0.994 idle plate "
-            "position only");
+            "legacy_low_order_v1 requires a finite idle throttle plate position "
+            "in [0,1]");
     }
     require_carb(resolved.intake->main_restriction,
                  "/engine/intakes/0/main_restriction");
@@ -226,10 +225,11 @@ void admit_engine_physical_model(ModelContext &resolved,
     std::unordered_set<std::string> used_rods;
     std::unordered_set<std::string> used_pistons;
     std::unordered_set<std::string> used_exhausts;
+    std::unordered_set<std::string> used_banks;
     for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
         const auto &cylinder = engine.cylinders[index];
         const auto path = pointer_index("/engine/cylinders", index);
-        if (cylinder.bank.value != resolved.bank->id.value ||
+        if (!resolved.banks.contains(cylinder.bank.value) ||
             cylinder.crankshaft.value != resolved.crankshaft->id.value ||
             cylinder.intake.value != resolved.intake->id.value ||
             (intake_port != nullptr &&
@@ -238,9 +238,10 @@ void admit_engine_physical_model(ModelContext &resolved,
              cylinder.exhaust_port.value != exhaust_port->id.value) ||
             cylinder.slave_journal.has_value()) {
             add(report, DiagnosticCode::unsupported_capability, path,
-                "every admitted cylinder must use the shared inline bank, crank, "
+                "every admitted cylinder must use a declared bank, the shared crank, "
                 "intake and head ports without a slave journal");
         }
+        used_banks.insert(cylinder.bank.value);
         used_journals.insert(cylinder.journal.value);
         used_rods.insert(cylinder.connecting_rod.value);
         used_pistons.insert(cylinder.piston.value);
@@ -259,13 +260,14 @@ void admit_engine_physical_model(ModelContext &resolved,
                 "each admitted cylinder requires a distinct ignition wire");
         }
     }
-    if (used_journals.size() != engine.journals.size() ||
+    if (used_banks.size() != engine.banks.size() ||
+        used_journals.size() != engine.journals.size() ||
         used_rods.size() != engine.connecting_rods.size() ||
         used_pistons.size() != engine.pistons.size() ||
         used_exhausts.size() != engine.exhausts.size()) {
         add(report, DiagnosticCode::disconnected_object, "/engine/cylinders",
-            "all declared journals, rods, pistons, and exhausts must be reachable "
-            "from the admitted cylinder order");
+            "all declared banks, journals, rods, pistons, and exhausts must be "
+            "reachable from the admitted cylinder order");
     }
 
     for (std::size_t index = 0; index < engine.source_routes.size(); ++index) {

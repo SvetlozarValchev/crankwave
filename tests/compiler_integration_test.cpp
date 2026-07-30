@@ -664,6 +664,53 @@ make_inline_twin_document(const SyntheticAssets &assets) {
     return package;
 }
 
+[[nodiscard]] authoring::EnginePackageDocument
+make_v_six_document(const SyntheticAssets &assets) {
+    auto package = make_engine_document(assets);
+    auto &engine = package.engine;
+    engine.identity.id.value = "fixture-v-six";
+    engine.identity.display_name = "Synthetic compiler integration V-six";
+    engine.layout = authoring::CylinderLayout::v_engine;
+
+    auto left_bank = engine.banks.front();
+    left_bank.id.value = "fixture-bank-left";
+    left_bank.angle = quantity(-45.0, "deg");
+    auto right_bank = left_bank;
+    right_bank.id.value = "fixture-bank-right";
+    right_bank.angle = quantity(45.0, "deg");
+    right_bank.bore = quantity(84.0, "mm");
+    right_bank.deck_height = quantity(220.0, "mm");
+    engine.banks = {std::move(left_bank), std::move(right_bank)};
+
+    constexpr std::array<std::size_t, kCylinderCount> shared_journal_indices{
+        1U, 1U, 3U, 3U, 5U, 5U,
+    };
+    for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
+        engine.cylinders[index].bank.value =
+            index % 2U == 0U ? "fixture-bank-left" : "fixture-bank-right";
+        engine.cylinders[index].journal.value =
+            indexed_id("fixture-journal-", shared_journal_indices[index]);
+    }
+    engine.crankshafts.front().journals = {
+        {"fixture-journal-1"},
+        {"fixture-journal-3"},
+        {"fixture-journal-5"},
+    };
+    engine.journals = {
+        engine.journals[0],
+        engine.journals[2],
+        engine.journals[4],
+    };
+    std::get<authoring::DirectThrottleController>(
+        engine.throttle_controllers->front().kind)
+        .gamma = 1.65;
+    engine.intakes.front().idle_throttle_position_01 = 0.99715;
+    std::get<authoring::FlowBenchRestriction>(
+        engine.intakes.front().idle_bypass_restriction)
+        .rated_flow.value = 0.0;
+    return package;
+}
+
 void reorder_harmless_collections(authoring::EnginePackageDocument &package) {
     std::ranges::reverse(package.engine.curves);
     std::ranges::reverse(package.engine.journals);
@@ -925,15 +972,13 @@ void test_complete_generic_compile_and_determinism() {
     const auto retained_rear =
         require_asset(first, compile::AssetKind::audio, "fixture-ir-rear");
     expect(std::ranges::equal(
-               require_asset(reordered, compile::AssetKind::audio,
-                             "fixture-ir-front")
+               require_asset(reordered, compile::AssetKind::audio, "fixture-ir-front")
                    .bytes,
                retained_front.bytes) &&
-               std::ranges::equal(
-                   require_asset(reordered, compile::AssetKind::audio,
-                                 "fixture-ir-rear")
-                       .bytes,
-                   retained_rear.bytes),
+               std::ranges::equal(require_asset(reordered, compile::AssetKind::audio,
+                                                "fixture-ir-rear")
+                                      .bytes,
+                                  retained_rear.bytes),
            "immutable compiled assets changed under harmless document reordering");
 }
 
@@ -953,12 +998,10 @@ void test_inline_twin_one_route_reaches_executable_boundary() {
         scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
     if (const auto *error =
             std::get_if<engine_sim_offline::EngineSessionError>(&created)) {
-        throw std::runtime_error{
-            "inline-twin one-route session creation failed: " +
-            error->detail_code + ": " + error->message};
+        throw std::runtime_error{"inline-twin one-route session creation failed: " +
+                                 error->detail_code + ": " + error->message};
     }
-    auto session =
-        std::get<engine_sim_offline::EngineSession>(std::move(created));
+    auto session = std::get<engine_sim_offline::EngineSession>(std::move(created));
     const auto descriptor = session.descriptor();
     expect(descriptor.audio_buses.size() == 5U &&
                descriptor.capacities.control_command_queue_capacity == 3800U,
@@ -976,9 +1019,8 @@ void test_inline_twin_one_route_reaches_executable_boundary() {
         }
         if (const auto *error =
                 std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
-            throw std::runtime_error{
-                "inline-twin session execution failed: " + error->detail_code +
-                ": " + error->message};
+            throw std::runtime_error{"inline-twin session execution failed: " +
+                                     error->detail_code + ": " + error->message};
         }
         const auto &completion =
             std::get<engine_sim_offline::EngineSessionCompleted>(result);
@@ -987,6 +1029,95 @@ void test_inline_twin_one_route_reaches_executable_boundary() {
                "inline-twin session did not execute its complete one-route horizon");
         break;
     }
+}
+
+void test_v_engine_resolves_bank_geometry_and_axis_relative_journals() {
+    const SyntheticAssets assets = make_assets();
+    const auto document = make_v_six_document(assets);
+    auto views = assets.views();
+    auto resolved =
+        require_value(compile_detail::resolve_engine_package(document, views),
+                      "V-six shared-head engine resolution failed");
+
+    expect(resolved.engine.cylinder_layout.value ==
+                   contract::CylinderLayoutKind::vee_engine &&
+               resolved.engine.banks.size() == 2U,
+           "V-six did not retain its public layout and two-bank topology");
+
+    const auto find_cylinder = [&](const std::string_view semantic_id) {
+        const auto found = std::ranges::find(
+            resolved.engine.cylinders, semantic_id,
+            [](const contract::CylinderSpec &cylinder) -> std::string_view {
+                return cylinder.semantic_id.value;
+            });
+        if (found == resolved.engine.cylinders.end()) {
+            throw std::runtime_error{"resolved V-six omitted cylinder"};
+        }
+        return &*found;
+    };
+    const auto find_mechanism_cylinder = [&](const contract::CylinderId id) {
+        const auto &physics = std::get<contract::LowOrderOperatingPointV1Profile>(
+            resolved.engine.physics_profile);
+        const auto found =
+            std::ranges::find(physics.core.mechanism.cylinders, id,
+                              [](const contract::LegacyCylinderAssembly &cylinder) {
+                                  return cylinder.topology.cylinder_id;
+                              });
+        if (found == physics.core.mechanism.cylinders.end()) {
+            throw std::runtime_error{"resolved V-six omitted mechanism cylinder"};
+        }
+        return &*found;
+    };
+
+    const auto *left = find_cylinder("fixture-cylinder-1");
+    const auto *right = find_cylinder("fixture-cylinder-2");
+    const auto *left_core = find_mechanism_cylinder(left->id);
+    const auto *right_core = find_mechanism_cylinder(right->id);
+    const auto &physics = std::get<contract::LowOrderOperatingPointV1Profile>(
+        resolved.engine.physics_profile);
+    constexpr double kLegacyDegreesToRadians = 3.14159265359 / 180.0;
+    const auto near = [](const double lhs, const double rhs) {
+        return std::abs(lhs - rhs) <= 1.0e-12;
+    };
+    expect(left->bank_id != right->bank_id &&
+               near(left->journal_phase_rad.value, 0.0) &&
+               near(right->journal_phase_rad.value, 0.0) &&
+               near(left->bore_m.value, 0.082) && near(right->bore_m.value, 0.084),
+           "V-six lost its raw shared-journal phase or per-bank bore geometry");
+    expect(near(left_core->parameters.journal_angle_rad.value,
+                45.0 * kLegacyDegreesToRadians) &&
+               near(right_core->parameters.journal_angle_rad.value,
+                    -45.0 * kLegacyDegreesToRadians) &&
+               near(left_core->parameters.deck_height_m.value, 0.218) &&
+               near(right_core->parameters.deck_height_m.value, 0.220),
+           "V-six core did not resolve raw journal phase minus bank angle");
+    expect(
+        near(physics.core.gas_path.intake.throttle_gamma.value, 1.65) &&
+            near(physics.core.gas_path.intake.idle_throttle_plate_position_01.value,
+                 0.99715) &&
+            near(physics.core.gas_path.intake.idle_bypass.source_rating.value, 0.0) &&
+            near(physics.core.gas_path.intake.idle_bypass.resolved_k.value, 0.0),
+        "V-six lost its authored direct throttle or closed idle bypass");
+
+    const auto journal_resolution = std::ranges::find(
+        resolved.provenance.resolutions,
+        "engine.physics.low-order-operating-point-v1.mechanism.cylinders."
+        "fixture-cylinder-1.journal_angle_rad",
+        &contract::ResolutionRecord::parameter_path);
+    expect(journal_resolution != resolved.provenance.resolutions.end() &&
+               journal_resolution->mode == contract::ResolutionMode::derived &&
+               journal_resolution->method.has_value() &&
+               journal_resolution->method->id ==
+                   "cylinder-axis-relative-journal-phase-v1" &&
+               journal_resolution->dependency_parameter_paths ==
+                   std::vector<std::string>{
+                       "engine.banks.fixture-bank-left.angle_rad",
+                       "engine.cylinders.fixture-cylinder-1.journal_phase_rad",
+                   },
+           "V-six effective journal phase lost its explicit derivation");
+
+    (void)require_value(compile::compile_engine(document, views),
+                        "public compiler rejected admitted V-six");
 }
 
 void test_asset_admission_is_exact_and_closed() {
@@ -1063,13 +1194,15 @@ void test_rig_compiles_to_immutable_si_descriptors() {
                rig.transmission->gears[2].runtime_id == 3U,
            "gear runtime IDs stopped using canonical stable-ID order");
     expect(std::ranges::any_of(
-               resolved.provenance.resolutions, [](const auto &resolution) {
+               resolved.provenance.resolutions,
+               [](const auto &resolution) {
                    return resolution.parameter_path ==
                           "rig.transmission.gears.gear-low.authored_ordinal";
                }),
            "authored gear order is absent from resolved provenance");
     expect(std::ranges::any_of(
-               resolved.provenance.resolutions, [](const auto &resolution) {
+               resolved.provenance.resolutions,
+               [](const auto &resolution) {
                    return resolution.parameter_path ==
                           "engine.physics.low-order-operating-point-v1."
                           "mechanism.crank.running_friction_torque_magnitude_nm";
@@ -1125,12 +1258,11 @@ void test_unsupported_capability_fails_closed() {
     }
     {
         auto document = make_engine_document(assets);
-        document.engine.layout = authoring::CylinderLayout::v_engine;
+        document.engine.layout = authoring::CylinderLayout::opposed;
         auto views = assets.views();
         const auto result = compile::compile_engine(document, views);
         require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
-                           "/engine/layout",
-                           "non-inline engine without executed bank-angle semantics");
+                           "/engine/layout", "unsupported opposed engine topology");
     }
 }
 
@@ -1161,6 +1293,7 @@ int main() {
     try {
         test_complete_generic_compile_and_determinism();
         test_inline_twin_one_route_reaches_executable_boundary();
+        test_v_engine_resolves_bank_geometry_and_axis_relative_journals();
         test_asset_admission_is_exact_and_closed();
         test_rig_compiles_to_immutable_si_descriptors();
         test_unsupported_capability_fails_closed();

@@ -413,6 +413,8 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
         *fixed_horizon_frame,
         simulation_request_identity_v3_sha256,
         std::move(conditions),
+        profile->core.gas_path.intake.throttle_gamma.value,
+        profile->core.gas_path.intake.idle_throttle_plate_position_01.value,
         "low-order-operating-point-v1",
         engine.profile_id.value,
         scenario.scenario_id,

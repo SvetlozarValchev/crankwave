@@ -261,15 +261,19 @@ LowOrderOperatingPointV1Runtime::LowOrderOperatingPointV1Runtime(
     TransactionShape transaction_shape,
     std::uint64_t fixed_preparation_horizon_frame_count,
     contract::Sha256Digest simulation_request_identity_v3_sha256,
-    contract::HeldSpeedOperatingPointConditions conditions, std::string model_id,
-    std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
+    contract::HeldSpeedOperatingPointConditions conditions,
+    double throttle_gamma, double idle_throttle_plate_position_01,
+    std::string model_id, std::string profile_id, std::string scenario_id,
+    contract::EngineId engine_id)
     : accountant_(std::move(accountant)), sampler_(std::move(sampler)),
       physical_gas_step_indices_(std::move(physical_gas_step_indices)),
       pressure_samples_(std::move(pressure_samples)),
       transaction_shape_(std::move(transaction_shape)),
       fixed_preparation_horizon_frame_count_(fixed_preparation_horizon_frame_count),
       simulation_request_identity_v3_sha256_(simulation_request_identity_v3_sha256),
-      conditions_(std::move(conditions)), model_id_(std::move(model_id)),
+      conditions_(std::move(conditions)), throttle_gamma_(throttle_gamma),
+      idle_throttle_plate_position_01_(idle_throttle_plate_position_01),
+      model_id_(std::move(model_id)),
       profile_id_(std::move(profile_id)), scenario_id_(std::move(scenario_id)),
       engine_id_(engine_id) {}
 
@@ -360,19 +364,19 @@ LowOrderOperatingPointV1Runtime::validate_transaction(
             "mechanics+gas transaction contains a nonfinite scalar", &mechanics);
     }
 
-    const double expected_resolved_engine_throttle_01 =
-        1.0 - std::pow(mechanics.requested_throttle_01, 2.0);
-    const double expected_intake_plate_position_01 =
-        0.994 * expected_resolved_engine_throttle_01;
-    const double expected_main_flow_multiplier_01 =
-        std::cos(kLegacyPi * expected_intake_plate_position_01 / 2.0);
+    const auto expected_throttle = evaluate_legacy_direct_throttle(
+        mechanics.requested_throttle_01, throttle_gamma_,
+        idle_throttle_plate_position_01_);
     const bool exact_effective_throttle =
         std::bit_cast<std::uint64_t>(mechanics.resolved_engine_throttle_01) ==
-            std::bit_cast<std::uint64_t>(expected_resolved_engine_throttle_01) &&
+            std::bit_cast<std::uint64_t>(
+                expected_throttle.resolved_engine_throttle_01) &&
         std::bit_cast<std::uint64_t>(mechanics.intake_plate_position_01) ==
-            std::bit_cast<std::uint64_t>(expected_intake_plate_position_01) &&
+            std::bit_cast<std::uint64_t>(
+                expected_throttle.intake_plate_position_01) &&
         std::bit_cast<std::uint64_t>(mechanics.main_flow_multiplier_01) ==
-            std::bit_cast<std::uint64_t>(expected_main_flow_multiplier_01);
+            std::bit_cast<std::uint64_t>(
+                expected_throttle.main_flow_multiplier_01);
     if (!exact_effective_throttle) {
         return fault(
             contract::FailureKind::contract_violation,

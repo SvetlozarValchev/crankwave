@@ -1146,6 +1146,10 @@ void validate_low_order_core_domains(ValidationReport &report,
             "mechanism.cylinders." + cylinder_name(engine, topology.cylinder_id);
         const auto *engine_cylinder =
             find_by_id(engine.cylinders, topology.cylinder_id, &CylinderSpec::id);
+        const auto *engine_bank =
+            engine_cylinder == nullptr
+                ? nullptr
+                : find_by_id(engine.banks, engine_cylinder->bank_id, &BankSpec::id);
         const auto *intake_port =
             find_by_id(engine.ports, topology.intake_port_id, &PortSpec::id);
         const auto *exhaust_port =
@@ -1290,6 +1294,10 @@ void validate_low_order_core_domains(ValidationReport &report,
                 "twice crank radius must equal stroke");
 
         if (engine_cylinder != nullptr) {
+            const double bank_angle_rad =
+                engine_bank != nullptr && engine_bank->angle_rad.has_value()
+                    ? engine_bank->angle_rad->value
+                    : 0.0;
             require(
                 report,
                 detail::nearly_equal(parameters.bore_m.value,
@@ -1300,11 +1308,13 @@ void validate_low_order_core_domains(ValidationReport &report,
                         parameters.connecting_rod_length_m.value,
                         engine_cylinder->connecting_rod_length_m.value) &&
                     detail::nearly_equal(parameters.journal_angle_rad.value,
-                                         engine_cylinder->journal_phase_rad.value) &&
+                                         engine_cylinder->journal_phase_rad.value -
+                                             bank_angle_rad) &&
                     detail::nearly_equal(parameters.ignition_wire_angle_rad.value,
                                          engine_cylinder->firing_tdc_offset_rad.value),
                 ContractIssueCode::inconsistent_semantics, path + ".parameters",
-                "legacy cylinder geometry and phases must agree with EngineSpec");
+                "legacy cylinder geometry and axis-relative phases must agree with "
+                "EngineSpec");
         }
 
         if (finite_positive(parameters.bore_m.value) &&

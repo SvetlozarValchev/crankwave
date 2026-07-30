@@ -13,6 +13,21 @@ inline constexpr double kLegacyRpmScale = 0.104719755;
 [[nodiscard]] double legacy_wrap_2pi(double value) noexcept;
 [[nodiscard]] double legacy_wrap_4pi(double value) noexcept;
 
+struct LegacyDirectThrottleState {
+    double resolved_engine_throttle_01 = 0.0;
+    double intake_plate_position_01 = 0.0;
+    double main_flow_multiplier_01 = 0.0;
+
+    friend bool operator==(const LegacyDirectThrottleState &,
+                           const LegacyDirectThrottleState &) = default;
+};
+
+// Matches engine-sim's DirectThrottleLinkage followed by Intake's throttle-plate
+// attenuation. Admission owns the finite/range checks for all three inputs.
+[[nodiscard]] LegacyDirectThrottleState evaluate_legacy_direct_throttle(
+    double requested_throttle_01, double gamma,
+    double idle_throttle_plate_position_01) noexcept;
+
 struct LegacyCylinderGeometry {
     double piston_area_m2 = 0.0;
     double tdc_mechanism_height_m = 0.0;

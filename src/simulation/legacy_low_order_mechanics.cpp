@@ -35,6 +35,7 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
     contract::RationalRateHz rate, double crank_tdc_reference_rad,
     double initial_theta_cycle_rad, std::vector<CylinderModel> cylinders,
     std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
+    double throttle_gamma, double idle_throttle_plate_position_01,
     double limiter_speed_rpm, double limiter_hold_s, std::string model_id,
     std::string profile_id, std::string scenario_id,
     contract::EngineId engine_id)
@@ -45,6 +46,8 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
       maximum_event_count_(cylinders_.size() + 1U),
       timing_curve_(std::move(timing_curve)),
       timing_curve_radius_rad_s_(timing_curve_radius_rad_s),
+      throttle_gamma_(throttle_gamma),
+      idle_throttle_plate_position_01_(idle_throttle_plate_position_01),
       limiter_speed_rpm_(limiter_speed_rpm), limiter_hold_s_(limiter_hold_s),
       model_id_(std::move(model_id)), profile_id_(std::move(profile_id)),
       scenario_id_(std::move(scenario_id)), engine_id_(engine_id),
@@ -233,11 +236,13 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
     step_.theta_cycle_rad = theta_cycle_rad_;
     step_.theta_unwrapped_rad = theta_unwrapped_rad_;
 
+    const auto throttle = evaluate_legacy_direct_throttle(
+        step_.requested_throttle_01, throttle_gamma_,
+        idle_throttle_plate_position_01_);
     step_.resolved_engine_throttle_01 =
-        1.0 - std::pow(step_.requested_throttle_01, 2.0);
-    step_.intake_plate_position_01 = 0.994 * step_.resolved_engine_throttle_01;
-    step_.main_flow_multiplier_01 =
-        std::cos(kLegacyPi * step_.intake_plate_position_01 / 2.0);
+        throttle.resolved_engine_throttle_01;
+    step_.intake_plate_position_01 = throttle.intake_plate_position_01;
+    step_.main_flow_multiplier_01 = throttle.main_flow_multiplier_01;
 
     filtered_engine_speed_rpm_ = filter_alpha_ * filtered_engine_speed_rpm_ +
                                  (1.0 - filter_alpha_) * step_.engine_speed_rpm;

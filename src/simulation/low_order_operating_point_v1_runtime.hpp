@@ -81,8 +81,10 @@ class LowOrderOperatingPointV1Runtime final {
         TransactionShape transaction_shape,
         std::uint64_t fixed_preparation_horizon_frame_count,
         contract::Sha256Digest simulation_request_identity_v3_sha256,
-        contract::HeldSpeedOperatingPointConditions conditions, std::string model_id,
-        std::string profile_id, std::string scenario_id, contract::EngineId engine_id);
+        contract::HeldSpeedOperatingPointConditions conditions,
+        double throttle_gamma, double idle_throttle_plate_position_01,
+        std::string model_id, std::string profile_id, std::string scenario_id,
+        contract::EngineId engine_id);
 
     [[nodiscard]] contract::FailureContext
     fault(contract::FailureKind kind, std::string detail_code,
@@ -108,6 +110,8 @@ class LowOrderOperatingPointV1Runtime final {
     std::uint64_t accepted_sample_count_ = 0;
     contract::Sha256Digest simulation_request_identity_v3_sha256_;
     contract::HeldSpeedOperatingPointConditions conditions_;
+    double throttle_gamma_ = 0.0;
+    double idle_throttle_plate_position_01_ = 0.0;
     std::string model_id_;
     std::string profile_id_;
     std::string scenario_id_;

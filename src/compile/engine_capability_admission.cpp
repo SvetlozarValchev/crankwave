@@ -85,9 +85,10 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         add(report, DiagnosticCode::unsupported_capability, "/engine/cycle",
             "legacy_low_order_v1 admits four-stroke engines only");
     }
-    if (engine.layout != authoring::CylinderLayout::inline_engine) {
+    if (engine.layout != authoring::CylinderLayout::inline_engine &&
+        engine.layout != authoring::CylinderLayout::v_engine) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/layout",
-            "the current executable topology admits inline engines only");
+            "the current executable topology admits inline and V engines only");
     }
     if (!contract::is_valid_semantic_id(engine.identity.id.value)) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/identity/id",
@@ -105,7 +106,13 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     };
     require_count(engine.crankshafts.size(), 1U, "/engine/crankshafts",
                   "engine crankshaft collection");
-    require_count(engine.banks.size(), 1U, "/engine/banks", "engine bank collection");
+    if (engine.layout == authoring::CylinderLayout::inline_engine) {
+        require_count(engine.banks.size(), 1U, "/engine/banks",
+                      "inline engine bank collection");
+    } else if (engine.layout == authoring::CylinderLayout::v_engine) {
+        require_count(engine.banks.size(), 2U, "/engine/banks",
+                      "V-engine bank collection");
+    }
     require_count(engine.intakes.size(), 1U, "/engine/intakes",
                   "engine intake collection");
     require_count(engine.heads.size(), 1U, "/engine/heads", "engine head collection");
@@ -128,7 +135,7 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         engine.ignition.firing_order.size() != engine.cylinders.size() ||
         document.presentation.cylinder_routes.size() != engine.cylinders.size()) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/cylinders",
-            "the admitted inline engine requires nonempty, equally sized cylinder, "
+            "the admitted engine requires nonempty, equally sized cylinder, "
             "wire, firing-event, and cylinder-presentation collections");
     }
     if (document.presentation.routes.size() != engine.source_routes.size()) {
@@ -200,7 +207,6 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     resolved.profile_id = engine.identity.id.value + "-low-order-operating-point-v1";
     resolved.calibration_id = engine.identity.id.value + "-presentation-v1";
     resolved.crankshaft = &engine.crankshafts.front();
-    resolved.bank = &engine.banks.front();
     resolved.head = &engine.heads.front();
     resolved.valvetrain = &engine.valvetrains.front();
     resolved.intake = &engine.intakes.front();
@@ -213,6 +219,8 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         }
     };
     index(resolved.curves, engine.curves,
+          [](const auto &value) { return value.id.value; });
+    index(resolved.banks, engine.banks,
           [](const auto &value) { return value.id.value; });
     index(resolved.journals, engine.journals,
           [](const auto &value) { return value.id.value; });
@@ -229,11 +237,26 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     index(resolved.source_routes, engine.source_routes,
           [](const auto &value) { return value.id.value; });
 
-    if (resolved.bank->head.value != resolved.head->id.value ||
-        !same_binary64(legacy_si_value(resolved.bank->angle), 0.0)) {
-        add(report, DiagnosticCode::unsupported_capability, "/engine/banks/0",
-            "the admitted inline bank must have zero angle and reference the sole "
-            "shared head");
+    for (std::size_t index = 0; index < engine.banks.size(); ++index) {
+        const auto &bank = engine.banks[index];
+        const double bank_angle_rad = legacy_si_value(bank.angle);
+        if (bank.head.value != resolved.head->id.value ||
+            !std::isfinite(bank_angle_rad) ||
+            (engine.layout == authoring::CylinderLayout::inline_engine &&
+             !same_binary64(bank_angle_rad, 0.0))) {
+            add(report, DiagnosticCode::unsupported_capability,
+                pointer_index("/engine/banks", index),
+                "every admitted bank must have a finite supported angle and "
+                "reference the sole shared head; an inline bank must have exact "
+                "zero angle");
+        }
+    }
+    if (engine.layout == authoring::CylinderLayout::v_engine &&
+        engine.banks.size() == 2U &&
+        legacy_si_value(engine.banks[0].angle) ==
+            legacy_si_value(engine.banks[1].angle)) {
+        add(report, DiagnosticCode::unsupported_capability, "/engine/banks",
+            "an admitted V engine requires two distinct bank angles");
     }
     if (resolved.head->valvetrain.value != resolved.valvetrain->id.value) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/heads/0",

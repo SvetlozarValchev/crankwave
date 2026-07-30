@@ -1,9 +1,7 @@
 #include "compile/engine_resolver_internal.hpp"
 
-#include <bit>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <limits>
 #include <optional>
 #include <ranges>
@@ -15,8 +13,6 @@
 namespace engine_sim_offline::compile::detail::engine_resolution {
 namespace {
 
-constexpr double kLegacyDirectThrottleGamma = 2.0;
-
 void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
          std::string path, std::string message) {
     authoring::Diagnostic value;
@@ -24,11 +20,6 @@ void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
     value.json_pointer = std::move(path);
     value.message = std::move(message);
     report.diagnostics.push_back(std::move(value));
-}
-
-[[nodiscard]] bool same_binary64(double left, double right) noexcept {
-    return std::bit_cast<std::uint64_t>(left) ==
-           std::bit_cast<std::uint64_t>(right);
 }
 
 [[nodiscard]] bool supported_curve_shape(
@@ -138,12 +129,12 @@ void admit_engine_operating_systems(ModelContext &resolved,
             &resolved.throttle_controller->kind);
         if (engine.throttle_controller->value !=
                 resolved.throttle_controller->id.value ||
-            direct == nullptr ||
-            !same_binary64(direct->gamma, kLegacyDirectThrottleGamma)) {
+            direct == nullptr || !std::isfinite(direct->gamma) ||
+            direct->gamma <= 0.0) {
             add(report, DiagnosticCode::unsupported_capability,
                 "/engine/throttle_controller",
-                "legacy_low_order_v1 admits the selected direct controller with "
-                "exact gamma 2.0 only");
+                "legacy_low_order_v1 requires a selected direct controller with "
+                "finite positive gamma");
         }
     }
     if (!std::holds_alternative<authoring::MechanicallyDisengagedStarter>(
