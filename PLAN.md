@@ -1,12 +1,12 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: complete — JSON authoring and interactive runtime cutover sealed
+Status: active — operating-bench parity after the JSON/runtime cutover
 
 Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-30
 
-Current checkpoint: **complete — checkpoints 1 through 10 sealed**
+Current checkpoint: **operating bench 1 — executable rig and control contract**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -406,11 +406,13 @@ the sound model, source set, tuning, or presentation.
 
 ## 7. After the cutover
 
-The prior M4--M9 sequence is retired. Remaining product work is reprioritized from the
-interactive JSON workbench:
+The prior M4--M9 sequence is retired. The first post-cutover milestone is the complete
+operating bench described in section 9. The two BMW inertial-dyno scenarios are
+regression fixtures for the accepted renderer; they are not a substitute for a free
+engine, dyno controller, drivetrain, or capture harness.
 
-- complete ordinary throttle application, lift, overrun, idle, limiter, startup, and
-  shutdown behavior as small vertical slices;
+After operating-bench parity:
+
 - add intake, mechanical, starter, and other source buses only with real implemented
   source models;
 - author Honda and Toyota JSON assets to prove alternate valvetrain, bank, firing, and
@@ -437,3 +439,62 @@ accepted; rejected experiments are removed rather than retained as alternate mod
 - Retain only deliberate fixtures and accepted artifacts; do not grow an anonymous
   multi-gigabyte artifact tree.
 - Record the exact output path and hash for every retained automated fixture.
+
+## 9. Operating-bench parity
+
+### 9.1 Product boundary
+
+Recreate the behavior of the real `engine-audio-lab` bench on this clean-room core,
+without importing its legacy ABI or simulator implementation. The behavioral oracle
+is:
+
+- manual ignition, momentary starter, throttle, dyno enable/hold/target/torque;
+- neutral and ordered forward gears, clutch engagement, service brake, and vehicle
+  response;
+- engine, dyno, clutch, gear, speed, and load telemetry;
+- named startup, idle, free-rev, loaded-pull, lift/overrun, limiter, and shutdown
+  procedures;
+- an unpaced bake that runs the same controls through the same session.
+
+The browser is a client of this contract. It must not synthesize RPM, vehicle motion,
+load, or dyno behavior in JavaScript.
+
+### 9.2 Motion ownership
+
+Each session has one explicit motion owner:
+
+| Mode | Caller controls | Runtime resolves |
+|---|---|---|
+| Free engine | throttle, ignition, starter, external resisting torque | crank RPM, torque, stall/idle/limiter state |
+| Free vehicle | throttle, ignition, starter, gear, clutch, brake | crank RPM, clutch torque/slip, vehicle speed and load |
+| Held dyno | throttle, target RPM, maximum absorbing/driving torque | dyno reaction, achieved RPM and engine state |
+| Inertial dyno | throttle and the declared passive brake/inertia protocol | crank RPM and target-crossing evidence |
+| External RPM follower | RPM trajectory and throttle | reaction torque and engine state |
+
+No mode may hide a prescribed pitch ramp behind a “natural” or “dyno” label.
+
+### 9.3 Vertical slices and commit boundaries
+
+1. Compile immutable rig, vehicle, transmission, dyno-default, and mode-control data
+   from the current JSON vocabulary. Remove any parsed-but-never-executable ambiguity.
+2. Implement neutral free-engine dynamics with live ignition, starter, throttle,
+   stall/idle, limiter, and external resisting load.
+3. Publish free-engine controls and telemetry through `EngineSession`, the C ABI, and
+   WASM. Stop for a BMW start/idle/free-rev listening checkpoint.
+4. Implement the bounded held-dyno controller with live target RPM and torque limit.
+   Run target-driven pull, lift, and ordinary overrun through it; stop for listening.
+5. Implement vehicle inertia and road load, transmission ratios, clutch torque/slip,
+   gears, and service brake. Stop for a neutral/launch/shift/fifth-gear pull check.
+6. Publish drivetrain controls and vehicle telemetry through the same native/WASM
+   boundary.
+7. Replace the current restart-only dyno button with the full operating bench and
+   named scenarios. The UI must capability-gate real backend functions, not infer them
+   from generic live-control support.
+8. Add unpaced capture procedures for crank, startup/catch, settled idle, loaded
+   rise, part load, coast fall, neutral limiter, limiter lift/recovery, and shutdown.
+9. Freeze the accepted procedures and recordings as the minimum operating regression
+   set before resuming fidelity experiments.
+
+Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
+and mastering unchanged. Listen immediately after the one intended behavior changes;
+do not stack later slices to excuse a bad result.
