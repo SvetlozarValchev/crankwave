@@ -116,11 +116,10 @@ double AdmittedPresentationRoute::wet_mix_01() const noexcept {
 
 AdmittedPresentationCalibration::AdmittedPresentationCalibration(
     PresentationMethodIdentities methods, RouteConditioningCalibration conditioning,
-    std::array<AdmittedPresentationRoute, route_count> routes,
+    std::vector<AdmittedPresentationRoute> routes,
     contract::ResolvedValue<double> publication_calibration_gain_linear,
-    std::array<contract::RouteId, route_count> audition_route_ids,
-    MasteringSettings mastering, std::uint64_t total_block_count,
-    std::uint64_t pre_audible_block_count)
+    std::vector<contract::RouteId> audition_route_ids, MasteringSettings mastering,
+    std::uint64_t total_block_count, std::uint64_t pre_audible_block_count)
     : methods_(std::move(methods)), conditioning_(conditioning),
       routes_(std::move(routes)), publication_calibration_gain_linear_(
                                       std::move(publication_calibration_gain_linear)),
@@ -138,10 +137,13 @@ AdmittedPresentationCalibration::conditioning() const noexcept {
     return conditioning_;
 }
 
-const std::array<AdmittedPresentationRoute,
-                 AdmittedPresentationCalibration::route_count> &
+std::span<const AdmittedPresentationRoute>
 AdmittedPresentationCalibration::routes() const noexcept {
     return routes_;
+}
+
+std::size_t AdmittedPresentationCalibration::route_count() const noexcept {
+    return routes_.size();
 }
 
 const contract::ResolvedValue<double> &
@@ -149,7 +151,7 @@ AdmittedPresentationCalibration::publication_calibration_gain_linear() const noe
     return publication_calibration_gain_linear_;
 }
 
-const std::array<contract::RouteId, AdmittedPresentationCalibration::route_count> &
+std::span<const contract::RouteId>
 AdmittedPresentationCalibration::audition_route_ids() const noexcept {
     return audition_route_ids_;
 }
@@ -343,55 +345,38 @@ struct PresentationCalibrationCompiler {
                 "scenario.audible_duration_s.value",
                 "audible horizon exceeds the exact Float32 WAVE publication limit");
 
-        require(
-            report,
-            engine.routes.size() == AdmittedPresentationCalibration::route_count,
-            ContractIssueCode::unsupported_value, "engine.routes",
-            "the executable presentation requires exactly two engine source routes");
-        if (engine.routes.size() == AdmittedPresentationCalibration::route_count) {
+        require(report, !engine.routes.empty(), ContractIssueCode::missing_value,
+                "engine.routes",
+                "the executable presentation requires at least one engine source "
+                "route");
+        for (std::size_t index = 0; index < engine.routes.size(); ++index) {
             require(report,
-                    engine.routes[0].id.valid() && engine.routes[1].id.valid() &&
-                        engine.routes[0].id != engine.routes[1].id,
-                    ContractIssueCode::invalid_value, "engine.routes",
-                    "engine presentation route IDs must be valid and distinct");
-            for (std::size_t index = 0; index < engine.routes.size(); ++index) {
-                require(report,
-                        engine.routes[index].kind.value ==
-                            contract::SourceRouteKind::exhaust_outlet,
-                        ContractIssueCode::unsupported_value,
-                        "engine.routes[" + std::to_string(index) + "].kind.value",
-                        "the executable presentation accepts exhaust routes only");
-            }
+                    engine.routes[index].kind.value ==
+                        contract::SourceRouteKind::exhaust_outlet,
+                    ContractIssueCode::unsupported_value,
+                    "engine.routes[" + std::to_string(index) + "].kind.value",
+                    "the executable presentation accepts exhaust routes only");
         }
 
-        require(report,
-                calibration.routes.size() ==
-                    AdmittedPresentationCalibration::route_count,
+        require(report, calibration.routes.size() == engine.routes.size(),
                 ContractIssueCode::unsupported_value, "presentation.routes",
-                "the executable presentation requires exactly two configured "
-                "routes");
-        if (calibration.routes.size() == AdmittedPresentationCalibration::route_count) {
+                "the executable presentation requires one configured route for "
+                "every engine source route");
+        for (std::size_t index = 0; index < calibration.routes.size(); ++index) {
+            const auto &route = calibration.routes[index];
+            const auto path = "presentation.routes[" + std::to_string(index) + "]";
             require(report,
-                    calibration.routes[0].route_id != calibration.routes[1].route_id,
-                    ContractIssueCode::duplicate_identity,
-                    "presentation.routes[1].route_id",
-                    "configured presentation route IDs must be distinct");
-            for (std::size_t index = 0; index < calibration.routes.size(); ++index) {
-                const auto &route = calibration.routes[index];
-                const auto path = "presentation.routes[" + std::to_string(index) + "]";
-                require(report,
-                        canonical_nonnegative(route.impulse_response_gain_linear.value),
-                        ContractIssueCode::invalid_value,
-                        path + ".impulse_response_gain_linear.value",
-                        "impulse-response gain must be finite, nonnegative, and use "
-                        "canonical positive zero");
-                require(report, canonical_unit_interval(route.wet_mix_01.value),
-                        ContractIssueCode::invalid_value, path + ".wet_mix_01.value",
-                        "wet mix must be finite in [0, 1] and use canonical positive "
-                        "zero");
-            }
+                    canonical_nonnegative(route.impulse_response_gain_linear.value),
+                    ContractIssueCode::invalid_value,
+                    path + ".impulse_response_gain_linear.value",
+                    "impulse-response gain must be finite, nonnegative, and use "
+                    "canonical positive zero");
+            require(report, canonical_unit_interval(route.wet_mix_01.value),
+                    ContractIssueCode::invalid_value, path + ".wet_mix_01.value",
+                    "wet mix must be finite in [0, 1] and use canonical positive "
+                    "zero");
         }
-        if (engine.routes.size() == AdmittedPresentationCalibration::route_count) {
+        if (calibration.routes.size() == engine.routes.size()) {
             for (std::size_t index = 0; index < engine.routes.size(); ++index) {
                 require(report,
                         find_configured_route(calibration, engine.routes[index].id) !=
@@ -411,19 +396,11 @@ struct PresentationCalibrationCompiler {
 
         require(report,
                 calibration.audition.selected_routes.value.size() ==
-                    AdmittedPresentationCalibration::route_count,
+                    engine.routes.size(),
                 ContractIssueCode::unsupported_value,
                 "presentation.audition.selected_routes.value",
-                "the executable audition mix requires exactly two ordered routes");
-        if (calibration.audition.selected_routes.value.size() ==
-            AdmittedPresentationCalibration::route_count) {
-            require(report,
-                    calibration.audition.selected_routes.value[0] !=
-                        calibration.audition.selected_routes.value[1],
-                    ContractIssueCode::duplicate_identity,
-                    "presentation.audition.selected_routes.value[1]",
-                    "ordered audition routes must be distinct");
-        }
+                "the executable audition mix requires every rendered route in "
+                "deterministic arithmetic order");
 
         const RouteConditioningCalibration conditioning{
             calibration.conditioning.jitter_scale.value,
@@ -501,30 +478,15 @@ struct PresentationCalibrationCompiler {
             };
         }
 
-        const auto *route_0 = find_configured_route(calibration, engine.routes[0].id);
-        const auto *route_1 = find_configured_route(calibration, engine.routes[1].id);
-        std::array<AdmittedPresentationRoute,
-                   AdmittedPresentationCalibration::route_count>
-            routes{
-                AdmittedPresentationRoute{
-                    route_0->route_id,
-                    route_0->impulse_response_asset_id,
-                    route_0->impulse_response_gain_linear,
-                    route_0->wet_mix_01.value,
-                },
-                AdmittedPresentationRoute{
-                    route_1->route_id,
-                    route_1->impulse_response_asset_id,
-                    route_1->impulse_response_gain_linear,
-                    route_1->wet_mix_01.value,
-                },
-            };
-        const std::array<contract::RouteId,
-                         AdmittedPresentationCalibration::route_count>
-            audition_routes{
-                calibration.audition.selected_routes.value[0],
-                calibration.audition.selected_routes.value[1],
-            };
+        std::vector<AdmittedPresentationRoute> routes;
+        routes.reserve(engine.routes.size());
+        for (const auto &engine_route : engine.routes) {
+            const auto *route = find_configured_route(calibration, engine_route.id);
+            routes.push_back(AdmittedPresentationRoute{
+                route->route_id, route->impulse_response_asset_id,
+                route->impulse_response_gain_linear, route->wet_mix_01.value});
+        }
+        auto audition_routes = calibration.audition.selected_routes.value;
         return AdmittedPresentationCalibration{
             implemented_presentation_method_identities(),
             conditioning,

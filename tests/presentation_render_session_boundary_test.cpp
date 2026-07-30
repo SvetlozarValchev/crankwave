@@ -25,23 +25,26 @@ namespace {
 using namespace engine_sim_offline;
 using namespace engine_sim_offline::presentation;
 
-constexpr presentation::ExhaustSourceRouteIds kSyntheticRouteIds{
+constexpr std::array<contract::RouteId, 3> kSyntheticRouteIds{
     contract::RouteId{1},
     contract::RouteId{2},
+    contract::RouteId{3},
 };
 
-constexpr std::array<presentation::RouteConditioningSeeds,
-                     presentation::kExhaustExcitationRouteCount>
-    kSyntheticSeeds{
-        presentation::RouteConditioningSeeds{
-            {UINT64_C(0x9e2b91cd0dc51cfc), UINT64_C(0x1ae6ee3019603abb)},
-            {UINT64_C(0x75bc579d4c90a640), UINT64_C(0x7e4ef6200e7c70c1)},
-        },
-        presentation::RouteConditioningSeeds{
-            {UINT64_C(0xdb7540a0c8b54d74), UINT64_C(0x41ddcdeb066bf214)},
-            {UINT64_C(0x208e57f73615bd95), UINT64_C(0x786d92e584c43b78)},
-        },
-    };
+constexpr std::array<presentation::RouteConditioningSeeds, 3> kSyntheticSeeds{
+    presentation::RouteConditioningSeeds{
+        {UINT64_C(0x9e2b91cd0dc51cfc), UINT64_C(0x1ae6ee3019603abb)},
+        {UINT64_C(0x75bc579d4c90a640), UINT64_C(0x7e4ef6200e7c70c1)},
+    },
+    presentation::RouteConditioningSeeds{
+        {UINT64_C(0xdb7540a0c8b54d74), UINT64_C(0x41ddcdeb066bf214)},
+        {UINT64_C(0x208e57f73615bd95), UINT64_C(0x786d92e584c43b78)},
+    },
+    presentation::RouteConditioningSeeds{
+        {UINT64_C(0x88f17c7c2d60e87b), UINT64_C(0x6fd4c7602345b719)},
+        {UINT64_C(0xa54ff53a5f1d36f1), UINT64_C(0x3c6ef372fe94f82b)},
+    },
+};
 constexpr presentation::RouteConditioningCalibration kSyntheticConditioning{
     0.5, 10000.0, std::bit_cast<double>(UINT64_C(0x3f847ae140000000)), 1.0, 2000.0,
 };
@@ -164,12 +167,14 @@ class RecordingSink final : public RenderSink {
     }
 };
 
-[[nodiscard]] PresentationRenderPlan
-make_plan(const std::shared_ptr<const dsp::FixedConvolutionKernel> &route_0_ir,
-          const std::shared_ptr<const dsp::FixedConvolutionKernel> &route_1_ir,
-          std::uint64_t total_block_count = 850,
-          std::uint64_t pre_audible_block_count = 100,
-          std::array<double, kExhaustExcitationRouteCount> wet_mix_01 = {1.0, 1.0}) {
+[[nodiscard]] PresentationRenderPlan make_plan_for_routes(
+    std::vector<std::shared_ptr<const dsp::FixedConvolutionKernel>> route_irs,
+    std::uint64_t total_block_count, std::uint64_t pre_audible_block_count,
+    std::vector<double> wet_mix_01) {
+    if (route_irs.empty() || route_irs.size() > kSyntheticRouteIds.size() ||
+        route_irs.size() != wet_mix_01.size()) {
+        throw std::invalid_argument{"invalid synthetic route plan"};
+    }
     contract::OutputContract output_contract;
     output_contract.source_matrix_id = "test.synthetic.presentation-session-boundary";
     output_contract.distribution = contract::DistributionIntent::local_evaluation;
@@ -191,7 +196,8 @@ make_plan(const std::shared_ptr<const dsp::FixedConvolutionKernel> &route_0_ir,
         "pcm_s24le",
     };
 
-    std::array<PendingArtifact, kPresentationAudioArtifactCount> audio_artifacts;
+    std::vector<PendingArtifact> audio_artifacts(
+        presentation_audio_artifact_count(route_irs.size()));
     for (std::size_t index = 0; index < audio_artifacts.size(); ++index) {
         const auto role = "test.synthetic.audio." + std::to_string(index);
         const auto path = "audio/synthetic-" + std::to_string(index) + ".wav";
@@ -207,32 +213,50 @@ make_plan(const std::shared_ptr<const dsp::FixedConvolutionKernel> &route_0_ir,
             false,
         });
     }
-    output_contract.required_source_routes = {
-        {
-            "test.synthetic.exhaust.0",
+    std::vector<PresentationRouteRenderPlan> routes;
+    routes.reserve(route_irs.size());
+    std::vector<contract::RouteId> audition_route_ids;
+    audition_route_ids.reserve(route_irs.size());
+    for (std::size_t route = 0; route < route_irs.size(); ++route) {
+        const auto base = route * kPresentationArtifactsPerRoute;
+        const auto semantic_id = "test.synthetic.exhaust." + std::to_string(route);
+        output_contract.required_source_routes.push_back({
+            semantic_id,
             contract::SourceRouteKind::exhaust_outlet,
             contract::RouteDisposition::rendered,
             "",
-            {audio_artifacts[0].role, audio_artifacts[1].role, audio_artifacts[2].role},
-        },
-        {
-            "test.synthetic.exhaust.1",
-            contract::SourceRouteKind::exhaust_outlet,
-            contract::RouteDisposition::rendered,
-            "",
-            {audio_artifacts[3].role, audio_artifacts[4].role, audio_artifacts[5].role},
-        },
-    };
+            {
+                audio_artifacts[base].role,
+                audio_artifacts[base + 1].role,
+                audio_artifacts[base + 2].role,
+            },
+        });
+        routes.push_back({
+            kSyntheticRouteIds[route],
+            semantic_id,
+            kSyntheticSeeds[route],
+            std::move(route_irs[route]),
+            wet_mix_01[route],
+            {
+                audio_artifacts[base],
+                audio_artifacts[base + 1],
+                audio_artifacts[base + 2],
+            },
+        });
+        audition_route_ids.push_back(kSyntheticRouteIds[route]);
+    }
+    const auto raw_master = route_irs.size() * kPresentationArtifactsPerRoute;
+    const auto audition_master = raw_master + 1;
     output_contract.required_output_buses = {
         {
             "test.synthetic.master.raw",
             contract::OutputBusKind::master_engine_raw,
-            {audio_artifacts[6].role},
+            {audio_artifacts[raw_master].role},
         },
         {
             "test.synthetic.master.audition",
             contract::OutputBusKind::master_engine_audition,
-            {audio_artifacts[7].role},
+            {audio_artifacts[audition_master].role},
         },
     };
 
@@ -244,34 +268,28 @@ make_plan(const std::shared_ptr<const dsp::FixedConvolutionKernel> &route_0_ir,
          PresentationTailPolicy::truncate_at_timeline_end},
         implemented_presentation_method_identities(),
         kSyntheticConditioning,
-        {{
-            {
-                kSyntheticRouteIds[0],
-                "test.synthetic.exhaust.0",
-                kSyntheticSeeds[0],
-                route_0_ir,
-                wet_mix_01[0],
-                {audio_artifacts[0], audio_artifacts[1], audio_artifacts[2]},
-            },
-            {
-                kSyntheticRouteIds[1],
-                "test.synthetic.exhaust.1",
-                kSyntheticSeeds[1],
-                route_1_ir,
-                wet_mix_01[1],
-                {audio_artifacts[3], audio_artifacts[4], audio_artifacts[5]},
-            },
-        }},
+        std::move(routes),
         dsp::kSourcePublicationCalibration,
         {
-            kSyntheticRouteIds,
+            std::move(audition_route_ids),
             MasteringSettings{audible_frame_count, fade_frame_count, fade_frame_count,
                               128.0F},
             {"Synthetic presentation session", "Synthetic render", "test-suite"},
-            audio_artifacts[6],
-            audio_artifacts[7],
+            audio_artifacts[raw_master],
+            audio_artifacts[audition_master],
         },
     };
+}
+
+[[nodiscard]] PresentationRenderPlan
+make_plan(const std::shared_ptr<const dsp::FixedConvolutionKernel> &route_0_ir,
+          const std::shared_ptr<const dsp::FixedConvolutionKernel> &route_1_ir,
+          std::uint64_t total_block_count = 850,
+          std::uint64_t pre_audible_block_count = 100,
+          std::array<double, 2> wet_mix_01 = {1.0, 1.0}) {
+    std::vector<double> wet_mixes(wet_mix_01.begin(), wet_mix_01.end());
+    return make_plan_for_routes({route_0_ir, route_1_ir}, total_block_count,
+                                pre_audible_block_count, std::move(wet_mixes));
 }
 
 [[nodiscard]] std::shared_ptr<const dsp::FixedConvolutionKernel>
@@ -289,29 +307,35 @@ make_synthetic_kernel(std::uint32_t initial_state = UINT32_C(0x6a09e667)) {
                                                                std::move(fft_plan));
 }
 
-void fill_block(std::array<presentation::ExhaustExcitationFrame,
-                           presentation::kExcitationFramesPerMethodBlock> &frames,
-                std::uint64_t block_ordinal) {
-    for (std::size_t frame = 0; frame < frames.size(); ++frame) {
-        const auto global = block_ordinal * frames.size() + frame;
-        for (std::size_t route = 0; route < kExhaustExcitationRouteCount; ++route) {
+struct SyntheticExcitationBlock {
+    explicit SyntheticExcitationBlock(std::size_t route_count = 2)
+        : route_ids(kSyntheticRouteIds.begin(),
+                    kSyntheticRouteIds.begin() +
+                        static_cast<std::ptrdiff_t>(route_count)),
+          values(kExcitationFramesPerMethodBlock * route_count) {}
+
+    std::vector<contract::RouteId> route_ids;
+    std::vector<double> values;
+};
+
+void fill_block(SyntheticExcitationBlock &block, std::uint64_t block_ordinal) {
+    for (std::size_t frame = 0; frame < kExcitationFramesPerMethodBlock; ++frame) {
+        const auto global = block_ordinal * kExcitationFramesPerMethodBlock + frame;
+        for (std::size_t route = 0; route < block.route_ids.size(); ++route) {
             const auto code =
                 static_cast<std::int64_t>((global + 1) * (route + 3) % 29) - 14;
-            frames[frame].route_values_engine_sim_source_unit[route] =
+            block.values[frame * block.route_ids.size() + route] =
                 static_cast<double>(code) * 0.125;
         }
     }
 }
 
 [[nodiscard]] presentation::ExhaustExcitationBlockView
-make_block(std::array<presentation::ExhaustExcitationFrame,
-                      presentation::kExcitationFramesPerMethodBlock> &frames,
-           std::uint64_t first_frame_index = 0,
-           contract::RationalRateHz sample_rate = presentation::kExcitationRateHz,
-           std::array<contract::RouteId, presentation::kExhaustExcitationRouteCount>
-               route_ids = kSyntheticRouteIds) {
+make_block(SyntheticExcitationBlock &block, std::uint64_t first_frame_index = 0,
+           contract::RationalRateHz sample_rate = presentation::kExcitationRateHz) {
     return presentation::ExhaustExcitationBlockView::borrow_for_callback(
-        first_frame_index, sample_rate, route_ids, frames);
+        first_frame_index, sample_rate, block.route_ids,
+        kExcitationFramesPerMethodBlock, block.values);
 }
 
 void test_failed_begin_does_not_abort_or_write(
@@ -337,9 +361,7 @@ void test_invalid_first_block_aborts_once(
     const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel,
     bool use_wrong_rate) {
     RecordingSink sink;
-    std::array<presentation::ExhaustExcitationFrame,
-               presentation::kExcitationFramesPerMethodBlock>
-        frames{};
+    SyntheticExcitationBlock frames;
 
     {
         PresentationRenderSession session{sink, make_plan(kernel, kernel)};
@@ -355,13 +377,9 @@ void test_invalid_first_block_aborts_once(
                 },
                 "presentation session accepted the wrong first-block sample rate");
         } else {
-            auto routes = kSyntheticRouteIds;
-            std::swap(routes[0], routes[1]);
+            std::swap(frames.route_ids[0], frames.route_ids[1]);
             expect_throw<std::invalid_argument>(
-                [&] {
-                    session.process(
-                        make_block(frames, 0, presentation::kExcitationRateHz, routes));
-                },
+                [&] { session.process(make_block(frames)); },
                 "presentation session accepted swapped first-block routes");
         }
 
@@ -386,8 +404,7 @@ void test_rejected_first_declaration_aborts_constructor_once(
     };
     expect_sink_failure(
         [&] { PresentationRenderSession session{sink, make_plan(kernel, kernel)}; },
-        expected,
-        "presentation session construction accepted a rejected declaration");
+        expected, "presentation session construction accepted a rejected declaration");
     expect(sink.begin_calls == 1 && sink.declarations.size() == 1 &&
                sink.writes.empty() && sink.seals.empty() && sink.commit_calls == 0 &&
                sink.abort_calls == 1,
@@ -417,7 +434,7 @@ void test_destructor_aborts_successful_construction_once(
     {
         PresentationRenderSession session{sink, make_plan(kernel, kernel)};
         expect(sink.begin_calls == 1 &&
-                   sink.declarations.size() == kPresentationAudioArtifactCount &&
+                   sink.declarations.size() == presentation_audio_artifact_count(2) &&
                    !sink.writes.empty() && sink.seals.empty() &&
                    sink.commit_calls == 0 && sink.abort_calls == 0,
                "active presentation session had an invalid initial sink lifecycle");
@@ -441,7 +458,7 @@ void test_rejected_first_header_write_aborts_constructor_once(
         expected,
         "presentation session construction accepted a rejected first WAVE header");
     expect(sink.begin_calls == 1 &&
-               sink.declarations.size() == kPresentationAudioArtifactCount &&
+               sink.declarations.size() == presentation_audio_artifact_count(2) &&
                sink.writes.size() == 1 && sink.seals.empty() &&
                sink.commit_calls == 0 && sink.abort_calls == 1,
            "rejected first WAVE header leaked or multiply aborted its transaction");
@@ -460,7 +477,7 @@ void test_rejected_payload_write_preserves_sink_error(
         };
         sink.next_write_error = expected;
 
-        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
+        SyntheticExcitationBlock frames;
         fill_block(frames, 0);
         expect_sink_failure(
             [&] { session.process(make_block(frames)); }, expected,
@@ -481,7 +498,7 @@ void test_manifest_evidence_mismatch_aborts_before_commit(
     const auto plan = make_plan(kernel, kernel, 1, 0);
     {
         PresentationRenderSession session{sink, plan};
-        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
+        SyntheticExcitationBlock frames;
         fill_block(frames, 0);
         session.process(make_block(frames));
         const auto evidence = session.finish();
@@ -512,7 +529,7 @@ void test_complete_evidence_rejects_incomplete_manifest_before_commit(
     const auto plan = make_plan(kernel, kernel, 1, 0);
     {
         PresentationRenderSession session{sink, plan};
-        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
+        SyntheticExcitationBlock frames;
         fill_block(frames, 0);
         session.process(make_block(frames));
         const auto evidence = session.finish();
@@ -543,7 +560,7 @@ void test_variable_timeline_and_route_settings(
     {
         PresentationRenderSession session{
             sink, make_plan(kernel, alternate_kernel, 3, 1, {0.0, 1.0})};
-        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
+        SyntheticExcitationBlock frames;
         for (std::uint64_t block = 0; block < 3; ++block) {
             fill_block(frames, block);
             session.process(
@@ -551,17 +568,16 @@ void test_variable_timeline_and_route_settings(
         }
 
         const auto evidence = session.finish();
-        constexpr std::array<std::string_view, kPresentationAudioArtifactCount>
-            expected_sha256{
-                "8b5dd66b5b6d7942d4ff11d0d2b7d640bea0d9fc284607463bc8e776c08d86f0",
-                "1fb47102925ae4e92190bf24e6db21613d7dac42ad64d9ca6e0a89d21d3aa1af",
-                "8b5dd66b5b6d7942d4ff11d0d2b7d640bea0d9fc284607463bc8e776c08d86f0",
-                "cb42469d3b3c1cc3d47af3e99320986a7e140824ea7d1a42f039eb1e252fca16",
-                "faeea41b9a09810e67cf9f52db38518fe5ed23bbe0fb96e0df7d225eb5ff76e9",
-                "faeea41b9a09810e67cf9f52db38518fe5ed23bbe0fb96e0df7d225eb5ff76e9",
-                "e49960a51ef6dcb60282f7eef128812e26dcdc351f0c1cd334dd17be3e933e31",
-                "5ecf2631c5340687ae822660635296e66e2a1dd02b9545f12c2b4ac1397998a4",
-            };
+        constexpr std::array<std::string_view, 8> expected_sha256{
+            "8b5dd66b5b6d7942d4ff11d0d2b7d640bea0d9fc284607463bc8e776c08d86f0",
+            "1fb47102925ae4e92190bf24e6db21613d7dac42ad64d9ca6e0a89d21d3aa1af",
+            "8b5dd66b5b6d7942d4ff11d0d2b7d640bea0d9fc284607463bc8e776c08d86f0",
+            "cb42469d3b3c1cc3d47af3e99320986a7e140824ea7d1a42f039eb1e252fca16",
+            "faeea41b9a09810e67cf9f52db38518fe5ed23bbe0fb96e0df7d225eb5ff76e9",
+            "faeea41b9a09810e67cf9f52db38518fe5ed23bbe0fb96e0df7d225eb5ff76e9",
+            "e49960a51ef6dcb60282f7eef128812e26dcdc351f0c1cd334dd17be3e933e31",
+            "5ecf2631c5340687ae822660635296e66e2a1dd02b9545f12c2b4ac1397998a4",
+        };
         for (std::size_t index = 0; index < evidence.artifacts().size(); ++index) {
             const auto &record = evidence.artifacts()[index];
             const auto expected_byte_count = index + 1 == evidence.artifacts().size()
@@ -576,7 +592,7 @@ void test_variable_timeline_and_route_settings(
         expect(evidence.stats() ==
                    PresentationRenderStats{600, 3, 1, 2, 11'520, 3'840, 7'680},
                "variable presentation timeline produced incorrect exact counts");
-        expect(sink.seals.size() == kPresentationAudioArtifactCount,
+        expect(sink.seals.size() == presentation_audio_artifact_count(2),
                "variable presentation timeline did not seal all artifacts");
         for (const auto &record : evidence.artifacts()) {
             expect(record.audio.has_value() && record.audio->frame_count == 7'680,
@@ -599,7 +615,7 @@ void test_variable_timeline_and_route_settings(
     {
         PresentationRenderSession session{zero_preparation_sink,
                                           make_plan(kernel, kernel, 1, 0)};
-        std::array<ExhaustExcitationFrame, kExcitationFramesPerMethodBlock> frames{};
+        SyntheticExcitationBlock frames;
         fill_block(frames, 0);
         session.process(make_block(frames));
         const auto evidence = session.finish();
@@ -609,6 +625,53 @@ void test_variable_timeline_and_route_settings(
     }
     expect(zero_preparation_sink.abort_calls == 1,
            "zero-preparation sealed session leaked its transaction");
+}
+
+void test_dynamic_route_count_publication(
+    const std::shared_ptr<const dsp::FixedConvolutionKernel> &kernel) {
+    for (const std::size_t route_count : {std::size_t{1}, std::size_t{3}}) {
+        std::vector<std::shared_ptr<const dsp::FixedConvolutionKernel>> kernels(
+            route_count, kernel);
+        std::vector<double> wet_mix(route_count, 0.5);
+        auto plan = make_plan_for_routes(std::move(kernels), 1, 0, std::move(wet_mix));
+        expect(plan.routes.size() == route_count &&
+                   plan.audition.selected_route_ids.size() == route_count &&
+                   plan.output_contract.required_source_routes.size() == route_count &&
+                   plan.output_contract.required_output_buses.size() == 2 &&
+                   plan.output_contract.required_artifacts.size() ==
+                       presentation_audio_artifact_count(route_count),
+               "dynamic presentation plan has the wrong R-dependent topology");
+
+        RecordingSink sink;
+        {
+            PresentationRenderSession session{sink, std::move(plan)};
+            SyntheticExcitationBlock frames{route_count};
+            fill_block(frames, 0);
+            session.process(make_block(frames));
+            const auto evidence = session.finish();
+            expect(evidence.artifacts().size() ==
+                           presentation_audio_artifact_count(route_count) &&
+                       sink.declarations.size() ==
+                           presentation_audio_artifact_count(route_count) &&
+                       sink.seals.size() ==
+                           presentation_audio_artifact_count(route_count) &&
+                       evidence.stats() ==
+                           PresentationRenderStats{200, 1, 0, 1, 3'840, 0, 3'840},
+                   "dynamic presentation session did not publish 3*R+2 artifacts");
+            for (std::size_t route = 0; route < route_count; ++route) {
+                const auto base = route * kPresentationArtifactsPerRoute;
+                expect(evidence.artifacts()[base].role ==
+                               "test.synthetic.audio." + std::to_string(base) &&
+                           evidence.artifacts()[base + 1].role ==
+                               "test.synthetic.audio." + std::to_string(base + 1) &&
+                           evidence.artifacts()[base + 2].role ==
+                               "test.synthetic.audio." + std::to_string(base + 2),
+                       "dynamic route artifacts lost deterministic route order");
+            }
+        }
+        expect(sink.abort_calls == 1 && sink.commit_calls == 0,
+               "sealed dynamic-route session leaked its transaction");
+    }
 }
 
 void test_invalid_or_incomplete_timeline_fails_closed(
@@ -709,6 +772,7 @@ void run_tests() {
     test_rejected_first_header_write_aborts_constructor_once(kernel);
     test_rejected_payload_write_preserves_sink_error(kernel);
     test_variable_timeline_and_route_settings(kernel);
+    test_dynamic_route_count_publication(kernel);
     test_invalid_or_incomplete_timeline_fails_closed(kernel);
     test_manifest_evidence_mismatch_aborts_before_commit(kernel);
     test_complete_evidence_rejects_incomplete_manifest_before_commit(kernel);

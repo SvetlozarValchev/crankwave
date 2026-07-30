@@ -12,15 +12,34 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace engine_sim_offline::presentation {
 
-inline constexpr std::size_t kPresentationAudioArtifactCount = 8;
+inline constexpr std::size_t kPresentationArtifactsPerRoute = 3;
+inline constexpr std::size_t kPresentationMasterArtifactCount = 2;
+
+[[nodiscard]] constexpr bool
+presentation_audio_artifact_count_representable(std::size_t route_count) noexcept {
+    return route_count <= (std::numeric_limits<std::size_t>::max() -
+                           kPresentationMasterArtifactCount) /
+                              kPresentationArtifactsPerRoute;
+}
+
+[[nodiscard]] constexpr std::size_t
+presentation_audio_artifact_count(std::size_t route_count) noexcept {
+    return presentation_audio_artifact_count_representable(route_count)
+               ? route_count * kPresentationArtifactsPerRoute +
+                     kPresentationMasterArtifactCount
+               : 0U;
+}
 
 enum class PresentationTailPolicy : std::uint8_t {
     unspecified,
@@ -52,7 +71,7 @@ struct PresentationRouteRenderPlan {
 };
 
 struct PresentationAuditionRenderPlan {
-    std::array<contract::RouteId, kExhaustExcitationRouteCount> selected_route_ids;
+    std::vector<contract::RouteId> selected_route_ids;
     MasteringSettings mastering;
     artifacts::AuditionWaveMetadata metadata;
     PendingArtifact raw_master_artifact;
@@ -67,7 +86,7 @@ struct PresentationRenderPlan {
     PresentationTimeline timeline;
     PresentationMethodIdentities methods;
     RouteConditioningCalibration conditioning;
-    std::array<PresentationRouteRenderPlan, kExhaustExcitationRouteCount> routes;
+    std::vector<PresentationRouteRenderPlan> routes;
     double publication_calibration_gain_linear = 0.0;
     PresentationAuditionRenderPlan audition;
 };
@@ -85,7 +104,7 @@ struct PresentationRenderStats {
                            const PresentationRenderStats &) = default;
 };
 
-// Evidence that the session actually streamed and sealed all eight role-bound
+// Evidence that the session actually streamed and sealed all route-owned and master
 // artifacts and then finished its live execution observation. This is deliberately
 // not publication authority: callers can inspect or move it, but only a future
 // admitted-job boundary may bind it to a manifest and commit it.
@@ -97,21 +116,18 @@ class SealedPresentationEvidence final {
     SealedPresentationEvidence &operator=(SealedPresentationEvidence &&) = delete;
 
     [[nodiscard]] const PresentationRenderStats &stats() const noexcept;
-    [[nodiscard]] const std::array<contract::ArtifactRecord,
-                                   kPresentationAudioArtifactCount> &
-    artifacts() const noexcept;
+    [[nodiscard]] std::span<const contract::ArtifactRecord> artifacts() const noexcept;
     [[nodiscard]] const execution::ObservedExecutionFacts &execution() const noexcept;
 
   private:
-    SealedPresentationEvidence(
-        PresentationRenderStats stats,
-        std::array<contract::ArtifactRecord, kPresentationAudioArtifactCount> artifacts,
-        execution::ObservedExecutionFacts execution)
+    SealedPresentationEvidence(PresentationRenderStats stats,
+                               std::vector<contract::ArtifactRecord> artifacts,
+                               execution::ObservedExecutionFacts execution)
         : stats_(std::move(stats)), artifacts_(std::move(artifacts)),
           execution_(std::move(execution)) {}
 
     PresentationRenderStats stats_;
-    std::array<contract::ArtifactRecord, kPresentationAudioArtifactCount> artifacts_;
+    std::vector<contract::ArtifactRecord> artifacts_;
     execution::ObservedExecutionFacts execution_;
 
     friend class PresentationRenderSession;

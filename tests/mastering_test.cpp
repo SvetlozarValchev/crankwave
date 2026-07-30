@@ -185,7 +185,8 @@ void test_variable_mastering_settings() {
                audition_fade_gain(6, shorter) == 1.0 &&
                audition_fade_gain(7, shorter) == quarter_sine_gain(1, 2),
            "short mastering fade geometry is wrong");
-    const auto short_frame = master_frame(0.125F, 0.125F, 2, shorter);
+    const std::array short_routes{0.125F, 0.125F};
+    const auto short_frame = master_frame(short_routes, 2, shorter);
     expect(short_frame.raw == 0.25F && short_frame.monitor == 1.0F &&
                short_frame.fade_gain == 1.0 && short_frame.faded == 1.0F &&
                short_frame.saturated,
@@ -198,7 +199,8 @@ void test_variable_mastering_settings() {
            "long mastering fade geometry is wrong");
     const std::array<float, 1> route{0.5F};
     std::array<MasteredFrame, 1> mastered{};
-    master_block(route, route, 7'680, longer, mastered);
+    const std::array<std::span<const float>, 2> route_inputs{route, route};
+    master_block(route_inputs, 7'680, longer, mastered);
     expect(mastered[0].raw == 1.0F && mastered[0].monitor == 0.5F &&
                mastered[0].faded == 0.5F,
            "long mastering settings did not control monitor gain");
@@ -299,7 +301,8 @@ void test_quantizer_vectors_and_sentinels() {
     for (const auto &sentinel : sentinels) {
         const float monitor = std::bit_cast<float>(sentinel.monitor_bits);
         const float raw = monitor * 0x1p-7F;
-        const auto result = master_frame(raw, 0.0F, sentinel.frame, settings);
+        const std::array routes{raw, 0.0F};
+        const auto result = master_frame(routes, sentinel.frame, settings);
         expect(std::bit_cast<std::uint32_t>(result.monitor) == sentinel.monitor_bits &&
                    std::bit_cast<std::uint32_t>(result.faded) == sentinel.faded_bits &&
                    result.pcm24 == sentinel.pcm24 && !result.saturated,
@@ -329,18 +332,21 @@ void test_mastering_block_partitioning_and_transactionality() {
     const std::array route_0{0.25F, -0.25F, 0x1p-20F, -0x1p-20F, 0.0F};
     const std::array route_1{-0.125F, 0.125F, 0x1p-21F, -0x1p-21F, -0.0F};
     std::array<MasteredFrame, route_0.size()> contiguous{};
-    master_block(route_0, route_1, 3838, settings, contiguous);
+    const std::array<std::span<const float>, 2> contiguous_inputs{route_0, route_1};
+    master_block(contiguous_inputs, 3838, settings, contiguous);
 
     std::array<MasteredFrame, route_0.size()> split{};
-    master_block(std::span{route_0}.first(2), std::span{route_1}.first(2), 3838,
-                 settings, std::span{split}.first(2));
-    master_block(std::span{route_0}.subspan(2), std::span{route_1}.subspan(2), 3840,
-                 settings, std::span{split}.subspan(2));
+    const std::array<std::span<const float>, 2> first_inputs{
+        std::span{route_0}.first(2), std::span{route_1}.first(2)};
+    master_block(first_inputs, 3838, settings, std::span{split}.first(2));
+    const std::array<std::span<const float>, 2> second_inputs{
+        std::span{route_0}.subspan(2), std::span{route_1}.subspan(2)};
+    master_block(second_inputs, 3840, settings, std::span{split}.subspan(2));
     expect(split == contiguous,
            "mastering result depends on caller block partitioning");
     for (std::size_t index = 0; index < route_0.size(); ++index) {
-        expect(contiguous[index] ==
-                   master_frame(route_0[index], route_1[index], 3838 + index, settings),
+        const std::array routes{route_0[index], route_1[index]};
+        expect(contiguous[index] == master_frame(routes, 3838 + index, settings),
                "block result differs from its exposed per-frame result");
     }
 
@@ -351,32 +357,59 @@ void test_mastering_block_partitioning_and_transactionality() {
     const auto unchanged = sentinel;
     const std::array valid{0.0F, 0.0F};
     const std::array late_nan{0.0F, std::numeric_limits<float>::quiet_NaN()};
+    const std::array<std::span<const float>, 2> invalid_inputs{valid, late_nan};
     expect_throw<std::domain_error>(
-        [&] { master_block(valid, late_nan, 0, settings, sentinel); },
+        [&] { master_block(invalid_inputs, 0, settings, sentinel); },
         "mastering block accepted late non-finite input");
     expect(sentinel == unchanged, "failed mastering block changed caller output");
 
     const std::array<float, 1> maximum{std::numeric_limits<float>::max()};
     std::array<MasteredFrame, 1> one_output{};
+    const std::array<std::span<const float>, 2> overflowing_inputs{maximum, maximum};
     expect_throw<std::domain_error>(
-        [&] { master_block(maximum, maximum, 0, settings, one_output); },
+        [&] { master_block(overflowing_inputs, 0, settings, one_output); },
         "mastering accepted an overflowing Float32 route sum");
+    const std::array<std::span<const float>, 2> mismatched_inputs{
+        route_0, std::span{route_1}.first(4)};
     expect_throw<std::invalid_argument>(
-        [&] {
-            master_block(route_0, std::span{route_1}.first(4), 0, settings, contiguous);
-        },
+        [&] { master_block(mismatched_inputs, 0, settings, contiguous); },
         "mastering accepted mismatched block lengths");
+    const std::array<std::span<const float>, 2> overrun_inputs{
+        std::span{route_0}.first(2), std::span{route_1}.first(2)};
     expect_throw<std::out_of_range>(
         [&] {
-            master_block(std::span{route_0}.first(2), std::span{route_1}.first(2),
-                         2'879'999, settings, std::span{contiguous}.first(2));
+            master_block(overrun_inputs, 2'879'999, settings,
+                         std::span{contiguous}.first(2));
         },
         "mastering accepted a block beyond the audible interval");
 
     std::span<const float> empty_input;
     std::span<MasteredFrame> empty_output;
-    master_block(empty_input, empty_input, kCanonicalAudibleFrameCount, settings,
-                 empty_output);
+    const std::array<std::span<const float>, 2> empty_inputs{empty_input, empty_input};
+    master_block(empty_inputs, kCanonicalAudibleFrameCount, settings, empty_output);
+}
+
+void test_ordered_dynamic_route_reduction() {
+    const MasteringSettings settings{4, 0, 0, 1.0F};
+    const std::array three_routes{0x1p100F, -0x1p100F, 1.0F};
+    const auto serial = master_frame(three_routes, 0, settings);
+    expect(serial.raw == 1.0F,
+           "three-route mastering did not reduce serially from the first route");
+
+    const std::array reordered{1.0F, 0x1p100F, -0x1p100F};
+    const auto reordered_result = master_frame(reordered, 0, settings);
+    expect(reordered_result.raw == 0.0F,
+           "mastering route order no longer controls Float32 reduction order");
+
+    const std::array negative_zero{-0.0F};
+    const auto one_route = master_frame(negative_zero, 0, settings);
+    expect(std::bit_cast<std::uint32_t>(one_route.raw) == UINT32_C(0x80000000),
+           "single-route mastering added a leading positive zero");
+
+    const std::array<float, 0> no_routes{};
+    expect_throw<std::invalid_argument>(
+        [&] { static_cast<void>(master_frame(no_routes, 0, settings)); },
+        "mastering accepted an empty selected-route set");
 }
 
 struct ByteCollector {
@@ -729,9 +762,10 @@ void test_frozen_master_identities(const std::string &route_0_path,
     float peak = 0.0F;
     for (std::size_t offset = 0; offset < route_0.size(); offset += block_size) {
         const auto count = std::min(block_size, route_0.size() - offset);
-        master_block(std::span{route_0}.subspan(offset, count),
-                     std::span{route_1}.subspan(offset, count), offset, settings,
-                     std::span{block}.first(count));
+        const std::array<std::span<const float>, 2> selected_routes{
+            std::span{route_0}.subspan(offset, count),
+            std::span{route_1}.subspan(offset, count)};
+        master_block(selected_routes, offset, settings, std::span{block}.first(count));
         for (const auto &frame : std::span{block}.first(count)) {
             raw.push_back(frame.raw);
             pcm24.push_back(frame.pcm24);
@@ -802,6 +836,7 @@ void run_tests(int argc, char **argv) {
     test_variable_mastering_settings();
     test_quantizer_vectors_and_sentinels();
     test_mastering_block_partitioning_and_transactionality();
+    test_ordered_dynamic_route_reduction();
     test_exact_prefix_and_streaming_encoder();
     test_variable_duration_audition_waves();
     if (argc == 3) {

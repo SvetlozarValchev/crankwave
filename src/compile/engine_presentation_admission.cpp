@@ -33,49 +33,41 @@ find_by_text(const Range &range, std::string_view id, Projection projection) {
 }
 
 [[nodiscard]] bool same_binary64(double left, double right) noexcept {
-    return std::bit_cast<std::uint64_t>(left) ==
-           std::bit_cast<std::uint64_t>(right);
+    return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
 
 } // namespace
 
-void admit_engine_presentation(
-    const authoring::EnginePackageDocument &document, ModelContext &resolved,
-    authoring::DiagnosticReport &report) {
+void admit_engine_presentation(const authoring::EnginePackageDocument &document,
+                               ModelContext &resolved,
+                               authoring::DiagnosticReport &report) {
     const auto &engine = document.engine;
     using authoring::DiagnosticCode;
 
-    for (std::size_t index = 0;
-         index < document.presentation.cylinder_routes.size(); ++index) {
+    for (std::size_t index = 0; index < document.presentation.cylinder_routes.size();
+         ++index) {
         const auto &binding = document.presentation.cylinder_routes[index];
-        if (!resolved.cylinder_presentations
-                 .emplace(binding.cylinder.value, &binding)
+        if (!resolved.cylinder_presentations.emplace(binding.cylinder.value, &binding)
                  .second) {
             add(report, DiagnosticCode::duplicate_id,
-                pointer_index("/presentation/cylinder_routes", index) +
-                    "/cylinder",
+                pointer_index("/presentation/cylinder_routes", index) + "/cylinder",
                 "each cylinder must have exactly one presentation binding");
         }
         const auto cylinder = find_by_text(
             engine.cylinders, binding.cylinder.value,
-            [](const auto &value) -> const std::string & {
-                return value.id.value;
-            });
+            [](const auto &value) -> const std::string & { return value.id.value; });
         if (cylinder != nullptr) {
-            const auto route =
-                resolved.route_for_exhaust.find(cylinder->exhaust.value);
+            const auto route = resolved.route_for_exhaust.find(cylinder->exhaust.value);
             if (route == resolved.route_for_exhaust.end() ||
                 route->second != binding.route.value) {
                 add(report, DiagnosticCode::inconsistent_value,
-                    pointer_index("/presentation/cylinder_routes", index) +
-                        "/route",
+                    pointer_index("/presentation/cylinder_routes", index) + "/route",
                     "cylinder presentation route must match its physical exhaust");
             }
         }
     }
 
-    for (std::size_t index = 0;
-         index < document.presentation.routes.size(); ++index) {
+    for (std::size_t index = 0; index < document.presentation.routes.size(); ++index) {
         const auto &binding = document.presentation.routes[index];
         if (!resolved.route_presentations.emplace(binding.route.value, &binding)
                  .second) {
@@ -85,16 +77,14 @@ void admit_engine_presentation(
         }
         if (!binding.impulse_response.has_value()) {
             add(report, DiagnosticCode::unsupported_capability,
-                pointer_index("/presentation/routes", index) +
-                    "/impulse_response",
+                pointer_index("/presentation/routes", index) + "/impulse_response",
                 "the current convolution path requires an impulse response for "
                 "each route");
         }
     }
     if (resolved.route_presentations.size() != engine.source_routes.size()) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/presentation/routes",
-            "presentation routes must exactly cover the two source routes");
+        add(report, DiagnosticCode::unsupported_capability, "/presentation/routes",
+            "presentation routes must exactly cover the engine source routes");
     }
 
     std::unordered_set<std::string> used_audio_assets;
@@ -104,8 +94,7 @@ void admit_engine_presentation(
         }
     }
     if (used_audio_assets.size() != document.presentation.assets.size()) {
-        add(report, DiagnosticCode::disconnected_object,
-            "/presentation/assets",
+        add(report, DiagnosticCode::disconnected_object, "/presentation/assets",
             "all audio assets must be referenced by an admitted route");
     }
 
@@ -115,16 +104,15 @@ void admit_engine_presentation(
     }
     if (document.presentation.buses.size() != 2U ||
         document.presentation.audition.buses.size() != 1U) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/presentation/buses",
+        add(report, DiagnosticCode::unsupported_capability, "/presentation/buses",
             "the current renderer requires exactly one audition-selected bus and "
             "one remaining raw bus");
     }
 
     std::unordered_set<std::string> selected_bus_ids;
     std::vector<std::string> selected_routes;
-    for (std::size_t index = 0;
-         index < document.presentation.audition.buses.size(); ++index) {
+    for (std::size_t index = 0; index < document.presentation.audition.buses.size();
+         ++index) {
         const auto id = document.presentation.audition.buses[index].value;
         const auto found = buses.find(id);
         if (found == buses.end() || !selected_bus_ids.insert(id).second) {
@@ -143,13 +131,13 @@ void admit_engine_presentation(
     for (const auto &route : engine.source_routes) {
         engine_route_ids.insert(route.id.value);
     }
-    if (selected_routes.size() != 2U ||
-        unique_selected_routes.size() != 2U ||
+    if (selected_routes.size() != engine_route_ids.size() ||
+        unique_selected_routes.size() != engine_route_ids.size() ||
         unique_selected_routes != engine_route_ids) {
         add(report, DiagnosticCode::unsupported_capability,
             "/presentation/audition/buses",
             "the current audition method requires the selected buses to flatten "
-            "to both exhaust routes exactly once");
+            "to every exhaust route exactly once");
     }
 
     std::vector<std::string> deterministic_raw_route_order;
@@ -158,20 +146,20 @@ void admit_engine_presentation(
         deterministic_raw_route_order.push_back(route.id.value);
     }
     std::ranges::sort(deterministic_raw_route_order);
-    for (std::size_t index = 0;
-         index < document.presentation.buses.size(); ++index) {
+    for (std::size_t index = 0; index < document.presentation.buses.size(); ++index) {
         const auto &bus = document.presentation.buses[index];
         std::unordered_set<std::string> unique_routes;
         for (const auto &route : bus.routes) {
             unique_routes.insert(route.value);
         }
         if (!bus.publish || !same_binary64(bus.gain_linear, 1.0) ||
-            bus.routes.size() != 2U || unique_routes.size() != 2U ||
+            bus.routes.size() != engine_route_ids.size() ||
+            unique_routes.size() != engine_route_ids.size() ||
             unique_routes != engine_route_ids) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/presentation/buses", index),
                 "each current raw/audition bus must be published at exact unity "
-                "gain and cover both exhaust routes exactly once");
+                "gain and cover every exhaust route exactly once");
         }
         if (!selected_bus_ids.contains(bus.id.value)) {
             std::vector<std::string> raw_route_order;

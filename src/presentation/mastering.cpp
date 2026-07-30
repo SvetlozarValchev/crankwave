@@ -5,7 +5,6 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
-#include <vector>
 
 namespace engine_sim_offline::presentation {
 namespace {
@@ -41,19 +40,8 @@ constexpr double kPi = std::bit_cast<double>(UINT64_C(0x400921fb54442d18));
     return quotient;
 }
 
-[[nodiscard]] MasteredFrame compute_mastered_frame(float route_0_selected,
-                                                   float route_1_selected,
-                                                   std::uint64_t frame_index,
-                                                   const MasteringSettings &settings) {
-    if (!std::isfinite(route_0_selected) || !std::isfinite(route_1_selected)) {
-        throw std::domain_error{"mastering input was non-finite"};
-    }
-
-    const float raw = route_0_selected + route_1_selected;
-    if (!std::isfinite(raw)) {
-        throw std::domain_error{"raw master sum was non-finite"};
-    }
-
+[[nodiscard]] MasteredFrame finish_mastered_frame(float raw, std::uint64_t frame_index,
+                                                  const MasteringSettings &settings) {
     const float monitor = raw * settings.monitoring_gain_linear();
     if (!std::isfinite(monitor)) {
         throw std::domain_error{"monitoring gain produced non-finite output"};
@@ -69,6 +57,53 @@ constexpr double kPi = std::bit_cast<double>(UINT64_C(0x400921fb54442d18));
     return {
         raw, monitor, gain, faded, quantized.s32, quantized.pcm24, quantized.saturated,
     };
+}
+
+[[nodiscard]] MasteredFrame
+compute_mastered_frame(std::span<const float> selected_routes,
+                       std::uint64_t frame_index, const MasteringSettings &settings) {
+    if (selected_routes.empty()) {
+        throw std::invalid_argument{"mastering requires at least one selected route"};
+    }
+    if (!std::isfinite(selected_routes.front())) {
+        throw std::domain_error{"mastering input was non-finite"};
+    }
+
+    float raw = selected_routes.front();
+    for (std::size_t route = 1; route < selected_routes.size(); ++route) {
+        if (!std::isfinite(selected_routes[route])) {
+            throw std::domain_error{"mastering input was non-finite"};
+        }
+        raw = raw + selected_routes[route];
+        if (!std::isfinite(raw)) {
+            throw std::domain_error{"raw master sum was non-finite"};
+        }
+    }
+    return finish_mastered_frame(raw, frame_index, settings);
+}
+
+[[nodiscard]] MasteredFrame
+compute_mastered_block_frame(std::span<const std::span<const float>> selected_routes,
+                             std::size_t block_frame_index,
+                             std::uint64_t absolute_frame_index,
+                             const MasteringSettings &settings) {
+    const float first = selected_routes.front()[block_frame_index];
+    if (!std::isfinite(first)) {
+        throw std::domain_error{"mastering input was non-finite"};
+    }
+
+    float raw = first;
+    for (std::size_t route = 1; route < selected_routes.size(); ++route) {
+        const float sample = selected_routes[route][block_frame_index];
+        if (!std::isfinite(sample)) {
+            throw std::domain_error{"mastering input was non-finite"};
+        }
+        raw = raw + sample;
+        if (!std::isfinite(raw)) {
+            throw std::domain_error{"raw master sum was non-finite"};
+        }
+    }
+    return finish_mastered_frame(raw, absolute_frame_index, settings);
 }
 
 } // namespace
@@ -172,34 +207,39 @@ std::array<std::byte, 3> serialize_pcm24le(std::int32_t pcm24_sample) {
     };
 }
 
-MasteredFrame master_frame(float route_0_selected, float route_1_selected,
+MasteredFrame master_frame(std::span<const float> selected_routes,
                            std::uint64_t frame_index,
                            const MasteringSettings &settings) {
-    return compute_mastered_frame(route_0_selected, route_1_selected, frame_index,
-                                  settings);
+    return compute_mastered_frame(selected_routes, frame_index, settings);
 }
 
-void master_block(std::span<const float> route_0_selected,
-                  std::span<const float> route_1_selected,
+void master_block(std::span<const std::span<const float>> selected_routes,
                   std::uint64_t first_frame_index, const MasteringSettings &settings,
                   std::span<MasteredFrame> output) {
-    if (route_0_selected.size() != route_1_selected.size() ||
-        route_0_selected.size() != output.size()) {
+    if (selected_routes.empty()) {
+        throw std::invalid_argument{"mastering requires at least one selected route"};
+    }
+    if (std::ranges::any_of(selected_routes, [&](const auto route) {
+            return route.size() != output.size();
+        })) {
         throw std::invalid_argument{"mastering block span lengths must match"};
     }
     if (first_frame_index > settings.audible_frame_count() ||
-        route_0_selected.size() > settings.audible_frame_count() - first_frame_index) {
+        output.size() > settings.audible_frame_count() - first_frame_index) {
         throw std::out_of_range{"mastering block exceeds the audible interval"};
     }
 
-    std::vector<MasteredFrame> staged;
-    staged.reserve(output.size());
+    // Validate the complete block before mutating caller storage. Repeating the
+    // exact serial reduction in the write pass retains transactionality without
+    // allocating on the processing path.
     for (std::size_t index = 0; index < output.size(); ++index) {
-        staged.push_back(compute_mastered_frame(route_0_selected[index],
-                                                route_1_selected[index],
-                                                first_frame_index + index, settings));
+        static_cast<void>(compute_mastered_block_frame(
+            selected_routes, index, first_frame_index + index, settings));
     }
-    std::copy(staged.begin(), staged.end(), output.begin());
+    for (std::size_t index = 0; index < output.size(); ++index) {
+        output[index] = compute_mastered_block_frame(
+            selected_routes, index, first_frame_index + index, settings);
+    }
 }
 
 } // namespace engine_sim_offline::presentation

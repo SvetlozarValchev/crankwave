@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
+#include <optional>
 #include <ranges>
 #include <string_view>
 #include <unordered_set>
@@ -11,6 +13,17 @@ namespace engine_sim_offline::render_detail {
 namespace {
 
 constexpr std::size_t kMaximumPortableRelativePathBytes = 240;
+constexpr std::size_t kArtifactsPerRoute = 3;
+constexpr std::size_t kMasterArtifactCount = 2;
+
+[[nodiscard]] std::optional<std::size_t>
+presentation_artifact_count(std::size_t route_count) noexcept {
+    if (route_count > (std::numeric_limits<std::size_t>::max() - kMasterArtifactCount) /
+                          kArtifactsPerRoute) {
+        return std::nullopt;
+    }
+    return route_count * kArtifactsPerRoute + kMasterArtifactCount;
+}
 
 [[nodiscard]] RenderJobDerivationError error(RenderJobDerivationErrorCode code,
                                              std::string path, std::string message) {
@@ -143,20 +156,22 @@ RenderJobProjectionResult derive_render_job_projection(
     RenderJobProjection projection;
     projection.output_contract =
         contract::resolve_output_contract(request.source_matrix);
+    const auto artifact_count = presentation_artifact_count(calibration.route_count());
 
     if (request.source_matrix.required_source_routes.size() !=
-            calibration.route_count ||
-        projection.output_contract.required_artifacts.size() !=
-            presentation::kPresentationAudioArtifactCount) {
+            calibration.route_count() ||
+        !artifact_count.has_value() ||
+        projection.output_contract.required_artifacts.size() != *artifact_count) {
         return error(RenderJobDerivationErrorCode::route_projection_failed,
                      "source_matrix",
-                     "the admitted presentation job requires exactly two rendered "
-                     "routes and eight audio artifacts");
+                     "the admitted presentation job requires three artifacts per "
+                     "rendered route and two master artifacts");
     }
 
-    projection.routes.reserve(calibration.route_count);
+    projection.routes.reserve(calibration.route_count());
+    projection.route_artifacts.resize(calibration.route_count());
     std::unordered_set<std::string> projected_roles;
-    for (std::size_t route_index = 0; route_index < calibration.route_count;
+    for (std::size_t route_index = 0; route_index < calibration.route_count();
          ++route_index) {
         const auto route_id = calibration.routes()[route_index].route_id();
         const auto engine_route = std::ranges::find(
@@ -269,7 +284,7 @@ RenderJobProjectionResult derive_render_job_projection(
     projection.audition_master_artifact =
         std::get<PendingArtifact>(std::move(audition));
     if (!projected_roles.insert(projection.audition_master_artifact.role).second ||
-        projected_roles.size() != presentation::kPresentationAudioArtifactCount) {
+        projected_roles.size() != *artifact_count) {
         return error(RenderJobDerivationErrorCode::artifact_projection_failed,
                      "source_matrix.required_artifacts",
                      "projected presentation artifact roles are not the exact "

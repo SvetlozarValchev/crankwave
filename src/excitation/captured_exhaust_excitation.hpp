@@ -5,7 +5,6 @@
 #include "engine_sim_offline/contract/result.hpp"
 #include "presentation/exhaust_excitation_block.hpp"
 
-#include <array>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -20,28 +19,39 @@
 namespace engine_sim_offline::excitation {
 
 inline constexpr std::uint32_t kCapturedExcitationFramesPerBlock = 200U;
-inline constexpr std::size_t kCapturedExcitationCylinderCount = 6U;
-inline constexpr std::size_t kCapturedExcitationRouteCount = 2U;
 
 /**
  * Callback-scoped diagnostics for the physical-capture to exhaust-excitation seam.
  *
- * Cylinder values are frame-major in `cylinder_ids()` order. Route frames use
- * `route_ids()` order and are the same immutable storage published through the
+ * Cylinder values are frame-major in `cylinder_ids()` order. Route values use
+ * `route_ids()` order and are the same immutable flat storage published through the
  * presentation view. All spans expire when the receiving callback returns.
  */
 class ExhaustExcitationDiagnosticBlockView final {
   public:
-    template <class PreDelayRange, class PostDelayRange, class RouteFrameRange>
-        requires std::is_lvalue_reference_v<PreDelayRange &&> &&
+    template <class CylinderIdRange, class RouteIdRange, class PreDelayRange,
+              class PostDelayRange, class RouteValueRange>
+        requires std::is_lvalue_reference_v<CylinderIdRange &&> &&
+                 std::is_lvalue_reference_v<RouteIdRange &&> &&
+                 std::is_lvalue_reference_v<PreDelayRange &&> &&
                  std::is_lvalue_reference_v<PostDelayRange &&> &&
-                 std::is_lvalue_reference_v<RouteFrameRange &&> &&
+                 std::is_lvalue_reference_v<RouteValueRange &&> &&
+                 std::ranges::contiguous_range<CylinderIdRange> &&
+                 std::ranges::sized_range<CylinderIdRange> &&
+                 std::ranges::contiguous_range<RouteIdRange> &&
+                 std::ranges::sized_range<RouteIdRange> &&
                  std::ranges::contiguous_range<PreDelayRange> &&
                  std::ranges::sized_range<PreDelayRange> &&
                  std::ranges::contiguous_range<PostDelayRange> &&
                  std::ranges::sized_range<PostDelayRange> &&
-                 std::ranges::contiguous_range<RouteFrameRange> &&
-                 std::ranges::sized_range<RouteFrameRange> &&
+                 std::ranges::contiguous_range<RouteValueRange> &&
+                 std::ranges::sized_range<RouteValueRange> &&
+                 std::same_as<
+                     std::remove_cv_t<std::ranges::range_value_t<CylinderIdRange>>,
+                     contract::CylinderId> &&
+                 std::same_as<
+                     std::remove_cv_t<std::ranges::range_value_t<RouteIdRange>>,
+                     contract::RouteId> &&
                  std::same_as<
                      std::remove_cv_t<std::ranges::range_value_t<PreDelayRange>>,
                      double> &&
@@ -49,55 +59,55 @@ class ExhaustExcitationDiagnosticBlockView final {
                      std::remove_cv_t<std::ranges::range_value_t<PostDelayRange>>,
                      double> &&
                  std::same_as<
-                     std::remove_cv_t<std::ranges::range_value_t<RouteFrameRange>>,
-                     presentation::ExhaustExcitationFrame>
+                     std::remove_cv_t<std::ranges::range_value_t<RouteValueRange>>,
+                     double>
     [[nodiscard]] static ExhaustExcitationDiagnosticBlockView borrow_for_callback(
         std::uint64_t first_frame_index, contract::RationalRateHz sample_rate,
-        std::array<contract::CylinderId, kCapturedExcitationCylinderCount> cylinder_ids,
-        std::array<contract::RouteId, kCapturedExcitationRouteCount> route_ids,
-        PreDelayRange &&pre_delay, PostDelayRange &&post_delay,
-        RouteFrameRange &&route_bus_frames) noexcept {
+        CylinderIdRange &&cylinder_ids, RouteIdRange &&route_ids,
+        std::size_t frame_count, PreDelayRange &&pre_delay, PostDelayRange &&post_delay,
+        RouteValueRange &&route_bus_values) noexcept {
         return {
             first_frame_index,
             sample_rate,
-            cylinder_ids,
-            route_ids,
+            {std::ranges::data(cylinder_ids), std::ranges::size(cylinder_ids)},
+            {std::ranges::data(route_ids), std::ranges::size(route_ids)},
+            frame_count,
             {std::ranges::data(pre_delay), std::ranges::size(pre_delay)},
             {std::ranges::data(post_delay), std::ranges::size(post_delay)},
-            {std::ranges::data(route_bus_frames), std::ranges::size(route_bus_frames)},
+            {std::ranges::data(route_bus_values), std::ranges::size(route_bus_values)},
         };
     }
 
     [[nodiscard]] std::uint64_t first_frame_index() const noexcept;
     [[nodiscard]] contract::RationalRateHz sample_rate() const noexcept;
-    [[nodiscard]] const std::array<contract::CylinderId,
-                                   kCapturedExcitationCylinderCount> &
-    cylinder_ids() const noexcept;
-    [[nodiscard]] const std::array<contract::RouteId, kCapturedExcitationRouteCount> &
-    route_ids() const noexcept;
+    [[nodiscard]] std::span<const contract::CylinderId> cylinder_ids() const noexcept;
+    [[nodiscard]] std::span<const contract::RouteId> route_ids() const noexcept;
+    [[nodiscard]] std::size_t cylinder_count() const noexcept;
+    [[nodiscard]] std::size_t route_count() const noexcept;
+    [[nodiscard]] std::size_t frame_count() const noexcept;
     [[nodiscard]] std::span<const double>
     pre_delay_cylinder_values_engine_sim_source_unit() const noexcept;
     [[nodiscard]] std::span<const double>
     post_delay_cylinder_values_engine_sim_source_unit() const noexcept;
-    [[nodiscard]] std::span<const presentation::ExhaustExcitationFrame>
-    route_bus_frames() const noexcept;
+    [[nodiscard]] std::span<const double>
+    route_bus_values_engine_sim_source_unit() const noexcept;
 
   private:
     ExhaustExcitationDiagnosticBlockView(
         std::uint64_t first_frame_index, contract::RationalRateHz sample_rate,
-        std::array<contract::CylinderId, kCapturedExcitationCylinderCount> cylinder_ids,
-        std::array<contract::RouteId, kCapturedExcitationRouteCount> route_ids,
+        std::span<const contract::CylinderId> cylinder_ids,
+        std::span<const contract::RouteId> route_ids, std::size_t frame_count,
         std::span<const double> pre_delay, std::span<const double> post_delay,
-        std::span<const presentation::ExhaustExcitationFrame>
-            route_bus_frames) noexcept;
+        std::span<const double> route_bus_values) noexcept;
 
     std::uint64_t first_frame_index_ = 0;
     contract::RationalRateHz sample_rate_{};
-    std::array<contract::CylinderId, kCapturedExcitationCylinderCount> cylinder_ids_{};
-    std::array<contract::RouteId, kCapturedExcitationRouteCount> route_ids_{};
+    std::span<const contract::CylinderId> cylinder_ids_;
+    std::span<const contract::RouteId> route_ids_;
+    std::size_t frame_count_ = 0;
     std::span<const double> pre_delay_;
     std::span<const double> post_delay_;
-    std::span<const presentation::ExhaustExcitationFrame> route_bus_frames_;
+    std::span<const double> route_bus_values_;
 };
 
 using ExhaustExcitationConsumer =
@@ -123,8 +133,8 @@ class CapturedExhaustExcitationState;
 
 /**
  * Stateful, bounded adapter from validated M3 capture blocks to the accepted
- * two-route presentation seam. It owns all delay history and callback scratch and
- * retains no EngineSpec or CaptureBlock reference.
+ * presentation seam. It owns all IDs, delay history, and callback scratch and retains
+ * no EngineSpec or CaptureBlock reference.
  */
 class CapturedExhaustExcitationSession final {
   public:

@@ -2,7 +2,6 @@
 
 #include "engine_sim_offline/contract/common.hpp"
 
-#include <array>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -13,42 +12,40 @@
 
 namespace engine_sim_offline::presentation {
 
-inline constexpr std::size_t kExhaustExcitationRouteCount = 2;
-
-// The values retain the narrow reference renderer's uncalibrated
-// engine_sim_source_unit. They are neither pressure nor microphone samples.
-struct ExhaustExcitationFrame {
-    std::array<double, kExhaustExcitationRouteCount>
-        route_values_engine_sim_source_unit{};
-
-    friend bool operator==(const ExhaustExcitationFrame &,
-                           const ExhaustExcitationFrame &) = default;
-};
-
 /**
  * Callback-scoped, non-owning excitation view.
  *
- * Route values are frame-major and use the exact order in `route_ids()`. The
- * referenced frame storage must remain alive and immutable until the receiving
- * callback returns. The factory rejects temporary ranges at compile time.
+ * Values retain the uncalibrated engine_sim_source_unit. They are neither pressure
+ * nor microphone samples. Storage is a flat frame-major matrix whose inner route
+ * order is exactly `route_ids()`. Both referenced ranges must remain alive and
+ * immutable until the receiving callback returns. The factory rejects temporary
+ * ranges at compile time.
  */
-class ExhaustExcitationBlockView {
+class ExhaustExcitationBlockView final {
   public:
-    template <class FrameRange>
-        requires std::is_lvalue_reference_v<FrameRange &&> &&
-                 std::ranges::contiguous_range<FrameRange> &&
-                 std::ranges::sized_range<FrameRange> &&
-                 std::same_as<std::remove_cv_t<std::ranges::range_value_t<FrameRange>>,
-                              ExhaustExcitationFrame>
+    template <class RouteIdRange, class ValueRange>
+        requires std::is_lvalue_reference_v<RouteIdRange &&> &&
+                 std::is_lvalue_reference_v<ValueRange &&> &&
+                 std::ranges::contiguous_range<RouteIdRange> &&
+                 std::ranges::sized_range<RouteIdRange> &&
+                 std::ranges::contiguous_range<ValueRange> &&
+                 std::ranges::sized_range<ValueRange> &&
+                 std::same_as<
+                     std::remove_cv_t<std::ranges::range_value_t<RouteIdRange>>,
+                     contract::RouteId> &&
+                 std::same_as<std::remove_cv_t<std::ranges::range_value_t<ValueRange>>,
+                              double>
     [[nodiscard]] static ExhaustExcitationBlockView borrow_for_callback(
         std::uint64_t first_frame_index, contract::RationalRateHz sample_rate,
-        std::array<contract::RouteId, kExhaustExcitationRouteCount> route_ids,
-        FrameRange &&frames) noexcept {
+        RouteIdRange &&route_ids, std::size_t frame_count,
+        ValueRange &&frame_major_values_engine_sim_source_unit) noexcept {
         return {
             first_frame_index,
             sample_rate,
-            route_ids,
-            {std::ranges::data(frames), std::ranges::size(frames)},
+            {std::ranges::data(route_ids), std::ranges::size(route_ids)},
+            frame_count,
+            {std::ranges::data(frame_major_values_engine_sim_source_unit),
+             std::ranges::size(frame_major_values_engine_sim_source_unit)},
         };
     }
 
@@ -60,27 +57,50 @@ class ExhaustExcitationBlockView {
         return sample_rate_;
     }
 
-    [[nodiscard]] const std::array<contract::RouteId, kExhaustExcitationRouteCount> &
-    route_ids() const noexcept {
+    [[nodiscard]] std::span<const contract::RouteId> route_ids() const noexcept {
         return route_ids_;
     }
 
-    [[nodiscard]] std::span<const ExhaustExcitationFrame> frames() const noexcept {
-        return frames_;
+    [[nodiscard]] std::size_t route_count() const noexcept {
+        return route_ids_.size();
+    }
+
+    [[nodiscard]] std::size_t frame_count() const noexcept {
+        return frame_count_;
+    }
+
+    [[nodiscard]] std::span<const double>
+    values_engine_sim_source_unit() const noexcept {
+        return values_engine_sim_source_unit_;
+    }
+
+    [[nodiscard]] std::span<const double>
+    frame_values_engine_sim_source_unit(std::size_t frame_index) const noexcept {
+        return values_engine_sim_source_unit_.subspan(frame_index * route_count(),
+                                                      route_count());
+    }
+
+    [[nodiscard]] double
+    value_engine_sim_source_unit(std::size_t frame_index,
+                                 std::size_t route_index) const noexcept {
+        return values_engine_sim_source_unit_[frame_index * route_count() +
+                                              route_index];
     }
 
   private:
     ExhaustExcitationBlockView(
         std::uint64_t first_frame_index, contract::RationalRateHz sample_rate,
-        std::array<contract::RouteId, kExhaustExcitationRouteCount> route_ids,
-        std::span<const ExhaustExcitationFrame> frames) noexcept
+        std::span<const contract::RouteId> route_ids, std::size_t frame_count,
+        std::span<const double> values_engine_sim_source_unit) noexcept
         : first_frame_index_(first_frame_index), sample_rate_(sample_rate),
-          route_ids_(route_ids), frames_(frames) {}
+          route_ids_(route_ids), frame_count_(frame_count),
+          values_engine_sim_source_unit_(values_engine_sim_source_unit) {}
 
     std::uint64_t first_frame_index_ = 0;
     contract::RationalRateHz sample_rate_{};
-    std::array<contract::RouteId, kExhaustExcitationRouteCount> route_ids_{};
-    std::span<const ExhaustExcitationFrame> frames_;
+    std::span<const contract::RouteId> route_ids_;
+    std::size_t frame_count_ = 0;
+    std::span<const double> values_engine_sim_source_unit_;
 };
 
 } // namespace engine_sim_offline::presentation

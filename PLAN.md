@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-30
 
-Current checkpoint: **7 — generalize the executable engine**
+Current checkpoint: **8 — establish `EngineSession`**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -158,9 +158,13 @@ The completed checkpoint-4 generic identities are:
 
 ```text
 simulation request SHA-256: a07360b0a7a780850e601e1316113f4541b852195a361c79549005ea1f487c7e
-audition WAV byte count:    8640572
-audition WAV SHA-256:       ab5d5b2b580b76b6f8b8df14b3b9d815371f5565de52f4c4e37faacc357ddff0
+audition WAV byte count:    8640586
+audition WAV SHA-256:       f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552
 ```
+
+Checkpoint 7 truthfully renamed the route-publication and audition-mix methods from
+fixed two-route identities to ordered N-route identities. This metadata-only change
+added 14 bytes to the WAVE container; the accepted PCM24 `data` chunk did not change.
 
 ## 5. Ten cutover checkpoints
 
@@ -248,6 +252,12 @@ render retains exact accepted PCM plus its deterministic generic container.
 
 Gate: a structurally different small engine reaches the executable boundary, while the
 BMW PCM remains byte-identical and its generic WAV remains deterministic.
+
+Completed evidence: a directly authored inline twin with one exhaust/presentation route
+executes the complete compiled render path. The BMW retains PCM24 `data` SHA-256
+`176010069c88c99a3cc8262099fa5f02eba3af9517b1c92e148d88ace869756f`; its truthful
+ordered-N-route container is 8,640,586 bytes with SHA-256
+`f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552`.
 
 ### 8. Establish `EngineSession`
 

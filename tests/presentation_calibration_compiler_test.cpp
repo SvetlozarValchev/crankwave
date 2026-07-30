@@ -191,6 +191,31 @@ struct Inputs {
           scenario(make_scenario(engine)) {}
 };
 
+void append_third_route(Inputs &inputs) {
+    inputs.engine.routes.push_back({
+        contract::RouteId{3},
+        {std::string{"route.three"}, {}},
+        {contract::SourceRouteKind::exhaust_outlet, {}},
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+    });
+    inputs.calibration.assets.push_back(
+        make_asset(inputs.builder, 3, "ir.three", "unused-asset-source", 13));
+    inputs.calibration.routes.push_back({
+        contract::RouteId{3},
+        contract::AudioAssetId{3},
+        inputs.builder.resolved(
+            0.003, "presentation.routes.route.three.impulse_response_gain_linear"),
+        inputs.builder.resolved(0.25, "presentation.routes.route.three.wet_mix_01"),
+    });
+    inputs.calibration.audition.selected_routes.value = {
+        contract::RouteId{2},
+        contract::RouteId{3},
+        contract::RouteId{1},
+    };
+}
+
 [[nodiscard]] const presentation::AdmittedPresentationCalibration &
 expect_admitted(const presentation::PresentationCalibrationCompileResult &result) {
     const auto *admitted =
@@ -212,7 +237,18 @@ expect_rejected(const presentation::PresentationCalibrationCompileResult &result
     const bool found =
         std::ranges::any_of(error->validation.issues,
                             [path](const auto &issue) { return issue.path == path; });
-    expect(found, "presentation rejection did not identify the expected path");
+    if (!found) {
+        std::string actual_paths;
+        for (const auto &issue : error->validation.issues) {
+            if (!actual_paths.empty()) {
+                actual_paths += ", ";
+            }
+            actual_paths += issue.path;
+        }
+        throw std::runtime_error{
+            "presentation rejection did not identify expected path " +
+            std::string{path} + "; actual paths: " + actual_paths};
+    }
     return *error;
 }
 
@@ -277,8 +313,8 @@ void test_valid_projection_and_engine_route_order() {
                    contract::AudioAssetId{2} &&
                admitted.routes()[1].wet_mix_01() == 0.5,
            "admitted routes did not follow engine excitation order");
-    expect(admitted.audition_route_ids() ==
-                   std::array{contract::RouteId{2}, contract::RouteId{1}} &&
+    const std::array audition_routes{contract::RouteId{2}, contract::RouteId{1}};
+    expect(std::ranges::equal(admitted.audition_route_ids(), audition_routes) &&
                admitted.publication_calibration_gain_linear() ==
                    inputs.calibration.publication.calibration_gain_linear &&
                admitted.mastering().audible_frame_count() == 2880000 &&
@@ -286,6 +322,25 @@ void test_valid_projection_and_engine_route_order() {
                admitted.mastering().fade_out_frame_count() == 3840 &&
                admitted.mastering().monitoring_gain_linear() == 0.75F,
            "admitted publication or mastering projection changed");
+}
+
+void test_dynamic_route_projection() {
+    Inputs inputs;
+    append_third_route(inputs);
+    const auto result = presentation::compile_presentation_calibration(
+        inputs.calibration, inputs.engine, inputs.scenario, inputs.builder.provenance);
+    const auto &admitted = expect_admitted(result);
+    const std::array audition_routes{contract::RouteId{2}, contract::RouteId{3},
+                                     contract::RouteId{1}};
+    expect(admitted.route_count() == 3 && admitted.routes().size() == 3 &&
+               admitted.routes()[0].route_id() == contract::RouteId{1} &&
+               admitted.routes()[1].route_id() == contract::RouteId{2} &&
+               admitted.routes()[2].route_id() == contract::RouteId{3} &&
+               admitted.routes()[2].impulse_response_asset_id() ==
+                   contract::AudioAssetId{3} &&
+               admitted.routes()[2].wet_mix_01() == 0.25 &&
+               std::ranges::equal(admitted.audition_route_ids(), audition_routes),
+           "three-route calibration was not admitted in engine and audition order");
 }
 
 void test_every_method_is_exact() {
@@ -414,7 +469,7 @@ void test_clock_and_topology_boundaries() {
         },
         "scenario.quality.value.capture_block_capacity_frames");
     expect_mutation_rejected([](Inputs &inputs) { inputs.engine.routes.pop_back(); },
-                             "engine.routes");
+                             "presentation.routes");
     expect_mutation_rejected(
         [](Inputs &inputs) {
             inputs.engine.routes[1].kind.value =
@@ -425,7 +480,7 @@ void test_clock_and_topology_boundaries() {
         [](Inputs &inputs) {
             inputs.calibration.routes[0].route_id = contract::RouteId{1};
         },
-        "presentation.routes[1].route_id");
+        "presentation.routes.route.one.route_id");
     expect_mutation_rejected(
         [](Inputs &inputs) {
             inputs.calibration.routes[0].route_id = contract::RouteId{3};
@@ -446,7 +501,7 @@ void test_clock_and_topology_boundaries() {
         [](Inputs &inputs) {
             inputs.calibration.audition.selected_routes.value[1] = contract::RouteId{2};
         },
-        "presentation.audition.selected_routes.value[1]");
+        "presentation.audition.selected_routes[1]");
     expect_mutation_rejected(
         [](Inputs &inputs) {
             inputs.calibration.assets.push_back(
@@ -485,6 +540,7 @@ void test_schema_version_is_exact() {
 
 void run_tests() {
     test_valid_projection_and_engine_route_order();
+    test_dynamic_route_projection();
     test_every_method_is_exact();
     test_calibration_leaf_boundaries();
     test_clock_and_topology_boundaries();

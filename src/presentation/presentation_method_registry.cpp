@@ -11,17 +11,17 @@ static_assert(kCausalReconstructionMethodId != kRouteConditioningMethodId);
 static_assert(kCausalReconstructionMethodId != kStaticIrConversionMethodId);
 static_assert(kCausalReconstructionMethodId != kFixedOverlapSaveConvolutionMethodId);
 static_assert(kCausalReconstructionMethodId != kRouteStemPublicationMethodId);
-static_assert(kCausalReconstructionMethodId != kOrderedTwoRouteAuditionMethodId);
+static_assert(kCausalReconstructionMethodId != kOrderedRouteAuditionMethodId);
 static_assert(kRouteConditioningMethodId != kStaticIrConversionMethodId);
 static_assert(kRouteConditioningMethodId != kFixedOverlapSaveConvolutionMethodId);
 static_assert(kRouteConditioningMethodId != kRouteStemPublicationMethodId);
-static_assert(kRouteConditioningMethodId != kOrderedTwoRouteAuditionMethodId);
+static_assert(kRouteConditioningMethodId != kOrderedRouteAuditionMethodId);
 static_assert(kStaticIrConversionMethodId != kFixedOverlapSaveConvolutionMethodId);
 static_assert(kStaticIrConversionMethodId != kRouteStemPublicationMethodId);
-static_assert(kStaticIrConversionMethodId != kOrderedTwoRouteAuditionMethodId);
+static_assert(kStaticIrConversionMethodId != kOrderedRouteAuditionMethodId);
 static_assert(kFixedOverlapSaveConvolutionMethodId != kRouteStemPublicationMethodId);
-static_assert(kFixedOverlapSaveConvolutionMethodId != kOrderedTwoRouteAuditionMethodId);
-static_assert(kRouteStemPublicationMethodId != kOrderedTwoRouteAuditionMethodId);
+static_assert(kFixedOverlapSaveConvolutionMethodId != kOrderedRouteAuditionMethodId);
+static_assert(kRouteStemPublicationMethodId != kOrderedRouteAuditionMethodId);
 
 [[nodiscard]] contract::Sha256Digest
 descriptor_digest(std::string_view descriptor) noexcept {
@@ -63,9 +63,8 @@ const PresentationMethodIdentities &implemented_presentation_method_identities()
                       fixed_overlap_save_convolution_method_descriptor()),
         make_identity(kRouteStemPublicationMethodId, kRouteStemPublicationMethodVersion,
                       route_stem_publication_method_descriptor()),
-        make_identity(kOrderedTwoRouteAuditionMethodId,
-                      kOrderedTwoRouteAuditionMethodVersion,
-                      ordered_two_route_audition_method_descriptor()),
+        make_identity(kOrderedRouteAuditionMethodId, kOrderedRouteAuditionMethodVersion,
+                      ordered_route_audition_method_descriptor()),
     };
     return identities;
 }
@@ -90,7 +89,7 @@ const contract::MethodIdentity &route_stem_publication_method_identity() {
     return implemented_presentation_method_identities().publication;
 }
 
-const contract::MethodIdentity &ordered_two_route_audition_method_identity() {
+const contract::MethodIdentity &ordered_route_audition_method_identity() {
     return implemented_presentation_method_identities().audition_mix;
 }
 

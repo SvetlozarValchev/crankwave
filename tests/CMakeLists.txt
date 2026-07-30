@@ -115,6 +115,9 @@ target_link_libraries(
         engine_sim_offline::compile
         engine_sim_offline::render
 )
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_compiler_integration_tests
+)
 
 add_test(
     NAME compiler.integration

@@ -1,12 +1,22 @@
 #include "presentation/exhaust_source_stage.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
+#include <ranges>
 #include <stdexcept>
 
 namespace engine_sim_offline::presentation {
 
-ExhaustSourceRouteIds
-ExhaustSourceStage::validate_route_ids(ExhaustSourceRouteIds expected_route_ids) {
+std::vector<contract::RouteId> ExhaustSourceStage::validate_route_ids(
+    std::span<const contract::RouteId> expected_route_ids) {
+    if (expected_route_ids.empty()) {
+        throw std::invalid_argument{"source stage requires at least one route"};
+    }
+    if (expected_route_ids.size() >
+        std::numeric_limits<std::size_t>::max() / kSourceFramesPerMethodBlock) {
+        throw std::overflow_error{"source-stage scratch size overflowed"};
+    }
     for (std::size_t index = 0; index < expected_route_ids.size(); ++index) {
         if (!expected_route_ids[index].valid()) {
             throw std::invalid_argument{
@@ -18,47 +28,52 @@ ExhaustSourceStage::validate_route_ids(ExhaustSourceRouteIds expected_route_ids)
             }
         }
     }
-    return expected_route_ids;
+    return {expected_route_ids.begin(), expected_route_ids.end()};
 }
 
-std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount>
-ExhaustSourceStage::validate_seeds(
-    std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> seeds) {
-    const std::array<Pcg32Seed, kExhaustExcitationRouteCount * 2> flattened{
-        seeds[0].jitter,
-        seeds[0].air_noise,
-        seeds[1].jitter,
-        seeds[1].air_noise,
+std::vector<RouteConditioningSeeds>
+ExhaustSourceStage::validate_seeds(std::span<const RouteConditioningSeeds> seeds,
+                                   std::size_t route_count) {
+    if (seeds.size() != route_count) {
+        throw std::invalid_argument{
+            "source-stage route IDs and conditioning seeds must have equal counts"};
+    }
+    const auto stream_at = [seeds](std::size_t index) {
+        const auto &seed = seeds[index / 2U];
+        return index % 2U == 0U ? seed.jitter.stream : seed.air_noise.stream;
     };
-    for (std::size_t index = 0; index < flattened.size(); ++index) {
-        if (flattened[index].stream > dsp::kMaximumPcg32Stream) {
+    for (std::size_t index = 0; index < seeds.size() * 2U; ++index) {
+        if (stream_at(index) > dsp::kMaximumPcg32Stream) {
             throw std::invalid_argument{
                 "source-stage PCG stream exceeded the encodable range"};
         }
         for (std::size_t prior = 0; prior < index; ++prior) {
-            if (flattened[index].stream == flattened[prior].stream) {
+            if (stream_at(index) == stream_at(prior)) {
                 throw std::invalid_argument{
                     "source-stage PCG selectors must identify distinct streams"};
             }
         }
     }
-    return seeds;
+    return {seeds.begin(), seeds.end()};
 }
 
 ExhaustSourceStage::ExhaustSourceStage(
-    ExhaustSourceRouteIds expected_route_ids,
-    std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> route_seeds,
+    std::span<const contract::RouteId> expected_route_ids,
+    std::span<const RouteConditioningSeeds> route_seeds,
     RouteConditioningCalibration conditioning)
     : expected_route_ids_(validate_route_ids(expected_route_ids)),
-      seeds_(validate_seeds(route_seeds)), conditioning_(conditioning),
-      conditioners_{
-          RouteConditioner{seeds_[0].jitter, seeds_[0].air_noise, conditioning_},
-          RouteConditioner{seeds_[1].jitter, seeds_[1].air_noise, conditioning_},
-      } {}
+      seeds_(validate_seeds(route_seeds, expected_route_ids_.size())),
+      conditioning_(conditioning), reconstruction_(expected_route_ids_.size()) {
+    reconstructed_scratch_.resize(kSourceFramesPerMethodBlock *
+                                  expected_route_ids_.size());
+    conditioners_.reserve(seeds_.size());
+    for (const auto &seed : seeds_) {
+        conditioners_.emplace_back(seed.jitter, seed.air_noise, conditioning_);
+    }
+}
 
-SourceBlockExtent
-ExhaustSourceStage::process(ExhaustExcitationBlockView input,
-                            std::span<ConditionedSourceFrame> output) {
+SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
+                                              std::span<double> output_frame_major) {
     if (terminal_failed_) {
         throw std::logic_error{
             "source stage cannot resume after an arithmetic failure"};
@@ -67,7 +82,7 @@ ExhaustSourceStage::process(ExhaustExcitationBlockView input,
         throw std::invalid_argument{
             "source stage requires an exact 10000/1 excitation rate"};
     }
-    if (input.route_ids() != expected_route_ids_) {
+    if (!std::ranges::equal(input.route_ids(), expected_route_ids_)) {
         throw std::invalid_argument{
             "source-stage input route IDs must match the configured order"};
     }
@@ -75,13 +90,24 @@ ExhaustSourceStage::process(ExhaustExcitationBlockView input,
         throw std::invalid_argument{
             "source-stage excitation frames must be globally contiguous"};
     }
-    if (input.frames().size() != kExcitationFramesPerMethodBlock) {
+    if (input.route_count() != expected_route_ids_.size() ||
+        input.frame_count() != kExcitationFramesPerMethodBlock) {
         throw std::invalid_argument{
             "source stage requires exactly 200 excitation frames per block"};
     }
-    if (output.size() != kSourceFramesPerMethodBlock) {
+    if (input.frame_count() >
+            std::numeric_limits<std::size_t>::max() / input.route_count() ||
+        input.values_engine_sim_source_unit().size() !=
+            input.frame_count() * input.route_count()) {
         throw std::invalid_argument{
-            "source stage requires exactly 3840 output frames per block"};
+            "source-stage input must be a complete frame-major route matrix"};
+    }
+    if (kSourceFramesPerMethodBlock >
+            std::numeric_limits<std::size_t>::max() / expected_route_ids_.size() ||
+        output_frame_major.size() !=
+            kSourceFramesPerMethodBlock * expected_route_ids_.size()) {
+        throw std::invalid_argument{
+            "source stage requires exactly 3840 complete output frames per block"};
     }
     if (next_input_frame_index_ > std::numeric_limits<std::uint64_t>::max() -
                                       kExcitationFramesPerMethodBlock ||
@@ -89,11 +115,9 @@ ExhaustSourceStage::process(ExhaustExcitationBlockView input,
             std::numeric_limits<std::uint64_t>::max() - kSourceFramesPerMethodBlock) {
         throw std::overflow_error{"source-stage frame counter overflow"};
     }
-    for (const auto &frame : input.frames()) {
-        for (const auto sample : frame.route_values_engine_sim_source_unit) {
-            if (!std::isfinite(sample)) {
-                throw std::domain_error{"source-stage excitation input was non-finite"};
-            }
+    for (const auto sample : input.values_engine_sim_source_unit()) {
+        if (!std::isfinite(sample)) {
+            throw std::domain_error{"source-stage excitation input was non-finite"};
         }
     }
 
@@ -114,13 +138,13 @@ ExhaustSourceStage::process(ExhaustExcitationBlockView input,
     };
 
     try {
-        reconstruction_.process(input.frames(), reconstructed_scratch_);
-        for (std::size_t frame = 0; frame < output.size(); ++frame) {
-            for (std::size_t route = 0; route < kExhaustExcitationRouteCount; ++route) {
+        reconstruction_.process(input.values_engine_sim_source_unit(),
+                                input.frame_count(), reconstructed_scratch_);
+        for (std::size_t frame = 0; frame < kSourceFramesPerMethodBlock; ++frame) {
+            for (std::size_t route = 0; route < route_count(); ++route) {
                 const auto result = conditioners_[route].process(
-                    reconstructed_scratch_[frame]
-                        .route_values_engine_sim_source_unit[route]);
-                output[frame].route_values_engine_sim_source_unit[route] =
+                    reconstructed_scratch_[frame * route_count() + route]);
+                output_frame_major[frame * route_count() + route] =
                     result.conditioned_engine_sim_source_unit;
             }
         }
@@ -134,8 +158,13 @@ ExhaustSourceStage::process(ExhaustExcitationBlockView input,
     return extent;
 }
 
-const ExhaustSourceRouteIds &ExhaustSourceStage::expected_route_ids() const noexcept {
+std::span<const contract::RouteId>
+ExhaustSourceStage::expected_route_ids() const noexcept {
     return expected_route_ids_;
+}
+
+std::size_t ExhaustSourceStage::route_count() const noexcept {
+    return expected_route_ids_.size();
 }
 
 std::uint64_t ExhaustSourceStage::next_input_frame_index() const noexcept {

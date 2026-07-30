@@ -7,10 +7,10 @@ namespace {
 
 constexpr std::string_view kRouteStemPublicationMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
-method=two-route-wet-selection-float32-wave-publication-v1
+method=n-route-wet-selection-float32-wave-publication-v1
 version=1
-operation=two-route-dry-configured-ir-selected-stem-publication
-topology=exactly-two-distinct-ordered-exhaust-routes-and-three-stems-per-route
+operation=n-route-dry-configured-ir-selected-stem-publication
+topology=one-or-more-distinct-ordered-exhaust-routes-and-three-stems-per-route
 route_input=one-finite-binary64-dry-sample-and-one-finite-binary64-configured-ir-sample-per-route-per-source-frame
 resolved_argument_1=per-route-wet_mix_01
 resolved_argument_1_domain=finite-canonical-binary64-in-closed-interval-0..1;negative-zero-is-rejected
@@ -28,18 +28,18 @@ pre_audible_policy=process-selection-and-continuous-convolution-state-but-publis
 crop_state_policy=no-reconstruction-conditioning-convolution-or-random-state-is-reset-at-the-pre-audible-boundary
 tail_policy=truncate-at-timeline-end-with-no-convolution-zero-extension-or-tail-flush
 published_frame_mapping=one-output-frame-per-published-source-frame-in-input-order
-published_stem_order=route-0-dry,route-0-configured-ir,route-0-selected,route-1-dry,route-1-configured-ir,route-1-selected
+published_stem_order=for-route-index-zero-through-r-minus-one-serially-dry,configured-ir,selected
 publication_round_1=float32(input)-using-nearest-ties-to-even
 publication_round_1_validation=result-must-be-finite
 calibration=binary64(publication-round-1)-times-calibration-gain-linear-in-written-order
 publication_round_2=float32(calibration)-using-nearest-ties-to-even
 publication_round_2_validation=result-must-be-finite
-output=exactly-six-finite-float32-mono-route-stem-streams
+output=exactly-three-times-r-finite-float32-mono-route-stem-streams
 clipping=none
 limiting=none
 dither=none
 normalization=none
-float32_wave_count=exactly-six-one-per-published-stem
+float32_wave_count=exactly-three-times-r-one-per-published-stem
 float32_wave_byte_order=little-endian
 float32_wave_header=58-bytes-riff-wave-fmt18-fact4-data-in-that-order
 float32_wave_format=ieee-float-format-tag-3;mono;192000-hz;byte-rate-768000;block-align-4;bits-per-sample-32;fmt-extension-size-0
@@ -55,12 +55,12 @@ binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-daz
 float32_execution=ieee754-binary32-nearest-ties-to-even-no-fma-no-ftz-no-daz
 )method";
 
-constexpr std::string_view kOrderedTwoRouteAuditionMethodDescriptor =
+constexpr std::string_view kOrderedRouteAuditionMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
-method=ordered-two-route-quarter-sine-pcm24-wave-master-v1
+method=ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v1
 version=1
-operation=ordered-two-route-float32-audition-mix-quarter-sine-fades-and-pcm24-master
-route_selection=exactly-two-distinct-resolved-routes-in-declared-vector-order
+operation=ordered-n-route-serial-float32-audition-mix-quarter-sine-fades-and-pcm24-master
+route_selection=all-r-rendered-routes-exactly-once-in-declared-vector-order
 route_input=one-finite-float32-sample-per-selected-route-per-frame
 delivery_rate_hz=192000/1
 resolved_argument_1=monitoring_gain_linear
@@ -75,7 +75,7 @@ duration_resolution_bound=resolved-frame-index-less-than-or-equal-to-2^53-minus-
 audible_frame_count=positive-resolved-integer
 fade_fit=fade-in-frame-count-plus-fade-out-frame-count-less-than-or-equal-to-audible-frame-count
 monitoring_gain_compile=float32(monitoring-gain-linear)-using-nearest-ties-to-even
-raw_mix=float32(route-0-selected-plus-route-1-selected)-in-declared-route-order
+raw_mix=initialize-with-route-0-selected-then-for-route-index-one-through-r-minus-one-assign-float32(raw-mix-plus-route-selected)-serially-in-declared-route-order-with-no-leading-zero
 raw_mix_validation=result-must-be-finite
 monitor=float32(raw-mix-times-compiled-monitoring-gain)-in-written-order
 monitor_validation=result-must-be-finite
@@ -128,8 +128,7 @@ external_numeric_authority=renderer-build-source-standard-library-math-runtime-a
 )method";
 
 static_assert(detail::canonical_lf_descriptor(kRouteStemPublicationMethodDescriptor));
-static_assert(
-    detail::canonical_lf_descriptor(kOrderedTwoRouteAuditionMethodDescriptor));
+static_assert(detail::canonical_lf_descriptor(kOrderedRouteAuditionMethodDescriptor));
 
 } // namespace
 
@@ -137,8 +136,8 @@ std::string_view route_stem_publication_method_descriptor() noexcept {
     return kRouteStemPublicationMethodDescriptor;
 }
 
-std::string_view ordered_two_route_audition_method_descriptor() noexcept {
-    return kOrderedTwoRouteAuditionMethodDescriptor;
+std::string_view ordered_route_audition_method_descriptor() noexcept {
+    return kOrderedRouteAuditionMethodDescriptor;
 }
 
 } // namespace engine_sim_offline::presentation

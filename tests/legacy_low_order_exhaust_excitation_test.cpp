@@ -26,8 +26,8 @@ using namespace engine_sim_offline::contract;
 using namespace engine_sim_offline::excitation;
 
 constexpr std::size_t kFrames = kCapturedExcitationFramesPerBlock;
-constexpr std::size_t kCylinders = kCapturedExcitationCylinderCount;
-constexpr std::size_t kRoutes = kCapturedExcitationRouteCount;
+constexpr std::size_t kCylinders = 6U;
+constexpr std::size_t kRoutes = 2U;
 constexpr std::size_t kDelayFrames = 180U;
 constexpr RationalRateHz kRate{10000, 1};
 constexpr double kAtmospherePa = 101325.0;
@@ -148,8 +148,7 @@ class SyntheticCaptureBlock final {
     }
 
     void fill_distinct_excitation() {
-        expect(cylinders_.size() == kCylinders,
-               "synthetic excitation requires the six canonical cylinders");
+        const std::size_t cylinder_count = cylinders_.size();
         for (std::size_t frame = 0; frame < kFrames; ++frame) {
             const auto global = first_frame_index_ + static_cast<std::uint64_t>(frame);
             switch (global % 4U) {
@@ -167,10 +166,10 @@ class SyntheticCaptureBlock final {
                 break;
             }
 
-            for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
+            for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
                 const auto signed_pattern =
                     static_cast<int>((global * 7U + cylinder * 3U) % 31U) - 15;
-                auto &sample = parity_cylinders_[frame * kCylinders + cylinder];
+                auto &sample = parity_cylinders_[frame * cylinder_count + cylinder];
                 sample.exhaust_primary_static_pressure_pa_abs =
                     kAtmospherePa + static_cast<double>(signed_pattern) * 0.25;
                 sample.dynamic_pressure_forward_pa =
@@ -178,7 +177,7 @@ class SyntheticCaptureBlock final {
                     static_cast<double>(cylinder + 1U) * 0.25;
                 sample.dynamic_pressure_reverse_pa =
                     static_cast<double>((global % 7U) + 2U) *
-                    static_cast<double>(kCylinders - cylinder) * 0.125;
+                    static_cast<double>(cylinder_count - cylinder) * 0.125;
             }
         }
     }
@@ -241,11 +240,12 @@ class SyntheticCaptureBlock final {
 struct PublishedBlockCopy {
     std::uint64_t first_frame_index = 0;
     RationalRateHz sample_rate{};
-    std::array<CylinderId, kCylinders> cylinder_ids{};
-    std::array<RouteId, kRoutes> route_ids{};
+    std::size_t frame_count = 0;
+    std::vector<CylinderId> cylinder_ids;
+    std::vector<RouteId> route_ids;
     std::vector<double> pre_delay;
     std::vector<double> post_delay;
-    std::vector<presentation::ExhaustExcitationFrame> route_frames;
+    std::vector<double> route_bus_values;
 };
 
 [[nodiscard]] PublishedBlockCopy
@@ -253,21 +253,51 @@ copy_callback_views(const presentation::ExhaustExcitationBlockView &output,
                     const ExhaustExcitationDiagnosticBlockView &diagnostic) {
     expect(output.first_frame_index() == diagnostic.first_frame_index() &&
                output.sample_rate() == diagnostic.sample_rate() &&
-               output.route_ids() == diagnostic.route_ids(),
+               output.frame_count() == diagnostic.frame_count() &&
+               output.route_count() == diagnostic.route_count() &&
+               std::ranges::equal(output.route_ids(), diagnostic.route_ids()),
            "presentation and diagnostic callback metadata diverged");
-    expect(output.frames().data() == diagnostic.route_bus_frames().data() &&
-               output.frames().size() == diagnostic.route_bus_frames().size(),
-           "diagnostics did not expose the exact published route-frame storage");
+    expect(output.values_engine_sim_source_unit().data() ==
+                   diagnostic.route_bus_values_engine_sim_source_unit().data() &&
+               output.values_engine_sim_source_unit().size() ==
+                   diagnostic.route_bus_values_engine_sim_source_unit().size(),
+           "diagnostics did not expose the exact published route-value storage");
+    expect(diagnostic.cylinder_count() == diagnostic.cylinder_ids().size() &&
+               diagnostic.route_count() == diagnostic.route_ids().size() &&
+               diagnostic.pre_delay_cylinder_values_engine_sim_source_unit().size() ==
+                   diagnostic.frame_count() * diagnostic.cylinder_count() &&
+               diagnostic.post_delay_cylinder_values_engine_sim_source_unit().size() ==
+                   diagnostic.frame_count() * diagnostic.cylinder_count() &&
+               diagnostic.route_bus_values_engine_sim_source_unit().size() ==
+                   diagnostic.frame_count() * diagnostic.route_count(),
+           "dynamic excitation diagnostic spans are not complete frame-major matrices");
+    for (std::size_t frame = 0; frame < output.frame_count(); ++frame) {
+        const auto frame_values = output.frame_values_engine_sim_source_unit(frame);
+        expect(frame_values.size() == output.route_count() &&
+                   frame_values.data() ==
+                       output.values_engine_sim_source_unit().data() +
+                           frame * output.route_count(),
+               "indexed excitation frame view does not match flat frame-major storage");
+        for (std::size_t route = 0; route < output.route_count(); ++route) {
+            expect_same_bits(
+                output.value_engine_sim_source_unit(frame, route),
+                output.values_engine_sim_source_unit()[frame * output.route_count() +
+                                                       route],
+                "indexed excitation value does not match flat frame-major storage");
+        }
+    }
     return {
         output.first_frame_index(),
         output.sample_rate(),
-        diagnostic.cylinder_ids(),
-        diagnostic.route_ids(),
+        output.frame_count(),
+        {diagnostic.cylinder_ids().begin(), diagnostic.cylinder_ids().end()},
+        {diagnostic.route_ids().begin(), diagnostic.route_ids().end()},
         {diagnostic.pre_delay_cylinder_values_engine_sim_source_unit().begin(),
          diagnostic.pre_delay_cylinder_values_engine_sim_source_unit().end()},
         {diagnostic.post_delay_cylinder_values_engine_sim_source_unit().begin(),
          diagnostic.post_delay_cylinder_values_engine_sim_source_unit().end()},
-        {output.frames().begin(), output.frames().end()},
+        {output.values_engine_sim_source_unit().begin(),
+         output.values_engine_sim_source_unit().end()},
     };
 }
 
@@ -330,27 +360,84 @@ independent_pre_delay(const SyntheticCaptureBlock &block) {
     return result;
 }
 
+[[nodiscard]] EngineSpec make_two_cylinder_single_route_engine(EngineSpec engine) {
+    auto &core = test::low_order_core(engine);
+
+    engine.cylinders.resize(2U);
+    std::erase_if(engine.ports, [&](const PortSpec &port) {
+        return std::ranges::none_of(engine.cylinders,
+                                    [&](const CylinderSpec &cylinder) {
+                                        return cylinder.id == port.cylinder_id;
+                                    });
+    });
+    engine.routes.resize(1U);
+
+    core.mechanism.cylinders.resize(2U);
+    const auto selected_route_id = engine.routes.front().id;
+    const auto gas_route = *std::ranges::find_if(
+        core.gas_path.exhaust_routes, [&](const LegacyExhaustRouteProfile &route) {
+            return route.topology.route_id == selected_route_id;
+        });
+    core.gas_path.exhaust_routes = {gas_route};
+
+    const auto excitation_route = *std::ranges::find_if(
+        core.excitation.routes, [&](const LegacyExcitationRoute &route) {
+            return route.route_id == selected_route_id;
+        });
+    core.excitation.routes = {excitation_route};
+    core.excitation.cylinder_count_divisor.value =
+        static_cast<double>(engine.cylinders.size());
+
+    std::erase_if(core.excitation.cylinder_paths,
+                  [&](const LegacyExcitationCylinderPath &path) {
+                      return std::ranges::none_of(
+                          engine.cylinders, [&](const CylinderSpec &cylinder) {
+                              return cylinder.id == path.cylinder_id;
+                          });
+                  });
+    for (auto &path : core.excitation.cylinder_paths) {
+        path.route_id = selected_route_id;
+        const double delay_seconds = (path.header_primary_length_m.value +
+                                      excitation_route.exhaust_system_length_m.value) /
+                                     core.excitation.legacy_propagation_speed_m_s.value;
+        const double delay_rate_hz =
+            static_cast<double>(core.excitation.delay_rate.value.numerator) /
+            static_cast<double>(core.excitation.delay_rate.value.denominator);
+        path.resolved_delay_samples.value =
+            static_cast<std::uint32_t>(std::round(delay_seconds * delay_rate_hz));
+    }
+    for (auto &cylinder : core.mechanism.cylinders) {
+        cylinder.topology.exhaust_route_id = selected_route_id;
+    }
+
+    std::erase_if(core.excitation.cylinder_accumulation_order.value,
+                  [&](CylinderId cylinder_id) {
+                      return std::ranges::none_of(engine.cylinders,
+                                                  [&](const CylinderSpec &cylinder) {
+                                                      return cylinder.id == cylinder_id;
+                                                  });
+                  });
+    return engine;
+}
+
 void expect_equal_block(const PublishedBlockCopy &actual,
                         const PublishedBlockCopy &expected, std::string_view message) {
     expect(actual.first_frame_index == expected.first_frame_index &&
                actual.sample_rate == expected.sample_rate &&
+               actual.frame_count == expected.frame_count &&
                actual.cylinder_ids == expected.cylinder_ids &&
                actual.route_ids == expected.route_ids &&
                actual.pre_delay.size() == expected.pre_delay.size() &&
                actual.post_delay.size() == expected.post_delay.size() &&
-               actual.route_frames.size() == expected.route_frames.size(),
+               actual.route_bus_values.size() == expected.route_bus_values.size(),
            std::string{message} + ": shape or metadata mismatch");
     for (std::size_t index = 0; index < actual.pre_delay.size(); ++index) {
         expect_same_bits(actual.pre_delay[index], expected.pre_delay[index], message);
         expect_same_bits(actual.post_delay[index], expected.post_delay[index], message);
     }
-    for (std::size_t frame = 0; frame < actual.route_frames.size(); ++frame) {
-        for (std::size_t route = 0; route < kRoutes; ++route) {
-            expect_same_bits(
-                actual.route_frames[frame].route_values_engine_sim_source_unit[route],
-                expected.route_frames[frame].route_values_engine_sim_source_unit[route],
-                message);
-        }
+    for (std::size_t index = 0; index < actual.route_bus_values.size(); ++index) {
+        expect_same_bits(actual.route_bus_values[index],
+                         expected.route_bus_values[index], message);
     }
 }
 
@@ -366,16 +453,17 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine)
 
     expect(actual_0.first_frame_index == 0U && actual_1.first_frame_index == kFrames &&
                actual_0.sample_rate == kRate && actual_1.sample_rate == kRate &&
-               actual_0.cylinder_ids ==
-                   std::array<CylinderId, kCylinders>{CylinderId{1}, CylinderId{2},
-                                                      CylinderId{3}, CylinderId{4},
-                                                      CylinderId{5}, CylinderId{6}} &&
-               actual_0.route_ids ==
-                   std::array<RouteId, kRoutes>{RouteId{1}, RouteId{2}},
+               std::ranges::equal(actual_0.cylinder_ids,
+                                  std::array<CylinderId, kCylinders>{
+                                      CylinderId{1}, CylinderId{2}, CylinderId{3},
+                                      CylinderId{4}, CylinderId{5}, CylinderId{6}}) &&
+               std::ranges::equal(actual_0.route_ids,
+                                  std::array<RouteId, kRoutes>{RouteId{1}, RouteId{2}}),
            "excitation callback IDs, ordering, or clock changed");
     expect(actual_0.pre_delay.size() == kFrames * kCylinders &&
                actual_0.post_delay.size() == kFrames * kCylinders &&
-               actual_0.route_frames.size() == kFrames,
+               actual_0.frame_count == kFrames &&
+               actual_0.route_bus_values.size() == kFrames * kRoutes,
            "excitation diagnostics do not cover the complete 200-frame block");
 
     const auto expected_pre_0 = independent_pre_delay(block_0);
@@ -416,8 +504,7 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine)
             }
             for (std::size_t route = 0; route < kRoutes; ++route) {
                 expect_same_bits(
-                    actual.route_frames[frame]
-                        .route_values_engine_sim_source_unit[route],
+                    actual.route_bus_values[frame * kRoutes + route],
                     expected_buses[route],
                     "stable cylinder accumulation, divisor, length, or route changed");
             }
@@ -427,6 +514,34 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine)
     expect(session.next_frame_index() == 2U * kFrames &&
                session.published_block_count() == 2U && !session.faulted(),
            "two-block excitation session progress changed");
+}
+
+void test_two_cylinder_single_route_session(const EngineSpec &canonical_engine) {
+    const auto engine = make_two_cylinder_single_route_engine(canonical_engine);
+    SyntheticCaptureBlock block_0{engine, 0U};
+    SyntheticCaptureBlock block_1{engine, kFrames};
+    block_0.fill_distinct_excitation();
+    block_1.fill_distinct_excitation();
+
+    auto session = require_session(compile_fixture_session(engine));
+    const auto actual_0 = publish(session, block_0.view(), 0U);
+    const auto actual_1 = publish(session, block_1.view(), 1U);
+
+    expect(actual_0.frame_count == kFrames &&
+               actual_0.cylinder_ids ==
+                   std::vector<CylinderId>{CylinderId{1}, CylinderId{2}} &&
+               actual_0.route_ids == std::vector<RouteId>{RouteId{1}} &&
+               actual_0.pre_delay.size() == kFrames * 2U &&
+               actual_0.post_delay.size() == kFrames * 2U &&
+               actual_0.route_bus_values.size() == kFrames &&
+               actual_1.route_bus_values.size() == kFrames,
+           "dynamic excitation did not publish the admitted 2-cylinder/1-route shape");
+    expect(std::ranges::any_of(actual_1.route_bus_values,
+                               [](double value) { return value != 0.0; }),
+           "dynamic 2-cylinder/1-route excitation never reached its published bus");
+    expect(session.next_frame_index() == 2U * kFrames &&
+               session.published_block_count() == 2U && !session.faulted(),
+           "dynamic 2-cylinder/1-route session progress changed");
 }
 
 void test_independent_sessions_are_bit_deterministic(const EngineSpec &engine) {
@@ -635,6 +750,7 @@ void test_compile_rejects_method_profile_rate_and_layout_drift(
 void run_tests(const std::filesystem::path &repository_root) {
     const auto fixture = test::load_canonical_authored_engine_fixture(repository_root);
     test_exact_arithmetic_delay_routes_and_continuity(fixture.engine);
+    test_two_cylinder_single_route_session(fixture.engine);
     test_independent_sessions_are_bit_deterministic(fixture.engine);
     test_complete_prevalidation_is_terminal_and_does_not_advance(fixture.engine);
     test_consumer_rejection_and_exception_are_terminal(fixture.engine);

@@ -2,7 +2,6 @@
 
 #include "excitation/captured_exhaust_excitation.hpp"
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -38,17 +37,15 @@ class CapturedExhaustExcitationState final {
     contract::EngineId engine_id;
     std::string model_id;
     std::string profile_id;
-    std::array<contract::CylinderId, kCapturedExcitationCylinderCount> cylinder_ids{};
-    std::array<contract::RouteIdentity, kCapturedExcitationRouteCount> route_layout{};
-    std::array<contract::RouteId, kCapturedExcitationRouteCount> route_ids{};
-    std::array<CapturedExcitationCylinderPlan, kCapturedExcitationCylinderCount>
-        cylinders{};
+    std::vector<contract::CylinderId> cylinder_ids;
+    std::vector<contract::RouteIdentity> route_layout;
+    std::vector<contract::RouteId> route_ids;
+    std::vector<CapturedExcitationCylinderPlan> cylinders;
     // A second, equally bounded delay bank makes whole-block arithmetic
     // transactional without allocating during processing.
-    std::array<CapturedExcitationDelayState, kCapturedExcitationCylinderCount>
-        prospective_delays{};
-    std::array<std::size_t, kCapturedExcitationCylinderCount> accumulation_order{};
-    std::array<CapturedExcitationRoutePlan, kCapturedExcitationRouteCount> routes{};
+    std::vector<CapturedExcitationDelayState> prospective_delays;
+    std::vector<std::size_t> accumulation_order;
+    std::vector<CapturedExcitationRoutePlan> routes;
 
     double reference_atmosphere_pa_abs = 0.0;
     double excitation_scale = 0.0;
@@ -58,14 +55,9 @@ class CapturedExhaustExcitationState final {
     double dynamic_reverse_gain = 0.0;
     double cylinder_count_divisor = 0.0;
 
-    std::array<double,
-               kCapturedExcitationFramesPerBlock * kCapturedExcitationCylinderCount>
-        pre_delay{};
-    std::array<double,
-               kCapturedExcitationFramesPerBlock * kCapturedExcitationCylinderCount>
-        post_delay{};
-    std::array<presentation::ExhaustExcitationFrame, kCapturedExcitationFramesPerBlock>
-        route_bus_frames{};
+    std::vector<double> pre_delay;
+    std::vector<double> post_delay;
+    std::vector<double> route_bus_values;
 
     std::uint64_t next_frame_index = 0;
     std::uint64_t published_block_count = 0;

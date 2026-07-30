@@ -4,17 +4,14 @@
 #include "presentation/exhaust_excitation_block.hpp"
 #include "presentation/route_conditioning.hpp"
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <vector>
 
 namespace engine_sim_offline::presentation {
 
 inline constexpr contract::RationalRateHz kExcitationRateHz{10000, 1};
-
-using ExhaustSourceRouteIds =
-    std::array<contract::RouteId, kExhaustExcitationRouteCount>;
 
 struct RouteConditioningSeeds {
     Pcg32Seed jitter;
@@ -22,14 +19,6 @@ struct RouteConditioningSeeds {
 
     friend bool operator==(const RouteConditioningSeeds &,
                            const RouteConditioningSeeds &) = default;
-};
-
-struct ConditionedSourceFrame {
-    std::array<double, kExhaustExcitationRouteCount>
-        route_values_engine_sim_source_unit{};
-
-    friend bool operator==(const ConditionedSourceFrame &,
-                           const ConditionedSourceFrame &) = default;
 };
 
 struct SourceBlockExtent {
@@ -51,15 +40,17 @@ class ExhaustSourceStage {
     // Route values and conditioning seeds share this exact positional order:
     // route_seeds[i] belongs to expected_route_ids[i], and every input block must
     // present the same ordered IDs before any stateful DSP work begins.
-    ExhaustSourceStage(
-        ExhaustSourceRouteIds expected_route_ids,
-        std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> route_seeds,
-        RouteConditioningCalibration conditioning);
+    ExhaustSourceStage(std::span<const contract::RouteId> expected_route_ids,
+                       std::span<const RouteConditioningSeeds> route_seeds,
+                       RouteConditioningCalibration conditioning);
 
+    // Output values are frame-major: frame * route_count() + route.
     [[nodiscard]] SourceBlockExtent process(ExhaustExcitationBlockView input,
-                                            std::span<ConditionedSourceFrame> output);
+                                            std::span<double> output_frame_major);
 
-    [[nodiscard]] const ExhaustSourceRouteIds &expected_route_ids() const noexcept;
+    [[nodiscard]] std::span<const contract::RouteId>
+    expected_route_ids() const noexcept;
+    [[nodiscard]] std::size_t route_count() const noexcept;
     [[nodiscard]] std::uint64_t next_input_frame_index() const noexcept;
     [[nodiscard]] std::uint64_t next_source_frame_index() const noexcept;
     [[nodiscard]] bool terminal_failed() const noexcept;
@@ -68,19 +59,18 @@ class ExhaustSourceStage {
     [[nodiscard]] std::uint64_t air_noise_rng_state(std::size_t route) const;
 
   private:
-    static ExhaustSourceRouteIds
-    validate_route_ids(ExhaustSourceRouteIds expected_route_ids);
-    static std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount>
-    validate_seeds(
-        std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> seeds);
+    static std::vector<contract::RouteId>
+    validate_route_ids(std::span<const contract::RouteId> expected_route_ids);
+    static std::vector<RouteConditioningSeeds>
+    validate_seeds(std::span<const RouteConditioningSeeds> seeds,
+                   std::size_t route_count);
 
-    ExhaustSourceRouteIds expected_route_ids_;
-    std::array<RouteConditioningSeeds, kExhaustExcitationRouteCount> seeds_;
+    std::vector<contract::RouteId> expected_route_ids_;
+    std::vector<RouteConditioningSeeds> seeds_;
     RouteConditioningCalibration conditioning_;
     CausalReconstruction reconstruction_;
-    std::array<RouteConditioner, kExhaustExcitationRouteCount> conditioners_;
-    std::array<ReconstructedSourceFrame, kSourceFramesPerMethodBlock>
-        reconstructed_scratch_{};
+    std::vector<RouteConditioner> conditioners_;
+    std::vector<double> reconstructed_scratch_;
     std::uint64_t next_input_frame_index_ = 0;
     std::uint64_t next_source_frame_index_ = 0;
     bool terminal_failed_ = false;

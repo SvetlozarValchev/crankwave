@@ -251,10 +251,9 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
                    capture.expected_delivery_frame_count,
            "catalog record and source-frame intervals are inconsistent");
     expect(kP18ReferenceRouteCount == kP18ReferenceAuditBusCount &&
-               kP18ReferenceRouteCount == kP18ReferenceSeedRouteCount &&
-               kP18ReferenceRouteCount == presentation::kExhaustExcitationRouteCount,
-           "catalog route count differs from decoder or presentation topology");
-    constexpr presentation::ExhaustSourceRouteIds fixture_route_ids{
+               kP18ReferenceRouteCount == kP18ReferenceSeedRouteCount,
+           "catalog route count differs between its historical fixture inputs");
+    constexpr std::array<contract::RouteId, kP18ReferenceRouteCount> fixture_route_ids{
         contract::RouteId{1}, contract::RouteId{2}};
     for (std::size_t index = 0; index < catalog.expected_routes.size(); ++index) {
         expect(catalog.expected_routes[index].expected_route_id ==

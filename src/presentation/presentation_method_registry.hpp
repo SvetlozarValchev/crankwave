@@ -24,12 +24,12 @@ inline constexpr std::string_view kFixedOverlapSaveConvolutionMethodId =
 inline constexpr std::uint32_t kFixedOverlapSaveConvolutionMethodVersion = 1;
 
 inline constexpr std::string_view kRouteStemPublicationMethodId =
-    "two-route-wet-selection-float32-wave-publication-v1";
+    "n-route-wet-selection-float32-wave-publication-v1";
 inline constexpr std::uint32_t kRouteStemPublicationMethodVersion = 1;
 
-inline constexpr std::string_view kOrderedTwoRouteAuditionMethodId =
-    "ordered-two-route-quarter-sine-pcm24-wave-master-v1";
-inline constexpr std::uint32_t kOrderedTwoRouteAuditionMethodVersion = 1;
+inline constexpr std::string_view kOrderedRouteAuditionMethodId =
+    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v1";
+inline constexpr std::uint32_t kOrderedRouteAuditionMethodVersion = 1;
 
 struct PresentationMethodIdentities {
     contract::MethodIdentity reconstruction;
@@ -49,7 +49,7 @@ struct PresentationMethodIdentities {
 [[nodiscard]] std::string_view
 fixed_overlap_save_convolution_method_descriptor() noexcept;
 [[nodiscard]] std::string_view route_stem_publication_method_descriptor() noexcept;
-[[nodiscard]] std::string_view ordered_two_route_audition_method_descriptor() noexcept;
+[[nodiscard]] std::string_view ordered_route_audition_method_descriptor() noexcept;
 
 [[nodiscard]] const contract::MethodIdentity &causal_reconstruction_method_identity();
 [[nodiscard]] const contract::MethodIdentity &route_conditioning_method_identity();
@@ -57,8 +57,7 @@ fixed_overlap_save_convolution_method_descriptor() noexcept;
 [[nodiscard]] const contract::MethodIdentity &
 fixed_overlap_save_convolution_method_identity();
 [[nodiscard]] const contract::MethodIdentity &route_stem_publication_method_identity();
-[[nodiscard]] const contract::MethodIdentity &
-ordered_two_route_audition_method_identity();
+[[nodiscard]] const contract::MethodIdentity &ordered_route_audition_method_identity();
 
 [[nodiscard]] const PresentationMethodIdentities &
 implemented_presentation_method_identities();

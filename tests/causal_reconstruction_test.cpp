@@ -16,6 +16,8 @@ namespace {
 
 using namespace engine_sim_offline::presentation;
 
+constexpr std::size_t kBmwRouteCount = 2;
+
 void expect(bool condition, const char *message) {
     if (!condition) {
         throw std::runtime_error{message};
@@ -36,36 +38,40 @@ std::uint64_t bits(double value) {
     return std::bit_cast<std::uint64_t>(value);
 }
 
-void expect_same_output(std::span<const ReconstructedSourceFrame> actual,
-                        std::span<const ReconstructedSourceFrame> expected,
-                        const char *message) {
+double value(std::span<const double> values, std::size_t frame, std::size_t route,
+             std::size_t route_count) {
+    return values[frame * route_count + route];
+}
+
+void expect_same_output(std::span<const double> actual,
+                        std::span<const double> expected, const char *message) {
     expect(actual.size() == expected.size(), message);
-    for (std::size_t frame = 0; frame < actual.size(); ++frame) {
-        for (std::size_t route = 0; route < kExhaustExcitationRouteCount; ++route) {
-            expect(bits(actual[frame].route_values_engine_sim_source_unit[route]) ==
-                       bits(expected[frame].route_values_engine_sim_source_unit[route]),
-                   message);
-        }
+    for (std::size_t index = 0; index < actual.size(); ++index) {
+        expect(bits(actual[index]) == bits(expected[index]), message);
     }
 }
 
-std::vector<ReconstructedSourceFrame>
-process_chunks(CausalReconstruction &reconstruction,
-               std::span<const ExhaustExcitationFrame> input,
-               std::span<const std::size_t> chunks) {
-    std::vector<ReconstructedSourceFrame> result;
-    std::size_t input_offset = 0;
+std::vector<double> process_chunks(CausalReconstruction &reconstruction,
+                                   std::span<const double> input_frame_major,
+                                   std::span<const std::size_t> chunks) {
+    std::vector<double> result;
+    std::size_t input_frame_offset = 0;
     for (const auto chunk_size : chunks) {
-        expect(input_offset + chunk_size <= input.size(),
+        expect(input_frame_offset + chunk_size <=
+                   input_frame_major.size() / reconstruction.route_count(),
                "reconstruction test chunk exceeded its input");
-        const auto chunk = input.subspan(input_offset, chunk_size);
-        std::vector<ReconstructedSourceFrame> output(
-            reconstruction.expected_output_frame_count(chunk_size));
-        reconstruction.process(chunk, output);
+        const auto chunk =
+            input_frame_major.subspan(input_frame_offset * reconstruction.route_count(),
+                                      chunk_size * reconstruction.route_count());
+        std::vector<double> output(
+            reconstruction.expected_output_frame_count(chunk_size) *
+            reconstruction.route_count());
+        reconstruction.process(chunk, chunk_size, output);
         result.insert(result.end(), output.begin(), output.end());
-        input_offset += chunk_size;
+        input_frame_offset += chunk_size;
     }
-    expect(input_offset == input.size(),
+    expect(input_frame_offset * reconstruction.route_count() ==
+               input_frame_major.size(),
            "reconstruction test chunks did not cover their input");
     return result;
 }
@@ -101,10 +107,12 @@ void test_frozen_phase_resolution() {
                 CausalReconstruction::resolve_phase(CausalReconstruction::kSourceRate));
         },
         "reconstruction accepted an interval-end phase offset");
+    expect_throw<std::invalid_argument>([] { CausalReconstruction invalid{0}; },
+                                        "reconstruction accepted zero routes");
 }
 
 void test_exact_clock_count_and_distance_pattern() {
-    CausalReconstruction reconstruction;
+    CausalReconstruction reconstruction{kBmwRouteCount};
     expect(reconstruction.expected_output_frame_count(
                kExcitationFramesPerMethodBlock) == kSourceFramesPerMethodBlock &&
                reconstruction.distance_to_next_output() == 0,
@@ -113,44 +121,43 @@ void test_exact_clock_count_and_distance_pattern() {
     constexpr std::array expected_counts{20U, 19U, 19U, 19U, 19U};
     constexpr std::array<std::uint64_t, 5> expected_distances{8000, 6000, 4000, 2000,
                                                               0};
-    std::array<ExhaustExcitationFrame, 1> input{};
+    std::array<double, kBmwRouteCount> input{};
     std::size_t total_output = 0;
     for (std::size_t frame = 0; frame < expected_counts.size(); ++frame) {
         const auto count = reconstruction.expected_output_frame_count(1);
         expect(count == expected_counts[frame],
                "per-frame source count pattern changed");
-        std::vector<ReconstructedSourceFrame> output(count);
-        reconstruction.process(input, output);
-        total_output += output.size();
+        std::vector<double> output(count * kBmwRouteCount);
+        reconstruction.process(input, 1, output);
+        total_output += count;
         expect(reconstruction.distance_to_next_output() == expected_distances[frame],
                "shared reconstruction clock distance changed");
     }
 
-    std::array<ExhaustExcitationFrame, 195> remainder{};
-    const auto remainder_count =
-        reconstruction.expected_output_frame_count(remainder.size());
+    std::vector<double> remainder(195 * kBmwRouteCount);
+    const auto remainder_count = reconstruction.expected_output_frame_count(195);
     expect(remainder_count == kSourceFramesPerMethodBlock - total_output,
            "remaining method-block source count changed");
-    std::vector<ReconstructedSourceFrame> remainder_output(remainder_count);
-    reconstruction.process(remainder, remainder_output);
-    total_output += remainder_output.size();
+    std::vector<double> remainder_output(remainder_count * kBmwRouteCount);
+    reconstruction.process(remainder, 195, remainder_output);
+    total_output += remainder_count;
     expect(total_output == kSourceFramesPerMethodBlock &&
                reconstruction.distance_to_next_output() == 0,
            "method block did not end at 3840 frames and phase zero");
 }
 
 void test_frozen_causal_impulse_and_route_isolation() {
-    std::vector<ExhaustExcitationFrame> input(260);
-    input.front().route_values_engine_sim_source_unit[0] = 1.0;
+    std::vector<double> input(260 * kBmwRouteCount);
+    input[0] = 1.0;
 
-    CausalReconstruction reconstruction;
+    CausalReconstruction reconstruction{kBmwRouteCount};
     constexpr std::array chunks{std::size_t{200}, std::size_t{60}};
     const auto output = process_chunks(reconstruction, input, chunks);
-    expect(output.size() == 4992, "260-frame impulse output count changed");
+    expect(output.size() == 4992 * kBmwRouteCount,
+           "260-frame impulse output count changed");
 
     for (std::size_t frame = 0; frame < 39; ++frame) {
-        expect(bits(output[frame].route_values_engine_sim_source_unit[0]) ==
-                   UINT64_C(0),
+        expect(bits(value(output, frame, 0, kBmwRouteCount)) == UINT64_C(0),
                "causal impulse began before its frozen support");
     }
 
@@ -173,34 +180,32 @@ void test_frozen_causal_impulse_and_route_isolation() {
         ImpulseProbe{4991, UINT64_C(0x0000000000000000)},
     };
     for (const auto &probe : probes) {
-        expect(bits(output[probe.frame].route_values_engine_sim_source_unit[0]) ==
+        expect(bits(value(output, probe.frame, 0, kBmwRouteCount)) ==
                    probe.expected_bits,
                "causal impulse reconstruction changed");
     }
 
-    for (const auto &frame : output) {
-        expect(frame.route_values_engine_sim_source_unit[1] == 0.0,
+    for (std::size_t frame = 0; frame < 4992; ++frame) {
+        expect(value(output, frame, 1, kBmwRouteCount) == 0.0,
                "reconstruction leaked route 0 into route 1");
     }
 }
 
 void test_split_and_contiguous_processing_are_identical() {
-    std::array<ExhaustExcitationFrame, 200> input{};
-    for (std::size_t frame = 0; frame < input.size(); ++frame) {
+    std::vector<double> input(200 * kBmwRouteCount);
+    for (std::size_t frame = 0; frame < 200; ++frame) {
         const auto route_0 = static_cast<int>(frame % 17) - 8;
         const auto route_1 = static_cast<int>(frame % 11) - 5;
-        input[frame].route_values_engine_sim_source_unit[0] =
-            static_cast<double>(route_0) * 0.125;
-        input[frame].route_values_engine_sim_source_unit[1] =
-            static_cast<double>(route_1) * 0.25;
+        input[frame * kBmwRouteCount] = static_cast<double>(route_0) * 0.125;
+        input[frame * kBmwRouteCount + 1] = static_cast<double>(route_1) * 0.25;
     }
 
-    CausalReconstruction contiguous_reconstruction;
+    CausalReconstruction contiguous_reconstruction{kBmwRouteCount};
     constexpr std::array contiguous_chunk{std::size_t{200}};
     const auto contiguous =
         process_chunks(contiguous_reconstruction, input, contiguous_chunk);
 
-    CausalReconstruction split_reconstruction;
+    CausalReconstruction split_reconstruction{kBmwRouteCount};
     constexpr std::array split_chunks{
         std::size_t{1}, std::size_t{2}, std::size_t{4},   std::size_t{3},
         std::size_t{8}, std::size_t{5}, std::size_t{177},
@@ -215,46 +220,77 @@ void test_split_and_contiguous_processing_are_identical() {
 }
 
 void test_preflight_failures_do_not_mutate_state() {
-    std::array<ExhaustExcitationFrame, 5> valid_input{};
-    valid_input[0].route_values_engine_sim_source_unit = {1.0, -0.5};
-    valid_input[3].route_values_engine_sim_source_unit = {0.25, 0.75};
+    std::vector<double> valid_input(5 * kBmwRouteCount);
+    valid_input[0] = 1.0;
+    valid_input[1] = -0.5;
+    valid_input[6] = 0.25;
+    valid_input[7] = 0.75;
 
-    CausalReconstruction candidate;
-    const auto expected_count =
-        candidate.expected_output_frame_count(valid_input.size());
-    std::vector<ReconstructedSourceFrame> wrong_size(expected_count - 1);
+    CausalReconstruction candidate{kBmwRouteCount};
+    const auto expected_count = candidate.expected_output_frame_count(5);
+    std::vector<double> wrong_size(expected_count * kBmwRouteCount - 1);
     expect_throw<std::invalid_argument>(
-        [&] { candidate.process(valid_input, wrong_size); },
+        [&] { candidate.process(valid_input, 5, wrong_size); },
         "reconstruction accepted a wrong-sized output span");
     expect(candidate.distance_to_next_output() == 0,
            "wrong output size mutated the reconstruction clock");
 
+    auto incomplete_input = valid_input;
+    incomplete_input.pop_back();
+    std::vector<double> rejected_output(expected_count * kBmwRouteCount, 13.0);
+    expect_throw<std::invalid_argument>(
+        [&] { candidate.process(incomplete_input, 5, rejected_output); },
+        "reconstruction accepted an incomplete input route matrix");
+
     auto nonfinite_input = valid_input;
-    nonfinite_input[2].route_values_engine_sim_source_unit[1] =
-        std::numeric_limits<double>::quiet_NaN();
-    std::vector<ReconstructedSourceFrame> rejected_output(expected_count);
-    for (auto &frame : rejected_output) {
-        frame.route_values_engine_sim_source_unit = {13.0, -17.0};
-    }
+    nonfinite_input[5] = std::numeric_limits<double>::quiet_NaN();
     expect_throw<std::domain_error>(
-        [&] { candidate.process(nonfinite_input, rejected_output); },
+        [&] { candidate.process(nonfinite_input, 5, rejected_output); },
         "reconstruction accepted a non-finite excitation");
     expect(candidate.distance_to_next_output() == 0,
            "non-finite input mutated the reconstruction clock");
-    for (const auto &frame : rejected_output) {
-        expect(frame.route_values_engine_sim_source_unit ==
-                   std::array<double, kExhaustExcitationRouteCount>{13.0, -17.0},
+    for (const auto sample : rejected_output) {
+        expect(sample == 13.0,
                "non-finite preflight wrote partial reconstruction output");
     }
 
-    std::vector<ReconstructedSourceFrame> candidate_output(expected_count);
-    candidate.process(valid_input, candidate_output);
+    std::vector<double> candidate_output(expected_count * kBmwRouteCount);
+    candidate.process(valid_input, 5, candidate_output);
 
-    CausalReconstruction fresh;
-    std::vector<ReconstructedSourceFrame> fresh_output(expected_count);
-    fresh.process(valid_input, fresh_output);
+    CausalReconstruction fresh{kBmwRouteCount};
+    std::vector<double> fresh_output(expected_count * kBmwRouteCount);
+    fresh.process(valid_input, 5, fresh_output);
     expect_same_output(candidate_output, fresh_output,
                        "reconstruction preflight failure changed a later valid result");
+}
+
+void test_dynamic_route_counts_preserve_independent_route_arithmetic() {
+    constexpr std::size_t kMultiRouteCount = 3;
+    std::vector<double> single_input(kExcitationFramesPerMethodBlock);
+    std::vector<double> multi_input(kExcitationFramesPerMethodBlock * kMultiRouteCount);
+    for (std::size_t frame = 0; frame < kExcitationFramesPerMethodBlock; ++frame) {
+        const auto centered = static_cast<int>(frame % 13) - 6;
+        single_input[frame] = static_cast<double>(centered) * 0.0625;
+        multi_input[frame * kMultiRouteCount] = single_input[frame];
+        multi_input[frame * kMultiRouteCount + 1] =
+            static_cast<double>(static_cast<int>(frame % 9) - 4) * 0.25;
+        multi_input[frame * kMultiRouteCount + 2] = single_input[frame];
+    }
+
+    CausalReconstruction single{1};
+    CausalReconstruction multi{kMultiRouteCount};
+    std::vector<double> single_output(kSourceFramesPerMethodBlock);
+    std::vector<double> multi_output(kSourceFramesPerMethodBlock * kMultiRouteCount);
+    single.process(single_input, kExcitationFramesPerMethodBlock, single_output);
+    multi.process(multi_input, kExcitationFramesPerMethodBlock, multi_output);
+
+    for (std::size_t frame = 0; frame < kSourceFramesPerMethodBlock; ++frame) {
+        expect(bits(single_output[frame]) ==
+                       bits(value(multi_output, frame, 0, kMultiRouteCount)) &&
+                   bits(single_output[frame]) ==
+                       bits(value(multi_output, frame, 2, kMultiRouteCount)),
+               "dynamic reconstruction route count changed isolated arithmetic");
+    }
 }
 
 void run_tests() {
@@ -263,6 +299,7 @@ void run_tests() {
     test_frozen_causal_impulse_and_route_isolation();
     test_split_and_contiguous_processing_are_identical();
     test_preflight_failures_do_not_mutate_state();
+    test_dynamic_route_counts_preserve_independent_route_arithmetic();
 }
 
 } // namespace

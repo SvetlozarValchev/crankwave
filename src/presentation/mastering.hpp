@@ -72,17 +72,17 @@ struct MasteredFrame {
 // 24-bit range are rejected.
 [[nodiscard]] std::array<std::byte, 3> serialize_pcm24le(std::int32_t pcm24_sample);
 
-// Route addition is one Float32 operation in route-0, route-1 order. Every result is
-// finite or the call fails before returning a frame.
-[[nodiscard]] MasteredFrame master_frame(float route_0_selected, float route_1_selected,
+// Route addition starts from the first selected route, then performs one Float32
+// addition for every subsequent route in caller order. No leading zero is added.
+// Every result is finite or the call fails before returning a frame.
+[[nodiscard]] MasteredFrame master_frame(std::span<const float> selected_routes,
                                          std::uint64_t frame_index,
                                          const MasteringSettings &settings);
 
 // Exact chunk-independent counterpart to master_frame. Span lengths
 // must match and the addressed frame interval must fit the settings' audible interval.
 // The block is staged so validation/arithmetic failure leaves caller output unchanged.
-void master_block(std::span<const float> route_0_selected,
-                  std::span<const float> route_1_selected,
+void master_block(std::span<const std::span<const float>> selected_routes,
                   std::uint64_t first_frame_index, const MasteringSettings &settings,
                   std::span<MasteredFrame> output);
 

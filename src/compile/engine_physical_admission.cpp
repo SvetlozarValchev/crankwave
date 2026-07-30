@@ -28,14 +28,13 @@ void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
 }
 
 [[nodiscard]] bool same_binary64(double left, double right) noexcept {
-    return std::bit_cast<std::uint64_t>(left) ==
-           std::bit_cast<std::uint64_t>(right);
+    return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
 
-[[nodiscard]] bool supported_flow_bench(
-    const authoring::FlowRestriction &restriction,
-    contract::LegacyRestrictionCalibration expected_calibration =
-        contract::LegacyRestrictionCalibration::unspecified) {
+[[nodiscard]] bool
+supported_flow_bench(const authoring::FlowRestriction &restriction,
+                     contract::LegacyRestrictionCalibration expected_calibration =
+                         contract::LegacyRestrictionCalibration::unspecified) {
     const auto *flow = std::get_if<authoring::FlowBenchRestriction>(&restriction);
     if (flow == nullptr || flow->rated_flow.unit != "cfm" ||
         !flow->rated_flow.standard.has_value()) {
@@ -48,16 +47,14 @@ void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
             ? contract::LegacyRestrictionCalibration::cfm_at_28_inh2o
             : contract::LegacyRestrictionCalibration::unspecified;
     if (calibration == contract::LegacyRestrictionCalibration::unspecified ||
-        (expected_calibration !=
-             contract::LegacyRestrictionCalibration::unspecified &&
+        (expected_calibration != contract::LegacyRestrictionCalibration::unspecified &&
          calibration != expected_calibration)) {
         return false;
     }
     const double pressure_drop_pa = legacy_si_value(flow->pressure_drop);
     const double expected_drop =
         simulation::legacy_flow_calibration_pressure_drop_pa(calibration);
-    return std::isfinite(flow->rated_flow.value) &&
-           flow->rated_flow.value >= 0.0 &&
+    return std::isfinite(flow->rated_flow.value) && flow->rated_flow.value >= 0.0 &&
            same_binary64(pressure_drop_pa, expected_drop);
 }
 
@@ -91,8 +88,7 @@ void admit_engine_physical_model(ModelContext &resolved,
     for (std::size_t index = 0; index < engine.journals.size(); ++index) {
         const auto &journal = engine.journals[index];
         if (journal.crankshaft.value != resolved.crankshaft->id.value ||
-            journal.master_journal.has_value() ||
-            journal.slave_throw.has_value()) {
+            journal.master_journal.has_value() || journal.slave_throw.has_value()) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/engine/journals", index),
                 "the current centered inline crank admits direct journals only");
@@ -111,12 +107,10 @@ void admit_engine_physical_model(ModelContext &resolved,
         const auto &piston = engine.pistons[index];
         if (piston.wrist_pin_position.has_value()) {
             add(report, DiagnosticCode::unsupported_capability,
-                pointer_index("/engine/pistons", index) +
-                    "/wrist_pin_position",
+                pointer_index("/engine/pistons", index) + "/wrist_pin_position",
                 "wrist-pin position is not executed by the centered low-order core");
         }
-        if (!piston.blowby.has_value() ||
-            !supported_flow_bench(*piston.blowby)) {
+        if (!piston.blowby.has_value() || !supported_flow_bench(*piston.blowby)) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/engine/pistons", index) + "/blowby",
                 "the current gas path requires a supported calibrated CFM blowby "
@@ -128,8 +122,7 @@ void admit_engine_physical_model(ModelContext &resolved,
         if (!std::ranges::all_of(engine.pistons, [&](const auto &piston) {
                 return piston.blowby == first;
             })) {
-            add(report, DiagnosticCode::unsupported_capability,
-                "/engine/pistons",
+            add(report, DiagnosticCode::unsupported_capability, "/engine/pistons",
                 "the current shared gas path requires one identical blowby "
                 "restriction across all referenced pistons");
         }
@@ -140,8 +133,7 @@ void admit_engine_physical_model(ModelContext &resolved,
         if (!supported_flow_bench(
                 restriction,
                 contract::LegacyRestrictionCalibration::carb_at_1p5_inhg)) {
-            add(report, DiagnosticCode::unsupported_capability,
-                std::string{path},
+            add(report, DiagnosticCode::unsupported_capability, std::string{path},
                 "the current gas path requires a 1.5-inHg calibrated CFM "
                 "restriction");
         }
@@ -170,11 +162,9 @@ void admit_engine_physical_model(ModelContext &resolved,
                 "the collector geometry");
         }
         require_carb(exhaust.outlet_restriction,
-                     pointer_index("/engine/exhausts", index) +
-                         "/outlet_restriction");
+                     pointer_index("/engine/exhausts", index) + "/outlet_restriction");
         require_carb(exhaust.primary_restriction,
-                     pointer_index("/engine/exhausts", index) +
-                         "/primary_restriction");
+                     pointer_index("/engine/exhausts", index) + "/primary_restriction");
     }
 
     const authoring::PortDefinition *intake_port = nullptr;
@@ -200,18 +190,15 @@ void admit_engine_physical_model(ModelContext &resolved,
         for (const auto &port : resolved.head->ports) {
             head_ports.insert(port.value);
         }
-        if (head_ports !=
-            std::unordered_set<std::string>{intake_port->id.value,
-                                            exhaust_port->id.value}) {
-            add(report, DiagnosticCode::unsupported_capability,
-                "/engine/heads/0/ports",
+        if (head_ports != std::unordered_set<std::string>{intake_port->id.value,
+                                                          exhaust_port->id.value}) {
+            add(report, DiagnosticCode::unsupported_capability, "/engine/heads/0/ports",
                 "the shared head port list must exactly cover its intake and "
                 "exhaust ports");
         }
         for (std::size_t index = 0; index < engine.exhausts.size(); ++index) {
             if (!same_binary64(
-                    legacy_si_value(
-                        engine.exhausts[index].primary_cross_section_area),
+                    legacy_si_value(engine.exhausts[index].primary_cross_section_area),
                     legacy_si_value(exhaust_port->runner_cross_section_area))) {
                 add(report, DiagnosticCode::unsupported_capability,
                     pointer_index("/engine/exhausts", index) +
@@ -220,21 +207,16 @@ void admit_engine_physical_model(ModelContext &resolved,
                     "match the exhaust-port runner area");
             }
         }
-        const auto intake_curve =
-            resolved.curves.find(intake_port->flow_curve.value);
-        const auto exhaust_curve =
-            resolved.curves.find(exhaust_port->flow_curve.value);
+        const auto intake_curve = resolved.curves.find(intake_port->flow_curve.value);
+        const auto exhaust_curve = resolved.curves.find(exhaust_port->flow_curve.value);
         if (intake_curve != resolved.curves.end() &&
             exhaust_curve != resolved.curves.end() &&
             (!intake_curve->second->triangle_filter_radius.has_value() ||
              !exhaust_curve->second->triangle_filter_radius.has_value() ||
              !same_binary64(
-                 legacy_si_value(
-                     *intake_curve->second->triangle_filter_radius),
-                 legacy_si_value(
-                     *exhaust_curve->second->triangle_filter_radius)))) {
-            add(report, DiagnosticCode::unsupported_capability,
-                "/engine/ports",
+                 legacy_si_value(*intake_curve->second->triangle_filter_radius),
+                 legacy_si_value(*exhaust_curve->second->triangle_filter_radius)))) {
+            add(report, DiagnosticCode::unsupported_capability, "/engine/ports",
                 "the current shared-head runtime requires bit-identical intake "
                 "and exhaust flow-table triangle radii");
         }
@@ -273,8 +255,7 @@ void admit_engine_physical_model(ModelContext &resolved,
         const auto [wire, inserted] = resolved.cylinder_for_wire.emplace(
             cylinder.ignition_wire.value, cylinder.id.value);
         if (!inserted) {
-            add(report, DiagnosticCode::unsupported_capability,
-                path + "/ignition_wire",
+            add(report, DiagnosticCode::unsupported_capability, path + "/ignition_wire",
                 "each admitted cylinder requires a distinct ignition wire");
         }
     }
@@ -289,16 +270,14 @@ void admit_engine_physical_model(ModelContext &resolved,
 
     for (std::size_t index = 0; index < engine.source_routes.size(); ++index) {
         const auto &route = engine.source_routes[index];
-        const auto *source =
-            std::get_if<authoring::ExhaustRouteSource>(&route.source);
+        const auto *source = std::get_if<authoring::ExhaustRouteSource>(&route.source);
         if (source == nullptr) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/engine/source_routes", index) + "/type",
                 "the current presentation admits exhaust source routes only");
             continue;
         }
-        if (!resolved.route_for_exhaust.emplace(source->exhaust.value,
-                                                route.id.value)
+        if (!resolved.route_for_exhaust.emplace(source->exhaust.value, route.id.value)
                  .second) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/engine/source_routes", index),
@@ -306,9 +285,8 @@ void admit_engine_physical_model(ModelContext &resolved,
         }
     }
     if (resolved.route_for_exhaust.size() != engine.exhausts.size()) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/engine/source_routes",
-            "source routes must exactly cover the two cylinder-referenced exhausts");
+        add(report, DiagnosticCode::unsupported_capability, "/engine/source_routes",
+            "source routes must exactly cover all cylinder-referenced exhausts");
     }
 }
 

@@ -7,10 +7,11 @@
 #include "presentation/presentation_method_registry.hpp"
 #include "presentation/route_conditioning.hpp"
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <variant>
+#include <vector>
 
 namespace engine_sim_offline::presentation {
 
@@ -42,7 +43,6 @@ class AdmittedPresentationRoute final {
 
 class AdmittedPresentationCalibration final {
   public:
-    static constexpr std::size_t route_count = 2;
     static constexpr std::uint64_t capture_frames_per_block = 200;
     static constexpr std::uint64_t source_frames_per_block = 3840;
 
@@ -56,11 +56,11 @@ class AdmittedPresentationCalibration final {
 
     [[nodiscard]] const PresentationMethodIdentities &methods() const noexcept;
     [[nodiscard]] const RouteConditioningCalibration &conditioning() const noexcept;
-    [[nodiscard]] const std::array<AdmittedPresentationRoute, route_count> &
-    routes() const noexcept;
+    [[nodiscard]] std::span<const AdmittedPresentationRoute> routes() const noexcept;
+    [[nodiscard]] std::size_t route_count() const noexcept;
     [[nodiscard]] const contract::ResolvedValue<double> &
     publication_calibration_gain_linear() const noexcept;
-    [[nodiscard]] const std::array<contract::RouteId, route_count> &
+    [[nodiscard]] std::span<const contract::RouteId>
     audition_route_ids() const noexcept;
     [[nodiscard]] const MasteringSettings &mastering() const noexcept;
     [[nodiscard]] std::uint64_t total_block_count() const noexcept;
@@ -69,17 +69,16 @@ class AdmittedPresentationCalibration final {
   private:
     AdmittedPresentationCalibration(
         PresentationMethodIdentities methods, RouteConditioningCalibration conditioning,
-        std::array<AdmittedPresentationRoute, route_count> routes,
+        std::vector<AdmittedPresentationRoute> routes,
         contract::ResolvedValue<double> publication_calibration_gain_linear,
-        std::array<contract::RouteId, route_count> audition_route_ids,
-        MasteringSettings mastering, std::uint64_t total_block_count,
-        std::uint64_t pre_audible_block_count);
+        std::vector<contract::RouteId> audition_route_ids, MasteringSettings mastering,
+        std::uint64_t total_block_count, std::uint64_t pre_audible_block_count);
 
     PresentationMethodIdentities methods_;
     RouteConditioningCalibration conditioning_;
-    std::array<AdmittedPresentationRoute, route_count> routes_;
+    std::vector<AdmittedPresentationRoute> routes_;
     contract::ResolvedValue<double> publication_calibration_gain_linear_;
-    std::array<contract::RouteId, route_count> audition_route_ids_;
+    std::vector<contract::RouteId> audition_route_ids_;
     MasteringSettings mastering_;
     std::uint64_t total_block_count_ = 0;
     std::uint64_t pre_audible_block_count_ = 0;

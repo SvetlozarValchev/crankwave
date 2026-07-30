@@ -83,7 +83,7 @@ struct ResolutionBuilder {
     }
 };
 
-[[nodiscard]] contract::EngineSpec make_engine() {
+[[nodiscard]] contract::EngineSpec make_engine(std::size_t route_count = 2) {
     contract::EngineSpec engine;
     engine.id = contract::EngineId{7};
     engine.engine_id.value = "test-engine";
@@ -106,6 +106,16 @@ struct ResolutionBuilder {
             std::nullopt,
         },
     };
+    if (route_count == 3) {
+        engine.routes.push_back({
+            contract::RouteId{3},
+            {std::string{"route.three"}, {}},
+            {contract::SourceRouteKind::exhaust_outlet, {}},
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+        });
+    }
     return engine;
 }
 
@@ -170,12 +180,26 @@ make_presentation(ResolutionBuilder &builder, const contract::EngineSpec &engine
             builder.resolved(1.0, "presentation.routes.route.one.wet_mix_01"),
         },
     };
+    if (engine.routes.size() == 3) {
+        presentation.routes.push_back({
+            contract::RouteId{3},
+            contract::AudioAssetId{1},
+            builder.resolved(
+                0.001, "presentation.routes.route.three.impulse_response_gain_linear"),
+            builder.resolved(0.25, "presentation.routes.route.three.wet_mix_01"),
+        });
+    }
     presentation.publication.calibration_gain_linear =
         builder.resolved(0x1.0p-26, "presentation.publication.calibration_gain_linear");
+    std::vector<contract::RouteId> audition_routes{contract::RouteId{2},
+                                                   contract::RouteId{1}};
+    if (engine.routes.size() == 3) {
+        audition_routes = {contract::RouteId{2}, contract::RouteId{3},
+                           contract::RouteId{1}};
+    }
     presentation.audition = {
-        builder.resolved(
-            std::vector<contract::RouteId>{contract::RouteId{2}, contract::RouteId{1}},
-            "presentation.audition.selected_routes"),
+        builder.resolved(std::move(audition_routes),
+                         "presentation.audition.selected_routes"),
         builder.resolved(0.75, "presentation.audition.monitoring_gain_linear"),
         builder.resolved(0.02, "presentation.audition.fade_in_duration_s"),
         builder.resolved(0.02, "presentation.audition.fade_out_duration_s"),
@@ -199,7 +223,8 @@ make_scenario(const contract::EngineSpec &engine) {
     return scenario;
 }
 
-[[nodiscard]] contract::SourceMatrixContract make_source_matrix() {
+[[nodiscard]] contract::SourceMatrixContract
+make_source_matrix(std::size_t route_count = 2) {
     const contract::AudioContract float_audio{
         {192000, 1},
         2880000,
@@ -243,6 +268,21 @@ make_scenario(const contract::EngineSpec &engine) {
             },
         },
     };
+    if (route_count == 3) {
+        matrix.required_source_routes.insert(
+            matrix.required_source_routes.begin() + 1,
+            {
+                "route.three",
+                contract::SourceRouteKind::exhaust_outlet,
+                contract::RouteDisposition::rendered,
+                "",
+                {
+                    "stem/route.three.dry",
+                    "stem/route.three.configured_ir",
+                    "stem/route.three.selected",
+                },
+            });
+    }
     matrix.required_output_buses = {
         {
             "master.engine.audition",
@@ -269,6 +309,16 @@ make_scenario(const contract::EngineSpec &engine) {
          true},
         {"stem/route.one.dry", contract::ArtifactKind::audio, float_audio, true},
     };
+    if (route_count == 3) {
+        matrix.required_artifacts.push_back(
+            {"stem/route.three.dry", contract::ArtifactKind::audio, float_audio, true});
+        matrix.required_artifacts.push_back({"stem/route.three.configured_ir",
+                                             contract::ArtifactKind::audio, float_audio,
+                                             true});
+        matrix.required_artifacts.push_back({"stem/route.three.selected",
+                                             contract::ArtifactKind::audio, float_audio,
+                                             false});
+    }
     return matrix;
 }
 
@@ -277,14 +327,14 @@ struct ProjectionFixture {
     contract::RenderRequestRecord request;
     presentation::AdmittedPresentationCalibration calibration;
 
-    ProjectionFixture()
-        : request(make_request(builder)),
+    explicit ProjectionFixture(std::size_t route_count = 2)
+        : request(make_request(builder, route_count)),
           calibration(compile_calibration(request, builder.provenance)) {}
 
   private:
     [[nodiscard]] static contract::RenderRequestRecord
-    make_request(ResolutionBuilder &builder) {
-        auto engine = make_engine();
+    make_request(ResolutionBuilder &builder, std::size_t route_count) {
+        auto engine = make_engine(route_count);
         auto presentation = make_presentation(builder, engine);
         auto scenario = make_scenario(engine);
         return {
@@ -295,7 +345,7 @@ struct ProjectionFixture {
                 std::move(scenario),
             },
             builder.provenance,
-            make_source_matrix(),
+            make_source_matrix(route_count),
             {},
         };
     }
@@ -324,11 +374,11 @@ concept LvalueExecutable =
     };
 
 template <class Job>
-concept RvalueExecutable = requires(
-    Job &&job, RenderSink &sink, const RenderSpecification &specification,
-    const contract::RenderScenario &scenario) {
-    std::move(job).execute(sink, specification, scenario);
-};
+concept RvalueExecutable =
+    requires(Job &&job, RenderSink &sink, const RenderSpecification &specification,
+             const contract::RenderScenario &scenario) {
+        std::move(job).execute(sink, specification, scenario);
+    };
 
 void test_opaque_job_shape() {
     using Job = CompiledPresentationJob;
@@ -485,11 +535,30 @@ void test_complete_projection() {
            "complete projection did not retain exact audition metadata");
 }
 
+void test_dynamic_route_projection() {
+    ProjectionFixture fixture{3};
+    auto result = derive_render_job_projection(fixture.request, fixture.calibration);
+    const auto *projection = std::get_if<RenderJobProjection>(&result);
+    expect(projection != nullptr && projection->routes.size() == 3 &&
+               projection->route_artifacts.size() == 3 &&
+               projection->output_contract.required_artifacts.size() == 11 &&
+               projection->routes[2].route_id == contract::RouteId{3} &&
+               projection->routes[2].semantic_id == "route.three" &&
+               projection->route_artifacts[2].dry.role == "stem/route.three.dry" &&
+               projection->route_artifacts[2].configured_ir.role ==
+                   "stem/route.three.configured_ir" &&
+               projection->route_artifacts[2].selected.role ==
+                   "stem/route.three.selected" &&
+               projection->output_buses.size() == 2,
+           "three-route job did not project 3*R+2 artifacts and two master buses");
+}
+
 void run_tests() {
     test_opaque_job_shape();
     test_artifact_path_projection();
     test_audition_metadata_projection();
     test_complete_projection();
+    test_dynamic_route_projection();
 }
 
 } // namespace

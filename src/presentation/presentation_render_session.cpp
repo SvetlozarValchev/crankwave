@@ -29,27 +29,23 @@ using artifacts::WavEncoder;
 using artifacts::WavEncodingStatus;
 constexpr std::size_t kInputFramesPerBlock = kExcitationFramesPerMethodBlock;
 constexpr std::size_t kSourceFramesPerBlock = kSourceFramesPerMethodBlock;
-constexpr std::size_t kRouteCount = kExhaustExcitationRouteCount;
-constexpr std::size_t kStemCount = kRouteCount * 3;
-constexpr std::size_t kFloatWaveCount = kStemCount + 1;
 constexpr std::size_t kMaximumWaveChunkBytes = 16U * 1024U;
 
-enum class AudioIndex : std::size_t {
-    exhaust_0_dry = 0,
-    exhaust_0_configured_ir = 1,
-    exhaust_0_selected = 2,
-    exhaust_1_dry = 3,
-    exhaust_1_configured_ir = 4,
-    exhaust_1_selected = 5,
-    master_raw = 6,
-    master_audition = 7,
-};
+[[nodiscard]] constexpr std::size_t stem_count(std::size_t route_count) noexcept {
+    return route_count * kPresentationArtifactsPerRoute;
+}
 
-static_assert(kRouteCount == 2);
-static_assert(kPresentationAudioArtifactCount == kFloatWaveCount + 1);
+[[nodiscard]] constexpr std::size_t float_wave_count(std::size_t route_count) noexcept {
+    return stem_count(route_count) + 1;
+}
 
-[[nodiscard]] constexpr std::size_t index(AudioIndex value) noexcept {
-    return static_cast<std::size_t>(value);
+[[nodiscard]] constexpr std::size_t raw_master_index(std::size_t route_count) noexcept {
+    return stem_count(route_count);
+}
+
+[[nodiscard]] constexpr std::size_t
+audition_master_index(std::size_t route_count) noexcept {
+    return float_wave_count(route_count);
 }
 
 [[nodiscard]] std::uint64_t checked_frame_product(std::uint64_t block_count,
@@ -92,44 +88,61 @@ published_source_frame_count(const PresentationRenderPlan &plan) {
                                  "presentation audible horizon");
 }
 
-[[nodiscard]] ExhaustSourceRouteIds
-source_route_ids(const PresentationRenderPlan &plan) noexcept {
-    return {plan.routes[0].route_id, plan.routes[1].route_id};
+[[nodiscard]] std::vector<contract::RouteId>
+source_route_ids(const PresentationRenderPlan &plan) {
+    std::vector<contract::RouteId> result;
+    result.reserve(plan.routes.size());
+    for (const auto &route : plan.routes) {
+        result.push_back(route.route_id);
+    }
+    return result;
 }
 
-[[nodiscard]] std::array<RouteConditioningSeeds, kRouteCount>
-source_route_seeds(const PresentationRenderPlan &plan) noexcept {
-    return {
-        plan.routes[0].conditioning_seeds,
-        plan.routes[1].conditioning_seeds,
-    };
+[[nodiscard]] std::vector<RouteConditioningSeeds>
+source_route_seeds(const PresentationRenderPlan &plan) {
+    std::vector<RouteConditioningSeeds> result;
+    result.reserve(plan.routes.size());
+    for (const auto &route : plan.routes) {
+        result.push_back(route.conditioning_seeds);
+    }
+    return result;
 }
 
-[[nodiscard]] std::array<PendingArtifact, kPresentationAudioArtifactCount>
+[[nodiscard]] std::vector<PendingArtifact>
 ordered_audio_artifacts(const PresentationRenderPlan &plan) {
-    return {
-        plan.routes[0].artifacts.dry,           plan.routes[0].artifacts.configured_ir,
-        plan.routes[0].artifacts.selected,      plan.routes[1].artifacts.dry,
-        plan.routes[1].artifacts.configured_ir, plan.routes[1].artifacts.selected,
-        plan.audition.raw_master_artifact,      plan.audition.audition_master_artifact,
-    };
+    std::vector<PendingArtifact> result;
+    result.reserve(presentation_audio_artifact_count(plan.routes.size()));
+    for (const auto &route : plan.routes) {
+        result.push_back(route.artifacts.dry);
+        result.push_back(route.artifacts.configured_ir);
+        result.push_back(route.artifacts.selected);
+    }
+    result.push_back(plan.audition.raw_master_artifact);
+    result.push_back(plan.audition.audition_master_artifact);
+    return result;
 }
 
-[[nodiscard]] std::array<std::size_t, kRouteCount>
+[[nodiscard]] std::vector<std::size_t>
 audition_route_indices(const PresentationRenderPlan &plan) {
-    std::array<std::size_t, kRouteCount> indices{};
-    for (std::size_t selected = 0; selected < indices.size(); ++selected) {
+    std::vector<std::size_t> indices;
+    indices.reserve(plan.audition.selected_route_ids.size());
+    for (const auto selected_route_id : plan.audition.selected_route_ids) {
         const auto found = std::find_if(
-            plan.routes.begin(), plan.routes.end(), [&](const auto &route) {
-                return route.route_id == plan.audition.selected_route_ids[selected];
-            });
+            plan.routes.begin(), plan.routes.end(),
+            [&](const auto &route) { return route.route_id == selected_route_id; });
         if (found == plan.routes.end()) {
             throw std::logic_error{
                 "validated audition route is absent from the render plan"};
         }
-        indices[selected] = static_cast<std::size_t>(found - plan.routes.begin());
+        indices.push_back(static_cast<std::size_t>(found - plan.routes.begin()));
     }
     return indices;
+}
+
+[[nodiscard]] ExhaustSourceStage make_source_stage(const PresentationRenderPlan &plan) {
+    const auto route_ids = source_route_ids(plan);
+    const auto route_seeds = source_route_seeds(plan);
+    return ExhaustSourceStage{route_ids, route_seeds, plan.conditioning};
 }
 
 [[nodiscard]] std::string sink_failure_message(std::string_view operation,
@@ -219,6 +232,14 @@ void validate_plan(const PresentationRenderPlan &plan) {
         throw std::invalid_argument{
             "presentation publication gain must be finite and positive"};
     }
+    if (plan.routes.empty()) {
+        throw std::invalid_argument{
+            "presentation requires at least one rendered route"};
+    }
+    if (!presentation_audio_artifact_count_representable(plan.routes.size())) {
+        throw std::invalid_argument{
+            "presentation route count cannot represent its artifact layout"};
+    }
 
     for (std::size_t route = 0; route < plan.routes.size(); ++route) {
         const auto &configured = plan.routes[route];
@@ -258,10 +279,16 @@ void validate_plan(const PresentationRenderPlan &plan) {
                 "presentation route artifacts differ from their source-route owner"};
         }
     }
-    if (plan.audition.selected_route_ids[0] == plan.audition.selected_route_ids[1]) {
-        throw std::invalid_argument{"presentation audition routes must be distinct"};
+    if (plan.audition.selected_route_ids.size() != plan.routes.size()) {
+        throw std::invalid_argument{
+            "presentation audition must select every rendered route"};
     }
+    std::unordered_set<std::uint32_t> selected_route_ids;
     for (const auto selected : plan.audition.selected_route_ids) {
+        if (!selected_route_ids.insert(selected.value).second) {
+            throw std::invalid_argument{
+                "presentation audition routes must be distinct"};
+        }
         if (std::ranges::none_of(plan.routes, [&](const auto &route) {
                 return route.route_id == selected;
             })) {
@@ -270,12 +297,13 @@ void validate_plan(const PresentationRenderPlan &plan) {
         }
     }
 
-    if (plan.output_contract.required_source_routes.size() != kRouteCount ||
+    if (plan.output_contract.required_source_routes.size() != plan.routes.size() ||
         plan.output_contract.required_output_buses.size() != 2 ||
         plan.output_contract.required_artifacts.size() !=
-            kPresentationAudioArtifactCount) {
+            presentation_audio_artifact_count(plan.routes.size())) {
         throw std::invalid_argument{
-            "presentation requires exactly two routes, two buses, and eight artifacts"};
+            "presentation requires three artifacts per rendered route and exactly "
+            "two master buses and artifacts"};
     }
 
     const auto raw_bus = std::ranges::find_if(
@@ -318,7 +346,7 @@ void validate_plan(const PresentationRenderPlan &plan) {
                 "presentation artifact plan differs from its output contract"};
         }
         const bool media_matches =
-            artifact_index < kFloatWaveCount
+            artifact_index < float_wave_count(plan.routes.size())
                 ? is_float_audio(*pending.audio, audible_frames)
                 : is_audition_audio(*pending.audio, audible_frames);
         if (!media_matches) {
@@ -334,9 +362,9 @@ void validate_plan(const PresentationRenderPlan &plan) {
     return plan;
 }
 
-[[nodiscard]] WavEncoder make_float_wave_encoder(
-    const std::array<PendingArtifact, kPresentationAudioArtifactCount> &audio_artifacts,
-    std::size_t artifact_index) {
+[[nodiscard]] WavEncoder
+make_float_wave_encoder(std::span<const PendingArtifact> audio_artifacts,
+                        std::size_t artifact_index) {
     auto result = artifacts::make_wav_encoder(*audio_artifacts[artifact_index].audio,
                                               {kMaximumWaveChunkBytes});
     if (const auto *error = std::get_if<artifacts::WavEncodingError>(&result)) {
@@ -346,26 +374,23 @@ void validate_plan(const PresentationRenderPlan &plan) {
     return std::get<WavEncoder>(std::move(result));
 }
 
-[[nodiscard]] std::array<WavEncoder, kFloatWaveCount> make_float_wave_encoders(
-    const std::array<PendingArtifact, kPresentationAudioArtifactCount>
-        &audio_artifacts) {
-    return {
-        make_float_wave_encoder(audio_artifacts, 0),
-        make_float_wave_encoder(audio_artifacts, 1),
-        make_float_wave_encoder(audio_artifacts, 2),
-        make_float_wave_encoder(audio_artifacts, 3),
-        make_float_wave_encoder(audio_artifacts, 4),
-        make_float_wave_encoder(audio_artifacts, 5),
-        make_float_wave_encoder(audio_artifacts, 6),
-    };
+[[nodiscard]] std::vector<WavEncoder>
+make_float_wave_encoders(std::span<const PendingArtifact> audio_artifacts,
+                         std::size_t route_count) {
+    std::vector<WavEncoder> result;
+    result.reserve(float_wave_count(route_count));
+    for (std::size_t artifact = 0; artifact < float_wave_count(route_count);
+         ++artifact) {
+        result.push_back(make_float_wave_encoder(audio_artifacts, artifact));
+    }
+    return result;
 }
 
-[[nodiscard]] artifacts::AuditionWaveEncoder make_audition_wave_encoder(
-    const PresentationRenderPlan &plan,
-    const std::array<PendingArtifact, kPresentationAudioArtifactCount>
-        &audio_artifacts) {
+[[nodiscard]] artifacts::AuditionWaveEncoder
+make_audition_wave_encoder(const PresentationRenderPlan &plan,
+                           std::span<const PendingArtifact> audio_artifacts) {
     auto result = artifacts::make_audition_wave_encoder(
-        *audio_artifacts[index(AudioIndex::master_audition)].audio,
+        *audio_artifacts[audition_master_index(plan.routes.size())].audio,
         plan.audition.metadata, {kMaximumWaveChunkBytes});
     if (const auto *error = std::get_if<artifacts::WavEncodingError>(&result)) {
         throw std::logic_error{"cannot construct audition WAVE encoder: " +
@@ -374,20 +399,28 @@ void validate_plan(const PresentationRenderPlan &plan) {
     return std::get<artifacts::AuditionWaveEncoder>(std::move(result));
 }
 
-[[nodiscard]] std::array<CausalOverlapSaveConvolver, kRouteCount>
+[[nodiscard]] std::vector<std::unique_ptr<CausalOverlapSaveConvolver>>
 make_convolvers(const PresentationRenderPlan &plan) {
-    return {
-        CausalOverlapSaveConvolver{plan.routes[0].configured_ir},
-        CausalOverlapSaveConvolver{plan.routes[1].configured_ir},
-    };
+    std::vector<std::unique_ptr<CausalOverlapSaveConvolver>> result;
+    result.reserve(plan.routes.size());
+    for (const auto &route : plan.routes) {
+        result.push_back(
+            std::make_unique<CausalOverlapSaveConvolver>(route.configured_ir));
+    }
+    return result;
 }
 
 struct RenderScratch {
-    std::array<ConditionedSourceFrame, kSourceFramesPerBlock> conditioned{};
-    std::array<std::array<double, kSourceFramesPerBlock>, kRouteCount> dry{};
-    std::array<std::array<double, kSourceFramesPerBlock>, kRouteCount> configured_ir{};
-    std::array<std::array<double, kSourceFramesPerBlock>, kRouteCount> selected{};
-    std::array<std::array<float, kSourceFramesPerBlock>, kStemCount> stems{};
+    explicit RenderScratch(std::size_t route_count)
+        : conditioned(kSourceFramesPerBlock * route_count), dry(route_count),
+          configured_ir(route_count), selected(route_count),
+          stems(stem_count(route_count)) {}
+
+    std::vector<double> conditioned;
+    std::vector<std::array<double, kSourceFramesPerBlock>> dry;
+    std::vector<std::array<double, kSourceFramesPerBlock>> configured_ir;
+    std::vector<std::array<double, kSourceFramesPerBlock>> selected;
+    std::vector<std::array<float, kSourceFramesPerBlock>> stems;
     std::array<float, kSourceFramesPerBlock> raw{};
     std::array<std::int32_t, kSourceFramesPerBlock> pcm24{};
     std::array<MasteredFrame, kSourceFramesPerBlock> mastered{};
@@ -400,7 +433,7 @@ struct ArtifactObservation {
 
 struct FinishedSession {
     PresentationRenderStats stats;
-    std::array<contract::ArtifactRecord, kPresentationAudioArtifactCount> artifacts;
+    std::vector<contract::ArtifactRecord> artifacts;
     execution::ObservedExecutionFacts execution;
 };
 
@@ -423,12 +456,16 @@ class PresentationRenderSession::Implementation final {
           audio_artifacts_(ordered_audio_artifacts(plan_)),
           control_(std::move(control)),
           audition_route_indices_(audition_route_indices(plan_)),
-          source_stage_(source_route_ids(plan_), source_route_seeds(plan_),
-                        plan_.conditioning),
-          convolvers_(make_convolvers(plan_)),
-          encoders_(make_float_wave_encoders(audio_artifacts_)),
+          source_stage_(make_source_stage(plan_)), convolvers_(make_convolvers(plan_)),
+          encoders_(make_float_wave_encoders(audio_artifacts_, plan_.routes.size())),
           audition_(make_audition_wave_encoder(plan_, audio_artifacts_)),
-          scratch_(std::make_unique<RenderScratch>()) {
+          scratch_(std::make_unique<RenderScratch>(plan_.routes.size())),
+          observations_(audio_artifacts_.size()), consumers_(audio_artifacts_.size()) {
+        master_inputs_.reserve(audition_route_indices_.size());
+        for (const auto route_index : audition_route_indices_) {
+            master_inputs_.push_back(
+                std::span<const float>{scratch_->stems[route_index * 3 + 2]});
+        }
         try {
             begin();
         } catch (...) {
@@ -476,14 +513,14 @@ class PresentationRenderSession::Implementation final {
             stats_.processed_source_frame_count +=
                 static_cast<std::uint64_t>(extent.source_frame_count);
 
-            for (std::size_t route = 0; route < kRouteCount; ++route) {
+            const auto route_count = plan_.routes.size();
+            for (std::size_t route = 0; route < route_count; ++route) {
                 for (std::size_t frame = 0; frame < kSourceFramesPerBlock; ++frame) {
                     scratch_->dry[route][frame] =
-                        scratch_->conditioned[frame]
-                            .route_values_engine_sim_source_unit[route];
+                        scratch_->conditioned[frame * route_count + route];
                 }
-                convolvers_[route].process(scratch_->dry[route],
-                                           scratch_->configured_ir[route]);
+                convolvers_[route]->process(scratch_->dry[route],
+                                            scratch_->configured_ir[route]);
                 for (std::size_t frame = 0; frame < kSourceFramesPerBlock; ++frame) {
                     const double wet_mix = plan_.routes[route].wet_mix_01;
                     scratch_->selected[route][frame] =
@@ -535,28 +572,31 @@ class PresentationRenderSession::Implementation final {
                     throw std::logic_error{"Float32 WAVE length changed"};
                 }
             }
-            require_encoding_success(
-                audition_.finish(consumers_[index(AudioIndex::master_audition)]),
-                "audition WAVE finalization failed");
+            const auto audition_index = audition_master_index(plan_.routes.size());
+            require_encoding_success(audition_.finish(consumers_[audition_index]),
+                                     "audition WAVE finalization failed");
             if (audition_.frames_written() != published_source_frame_count(plan_) ||
-                audition_.bytes_emitted() !=
-                    observations_[index(AudioIndex::master_audition)].byte_count) {
+                audition_.bytes_emitted() != observations_[audition_index].byte_count) {
                 throw std::logic_error{"audition WAVE length changed"};
             }
 
-            std::array<contract::ArtifactRecord, kPresentationAudioArtifactCount>
-                records{};
-            for (std::size_t artifact_index = 0; artifact_index < records.size();
-                 ++artifact_index) {
+            std::vector<contract::ArtifactRecord> records;
+            records.reserve(audio_artifacts_.size());
+            for (std::size_t artifact_index = 0;
+                 artifact_index < audio_artifacts_.size(); ++artifact_index) {
                 const auto &pending = audio_artifacts_[artifact_index];
                 auto &observed = observations_[artifact_index];
-                records[artifact_index] = {
-                    pending.role,       pending.kind,        pending.relative_path,
-                    pending.audio,      observed.byte_count, observed.hash.finish(),
+                records.push_back({
+                    pending.role,
+                    pending.kind,
+                    pending.relative_path,
+                    pending.audio,
+                    observed.byte_count,
+                    observed.hash.finish(),
                     pending.diagnostic,
-                };
+                });
                 require_sink_success("could not seal presentation artifact",
-                                     sink_.seal_artifact(records[artifact_index]));
+                                     sink_.seal_artifact(records.back()));
             }
 
             if (!execution_observation_.has_value()) {
@@ -588,7 +628,7 @@ class PresentationRenderSession::Implementation final {
         }
 
         try {
-            if (evidence.artifacts() != *sealed_artifacts_ ||
+            if (!std::ranges::equal(evidence.artifacts(), *sealed_artifacts_) ||
                 evidence.execution().facts() != *sealed_execution_ ||
                 manifest.execution !=
                     std::optional<contract::ExecutionFacts>{*sealed_execution_} ||
@@ -661,7 +701,7 @@ class PresentationRenderSession::Implementation final {
                 "WAVE header emission failed");
         }
         require_encoding_success(
-            audition_.begin(consumers_[index(AudioIndex::master_audition)]),
+            audition_.begin(consumers_[audition_master_index(plan_.routes.size())]),
             "audition WAVE prefix emission failed");
     }
 
@@ -702,7 +742,8 @@ class PresentationRenderSession::Implementation final {
     }
 
     void write_published_block() {
-        for (std::size_t route = 0; route < kRouteCount; ++route) {
+        const auto route_count = plan_.routes.size();
+        for (std::size_t route = 0; route < route_count; ++route) {
             const auto base = route * 3;
             for (std::size_t frame = 0; frame < kSourceFramesPerBlock; ++frame) {
                 scratch_->stems[base][frame] = dsp::publish_calibrated_float32(
@@ -717,26 +758,25 @@ class PresentationRenderSession::Implementation final {
             }
         }
 
-        master_block(scratch_->stems[audition_route_indices_[0] * 3 + 2],
-                     scratch_->stems[audition_route_indices_[1] * 3 + 2],
-                     audible_frame_, plan_.audition.mastering, scratch_->mastered);
+        master_block(master_inputs_, audible_frame_, plan_.audition.mastering,
+                     scratch_->mastered);
         for (std::size_t frame = 0; frame < kSourceFramesPerBlock; ++frame) {
             const auto &mastered = scratch_->mastered[frame];
             scratch_->raw[frame] = mastered.raw;
             scratch_->pcm24[frame] = mastered.pcm24;
         }
-        for (std::size_t stem = 0; stem < kStemCount; ++stem) {
+        for (std::size_t stem = 0; stem < stem_count(route_count); ++stem) {
             require_encoding_success(encoders_[stem].write_float32_interleaved(
                                          scratch_->stems[stem], consumers_[stem]),
                                      "stem WAVE payload emission failed");
         }
+        const auto raw_index = raw_master_index(route_count);
+        require_encoding_success(encoders_[raw_index].write_float32_interleaved(
+                                     scratch_->raw, consumers_[raw_index]),
+                                 "raw-master WAVE payload emission failed");
+        const auto audition_index = audition_master_index(route_count);
         require_encoding_success(
-            encoders_[index(AudioIndex::master_raw)].write_float32_interleaved(
-                scratch_->raw, consumers_[index(AudioIndex::master_raw)]),
-            "raw-master WAVE payload emission failed");
-        require_encoding_success(
-            audition_.write_pcm24(scratch_->pcm24,
-                                  consumers_[index(AudioIndex::master_audition)]),
+            audition_.write_pcm24(scratch_->pcm24, consumers_[audition_index]),
             "audition WAVE payload emission failed");
     }
 
@@ -772,20 +812,20 @@ class PresentationRenderSession::Implementation final {
 
     RenderSink &sink_;
     PresentationRenderPlan plan_;
-    std::array<PendingArtifact, kPresentationAudioArtifactCount> audio_artifacts_;
+    std::vector<PendingArtifact> audio_artifacts_;
     RenderControl control_;
-    std::array<std::size_t, kRouteCount> audition_route_indices_;
+    std::vector<std::size_t> audition_route_indices_;
     ExhaustSourceStage source_stage_;
-    std::array<CausalOverlapSaveConvolver, kRouteCount> convolvers_;
-    std::array<WavEncoder, kFloatWaveCount> encoders_;
+    std::vector<std::unique_ptr<CausalOverlapSaveConvolver>> convolvers_;
+    std::vector<WavEncoder> encoders_;
     artifacts::AuditionWaveEncoder audition_;
     std::unique_ptr<RenderScratch> scratch_;
-    std::array<ArtifactObservation, kPresentationAudioArtifactCount> observations_;
-    std::array<artifacts::WavChunkConsumer, kPresentationAudioArtifactCount> consumers_;
+    std::vector<std::span<const float>> master_inputs_;
+    std::vector<ArtifactObservation> observations_;
+    std::vector<artifacts::WavChunkConsumer> consumers_;
     std::optional<execution::LinuxExecutionFactsObservation> execution_observation_;
     PresentationRenderStats stats_;
-    std::optional<std::array<contract::ArtifactRecord, kPresentationAudioArtifactCount>>
-        sealed_artifacts_;
+    std::optional<std::vector<contract::ArtifactRecord>> sealed_artifacts_;
     std::optional<contract::ExecutionFacts> sealed_execution_;
     std::optional<RenderSinkError> pending_sink_error_;
     std::uint64_t audible_frame_ = 0;
@@ -807,7 +847,7 @@ const PresentationRenderStats &SealedPresentationEvidence::stats() const noexcep
     return stats_;
 }
 
-const std::array<contract::ArtifactRecord, kPresentationAudioArtifactCount> &
+std::span<const contract::ArtifactRecord>
 SealedPresentationEvidence::artifacts() const noexcept {
     return artifacts_;
 }

@@ -45,6 +45,17 @@ void expect(bool condition, const char *message) {
         std::as_bytes(std::span<const char>{descriptor.data(), descriptor.size()}));
 }
 
+[[nodiscard]] std::string digest_hex(const contract::Sha256Digest &digest) {
+    constexpr std::string_view digits = "0123456789abcdef";
+    std::string result;
+    result.reserve(digest.bytes.size() * 2);
+    for (const auto byte : digest.bytes) {
+        result.push_back(digits[byte >> 4U]);
+        result.push_back(digits[byte & 0x0fU]);
+    }
+    return result;
+}
+
 void expect_canonical_lf(std::string_view descriptor, const char *message) {
     expect(!descriptor.empty() && descriptor.back() == '\n' &&
                descriptor.find('\r') == std::string_view::npos &&
@@ -68,7 +79,7 @@ struct MethodCase {
         {
             "causal-kaiser-sinc-257tap-4096phase-10000-to-192000-binary64-v1",
             1,
-            "ef339e66cbd4d48aaa614300679343cea5479d2b063c083d4f31a438a7790f50",
+            "d3c1610581a26e9ad8483396856b7f5b55e55bce8c3ec4a4683bbd8c563286a0",
             presentation::causal_reconstruction_method_descriptor,
             presentation::causal_reconstruction_method_identity,
         },
@@ -94,18 +105,18 @@ struct MethodCase {
             presentation::fixed_overlap_save_convolution_method_identity,
         },
         {
-            "two-route-wet-selection-float32-wave-publication-v1",
+            "n-route-wet-selection-float32-wave-publication-v1",
             1,
-            "0ea8dd5cc430a7b41111da6cc0c0f3e41d884ee53c112c75221f4799ac3e74d4",
+            "7494ba0d938286e05d6505eda45a9f429379eaf3eca4ca0d6e9218556de1eb10",
             presentation::route_stem_publication_method_descriptor,
             presentation::route_stem_publication_method_identity,
         },
         {
-            "ordered-two-route-quarter-sine-pcm24-wave-master-v1",
+            "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v1",
             1,
-            "19321d97386e6b76c4dd20ce8e16d9420ac5568abdbfe1b758bc41e37419b560",
-            presentation::ordered_two_route_audition_method_descriptor,
-            presentation::ordered_two_route_audition_method_identity,
+            "b91704d4e25df3ea35a323ca73eae08a18b0e80341114f14a3f4dc52db812a7a",
+            presentation::ordered_route_audition_method_descriptor,
+            presentation::ordered_route_audition_method_identity,
         },
     }};
     return cases;
@@ -196,8 +207,12 @@ void test_all_exact_method_identities() {
         const auto expected_digest = digest_from_hex(method.expected_digest);
         expect_canonical_lf(descriptor,
                             "presentation descriptor is not canonical LF text");
-        expect(descriptor_digest(descriptor) == expected_digest,
-               "presentation descriptor digest changed");
+        const auto actual_digest = descriptor_digest(descriptor);
+        if (actual_digest != expected_digest) {
+            throw std::runtime_error{"presentation descriptor digest changed for " +
+                                     std::string{method.expected_id} + ": " +
+                                     digest_hex(actual_digest)};
+        }
 
         const auto &identity = method.identity();
         expect(identity.id == method.expected_id &&

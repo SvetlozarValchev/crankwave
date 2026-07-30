@@ -3,6 +3,7 @@
 #include "engine_sim_offline/compile.hpp"
 #include "engine_sim_offline/contract/common.hpp"
 #include "engine_sim_offline/render.hpp"
+#include "render/compiled_presentation_job.hpp"
 #include "render/compiled_scenario_projection.hpp"
 
 #include <algorithm>
@@ -195,6 +196,14 @@ struct SyntheticAssets {
             std::ranges::reverse(result);
         }
         return result;
+    }
+
+    [[nodiscard]] std::vector<compile::AssetPayloadView> twin_views() const {
+        return {
+            {compile::AssetKind::audio, "fixture-ir-front", ir_front},
+            {compile::AssetKind::accessory_configuration, "fixture-accessory-load",
+             accessory},
+        };
     }
 };
 
@@ -652,6 +661,47 @@ make_engine_document(const SyntheticAssets &assets) {
     return package;
 }
 
+[[nodiscard]] authoring::EnginePackageDocument
+make_inline_twin_document(const SyntheticAssets &assets) {
+    auto package = make_engine_document(assets);
+    auto &engine = package.engine;
+    engine.identity.id.value = "fixture-inline-twin";
+    engine.identity.display_name = "Synthetic compiler integration inline-twin";
+
+    engine.crankshafts.front().journals.resize(2U);
+    engine.journals.resize(2U);
+    engine.journals[0].phase = quantity(0.0, "deg");
+    engine.journals[1].phase = quantity(180.0, "deg");
+    engine.connecting_rods.resize(2U);
+    engine.pistons.resize(2U);
+    engine.cylinders.resize(2U);
+    engine.exhausts.resize(1U);
+    engine.source_routes.resize(1U);
+
+    engine.cam_lobes.resize(4U);
+    engine.cam_lobes[0].centerline = quantity(110.0, "deg");
+    engine.cam_lobes[1].centerline = quantity(250.0, "deg");
+    engine.cam_lobes[2].centerline = quantity(470.0, "deg");
+    engine.cam_lobes[3].centerline = quantity(610.0, "deg");
+    engine.camshafts[0].lobes.resize(2U);
+    engine.camshafts[1].lobes.resize(2U);
+
+    engine.ignition.wires.resize(2U);
+    engine.ignition.firing_order = {
+        {{"fixture-wire-1"}, quantity(0.0, "deg")},
+        {{"fixture-wire-2"}, quantity(360.0, "deg")},
+    };
+
+    auto &presentation = package.presentation;
+    presentation.assets.resize(1U);
+    presentation.cylinder_routes.resize(2U);
+    presentation.routes.resize(1U);
+    for (auto &bus : presentation.buses) {
+        bus.routes.resize(1U);
+    }
+    return package;
+}
+
 void reorder_harmless_collections(authoring::EnginePackageDocument &package) {
     std::ranges::reverse(package.engine.curves);
     std::ranges::reverse(package.engine.journals);
@@ -796,8 +846,7 @@ void test_complete_generic_compile_and_determinism() {
     auto first = require_value(compile::compile_engine(first_document, first_views),
                                "complete generic inline-six engine compile failed");
     auto moved_first = std::move(first);
-    expect(first.id() == "fixture-inline-six" &&
-               moved_first.id() == first.id(),
+    expect(first.id() == "fixture-inline-six" && moved_first.id() == first.id(),
            "moving an immutable compiled engine invalidated its source handle");
 
     const auto retained_front =
@@ -937,6 +986,50 @@ void test_complete_generic_compile_and_determinism() {
            "compiled-scenario validation did not delegate to the existing validator");
 }
 
+void test_inline_twin_one_route_reaches_executable_boundary() {
+    const SyntheticAssets assets = make_assets();
+    const auto document = make_inline_twin_document(assets);
+    auto views = assets.twin_views();
+    auto engine = require_value(compile::compile_engine(document, views),
+                                "inline-twin one-route engine compile failed");
+
+    auto scenario_document = make_scenario_document();
+    scenario_document.id.value = "fixture-inline-twin-held";
+    scenario_document.engine.value = "fixture-inline-twin";
+    auto scenario = require_value(compile::compile_scenario(engine, scenario_document),
+                                  "inline-twin one-route scenario compile failed");
+    const auto projection = render_detail::CompiledScenarioAccess::project(scenario);
+
+    expect(projection.specification.engine.cylinders.size() == 2U &&
+               projection.specification.engine.routes.size() == 1U &&
+               projection.specification.presentation.routes.size() == 1U &&
+               projection.specification.source_matrix.required_source_routes.size() ==
+                   1U &&
+               projection.specification.source_matrix.required_artifacts.size() == 5U,
+           "inline-twin did not retain its two-cylinder/one-route executable shape");
+
+    auto executable = render_detail::compile_presentation_job(projection.specification,
+                                                              projection.scenario);
+    if (const auto *failure = std::get_if<contract::RenderFailure>(&executable)) {
+        std::string message =
+            "inline-twin one-route request did not compile into an executable job: " +
+            failure->context.detail_code + ": " + failure->context.state_summary;
+        if (!failure->validation.issues.empty()) {
+            message += " at " + failure->validation.issues.front().path + ": " +
+                       failure->validation.issues.front().message;
+        }
+        throw std::runtime_error{std::move(message)};
+    }
+
+    CountingSink sink;
+    const auto result =
+        std::move(std::get<render_detail::CompiledPresentationJob>(executable))
+            .execute(sink, projection.specification, projection.scenario);
+    expect(std::holds_alternative<contract::RenderSuccess>(result) &&
+               engine_sim_offline::validate(result, scenario).ok() && sink.calls > 0U,
+           "inline-twin did not execute its complete one-route render");
+}
+
 void test_asset_admission_is_exact_and_closed() {
     {
         SyntheticAssets assets = make_assets();
@@ -973,47 +1066,54 @@ void test_asset_admission_is_exact_and_closed() {
 
 void test_unsupported_capability_fails_closed() {
     const SyntheticAssets assets = make_assets();
-    auto document = make_engine_document(assets);
-    auto &valvetrain = document.engine.valvetrains.front();
-    valvetrain.kind = authoring::VtecValvetrain{
-        {"fixture-intake-cam"},
-        {"fixture-exhaust-cam"},
-        {"fixture-intake-cam"},
-        {"fixture-exhaust-cam"},
-        {
-            quantity(5200.0, "rpm"),
-            quantity(20.0, "km/h"),
-            quantity(25.0, "kPa"),
-            0.6,
-        },
-    };
-    auto views = assets.views();
-    const auto result = compile::compile_engine(document, views);
-    require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
-                       "/engine/valvetrains/0", "unsupported VTEC valvetrain");
+    {
+        auto document = make_engine_document(assets);
+        auto &valvetrain = document.engine.valvetrains.front();
+        valvetrain.kind = authoring::VtecValvetrain{
+            {"fixture-intake-cam"},
+            {"fixture-exhaust-cam"},
+            {"fixture-intake-cam"},
+            {"fixture-exhaust-cam"},
+            {
+                quantity(5200.0, "rpm"),
+                quantity(20.0, "km/h"),
+                quantity(25.0, "kPa"),
+                0.6,
+            },
+        };
+        auto views = assets.views();
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/valvetrains/0", "unsupported VTEC valvetrain");
+    }
+    {
+        auto document = make_engine_document(assets);
+        document.engine.layout = authoring::CylinderLayout::v_engine;
+        auto views = assets.views();
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/layout",
+                           "non-inline engine without executed bank-angle semantics");
+    }
 }
 
 void test_direct_scenario_dto_admission_fails_closed() {
     const SyntheticAssets assets = make_assets();
     const auto engine_document = make_engine_document(assets);
     auto views = assets.views();
-    auto engine =
-        require_value(compile::compile_engine(engine_document, views),
-                      "scenario admission fixture engine compile failed");
+    auto engine = require_value(compile::compile_engine(engine_document, views),
+                                "scenario admission fixture engine compile failed");
 
     auto stale_schema = make_scenario_document();
     stale_schema.schema = "engine-sim-offline/scenario-obsolete";
-    const auto stale_result =
-        compile::compile_scenario(engine, stale_schema);
+    const auto stale_result = compile::compile_scenario(engine, stale_schema);
     require_diagnostic(stale_result, authoring::DiagnosticCode::unsupported_schema,
                        "/schema", "stale direct scenario DTO");
 
     auto unsupported_angle = make_scenario_document();
     unsupported_angle.initial_state.crank_angle = quantity(16.0, "deg");
-    const auto angle_result =
-        compile::compile_scenario(engine, unsupported_angle);
-    require_diagnostic(angle_result,
-                       authoring::DiagnosticCode::unsupported_capability,
+    const auto angle_result = compile::compile_scenario(engine, unsupported_angle);
+    require_diagnostic(angle_result, authoring::DiagnosticCode::unsupported_capability,
                        "/initial_state/crank_angle",
                        "executor-incompatible initial crank angle");
 }
@@ -1023,6 +1123,7 @@ void test_direct_scenario_dto_admission_fails_closed() {
 int main() {
     try {
         test_complete_generic_compile_and_determinism();
+        test_inline_twin_one_route_reaches_executable_boundary();
         test_asset_admission_is_exact_and_closed();
         test_unsupported_capability_fails_closed();
         test_direct_scenario_dto_admission_fails_closed();

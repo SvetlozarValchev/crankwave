@@ -1,6 +1,5 @@
 #include "compile/engine_resolver_internal.hpp"
 
-
 #include "compile/diagnostics.hpp"
 #include "compile/stable_id.hpp"
 #include "presentation/pcm16_ir_decoder.hpp"
@@ -50,14 +49,12 @@ find_by_text(const Range &range, std::string_view id, Projection projection) {
     return found == range.end() ? nullptr : &*found;
 }
 
-template <class Id>
-[[nodiscard]] std::string_view text(const Id &id) noexcept {
+template <class Id> [[nodiscard]] std::string_view text(const Id &id) noexcept {
     return id.value;
 }
 
 [[nodiscard]] bool same_binary64(double left, double right) noexcept {
-    return std::bit_cast<std::uint64_t>(left) ==
-           std::bit_cast<std::uint64_t>(right);
+    return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
 
 template <class Range, class Projection>
@@ -74,10 +71,9 @@ void require_canonical_ids(DiagnosticReport &report, const Range &range,
 
 } // namespace
 
-DiagnosticReport admit_engine_document(
-    const authoring::EnginePackageDocument &document,
-    std::span<const AssetPayloadView> assets,
-    std::optional<ModelContext> &context) {
+DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &document,
+                                       std::span<const AssetPayloadView> assets,
+                                       std::optional<ModelContext> &context) {
     DiagnosticReport report;
     const auto &engine = document.engine;
 
@@ -98,8 +94,7 @@ DiagnosticReport admit_engine_document(
             "the current executable topology admits inline engines only");
     }
     if (!contract::is_valid_semantic_id(engine.identity.id.value)) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/engine/identity/id",
+        add(report, DiagnosticCode::unsupported_capability, "/engine/identity/id",
             "the executable contract requires a lowercase canonical engine ID");
     }
 
@@ -114,133 +109,107 @@ DiagnosticReport admit_engine_document(
     };
     require_count(engine.crankshafts.size(), 1U, "/engine/crankshafts",
                   "engine crankshaft collection");
-    require_count(engine.banks.size(), 1U, "/engine/banks",
-                  "engine bank collection");
+    require_count(engine.banks.size(), 1U, "/engine/banks", "engine bank collection");
     require_count(engine.intakes.size(), 1U, "/engine/intakes",
                   "engine intake collection");
-    require_count(engine.heads.size(), 1U, "/engine/heads",
-                  "engine head collection");
+    require_count(engine.heads.size(), 1U, "/engine/heads", "engine head collection");
     require_count(engine.valvetrains.size(), 1U, "/engine/valvetrains",
                   "engine valvetrain collection");
-    require_count(engine.fuels.size(), 1U, "/engine/fuels",
-                  "engine fuel collection");
+    require_count(engine.fuels.size(), 1U, "/engine/fuels", "engine fuel collection");
     require_count(engine.accessory_configurations.size(), 1U,
                   "/engine/accessory_configurations",
                   "accessory-configuration collection");
-    require_count(engine.source_routes.size(), 2U, "/engine/source_routes",
-                  "current two-route presentation");
-    require_count(engine.exhausts.size(), 2U, "/engine/exhausts",
-                  "current two-route presentation");
+    if (engine.source_routes.empty() || engine.exhausts.empty() ||
+        engine.source_routes.size() != engine.exhausts.size()) {
+        add(report, DiagnosticCode::unsupported_capability, "/engine/source_routes",
+            "the executable exhaust presentation requires one or more source routes "
+            "with exactly one route per declared exhaust");
+    }
     require_count(engine.ports.size(), 2U, "/engine/ports",
                   "shared-head intake/exhaust port collection");
     if (engine.cylinders.empty() ||
         engine.ignition.wires.size() != engine.cylinders.size() ||
         engine.ignition.firing_order.size() != engine.cylinders.size() ||
-        document.presentation.cylinder_routes.size() !=
-            engine.cylinders.size()) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/engine/cylinders",
+        document.presentation.cylinder_routes.size() != engine.cylinders.size()) {
+        add(report, DiagnosticCode::unsupported_capability, "/engine/cylinders",
             "the admitted inline engine requires nonempty, equally sized cylinder, "
             "wire, firing-event, and cylinder-presentation collections");
     }
-    require_count(document.presentation.routes.size(), 2U,
-                  "/presentation/routes",
-                  "current two-route presentation");
+    if (document.presentation.routes.size() != engine.source_routes.size()) {
+        add(report, DiagnosticCode::unsupported_capability, "/presentation/routes",
+            "presentation routes must exactly cover the declared engine source "
+            "routes");
+    }
 
-    require_canonical_ids(report, engine.curves, "/engine/curves",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.crankshafts, "/engine/crankshafts",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.journals, "/engine/journals",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.connecting_rods,
-                          "/engine/connecting_rods",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.pistons, "/engine/pistons",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.banks, "/engine/banks",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.intakes, "/engine/intakes",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.exhausts, "/engine/exhausts",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.ports, "/engine/ports",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.cam_lobes, "/engine/cam_lobes",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.camshafts, "/engine/camshafts",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.valvetrains, "/engine/valvetrains",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.heads, "/engine/heads",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.fuels, "/engine/fuels",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.cylinders, "/engine/cylinders",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, engine.source_routes,
-                          "/engine/source_routes",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, document.presentation.assets,
-                          "/presentation/assets",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
-    require_canonical_ids(report, document.presentation.buses,
-                          "/presentation/buses",
-                          [](const auto &value) -> const std::string & {
-                              return value.id.value;
-                          });
+    require_canonical_ids(
+        report, engine.curves, "/engine/curves",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.crankshafts, "/engine/crankshafts",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.journals, "/engine/journals",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.connecting_rods, "/engine/connecting_rods",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.pistons, "/engine/pistons",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.banks, "/engine/banks",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.intakes, "/engine/intakes",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.exhausts, "/engine/exhausts",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.ports, "/engine/ports",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.cam_lobes, "/engine/cam_lobes",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.camshafts, "/engine/camshafts",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.valvetrains, "/engine/valvetrains",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.heads, "/engine/heads",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.fuels, "/engine/fuels",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.cylinders, "/engine/cylinders",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, engine.source_routes, "/engine/source_routes",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, document.presentation.assets, "/presentation/assets",
+        [](const auto &value) -> const std::string & { return value.id.value; });
+    require_canonical_ids(
+        report, document.presentation.buses, "/presentation/buses",
+        [](const auto &value) -> const std::string & { return value.id.value; });
 
     if (report.has_errors()) {
         return report;
     }
 
     ModelContext resolved{document};
-    resolved.profile_id =
-        engine.identity.id.value + "-low-order-operating-point-v1";
-    resolved.calibration_id =
-        engine.identity.id.value + "-presentation-v1";
+    resolved.profile_id = engine.identity.id.value + "-low-order-operating-point-v1";
+    resolved.calibration_id = engine.identity.id.value + "-presentation-v1";
     resolved.crankshaft = &engine.crankshafts.front();
     resolved.bank = &engine.banks.front();
     resolved.head = &engine.heads.front();
     resolved.valvetrain = &engine.valvetrains.front();
     resolved.intake = &engine.intakes.front();
     resolved.fuel = &engine.fuels.front();
-    resolved.accessory_configuration =
-        &engine.accessory_configurations.front();
+    resolved.accessory_configuration = &engine.accessory_configurations.front();
 
     const auto index = [](auto &destination, const auto &source, auto projection) {
         for (const auto &value : source) {
@@ -290,8 +259,7 @@ DiagnosticReport admit_engine_document(
             [](const auto &value) -> const std::string & { return value.id.value; });
         if (resolved.intake_camshaft == nullptr ||
             resolved.exhaust_camshaft == nullptr) {
-            add(report, DiagnosticCode::dangling_reference,
-                "/engine/valvetrains/0",
+            add(report, DiagnosticCode::dangling_reference, "/engine/valvetrains/0",
                 "standard valvetrain camshaft references did not resolve");
         }
     }

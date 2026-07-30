@@ -1,10 +1,24 @@
 #include "presentation/causal_reconstruction.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
 
 namespace engine_sim_offline::presentation {
+
+CausalReconstruction::CausalReconstruction(std::size_t route_count)
+    : route_count_(route_count) {
+    if (route_count_ == 0) {
+        throw std::invalid_argument{
+            "causal reconstruction requires at least one route"};
+    }
+    if (route_count_ > std::numeric_limits<std::size_t>::max() /
+                           dsp::CausalReconstructionTable::tap_count) {
+        throw std::overflow_error{"causal reconstruction history size overflowed"};
+    }
+    histories_.resize(route_count_ * dsp::CausalReconstructionTable::tap_count);
+}
 
 ReconstructionPhase
 CausalReconstruction::resolve_phase(std::uint64_t source_interval_offset) {
@@ -54,23 +68,29 @@ CausalReconstruction::expected_output_frame_count(std::size_t input_frame_count)
     return result;
 }
 
-void CausalReconstruction::process(std::span<const ExhaustExcitationFrame> input,
-                                   std::span<ReconstructedSourceFrame> output) {
-    const auto expected_output = expected_output_frame_count(input.size());
-    if (output.size() != expected_output) {
+void CausalReconstruction::process(std::span<const double> input_frame_major,
+                                   std::size_t input_frame_count,
+                                   std::span<double> output_frame_major) {
+    const auto expected_output_frames = expected_output_frame_count(input_frame_count);
+    if (input_frame_count > std::numeric_limits<std::size_t>::max() / route_count_ ||
+        input_frame_major.size() != input_frame_count * route_count_) {
         throw std::invalid_argument{
-            "reconstruction output span must match the exact clock count"};
+            "reconstruction input must be a complete frame-major route matrix"};
     }
-    for (const auto &frame : input) {
-        for (const auto sample : frame.route_values_engine_sim_source_unit) {
-            if (!std::isfinite(sample)) {
-                throw std::domain_error{"reconstruction input was non-finite"};
-            }
+    if (expected_output_frames >
+            std::numeric_limits<std::size_t>::max() / route_count_ ||
+        output_frame_major.size() != expected_output_frames * route_count_) {
+        throw std::invalid_argument{
+            "reconstruction output must match the exact frame-major clock count"};
+    }
+    for (const auto sample : input_frame_major) {
+        if (!std::isfinite(sample)) {
+            throw std::domain_error{"reconstruction input was non-finite"};
         }
     }
 
     std::size_t output_index = 0;
-    for (const auto &input_frame : input) {
+    for (std::size_t input_frame = 0; input_frame < input_frame_count; ++input_frame) {
         const auto remaining = kSourceRate - distance_to_next_output_;
         const auto output_count =
             UINT64_C(1) + (remaining - UINT64_C(1)) / kPhysicsRate;
@@ -82,16 +102,20 @@ void CausalReconstruction::process(std::span<const ExhaustExcitationFrame> input
             const auto row1 =
                 table_.phase_row(static_cast<std::size_t>(phase.phase0) + 1U);
 
-            std::array<double, kExhaustExcitationRouteCount> samples{};
+            auto samples =
+                output_frame_major.subspan(output_index * route_count_, route_count_);
+            std::fill(samples.begin(), samples.end(), 0.0);
             auto history_index = oldest_history_frame_;
             for (std::size_t tap = 0; tap < dsp::CausalReconstructionTable::tap_count;
                  ++tap) {
                 const double coefficient =
                     row0[tap] + (row1[tap] - row0[tap]) * phase.mix;
-                for (std::size_t route = 0; route < kExhaustExcitationRouteCount;
-                     ++route) {
+                for (std::size_t route = 0; route < route_count_; ++route) {
                     samples[route] =
-                        samples[route] + histories_[route][history_index] * coefficient;
+                        samples[route] +
+                        histories_[route * dsp::CausalReconstructionTable::tap_count +
+                                   history_index] *
+                            coefficient;
                 }
                 ++history_index;
                 if (history_index == dsp::CausalReconstructionTable::tap_count) {
@@ -103,14 +127,14 @@ void CausalReconstruction::process(std::span<const ExhaustExcitationFrame> input
                     throw std::domain_error{"reconstruction output was non-finite"};
                 }
             }
-            output[output_index].route_values_engine_sim_source_unit = samples;
             ++output_index;
             offset += kPhysicsRate;
         }
 
-        for (std::size_t route = 0; route < kExhaustExcitationRouteCount; ++route) {
-            histories_[route][oldest_history_frame_] =
-                input_frame.route_values_engine_sim_source_unit[route];
+        for (std::size_t route = 0; route < route_count_; ++route) {
+            histories_[route * dsp::CausalReconstructionTable::tap_count +
+                       oldest_history_frame_] =
+                input_frame_major[input_frame * route_count_ + route];
         }
         ++oldest_history_frame_;
         if (oldest_history_frame_ == dsp::CausalReconstructionTable::tap_count) {

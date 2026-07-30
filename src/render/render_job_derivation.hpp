@@ -5,7 +5,6 @@
 #include "presentation/presentation_calibration_compiler.hpp"
 #include "presentation/presentation_render_session.hpp"
 
-#include <array>
 #include <cstdint>
 #include <string>
 #include <variant>
@@ -38,9 +37,7 @@ using AuditionMetadataResult =
 
 struct RenderJobProjection {
     contract::OutputContract output_contract;
-    std::array<presentation::PresentationRouteArtifacts,
-               presentation::AdmittedPresentationCalibration::route_count>
-        route_artifacts;
+    std::vector<presentation::PresentationRouteArtifacts> route_artifacts;
     PendingArtifact raw_master_artifact;
     PendingArtifact audition_master_artifact;
     artifacts::AuditionWaveMetadata audition_metadata;

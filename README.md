@@ -22,8 +22,12 @@ renderer directly through an ownership-safe generic boundary. The BMW JSON migra
 fixture reproduces every sound-bearing PCM byte of the user-approved inertial dyno.
 JSON compilation is now the only production path: the temporary BMW factories, exact
 BMW validators, profile selector surface, and fixed-crank compatibility profile have
-been removed. The native CLI resolves engine-relative assets inside an explicit asset
-root and atomically publishes a new output directory.
+been removed. Cylinder and exhaust/presentation-route execution is count-derived and
+session-owned rather than fixed to the BMW fixture's six cylinders and two routes. A
+separate inline-twin/one-route fixture now compiles through the executable pipeline;
+topologies whose physical semantics are not implemented still fail closed. The native
+CLI resolves engine-relative assets inside an explicit asset root and atomically
+publishes a new output directory.
 
 The active cutover replaces that profile with:
 
@@ -119,9 +123,13 @@ BMW-specific ones:
 
 ```text
 simulation request SHA-256: a07360b0a7a780850e601e1316113f4541b852195a361c79549005ea1f487c7e
-audition WAV byte count:    8640572
-audition WAV SHA-256:       ab5d5b2b580b76b6f8b8df14b3b9d815371f5565de52f4c4e37faacc357ddff0
+audition WAV byte count:    8640586
+audition WAV SHA-256:       f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552
 ```
+
+Checkpoint 7 replaced obsolete two-route method names with truthful ordered N-route
+identities. That metadata-only correction added 14 container bytes and changed the
+whole-WAV hash; the PCM24 `data` chunk above remains byte-identical.
 
 Historical model, manifest, provenance, and listening records remain under `docs/` and
 `reference/`. They document how the accepted implementation was established; they do

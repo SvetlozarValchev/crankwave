@@ -12,7 +12,6 @@
 #include "simulation/low_order_capture_session.hpp"
 
 #include <algorithm>
-#include <array>
 #include <bit>
 #include <cstddef>
 #include <memory>
@@ -170,13 +169,12 @@ compile_presentation_job(const RenderSpecification &specification,
 
     std::vector<presentation::CompiledPresentationAsset> compiled_assets;
     std::vector<presentation::CompiledPresentationConvolutionKernel> compiled_kernels;
-    compiled_assets.reserve(calibration.route_count);
-    compiled_kernels.reserve(calibration.route_count);
-    std::array<std::shared_ptr<const dsp::FixedConvolutionKernel>,
-               presentation::AdmittedPresentationCalibration::route_count>
-        route_kernels;
+    compiled_assets.reserve(calibration.route_count());
+    compiled_kernels.reserve(calibration.route_count());
+    std::vector<std::shared_ptr<const dsp::FixedConvolutionKernel>> route_kernels(
+        calibration.route_count());
 
-    for (std::size_t route_index = 0; route_index < calibration.route_count;
+    for (std::size_t route_index = 0; route_index < calibration.route_count();
          ++route_index) {
         const auto &route = calibration.routes()[route_index];
         const auto *asset =
@@ -232,10 +230,10 @@ compile_presentation_job(const RenderSpecification &specification,
         compiled_assets.push_back(std::move(compiled_asset));
     }
 
-    std::array<presentation::PresentationRouteRenderPlan,
-               presentation::AdmittedPresentationCalibration::route_count>
-        route_plans;
-    for (std::size_t route_index = 0; route_index < route_plans.size(); ++route_index) {
+    std::vector<presentation::PresentationRouteRenderPlan> route_plans;
+    route_plans.reserve(calibration.route_count());
+    for (std::size_t route_index = 0; route_index < calibration.route_count();
+         ++route_index) {
         const auto &route = calibration.routes()[route_index];
         const auto seeds = route_seeds(random_plan, route.route_id());
         if (!seeds.has_value()) {
@@ -245,16 +243,19 @@ compile_presentation_job(const RenderSpecification &specification,
                 "the admitted random plan lacks one unique jitter and air-noise "
                 "stream for a presentation route");
         }
-        route_plans[route_index] = {
+        route_plans.push_back({
             route.route_id(),
             projection.routes[route_index].semantic_id,
             *seeds,
             route_kernels[route_index],
             route.wet_mix_01(),
             projection.route_artifacts[route_index],
-        };
+        });
     }
 
+    std::vector<contract::RouteId> audition_route_ids(
+        calibration.audition_route_ids().begin(),
+        calibration.audition_route_ids().end());
     presentation::PresentationRenderPlan presentation_plan{
         projection.output_contract,
         {
@@ -267,7 +268,7 @@ compile_presentation_job(const RenderSpecification &specification,
         std::move(route_plans),
         calibration.publication_calibration_gain_linear().value,
         {
-            calibration.audition_route_ids(),
+            std::move(audition_route_ids),
             calibration.mastering(),
             projection.audition_metadata,
             projection.raw_master_artifact,

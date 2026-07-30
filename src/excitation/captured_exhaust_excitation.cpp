@@ -113,13 +113,14 @@ double detail::CapturedExcitationDelayState::process(double input) noexcept {
 
 ExhaustExcitationDiagnosticBlockView::ExhaustExcitationDiagnosticBlockView(
     std::uint64_t first_frame_index, contract::RationalRateHz sample_rate,
-    std::array<contract::CylinderId, kCapturedExcitationCylinderCount> cylinder_ids,
-    std::array<contract::RouteId, kCapturedExcitationRouteCount> route_ids,
+    std::span<const contract::CylinderId> cylinder_ids,
+    std::span<const contract::RouteId> route_ids, std::size_t frame_count,
     std::span<const double> pre_delay, std::span<const double> post_delay,
-    std::span<const presentation::ExhaustExcitationFrame> route_bus_frames) noexcept
+    std::span<const double> route_bus_values) noexcept
     : first_frame_index_(first_frame_index), sample_rate_(sample_rate),
-      cylinder_ids_(cylinder_ids), route_ids_(route_ids), pre_delay_(pre_delay),
-      post_delay_(post_delay), route_bus_frames_(route_bus_frames) {}
+      cylinder_ids_(cylinder_ids), route_ids_(route_ids), frame_count_(frame_count),
+      pre_delay_(pre_delay), post_delay_(post_delay),
+      route_bus_values_(route_bus_values) {}
 
 std::uint64_t ExhaustExcitationDiagnosticBlockView::first_frame_index() const noexcept {
     return first_frame_index_;
@@ -130,14 +131,26 @@ ExhaustExcitationDiagnosticBlockView::sample_rate() const noexcept {
     return sample_rate_;
 }
 
-const std::array<contract::CylinderId, kCapturedExcitationCylinderCount> &
+std::span<const contract::CylinderId>
 ExhaustExcitationDiagnosticBlockView::cylinder_ids() const noexcept {
     return cylinder_ids_;
 }
 
-const std::array<contract::RouteId, kCapturedExcitationRouteCount> &
+std::span<const contract::RouteId>
 ExhaustExcitationDiagnosticBlockView::route_ids() const noexcept {
     return route_ids_;
+}
+
+std::size_t ExhaustExcitationDiagnosticBlockView::cylinder_count() const noexcept {
+    return cylinder_ids_.size();
+}
+
+std::size_t ExhaustExcitationDiagnosticBlockView::route_count() const noexcept {
+    return route_ids_.size();
+}
+
+std::size_t ExhaustExcitationDiagnosticBlockView::frame_count() const noexcept {
+    return frame_count_;
 }
 
 std::span<const double>
@@ -151,9 +164,10 @@ std::span<const double> ExhaustExcitationDiagnosticBlockView::
     return post_delay_;
 }
 
-std::span<const presentation::ExhaustExcitationFrame>
-ExhaustExcitationDiagnosticBlockView::route_bus_frames() const noexcept {
-    return route_bus_frames_;
+std::span<const double>
+ExhaustExcitationDiagnosticBlockView::route_bus_values_engine_sim_source_unit()
+    const noexcept {
+    return route_bus_values_;
 }
 
 CapturedExhaustExcitationSession::CapturedExhaustExcitationSession(
@@ -229,11 +243,12 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
     }
 
     const auto &parity = *block.reference_parity();
+    const std::size_t cylinder_count = state.cylinders.size();
+    const std::size_t route_count = state.routes.size();
     // Advance copies first. Thus every input-derived value and every accumulated
     // route term for the complete block is known finite before persistent delay
     // history changes.
-    for (std::size_t cylinder = 0; cylinder < kCapturedExcitationCylinderCount;
-         ++cylinder) {
+    for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
         state.prospective_delays[cylinder] = state.cylinders[cylinder].delay;
     }
 
@@ -242,10 +257,8 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
         const double activity =
             std::min(std::abs(filtered_speed), state.filtered_speed_threshold_rpm) /
             state.filtered_speed_threshold_rpm;
-        for (std::size_t cylinder = 0; cylinder < kCapturedExcitationCylinderCount;
-             ++cylinder) {
-            const auto &sample =
-                parity.cylinders()[frame * kCapturedExcitationCylinderCount + cylinder];
+        for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
+            const auto &sample = parity.cylinders()[frame * cylinder_count + cylinder];
             const double activity_squared = activity * activity;
             const double activity_cubed = activity_squared * activity;
             const double speed_scale = activity_cubed * state.excitation_scale;
@@ -266,31 +279,28 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
                                         "pre-delay excitation arithmetic produced a "
                                         "non-finite value"));
             }
-            state.pre_delay[frame * kCapturedExcitationCylinderCount + cylinder] =
-                value;
+            state.pre_delay[frame * cylinder_count + cylinder] = value;
         }
     }
 
     for (std::size_t frame = 0; frame < kCapturedExcitationFramesPerBlock; ++frame) {
-        state.route_bus_frames[frame].route_values_engine_sim_source_unit = {
-            +0.0,
-            +0.0,
-        };
+        std::fill_n(state.route_bus_values.begin() + frame * route_count, route_count,
+                    +0.0);
         for (const auto cylinder_index : state.accumulation_order) {
             const auto &cylinder = state.cylinders[cylinder_index];
             const double delayed = state.prospective_delays[cylinder_index].process(
-                state.pre_delay[frame * kCapturedExcitationCylinderCount +
+                state.pre_delay[frame * cylinder_count +
                                 cylinder.capture_cylinder_index]);
-            state.post_delay[frame * kCapturedExcitationCylinderCount +
-                             cylinder.capture_cylinder_index] = delayed;
+            state.post_delay[frame * cylinder_count + cylinder.capture_cylinder_index] =
+                delayed;
 
             const auto &route = state.routes[cylinder.route_index];
             const double route_term =
                 cylinder.sound_attenuation_linear *
                 ((route.audio_volume_linear * delayed) / state.cylinder_count_divisor) *
                 (1.0 / (route.exhaust_system_length_m * route.exhaust_system_length_m));
-            auto &bus = state.route_bus_frames[frame]
-                            .route_values_engine_sim_source_unit[cylinder.route_index];
+            auto &bus =
+                state.route_bus_values[frame * route_count + cylinder.route_index];
             bus += route_term;
             if (!std::isfinite(delayed) || !std::isfinite(route_term) ||
                 !std::isfinite(bus)) {
@@ -304,17 +314,17 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
         }
     }
 
-    for (std::size_t cylinder = 0; cylinder < kCapturedExcitationCylinderCount;
-         ++cylinder) {
+    for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
         std::swap(state.cylinders[cylinder].delay, state.prospective_delays[cylinder]);
     }
 
     const auto output = presentation::ExhaustExcitationBlockView::borrow_for_callback(
         state.next_frame_index, kExcitationRateHz, state.route_ids,
-        state.route_bus_frames);
+        kCapturedExcitationFramesPerBlock, state.route_bus_values);
     const auto diagnostics = ExhaustExcitationDiagnosticBlockView::borrow_for_callback(
         state.next_frame_index, kExcitationRateHz, state.cylinder_ids, state.route_ids,
-        state.pre_delay, state.post_delay, state.route_bus_frames);
+        kCapturedExcitationFramesPerBlock, state.pre_delay, state.post_delay,
+        state.route_bus_values);
 
     bool accepted = false;
     state.consumer_callback_active = true;

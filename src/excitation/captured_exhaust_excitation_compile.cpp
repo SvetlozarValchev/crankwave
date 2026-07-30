@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace engine_sim_offline::excitation {
 namespace {
@@ -86,16 +87,24 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
             ContractIssueCode::unsupported_value, "engine.methods.excitation",
             "captured exhaust excitation requires the exact admitted "
             "legacy_low_order_v1 method identity");
-    require(report, engine.cylinders.size() == kCapturedExcitationCylinderCount,
-            ContractIssueCode::inconsistent_shape, "engine.cylinders",
-            "captured exhaust excitation requires exactly six cylinders");
-    require(report, engine.routes.size() == kCapturedExcitationRouteCount,
-            ContractIssueCode::inconsistent_shape, "engine.routes",
-            "captured exhaust excitation requires exactly two routes");
-    if (engine.cylinders.size() != kCapturedExcitationCylinderCount ||
-        engine.routes.size() != kCapturedExcitationRouteCount) {
+    require(report, !engine.cylinders.empty(), ContractIssueCode::inconsistent_shape,
+            "engine.cylinders",
+            "captured exhaust excitation requires at least one cylinder");
+    require(report, !engine.routes.empty(), ContractIssueCode::inconsistent_shape,
+            "engine.routes",
+            "captured exhaust excitation requires at least one exhaust route");
+    require(report,
+            engine.cylinders.size() <= std::numeric_limits<std::size_t>::max() /
+                                           kCapturedExcitationFramesPerBlock &&
+                engine.routes.size() <= std::numeric_limits<std::size_t>::max() /
+                                            kCapturedExcitationFramesPerBlock,
+            ContractIssueCode::invalid_value, "engine",
+            "captured exhaust excitation block storage size is unrepresentable");
+    if (!report.ok()) {
         return report;
     }
+    const std::size_t cylinder_count = engine.cylinders.size();
+    const std::size_t route_count = engine.routes.size();
 
     const auto &source = core.excitation;
     require(report, source.delay_rate.value == contract::RationalRateHz{10000, 1},
@@ -127,29 +136,26 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
             ContractIssueCode::inconsistent_semantics,
             "engine.physics_profile.excitation.cylinder_count_divisor",
             "excitation divisor must equal the compiled cylinder count");
-    require(report, source.cylinder_paths.size() == kCapturedExcitationCylinderCount,
+    require(report, source.cylinder_paths.size() == cylinder_count,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.excitation.cylinder_paths",
-            "captured exhaust excitation requires exactly one path per cylinder");
-    require(report,
-            source.cylinder_accumulation_order.value.size() ==
-                kCapturedExcitationCylinderCount,
+            "captured exhaust excitation requires one path per cylinder");
+    require(report, source.cylinder_accumulation_order.value.size() == cylinder_count,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.excitation.cylinder_accumulation_order",
-            "captured exhaust excitation requires a complete six-cylinder order");
-    require(report, source.routes.size() == kCapturedExcitationRouteCount,
+            "captured exhaust excitation requires a complete cylinder order");
+    require(report, source.routes.size() == route_count,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.excitation.routes",
-            "captured exhaust excitation requires exactly two route records");
-    require(report,
-            core.gas_path.exhaust_routes.size() == kCapturedExcitationRouteCount,
+            "captured exhaust excitation requires one record per exhaust route");
+    require(report, core.gas_path.exhaust_routes.size() == route_count,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.gas_path.exhaust_routes",
-            "captured exhaust excitation requires exactly two gas-path routes");
-    require(report, core.mechanism.cylinders.size() == kCapturedExcitationCylinderCount,
+            "captured exhaust excitation requires matching gas-path routes");
+    require(report, core.mechanism.cylinders.size() == cylinder_count,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.mechanism.cylinders",
-            "captured exhaust excitation requires six mechanism cylinders");
+            "captured exhaust excitation requires one mechanism record per cylinder");
     if (!report.ok()) {
         return report;
     }
@@ -165,9 +171,20 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
     state->dynamic_forward_gain = source.pressure_gains.dynamic_forward.value;
     state->dynamic_reverse_gain = source.pressure_gains.dynamic_reverse.value;
     state->cylinder_count_divisor = source.cylinder_count_divisor.value;
+    state->cylinder_ids.resize(cylinder_count);
+    state->route_layout.resize(route_count);
+    state->route_ids.resize(route_count);
+    state->cylinders.resize(cylinder_count);
+    state->prospective_delays.resize(cylinder_count);
+    state->accumulation_order.resize(cylinder_count);
+    state->routes.resize(route_count);
+    state->pre_delay.assign(kCapturedExcitationFramesPerBlock * cylinder_count, +0.0);
+    state->post_delay.assign(kCapturedExcitationFramesPerBlock * cylinder_count, +0.0);
+    state->route_bus_values.assign(kCapturedExcitationFramesPerBlock * route_count,
+                                   +0.0);
 
-    std::array<bool, kCapturedExcitationRouteCount> gas_route_seen{};
-    for (std::size_t index = 0; index < kCapturedExcitationRouteCount; ++index) {
+    std::vector<bool> gas_route_seen(route_count, false);
+    for (std::size_t index = 0; index < route_count; ++index) {
         const auto &declared = engine.routes[index];
         const auto &configured = source.routes[index];
         const auto gas_route_index =
@@ -228,10 +245,10 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
         };
     }
 
-    std::array<bool, kCapturedExcitationCylinderCount> path_seen{};
-    std::array<bool, kCapturedExcitationCylinderCount> mechanism_seen{};
-    std::array<std::uint32_t, kCapturedExcitationCylinderCount> delay_samples{};
-    for (std::size_t index = 0; index < kCapturedExcitationCylinderCount; ++index) {
+    std::vector<bool> path_seen(cylinder_count, false);
+    std::vector<bool> mechanism_seen(cylinder_count, false);
+    std::vector<std::uint32_t> delay_samples(cylinder_count, 0U);
+    for (std::size_t index = 0; index < cylinder_count; ++index) {
         const auto cylinder_id = engine.cylinders[index].id;
         state->cylinder_ids[index] = cylinder_id;
         const auto path_index =
@@ -303,8 +320,8 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
         delay_samples[index] = configured.resolved_delay_samples.value;
     }
 
-    std::array<bool, kCapturedExcitationCylinderCount> accumulation_seen{};
-    for (std::size_t order = 0; order < kCapturedExcitationCylinderCount; ++order) {
+    std::vector<bool> accumulation_seen(cylinder_count, false);
+    for (std::size_t order = 0; order < cylinder_count; ++order) {
         const auto cylinder_id = source.cylinder_accumulation_order.value[order];
         const auto cylinder_index = find_index(
             engine.cylinders, cylinder_id,
@@ -329,8 +346,7 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
     if (!report.ok()) {
         return report;
     }
-    for (std::size_t cylinder = 0; cylinder < kCapturedExcitationCylinderCount;
-         ++cylinder) {
+    for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
         state->cylinders[cylinder].delay.history.assign(delay_samples[cylinder], +0.0);
         state->prospective_delays[cylinder] = state->cylinders[cylinder].delay;
     }
