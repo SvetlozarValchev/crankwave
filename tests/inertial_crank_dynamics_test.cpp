@@ -1,5 +1,6 @@
 #include "simulation/inertial_crank_dynamics.hpp"
 #include "simulation/inertial_dyno_method_registry.hpp"
+#include "simulation/positive_speed_rigid_crank_zoh.hpp"
 
 #include "engine_sim_offline/contract/common.hpp"
 
@@ -18,6 +19,7 @@
 namespace {
 
 using namespace engine_sim_offline::simulation;
+namespace crank_detail = engine_sim_offline::simulation::detail;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -71,6 +73,16 @@ void expect_configuration_error(
                error->configuration_issue == expected_issue &&
                error->brake_point_index == expected_index,
            "invalid inertial-crank configuration returned the wrong typed error");
+}
+
+[[nodiscard]] const crank_detail::PositiveSpeedRigidCrankZohStep &
+require_primitive_step(
+    const crank_detail::PositiveSpeedRigidCrankZohCalculation &calculation,
+    std::string_view message) {
+    const auto *step =
+        std::get_if<crank_detail::PositiveSpeedRigidCrankZohStep>(&calculation);
+    expect(step != nullptr, message);
+    return *step;
 }
 
 [[nodiscard]] const InertialCrankDynamicsError &
@@ -160,6 +172,82 @@ void test_method_identities_bind_canonical_descriptors() {
                        std::span<const char>{brake_descriptor.data(),
                                              brake_descriptor.size()})),
            "passive-brake identity is not bound to its canonical descriptor");
+}
+
+void test_shared_positive_speed_primitive_evidence() {
+    const crank_detail::PositiveSpeedRigidCrankZohInput input{
+        2.0, {1.0, 15.0}, 12.0, 6.0, 0.5,
+    };
+    const auto calculation =
+        crank_detail::advance_positive_speed_rigid_crank_zoh(input);
+    const auto &step = require_primitive_step(
+        calculation, "valid shared rigid-crank step was rejected");
+
+    expect(step.input == input &&
+               step.final_state ==
+                   crank_detail::PositiveSpeedRigidCrankState{8.875, 16.5},
+           "shared rigid-crank primitive did not retain its exact input/final state");
+    expect_near(step.held_net_torque_nm, 6.0, 0.0,
+                "shared primitive net torque changed");
+    expect_near(step.angular_acceleration_rad_s2, 3.0, 0.0,
+                "shared primitive angular acceleration changed");
+    expect_near(step.angular_displacement_rad, 7.875, 0.0,
+                "shared primitive angular displacement changed");
+    expect_near(step.upstream_engine_torque_work_j, 94.5, 0.0,
+                "shared primitive upstream-engine work changed");
+    expect_near(step.resisting_torque_work_j, 47.25, 0.0,
+                "shared primitive resisting work changed");
+    expect_near(step.held_net_torque_work_j, 47.25, 0.0,
+                "shared primitive net work changed");
+    expect_near(step.kinetic_energy_change_j, 47.25, 0.0,
+                "shared primitive kinetic-energy change changed");
+    expect_near(step.energy_residual_j, 0.0, 1e-14,
+                "shared primitive energy residual exceeded binary64 roundoff");
+}
+
+void test_shared_positive_speed_primitive_rejections_and_stall() {
+    crank_detail::PositiveSpeedRigidCrankZohInput input{
+        1.0, {0.0, 11.0}, -12.0, 0.0, 1.0,
+    };
+    auto calculation = crank_detail::advance_positive_speed_rigid_crank_zoh(input);
+    const auto *stall =
+        std::get_if<crank_detail::PositiveSpeedRigidCrankZohStall>(&calculation);
+    expect(stall != nullptr && stall->predicted_final_angular_speed_rad_s == -1.0 &&
+               stall->held_net_torque_nm == -12.0 &&
+               stall->angular_acceleration_rad_s2 == -12.0,
+           "shared primitive did not return typed within-step stall evidence");
+    expect_near(stall->stall_time_s, 11.0 / 12.0, 0.0,
+                "shared primitive stall time changed");
+    expect_near(stall->stall_theta_rad, 121.0 / 24.0, 1e-15,
+                "shared primitive stall angle changed");
+
+    input.initial_state.angular_speed_rad_s = 0.0;
+    calculation = crank_detail::advance_positive_speed_rigid_crank_zoh(input);
+    auto *error =
+        std::get_if<crank_detail::PositiveSpeedRigidCrankZohInputError>(&calculation);
+    expect(error != nullptr && error->issue ==
+                                   crank_detail::PositiveSpeedRigidCrankZohInputIssue::
+                                       nonpositive_angular_speed,
+           "shared primitive admitted zero initial speed");
+
+    input.initial_state.angular_speed_rad_s = -1.0;
+    calculation = crank_detail::advance_positive_speed_rigid_crank_zoh(input);
+    error =
+        std::get_if<crank_detail::PositiveSpeedRigidCrankZohInputError>(&calculation);
+    expect(error != nullptr && error->issue ==
+                                   crank_detail::PositiveSpeedRigidCrankZohInputIssue::
+                                       nonpositive_angular_speed,
+           "shared primitive admitted reverse initial speed");
+
+    input.initial_state.angular_speed_rad_s = 11.0;
+    input.held_resisting_torque_nm = -1.0;
+    calculation = crank_detail::advance_positive_speed_rigid_crank_zoh(input);
+    error =
+        std::get_if<crank_detail::PositiveSpeedRigidCrankZohInputError>(&calculation);
+    expect(error != nullptr && error->issue ==
+                                   crank_detail::PositiveSpeedRigidCrankZohInputIssue::
+                                       negative_resisting_torque,
+           "shared primitive admitted a signed negative resisting magnitude");
 }
 
 void test_piecewise_linear_brake_and_energy_consistent_update() {
@@ -372,6 +460,8 @@ void test_stall_is_distinct_and_reverse_is_never_published() {
 void run_tests() {
     test_configuration_admission_and_owned_snapshot();
     test_method_identities_bind_canonical_descriptors();
+    test_shared_positive_speed_primitive_evidence();
+    test_shared_positive_speed_primitive_rejections_and_stall();
     test_piecewise_linear_brake_and_energy_consistent_update();
     test_endpoint_admission_and_causal_zero_order_hold();
     test_invalid_step_inputs_are_typed();

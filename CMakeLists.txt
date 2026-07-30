@@ -211,6 +211,7 @@ add_library(
     engine_sim_offline_simulation
     STATIC
         src/simulation/fixed_horizon_cycle_sampling.cpp
+        src/simulation/free_engine_method_registry.cpp
         src/simulation/chen_flynn_cycle_mean_loss.cpp
         src/simulation/cycle_accounting_method_descriptors.cpp
         src/simulation/cycle_accounting_method_registry.cpp
@@ -221,6 +222,7 @@ add_library(
         src/simulation/legacy_gas_primitives.cpp
         src/simulation/legacy_ignition_schedule.cpp
         src/simulation/inertial_crank_dynamics.cpp
+        src/simulation/positive_speed_rigid_crank_zoh.cpp
         src/simulation/inertial_dyno_method_registry.cpp
         src/simulation/legacy_low_order_gas.cpp
         src/simulation/legacy_low_order_gas_compile.cpp

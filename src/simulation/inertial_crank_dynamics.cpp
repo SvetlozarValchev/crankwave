@@ -1,5 +1,7 @@
 #include "simulation/inertial_crank_dynamics.hpp"
 
+#include "simulation/positive_speed_rigid_crank_zoh.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <utility>
@@ -34,19 +36,13 @@ domain_error(InertialCrankDomainIssue issue, double angular_speed_rad_s) noexcep
     return error;
 }
 
-[[nodiscard]] InertialCrankDynamicsError stall_error(
-    double predicted_angular_speed_rad_s, const InertialCrankStepInput &input,
-    double angular_acceleration_rad_s2) noexcept {
+[[nodiscard]] InertialCrankDynamicsError
+stall_error(const detail::PositiveSpeedRigidCrankZohStall &stall) noexcept {
     InertialCrankDynamicsError error;
     error.code = InertialCrankDynamicsErrorCode::stall;
-    error.angular_speed_rad_s = predicted_angular_speed_rad_s;
-    error.stall_time_s =
-        -input.initial_state.angular_speed_rad_s / angular_acceleration_rad_s2;
-    error.stall_theta_rad =
-        input.initial_state.theta_rad +
-        input.initial_state.angular_speed_rad_s * error.stall_time_s +
-        0.5 * angular_acceleration_rad_s2 * error.stall_time_s *
-            error.stall_time_s;
+    error.angular_speed_rad_s = stall.predicted_final_angular_speed_rad_s;
+    error.stall_time_s = stall.stall_time_s;
+    error.stall_theta_rad = stall.stall_theta_rad;
     return error;
 }
 
@@ -117,23 +113,24 @@ InertialCrankDynamics::advance(const InertialCrankStepInput &input) const noexce
     }
 
     const double brake_torque_nm = interpolate_brake_torque(curve, omega0);
-    const double net_torque_nm = input.held_total_crank_torque_nm - brake_torque_nm;
-    const double alpha_rad_s2 = net_torque_nm / configuration_.equivalent_inertia_kg_m2;
-    const double duration_squared_s2 = input.duration_s * input.duration_s;
-    const double omega1 = omega0 + alpha_rad_s2 * input.duration_s;
-    const double angular_displacement_rad =
-        omega0 * input.duration_s + 0.5 * alpha_rad_s2 * duration_squared_s2;
-    const double theta1 = input.initial_state.theta_rad + angular_displacement_rad;
-
-    if (!std::isfinite(brake_torque_nm) || !std::isfinite(net_torque_nm) ||
-        !std::isfinite(alpha_rad_s2) || !std::isfinite(duration_squared_s2) ||
-        !std::isfinite(omega1) || !std::isfinite(angular_displacement_rad) ||
-        !std::isfinite(theta1)) {
+    const auto step_calculation = detail::advance_positive_speed_rigid_crank_zoh({
+        configuration_.equivalent_inertia_kg_m2,
+        {input.initial_state.theta_rad, input.initial_state.angular_speed_rad_s},
+        input.held_total_crank_torque_nm,
+        brake_torque_nm,
+        input.duration_s,
+    });
+    if (std::holds_alternative<detail::PositiveSpeedRigidCrankZohInputError>(
+            step_calculation)) {
         return input_error(InertialCrankInputIssue::nonfinite_derived_value);
     }
-    if (!(omega1 > 0.0)) {
-        return stall_error(omega1, input, alpha_rad_s2);
+    if (const auto *stall =
+            std::get_if<detail::PositiveSpeedRigidCrankZohStall>(&step_calculation)) {
+        return stall_error(*stall);
     }
+    const auto &step =
+        std::get<detail::PositiveSpeedRigidCrankZohStep>(step_calculation);
+    const double omega1 = step.final_state.angular_speed_rad_s;
     if (omega1 < curve.front().angular_speed_rad_s) {
         return domain_error(InertialCrankDomainIssue::final_speed_below_curve, omega1);
     }
@@ -141,27 +138,17 @@ InertialCrankDynamics::advance(const InertialCrankStepInput &input) const noexce
         return domain_error(InertialCrankDomainIssue::final_speed_above_curve, omega1);
     }
 
-    const double kinetic_energy_change_j = 0.5 *
-                                           configuration_.equivalent_inertia_kg_m2 *
-                                           ((omega1 * omega1) - (omega0 * omega0));
-    const double net_torque_work_j = net_torque_nm * angular_displacement_rad;
-    const double energy_residual_j = kinetic_energy_change_j - net_torque_work_j;
-    if (!std::isfinite(kinetic_energy_change_j) || !std::isfinite(net_torque_work_j) ||
-        !std::isfinite(energy_residual_j)) {
-        return input_error(InertialCrankInputIssue::nonfinite_derived_value);
-    }
-
     return InertialCrankStepResult{
         input.initial_state,
-        {theta1, omega1},
+        {step.final_state.theta_rad, step.final_state.angular_speed_rad_s},
         input.held_total_crank_torque_nm,
         brake_torque_nm,
-        net_torque_nm,
-        alpha_rad_s2,
-        angular_displacement_rad,
-        kinetic_energy_change_j,
-        net_torque_work_j,
-        energy_residual_j,
+        step.held_net_torque_nm,
+        step.angular_acceleration_rad_s2,
+        step.angular_displacement_rad,
+        step.kinetic_energy_change_j,
+        step.held_net_torque_work_j,
+        step.energy_residual_j,
     };
 }
 
