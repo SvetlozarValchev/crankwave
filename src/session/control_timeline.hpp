@@ -31,8 +31,23 @@ struct SetFuelEnabled {
     friend bool operator==(const SetFuelEnabled &, const SetFuelEnabled &) = default;
 };
 
+struct SetLimiterEnabled {
+    bool enabled = false;
+
+    friend bool operator==(const SetLimiterEnabled &,
+                           const SetLimiterEnabled &) = default;
+};
+
+struct SetExternalResistingTorque {
+    double torque_nm = 0.0;
+
+    friend bool operator==(const SetExternalResistingTorque &,
+                           const SetExternalResistingTorque &) = default;
+};
+
 using LiveControlPayload =
-    std::variant<SetThrottle, SetIgnitionEnabled, SetFuelEnabled>;
+    std::variant<SetThrottle, SetIgnitionEnabled, SetFuelEnabled,
+                 SetLimiterEnabled, SetExternalResistingTorque>;
 
 struct TimestampedControlCommand {
     std::uint64_t delivery_frame = 0;

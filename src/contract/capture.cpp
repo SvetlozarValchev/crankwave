@@ -476,6 +476,7 @@ bool valid_capture_block_after_layout_admission(
                 sample.resolved_engine_throttle_01,
                 sample.intake_plate_position_01,
                 sample.main_flow_multiplier_01,
+                sample.external_resisting_torque_nm,
             }) ||
             sample.theta_cycle_rad < 0.0 ||
             sample.theta_cycle_rad >= 4.0 * std::numbers::pi ||
@@ -483,6 +484,7 @@ bool valid_capture_block_after_layout_admission(
             !unit_interval(sample.resolved_engine_throttle_01) ||
             !unit_interval(sample.intake_plate_position_01) ||
             !unit_interval(sample.main_flow_multiplier_01) ||
+            sample.external_resisting_torque_nm < 0.0 ||
             (index != 0 &&
              sample.step_end_index <= block.engine()[index - 1].step_end_index) ||
             !valid_torque_telemetry(sample.torque)) {
@@ -1225,6 +1227,7 @@ ValidationReport validate(const CaptureBlockView &block) {
                     sample.resolved_engine_throttle_01,
                     sample.intake_plate_position_01,
                     sample.main_flow_multiplier_01,
+                    sample.external_resisting_torque_nm,
                 }),
                 ContractIssueCode::invalid_value, path,
                 "engine capture values must be finite");
@@ -1240,6 +1243,10 @@ ValidationReport validate(const CaptureBlockView &block) {
                     detail::unit_interval(sample.main_flow_multiplier_01),
                 ContractIssueCode::invalid_value, path,
                 "all throttle/linkage coordinates must be in [0, 1]");
+        require(report, sample.external_resisting_torque_nm >= 0.0,
+                ContractIssueCode::invalid_value,
+                path + ".external_resisting_torque_nm",
+                "external resisting torque must be nonnegative");
         if (index != 0) {
             require(report,
                     sample.step_end_index > block.engine()[index - 1].step_end_index,

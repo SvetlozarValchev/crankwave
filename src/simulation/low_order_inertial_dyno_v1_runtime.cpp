@@ -357,8 +357,9 @@ LowOrderInertialDynoV1AdvanceResult LowOrderInertialDynoV1Runtime::advance(
             return fail(fault(
                 contract::FailureKind::contract_violation,
                 "inertial-live-controls-during-held-preparation",
-                "live throttle, ignition, and fuel overrides are not admitted while "
-                "the inertial session is producing fixed held-speed evidence"));
+                "live throttle, ignition, fuel, limiter, and external-resistance "
+                "overrides are not admitted while the inertial session is producing "
+                "fixed held-speed evidence"));
         }
         const double omega =
             initial_engine_speed_rpm_ * std::numbers::pi_v<double> / 30.0;

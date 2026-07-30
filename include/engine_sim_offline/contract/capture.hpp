@@ -189,7 +189,9 @@ struct EngineCaptureSample {
     bool fuel_enabled = false;
     bool starter_enabled = false;
     bool dyno_enabled = false;
+    bool limiter_enabled = false;
     bool limiter_cut_active = false;
+    double external_resisting_torque_nm = 0.0;
     TorqueTelemetry torque;
 };
 

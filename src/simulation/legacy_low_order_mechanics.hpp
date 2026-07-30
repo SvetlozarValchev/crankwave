@@ -65,6 +65,7 @@ struct LegacyMechanismStep {
     double theta_unwrapped_rad = 0.0;
     double filtered_engine_speed_rpm = 0.0;
     double timing_advance_rad = 0.0;
+    double external_resisting_torque_nm = 0.0;
     double limiter_timer_s = 0.0;
     bool limiter_cut_active = false;
     std::vector<MechanismCylinderSample> cylinders;
@@ -130,8 +131,8 @@ class LegacyLowOrderMechanicsSession final {
         contract::RationalRateHz rate, double crank_tdc_reference_rad,
         double initial_theta_cycle_rad, std::vector<CylinderModel> cylinders,
         std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
-        double limiter_speed_rpm, double limiter_hold_s, bool limiter_enabled,
-        std::string model_id, std::string profile_id, std::string scenario_id,
+        double limiter_speed_rpm, double limiter_hold_s, std::string model_id,
+        std::string profile_id, std::string scenario_id,
         contract::EngineId engine_id);
 
     [[nodiscard]] contract::FailureContext
@@ -156,7 +157,6 @@ class LegacyLowOrderMechanicsSession final {
     double timing_curve_radius_rad_s_ = 0.0;
     double limiter_speed_rpm_ = 0.0;
     double limiter_hold_s_ = 0.0;
-    bool limiter_enabled_ = false;
     std::string model_id_;
     std::string profile_id_;
     std::string scenario_id_;

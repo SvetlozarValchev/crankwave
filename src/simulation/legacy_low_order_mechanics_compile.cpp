@@ -282,7 +282,6 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
         ignition.timing_curve_triangle_radius_rad_s.value,
         ignition.limiter_speed_rpm.value,
         ignition.limiter_hold_s.value,
-        limiter_enabled,
         engine.methods.mechanism.value.id,
         engine.profile_id.value,
         scenario.scenario_id,

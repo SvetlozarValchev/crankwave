@@ -440,15 +440,20 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
             return fail(fault(
                 contract::FailureKind::contract_violation,
                 "free-engine-live-controls-during-held-preparation",
-                "live throttle, ignition, and fuel overrides are not admitted during "
-                "fixed held preparation"));
+                "live throttle, ignition, fuel, limiter, and external-resistance "
+                "overrides are not admitted during fixed held preparation"));
         }
         const double omega =
             initial_engine_speed_rpm_ * std::numbers::pi_v<double> / 30.0;
         const double held_angular_displacement_rad =
             initial_engine_speed_rpm_ * kLegacyRpmScale * step_s_;
-        auto core_result = core.advance(
-            {initial_engine_speed_rpm_, held_angular_displacement_rad}, overrides);
+        auto resolved_overrides = overrides;
+        resolved_overrides.has_external_resisting_torque_nm = true;
+        resolved_overrides.external_resisting_torque_nm =
+            controls->external_resisting_torque_nm;
+        auto core_result =
+            core.advance({initial_engine_speed_rpm_, held_angular_displacement_rad},
+                         resolved_overrides);
         if (const auto *failure = std::get_if<contract::FailureContext>(&core_result)) {
             return fail(*failure);
         }
@@ -504,11 +509,15 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
 
     const double applied_indicated = *previous_indicated_gas_torque_nm_;
     const double applied_loss = *applied_lagged_loss_torque_nm_;
+    const double applied_external_resisting_torque_nm =
+        overrides.has_external_resisting_torque_nm
+            ? overrides.external_resisting_torque_nm
+            : controls->external_resisting_torque_nm;
     const auto motion_calculation = detail::advance_positive_speed_rigid_crank_zoh({
         equivalent_inertia_kg_m2_,
         crank_state_,
         applied_indicated + applied_loss,
-        controls->external_resisting_torque_nm,
+        applied_external_resisting_torque_nm,
         step_s_,
     });
     if (const auto *error = std::get_if<detail::PositiveSpeedRigidCrankZohInputError>(
@@ -532,8 +541,12 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
         std::get<detail::PositiveSpeedRigidCrankZohStep>(motion_calculation);
     const double post_step_rpm =
         motion.final_state.angular_speed_rad_s * kRpmPerRadianPerSecond;
-    auto core_result =
-        core.advance({post_step_rpm, motion.angular_displacement_rad}, overrides);
+    auto resolved_overrides = overrides;
+    resolved_overrides.has_external_resisting_torque_nm = true;
+    resolved_overrides.external_resisting_torque_nm =
+        applied_external_resisting_torque_nm;
+    auto core_result = core.advance({post_step_rpm, motion.angular_displacement_rad},
+                                    resolved_overrides);
     if (const auto *failure = std::get_if<contract::FailureContext>(&core_result)) {
         return fail(*failure);
     }

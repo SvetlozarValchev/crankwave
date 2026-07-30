@@ -70,8 +70,7 @@ void test_exact_delivery_projection() {
     expect(off_grid && off_grid.physics_step == 6,
            "delivery frame 97 did not ceil-map to step 6");
 
-    const auto rational =
-        project_delivery_frame_to_physics_step(7, {3, 2}, {5, 2});
+    const auto rational = project_delivery_frame_to_physics_step(7, {3, 2}, {5, 2});
     expect(rational && rational.physics_step == 5,
            "generic rational-rate projection was not exact");
 
@@ -174,6 +173,55 @@ void test_atomic_batch_rejection() {
            "corrected batch did not remain intact");
 }
 
+void test_limiter_and_external_resistance_payloads() {
+    ControlTimeline timeline{4, kPhysicsRate, kDeliveryRate};
+    const std::array commands{
+        TimestampedControlCommand{0, 1, SetLimiterEnabled{false}},
+        TimestampedControlCommand{0, 2, SetExternalResistingTorque{17.5}},
+        TimestampedControlCommand{19, 3, SetLimiterEnabled{true}},
+        TimestampedControlCommand{19, 4, SetExternalResistingTorque{0.0}},
+    };
+    expect(static_cast<bool>(timeline.enqueue(commands)),
+           "valid limiter/load command batch was rejected");
+
+    const auto step0 = timeline.drain_for_physics_step(0);
+    LiveControlOverrides expected_step0;
+    expected_step0.has_limiter_enabled = true;
+    expected_step0.limiter_enabled = false;
+    expected_step0.has_external_resisting_torque_nm = true;
+    expected_step0.external_resisting_torque_nm = 17.5;
+    expect(step0 && step0.controls.applied_command_count == 2 &&
+               step0.controls.overrides == expected_step0 &&
+               step0.controls.overrides.any(),
+           "step-zero limiter/load commands were not applied right-continuously");
+
+    const auto step1 = timeline.drain_for_physics_step(1);
+    auto expected_step1 = expected_step0;
+    expected_step1.limiter_enabled = true;
+    expected_step1.external_resisting_torque_nm = 0.0;
+    expect(step1 && step1.controls.applied_command_count == 2 &&
+               step1.controls.overrides == expected_step1,
+           "later limiter/load commands did not replace the persistent snapshot");
+
+    ControlTimeline invalid{2, kPhysicsRate, kDeliveryRate};
+    const TimestampedControlCommand negative{0, 1, SetExternalResistingTorque{-1.0}};
+    const auto negative_result = invalid.enqueue(std::span{&negative, 1});
+    expect(!negative_result &&
+               negative_result.error == ControlTimelineError::invalid_payload &&
+               negative_result.command_index == 0 &&
+               invalid.queued_command_count() == 0,
+           "negative external resisting torque entered the timeline");
+
+    const TimestampedControlCommand nonfinite{
+        0, 1, SetExternalResistingTorque{std::numeric_limits<double>::infinity()}};
+    const auto nonfinite_result = invalid.enqueue(std::span{&nonfinite, 1});
+    expect(!nonfinite_result &&
+               nonfinite_result.error == ControlTimelineError::invalid_payload &&
+               nonfinite_result.command_index == 0 &&
+               invalid.queued_command_count() == 0,
+           "nonfinite external resisting torque entered the timeline");
+}
+
 void test_ordering_lateness_and_cursor_rejections() {
     {
         ControlTimeline timeline{4, kPhysicsRate, kDeliveryRate};
@@ -183,8 +231,7 @@ void test_ordering_lateness_and_cursor_rejections() {
         };
         const auto result = timeline.enqueue(duplicate);
         expect(!result && result.error == ControlTimelineError::duplicate_sequence &&
-                   result.command_index == 1 &&
-                   timeline.queued_command_count() == 0,
+                   result.command_index == 1 && timeline.queued_command_count() == 0,
                "duplicate sequence was not rejected atomically");
     }
     {
@@ -215,12 +262,13 @@ void test_ordering_lateness_and_cursor_rejections() {
         expect(timeline.advance_delivery_cursor(10) == ControlTimelineError::none,
                "delivery cursor did not advance");
         expect(timeline.advance_delivery_cursor(9) ==
-                   ControlTimelineError::delivery_cursor_regression &&
+                       ControlTimelineError::delivery_cursor_regression &&
                    timeline.generated_delivery_frame() == 10,
                "delivery cursor regression mutated the cursor");
         const TimestampedControlCommand late{9, 1, SetThrottle{0.1}};
         const auto late_result = timeline.enqueue(std::span{&late, 1});
-        expect(!late_result && late_result.error == ControlTimelineError::late_command &&
+        expect(!late_result &&
+                   late_result.error == ControlTimelineError::late_command &&
                    timeline.queued_command_count() == 0,
                "command targeting generated PCM was not rejected as late");
         const TimestampedControlCommand current{10, 1, SetThrottle{0.2}};
@@ -260,8 +308,8 @@ void test_success_path_does_not_allocate() {
            "successful enqueue/drain allocated after timeline construction");
 }
 
-[[nodiscard]] simulation::LowOrderEngineCoreV1Runtime require_core_runtime(
-    simulation::LowOrderEngineCoreV1CompileResult result) {
+[[nodiscard]] simulation::LowOrderEngineCoreV1Runtime
+require_core_runtime(simulation::LowOrderEngineCoreV1CompileResult result) {
     if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
         std::string message = "valid live-control core fixture was rejected";
         if (!report->issues.empty()) {
@@ -273,8 +321,8 @@ void test_success_path_does_not_allocate() {
     return std::get<simulation::LowOrderEngineCoreV1Runtime>(std::move(result));
 }
 
-[[nodiscard]] contract::RandomPlan require_random_plan(
-    contract::RandomPlanCompilationResult result) {
+[[nodiscard]] contract::RandomPlan
+require_random_plan(contract::RandomPlanCompilationResult result) {
     if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
         std::string message = "valid live-control random plan was rejected";
         if (!report->issues.empty()) {
@@ -291,8 +339,7 @@ struct SimulationControlFixture {
     contract::EngineSpec engine = contract_test::make_engine(builder);
     contract::PresentationCalibration presentation =
         contract_test::make_presentation(builder, engine);
-    contract::RenderScenario scenario =
-        contract_test::make_scenario(builder, engine);
+    contract::RenderScenario scenario = contract_test::make_scenario(builder, engine);
     contract::ResolvedRandomnessPolicy randomness =
         contract_test::make_randomness_policy(builder);
 
@@ -306,15 +353,13 @@ struct SimulationControlFixture {
         engine.methods.heat_transfer.value = legacy_method;
         engine.methods.excitation.value = legacy_method;
         auto &physics_profile =
-            std::get<contract::LowOrderOperatingPointV1Profile>(
-                engine.physics_profile);
+            std::get<contract::LowOrderOperatingPointV1Profile>(engine.physics_profile);
         physics_profile.core.gas_path.intake.idle_throttle_plate_position_01.value =
             0.994;
 
         constexpr std::size_t kStepCount = 8;
         scenario.scenario_id = "session-live-control-eight-step";
-        scenario.total_duration_s.value =
-            static_cast<double>(kStepCount) / 10000.0;
+        scenario.total_duration_s.value = static_cast<double>(kStepCount) / 10000.0;
         scenario.audible_start_s.value = 0.0;
         scenario.audible_duration_s.value = scenario.total_duration_s.value;
         scenario.preparation = contract::FixedSettling{
@@ -341,12 +386,8 @@ struct SimulationControlFixture {
 
         std::vector<double> rpm(kStepCount, 1800.0);
         contract::FixedRateRpmTrajectory rpm_lane{
-            kPhysicsRate,
-            0,
-            contract::RpmSampleSemantics::post_step_rpm,
-            std::move(rpm),
-            {},
-            builder.add_resolution("session-test.rpm-lane"),
+            kPhysicsRate,   0,  contract::RpmSampleSemantics::post_step_rpm,
+            std::move(rpm), {}, builder.add_resolution("session-test.rpm-lane"),
         };
         rpm_lane.samples_f64le_sha256 =
             contract::canonical_binary64_le_sha256(rpm_lane.post_step_rpm);
@@ -367,8 +408,7 @@ struct SimulationControlFixture {
 };
 
 [[nodiscard]] bool same_binary64(double left, double right) noexcept {
-    return std::bit_cast<std::uint64_t>(left) ==
-           std::bit_cast<std::uint64_t>(right);
+    return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
 
 [[nodiscard]] const simulation::LowOrderEngineCoreV1StepView &
@@ -431,6 +471,8 @@ void expect_core_step_bits_equal(
                              right_mechanics.filtered_engine_speed_rpm) &&
                same_binary64(left_mechanics.timing_advance_rad,
                              right_mechanics.timing_advance_rad) &&
+               same_binary64(left_mechanics.external_resisting_torque_nm,
+                             right_mechanics.external_resisting_torque_nm) &&
                same_binary64(left_mechanics.limiter_timer_s,
                              right_mechanics.limiter_timer_s) &&
                left_mechanics.limiter_cut_active ==
@@ -455,9 +497,8 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
     SimulationControlFixture fixture;
     const auto random_plan = require_random_plan(contract::compile_random_plan(
         fixture.randomness, fixture.engine, fixture.presentation, fixture.scenario));
-    const auto &profile =
-        std::get<contract::LowOrderOperatingPointV1Profile>(
-            fixture.engine.physics_profile);
+    const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+        fixture.engine.physics_profile);
 
     auto old_call_shape =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
@@ -502,11 +543,10 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
                        "authored throttle boundary stopped before a live override");
             }
             if (step_index == 5) {
-                expect(!controlled_step.mechanics.get()
-                            .operating_state.ignition_enabled &&
-                           !controlled_step.mechanics.get()
-                                .operating_state.fuel_enabled,
-                       "authored operating-state boundaries stopped before override");
+                expect(
+                    !controlled_step.mechanics.get().operating_state.ignition_enabled &&
+                        !controlled_step.mechanics.get().operating_state.fuel_enabled,
+                    "authored operating-state boundaries stopped before override");
             }
             continue;
         }
@@ -530,6 +570,7 @@ void run_tests() {
     test_exact_delivery_projection();
     test_right_continuous_drain_and_sequence_order();
     test_atomic_batch_rejection();
+    test_limiter_and_external_resistance_payloads();
     test_ordering_lateness_and_cursor_rejections();
     test_success_path_does_not_allocate();
     test_simulation_preserves_schedule_bits_until_a_field_is_overridden();

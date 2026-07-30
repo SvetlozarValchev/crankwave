@@ -23,6 +23,7 @@ bool finite_step_scalars(const LegacyMechanismStep &step) noexcept {
            std::isfinite(step.theta_unwrapped_rad) &&
            std::isfinite(step.filtered_engine_speed_rpm) &&
            std::isfinite(step.timing_advance_rad) &&
+           std::isfinite(step.external_resisting_torque_nm) &&
            std::isfinite(step.limiter_timer_s);
 }
 
@@ -34,8 +35,8 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
     contract::RationalRateHz rate, double crank_tdc_reference_rad,
     double initial_theta_cycle_rad, std::vector<CylinderModel> cylinders,
     std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
-    double limiter_speed_rpm, double limiter_hold_s, bool limiter_enabled,
-    std::string model_id, std::string profile_id, std::string scenario_id,
+    double limiter_speed_rpm, double limiter_hold_s, std::string model_id,
+    std::string profile_id, std::string scenario_id,
     contract::EngineId engine_id)
     : control_cursor_(std::move(control_cursor)),
       kinematic_cursor_(std::move(kinematic_cursor)), rate_(rate),
@@ -45,9 +46,9 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
       timing_curve_(std::move(timing_curve)),
       timing_curve_radius_rad_s_(timing_curve_radius_rad_s),
       limiter_speed_rpm_(limiter_speed_rpm), limiter_hold_s_(limiter_hold_s),
-      limiter_enabled_(limiter_enabled), model_id_(std::move(model_id)),
-      profile_id_(std::move(profile_id)), scenario_id_(std::move(scenario_id)),
-      engine_id_(engine_id), theta_cycle_rad_(initial_theta_cycle_rad),
+      model_id_(std::move(model_id)), profile_id_(std::move(profile_id)),
+      scenario_id_(std::move(scenario_id)), engine_id_(engine_id),
+      theta_cycle_rad_(initial_theta_cycle_rad),
       theta_unwrapped_rad_(initial_theta_cycle_rad),
       ignition_saved_angle_rad_(initial_theta_cycle_rad) {
     cylinder_model_view_.reserve(cylinders_.size());
@@ -136,6 +137,16 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
             "live throttle override must be finite and in [0, 1]");
         return *terminal_fault_;
     }
+    if (overrides.has_external_resisting_torque_nm &&
+        (!std::isfinite(overrides.external_resisting_torque_nm) ||
+         overrides.external_resisting_torque_nm < 0.0)) {
+        terminal_fault_ =
+            fault(contract::FailureKind::contract_violation,
+                  "legacy-mechanics-invalid-live-external-resisting-torque",
+                  "live external resisting torque override must be finite and "
+                  "nonnegative");
+        return *terminal_fault_;
+    }
     if (motion.has_value()) {
         if (!std::isfinite(motion->engine_speed_rpm) ||
             motion->engine_speed_rpm < 0.0 ||
@@ -187,9 +198,16 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
     if (overrides.has_fuel_enabled) {
         step_.operating_state.fuel_enabled = overrides.fuel_enabled;
     }
+    if (overrides.has_limiter_enabled) {
+        step_.operating_state.limiter_enabled = overrides.limiter_enabled;
+    }
     step_.requested_throttle_01 =
         overrides.has_throttle ? overrides.throttle_01
                                : controls->requested_throttle;
+    step_.external_resisting_torque_nm =
+        overrides.has_external_resisting_torque_nm
+            ? overrides.external_resisting_torque_nm
+            : 0.0;
     step_.engine_speed_rpm =
         motion.has_value() ? motion->engine_speed_rpm : kinematic->rpm;
 
@@ -260,7 +278,7 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
         }
     }
 
-    if (limiter_enabled_) {
+    if (step_.operating_state.limiter_enabled) {
         const auto limiter =
             update_legacy_limiter(limiter_timer_s_, step_s_, step_.omega_legacy_rad_s,
                                   limiter_speed_rpm_, limiter_hold_s_);
@@ -287,12 +305,29 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
             });
         }
     } else {
-        // Disabled is a compiled scenario policy, not a per-step transition. Keep
-        // the observable state at canonical positive zero and publish no limiter
-        // transition event.
+        const bool old_active = limiter_timer_s_ != 0.0;
         limiter_timer_s_ = 0.0;
         step_.limiter_timer_s = 0.0;
         step_.limiter_cut_active = false;
+        if (old_active) {
+            if (step_.events.size() == maximum_event_count_) {
+                terminal_fault_ =
+                    fault(contract::FailureKind::event_schedule_violation,
+                          "legacy-mechanics-event-capacity-exceeded",
+                          "limiter transition exceeded the compiled per-step event "
+                          "capacity");
+                return *terminal_fault_;
+            }
+            step_.events.push_back({
+                static_cast<std::uint8_t>(step_.events.size()),
+                contract::LimiterStateChanged{
+                    true,
+                    false,
+                    false,
+                    0.0,
+                },
+            });
+        }
     }
     ignition_saved_angle_rad_ = theta_cycle_rad_;
 

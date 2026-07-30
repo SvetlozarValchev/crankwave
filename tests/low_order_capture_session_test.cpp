@@ -274,6 +274,30 @@ struct FreeEngineCaptureTrace {
     LowOrderCaptureCompleted completion;
 };
 
+struct FreeEngineLiveControlContext {
+    std::uint64_t next_step = 0;
+    std::uint64_t release_step = 0;
+    double external_resisting_torque_nm = 0.0;
+};
+
+[[nodiscard]] engine_sim_offline::simulation::detail::LowOrderLiveControlStep
+drain_free_engine_live_controls(void *context, std::uint64_t physics_step) noexcept {
+    auto &controls = *static_cast<FreeEngineLiveControlContext *>(context);
+    if (physics_step != controls.next_step) {
+        return {};
+    }
+    ++controls.next_step;
+
+    LiveControlOverrides overrides;
+    if (physics_step >= controls.release_step) {
+        overrides.has_limiter_enabled = true;
+        overrides.limiter_enabled = true;
+        overrides.has_external_resisting_torque_nm = true;
+        overrides.external_resisting_torque_nm = controls.external_resisting_torque_nm;
+    }
+    return {true, overrides};
+}
+
 [[nodiscard]] FreeEngineCaptureTrace run_free_engine_capture(
     const engine_sim_offline::test::AuthoredEngineFixture &request) {
     auto capture = require_simulation(compile_low_order_capture_session(
@@ -516,7 +540,10 @@ void verify_frame(const CaptureBlockView &block, std::size_t frame,
                engine->fuel_enabled == mechanics.operating_state.fuel_enabled &&
                engine->starter_enabled == mechanics.operating_state.starter_enabled &&
                engine->dyno_enabled == mechanics.operating_state.dyno_enabled &&
-               engine->limiter_cut_active == mechanics.limiter_cut_active,
+               engine->limiter_enabled == mechanics.operating_state.limiter_enabled &&
+               engine->limiter_cut_active == mechanics.limiter_cut_active &&
+               engine->external_resisting_torque_nm ==
+                   mechanics.external_resisting_torque_nm,
            "engine observable mapping changed");
     expect(engine->torque == expected_torque,
            "operating-policy torque mapping changed");
@@ -980,7 +1007,10 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
     const auto &released_net = released.torque.instantaneous_net_shaft;
     const auto &released_actuator = released.torque.actuator;
     const auto &released_reaction = released.torque.dyno_reaction;
-    expect(released_net.availability == Availability::available &&
+    expect(!released.limiter_enabled &&
+               released.external_resisting_torque_nm ==
+                   kFreeEngineInitialResistingTorqueNm &&
+               released_net.availability == Availability::available &&
                released_actuator.availability == Availability::available &&
                released_reaction.availability == Availability::available &&
                released_actuator.value_nm == -kFreeEngineInitialResistingTorqueNm &&
@@ -1000,7 +1030,11 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
                    -kFreeEngineInitialResistingTorqueNm &&
                before_boundary.torque.dyno_reaction.value_nm ==
                    kFreeEngineInitialResistingTorqueNm &&
+               before_boundary.external_resisting_torque_nm ==
+                   kFreeEngineInitialResistingTorqueNm &&
                at_boundary.requested_throttle_01 == 0.15 &&
+               at_boundary.external_resisting_torque_nm ==
+                   kFreeEngineBoundaryResistingTorqueNm &&
                at_boundary.torque.actuator.value_nm ==
                    -kFreeEngineBoundaryResistingTorqueNm &&
                at_boundary.torque.dyno_reaction.value_nm ==
@@ -1024,6 +1058,83 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
     expect(first_rpm_divergence != high.frames.end() &&
                high.frames.back().engine_speed_rpm > low.frames.back().engine_speed_rpm,
            "released free-engine motion did not respond to authored throttle");
+}
+
+void test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    constexpr double kLiveResistingTorqueNm = 7.5;
+    constexpr double kShortHorizonS = 0.24;
+    constexpr double kAuthoredLoadBoundaryS = 0.23;
+    const auto request = make_free_engine_capture_request(
+        canonical, 0.85, kFreeEngineInitialResistingTorqueNm,
+        kFreeEngineBoundaryResistingTorqueNm, kAuthoredLoadBoundaryS, kShortHorizonS);
+    const auto release_frame =
+        *resolve_frame_index(kOperatingCutoffTimeS, request.scenario.rates.physics);
+    const auto expected_frame_count =
+        *resolve_frame_index(kShortHorizonS, request.scenario.rates.physics);
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario,
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity()));
+
+    FreeEngineLiveControlContext context{
+        0,
+        release_frame,
+        kLiveResistingTorqueNm,
+    };
+    const engine_sim_offline::simulation::detail::LowOrderLiveControlProvider provider{
+        &context,
+        request.scenario.rates.physics,
+        &drain_free_engine_live_controls,
+    };
+    std::vector<EngineCaptureSample> frames;
+    std::optional<LowOrderCaptureCompleted> completion;
+    while (!completion.has_value()) {
+        auto result = capture.publish_next_block(
+            [&](const CaptureBlockView &block) {
+                const auto report = validate(block, request.engine, request.scenario);
+                if (!report.ok()) {
+                    fail_report("live free-engine capture failed validation", report);
+                }
+                frames.insert(frames.end(), block.engine().begin(),
+                              block.engine().end());
+                return true;
+            },
+            provider);
+        if (const auto *failure = std::get_if<FailureContext>(&result)) {
+            throw std::runtime_error{
+                "live free-engine capture faulted: " + failure->detail_code + "; " +
+                failure->state_summary};
+        }
+        if (const auto *completed = std::get_if<LowOrderCaptureCompleted>(&result)) {
+            completion = *completed;
+        }
+    }
+
+    expect(frames.size() == expected_frame_count &&
+               context.next_step == expected_frame_count &&
+               completion->sample_count == expected_frame_count,
+           "live free-engine capture did not consume its exact control horizon");
+    const auto &prepared = frames[release_frame - 1U];
+    const auto &released = frames[release_frame];
+    const auto &final = frames.back();
+    expect(!prepared.limiter_enabled &&
+               prepared.external_resisting_torque_nm ==
+                   kFreeEngineInitialResistingTorqueNm &&
+               released.limiter_enabled && !released.limiter_cut_active &&
+               released.external_resisting_torque_nm == kLiveResistingTorqueNm &&
+               released.torque.actuator.value_nm == -kLiveResistingTorqueNm &&
+               released.torque.dyno_reaction.value_nm == kLiveResistingTorqueNm &&
+               final.limiter_enabled &&
+               final.external_resisting_torque_nm == kLiveResistingTorqueNm &&
+               final.torque.dyno_reaction.value_nm == kLiveResistingTorqueNm,
+           "released FreeEngine did not use and publish live limiter/load state");
+    const double expected_release_alpha =
+        (released.torque.instantaneous_net_shaft.value_nm - kLiveResistingTorqueNm) /
+        kFreeEngineEquivalentInertiaKgM2;
+    expect_near(released.angular_acceleration_rad_s2, expected_release_alpha,
+                std::max(1.0, std::abs(expected_release_alpha)) * 1e-8,
+                "live resistance did not drive released crank acceleration");
 }
 
 void test_free_engine_capture_returns_stable_typed_stall_without_reverse(
@@ -1159,8 +1270,7 @@ void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(
     expect(completion->inertial_dyno.has_value() &&
                !completion->held_speed_operating_point.has_value() &&
                first_released_rpm > 1500.0 && last_rpm > first_released_rpm &&
-               throttle_before_boundary == 0.85 &&
-               throttle_at_boundary == 0.80 &&
+               throttle_before_boundary == 0.85 && throttle_at_boundary == 0.80 &&
                throttle_after_boundary == 0.85,
            "inertial capture did not execute its authored throttle timeline on the "
            "dynamic motion lane");
@@ -1182,13 +1292,15 @@ void test_inertial_capture_rejects_throttle_transition_during_preparation(
         fixture_random_plan(request, request.engine, request.scenario),
         nonzero_request_identity());
     const auto *report = std::get_if<ValidationReport>(&result);
-    expect(report != nullptr && !report->ok() &&
-               std::ranges::any_of(report->issues, [](const ContractIssue &issue) {
-                   return issue.path ==
-                          "scenario.mode.throttle_01.points[1].time_s";
-               }),
-           "inertial capture admitted a throttle transition during held "
-           "preparation");
+    expect(
+        report != nullptr && !report->ok() &&
+            std::ranges::any_of(report->issues,
+                                [](const ContractIssue &issue) {
+                                    return issue.path ==
+                                           "scenario.mode.throttle_01.points[1].time_s";
+                                }),
+        "inertial capture admitted a throttle transition during held "
+        "preparation");
 }
 
 void test_consumer_rejection_is_a_stable_terminal_fault(
@@ -1400,6 +1512,8 @@ void run_tests(const engine_sim_offline::test::AuthoredEngineFixture &canonical)
     test_operating_capture_publishes_request_bound_completion_evidence(canonical);
     test_operating_capture_rejects_zero_request_identity(canonical);
     test_free_engine_capture_holds_preparation_and_executes_authored_controls(
+        canonical);
+    test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
         canonical);
     test_free_engine_capture_returns_stable_typed_stall_without_reverse(canonical);
     test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(canonical);

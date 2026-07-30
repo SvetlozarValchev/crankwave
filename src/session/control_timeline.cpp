@@ -257,6 +257,9 @@ bool ControlTimeline::payload_is_valid(const LiveControlPayload &payload) const 
         return std::isfinite(throttle->throttle_01) &&
                throttle->throttle_01 >= 0.0 && throttle->throttle_01 <= 1.0;
     }
+    if (const auto *resistance = std::get_if<SetExternalResistingTorque>(&payload)) {
+        return std::isfinite(resistance->torque_nm) && resistance->torque_nm >= 0.0;
+    }
     return true;
 }
 
@@ -274,6 +277,14 @@ void ControlTimeline::apply(const LiveControlPayload &payload) noexcept {
             [this](const SetFuelEnabled &command) {
                 overrides_.has_fuel_enabled = true;
                 overrides_.fuel_enabled = command.enabled;
+            },
+            [this](const SetLimiterEnabled &command) {
+                overrides_.has_limiter_enabled = true;
+                overrides_.limiter_enabled = command.enabled;
+            },
+            [this](const SetExternalResistingTorque &command) {
+                overrides_.has_external_resisting_torque_nm = true;
+                overrides_.external_resisting_torque_nm = command.torque_nm;
             },
         },
         payload);

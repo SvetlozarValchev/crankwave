@@ -15,9 +15,14 @@ struct LiveControlOverrides {
     bool ignition_enabled = false;
     bool has_fuel_enabled = false;
     bool fuel_enabled = false;
+    bool has_limiter_enabled = false;
+    bool limiter_enabled = false;
+    bool has_external_resisting_torque_nm = false;
+    double external_resisting_torque_nm = 0.0;
 
     [[nodiscard]] bool any() const noexcept {
-        return has_throttle || has_ignition_enabled || has_fuel_enabled;
+        return has_throttle || has_ignition_enabled || has_fuel_enabled ||
+               has_limiter_enabled || has_external_resisting_torque_nm;
     }
 
     friend bool operator==(const LiveControlOverrides &,
@@ -34,8 +39,8 @@ struct LowOrderLiveControlStep {
 struct LowOrderLiveControlProvider {
     void *context = nullptr;
     contract::RationalRateHz physics_rate;
-    LowOrderLiveControlStep (*drain_for_physics_step)(
-        void *, std::uint64_t) noexcept = nullptr;
+    LowOrderLiveControlStep (*drain_for_physics_step)(void *,
+                                                      std::uint64_t) noexcept = nullptr;
 };
 
 } // namespace detail

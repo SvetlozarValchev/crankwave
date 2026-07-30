@@ -189,7 +189,8 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
                     contract::FailureKind::contract_violation,
                     "low-order-live-controls-not-admitted-for-held-evidence",
                     "held-speed operating-point evidence does not admit live "
-                    "throttle, ignition, or fuel overrides"));
+                    "throttle, ignition, fuel, limiter, or external-resistance "
+                    "overrides"));
             }
         }
 
@@ -199,7 +200,8 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
         if (auto *inertial =
                 std::get_if<LowOrderInertialDynoV1Runtime>(&profile_policy_)) {
             auto result = inertial->advance(core_, live_overrides);
-            if (const auto *failure = std::get_if<contract::FailureContext>(&result)) {
+            if (const auto *failure =
+                    std::get_if<contract::FailureContext>(&result)) {
                 return fail(*failure);
             }
             if (const auto *completed =
@@ -222,8 +224,7 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
         } else if (auto *free_engine =
                        std::get_if<LowOrderFreeEngineV1Runtime>(&profile_policy_)) {
             auto result = free_engine->advance(core_, live_overrides);
-            if (const auto *failure =
-                    std::get_if<contract::FailureContext>(&result)) {
+            if (const auto *failure = std::get_if<contract::FailureContext>(&result)) {
                 return fail(*failure);
             }
             if (const auto *completed =

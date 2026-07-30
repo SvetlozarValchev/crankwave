@@ -518,6 +518,78 @@ void test_mechanics_uniform_limiter_disabled_policy() {
     }
 }
 
+void test_mechanics_applies_live_limiter_and_external_resistance() {
+    MechanicsFixture fixture;
+    auto &rpm = fixed_rpm(fixture);
+    std::ranges::fill(rpm.post_step_rpm, 400000.0);
+    rpm.samples_f64le_sha256 = canonical_binary64_le_sha256(rpm.post_step_rpm);
+    auto session = require_session(compile_fixture(fixture));
+
+    LiveControlOverrides disabled;
+    disabled.has_limiter_enabled = true;
+    disabled.limiter_enabled = false;
+    disabled.has_external_resisting_torque_nm = true;
+    disabled.external_resisting_torque_nm = 12.5;
+    auto first_result = session.advance(disabled);
+    const auto &first = require_step(first_result);
+    expect(!first.operating_state.limiter_enabled && !first.limiter_cut_active &&
+               first.limiter_timer_s == 0.0 &&
+               first.external_resisting_torque_nm == 12.5 &&
+               std::none_of(first.events.begin(), first.events.end(),
+                            [](const auto &event) {
+                                return std::holds_alternative<LimiterStateChanged>(
+                                    event.payload);
+                            }),
+           "live disabled limiter/load policy was not resolved into mechanics");
+
+    LiveControlOverrides enabled = disabled;
+    enabled.limiter_enabled = true;
+    enabled.external_resisting_torque_nm = 20.0;
+    auto second_result = session.advance(enabled);
+    const auto &second = require_step(second_result);
+    expect(second.operating_state.limiter_enabled && second.limiter_cut_active &&
+               second.limiter_timer_s == 0.0002 &&
+               second.external_resisting_torque_nm == 20.0 &&
+               std::ranges::any_of(
+                   second.events,
+                   [](const auto &event) {
+                       const auto *transition =
+                           std::get_if<LimiterStateChanged>(&event.payload);
+                       return transition != nullptr && !transition->old_active &&
+                              transition->new_active;
+                   }),
+           "live limiter enable did not activate at overspeed");
+
+    disabled.external_resisting_torque_nm = 0.0;
+    auto third_result = session.advance(disabled);
+    const auto &third = require_step(third_result);
+    expect(!third.operating_state.limiter_enabled && !third.limiter_cut_active &&
+               third.limiter_timer_s == 0.0 &&
+               third.external_resisting_torque_nm == 0.0 &&
+               std::ranges::any_of(
+                   third.events,
+                   [](const auto &event) {
+                       const auto *transition =
+                           std::get_if<LimiterStateChanged>(&event.payload);
+                       return transition != nullptr && transition->old_active &&
+                              !transition->new_active &&
+                              transition->resulting_timer_s == 0.0;
+                   }),
+           "live limiter disable did not publish the active-to-inactive edge");
+
+    MechanicsFixture invalid_fixture;
+    auto invalid_session = require_session(compile_fixture(invalid_fixture));
+    LiveControlOverrides invalid;
+    invalid.has_external_resisting_torque_nm = true;
+    invalid.external_resisting_torque_nm = -1.0;
+    const auto invalid_result = invalid_session.advance(invalid);
+    const auto *failure = std::get_if<FailureContext>(&invalid_result);
+    expect(failure != nullptr &&
+               failure->detail_code ==
+                   "legacy-mechanics-invalid-live-external-resisting-torque",
+           "direct mechanics entry admitted negative live resistance");
+}
+
 void test_mechanics_compile_rejections() {
     {
         MechanicsFixture fixture;
@@ -575,6 +647,7 @@ void run_tests() {
     test_mechanics_accepts_compiled_held_speed_schedule();
     test_mechanics_accepts_external_post_step_motion_for_inertial_controls();
     test_mechanics_uniform_limiter_disabled_policy();
+    test_mechanics_applies_live_limiter_and_external_resistance();
     test_mechanics_compile_rejections();
 }
 
