@@ -3,8 +3,8 @@
   "engine": {
     "identity": {
       "id": "bmw-m52tub28-cleanroom",
-      "display_name": "BMW M52TUB28 2.8L I6 (Clean Room)",
-      "description": "Clean-room M52TUB28 inline-six port preserving the source mechanism, fixed effective cam timing, airflow, combustion, ignition, exhaust routing, and presentation calibration. The source's 150 N*m at 260 rpm cranking starter, 0.745 kg/L fuel density, and 20 kHz simulation setting are outside the admitted operating-point engine contract; the current package uses a mechanically disengaged starter, omits density, and selects the executor's 10 kHz scenario rate. Chen-Flynn losses and the accessory descriptor are explicit generic executor policy because the source declares neither."
+      "display_name": "BMW M52TUB28 2.8L I6 (Clean Room Baseline)",
+      "description": "Frozen smooth-baseline port of the clean-room M52TUB28 inline-six, preserving the source mechanism, fixed effective cam timing, airflow, combustion, ignition, exhaust routing, and presentation calibration from m52tub28_cleanroom_baseline.mr. The source's 150 N*m at 260 rpm cranking starter, 0.745 kg/L fuel density, and 20 kHz simulation setting are outside the admitted operating-point engine contract; the current package uses a mechanically disengaged starter, omits density, and selects the executor's 10 kHz scenario rate. Chen-Flynn losses and the accessory descriptor are explicit generic executor policy because the source declares neither."
     },
     "cycle": "four_stroke",
     "layout": "inline",
@@ -620,12 +620,6 @@
         "kind": "impulse_response",
         "uri": "../../../reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav",
         "sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"
-      },
-      {
-        "id": "sharp-01",
-        "kind": "impulse_response",
-        "uri": "../../../reference/fixtures/engine-sim-ir-library/presentation/sharp_01.wav",
-        "sha256": "16024d4f5ddd4f7961f59e4e0c9e04227a8b393656b9b41ee9253e94e8f684f5"
       }
     ],
     "cylinder_routes": [
@@ -639,15 +633,15 @@
     "routes": [
       {
         "route": "exhaust.front",
-        "source_gain_linear": 1.8,
+        "source_gain_linear": 1.2,
         "impulse_response": "smooth-39",
         "impulse_response_gain_linear": 0.001,
         "wet_mix_01": 1
       },
       {
         "route": "exhaust.rear",
-        "source_gain_linear": 1.5,
-        "impulse_response": "sharp-01",
+        "source_gain_linear": 1.2,
+        "impulse_response": "smooth-39",
         "impulse_response_gain_linear": 0.001,
         "wet_mix_01": 1
       }
@@ -655,7 +649,7 @@
     "conditioning": {
       "jitter_scale": 0.05000000074505806,
       "jitter_modulation_cutoff_frequency": {"value": 10000, "unit": "Hz"},
-      "derivative_mix_01": 0.00009000000136438757,
+      "derivative_mix_01": 0.00005999999848427251,
       "air_noise_mix_01": 0.30000001192092896,
       "air_noise_cutoff_frequency": {"value": 2000, "unit": "Hz"}
     },
