@@ -306,6 +306,7 @@ compiled scenario selects exactly one mode.
 | prescribed/external speed | Authored trajectory executes; live commands are rejected | authored RPM trajectory, engine telemetry, audio |
 | held speed/load-target held | Authored target executes; live commands are rejected | operating-point evidence, engine telemetry, audio |
 | `inertial_dyno` | Live throttle, ignition, and fuel commands are admitted after preparation | simulated RPM trajectory, dyno result evidence, engine telemetry, audio |
+| `free_engine` | Live throttle, ignition, fuel, limiter, and external-resisting-torque commands are admitted after preparation | simulated crank RPM, requested external load, engine telemetry, audio |
 
 `external_speed` is appropriate for a host game or editor scrubber that already owns
 drivetrain RPM. The full simulator still calculates achieved load from its physical
@@ -352,9 +353,11 @@ Current classification:
 
 | Field family | Class |
 |---|---|
-| throttle request | implemented live command for `inertial_dyno` after preparation |
-| ignition/fuel enable | implemented live command for `inertial_dyno` after preparation |
-| starter/limiter enable | not implemented as live commands |
+| throttle request | implemented live command for `inertial_dyno` and `free_engine` after preparation |
+| ignition/fuel enable | implemented live command for `inertial_dyno` and `free_engine` after preparation |
+| limiter enable | implemented live command for `free_engine` after preparation |
+| external resisting torque | implemented live command for `free_engine` after preparation |
+| starter enable | not implemented as a live command |
 | mode-owned RPM, brake, or controller target | not implemented as live commands |
 | gear/clutch context | not implemented as live commands |
 | audition master, route monitor gain, mute, IR wet mix | not implemented as live commands |
@@ -424,14 +427,14 @@ After session creation, `EngineSession::descriptor()` returns:
 - the exact 200/3,840 frames per block;
 - total and preparation block counts;
 - all audio bus descriptors;
-- whether this session admits the implemented live controls.
+- the exact bit mask of live controls admitted by this session mode.
 
 Each block identifies its ordinal, preparation/audible phase, and exact half-open
 physics and delivery ranges. It returns one `EngineTelemetryFrame`: the final
 `EngineCaptureSample` of that block plus its physics-step end. That capture carries its
 own validity mask and currently available crank angle, angular motion/RPM, requested
-and resolved throttle, intake command, ignition/fuel/starter/dyno/limiter state, and
-torque telemetry.
+and resolved throttle, intake command, ignition/fuel/starter/dyno/limiter state,
+requested FreeEngine external resisting torque, and torque telemetry.
 
 The authored `telemetry_capacity_frames` is a returned-record bound. It is not an audio
 frame count and it does not reserve the internal combustion event journal. The current
@@ -690,8 +693,9 @@ The implemented workbench provides:
   diagnostics;
 - engine/scenario identity, current dirty/rebuild state, selected publication bus, and
   the exact capabilities reported by the compiled session;
-- throttle, ignition, and fuel controls only for the admitted inertial-dyno session;
-- start, stop, restart, and canonical dyno actions;
+- capability-gated throttle, ignition, fuel, limiter, and
+  external-resisting-torque controls;
+- start, stop, and restart actions;
 - RPM, torque, power, recent telemetry trace, simulation realtime factor, measured
   worker lead, ring fill, and real callback-underrun counters;
 - deterministic downloadable Float32 WAV export from a fresh unpaced session using the

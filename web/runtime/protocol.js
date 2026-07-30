@@ -1,4 +1,5 @@
 import {
+  ControlCapability,
   ESO_C_API_VERSION,
   ESO_CANONICAL_SAMPLE_RATE,
 } from "./c-api-abi.js";
@@ -9,13 +10,41 @@ export const WORKER_PROTOCOL_ID = "engine-sim-offline/browser-worker-v1";
 export const LIVE_CONTROL_CAPABILITIES = Object.freeze([
   Object.freeze({
     kind: "throttle",
+    mask: ControlCapability.throttle,
     valueType: "number",
     minimum: 0,
     maximum: 1,
   }),
-  Object.freeze({ kind: "ignition", valueType: "boolean" }),
-  Object.freeze({ kind: "fuel", valueType: "boolean" }),
+  Object.freeze({
+    kind: "ignition",
+    mask: ControlCapability.ignitionEnabled,
+    valueType: "boolean",
+  }),
+  Object.freeze({
+    kind: "fuel",
+    mask: ControlCapability.fuelEnabled,
+    valueType: "boolean",
+  }),
+  Object.freeze({
+    kind: "limiter",
+    mask: ControlCapability.limiterEnabled,
+    valueType: "boolean",
+  }),
+  Object.freeze({
+    kind: "external-resisting-torque",
+    mask: ControlCapability.externalResistingTorque,
+    valueType: "number",
+    minimum: 0,
+    unit: "N*m",
+  }),
 ]);
+
+export function liveControlCapability(kind) {
+  return (
+    LIVE_CONTROL_CAPABILITIES.find((capability) => capability.kind === kind) ??
+    null
+  );
+}
 
 export function readyMessage(requestId, moduleUrl) {
   return {
@@ -38,14 +67,14 @@ export function publicDescriptor(program, selectedBusIndex) {
   const preparationDeliveryFrames =
     descriptor.preparationBlockCountBigInt *
     BigInt(descriptor.deliveryFramesPerBlock);
+  const liveControlCapabilities = descriptor.liveControlCapabilities;
   return {
-    acceptsLiveControls: descriptor.acceptsLiveControls,
-    controls: descriptor.acceptsLiveControls
-      ? LIVE_CONTROL_CAPABILITIES
-      : [],
+    liveControlCapabilities,
+    controls: LIVE_CONTROL_CAPABILITIES.filter(
+      ({ mask }) => (liveControlCapabilities & mask) !== 0,
+    ),
     buses: program.session.buses.map((bus) => ({ ...bus })),
     selectedBusIndex,
-    canonicalDynoAvailable: descriptor.acceptsLiveControls,
     totalDeliveryFrames: totalDeliveryFrames.toString(10),
     preparationDeliveryFrames: preparationDeliveryFrames.toString(10),
     deliverySampleRate: descriptor.deliveryRateHz,

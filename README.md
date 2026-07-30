@@ -31,10 +31,11 @@ The browser workbench is implemented on that ABI. Its Worker owns compilation an
 mutable WASM session, primes a bounded shared PCM ring, and converts the selected
 canonical 192 kHz bus to the device rate. The AudioWorklet only drains that ring.
 Engine/scenario edits rebuild atomically; a failed compile leaves the current program
-available. The currently admitted inertial-dyno live controls are throttle, ignition,
-and fuel. RPM/load ownership, a drivetrain, gears, starter control, and arbitrary live
-presentation edits remain explicit missing capabilities rather than UI-only
-approximations.
+available. Inertial-dyno sessions admit live throttle, ignition, and fuel. Free-engine
+sessions add live limiter state and external resisting torque while resolving crank
+RPM from engine torque, declared inertia, and load. A drivetrain, gears, starter
+control, regulated idle, and arbitrary live presentation edits remain explicit
+missing capabilities rather than UI-only approximations.
 
 The compiler accepts the currently executable low-order topology without inspecting an
 engine name and fails closed on unsupported capabilities. Cylinder and

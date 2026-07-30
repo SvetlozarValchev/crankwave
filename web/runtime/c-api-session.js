@@ -1,6 +1,7 @@
 import {
   AudioBusKind,
   BlockPhase,
+  ControlCapability,
   ControlKind,
   ESO_CANONICAL_SAMPLE_RATE,
   ESO_INVALID_HANDLE,
@@ -96,6 +97,8 @@ function readTelemetry(view, pointer) {
     fuelEnabled: view.getUint32(pointer + layout.fuelEnabled, true) !== 0,
     starterEnabled: view.getUint32(pointer + layout.starterEnabled, true) !== 0,
     dynoEnabled: view.getUint32(pointer + layout.dynoEnabled, true) !== 0,
+    limiterEnabled:
+      view.getUint32(pointer + layout.limiterEnabled, true) !== 0,
     limiterCutActive:
       view.getUint32(pointer + layout.limiterCutActive, true) !== 0,
     thetaRad: view.getFloat64(pointer + layout.theta, true),
@@ -120,6 +123,10 @@ function readTelemetry(view, pointer) {
     ),
     mainFlowMultiplier01: view.getFloat64(
       pointer + layout.mainFlowMultiplier,
+      true,
+    ),
+    requestedExternalResistingTorqueNm: view.getFloat64(
+      pointer + layout.requestedExternalResistingTorque,
       true,
     ),
     torque,
@@ -301,7 +308,7 @@ export class EngineSimSession {
 
   enqueueControls(controls) {
     this.#assertAlive();
-    if (!this.#descriptor.acceptsLiveControls) {
+    if (this.#descriptor.liveControlCapabilities === 0) {
       throw new EngineSimRuntimeError(
         "this session mode does not accept live controls",
         {
@@ -350,21 +357,29 @@ export class EngineSimSession {
           true,
         );
         ++this.#nextControlSequence;
+        let requiredCapability = 0;
         switch (input.kind) {
           case "throttle": {
             if (
               typeof input.value !== "number" ||
               !Number.isFinite(input.value) ||
+              Object.is(input.value, -0) ||
               input.value < 0 ||
               input.value > 1
             ) {
               throw new TypeError("throttle control value must be in [0, 1]");
             }
+            requiredCapability = ControlCapability.throttle;
             view.setUint32(base + Layout.controlCommand.kind, ControlKind.throttle, true);
-            view.setFloat64(base + Layout.controlCommand.throttle, input.value, true);
+            view.setFloat64(
+              base + Layout.controlCommand.scalarValue,
+              input.value,
+              true,
+            );
             break;
           }
           case "ignition":
+            requiredCapability = ControlCapability.ignitionEnabled;
             view.setUint32(
               base + Layout.controlCommand.kind,
               ControlKind.ignitionEnabled,
@@ -380,6 +395,7 @@ export class EngineSimSession {
             );
             break;
           case "fuel":
+            requiredCapability = ControlCapability.fuelEnabled;
             view.setUint32(
               base + Layout.controlCommand.kind,
               ControlKind.fuelEnabled,
@@ -394,6 +410,45 @@ export class EngineSimSession {
               true,
             );
             break;
+          case "limiter":
+            requiredCapability = ControlCapability.limiterEnabled;
+            view.setUint32(
+              base + Layout.controlCommand.kind,
+              ControlKind.limiterEnabled,
+              true,
+            );
+            if (typeof input.value !== "boolean") {
+              throw new TypeError("limiter control value must be boolean");
+            }
+            view.setUint32(
+              base + Layout.controlCommand.enabled,
+              input.value ? 1 : 0,
+              true,
+            );
+            break;
+          case "external-resisting-torque":
+            requiredCapability = ControlCapability.externalResistingTorque;
+            if (
+              typeof input.value !== "number" ||
+              !Number.isFinite(input.value) ||
+              Object.is(input.value, -0) ||
+              input.value < 0
+            ) {
+              throw new TypeError(
+                "external resisting torque must be finite and nonnegative",
+              );
+            }
+            view.setUint32(
+              base + Layout.controlCommand.kind,
+              ControlKind.externalResistingTorque,
+              true,
+            );
+            view.setFloat64(
+              base + Layout.controlCommand.scalarValue,
+              input.value,
+              true,
+            );
+            break;
           default:
             throw new EngineSimRuntimeError(
               `unsupported live control: ${String(input.kind)}`,
@@ -403,6 +458,19 @@ export class EngineSimSession {
                 diagnostics: [],
               },
             );
+        }
+        if (
+          (this.#descriptor.liveControlCapabilities & requiredCapability) ===
+          0
+        ) {
+          throw new EngineSimRuntimeError(
+            `${input.kind} was not admitted for this session mode`,
+            {
+              operation: "enqueue-controls",
+              detailCode: "browser-runtime-control-not-admitted",
+              diagnostics: [],
+            },
+          );
         }
       }
       const status = this.#module._eso_session_enqueue_controls(
@@ -640,8 +708,10 @@ export class EngineSimSession {
         preparationBlockCount: decimal(preparationBlocks),
         preparationBlockCountBigInt: preparationBlocks,
         audioBusCount: view.getUint32(pointer + layout.audioBusCount, true),
-        acceptsLiveControls:
-          view.getUint32(pointer + layout.acceptsLiveControls, true) !== 0,
+        liveControlCapabilities: view.getUint32(
+          pointer + layout.liveControlCapabilities,
+          true,
+        ),
         engineIdUtf8Bytes: view.getUint32(pointer + layout.engineIdBytes, true),
         scenarioIdUtf8Bytes: view.getUint32(
           pointer + layout.scenarioIdBytes,

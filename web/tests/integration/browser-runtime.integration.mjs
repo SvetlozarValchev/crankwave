@@ -162,7 +162,7 @@ async function main() {
     });
     const validBuild = eventFor(events, "built", "valid-build");
     assert.ok(validBuild, "valid build did not publish its descriptor");
-    assert.equal(validBuild.descriptor.acceptsLiveControls, true);
+    assert.equal(validBuild.descriptor.liveControlCapabilities, 0b00111);
     assert.deepEqual(
       validBuild.descriptor.controls.map(({ kind }) => kind),
       ["throttle", "ignition", "fuel"],

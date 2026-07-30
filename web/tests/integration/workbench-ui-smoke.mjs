@@ -5,9 +5,9 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
-const EXPECTED_WAV_BYTES = 11_520_056;
+const EXPECTED_WAV_BYTES = 3_840_056;
 const EXPECTED_WAV_SHA256 =
-  "69f9a94faa6c5dcef56acd8f8de9d60266b0d51d9983f9406014d44bb6d3ca13";
+  "f7cad8870381669e105a2ac7e092c17e74b2ec2ff9b4747df3befc1329087e11";
 
 function usage() {
   return (
@@ -294,14 +294,14 @@ async function main() {
     });
 
     await cdp.evaluate(
-      `document.querySelector("#dyno-button").click(); true`,
+      `document.querySelector("#start-button").click(); true`,
     );
     await waitUntil(
       () => pageState(cdp),
       (state) =>
         state.session === "Running" &&
         state.rpm !== "—" &&
-        state.throttle === "85%",
+        state.throttle === "10%",
       "primed live BMW playback",
       20_000,
     );

@@ -16,6 +16,7 @@ import {
   createPcmRingBuffer,
 } from "./pcm-ring-buffer.js";
 import {
+  liveControlCapability,
   publicDescriptor,
   readyMessage,
   validationMessage,
@@ -259,17 +260,26 @@ export class BrowserEngineRuntime {
   control({ requestId, kind, value, deliveryFrame }) {
     this.#requireProgram("control");
     this.#assertNotExporting("control");
-    if (!this.#program.session.descriptor.acceptsLiveControls) {
+    const descriptor = this.#program.session.descriptor;
+    if (descriptor.liveControlCapabilities === 0) {
       throw runtimeError(
         "the compiled scenario does not accept live controls",
         "browser-runtime-controls-unavailable",
         "control",
       );
     }
-    if (!["throttle", "ignition", "fuel"].includes(kind)) {
+    const capability = liveControlCapability(kind);
+    if (capability === null) {
       throw runtimeError(
         `unsupported live control: ${String(kind)}`,
         "browser-runtime-unsupported-control",
+        "control",
+      );
+    }
+    if ((descriptor.liveControlCapabilities & capability.mask) === 0) {
+      throw runtimeError(
+        `${kind} was not admitted for the compiled scenario`,
+        "browser-runtime-control-not-admitted",
         "control",
       );
     }

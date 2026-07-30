@@ -2,7 +2,7 @@ const WORKER_URL = "/web/engine-worker.js";
 const WORKLET_URL = "/web/audio-worklet.js";
 const DEFAULT_ENGINE_URL = "/data/engines/bmw-m52b28/engine.json";
 const DEFAULT_SCENARIO_URL =
-  "/data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm.json";
+  "/data/engines/bmw-m52b28/scenarios/warm-running-free-rev-1500rpm.json";
 
 const RING_HEADER = Object.freeze({
   byteLength: 64,
@@ -82,7 +82,6 @@ const elements = {
   startButton: $("#start-button"),
   stopButton: $("#stop-button"),
   restartButton: $("#restart-button"),
-  dynoButton: $("#dyno-button"),
   gestureNote: $("#gesture-note"),
   rpmValue: $("#rpm-value"),
   rpmMeter: $("#rpm-meter"),
@@ -101,6 +100,9 @@ const elements = {
   ignitionLabel: $("#ignition-label"),
   fuelButton: $("#fuel-button"),
   fuelLabel: $("#fuel-label"),
+  limiterButton: $("#limiter-button"),
+  limiterLabel: $("#limiter-label"),
+  externalResistanceInput: $("#external-resistance-input"),
   realtimeHealth: $("#realtime-health"),
   ringFillValue: $("#ring-fill-value"),
   leadValue: $("#lead-value"),
@@ -148,11 +150,14 @@ const state = {
   sessionState: "idle",
   securityAdmitted: false,
   liveState: {
-    throttle: 0.85,
+    throttle: 0.1,
     ignition: true,
     fuel: true,
+    limiter: false,
+    "external-resisting-torque": 0,
   },
   throttleEditPending: false,
+  externalResistanceEditPending: false,
   pendingControls: new Map(),
   controlJournal: [],
   controlJournalSequence: 0,
@@ -793,12 +798,12 @@ async function loadBaseline({ quiet = false } = {}) {
       sourceUrl: new URL(DEFAULT_ENGINE_URL, location.href).href,
     });
     setDocument("scenario", scenarioText, {
-      name: "inertial-dyno-1500-6500rpm.json",
+      name: "warm-running-free-rev-1500rpm.json",
       sourceUrl: new URL(DEFAULT_SCENARIO_URL, location.href).href,
     });
     switchDocument("engine");
     if (!quiet) {
-      showToast("BMW M52B28 engine and canonical dyno scenario loaded.");
+      showToast("BMW M52B28 engine and warm free-rev scenario loaded.");
     }
   } catch (error) {
     showToast(error.message, true);
@@ -863,12 +868,30 @@ function resetRunPresentation() {
   scheduleTraceDraw();
 }
 
+function torqueNm(quantity) {
+  if (!Number.isFinite(quantity?.value)) {
+    return Number.NaN;
+  }
+  if (quantity.unit === "N*m") {
+    return quantity.value;
+  }
+  if (quantity.unit === "lb*ft") {
+    return quantity.value * 1.3558179483314004;
+  }
+  return Number.NaN;
+}
+
 function authoredLiveState() {
   const scenario = state.documents.scenario.parsed;
   const authoredThrottle =
     scenario?.mode?.throttle_01?.points?.find(
       (point) => point?.time?.value === 0,
     )?.value ?? scenario?.mode?.throttle_01?.points?.[0]?.value;
+  const authoredResistancePoint =
+    scenario?.mode?.resisting_torque?.points?.find(
+      (point) => point?.time?.value === 0,
+    ) ?? scenario?.mode?.resisting_torque?.points?.[0];
+  const authoredResistance = torqueNm(authoredResistancePoint?.value);
   return {
     throttle:
       Number.isFinite(authoredThrottle) &&
@@ -878,6 +901,11 @@ function authoredLiveState() {
         : 0,
     ignition: scenario?.initial_state?.ignition_enabled === true,
     fuel: scenario?.initial_state?.fuel_enabled === true,
+    limiter: scenario?.initial_state?.limiter_enabled === true,
+    "external-resisting-torque":
+      Number.isFinite(authoredResistance) && authoredResistance >= 0
+        ? authoredResistance
+        : 0,
   };
 }
 
@@ -898,6 +926,14 @@ function renderLiveState() {
     String(state.liveState.fuel),
   );
   elements.fuelLabel.textContent = state.liveState.fuel ? "On" : "Off";
+  elements.limiterButton.setAttribute(
+    "aria-checked",
+    String(state.liveState.limiter),
+  );
+  elements.limiterLabel.textContent = state.liveState.limiter ? "On" : "Off";
+  elements.externalResistanceInput.value = String(
+    state.liveState["external-resisting-torque"],
+  );
 }
 
 function resetControlJournal() {
@@ -906,6 +942,7 @@ function resetControlJournal() {
   state.lastAcceptedControlFrame = null;
   state.pendingControls.clear();
   state.throttleEditPending = false;
+  state.externalResistanceEditPending = false;
   state.liveState = authoredLiveState();
   renderLiveState();
 }
@@ -987,9 +1024,13 @@ function normalizeCapabilities(descriptor) {
     (descriptor.controls ?? []).map((capability) => capability.kind),
   );
   return {
-    throttle: descriptor.acceptsLiveControls && controls.has("throttle"),
-    ignition: descriptor.acceptsLiveControls && controls.has("ignition"),
-    fuel: descriptor.acceptsLiveControls && controls.has("fuel"),
+    throttle: controls.has("throttle"),
+    ignition: controls.has("ignition"),
+    fuel: controls.has("fuel"),
+    limiter: controls.has("limiter"),
+    "external-resisting-torque": controls.has(
+      "external-resisting-torque",
+    ),
   };
 }
 
@@ -1103,11 +1144,6 @@ function updateBuiltControls() {
   elements.buildButton.disabled = structuralBusy;
   elements.restartButton.disabled =
     !built || !state.securityAdmitted || structuralBusy;
-  elements.dynoButton.disabled =
-    !built ||
-    !built.descriptor.canonicalDynoAvailable ||
-    !state.securityAdmitted ||
-    structuralBusy;
   elements.exportButton.disabled =
     !built ||
     active ||
@@ -1122,10 +1158,15 @@ function updateBuiltControls() {
     throttle: false,
     ignition: false,
     fuel: false,
+    limiter: false,
+    "external-resisting-torque": false,
   };
   elements.throttleInput.disabled = !running || !capabilities.throttle;
   elements.ignitionButton.disabled = !running || !capabilities.ignition;
   elements.fuelButton.disabled = !running || !capabilities.fuel;
+  elements.limiterButton.disabled = !running || !capabilities.limiter;
+  elements.externalResistanceInput.disabled =
+    !running || !capabilities["external-resisting-torque"];
   const admitted = Object.values(capabilities).some(Boolean);
   elements.controlsAdmission.textContent = admitted ? "Admitted" : "Not admitted";
 }
@@ -1182,12 +1223,6 @@ function stopSession() {
     return;
   }
   postWorker({ type: "stop", requestId: nextRequestId() });
-}
-
-function runCanonicalDyno() {
-  state.trace.length = 0;
-  scheduleTraceDraw();
-  void startSession("restart");
 }
 
 function detachAudioNode() {
@@ -1367,6 +1402,17 @@ function acceptTelemetry(message) {
   }
   if (!pendingAtFrame("fuel")) {
     state.liveState.fuel = frame.fuelEnabled;
+  }
+  if (!pendingAtFrame("limiter") && typeof frame.limiterEnabled === "boolean") {
+    state.liveState.limiter = frame.limiterEnabled;
+  }
+  if (
+    !state.externalResistanceEditPending &&
+    !pendingAtFrame("external-resisting-torque") &&
+    Number.isFinite(frame.requestedExternalResistingTorqueNm)
+  ) {
+    state.liveState["external-resisting-torque"] =
+      frame.requestedExternalResistingTorqueNm;
   }
   renderLiveState();
 
@@ -2031,7 +2077,6 @@ function bindEvents() {
     scheduleTraceDraw();
     void startSession("restart");
   });
-  elements.dynoButton.addEventListener("click", runCanonicalDyno);
   elements.exportButton.addEventListener("click", requestWavExport);
   elements.busSelect.addEventListener("change", () => {
     if (!state.workerReady || !state.built) {
@@ -2072,6 +2117,23 @@ function bindEvents() {
   elements.fuelButton.addEventListener("click", () =>
     toggleSwitch("fuel", elements.fuelButton, elements.fuelLabel),
   );
+  elements.limiterButton.addEventListener("click", () =>
+    toggleSwitch("limiter", elements.limiterButton, elements.limiterLabel),
+  );
+  let externalResistanceTimer = null;
+  elements.externalResistanceInput.addEventListener("input", () => {
+    const requestedValue = Number(elements.externalResistanceInput.value);
+    if (!Number.isFinite(requestedValue) || requestedValue < 0) {
+      return;
+    }
+    state.externalResistanceEditPending = true;
+    state.liveState["external-resisting-torque"] = requestedValue;
+    window.clearTimeout(externalResistanceTimer);
+    externalResistanceTimer = window.setTimeout(() => {
+      sendControl("external-resisting-torque", requestedValue);
+      state.externalResistanceEditPending = false;
+    }, 80);
+  });
   elements.clearDiagnosticsButton.addEventListener("click", () => {
     state.workerDiagnostics = [];
     renderDiagnostics();

@@ -206,10 +206,6 @@
               <span aria-hidden="true">↺</span>
               Restart
             </button>
-            <span class="transport-divider"></span>
-            <button id="dyno-button" class="transport-button dyno-button" type="button" disabled>
-              Run canonical dyno
-            </button>
             <span id="gesture-note" class="gesture-note">
               Start is the required audio gesture.
             </span>
@@ -279,10 +275,10 @@
               <span id="controls-admission" class="small-badge">Not admitted</span>
             </div>
 
-            <label class="throttle-control">
+            <label class="scalar-control">
               <span class="control-label">
                 <span>Throttle</span>
-                <output id="throttle-output" for="throttle-input">85%</output>
+                <output id="throttle-output" for="throttle-input">10%</output>
               </span>
               <input
                 id="throttle-input"
@@ -290,10 +286,28 @@
                 min="0"
                 max="100"
                 step="1"
-                value="85"
+                value="10"
                 disabled
               />
               <span class="range-scale"><span>Closed</span><span>Wide open</span></span>
+            </label>
+
+            <label class="number-control">
+              <span>
+                <strong>External resistance</strong>
+                <small>Free-engine load</small>
+              </span>
+              <span class="number-entry">
+                <input
+                  id="external-resistance-input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value="0"
+                  disabled
+                />
+                <span>N·m</span>
+              </span>
             </label>
 
             <div class="toggle-row">
@@ -325,11 +339,25 @@
                   <small id="fuel-label">On</small>
                 </span>
               </button>
+              <button
+                id="limiter-button"
+                class="switch-control"
+                type="button"
+                role="switch"
+                aria-checked="false"
+                disabled
+              >
+                <span class="switch-track"><span></span></span>
+                <span>
+                  <strong>Limiter</strong>
+                  <small id="limiter-label">Off</small>
+                </span>
+              </button>
             </div>
 
             <p class="control-footnote">
               Controls are enabled only when the compiled scenario admits them.
-              Gear and load controls are deliberately absent from this contract.
+              Starter, clutch, and gears arrive with their physical operating modes.
             </p>
           </section>
 
