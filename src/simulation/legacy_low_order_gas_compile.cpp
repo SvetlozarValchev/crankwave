@@ -341,8 +341,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             finite_positive(intake.throttle_gamma.value) &&
                 intake.idle_throttle_plate_position_01.value >= 0.0 &&
                 intake.idle_throttle_plate_position_01.value <= 1.0,
-            ContractIssueCode::invalid_value,
-            "engine.physics_profile.gas_path.intake",
+            ContractIssueCode::invalid_value, "engine.physics_profile.gas_path.intake",
             "direct throttle gamma must be finite and positive and the idle "
             "plate position must be finite in [0,1]");
     static_cast<void>(
@@ -616,15 +615,21 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 "exhaust route gas geometry and coefficients are outside the "
                 "admitted domain");
         if (numeric_values_valid) {
-            const double expected_length =
+            const double length_derived_from_volume =
                 parameters.collector_volume_m3.value /
+                parameters.collector_cross_section_area_m2.value;
+            const double volume_derived_from_length =
+                parameters.exhaust_system_length_m.value *
                 parameters.collector_cross_section_area_m2.value;
             require(report,
                     same_binary64(parameters.exhaust_system_length_m.value,
-                                  expected_length),
+                                  length_derived_from_volume) ||
+                        same_binary64(parameters.collector_volume_m3.value,
+                                      volume_derived_from_length),
                     ContractIssueCode::inconsistent_semantics,
                     path + ".parameters.exhaust_system_length_m.value",
-                    "collector length must exactly equal volume divided by area");
+                    "collector geometry must exactly match either the "
+                    "volume-divided-by-area or length-times-area derivation");
         }
         static_cast<void>(admit_restriction(parameters.primary_to_collector, report,
                                             path + ".parameters.primary_to_collector"));

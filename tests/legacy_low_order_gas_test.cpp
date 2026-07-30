@@ -610,8 +610,28 @@ void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical)
     }
 }
 
+void test_length_authored_collector_geometry_admission(
+    const AuthoredEngineFixture &canonical) {
+    auto request = make_short_request(canonical);
+    auto &route = engine_sim_offline::test::low_order_core(request.engine)
+                      .gas_path.exhaust_routes.front()
+                      .parameters;
+    route.collector_cross_section_area_m2.value = 0.0040715040790526395;
+    route.exhaust_system_length_m.value = 1.97;
+    route.collector_volume_m3.value = route.exhaust_system_length_m.value *
+                                      route.collector_cross_section_area_m2.value;
+    expect(route.collector_volume_m3.value /
+                   route.collector_cross_section_area_m2.value !=
+               route.exhaust_system_length_m.value,
+           "length-authored collector fixture unexpectedly round-tripped through "
+           "division");
+
+    static_cast<void>(compile_sessions(request));
+}
+
 void run_tests(const AuthoredEngineFixture &canonical) {
     test_short_authored_fresh_state_and_deterministic_activity(canonical);
+    test_length_authored_collector_geometry_admission(canonical);
     test_gas_method_admission_rejection(canonical);
 }
 
