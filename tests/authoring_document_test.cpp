@@ -542,6 +542,61 @@ void test_complete_scenario_and_exact_integer_wire_values() {
            "conditioning monitoring event changed");
 }
 
+void test_free_engine_requires_and_retains_throttle_trajectory() {
+    std::string json = valid_scenario_json();
+    replace_once(
+        json,
+        R"json(    "type": "held_speed",
+    "target_engine_speed": {"value": 3000, "unit": "rpm"},
+    "throttle_01": {
+      "interpolation": "linear",
+      "points": [
+        {"time": {"value": 0, "unit": "s"}, "value": 0.5},
+        {"time": {"value": 2000, "unit": "ms"}, "value": 1.0}
+      ]
+    })json",
+        R"json(    "type": "free_engine",
+    "equivalent_inertia": {"value": 0.25, "unit": "kg*m2"},
+    "throttle_01": {
+      "interpolation": "right_continuous_hold",
+      "points": [
+        {"time": {"value": 0, "unit": "s"}, "value": 0.2},
+        {"time": {"value": 1, "unit": "s"}, "value": 0.8}
+      ]
+    },
+    "resisting_torque": {
+      "value_dimension": "torque",
+      "interpolation": "right_continuous_hold",
+      "points": [
+        {
+          "time": {"value": 0, "unit": "s"},
+          "value": {"value": 12, "unit": "N*m"}
+        }
+      ]
+    })json");
+
+    const ScenarioDocument scenario = require_scenario(json);
+    const auto *free_engine = std::get_if<FreeEngineMode>(&scenario.mode);
+    expect(free_engine != nullptr &&
+               free_engine->throttle_01.points.size() == 2U &&
+               free_engine->throttle_01.points.front().value == 0.2 &&
+               free_engine->throttle_01.points.back().value == 0.8,
+           "free-engine throttle trajectory was not retained");
+
+    replace_once(json, R"json(    "throttle_01": {
+      "interpolation": "right_continuous_hold",
+      "points": [
+        {"time": {"value": 0, "unit": "s"}, "value": 0.2},
+        {"time": {"value": 1, "unit": "s"}, "value": 0.8}
+      ]
+    },
+)json", "");
+    const auto missing = parse_scenario_document(json);
+    expect(has_diagnostic(require_report(missing), DiagnosticCode::missing_value,
+                          "/mode/throttle_01"),
+           "free-engine mode without a throttle trajectory was accepted");
+}
+
 void test_strict_paths_and_continuous_control_authority() {
     std::string unknown = valid_scenario_json();
     replace_once(unknown, R"json("schema": "engine-sim-offline/scenario",)json",
@@ -712,6 +767,7 @@ void test_engine_duplicate_id_and_dangling_reference_paths() {
 int main() {
     try {
         test_complete_scenario_and_exact_integer_wire_values();
+        test_free_engine_requires_and_retains_throttle_trajectory();
         test_strict_paths_and_continuous_control_authority();
         test_semantic_ranges_limits_and_mixed_duration_units();
         test_syntax_diagnostic_location();

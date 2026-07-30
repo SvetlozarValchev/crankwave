@@ -119,6 +119,7 @@ using Preparation = std::variant<FixedSettlingPreparation, FixedHorizonPreparati
 
 struct FreeEngineMode {
     Quantity equivalent_inertia;
+    ScalarTrajectory throttle_01;
     QuantityTrajectory resisting_torque;
 
     friend bool operator==(const FreeEngineMode &, const FreeEngineMode &) = default;

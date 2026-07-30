@@ -329,11 +329,14 @@ void parse_mode(DocumentReader &reader, JsonValue value, std::string_view path,
     if (type == "free_engine") {
         reader.reject_unknown(value, path,
                               {"type", "equivalent_inertia",
-                               "resisting_torque"});
+                               "throttle_01", "resisting_torque"});
         FreeEngineMode parsed;
         read_quantity_member(reader, value, "equivalent_inertia", path,
                              QuantityDimension::moment_of_inertia,
                              parsed.equivalent_inertia);
+        parse_scalar_trajectory(
+            reader, reader.required(value, "throttle_01", path),
+            pointer_member(path, "throttle_01"), parsed.throttle_01, true);
         parse_quantity_trajectory(
             reader, reader.required(value, "resisting_torque", path),
             pointer_member(path, "resisting_torque"), parsed.resisting_torque,

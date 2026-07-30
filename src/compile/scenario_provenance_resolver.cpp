@@ -105,7 +105,7 @@ void ScenarioResolver::register_provenance() {
                     "scenario.mode.kind"};
                 provenance_.add_derived("scenario.mode.search_method",
                                         mode.search_method.value, dependency);
-            } else {
+            } else if constexpr (std::is_same_v<T, contract::InertialDyno>) {
                 for (const std::string_view path : {
                          "scenario.mode.initial_engine_speed_rpm",
                          "scenario.mode.initial_theta_rad",
@@ -122,6 +122,20 @@ void ScenarioResolver::register_provenance() {
                                         mode.crank_dynamics_method.value, dependency);
                 provenance_.add_derived("scenario.mode.brake_torque_method",
                                         mode.brake_torque_method.value, dependency);
+            } else if constexpr (std::is_same_v<T, contract::FreeEngine>) {
+                for (const std::string_view path : {
+                         "scenario.mode.initial_engine_speed_rpm",
+                         "scenario.mode.initial_theta_rad",
+                         "scenario.mode.equivalent_inertia_kg_m2",
+                         "scenario.mode.throttle_01",
+                         "scenario.mode.external_resisting_torque_nm",
+                     }) {
+                    provenance_.add_authored(std::string{path});
+                }
+                constexpr std::array<std::string_view, 1> dependency{
+                    "scenario.mode.kind"};
+                provenance_.add_derived("scenario.mode.crank_dynamics_method",
+                                        mode.crank_dynamics_method.value, dependency);
             }
         },
         scenario_.mode);
@@ -212,7 +226,7 @@ void ScenarioResolver::bind_resolution_ids() {
                 bind(mode.throttle_upper_bound_01,
                      "scenario.mode.throttle_upper_bound_01");
                 bind(mode.search_method, "scenario.mode.search_method");
-            } else {
+            } else if constexpr (std::is_same_v<T, contract::InertialDyno>) {
                 bind(mode.initial_engine_speed_rpm,
                      "scenario.mode.initial_engine_speed_rpm");
                 bind(mode.initial_theta_rad, "scenario.mode.initial_theta_rad");
@@ -226,6 +240,18 @@ void ScenarioResolver::bind_resolution_ids() {
                 bind(mode.target_engine_speed_rpm,
                      "scenario.mode.target_engine_speed_rpm");
                 bind(mode.brake_torque_method, "scenario.mode.brake_torque_method");
+            } else if constexpr (std::is_same_v<T, contract::FreeEngine>) {
+                bind(mode.initial_engine_speed_rpm,
+                     "scenario.mode.initial_engine_speed_rpm");
+                bind(mode.initial_theta_rad, "scenario.mode.initial_theta_rad");
+                bind(mode.equivalent_inertia_kg_m2,
+                     "scenario.mode.equivalent_inertia_kg_m2");
+                mode.throttle_01.resolution_id =
+                    resolution_id("scenario.mode.throttle_01");
+                mode.external_resisting_torque_nm.resolution_id =
+                    resolution_id("scenario.mode.external_resisting_torque_nm");
+                bind(mode.crank_dynamics_method,
+                     "scenario.mode.crank_dynamics_method");
             }
         },
         scenario_.mode);

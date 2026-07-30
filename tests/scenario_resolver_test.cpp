@@ -207,16 +207,93 @@ void test_held_speed_resolution_on_the_integer_clock() {
                event_contracts->stable_id_assignments[1].runtime_id == 2U,
            "scenario event runtime IDs were not canonical and dense");
 
-    auto unsupported = document;
-    unsupported.mode = authoring::FreeEngineMode{};
-    auto unsupported_result = compile::resolve_scenario_document(unsupported, context);
-    const auto *unsupported_report =
-        std::get_if<authoring::DiagnosticReport>(&unsupported_result);
-    expect(unsupported_report != nullptr &&
-               has_diagnostic(*unsupported_report,
+    auto free_engine_document = document;
+    free_engine_document.id.value = "resolver.free-engine";
+    free_engine_document.initial_state.dyno_enabled = false;
+    free_engine_document.initial_state.limiter_enabled = true;
+    authoring::FreeEngineMode authored_free_engine;
+    authored_free_engine.equivalent_inertia = quantity(0.25, "kg*m2");
+    authored_free_engine.throttle_01.interpolation =
+        authoring::TrajectoryInterpolation::right_continuous_hold;
+    authored_free_engine.throttle_01.points = {
+        {quantity(0.0, "s"), 0.15},
+        {quantity(2.0, "s"), 0.85},
+    };
+    authored_free_engine.resisting_torque.value_dimension =
+        authoring::QuantityDimension::torque;
+    authored_free_engine.resisting_torque.interpolation =
+        authoring::TrajectoryInterpolation::right_continuous_hold;
+    authored_free_engine.resisting_torque.points = {
+        {quantity(0.0, "s"), quantity(10.0, "N*m")},
+        {quantity(2.5, "s"), quantity(5.0, "N*m")},
+    };
+    free_engine_document.mode = authored_free_engine;
+
+    auto free_engine_result =
+        compile::resolve_scenario_document(free_engine_document, context);
+    if (const auto *report =
+            std::get_if<authoring::DiagnosticReport>(&free_engine_result)) {
+        const auto message =
+            report->diagnostics.empty()
+                ? std::string{"free-engine resolver returned an empty diagnostic"}
+                : report->diagnostics.front().json_pointer + ": " +
+                      report->diagnostics.front().message;
+        throw std::runtime_error{message};
+    }
+    const auto &free_engine_contracts =
+        std::get<compile::ResolvedScenarioContracts>(free_engine_result);
+    const auto &free_engine =
+        std::get<contract::FreeEngine>(free_engine_contracts.scenario.mode);
+    expect(free_engine.initial_engine_speed_rpm.value == 3000.0 &&
+               free_engine.equivalent_inertia_kg_m2.value == 0.25 &&
+               free_engine.throttle_01.points.size() == 2U &&
+               free_engine.throttle_01.points.back().value == 0.85 &&
+               free_engine.external_resisting_torque_nm.points.size() == 2U &&
+               free_engine.external_resisting_torque_nm.points.front().value ==
+                   10.0,
+           "free-engine controls changed during SI resolution");
+    expect(!free_engine.initial_engine_speed_rpm.resolution_id.empty() &&
+               !free_engine.throttle_01.resolution_id.empty() &&
+               !free_engine.external_resisting_torque_nm.resolution_id.empty() &&
+               !free_engine.crank_dynamics_method.resolution_id.empty(),
+           "free-engine provenance was not bound to every resolved input");
+
+    auto repeated_free_engine =
+        compile::resolve_scenario_document(free_engine_document, context);
+    expect(
+        std::holds_alternative<compile::ResolvedScenarioContracts>(
+            repeated_free_engine) &&
+            std::get<compile::ResolvedScenarioContracts>(repeated_free_engine) ==
+                free_engine_contracts,
+        "identical authored free-engine scenario did not resolve deterministically");
+
+    auto negative_resistance = free_engine_document;
+    std::get<authoring::FreeEngineMode>(negative_resistance.mode)
+        .resisting_torque.points.front()
+        .value = quantity(-1.0, "N*m");
+    const auto negative_resistance_result =
+        compile::resolve_scenario_document(negative_resistance, context);
+    const auto *negative_resistance_report =
+        std::get_if<authoring::DiagnosticReport>(&negative_resistance_result);
+    expect(negative_resistance_report != nullptr &&
+               has_diagnostic(*negative_resistance_report,
+                              authoring::DiagnosticCode::out_of_range,
+                              "/mode/resisting_torque/points/0/value"),
+           "negative external resisting torque was accepted");
+
+    auto linear_resistance = free_engine_document;
+    std::get<authoring::FreeEngineMode>(linear_resistance.mode)
+        .resisting_torque.interpolation =
+        authoring::TrajectoryInterpolation::linear;
+    const auto linear_resistance_result =
+        compile::resolve_scenario_document(linear_resistance, context);
+    const auto *linear_resistance_report =
+        std::get_if<authoring::DiagnosticReport>(&linear_resistance_result);
+    expect(linear_resistance_report != nullptr &&
+               has_diagnostic(*linear_resistance_report,
                               authoring::DiagnosticCode::unsupported_capability,
-                              "/mode/type"),
-           "free-engine mode was not rejected as an explicit capability");
+                              "/mode/resisting_torque/interpolation"),
+           "unsupported linear external resisting torque was accepted");
 
     auto undersized_process = document;
     undersized_process.quality.process_block_capacity_frames = 3839U;

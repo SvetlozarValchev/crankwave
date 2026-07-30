@@ -248,10 +248,16 @@
     "freeEngineMode": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "equivalent_inertia", "resisting_torque"],
+      "required": [
+        "type",
+        "equivalent_inertia",
+        "throttle_01",
+        "resisting_torque"
+      ],
       "properties": {
         "type": { "const": "free_engine" },
         "equivalent_inertia": { "$ref": "#/$defs/quantity" },
+        "throttle_01": { "$ref": "#/$defs/scalarTrajectory" },
         "resisting_torque": { "$ref": "#/$defs/quantityTrajectory" }
       }
     },

@@ -198,8 +198,19 @@ struct InertialDyno {
     friend bool operator==(const InertialDyno &, const InertialDyno &) = default;
 };
 
+struct FreeEngine {
+    ResolvedValue<double> initial_engine_speed_rpm;
+    ResolvedValue<double> initial_theta_rad;
+    ResolvedValue<double> equivalent_inertia_kg_m2;
+    ScalarTrajectory throttle_01;
+    ScalarTrajectory external_resisting_torque_nm;
+    ResolvedValue<MethodIdentity> crank_dynamics_method;
+
+    friend bool operator==(const FreeEngine &, const FreeEngine &) = default;
+};
+
 using ScenarioMode = std::variant<HeldSpeed, PrescribedKinematicSweep,
-                                  LoadTargetHeldCapture, InertialDyno>;
+                                  LoadTargetHeldCapture, InertialDyno, FreeEngine>;
 
 struct RenderQuality {
     std::string profile_id;

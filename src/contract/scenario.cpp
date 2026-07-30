@@ -346,6 +346,12 @@ ValidationReport validate_clock_grid(const RenderScenario &scenario) {
                 } else if constexpr (std::is_same_v<T, InertialDyno>) {
                     validate_trajectory_grid(mode.throttle_01,
                                              "physics.mode.throttle_01");
+                } else if constexpr (std::is_same_v<T, FreeEngine>) {
+                    validate_trajectory_grid(mode.throttle_01,
+                                             "physics.mode.throttle_01");
+                    validate_trajectory_grid(
+                        mode.external_resisting_torque_nm,
+                        "physics.mode.external_resisting_torque_nm");
                 }
             },
             scenario.mode);
@@ -516,6 +522,8 @@ ValidationReport validate(const RenderScenario &scenario,
                             return mode.engine_speed_rpm.value;
                         } else if constexpr (std::is_same_v<Mode, InertialDyno>) {
                             return mode.initial_engine_speed_rpm.value;
+                        } else if constexpr (std::is_same_v<Mode, FreeEngine>) {
+                            return mode.initial_engine_speed_rpm.value;
                         } else {
                             return 0.0;
                         }
@@ -675,7 +683,7 @@ ValidationReport validate(const RenderScenario &scenario,
                                   "scenario.mode.search_method");
                 append_prefixed(report, validate(mode.search_method.value),
                                 "mode.search_method");
-            } else {
+            } else if constexpr (std::is_same_v<T, InertialDyno>) {
                 validate_resolved(report, mode.initial_engine_speed_rpm, provenance,
                                   "scenario.mode.initial_engine_speed_rpm");
                 validate_resolved(report, mode.initial_theta_rad, provenance,
@@ -766,6 +774,47 @@ ValidationReport validate(const RenderScenario &scenario,
                                   "scenario.mode.brake_torque_method");
                 append_prefixed(report, validate(mode.brake_torque_method.value),
                                 "mode.brake_torque_method");
+            } else if constexpr (std::is_same_v<T, FreeEngine>) {
+                validate_resolved(report, mode.initial_engine_speed_rpm, provenance,
+                                  "scenario.mode.initial_engine_speed_rpm");
+                validate_resolved(report, mode.initial_theta_rad, provenance,
+                                  "scenario.mode.initial_theta_rad");
+                validate_resolved(report, mode.equivalent_inertia_kg_m2, provenance,
+                                  "scenario.mode.equivalent_inertia_kg_m2");
+                require(report,
+                        finite_positive(mode.initial_engine_speed_rpm.value) &&
+                            finite(mode.initial_theta_rad.value) &&
+                            finite_positive(mode.equivalent_inertia_kg_m2.value),
+                        ContractIssueCode::invalid_value, "mode",
+                        "free engine requires a positive initial speed and equivalent "
+                        "inertia plus a finite initial crank angle");
+                const auto *sampling =
+                    std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
+                require(report, sampling != nullptr,
+                        ContractIssueCode::unsupported_value, "preparation",
+                        "free engine requires fixed-horizon sampling before release");
+                if (sampling != nullptr) {
+                    require(report,
+                            std::bit_cast<std::uint64_t>(
+                                sampling->fixed_preparation_horizon_s.value) ==
+                                std::bit_cast<std::uint64_t>(
+                                    scenario.audible_start_s.value),
+                            ContractIssueCode::inconsistent_semantics,
+                            "preparation.fixed_preparation_horizon_s.value",
+                            "free-engine release is exactly the fixed horizon and "
+                            "audible-start boundary");
+                }
+                validate_trajectory(report, mode.throttle_01, provenance,
+                                    scenario.total_duration_s.value, true, false,
+                                    "scenario.mode.throttle_01");
+                validate_trajectory(
+                    report, mode.external_resisting_torque_nm, provenance,
+                    scenario.total_duration_s.value, false, true,
+                    "scenario.mode.external_resisting_torque_nm");
+                validate_resolved(report, mode.crank_dynamics_method, provenance,
+                                  "scenario.mode.crank_dynamics_method");
+                append_prefixed(report, validate(mode.crank_dynamics_method.value),
+                                "mode.crank_dynamics_method");
             }
         },
         scenario.mode);
@@ -795,10 +844,11 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
             if constexpr (std::is_same_v<Profile,
                                          LowOrderOperatingPointV1Profile>) {
                 if (!std::holds_alternative<HeldSpeed>(scenario.mode) &&
-                    !std::holds_alternative<InertialDyno>(scenario.mode)) {
+                    !std::holds_alternative<InertialDyno>(scenario.mode) &&
+                    !std::holds_alternative<FreeEngine>(scenario.mode)) {
                     report.add(ContractIssueCode::unsupported_value, "mode",
-                               "operating-point v1 admits held-speed and inertial-"
-                               "dyno modes");
+                               "operating-point v1 admits held-speed, inertial-dyno, "
+                               "and free-engine modes");
                 }
                 const auto *sampling =
                     std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
@@ -827,22 +877,30 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                         "operating-profile applicability condition");
                 }
 
-                const auto held_running =
+                const auto fired_running =
                     !scenario.operating_state.value.empty() &&
                     std::ranges::all_of(
-                        scenario.operating_state.value, [](const auto &point) {
-                            return point.state.ignition_enabled &&
-                                   point.state.fuel_enabled &&
-                                   !point.state.starter_enabled &&
-                                   point.state.dyno_enabled &&
-                                   !point.state.limiter_enabled;
+                        scenario.operating_state.value, [&](const auto &point) {
+                            const auto &state = point.state;
+                            if (!state.ignition_enabled || !state.fuel_enabled ||
+                                state.starter_enabled) {
+                                return false;
+                            }
+                            if (std::holds_alternative<FreeEngine>(scenario.mode)) {
+                                return !state.dyno_enabled;
+                            }
+                            return state.dyno_enabled && !state.limiter_enabled;
                         });
-                if (!held_running) {
+                if (!fired_running) {
                     report.add(
                         ContractIssueCode::inconsistent_semantics,
                         "operating_state.value",
-                        "operating-point v1 requires fired held-running state at "
-                        "every journal point");
+                        std::holds_alternative<FreeEngine>(scenario.mode)
+                            ? "free-engine operating-point v1 requires fired running "
+                              "state with the starter and dyno disabled at every "
+                              "journal point"
+                            : "operating-point v1 requires fired held-running state at "
+                              "every journal point");
                 }
             }
         },
@@ -866,12 +924,13 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
             Availability::available &&
         torque_capability.instantaneous_net_shaft.completeness ==
             Completeness::complete;
-    if (std::holds_alternative<InertialDyno>(scenario.mode) &&
+    if ((std::holds_alternative<InertialDyno>(scenario.mode) ||
+         std::holds_alternative<FreeEngine>(scenario.mode)) &&
         (!has_complete_instantaneous_net ||
          !torque_capability.equivalent_inertia_available)) {
         report.add(ContractIssueCode::unsupported_value, "mode",
-                   "inertial dyno requires an available, complete instantaneous "
-                   "net-shaft torque form and equivalent inertia");
+                   "dynamic crank motion requires an available, complete "
+                   "instantaneous net-shaft torque form and equivalent inertia");
     }
     return report;
 }

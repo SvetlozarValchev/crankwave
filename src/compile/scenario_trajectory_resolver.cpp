@@ -80,6 +80,70 @@ ScenarioResolver::scalar_trajectory(const authoring::ScalarTrajectory &input,
     return output;
 }
 
+contract::ScalarTrajectory
+ScenarioResolver::torque_trajectory(const authoring::QuantityTrajectory &input,
+                                    std::string_view path) {
+    contract::ScalarTrajectory output;
+    output.interpolation = contract_interpolation(input.interpolation);
+    if (input.value_dimension != authoring::QuantityDimension::torque) {
+        add(authoring::DiagnosticCode::invalid_value,
+            std::string{path} + "/value_dimension",
+            "external resisting-torque trajectory must use torque values");
+    }
+    if (input.interpolation !=
+        authoring::TrajectoryInterpolation::right_continuous_hold) {
+        add(authoring::DiagnosticCode::unsupported_capability,
+            std::string{path} + "/interpolation",
+            "free-engine execution currently supports only "
+            "right-continuous-hold resisting torque");
+    }
+    if (input.points.empty()) {
+        add(authoring::DiagnosticCode::missing_value, std::string{path} + "/points",
+            "resisting-torque trajectory must contain a time-zero point");
+        return output;
+    }
+
+    output.points.reserve(input.points.size());
+    std::optional<std::uint64_t> previous_frame;
+    for (std::size_t index = 0; index < input.points.size(); ++index) {
+        const auto point_path = std::string{path} + "/points/" + std::to_string(index);
+        const auto time_s =
+            quantity(input.points[index].time, authoring::QuantityDimension::duration,
+                     point_path + "/time");
+        const auto frame = physics_frame(time_s, point_path + "/time");
+        const auto value =
+            quantity(input.points[index].value, authoring::QuantityDimension::torque,
+                     point_path + "/value");
+        if (!std::isfinite(value) || value < 0.0) {
+            add(authoring::DiagnosticCode::out_of_range, point_path + "/value",
+                "external resisting torque must be finite and nonnegative");
+        }
+        if (index == 0U && (!frame.has_value() || *frame != 0U)) {
+            add(authoring::DiagnosticCode::inconsistent_value, point_path + "/time",
+                "resisting-torque trajectory must begin at time zero");
+        }
+        if (previous_frame.has_value() && frame.has_value() &&
+            *frame <= *previous_frame) {
+            add(authoring::DiagnosticCode::inconsistent_value, point_path + "/time",
+                "resisting-torque boundaries must be strictly increasing on the "
+                "physics clock");
+        }
+        if (frame.has_value() && *frame > request_input_.total_physics_frames) {
+            add(authoring::DiagnosticCode::out_of_range, point_path + "/time",
+                "resisting-torque point occurs after the scenario horizon");
+        }
+        if (index != 0U && frame.has_value() &&
+            *frame == request_input_.total_physics_frames) {
+            add(authoring::DiagnosticCode::unsupported_capability, point_path + "/time",
+                "a resisting-torque boundary at the final physics horizon is never "
+                "observed by the current scheduler");
+        }
+        output.points.push_back({time_s, value});
+        previous_frame = frame;
+    }
+    return output;
+}
+
 ConvertedQuantityTrajectory
 ScenarioResolver::speed_trajectory(const authoring::QuantityTrajectory &input,
                                    std::string_view path) {

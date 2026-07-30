@@ -47,9 +47,37 @@ void ScenarioResolver::compile_mode() {
         [&](const auto &mode) {
             using T = std::decay_t<decltype(mode)>;
             if constexpr (std::is_same_v<T, authoring::FreeEngineMode>) {
-                add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
-                    "free-engine dynamics are not implemented by the current "
-                    "scenario executor");
+                const auto &method =
+                    simulation::rigid_crank_zoh_work_energy_method_identity();
+                const auto method_validation = contract::validate(method);
+                if (!method_validation.ok()) {
+                    append_contract_report(
+                        report_, method_validation,
+                        authoring::DiagnosticCode::internal_failure, "");
+                }
+                if (!(request_input_.authored_initial_engine_speed_rpm > 0.0)) {
+                    add(authoring::DiagnosticCode::out_of_range,
+                        "/initial_state/engine_speed",
+                        "warm-running free-engine execution requires a positive "
+                        "initial engine speed");
+                }
+
+                contract::FreeEngine free_engine;
+                free_engine.initial_engine_speed_rpm.value =
+                    request_input_.authored_initial_engine_speed_rpm;
+                free_engine.initial_theta_rad.value = initial_theta_rad_;
+                free_engine.equivalent_inertia_kg_m2.value =
+                    quantity(mode.equivalent_inertia,
+                             authoring::QuantityDimension::moment_of_inertia,
+                             "/mode/equivalent_inertia");
+                free_engine.throttle_01 =
+                    scalar_trajectory(mode.throttle_01, "/mode/throttle_01", true,
+                                      true);
+                free_engine.external_resisting_torque_nm =
+                    torque_trajectory(mode.resisting_torque,
+                                      "/mode/resisting_torque");
+                free_engine.crank_dynamics_method.value = method;
+                scenario_.mode = std::move(free_engine);
             } else if constexpr (std::is_same_v<T, authoring::FreeVehicleMode>) {
                 add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
                     "free-vehicle drivetrain dynamics are not implemented by "

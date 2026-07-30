@@ -599,6 +599,10 @@ scenario-mode =
   {
     "kind": "inertial_dyno",
     "value": inertial-dyno
+  } /
+  {
+    "kind": "free_engine",
+    "value": free-engine
   }
 
 held-speed = {
@@ -631,6 +635,15 @@ inertial-dyno = {
   "brake_curve": [* brake-torque-point],
   "brake_curve_resolution_id": tstr,
   "brake_torque_method": resolved<method-identity>,
+  "crank_dynamics_method": resolved<method-identity>
+}
+
+free-engine = {
+  "initial_engine_speed_rpm": resolved<f64-bits>,
+  "initial_theta_rad": resolved<f64-bits>,
+  "equivalent_inertia_kg_m2": resolved<f64-bits>,
+  "throttle_01": scalar-trajectory,
+  "external_resisting_torque_nm": scalar-trajectory,
   "crank_dynamics_method": resolved<method-identity>
 }
 

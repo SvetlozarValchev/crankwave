@@ -93,6 +93,10 @@ class ScenarioResolver final {
     scalar_trajectory(const authoring::ScalarTrajectory &input, std::string_view path,
                       bool require_unit_interval, bool require_current_scheduler_hold);
 
+    [[nodiscard]] contract::ScalarTrajectory
+    torque_trajectory(const authoring::QuantityTrajectory &input,
+                      std::string_view path);
+
     [[nodiscard]] ConvertedQuantityTrajectory
     speed_trajectory(const authoring::QuantityTrajectory &input, std::string_view path);
 
