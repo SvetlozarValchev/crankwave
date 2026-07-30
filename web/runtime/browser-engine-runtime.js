@@ -494,8 +494,7 @@ export class BrowserEngineRuntime {
         );
         if (block.process.kindCode === ProcessKind.completed) {
           if (
-            this.#program.session.descriptor.executionKindCode ===
-            SessionExecutionKind.openEnded
+            this.#program.liveExecutionKind === SessionExecutionKind.openEnded
           ) {
             throw runtimeError(
               "the open-ended interactive session completed unexpectedly",
@@ -547,8 +546,7 @@ export class BrowserEngineRuntime {
 
   #finishLiveRun() {
     if (
-      this.#program.session.descriptor.executionKindCode ===
-      SessionExecutionKind.openEnded
+      this.#program.liveExecutionKind === SessionExecutionKind.openEnded
     ) {
       throw runtimeError(
         "the open-ended interactive session reached finite completion",

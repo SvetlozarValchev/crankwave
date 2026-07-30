@@ -137,6 +137,7 @@ async function main() {
   const events = [];
   let telemetryListener = null;
   let audioRingListener = null;
+  let completedStateListener = null;
   const runtime = await BrowserEngineRuntime.create({
     moduleUrl: pathToFileURL(modulePath),
     emit(message) {
@@ -149,6 +150,15 @@ async function main() {
       if (message.type === "audio-ring" && audioRingListener !== null) {
         const listener = audioRingListener;
         audioRingListener = null;
+        listener(message);
+      }
+      if (
+        message.type === "state" &&
+        message.state === "completed" &&
+        completedStateListener !== null
+      ) {
+        const listener = completedStateListener;
+        completedStateListener = null;
         listener(message);
       }
     },
@@ -353,6 +363,29 @@ async function main() {
     assert.equal(
       sha256(new Uint8Array(auditionExport.pcmFloat32)),
       EXPECTED_PCM_SHA256,
+    );
+
+    const finiteCompletion = waitForEvent(
+      (resolve) => {
+        completedStateListener = resolve;
+      },
+      "normal finite live-session completion",
+    );
+    runtime.restart({
+      requestId: "finite-completion",
+      outputSampleRate: 48_000,
+      leadFrames: 4_096,
+    });
+    const completed = await finiteCompletion;
+    assert.equal(completed.state, "completed");
+    assert.equal(
+      events.some(
+        (event) =>
+          event.type === "error" &&
+          event.error?.detailCode === "browser-runtime-session-terminal",
+      ),
+      false,
+      "normal finite completion was misreported as a terminal-session fault",
     );
 
     process.stdout.write(
