@@ -10,6 +10,19 @@
 
 namespace engine_sim_offline::contract {
 
+const MethodIdentity &legacy_low_order_v1_method_identity() {
+    static const MethodIdentity identity{
+        "legacy_low_order_v1",
+        1U,
+        {{
+            0x43, 0x54, 0x41, 0x89, 0x0e, 0x0a, 0x5f, 0x8d, 0x01, 0xe8, 0x19,
+            0x95, 0xf6, 0x4f, 0x33, 0xd4, 0xc5, 0x54, 0x14, 0x4f, 0x5b, 0x14,
+            0x36, 0x89, 0x5e, 0x68, 0x16, 0xf6, 0xdb, 0x85, 0xe3, 0x4c,
+        }},
+    };
+    return identity;
+}
+
 bool Sha256Digest::is_zero() const noexcept {
     return std::ranges::all_of(bytes, [](std::uint8_t byte) { return byte == 0; });
 }

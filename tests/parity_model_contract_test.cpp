@@ -45,11 +45,7 @@ void run_parity_model_contract_tests() {
     legacy_profile(deterministic_engine)
         .core.fuel.burning_efficiency_randomness_01.value = 0.0;
     expect(validate(deterministic_engine, deterministic_builder.provenance).ok(),
-           "zero burning-efficiency variation invalidated the executed RNG stream");
-    legacy_profile(deterministic_engine).core.combustion_random_streams.clear();
-    expect(!validate(deterministic_engine, deterministic_builder.provenance).ok(),
-           "zero burning-efficiency variation hid an RNG stream consumed by "
-           "combustion");
+           "zero burning-efficiency variation invalidated the engine profile");
 
     expect_parity_mutation_rejected("non-legacy subsystem method identity was accepted",
                                     [](EngineSpec &engine, InputBuilder &) {
@@ -94,13 +90,12 @@ void run_parity_model_contract_tests() {
             engine.torque_capability.value.equivalent_inertia_available = true;
         });
 
-    expect_parity_mutation_rejected(
-        "cylinder intake topology accepted an exhaust port",
-        [](EngineSpec &engine, InputBuilder &) {
-            legacy_profile(engine)
-                .core.mechanism.cylinders.front()
-                .topology.intake_port_id = PortId{2};
-        });
+    expect_parity_mutation_rejected("cylinder intake topology accepted an exhaust port",
+                                    [](EngineSpec &engine, InputBuilder &) {
+                                        legacy_profile(engine)
+                                            .core.mechanism.cylinders.front()
+                                            .topology.intake_port_id = PortId{2};
+                                    });
 
     expect_parity_mutation_rejected(
         "profile topology accepted an edge with incompatible endpoints",
@@ -155,62 +150,10 @@ void run_parity_model_contract_tests() {
         });
 
     expect_parity_mutation_rejected(
-        "implemented combustion accepted no combustion random streams",
-        [](EngineSpec &engine, InputBuilder &) {
-            legacy_profile(engine).core.combustion_random_streams.clear();
-        });
-
-    expect_parity_mutation_rejected(
-        "duplicate resolved combustion random-stream owner was accepted",
-        [](EngineSpec &engine, InputBuilder &) {
-            auto &streams = legacy_profile(engine).core.combustion_random_streams;
-            streams.push_back(streams.front());
-        });
-
-    expect_parity_mutation_rejected(
-        "dangling resolved combustion random-stream owner was accepted",
-        [](EngineSpec &engine, InputBuilder &) {
-            legacy_profile(engine)
-                .core.combustion_random_streams.front()
-                .cylinder_id = CylinderId{2};
-        });
-
-    expect_parity_mutation_rejected(
-        "zero resolved combustion random-stream owner was accepted",
-        [](EngineSpec &engine, InputBuilder &) {
-            legacy_profile(engine)
-                .core.combustion_random_streams.front()
-                .cylinder_id = CylinderId{};
-        });
-
-    expect_parity_mutation_rejected("out-of-range resolved PCG32 stream was accepted",
-                                    [](EngineSpec &engine, InputBuilder &) {
-                                        legacy_profile(engine)
-                                            .core.combustion_random_streams.front()
-                                            .pcg32_stream.value =
-                                            std::numeric_limits<std::uint64_t>::max();
-                                    });
-
-    expect_parity_mutation_rejected("unresolved PCG32 initial state was accepted",
-                                    [](EngineSpec &engine, InputBuilder &) {
-                                        legacy_profile(engine)
-                                            .core.combustion_random_streams.front()
-                                            .pcg32_initial_state.resolution_id.clear();
-                                    });
-
-    expect_parity_mutation_rejected("unresolved PCG32 stream was accepted",
-                                    [](EngineSpec &engine, InputBuilder &) {
-                                        legacy_profile(engine)
-                                            .core.combustion_random_streams.front()
-                                            .pcg32_stream.resolution_id.clear();
-                                    });
-
-    expect_parity_mutation_rejected(
         "duplicate cylinder accumulation entry was accepted",
         [](EngineSpec &engine, InputBuilder &) {
-            legacy_profile(engine)
-                .core.excitation.cylinder_accumulation_order.value = {CylinderId{1},
-                                                                      CylinderId{1}};
+            legacy_profile(engine).core.excitation.cylinder_accumulation_order.value = {
+                CylinderId{1}, CylinderId{1}};
         });
 
     expect_parity_mutation_rejected(

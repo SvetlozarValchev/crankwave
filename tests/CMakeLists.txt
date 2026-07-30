@@ -41,6 +41,61 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_compiler_foundation_tests
+    compiler_foundation_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_compiler_foundation_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_compiler_foundation_tests
+    PRIVATE engine_sim_offline::compile
+)
+
+add_test(
+    NAME compiler.foundation
+    COMMAND engine_sim_offline_compiler_foundation_tests
+)
+
+add_executable(
+    engine_sim_offline_scenario_resolver_tests
+    scenario_resolver_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_scenario_resolver_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_scenario_resolver_tests
+    PRIVATE engine_sim_offline::compile
+)
+
+add_test(
+    NAME compiler.scenario_resolver
+    COMMAND engine_sim_offline_scenario_resolver_tests
+)
+
+add_executable(
+    engine_sim_offline_compiler_integration_tests
+    compiler_integration_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_compiler_integration_tests
+    PRIVATE engine_sim_offline::compile
+)
+
+add_test(
+    NAME compiler.integration
+    COMMAND engine_sim_offline_compiler_integration_tests
+)
+
+add_executable(
     engine_sim_offline_renderer_source_stamp_tests
     renderer_source_stamp_test.cpp
 )

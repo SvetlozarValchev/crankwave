@@ -232,23 +232,6 @@ struct PlannedComponent {
     ComponentSeedCoordinate coordinate;
 };
 
-struct LowOrderCoreVisitor {
-    [[nodiscard]] const LowOrderEngineCoreV1 &
-    operator()(const LegacyLowOrderV1Profile &profile) const noexcept {
-        return profile.core;
-    }
-
-    [[nodiscard]] const LowOrderEngineCoreV1 &
-    operator()(const LowOrderOperatingPointV1Profile &profile) const noexcept {
-        return profile.core;
-    }
-};
-
-[[nodiscard]] const LowOrderEngineCoreV1 &
-low_order_core(const ExecutablePhysicsProfile &profile) noexcept {
-    return std::visit(LowOrderCoreVisitor{}, profile);
-}
-
 void append_derivation_error(ValidationReport &report,
                              const ComponentSeedDerivationError &error) {
     auto code = ContractIssueCode::inconsistent_semantics;
@@ -414,8 +397,6 @@ compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &en
     if (!report.ok()) {
         return report;
     }
-    const auto &core = low_order_core(engine.physics_profile);
-
     detail::require(
         report,
         presentation.routes.size() <=
@@ -512,35 +493,6 @@ compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &en
             initialization.initial_state,
             initialization.stream,
         });
-
-        if (component.kind != RandomComponentKind::combustion ||
-            !component.cylinder_id.has_value()) {
-            continue;
-        }
-        const auto &streams = core.combustion_random_streams;
-        const auto stored = std::ranges::find(
-            streams, *component.cylinder_id,
-            &LegacyCombustionRandomStream::cylinder_id);
-        const auto stored_ordinal = static_cast<std::size_t>(
-            stored - streams.begin());
-        const auto path = stored == streams.end()
-                              ? "engine.physics_profile.combustion_random_streams"
-                              : "engine.physics_profile.combustion_random_streams[" +
-                                    std::to_string(stored_ordinal) + "]";
-        detail::require(report, stored != streams.end(),
-                        ContractIssueCode::missing_value, path,
-                        "configured cylinder lacks its derived combustion stream");
-        if (stored != streams.end()) {
-            detail::require(
-                report,
-                stored->pcg32_initial_state.value == initialization.initial_state &&
-                    stored->pcg32_stream.value == initialization.stream,
-                ContractIssueCode::inconsistent_semantics, path,
-                "stored combustion seed must exactly equal the canonical derivation");
-        }
-    }
-    if (!report.ok()) {
-        return report;
     }
     return plan;
 }

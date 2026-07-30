@@ -141,6 +141,8 @@ void parse_ignition(DocumentReader &, JsonValue, std::string_view, IgnitionDefin
 void parse_fuel(DocumentReader &, JsonValue, std::string_view, FuelDefinition &);
 void parse_combustion(DocumentReader &, JsonValue, std::string_view,
                       CombustionDefinition &, const std::optional<DiagnosticSubject> &);
+void parse_accessory_configuration(DocumentReader &, JsonValue, std::string_view,
+                                   AccessoryConfigurationDefinition &);
 void parse_losses(DocumentReader &, JsonValue, std::string_view,
                   EngineLossDefinition &,
                   const std::optional<DiagnosticSubject> &);

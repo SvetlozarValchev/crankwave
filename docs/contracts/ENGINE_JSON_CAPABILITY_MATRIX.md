@@ -7,18 +7,20 @@ Clean-room inventory date: 2026-07-30
 
 ## Answer
 
-No. The clean-room core does **not** yet import all of pristine `engine-sim`'s
-engine configurability as a public API.
+No. The clean-room core does **not** yet execute all of pristine `engine-sim`'s engine
+configurability.
 
-The current repository has a strong typed and executable BMW M52B28 slice, including
-its mechanism, gas path, fixed valvetrain, ignition, fuel, two exhaust routes,
-presentation, scenarios, and deterministic rendering. Those values are still assembled
-by C++ profile factories. There is no general engine JSON schema/compiler, and important
-original capabilities such as multiple crankshafts, slave journals, arbitrary
-valvetrains, VTEC, governors, vehicles, and transmissions are not generally executable.
+The repository now has a strict product JSON schema/parser and a generic immutable
+compiler for the currently executable low-order slice: mechanism, gas path, fixed
+valvetrain, ignition, fuel, two exhaust routes, presentation, scenarios, deterministic
+assets, and randomness. Compilation is data-driven and has no engine-name branch.
+Important original capabilities such as multiple crankshafts, slave journals, arbitrary
+valvetrains, VTEC, governors, vehicles, and transmissions remain represented but fail
+closed until their executor support exists. The temporary C++ BMW factory remains only
+as the output oracle during the JSON cutover.
 
-Adding JSON is initially an authoring and packaging change. It must reproduce the
-accepted renderer before it is allowed to change an audio algorithm.
+The JSON cutover is an authoring and packaging change. It must reproduce the accepted
+renderer before it is allowed to change an audio algorithm.
 
 ## What was audited
 
@@ -144,13 +146,14 @@ runtime graph language.
 
 ## Status legend
 
-All statuses below describe the clean-room repository **before** a public JSON compiler
-exists:
+The status labels below describe executable capability, not whether the strict JSON
+transport can spell a field. The compiler accepts only the supported subset and reports
+the remainder as explicit capability diagnostics:
 
 | Status | Meaning |
 |---|---|
 | **Typed core** | A reusable typed seam and runtime support exist, but no public JSON authoring path exists. |
-| **BMW-sealed** | The accepted behavior exists only through the BMW C++ profile/calibration. |
+| **BMW-sealed** | The accepted behavior exists in the current low-order model but remains constrained to the BMW-shaped executable subset during cutover. |
 | **Partial** | Some representation or execution exists, but not the pristine general capability. |
 | **Missing** | No general representation/execution exists yet. |
 | **Excluded** | Deliberately not part of the new product contract. |
@@ -161,12 +164,13 @@ exists:
 
 | Pristine capability | Intended JSON ownership | Current status | Acceptance requirement |
 |---|---|---|---|
-| Engine name and reusable parameter preset | `engine.identity` and authoring templates | **Typed core** for ID/display name; no JSON/template compiler | BMW compiles to the frozen identity without changing audio. |
+| Engine name and reusable parameter preset | `engine.identity` and authoring templates | **Typed core** with strict JSON compilation; reusable template tooling is later | BMW compiles to the frozen execution values without changing audio. |
 | Redline | `engine.limits.redline` | **BMW-sealed** in ignition profile | Limiter boundary and declared redline remain distinct and validated. |
 | Starter speed and torque | `engine.starter` with `type: "cranking"`; a separate `mechanically_disengaged` variant states the current operating condition | **Partial**; operating state exists but M4 starter is mechanically disengaged | Crank/catch fixture demonstrates torque, target speed, engagement, and release. |
 | Direct throttle linkage gamma | `engine.throttle_controllers[]` with `type: "direct"` and `engine.throttle_controller` selecting one | **Missing** as an executed generic controller | A sweep proves the authored command-to-plate curve. |
 | Governor (`min_speed`, `max_speed`, signed `min_v`/`max_v`, `k_s`, `k_d`, `gamma`) | `engine.throttle_controllers[]` with `type: "governor"`; velocity bounds are not throttle-output fractions | **Missing** | Small-engine fixture holds governed speed under a load step. |
 | Chen--Flynn cycle-mean loss coefficients and required oil temperature | `engine.losses` with `type: "chen_flynn_cycle_mean"` | **Typed core**; previously sealed in the BMW factory | Generic compilation selects the registered method and derives torque-term accounting without an engine-name branch. |
+| Accessory-configuration URI and content hash | `engine.accessory_configurations[]` referenced by the selected loss model | **Metadata/evidence only**; current execution records identity and digest but does not interpret payload bytes | Do not expose it as a power/audio tuning surface until a typed accessory-load schema is executed. |
 | Dyno min/max/hold step defaults | `rig.dyno_defaults`, not engine physics | **Typed core** equivalents exist as explicit scenarios | Native and browser UI generate the same held-point sequence. |
 | Simulation frequency | Session/render quality | **Typed core** through render rates | Identical resolved rates reach native offline and WASM sessions. |
 
@@ -260,13 +264,15 @@ route kinds so they can be added without replacing the accepted exhaust renderer
 | Held speed and prescribed RPM sweep | Session/render request | **Typed core** | Existing BMW held points and dyno listening pull. |
 | Load-target held capture | Session/render request | **Typed core** | Converged target/tolerance result. |
 | Inertial dyno with inertia and brake curve | Session/render request | **Typed core** | Existing BMW inertial pull and torque evidence. |
-| Ambient, thermal, crankcase, fuel, seed, render rates, preparation | Session/render request and rig defaults | **Typed core** | Native and WASM resolve the same request identity. |
+| Ambient pressure/temperature, initial gas/wall state, crankcase, fuel, seed, render rates, preparation | Session/render request and rig defaults | **Typed core and executed** | Native and WASM resolve the same request identity. |
+| Relative humidity, coolant temperature, and oil temperature | Session/render request metadata/applicability conditions | **Admission/evidence only** in the current low-order executor; oil temperature must match the loss-profile condition | Do not present these as live sound or power controls until an implemented subsystem consumes them. |
+| Quality telemetry capacity | Session output allocation policy | **Retained request material only**; authored telemetry channels currently fail closed | Reject or hide it in the workbench until `EngineSession` publishes bounded telemetry. |
 | Ignition, fuel, starter, dyno/limiter enable events | Timestamped session controls | **Typed core** for scheduled offline events; no public realtime session API | Block-boundary and in-block event timing fixture. |
 | Realtime throttle | Timestamped live controls | **Partial**; trajectories exist, no browser/live block API | Audible held-RPM throttle response without restart. |
 | Realtime RPM/load mode command | Mode-specific timestamped control | **Missing** as a public live API | RPM follower and held-dyno browser fixtures. |
 | Gear and clutch controls | Timestamped live controls | **Missing** with vehicle/transmission | Vehicle fixture shifts under load. |
 | Realtime-safe presentation knobs | Timestamped parameter controls | **Missing** as public API despite typed defaults | Click-free gain/wet/HF/noise changes. |
-| Master/stems/telemetry block output | Session block result | **Partial**; native batch render and internal block sessions exist | Same compiled engine feeds offline clips and AudioWorklet stream. |
+| Master/stems/telemetry block output | Session block result | **Partial**; native batch audio and internal block sessions exist, authored telemetry output is rejected | Same compiled engine feeds offline clips and AudioWorklet stream. |
 
 ## Deliberate exclusions
 

@@ -116,6 +116,62 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_contract)
 
 add_library(
+    engine_sim_offline_compile
+    STATIC
+        src/compile/compile_api.cpp
+        src/compile/compiled_model_builder.cpp
+        src/compile/compiled_models.cpp
+        src/compile/engine_asset_resolver.cpp
+        src/compile/engine_capability_admission.cpp
+        src/compile/engine_combustion_resolver.cpp
+        src/compile/engine_gas_resolver.cpp
+        src/compile/engine_mechanism_resolver.cpp
+        src/compile/engine_operating_admission.cpp
+        src/compile/engine_physical_admission.cpp
+        src/compile/engine_physics_resolver.cpp
+        src/compile/engine_presentation_admission.cpp
+        src/compile/engine_presentation_resolver.cpp
+        src/compile/engine_resolution_support.cpp
+        src/compile/engine_resolver.cpp
+        src/compile/engine_runtime_ids.cpp
+        src/compile/engine_topology_resolver.cpp
+        src/compile/resolution_builder.cpp
+        src/compile/scenario_document_resolver.cpp
+        src/compile/scenario_mode_resolver.cpp
+        src/compile/scenario_output_resolver.cpp
+        src/compile/scenario_provenance_resolver.cpp
+        src/compile/scenario_resolver.cpp
+        src/compile/scenario_resolver_support.cpp
+        src/compile/scenario_trajectory_resolver.cpp
+        src/compile/si_conversion.cpp
+        src/compile/stable_id.cpp
+)
+add_library(
+    engine_sim_offline::compile
+    ALIAS engine_sim_offline_compile
+)
+
+target_include_directories(
+    engine_sim_offline_compile
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_compile
+    PUBLIC
+        engine_sim_offline::authoring
+        engine_sim_offline::contract
+        engine_sim_offline::build_options
+    PRIVATE
+        engine_sim_offline::presentation
+        engine_sim_offline::simulation
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_compile)
+
+add_library(
     engine_sim_offline_request_identity
     STATIC
         src/identity/canonical_json_writer.cpp
@@ -202,6 +258,7 @@ add_library(
         src/simulation/legacy_combustion_primitives.cpp
         src/simulation/legacy_fixed_crank_torque_accounting.cpp
         src/simulation/legacy_fixed_valvetrain.cpp
+        src/simulation/legacy_flow_calibration.cpp
         src/simulation/legacy_gas_primitives.cpp
         src/simulation/legacy_ignition_schedule.cpp
         src/simulation/inertial_crank_dynamics.cpp

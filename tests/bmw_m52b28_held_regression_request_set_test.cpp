@@ -1,6 +1,7 @@
 #include "engine_sim_offline/profiles/bmw_m52b28_held_regression_request.hpp"
 #include "engine_sim_offline/request_identity.hpp"
 
+#include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
 #include "simulation/low_order_operating_point_v1_runtime.hpp"
@@ -44,8 +45,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.85,
             47U,
             78U,
-            "2621b2a4ebcfa859b16e829fbf2134017cd24f6bcdbce2e95f61e6603947f8dc",
-            "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
+            "3edcf2739cd2bf63ca7e3e5fd6bb0a5fa598547ece9fb5a144b2e3ebb45b26dd",
+            "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
         },
         {
             "rpm3000-throttle0p25",
@@ -54,8 +55,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.25,
             127U,
             158U,
-            "7cda8bd6375a5084ac392b7520142ecd467af2cbb2afe915929f83251f768f09",
-            "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
+            "71403bc497cc5c9d6623eb51ee65d174c9a521fd145970c9dd06f2b3d6533097",
+            "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
         },
         {
             "rpm3000-throttle0p85",
@@ -64,8 +65,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.85,
             127U,
             158U,
-            "955503187f7d600f943190c1dcd0eea43be382c844ab68e474e720cf12ab7489",
-            "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
+            "0ecf629f347c8f8348bbfdd6df92488d095b8bd99bd92703099d3df0cdd4f252",
+            "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
         },
         {
             "rpm6500-throttle0p85",
@@ -74,8 +75,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldRegressionPointCount
             0.85,
             315U,
             346U,
-            "3dcf82550bb98b1a9f1bd7f368a33563097aaf27bc152be02f2136e61502e951",
-            "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
+            "223e990475907bbef93a4561ac6713ed505c7bfee81ee2a28ddab529fc1229ea",
+            "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
         },
     }};
 
@@ -112,8 +113,15 @@ void expect(bool condition, std::string_view message) {
 
 [[nodiscard]] identity::SimulationRequestIdentityEncoding
 request_identity(const profiles::BmwM52b28HeldRegressionRequest &request) {
+    auto random_plan_result =
+        profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+            request.engine, request.scenario);
+    const auto *random_plan =
+        std::get_if<contract::RandomPlan>(&random_plan_result);
+    expect(random_plan != nullptr,
+           "canonical BMW held-regression random plan did not compile");
     auto result = identity::encode_simulation_request_identity_v3(
-        request.engine, request.scenario, request.provenance.bundle);
+        request.engine, request.scenario, *random_plan, request.provenance.bundle);
     const auto *encoding =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&result);
     expect(encoding != nullptr,
@@ -325,8 +333,13 @@ void test_fixed_horizon_sample(const profiles::BmwM52b28HeldRegressionRequest &r
 
     const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
         request.engine.physics_profile);
+    auto random_plan_result =
+        profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+            request.engine, request.scenario);
+    const auto *random_plan = std::get_if<contract::RandomPlan>(&random_plan_result);
+    expect(random_plan != nullptr, "held-regression random plan did not compile");
     auto core_result = simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, profile.core);
+        request.engine, request.scenario, profile.core, *random_plan);
     auto *core = std::get_if<simulation::LowOrderEngineCoreV1Runtime>(&core_result);
     expect(core != nullptr, "held-regression engine core did not compile");
 

@@ -21,9 +21,10 @@ using BmwM52b28ParityRequestResult =
     std::variant<BmwM52b28ParityRequest, contract::ValidationReport>;
 
 // Constructs the one frozen M3 parity request. The caller supplies only the owned
-// post-step RPM lane; every engine value, control boundary, and component stream is
-// constructed from the normative request record. Invalid or noncanonical input is
-// returned as a validation report rather than a partial request.
+// post-step RPM lane; every engine value and control boundary is constructed from the
+// normative request record. Scenario-owned random streams are compiled separately
+// from the request's public seed. Invalid or noncanonical input is returned as a
+// validation report rather than a partial request.
 [[nodiscard]] BmwM52b28ParityRequestResult
 make_bmw_m52b28_parity_request(std::vector<double> post_step_rpm);
 

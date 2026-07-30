@@ -1,6 +1,7 @@
 #include "reference/bmw_m52b28_torque_sweep_evidence.hpp"
 
 #include "engine_sim_offline/request_identity.hpp"
+#include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/low_order_capture_session.hpp"
 
 #include <bit>
@@ -286,8 +287,21 @@ using CanonicalEvidenceBindingsResult =
     };
     for (std::size_t index = 0U; index < requests.size(); ++index) {
         const auto &request = requests[index];
+        auto random_plan_result =
+            profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+                request.engine, request.scenario);
+        const auto *random_plan =
+            std::get_if<contract::RandomPlan>(&random_plan_result);
+        if (random_plan == nullptr) {
+            report.add(contract::ContractIssueCode::invalid_value,
+                       "canonical_bmw_torque_sweep.points[" +
+                           std::to_string(index) + "].random_plan",
+                       "canonical request random-plan compilation failed");
+            continue;
+        }
         const auto identity_result = identity::encode_simulation_request_identity_v3(
-            request.engine, request.scenario, request.provenance.bundle);
+            request.engine, request.scenario, *random_plan,
+            request.provenance.bundle);
         const auto *identity_encoding =
             std::get_if<identity::SimulationRequestIdentityEncoding>(&identity_result);
         if (identity_encoding == nullptr) {
@@ -322,10 +336,11 @@ using CanonicalEvidenceBindingsResult =
 
 [[nodiscard]] std::variant<ExecutedPoint, BmwM52b28TorqueSweepEvidenceError>
 run_point(const profiles::BmwM52b28FullThrottleTorqueSweepRequest &request,
+          const contract::RandomPlan &random_plan,
           const contract::Sha256Digest &request_identity, std::size_t point_index) {
     const auto interval_started = SweepClock::now();
     auto compilation = simulation::compile_low_order_capture_session(
-        request.engine, request.scenario, request_identity);
+        request.engine, request.scenario, random_plan, request_identity);
     if (const auto *report = std::get_if<contract::ValidationReport>(&compilation)) {
         return error("bmw-torque-sweep-point-compile-rejected",
                      "held-speed capture compilation failed" + validation_text(*report),
@@ -681,9 +696,23 @@ BmwM52b28TorqueSweepEvidenceResult run_bmw_m52b28_full_throttle_torque_sweep(
                 // identity encoding, matching the frozen evidence contract.
                 total_started = SweepClock::now();
             }
+            auto random_plan_result =
+                profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+                    requests[index].engine, requests[index].scenario);
+            const auto *random_plan =
+                std::get_if<contract::RandomPlan>(&random_plan_result);
+            if (random_plan == nullptr) {
+                return error("bmw-torque-sweep-random-plan-rejected",
+                             "held-speed random-plan compilation failed" +
+                                 validation_text(
+                                     std::get<contract::ValidationReport>(
+                                         random_plan_result)),
+                             index);
+            }
             const auto identity_result =
                 identity::encode_simulation_request_identity_v3(
                     requests[index].engine, requests[index].scenario,
+                    *random_plan,
                     requests[index].provenance.bundle);
             const auto *identity_encoding =
                 std::get_if<identity::SimulationRequestIdentityEncoding>(
@@ -694,8 +723,8 @@ BmwM52b28TorqueSweepEvidenceResult run_bmw_m52b28_full_throttle_torque_sweep(
                 return error(identity_error.detail_code, identity_error.message, index);
             }
 
-            auto executed_result =
-                run_point(requests[index], identity_encoding->sha256, index);
+            auto executed_result = run_point(requests[index], *random_plan,
+                                             identity_encoding->sha256, index);
             if (auto *executed = std::get_if<ExecutedPoint>(&executed_result)) {
                 if (index == 0U) {
                     evidence.conditions = executed->conditions;

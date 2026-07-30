@@ -1,5 +1,7 @@
 #include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
+#include "simulation/legacy_flow_calibration.hpp"
+
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -18,14 +20,6 @@ namespace {
 using contract::ContractIssueCode;
 using contract::ValidationReport;
 
-constexpr contract::Sha256Digest kLegacyLowOrderV1ConfigurationSha256{{
-    0x43, 0x54, 0x41, 0x89, 0x0e, 0x0a, 0x5f, 0x8d, 0x01, 0xe8, 0x19,
-    0x95, 0xf6, 0x4f, 0x33, 0xd4, 0xc5, 0x54, 0x14, 0x4f, 0x5b, 0x14,
-    0x36, 0x89, 0x5e, 0x68, 0x16, 0xf6, 0xdb, 0x85, 0xe3, 0x4c,
-}};
-
-constexpr double kLegacyCalibrationPressurePa = 101325.0;
-constexpr double kLegacyCalibrationTemperatureK = 298.15;
 constexpr double kLegacyBoundaryWorkVolumeM3 = 1000.0;
 constexpr double kLegacyIntakePlateMultiplier = 0.994;
 constexpr double kLegacyDeprecatedThrottleGamma = 2.0;
@@ -96,9 +90,8 @@ void append_prefixed(ValidationReport &destination, const ValidationReport &sour
 }
 
 [[nodiscard]] bool exact_legacy_method(
-    const contract::ResolvedValue<contract::MethodIdentity> &method) noexcept {
-    return method.value.id == "legacy_low_order_v1" && method.value.version == 1U &&
-           method.value.configuration_sha256 == kLegacyLowOrderV1ConfigurationSha256;
+    const contract::ResolvedValue<contract::MethodIdentity> &method) {
+    return method.value == contract::legacy_low_order_v1_method_identity();
 }
 
 template <class Range, class Id>
@@ -130,40 +123,16 @@ void admit_public_identities(const Range &range, ValidationReport &report,
     }
 }
 
-[[nodiscard]] bool known_restriction_calibration(
-    contract::LegacyRestrictionCalibration calibration) noexcept {
-    return calibration == contract::LegacyRestrictionCalibration::carb_at_1p5_inhg ||
-           calibration == contract::LegacyRestrictionCalibration::cfm_at_28_inh2o;
-}
-
-[[nodiscard]] double restriction_pressure_drop_pa(
-    contract::LegacyRestrictionCalibration calibration) noexcept {
-    if (calibration == contract::LegacyRestrictionCalibration::cfm_at_28_inh2o) {
-        return 28.0 * (3386.3886666666713 * 0.0734824);
-    }
-    return 1.5 * 3386.3886666666713;
-}
-
-[[nodiscard]] double
-recompute_restriction_k(contract::LegacyRestrictionCalibration calibration,
-                        double source_rating) noexcept {
-    const double one_source_scfm_mol_s = 0.002641 * 453.59237 / 60.0;
-    const double target_source_flow_mol_s = source_rating * one_source_scfm_mol_s;
-    return legacy_restriction_coefficient(
-        target_source_flow_mol_s, kLegacyCalibrationPressurePa,
-        restriction_pressure_drop_pa(calibration), kLegacyCalibrationTemperatureK);
-}
-
 [[nodiscard]] bool admit_restriction(const contract::LegacyRestriction &restriction,
                                      ValidationReport &report,
                                      const std::string &path) {
     const auto calibration = restriction.calibration.value;
     const double source_rating = restriction.source_rating.value;
     const double resolved_k = restriction.resolved_k.value;
-    const bool direct_values_valid = known_restriction_calibration(calibration) &&
+    const bool direct_values_valid = known_legacy_flow_calibration(calibration) &&
                                      finite_nonnegative(source_rating) &&
                                      finite_nonnegative(resolved_k);
-    require(report, known_restriction_calibration(calibration),
+    require(report, known_legacy_flow_calibration(calibration),
             ContractIssueCode::unsupported_value, path + ".calibration.value",
             "restriction calibration is not supported by legacy_low_order_v1");
     require(report, finite_nonnegative(source_rating) && finite_nonnegative(resolved_k),
@@ -172,8 +141,9 @@ recompute_restriction_k(contract::LegacyRestrictionCalibration calibration,
     if (!direct_values_valid) {
         return false;
     }
-    const bool exact =
-        same_binary64(resolved_k, recompute_restriction_k(calibration, source_rating));
+    const bool exact = same_binary64(
+        resolved_k,
+        legacy_flow_bench_restriction_coefficient(calibration, source_rating));
     require(report, exact, ContractIssueCode::inconsistent_semantics,
             path + ".resolved_k.value",
             "restriction K must exactly match the source calibration operation");
@@ -202,7 +172,7 @@ void admit_valve_flow_k(const std::vector<contract::LegacyValveFlowPoint> &point
                 ContractIssueCode::duplicate_identity, point_path + ".sample_id.value",
                 "valve-flow sample identities must be unique");
         if (direct_values_valid) {
-            const double expected_k = recompute_restriction_k(
+            const double expected_k = legacy_flow_bench_restriction_coefficient(
                 contract::LegacyRestrictionCalibration::cfm_at_28_inh2o,
                 point.source_cfm_at_28_inh2o.value);
             require(report, same_binary64(point.resolved_k.value, expected_k),
@@ -226,15 +196,18 @@ find_profile_route_index(const contract::LegacyGasPathProfile &gas_path,
 }
 
 [[nodiscard]] std::optional<std::size_t>
-find_random_stream_index(const contract::LowOrderEngineCoreV1 &core,
-                         contract::CylinderId cylinder_id) noexcept {
+find_combustion_seed_index(const contract::RandomPlan &random_plan,
+                           contract::CylinderId cylinder_id) noexcept {
     const auto found = std::find_if(
-        core.combustion_random_streams.begin(), core.combustion_random_streams.end(),
-        [&](const auto &stream) { return stream.cylinder_id == cylinder_id; });
-    if (found == core.combustion_random_streams.end()) {
+        random_plan.component_seeds.begin(), random_plan.component_seeds.end(),
+        [&](const auto &seed) {
+            return seed.kind == contract::RandomComponentKind::combustion &&
+                   seed.cylinder_id == cylinder_id;
+        });
+    if (found == random_plan.component_seeds.end()) {
         return std::nullopt;
     }
-    return static_cast<std::size_t>(found - core.combustion_random_streams.begin());
+    return static_cast<std::size_t>(found - random_plan.component_seeds.begin());
 }
 
 [[nodiscard]] bool all_bound(const std::vector<bool> &bound) noexcept {
@@ -246,7 +219,8 @@ find_random_stream_index(const contract::LowOrderEngineCoreV1 &core,
 detail::LowOrderEngineCoreV1RuntimeFactory::GasCompileResult
 detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core,
-    const contract::RenderScenario &scenario, const ScenarioControlSchedule &schedule,
+    const contract::RenderScenario &scenario, const contract::RandomPlan &random_plan,
+    const ScenarioControlSchedule &schedule,
     std::span<const CenteredSliderCrankCylinder> cylinder_models) {
     ValidationReport report;
 
@@ -293,6 +267,18 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     require(report, schedule.sample_count() > 0U, ContractIssueCode::inconsistent_shape,
             "schedule.sample_count",
             "gas session requires a nonempty control schedule");
+    require(report,
+            random_plan.generator == contract::pcg32_generator_method_identity(),
+            ContractIssueCode::unsupported_value, "random_plan.generator",
+            "gas session requires the implemented PCG32 generator");
+    require(report,
+            random_plan.derivation ==
+                contract::component_seed_derivation_method_identity(),
+            ContractIssueCode::unsupported_value, "random_plan.derivation",
+            "gas session requires the implemented component-seed derivation");
+    require(report, random_plan.public_seed == scenario.public_seed.value,
+            ContractIssueCode::inconsistent_semantics, "random_plan.public_seed",
+            "gas session random plan must belong to the scenario public seed");
 
     auto valvetrain_result = compile_legacy_fixed_valvetrain(engine, core);
     if (const auto *nested = std::get_if<ValidationReport>(&valvetrain_result)) {
@@ -788,22 +774,16 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         bool model_matches = false;
         if (numeric_values_valid &&
             std::isfinite(mechanism.crank.crank_tdc_reference_rad.value)) {
-            piston_area_m2 =
-                kLegacyPi * parameters.bore_m.value * parameters.bore_m.value / 4.0;
-            const double tdc_mechanism_height_m =
-                parameters.crank_radius_m.value * std::cos(0.0) +
-                std::sqrt(parameters.connecting_rod_length_m.value *
-                          parameters.connecting_rod_length_m.value);
-            clearance_volume_m3 =
-                parameters.head_chamber_volume_m3.value -
-                parameters.piston_displacement_term_m3.value +
-                piston_area_m2 *
-                    (parameters.deck_height_m.value - tdc_mechanism_height_m -
-                     parameters.piston_compression_height_m.value);
-            fixed_geometry_volume_m3 =
-                parameters.head_chamber_volume_m3.value +
-                piston_area_m2 * (parameters.deck_height_m.value -
-                                  parameters.piston_compression_height_m.value);
+            const auto geometry = derive_legacy_cylinder_geometry(
+                parameters.bore_m.value, parameters.crank_radius_m.value,
+                parameters.connecting_rod_length_m.value,
+                parameters.deck_height_m.value,
+                parameters.piston_compression_height_m.value,
+                parameters.head_chamber_volume_m3.value,
+                parameters.piston_displacement_term_m3.value);
+            piston_area_m2 = geometry.piston_area_m2;
+            clearance_volume_m3 = geometry.clearance_volume_m3;
+            fixed_geometry_volume_m3 = geometry.fixed_geometry_volume_m3;
             geometric_tdc_rad =
                 legacy_wrap_2pi(mechanism.crank.crank_tdc_reference_rad.value +
                                 parameters.journal_angle_rad.value - kLegacyPi / 2.0);
@@ -865,9 +845,10 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 "derived intake-runner and exhaust-primary volumes must be finite "
                 "and positive");
 
-        const auto stream_index = find_random_stream_index(core, topology.cylinder_id);
+        const auto stream_index =
+            find_combustion_seed_index(random_plan, topology.cylinder_id);
         require(report, stream_index.has_value(), ContractIssueCode::missing_value,
-                "engine.physics_profile.combustion_random_streams",
+                "random_plan.component_seeds",
                 "every cylinder requires one combustion random stream");
 
         const bool all_bindings_valid =
@@ -881,7 +862,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             initial_sample.valid && finite_positive(runner_volume_m3) &&
             finite_positive(primary_volume_m3);
         if (all_bindings_valid) {
-            const auto &stream = core.combustion_random_streams[*stream_index];
+            const auto &stream = random_plan.component_seeds[*stream_index];
             admitted_cylinders[cylinder_index] = {
                 *runner_volume_index,
                 *chamber_volume_index,
@@ -898,8 +879,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 initial_sample.chamber_volume_m3,
                 runner_volume_m3,
                 primary_volume_m3,
-                stream.pcg32_initial_state.value,
-                stream.pcg32_stream.value,
+                stream.initial_state,
+                stream.stream,
             };
         }
     }
@@ -922,30 +903,48 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             "engine.physics_profile.gas_path.exhaust_routes",
             "every exhaust route must be used by at least one cylinder");
 
-    require(report, core.combustion_random_streams.size() == engine.cylinders.size(),
-            ContractIssueCode::inconsistent_shape,
-            "engine.physics_profile.combustion_random_streams",
-            "fresh gas state requires exactly one combustion stream per cylinder");
+    std::size_t combustion_seed_count = 0;
     std::unordered_set<std::uint32_t> stream_cylinder_ids;
     std::unordered_set<std::uint64_t> stream_selectors;
-    for (std::size_t index = 0; index < core.combustion_random_streams.size();
-         ++index) {
-        const auto &stream = core.combustion_random_streams[index];
-        const std::string path = "engine.physics_profile.combustion_random_streams[" +
-                                 std::to_string(index) + "]";
+    for (std::size_t index = 0; index < random_plan.component_seeds.size(); ++index) {
+        const auto &stream = random_plan.component_seeds[index];
+        if (stream.kind != contract::RandomComponentKind::combustion) {
+            continue;
+        }
+        ++combustion_seed_count;
+        const std::string path =
+            "random_plan.component_seeds[" + std::to_string(index) + "]";
         require(report,
-                stream.cylinder_id.valid() &&
-                    find_id_index(engine.cylinders, stream.cylinder_id).has_value() &&
-                    stream_cylinder_ids.insert(stream.cylinder_id.value).second,
-                ContractIssueCode::duplicate_identity, path + ".cylinder_id",
-                "combustion stream owners must uniquely cover engine cylinders");
-        require(report, stream.pcg32_stream.value <= kMaximumLegacyPcg32Stream,
-                ContractIssueCode::invalid_value, path + ".pcg32_stream.value",
+                stream.cylinder_id.has_value() && stream.cylinder_id->valid() &&
+                    !stream.route_id.has_value(),
+                ContractIssueCode::invalid_value, path,
+                "combustion random-stream ownership must name one cylinder only");
+        if (!stream.cylinder_id.has_value() || !stream.cylinder_id->valid()) {
+            continue;
+        }
+        const bool known_cylinder =
+            find_id_index(engine.cylinders, *stream.cylinder_id).has_value();
+        require(report, known_cylinder, ContractIssueCode::dangling_reference,
+                path + ".cylinder_id",
+                "combustion stream owner must reference an engine cylinder");
+        if (known_cylinder) {
+            require(report,
+                    stream_cylinder_ids.insert(stream.cylinder_id->value).second,
+                    ContractIssueCode::duplicate_identity, path + ".cylinder_id",
+                    "combustion stream owners must uniquely cover engine cylinders");
+        }
+        require(report, stream.stream <= kMaximumLegacyPcg32Stream,
+                ContractIssueCode::invalid_value, path + ".stream",
                 "PCG32 stream selector must fit the source 63-bit domain");
-        require(report, stream_selectors.insert(stream.pcg32_stream.value).second,
-                ContractIssueCode::duplicate_identity, path + ".pcg32_stream.value",
+        require(report, stream_selectors.insert(stream.stream).second,
+                ContractIssueCode::duplicate_identity, path + ".stream",
                 "combustion PCG32 stream selectors must be unique");
     }
+    require(report,
+            combustion_seed_count == engine.cylinders.size() &&
+                stream_cylinder_ids.size() == engine.cylinders.size(),
+            ContractIssueCode::inconsistent_shape, "random_plan.component_seeds",
+            "fresh gas state requires exactly one combustion stream per cylinder");
 
     if (!report.ok()) {
         return report;
@@ -1088,8 +1087,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         const bool seeded =
             lane.random.seed(admitted.pcg32_initial_state, admitted.pcg32_stream);
         if (!seeded) {
-            report.add(ContractIssueCode::invalid_value,
-                       "engine.physics_profile.combustion_random_streams",
+            report.add(ContractIssueCode::invalid_value, "random_plan.component_seeds",
                        "admitted PCG32 stream unexpectedly failed fresh seeding");
             return report;
         }

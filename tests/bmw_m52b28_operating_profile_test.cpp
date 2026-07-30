@@ -154,7 +154,7 @@ void test_exact_profile_authorities(
            "canonical BMW operating identity changed");
 
     constexpr std::string_view kExpectedBundleSha256 =
-        "b98a54c8da0c54110fddccbf47af02353393ab982db7f70e7d78251210a7764d";
+        "3a63323e6baa8d31c02fd818d925ff0106896f316002d64b5d864bc6c30dda2d";
     const auto actual_bundle_sha256 = digest_hex(profile.provenance.bundle.sha256);
     if (actual_bundle_sha256 != kExpectedBundleSha256) {
         std::cerr << "BMW operating profile provenance SHA-256: "
@@ -332,9 +332,6 @@ void test_fresh_core_provenance_and_shared_values(
     expect(legacy_core.fuel.energy_density_j_per_kg.value ==
                operating_core.fuel.energy_density_j_per_kg.value,
            "fresh operating construction changed fuel energy density");
-    expect(legacy_core.combustion_random_streams.size() ==
-               operating_core.combustion_random_streams.size(),
-           "fresh operating construction changed the combustion stream count");
     expect(std::ranges::equal(
                legacy_core.excitation.routes, operating_core.excitation.routes,
                [](const auto &legacy_route, const auto &operating_route) {

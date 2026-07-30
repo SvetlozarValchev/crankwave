@@ -26,6 +26,7 @@ bool known(ProvenanceOrigin origin) noexcept {
     case ProvenanceOrigin::calibrated:
     case ProvenanceOrigin::calibrated_m3:
     case ProvenanceOrigin::artistic:
+    case ProvenanceOrigin::authored_product_data:
         return true;
     case ProvenanceOrigin::unspecified:
         return false;

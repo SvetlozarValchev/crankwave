@@ -107,8 +107,18 @@ compile_presentation_job(const RenderSpecification &specification,
     auto request = make_render_request_record(specification, scenario);
     const auto &inputs = request.resolved_inputs;
 
+    auto random_result = contract::compile_random_plan(
+        inputs.randomness, inputs.engine, inputs.presentation, inputs.scenario);
+    if (std::holds_alternative<contract::ValidationReport>(random_result)) {
+        return compiler_failure(
+            std::move(request), contract::FailureKind::contract_violation,
+            "compiled-random-plan-disagreed",
+            "random-plan recompilation disagreed after successful render admission");
+    }
+    auto random_plan = std::get<contract::RandomPlan>(std::move(random_result));
+
     auto request_identity_result = identity::encode_simulation_request_identity_v3(
-        inputs.engine, inputs.scenario, request.provenance.bundle);
+        inputs.engine, inputs.scenario, random_plan, request.provenance.bundle);
     if (const auto *error = std::get_if<identity::SimulationRequestIdentityError>(
             &request_identity_result)) {
         return compiler_failure(std::move(request),
@@ -148,16 +158,6 @@ compile_presentation_job(const RenderSpecification &specification,
     }
     auto calibration = std::get<presentation::AdmittedPresentationCalibration>(
         std::move(calibration_result));
-
-    auto random_result = contract::compile_random_plan(
-        inputs.randomness, inputs.engine, inputs.presentation, inputs.scenario);
-    if (std::holds_alternative<contract::ValidationReport>(random_result)) {
-        return compiler_failure(
-            std::move(request), contract::FailureKind::contract_violation,
-            "compiled-random-plan-disagreed",
-            "random-plan recompilation disagreed after successful render admission");
-    }
-    auto random_plan = std::get<contract::RandomPlan>(std::move(random_result));
 
     auto projection_result = derive_render_job_projection(request, calibration);
     if (std::holds_alternative<RenderJobDerivationError>(projection_result)) {
@@ -276,7 +276,8 @@ compile_presentation_job(const RenderSpecification &specification,
     };
 
     auto simulation_result = simulation::compile_low_order_capture_session(
-        inputs.engine, inputs.scenario, simulation_request_identity_v3_sha256);
+        inputs.engine, inputs.scenario, random_plan,
+        simulation_request_identity_v3_sha256);
     if (std::holds_alternative<contract::ValidationReport>(simulation_result)) {
         return compiler_failure(
             std::move(request), contract::FailureKind::incomplete_source_route,
@@ -287,9 +288,8 @@ compile_presentation_job(const RenderSpecification &specification,
     auto simulation =
         std::get<simulation::LowOrderCaptureSession>(std::move(simulation_result));
 
-    const auto *core = std::visit(
-        [](const auto &profile) { return &profile.core; },
-        inputs.engine.physics_profile);
+    const auto *core = std::visit([](const auto &profile) { return &profile.core; },
+                                  inputs.engine.physics_profile);
     auto excitation_result =
         excitation::compile_captured_exhaust_excitation_session(inputs.engine, *core);
     if (std::holds_alternative<contract::ValidationReport>(excitation_result)) {

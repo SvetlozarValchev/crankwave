@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -349,6 +350,13 @@ void expect(bool condition, std::string_view message) {
       }
     ],
     "default_fuel": "gasoline",
+    "accessory_configurations": [
+      {
+        "id": "warm-stock-accessories",
+        "uri": "accessories/warm-stock-accessories.json",
+        "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      }
+    ],
     "losses": {
       "type": "chen_flynn_cycle_mean",
       "constant_fmep": {"value": 20, "unit": "kPa"},
@@ -622,6 +630,15 @@ void test_complete_engine_package() {
     expect(package.engine.cylinders.size() == 1U &&
                package.engine.source_routes.size() == 1U,
            "engine graph definitions were not retained");
+    expect(package.engine.accessory_configurations.size() == 1U &&
+               package.engine.accessory_configurations.front().id.value ==
+                   "warm-stock-accessories" &&
+               package.engine.accessory_configurations.front().uri ==
+                   "accessories/warm-stock-accessories.json" &&
+               package.engine.accessory_configurations.front().sha256 ==
+                   std::optional<std::string>{
+                       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
+           "accessory-configuration definition was not retained");
     expect(std::holds_alternative<ChenFlynnLossDefinition>(
                package.engine.losses),
            "Chen-Flynn loss discriminator changed");
@@ -651,6 +668,18 @@ void test_engine_duplicate_id_and_dangling_reference_paths() {
                           DiagnosticCode::dangling_reference,
                           "/engine/cylinders/0/piston"),
            "dangling engine reference did not retain its JSON pointer");
+
+    std::string dangling_accessory = valid_engine_json();
+    replace_once(dangling_accessory,
+                 R"json("accessory_configuration_id": "warm-stock-accessories")json",
+                 R"json("accessory_configuration_id": "missing-accessories")json");
+    const auto dangling_accessory_result =
+        parse_engine_document(dangling_accessory);
+    expect(has_diagnostic(require_engine_report(dangling_accessory_result),
+                          DiagnosticCode::dangling_reference,
+                          "/engine/losses/accessory_configuration_id"),
+           "dangling accessory-configuration reference did not retain its JSON "
+           "pointer");
 }
 
 } // namespace

@@ -117,10 +117,16 @@ reference/oracles/bmw-m52b28/
   bmw-m52b28-last-good-ffcc45c-dyno-1500-6500rpm.wav
 ```
 
-Its canonical WAV SHA-256 is:
+The accepted historical WAV SHA-256 is:
 
 ```text
 87eda586902fbcf7e015161a84688c74e486285c99150c1a6fb3bc9c4382c444
+```
+
+Its sound-bearing PCM24 `data` chunk is 8,640,000 bytes with SHA-256:
+
+```text
+2153869958bb924e4eda277a37e95eab1abb7c29aa9fa389c1fa8f879e7bfdcf
 ```
 
 The fixture proves that plumbing and architecture changes preserve the accepted sound.
@@ -129,14 +135,17 @@ or remain as an executable BMW factory.
 
 During checkpoints 2--5, the current hardcoded BMW factory may exist only as a
 migration-test oracle, never as an alternate production input. After resolved identity
-and native WAV equality are proven, checkpoint 6 deletes the factory and its exact BMW
-validators/provenance builders. The tracked WAV, the new JSON-compiled request-identity
-golden, and the focused automated test remain. The old BMW-specific provenance and
-request hash do not become a compatibility target.
+and PCM equality are proven, checkpoint 6 deletes the factory and its exact BMW
+validators/provenance builders. The tracked historical WAV, the new JSON-compiled
+request-identity and WAV goldens, and the focused automated test remain. The old
+BMW-specific provenance and request hash do not become compatibility targets.
 
-Core 192 kHz PCM and canonical native WAV output must remain byte-identical through
-the cutover. Browser device-rate conversion is compared before that final adapter; an
-AudioContext resampler is not expected to reproduce a 192 kHz WAV container.
+Core 192 kHz PCM and the encoded PCM24 `data` chunk must remain byte-identical through
+the cutover. The generic WAV container receives a new deterministic golden because its
+INFO metadata truthfully carries the new generic presentation and source-matrix IDs;
+retaining obsolete IDs merely to reproduce the historical whole-file hash is forbidden.
+Browser device-rate conversion is compared before that final adapter; an AudioContext
+resampler is not expected to reproduce a 192 kHz WAV container.
 
 ## 5. Ten cutover checkpoints
 
@@ -187,8 +196,9 @@ topology fail with explicit capability diagnostics; rendering is still unchanged
 - Do not retune, normalize, “correct,” or reinterpret any sound-producing value.
 
 Gate: the two authoring routes produce identical execution values and byte-identical
-PCM/WAV output. The JSON path has a deterministic new request identity; it does not
-emulate the old BMW/MR/fixture provenance solely to preserve an obsolete hash.
+PCM plus PCM24 `data` chunks. The JSON path has deterministic new request and whole-WAV
+identities; it does not emulate old BMW/MR/fixture provenance solely to preserve an
+obsolete container hash.
 
 ### 5. Make the native JSON renderer real
 
@@ -197,8 +207,8 @@ emulate the old BMW/MR/fixture provenance solely to preserve an obsolete hash.
 - Keep directory publication, WAV encoding, manifests, and native execution evidence
   outside the portable engine core.
 
-Gate: a clean CLI render of the JSON BMW produces the canonical byte-identical WAV and
-valid manifest.
+Gate: a clean CLI render of the JSON BMW reproduces the accepted PCM24 `data` bytes,
+the deterministic generic WAV golden, and a valid manifest.
 
 ### 6. Remove executable engine profiles
 
@@ -209,7 +219,7 @@ valid manifest.
 - Make JSON compilation the only way production code creates an engine.
 
 Gate: the normal build contains no executable BMW profile path, and the JSON-only clean
-render remains byte-identical.
+render retains exact accepted PCM plus its deterministic generic container.
 
 ### 7. Generalize the executable engine
 
@@ -222,7 +232,7 @@ render remains byte-identical.
 - Reject configurations requiring behavior not yet executed by the simulator.
 
 Gate: a structurally different small engine reaches the executable boundary, while the
-BMW native render remains byte-identical.
+BMW PCM remains byte-identical and its generic WAV remains deterministic.
 
 ### 8. Establish `EngineSession`
 
@@ -236,8 +246,8 @@ BMW native render remains byte-identical.
   throttle, ignition, fuel, and operating commands change session control state.
 
 Gate: the old whole-render orchestration is gone, native block and offline paths are one
-implementation, and the BMW output remains byte-identical for every tested block and
-the complete WAV.
+implementation, and the BMW PCM remains byte-identical for every tested block and for
+the complete render.
 
 ### 9. Compile and verify WASM
 
@@ -275,15 +285,16 @@ export core-identical PCM without depending on the native CLI.
 
 This is an architecture/plumbing cutover, not a sound-fidelity experiment. There are no
 user listening pauses between checkpoints 1--10. Automated request-identity, block,
-PCM, WAV, and telemetry equality are the acceptance evidence. If byte identity breaks,
-work stops at that checkpoint and the regression is fixed; it is not deferred to a
-future phase or offered as a listening candidate.
+PCM/data-chunk, deterministic generic-WAV, and telemetry checks are the acceptance
+evidence. If sound-bearing byte identity breaks, work stops at that checkpoint and the
+regression is fixed; it is not deferred to a future phase or offered as a listening
+candidate.
 
 Tests remain proportional:
 
 - parser/compiler validation at the new public boundaries;
 - one structurally different generic-engine compilation case;
-- the BMW request/PCM/WAV migration fixture;
+- the BMW request/PCM/data-chunk migration fixture and generic WAV golden;
 - native/WASM block parity;
 - smoke coverage for CLI and browser assembly.
 

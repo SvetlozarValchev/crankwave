@@ -178,20 +178,30 @@ contract::ValidationReport validate(const contract::RenderResult &result,
         },
         result);
     if (requires_operating_evidence_identity) {
-        const auto encoded_request_identity =
-            identity::encode_simulation_request_identity_v3(
-                specification.engine, scenario, specification.provenance.bundle);
-        if (const auto *encoding =
-                std::get_if<identity::SimulationRequestIdentityEncoding>(
-                    &encoded_request_identity)) {
-            simulation_request_identity_v3_sha256 = encoding->sha256;
+        auto random_plan = contract::compile_random_plan(
+            specification.randomness, specification.engine,
+            specification.presentation, scenario);
+        if (const auto *plan_report =
+                std::get_if<contract::ValidationReport>(&random_plan)) {
+            append_prefixed(report, *plan_report, "simulation_request_random_plan");
         } else {
-            const auto &error = std::get<identity::SimulationRequestIdentityError>(
-                encoded_request_identity);
-            report.add(ContractIssueCode::inconsistent_semantics,
-                       "simulation_request_identity_v3",
-                       "canonical simulation-request identity encoding failed: " +
-                           error.detail_code + ": " + error.message);
+            const auto encoded_request_identity =
+                identity::encode_simulation_request_identity_v3(
+                    specification.engine, scenario,
+                    std::get<contract::RandomPlan>(std::move(random_plan)),
+                    specification.provenance.bundle);
+            if (const auto *encoding =
+                    std::get_if<identity::SimulationRequestIdentityEncoding>(
+                        &encoded_request_identity)) {
+                simulation_request_identity_v3_sha256 = encoding->sha256;
+            } else {
+                const auto &error = std::get<identity::SimulationRequestIdentityError>(
+                    encoded_request_identity);
+                report.add(ContractIssueCode::inconsistent_semantics,
+                           "simulation_request_identity_v3",
+                           "canonical simulation-request identity encoding failed: " +
+                               error.detail_code + ": " + error.message);
+            }
         }
     }
     append_prefixed(

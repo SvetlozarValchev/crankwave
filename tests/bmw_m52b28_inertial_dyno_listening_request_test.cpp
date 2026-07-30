@@ -1,6 +1,8 @@
 #include "engine_sim_offline/profiles/bmw_m52b28_inertial_dyno_listening_request.hpp"
 #include "engine_sim_offline/request_identity.hpp"
 
+#include "profiles/bmw_m52b28_profile_internal.hpp"
+
 #include <algorithm>
 #include <bit>
 #include <cstdint>
@@ -20,9 +22,9 @@ namespace {
 using namespace engine_sim_offline;
 
 constexpr std::string_view kExpectedRequestIdentitySha256 =
-    "40656dcbc191dc51cef69436ea8b45a4422529a198f92721330c25ff8186a97a";
+    "5dc89f9ef140d6b34c9ed4337bd5e9c7b0a7853c66bc6ae158e7cd08c0f94bdb";
 constexpr std::string_view kExpectedProvenanceSha256 =
-    "869fc335000deae8d360e2ef59049de3223439131d2ff19ac4dfc786110101cb";
+    "36f1515037cfdfba418bcca4799bd20310b2d8d84cedcfd5b567b921f4fdc283";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -151,8 +153,15 @@ void test_exact_request_shape(
 
 void test_identity_and_exact_mutation_rejection(
     const profiles::BmwM52b28InertialDynoListeningRequest &request) {
+    auto random_plan_result =
+        profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+            request.engine, request.scenario);
+    const auto *random_plan =
+        std::get_if<contract::RandomPlan>(&random_plan_result);
+    expect(random_plan != nullptr,
+           "canonical inertial-dyno random plan did not compile");
     const auto identity_result = identity::encode_simulation_request_identity_v3(
-        request.engine, request.scenario, request.provenance.bundle);
+        request.engine, request.scenario, *random_plan, request.provenance.bundle);
     const auto *identity =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&identity_result);
     expect(identity != nullptr, "canonical inertial-dyno identity did not encode");

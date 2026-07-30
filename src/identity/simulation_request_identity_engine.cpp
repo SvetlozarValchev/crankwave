@@ -672,18 +672,6 @@ write_legacy_flame_speed_point(CanonicalJsonWriter &writer,
 }
 
 [[nodiscard]] bool
-write_legacy_combustion_stream(CanonicalJsonWriter &writer,
-                               const contract::LegacyCombustionRandomStream &stream) {
-    return writer.begin_object() && writer.key("cylinder_id") &&
-           write_stable_id(writer, stream.cylinder_id) &&
-           writer.key("pcg32_initial_state") &&
-           write_resolved(writer, stream.pcg32_initial_state, write_u64) &&
-           writer.key("pcg32_stream") &&
-           write_resolved(writer, stream.pcg32_stream, write_u64) &&
-           writer.end_object();
-}
-
-[[nodiscard]] bool
 write_legacy_fixed_crank_loss(CanonicalJsonWriter &writer,
                               const contract::LegacyFixedCrankLossV1 &loss) {
     return writer.begin_object() && writer.key("fixed_crank_friction_magnitude_nm") &&
@@ -784,14 +772,7 @@ write_low_order_engine_core(CanonicalJsonWriter &writer,
            write_legacy_gas_path(writer, core.gas_path) && writer.key("valvetrain") &&
            write_legacy_valvetrain(writer, core.valvetrain) && writer.key("ignition") &&
            write_legacy_ignition(writer, core.ignition) && writer.key("fuel") &&
-           write_legacy_fuel(writer, core.fuel) &&
-           writer.key("combustion_random_streams") &&
-           write_array(writer, core.combustion_random_streams,
-                       [](CanonicalJsonWriter &output,
-                          const contract::LegacyCombustionRandomStream &stream) {
-                           return write_legacy_combustion_stream(output, stream);
-                       }) &&
-           writer.key("excitation") &&
+           write_legacy_fuel(writer, core.fuel) && writer.key("excitation") &&
            write_legacy_excitation(writer, core.excitation) && writer.end_object();
 }
 

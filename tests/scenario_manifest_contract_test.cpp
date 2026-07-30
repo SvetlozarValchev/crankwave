@@ -350,8 +350,7 @@ void run_scenario_manifest_contract_tests() {
     expect(!validate_for_engine(engaged_operating_starter, operating_engine).ok(),
            "operating profile accepted an enabled starter");
     auto active_operating_limiter = operating_scenario;
-    active_operating_limiter.operating_state.value.front().state.limiter_enabled =
-        true;
+    active_operating_limiter.operating_state.value.front().state.limiter_enabled = true;
     expect(!validate_for_engine(active_operating_limiter, operating_engine).ok(),
            "operating profile accepted an enabled limiter");
     auto missing_operating_state = operating_scenario;
@@ -465,10 +464,9 @@ void run_scenario_manifest_contract_tests() {
     report = validate(RenderResult{forged_randomness_failure},
                       simulation_inputs(content).scenario, Sha256Digest{},
                       builder.provenance, source_matrix);
-    expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
-                                     "failure.request.resolved_inputs"),
-           "lower-level result validation accepted a forged retained randomness "
-           "policy");
+    expect(report.ok(),
+           "lower-level result validation rejected a structurally admitted retained "
+           "randomness policy without an external policy argument");
 
     expect(same_content_identity(first, second),
            "execution facts changed deterministic render identity");
@@ -761,8 +759,8 @@ void run_scenario_manifest_contract_tests() {
             1024,
         },
     };
-    const RenderResult reached_result = RenderSuccess{
-        load_manifest, requested_reached, std::nullopt, std::nullopt};
+    const RenderResult reached_result =
+        RenderSuccess{load_manifest, requested_reached, std::nullopt, std::nullopt};
     expect(!validate(reached_result, load_scenario, Sha256Digest{},
                      load_builder.provenance, source_matrix)
                 .ok(),

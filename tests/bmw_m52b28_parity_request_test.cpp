@@ -1,6 +1,7 @@
 #include "engine_sim_offline/profiles/bmw_m52b28_parity_request.hpp"
 #include "engine_sim_offline/request_identity.hpp"
 
+#include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "reference/p18_reference_seed_reader.hpp"
 #include "reference/reference_parity_v1_reader.hpp"
 
@@ -28,7 +29,7 @@ constexpr contract::Sha256Digest kExpectedComponentSeedSha256{{
 }};
 
 constexpr std::string_view kExpectedRequestIdentitySha256 =
-    "539a027ade538f9b3ea4840fdcf08d58247d67ce6e00a8e1d30886a599f4f909";
+    "0360810e3dea25cda91ba29da4658c2af8646e63a4a9e97d755214f720f405a7";
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -98,8 +99,14 @@ fixed_rpm(const profiles::BmwM52b28ParityRequest &request) {
 
 [[nodiscard]] identity::SimulationRequestIdentityEncoding
 encode_request_identity(const profiles::BmwM52b28ParityRequest &request) {
+    auto random_plan_result =
+        profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+            request.engine, request.scenario);
+    const auto *random_plan =
+        std::get_if<contract::RandomPlan>(&random_plan_result);
+    expect(random_plan != nullptr, "exact BMW random plan failed to compile");
     auto result = identity::encode_simulation_request_identity_v3(
-        request.engine, request.scenario, request.provenance.bundle);
+        request.engine, request.scenario, *random_plan, request.provenance.bundle);
     const auto *encoding =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&result);
     expect(encoding != nullptr, "exact BMW request identity failed to encode");
@@ -133,14 +140,12 @@ void test_exact_request_identity(const profiles::BmwM52b28ParityRequest &request
     const auto profile =
         document.find("\"physics_profile\":{\"kind\":\"legacy_low_order_v1\","
                       "\"value\":{\"core\":");
-    const auto fixed_crank_loss =
-        document.find("\"fixed_crank_loss\":{", profile);
+    const auto fixed_crank_loss = document.find("\"fixed_crank_loss\":{", profile);
     const auto torque_capability =
         document.find("\"torque_capability\":", fixed_crank_loss);
-    expect(profile != std::string::npos &&
-               fixed_crank_loss != std::string::npos &&
-               torque_capability != std::string::npos &&
-               profile < fixed_crank_loss && fixed_crank_loss < torque_capability,
+    expect(profile != std::string::npos && fixed_crank_loss != std::string::npos &&
+               torque_capability != std::string::npos && profile < fixed_crank_loss &&
+               fixed_crank_loss < torque_capability,
            "BMW request identity did not encode the direct M3 core/loss form");
     expect(document.size() < 128U * 1024U,
            "BMW request identity unexpectedly expanded the owned RPM lane");
@@ -218,19 +223,25 @@ void test_exact_request(const std::vector<double> &rpm,
     const auto &core = profile.core;
     expect(core.mechanism.cylinders.size() == 6 &&
                core.gas_path.exhaust_routes.size() == 2 &&
-               core.combustion_random_streams.size() == 6 &&
-               core.fuel.turbulence_to_flame_speed_ratio_triangle_radius.value ==
-                   5.0,
+               core.fuel.turbulence_to_flame_speed_ratio_triangle_radius.value == 5.0,
            "BMW executable parity profile shape changed");
-    for (std::size_t index = 0; index < core.combustion_random_streams.size();
-         ++index) {
-        const auto &actual = core.combustion_random_streams[index];
+    auto random_plan_result =
+        profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+            request.engine, request.scenario);
+    const auto *random_plan = std::get_if<contract::RandomPlan>(&random_plan_result);
+    expect(random_plan != nullptr && random_plan->component_seeds.size() == 6U,
+           "BMW combustion random plan failed canonical derivation");
+    for (std::size_t index = 0; index < random_plan->component_seeds.size(); ++index) {
+        const auto &actual = random_plan->component_seeds[index];
         const auto &expected = reference_seeds.combustion[index];
-        expect(actual.cylinder_id ==
+        expect(actual.kind == contract::RandomComponentKind::combustion &&
+                   actual.cylinder_id ==
                        contract::CylinderId{static_cast<std::uint32_t>(index + 1U)} &&
-                   actual.pcg32_initial_state.value == expected.initial_state &&
-                   actual.pcg32_stream.value == expected.stream,
-               "sealed BMW combustion stream differs from component-seed evidence");
+                   !actual.route_id.has_value() &&
+                   actual.initial_state == expected.initial_state &&
+                   actual.stream == expected.stream,
+               "compiled BMW combustion stream differs from component-seed "
+               "evidence");
     }
 
     expect(request.scenario.schema_version == 1 &&
@@ -269,12 +280,8 @@ void test_exact_request(const std::vector<double> &rpm,
         "mutated BMW fuel interpolation radius passed exact validation");
     expect_mutation_rejected(
         request,
-        [](auto &changed) {
-            std::get<contract::LegacyLowOrderV1Profile>(changed.engine.physics_profile)
-                .core.combustion_random_streams.front()
-                .pcg32_initial_state.value ^= UINT64_C(1);
-        },
-        "mutated BMW combustion stream passed exact validation");
+        [](auto &changed) { changed.scenario.public_seed.value ^= UINT64_C(1); },
+        "mutated BMW public seed passed exact validation");
     expect_mutation_rejected(
         request,
         [](auto &changed) {

@@ -29,6 +29,7 @@ struct EngineIndexes {
     IdSet valvetrains;
     IdSet heads;
     IdSet fuels;
+    IdSet accessory_configurations;
     IdSet ignition_wires;
     IdSet throttle_controllers;
     IdSet cylinders;
@@ -126,6 +127,10 @@ EngineIndexes build_indexes(DocumentReader &reader,
                                      "/engine/valvetrains", "valvetrain");
     indexes.heads = collect_ids(reader, engine.heads, "/engine/heads", "head");
     indexes.fuels = collect_ids(reader, engine.fuels, "/engine/fuels", "fuel");
+    indexes.accessory_configurations =
+        collect_ids(reader, engine.accessory_configurations,
+                    "/engine/accessory_configurations",
+                    "accessory_configuration");
     indexes.ignition_wires =
         collect_ids(reader, engine.ignition.wires, "/engine/ignition/wires",
                     "ignition_wire");
@@ -179,6 +184,9 @@ void validate_required_collections(
                   "engine head collection", owner);
     require_count(reader, engine.fuels.size(), 1U, "/engine/fuels",
                   "engine fuel collection", owner);
+    require_count(reader, engine.accessory_configurations.size(), 1U,
+                  "/engine/accessory_configurations",
+                  "engine accessory-configuration collection", owner);
     require_count(reader, engine.ignition.wires.size(), 1U,
                   "/engine/ignition/wires", "ignition wire collection", owner);
     require_count(reader, engine.ignition.firing_order.size(), 1U,
@@ -370,6 +378,13 @@ void validate_system_references(DocumentReader &reader,
     const auto engine_owner = subject("engine", engine.identity.id.value);
     require_reference(reader, indexes.fuels, engine.default_fuel,
                       "/engine/default_fuel", "fuel", engine_owner);
+    if (const auto *loss =
+            std::get_if<ChenFlynnLossDefinition>(&engine.losses)) {
+        require_reference(reader, indexes.accessory_configurations,
+                          loss->accessory_configuration_id,
+                          "/engine/losses/accessory_configuration_id",
+                          "accessory_configuration", engine_owner);
+    }
     require_reference(reader, indexes.curves, engine.ignition.timing_curve,
                       "/engine/ignition/timing_curve", "curve", engine_owner);
     for (std::size_t index = 0; index < engine.ignition.firing_order.size();

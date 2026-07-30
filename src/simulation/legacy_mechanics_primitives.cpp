@@ -48,6 +48,34 @@ finite_slider_crank_input(const CenteredSliderCrankCylinder &cylinder,
 
 } // namespace
 
+LegacyCylinderGeometry derive_legacy_cylinder_geometry(
+    const double bore_m, const double crank_radius_m,
+    const double connecting_rod_length_m, const double deck_height_m,
+    const double piston_compression_height_m,
+    const double head_chamber_volume_m3,
+    const double piston_displacement_term_m3) noexcept {
+    LegacyCylinderGeometry result;
+    result.piston_area_m2 = kLegacyPi * bore_m * bore_m / 4.0;
+    result.tdc_mechanism_height_m =
+        crank_radius_m * std::cos(0.0) +
+        std::sqrt(connecting_rod_length_m * connecting_rod_length_m);
+    result.clearance_volume_m3 =
+        head_chamber_volume_m3 - piston_displacement_term_m3 +
+        result.piston_area_m2 *
+            (deck_height_m - result.tdc_mechanism_height_m -
+             piston_compression_height_m);
+    result.fixed_geometry_volume_m3 =
+        head_chamber_volume_m3 +
+        result.piston_area_m2 *
+            (deck_height_m - piston_compression_height_m);
+    result.swept_volume_m3 =
+        result.piston_area_m2 * (2.0 * crank_radius_m);
+    result.compression_ratio =
+        (result.clearance_volume_m3 + result.swept_volume_m3) /
+        result.clearance_volume_m3;
+    return result;
+}
+
 double legacy_positive_mod(double value, double modulus) noexcept {
     if (value < 0.0) {
         value = std::ceil(-value / modulus) * modulus + value;

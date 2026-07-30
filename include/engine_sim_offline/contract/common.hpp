@@ -81,6 +81,12 @@ struct MethodSelection {
     friend bool operator==(const MethodSelection &, const MethodSelection &) = default;
 };
 
+// Canonical identity of the currently admitted low-order engine/excitation model.
+// Keeping this in the contract registry prevents compilers and executors from
+// duplicating an opaque configuration digest.
+[[nodiscard]] const MethodIdentity &
+legacy_low_order_v1_method_identity();
+
 enum class ContractIssueCode : std::uint8_t {
     missing_value,
     invalid_value,

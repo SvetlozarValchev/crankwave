@@ -1,6 +1,8 @@
 #include "engine_sim_offline/profiles/bmw_m52b28_full_throttle_torque_sweep_request.hpp"
 #include "engine_sim_offline/request_identity.hpp"
 
+#include "profiles/bmw_m52b28_profile_internal.hpp"
+
 #include <array>
 #include <bit>
 #include <cstdint>
@@ -33,29 +35,29 @@ constexpr std::array<std::string_view,
 constexpr std::array<std::string_view,
                      profiles::kBmwM52b28FullThrottleTorqueSweepPointCount>
     kExpectedRequestIdentitySha256{
-        "f2e34dd48816df9eb9100de3b4aa47bae8d460b879b21c0f5c08e4a9e11729c7",
-        "4adff3f9a98723ea335333c1c214288d2328377d892f856128fec5947edbcdfb",
-        "f4f382054a40456fd585d201e52732302c9a4375e42c17370009a55da2f476e3",
-        "6d5c7d587edc64d054be3c132c989083e76949d93d50402c8324b2b135466487",
-        "eb5c020001731705b57a77aaaf25476a485e0b8bdd178b46c187e2fd808ce3a1",
-        "540b3a80b9450157b564d1718bdf3bf7a5743ff0e9551107d0c1e4ca85d60ead",
-        "6a242f96388f143d88db5fe297ba6c3a0ee08514280342d3aa1e4b56b08072bd",
-        "2592e6081ce41eef18a47433c803238681b83d151c0e7b929cecc5c999ed0e52",
-        "39ced3a46879663f90b0ff6877573a66595a3d7a744d557974453e1f7b9d6208",
+        "ff41e670b97b3bff88a5646fe268b3162ce9e57ce4ea9e9d0517fb024e0e3b95",
+        "4f4b5f27a4a1d562b50fcce8f0acfdd61e4d080030e5820df12e48c19622a8bd",
+        "dfd2873e258ad3a63556748489a856e20514923086b5cc7ec3ab647c9bab928c",
+        "339e762bf66210129965efc1924b33831a609289b08647cbccdf07dacc217f61",
+        "9117b5b8ea6b7a15e53146186c7958b7f7a6d7bd7ace99bdb1dc180aef259c67",
+        "f61b29c629b30d3a9155181c475ab1eb2b646aab3e74852688e5f28cbeedcb4b",
+        "c7ff5ae6a5dcfb0c62e7d166d75a832e58a39c67c9a020d1408c854fa3f1096f",
+        "96fca00cae1ba87b0255f829ce59be3dea5fce5d51f733485b3f673488d8584b",
+        "0ab6f796462a373dd6099e93617c8b0990955e213136c9d0f87e1587f4a8b5e8",
     };
 
 constexpr std::array<std::string_view,
                      profiles::kBmwM52b28FullThrottleTorqueSweepPointCount>
     kExpectedProvenanceSha256{
-        "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
-        "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
-        "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
-        "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
-        "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
-        "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
-        "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
-        "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
-        "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
+        "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
+        "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
+        "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
+        "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
+        "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
+        "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
+        "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
+        "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
+        "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
     };
 
 void expect(bool condition, std::string_view message) {
@@ -96,8 +98,15 @@ template <class T> [[nodiscard]] bool exact(T lhs, T rhs) {
 
 [[nodiscard]] identity::SimulationRequestIdentityEncoding
 request_identity(const profiles::BmwM52b28FullThrottleTorqueSweepRequest &request) {
+    auto random_plan_result =
+        profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+            request.engine, request.scenario);
+    const auto *random_plan =
+        std::get_if<contract::RandomPlan>(&random_plan_result);
+    expect(random_plan != nullptr,
+           "canonical torque-sweep random plan did not compile");
     auto result = identity::encode_simulation_request_identity_v3(
-        request.engine, request.scenario, request.provenance.bundle);
+        request.engine, request.scenario, *random_plan, request.provenance.bundle);
     const auto *encoding =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&result);
     expect(encoding != nullptr, "canonical torque-sweep identity did not encode");

@@ -94,13 +94,25 @@ require_runtime(simulation::LowOrderEngineCoreV1CompileResult result) {
     return std::get<simulation::LowOrderEngineCoreV1Runtime>(std::move(result));
 }
 
+[[nodiscard]] contract::RandomPlan
+migration_random_plan(const contract::EngineSpec &engine,
+                      const contract::RenderScenario &scenario) {
+    auto result = profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+        engine, scenario);
+    if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
+        fail_report("valid low-order random plan was rejected", *report);
+    }
+    return std::get<contract::RandomPlan>(std::move(result));
+}
+
 void test_prescribed_transaction_and_stable_completion() {
     auto request = make_short_request();
     const auto &core =
         std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
             .core;
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core));
+        request.engine, request.scenario, core,
+        migration_random_plan(request.engine, request.scenario)));
     expect(runtime.expected_sample_count() == kStepCount &&
                runtime.produced_sample_count() == 0U && !runtime.completed() &&
                !runtime.faulted(),
@@ -153,7 +165,8 @@ void test_held_speed_reuses_core_without_m3_loss_policy() {
     };
 
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, profile.core));
+        request.engine, request.scenario, profile.core,
+        migration_random_plan(request.engine, request.scenario)));
     auto result = runtime.advance();
     const auto *step = std::get_if<simulation::LowOrderEngineCoreV1StepView>(&result);
     expect(step != nullptr && step->mechanics.get().engine_speed_rpm == kRpm &&
@@ -172,7 +185,8 @@ void test_core_ignores_capture_transport_policy() {
     request.scenario.quality.value.event_journal_capacity_records = 0U;
 
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core));
+        request.engine, request.scenario, core,
+        migration_random_plan(request.engine, request.scenario)));
     const auto result = runtime.advance();
     expect(std::holds_alternative<simulation::LowOrderEngineCoreV1StepView>(result),
            "capture transport policy leaked into the shared physics core");
@@ -184,7 +198,8 @@ void test_core_pairs_external_post_step_motion_with_the_same_gas_transaction() {
         std::get<contract::LegacyLowOrderV1Profile>(request.engine.physics_profile)
             .core;
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core));
+        request.engine, request.scenario, core,
+        migration_random_plan(request.engine, request.scenario)));
 
     constexpr double kExternalRpm = 1800.0;
     auto result = runtime.advance(simulation::PostStepCrankMotion{kExternalRpm, 0.017});
@@ -249,7 +264,8 @@ void test_canonical_bmw_operating_profile_uses_limiter_disabled_core() {
         fail_report("canonical BMW held operating scenario was rejected", pairing);
     }
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        profile->engine, scenario, operating.core));
+        profile->engine, scenario, operating.core,
+        migration_random_plan(profile->engine, scenario)));
     auto result = runtime.advance();
     const auto *step = std::get_if<simulation::LowOrderEngineCoreV1StepView>(&result);
     expect(step != nullptr, "canonical BMW operating core produced no first step");

@@ -1,5 +1,6 @@
 #include "contract_test_support.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_operating_profile.hpp"
+#include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
@@ -125,8 +126,13 @@ operating_runtime(const Fixture &value, const simulation::LowOrderCapturePlan &p
 core_runtime(const Fixture &value) {
     const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
         value.engine.physics_profile);
+    auto random_plan_result =
+        profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+            value.engine, value.scenario);
+    const auto *random_plan = std::get_if<contract::RandomPlan>(&random_plan_result);
+    expect(random_plan != nullptr, "canonical operating random plan was rejected");
     auto result = simulation::compile_low_order_engine_core_v1_runtime(
-        value.engine, value.scenario, profile.core);
+        value.engine, value.scenario, profile.core, *random_plan);
     const auto *report = std::get_if<contract::ValidationReport>(&result);
     expect(report == nullptr, "canonical operating core was rejected");
     return std::get<simulation::LowOrderEngineCoreV1Runtime>(std::move(result));

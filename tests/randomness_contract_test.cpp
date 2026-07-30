@@ -129,43 +129,21 @@ void run_randomness_contract_tests() {
 
     auto operating_inputs = content.inputs.resolved;
     auto legacy_for_operating =
-        std::get<LegacyLowOrderV1Profile>(
-            operating_inputs.engine.physics_profile);
+        std::get<LegacyLowOrderV1Profile>(operating_inputs.engine.physics_profile);
     LowOrderOperatingPointV1Profile operating_profile;
     operating_profile.core = std::move(legacy_for_operating.core);
     operating_inputs.engine.physics_profile = std::move(operating_profile);
     const auto operating_random_plan =
         require_random_plan(operating_inputs.randomness, operating_inputs.engine,
-                            operating_inputs.presentation,
-                            operating_inputs.scenario);
-    expect(operating_random_plan.component_seeds ==
-               content.randomness.component_seeds,
+                            operating_inputs.presentation, operating_inputs.scenario);
+    expect(operating_random_plan.component_seeds == content.randomness.component_seeds,
            "operating-profile alternative changed shared-core random ownership");
 
     auto multi_owner_inputs = content.inputs.resolved;
-    auto &multi_owner_profile =
-        std::get<LegacyLowOrderV1Profile>(multi_owner_inputs.engine.physics_profile);
-    constexpr std::array<std::uint64_t, 6> bmw_initial_states{
-        UINT64_C(0x6ba3d060370e05fa), UINT64_C(0xb1ab9b6c6217bdf3),
-        UINT64_C(0x0c2447917cd77f40), UINT64_C(0xfc83080b6c8b1a98),
-        UINT64_C(0x1f0c63f1d677237b), UINT64_C(0xad811f42fb6dafa3),
-    };
-    constexpr std::array<std::uint64_t, 6> bmw_streams{
-        UINT64_C(0x3e13b1e68ef2f790), UINT64_C(0x7681d4f9a6c78e3f),
-        UINT64_C(0x4c09e08d851104f5), UINT64_C(0x686f68f85fd7d169),
-        UINT64_C(0x3507d87731683125), UINT64_C(0x50900fae5afa96cf),
-    };
     for (std::uint32_t id = 2; id <= 6; ++id) {
         auto cylinder = multi_owner_inputs.engine.cylinders.front();
         cylinder.id = CylinderId{id};
         multi_owner_inputs.engine.cylinders.push_back(std::move(cylinder));
-
-        auto stream = multi_owner_profile.core.combustion_random_streams.front();
-        stream.cylinder_id = CylinderId{id};
-        stream.pcg32_initial_state.value = bmw_initial_states[id - 1U];
-        stream.pcg32_stream.value = bmw_streams[id - 1U];
-        multi_owner_profile.core.combustion_random_streams.push_back(
-            std::move(stream));
     }
     auto route_2 = multi_owner_inputs.presentation.routes.front();
     route_2.route_id = RouteId{2};
@@ -208,9 +186,6 @@ void run_randomness_contract_tests() {
     auto reordered_inputs = multi_owner_inputs;
     std::ranges::reverse(reordered_inputs.engine.cylinders);
     std::ranges::reverse(reordered_inputs.presentation.routes);
-    std::ranges::reverse(
-        std::get<LegacyLowOrderV1Profile>(reordered_inputs.engine.physics_profile)
-            .core.combustion_random_streams);
     expect(require_random_plan(reordered_inputs.randomness, reordered_inputs.engine,
                                reordered_inputs.presentation,
                                reordered_inputs.scenario) == multi_owner_plan,
@@ -232,26 +207,6 @@ void run_randomness_contract_tests() {
     cylinder_7.id = CylinderId{7};
     inserted_inputs.engine.cylinders.insert(inserted_inputs.engine.cylinders.begin(),
                                             std::move(cylinder_7));
-    auto &inserted_profile =
-        std::get<LegacyLowOrderV1Profile>(inserted_inputs.engine.physics_profile);
-    const auto inserted_derivation = derive_component_seeds({
-        inserted_inputs.randomness.seed_namespace_id.value,
-        inserted_inputs.scenario.public_seed.value,
-        {{"combustion", 6}},
-    });
-    expect(std::holds_alternative<ComponentSeedDerivation>(inserted_derivation),
-           "inserted stable owner seed derivation failed");
-    const auto inserted_initialization =
-        std::get<ComponentSeedDerivation>(inserted_derivation)
-            .ordered_components.front()
-            .initialization;
-    auto stream_7 = inserted_profile.core.combustion_random_streams.front();
-    stream_7.cylinder_id = CylinderId{7};
-    stream_7.pcg32_initial_state.value = inserted_initialization.initial_state;
-    stream_7.pcg32_stream.value = inserted_initialization.stream;
-    inserted_profile.core.combustion_random_streams.insert(
-        inserted_profile.core.combustion_random_streams.begin(),
-        std::move(stream_7));
     auto route_3 = inserted_inputs.presentation.routes.front();
     route_3.route_id = RouteId{3};
     inserted_inputs.presentation.routes.insert(
@@ -289,8 +244,8 @@ void run_randomness_contract_tests() {
     report =
         validate(changed_content, manifest_builder.provenance, make_source_matrix());
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
-                                     "combustion_random_streams"),
-           "seed namespace changed without invalidating cached executable seeds");
+                                     "randomness.component_seeds"),
+           "seed namespace changed without invalidating the executable random plan");
     RenderManifest second{changed_content, std::nullopt};
     expect(!same_content_identity(first, second),
            "seed namespace failed to participate in render content identity");
@@ -302,20 +257,6 @@ void run_randomness_contract_tests() {
     expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
                                      "randomness.component_seeds"),
            "manifest accepted a fabricated combustion initialization");
-
-    auto coordinated_fake_seed = content;
-    auto &stored_stream =
-        std::get<LegacyLowOrderV1Profile>(
-            coordinated_fake_seed.inputs.resolved.engine.physics_profile)
-            .core.combustion_random_streams.front();
-    ++stored_stream.pcg32_initial_state.value;
-    ++coordinated_fake_seed.randomness.component_seeds.front().initial_state;
-    report = validate(coordinated_fake_seed, manifest_builder.provenance,
-                      make_source_matrix());
-    expect(!report.ok() && has_issue(report, ContractIssueCode::inconsistent_semantics,
-                                     "combustion_random_streams"),
-           "coordinated engine/manifest seed fabrication bypassed canonical "
-           "derivation");
 }
 
 } // namespace engine_sim_offline::contract::test

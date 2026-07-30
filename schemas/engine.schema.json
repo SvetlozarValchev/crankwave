@@ -815,6 +815,19 @@
         { "$ref": "#/$defs/mechanicalRouteSource" }
       ]
     },
+    "accessoryConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "uri"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "uri": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
     "audioAsset": {
       "type": "object",
       "additionalProperties": false,
@@ -1088,6 +1101,7 @@
         "heads",
         "fuels",
         "default_fuel",
+        "accessory_configurations",
         "losses",
         "ignition",
         "starter",
@@ -1168,6 +1182,11 @@
           "items": { "$ref": "#/$defs/fuel" }
         },
         "default_fuel": { "$ref": "#/$defs/id" },
+        "accessory_configurations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/accessoryConfiguration" }
+        },
         "losses": { "$ref": "#/$defs/losses" },
         "ignition": { "$ref": "#/$defs/ignition" },
         "throttle_controllers": {

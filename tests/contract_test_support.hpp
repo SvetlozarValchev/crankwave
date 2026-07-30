@@ -328,8 +328,7 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
     core.ignition.declared_redline_rpm =
         builder.resolved(7000.0, path("ignition.declared_redline_rpm"));
 
-    core.fuel.fuel_id =
-        builder.resolved(std::string{"gasoline"}, path("fuel.fuel_id"));
+    core.fuel.fuel_id = builder.resolved(std::string{"gasoline"}, path("fuel.fuel_id"));
     core.fuel.molecular_mass_kg_per_mol =
         builder.resolved(0.1, path("fuel.molecular_mass_kg_per_mol"));
     core.fuel.energy_density_j_per_kg =
@@ -360,16 +359,6 @@ inline LegacyLowOrderV1Profile make_physics_profile(InputBuilder &builder) {
         make_flame_point("turbulence-0", 0.0, 1.0),
         make_flame_point("turbulence-1", 1.0, 2.0),
     };
-
-    const auto combustion_stream_path = path("combustion_random_streams.cylinder-1");
-    core.combustion_random_streams.push_back({
-        CylinderId{1},
-        builder.resolved<std::uint64_t>(UINT64_C(0x6ba3d060370e05fa),
-                                        combustion_stream_path +
-                                            ".pcg32_initial_state"),
-        builder.resolved<std::uint64_t>(UINT64_C(0x3e13b1e68ef2f790),
-                                        combustion_stream_path + ".pcg32_stream"),
-    });
 
     const TorqueTermMask included_torque_terms =
         torque_term_mask(TorqueTerm::indicated_gas) |

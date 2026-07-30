@@ -260,6 +260,16 @@ require_simulation(LowOrderCaptureCompileResult result) {
     return std::get<LowOrderCaptureSession>(std::move(result));
 }
 
+[[nodiscard]] RandomPlan migration_random_plan(const EngineSpec &engine,
+                                               const RenderScenario &scenario) {
+    auto result = engine_sim_offline::profiles::detail::
+        compile_bmw_m52b28_migration_oracle_random_plan(engine, scenario);
+    if (const auto *report = std::get_if<ValidationReport>(&result)) {
+        fail_report("short BMW random plan failed compilation", *report);
+    }
+    return std::get<RandomPlan>(std::move(result));
+}
+
 [[nodiscard]] const LegacyMechanismStep &
 require_mechanics_step(LegacyMechanicsAdvanceResult &result,
                        std::uint64_t expected_sample_index) {
@@ -733,7 +743,9 @@ void verify_events(const CaptureBlockView &block,
 void test_short_bmw_capture_mapping_and_completion() {
     const BmwM52b28ParityRequest request = make_short_bmw_request();
     auto capture = require_simulation(compile_low_order_capture_session(
-        request.engine, request.scenario, nonzero_request_identity()));
+        request.engine, request.scenario,
+        migration_random_plan(request.engine, request.scenario),
+        nonzero_request_identity()));
     auto schedule_result = compile_kinematic_scenario_schedule(request.scenario);
     if (const auto *report = std::get_if<ValidationReport>(&schedule_result)) {
         fail_report("short BMW schedule failed admission", *report);
@@ -744,8 +756,9 @@ void test_short_bmw_capture_mapping_and_completion() {
     auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
         request.engine, core, request.scenario, schedule));
     auto gas = require_gas(CoreRuntimeFactory::compile_gas(
-        request.engine, core, request.scenario, schedule.control_schedule(),
-        mechanics.cylinder_models()));
+        request.engine, core, request.scenario,
+        migration_random_plan(request.engine, request.scenario),
+        schedule.control_schedule(), mechanics.cylinder_models()));
 
     Activity activity;
     std::uint64_t next_sample_index = 0U;
@@ -872,7 +885,9 @@ void test_short_bmw_capture_mapping_and_completion() {
 void test_operating_capture_publishes_request_bound_completion_evidence() {
     const auto request = make_operating_capture_request();
     auto capture = require_simulation(compile_low_order_capture_session(
-        request.engine, request.scenario, request.request_identity));
+        request.engine, request.scenario,
+        migration_random_plan(request.engine, request.scenario),
+        request.request_identity));
 
     std::uint64_t callback_count = 0U;
     std::optional<LowOrderCaptureCompleted> completion;
@@ -915,7 +930,8 @@ void test_operating_capture_publishes_request_bound_completion_evidence() {
 void test_operating_capture_rejects_zero_request_identity() {
     const auto request = make_operating_capture_request();
     const auto result = compile_low_order_capture_session(
-        request.engine, request.scenario, Sha256Digest{});
+        request.engine, request.scenario,
+        migration_random_plan(request.engine, request.scenario), Sha256Digest{});
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr && !report->ok() &&
                std::ranges::any_of(report->issues,
@@ -935,7 +951,8 @@ void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence() {
         std::get<BmwM52b28InertialDynoListeningRequest>(request_result);
     const auto request_identity = nonzero_request_identity();
     auto capture = require_simulation(compile_low_order_capture_session(
-        request.engine, request.scenario, request_identity));
+        request.engine, request.scenario,
+        migration_random_plan(request.engine, request.scenario), request_identity));
 
     std::optional<LowOrderCaptureCompleted> completion;
     double first_released_rpm = 0.0;
@@ -982,8 +999,9 @@ void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence() {
 
 void test_consumer_rejection_is_a_stable_terminal_fault() {
     const BmwM52b28ParityRequest request = make_short_bmw_request();
-    auto capture = require_simulation(
-        compile_low_order_capture_session(request.engine, request.scenario, {}));
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario,
+        migration_random_plan(request.engine, request.scenario), {}));
     std::size_t callback_count = 0U;
     auto rejected = capture.publish_next_block([&](const CaptureBlockView &block) {
         ++callback_count;
@@ -1012,8 +1030,9 @@ void test_consumer_rejection_is_a_stable_terminal_fault() {
 
 void test_consumer_exception_is_a_stable_terminal_fault() {
     const BmwM52b28ParityRequest request = make_short_bmw_request();
-    auto capture = require_simulation(
-        compile_low_order_capture_session(request.engine, request.scenario, {}));
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario,
+        migration_random_plan(request.engine, request.scenario), {}));
     std::size_t callback_count = 0U;
     auto rejected = capture.publish_next_block([&](const CaptureBlockView &) -> bool {
         ++callback_count;
@@ -1040,8 +1059,9 @@ void test_consumer_exception_is_a_stable_terminal_fault() {
 
 void test_reentrant_publication_preserves_outer_view_and_faults() {
     const BmwM52b28ParityRequest request = make_short_bmw_request();
-    auto capture = require_simulation(
-        compile_low_order_capture_session(request.engine, request.scenario, {}));
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario,
+        migration_random_plan(request.engine, request.scenario), {}));
     std::size_t outer_callback_count = 0U;
     std::size_t nested_callback_count = 0U;
     std::optional<FailureContext> nested_fault;
@@ -1098,8 +1118,9 @@ void test_reentrant_publication_preserves_outer_view_and_faults() {
 
 void expect_simulation_compile_rejected(const BmwM52b28ParityRequest &request,
                                         std::string_view mutation) {
-    auto result =
-        compile_low_order_capture_session(request.engine, request.scenario, {});
+    auto result = compile_low_order_capture_session(
+        request.engine, request.scenario,
+        migration_random_plan(request.engine, request.scenario), {});
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr && !report->ok(),
            std::string{mutation} + " was admitted by the top-level compiler");
@@ -1109,8 +1130,9 @@ void test_declared_capture_capacity_drives_publication() {
     auto request = make_short_bmw_request();
     request.scenario.quality.value.capture_block_capacity_frames = 37U;
     request.scenario.quality.value.event_journal_capacity_records = 37U * 19U;
-    auto capture = require_simulation(
-        compile_low_order_capture_session(request.engine, request.scenario, {}));
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario,
+        migration_random_plan(request.engine, request.scenario), {}));
 
     std::size_t callback_count = 0U;
     const auto result = capture.publish_next_block([&](const CaptureBlockView &block) {

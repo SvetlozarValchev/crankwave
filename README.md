@@ -14,9 +14,11 @@ dead fields, or a general-purpose scripting language.
 
 The accepted engine-sim-equivalent exhaust audio path, low-order simulation, dyno
 scenarios, block presentation pipeline, WAV publication, and telemetry are implemented.
-The strict engine/scenario JSON authoring contract and parser are now the front of the
-cutover; rendering is still reached through a temporary hardcoded BMW M52B28 profile
-until generic compilation lands.
+The strict engine/scenario JSON authoring contract, parser, and generic immutable
+compiler boundary are now in place. The compiler accepts the currently executable
+low-order topology without inspecting an engine name and fails closed on unsupported
+capabilities. Rendering is still reached through a temporary hardcoded BMW M52B28
+profile until the JSON BMW parity fixture and native renderer bridge are completed.
 
 The active cutover replaces that profile with:
 
@@ -33,10 +35,11 @@ engine.json + scenario.json + assets
 ```
 
 The BMW remains only as an automated byte-identity migration fixture. Once JSON
-compilation reproduces its execution values and accepted PCM/WAV exactly, the executable
-BMW factory is removed. The generic compiler intentionally establishes a new request
-identity instead of preserving BMW-specific provenance machinery. There will not be
-parallel profile and JSON production paths.
+compilation reproduces its execution values and accepted PCM24 data bytes exactly, the
+executable BMW factory is removed. The generic compiler intentionally establishes new
+request and WAV-container identities instead of preserving BMW-specific provenance
+machinery; the sound-bearing PCM remains exact. There will not be parallel profile and
+JSON production paths.
 
 The authoritative sequence and acceptance gates are in [PLAN.md](PLAN.md). The original
 engine-sim capability mapping is in
@@ -93,6 +96,15 @@ Its SHA-256 is:
 ```text
 87eda586902fbcf7e015161a84688c74e486285c99150c1a6fb3bc9c4382c444
 ```
+
+The accepted 8,640,000-byte PCM24 `data` chunk has SHA-256:
+
+```text
+2153869958bb924e4eda277a37e95eab1abb7c29aa9fa389c1fa8f879e7bfdcf
+```
+
+The generic path deliberately produces a new deterministic whole-WAV hash because its
+metadata carries generic compiler identities rather than obsolete BMW-specific ones.
 
 Historical model, manifest, provenance, and listening records remain under `docs/` and
 `reference/`. They document how the accepted implementation was established; they do

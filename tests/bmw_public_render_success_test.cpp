@@ -711,8 +711,16 @@ void expect_operating_render_contract(
     expect(success->manifest.content.inputs.resolved.scenario == request.scenario,
            "M4 success manifest did not retain the exact held-speed scenario");
 
+    auto random_plan_result = contract::compile_random_plan(
+        specification.randomness, specification.engine, specification.presentation,
+        request.scenario);
+    const auto *random_plan =
+        std::get_if<contract::RandomPlan>(&random_plan_result);
+    expect(random_plan != nullptr,
+           "M4 success random plan did not recompile canonically");
     const auto encoded = identity::encode_simulation_request_identity_v3(
-        specification.engine, request.scenario, specification.provenance.bundle);
+        specification.engine, request.scenario, *random_plan,
+        specification.provenance.bundle);
     const auto *request_identity =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&encoded);
     expect(request_identity != nullptr &&

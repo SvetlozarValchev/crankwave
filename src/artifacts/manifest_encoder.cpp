@@ -86,62 +86,6 @@ write_floating_point(CanonicalJsonWriter &writer,
            writer.end_object();
 }
 
-[[nodiscard]] std::string_view
-random_component_kind(contract::RandomComponentKind kind) noexcept {
-    switch (kind) {
-    case contract::RandomComponentKind::combustion:
-        return "combustion";
-    case contract::RandomComponentKind::presentation_jitter:
-        return "presentation_jitter";
-    case contract::RandomComponentKind::presentation_air_noise:
-        return "presentation_air_noise";
-    case contract::RandomComponentKind::starter:
-        return "starter";
-    case contract::RandomComponentKind::unspecified:
-        break;
-    }
-    return {};
-}
-
-template <class Id>
-[[nodiscard]] bool write_optional_id(CanonicalJsonWriter &writer,
-                                     const std::optional<Id> &id) {
-    return id.has_value() ? writer.uint32_value(id->value) : writer.null_value();
-}
-
-[[nodiscard]] bool write_component_seed(CanonicalJsonWriter &writer,
-                                        const contract::ComponentSeed &seed) {
-    const auto kind = random_component_kind(seed.kind);
-    if (kind.empty()) {
-        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "random component kind is not encodable");
-    }
-    return writer.begin_object() && writer.key("kind") && writer.string_value(kind) &&
-           writer.key("cylinder_id") && write_optional_id(writer, seed.cylinder_id) &&
-           writer.key("route_id") && write_optional_id(writer, seed.route_id) &&
-           writer.key("initial_state") && writer.uint64_hex_value(seed.initial_state) &&
-           writer.key("stream") && writer.uint64_hex_value(seed.stream) &&
-           writer.end_object();
-}
-
-[[nodiscard]] bool write_random_plan(CanonicalJsonWriter &writer,
-                                     const contract::RandomPlan &randomness) {
-    if (!(writer.begin_object() && writer.key("generator") &&
-          write_method_identity(writer, randomness.generator) &&
-          writer.key("public_seed") &&
-          writer.uint64_hex_value(randomness.public_seed) && writer.key("derivation") &&
-          write_method_identity(writer, randomness.derivation) &&
-          writer.key("component_seeds") && writer.begin_array())) {
-        return false;
-    }
-    for (const auto &seed : randomness.component_seeds) {
-        if (!write_component_seed(writer, seed)) {
-            return false;
-        }
-    }
-    return writer.end_array() && writer.end_object();
-}
-
 } // namespace
 
 bool write_completed_manifest_content(CanonicalJsonWriter &writer,

@@ -37,6 +37,7 @@ void require(ValidationReport &report, bool condition, ContractIssueCode code,
 
 LowOrderCaptureCompileResult compile_low_order_capture_session(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
+    const contract::RandomPlan &random_plan,
     const contract::Sha256Digest &simulation_request_identity_v3_sha256) {
     ValidationReport report;
     const auto *legacy_profile =
@@ -140,7 +141,8 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
 
     auto core_result = [&]() {
         if (inertial == nullptr) {
-            return compile_low_order_engine_core_v1_runtime(engine, scenario, *core);
+            return compile_low_order_engine_core_v1_runtime(engine, scenario, *core,
+                                                            random_plan);
         }
         auto held_preparation_scenario = scenario;
         held_preparation_scenario.mode = contract::HeldSpeed{
@@ -150,7 +152,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
              inertial->throttle_01.resolution_id},
         };
         return compile_low_order_engine_core_v1_runtime(
-            engine, held_preparation_scenario, *core);
+            engine, held_preparation_scenario, *core, random_plan);
     }();
     if (const auto *core_report = std::get_if<ValidationReport>(&core_result)) {
         return *core_report;

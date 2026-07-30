@@ -5,12 +5,6 @@
 namespace engine_sim_offline::simulation {
 namespace {
 
-constexpr contract::Sha256Digest kLegacyLowOrderV1ConfigurationSha256{{
-    0x43, 0x54, 0x41, 0x89, 0x0e, 0x0a, 0x5f, 0x8d, 0x01, 0xe8, 0x19,
-    0x95, 0xf6, 0x4f, 0x33, 0xd4, 0xc5, 0x54, 0x14, 0x4f, 0x5b, 0x14,
-    0x36, 0x89, 0x5e, 0x68, 0x16, 0xf6, 0xdb, 0x85, 0xe3, 0x4c,
-}};
-
 [[nodiscard]] contract::TorqueValueNm
 available_torque(double value_nm, contract::Completeness completeness,
                  contract::TorqueTermMask included,
@@ -74,8 +68,7 @@ compile_legacy_fixed_crank_torque_accounting(
     }
 
     const auto &method = engine.methods.losses.value;
-    if (method.id != "legacy_low_order_v1" || method.version != 1U ||
-        method.configuration_sha256 != kLegacyLowOrderV1ConfigurationSha256) {
+    if (method != contract::legacy_low_order_v1_method_identity()) {
         report.add(contract::ContractIssueCode::unsupported_value,
                    "engine.methods.losses",
                    "legacy fixed crank accounting requires the exact "

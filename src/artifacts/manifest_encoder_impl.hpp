@@ -16,6 +16,7 @@ using identity::detail::CanonicalJsonWriter;
 using identity::detail::write_method_identity;
 using identity::detail::write_provenance_bundle_ref;
 using identity::detail::write_rational_rate;
+using identity::detail::write_random_plan;
 using identity::detail::write_render_rates;
 using identity::detail::write_resolved;
 

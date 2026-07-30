@@ -18,12 +18,6 @@ namespace {
 using contract::ContractIssueCode;
 using contract::ValidationReport;
 
-constexpr contract::Sha256Digest kLegacyLowOrderV1ConfigurationSha256{{
-    0x43, 0x54, 0x41, 0x89, 0x0e, 0x0a, 0x5f, 0x8d, 0x01, 0xe8, 0x19,
-    0x95, 0xf6, 0x4f, 0x33, 0xd4, 0xc5, 0x54, 0x14, 0x4f, 0x5b, 0x14,
-    0x36, 0x89, 0x5e, 0x68, 0x16, 0xf6, 0xdb, 0x85, 0xe3, 0x4c,
-}};
-
 void require(ValidationReport &report, bool condition, ContractIssueCode code,
              std::string path, std::string message) {
     if (!condition) {
@@ -48,9 +42,8 @@ void require(ValidationReport &report, bool condition, ContractIssueCode code,
 }
 
 [[nodiscard]] bool exact_excitation_method(
-    const contract::ResolvedValue<contract::MethodIdentity> &method) noexcept {
-    return method.value.id == "legacy_low_order_v1" && method.value.version == 1U &&
-           method.value.configuration_sha256 == kLegacyLowOrderV1ConfigurationSha256;
+    const contract::ResolvedValue<contract::MethodIdentity> &method) {
+    return method.value == contract::legacy_low_order_v1_method_identity();
 }
 
 template <class Range, class Id, class Projection>

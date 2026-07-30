@@ -107,6 +107,16 @@ require_gas(CoreRuntimeFactory::GasCompileResult result) {
     return std::get<LegacyLowOrderGasSession>(std::move(result));
 }
 
+[[nodiscard]] RandomPlan require_random_plan(const BmwM52b28ParityRequest &request) {
+    auto result = engine_sim_offline::profiles::detail::
+        compile_bmw_m52b28_migration_oracle_random_plan(request.engine,
+                                                        request.scenario);
+    if (const auto *report = std::get_if<ValidationReport>(&result)) {
+        fail_report("short BMW random plan failed compilation", *report);
+    }
+    return std::get<RandomPlan>(std::move(result));
+}
+
 [[nodiscard]] KinematicScenarioSchedule
 require_schedule(KinematicScenarioScheduleResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
@@ -130,10 +140,10 @@ struct CompiledSessions {
         require_schedule(compile_kinematic_scenario_schedule(request.scenario));
     auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
         request.engine, low_order_core(request), request.scenario, schedule));
+    const auto random_plan = require_random_plan(request);
     auto gas = require_gas(CoreRuntimeFactory::compile_gas(
-        request.engine, low_order_core(request), request.scenario,
-        schedule.control_schedule(),
-        mechanics.cylinder_models()));
+        request.engine, low_order_core(request), request.scenario, random_plan,
+        schedule.control_schedule(), mechanics.cylinder_models()));
     return {std::move(mechanics), std::move(gas)};
 }
 
@@ -516,14 +526,35 @@ void expect_gas_compile_rejected(const BmwM52b28ParityRequest &request,
         require_schedule(compile_kinematic_scenario_schedule(request.scenario));
     auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
         request.engine, low_order_core(request), request.scenario, schedule));
+    const auto random_plan = require_random_plan(request);
     auto result = CoreRuntimeFactory::compile_gas(
-        request.engine, low_order_core(request), request.scenario,
-        schedule.control_schedule(),
-        mechanics.cylinder_models());
+        request.engine, low_order_core(request), request.scenario, random_plan,
+        schedule.control_schedule(), mechanics.cylinder_models());
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr, std::string{context} + " compiled successfully");
     const bool has_expected_issue = std::any_of(
         report->issues.begin(), report->issues.end(), [&](const ContractIssue &issue) {
+            return issue.path.find(expected_path) != std::string::npos;
+        });
+    expect(has_expected_issue,
+           std::string{context} + " rejection omitted the responsible path");
+}
+
+void expect_random_plan_rejected(const BmwM52b28ParityRequest &request,
+                                 const RandomPlan &random_plan,
+                                 std::string_view expected_path,
+                                 std::string_view context) {
+    auto schedule =
+        require_schedule(compile_kinematic_scenario_schedule(request.scenario));
+    auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
+        request.engine, low_order_core(request), request.scenario, schedule));
+    auto result = CoreRuntimeFactory::compile_gas(
+        request.engine, low_order_core(request), request.scenario, random_plan,
+        schedule.control_schedule(), mechanics.cylinder_models());
+    const auto *report = std::get_if<ValidationReport>(&result);
+    expect(report != nullptr, std::string{context} + " compiled successfully");
+    const bool has_expected_issue =
+        std::ranges::any_of(report->issues, [&](const ContractIssue &issue) {
             return issue.path.find(expected_path) != std::string::npos;
         });
     expect(has_expected_issue,
@@ -548,6 +579,22 @@ void test_gas_method_admission_rejection() {
     }
 
     {
+        const BmwM52b28ParityRequest request = make_short_bmw_request();
+        auto random_plan = require_random_plan(request);
+        ++random_plan.public_seed;
+        expect_random_plan_rejected(request, random_plan, "random_plan.public_seed",
+                                    "foreign-scenario random plan");
+    }
+
+    {
+        const BmwM52b28ParityRequest request = make_short_bmw_request();
+        auto random_plan = require_random_plan(request);
+        random_plan.component_seeds.erase(random_plan.component_seeds.begin());
+        expect_random_plan_rejected(request, random_plan, "random_plan.component_seeds",
+                                    "incomplete combustion random plan");
+    }
+
+    {
         BmwM52b28ParityRequest request = make_short_bmw_request();
         auto sweep_schedule =
             require_schedule(compile_kinematic_scenario_schedule(request.scenario));
@@ -559,10 +606,10 @@ void test_gas_method_admission_rejection() {
             HeldSpeed{{kShortRunRpm, {}}, {initial_theta_rad, {}}, {0.85, {}}};
         auto schedule =
             require_schedule(compile_kinematic_scenario_schedule(request.scenario));
+        const auto random_plan = require_random_plan(request);
         auto gas = require_gas(CoreRuntimeFactory::compile_gas(
-            request.engine, low_order_core(request), request.scenario,
-            schedule.control_schedule(),
-            mechanics.cylinder_models()));
+            request.engine, low_order_core(request), request.scenario, random_plan,
+            schedule.control_schedule(), mechanics.cylinder_models()));
         expect(gas.produced_sample_count() == 0U,
                "fresh held-speed gas session published samples during admission");
     }

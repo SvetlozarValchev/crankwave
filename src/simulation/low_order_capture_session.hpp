@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/contract/capture.hpp"
+#include "engine_sim_offline/contract/randomness.hpp"
 #include "engine_sim_offline/contract/result.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
 #include "simulation/legacy_fixed_crank_torque_accounting.hpp"
@@ -112,6 +113,7 @@ class LowOrderCaptureSession final {
     friend std::variant<LowOrderCaptureSession, contract::ValidationReport>
     compile_low_order_capture_session(const contract::EngineSpec &,
                                       const contract::RenderScenario &,
+                                      const contract::RandomPlan &,
                                       const contract::Sha256Digest &);
 };
 
@@ -124,6 +126,7 @@ using LowOrderCaptureCompileResult =
 // evidence; the M3 fixed-loss policy accepts but does not interpret it.
 [[nodiscard]] LowOrderCaptureCompileResult compile_low_order_capture_session(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
+    const contract::RandomPlan &random_plan,
     const contract::Sha256Digest &simulation_request_identity_v3_sha256);
 
 } // namespace engine_sim_offline::simulation

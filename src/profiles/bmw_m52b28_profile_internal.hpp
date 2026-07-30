@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine_sim_offline/contract/randomness.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_full_throttle_torque_sweep_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_held_idle_low_load_request.hpp"
 #include "engine_sim_offline/profiles/bmw_m52b28_held_regression_request.hpp"
@@ -86,6 +87,13 @@ class BmwProvenanceBuilder {
 [[nodiscard]] contract::MethodIdentity fixed_rate_rpm_method();
 [[nodiscard]] contract::MethodIdentity derived_method(std::string id);
 [[nodiscard]] contract::Sha256Digest bmw_m52b28_operating_accessory_descriptor_sha256();
+
+// Temporary migration-oracle scaffolding for direct BMW simulation tests and
+// reference tools that do not own a presentation specification. Generic compiled
+// engines replace this helper and checkpoint 6 deletes it with the BMW factories.
+[[nodiscard]] contract::RandomPlanCompilationResult
+compile_bmw_m52b28_migration_oracle_random_plan(
+    const contract::EngineSpec &engine, const contract::RenderScenario &scenario);
 
 [[nodiscard]] contract::EngineSpec
 build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder);

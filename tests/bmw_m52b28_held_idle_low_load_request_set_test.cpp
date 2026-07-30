@@ -1,6 +1,7 @@
 #include "engine_sim_offline/profiles/bmw_m52b28_held_idle_low_load_request.hpp"
 #include "engine_sim_offline/request_identity.hpp"
 
+#include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
 #include "simulation/low_order_operating_point_v1_runtime.hpp"
@@ -44,8 +45,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldIdleLowLoadPointCoun
             0.0,
             UINT64_C(42),
             UINT64_C(73),
-            "165f665d4158ce967d67d04bdd1ff962ad9425944cc85d42a1df7462f30ac563",
-            "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
+            "d8a84c969cdea38ccb956b89394ca0d0177386304797f3ebc12ce444034ac345",
+            "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
         },
         {
             "rpm1500-throttle0p10",
@@ -54,8 +55,8 @@ constexpr std::array<ExpectedPoint, profiles::kBmwM52b28HeldIdleLowLoadPointCoun
             0.10,
             UINT64_C(127),
             UINT64_C(158),
-            "ddfe71329e80a6270dc29c78dbf4943b122f800199d2a98011ac16c32345a036",
-            "ca1d0ee09a9dcff0919c5bf64e3b7551991aeec86c8abbdc5a1c444141f53942",
+            "0241eab5c635a07d816ee53a393672a92ff6130a6af3024e1621872bb69541fa",
+            "93939516151549f2af2c2c0eb586a10e6b5e039055db64e2783dc15deef3781d",
         },
     }};
 
@@ -97,8 +98,15 @@ void expect(bool condition, std::string_view message) {
 
 [[nodiscard]] identity::SimulationRequestIdentityEncoding
 request_identity(const profiles::BmwM52b28HeldIdleLowLoadRequest &request) {
+    auto random_plan_result =
+        profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+            request.engine, request.scenario);
+    const auto *random_plan =
+        std::get_if<contract::RandomPlan>(&random_plan_result);
+    expect(random_plan != nullptr,
+           "canonical BMW held idle/low-load random plan did not compile");
     auto result = identity::encode_simulation_request_identity_v3(
-        request.engine, request.scenario, request.provenance.bundle);
+        request.engine, request.scenario, *random_plan, request.provenance.bundle);
     const auto *encoding =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&result);
     expect(encoding != nullptr,
@@ -265,8 +273,13 @@ run_fixed_horizon_sample(const profiles::BmwM52b28HeldIdleLowLoadRequest &reques
 
     const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
         request.engine.physics_profile);
+    auto random_plan_result =
+        profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+            request.engine, request.scenario);
+    const auto *random_plan = std::get_if<contract::RandomPlan>(&random_plan_result);
+    expect(random_plan != nullptr, "held idle/low-load random plan did not compile");
     auto core_result = simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, profile.core);
+        request.engine, request.scenario, profile.core, *random_plan);
     auto *core = std::get_if<simulation::LowOrderEngineCoreV1Runtime>(&core_result);
     expect(core != nullptr, "held idle/low-load engine core did not compile");
 

@@ -23,6 +23,7 @@ enum class ProvenanceOrigin : std::uint8_t {
     calibrated,
     calibrated_m3,
     artistic,
+    authored_product_data,
 };
 
 enum class ResolutionMode : std::uint8_t {

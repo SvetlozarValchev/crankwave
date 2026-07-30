@@ -4,6 +4,7 @@
 
 #include "engine_sim_offline/contract/engine.hpp"
 #include "engine_sim_offline/contract/provenance.hpp"
+#include "engine_sim_offline/contract/randomness.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
 
 namespace engine_sim_offline::identity::detail {
@@ -23,6 +24,8 @@ template <class T, class WriteValue>
                                       const contract::RenderRates &rates);
 [[nodiscard]] bool write_method_identity(CanonicalJsonWriter &writer,
                                          const contract::MethodIdentity &method);
+[[nodiscard]] bool write_random_plan(CanonicalJsonWriter &writer,
+                                     const contract::RandomPlan &random_plan);
 [[nodiscard]] bool
 write_provenance_bundle_ref(CanonicalJsonWriter &writer,
                             const contract::ProvenanceBundleRef &provenance);

@@ -1,5 +1,7 @@
 #include "profiles/bmw_m52b28_profile_internal.hpp"
 #include "simulation/cycle_accounting_method_registry.hpp"
+#include "simulation/legacy_flow_calibration.hpp"
+#include "simulation/legacy_mechanics_primitives.hpp"
 
 #include <array>
 #include <cmath>
@@ -16,43 +18,10 @@ namespace {
 using Source = BmwResolutionSource;
 
 constexpr double kLegacyPi = 3.14159265359;
-constexpr double kGasConstant = 8.31446261815324;
 constexpr double kLegacyRpmScale = 0.104719755;
 
 std::string numbered_id(std::string_view prefix, std::uint32_t number) {
     return std::string(prefix) + std::to_string(number);
-}
-
-double
-restriction_pressure_drop_pa(contract::LegacyRestrictionCalibration calibration) {
-    if (calibration == contract::LegacyRestrictionCalibration::cfm_at_28_inh2o) {
-        return 28.0 * (3386.3886666666713 * 0.0734824);
-    }
-    return 1.5 * 3386.3886666666713;
-}
-
-double restriction_k(contract::LegacyRestrictionCalibration calibration,
-                     double source_rating) {
-    constexpr double gamma = 1.4;
-    constexpr double pressure_pa = 101325.0;
-    constexpr double temperature_k = 298.15;
-    const double one_source_scfm = 0.002641 * 453.59237 / 60.0;
-    const double pressure_target =
-        pressure_pa - restriction_pressure_drop_pa(calibration);
-    const double ratio = pressure_target / pressure_pa;
-    const double critical = std::pow(2.0 / (gamma + 1.0), gamma / (gamma - 1.0));
-    double flow = 0.0;
-    if (ratio <= critical) {
-        flow = std::sqrt(gamma);
-        flow *= std::pow(2.0 / (gamma + 1.0), (gamma + 1.0) / (2.0 * (gamma - 1.0)));
-    } else {
-        flow = (2.0 * gamma) / (gamma - 1.0);
-        flow *= 1.0 - std::pow(ratio, (gamma - 1.0) / gamma);
-        flow = std::sqrt(flow);
-        flow *= std::pow(ratio, 1.0 / gamma);
-    }
-    flow *= pressure_pa / std::sqrt(kGasConstant * temperature_k);
-    return source_rating * one_source_scfm / flow;
 }
 
 contract::LegacyRestriction
@@ -65,7 +34,10 @@ make_restriction(BmwProvenanceBuilder &builder,
     return {
         builder.resolved(calibration, calibration_path, Source::legacy_asset),
         builder.resolved(source_rating, source_rating_path, Source::legacy_asset),
-        builder.derived(restriction_k(calibration, source_rating), resolved_k_path,
+        builder.derived(
+            simulation::legacy_flow_bench_restriction_coefficient(calibration,
+                                                                  source_rating),
+            resolved_k_path,
                         derived_method("legacy-flow-constant-v1"),
                         {
                             calibration_path,
@@ -89,8 +61,9 @@ make_valve_flow_point(BmwProvenanceBuilder &builder, std::string_view table_name
                          base_path + ".lift_m", Source::legacy_asset),
         builder.resolved(source_cfm, source_cfm_path, Source::legacy_asset),
         builder.derived(
-            restriction_k(contract::LegacyRestrictionCalibration::cfm_at_28_inh2o,
-                          source_cfm),
+            simulation::legacy_flow_bench_restriction_coefficient(
+                contract::LegacyRestrictionCalibration::cfm_at_28_inh2o,
+                source_cfm),
             base_path + ".resolved_k", derived_method("legacy-flow-constant-v1"),
             {
                 source_cfm_path,
@@ -177,17 +150,11 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
     const double piston_compression_height_m = 31.82 * millimetre_source;
     const double head_chamber_volume_m3 = 34.0 * cc_source;
     const double piston_displacement_term_m3 = 0.0;
-    const double legacy_piston_area_m2 = kLegacyPi * bore_m * bore_m / 4.0;
-    const double tdc_mechanism_height_m =
-        crank_radius_m * std::cos(0.0) +
-        std::sqrt(connecting_rod_length_m * connecting_rod_length_m);
-    const double clearance_volume_m3 =
-        head_chamber_volume_m3 - piston_displacement_term_m3 +
-        legacy_piston_area_m2 *
-            (deck_height_m - tdc_mechanism_height_m - piston_compression_height_m);
-    const double swept_volume_m3 = legacy_piston_area_m2 * (2.0 * crank_radius_m);
-    const double compression_ratio =
-        (clearance_volume_m3 + swept_volume_m3) / clearance_volume_m3;
+    const auto cylinder_geometry = simulation::derive_legacy_cylinder_geometry(
+        bore_m, crank_radius_m, connecting_rod_length_m, deck_height_m,
+        piston_compression_height_m, head_chamber_volume_m3,
+        piston_displacement_term_m3);
+    const double compression_ratio = cylinder_geometry.compression_ratio;
 
     const double rot120 = 120.0 * degree_source;
     const double rot360 = 360.0 * degree_source;
@@ -732,31 +699,6 @@ build_bmw_m52b28_low_order_engine(BmwProvenanceBuilder &builder) {
     for (std::uint32_t turbulence = 0; turbulence <= 45; turbulence += 5) {
         core.fuel.turbulence_to_flame_speed_ratio.push_back(
             make_flame_speed_point(builder, turbulence));
-    }
-
-    constexpr std::array<std::uint64_t, 6> initial_states{
-        UINT64_C(0x6ba3d060370e05fa), UINT64_C(0xb1ab9b6c6217bdf3),
-        UINT64_C(0x0c2447917cd77f40), UINT64_C(0xfc83080b6c8b1a98),
-        UINT64_C(0x1f0c63f1d677237b), UINT64_C(0xad811f42fb6dafa3),
-    };
-    constexpr std::array<std::uint64_t, 6> streams{
-        UINT64_C(0x3e13b1e68ef2f790), UINT64_C(0x7681d4f9a6c78e3f),
-        UINT64_C(0x4c09e08d851104f5), UINT64_C(0x686f68f85fd7d169),
-        UINT64_C(0x3507d87731683125), UINT64_C(0x50900fae5afa96cf),
-    };
-    for (std::uint32_t index = 0; index < 6; ++index) {
-        const std::uint32_t number = index + 1;
-        const std::string stream_path = profile_path("combustion_random_streams." +
-                                                     numbered_id("cylinder-", number));
-        core.combustion_random_streams.push_back({
-            contract::CylinderId{number},
-            builder.resolved<std::uint64_t>(initial_states[index],
-                                            stream_path + ".pcg32_initial_state",
-                                            Source::reference_component_seed),
-            builder.resolved<std::uint64_t>(streams[index],
-                                            stream_path + ".pcg32_stream",
-                                            Source::reference_component_seed),
-        });
     }
 
     const contract::TorqueTermMask included_terms =

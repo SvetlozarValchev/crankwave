@@ -88,6 +88,7 @@ using TransmissionRef = StableRef<TransmissionTag>;
 using GearId = StableId<GearTag>;
 using GearRef = StableRef<GearTag>;
 using AccessoryConfigurationId = StableId<AccessoryConfigurationTag>;
+using AccessoryConfigurationRef = StableRef<AccessoryConfigurationTag>;
 
 enum class EngineCycle : std::uint8_t {
     four_stroke,
@@ -645,13 +646,22 @@ struct RigDefinition {
     friend bool operator==(const RigDefinition &, const RigDefinition &) = default;
 };
 
+struct AccessoryConfigurationDefinition {
+    AccessoryConfigurationId id;
+    std::string uri;
+    std::optional<std::string> sha256;
+
+    friend bool operator==(const AccessoryConfigurationDefinition &,
+                           const AccessoryConfigurationDefinition &) = default;
+};
+
 struct ChenFlynnLossDefinition {
     Quantity constant_fmep;
     double peak_pressure_coefficient = 0.0;
     Quantity mean_piston_speed_coefficient;
     Quantity mean_piston_speed_squared_coefficient;
     Quantity required_oil_temperature;
-    AccessoryConfigurationId accessory_configuration_id;
+    AccessoryConfigurationRef accessory_configuration_id;
 
     friend bool operator==(const ChenFlynnLossDefinition &,
                            const ChenFlynnLossDefinition &) = default;
@@ -679,6 +689,7 @@ struct EngineDefinition {
     std::vector<HeadDefinition> heads;
     std::vector<FuelDefinition> fuels;
     FuelRef default_fuel;
+    std::vector<AccessoryConfigurationDefinition> accessory_configurations;
     EngineLossDefinition losses;
     IgnitionDefinition ignition;
     std::optional<std::vector<ThrottleControllerDefinition>> throttle_controllers;

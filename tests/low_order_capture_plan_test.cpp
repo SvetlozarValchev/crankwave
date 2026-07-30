@@ -41,6 +41,21 @@ require_plan(simulation::LowOrderCapturePlanCompileResult result) {
     return std::get<simulation::LowOrderCapturePlan>(std::move(result));
 }
 
+[[nodiscard]] contract::RandomPlan
+migration_random_plan(const contract::EngineSpec &engine,
+                      const contract::RenderScenario &scenario) {
+    auto result = profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+        engine, scenario);
+    if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
+        std::string message = "low-order random plan was rejected";
+        for (const auto &issue : report->issues) {
+            message += "\n  " + issue.path + ": " + issue.message;
+        }
+        throw std::runtime_error{std::move(message)};
+    }
+    return std::get<contract::RandomPlan>(std::move(result));
+}
+
 [[nodiscard]] std::vector<contract::GasVolumeId>
 expected_physical_inventory(const contract::EngineSpec &engine) {
     std::vector<contract::GasVolumeId> result;
@@ -147,7 +162,8 @@ void test_physical_inventory_is_stable_and_excludes_atmosphere() {
     rpm.samples_f64le_sha256 =
         contract::canonical_binary64_le_sha256(rpm.post_step_rpm);
     auto core_runtime = simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, reordered_core);
+        request.engine, request.scenario, reordered_core,
+        migration_random_plan(request.engine, request.scenario));
     if (const auto *report = std::get_if<contract::ValidationReport>(&core_runtime)) {
         std::string message =
             "matching EngineSpec/core cylinder permutation is not executable";

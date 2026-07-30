@@ -2,6 +2,7 @@
 
 #include "engine_sim_offline/contract/engine.hpp"
 #include "engine_sim_offline/contract/provenance.hpp"
+#include "engine_sim_offline/contract/randomness.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
 
 #include <cstddef>
@@ -47,10 +48,13 @@ using SimulationRequestIdentityEncodingResult =
     std::variant<SimulationRequestIdentityEncoding, SimulationRequestIdentityError>;
 
 // Encodes the complete resolved simulation factory identity without presentation
-// or run facts. The digest covers the exact canonical v3 bytes, including final LF.
+// or run facts. The random plan is the exact canonical plan consumed by execution,
+// including every provisioned component lane. The digest covers the exact canonical
+// v3 bytes, including final LF.
 [[nodiscard]] SimulationRequestIdentityEncodingResult
 encode_simulation_request_identity_v3(const contract::EngineSpec &engine,
                                       const contract::RenderScenario &scenario,
+                                      const contract::RandomPlan &random_plan,
                                       const contract::ProvenanceBundleRef &provenance);
 
 } // namespace engine_sim_offline::identity

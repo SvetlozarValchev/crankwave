@@ -1,5 +1,7 @@
 #include "profiles/bmw_m52b28_profile_internal.hpp"
 
+#include "engine_sim_offline/contract/presentation.hpp"
+
 #include <array>
 #include <cstdint>
 #include <stdexcept>
@@ -628,11 +630,7 @@ std::string BmwProvenanceBuilder::profile_path(std::string_view suffix) const {
 }
 
 contract::MethodIdentity legacy_low_order_method() {
-    return {
-        "legacy_low_order_v1",
-        1,
-        digest(kModelRecordSha256),
-    };
+    return contract::legacy_low_order_v1_method_identity();
 }
 
 contract::MethodIdentity fixed_rate_rpm_method() {
@@ -653,6 +651,21 @@ contract::MethodIdentity derived_method(std::string id) {
 
 contract::Sha256Digest bmw_m52b28_operating_accessory_descriptor_sha256() {
     return digest("ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97");
+}
+
+contract::RandomPlanCompilationResult compile_bmw_m52b28_migration_oracle_random_plan(
+    const contract::EngineSpec &engine, const contract::RenderScenario &scenario) {
+    contract::ResolvedRandomnessPolicy policy;
+    policy.seed_namespace_id.value = "baked.loaded_acceleration";
+    policy.generator.value = contract::pcg32_generator_method_identity();
+    policy.derivation.value = contract::component_seed_derivation_method_identity();
+
+    // Direct physics oracles have no presentation consumers. The canonical compiler
+    // still derives their combustion lanes from the same policy and public seed used
+    // by the complete listening render.
+    const contract::PresentationCalibration no_presentation_routes;
+    return contract::compile_random_plan(policy, engine, no_presentation_routes,
+                                         scenario);
 }
 
 } // namespace engine_sim_offline::profiles::detail

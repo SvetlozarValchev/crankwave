@@ -61,8 +61,9 @@ void parse_engine_definition(DocumentReader &reader, JsonValue value,
         {"identity", "cycle", "layout", "limits", "curves", "crankshafts",
          "journals", "connecting_rods", "pistons", "banks", "intakes",
          "exhausts", "ports", "cam_lobes", "camshafts", "valvetrains", "heads",
-         "fuels", "default_fuel", "losses", "ignition", "throttle_controllers",
-         "throttle_controller", "starter", "cylinders", "source_routes"});
+         "fuels", "default_fuel", "accessory_configurations", "losses", "ignition",
+         "throttle_controllers", "throttle_controller", "starter", "cylinders",
+         "source_routes"});
 
     detail::parse_engine_identity(
         reader, reader.required(value, "identity", path),
@@ -181,6 +182,15 @@ void parse_engine_definition(DocumentReader &reader, JsonValue value,
         },
         owner);
     read_ref_member(reader, value, "default_fuel", path, output.default_fuel, owner);
+    parse_required_definitions(
+        reader, value, "accessory_configurations", path,
+        output.accessory_configurations,
+        [](DocumentReader &item_reader, JsonValue item, std::string_view item_path,
+           AccessoryConfigurationDefinition &definition) {
+            detail::parse_accessory_configuration(item_reader, item, item_path,
+                                                  definition);
+        },
+        owner);
     detail::parse_losses(reader, reader.required(value, "losses", path, owner),
                          pointer_member(path, "losses"), output.losses, owner);
     detail::parse_ignition(

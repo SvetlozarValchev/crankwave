@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine_sim_offline/contract/randomness.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
 
@@ -32,6 +33,7 @@ struct LowOrderEngineCoreV1RuntimeFactory {
     compile_gas(const contract::EngineSpec &engine,
                 const contract::LowOrderEngineCoreV1 &core,
                 const contract::RenderScenario &scenario,
+                const contract::RandomPlan &random_plan,
                 const ScenarioControlSchedule &schedule,
                 std::span<const CenteredSliderCrankCylinder> cylinder_models);
 };

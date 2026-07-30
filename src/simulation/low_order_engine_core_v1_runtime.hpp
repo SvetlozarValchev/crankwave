@@ -2,6 +2,7 @@
 
 #include "engine_sim_offline/contract/engine.hpp"
 #include "engine_sim_offline/contract/parity_model.hpp"
+#include "engine_sim_offline/contract/randomness.hpp"
 #include "engine_sim_offline/contract/result.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
@@ -82,7 +83,8 @@ class LowOrderEngineCoreV1Runtime final {
     friend std::variant<LowOrderEngineCoreV1Runtime, contract::ValidationReport>
     compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &,
                                              const contract::RenderScenario &,
-                                             const contract::LowOrderEngineCoreV1 &);
+                                             const contract::LowOrderEngineCoreV1 &,
+                                             const contract::RandomPlan &);
 };
 
 using LowOrderEngineCoreV1CompileResult =
@@ -93,6 +95,7 @@ using LowOrderEngineCoreV1CompileResult =
 [[nodiscard]] LowOrderEngineCoreV1CompileResult
 compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
                                          const contract::RenderScenario &scenario,
-                                         const contract::LowOrderEngineCoreV1 &core);
+                                         const contract::LowOrderEngineCoreV1 &core,
+                                         const contract::RandomPlan &random_plan);
 
 } // namespace engine_sim_offline::simulation

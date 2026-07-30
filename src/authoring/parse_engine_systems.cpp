@@ -1,5 +1,7 @@
 #include "authoring/parse_engine_detail.hpp"
 
+#include <algorithm>
+#include <ranges>
 #include <string>
 #include <utility>
 
@@ -154,6 +156,43 @@ void parse_combustion(DocumentReader &reader, JsonValue value, std::string_view 
     }
 }
 
+void parse_accessory_configuration(
+    DocumentReader &reader, JsonValue value, std::string_view path,
+    AccessoryConfigurationDefinition &output) {
+    if (!reader.object(value, path)) {
+        return;
+    }
+    reader.reject_unknown(value, path, {"id", "uri", "sha256"});
+    read_id_member(reader, value, "id", path, output.id);
+    const auto owner = subject("accessory_configuration", output.id.value);
+    reader.string(reader.required(value, "uri", path, owner),
+                  pointer_member(path, "uri"), output.uri, owner);
+    if (output.uri.empty()) {
+        reader.add(DiagnosticCode::invalid_value, pointer_member(path, "uri"),
+                   "accessory-configuration URI must not be empty", owner);
+    }
+
+    const auto digest = reader.optional(value, "sha256");
+    if (digest.valid() && !digest.is_null()) {
+        std::string parsed;
+        if (reader.string(digest, pointer_member(path, "sha256"), parsed, owner)) {
+            const bool is_lowercase_sha256 =
+                parsed.size() == 64U &&
+                std::ranges::all_of(parsed, [](char byte) {
+                    return (byte >= '0' && byte <= '9') ||
+                           (byte >= 'a' && byte <= 'f');
+                });
+            if (!is_lowercase_sha256) {
+                reader.add(DiagnosticCode::invalid_value,
+                           pointer_member(path, "sha256"),
+                           "SHA-256 must be 64 lowercase hexadecimal digits", owner);
+            } else {
+                output.sha256 = std::move(parsed);
+            }
+        }
+    }
+}
+
 void parse_losses(DocumentReader &reader, JsonValue value, std::string_view path,
                   EngineLossDefinition &output,
                   const std::optional<DiagnosticSubject> &subject_value) {
@@ -195,10 +234,10 @@ void parse_losses(DocumentReader &reader, JsonValue value, std::string_view path
     read_quantity_member(reader, value, "required_oil_temperature", path,
                          QuantityDimension::temperature,
                          parsed.required_oil_temperature, subject_value);
-    reader.id(reader.required(value, "accessory_configuration_id", path,
-                              subject_value),
-              pointer_member(path, "accessory_configuration_id"),
-              parsed.accessory_configuration_id, subject_value);
+    reader.ref(reader.required(value, "accessory_configuration_id", path,
+                               subject_value),
+               pointer_member(path, "accessory_configuration_id"),
+               parsed.accessory_configuration_id, subject_value);
     require_nonnegative(reader, parsed.constant_fmep,
                         pointer_member(path, "constant_fmep"), subject_value);
     require_nonnegative(reader, parsed.mean_piston_speed_coefficient,

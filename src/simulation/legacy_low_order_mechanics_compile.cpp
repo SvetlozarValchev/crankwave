@@ -202,17 +202,13 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
             continue;
         }
 
-        const double piston_area_m2 = kLegacyPi * bore_m * bore_m / 4.0;
-        const double tdc_mechanism_height_m =
-            crank_radius_m * std::cos(0.0) + std::sqrt(rod_length_m * rod_length_m);
-        const double clearance_volume_m3 =
-            head_volume_m3 - piston_displacement_m3 +
-            piston_area_m2 *
-                (deck_height_m - tdc_mechanism_height_m - compression_height_m);
+        const auto geometry = derive_legacy_cylinder_geometry(
+            bore_m, crank_radius_m, rod_length_m, deck_height_m,
+            compression_height_m, head_volume_m3, piston_displacement_m3);
         const double geometric_tdc_rad = legacy_wrap_2pi(
             crank.crank_tdc_reference_rad.value + journal_angle_rad - kLegacyPi / 2.0);
-        const bool derived_valid = finite_positive(piston_area_m2) &&
-                                   finite_positive(clearance_volume_m3) &&
+        const bool derived_valid = finite_positive(geometry.piston_area_m2) &&
+                                   finite_positive(geometry.clearance_volume_m3) &&
                                    std::isfinite(geometric_tdc_rad);
         require(report, derived_valid, ContractIssueCode::invalid_value, path,
                 "compiled slider-crank area, clearance, and phase must be valid");
@@ -224,10 +220,10 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
             {
                 assembly.topology.cylinder_id,
                 geometric_tdc_rad,
-                piston_area_m2,
+                geometry.piston_area_m2,
                 crank_radius_m,
                 rod_length_m,
-                clearance_volume_m3,
+                geometry.clearance_volume_m3,
                 ignition_wire_angle_rad,
             },
             assembly.topology.exhaust_route_id,

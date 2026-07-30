@@ -70,6 +70,7 @@ exception_error(const std::exception *exception) {
 SimulationRequestIdentityEncodingResult
 encode_simulation_request_identity_v3(const contract::EngineSpec &engine,
                                       const contract::RenderScenario &scenario,
+                                      const contract::RandomPlan &random_plan,
                                       const contract::ProvenanceBundleRef &provenance) {
     try {
         CanonicalJsonWriter writer;
@@ -79,6 +80,8 @@ encode_simulation_request_identity_v3(const contract::EngineSpec &engine,
             writer.string_value(kSimulationRequestIdentityWireSchemaV3) &&
             writer.key("engine") && detail::write_engine_spec(writer, engine) &&
             writer.key("scenario") && detail::write_render_scenario(writer, scenario) &&
+            writer.key("random_plan") &&
+            detail::write_random_plan(writer, random_plan) &&
             writer.key("provenance") &&
             detail::write_provenance_bundle_ref(writer, provenance) &&
             writer.end_object() && writer.finish(bytes);

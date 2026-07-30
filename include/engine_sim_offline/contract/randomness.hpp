@@ -160,9 +160,9 @@ using RandomPlanCompilationResult = std::variant<RandomPlan, ValidationReport>;
 // consumers. Component order is ascending stable cylinder ID, then ascending stable
 // route ID for air noise, then ascending stable route ID for jitter. Each derivation
 // index is its nonzero stable owner ID minus one, so container reordering or insertion
-// does not rekey an existing owner. The current engine profile's resolved combustion
-// seed values are checked as cached executable values; they have no independent
-// authority and must equal this derivation exactly.
+// does not rekey an existing owner. This plan is the sole executable authority for
+// combustion and presentation random-stream initialization; engine definitions do
+// not cache scenario-derived seeds.
 [[nodiscard]] RandomPlanCompilationResult
 compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &engine,
                     const PresentationCalibration &presentation,

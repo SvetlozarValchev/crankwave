@@ -400,24 +400,6 @@ using AuthoredLegacyFuelProfile =
     LegacyFuelProfileT<AuthoredValue, AuthoredLegacyFlameSpeedPoint>;
 using LegacyFuelProfile = LegacyFuelProfileT<ResolvedValue, LegacyFlameSpeedPoint>;
 
-struct AuthoredLegacyCombustionRandomStream {
-    AuthoredValue<std::string> cylinder_id;
-    AuthoredValue<std::uint64_t> pcg32_initial_state;
-    AuthoredValue<std::uint64_t> pcg32_stream;
-
-    friend bool operator==(const AuthoredLegacyCombustionRandomStream &,
-                           const AuthoredLegacyCombustionRandomStream &) = default;
-};
-
-struct LegacyCombustionRandomStream {
-    CylinderId cylinder_id;
-    ResolvedValue<std::uint64_t> pcg32_initial_state;
-    ResolvedValue<std::uint64_t> pcg32_stream;
-
-    friend bool operator==(const LegacyCombustionRandomStream &,
-                           const LegacyCombustionRandomStream &) = default;
-};
-
 template <template <class> class Field> struct LegacyExcitationPressureGainsT {
     Field<double> gauge_static;
     Field<double> dynamic_forward;
@@ -504,7 +486,6 @@ struct AuthoredLowOrderEngineCoreV1 {
     AuthoredLegacyValvetrainProfile valvetrain;
     AuthoredLegacyIgnitionProfile ignition;
     AuthoredLegacyFuelProfile fuel;
-    std::vector<AuthoredLegacyCombustionRandomStream> combustion_random_streams;
     AuthoredLegacyReferenceExcitationProfile excitation;
 
     friend bool operator==(const AuthoredLowOrderEngineCoreV1 &,
@@ -517,7 +498,6 @@ struct LowOrderEngineCoreV1 {
     LegacyValvetrainProfile valvetrain;
     LegacyIgnitionProfile ignition;
     LegacyFuelProfile fuel;
-    std::vector<LegacyCombustionRandomStream> combustion_random_streams;
     LegacyReferenceExcitationProfile excitation;
 
     friend bool operator==(const LowOrderEngineCoreV1 &,

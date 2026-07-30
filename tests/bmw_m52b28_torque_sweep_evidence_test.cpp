@@ -1,6 +1,8 @@
 #include "engine_sim_offline/request_identity.hpp"
 #include "reference/bmw_m52b28_torque_sweep_evidence.hpp"
 
+#include "profiles/bmw_m52b28_profile_internal.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -123,8 +125,16 @@ void expect(bool condition, std::string_view message) {
         const auto *held = std::get_if<contract::HeldSpeed>(&request.scenario.mode);
         expect(held != nullptr,
                "canonical BMW torque-sweep point lost held-speed mode");
+        auto random_plan_result =
+            profiles::detail::compile_bmw_m52b28_migration_oracle_random_plan(
+                request.engine, request.scenario);
+        const auto *random_plan =
+            std::get_if<contract::RandomPlan>(&random_plan_result);
+        expect(random_plan != nullptr,
+               "canonical BMW torque-sweep random plan did not compile");
         const auto identity_result = identity::encode_simulation_request_identity_v3(
-            request.engine, request.scenario, request.provenance.bundle);
+            request.engine, request.scenario, *random_plan,
+            request.provenance.bundle);
         const auto *identity_encoding =
             std::get_if<identity::SimulationRequestIdentityEncoding>(&identity_result);
         expect(identity_encoding != nullptr,
@@ -204,7 +214,7 @@ void run_tests() {
            "retained SHA-256 does not cover exact canonical JSON bytes");
     const auto encoded_sha256 = digest_hex(encoded->sha256);
     constexpr std::string_view kExpectedEncodedSha256 =
-        "0baca7c1ad439e3f13938f2dc2b4f7253c775b55c5e962d978e55186afa23479";
+        "d49ce8653481dd6d19632616c7bf3cbdfffa9a4e9d8c935552bc40870967177f";
     if (encoded_sha256 != kExpectedEncodedSha256) {
         std::cerr << "BMW torque-sweep evidence SHA-256: " << encoded_sha256 << '\n';
     }

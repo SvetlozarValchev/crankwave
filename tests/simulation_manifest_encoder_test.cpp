@@ -25,13 +25,13 @@ using namespace engine_sim_offline::contract::test;
 using namespace engine_sim_offline::identity;
 
 constexpr std::string_view kExpectedM3ManifestSha256 =
-    "b6910a636b1e0ef08a2c308a2e9a9073e3ec40dde33f24c1427c7bc5fa40f4e7";
+    "4503f6a542df7deed6ec0b63739f609f5ea2e78bdf9d7359b412368c2ff480b8";
 constexpr std::string_view kExpectedM3RequestIdentitySha256 =
-    "1207d68feb48e8abc65d232229a36c698dfcd2dea79d253b3f1b6e185ee280b8";
+    "e6967543ae028c06b8805ca30c75c6767d713c227465cc81839334f58fcf80fa";
 constexpr std::string_view kExpectedM4ManifestSha256 =
-    "8b605391ea8a668e228ce342bbd3ea4a46cb2c90fa565c00415d84362429150f";
+    "a9eb3422e0c207eae7defc788f7b1c0cefaad2e825a0e0b8ce14679f5d7cffdb";
 constexpr std::string_view kExpectedM4RequestIdentitySha256 =
-    "25b828ba5daa2824cb0212828c67443c7b9bdba54f26d6a256451324fa61149e";
+    "8371935f062960cb2b483708043ef3aa5811657307883a4a6c195a5d760fba35";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -99,8 +99,10 @@ require_manifest_encoding(const RenderManifest &manifest) {
 [[nodiscard]] SimulationRequestIdentityEncoding
 require_request_identity_encoding(const EngineSpec &engine,
                                   const RenderScenario &scenario,
+                                  const RandomPlan &random_plan,
                                   const ProvenanceBundleRef &provenance) {
-    auto result = encode_simulation_request_identity_v3(engine, scenario, provenance);
+    auto result =
+        encode_simulation_request_identity_v3(engine, scenario, random_plan, provenance);
     if (const auto *error =
             std::get_if<SimulationRequestIdentityError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
@@ -121,10 +123,11 @@ void expect_manifest_error(const RenderManifest &manifest,
 
 void expect_request_identity_error(const EngineSpec &engine,
                                    const RenderScenario &scenario,
+                                   const RandomPlan &random_plan,
                                    const ProvenanceBundleRef &provenance,
                                    std::string_view detail_code) {
-    const auto result =
-        encode_simulation_request_identity_v3(engine, scenario, provenance);
+    const auto result = encode_simulation_request_identity_v3(
+        engine, scenario, random_plan, provenance);
     const auto *error =
         std::get_if<SimulationRequestIdentityError>(&result);
     expect(error != nullptr,
@@ -220,9 +223,11 @@ struct GoldenHashes {
 
     const auto &resolved = simulation_inputs(fixture.manifest.content);
     const auto first_identity = require_request_identity_encoding(
-        resolved.engine, resolved.scenario, fixture.manifest.content.provenance);
+        resolved.engine, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
     const auto second_identity = require_request_identity_encoding(
-        resolved.engine, resolved.scenario, fixture.manifest.content.provenance);
+        resolved.engine, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
     expect(first_identity == second_identity,
            "identical simulation requests produced different identity encodings");
     expect(first_identity.sha256 == sha256(first_identity.bytes),
@@ -240,11 +245,35 @@ struct GoldenHashes {
            "request identity contains non-terminal whitespace");
     const auto identity_engine_key = identity_document.find("\"engine\":");
     const auto identity_scenario_key = identity_document.find("\"scenario\":");
+    const auto identity_random_plan_key = identity_document.find("\"random_plan\":");
     const auto identity_provenance_key = identity_document.find("\"provenance\":");
     expect(identity_engine_key < identity_scenario_key &&
-               identity_scenario_key < identity_provenance_key &&
+               identity_scenario_key < identity_random_plan_key &&
+               identity_random_plan_key < identity_provenance_key &&
                identity_document.find("\"presentation\":") == std::string::npos,
            "request identity member order or excluded presentation changed");
+
+    auto mutated_plan = fixture.manifest.content.randomness;
+    ++mutated_plan.component_seeds.front().initial_state;
+    const auto mutated_seed_identity = require_request_identity_encoding(
+        resolved.engine, resolved.scenario, mutated_plan,
+        fixture.manifest.content.provenance);
+    expect(mutated_seed_identity.sha256 != first_identity.sha256,
+           "executed component-seed mutation did not change request identity");
+
+    auto changed_randomness = resolved.randomness;
+    changed_randomness.seed_namespace_id.value += ".identity-variant";
+    auto changed_plan_result =
+        compile_random_plan(changed_randomness, resolved.engine,
+                            resolved.presentation, resolved.scenario);
+    const auto *changed_plan = std::get_if<RandomPlan>(&changed_plan_result);
+    expect(changed_plan != nullptr && *changed_plan != fixture.manifest.content.randomness,
+           "changed seed namespace did not derive a distinct canonical random plan");
+    const auto changed_namespace_identity = require_request_identity_encoding(
+        resolved.engine, resolved.scenario, *changed_plan,
+        fixture.manifest.content.provenance);
+    expect(changed_namespace_identity.sha256 != first_identity.sha256,
+           "seed-namespace-derived plan change did not change request identity");
 
     return {
         digest_hex(sha256(first_manifest)),
@@ -318,6 +347,7 @@ void test_temporally_distinct_torque_capability() {
     const auto request_document =
         as_string(require_request_identity_encoding(
                       distinct_inputs.engine, distinct_inputs.scenario,
+                      temporally_distinct_torque.content.randomness,
                       temporally_distinct_torque.content.provenance)
                       .bytes);
     expect(request_document.find(kDirectTemporalCapability) != std::string::npos,
@@ -469,9 +499,11 @@ void configure_synthetic_m4_wire_fixture(SimulationFixture &fixture) {
 
     const auto &resolved = simulation_inputs(fixture.manifest.content);
     const auto first_identity = require_request_identity_encoding(
-        resolved.engine, resolved.scenario, fixture.manifest.content.provenance);
+        resolved.engine, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
     const auto second_identity = require_request_identity_encoding(
-        resolved.engine, resolved.scenario, fixture.manifest.content.provenance);
+        resolved.engine, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
     expect(first_identity == second_identity,
            "identical M4 requests produced different identity encodings");
     expect(as_string(first_identity.bytes).find(kSamplingPrefix) != std::string::npos,
@@ -554,6 +586,7 @@ void test_compact_fixed_rate_scenario() {
     expect_manifest_error(stale_digest, "simulation-manifest-wire-unrepresentable");
     const auto &stale_inputs = simulation_inputs(stale_digest.content);
     expect_request_identity_error(stale_inputs.engine, stale_inputs.scenario,
+                                  stale_digest.content.randomness,
                                   stale_digest.content.provenance,
                                   "simulation-request-identity-wire-unrepresentable");
 
@@ -563,6 +596,7 @@ void test_compact_fixed_rate_scenario() {
     expect_manifest_error(nonfinite_lane, "simulation-manifest-wire-nonfinite");
     const auto &nonfinite_inputs = simulation_inputs(nonfinite_lane.content);
     expect_request_identity_error(nonfinite_inputs.engine, nonfinite_inputs.scenario,
+                                  nonfinite_lane.content.randomness,
                                   nonfinite_lane.content.provenance,
                                   "simulation-request-identity-wire-nonfinite");
 }
