@@ -1,0 +1,609 @@
+{
+  "schema": "engine-sim-offline/engine",
+  "engine": {
+    "identity": {
+      "id": "sequoia-3ur-fe-cleanroom",
+      "display_name": "Toyota Sequoia 3UR-FE 5.7L V8 (Clean Room)",
+      "description": "Clean-room Toyota 3UR-FE-style 90-degree naturally aspirated V8 authored from public dimensions and output targets without a branded sound asset. Physical, airflow, combustion, ignition, exhaust, and source-presentation values are preserved from the clean-room MR definition. The Chen-Flynn losses, accessory descriptor, and mechanically disengaged starter state are current executor policy: the source declares no measured loss inventory and its 300 N*m at 230 rpm cranking starter and 0.745 kg/L fuel density are not executed by the current low-order runtime."
+    },
+    "cycle": "four_stroke",
+    "layout": "v_engine",
+    "limits": {
+      "redline": {"value": 6000, "unit": "rpm"}
+    },
+    "curves": [
+      {
+        "id": "intake-valve-flow",
+        "input_dimension": "length",
+        "output_dimension": "volume_flow_rate",
+        "evaluation": "triangle_weighted_samples",
+        "triangle_filter_radius": {"value": 1, "unit": "mm"},
+        "below_domain": "clamp",
+        "above_domain": "clamp",
+        "samples": [
+          {"input": {"value": 0, "unit": "mm"}, "output": {"value": 0, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 1, "unit": "mm"}, "output": {"value": 26.200000000000003, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 2, "unit": "mm"}, "output": {"value": 52.400000000000006, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 3, "unit": "mm"}, "output": {"value": 78.60000000000001, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 4, "unit": "mm"}, "output": {"value": 103.49000000000001, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 5, "unit": "mm"}, "output": {"value": 125.76, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 6, "unit": "mm"}, "output": {"value": 144.1, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 7, "unit": "mm"}, "output": {"value": 159.82, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 8, "unit": "mm"}, "output": {"value": 172.26500000000001, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 9, "unit": "mm"}, "output": {"value": 182.09, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 10, "unit": "mm"}, "output": {"value": 189.29500000000002, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 11, "unit": "mm"}, "output": {"value": 193.88, "unit": "cfm", "standard": "port_28_inh2o"}}
+        ]
+      },
+      {
+        "id": "exhaust-valve-flow",
+        "input_dimension": "length",
+        "output_dimension": "volume_flow_rate",
+        "evaluation": "triangle_weighted_samples",
+        "triangle_filter_radius": {"value": 1, "unit": "mm"},
+        "below_domain": "clamp",
+        "above_domain": "clamp",
+        "samples": [
+          {"input": {"value": 0, "unit": "mm"}, "output": {"value": 0, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 1, "unit": "mm"}, "output": {"value": 22.27, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 2, "unit": "mm"}, "output": {"value": 44.54, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 3, "unit": "mm"}, "output": {"value": 66.155, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 4, "unit": "mm"}, "output": {"value": 86.46000000000001, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 5, "unit": "mm"}, "output": {"value": 104.14500000000001, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 6, "unit": "mm"}, "output": {"value": 119.21000000000001, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 7, "unit": "mm"}, "output": {"value": 131.655, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 8, "unit": "mm"}, "output": {"value": 141.48000000000002, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 9, "unit": "mm"}, "output": {"value": 148.685, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 10, "unit": "mm"}, "output": {"value": 153.925, "unit": "cfm", "standard": "port_28_inh2o"}},
+          {"input": {"value": 11, "unit": "mm"}, "output": {"value": 157.20000000000002, "unit": "cfm", "standard": "port_28_inh2o"}}
+        ]
+      },
+      {
+        "id": "ignition-timing",
+        "input_dimension": "angular_speed",
+        "output_dimension": "angle",
+        "evaluation": "triangle_weighted_samples",
+        "triangle_filter_radius": {"value": 500, "unit": "rpm"},
+        "below_domain": "clamp",
+        "above_domain": "clamp",
+        "samples": [
+          {"input": {"value": 0, "unit": "rpm"}, "output": {"value": 0, "unit": "deg"}},
+          {"input": {"value": 650, "unit": "rpm"}, "output": {"value": 6, "unit": "deg"}},
+          {"input": {"value": 1000, "unit": "rpm"}, "output": {"value": 12, "unit": "deg"}},
+          {"input": {"value": 1500, "unit": "rpm"}, "output": {"value": 17, "unit": "deg"}},
+          {"input": {"value": 2200, "unit": "rpm"}, "output": {"value": 22, "unit": "deg"}},
+          {"input": {"value": 3000, "unit": "rpm"}, "output": {"value": 25, "unit": "deg"}},
+          {"input": {"value": 3600, "unit": "rpm"}, "output": {"value": 27, "unit": "deg"}},
+          {"input": {"value": 4500, "unit": "rpm"}, "output": {"value": 29, "unit": "deg"}},
+          {"input": {"value": 5200, "unit": "rpm"}, "output": {"value": 31, "unit": "deg"}},
+          {"input": {"value": 5600, "unit": "rpm"}, "output": {"value": 32, "unit": "deg"}},
+          {"input": {"value": 6000, "unit": "rpm"}, "output": {"value": 31, "unit": "deg"}}
+        ]
+      },
+      {
+        "id": "turbulence-to-flame-speed",
+        "input_dimension": "dimensionless",
+        "output_dimension": "speed",
+        "evaluation": "triangle_weighted_samples",
+        "triangle_filter_radius": {"value": 5, "unit": "1"},
+        "below_domain": "clamp",
+        "above_domain": "clamp",
+        "samples": [
+          {"input": {"value": 0, "unit": "1"}, "output": {"value": 3, "unit": "m/s"}},
+          {"input": {"value": 5, "unit": "1"}, "output": {"value": 7.5, "unit": "m/s"}},
+          {"input": {"value": 10, "unit": "1"}, "output": {"value": 15, "unit": "m/s"}},
+          {"input": {"value": 15, "unit": "1"}, "output": {"value": 22.5, "unit": "m/s"}},
+          {"input": {"value": 20, "unit": "1"}, "output": {"value": 30, "unit": "m/s"}},
+          {"input": {"value": 25, "unit": "1"}, "output": {"value": 37.5, "unit": "m/s"}},
+          {"input": {"value": 30, "unit": "1"}, "output": {"value": 45, "unit": "m/s"}},
+          {"input": {"value": 35, "unit": "1"}, "output": {"value": 52.5, "unit": "m/s"}},
+          {"input": {"value": 40, "unit": "1"}, "output": {"value": 60, "unit": "m/s"}},
+          {"input": {"value": 45, "unit": "1"}, "output": {"value": 67.5, "unit": "m/s"}}
+        ]
+      }
+    ],
+    "crankshafts": [
+      {
+        "id": "crank",
+        "throw_radius": {"value": 51, "unit": "mm"},
+        "mass": {"value": 27, "unit": "kg"},
+        "flywheel_mass": {"value": 7, "unit": "kg"},
+        "moment_of_inertia": {"value": 0.4081346, "unit": "kg*m2"},
+        "friction_torque": {"value": 22, "unit": "lb*ft"},
+        "tdc_reference_angle": {"value": 45, "unit": "deg"},
+        "journals": ["journal-12", "journal-34", "journal-56", "journal-78"]
+      }
+    ],
+    "journals": [
+      {"id": "journal-12", "crankshaft": "crank", "phase": {"value": 0, "unit": "deg"}},
+      {"id": "journal-34", "crankshaft": "crank", "phase": {"value": 270, "unit": "deg"}},
+      {"id": "journal-56", "crankshaft": "crank", "phase": {"value": 90, "unit": "deg"}},
+      {"id": "journal-78", "crankshaft": "crank", "phase": {"value": 180, "unit": "deg"}}
+    ],
+    "connecting_rods": [
+      {
+        "id": "rod",
+        "length": {"value": 164.5, "unit": "mm"},
+        "mass": {"value": 0.624, "unit": "kg"},
+        "moment_of_inertia": {"value": 0.0014071330000000003, "unit": "kg*m2"}
+      }
+    ],
+    "pistons": [
+      {
+        "id": "piston",
+        "mass": {"value": 0.48, "unit": "kg"},
+        "compression_height": {"value": 31, "unit": "mm"},
+        "displacement_volume": {"value": 0, "unit": "cm3"},
+        "blowby": {
+          "type": "flow_bench",
+          "rated_flow": {"value": 0.016, "unit": "cfm", "standard": "port_28_inh2o"},
+          "pressure_drop": {"value": 28, "unit": "inH2O"}
+        }
+      }
+    ],
+    "banks": [
+      {
+        "id": "bank.odd",
+        "angle": {"value": -45, "unit": "deg"},
+        "bore": {"value": 94, "unit": "mm"},
+        "deck_height": {"value": 246.5, "unit": "mm"},
+        "head": "head"
+      },
+      {
+        "id": "bank.even",
+        "angle": {"value": 45, "unit": "deg"},
+        "bore": {"value": 94, "unit": "mm"},
+        "deck_height": {"value": 246.5, "unit": "mm"},
+        "head": "head"
+      }
+    ],
+    "intakes": [
+      {
+        "id": "intake",
+        "plenum_volume": {"value": 5.7, "unit": "L"},
+        "plenum_cross_section_area": {"value": 36, "unit": "cm2"},
+        "runner_length": {"value": 210, "unit": "mm"},
+        "main_restriction": {
+          "type": "flow_bench",
+          "rated_flow": {"value": 950, "unit": "cfm", "standard": "carburetor_1p5_inhg"},
+          "pressure_drop": {"value": 1.5, "unit": "inHg"}
+        },
+        "idle_bypass_restriction": {
+          "type": "flow_bench",
+          "rated_flow": {"value": 0, "unit": "cfm", "standard": "carburetor_1p5_inhg"},
+          "pressure_drop": {"value": 1.5, "unit": "inHg"}
+        },
+        "runner_restriction": {
+          "type": "flow_bench",
+          "rated_flow": {"value": 285, "unit": "cfm", "standard": "carburetor_1p5_inhg"},
+          "pressure_drop": {"value": 1.5, "unit": "inHg"}
+        },
+        "idle_throttle_position_01": 0.997,
+        "runner_velocity_decay_01": 0.52
+      }
+    ],
+    "exhausts": [
+      {
+        "id": "exhaust.odd",
+        "collector_cross_section_area": {"value": 0.0036316811075500404, "unit": "m2"},
+        "collector_length": {"value": 3.55, "unit": "m"},
+        "primary_tube_length": {"value": 430, "unit": "mm"},
+        "primary_cross_section_area": {"value": 11.2, "unit": "cm2"},
+        "outlet_restriction": {
+          "type": "flow_bench",
+          "rated_flow": {"value": 620, "unit": "cfm", "standard": "carburetor_1p5_inhg"},
+          "pressure_drop": {"value": 1.5, "unit": "inHg"}
+        },
+        "primary_restriction": {
+          "type": "flow_bench",
+          "rated_flow": {"value": 245, "unit": "cfm", "standard": "carburetor_1p5_inhg"},
+          "pressure_drop": {"value": 1.5, "unit": "inHg"}
+        },
+        "velocity_decay_01": 0.76
+      },
+      {
+        "id": "exhaust.even",
+        "collector_cross_section_area": {"value": 0.0036316811075500404, "unit": "m2"},
+        "collector_length": {"value": 3.69, "unit": "m"},
+        "primary_tube_length": {"value": 430, "unit": "mm"},
+        "primary_cross_section_area": {"value": 11.2, "unit": "cm2"},
+        "outlet_restriction": {
+          "type": "flow_bench",
+          "rated_flow": {"value": 620, "unit": "cfm", "standard": "carburetor_1p5_inhg"},
+          "pressure_drop": {"value": 1.5, "unit": "inHg"}
+        },
+        "primary_restriction": {
+          "type": "flow_bench",
+          "rated_flow": {"value": 245, "unit": "cfm", "standard": "carburetor_1p5_inhg"},
+          "pressure_drop": {"value": 1.5, "unit": "inHg"}
+        },
+        "velocity_decay_01": 0.76
+      }
+    ],
+    "ports": [
+      {
+        "id": "intake-port",
+        "head": "head",
+        "kind": "intake",
+        "runner_volume": {"value": 220, "unit": "cm3"},
+        "runner_cross_section_area": {"value": 17, "unit": "cm2"},
+        "flow_curve": "intake-valve-flow"
+      },
+      {
+        "id": "exhaust-port",
+        "head": "head",
+        "kind": "exhaust",
+        "runner_volume": {"value": 132, "unit": "cm3"},
+        "runner_cross_section_area": {"value": 11.2, "unit": "cm2"},
+        "flow_curve": "exhaust-valve-flow"
+      }
+    ],
+    "cam_lobes": [
+      {
+        "id": "intake-lobe-1", "cylinder": "cylinder-1", "port_kind": "intake",
+        "centerline": {"value": 8.115781021774167, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 218, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "intake-lobe-3", "cylinder": "cylinder-3", "port_kind": "intake",
+        "centerline": {"value": 12.828170002159165, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 218, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "intake-lobe-5", "cylinder": "cylinder-5", "port_kind": "intake",
+        "centerline": {"value": 15.969762655749166, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 218, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "intake-lobe-7", "cylinder": "cylinder-7", "port_kind": "intake",
+        "centerline": {"value": 11.257373675364168, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 218, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "intake-lobe-2", "cylinder": "cylinder-2", "port_kind": "intake",
+        "centerline": {"value": 19.111355309339167, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 218, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "intake-lobe-4", "cylinder": "cylinder-4", "port_kind": "intake",
+        "centerline": {"value": 17.540558982544166, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 218, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "intake-lobe-6", "cylinder": "cylinder-6", "port_kind": "intake",
+        "centerline": {"value": 14.398966328954167, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 218, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "intake-lobe-8", "cylinder": "cylinder-8", "port_kind": "intake",
+        "centerline": {"value": 9.686577348569166, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 218, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "exhaust-lobe-1", "cylinder": "cylinder-1", "port_kind": "exhaust",
+        "centerline": {"value": 4.363323129986111, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 210, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "exhaust-lobe-3", "cylinder": "cylinder-3", "port_kind": "exhaust",
+        "centerline": {"value": 9.07571211037111, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 210, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "exhaust-lobe-5", "cylinder": "cylinder-5", "port_kind": "exhaust",
+        "centerline": {"value": 12.21730476396111, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 210, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "exhaust-lobe-7", "cylinder": "cylinder-7", "port_kind": "exhaust",
+        "centerline": {"value": 7.504915783576111, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 210, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "exhaust-lobe-2", "cylinder": "cylinder-2", "port_kind": "exhaust",
+        "centerline": {"value": 15.358897417551109, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 210, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "exhaust-lobe-4", "cylinder": "cylinder-4", "port_kind": "exhaust",
+        "centerline": {"value": 13.788101090756111, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 210, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "exhaust-lobe-6", "cylinder": "cylinder-6", "port_kind": "exhaust",
+        "centerline": {"value": 10.646508437166112, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 210, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      },
+      {
+        "id": "exhaust-lobe-8", "cylinder": "cylinder-8", "port_kind": "exhaust",
+        "centerline": {"value": 5.9341194567811115, "unit": "rad"},
+        "type": "harmonic", "duration_at_reference_lift": {"value": 210, "unit": "deg"},
+        "reference_lift": {"value": 0.00127, "unit": "m"},
+        "maximum_lift": {"value": 10.9, "unit": "mm"}, "gamma": 0.9, "sample_count": 256
+      }
+    ],
+    "camshafts": [
+      {
+        "id": "intake-camshaft",
+        "advance": {"value": 0, "unit": "deg"},
+        "base_radius": {"value": 17, "unit": "mm"},
+        "lobes": [
+          "intake-lobe-1", "intake-lobe-3", "intake-lobe-5", "intake-lobe-7",
+          "intake-lobe-2", "intake-lobe-4", "intake-lobe-6", "intake-lobe-8"
+        ]
+      },
+      {
+        "id": "exhaust-camshaft",
+        "advance": {"value": 0, "unit": "deg"},
+        "base_radius": {"value": 17, "unit": "mm"},
+        "lobes": [
+          "exhaust-lobe-1", "exhaust-lobe-3", "exhaust-lobe-5", "exhaust-lobe-7",
+          "exhaust-lobe-2", "exhaust-lobe-4", "exhaust-lobe-6", "exhaust-lobe-8"
+        ]
+      }
+    ],
+    "valvetrains": [
+      {
+        "id": "valvetrain",
+        "type": "standard",
+        "intake_camshaft": "intake-camshaft",
+        "exhaust_camshaft": "exhaust-camshaft"
+      }
+    ],
+    "heads": [
+      {
+        "id": "head",
+        "chamber_volume": {"value": 76.941, "unit": "cm3"},
+        "valvetrain": "valvetrain",
+        "ports": ["intake-port", "exhaust-port"]
+      }
+    ],
+    "fuels": [
+      {
+        "id": "regular-unleaded-gasoline",
+        "display_name": "Regular Unleaded Gasoline",
+        "molecular_mass": {"value": 100, "unit": "g/mol"},
+        "lower_heating_value": {"value": 46.4, "unit": "MJ/kg"},
+        "stoichiometric_air_fuel_molar_ratio": 12.5,
+        "turbulence_to_flame_speed": "turbulence-to-flame-speed",
+        "combustion": {
+          "maximum_efficiency_01": 0.94,
+          "cycle_variation_01": 0.025,
+          "low_efficiency_attenuation_01": 0.72,
+          "maximum_turbulence_effect": 2,
+          "maximum_dilution_effect": 10
+        }
+      }
+    ],
+    "default_fuel": "regular-unleaded-gasoline",
+    "accessory_configurations": [
+      {
+        "id": "warm-generic-accessories",
+        "uri": "../../profiles/sequoia-3ur-fe-cleanroom/accessory-configurations/sequoia-3ur-fe-cleanroom-warm-generic-accessories-v1.json",
+        "sha256": "58feca2e7b011a72a910be8a76dde71bdf53d3beedce5cdd54dbee583135f224"
+      }
+    ],
+    "losses": {
+      "type": "chen_flynn_cycle_mean",
+      "constant_fmep": {"value": 0.4, "unit": "bar"},
+      "peak_pressure_coefficient": 0.005,
+      "mean_piston_speed_coefficient": {"value": 0.09, "unit": "bar*s/m"},
+      "mean_piston_speed_squared_coefficient": {"value": 0.0009, "unit": "bar*s2/m2"},
+      "required_oil_temperature": {"value": 363.15, "unit": "K"},
+      "accessory_configuration_id": "warm-generic-accessories"
+    },
+    "ignition": {
+      "timing_curve": "ignition-timing",
+      "wires": [
+        {"id": "wire-1"}, {"id": "wire-2"}, {"id": "wire-3"}, {"id": "wire-4"},
+        {"id": "wire-5"}, {"id": "wire-6"}, {"id": "wire-7"}, {"id": "wire-8"}
+      ],
+      "firing_order": [
+        {"wire": "wire-1", "crank_angle": {"value": 0, "unit": "deg"}},
+        {"wire": "wire-8", "crank_angle": {"value": 90, "unit": "deg"}},
+        {"wire": "wire-7", "crank_angle": {"value": 180, "unit": "deg"}},
+        {"wire": "wire-3", "crank_angle": {"value": 270, "unit": "deg"}},
+        {"wire": "wire-6", "crank_angle": {"value": 360, "unit": "deg"}},
+        {"wire": "wire-5", "crank_angle": {"value": 450, "unit": "deg"}},
+        {"wire": "wire-4", "crank_angle": {"value": 540, "unit": "deg"}},
+        {"wire": "wire-2", "crank_angle": {"value": 630, "unit": "deg"}}
+      ],
+      "limiter": {
+        "activation_speed": {"value": 6100, "unit": "rpm"},
+        "cut_duration": {"value": 0.075, "unit": "s"}
+      }
+    },
+    "throttle_controllers": [
+      {"id": "direct-throttle", "type": "direct", "gamma": 1.75}
+    ],
+    "throttle_controller": "direct-throttle",
+    "starter": {
+      "type": "mechanically_disengaged"
+    },
+    "cylinders": [
+      {
+        "id": "cylinder-1", "bank": "bank.odd", "crankshaft": "crank",
+        "journal": "journal-12", "connecting_rod": "rod", "piston": "piston",
+        "intake": "intake", "exhaust": "exhaust.odd", "ignition_wire": "wire-1",
+        "intake_port": "intake-port", "exhaust_port": "exhaust-port",
+        "exhaust_header_primary_length": {"value": 430, "unit": "mm"}
+      },
+      {
+        "id": "cylinder-3", "bank": "bank.odd", "crankshaft": "crank",
+        "journal": "journal-34", "connecting_rod": "rod", "piston": "piston",
+        "intake": "intake", "exhaust": "exhaust.odd", "ignition_wire": "wire-3",
+        "intake_port": "intake-port", "exhaust_port": "exhaust-port",
+        "exhaust_header_primary_length": {"value": 455, "unit": "mm"}
+      },
+      {
+        "id": "cylinder-5", "bank": "bank.odd", "crankshaft": "crank",
+        "journal": "journal-56", "connecting_rod": "rod", "piston": "piston",
+        "intake": "intake", "exhaust": "exhaust.odd", "ignition_wire": "wire-5",
+        "intake_port": "intake-port", "exhaust_port": "exhaust-port",
+        "exhaust_header_primary_length": {"value": 480, "unit": "mm"}
+      },
+      {
+        "id": "cylinder-7", "bank": "bank.odd", "crankshaft": "crank",
+        "journal": "journal-78", "connecting_rod": "rod", "piston": "piston",
+        "intake": "intake", "exhaust": "exhaust.odd", "ignition_wire": "wire-7",
+        "intake_port": "intake-port", "exhaust_port": "exhaust-port",
+        "exhaust_header_primary_length": {"value": 505, "unit": "mm"}
+      },
+      {
+        "id": "cylinder-2", "bank": "bank.even", "crankshaft": "crank",
+        "journal": "journal-12", "connecting_rod": "rod", "piston": "piston",
+        "intake": "intake", "exhaust": "exhaust.even", "ignition_wire": "wire-2",
+        "intake_port": "intake-port", "exhaust_port": "exhaust-port",
+        "exhaust_header_primary_length": {"value": 440, "unit": "mm"}
+      },
+      {
+        "id": "cylinder-4", "bank": "bank.even", "crankshaft": "crank",
+        "journal": "journal-34", "connecting_rod": "rod", "piston": "piston",
+        "intake": "intake", "exhaust": "exhaust.even", "ignition_wire": "wire-4",
+        "intake_port": "intake-port", "exhaust_port": "exhaust-port",
+        "exhaust_header_primary_length": {"value": 465, "unit": "mm"}
+      },
+      {
+        "id": "cylinder-6", "bank": "bank.even", "crankshaft": "crank",
+        "journal": "journal-56", "connecting_rod": "rod", "piston": "piston",
+        "intake": "intake", "exhaust": "exhaust.even", "ignition_wire": "wire-6",
+        "intake_port": "intake-port", "exhaust_port": "exhaust-port",
+        "exhaust_header_primary_length": {"value": 490, "unit": "mm"}
+      },
+      {
+        "id": "cylinder-8", "bank": "bank.even", "crankshaft": "crank",
+        "journal": "journal-78", "connecting_rod": "rod", "piston": "piston",
+        "intake": "intake", "exhaust": "exhaust.even", "ignition_wire": "wire-8",
+        "intake_port": "intake-port", "exhaust_port": "exhaust-port",
+        "exhaust_header_primary_length": {"value": 515, "unit": "mm"}
+      }
+    ],
+    "source_routes": [
+      {"id": "exhaust.odd", "type": "exhaust", "exhaust": "exhaust.odd"},
+      {"id": "exhaust.even", "type": "exhaust", "exhaust": "exhaust.even"}
+    ]
+  },
+  "presentation": {
+    "assets": [
+      {
+        "id": "smooth-39",
+        "kind": "impulse_response",
+        "uri": "../../../reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav",
+        "sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc"
+      }
+    ],
+    "cylinder_routes": [
+      {"cylinder": "cylinder-1", "route": "exhaust.odd", "gain_linear": 1},
+      {"cylinder": "cylinder-3", "route": "exhaust.odd", "gain_linear": 0.98},
+      {"cylinder": "cylinder-5", "route": "exhaust.odd", "gain_linear": 0.97},
+      {"cylinder": "cylinder-7", "route": "exhaust.odd", "gain_linear": 0.96},
+      {"cylinder": "cylinder-2", "route": "exhaust.even", "gain_linear": 0.99},
+      {"cylinder": "cylinder-4", "route": "exhaust.even", "gain_linear": 0.98},
+      {"cylinder": "cylinder-6", "route": "exhaust.even", "gain_linear": 0.97},
+      {"cylinder": "cylinder-8", "route": "exhaust.even", "gain_linear": 0.95}
+    ],
+    "routes": [
+      {
+        "route": "exhaust.odd",
+        "source_gain_linear": 0.58,
+        "impulse_response": "smooth-39",
+        "impulse_response_gain_linear": 0.001,
+        "wet_mix_01": 1
+      },
+      {
+        "route": "exhaust.even",
+        "source_gain_linear": 0.56,
+        "impulse_response": "smooth-39",
+        "impulse_response_gain_linear": 0.001,
+        "wet_mix_01": 1
+      }
+    ],
+    "conditioning": {
+      "jitter_scale": 0.02500000037252903,
+      "jitter_modulation_cutoff_frequency": {"value": 10000, "unit": "Hz"},
+      "derivative_mix_01": 0.000035000000934815034,
+      "air_noise_mix_01": 0.18000000715255737,
+      "air_noise_cutoff_frequency": {"value": 2000, "unit": "Hz"}
+    },
+    "buses": [
+      {
+        "id": "master-engine-raw",
+        "routes": ["exhaust.even", "exhaust.odd"],
+        "gain_linear": 1,
+        "publish": true
+      },
+      {
+        "id": "master-engine-audition",
+        "routes": ["exhaust.even", "exhaust.odd"],
+        "gain_linear": 1,
+        "publish": true
+      }
+    ],
+    "audition": {
+      "buses": ["master-engine-audition"],
+      "monitoring_gain_linear": 128,
+      "fade_in": {"value": 0.02, "unit": "s"},
+      "fade_out": {"value": 0.02, "unit": "s"}
+    },
+    "publication_gain_linear": 1.4901161193847656e-8
+  },
+  "rig": {
+    "id": "sequoia-sr5-4wd-evaluation",
+    "vehicle": {
+      "id": "sequoia-sr5-4wd",
+      "mass": {"value": 2714.8, "unit": "kg"},
+      "drag_coefficient": 0.36,
+      "frontal_area": {"value": 3.35, "unit": "m2"},
+      "differential_ratio": 4.3,
+      "tire_radius": {"value": 407.35, "unit": "mm"},
+      "rolling_resistance_force": {"value": 320, "unit": "N"}
+    },
+    "transmission": {
+      "id": "sequoia-six-speed",
+      "maximum_clutch_torque": {"value": 800, "unit": "N*m"},
+      "gears": [
+        {"id": "gear-1", "ratio": 3.333},
+        {"id": "gear-2", "ratio": 1.96},
+        {"id": "gear-3", "ratio": 1.353},
+        {"id": "gear-4", "ratio": 1},
+        {"id": "gear-5", "ratio": 0.728},
+        {"id": "gear-6", "ratio": 0.588}
+      ]
+    },
+    "dyno_defaults": {
+      "minimum_engine_speed": {"value": 650, "unit": "rpm"},
+      "maximum_engine_speed": {"value": 6000, "unit": "rpm"},
+      "hold_step": {"value": 100, "unit": "rpm"}
+    }
+  }
+}

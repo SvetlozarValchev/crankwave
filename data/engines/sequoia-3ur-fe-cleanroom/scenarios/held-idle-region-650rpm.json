@@ -1,0 +1,76 @@
+{
+  "schema": "engine-sim-offline/scenario",
+  "id": "sequoia-3ur-fe-cleanroom-held-idle-region-650rpm",
+  "engine": "sequoia-3ur-fe-cleanroom",
+  "fuel": "regular-unleaded-gasoline",
+  "ambient": {
+    "pressure": {"value": 101325, "unit": "Pa"},
+    "temperature": {"value": 298.15, "unit": "K"},
+    "relative_humidity_01": 0
+  },
+  "initial_thermal_state": {
+    "gas_temperature": {"value": 298.15, "unit": "K"},
+    "wall_temperature": {"value": 363.15, "unit": "K"},
+    "coolant_temperature": {"value": 363.15, "unit": "K"},
+    "oil_temperature": {"value": 363.15, "unit": "K"}
+  },
+  "crankcase": {
+    "pressure": {"value": 101325, "unit": "Pa"},
+    "temperature": {"value": 298.15, "unit": "K"}
+  },
+  "initial_state": {
+    "engine_speed": {"value": 650, "unit": "rpm"},
+    "crank_angle": {"value": 0.78539816339750002, "unit": "rad"},
+    "ignition_enabled": true,
+    "fuel_enabled": true,
+    "starter_enabled": false,
+    "dyno_enabled": true,
+    "limiter_enabled": false
+  },
+  "preparation": {
+    "type": "fixed_horizon",
+    "preparation_duration": {"value": 6.44, "unit": "s"},
+    "trailing_complete_cycle_count": 32
+  },
+  "mode": {
+    "type": "held_speed",
+    "target_engine_speed": {"value": 650, "unit": "rpm"},
+    "throttle_01": {
+      "interpolation": "right_continuous_hold",
+      "points": [
+        {"time": {"value": 0, "unit": "s"}, "value": 0.05}
+      ]
+    }
+  },
+  "events": [
+    {
+      "id": "held-idle-region-running",
+      "time": {"value": 0, "unit": "s"},
+      "payload": {
+        "type": "operating_state_patch",
+        "dyno_enabled": true
+      }
+    }
+  ],
+  "rates": {
+    "physics": {"numerator": "10000", "denominator": "1", "unit": "Hz"},
+    "capture": {"numerator": "10000", "denominator": "1", "unit": "Hz"},
+    "source_processing": {"numerator": "192000", "denominator": "1", "unit": "Hz"},
+    "acoustics": {"numerator": "192000", "denominator": "1", "unit": "Hz"},
+    "delivery": {"numerator": "192000", "denominator": "1", "unit": "Hz"}
+  },
+  "quality": {
+    "id": "listening",
+    "process_block_capacity_frames": 3840,
+    "event_queue_capacity": 3800,
+    "telemetry_capacity_frames": 1
+  },
+  "total_duration": {"value": 21.44, "unit": "s"},
+  "audible_start": {"value": 6.44, "unit": "s"},
+  "audible_duration": {"value": 15, "unit": "s"},
+  "public_seed": "12648430",
+  "output": {
+    "buses": ["master-engine-raw", "master-engine-audition"],
+    "telemetry_channels": []
+  }
+}
