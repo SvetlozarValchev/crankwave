@@ -1,9 +1,11 @@
 #include "compile/scenario_resolver.hpp"
 
 #include "contract_test_support.hpp"
+#include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/free_engine_method_registry.hpp"
 
 #include <array>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -158,15 +160,14 @@ void test_held_speed_resolution_on_the_integer_clock() {
     expect(resolved.request_input.total_physics_frames == 30000U &&
                resolved.request_input.audible_delivery_frames == 192000U,
            "deterministic request frame material changed");
-    expect(
-        resolved.request_input.session_capacities ==
-            engine_sim_offline::compile::CompiledSessionCapacities{
-                4096U,
-                7U,
-                13U,
-            },
-        "authored session capacities were not retained as delivery/control/"
-        "telemetry bounds");
+    expect(resolved.request_input.session_capacities ==
+               engine_sim_offline::compile::CompiledSessionCapacities{
+                   4096U,
+                   7U,
+                   13U,
+               },
+           "authored session capacities were not retained as delivery/control/"
+           "telemetry bounds");
     const auto expected_internal_event_capacity =
         static_cast<std::uint32_t>((3U * engine.cylinders.size() + 1U) * 200U);
     expect(resolved.scenario.quality.value.capture_block_capacity_frames == 200U &&
@@ -213,18 +214,19 @@ void test_held_speed_resolution_on_the_integer_clock() {
     free_engine_document.initial_state.dyno_enabled = false;
     free_engine_document.initial_state.limiter_enabled = true;
     authoring::FreeEngineMode authored_free_engine;
-    authored_free_engine.equivalent_inertia = quantity(0.25, "kg*m2");
+    authored_free_engine.attached_inertia = quantity(0.25, "kg*m2");
     authored_free_engine.throttle_01.interpolation =
         authoring::TrajectoryInterpolation::right_continuous_hold;
     authored_free_engine.throttle_01.points = {
         {quantity(0.0, "s"), 0.15},
         {quantity(2.0, "s"), 0.85},
     };
-    authored_free_engine.resisting_torque.value_dimension =
+    authored_free_engine.external_resisting_torque.emplace();
+    authored_free_engine.external_resisting_torque->value_dimension =
         authoring::QuantityDimension::torque;
-    authored_free_engine.resisting_torque.interpolation =
+    authored_free_engine.external_resisting_torque->interpolation =
         authoring::TrajectoryInterpolation::right_continuous_hold;
-    authored_free_engine.resisting_torque.points = {
+    authored_free_engine.external_resisting_torque->points = {
         {quantity(0.0, "s"), quantity(10.0, "N*m")},
         {quantity(2.5, "s"), quantity(5.0, "N*m")},
     };
@@ -245,13 +247,24 @@ void test_held_speed_resolution_on_the_integer_clock() {
         std::get<compile::ResolvedScenarioContracts>(free_engine_result);
     const auto &free_engine =
         std::get<contract::FreeEngine>(free_engine_contracts.scenario.mode);
+    const auto &mechanism =
+        std::get<contract::LowOrderOperatingPointV1Profile>(engine.physics_profile)
+            .core.mechanism;
+    const auto inertia_calculation = engine_sim_offline::simulation::
+        calculate_centered_slider_crank_cycle_mean_inertia(mechanism);
+    const auto &derived_inertia =
+        std::get<engine_sim_offline::simulation::CenteredSliderCrankCycleMeanInertia>(
+            inertia_calculation);
     expect(free_engine.initial_engine_speed_rpm.value == 3000.0 &&
-               free_engine.equivalent_inertia_kg_m2.value == 0.25 &&
+               free_engine.engine_baseline_inertia_kg_m2.value ==
+                   derived_inertia.engine_equivalent_inertia_kg_m2 &&
+               free_engine.attached_inertia_kg_m2.value == 0.25 &&
+               free_engine.total_equivalent_inertia_kg_m2.value ==
+                   derived_inertia.engine_equivalent_inertia_kg_m2 + 0.25 &&
                free_engine.throttle_01.points.size() == 2U &&
                free_engine.throttle_01.points.back().value == 0.85 &&
                free_engine.external_resisting_torque_nm.points.size() == 2U &&
-               free_engine.external_resisting_torque_nm.points.front().value ==
-                   10.0,
+               free_engine.external_resisting_torque_nm.points.front().value == 10.0,
            "free-engine controls changed during SI resolution");
     expect(
         free_engine.crank_dynamics_method.value ==
@@ -259,6 +272,9 @@ void test_held_speed_resolution_on_the_integer_clock() {
                 warm_running_free_engine_rigid_crank_zoh_work_energy_method_identity(),
         "free-engine resolver selected the wrong crank-dynamics method");
     expect(!free_engine.initial_engine_speed_rpm.resolution_id.empty() &&
+               !free_engine.engine_baseline_inertia_kg_m2.resolution_id.empty() &&
+               !free_engine.attached_inertia_kg_m2.resolution_id.empty() &&
+               !free_engine.total_equivalent_inertia_kg_m2.resolution_id.empty() &&
                !free_engine.throttle_01.resolution_id.empty() &&
                !free_engine.external_resisting_torque_nm.resolution_id.empty() &&
                !free_engine.crank_dynamics_method.resolution_id.empty(),
@@ -266,16 +282,15 @@ void test_held_speed_resolution_on_the_integer_clock() {
 
     auto repeated_free_engine =
         compile::resolve_scenario_document(free_engine_document, context);
-    expect(
-        std::holds_alternative<compile::ResolvedScenarioContracts>(
-            repeated_free_engine) &&
-            std::get<compile::ResolvedScenarioContracts>(repeated_free_engine) ==
-                free_engine_contracts,
-        "identical authored free-engine scenario did not resolve deterministically");
+    expect(std::holds_alternative<compile::ResolvedScenarioContracts>(
+               repeated_free_engine) &&
+               std::get<compile::ResolvedScenarioContracts>(repeated_free_engine) ==
+                   free_engine_contracts,
+           "identical authored free-engine scenario did not resolve deterministically");
 
     auto negative_resistance = free_engine_document;
     std::get<authoring::FreeEngineMode>(negative_resistance.mode)
-        .resisting_torque.points.front()
+        .external_resisting_torque->points.front()
         .value = quantity(-1.0, "N*m");
     const auto negative_resistance_result =
         compile::resolve_scenario_document(negative_resistance, context);
@@ -284,12 +299,12 @@ void test_held_speed_resolution_on_the_integer_clock() {
     expect(negative_resistance_report != nullptr &&
                has_diagnostic(*negative_resistance_report,
                               authoring::DiagnosticCode::out_of_range,
-                              "/mode/resisting_torque/points/0/value"),
+                              "/mode/external_resisting_torque/points/0/value"),
            "negative external resisting torque was accepted");
 
     auto linear_resistance = free_engine_document;
     std::get<authoring::FreeEngineMode>(linear_resistance.mode)
-        .resisting_torque.interpolation =
+        .external_resisting_torque->interpolation =
         authoring::TrajectoryInterpolation::linear;
     const auto linear_resistance_result =
         compile::resolve_scenario_document(linear_resistance, context);
@@ -298,8 +313,31 @@ void test_held_speed_resolution_on_the_integer_clock() {
     expect(linear_resistance_report != nullptr &&
                has_diagnostic(*linear_resistance_report,
                               authoring::DiagnosticCode::unsupported_capability,
-                              "/mode/resisting_torque/interpolation"),
+                              "/mode/external_resisting_torque/interpolation"),
            "unsupported linear external resisting torque was accepted");
+
+    auto defaulted_free_engine = free_engine_document;
+    auto &defaulted_authoring =
+        std::get<authoring::FreeEngineMode>(defaulted_free_engine.mode);
+    defaulted_authoring.attached_inertia.reset();
+    defaulted_authoring.external_resisting_torque.reset();
+    const auto defaulted_result =
+        compile::resolve_scenario_document(defaulted_free_engine, context);
+    const auto *defaulted_contracts =
+        std::get_if<compile::ResolvedScenarioContracts>(&defaulted_result);
+    expect(defaulted_contracts != nullptr,
+           "defaulted free-engine controls did not resolve");
+    const auto &defaulted_mode =
+        std::get<contract::FreeEngine>(defaulted_contracts->scenario.mode);
+    expect(defaulted_mode.attached_inertia_kg_m2.value == 0.0 &&
+               !std::signbit(defaulted_mode.attached_inertia_kg_m2.value) &&
+               defaulted_mode.total_equivalent_inertia_kg_m2.value ==
+                   defaulted_mode.engine_baseline_inertia_kg_m2.value &&
+               defaulted_mode.external_resisting_torque_nm.points.size() == 1U &&
+               defaulted_mode.external_resisting_torque_nm.points.front().time_s ==
+                   0.0 &&
+               defaulted_mode.external_resisting_torque_nm.points.front().value == 0.0,
+           "omitted free-engine controls did not canonicalize to positive zero");
 
     auto undersized_process = document;
     undersized_process.quality.process_block_capacity_frames = 3839U;
@@ -307,12 +345,11 @@ void test_held_speed_resolution_on_the_integer_clock() {
         compile::resolve_scenario_document(undersized_process, context);
     const auto *undersized_process_report =
         std::get_if<authoring::DiagnosticReport>(&undersized_process_result);
-    expect(
-        undersized_process_report != nullptr &&
-            has_diagnostic(*undersized_process_report,
-                           authoring::DiagnosticCode::unsupported_capability,
-                           "/quality/process_block_capacity_frames"),
-        "session capacity below the exact delivery method quantum was accepted");
+    expect(undersized_process_report != nullptr &&
+               has_diagnostic(*undersized_process_report,
+                              authoring::DiagnosticCode::unsupported_capability,
+                              "/quality/process_block_capacity_frames"),
+           "session capacity below the exact delivery method quantum was accepted");
 }
 
 } // namespace

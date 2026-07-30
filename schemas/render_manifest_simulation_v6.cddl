@@ -641,7 +641,9 @@ inertial-dyno = {
 free-engine = {
   "initial_engine_speed_rpm": resolved<f64-bits>,
   "initial_theta_rad": resolved<f64-bits>,
-  "equivalent_inertia_kg_m2": resolved<f64-bits>,
+  "engine_baseline_inertia_kg_m2": resolved<f64-bits>,
+  "attached_inertia_kg_m2": resolved<f64-bits>,
+  "total_equivalent_inertia_kg_m2": resolved<f64-bits>,
   "throttle_01": scalar-trajectory,
   "external_resisting_torque_nm": scalar-trajectory,
   "crank_dynamics_method": resolved<method-identity>

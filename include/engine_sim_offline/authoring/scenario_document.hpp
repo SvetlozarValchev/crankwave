@@ -118,9 +118,11 @@ struct FixedHorizonPreparation {
 using Preparation = std::variant<FixedSettlingPreparation, FixedHorizonPreparation>;
 
 struct FreeEngineMode {
-    Quantity equivalent_inertia;
+    // Additional inertia coupled to the crank by the surrounding test rig. The
+    // engine's own crank-referred inertia is derived from its mechanism model.
+    std::optional<Quantity> attached_inertia;
     ScalarTrajectory throttle_01;
-    QuantityTrajectory resisting_torque;
+    std::optional<QuantityTrajectory> external_resisting_torque;
 
     friend bool operator==(const FreeEngineMode &, const FreeEngineMode &) = default;
 };

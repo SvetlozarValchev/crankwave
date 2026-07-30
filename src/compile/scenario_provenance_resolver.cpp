@@ -1,10 +1,14 @@
 #include "compile/scenario_resolver_internal.hpp"
 
+#include "simulation/centered_slider_crank_equivalent_inertia.hpp"
+#include "simulation/free_engine_method_registry.hpp"
+
 #include <array>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <variant>
+#include <vector>
 
 namespace engine_sim_offline::compile::detail::scenario_resolution {
 
@@ -126,12 +130,71 @@ void ScenarioResolver::register_provenance() {
                 for (const std::string_view path : {
                          "scenario.mode.initial_engine_speed_rpm",
                          "scenario.mode.initial_theta_rad",
-                         "scenario.mode.equivalent_inertia_kg_m2",
                          "scenario.mode.throttle_01",
-                         "scenario.mode.external_resisting_torque_nm",
                      }) {
                     provenance_.add_authored(std::string{path});
                 }
+                const auto *authored =
+                    std::get_if<authoring::FreeEngineMode>(&document_.mode);
+                if (authored != nullptr && authored->attached_inertia.has_value()) {
+                    provenance_.add_authored("scenario.mode.attached_inertia_kg_m2");
+                } else {
+                    provenance_.add_declared_default(
+                        "scenario.mode.attached_inertia_kg_m2");
+                }
+                if (authored != nullptr &&
+                    authored->external_resisting_torque.has_value()) {
+                    provenance_.add_authored(
+                        "scenario.mode.external_resisting_torque_nm");
+                } else {
+                    provenance_.add_declared_default(
+                        "scenario.mode.external_resisting_torque_nm");
+                }
+
+                const auto &profile =
+                    std::get<contract::LowOrderOperatingPointV1Profile>(
+                        context_.engine.physics_profile);
+                std::vector<std::string> inertia_dependency_storage;
+                inertia_dependency_storage.reserve(
+                    1U + 5U * profile.core.mechanism.cylinders.size());
+                const auto append_dependency = [&](const auto &resolved) {
+                    const auto *record = find_resolution(context_.engine_provenance,
+                                                         resolved.resolution_id);
+                    if (record == nullptr) {
+                        add(authoring::DiagnosticCode::internal_failure, "",
+                            "engine mechanism inertia input has no provenance "
+                            "resolution");
+                        return;
+                    }
+                    inertia_dependency_storage.push_back(record->parameter_path);
+                };
+                append_dependency(
+                    profile.core.mechanism.crank.authored_crank_inertia_kg_m2);
+                for (const auto &cylinder : profile.core.mechanism.cylinders) {
+                    append_dependency(cylinder.parameters.crank_radius_m);
+                    append_dependency(cylinder.parameters.connecting_rod_length_m);
+                    append_dependency(cylinder.parameters.piston_mass_kg);
+                    append_dependency(cylinder.parameters.connecting_rod_mass_kg);
+                    append_dependency(cylinder.parameters.connecting_rod_inertia_kg_m2);
+                }
+                std::vector<std::string_view> inertia_dependencies;
+                inertia_dependencies.reserve(inertia_dependency_storage.size());
+                for (const auto &path : inertia_dependency_storage) {
+                    inertia_dependencies.push_back(path);
+                }
+                provenance_.add_derived(
+                    "scenario.mode.engine_baseline_inertia_kg_m2",
+                    simulation::
+                        centered_slider_crank_cycle_mean_inertia_method_identity(),
+                    inertia_dependencies);
+                constexpr std::array<std::string_view, 2> total_dependencies{
+                    "scenario.mode.engine_baseline_inertia_kg_m2",
+                    "scenario.mode.attached_inertia_kg_m2",
+                };
+                provenance_.add_derived(
+                    "scenario.mode.total_equivalent_inertia_kg_m2",
+                    simulation::free_engine_equivalent_inertia_sum_method_identity(),
+                    total_dependencies);
                 constexpr std::array<std::string_view, 1> dependency{
                     "scenario.mode.kind"};
                 provenance_.add_derived("scenario.mode.crank_dynamics_method",
@@ -244,14 +307,17 @@ void ScenarioResolver::bind_resolution_ids() {
                 bind(mode.initial_engine_speed_rpm,
                      "scenario.mode.initial_engine_speed_rpm");
                 bind(mode.initial_theta_rad, "scenario.mode.initial_theta_rad");
-                bind(mode.equivalent_inertia_kg_m2,
-                     "scenario.mode.equivalent_inertia_kg_m2");
+                bind(mode.engine_baseline_inertia_kg_m2,
+                     "scenario.mode.engine_baseline_inertia_kg_m2");
+                bind(mode.attached_inertia_kg_m2,
+                     "scenario.mode.attached_inertia_kg_m2");
+                bind(mode.total_equivalent_inertia_kg_m2,
+                     "scenario.mode.total_equivalent_inertia_kg_m2");
                 mode.throttle_01.resolution_id =
                     resolution_id("scenario.mode.throttle_01");
                 mode.external_resisting_torque_nm.resolution_id =
                     resolution_id("scenario.mode.external_resisting_torque_nm");
-                bind(mode.crank_dynamics_method,
-                     "scenario.mode.crank_dynamics_method");
+                bind(mode.crank_dynamics_method, "scenario.mode.crank_dynamics_method");
             }
         },
         scenario_.mode);

@@ -337,7 +337,9 @@ void configure_free_engine_control_schedule(ScheduleFixture &fixture) {
     fixture.scenario.mode = FreeEngine{
         fixture.builder.resolved(1500.0, "free-engine.initial_engine_speed_rpm"),
         fixture.builder.resolved(0.25, "free-engine.initial_theta_rad"),
-        fixture.builder.resolved(0.25, "free-engine.equivalent_inertia_kg_m2"),
+        fixture.builder.resolved(0.20, "free-engine.engine_baseline_inertia_kg_m2"),
+        fixture.builder.resolved(0.05, "free-engine.attached_inertia_kg_m2"),
+        fixture.builder.resolved(0.25, "free-engine.total_equivalent_inertia_kg_m2"),
         {
             TrajectoryInterpolation::right_continuous_hold,
             {{0.0, 0.2}, {0.5, 0.8}},

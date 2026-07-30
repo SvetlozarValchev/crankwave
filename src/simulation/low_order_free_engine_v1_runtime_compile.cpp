@@ -263,7 +263,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         *release_frame,
         free_engine->initial_engine_speed_rpm.value,
         free_engine->initial_theta_rad.value,
-        free_engine->equivalent_inertia_kg_m2.value,
+        free_engine->total_equivalent_inertia_kg_m2.value,
         "low-order-free-engine-v1",
         engine.profile_id.value,
         scenario.scenario_id,

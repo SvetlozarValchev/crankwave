@@ -615,14 +615,14 @@ void test_free_engine_request_wire_shape() {
 
     const auto throttle_resolution =
         fixture.builder.add_resolution("scenario.mode.throttle_01");
-    const auto resistance_resolution = fixture.builder.add_resolution(
-        "scenario.mode.external_resisting_torque_nm");
+    const auto resistance_resolution =
+        fixture.builder.add_resolution("scenario.mode.external_resisting_torque_nm");
     resolved.scenario.mode = FreeEngine{
-        fixture.builder.resolved(1500.0,
-                                 "scenario.mode.initial_engine_speed_rpm"),
+        fixture.builder.resolved(1500.0, "scenario.mode.initial_engine_speed_rpm"),
         fixture.builder.resolved(0.0, "scenario.mode.initial_theta_rad"),
-        fixture.builder.resolved(0.25,
-                                 "scenario.mode.equivalent_inertia_kg_m2"),
+        fixture.builder.resolved(0.20, "scenario.mode.engine_baseline_inertia_kg_m2"),
+        fixture.builder.resolved(0.05, "scenario.mode.attached_inertia_kg_m2"),
+        fixture.builder.resolved(0.25, "scenario.mode.total_equivalent_inertia_kg_m2"),
         {
             TrajectoryInterpolation::right_continuous_hold,
             {{0.0, 0.10}, {2.0, 0.85}},
@@ -633,9 +633,8 @@ void test_free_engine_request_wire_shape() {
             {{0.0, 8.0}, {2.5, 3.0}},
             resistance_resolution,
         },
-        fixture.builder.resolved(
-            method("rigid-crank-zoh-work-energy-v1", 73),
-            "scenario.mode.crank_dynamics_method"),
+        fixture.builder.resolved(method("rigid-crank-zoh-work-energy-v1", 73),
+                                 "scenario.mode.crank_dynamics_method"),
     };
 
     const auto first = require_request_identity_encoding(
@@ -651,16 +650,20 @@ void test_free_engine_request_wire_shape() {
     constexpr std::string_view kFreeEnginePrefix =
         "\"mode\":{\"kind\":\"free_engine\",\"value\":{"
         "\"initial_engine_speed_rpm\":";
-    expect(document.find(kFreeEnginePrefix) != std::string::npos &&
-               document.find("\"external_resisting_torque_nm\":") !=
-                   std::string::npos &&
-               document.find("\"crank_dynamics_method\":") != std::string::npos,
-           "free-engine request fields were omitted or did not retain canonical "
-           "mode order");
+    expect(
+        document.find(kFreeEnginePrefix) != std::string::npos &&
+            document.find("\"engine_baseline_inertia_kg_m2\":") != std::string::npos &&
+            document.find("\"attached_inertia_kg_m2\":") != std::string::npos &&
+            document.find("\"total_equivalent_inertia_kg_m2\":") != std::string::npos &&
+            document.find("\"external_resisting_torque_nm\":") != std::string::npos &&
+            document.find("\"crank_dynamics_method\":") != std::string::npos,
+        "free-engine request fields were omitted or did not retain canonical "
+        "mode order");
 
     auto changed_scenario = resolved.scenario;
-    std::get<FreeEngine>(changed_scenario.mode)
-        .equivalent_inertia_kg_m2.value += 0.01;
+    auto &changed_free_engine = std::get<FreeEngine>(changed_scenario.mode);
+    changed_free_engine.attached_inertia_kg_m2.value += 0.01;
+    changed_free_engine.total_equivalent_inertia_kg_m2.value += 0.01;
     const auto changed = require_request_identity_encoding(
         resolved.engine, changed_scenario, fixture.manifest.content.randomness,
         fixture.manifest.content.provenance);

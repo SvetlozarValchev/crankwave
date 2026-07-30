@@ -47,6 +47,19 @@ external_numeric_authority=renderer-build-source-standard-library-math-runtime-a
 
 static_assert(canonical_lf_descriptor(kWarmRunningFreeEngineRigidCrankDescriptor));
 
+constexpr std::string_view kFreeEngineEquivalentInertiaSumDescriptor =
+    R"method(engine-sim-offline.simulation-method-configuration.v1
+method=free-engine-equivalent-inertia-sum-v1
+version=1
+operation=resolve-total-constant-crank-referred-equivalent-inertia
+engine-input=finite-positive-binary64-cycle-mean-crank-referred-engine-inertia-kg-m2
+attachment-input=finite-nonnegative-binary64-attached-inertia-kg-m2
+total=engine-input-plus-attachment-input-in-written-binary64-order
+negative-zero=inputs-and-result-must-be-positive-zero-or-positive
+)method";
+
+static_assert(canonical_lf_descriptor(kFreeEngineEquivalentInertiaSumDescriptor));
+
 [[nodiscard]] contract::MethodIdentity
 make_identity(std::string_view id, std::uint32_t version,
               std::string_view descriptor) noexcept {
@@ -71,6 +84,18 @@ warm_running_free_engine_rigid_crank_zoh_work_energy_method_identity() {
         make_identity(kWarmRunningFreeEngineRigidCrankZohWorkEnergyMethodId,
                       kWarmRunningFreeEngineRigidCrankZohWorkEnergyMethodVersion,
                       kWarmRunningFreeEngineRigidCrankDescriptor);
+    return identity;
+}
+
+std::string_view free_engine_equivalent_inertia_sum_method_descriptor() noexcept {
+    return kFreeEngineEquivalentInertiaSumDescriptor;
+}
+
+const contract::MethodIdentity &free_engine_equivalent_inertia_sum_method_identity() {
+    static const auto identity =
+        make_identity(kFreeEngineEquivalentInertiaSumMethodId,
+                      kFreeEngineEquivalentInertiaSumMethodVersion,
+                      kFreeEngineEquivalentInertiaSumDescriptor);
     return identity;
 }
 

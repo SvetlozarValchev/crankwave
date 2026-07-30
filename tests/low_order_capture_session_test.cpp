@@ -198,12 +198,18 @@ make_free_engine_capture_request(
 
     auto initial_engine_speed = inertial->initial_engine_speed_rpm;
     initial_engine_speed.value = kOperatingHeldRpm;
-    auto equivalent_inertia = inertial->equivalent_inertia_kg_m2;
-    equivalent_inertia.value = kFreeEngineEquivalentInertiaKgM2;
+    auto engine_baseline_inertia = inertial->equivalent_inertia_kg_m2;
+    engine_baseline_inertia.value = 0.20;
+    auto attached_inertia = inertial->equivalent_inertia_kg_m2;
+    attached_inertia.value = 0.05;
+    auto total_equivalent_inertia = inertial->equivalent_inertia_kg_m2;
+    total_equivalent_inertia.value = kFreeEngineEquivalentInertiaKgM2;
     scenario.mode = FreeEngine{
         std::move(initial_engine_speed),
         inertial->initial_theta_rad,
-        std::move(equivalent_inertia),
+        std::move(engine_baseline_inertia),
+        std::move(attached_inertia),
+        std::move(total_equivalent_inertia),
         {
             TrajectoryInterpolation::right_continuous_hold,
             {{0.0, 0.85}, {boundary_time_s, post_boundary_throttle}},

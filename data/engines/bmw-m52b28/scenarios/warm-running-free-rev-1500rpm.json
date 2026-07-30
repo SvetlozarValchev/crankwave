@@ -34,7 +34,6 @@
   },
   "mode": {
     "type": "free_engine",
-    "equivalent_inertia": {"value": 0.55, "unit": "kg*m2"},
     "throttle_01": {
       "interpolation": "right_continuous_hold",
       "points": [
@@ -44,7 +43,7 @@
         {"time": {"value": 4.6, "unit": "s"}, "value": 0.1}
       ]
     },
-    "resisting_torque": {
+    "external_resisting_torque": {
       "value_dimension": "torque",
       "interpolation": "right_continuous_hold",
       "points": [

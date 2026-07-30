@@ -13,10 +13,12 @@ using ProvenanceBuildResult = CompileResult<contract::ProvenanceLedger>;
 
 class ResolutionProvenanceBuilder final {
   public:
-    explicit ResolutionProvenanceBuilder(
-        std::string scope, contract::ProvenanceLedger base = {});
+    explicit ResolutionProvenanceBuilder(std::string scope,
+                                         contract::ProvenanceLedger base = {});
 
     void add_authored(std::string resolved_parameter_path);
+
+    void add_declared_default(std::string resolved_parameter_path);
 
     void add_derived(std::string resolved_parameter_path,
                      contract::MethodIdentity method,

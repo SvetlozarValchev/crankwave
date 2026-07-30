@@ -16,8 +16,7 @@ constexpr std::string_view kProvenanceSchema =
 constexpr std::string_view kProvenanceDigestGrammar =
     "engine-sim-offline.compiler-resolution-provenance-digest";
 
-[[nodiscard]] std::string scoped_id(std::string_view scope,
-                                    std::string_view suffix) {
+[[nodiscard]] std::string scoped_id(std::string_view scope, std::string_view suffix) {
     return "compiler." + std::string{scope} + "." + std::string{suffix};
 }
 
@@ -31,6 +30,16 @@ void ResolutionProvenanceBuilder::add_authored(std::string resolved_parameter_pa
     resolutions_.push_back({
         std::move(resolved_parameter_path),
         contract::ResolutionMode::authored,
+        std::nullopt,
+        {},
+    });
+}
+
+void ResolutionProvenanceBuilder::add_declared_default(
+    std::string resolved_parameter_path) {
+    resolutions_.push_back({
+        std::move(resolved_parameter_path),
+        contract::ResolutionMode::declared_default,
         std::nullopt,
         {},
     });
@@ -65,8 +74,7 @@ ProvenanceBuildResult ResolutionProvenanceBuilder::finish() && noexcept {
         const bool has_base = !base_.schema_id.empty();
         if (has_base) {
             const auto base_validation = contract::validate(base_);
-            if (!base_validation.ok() ||
-                base_.schema_id != kProvenanceSchema) {
+            if (!base_validation.ok() || base_.schema_id != kProvenanceSchema) {
                 return diagnostic(
                     authoring::DiagnosticCode::internal_failure, "",
                     "compiler provenance base is invalid or belongs to another "
@@ -106,10 +114,10 @@ ProvenanceBuildResult ResolutionProvenanceBuilder::finish() && noexcept {
 
         contract::ProvenanceLedger ledger = std::move(base_);
         ledger.schema_id = kProvenanceSchema;
-        ledger.bundle.id =
-            scoped_id(scope_, has_base ? "combined-provenance"
-                                       : "generated-provenance");
+        ledger.bundle.id = scoped_id(scope_, has_base ? "combined-provenance"
+                                                      : "generated-provenance");
         const auto authored_claim = scoped_id(scope_, "authored-product-data");
+        const auto declared_default_claim = scoped_id(scope_, "declared-default");
         const auto derived_claim = scoped_id(scope_, "derived");
 
         const bool has_authored =
@@ -120,10 +128,22 @@ ProvenanceBuildResult ResolutionProvenanceBuilder::finish() && noexcept {
             std::ranges::any_of(resolutions_, [](const auto &resolution) {
                 return resolution.mode == contract::ResolutionMode::derived;
             });
+        const bool has_declared_default =
+            std::ranges::any_of(resolutions_, [](const auto &resolution) {
+                return resolution.mode == contract::ResolutionMode::declared_default;
+            });
         if (has_authored) {
             ledger.claims.push_back({
                 authored_claim,
                 contract::ProvenanceOrigin::authored_product_data,
+                {},
+                std::nullopt,
+            });
+        }
+        if (has_declared_default) {
+            ledger.claims.push_back({
+                declared_default_claim,
+                contract::ProvenanceOrigin::scenario,
                 {},
                 std::nullopt,
             });
@@ -137,16 +157,16 @@ ProvenanceBuildResult ResolutionProvenanceBuilder::finish() && noexcept {
             });
         }
 
-        ledger.resolutions.reserve(ledger.resolutions.size() +
-                                   resolutions_.size());
+        ledger.resolutions.reserve(ledger.resolutions.size() + resolutions_.size());
         for (std::size_t index = 0; index < resolutions_.size(); ++index) {
             auto &pending = resolutions_[index];
             ledger.resolutions.push_back({
                 scoped_id(scope_, "resolution." + std::to_string(index + 1U)),
                 std::move(pending.parameter_path),
                 pending.mode,
-                pending.mode == contract::ResolutionMode::authored
-                    ? authored_claim
+                pending.mode == contract::ResolutionMode::authored ? authored_claim
+                : pending.mode == contract::ResolutionMode::declared_default
+                    ? declared_default_claim
                     : derived_claim,
                 std::move(pending.method),
                 std::move(pending.dependency_parameter_paths),

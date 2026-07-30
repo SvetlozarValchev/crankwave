@@ -1064,6 +1064,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_centered_slider_crank_equivalent_inertia_tests
+    centered_slider_crank_equivalent_inertia_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_centered_slider_crank_equivalent_inertia_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_centered_slider_crank_equivalent_inertia_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.centered_slider_crank_equivalent_inertia
+    COMMAND engine_sim_offline_centered_slider_crank_equivalent_inertia_tests
+)
+
+add_executable(
     engine_sim_offline_kinematic_scenario_schedule_tests
     kinematic_scenario_schedule_test.cpp
 )

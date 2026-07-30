@@ -352,13 +352,18 @@ write_load_target(CanonicalJsonWriter &writer,
            write_resolved(writer, free_engine.initial_engine_speed_rpm, write_f64) &&
            writer.key("initial_theta_rad") &&
            write_resolved(writer, free_engine.initial_theta_rad, write_f64) &&
-           writer.key("equivalent_inertia_kg_m2") &&
-           write_resolved(writer, free_engine.equivalent_inertia_kg_m2, write_f64) &&
+           writer.key("engine_baseline_inertia_kg_m2") &&
+           write_resolved(writer, free_engine.engine_baseline_inertia_kg_m2,
+                          write_f64) &&
+           writer.key("attached_inertia_kg_m2") &&
+           write_resolved(writer, free_engine.attached_inertia_kg_m2, write_f64) &&
+           writer.key("total_equivalent_inertia_kg_m2") &&
+           write_resolved(writer, free_engine.total_equivalent_inertia_kg_m2,
+                          write_f64) &&
            writer.key("throttle_01") &&
            write_scalar_trajectory(writer, free_engine.throttle_01) &&
            writer.key("external_resisting_torque_nm") &&
-           write_scalar_trajectory(writer,
-                                   free_engine.external_resisting_torque_nm) &&
+           write_scalar_trajectory(writer, free_engine.external_resisting_torque_nm) &&
            writer.key("crank_dynamics_method") &&
            write_resolved(writer, free_engine.crank_dynamics_method,
                           write_method_identity) &&
@@ -392,8 +397,7 @@ write_load_target(CanonicalJsonWriter &writer,
             !write_inertial_dyno(writer, *dyno)) {
             return false;
         }
-    } else if (const auto *free_engine =
-                   std::get_if<contract::FreeEngine>(&mode)) {
+    } else if (const auto *free_engine = std::get_if<contract::FreeEngine>(&mode)) {
         if (!writer.string_value("free_engine") || !writer.key("value") ||
             !write_free_engine(writer, *free_engine)) {
             return false;

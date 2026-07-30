@@ -250,15 +250,15 @@
       "additionalProperties": false,
       "required": [
         "type",
-        "equivalent_inertia",
-        "throttle_01",
-        "resisting_torque"
+        "throttle_01"
       ],
       "properties": {
         "type": { "const": "free_engine" },
-        "equivalent_inertia": { "$ref": "#/$defs/quantity" },
+        "attached_inertia": { "$ref": "#/$defs/quantity" },
         "throttle_01": { "$ref": "#/$defs/scalarTrajectory" },
-        "resisting_torque": { "$ref": "#/$defs/quantityTrajectory" }
+        "external_resisting_torque": {
+          "$ref": "#/$defs/quantityTrajectory"
+        }
       }
     },
     "freeVehicleMode": {

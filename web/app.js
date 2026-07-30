@@ -886,9 +886,9 @@ function authoredLiveState() {
       (point) => point?.time?.value === 0,
     )?.value ?? scenario?.mode?.throttle_01?.points?.[0]?.value;
   const authoredResistancePoint =
-    scenario?.mode?.resisting_torque?.points?.find(
+    scenario?.mode?.external_resisting_torque?.points?.find(
       (point) => point?.time?.value === 0,
-    ) ?? scenario?.mode?.resisting_torque?.points?.[0];
+    ) ?? scenario?.mode?.external_resisting_torque?.points?.[0];
   const authoredResistance = torqueNm(authoredResistancePoint?.value);
   return {
     throttle:

@@ -17,9 +17,9 @@ using namespace engine_sim_offline::authoring;
 
 static_assert(noexcept(parse_engine_document(std::string_view{})));
 static_assert(noexcept(parse_scenario_document(std::string_view{})));
-static_assert(noexcept(validate_scenario_references(
-    std::declval<const ScenarioDocument &>(),
-    std::declval<const EnginePackageDocument &>())));
+static_assert(noexcept(
+    validate_scenario_references(std::declval<const ScenarioDocument &>(),
+                                 std::declval<const EnginePackageDocument &>())));
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -498,8 +498,7 @@ require_engine_report(const EngineDocumentParseResult &result) {
     return *report;
 }
 
-[[nodiscard]] bool has_diagnostic(const DiagnosticReport &report,
-                                  DiagnosticCode code,
+[[nodiscard]] bool has_diagnostic(const DiagnosticReport &report, DiagnosticCode code,
                                   std::string_view pointer) {
     for (const auto &diagnostic : report.diagnostics) {
         if (diagnostic.code == code && diagnostic.json_pointer == pointer) {
@@ -509,8 +508,7 @@ require_engine_report(const EngineDocumentParseResult &result) {
     return false;
 }
 
-void replace_once(std::string &text, std::string_view before,
-                  std::string_view after) {
+void replace_once(std::string &text, std::string_view before, std::string_view after) {
     const auto position = text.find(before);
     if (position == std::string::npos) {
         throw std::runtime_error{"test fixture replacement target was absent"};
@@ -520,8 +518,7 @@ void replace_once(std::string &text, std::string_view before,
 
 void test_complete_scenario_and_exact_integer_wire_values() {
     const ScenarioDocument scenario = require_scenario(valid_scenario_json());
-    expect(scenario.schema == "engine-sim-offline/scenario",
-           "scenario schema changed");
+    expect(scenario.schema == "engine-sim-offline/scenario", "scenario schema changed");
     expect(scenario.public_seed == 18446744073709551615ULL,
            "uint64 decimal string lost precision");
     expect(scenario.rates.physics.numerator == 20000U &&
@@ -531,11 +528,9 @@ void test_complete_scenario_and_exact_integer_wire_values() {
                scenario.quality.event_queue_capacity == 64U &&
                scenario.quality.telemetry_capacity_frames == 96000U,
            "session process/control/telemetry capacities changed during parsing");
-    expect(scenario.events.size() == 1U,
-           "scenario event was not retained");
+    expect(scenario.events.size() == 1U, "scenario event was not retained");
     const auto *conditioning =
-        std::get_if<SetConditioningMonitoringEvent>(
-            &scenario.events.front().payload);
+        std::get_if<SetConditioningMonitoringEvent>(&scenario.events.front().payload);
     expect(conditioning != nullptr && conditioning->jitter_scale == 0.4 &&
                conditioning->derivative_mix_01 == 0.2 &&
                conditioning->air_noise_mix_01 == 0.1,
@@ -544,9 +539,8 @@ void test_complete_scenario_and_exact_integer_wire_values() {
 
 void test_free_engine_requires_and_retains_throttle_trajectory() {
     std::string json = valid_scenario_json();
-    replace_once(
-        json,
-        R"json(    "type": "held_speed",
+    replace_once(json,
+                 R"json(    "type": "held_speed",
     "target_engine_speed": {"value": 3000, "unit": "rpm"},
     "throttle_01": {
       "interpolation": "linear",
@@ -555,8 +549,8 @@ void test_free_engine_requires_and_retains_throttle_trajectory() {
         {"time": {"value": 2000, "unit": "ms"}, "value": 1.0}
       ]
     })json",
-        R"json(    "type": "free_engine",
-    "equivalent_inertia": {"value": 0.25, "unit": "kg*m2"},
+                 R"json(    "type": "free_engine",
+    "attached_inertia": {"value": 0.25, "unit": "kg*m2"},
     "throttle_01": {
       "interpolation": "right_continuous_hold",
       "points": [
@@ -564,7 +558,7 @@ void test_free_engine_requires_and_retains_throttle_trajectory() {
         {"time": {"value": 1, "unit": "s"}, "value": 0.8}
       ]
     },
-    "resisting_torque": {
+    "external_resisting_torque": {
       "value_dimension": "torque",
       "interpolation": "right_continuous_hold",
       "points": [
@@ -577,11 +571,52 @@ void test_free_engine_requires_and_retains_throttle_trajectory() {
 
     const ScenarioDocument scenario = require_scenario(json);
     const auto *free_engine = std::get_if<FreeEngineMode>(&scenario.mode);
-    expect(free_engine != nullptr &&
+    expect(free_engine != nullptr && free_engine->attached_inertia.has_value() &&
+               free_engine->attached_inertia->value == 0.25 &&
+               free_engine->external_resisting_torque.has_value() &&
+               free_engine->external_resisting_torque->points.front().value.value ==
+                   12.0 &&
                free_engine->throttle_01.points.size() == 2U &&
                free_engine->throttle_01.points.front().value == 0.2 &&
                free_engine->throttle_01.points.back().value == 0.8,
-           "free-engine throttle trajectory was not retained");
+           "free-engine attachment, resistance, or throttle was not retained");
+
+    std::string omitted = valid_scenario_json();
+    replace_once(omitted,
+                 R"json(    "type": "held_speed",
+    "target_engine_speed": {"value": 3000, "unit": "rpm"},
+    "throttle_01": {
+      "interpolation": "linear",
+      "points": [
+        {"time": {"value": 0, "unit": "s"}, "value": 0.5},
+        {"time": {"value": 2000, "unit": "ms"}, "value": 1.0}
+      ]
+    })json",
+                 R"json(    "type": "free_engine",
+    "throttle_01": {
+      "interpolation": "right_continuous_hold",
+      "points": [
+        {"time": {"value": 0, "unit": "s"}, "value": 0.2}
+      ]
+    })json");
+    const auto omitted_scenario = require_scenario(omitted);
+    const auto &omitted_free_engine = std::get<FreeEngineMode>(omitted_scenario.mode);
+    expect(!omitted_free_engine.attached_inertia.has_value() &&
+               !omitted_free_engine.external_resisting_torque.has_value(),
+           "omitted free-engine attachment or resistance gained authored values");
+
+    std::string legacy = omitted;
+    replace_once(legacy, R"json(    "type": "free_engine",)json",
+                 R"json(    "type": "free_engine",
+    "equivalent_inertia": {"value": 0.25, "unit": "kg*m2"},
+    "resisting_torque": {"value_dimension": "torque", "interpolation": "right_continuous_hold", "points": [{"time": {"value": 0, "unit": "s"}, "value": {"value": 0, "unit": "N*m"}}]},)json");
+    const auto legacy_result = parse_scenario_document(legacy);
+    const auto &legacy_report = require_report(legacy_result);
+    expect(has_diagnostic(legacy_report, DiagnosticCode::unknown_field,
+                          "/mode/equivalent_inertia") &&
+               has_diagnostic(legacy_report, DiagnosticCode::unknown_field,
+                              "/mode/resisting_torque"),
+           "legacy free-engine inertia or torque names were accepted");
 
     replace_once(json, R"json(    "throttle_01": {
       "interpolation": "right_continuous_hold",
@@ -590,7 +625,8 @@ void test_free_engine_requires_and_retains_throttle_trajectory() {
         {"time": {"value": 1, "unit": "s"}, "value": 0.8}
       ]
     },
-)json", "");
+)json",
+                 "");
     const auto missing = parse_scenario_document(json);
     expect(has_diagnostic(require_report(missing), DiagnosticCode::missing_value,
                           "/mode/throttle_01"),
@@ -603,18 +639,15 @@ void test_strict_paths_and_continuous_control_authority() {
                  R"json("schema": "engine-sim-offline/scenario",
   "legacy_version": 2,)json");
     const auto unknown_result = parse_scenario_document(unknown);
-    expect(has_diagnostic(require_report(unknown_result),
-                          DiagnosticCode::unknown_field, "/legacy_version"),
+    expect(has_diagnostic(require_report(unknown_result), DiagnosticCode::unknown_field,
+                          "/legacy_version"),
            "unknown root field did not retain its JSON pointer");
 
     std::string continuous_event = valid_scenario_json();
-    replace_once(continuous_event, "set_conditioning_monitoring",
-                 "set_throttle");
-    const auto continuous_result =
-        parse_scenario_document(continuous_event);
+    replace_once(continuous_event, "set_conditioning_monitoring", "set_throttle");
+    const auto continuous_result = parse_scenario_document(continuous_event);
     expect(has_diagnostic(require_report(continuous_result),
-                          DiagnosticCode::invalid_value,
-                          "/events/0/payload/type"),
+                          DiagnosticCode::invalid_value, "/events/0/payload/type"),
            "forbidden continuous-control event was accepted");
 }
 
@@ -625,14 +658,12 @@ void test_semantic_ranges_limits_and_mixed_duration_units() {
                  R"json("audible_duration": {"value": 2001, "unit": "ms"})json");
     const auto interval_result = parse_scenario_document(interval);
     expect(has_diagnostic(require_report(interval_result),
-                          DiagnosticCode::inconsistent_value,
-                          "/audible_duration"),
+                          DiagnosticCode::inconsistent_value, "/audible_duration"),
            "mixed-unit audible interval overflow was accepted");
 
     AuthoringParseLimits limits;
     limits.maximum_process_block_capacity_frames = 1024U;
-    const auto capacity_result =
-        parse_scenario_document(valid_scenario_json(), limits);
+    const auto capacity_result = parse_scenario_document(valid_scenario_json(), limits);
     expect(has_diagnostic(require_report(capacity_result),
                           DiagnosticCode::resource_limit,
                           "/quality/process_block_capacity_frames"),
@@ -649,11 +680,9 @@ void test_semantic_ranges_limits_and_mixed_duration_units() {
            "zero caller control-command capacity was accepted");
 
     std::string empty_telemetry = valid_scenario_json();
-    replace_once(empty_telemetry,
-                 R"json("telemetry_capacity_frames": 96000)json",
+    replace_once(empty_telemetry, R"json("telemetry_capacity_frames": 96000)json",
                  R"json("telemetry_capacity_frames": 0)json");
-    const auto empty_telemetry_result =
-        parse_scenario_document(empty_telemetry);
+    const auto empty_telemetry_result = parse_scenario_document(empty_telemetry);
     expect(has_diagnostic(require_report(empty_telemetry_result),
                           DiagnosticCode::out_of_range,
                           "/quality/telemetry_capacity_frames"),
@@ -664,8 +693,7 @@ void test_syntax_diagnostic_location() {
     const auto result = parse_scenario_document("{\n  \"schema\": ]");
     const auto &report = require_report(result);
     expect(!report.diagnostics.empty() &&
-               report.diagnostics.front().code ==
-                   DiagnosticCode::malformed_document &&
+               report.diagnostics.front().code == DiagnosticCode::malformed_document &&
                report.diagnostics.front().source_position.has_value() &&
                report.diagnostics.front().source_position->line == 2U,
            "syntax failure did not preserve source location");
@@ -686,9 +714,9 @@ void test_cross_document_reference_validation() {
            "resolved scenario references were rejected");
     scenario.output.buses.front().value = "missing";
     const auto report = validate_scenario_references(scenario, package);
-    expect(has_diagnostic(report, DiagnosticCode::dangling_reference,
-                          "/output/buses/0"),
-           "dangling output bus did not retain its JSON pointer");
+    expect(
+        has_diagnostic(report, DiagnosticCode::dangling_reference, "/output/buses/0"),
+        "dangling output bus did not retain its JSON pointer");
 }
 
 void test_engine_schema_identifier_is_strict() {
@@ -696,8 +724,7 @@ void test_engine_schema_identifier_is_strict() {
         R"json({"schema":"engine-sim-offline/engine-v1","engine":{},"presentation":{}})json");
     const auto *report = std::get_if<DiagnosticReport>(&result);
     expect(report != nullptr &&
-               has_diagnostic(*report, DiagnosticCode::unsupported_schema,
-                              "/schema"),
+               has_diagnostic(*report, DiagnosticCode::unsupported_schema, "/schema"),
            "legacy-like engine schema identifier was accepted");
 }
 
@@ -710,23 +737,22 @@ void test_complete_engine_package() {
     expect(package.engine.cylinders.size() == 1U &&
                package.engine.source_routes.size() == 1U,
            "engine graph definitions were not retained");
-    expect(package.engine.accessory_configurations.size() == 1U &&
-               package.engine.accessory_configurations.front().id.value ==
-                   "warm-stock-accessories" &&
-               package.engine.accessory_configurations.front().uri ==
-                   "accessories/warm-stock-accessories.json" &&
-               package.engine.accessory_configurations.front().sha256 ==
-                   std::optional<std::string>{
-                       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
-           "accessory-configuration definition was not retained");
-    expect(std::holds_alternative<ChenFlynnLossDefinition>(
-               package.engine.losses),
+    expect(
+        package.engine.accessory_configurations.size() == 1U &&
+            package.engine.accessory_configurations.front().id.value ==
+                "warm-stock-accessories" &&
+            package.engine.accessory_configurations.front().uri ==
+                "accessories/warm-stock-accessories.json" &&
+            package.engine.accessory_configurations.front().sha256 ==
+                std::optional<std::string>{
+                    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
+        "accessory-configuration definition was not retained");
+    expect(std::holds_alternative<ChenFlynnLossDefinition>(package.engine.losses),
            "Chen-Flynn loss discriminator changed");
-    expect(std::holds_alternative<MechanicallyDisengagedStarter>(
-               package.engine.starter),
-           "mechanically-disengaged starter discriminator changed");
-    expect(!package.engine.throttle_controllers &&
-               !package.engine.throttle_controller,
+    expect(
+        std::holds_alternative<MechanicallyDisengagedStarter>(package.engine.starter),
+        "mechanically-disengaged starter discriminator changed");
+    expect(!package.engine.throttle_controllers && !package.engine.throttle_controller,
            "omitted future throttle-controller capability became authored");
 }
 
@@ -736,8 +762,7 @@ void test_engine_duplicate_id_and_dangling_reference_paths() {
                  R"json("id": "intake-port")json");
     const auto duplicate_result = parse_engine_document(duplicate);
     expect(has_diagnostic(require_engine_report(duplicate_result),
-                          DiagnosticCode::duplicate_id,
-                          "/engine/ports/1/id"),
+                          DiagnosticCode::duplicate_id, "/engine/ports/1/id"),
            "duplicate engine object ID did not retain its JSON pointer");
 
     std::string dangling = valid_engine_json();
@@ -753,8 +778,7 @@ void test_engine_duplicate_id_and_dangling_reference_paths() {
     replace_once(dangling_accessory,
                  R"json("accessory_configuration_id": "warm-stock-accessories")json",
                  R"json("accessory_configuration_id": "missing-accessories")json");
-    const auto dangling_accessory_result =
-        parse_engine_document(dangling_accessory);
+    const auto dangling_accessory_result = parse_engine_document(dangling_accessory);
     expect(has_diagnostic(require_engine_report(dangling_accessory_result),
                           DiagnosticCode::dangling_reference,
                           "/engine/losses/accessory_configuration_id"),
@@ -778,8 +802,8 @@ int main() {
         std::cout << "authoring document parser tests passed\n";
         return EXIT_SUCCESS;
     } catch (const std::exception &exception) {
-        std::cerr << "authoring document parser test failure: "
-                  << exception.what() << '\n';
+        std::cerr << "authoring document parser test failure: " << exception.what()
+                  << '\n';
         return EXIT_FAILURE;
     }
 }

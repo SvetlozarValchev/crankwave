@@ -201,7 +201,12 @@ struct InertialDyno {
 struct FreeEngine {
     ResolvedValue<double> initial_engine_speed_rpm;
     ResolvedValue<double> initial_theta_rad;
-    ResolvedValue<double> equivalent_inertia_kg_m2;
+    // Cycle-mean crank-referred inertia derived from the engine mechanism.
+    ResolvedValue<double> engine_baseline_inertia_kg_m2;
+    // Additional inertia coupled by a test rig or other external attachment.
+    ResolvedValue<double> attached_inertia_kg_m2;
+    // Exact compiler-resolved sum consumed by the constant-inertia crank solver.
+    ResolvedValue<double> total_equivalent_inertia_kg_m2;
     ScalarTrajectory throttle_01;
     ScalarTrajectory external_resisting_torque_nm;
     ResolvedValue<MethodIdentity> crank_dynamics_method;

@@ -779,15 +779,30 @@ ValidationReport validate(const RenderScenario &scenario,
                                   "scenario.mode.initial_engine_speed_rpm");
                 validate_resolved(report, mode.initial_theta_rad, provenance,
                                   "scenario.mode.initial_theta_rad");
-                validate_resolved(report, mode.equivalent_inertia_kg_m2, provenance,
-                                  "scenario.mode.equivalent_inertia_kg_m2");
+                validate_resolved(report, mode.engine_baseline_inertia_kg_m2,
+                                  provenance,
+                                  "scenario.mode.engine_baseline_inertia_kg_m2");
+                validate_resolved(report, mode.attached_inertia_kg_m2, provenance,
+                                  "scenario.mode.attached_inertia_kg_m2");
+                validate_resolved(report, mode.total_equivalent_inertia_kg_m2,
+                                  provenance,
+                                  "scenario.mode.total_equivalent_inertia_kg_m2");
+                const double expected_total = mode.engine_baseline_inertia_kg_m2.value +
+                                              mode.attached_inertia_kg_m2.value;
                 require(report,
                         finite_positive(mode.initial_engine_speed_rpm.value) &&
                             finite(mode.initial_theta_rad.value) &&
-                            finite_positive(mode.equivalent_inertia_kg_m2.value),
+                            finite_positive(mode.engine_baseline_inertia_kg_m2.value) &&
+                            finite_nonnegative(mode.attached_inertia_kg_m2.value) &&
+                            !std::signbit(mode.attached_inertia_kg_m2.value) &&
+                            finite_positive(expected_total) &&
+                            std::bit_cast<std::uint64_t>(expected_total) ==
+                                std::bit_cast<std::uint64_t>(
+                                    mode.total_equivalent_inertia_kg_m2.value),
                         ContractIssueCode::invalid_value, "mode",
-                        "free engine requires a positive initial speed and equivalent "
-                        "inertia plus a finite initial crank angle");
+                        "free engine requires a positive initial speed, a positive "
+                        "engine inertia, a positive-zero-or-positive attachment, "
+                        "their exact finite total, and a finite crank angle");
                 const auto *sampling =
                     std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
                 require(report, sampling != nullptr,
@@ -807,10 +822,9 @@ ValidationReport validate(const RenderScenario &scenario,
                 validate_trajectory(report, mode.throttle_01, provenance,
                                     scenario.total_duration_s.value, true, false,
                                     "scenario.mode.throttle_01");
-                validate_trajectory(
-                    report, mode.external_resisting_torque_nm, provenance,
-                    scenario.total_duration_s.value, false, true,
-                    "scenario.mode.external_resisting_torque_nm");
+                validate_trajectory(report, mode.external_resisting_torque_nm,
+                                    provenance, scenario.total_duration_s.value, false,
+                                    true, "scenario.mode.external_resisting_torque_nm");
                 validate_resolved(report, mode.crank_dynamics_method, provenance,
                                   "scenario.mode.crank_dynamics_method");
                 append_prefixed(report, validate(mode.crank_dynamics_method.value),
@@ -841,8 +855,7 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
             }
 
             using Profile = std::decay_t<decltype(profile)>;
-            if constexpr (std::is_same_v<Profile,
-                                         LowOrderOperatingPointV1Profile>) {
+            if constexpr (std::is_same_v<Profile, LowOrderOperatingPointV1Profile>) {
                 if (!std::holds_alternative<HeldSpeed>(scenario.mode) &&
                     !std::holds_alternative<InertialDyno>(scenario.mode) &&
                     !std::holds_alternative<FreeEngine>(scenario.mode)) {
@@ -870,11 +883,10 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                         scenario.initial_thermal_state.oil_temperature_k.value) !=
                     std::bit_cast<std::uint64_t>(
                         profile.aggregate_loss.required_oil_temperature_k.value)) {
-                    report.add(
-                        ContractIssueCode::inconsistent_semantics,
-                        "initial_thermal_state.oil_temperature_k.value",
-                        "scenario oil temperature must exactly equal the "
-                        "operating-profile applicability condition");
+                    report.add(ContractIssueCode::inconsistent_semantics,
+                               "initial_thermal_state.oil_temperature_k.value",
+                               "scenario oil temperature must exactly equal the "
+                               "operating-profile applicability condition");
                 }
 
                 const auto fired_running =
