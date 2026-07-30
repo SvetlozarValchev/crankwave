@@ -13,6 +13,10 @@
 
 namespace engine_sim_offline {
 
+namespace compile {
+class CompiledScenario;
+} // namespace compile
+
 struct RenderAssetPayload {
     contract::AudioAssetId id;
     std::vector<std::byte> bytes;
@@ -104,6 +108,13 @@ struct RenderControl {
 // never substitutes silence, a tone, a legacy renderer, or fixture data.
 [[nodiscard]] contract::RenderResult render(const RenderSpecification &specification,
                                             const contract::RenderScenario &scenario,
+                                            RenderSink &sink,
+                                            RenderControl control = {});
+
+// Projects the immutable contracts and owned audio payloads retained by the compiled
+// scenario, then enters the same render implementation above. The compiled handle may
+// be released as soon as this synchronous call returns.
+[[nodiscard]] contract::RenderResult render(const compile::CompiledScenario &scenario,
                                             RenderSink &sink,
                                             RenderControl control = {});
 

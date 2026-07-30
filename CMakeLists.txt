@@ -309,6 +309,7 @@ add_library(
     engine_sim_offline_render
     STATIC
         src/render.cpp
+        src/render/compiled_scenario_projection.cpp
         src/render/compiled_presentation_job.cpp
         src/render/compiled_presentation_job_execute.cpp
         src/render/render_job_derivation.cpp
@@ -555,6 +556,7 @@ engine_sim_offline_enable_renderer_numeric_policy(
 target_link_libraries(
     engine_sim_offline_render
     PRIVATE
+        engine_sim_offline::compile
         engine_sim_offline::simulation
         engine_sim_offline::excitation
         engine_sim_offline::presentation

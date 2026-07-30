@@ -18,6 +18,10 @@ struct EnginePackageDocument;
 struct ScenarioDocument;
 } // namespace engine_sim_offline::authoring
 
+namespace engine_sim_offline::render_detail {
+class CompiledScenarioAccess;
+} // namespace engine_sim_offline::render_detail
+
 namespace engine_sim_offline::compile {
 
 using RuntimeObjectId = std::uint32_t;
@@ -139,6 +143,7 @@ class CompiledScenario final {
     std::shared_ptr<const detail::CompiledScenarioStorage> storage_;
 
     friend class detail::CompiledScenarioBuilder;
+    friend class ::engine_sim_offline::render_detail::CompiledScenarioAccess;
 };
 
 template <class Value>

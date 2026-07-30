@@ -1,6 +1,7 @@
 #include "engine_sim_offline/render.hpp"
 #include "engine_sim_offline/request_identity.hpp"
 #include "render/compiled_presentation_job.hpp"
+#include "render/compiled_scenario_projection.hpp"
 #include "render/render_request.hpp"
 
 #include <algorithm>
@@ -157,6 +158,13 @@ contract::RenderResult render(const RenderSpecification &specification,
     }
     return std::move(std::get<render_detail::CompiledPresentationJob>(compiled))
         .execute(sink, std::move(control));
+}
+
+contract::RenderResult render(const compile::CompiledScenario &scenario,
+                              RenderSink &sink, RenderControl control) {
+    auto projection = render_detail::CompiledScenarioAccess::project(scenario);
+    return render(projection.specification, projection.scenario, sink,
+                  std::move(control));
 }
 
 contract::ValidationReport validate(const contract::RenderResult &result,

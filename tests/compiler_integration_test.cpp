@@ -2,6 +2,8 @@
 #include "engine_sim_offline/authoring/scenario_document.hpp"
 #include "engine_sim_offline/compile.hpp"
 #include "engine_sim_offline/contract/common.hpp"
+#include "engine_sim_offline/render.hpp"
+#include "render/compiled_scenario_projection.hpp"
 
 #include <algorithm>
 #include <array>
@@ -15,6 +17,7 @@
 #include <ranges>
 #include <span>
 #include <stdexcept>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -26,9 +29,48 @@ namespace {
 namespace authoring = engine_sim_offline::authoring;
 namespace compile = engine_sim_offline::compile;
 namespace contract = engine_sim_offline::contract;
+namespace render_detail = engine_sim_offline::render_detail;
 
 constexpr std::size_t kCylinderCount = 6U;
 constexpr std::uint32_t kIrSampleRateHz = 44100U;
+
+struct CountingSink final : engine_sim_offline::RenderSink {
+    std::size_t calls = 0;
+
+    engine_sim_offline::RenderSinkStatus
+    begin_transaction(const contract::OutputContract &) override {
+        ++calls;
+        return std::nullopt;
+    }
+
+    engine_sim_offline::RenderSinkStatus
+    declare_artifact(const engine_sim_offline::PendingArtifact &) override {
+        ++calls;
+        return std::nullopt;
+    }
+
+    engine_sim_offline::RenderSinkStatus
+    write_artifact_chunk(const engine_sim_offline::ArtifactChunk &) override {
+        ++calls;
+        return std::nullopt;
+    }
+
+    engine_sim_offline::RenderSinkStatus
+    seal_artifact(const contract::ArtifactRecord &) override {
+        ++calls;
+        return std::nullopt;
+    }
+
+    engine_sim_offline::RenderSinkStatus
+    commit(const contract::RenderManifest &) override {
+        ++calls;
+        return std::nullopt;
+    }
+
+    void abort() noexcept override {
+        ++calls;
+    }
+};
 
 void expect(const bool condition, const std::string_view message) {
     if (!condition) {
@@ -832,6 +874,60 @@ void test_complete_generic_compile_and_determinism() {
                              "fixture-ir-front")
                        .bytes.data() == retained_front.bytes.data(),
            "compiled scenario did not retain the exact immutable engine");
+
+    const auto projection = render_detail::CompiledScenarioAccess::project(scenario);
+    const auto reordered_projection =
+        render_detail::CompiledScenarioAccess::project(reordered_scenario);
+    expect(projection.specification == reordered_projection.specification &&
+               projection.scenario == reordered_projection.scenario,
+           "compiled scenario projection changed under harmless document reordering");
+    expect(projection.specification.engine.engine_id.value == retained_engine.id() &&
+               projection.specification.provenance == scenario.provenance() &&
+               projection.specification.asset_payloads.size() == 2U,
+           "compiled scenario projection lost its resolved request identity");
+
+    const auto front_runtime_id = contract::AudioAssetId{
+        require_runtime_id(first, "presentation.audio-asset", "fixture-ir-front")};
+    const auto rear_runtime_id = contract::AudioAssetId{
+        require_runtime_id(first, "presentation.audio-asset", "fixture-ir-rear")};
+    const auto retained_rear =
+        require_asset(first, compile::AssetKind::audio, "fixture-ir-rear");
+    const auto projected_front =
+        std::ranges::find(projection.specification.asset_payloads, front_runtime_id,
+                          &engine_sim_offline::RenderAssetPayload::id);
+    const auto projected_rear =
+        std::ranges::find(projection.specification.asset_payloads, rear_runtime_id,
+                          &engine_sim_offline::RenderAssetPayload::id);
+    expect(projected_front != projection.specification.asset_payloads.end() &&
+               projected_rear != projection.specification.asset_payloads.end() &&
+               std::ranges::equal(projected_front->bytes, retained_front.bytes) &&
+               std::ranges::equal(projected_rear->bytes, retained_rear.bytes) &&
+               projected_front->bytes.data() != retained_front.bytes.data() &&
+               projected_rear->bytes.data() != retained_rear.bytes.data(),
+           "compiled scenario projection did not own the exact admitted audio bytes");
+
+    std::stop_source cancellation;
+    cancellation.request_stop();
+    CountingSink explicit_sink;
+    CountingSink compiled_sink;
+    const auto explicit_result = engine_sim_offline::render(
+        projection.specification, projection.scenario, explicit_sink,
+        engine_sim_offline::RenderControl{cancellation.get_token()});
+    const auto compiled_result = engine_sim_offline::render(
+        scenario, compiled_sink,
+        engine_sim_offline::RenderControl{cancellation.get_token()});
+    const auto *explicit_failure =
+        std::get_if<contract::RenderFailure>(&explicit_result);
+    const auto *compiled_failure =
+        std::get_if<contract::RenderFailure>(&compiled_result);
+    expect(explicit_failure != nullptr && compiled_failure != nullptr &&
+               explicit_failure->context.kind == contract::FailureKind::cancelled &&
+               explicit_failure->context == compiled_failure->context &&
+               explicit_failure->request == compiled_failure->request &&
+               explicit_failure->validation.issues ==
+                   compiled_failure->validation.issues &&
+               explicit_sink.calls == 0U && compiled_sink.calls == 0U,
+           "compiled-scenario render did not delegate to the existing admitted path");
 }
 
 void test_asset_admission_is_exact_and_closed() {

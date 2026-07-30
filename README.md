@@ -17,8 +17,11 @@ scenarios, block presentation pipeline, WAV publication, and telemetry are imple
 The strict engine/scenario JSON authoring contract, parser, and generic immutable
 compiler boundary are now in place. The compiler accepts the currently executable
 low-order topology without inspecting an engine name and fails closed on unsupported
-capabilities. Rendering is still reached through a temporary hardcoded BMW M52B28
-profile until the JSON BMW parity fixture and native renderer bridge are completed.
+capabilities. A compiled JSON scenario now enters the existing renderer directly
+through an ownership-safe generic boundary. The BMW JSON migration fixture matches the
+temporary C++ oracle's complete execution-value projection and reproduces every
+sound-bearing PCM byte of the user-approved inertial dyno. The native JSON CLI is the
+next checkpoint.
 
 The active cutover replaces that profile with:
 
@@ -34,12 +37,11 @@ engine.json + scenario.json + assets
        native WAV       WASM preview
 ```
 
-The BMW remains only as an automated byte-identity migration fixture. Once JSON
-compilation reproduces its execution values and accepted PCM24 data bytes exactly, the
-executable BMW factory is removed. The generic compiler intentionally establishes new
-request and WAV-container identities instead of preserving BMW-specific provenance
-machinery; the sound-bearing PCM remains exact. There will not be parallel profile and
-JSON production paths.
+The BMW now remains only as an automated byte-identity migration fixture. Its
+temporary C++ factory is a test oracle through the native-CLI checkpoint and is then
+deleted. The generic compiler intentionally establishes new request and WAV-container
+identities instead of preserving BMW-specific provenance machinery; the sound-bearing
+PCM is exact. There will not be parallel profile and JSON production paths.
 
 The authoritative sequence and acceptance gates are in [PLAN.md](PLAN.md). The original
 engine-sim capability mapping is in
@@ -100,11 +102,21 @@ Its SHA-256 is:
 The accepted 8,640,000-byte PCM24 `data` chunk has SHA-256:
 
 ```text
-2153869958bb924e4eda277a37e95eab1abb7c29aa9fa389c1fa8f879e7bfdcf
+176010069c88c99a3cc8262099fa5f02eba3af9517b1c92e148d88ace869756f
 ```
 
-The generic path deliberately produces a new deterministic whole-WAV hash because its
-metadata carries generic compiler identities rather than obsolete BMW-specific ones.
+The older `bmw-m52b28-5th-gear-equivalent` reference has a different PCM
+payload and is not the accepted migration oracle.
+
+The generic JSON path deliberately produces a new deterministic whole-WAV identity
+because its metadata carries generic compiler identities rather than obsolete
+BMW-specific ones:
+
+```text
+simulation request SHA-256: a07360b0a7a780850e601e1316113f4541b852195a361c79549005ea1f487c7e
+audition WAV byte count:    8640572
+audition WAV SHA-256:       ab5d5b2b580b76b6f8b8df14b3b9d815371f5565de52f4c4e37faacc357ddff0
+```
 
 Historical model, manifest, provenance, and listening records remain under `docs/` and
 `reference/`. They document how the accepted implementation was established; they do

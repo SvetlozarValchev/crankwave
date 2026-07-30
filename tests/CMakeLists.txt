@@ -85,15 +85,87 @@ add_executable(
     compiler_integration_test.cpp
 )
 
+target_include_directories(
+    engine_sim_offline_compiler_integration_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
 target_link_libraries(
     engine_sim_offline_compiler_integration_tests
-    PRIVATE engine_sim_offline::compile
+    PRIVATE
+        engine_sim_offline::compile
+        engine_sim_offline::render
 )
 
 add_test(
     NAME compiler.integration
     COMMAND engine_sim_offline_compiler_integration_tests
 )
+
+add_executable(
+    engine_sim_offline_bmw_m52b28_authored_json_migration_tests
+    bmw_m52b28_authored_json_migration_test.cpp
+    bmw_m52b28_migration_test_support.cpp
+    bmw_m52b28_engine_projection.cpp
+    bmw_m52b28_engine_core_projection.cpp
+    bmw_m52b28_render_projection.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_bmw_m52b28_authored_json_migration_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_bmw_m52b28_authored_json_migration_tests
+    PRIVATE
+        engine_sim_offline::compile
+        engine_sim_offline::profiles
+        engine_sim_offline_bmw_p18_render_specification
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_bmw_m52b28_authored_json_migration_tests
+)
+
+add_test(
+    NAME compiler.bmw_m52b28_authored_json_migration
+    COMMAND
+        engine_sim_offline_bmw_m52b28_authored_json_migration_tests
+        ${PROJECT_SOURCE_DIR}
+)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(
+        engine_sim_offline_bmw_m52b28_authored_json_render_gate_tests
+        bmw_m52b28_authored_json_render_gate_test.cpp
+        bmw_m52b28_render_gate_support.cpp
+        bmw_m52b28_render_gate_wave.cpp
+    )
+
+    target_link_libraries(
+        engine_sim_offline_bmw_m52b28_authored_json_render_gate_tests
+        PRIVATE
+            engine_sim_offline::compile
+            engine_sim_offline::render
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_bmw_m52b28_authored_json_render_gate_tests
+    )
+
+    if(NOT CMAKE_CONFIGURATION_TYPES AND
+       CMAKE_BUILD_TYPE STREQUAL "Release")
+        add_test(
+            NAME render.bmw_m52b28_authored_json_migration
+            COMMAND
+                engine_sim_offline_bmw_m52b28_authored_json_render_gate_tests
+                ${PROJECT_SOURCE_DIR}
+        )
+        set_tests_properties(
+            render.bmw_m52b28_authored_json_migration
+            PROPERTIES TIMEOUT 240
+        )
+    endif()
+endif()
 
 add_executable(
     engine_sim_offline_renderer_source_stamp_tests

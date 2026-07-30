@@ -6,6 +6,8 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-30
 
+Current checkpoint: **5 — make the native JSON renderer real**
+
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
 work or define the product architecture.
@@ -126,8 +128,13 @@ The accepted historical WAV SHA-256 is:
 Its sound-bearing PCM24 `data` chunk is 8,640,000 bytes with SHA-256:
 
 ```text
-2153869958bb924e4eda277a37e95eab1abb7c29aa9fa389c1fa8f879e7bfdcf
+176010069c88c99a3cc8262099fa5f02eba3af9517b1c92e148d88ace869756f
 ```
+
+The different PCM hash
+`2153869958bb924e4eda277a37e95eab1abb7c29aa9fa389c1fa8f879e7bfdcf`
+belongs to the older tracked `bmw-m52b28-5th-gear-equivalent` recording and is
+not the user-approved `ffcc45c` migration oracle.
 
 The fixture proves that plumbing and architecture changes preserve the accepted sound.
 It does not define the JSON vocabulary, impose a six-cylinder/two-route product limit,
@@ -146,6 +153,14 @@ INFO metadata truthfully carries the new generic presentation and source-matrix 
 retaining obsolete IDs merely to reproduce the historical whole-file hash is forbidden.
 Browser device-rate conversion is compared before that final adapter; an AudioContext
 resampler is not expected to reproduce a 192 kHz WAV container.
+
+The completed checkpoint-4 generic identities are:
+
+```text
+simulation request SHA-256: a07360b0a7a780850e601e1316113f4541b852195a361c79549005ea1f487c7e
+audition WAV byte count:    8640572
+audition WAV SHA-256:       ab5d5b2b580b76b6f8b8df14b3b9d815371f5565de52f4c4e37faacc357ddff0
+```
 
 ## 5. Ten cutover checkpoints
 
