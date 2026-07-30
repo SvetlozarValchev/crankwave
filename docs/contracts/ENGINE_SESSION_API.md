@@ -420,8 +420,8 @@ coast traces keep its resulting one-step friction-force difference below `0.4%` 
 The generic one-cycle-lagged Chen--Flynn result is retained as cycle evidence only and
 does not advance FreeEngine RPM. Free-running mechanics evaluates pristine's
 configuration-dependent centered-slider inertia equation at each left boundary. The
-controlled response gate passes: WOT differs from pristine by `0.0130 s`, every coast
-crossing by at most `0.0049 s`, and the long natural-balance mean by `1.182 RPM`. The
+controlled response gate passes: WOT differs from pristine by `0.0134 s`, every coast
+crossing by at most `0.0049 s`, and the long natural-balance mean by `1.079 RPM`. The
 frozen pristine oracle remains the authority for each subsequent mechanics slice.
 
 ### 5.2 Future mode controls

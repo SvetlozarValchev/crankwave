@@ -271,10 +271,10 @@ void test_configuration_dependent_crank_primitive_applies_velocity_inertia() {
                 "configuration-dependent angular acceleration changed");
     expect_near(step->final_state.angular_speed_rad_s, 11.0, 0.0,
                 "configuration-dependent omega update changed");
-    expect_near(step->angular_displacement_rad, 5.25, 0.0,
-                "configuration-dependent displacement update changed");
-    expect_near(step->final_state.theta_rad, 6.25, 0.0,
-                "configuration-dependent theta update changed");
+    expect_near(step->angular_displacement_rad, 5.5, 0.0,
+                "configuration-dependent semi-implicit displacement changed");
+    expect_near(step->final_state.theta_rad, 6.5, 0.0,
+                "configuration-dependent semi-implicit theta update changed");
 }
 
 void test_configuration_dependent_crank_primitive_rejects_invalid_inertia() {

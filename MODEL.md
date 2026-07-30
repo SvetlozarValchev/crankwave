@@ -520,8 +520,8 @@ smoke for the interactive recipe requires its first 7,000-rpm crossing in
 `0.44`--`0.50 s`. Its short part-throttle preparation differs from the controlled
 pristine ablation and therefore guards that recipe rather than claiming transient
 parity. The controlled pristine gate separately holds the same source boundary
-conditions and now places WOT within `0.0130 s`, every coast crossing within
-`0.0049 s`, and long natural-balance mean within `1.182 RPM`. Gas-exchange pumping is
+conditions and now places WOT within `0.0134 s`, every coast crossing within
+`0.0049 s`, and long natural-balance mean within `1.079 RPM`. Gas-exchange pumping is
 already part of indicated cylinder pressure-volume work; it is not a missing second
 loss term. Pristine crank friction and piston-wall friction are the sole applied
 FreeEngine loss authority; the generic one-cycle-lagged Chen--Flynn result remains

@@ -167,18 +167,15 @@ advance_positive_speed_configuration_dependent_crank_zoh(
         held_applied_net_torque_nm - velocity_inertia_torque_nm;
     const double alpha_rad_s2 =
         effective_accelerating_torque_nm / input.instantaneous_inertia_kg_m2;
-    const double duration_squared_s2 = input.duration_s * input.duration_s;
     const double omega1 = omega0 + alpha_rad_s2 * input.duration_s;
-    const double angular_displacement_rad =
-        omega0 * input.duration_s + 0.5 * alpha_rad_s2 * duration_squared_s2;
+    const double angular_displacement_rad = omega1 * input.duration_s;
     const double theta1 = input.initial_state.theta_rad + angular_displacement_rad;
 
     if (!std::isfinite(omega_squared) || !std::isfinite(held_applied_net_torque_nm) ||
         !std::isfinite(velocity_inertia_torque_nm) ||
         !std::isfinite(effective_accelerating_torque_nm) ||
-        !std::isfinite(alpha_rad_s2) || !std::isfinite(duration_squared_s2) ||
-        !std::isfinite(omega1) || !std::isfinite(angular_displacement_rad) ||
-        !std::isfinite(theta1)) {
+        !std::isfinite(alpha_rad_s2) || !std::isfinite(omega1) ||
+        !std::isfinite(angular_displacement_rad) || !std::isfinite(theta1)) {
         return configuration_input_error(Issue::nonfinite_derived_value);
     }
     if (!(omega1 > 0.0)) {

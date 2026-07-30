@@ -178,9 +178,29 @@ The optional long-balance probe produces `1,043.135 RPM` mean with a
 `997.563--1,080.276 RPM` range, compared with the pristine `1,041.953 RPM` mean and
 `997.340--1,088.587 RPM` range.
 
-This checkpoint restores the source equation and instantaneous inertia response. It
-does not yet restore the pristine integrator's semi-implicit angle update; that
-operation-order change remains the next separate parity checkpoint.
+## Semi-implicit crank-step checkpoint
+
+The pristine solver evaluates constraints and force at the left boundary, solves
+acceleration, and then commits:
+
+```text
+omega_next = omega + alpha * dt
+theta_next = theta + omega_next * dt
+```
+
+Across the 1,000-tick coast audit, projecting source crank angle with the former
+constant-acceleration midpoint displacement produced `6.72e-6 rad` RMS and
+`1.433e-5 rad` maximum one-step error. The semi-implicit operation order reproduces
+the source projection to `5.86e-14 rad` RMS and `8.3e-13 rad` maximum error. This
+separate checkpoint changes only the configuration-dependent FreeEngine crank
+displacement; the constant-inertia inertial-dyno method retains its independently
+declared work/energy-consistent update.
+
+After that operation-order change, controlled WOT reaches 7,000 RPM in `0.4533 s`
+(`0.0134 s` from pristine). Coast crossings at 5,000/4,000/3,000/2,000/1,500 RPM are
+`0.3666/0.6654/1.0577/1.6653/2.1637 s`, all within `0.0049 s` of pristine. The long
+balance is `1,043.032 RPM` mean with a `997.420--1,080.284 RPM` range. All remain
+inside the frozen gate.
 
 ## Retained scratch evidence
 

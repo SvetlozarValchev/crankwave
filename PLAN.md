@@ -505,10 +505,11 @@ uses pristine engine-sim's authored crank friction and executable one-step-lagge
 piston-wall law. Its clean centered inverse-dynamics wall reaction has passed direct
 held and coast comparison. The exact centered-slider configuration-inertia equation
 has also replaced the former cycle-mean approximation in free-running motion. The
-controlled response gate passes: WOT differs by `0.0130 s`, and every coast crossing
-by at most `0.0049 s`; the long natural-balance mean is `1,043.135 RPM` versus
-pristine `1,041.953 RPM`. Matching pristine's semi-implicit crank-step ordering is
-the next isolated parity item before the listening checkpoint.
+controlled response gate passes: WOT differs by `0.0134 s`, and every coast crossing
+by at most `0.0049 s`; the long natural-balance mean is `1,043.032 RPM` versus
+pristine `1,041.953 RPM`. FreeEngine also uses pristine's semi-implicit crank-step
+ordering: update `omega`, then advance `theta` with that new speed. The mechanics
+checkpoint is ready for native/WASM verification and listening.
 
 Pristine engine-sim commit
 `85f7c3b959a908ed5232ede4f1a4ac7eafe6b630` is the transient behavioral authority.

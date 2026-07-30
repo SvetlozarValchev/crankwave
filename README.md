@@ -64,8 +64,8 @@ cycle evidence only and does not advance FreeEngine RPM. Configuration-dependent
 mechanism inertia now follows the pristine one-degree-of-freedom equation
 `Q = M(theta)*alpha + 0.5*dM/dtheta*omega^2`; an audited 6,000-rpm coast tick predicts
 pristine acceleration within `0.054%`. The controlled response gate passes: WOT
-differs from pristine by `0.0130 s`, all coast crossings by at most `0.0049 s`, and
-the long natural-balance mean by `1.182 RPM`. A
+differs from pristine by `0.0134 s`, all coast crossings by at most `0.0049 s`, and
+the long natural-balance mean by `1.079 RPM`. A
 drivetrain, gears, starter control, regulated idle, and arbitrary live presentation
 edits remain explicit missing capabilities rather than UI-only approximations.
 
