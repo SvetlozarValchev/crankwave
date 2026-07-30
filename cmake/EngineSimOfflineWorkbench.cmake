@@ -12,10 +12,6 @@ function(engine_sim_offline_add_web_workbench _wasm_target)
 
     set(_output_root "${CMAKE_BINARY_DIR}/workbench")
     set(_stamp "${_output_root}/.assembled")
-    set(_reference_directory
-        "${_output_root}/reference/fixtures/bmw-m52b28-p18/presentation")
-    set(_reference_ir
-        "${PROJECT_SOURCE_DIR}/reference/fixtures/bmw-m52b28-p18/presentation/smooth_39.wav")
 
     file(
         GLOB_RECURSE
@@ -29,6 +25,37 @@ function(engine_sim_offline_add_web_workbench _wasm_target)
         CONFIGURE_DEPENDS
         "${PROJECT_SOURCE_DIR}/data/*"
     )
+    file(
+        GLOB
+        _presentation_assets
+        CONFIGURE_DEPENDS
+        "${PROJECT_SOURCE_DIR}/reference/fixtures/*/presentation/*.wav"
+    )
+    set(_reference_asset_commands)
+    foreach(_reference_asset IN LISTS _presentation_assets)
+        file(
+            RELATIVE_PATH
+            _reference_relative_path
+            "${PROJECT_SOURCE_DIR}"
+            "${_reference_asset}"
+        )
+        get_filename_component(
+            _reference_relative_directory
+            "${_reference_relative_path}"
+            DIRECTORY
+        )
+        list(
+            APPEND
+            _reference_asset_commands
+            COMMAND
+                "${CMAKE_COMMAND}" -E make_directory
+                "${_output_root}/${_reference_relative_directory}"
+            COMMAND
+                "${CMAKE_COMMAND}" -E copy_if_different
+                "${_reference_asset}"
+                "${_output_root}/${_reference_relative_path}"
+        )
+    endforeach()
 
     add_custom_command(
         OUTPUT "${_stamp}"
@@ -45,13 +72,7 @@ function(engine_sim_offline_add_web_workbench _wasm_target)
             "${CMAKE_COMMAND}" -E copy_directory
             "${PROJECT_SOURCE_DIR}/data"
             "${_output_root}/data"
-        COMMAND
-            "${CMAKE_COMMAND}" -E make_directory
-            "${_reference_directory}"
-        COMMAND
-            "${CMAKE_COMMAND}" -E copy_if_different
-            "${_reference_ir}"
-            "${_reference_directory}/smooth_39.wav"
+        ${_reference_asset_commands}
         COMMAND
             "${CMAKE_COMMAND}" -E copy_if_different
             "$<TARGET_FILE:${_wasm_target}>"
@@ -65,7 +86,7 @@ function(engine_sim_offline_add_web_workbench _wasm_target)
             "${_wasm_target}"
             ${_web_sources}
             ${_data_sources}
-            "${_reference_ir}"
+            ${_presentation_assets}
         COMMENT "Assembling the isolated browser workbench"
         VERBATIM
     )

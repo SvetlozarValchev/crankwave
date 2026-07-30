@@ -54,8 +54,15 @@
       </div>
 
       <div class="topbar-actions">
-        <button id="load-baseline-button" class="button button-quiet" type="button">
-          Load BMW baseline
+        <label class="package-picker">
+          <span class="visually-hidden">Engine and scenario preset</span>
+          <select
+            id="package-select"
+            aria-label="Engine and scenario preset"
+          ></select>
+        </label>
+        <button id="load-package-button" class="button button-quiet" type="button">
+          Load preset
         </button>
         <button id="build-button" class="button button-primary" type="button">
           <span class="button-icon" aria-hidden="true">↻</span>

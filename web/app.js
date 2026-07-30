@@ -1,8 +1,50 @@
 const WORKER_URL = "/web/engine-worker.js";
 const WORKLET_URL = "/web/audio-worklet.js";
-const DEFAULT_ENGINE_URL = "/data/engines/bmw-m52b28/engine.json";
-const DEFAULT_SCENARIO_URL =
-  "/data/engines/bmw-m52b28/scenarios/warm-running-free-rev-1500rpm.json";
+const DEFAULT_PACKAGE_ID = "bmw-m52b28-free-rev";
+const WORKBENCH_PACKAGES = Object.freeze([
+  Object.freeze({
+    id: DEFAULT_PACKAGE_ID,
+    label: "BMW M52B28 · Interactive free rev",
+    engineUrl: "/data/engines/bmw-m52b28/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52b28/scenarios/warm-running-free-rev-1500rpm.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52b28-dyno",
+    label: "BMW M52B28 · Inertial dyno 1500–6500 rpm",
+    engineUrl: "/data/engines/bmw-m52b28/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52b28-dyno-lift-overrun",
+    label: "BMW M52B28 · Dyno with lift and overrun",
+    engineUrl: "/data/engines/bmw-m52b28/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm-lift-overrun.json",
+  }),
+  Object.freeze({
+    id: "raspy-muscle-620-free-rev",
+    label: "6.2L old-school V8 · Interactive free rev",
+    engineUrl: "/data/engines/raspy-muscle-620-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/raspy-muscle-620-cleanroom/scenarios/warm-running-free-rev-800rpm.json",
+  }),
+  Object.freeze({
+    id: "raspy-muscle-620-held-idle",
+    label: "6.2L old-school V8 · Held idle 800 rpm",
+    engineUrl: "/data/engines/raspy-muscle-620-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/raspy-muscle-620-cleanroom/scenarios/held-idle-region-800rpm.json",
+  }),
+  Object.freeze({
+    id: "raspy-muscle-620-dyno",
+    label: "6.2L old-school V8 · Inertial dyno 800–5900 rpm",
+    engineUrl: "/data/engines/raspy-muscle-620-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/raspy-muscle-620-cleanroom/scenarios/inertial-dyno-800-5900rpm.json",
+  }),
+]);
 
 const RING_HEADER = Object.freeze({
   byteLength: 64,
@@ -51,7 +93,8 @@ const elements = {
   isolationStatus: $("#isolation-status"),
   workerStatus: $("#worker-status"),
   buildStatus: $("#build-status"),
-  loadBaselineButton: $("#load-baseline-button"),
+  packageSelect: $("#package-select"),
+  loadPackageButton: $("#load-package-button"),
   buildButton: $("#build-button"),
   dirtyIndicator: $("#dirty-indicator"),
   documentTabs: [...document.querySelectorAll(".document-tab")],
@@ -776,15 +819,48 @@ function revealDiagnostic(diagnostic) {
   target.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
-async function loadBaseline({ quiet = false } = {}) {
-  elements.loadBaselineButton.disabled = true;
+function packageById(id) {
+  return WORKBENCH_PACKAGES.find((candidate) => candidate.id === id) ?? null;
+}
+
+function populatePackageSelect() {
+  elements.packageSelect.textContent = "";
+  for (const packageDefinition of WORKBENCH_PACKAGES) {
+    const option = document.createElement("option");
+    option.value = packageDefinition.id;
+    option.textContent = packageDefinition.label;
+    elements.packageSelect.append(option);
+  }
+  elements.packageSelect.value = DEFAULT_PACKAGE_ID;
+}
+
+function repositoryDocumentName(url, kind) {
+  const marker = kind === "engine" ? "/data/engines/" : "/scenarios/";
+  const path = new URL(url, location.href).pathname;
+  const markerIndex = path.indexOf(marker);
+  return markerIndex >= 0
+    ? path.slice(markerIndex + marker.length)
+    : path.split("/").at(-1);
+}
+
+async function loadPackage(packageId, { quiet = false } = {}) {
+  const packageDefinition = packageById(packageId);
+  if (!packageDefinition) {
+    showToast(`Unknown workbench package: ${packageId}`, true);
+    return;
+  }
+
+  elements.packageSelect.disabled = true;
+  elements.loadPackageButton.disabled = true;
   try {
     const [engineResponse, scenarioResponse] = await Promise.all([
-      fetch(DEFAULT_ENGINE_URL, { cache: "no-store" }),
-      fetch(DEFAULT_SCENARIO_URL, { cache: "no-store" }),
+      fetch(packageDefinition.engineUrl, { cache: "no-store" }),
+      fetch(packageDefinition.scenarioUrl, { cache: "no-store" }),
     ]);
     if (!engineResponse.ok || !scenarioResponse.ok) {
-      throw new Error("The repository baseline JSON could not be fetched.");
+      throw new Error(
+        `${packageDefinition.label}: repository JSON could not be fetched.`,
+      );
     }
     const [engineText, scenarioText] = await Promise.all([
       engineResponse.text(),
@@ -792,21 +868,23 @@ async function loadBaseline({ quiet = false } = {}) {
     ]);
     state.selectedAssets.clear();
     setDocument("engine", engineText, {
-      name: "bmw-m52b28/engine.json",
-      sourceUrl: new URL(DEFAULT_ENGINE_URL, location.href).href,
+      name: repositoryDocumentName(packageDefinition.engineUrl, "engine"),
+      sourceUrl: new URL(packageDefinition.engineUrl, location.href).href,
     });
     setDocument("scenario", scenarioText, {
-      name: "warm-running-free-rev-1500rpm.json",
-      sourceUrl: new URL(DEFAULT_SCENARIO_URL, location.href).href,
+      name: repositoryDocumentName(packageDefinition.scenarioUrl, "scenario"),
+      sourceUrl: new URL(packageDefinition.scenarioUrl, location.href).href,
     });
+    elements.packageSelect.value = packageDefinition.id;
     switchDocument("engine");
     if (!quiet) {
-      showToast("BMW M52B28 engine and warm free-rev scenario loaded.");
+      showToast(`${packageDefinition.label} loaded.`);
     }
   } catch (error) {
     showToast(error.message, true);
   } finally {
-    elements.loadBaselineButton.disabled = false;
+    elements.packageSelect.disabled = false;
+    elements.loadPackageButton.disabled = false;
   }
 }
 
@@ -2029,7 +2107,9 @@ function bindEvents() {
   });
   elements.saveDocumentButton.addEventListener("click", saveActiveDocument);
   elements.formatDocumentButton.addEventListener("click", formatActiveDocument);
-  elements.loadBaselineButton.addEventListener("click", () => void loadBaseline());
+  elements.loadPackageButton.addEventListener("click", () => {
+    void loadPackage(elements.packageSelect.value);
+  });
   elements.buildButton.addEventListener("click", () => void buildSession());
 
   elements.addAssetsButton.addEventListener("click", () => {
@@ -2125,6 +2205,7 @@ function bindEvents() {
 
 async function initialize() {
   configureSecurityGate();
+  populatePackageSelect();
   bindEvents();
   renderInspector();
   renderAssets();
@@ -2134,7 +2215,7 @@ async function initialize() {
   drawTrace();
   startWorker();
   window.setInterval(renderRuntimeStats, 250);
-  await loadBaseline({ quiet: true });
+  await loadPackage(DEFAULT_PACKAGE_ID, { quiet: true });
 }
 
 void initialize();

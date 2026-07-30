@@ -250,6 +250,23 @@ code,
   justify-content: flex-end;
 }
 
+.package-picker {
+  display: flex;
+  min-width: 250px;
+}
+
+.package-picker select {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 34px 0 12px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .button,
 .tool-button,
 .transport-button {
@@ -1266,7 +1283,12 @@ code,
   }
 
   .topbar-actions {
+    flex-wrap: wrap;
     justify-content: stretch;
+  }
+
+  .package-picker {
+    width: 100%;
   }
 
   .topbar-actions .button {

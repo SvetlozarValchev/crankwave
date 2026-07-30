@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const EXPECTED_WAV_BYTES = 3_840_056;
 const EXPECTED_WAV_SHA256 =
-  "c178ee205cfcdf0df5c71eb3b1c4f9feb366ddaed5951b442b809e78cdb560c7";
+  "2972cdad90d08d31ddfac3ca99a4efcda93a15db637d93abc2b7844085c3e4b2";
 
 function usage() {
   return (
@@ -151,13 +151,23 @@ async function pageState(cdp) {
   return cdp.evaluate(`(() => {
     const text = (selector) =>
       document.querySelector(selector)?.textContent?.trim() ?? "";
+    const json = (selector) => {
+      try {
+        return JSON.parse(document.querySelector(selector)?.value ?? "");
+      } catch {
+        return null;
+      }
+    };
     const selected = document.querySelector("#bus-select");
+    const engineDocument = json("#engine-editor");
+    const scenarioDocument = json("#scenario-editor");
     return {
       readyState: document.readyState,
       isolated: globalThis.crossOriginIsolated === true,
       worker: text("#worker-status"),
       build: text("#build-status"),
       session: text("#session-state"),
+      sessionTitle: text("#session-title"),
       sessionSubtitle: text("#session-subtitle"),
       diagnostics: text("#diagnostics-list"),
       rpm: text("#rpm-value"),
@@ -167,6 +177,10 @@ async function pageState(cdp) {
       underruns: text("#underrun-value"),
       busCount: selected?.options?.length ?? 0,
       selectedBus: selected?.value ?? "",
+      selectedPackage:
+        document.querySelector("#package-select")?.value ?? "",
+      authoredEngineId: engineDocument?.engine?.identity?.id ?? "",
+      authoredScenarioId: scenarioDocument?.id ?? "",
       buildDisabled: document.querySelector("#build-button")?.disabled ?? true,
       startDisabled: document.querySelector("#start-button")?.disabled ?? true,
       restartDisabled:
@@ -426,6 +440,62 @@ async function main() {
       "route-bus session replacement",
     );
     assert.match(routeReady.diagnostics, /No diagnostics reported/u);
+
+    await cdp.evaluate(`(() => {
+      const packages = document.querySelector("#package-select");
+      packages.value = "raspy-muscle-620-free-rev";
+      packages.dispatchEvent(new Event("change", { bubbles: true }));
+      document.querySelector("#load-package-button").click();
+      return true;
+    })()`);
+    await waitUntil(
+      () => pageState(cdp),
+      (state) =>
+        state.selectedPackage === "raspy-muscle-620-free-rev" &&
+        state.authoredEngineId === "raspy-muscle-620-cleanroom" &&
+        state.authoredScenarioId ===
+          "raspy-muscle-620-cleanroom-warm-running-free-rev-800rpm" &&
+        !state.buildDisabled,
+      "the repository V8 package",
+    );
+    await cdp.evaluate(
+      `document.querySelector("#build-button").click(); true`,
+    );
+    const v8Built = await waitUntil(
+      () => pageState(cdp),
+      (state) =>
+        state.build === "Build admitted" &&
+        state.session === "Ready" &&
+        state.sessionTitle === "raspy-muscle-620-cleanroom" &&
+        state.busCount === 8 &&
+        /interactive bench/u.test(state.sessionSubtitle) &&
+        !state.startDisabled,
+      "the compiled 6.2L V8 workbench session",
+      30_000,
+    );
+    assert.match(v8Built.diagnostics, /No diagnostics reported/u);
+
+    await cdp.evaluate(
+      `document.querySelector("#start-button").click(); true`,
+    );
+    const v8Running = await waitUntil(
+      () => pageState(cdp),
+      (state) =>
+        state.session === "Running" &&
+        state.sessionTitle === "raspy-muscle-620-cleanroom" &&
+        state.rpm !== "—",
+      "primed live 6.2L V8 playback",
+      30_000,
+    );
+    assert.equal(v8Running.underruns, "0");
+    await cdp.evaluate(
+      `document.querySelector("#stop-button").click(); true`,
+    );
+    await waitUntil(
+      () => pageState(cdp),
+      (state) => state.session === "Paused",
+      "paused live 6.2L V8 session",
+    );
     assert.deepEqual(cdp.exceptions, []);
 
     process.stdout.write(
@@ -437,6 +507,8 @@ async function main() {
         startupUnderruns: Number(running.underruns),
         throttle: running.throttle,
         selectedRoute,
+        v8Engine: v8Running.sessionTitle,
+        v8StartupUnderruns: Number(v8Running.underruns),
       }) + "\n",
     );
   } finally {
