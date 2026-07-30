@@ -6,6 +6,7 @@
 #include "engine_sim_offline/contract/scenario.hpp"
 #include "simulation/live_control.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
+#include "simulation/low_order_free_engine_v1_runtime.hpp"
 #include "simulation/low_order_inertial_dyno_v1_runtime.hpp"
 #include "simulation/low_order_operating_point_v1_runtime.hpp"
 
@@ -126,7 +127,8 @@ class LowOrderCaptureSession final {
 
   private:
     using ProfilePolicy =
-        std::variant<LowOrderOperatingPointV1Runtime, LowOrderInertialDynoV1Runtime>;
+        std::variant<LowOrderOperatingPointV1Runtime, LowOrderInertialDynoV1Runtime,
+                     LowOrderFreeEngineV1Runtime>;
 
     LowOrderCaptureSession(LowOrderEngineCoreV1Runtime core,
                            ProfilePolicy profile_policy,

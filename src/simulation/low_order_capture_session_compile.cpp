@@ -30,6 +30,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     const auto *operating_profile =
         std::get_if<contract::LowOrderOperatingPointV1Profile>(&engine.physics_profile);
     const auto *inertial = std::get_if<contract::InertialDyno>(&scenario.mode);
+    const auto *free_engine = std::get_if<contract::FreeEngine>(&scenario.mode);
     require(report, operating_profile != nullptr, ContractIssueCode::unsupported_value,
             "engine.physics_profile",
             "low-order capture requires the operating-point physics profile");
@@ -62,6 +63,17 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
             profile_policy.emplace(
                 std::in_place_type<LowOrderInertialDynoV1Runtime>,
                 std::get<LowOrderInertialDynoV1Runtime>(std::move(inertial_result)));
+        } else if (free_engine != nullptr) {
+            auto free_engine_result = compile_low_order_free_engine_v1_runtime(
+                engine, scenario, capture_plan, simulation_request_identity_v3_sha256);
+            if (auto *free_engine_report =
+                    std::get_if<ValidationReport>(&free_engine_result)) {
+                return std::move(*free_engine_report);
+            }
+            profile_policy.emplace(
+                std::in_place_type<LowOrderFreeEngineV1Runtime>,
+                std::get<LowOrderFreeEngineV1Runtime>(
+                    std::move(free_engine_result)));
         } else {
             auto operating_result = compile_low_order_operating_point_v1_runtime(
                 engine, scenario, capture_plan, simulation_request_identity_v3_sha256);

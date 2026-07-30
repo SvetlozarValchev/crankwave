@@ -1,5 +1,6 @@
 #include "authored_engine_fixture_support.hpp"
 #include "engine_sim_offline/artifacts/telemetry_encoder.hpp"
+#include "simulation/free_engine_method_registry.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
@@ -8,6 +9,7 @@
 #include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -43,6 +45,11 @@ inline constexpr double kOperatingCutoffTimeS = 0.22;
 inline constexpr double kOperatingTotalDurationS = 0.3;
 inline constexpr std::size_t kOperatingStepCount = 3000U;
 inline constexpr std::uint32_t kOperatingCyclesPerBlock = 2U;
+inline constexpr double kFreeEngineControlBoundaryS = 0.24;
+inline constexpr double kFreeEngineTotalDurationS = 0.4;
+inline constexpr double kFreeEngineEquivalentInertiaKgM2 = 0.25;
+inline constexpr double kFreeEngineInitialResistingTorqueNm = 50.0;
+inline constexpr double kFreeEngineBoundaryResistingTorqueNm = 100.0;
 inline constexpr CaptureValidityMask kMechanism =
     capture_validity_mask(CaptureValidity::mechanism);
 inline constexpr CaptureValidityMask kThermodynamic =
@@ -59,6 +66,15 @@ inline constexpr CaptureValidityMask kTorque =
 void expect(bool condition, const std::string &message) {
     if (!condition) {
         throw std::runtime_error{message};
+    }
+}
+
+void expect_near(double actual, double expected, double tolerance,
+                 const std::string &message) {
+    if (!std::isfinite(actual) || !std::isfinite(expected) ||
+        std::abs(actual - expected) > tolerance) {
+        throw std::runtime_error{message + "; actual=" + std::to_string(actual) +
+                                 "; expected=" + std::to_string(expected)};
     }
 }
 
@@ -162,6 +178,66 @@ make_operating_capture_request(
     return request;
 }
 
+[[nodiscard]] engine_sim_offline::test::AuthoredEngineFixture
+make_free_engine_capture_request(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical,
+    double post_boundary_throttle, double initial_resisting_torque_nm,
+    double boundary_resisting_torque_nm, double boundary_time_s,
+    double total_duration_s = kFreeEngineTotalDurationS) {
+    auto request = canonical;
+    auto &scenario = request.scenario;
+    const auto *inertial = std::get_if<InertialDyno>(&scenario.mode);
+    expect(inertial != nullptr,
+           "canonical authored scenario lost inertial-dyno ownership");
+
+    auto initial_engine_speed = inertial->initial_engine_speed_rpm;
+    initial_engine_speed.value = kOperatingHeldRpm;
+    auto equivalent_inertia = inertial->equivalent_inertia_kg_m2;
+    equivalent_inertia.value = kFreeEngineEquivalentInertiaKgM2;
+    scenario.mode = FreeEngine{
+        std::move(initial_engine_speed),
+        inertial->initial_theta_rad,
+        std::move(equivalent_inertia),
+        {
+            TrajectoryInterpolation::right_continuous_hold,
+            {{0.0, 0.85}, {boundary_time_s, post_boundary_throttle}},
+            "free-engine-test.throttle",
+        },
+        {
+            TrajectoryInterpolation::right_continuous_hold,
+            {{0.0, initial_resisting_torque_nm},
+             {boundary_time_s, boundary_resisting_torque_nm}},
+            "free-engine-test.external-resisting-torque",
+        },
+        {
+            warm_running_free_engine_rigid_crank_zoh_work_energy_method_identity(),
+            "free-engine-test.crank-dynamics-method",
+        },
+    };
+    scenario.scenario_id = "authored-free-engine-capture-integration";
+    scenario.mode_resolution_id = "free-engine-test.mode";
+    auto *preparation = std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
+    expect(preparation != nullptr,
+           "canonical authored scenario lost fixed-horizon preparation");
+    preparation->fixed_preparation_horizon_s.value = kOperatingCutoffTimeS;
+    preparation->trailing_complete_cycle_count.value = kOperatingCyclesPerBlock;
+    scenario.operating_state.value = {
+        {
+            "free-engine-warm-running",
+            0.0,
+            {true, true, false, false, false},
+        },
+    };
+    scenario.total_duration_s.value = total_duration_s;
+    scenario.audible_start_s.value = kOperatingCutoffTimeS;
+    scenario.audible_duration_s.value = total_duration_s - kOperatingCutoffTimeS;
+    scenario.rates.physics = {10000U, 1U};
+    scenario.rates.capture = scenario.rates.physics;
+    scenario.quality.value.capture_block_capacity_frames = 200U;
+    scenario.quality.value.event_journal_capacity_records = 3800U;
+    return request;
+}
+
 [[nodiscard]] LegacyLowOrderMechanicsSession
 require_mechanics(CoreRuntimeFactory::MechanicsCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
@@ -191,6 +267,44 @@ fixture_random_plan(const engine_sim_offline::test::AuthoredEngineFixture &autho
                     const EngineSpec &engine, const RenderScenario &scenario) {
     return engine_sim_offline::test::compile_fixture_random_plan(authored, engine,
                                                                  scenario);
+}
+
+struct FreeEngineCaptureTrace {
+    std::vector<EngineCaptureSample> frames;
+    LowOrderCaptureCompleted completion;
+};
+
+[[nodiscard]] FreeEngineCaptureTrace run_free_engine_capture(
+    const engine_sim_offline::test::AuthoredEngineFixture &request) {
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario,
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity()));
+
+    FreeEngineCaptureTrace trace;
+    while (true) {
+        auto result = capture.publish_next_block([&](const CaptureBlockView &block) {
+            const auto report = validate(block, request.engine, request.scenario);
+            if (!report.ok()) {
+                fail_report("free-engine capture block failed validation", report);
+            }
+            expect(block.clock().first_sample_index == trace.frames.size(),
+                   "free-engine capture blocks lost contiguous frame order");
+            trace.frames.insert(trace.frames.end(), block.engine().begin(),
+                                block.engine().end());
+            return true;
+        });
+        if (const auto *failure = std::get_if<FailureContext>(&result)) {
+            throw std::runtime_error{
+                "free-engine capture faulted: " + failure->detail_code + "; " +
+                failure->state_summary +
+                "; time-s=" + std::to_string(failure->scenario_time_s)};
+        }
+        if (const auto *completed = std::get_if<LowOrderCaptureCompleted>(&result)) {
+            trace.completion = *completed;
+            return trace;
+        }
+    }
 }
 
 [[nodiscard]] const LegacyMechanismStep &
@@ -821,6 +935,165 @@ void test_operating_capture_rejects_zero_request_identity(
            "operating capture admitted a zero simulation-request identity");
 }
 
+void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const auto high_throttle_request = make_free_engine_capture_request(
+        canonical, 0.85, kFreeEngineInitialResistingTorqueNm,
+        kFreeEngineBoundaryResistingTorqueNm, kFreeEngineControlBoundaryS);
+    const auto low_throttle_request = make_free_engine_capture_request(
+        canonical, 0.15, kFreeEngineInitialResistingTorqueNm,
+        kFreeEngineBoundaryResistingTorqueNm, kFreeEngineControlBoundaryS);
+    const auto high = run_free_engine_capture(high_throttle_request);
+    const auto low = run_free_engine_capture(low_throttle_request);
+
+    const auto release_frame = *resolve_frame_index(
+        kOperatingCutoffTimeS, high_throttle_request.scenario.rates.capture);
+    const auto control_boundary_frame = *resolve_frame_index(
+        kFreeEngineControlBoundaryS, high_throttle_request.scenario.rates.capture);
+    const auto expected_frame_count = *resolve_frame_index(
+        kFreeEngineTotalDurationS, high_throttle_request.scenario.rates.capture);
+    const auto expected_block_count =
+        expected_frame_count /
+        high_throttle_request.scenario.quality.value.capture_block_capacity_frames;
+    expect(high.frames.size() == expected_frame_count &&
+               low.frames.size() == expected_frame_count &&
+               high.completion.sample_count == expected_frame_count &&
+               low.completion.sample_count == expected_frame_count &&
+               high.completion.block_count == expected_block_count &&
+               low.completion.block_count == expected_block_count &&
+               !high.completion.held_speed_operating_point.has_value() &&
+               !high.completion.inertial_dyno.has_value() &&
+               !low.completion.held_speed_operating_point.has_value() &&
+               !low.completion.inertial_dyno.has_value(),
+           "free-engine captures did not complete their exact fixed horizon");
+
+    const auto held_rpm_bits = std::bit_cast<std::uint64_t>(kOperatingHeldRpm);
+    for (std::uint64_t index = 0; index < release_frame; ++index) {
+        expect(std::bit_cast<std::uint64_t>(high.frames[index].engine_speed_rpm) ==
+                       held_rpm_bits &&
+                   std::bit_cast<std::uint64_t>(low.frames[index].engine_speed_rpm) ==
+                       held_rpm_bits,
+               "free-engine preparation was not held at the exact initial RPM");
+    }
+
+    const auto &released = high.frames[release_frame];
+    const auto &released_net = released.torque.instantaneous_net_shaft;
+    const auto &released_actuator = released.torque.actuator;
+    const auto &released_reaction = released.torque.dyno_reaction;
+    expect(released_net.availability == Availability::available &&
+               released_actuator.availability == Availability::available &&
+               released_reaction.availability == Availability::available &&
+               released_actuator.value_nm == -kFreeEngineInitialResistingTorqueNm &&
+               released_reaction.value_nm == kFreeEngineInitialResistingTorqueNm,
+           "first released free-engine frame did not expose its applied load");
+    const double expected_release_alpha =
+        (released_net.value_nm - kFreeEngineInitialResistingTorqueNm) /
+        kFreeEngineEquivalentInertiaKgM2;
+    expect_near(released.angular_acceleration_rad_s2, expected_release_alpha,
+                std::max(1.0, std::abs(expected_release_alpha)) * 1e-8,
+                "first released free-engine motion disagreed with torque and inertia");
+
+    const auto &before_boundary = low.frames[control_boundary_frame - 1U];
+    const auto &at_boundary = low.frames[control_boundary_frame];
+    expect(before_boundary.requested_throttle_01 == 0.85 &&
+               before_boundary.torque.actuator.value_nm ==
+                   -kFreeEngineInitialResistingTorqueNm &&
+               before_boundary.torque.dyno_reaction.value_nm ==
+                   kFreeEngineInitialResistingTorqueNm &&
+               at_boundary.requested_throttle_01 == 0.15 &&
+               at_boundary.torque.actuator.value_nm ==
+                   -kFreeEngineBoundaryResistingTorqueNm &&
+               at_boundary.torque.dyno_reaction.value_nm ==
+                   kFreeEngineBoundaryResistingTorqueNm &&
+               high.frames[control_boundary_frame].requested_throttle_01 == 0.85,
+           "free-engine authored controls did not change on their exact RCH frame");
+
+    for (std::uint64_t index = 0; index <= control_boundary_frame; ++index) {
+        expect(std::bit_cast<std::uint64_t>(high.frames[index].engine_speed_rpm) ==
+                   std::bit_cast<std::uint64_t>(low.frames[index].engine_speed_rpm),
+               "current-frame throttle rewrote prior committed crank motion");
+    }
+    const auto first_rpm_divergence = std::find_if(
+        high.frames.begin() + static_cast<std::ptrdiff_t>(control_boundary_frame + 1U),
+        high.frames.end(), [&](const EngineCaptureSample &high_frame) {
+            const auto index =
+                static_cast<std::size_t>(&high_frame - high.frames.data());
+            return std::bit_cast<std::uint64_t>(high_frame.engine_speed_rpm) !=
+                   std::bit_cast<std::uint64_t>(low.frames[index].engine_speed_rpm);
+        });
+    expect(first_rpm_divergence != high.frames.end() &&
+               high.frames.back().engine_speed_rpm > low.frames.back().engine_speed_rpm,
+           "released free-engine motion did not respond to authored throttle");
+}
+
+void test_free_engine_capture_returns_stable_typed_stall_without_reverse(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    constexpr double kStallResistingTorqueNm = 1.0e9;
+    const auto request = make_free_engine_capture_request(
+        canonical, 0.85, kFreeEngineInitialResistingTorqueNm, kStallResistingTorqueNm,
+        kOperatingCutoffTimeS);
+    const auto release_frame =
+        *resolve_frame_index(kOperatingCutoffTimeS, request.scenario.rates.capture);
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario,
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity()));
+
+    std::size_t callback_count = 0U;
+    std::uint64_t observed_frame_count = 0U;
+    std::optional<FailureContext> terminal_fault;
+    while (!terminal_fault.has_value()) {
+        auto result = capture.publish_next_block([&](const CaptureBlockView &block) {
+            ++callback_count;
+            const auto report = validate(block, request.engine, request.scenario);
+            if (!report.ok()) {
+                fail_report("free-engine stall preparation failed validation", report);
+            }
+            expect(block.clock().first_sample_index == observed_frame_count,
+                   "stall probe capture blocks lost contiguous frame order");
+            for (const auto &frame : block.engine()) {
+                expect(frame.engine_speed_rpm == kOperatingHeldRpm &&
+                           frame.engine_speed_rpm > 0.0,
+                       "stall probe published non-held or nonpositive crank motion");
+            }
+            observed_frame_count += block.frame_count();
+            return true;
+        });
+        if (const auto *failure = std::get_if<FailureContext>(&result)) {
+            terminal_fault = *failure;
+        } else {
+            expect(!std::holds_alternative<LowOrderCaptureCompleted>(result),
+                   "stall probe completed instead of returning a typed fault");
+        }
+    }
+
+    const auto expected_callback_count =
+        release_frame / request.scenario.quality.value.capture_block_capacity_frames;
+    expect(terminal_fault->kind == FailureKind::nonphysical_state &&
+               terminal_fault->detail_code == "free-engine-crank-stalled" &&
+               terminal_fault->sample_index == release_frame &&
+               terminal_fault->step_end_index == release_frame &&
+               callback_count == expected_callback_count &&
+               observed_frame_count == release_frame &&
+               capture.published_sample_count() == release_frame &&
+               capture.published_block_count() == expected_callback_count &&
+               capture.faulted() && !capture.completed(),
+           "free-engine stall was not a typed unpublished release-boundary fault");
+    expect_near(terminal_fault->scenario_time_s, kOperatingCutoffTimeS, 1e-15,
+                "free-engine stall fault has the wrong scenario time");
+
+    const auto repeated = capture.publish_next_block([&](const CaptureBlockView &) {
+        ++callback_count;
+        return true;
+    });
+    const auto *repeated_fault = std::get_if<FailureContext>(&repeated);
+    expect(repeated_fault != nullptr && *repeated_fault == *terminal_fault &&
+               callback_count == expected_callback_count &&
+               capture.published_sample_count() == release_frame &&
+               capture.published_block_count() == expected_callback_count,
+           "free-engine stall fault was not stable and callback-free");
+}
+
 void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(
     const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
     auto request = canonical;
@@ -1126,6 +1399,9 @@ void run_tests(const engine_sim_offline::test::AuthoredEngineFixture &canonical)
     test_authored_capture_mapping_and_completion(canonical);
     test_operating_capture_publishes_request_bound_completion_evidence(canonical);
     test_operating_capture_rejects_zero_request_identity(canonical);
+    test_free_engine_capture_holds_preparation_and_executes_authored_controls(
+        canonical);
+    test_free_engine_capture_returns_stable_typed_stall_without_reverse(canonical);
     test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(canonical);
     test_inertial_capture_rejects_throttle_transition_during_preparation(canonical);
     test_declared_capture_capacity_drives_publication(canonical);

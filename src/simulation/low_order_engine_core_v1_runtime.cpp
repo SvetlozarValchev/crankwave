@@ -170,7 +170,8 @@ compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
                                          const contract::RandomPlan &random_plan) {
     std::optional<KinematicScenarioSchedule> kinematic_schedule;
     std::optional<ScenarioControlSchedule> control_schedule;
-    if (std::holds_alternative<contract::InertialDyno>(scenario.mode)) {
+    if (std::holds_alternative<contract::InertialDyno>(scenario.mode) ||
+        std::holds_alternative<contract::FreeEngine>(scenario.mode)) {
         auto result = compile_scenario_control_schedule(scenario);
         if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
             return *report;
