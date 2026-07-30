@@ -205,7 +205,9 @@ struct FreeEngine {
     ResolvedValue<double> engine_baseline_inertia_kg_m2;
     // Additional inertia coupled by a test rig or other external attachment.
     ResolvedValue<double> attached_inertia_kg_m2;
-    // Exact compiler-resolved sum consumed by the constant-inertia crank solver.
+    // Exact cycle-mean engine-plus-attachment reference used for validation and
+    // provenance. Runtime mechanics evaluates engine M(theta) and adds the same
+    // constant attached inertia at each left boundary.
     ResolvedValue<double> total_equivalent_inertia_kg_m2;
     ScalarTrajectory throttle_01;
     ScalarTrajectory external_resisting_torque_nm;

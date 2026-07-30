@@ -73,9 +73,11 @@ For `free_engine`, the scenario may declare nonnegative `attached_inertia` and a
 `external_resisting_torque` trajectory. Both are optional and default to canonical
 positive zero. The compiler derives engine baseline inertia from the engine mechanism
 using the versioned cycle-mean centered slider-crank kinetic-energy method, adds only
-the declared attachment, and supplies the resolved total to crank dynamics. The BMW
-M52B28 neutral baseline is `0.2108686520185204 kg*m^2`, with no attached inertia or
-external resistance.
+the declared attachment, and retains the resolved total as a cycle-mean contract
+reference. Free-running crank dynamics evaluates analytic configuration-dependent
+mechanism inertia and its derivative, with the same attachment added to the
+instantaneous value. The BMW M52B28 neutral baseline is
+`0.2108686520185204 kg*m^2`, with no attached inertia or external resistance.
 
 The current browser workbench executes all admitted authored scenario modes.
 `inertial_dyno` exposes live throttle, ignition, and fuel; `free_engine` additionally

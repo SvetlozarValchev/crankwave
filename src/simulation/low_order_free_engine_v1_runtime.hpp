@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/contract/result.hpp"
+#include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/engine_sim_v1_transient_friction.hpp"
 #include "simulation/fixed_horizon_cycle_sampling.hpp"
 #include "simulation/kinematic_scenario_schedule.hpp"
@@ -72,11 +73,11 @@ class LowOrderFreeEngineV1Runtime final {
         FixedHorizonCycleSampler sampler,
         std::vector<std::size_t> physical_gas_step_indices,
         std::vector<OperatingGasVolumePressureSample> pressure_samples,
-        std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan>
-            piston_wall_cylinders,
+        CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan,
+        std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders,
         contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
         std::uint64_t release_frame_index, double initial_engine_speed_rpm,
-        double initial_theta_rad, double equivalent_inertia_kg_m2,
+        double initial_theta_rad,
         double applied_positive_speed_crank_friction_torque_nm, std::string model_id,
         std::string profile_id, std::string scenario_id, contract::EngineId engine_id);
 
@@ -107,6 +108,7 @@ class LowOrderFreeEngineV1Runtime final {
     FixedHorizonCycleSampler sampler_;
     std::vector<std::size_t> physical_gas_step_indices_;
     std::vector<OperatingGasVolumePressureSample> pressure_samples_;
+    CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan_;
     std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders_;
     std::vector<double> piston_wall_boundary_phase_rad_;
     std::vector<double> piston_wall_boundary_pressure_pa_abs_;
@@ -122,7 +124,6 @@ class LowOrderFreeEngineV1Runtime final {
     std::uint64_t accepted_sample_count_ = 0;
     double step_s_ = 0.0;
     double initial_engine_speed_rpm_ = 0.0;
-    double equivalent_inertia_kg_m2_ = 0.0;
     double applied_positive_speed_crank_friction_torque_nm_ = 0.0;
     double piston_wall_boundary_angular_speed_rad_s_ = 0.0;
     double applied_piston_wall_friction_torque_nm_ = 0.0;

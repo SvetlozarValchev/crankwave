@@ -307,7 +307,7 @@ actuator torque.
 | prescribed trajectory | The scenario supplies `theta`, `omega`, and `alpha`; no crank dynamics integrator also advances them. | Actuator torque is the algebraic residual required to impose that trajectory. |
 | held-speed/load-target | The scenario holds `theta`/`omega` on its declared speed trajectory while the controller searches a bounded engine actuator such as throttle. | Test-cell actuator torque is the algebraic residual; target reachability is reported separately. |
 | inertial dyno | The dynamics integrator alone advances `theta` and `omega`. | Declared brake/resistance supplies actuator torque; no trajectory simultaneously overwrites motion. |
-| free engine | The dynamics integrator alone advances `theta` and `omega` from engine torque and the resolved total crank-referred inertia. | An optional nonnegative external resisting-torque trajectory is subtracted from engine torque; omission means positive zero. |
+| free engine | The dynamics integrator alone advances `theta` and `omega` from engine torque and the mechanism's configuration-dependent crank-referred inertia. | An optional nonnegative external resisting-torque trajectory is subtracted from engine torque; omission means positive zero. |
 
 A prescribed-RPM sweep therefore measures the actuator needed to impose the path; it
 does not directly measure a steady torque curve.
@@ -494,8 +494,8 @@ scenario. The versioned
 uniform midpoint samples over one slider-crank revolution. It adds the authored crank
 inertia once to the full-cycle mean piston translation, connecting-rod center
 translation, and connecting-rod rotation kinetic-energy contributions. This produces
-one constant crank-referred engine baseline without introducing a general constraint
-solver solely to obtain rigid slider-crank motion.
+one constant crank-referred cycle-mean reference without introducing a general
+constraint solver solely to identify and validate the authored mechanism.
 
 The optional scenario `attached_inertia` is a nonnegative crank-referred addition and
 defaults to canonical positive zero. The compiler resolves
@@ -506,22 +506,26 @@ free_engine_total_inertia
 ```
 
 under the versioned `free-engine-equivalent-inertia-sum-v1` method, and the runtime
-integrates that total. The optional `external_resisting_torque` trajectory likewise
-defaults to one right-continuous positive-zero point. It is an external test-rig load,
-not a second engine-friction term.
+retains that total as an exact cycle-mean reference. During free-running motion the
+runtime instead evaluates the centered mechanism's analytic `M(theta)` and
+`dM/dtheta`, adds the constant attachment to `M(theta)`, and solves
+`Q = M(theta)*alpha + 0.5*dM/dtheta*omega^2` at each left boundary. The optional
+`external_resisting_torque` trajectory likewise defaults to one right-continuous
+positive-zero point. It is an external test-rig load, not a second engine-friction
+term.
 
 For the BMW M52B28 fixture, the engine-derived baseline and neutral total are both
 `0.2108686520185204 kg*m^2`, and neutral external resistance is zero. The regression
 smoke for the interactive recipe requires its first 7,000-rpm crossing in
 `0.44`--`0.50 s`. Its short part-throttle preparation differs from the controlled
 pristine ablation and therefore guards that recipe rather than claiming transient
-parity. Closed-throttle coastdown still differs.
-Gas-exchange pumping is already part of indicated cylinder pressure-volume work; it
-is not a missing second loss term. The mismatch is the provisional use of a generic
-one-cycle-lagged Chen--Flynn aggregate in place of pristine engine-sim's authored
-crank friction and executable piston-wall friction. The active operating-bench plan
-requires those source mechanisms to become the sole FreeEngine loss authority before
-later bench work proceeds.
+parity. The controlled pristine gate separately holds the same source boundary
+conditions and now places WOT within `0.0130 s`, every coast crossing within
+`0.0049 s`, and long natural-balance mean within `1.182 RPM`. Gas-exchange pumping is
+already part of indicated cylinder pressure-volume work; it is not a missing second
+loss term. Pristine crank friction and piston-wall friction are the sole applied
+FreeEngine loss authority; the generic one-cycle-lagged Chen--Flynn result remains
+cycle evidence only.
 
 ### 10.2 Fixed valvetrain and conductance
 

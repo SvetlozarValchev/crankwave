@@ -51,7 +51,7 @@ void ScenarioResolver::compile_mode() {
             using T = std::decay_t<decltype(mode)>;
             if constexpr (std::is_same_v<T, authoring::FreeEngineMode>) {
                 const auto &method = simulation::
-                    warm_running_free_engine_rigid_crank_zoh_work_energy_method_identity();
+                    warm_running_free_engine_centered_slider_crank_method_identity();
                 const auto method_validation = contract::validate(method);
                 if (!method_validation.ok()) {
                     append_contract_report(report_, method_validation,

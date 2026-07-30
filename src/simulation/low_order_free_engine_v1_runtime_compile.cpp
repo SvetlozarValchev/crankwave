@@ -1,5 +1,6 @@
 #include "simulation/low_order_free_engine_v1_runtime.hpp"
 
+#include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/cycle_accounting_method_registry.hpp"
 #include "simulation/engine_sim_v1_transient_friction.hpp"
 #include "simulation/free_engine_method_registry.hpp"
@@ -107,11 +108,11 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
     report.append(admit_implemented_cycle_accounting_methods(engine, *profile));
     require(report,
             free_engine->crank_dynamics_method.value ==
-                warm_running_free_engine_rigid_crank_zoh_work_energy_method_identity(),
+                warm_running_free_engine_centered_slider_crank_method_identity(),
             ContractIssueCode::unsupported_value,
             "scenario.mode.crank_dynamics_method.value",
-            "free-engine runtime requires its exact warm-running rigid-crank method "
-            "identity");
+            "free-engine runtime requires its exact warm-running centered-slider "
+            "crank method identity");
     require(report,
             preparation->method.value ==
                 contract::fixed_horizon_cycle_sampling_method_identity(),
@@ -221,8 +222,34 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         return report;
     }
 
-    std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders;
     const auto &mechanism = profile->core.mechanism;
+    const auto cycle_mean_inertia_calculation =
+        calculate_centered_slider_crank_cycle_mean_inertia(mechanism);
+    const auto *cycle_mean_inertia = std::get_if<CenteredSliderCrankCycleMeanInertia>(
+        &cycle_mean_inertia_calculation);
+    require(report, cycle_mean_inertia != nullptr, ContractIssueCode::invalid_value,
+            "engine.physics_profile.mechanism",
+            "free-engine configuration-dependent inertia rejected the admitted "
+            "centered-slider mechanism");
+    if (cycle_mean_inertia != nullptr) {
+        require(report,
+                std::bit_cast<std::uint64_t>(
+                    free_engine->engine_baseline_inertia_kg_m2.value) ==
+                    std::bit_cast<std::uint64_t>(
+                        cycle_mean_inertia->engine_equivalent_inertia_kg_m2),
+                ContractIssueCode::inconsistent_semantics,
+                "scenario.mode.engine_baseline_inertia_kg_m2.value",
+                "free-engine cycle-mean inertia reference differs from the compiled "
+                "engine mechanism");
+    }
+
+    CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan{
+        mechanism.crank.authored_crank_inertia_kg_m2.value,
+        free_engine->attached_inertia_kg_m2.value,
+        {},
+    };
+    configuration_inertia_plan.cylinders.reserve(mechanism.cylinders.size());
+    std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders;
     piston_wall_cylinders.reserve(mechanism.cylinders.size());
     for (std::size_t index = 0; index < mechanism.cylinders.size(); ++index) {
         const auto &assembly = mechanism.cylinders[index];
@@ -293,6 +320,14 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         if (chamber_gas_index.has_value() &&
             std::holds_alternative<EngineSimV1PistonWallFrictionStage>(
                 initial_stage)) {
+            configuration_inertia_plan.cylinders.push_back({
+                geometric_tdc_rad,
+                parameters.crank_radius_m.value,
+                parameters.connecting_rod_length_m.value,
+                parameters.piston_mass_kg.value,
+                parameters.connecting_rod_mass_kg.value,
+                parameters.connecting_rod_inertia_kg_m2.value,
+            });
             piston_wall_cylinders.push_back({
                 assembly.topology.cylinder_id,
                 assembly.topology.chamber_volume_id,
@@ -305,12 +340,30 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         }
     }
     require(report,
+            configuration_inertia_plan.cylinders.size() == mechanism.cylinders.size(),
+            ContractIssueCode::inconsistent_shape,
+            "engine.physics_profile.mechanism.cylinders",
+            "free-engine configuration-inertia inventory must cover every "
+            "mechanism cylinder exactly once");
+    require(report,
             !piston_wall_cylinders.empty() &&
                 piston_wall_cylinders.size() == mechanism.cylinders.size(),
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.mechanism.cylinders",
             "free-engine piston-wall inventory must cover every mechanism "
             "cylinder exactly once");
+    if (!report.ok()) {
+        return report;
+    }
+    const auto initial_configuration_inertia =
+        evaluate_centered_slider_crank_configuration_inertia(
+            configuration_inertia_plan, free_engine->initial_theta_rad.value);
+    require(report,
+            std::holds_alternative<CenteredSliderCrankConfigurationInertia>(
+                initial_configuration_inertia),
+            ContractIssueCode::invalid_value, "scenario.mode.initial_theta_rad.value",
+            "free-engine configuration inertia rejected the initial crank "
+            "boundary");
     if (!report.ok()) {
         return report;
     }
@@ -366,13 +419,13 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         std::get<FixedHorizonCycleSampler>(std::move(sampling_result)),
         std::move(physical_gas_step_indices),
         std::move(pressure_samples),
+        std::move(configuration_inertia_plan),
         std::move(piston_wall_cylinders),
         scenario.rates.physics,
         execution_extent,
         *release_frame,
         free_engine->initial_engine_speed_rpm.value,
         free_engine->initial_theta_rad.value,
-        free_engine->total_equivalent_inertia_kg_m2.value,
         crank_friction->torque_nm,
         "low-order-free-engine-v1",
         engine.profile_id.value,

@@ -44,7 +44,10 @@ RPM from engine torque and engine-owned inertia. A `free_engine` scenario may ad
 `attached_inertia` and an `external_resisting_torque` trajectory; omission of either
 means canonical positive zero. The compiler derives the engine baseline with the
 versioned cycle-mean centered slider-crank kinetic-energy method, adds any attached
-inertia, and gives only that resolved total to the crank integrator.
+inertia, and retains that sum as the cycle-mean validation/provenance reference. The
+free-running integrator evaluates the same mechanism's analytic `M(theta)` and
+`dM/dtheta` at every left boundary and adds the constant attachment there; it does not
+flatten the moving crank, rods, and pistons into the cycle-mean value.
 
 For the BMW M52B28 fixture, the derived engine baseline is
 `0.2108686520185204 kg*m^2`; neutral uses no attached inertia and no external
@@ -57,9 +60,12 @@ one-step-lagged piston-wall law; the wall reaction is resolved by the admitted
 centered-slider inverse dynamics instead of importing the legacy constraint solver.
 Direct held and coast traces put that replacement within `1.44%` aggregate wall-force
 error and below `0.4%` one-step friction-force error. Chen--Flynn remains observed
-cycle evidence only and does not advance FreeEngine RPM. The controlled friction
-response gate now passes: WOT differs from pristine by `0.0126 s`, all coast crossings
-by at most `0.0065 s`, and long natural-balance mean by `1.652 RPM`. A
+cycle evidence only and does not advance FreeEngine RPM. Configuration-dependent
+mechanism inertia now follows the pristine one-degree-of-freedom equation
+`Q = M(theta)*alpha + 0.5*dM/dtheta*omega^2`; an audited 6,000-rpm coast tick predicts
+pristine acceleration within `0.054%`. The controlled response gate passes: WOT
+differs from pristine by `0.0130 s`, all coast crossings by at most `0.0049 s`, and
+the long natural-balance mean by `1.182 RPM`. A
 drivetrain, gears, starter control, regulated idle, and arbitrary live presentation
 edits remain explicit missing capabilities rather than UI-only approximations.
 

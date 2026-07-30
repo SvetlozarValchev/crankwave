@@ -250,6 +250,63 @@ void test_shared_positive_speed_primitive_rejections_and_stall() {
            "shared primitive admitted a signed negative resisting magnitude");
 }
 
+void test_configuration_dependent_crank_primitive_applies_velocity_inertia() {
+    const crank_detail::PositiveSpeedConfigurationDependentCrankZohInput input{
+        3.0, 0.2, {1.0, 10.0}, 20.0, 4.0, 0.5,
+    };
+    const auto calculation =
+        crank_detail::advance_positive_speed_configuration_dependent_crank_zoh(input);
+    const auto *step =
+        std::get_if<crank_detail::PositiveSpeedConfigurationDependentCrankZohStep>(
+            &calculation);
+    expect(step != nullptr && step->input == input,
+           "valid configuration-dependent crank step was rejected");
+    expect_near(step->held_applied_net_torque_nm, 16.0, 0.0,
+                "configuration-dependent applied torque changed");
+    expect_near(step->velocity_inertia_torque_nm, 10.0, 0.0,
+                "configuration-dependent velocity inertia torque changed");
+    expect_near(step->effective_accelerating_torque_nm, 6.0, 0.0,
+                "configuration-dependent effective torque changed");
+    expect_near(step->angular_acceleration_rad_s2, 2.0, 0.0,
+                "configuration-dependent angular acceleration changed");
+    expect_near(step->final_state.angular_speed_rad_s, 11.0, 0.0,
+                "configuration-dependent omega update changed");
+    expect_near(step->angular_displacement_rad, 5.25, 0.0,
+                "configuration-dependent displacement update changed");
+    expect_near(step->final_state.theta_rad, 6.25, 0.0,
+                "configuration-dependent theta update changed");
+}
+
+void test_configuration_dependent_crank_primitive_rejects_invalid_inertia() {
+    crank_detail::PositiveSpeedConfigurationDependentCrankZohInput input{
+        3.0, 0.2, {1.0, 10.0}, 20.0, 4.0, 0.5,
+    };
+    input.inertia_derivative_kg_m2_per_rad = std::numeric_limits<double>::infinity();
+    auto calculation =
+        crank_detail::advance_positive_speed_configuration_dependent_crank_zoh(input);
+    const auto *error = std::get_if<
+        crank_detail::PositiveSpeedConfigurationDependentCrankZohInputError>(
+        &calculation);
+    expect(error != nullptr &&
+               error->issue ==
+                   crank_detail::PositiveSpeedConfigurationDependentCrankZohInputIssue::
+                       nonfinite_inertia_derivative,
+           "nonfinite configuration-inertia derivative returned the wrong error");
+
+    input.inertia_derivative_kg_m2_per_rad = 0.2;
+    input.instantaneous_inertia_kg_m2 = 0.0;
+    calculation =
+        crank_detail::advance_positive_speed_configuration_dependent_crank_zoh(input);
+    error = std::get_if<
+        crank_detail::PositiveSpeedConfigurationDependentCrankZohInputError>(
+        &calculation);
+    expect(error != nullptr &&
+               error->issue ==
+                   crank_detail::PositiveSpeedConfigurationDependentCrankZohInputIssue::
+                       nonpositive_instantaneous_inertia,
+           "nonpositive configuration inertia returned the wrong error");
+}
+
 void test_piecewise_linear_brake_and_energy_consistent_update() {
     const auto model = compiled();
     const auto calculation = model.advance({{1.0, 15.0}, 12.0, 0.5});
@@ -462,6 +519,8 @@ void run_tests() {
     test_method_identities_bind_canonical_descriptors();
     test_shared_positive_speed_primitive_evidence();
     test_shared_positive_speed_primitive_rejections_and_stall();
+    test_configuration_dependent_crank_primitive_applies_velocity_inertia();
+    test_configuration_dependent_crank_primitive_rejects_invalid_inertia();
     test_piecewise_linear_brake_and_energy_consistent_update();
     test_endpoint_admission_and_causal_zero_order_hold();
     test_invalid_step_inputs_are_typed();

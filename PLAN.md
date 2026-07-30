@@ -491,19 +491,24 @@ No mode may hide a prescribed pitch ramp behind a “natural” or “dyno” la
 
 For FreeEngine, the compiler derives the engine baseline with the versioned
 cycle-mean centered slider-crank kinetic-energy method, adds optional
-`attached_inertia`, and gives the resolved total to the crank integrator. The BMW
-M52B28 baseline is `0.2108686520185204 kg*m^2`; its neutral fixture has zero attached
-inertia and zero external resistance. The existing interactive-scenario smoke requires
-its full-throttle 1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`.
+`attached_inertia`, and retains the sum as an exact cycle-mean reference. The runtime
+evaluates analytic configuration-dependent `M(theta)` and `dM/dtheta` from the same
+mechanism and adds the constant attachment at every left boundary. The BMW M52B28
+baseline is `0.2108686520185204 kg*m^2`; its neutral fixture has zero attached inertia
+and zero external resistance. The existing interactive-scenario smoke requires its
+full-throttle 1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`.
 
 That smoke starts from a short part-throttle preparation and is not the controlled
 pristine ablation oracle. It guards the interactive recipe only. Gas-exchange pumping
 is already present inside the cylinder pressure-volume work. FreeEngine motion now
 uses pristine engine-sim's authored crank friction and executable one-step-lagged
 piston-wall law. Its clean centered inverse-dynamics wall reaction has passed direct
-held and coast comparison. The controlled response gate also passes: WOT differs by
-`0.0126 s`, every coast crossing by at most `0.0065 s`, and the long natural-balance
-mean is `1,043.605 RPM` versus pristine `1,041.953 RPM`.
+held and coast comparison. The exact centered-slider configuration-inertia equation
+has also replaced the former cycle-mean approximation in free-running motion. The
+controlled response gate passes: WOT differs by `0.0130 s`, and every coast crossing
+by at most `0.0049 s`; the long natural-balance mean is `1,043.135 RPM` versus
+pristine `1,041.953 RPM`. Matching pristine's semi-implicit crank-step ordering is
+the next isolated parity item before the listening checkpoint.
 
 Pristine engine-sim commit
 `85f7c3b959a908ed5232ede4f1a4ac7eafe6b630` is the transient behavioral authority.
@@ -528,10 +533,12 @@ names that role explicitly or removes it.
    the C ABI, and WASM. Stop for a BMW warm-running free-rev listening checkpoint.
 4. Replace Chen--Flynn as the FreeEngine motion authority with pristine engine-sim's
    authored running-direction crank friction and its executable one-step-lagged
-   piston-wall friction. Preserve gas-exchange pumping inside indicated torque, match
-   the frozen WOT/coast/natural-balance oracle, and stop for listening. Intermediate
-   crank-only and piston-enabled commits must match their named pristine ablations;
-   they are not unexplained candidate sound models.
+   piston-wall friction. Restore its configuration-dependent centered-slider crank
+   inertia and exact step ordering without changing gas, friction, or audio in the
+   same commit. Preserve gas-exchange pumping inside indicated torque, match the frozen
+   WOT/coast/natural-balance oracle, and stop for listening. Intermediate crank-only,
+   piston-enabled, inertia, and step-order commits must match their named pristine
+   evidence; they are not unexplained candidate sound models.
 5. Add normal stopped/stalled crank state and non-fired cranking as a separate
    mechanics slice.
 6. Add mechanically engaged starter torque and stop for a BMW crank/catch listening

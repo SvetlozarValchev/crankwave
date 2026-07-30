@@ -1,5 +1,6 @@
 #include "authored_engine_fixture_support.hpp"
 #include "engine_sim_offline/artifacts/telemetry_encoder.hpp"
+#include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/free_engine_method_registry.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
@@ -47,7 +48,7 @@ inline constexpr std::size_t kOperatingStepCount = 3000U;
 inline constexpr std::uint32_t kOperatingCyclesPerBlock = 2U;
 inline constexpr double kFreeEngineControlBoundaryS = 0.24;
 inline constexpr double kFreeEngineTotalDurationS = 0.4;
-inline constexpr double kFreeEngineEquivalentInertiaKgM2 = 0.25;
+inline constexpr double kFreeEngineAttachedInertiaKgM2 = 0.05;
 inline constexpr double kFreeEngineInitialResistingTorqueNm = 50.0;
 inline constexpr double kFreeEngineBoundaryResistingTorqueNm = 100.0;
 inline constexpr CaptureValidityMask kMechanism =
@@ -198,12 +199,21 @@ make_free_engine_capture_request(
 
     auto initial_engine_speed = inertial->initial_engine_speed_rpm;
     initial_engine_speed.value = kOperatingHeldRpm;
+    const auto &mechanism =
+        engine_sim_offline::test::operating_profile(request.engine).core.mechanism;
+    const auto inertia_calculation =
+        calculate_centered_slider_crank_cycle_mean_inertia(mechanism);
+    const auto *derived_inertia =
+        std::get_if<CenteredSliderCrankCycleMeanInertia>(&inertia_calculation);
+    expect(derived_inertia != nullptr,
+           "canonical authored mechanism could not derive its cycle-mean inertia");
     auto engine_baseline_inertia = inertial->equivalent_inertia_kg_m2;
-    engine_baseline_inertia.value = 0.20;
+    engine_baseline_inertia.value = derived_inertia->engine_equivalent_inertia_kg_m2;
     auto attached_inertia = inertial->equivalent_inertia_kg_m2;
-    attached_inertia.value = 0.05;
+    attached_inertia.value = kFreeEngineAttachedInertiaKgM2;
     auto total_equivalent_inertia = inertial->equivalent_inertia_kg_m2;
-    total_equivalent_inertia.value = kFreeEngineEquivalentInertiaKgM2;
+    total_equivalent_inertia.value =
+        engine_baseline_inertia.value + attached_inertia.value;
     scenario.mode = FreeEngine{
         std::move(initial_engine_speed),
         inertial->initial_theta_rad,
@@ -222,7 +232,7 @@ make_free_engine_capture_request(
             "free-engine-test.external-resisting-torque",
         },
         {
-            warm_running_free_engine_rigid_crank_zoh_work_energy_method_identity(),
+            warm_running_free_engine_centered_slider_crank_method_identity(),
             "free-engine-test.crank-dynamics-method",
         },
     };
@@ -248,6 +258,50 @@ make_free_engine_capture_request(
     scenario.quality.value.capture_block_capacity_frames = 200U;
     scenario.quality.value.event_journal_capacity_records = 3800U;
     return request;
+}
+
+[[nodiscard]] CenteredSliderCrankConfigurationInertiaPlan
+configuration_inertia_plan(const EngineSpec &engine, double attached_inertia_kg_m2) {
+    const auto &mechanism =
+        engine_sim_offline::test::operating_profile(engine).core.mechanism;
+    CenteredSliderCrankConfigurationInertiaPlan plan{
+        mechanism.crank.authored_crank_inertia_kg_m2.value,
+        attached_inertia_kg_m2,
+        {},
+    };
+    plan.cylinders.reserve(mechanism.cylinders.size());
+    for (const auto &assembly : mechanism.cylinders) {
+        const auto &parameters = assembly.parameters;
+        plan.cylinders.push_back({
+            legacy_wrap_2pi(mechanism.crank.crank_tdc_reference_rad.value +
+                            parameters.journal_angle_rad.value - kLegacyPi / 2.0),
+            parameters.crank_radius_m.value,
+            parameters.connecting_rod_length_m.value,
+            parameters.piston_mass_kg.value,
+            parameters.connecting_rod_mass_kg.value,
+            parameters.connecting_rod_inertia_kg_m2.value,
+        });
+    }
+    return plan;
+}
+
+[[nodiscard]] double expected_configuration_dependent_alpha(
+    const EngineSpec &engine, const EngineCaptureSample &left_boundary,
+    double attached_inertia_kg_m2, double applied_net_engine_torque_nm,
+    double applied_resisting_torque_nm) {
+    const auto calculation = evaluate_centered_slider_crank_configuration_inertia(
+        configuration_inertia_plan(engine, attached_inertia_kg_m2),
+        left_boundary.theta_rad);
+    const auto *inertia =
+        std::get_if<CenteredSliderCrankConfigurationInertia>(&calculation);
+    expect(inertia != nullptr,
+           "valid capture fixture configuration inertia was rejected");
+    const double velocity_inertia_torque_nm =
+        0.5 * inertia->total_derivative_kg_m2_per_rad *
+        left_boundary.angular_speed_rad_s * left_boundary.angular_speed_rad_s;
+    return (applied_net_engine_torque_nm - applied_resisting_torque_nm -
+            velocity_inertia_torque_nm) /
+           inertia->total_inertia_kg_m2;
 }
 
 [[nodiscard]] LegacyLowOrderMechanicsSession
@@ -1046,9 +1100,10 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
                released_reaction.value_nm == kFreeEngineInitialResistingTorqueNm,
            "first released free-engine frame did not expose its source crank plus "
            "piston-wall friction and applied load");
-    const double expected_release_alpha =
-        (released_net.value_nm - kFreeEngineInitialResistingTorqueNm) /
-        kFreeEngineEquivalentInertiaKgM2;
+    const double expected_release_alpha = expected_configuration_dependent_alpha(
+        high_throttle_request.engine, high.frames[release_frame - 1U],
+        kFreeEngineAttachedInertiaKgM2, released_net.value_nm,
+        kFreeEngineInitialResistingTorqueNm);
     expect_near(released.angular_acceleration_rad_s2, expected_release_alpha,
                 std::max(1.0, std::abs(expected_release_alpha)) * 1e-8,
                 "first released free-engine motion disagreed with torque and inertia");
@@ -1160,9 +1215,9 @@ void test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
                final.requested_external_resisting_torque_nm == kLiveResistingTorqueNm &&
                final.torque.dyno_reaction.value_nm == kLiveResistingTorqueNm,
            "released FreeEngine did not use and publish live limiter/load state");
-    const double expected_release_alpha =
-        (released.torque.instantaneous_net_shaft.value_nm - kLiveResistingTorqueNm) /
-        kFreeEngineEquivalentInertiaKgM2;
+    const double expected_release_alpha = expected_configuration_dependent_alpha(
+        request.engine, prepared, kFreeEngineAttachedInertiaKgM2,
+        released.torque.instantaneous_net_shaft.value_nm, kLiveResistingTorqueNm);
     expect_near(released.angular_acceleration_rad_s2, expected_release_alpha,
                 std::max(1.0, std::abs(expected_release_alpha)) * 1e-8,
                 "live resistance did not drive released crank acceleration");

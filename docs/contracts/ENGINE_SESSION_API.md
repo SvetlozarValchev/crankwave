@@ -398,9 +398,12 @@ total_equivalent_inertia_kg_m2
 
 The first is derived by
 `centered-slider-crank-cycle-mean-equivalent-inertia-v1`, the second is authored or
-declared-default positive zero, and the third is their versioned exact sum. Only the
-total enters the crank dynamics integrator. The external resisting-torque lane is
-independent and defaults to positive zero; it is not used to duplicate engine losses.
+declared-default positive zero, and the third is their versioned exact cycle-mean
+reference sum. Free-running dynamics evaluates analytic `M(theta)` and `dM/dtheta`
+from the engine mechanism and adds the attachment to the instantaneous `M(theta)`;
+the reference sum validates that the same mechanism and attachment were compiled.
+The external resisting-torque lane is independent and defaults to positive zero; it
+is not used to duplicate engine losses.
 
 The BMW M52B28 resolves an engine baseline of
 `0.2108686520185204 kg*m^2`. Its neutral fixture has zero attached inertia and zero
@@ -415,10 +418,11 @@ previous-step wall-reaction dependency. A full midpoint-rod centered-slider inve
 dynamics replaces the legacy constraint solver for that reaction; direct held and
 coast traces keep its resulting one-step friction-force difference below `0.4%` L1.
 The generic one-cycle-lagged Chen--Flynn result is retained as cycle evidence only and
-does not advance FreeEngine RPM. The controlled friction response gate passes: WOT
-differs from pristine by `0.0126 s`, every coast crossing by at most `0.0065 s`, and
-the long natural-balance mean by `1.652 RPM`. The frozen pristine oracle remains the
-authority for each subsequent mechanics slice.
+does not advance FreeEngine RPM. Free-running mechanics evaluates pristine's
+configuration-dependent centered-slider inertia equation at each left boundary. The
+controlled response gate passes: WOT differs from pristine by `0.0130 s`, every coast
+crossing by at most `0.0049 s`, and the long natural-balance mean by `1.182 RPM`. The
+frozen pristine oracle remains the authority for each subsequent mechanics slice.
 
 ### 5.2 Future mode controls
 

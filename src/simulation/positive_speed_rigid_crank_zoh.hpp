@@ -89,4 +89,84 @@ using PositiveSpeedRigidCrankZohCalculation =
 advance_positive_speed_rigid_crank_zoh(
     const PositiveSpeedRigidCrankZohInput &input) noexcept;
 
+struct PositiveSpeedConfigurationDependentCrankZohInput {
+    double instantaneous_inertia_kg_m2 = 0.0;
+    double inertia_derivative_kg_m2_per_rad = 0.0;
+    PositiveSpeedRigidCrankState initial_state;
+    double held_upstream_engine_torque_nm = 0.0;
+    double held_resisting_torque_nm = 0.0;
+    double duration_s = 0.0;
+
+    friend bool
+    operator==(const PositiveSpeedConfigurationDependentCrankZohInput &,
+               const PositiveSpeedConfigurationDependentCrankZohInput &) = default;
+};
+
+struct PositiveSpeedConfigurationDependentCrankZohStep {
+    PositiveSpeedConfigurationDependentCrankZohInput input;
+    PositiveSpeedRigidCrankState final_state;
+    double held_applied_net_torque_nm = 0.0;
+    double velocity_inertia_torque_nm = 0.0;
+    double effective_accelerating_torque_nm = 0.0;
+    double angular_acceleration_rad_s2 = 0.0;
+    double angular_displacement_rad = 0.0;
+
+    friend bool
+    operator==(const PositiveSpeedConfigurationDependentCrankZohStep &,
+               const PositiveSpeedConfigurationDependentCrankZohStep &) = default;
+};
+
+enum class PositiveSpeedConfigurationDependentCrankZohInputIssue : std::uint8_t {
+    nonfinite_instantaneous_inertia,
+    nonpositive_instantaneous_inertia,
+    nonfinite_inertia_derivative,
+    nonfinite_theta,
+    nonfinite_angular_speed,
+    nonpositive_angular_speed,
+    nonfinite_upstream_engine_torque,
+    nonfinite_resisting_torque,
+    negative_resisting_torque,
+    nonfinite_duration,
+    nonpositive_duration,
+    nonfinite_derived_value,
+};
+
+struct PositiveSpeedConfigurationDependentCrankZohInputError {
+    PositiveSpeedConfigurationDependentCrankZohInputIssue issue =
+        PositiveSpeedConfigurationDependentCrankZohInputIssue::nonfinite_derived_value;
+
+    friend bool
+    operator==(const PositiveSpeedConfigurationDependentCrankZohInputError &,
+               const PositiveSpeedConfigurationDependentCrankZohInputError &) = default;
+};
+
+struct PositiveSpeedConfigurationDependentCrankZohStall {
+    PositiveSpeedConfigurationDependentCrankZohInput input;
+    double held_applied_net_torque_nm = 0.0;
+    double velocity_inertia_torque_nm = 0.0;
+    double effective_accelerating_torque_nm = 0.0;
+    double angular_acceleration_rad_s2 = 0.0;
+    double predicted_final_angular_speed_rad_s = 0.0;
+    double stall_time_s = 0.0;
+    double stall_theta_rad = 0.0;
+
+    friend bool
+    operator==(const PositiveSpeedConfigurationDependentCrankZohStall &,
+               const PositiveSpeedConfigurationDependentCrankZohStall &) = default;
+};
+
+using PositiveSpeedConfigurationDependentCrankZohCalculation =
+    std::variant<PositiveSpeedConfigurationDependentCrankZohStep,
+                 PositiveSpeedConfigurationDependentCrankZohInputError,
+                 PositiveSpeedConfigurationDependentCrankZohStall>;
+
+// Advances a left-boundary reduced rigid mechanism under:
+//
+//   Q = M(theta) * alpha + 0.5 * dM/dtheta * omega^2
+//
+// M and dM/dtheta must describe the same admitted mechanism and left boundary.
+[[nodiscard]] PositiveSpeedConfigurationDependentCrankZohCalculation
+advance_positive_speed_configuration_dependent_crank_zoh(
+    const PositiveSpeedConfigurationDependentCrankZohInput &input) noexcept;
+
 } // namespace engine_sim_offline::simulation::detail

@@ -124,6 +124,64 @@ coast crossing. Its optional 60-second balance probe measures the inclusive
 `997.340--1,088.587 RPM` range. This closes the crank-plus-piston friction response
 checkpoint; it does not claim that instantaneous crank acceleration is yet equivalent.
 
+## Configuration-dependent mechanism inertia checkpoint
+
+The next isolated comparison held gas torque, crank friction, piston-wall friction,
+and audio unchanged and audited only the pristine rigid mechanism's one-degree-of-
+freedom equation:
+
+```text
+Q = M(theta) * alpha + 0.5 * dM(theta)/dtheta * omega^2
+```
+
+`M(theta)` is the exact kinetic-energy coefficient of the authored crank, translating
+pistons, translating/rotating midpoint rods, and any constant attached inertia. Across
+1,000 consecutive pristine coast ticks, the analytic configuration-dependent
+prediction had `18.325 rad/s^2` mean absolute acceleration error,
+`27.415 rad/s^2` RMS error, `+0.338 rad/s^2` bias, and `0.999809` correlation against
+the pristine constraint solver. The source acceleration RMS was
+`1,344.826 rad/s^2`, so prediction RMS error was `2.04%`. Reusing only the cycle-mean
+inertia had `1,403 rad/s^2` mean absolute error and `-0.058` correlation; omitting the
+`0.5*M'*omega^2` term had `115.9%` relative RMS error.
+
+One compact source tick at coast trace index `75,278` provides an executable
+regression vector:
+
+| Quantity | Value |
+|---|---:|
+| clean crank `theta` | `8.3741268422865254 rad` |
+| `omega` | `652.18133670888028 rad/s` |
+| applied generalized torque `Q` | `-51.942760400014294 Nm` |
+| `M(theta)` | `0.21087475493927405 kg*m^2` |
+| `dM/dtheta` | `-0.0022055279505870345 kg*m^2/rad` |
+| analytic `alpha` | `1,977.9864872339172 rad/s^2` |
+| pristine `alpha` | `1,976.922061745654 rad/s^2` |
+
+The acceleration difference is `1.06443 rad/s^2`, or `0.05384%`. The BMW mechanism's
+cycle variation in `M` is only about `+/-0.349%`, but at 6,000 RPM its velocity-inertia
+term reaches approximately `+/-435 Nm`; replacing the full equation with the mean
+therefore erases the source's within-cycle acceleration response.
+
+With configuration-dependent inertia integrated into the clean FreeEngine path, the
+controlled response remains inside the established gate:
+
+| Response | Pristine | Clean | Absolute error |
+|---|---:|---:|---:|
+| WOT 1,500 to 7,000 RPM | 0.4399 s | 0.4529 s | 0.0130 s |
+| Coast 6,000 to 5,000 RPM | 0.3711 s | 0.3666 s | 0.0045 s |
+| Coast 6,000 to 4,000 RPM | 0.6665 s | 0.6653 s | 0.0012 s |
+| Coast 6,000 to 3,000 RPM | 1.0626 s | 1.0577 s | 0.0049 s |
+| Coast 6,000 to 2,000 RPM | 1.6702 s | 1.6653 s | 0.0049 s |
+| Coast 6,000 to 1,500 RPM | 2.1667 s | 2.1639 s | 0.0028 s |
+
+The optional long-balance probe produces `1,043.135 RPM` mean with a
+`997.563--1,080.276 RPM` range, compared with the pristine `1,041.953 RPM` mean and
+`997.340--1,088.587 RPM` range.
+
+This checkpoint restores the source equation and instantaneous inertia response. It
+does not yet restore the pristine integrator's semi-implicit angle update; that
+operation-order change remains the next separate parity checkpoint.
+
 ## Retained scratch evidence
 
 Ignored working evidence lives under `.work/upstream-friction-ablation/`:

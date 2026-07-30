@@ -266,11 +266,10 @@ void test_held_speed_resolution_on_the_integer_clock() {
                free_engine.external_resisting_torque_nm.points.size() == 2U &&
                free_engine.external_resisting_torque_nm.points.front().value == 10.0,
            "free-engine controls changed during SI resolution");
-    expect(
-        free_engine.crank_dynamics_method.value ==
-            engine_sim_offline::simulation::
-                warm_running_free_engine_rigid_crank_zoh_work_energy_method_identity(),
-        "free-engine resolver selected the wrong crank-dynamics method");
+    expect(free_engine.crank_dynamics_method.value ==
+               engine_sim_offline::simulation::
+                   warm_running_free_engine_centered_slider_crank_method_identity(),
+           "free-engine resolver selected the wrong crank-dynamics method");
     expect(!free_engine.initial_engine_speed_rpm.resolution_id.empty() &&
                !free_engine.engine_baseline_inertia_kg_m2.resolution_id.empty() &&
                !free_engine.attached_inertia_kg_m2.resolution_id.empty() &&

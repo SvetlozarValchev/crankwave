@@ -116,10 +116,10 @@ preparation_capture_torque(double indicated_gas_torque_nm,
     return result;
 }
 
-[[nodiscard]] contract::TorqueTelemetry
-released_capture_torque(const detail::PositiveSpeedRigidCrankZohStep &motion,
-                        double applied_indicated_gas_torque_nm,
-                        double applied_source_friction_torque_nm) noexcept {
+[[nodiscard]] contract::TorqueTelemetry released_capture_torque(
+    const detail::PositiveSpeedConfigurationDependentCrankZohStep &motion,
+    double applied_indicated_gas_torque_nm,
+    double applied_source_friction_torque_nm) noexcept {
     const auto crank_friction =
         contract::torque_term_mask(contract::TorqueTerm::crank_friction);
     const auto piston_friction =
@@ -205,16 +205,18 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
     FixedHorizonCycleSampler sampler,
     std::vector<std::size_t> physical_gas_step_indices,
     std::vector<OperatingGasVolumePressureSample> pressure_samples,
+    CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan,
     std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders,
     contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
     std::uint64_t release_frame_index, double initial_engine_speed_rpm,
-    double initial_theta_rad, double equivalent_inertia_kg_m2,
-    double applied_positive_speed_crank_friction_torque_nm, std::string model_id,
-    std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
+    double initial_theta_rad, double applied_positive_speed_crank_friction_torque_nm,
+    std::string model_id, std::string profile_id, std::string scenario_id,
+    contract::EngineId engine_id)
     : control_cursor_(std::move(control_cursor)), accountant_(std::move(accountant)),
       sampler_(std::move(sampler)),
       physical_gas_step_indices_(std::move(physical_gas_step_indices)),
       pressure_samples_(std::move(pressure_samples)),
+      configuration_inertia_plan_(std::move(configuration_inertia_plan)),
       piston_wall_cylinders_(std::move(piston_wall_cylinders)),
       piston_wall_boundary_phase_rad_(piston_wall_cylinders_.size()),
       piston_wall_boundary_pressure_pa_abs_(piston_wall_cylinders_.size()),
@@ -223,13 +225,11 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
       candidate_piston_wall_reaction_magnitude_n_(piston_wall_cylinders_.size()),
       next_piston_wall_boundary_phase_rad_(piston_wall_cylinders_.size()),
       next_piston_wall_boundary_pressure_pa_abs_(piston_wall_cylinders_.size()),
-      rate_(rate),
-      execution_extent_(execution_extent),
+      rate_(rate), execution_extent_(execution_extent),
       release_frame_index_(release_frame_index),
       step_s_(static_cast<double>(rate.denominator) /
               static_cast<double>(rate.numerator)),
       initial_engine_speed_rpm_(initial_engine_speed_rpm),
-      equivalent_inertia_kg_m2_(equivalent_inertia_kg_m2),
       applied_positive_speed_crank_friction_torque_nm_(
           applied_positive_speed_crank_friction_torque_nm),
       piston_wall_boundary_angular_speed_rad_s_(initial_engine_speed_rpm *
@@ -729,23 +729,43 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
         overrides.has_external_resisting_torque_nm
             ? overrides.external_resisting_torque_nm
             : controls->external_resisting_torque_nm;
-    const auto motion_calculation = detail::advance_positive_speed_rigid_crank_zoh({
-        equivalent_inertia_kg_m2_,
-        crank_state_,
-        applied_indicated + applied_source_friction,
-        applied_external_resisting_torque_nm,
-        step_s_,
-    });
-    if (const auto *error = std::get_if<detail::PositiveSpeedRigidCrankZohInputError>(
-            &motion_calculation)) {
+    const auto inertia_calculation =
+        evaluate_centered_slider_crank_configuration_inertia(
+            configuration_inertia_plan_, crank_state_.theta_rad);
+    if (const auto *error = std::get_if<CenteredSliderCrankConfigurationInertiaError>(
+            &inertia_calculation)) {
+        return fail(
+            fault(contract::FailureKind::numerical_failure,
+                  "free-engine-configuration-inertia-failed",
+                  "centered-slider configuration inertia rejected the current left "
+                  "boundary; issue=" +
+                      std::to_string(static_cast<std::uint32_t>(error->issue)) +
+                      "; cylinder-index=" + std::to_string(error->cylinder_index)));
+    }
+    const auto &inertia =
+        std::get<CenteredSliderCrankConfigurationInertia>(inertia_calculation);
+    const auto motion_calculation =
+        detail::advance_positive_speed_configuration_dependent_crank_zoh({
+            inertia.total_inertia_kg_m2,
+            inertia.total_derivative_kg_m2_per_rad,
+            crank_state_,
+            applied_indicated + applied_source_friction,
+            applied_external_resisting_torque_nm,
+            step_s_,
+        });
+    if (const auto *error =
+            std::get_if<detail::PositiveSpeedConfigurationDependentCrankZohInputError>(
+                &motion_calculation)) {
         return fail(
             fault(contract::FailureKind::numerical_failure,
                   "free-engine-crank-dynamics-failed",
-                  "positive-speed rigid-crank step rejected input; issue=" +
+                  "positive-speed configuration-dependent crank step rejected "
+                  "input; issue=" +
                       std::to_string(static_cast<std::uint32_t>(error->issue))));
     }
     if (const auto *stall =
-            std::get_if<detail::PositiveSpeedRigidCrankZohStall>(&motion_calculation)) {
+            std::get_if<detail::PositiveSpeedConfigurationDependentCrankZohStall>(
+                &motion_calculation)) {
         return fail(fault(
             contract::FailureKind::nonphysical_state, "free-engine-crank-stalled",
             "external resistance reached zero speed before the end of the physics "
@@ -754,7 +774,8 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
                 "; stop-theta-rad=" + std::to_string(stall->stall_theta_rad)));
     }
     const auto &motion =
-        std::get<detail::PositiveSpeedRigidCrankZohStep>(motion_calculation);
+        std::get<detail::PositiveSpeedConfigurationDependentCrankZohStep>(
+            motion_calculation);
     if (auto failure =
             calculate_next_piston_wall_reactions(motion.angular_acceleration_rad_s2);
         failure.has_value()) {
