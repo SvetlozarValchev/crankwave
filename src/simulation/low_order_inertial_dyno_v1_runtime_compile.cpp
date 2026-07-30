@@ -122,6 +122,19 @@ LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
         dyno->throttle_01.points.empty()) {
         return report;
     }
+    for (std::size_t index = 1; index < dyno->throttle_01.points.size(); ++index) {
+        const auto boundary = contract::resolve_frame_index(
+            dyno->throttle_01.points[index].time_s, scenario.rates.physics);
+        require(report, boundary.has_value() && *boundary >= *release_frame,
+                ContractIssueCode::unsupported_value,
+                "scenario.mode.throttle_01.points[" + std::to_string(index) +
+                    "].time_s",
+                "inertial throttle transitions must occur at or after the held "
+                "preparation release frame");
+    }
+    if (!report.ok()) {
+        return report;
+    }
 
     auto held_scenario = preparation_scenario(scenario, *dyno);
     auto preparation_result = compile_low_order_operating_point_v1_runtime(

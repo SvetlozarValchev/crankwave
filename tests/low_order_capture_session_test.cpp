@@ -898,6 +898,26 @@ void test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(
     }
 }
 
+void test_inertial_capture_rejects_throttle_transition_during_preparation(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    auto request = canonical;
+    auto &dyno = std::get<InertialDyno>(request.scenario.mode);
+    dyno.throttle_01.points.push_back(
+        {request.scenario.audible_start_s.value - kOuterStepS, 0.80});
+    const auto result = compile_low_order_capture_session(
+        request.engine, request.scenario,
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity());
+    const auto *report = std::get_if<ValidationReport>(&result);
+    expect(report != nullptr && !report->ok() &&
+               std::ranges::any_of(report->issues, [](const ContractIssue &issue) {
+                   return issue.path ==
+                          "scenario.mode.throttle_01.points[1].time_s";
+               }),
+           "inertial capture admitted a throttle transition during held "
+           "preparation");
+}
+
 void test_consumer_rejection_is_a_stable_terminal_fault(
     const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
     const auto request = make_operating_capture_request(canonical);
@@ -1107,6 +1127,7 @@ void run_tests(const engine_sim_offline::test::AuthoredEngineFixture &canonical)
     test_operating_capture_publishes_request_bound_completion_evidence(canonical);
     test_operating_capture_rejects_zero_request_identity(canonical);
     test_inertial_capture_publishes_dynamic_motion_and_energy_evidence(canonical);
+    test_inertial_capture_rejects_throttle_transition_during_preparation(canonical);
     test_declared_capture_capacity_drives_publication(canonical);
     test_consumer_rejection_is_a_stable_terminal_fault(canonical);
     test_consumer_exception_is_a_stable_terminal_fault(canonical);
