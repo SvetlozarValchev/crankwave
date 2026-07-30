@@ -3,7 +3,7 @@
 Status: design and implementation inventory  
 Pristine reference: Ange Yaghi `engine-sim` commit
 `85f7c3b959a908ed5232ede4f1a4ac7eafe6b630`  
-Clean-room inventory date: 2026-07-30
+Clean-room inventory date: 2026-07-31
 
 ## Answer
 
@@ -12,14 +12,15 @@ configurability.
 
 The repository now has a strict product JSON schema/parser and a generic immutable
 compiler for the currently executable low-order slice: mechanism, gas path, fixed
-valvetrain, ignition, fuel, a dynamic nonempty cylinder and exhaust-route set,
-presentation, scenarios, deterministic assets, and randomness. Compilation is
-data-driven and has no engine-name branch. A two-cylinder/one-route fixture exercises
-the executable compiler independently of the BMW migration fixture. Important original
-capabilities such as multiple crankshafts, multiple physical banks/heads/intakes, slave
-journals, arbitrary valvetrains, VTEC, governors, vehicles, and transmissions remain
-represented but fail closed until their executor support exists. There is no executable
-C++ engine factory; product engines enter only through JSON compilation.
+valvetrain, ignition, fuel, dynamic nonempty cylinder and exhaust-route sets, one-bank
+inline or exactly two-bank V layouts, presentation, scenarios, deterministic assets,
+and randomness. Compilation is data-driven and has no engine-name branch. Important
+original capabilities such as multiple crankshafts, other bank topologies, separate
+physical heads/intakes, slave journals, arbitrary valvetrains, VTEC, and governors
+remain represented but fail closed until their executor support exists. Vehicle and
+transmission rig objects parse and resolve, but no drivetrain executor consumes them.
+There is no executable C++ engine factory; product engines enter only through JSON
+compilation.
 
 The JSON cutover is an authoring and packaging change. It must reproduce the accepted
 renderer before it is allowed to change an audio algorithm. The implemented browser
@@ -104,8 +105,9 @@ simulation steps to UI frames.
 6. Structural edits produce a new compiled definition and a new session. The browser
    adapter atomically retains the current program on compile/session-creation failure
    and replaces it with a fresh session after success; it does not crossfade or transfer
-   physical state. Only throttle, ignition-enabled, and fuel-enabled are currently
-   mutable in an active inertial-dyno session.
+   physical state. Active inertial-dyno sessions expose throttle, ignition-enabled, and
+   fuel-enabled controls. Active `free_engine` sessions expose those controls plus
+   limiter-enabled and external-resisting-torque controls.
 
 ### Identity and graph rules
 
@@ -121,8 +123,11 @@ simulation steps to UI frames.
   exhaust route, ignition wire, intake/exhaust ports, and optional slave journal.
 - References must resolve, forbidden cycles are rejected, and every connected physical
   object must be reachable from the engine root.
-- Multiple banks, multiple crankshafts, shared journals, shared manifolds, and shared
-  exhaust routes are valid. Their identity is not inferred from array position.
+- The authoring graph can represent broader sharing than the current executor admits.
+  Current execution accepts one crankshaft, one shared intake/head/standard
+  valvetrain, and either one zero-angle inline bank or exactly two finite,
+  distinct-angle V banks. Direct journals and exhaust routes may be shared; identity
+  is never inferred from array position. Other graph shapes fail closed.
 - Compiler-assigned dense numeric IDs and deterministic reduction order are resolved
   artifacts; they are never authored API identities.
 
@@ -159,10 +164,10 @@ declared radius are triangle-weighted and normalized, and values outside the sam
 domain clamp to the first/last sample. Duplicate sample abscissas are rejected at the
 new authoring boundary rather than preserving ambiguous insertion behavior.
 
-Flow tables, ignition timing, fuel turbulence/flame-speed response, and arbitrary cam
-lobe profiles all use curve references. `harmonic_cam_lobe` is an authoring generator
-that the compiler expands to an ordinary sampled lobe curve; it is not a separate
-runtime graph language.
+Flow tables, ignition timing, and fuel turbulence/flame-speed response use curve
+references. The current cam compiler admits `harmonic_cam_lobe` and expands it to an
+ordinary sampled lobe curve; arbitrary sampled cam-lobe authoring remains unsupported.
+The generator is not a separate runtime graph language.
 
 ## Status legend
 
@@ -187,11 +192,11 @@ the remainder as explicit capability diagnostics:
 | Engine name and reusable parameter preset | `engine.identity` and authoring templates | **Typed core** with strict JSON compilation; reusable template tooling is later | BMW compiles to the frozen execution values without changing audio. |
 | Redline | `engine.limits.redline` | **Low-order executed** in ignition profile | Limiter boundary and declared redline remain distinct and validated. |
 | Starter speed and torque | `engine.starter` with `type: "cranking"`; a separate `mechanically_disengaged` variant states the current operating condition | **Partial**; operating state exists but M4 starter is mechanically disengaged | Crank/catch fixture demonstrates torque, target speed, engagement, and release. |
-| Direct throttle linkage gamma | `engine.throttle_controllers[]` with `type: "direct"` and `engine.throttle_controller` selecting one | **Missing** as an executed generic controller | A sweep proves the authored command-to-plate curve. |
+| Direct throttle linkage gamma | `engine.throttle_controllers[]` with `type: "direct"` and `engine.throttle_controller` selecting one | **Low-order executed**; the selected controller's finite positive gamma reaches the command-to-plate mapping | A sweep proves the authored command-to-plate curve. |
 | Governor (`min_speed`, `max_speed`, signed `min_v`/`max_v`, `k_s`, `k_d`, `gamma`) | `engine.throttle_controllers[]` with `type: "governor"`; velocity bounds are not throttle-output fractions | **Missing** | Small-engine fixture holds governed speed under a load step. |
-| Chen--Flynn cycle-mean loss coefficients and required oil temperature | `engine.losses` with `type: "chen_flynn_cycle_mean"` | **Typed core**; previously sealed in the BMW factory | Generic compilation selects the registered method and derives torque-term accounting without an engine-name branch. |
+| Chen--Flynn cycle-mean loss coefficients and required oil temperature (clean-room extension, not a pristine capability) | `engine.losses` with `type: "chen_flynn_cycle_mean"` | **Low-order executed** in operating-point accounting and as one-cycle-lagged inertial-dyno resistance; `free_engine` retains the cycle-mean evidence but does not apply it to crank motion | Generic compilation selects the registered method and derives torque-term accounting without an engine-name branch; do not call it pristine parity. |
 | Accessory-configuration URI and content hash | `engine.accessory_configurations[]` referenced by the selected loss model | **Metadata/evidence only**; current execution records identity and digest but does not interpret payload bytes | Do not expose it as a power/audio tuning surface until a typed accessory-load schema is executed. |
-| Dyno min/max/hold step defaults | `rig.dyno_defaults`, not engine physics | **Typed core** equivalents exist as explicit scenarios | Native and browser UI generate the same held-point sequence. |
+| Dyno min/max/hold step defaults | `rig.dyno_defaults`, not engine physics | **Partial**; package JSON parses and resolves the defaults with provenance, but they do not schedule a run or drive a UI sequence | Native and browser UI generate the same held-point sequence. |
 | Simulation frequency | Session/render quality | **Typed core** through render rates | Identical resolved rates reach native offline and WASM sessions. |
 
 ### Cranktrain, banks, and cylinders
@@ -200,31 +205,31 @@ the remainder as explicit capability diagnostics:
 |---|---|---|---|
 | Multiple crankshafts attached to one engine | `engine.crankshafts[]` plus references | **Missing**; executable profile has one crank assembly | Two-crank structural fixture compiles and steps without identity collapse. |
 | Crank throw, crank/flywheel mass, inertia, friction torque, TDC reference | Crankshaft physical fields | **Low-order executed/Partial**; positive-speed FreeEngine applies the authored crank-friction magnitude as the pristine saturated rotation constraint and the source one-step-lagged piston-wall law through centered inverse dynamics | BMW resolved-value comparison, direct pristine wall-reaction trace comparison, and WOT/coast response check. |
-| Rod journals with arbitrary phase | `engine.journals[]` | **Partial**; per-cylinder journal phase exists, journal sharing is not general | V8 and shared-journal fixtures preserve phases and reference identity. |
+| Rod journals with arbitrary phase | `engine.journals[]` | **Low-order executed/Partial**; a dynamic cylinder set may reference and share declared direct journals with arbitrary finite phase, while master/slave journals remain unsupported | V8 and direct shared-journal fixtures preserve phases and reference identity. |
 | Slave journals and rod `slave_throw` | Journal/rod references and physical fields | **Missing** | Master/slave V-twin geometry and uneven firing fixture. |
 | Connecting-rod mass, inertia, center of mass, length | `engine.connecting_rods[]` | **Partial**; mass/inertia/length exist in BMW profile, center of mass is absent | Resolved mechanism quantities and inertial torque are verified. |
 | Piston mass, blowby, compression height, wrist-pin position, displacement term | `engine.pistons[]` and gas-path blowby restriction | **Partial**; BMW has mass, blowby, compression height, displacement term; wrist-pin position is absent | BMW geometry/clearance comparison and blowby flow check. |
-| Banks with angle, bore, and deck height | `engine.banks[]` | **Partial**; graph has bank IDs, BMW bore/deck are cylinder-sealed, bank angle is absent | Inline, V8, and opposed-layout graph fixtures. |
-| Arbitrary cylinder-to-bank/crank/journal/intake/exhaust/wire connections | Explicit cylinder references | **Partial**; cylinder and exhaust-route counts are dynamic, while execution currently admits one inline crank/bank/head/intake topology | Toyota and V-twin fixtures prove non-inline connection patterns. |
+| Banks with angle, bore, and deck height | `engine.banks[]` | **Low-order executed/Partial**; execution admits one zero-angle inline bank or exactly two finite, distinct-angle V banks, including authored bank bore/deck geometry; opposed and other arbitrary layouts remain unsupported | Inline, V8, and direct-journal V-twin fixtures preserve bank geometry and axis-relative mechanics. |
+| Arbitrary cylinder-to-bank/crank/journal/intake/exhaust/wire connections | Explicit cylinder references | **Partial**; dynamic cylinders, two-bank V bindings, direct shared journals, distinct wires, firing order, and exhaust sharing execute, while the profile still requires one crankshaft and one shared intake/head/standard valvetrain | Toyota and direct-journal V-twin fixtures prove the admitted non-inline connection patterns. |
 | Per-cylinder primary length | Physical exhaust path in `engine`, compiled to propagation delay | **Low-order executed** | Resolved length/delay comparison at each supported sample rate. |
 
 ### Gas exchange, manifolds, heads, and exhaust
 
 | Pristine capability | Intended JSON ownership | Current status | Acceptance requirement |
 |---|---|---|---|
-| Multiple, shareable intake objects | `engine.intakes[]` referenced by cylinders | **Partial**; graph supports IDs but executable profile assumes one BMW plenum/path | Shared and split-intake fixtures retain distinct states. |
+| Multiple, shareable intake objects | `engine.intakes[]` referenced by cylinders | **Partial**; graph supports IDs but executable profiles require exactly one shared intake | Shared and split-intake fixtures retain distinct states. |
 | Intake plenum volume/area and runner length | Intake physical fields | **Low-order executed** | BMW resolved-value and held-point regression. |
 | Main, idle-bypass, and runner restrictions | Calibrated intake restrictions | **Low-order executed** | Both flow-bench calibration standards resolve deterministically. |
 | Idle throttle plate position | Intake physical/control field | **Low-order executed** | Closed-command idle flow remains nonzero and bounded. |
 | Intake molecular AFR | Fuel/mixture ownership, referenced by intake if model requires it | **Partial**; scenario/fuel owns stoichiometric AFR | Compiler rejects conflicting duplicated AFR authority. |
 | Intake runner velocity decay | Intake gas-exchange method parameter | **Low-order executed** | BMW gas-state regression. |
-| Shareable heads per bank | `engine.heads[]` and bank references | **Partial**; one BMW head profile is applied uniformly | Two-bank fixture can select one shared or two distinct heads. |
+| Shareable heads per bank | `engine.heads[]` and bank references | **Partial**; admitted inline and V layouts require exactly one shared head/standard valvetrain | Two-bank fixture can select one shared or two distinct heads. |
 | Chamber and intake/exhaust runner volume/area | Head physical fields | **Low-order executed** | BMW clearance and gas-volume comparison. |
 | Arbitrary intake/exhaust port-flow curves | Head curve references | **Typed core/Low-order executed** | Curves preserve units, radius, clamping, and sampled values. |
-| Multiple, shareable exhaust systems | `engine.exhausts[]` and cylinder route references | **Typed core** for dynamic route counts; six-cylinder/two-route and two-cylinder/one-route executable fixtures pass | Toyota grouping fixture proves sharing and independent collectors. |
+| Multiple, shareable exhaust systems | `engine.exhausts[]` and cylinder route references | **Low-order executed** for a dynamic nonempty exhaust set; cylinders may share routes and copied exhaust objects remain independent | Inline-six, V8, and V-twin grouping fixtures prove sharing and independent collectors. |
 | Collector length/area, outlet restriction, primary length/restriction, velocity decay | Exhaust physical fields | **Low-order executed** | BMW resolved graph and gas-state regression. |
-| `exhaust.volume` convenience | Compiler authoring convenience deriving `length = volume / area` | **Missing** as JSON convenience | Explicit length and derived length compile to the same resolved model. |
-| Executable gas volumes and flow edges | Compiler-derived from authored intakes, heads/ports, cylinders, exhausts, and their stable references | **Typed core** graph; low-order executor remains profile-constrained | Authors state each physical fact once; the compiler deterministically constructs and validates the supported internal graph. |
+| `exhaust.collector_volume` convenience | Compiler authoring convenience deriving `collector_length = collector_volume / collector_area` | **Low-order executed**; exactly one of explicit collector length or collector volume is required | Explicit length and derived length compile to the same resolved model. |
+| Executable gas volumes and flow edges | Compiler-derived from authored intakes, heads/ports, cylinders, exhausts, and their stable references | **Low-order executed/Partial** within the admitted one-crank, one-intake/head, inline/two-bank-V slice | Authors state each physical fact once; the compiler deterministically constructs and validates the supported internal graph. |
 
 ### Camshafts and valvetrain
 
@@ -235,7 +240,7 @@ the remainder as explicit capability diagnostics:
 | Harmonic lobe generator parameters | Compiler-side curve generator | **Low-order executed** internally | Generator golden samples match the accepted BMW profile. |
 | Standard intake/exhaust cam valvetrain | `engine.valvetrains[]`, `type: "standard"` | **Low-order executed** | BMW valve-lift traces remain unchanged. |
 | VTEC base and alternate intake/exhaust cams | `engine.valvetrains[]`, `type: "vtec"` | **Missing** | Honda fixture selects all four authored cams correctly. |
-| VTEC RPM, vehicle-speed, manifold-vacuum, and throttle thresholds | VTEC controller fields; vehicle speed comes from rig/session | **Missing** | Honda below/above-threshold transition matrix. |
+| VTEC RPM, manifold-pressure/vacuum, and throttle thresholds, plus pristine `min_speed` input | VTEC controller fields | **Missing** in clean-room execution; pristine evaluates RPM, manifold, and throttle but only stores `min_speed` and never reads it, so vehicle speed is not a parity predicate | Honda transition matrix covers the three executed pristine predicates; changing `min_speed` alone must not select the alternate cams. |
 
 ### Ignition and fuel
 
@@ -243,7 +248,7 @@ the remainder as explicit capability diagnostics:
 |---|---|---|---|
 | Timing curve and filter radius | Ignition curve reference | **Low-order executed** with typed sampled curve | BMW timing values and evaluator behavior match. |
 | Rev limiter speed and cut duration | `engine.ignition.limiter` | **Low-order executed** | Cut/re-enable event timing at the boundary is deterministic. |
-| Ignition wires and arbitrary firing angles/order | Explicit wire objects, cylinder references, and ordered firing map | **Partial**; BMW firing order/angles exist without a generic wire graph | Toyota and V-twin firing sequences compile and render correctly. |
+| Ignition wires and arbitrary firing angles/order | Explicit wire objects, cylinder references, and ordered firing map | **Low-order executed**; a dynamic cylinder set uses distinct cylinder-owned wires and a generic firing map that covers every wire exactly once | Toyota and V-twin firing sequences compile and render correctly. |
 | Fuel name/ID, molecular mass, energy density, molecular AFR | `engine.fuels[]` | **Low-order executed** | Gasoline fixture resolves every physical field once. |
 | Fuel density | Fuel physical field | **Missing** | Unit conversion and resolved-value fixture. |
 | Turbulence-to-flame-speed curve and radius | Fuel curve reference | **Low-order executed** with typed curve | Original curve evaluation fixtures pass. |
@@ -260,19 +265,21 @@ objects merely because pristine MR placed some of them there.
 | Per-cylinder `sound_attenuation` | `presentation.cylinder_routes[]` gain | **Low-order executed** in excitation paths | Equal/inherited gain A/B remains an explicit authoring choice. |
 | Per-exhaust `audio_volume` | `presentation.routes[]` source gain | **Low-order executed** in excitation route | Route solo and full mix prove exact routing/gain. |
 | Exhaust/primary length attenuation and delay | Physical length in engine; resolved propagation in presentation/excitation | **Typed core/Low-order executed** | Delay and inverse-length behavior are visible in resolved diagnostics. |
-| IR filename/asset and IR volume | Content-addressed presentation asset and route gain | **Typed core** | Decode/resample/hash and route convolution fixtures. |
-| Convolution wet level | Presentation default; live-safe override | **Typed core** in calibration | Dry, wet, and mixed route auditions. |
-| Engine `hf_gain` | Presentation derivative/HF conditioning default | **Typed core** | Zero and accepted BMW settings A/B without changing physics. |
-| Engine `jitter` | Presentation conditioning default plus deterministic seed | **Typed core** | Same seed is reproducible; zero removes modulation. |
-| Engine `noise` and GUI air-noise mix | Presentation conditioning default/live-safe override | **Typed core** | Noise solo and zero-noise regression. |
+| IR filename/asset and IR volume | Content-addressed presentation asset and route gain | **Low-order executed** as static verified-asset conversion and per-route convolution | Decode/resample/hash and route convolution fixtures. |
+| Convolution wet level | Presentation default; live-safe override | **Low-order executed** as a static per-route wet mix; no live override exists yet | Dry, wet, and mixed route auditions. |
+| Engine `hf_gain` | Presentation derivative/HF conditioning default | **Low-order executed** as static derivative conditioning | Zero and accepted BMW settings A/B without changing physics. |
+| Engine `jitter` | Presentation conditioning default plus deterministic seed | **Low-order executed** as static deterministic route conditioning | Same seed is reproducible; zero removes modulation. |
+| Engine `noise` and GUI air-noise mix | Presentation conditioning default/live-safe override | **Low-order executed** as static deterministic filtered-air conditioning; no live override exists yet | Noise solo and zero-noise regression. |
 | GUI master volume | Session monitor/output gain | **Partial**; audition monitoring gain exists | It never changes physical stems or canonical raw capture. |
-| One channel per unique exhaust object | Compiler derives source routes from explicit shared exhaust identity | **Typed core** for BMW routes | Shared object produces one route; copied objects remain separate. |
+| One channel per unique exhaust object | Compiler derives source routes from explicit shared exhaust identity | **Low-order executed** for the dynamic exhaust-route set | Shared object produces one route; copied objects remain separate. |
 | Excitation pressure combination, scale, low-speed ramp, propagation constant, delay rate, and accumulation policy | Selected excitation-method configuration, generated by the compiler; physical lengths and audible gains remain authored | **Low-order executed** constants behind a typed core | Generic method selection reproduces the accepted values without exposing implementation calibration or branching on engine identity. |
 
 Pristine `engine-sim` does not expose a separately audible intake bus. The clean-room
 production source plan's intake, mechanical-engine, and mechanical-starter routes are
 intentional future extensions, not missing pristine parity fields. They remain separate
 route kinds so they can be added without replacing the accepted exhaust renderer.
+The executed IR, wet, HF/derivative, jitter, and noise settings above are fixed when a
+session is built; they do not imply a timestamped presentation-mutation API.
 
 ## Rig, session, and live-control capability matrix
 
@@ -287,17 +294,18 @@ record per block.
 
 | Pristine capability | Intended owner | Current status | Acceptance requirement |
 |---|---|---|---|
-| Vehicle mass, drag coefficient, frontal area, differential ratio, tire radius, rolling-resistance force | Package `rig.vehicle` | **Missing** | BMW fifth-gear coast/load fixture. |
-| Dyno minimum/maximum speed and hold-step defaults | Package `rig.dyno_defaults`; scenarios remain authoritative for an actual run | **Missing** as reusable UI defaults | Native and browser tools generate the same explicit held-point requests. |
-| Transmission max clutch torque and ordered gear ratios | Package `rig.transmission` | **Missing** | Gear order, clutch slip, and shaft-speed fixture. |
-| Held speed and prescribed RPM sweep | Session/render request | **Typed core** | Existing BMW held points and dyno listening pull. |
-| Load-target held capture | Session/render request | **Typed core** | Converged target/tolerance result. |
-| Inertial dyno with inertia and brake curve | Session/render request | **Typed core** | Existing BMW inertial pull and torque evidence. |
+| Vehicle mass, drag coefficient, frontal area, differential ratio, tire radius, rolling-resistance force | Package `rig.vehicle` | **Partial**; strict JSON parses and resolves the data, IDs, units, and provenance, but no vehicle dynamics consume it | BMW fifth-gear coast/load fixture. |
+| Dyno minimum/maximum speed and hold-step defaults | Package `rig.dyno_defaults`; scenarios remain authoritative for an actual run | **Partial**; strict JSON parses and resolves reusable defaults, but no UI/default procedure executes them | Native and browser tools generate the same explicit held-point requests. |
+| Transmission max clutch torque and ordered gear ratios | Package `rig.transmission` | **Partial**; strict JSON parses and resolves clutch torque and authored gear order, but no transmission/drivetrain executes them | Gear order, clutch slip, and shaft-speed fixture. |
+| Held speed and prescribed RPM sweep | Session/render request | **Partial**; constant held-speed execution exists, while prescribed/external RPM following remains unavailable | Existing BMW held points and a future dyno listening pull. |
+| Load-target held capture | Session/render request | **Low-order executed** | Converged target/tolerance result. |
+| Inertial dyno with inertia and brake curve | Session/render request | **Low-order executed** | Existing BMW inertial pull and torque evidence. |
 | Ambient pressure/temperature, initial gas/wall state, crankcase, fuel, seed, render rates, preparation | Session/render request and rig defaults | **Typed core and executed** | Native and WASM resolve the same request identity. |
 | Relative humidity, coolant temperature, and oil temperature | Session/render request metadata/applicability conditions | **Admission/evidence only** in the current low-order executor; oil temperature must match the loss-profile condition | Do not present these as live sound or power controls until an implemented subsystem consumes them. |
 | Quality telemetry capacity | Session output allocation policy | **Low-order executed** as returned-record capacity; each exact block currently returns one final engine-capture record, while authored telemetry-channel selection still fails closed | Browser transport preserves the same record boundary without confusing it with PCM or the internal event journal. |
-| Ignition, fuel, starter, dyno/limiter enable events | Timestamped session controls | **Partial**; ignition and fuel are public absolute-delivery-frame live controls for inertial dyno, while starter/dyno/limiter remain authored offline events only | Block-boundary and in-block ignition/fuel timing fixture; other payloads remain rejected until implemented. |
-| Realtime throttle | Timestamped live controls | **Partial**; public absolute-delivery-frame throttle executes in inertial-dyno sessions after preparation and the browser Worker exposes that transport | Audible inertial-dyno throttle response without restart. |
+| Ignition, fuel, starter, dyno/limiter enable events | Timestamped session controls | **Partial**; ignition and fuel execute live in inertial-dyno and `free_engine` sessions, and limiter enable executes live in `free_engine`; starter and dyno enable remain unavailable as public live controls | Block-boundary and in-block ignition/fuel/FreeEngine-limiter timing fixtures; other payloads remain rejected until implemented. |
+| Realtime throttle | Timestamped live controls | **Partial**; public absolute-delivery-frame throttle executes in inertial-dyno and `free_engine` sessions after preparation, and the browser Worker exposes that transport | Audible throttle response without restart in both admitted live modes. |
+| Realtime external resisting torque | Timestamped live controls | **Low-order executed** for `free_engine`, including the public session API and browser Worker; other modes reject it | An in-block load step changes FreeEngine acceleration and telemetry without restarting the session. |
 | Realtime RPM/load mode command | Mode-specific timestamped control | **Missing** as a public live API | RPM follower and held-dyno browser fixtures. |
 | Gear and clutch controls | Timestamped live controls | **Missing** with vehicle/transmission | Vehicle fixture shifts under load. |
 | Realtime-safe presentation knobs | Timestamped parameter controls | **Missing** as public API despite typed defaults | Click-free gain/wet/HF/noise changes. |
@@ -335,8 +343,8 @@ it does not block checkpoints 1-10.
 | Fixture | Capabilities it must prove | Post-cutover listening |
 |---|---|---|
 | BMW M52B28 clean-room baseline | Inline bank, six cylinders, shared intake/head, two shared exhaust routes, flow/timing/flame curves, fixed valvetrain, gains, IRs, held points, and dyno pull | Compare JSON-compiled held and dyno clips with the accepted C++-profile baseline. |
-| Toyota 3UR-FE V8 | Two banks, journal phases, arbitrary firing order, bank/head references, and grouped/shared exhaust systems | Route solos plus full dyno pull; cadence and grouping accepted by ear. |
-| Honda B18C5 | Standard/alternate cams and all VTEC activation inputs | Below, transition, and above-VTEC clips; no unrelated renderer change. |
+| Toyota 3UR-FE V8 | Two authored bank angles, direct shared journals, generic firing order, and grouped/shared exhaust systems | Route solos plus full dyno pull; cadence and grouping accepted by ear. |
+| Honda B18C5 | Standard/alternate cams and the executed pristine RPM, manifold, and throttle predicates; `min_speed` is a stored-but-inert non-effect oracle | Below, transition, and above-VTEC clips, plus unchanged selection when only `min_speed` varies; no unrelated renderer change. |
 | Master/slave-journal V-twin | Shared crank journal, slave journal/throw, bank angles, unequal firing intervals | Low/high held points and short climb demonstrate correct cadence. |
 | Governed single-cylinder engine | Governor parameters, starter/crank/catch, idle restriction, and load response | Start, governed hold, and load-step clip. |
 | BMW fifth-gear rig | Vehicle, transmission, clutch, differential, tire, drag, and rolling load | Realtime/offline fifth-gear climb agrees in RPM/torque trajectory and sound. |

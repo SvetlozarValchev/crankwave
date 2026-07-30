@@ -1,13 +1,13 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — operating-bench parity after the JSON/runtime cutover
+Status: active — headless executable parity after the JSON/runtime cutover
 
 Branch: `clean-room/bmw-baseline`
 
-Date: 2026-07-30
+Date: 2026-07-31
 
-Current checkpoint: **operating bench — pristine warm-running FreeEngine transient
-parity**
+Current checkpoint: **headless parity — capability ledger, then stopped/cranking
+mechanics**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -417,17 +417,25 @@ the sound model, source set, tuning, or presentation.
 
 ## 7. After the cutover
 
-The prior M4--M9 sequence is retired. The first post-cutover milestone is the complete
-operating bench described in section 9. The two BMW inertial-dyno scenarios are
-regression fixtures for the accepted renderer; they are not a substitute for a free
-engine, dyno controller, drivetrain, or capture harness.
+The prior M4--M9 sequence is retired. The post-cutover milestone is **headless
+executable parity** with pristine Ange Yaghi `engine-sim` commit
+`85f7c3b959a908ed5232ede4f1a4ac7eafe6b630`. The operating bench in section 9 is the
+first vertical slice of that target, not its final boundary. The two BMW inertial-dyno
+scenarios remain regression fixtures for the accepted renderer; they are not a
+substitute for starter, alternate valvetrains, governors, general engine topology,
+vehicle dynamics, or live test-cell controls.
 
-After operating-bench parity:
+Parity means reproducing meaningful executable capability and behavior behind the
+current JSON, `EngineSession`, native, C ABI, and WASM boundaries. It does **not** mean
+copying the `.mr` language, private backend names, the native animated GUI, themes,
+display-only geometry, dead fields, or compatibility layers. The Web workbench remains
+a thin authoring, control, listening, and diagnostics client.
+
+After headless executable parity:
 
 - add intake, mechanical, starter, and other source buses only with real implemented
-  source models;
-- author Honda and Toyota JSON assets to prove alternate valvetrain, bank, firing, and
-  exhaust topology without engine-specific code;
+  source models; these are fidelity extensions because pristine engine-sim renders
+  exhaust sources only;
 - improve fidelity one established subsystem at a time, with immediate A/B listening
   only for that sound-affecting change;
 - compile accepted behavior into lightweight audio-follower packages for game runtimes;
@@ -451,13 +459,13 @@ accepted; rejected experiments are removed rather than retained as alternate mod
   multi-gigabyte artifact tree.
 - Record the exact output path and hash for every retained automated fixture.
 
-## 9. Operating-bench parity
+## 9. Headless executable parity
 
 ### 9.1 Product boundary
 
-Recreate the behavior of the real `engine-audio-lab` bench on this clean-room core,
-without importing its legacy ABI or simulator implementation. The behavioral oracle
-is:
+Recreate pristine engine-sim's meaningful executable engine and operating behavior on
+this clean-room core without importing its implementation, `.mr` runtime, or native
+GUI. The operating-bench portion of the behavioral oracle is:
 
 - manual ignition, momentary starter, throttle, dyno enable/hold/target/torque;
 - neutral and ordered forward gears, clutch engagement, service brake, and vehicle
@@ -466,6 +474,12 @@ is:
 - named startup, idle, free-rev, loaded-pull, lift/overrun, limiter, and shutdown
   procedures;
 - an unpaced bake that runs the same controls through the same session.
+
+The remaining engine-definition parity surface includes sampled cam profiles, alternate
+VTEC cams and their executable activation conditions, governor throttle control,
+shareable heads/intakes/valvetrains, general bank/crank/journal connections, and
+master/slave rod geometry. Configuration that reached pristine physics or output is in
+scope. Display-only fields, dead inputs, and source-library presets are not.
 
 The browser is a client of this contract. It must not synthesize RPM, vehicle motion,
 load, or dyno behavior in JavaScript.
@@ -544,22 +558,32 @@ names that role explicitly or removes it.
    mechanics slice.
 6. Add mechanically engaged starter torque and stop for a BMW crank/catch listening
    checkpoint.
-7. Add an explicit regulated-idle controller and stop for idle/load-recovery
-   listening. Do not call the current externally held 700-rpm fixture or the natural
-   closed-throttle balance point a regulated idle.
-8. Implement the bounded held-dyno controller with live target RPM and torque limit.
-   Run target-driven pull, lift, and ordinary overrun through it; stop for listening.
-9. Implement vehicle inertia and road load, transmission ratios, clutch torque/slip,
-   gears, and service brake. Stop for a neutral/launch/shift/fifth-gear pull check.
-10. Publish drivetrain controls and vehicle telemetry through the same native/WASM
-   boundary.
-11. Replace the current restart-only dyno button with the full operating bench and
-   named scenarios. The UI must capability-gate real backend functions, not infer them
-   from generic live-control support.
-12. Add unpaced capture procedures for crank, startup/catch, settled idle, loaded
+7. Execute arbitrary sampled cam profiles without changing the accepted generated
+   harmonic-cam path.
+8. Execute VTEC base/alternate intake and exhaust cam selection using pristine's
+   actually consumed RPM, manifold-pressure, and throttle conditions. Do not reproduce
+   the stored-but-unused `min_speed` input as fake behavior. Stop for Honda transition
+   listening.
+9. Execute the governor throttle controller and verify a governed small engine across
+   a load step.
+10. Generalize heads, intakes, valvetrains, banks, crankshafts, direct/shared ignition
+    wires, and master/slave journals in isolated topology commits. Each new family must
+    have a structurally representative fixture while the accepted existing engines
+    remain unchanged.
+11. Implement the bounded held-dyno controller with live target RPM and torque limit.
+    Run target-driven pull, lift, and ordinary overrun through it; stop for listening.
+12. Implement vehicle inertia and road load, transmission ratios, clutch torque/slip,
+    gears, and service brake. Stop for a neutral/launch/shift/fifth-gear pull check.
+13. Publish starter, dyno, drivetrain, and remaining API-relevant telemetry and controls
+    through the same native/C ABI/WASM boundary.
+14. Replace the current restart-only dyno button with the full operating bench and
+    named scenarios. The UI must capability-gate real backend functions, not infer them
+    from generic live-control support.
+15. Add unpaced capture procedures for crank, startup/catch, settled idle, loaded
    rise, part load, coast fall, neutral limiter, limiter lift/recovery, and shutdown.
-13. Freeze the accepted procedures and recordings as the minimum operating regression
-   set before resuming fidelity experiments.
+16. Freeze representative fixed-cam inline/V, VTEC, governed, master/slave, and
+    drivetrain procedures and recordings as the minimum parity regression set before
+    resuming fidelity experiments.
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
 and mastering unchanged. Listen immediately after the one intended behavior changes;
