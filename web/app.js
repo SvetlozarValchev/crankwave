@@ -44,6 +44,69 @@ const WORKBENCH_PACKAGES = Object.freeze([
     scenarioUrl:
       "/data/engines/raspy-muscle-620-cleanroom/scenarios/inertial-dyno-800-5900rpm.json",
   }),
+  Object.freeze({
+    id: "sequoia-3ur-fe-free-rev",
+    label: "Toyota Sequoia 3UR-FE · Interactive free rev",
+    engineUrl: "/data/engines/sequoia-3ur-fe-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/sequoia-3ur-fe-cleanroom/scenarios/warm-running-free-rev-650rpm.json",
+  }),
+  Object.freeze({
+    id: "sequoia-3ur-fe-held-idle",
+    label: "Toyota Sequoia 3UR-FE · Held idle 650 rpm",
+    engineUrl: "/data/engines/sequoia-3ur-fe-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/sequoia-3ur-fe-cleanroom/scenarios/held-idle-region-650rpm.json",
+  }),
+  Object.freeze({
+    id: "sequoia-3ur-fe-dyno",
+    label: "Toyota Sequoia 3UR-FE · Inertial dyno 650–6000 rpm",
+    engineUrl: "/data/engines/sequoia-3ur-fe-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/sequoia-3ur-fe-cleanroom/scenarios/inertial-dyno-650-6000rpm.json",
+  }),
+  Object.freeze({
+    id: "harley-evolution-1340-free-rev",
+    label: "Harley-Davidson Evolution 1340 · Interactive free rev",
+    engineUrl: "/data/engines/harley-evolution-1340-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/harley-evolution-1340-cleanroom/scenarios/warm-running-free-rev-800rpm.json",
+  }),
+  Object.freeze({
+    id: "harley-evolution-1340-held-idle",
+    label: "Harley-Davidson Evolution 1340 · Held idle 800 rpm",
+    engineUrl: "/data/engines/harley-evolution-1340-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/harley-evolution-1340-cleanroom/scenarios/held-idle-region-800rpm.json",
+  }),
+  Object.freeze({
+    id: "harley-evolution-1340-dyno",
+    label: "Harley-Davidson Evolution 1340 · Inertial dyno 800–5000 rpm",
+    engineUrl: "/data/engines/harley-evolution-1340-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/harley-evolution-1340-cleanroom/scenarios/inertial-dyno-800-5000rpm.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52tub28-free-rev",
+    label: "BMW M52TUB28 · Interactive free rev",
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52tub28-cleanroom/scenarios/warm-running-free-rev-700rpm.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52tub28-held-idle",
+    label: "BMW M52TUB28 · Held idle 700 rpm",
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52tub28-cleanroom/scenarios/held-idle-region-700rpm.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52tub28-dyno",
+    label: "BMW M52TUB28 · Inertial dyno 700–6500 rpm",
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52tub28-cleanroom/scenarios/inertial-dyno-700-6500rpm.json",
+  }),
 ]);
 
 const RING_HEADER = Object.freeze({

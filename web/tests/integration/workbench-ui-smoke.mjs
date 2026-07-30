@@ -9,6 +9,52 @@ const EXPECTED_WAV_BYTES = 3_840_056;
 const EXPECTED_WAV_SHA256 =
   "2972cdad90d08d31ddfac3ca99a4efcda93a15db637d93abc2b7844085c3e4b2";
 
+function repositoryPackageExpectations(
+  packagePrefix,
+  engineId,
+  idleRpm,
+  dynoRange,
+) {
+  return [
+    {
+      packageId: `${packagePrefix}-free-rev`,
+      engineId,
+      scenarioId: `${engineId}-warm-running-free-rev-${idleRpm}rpm`,
+    },
+    {
+      packageId: `${packagePrefix}-held-idle`,
+      engineId,
+      scenarioId: `${engineId}-held-idle-region-${idleRpm}rpm`,
+    },
+    {
+      packageId: `${packagePrefix}-dyno`,
+      engineId,
+      scenarioId: `${engineId}-inertial-dyno-${dynoRange}rpm`,
+    },
+  ];
+}
+
+const NEW_REPOSITORY_PACKAGES = Object.freeze([
+  ...repositoryPackageExpectations(
+    "sequoia-3ur-fe",
+    "sequoia-3ur-fe-cleanroom",
+    650,
+    "650-6000",
+  ),
+  ...repositoryPackageExpectations(
+    "harley-evolution-1340",
+    "harley-evolution-1340-cleanroom",
+    800,
+    "800-5000",
+  ),
+  ...repositoryPackageExpectations(
+    "bmw-m52tub28",
+    "bmw-m52tub28-cleanroom",
+    700,
+    "700-6500",
+  ),
+]);
+
 function usage() {
   return (
     "usage: node web/tests/integration/workbench-ui-smoke.mjs " +
@@ -187,6 +233,47 @@ async function pageState(cdp) {
         document.querySelector("#restart-button")?.disabled ?? true
     };
   })()`);
+}
+
+async function verifyRepositoryPackage(cdp, expectation) {
+  const packageId = JSON.stringify(expectation.packageId);
+  await cdp.evaluate(`(() => {
+    const packages = document.querySelector("#package-select");
+    packages.value = ${packageId};
+    packages.dispatchEvent(new Event("change", { bubbles: true }));
+    document.querySelector("#load-package-button").click();
+    return true;
+  })()`);
+  const loaded = await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.selectedPackage === expectation.packageId &&
+      state.authoredEngineId === expectation.engineId &&
+      state.authoredScenarioId === expectation.scenarioId &&
+      !state.buildDisabled,
+    `the fetched ${expectation.packageId} repository package`,
+  );
+  assert.match(loaded.diagnostics, /No diagnostics reported/u);
+
+  await cdp.evaluate(
+    `document.querySelector("#build-button").click(); true`,
+  );
+  const built = await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.build === "Build admitted" &&
+      state.session === "Ready" &&
+      state.sessionTitle === expectation.engineId &&
+      state.sessionSubtitle.startsWith(`${expectation.scenarioId} ·`) &&
+      !state.buildDisabled,
+    `the compiled ${expectation.packageId} repository package`,
+    30_000,
+  );
+  assert.equal(built.selectedPackage, expectation.packageId);
+  assert.equal(built.authoredEngineId, expectation.engineId);
+  assert.equal(built.authoredScenarioId, expectation.scenarioId);
+  assert.match(built.diagnostics, /No diagnostics reported/u);
+  return expectation.packageId;
 }
 
 async function terminate(child) {
@@ -496,6 +583,13 @@ async function main() {
       (state) => state.session === "Paused",
       "paused live 6.2L V8 session",
     );
+
+    const verifiedPackages = [];
+    for (const expectation of NEW_REPOSITORY_PACKAGES) {
+      verifiedPackages.push(
+        await verifyRepositoryPackage(cdp, expectation),
+      );
+    }
     assert.deepEqual(cdp.exceptions, []);
 
     process.stdout.write(
@@ -509,6 +603,7 @@ async function main() {
         selectedRoute,
         v8Engine: v8Running.sessionTitle,
         v8StartupUnderruns: Number(v8Running.underruns),
+        verifiedPackages,
       }) + "\n",
     );
   } finally {
