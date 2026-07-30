@@ -118,6 +118,13 @@ struct RenderControl {
                                             RenderSink &sink,
                                             RenderControl control = {});
 
+// Validates against the exact immutable request retained by the compiled scenario.
+// This projects through the same private bridge as render(CompiledScenario, ...);
+// there is no second validator or execution route.
+[[nodiscard]] contract::ValidationReport
+validate(const contract::RenderResult &result,
+         const compile::CompiledScenario &scenario);
+
 // Rebinds a result to the complete render-layer request, including engine,
 // presentation, randomness, assets, provenance, and source policy. This is stricter
 // than the lower-level contract validator, which cannot see RenderSpecification.

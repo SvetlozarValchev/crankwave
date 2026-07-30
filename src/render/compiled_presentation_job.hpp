@@ -15,8 +15,10 @@ class CompiledPresentationJob final {
     CompiledPresentationJob(const CompiledPresentationJob &) = delete;
     CompiledPresentationJob &operator=(const CompiledPresentationJob &) = delete;
 
-    [[nodiscard]] contract::RenderResult execute(RenderSink &sink,
-                                                 RenderControl control = {}) &&;
+    [[nodiscard]] contract::RenderResult
+    execute(RenderSink &sink, const RenderSpecification &specification,
+            const contract::RenderScenario &scenario,
+            RenderControl control = {}) &&;
 
   private:
     class Implementation;

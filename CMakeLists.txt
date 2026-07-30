@@ -772,25 +772,39 @@ endif()
 
 if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     add_library(
-        engine_sim_offline_cli_shell
+        engine_sim_offline_cli_support
         STATIC
-            src/cli/cli_shell.cpp
+            src/cli/cli_app.cpp
+            src/cli/native_asset_root.cpp
+            src/cli/native_engine_input.cpp
+            src/cli/native_input_files.cpp
+            src/cli/native_input_filesystem.cpp
+            src/cli/native_output_directory.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_cli_shell
+        engine_sim_offline_cli_support
         PRIVATE
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/cli>
     )
 
     target_compile_definitions(
-        engine_sim_offline_cli_shell
+        engine_sim_offline_cli_support
         PRIVATE ENGINE_SIM_OFFLINE_VERSION_LABEL="development"
     )
 
     target_link_libraries(
-        engine_sim_offline_cli_shell
-        PUBLIC engine_sim_offline::build_options
+        engine_sim_offline_cli_support
+        PUBLIC
+            engine_sim_offline::build_options
+        PRIVATE
+            engine_sim_offline::artifacts
+            engine_sim_offline::authoring
+            engine_sim_offline::compile
+            engine_sim_offline::render
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_cli_support
     )
 
     add_executable(
@@ -805,7 +819,21 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
 
     target_link_libraries(
         engine_sim_offline_cli
-        PRIVATE engine_sim_offline_cli_shell
+        PRIVATE
+            engine_sim_offline_cli_support
+            $<$<PLATFORM_ID:Linux>:m>
+    )
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_link_options(
+            engine_sim_offline_cli
+            PRIVATE LINKER:--no-as-needed
+        )
+    endif()
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_cli
+    )
+    engine_sim_offline_finalize_renderer_numeric_policy(
+        engine_sim_offline_cli
     )
 endif()
 
@@ -848,6 +876,14 @@ if(TARGET engine_sim_offline_m4_bmw_torque_sweep)
         engine_sim_offline_m4_bmw_torque_sweep
     )
 endif()
+if(TARGET engine_sim_offline_cli_support)
+    list(
+        APPEND
+        _engine_sim_offline_numeric_policy_targets
+        engine_sim_offline_cli_support
+        engine_sim_offline_cli
+    )
+endif()
 foreach(_target IN LISTS _engine_sim_offline_numeric_policy_targets)
     engine_sim_offline_assert_renderer_numeric_policy("${_target}")
 endforeach()
@@ -859,6 +895,11 @@ endif()
 if(TARGET engine_sim_offline_m4_bmw_torque_sweep)
     engine_sim_offline_assert_final_renderer_numeric_policy(
         engine_sim_offline_m4_bmw_torque_sweep
+    )
+endif()
+if(TARGET engine_sim_offline_cli)
+    engine_sim_offline_assert_final_renderer_numeric_policy(
+        engine_sim_offline_cli
     )
 endif()
 unset(_engine_sim_offline_numeric_policy_targets)

@@ -22,6 +22,7 @@ enum class ExecutionStage : std::uint8_t {
     presentation,
     finalization,
     manifest_completion,
+    result_validation,
     commit,
 };
 
@@ -114,6 +115,8 @@ class NumericControlRecovery final {
         return "presentation finalization";
     case ExecutionStage::manifest_completion:
         return "manifest completion";
+    case ExecutionStage::result_validation:
+        return "render result validation";
     case ExecutionStage::commit:
         return "publication commit";
     }
@@ -134,6 +137,8 @@ class NumericControlRecovery final {
         return "presentation-finalization-failed";
     case ExecutionStage::manifest_completion:
         return "simulation-manifest-completion-failed";
+    case ExecutionStage::result_validation:
+        return "render-result-validation-threw";
     case ExecutionStage::commit:
         return "presentation-commit-failed";
     }
@@ -322,8 +327,9 @@ cancellation_failure(contract::RenderRequestRecord request, std::string detail_c
 
 } // namespace
 
-contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
-                                                        RenderControl control) && {
+contract::RenderResult CompiledPresentationJob::execute(
+    RenderSink &sink, const RenderSpecification &specification,
+    const contract::RenderScenario &scenario, RenderControl control) && {
     if (implementation_ == nullptr) {
         throw std::logic_error{"compiled presentation job was already consumed"};
     }
@@ -674,15 +680,37 @@ contract::RenderResult CompiledPresentationJob::execute(RenderSink &sink,
             evidence.execution().facts(),
         };
 
-        stage = ExecutionStage::commit;
-        presentation.commit(evidence, manifest, implementation->request.provenance,
-                            implementation->request.source_matrix);
-        return contract::RenderSuccess{
+        contract::RenderResult result{contract::RenderSuccess{
             std::move(manifest),
             std::nullopt,
             std::move(held_speed_operating_point),
             std::move(inertial_dyno),
-        };
+        }};
+
+        // A sink transaction remains sealed but unpublished until the complete
+        // request-bound result has passed the public validator. Returning here lets
+        // PresentationRenderSession abort the transaction in its destructor.
+        stage = ExecutionStage::result_validation;
+        if (!engine_sim_offline::validate(result, specification, scenario).ok()) {
+            return make_job_failure(
+                std::move(implementation->request),
+                contract::FailureKind::contract_violation,
+                "render-result-validation-failed-before-commit",
+                "compiled-presentation-job-v1",
+                "the complete render result failed request-bound validation before "
+                "publication",
+                implementation->simulation.published_sample_count(),
+                implementation->simulation.published_sample_count(),
+                scenario_time(
+                    implementation->simulation.published_sample_count()));
+        }
+
+        stage = ExecutionStage::commit;
+        presentation.commit(
+            evidence, std::get<contract::RenderSuccess>(result).manifest,
+            implementation->request.provenance,
+            implementation->request.source_matrix);
+        return result;
     } catch (...) {
         determinism::detail::restore_admitted_renderer_numeric_controls();
         return exception_failure(std::move(implementation->request), stage,

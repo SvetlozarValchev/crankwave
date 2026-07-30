@@ -317,11 +317,18 @@ struct ProjectionFixture {
 };
 
 template <class Job>
-concept LvalueExecutable = requires(Job &job, RenderSink &sink) { job.execute(sink); };
+concept LvalueExecutable =
+    requires(Job &job, RenderSink &sink, const RenderSpecification &specification,
+             const contract::RenderScenario &scenario) {
+        job.execute(sink, specification, scenario);
+    };
 
 template <class Job>
-concept RvalueExecutable =
-    requires(Job &&job, RenderSink &sink) { std::move(job).execute(sink); };
+concept RvalueExecutable = requires(
+    Job &&job, RenderSink &sink, const RenderSpecification &specification,
+    const contract::RenderScenario &scenario) {
+    std::move(job).execute(sink, specification, scenario);
+};
 
 void test_opaque_job_shape() {
     using Job = CompiledPresentationJob;

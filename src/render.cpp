@@ -157,7 +157,7 @@ contract::RenderResult render(const RenderSpecification &specification,
         return std::move(*failure);
     }
     return std::move(std::get<render_detail::CompiledPresentationJob>(compiled))
-        .execute(sink, std::move(control));
+        .execute(sink, specification, scenario, std::move(control));
 }
 
 contract::RenderResult render(const compile::CompiledScenario &scenario,
@@ -165,6 +165,13 @@ contract::RenderResult render(const compile::CompiledScenario &scenario,
     auto projection = render_detail::CompiledScenarioAccess::project(scenario);
     return render(projection.specification, projection.scenario, sink,
                   std::move(control));
+}
+
+contract::ValidationReport
+validate(const contract::RenderResult &result,
+         const compile::CompiledScenario &scenario) {
+    auto projection = render_detail::CompiledScenarioAccess::project(scenario);
+    return validate(result, projection.specification, projection.scenario);
 }
 
 contract::ValidationReport validate(const contract::RenderResult &result,

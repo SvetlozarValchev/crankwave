@@ -1719,26 +1719,57 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 
 endif()
 
-if(TARGET engine_sim_offline_cli_shell)
+if(TARGET engine_sim_offline_cli_support)
     add_executable(
-        engine_sim_offline_cli_tests
-        cli_shell_test.cpp
+        engine_sim_offline_cli_app_tests
+        cli_app_test.cpp
     )
 
     target_include_directories(
-        engine_sim_offline_cli_tests
+        engine_sim_offline_cli_app_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/src/cli
     )
 
     target_link_libraries(
-        engine_sim_offline_cli_tests
-        PRIVATE engine_sim_offline_cli_shell
+        engine_sim_offline_cli_app_tests
+        PRIVATE engine_sim_offline_cli_support
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_cli_app_tests
     )
 
     add_test(
-        NAME cli.shell
-        COMMAND engine_sim_offline_cli_tests
+        NAME cli.app
+        COMMAND engine_sim_offline_cli_app_tests
+    )
+
+    add_executable(
+        engine_sim_offline_native_input_files_tests
+        native_input_files_test.cpp
+    )
+
+    target_include_directories(
+        engine_sim_offline_native_input_files_tests
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/src/cli
+    )
+
+    target_link_libraries(
+        engine_sim_offline_native_input_files_tests
+        PRIVATE
+            engine_sim_offline_cli_support
+            engine_sim_offline::compile
+    )
+    engine_sim_offline_enable_renderer_numeric_policy(
+        engine_sim_offline_native_input_files_tests
+    )
+
+    add_test(
+        NAME cli.native_input_files
+        COMMAND
+            engine_sim_offline_native_input_files_tests
+            ${PROJECT_SOURCE_DIR}
     )
 
     add_test(
@@ -1746,6 +1777,26 @@ if(TARGET engine_sim_offline_cli_shell)
         COMMAND
             ${CMAKE_COMMAND}
             -DCLI_EXECUTABLE=$<TARGET_FILE:engine_sim_offline_cli>
+            -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cli_process_test.cmake
     )
+
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        add_test(
+            NAME cli.bmw_json_render
+            COMMAND
+                ${CMAKE_COMMAND}
+                -DCLI_EXECUTABLE=$<TARGET_FILE:engine_sim_offline_cli>
+                -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
+                -DOUTPUT_ROOT=${CMAKE_CURRENT_BINARY_DIR}/cli-integration-output
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cli_bmw_json_render_test.cmake
+        )
+        set_tests_properties(
+            cli.bmw_json_render
+            PROPERTIES
+                LABELS "publication"
+                CONFIGURATIONS Release
+                TIMEOUT 360
+        )
+    endif()
 endif()

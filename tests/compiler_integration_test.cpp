@@ -920,6 +920,10 @@ void test_complete_generic_compile_and_determinism() {
         std::get_if<contract::RenderFailure>(&explicit_result);
     const auto *compiled_failure =
         std::get_if<contract::RenderFailure>(&compiled_result);
+    const auto explicit_validation = engine_sim_offline::validate(
+        explicit_result, projection.specification, projection.scenario);
+    const auto compiled_validation =
+        engine_sim_offline::validate(compiled_result, scenario);
     expect(explicit_failure != nullptr && compiled_failure != nullptr &&
                explicit_failure->context.kind == contract::FailureKind::cancelled &&
                explicit_failure->context == compiled_failure->context &&
@@ -928,6 +932,9 @@ void test_complete_generic_compile_and_determinism() {
                    compiled_failure->validation.issues &&
                explicit_sink.calls == 0U && compiled_sink.calls == 0U,
            "compiled-scenario render did not delegate to the existing admitted path");
+    expect(explicit_validation.ok() && compiled_validation.ok() &&
+               explicit_validation.issues == compiled_validation.issues,
+           "compiled-scenario validation did not delegate to the existing validator");
 }
 
 void test_asset_admission_is_exact_and_closed() {

@@ -15,13 +15,14 @@ dead fields, or a general-purpose scripting language.
 The accepted engine-sim-equivalent exhaust audio path, low-order simulation, dyno
 scenarios, block presentation pipeline, WAV publication, and telemetry are implemented.
 The strict engine/scenario JSON authoring contract, parser, and generic immutable
-compiler boundary are now in place. The compiler accepts the currently executable
-low-order topology without inspecting an engine name and fails closed on unsupported
-capabilities. A compiled JSON scenario now enters the existing renderer directly
-through an ownership-safe generic boundary. The BMW JSON migration fixture matches the
-temporary C++ oracle's complete execution-value projection and reproduces every
-sound-bearing PCM byte of the user-approved inertial dyno. The native JSON CLI is the
-next checkpoint.
+compiler boundary and native renderer are now in place. The compiler accepts the
+currently executable low-order topology without inspecting an engine name and fails
+closed on unsupported capabilities. A compiled JSON scenario enters the existing
+renderer directly through an ownership-safe generic boundary. The BMW JSON migration
+fixture matches the temporary C++ oracle's complete execution-value projection and
+reproduces every sound-bearing PCM byte of the user-approved inertial dyno. The native
+CLI resolves engine-relative assets inside an explicit asset root and atomically
+publishes a new output directory.
 
 The active cutover replaces that profile with:
 
@@ -74,15 +75,19 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The JSON CLI commands described by the active plan are not implemented at this
-checkpoint. The current shell truthfully reports the unavailable serialized-input
-route:
-
 ```bash
 build/engine-sim-offline --help
 build/engine-sim-offline --version
-build/engine-sim-offline render
+build/engine-sim-offline render \
+  --engine data/engines/bmw-m52b28/engine.json \
+  --scenario data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm.json \
+  --asset-root . \
+  --output-directory artifacts/bmw-json-dyno
 ```
+
+The render command has one current syntax: all four named arguments are required
+exactly once, their order is arbitrary, and the output directory must not already
+exist. There are no profile selectors or legacy input aliases.
 
 ## Preserved reference
 
