@@ -42,16 +42,6 @@
         {"time": {"value": 1.85, "unit": "s"}, "value": 0.04},
         {"time": {"value": 4.6, "unit": "s"}, "value": 0.1}
       ]
-    },
-    "external_resisting_torque": {
-      "value_dimension": "torque",
-      "interpolation": "right_continuous_hold",
-      "points": [
-        {
-          "time": {"value": 0, "unit": "s"},
-          "value": {"value": 30, "unit": "N*m"}
-        }
-      ]
     }
   },
   "events": [],
