@@ -164,11 +164,11 @@ void enqueue_live_batch(eso_context_t *context, const eso_session_handle_t sessi
 void enqueue_free_live_batch(eso_context_t *context, const eso_session_handle_t session,
                              const std::uint64_t first_live_frame) {
     const eso_control_command_t controls[] = {
-        {first_live_frame, 1U, ESO_CONTROL_THROTTLE, 0U, 0.75, 0U},
+        {first_live_frame, 1U, ESO_CONTROL_THROTTLE, 0U, 1.0, 0U},
         {first_live_frame, 2U, ESO_CONTROL_IGNITION_ENABLED, 1U, 0.0, 0U},
         {first_live_frame, 3U, ESO_CONTROL_FUEL_ENABLED, 1U, 0.0, 0U},
         {first_live_frame, 4U, ESO_CONTROL_LIMITER_ENABLED, 0U, 0.0, 0U},
-        {first_live_frame, 5U, ESO_CONTROL_EXTERNAL_RESISTING_TORQUE, 0U, 18.0, 0U},
+        {first_live_frame, 5U, ESO_CONTROL_EXTERNAL_RESISTING_TORQUE, 0U, 0.0, 0U},
     };
     eso_control_rejection_t rejection{};
     expect(eso_session_enqueue_controls(context, session, controls, 5U, &rejection) ==
@@ -402,6 +402,37 @@ void run(const std::filesystem::path &repository_root) {
                telemetry_a.engine_step_end_index == telemetry_b.engine_step_end_index &&
                telemetry_a.engine_speed_rpm == telemetry_b.engine_speed_rpm,
            "C telemetry copy diverged between deterministic sessions");
+
+    const auto free_release_physics_frame =
+        free_descriptor.preparation_block_count *
+        free_descriptor.physics_frames_per_block;
+    double free_wot_crossing_time_s = -1.0;
+    while (free_wot_crossing_time_s < 0.0) {
+        eso_engine_telemetry_t free_telemetry{};
+        eso_process_info_t free_process{};
+        expect(eso_session_process(context, free_session, nullptr, 0U,
+                                   &free_telemetry, 1U,
+                                   &free_process) == ESO_STATUS_OK,
+               "free-engine RPM trajectory session failed");
+        expect(free_process.kind == ESO_PROCESS_BLOCK,
+               "free-engine completed before its 7,000-rpm WOT crossing");
+        if (free_telemetry.engine_speed_rpm >= 7000.0) {
+            expect(free_telemetry.physics_step_end >=
+                       free_release_physics_frame,
+                   "free-engine crossed 7,000 rpm before release");
+            const auto elapsed_physics_frames =
+                free_telemetry.physics_step_end - free_release_physics_frame;
+            free_wot_crossing_time_s =
+                static_cast<double>(elapsed_physics_frames) *
+                static_cast<double>(free_descriptor.physics_rate_denominator) /
+                static_cast<double>(
+                    free_descriptor.physics_rate_numerator_hz);
+        }
+    }
+    expect(free_wot_crossing_time_s >= 0.44 &&
+               free_wot_crossing_time_s <= 0.50,
+           "BMW neutral FreeEngine WOT 1,500-to-7,000-rpm trajectory "
+           "regressed outside the pristine-engine-sim envelope");
 
     expect(eso_destroy_session(context, session_a) == ESO_STATUS_OK &&
                eso_destroy_session(context, session_b) == ESO_STATUS_OK &&
