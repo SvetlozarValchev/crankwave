@@ -246,6 +246,7 @@ const elements = {
   sessionTitle: $("#session-title"),
   sessionSubtitle: $("#session-subtitle"),
   sessionState: $("#session-state"),
+  motionModeBadge: $("#motion-mode-badge"),
   startButton: $("#start-button"),
   stopButton: $("#stop-button"),
   restartButton: $("#restart-button"),
@@ -274,7 +275,33 @@ const elements = {
   fuelLabel: $("#fuel-label"),
   limiterButton: $("#limiter-button"),
   limiterLabel: $("#limiter-label"),
+  externalResistanceControl: $("#external-resistance-control"),
   externalResistanceInput: $("#external-resistance-input"),
+  heldDynoControls: $("#held-dyno-controls"),
+  heldDynoTargetRpmInput: $("#held-dyno-target-rpm-input"),
+  heldDynoAbsorbingTorqueInput: $("#held-dyno-absorbing-torque-input"),
+  heldDynoDrivingTorqueInput: $("#held-dyno-driving-torque-input"),
+  freeVehicleControls: $("#free-vehicle-controls"),
+  vehicleGearSelect: $("#vehicle-gear-select"),
+  vehicleClutchInput: $("#vehicle-clutch-input"),
+  vehicleClutchOutput: $("#vehicle-clutch-output"),
+  vehicleBrakeControl: $("#vehicle-brake-control"),
+  vehicleBrakeInput: $("#vehicle-brake-input"),
+  vehicleBrakeOutput: $("#vehicle-brake-output"),
+  heldDynoTelemetry: $("#held-dyno-telemetry"),
+  dynoTargetValue: $("#dyno-target-value"),
+  dynoRequiredTorqueValue: $("#dyno-required-torque-value"),
+  dynoAppliedTorqueValue: $("#dyno-applied-torque-value"),
+  dynoLimitsValue: $("#dyno-limits-value"),
+  dynoDispositionValue: $("#dyno-disposition-value"),
+  freeVehicleTelemetry: $("#free-vehicle-telemetry"),
+  vehicleSpeedValue: $("#vehicle-speed-value"),
+  vehicleDistanceValue: $("#vehicle-distance-value"),
+  vehicleGearValue: $("#vehicle-gear-value"),
+  vehicleClutchValue: $("#vehicle-clutch-value"),
+  vehicleSlipValue: $("#vehicle-slip-value"),
+  vehicleRoadLoadValue: $("#vehicle-road-load-value"),
+  vehicleDispositionValue: $("#vehicle-disposition-value"),
   realtimeHealth: $("#realtime-health"),
   ringFillValue: $("#ring-fill-value"),
   leadValue: $("#lead-value"),
@@ -329,9 +356,14 @@ const state = {
     fuel: true,
     limiter: false,
     "external-resisting-torque": 0,
+    "held-dyno-target-engine-speed": 0,
+    "held-dyno-maximum-absorbing-torque": 0,
+    "held-dyno-maximum-driving-torque": 0,
+    "vehicle-selected-forward-gear": 0,
+    "vehicle-clutch-engagement": 0,
+    "vehicle-service-brake-application": 0,
   },
-  throttleEditPending: false,
-  externalResistanceEditPending: false,
+  editingControls: new Set(),
   starterInputHeld: false,
   pendingControls: new Map(),
   lastAcceptedControlFrame: null,
@@ -1108,15 +1140,24 @@ function torqueNm(quantity) {
 
 function authoredLiveState() {
   const scenario = state.documents.scenario.parsed;
+  const mode = scenario?.mode;
   const authoredThrottle =
-    scenario?.mode?.throttle_01?.points?.find(
+    mode?.throttle_01?.points?.find(
       (point) => point?.time?.value === 0,
-    )?.value ?? scenario?.mode?.throttle_01?.points?.[0]?.value;
+    )?.value ?? mode?.throttle_01?.points?.[0]?.value;
   const authoredResistancePoint =
-    scenario?.mode?.external_resisting_torque?.points?.find(
+    mode?.external_resisting_torque?.points?.find(
       (point) => point?.time?.value === 0,
-    ) ?? scenario?.mode?.external_resisting_torque?.points?.[0];
+    ) ?? mode?.external_resisting_torque?.points?.[0];
   const authoredResistance = torqueNm(authoredResistancePoint?.value);
+  const authoredDynoTarget = angularSpeedRpm(
+    mode?.target_engine_speed?.points?.[0]?.value,
+  );
+  const authoredAbsorbingLimit = torqueNm(mode?.maximum_absorbing_torque);
+  const authoredDrivingLimit = torqueNm(mode?.maximum_driving_torque);
+  const authoredGear = (state.built?.descriptor.forwardGears ?? []).find(
+    (gear) => gear.semanticId === mode?.initial_gear,
+  );
   return {
     throttle:
       Number.isFinite(authoredThrottle) &&
@@ -1132,6 +1173,29 @@ function authoredLiveState() {
       Number.isFinite(authoredResistance) && authoredResistance >= 0
         ? authoredResistance
         : 0,
+    "held-dyno-target-engine-speed":
+      Number.isFinite(authoredDynoTarget) && authoredDynoTarget > 0
+        ? authoredDynoTarget
+        : angularSpeedRpm(scenario?.initial_state?.engine_speed) || 0,
+    "held-dyno-maximum-absorbing-torque":
+      Number.isFinite(authoredAbsorbingLimit) && authoredAbsorbingLimit >= 0
+        ? authoredAbsorbingLimit
+        : 0,
+    "held-dyno-maximum-driving-torque":
+      Number.isFinite(authoredDrivingLimit) && authoredDrivingLimit >= 0
+        ? authoredDrivingLimit
+        : 0,
+    "vehicle-selected-forward-gear": authoredGear?.authoredOrdinal ?? 0,
+    "vehicle-clutch-engagement": Number.isFinite(
+      mode?.initial_clutch_engagement_01,
+    )
+      ? mode.initial_clutch_engagement_01
+      : 0,
+    "vehicle-service-brake-application": Number.isFinite(
+      mode?.initial_service_brake_application_01,
+    )
+      ? mode.initial_service_brake_application_01
+      : 0,
   };
 }
 
@@ -1238,13 +1302,36 @@ function renderLiveState() {
   elements.externalResistanceInput.value = String(
     state.liveState["external-resisting-torque"],
   );
+  elements.heldDynoTargetRpmInput.value = String(
+    Math.round(state.liveState["held-dyno-target-engine-speed"]),
+  );
+  elements.heldDynoAbsorbingTorqueInput.value = String(
+    Math.round(state.liveState["held-dyno-maximum-absorbing-torque"]),
+  );
+  elements.heldDynoDrivingTorqueInput.value = String(
+    Math.round(state.liveState["held-dyno-maximum-driving-torque"]),
+  );
+  elements.vehicleGearSelect.value = String(
+    state.liveState["vehicle-selected-forward-gear"],
+  );
+  elements.vehicleClutchInput.value = String(
+    Math.round(state.liveState["vehicle-clutch-engagement"] * 100),
+  );
+  elements.vehicleClutchOutput.value = `${Math.round(
+    state.liveState["vehicle-clutch-engagement"] * 100,
+  )}%`;
+  elements.vehicleBrakeInput.value = String(
+    Math.round(state.liveState["vehicle-service-brake-application"] * 100),
+  );
+  elements.vehicleBrakeOutput.value = `${Math.round(
+    state.liveState["vehicle-service-brake-application"] * 100,
+  )}%`;
 }
 
 function resetLiveControls() {
   state.lastAcceptedControlFrame = null;
   state.pendingControls.clear();
-  state.throttleEditPending = false;
-  state.externalResistanceEditPending = false;
+  state.editingControls.clear();
   state.starterInputHeld = false;
   state.liveState = authoredLiveState();
   renderLiveState();
@@ -1327,19 +1414,66 @@ function setSessionState(nextState, detail = "") {
 }
 
 function normalizeCapabilities(descriptor) {
-  const controls = new Set(
-    (descriptor.controls ?? []).map((capability) => capability.kind),
+  return Object.fromEntries(
+    (descriptor.controls ?? []).map((capability) => [capability.kind, true]),
   );
-  return {
-    throttle: controls.has("throttle"),
-    starter: controls.has("starter"),
-    ignition: controls.has("ignition"),
-    fuel: controls.has("fuel"),
-    limiter: controls.has("limiter"),
-    "external-resisting-torque": controls.has(
-      "external-resisting-torque",
-    ),
-  };
+}
+
+function readableToken(value) {
+  return String(value ?? "")
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function forwardGearLabel(ordinal) {
+  if (ordinal === null || ordinal === 0) {
+    return "Neutral";
+  }
+  const gear = state.built?.descriptor.forwardGears?.find(
+    (candidate) => candidate.authoredOrdinal === ordinal,
+  );
+  return gear
+    ? `${gear.authoredOrdinal} · ${gear.semanticId} · ${gear.ratio.toFixed(2)}:1`
+    : `Gear ${ordinal}`;
+}
+
+function renderOperatingDescriptor() {
+  const descriptor = state.built?.descriptor;
+  const capabilities = state.built?.capabilities ?? {};
+  const motionMode = descriptor?.motionMode ?? null;
+  elements.motionModeBadge.hidden = motionMode === null;
+  elements.motionModeBadge.textContent = motionMode
+    ? readableToken(motionMode)
+    : "No motion mode";
+
+  elements.externalResistanceControl.hidden =
+    !capabilities["external-resisting-torque"];
+  elements.heldDynoControls.hidden =
+    !capabilities["held-dyno-target-engine-speed"] &&
+    !capabilities["held-dyno-maximum-absorbing-torque"] &&
+    !capabilities["held-dyno-maximum-driving-torque"];
+  elements.freeVehicleControls.hidden =
+    !capabilities["vehicle-selected-forward-gear"] &&
+    !capabilities["vehicle-clutch-engagement"] &&
+    !capabilities["vehicle-service-brake-application"];
+  elements.vehicleBrakeControl.hidden =
+    !capabilities["vehicle-service-brake-application"];
+  elements.heldDynoTelemetry.hidden = motionMode !== "held-dyno";
+  elements.freeVehicleTelemetry.hidden = motionMode !== "free-vehicle";
+
+  elements.vehicleGearSelect.textContent = "";
+  const neutral = document.createElement("option");
+  neutral.value = "0";
+  neutral.textContent = "Neutral";
+  elements.vehicleGearSelect.append(neutral);
+  for (const gear of descriptor?.forwardGears ?? []) {
+    const option = document.createElement("option");
+    option.value = String(gear.authoredOrdinal);
+    option.textContent = forwardGearLabel(gear.authoredOrdinal);
+    elements.vehicleGearSelect.append(option);
+  }
 }
 
 function acceptBuilt(message) {
@@ -1362,6 +1496,7 @@ function acceptBuilt(message) {
     capabilities: normalizeCapabilities(message.descriptor),
     throttlePresentation: compiledThrottlePresentation,
   };
+  renderOperatingDescriptor();
   resetRunPresentation();
   resetLiveControls();
   if (isInitialBuild) {
@@ -1473,14 +1608,7 @@ function updateBuiltControls() {
     active ||
     state.sessionState === "exporting";
 
-  const capabilities = built?.capabilities ?? {
-    throttle: false,
-    starter: false,
-    ignition: false,
-    fuel: false,
-    limiter: false,
-    "external-resisting-torque": false,
-  };
+  const capabilities = built?.capabilities ?? {};
   elements.throttleInput.disabled = !running || !capabilities.throttle;
   elements.starterButton.disabled = !running || !capabilities.starter;
   elements.ignitionButton.disabled = !running || !capabilities.ignition;
@@ -1488,6 +1616,18 @@ function updateBuiltControls() {
   elements.limiterButton.disabled = !running || !capabilities.limiter;
   elements.externalResistanceInput.disabled =
     !running || !capabilities["external-resisting-torque"];
+  elements.heldDynoTargetRpmInput.disabled =
+    !running || !capabilities["held-dyno-target-engine-speed"];
+  elements.heldDynoAbsorbingTorqueInput.disabled =
+    !running || !capabilities["held-dyno-maximum-absorbing-torque"];
+  elements.heldDynoDrivingTorqueInput.disabled =
+    !running || !capabilities["held-dyno-maximum-driving-torque"];
+  elements.vehicleGearSelect.disabled =
+    !running || !capabilities["vehicle-selected-forward-gear"];
+  elements.vehicleClutchInput.disabled =
+    !running || !capabilities["vehicle-clutch-engagement"];
+  elements.vehicleBrakeInput.disabled =
+    !running || !capabilities["vehicle-service-brake-application"];
   const admitted = Object.values(capabilities).some(Boolean);
   elements.controlsAdmission.textContent = admitted ? "Admitted" : "Not admitted";
 }
@@ -1626,25 +1766,37 @@ function attachAudioRing(message) {
   renderRuntimeStats();
 }
 
-function sendControl(kind, value) {
+function sendControls(controls) {
   if (!state.built || state.sessionState !== "running") {
-    return;
+    return false;
   }
-  if (!state.built.capabilities[kind]) {
-    showToast(`${kind} was not admitted for this scenario.`, true);
-    return;
+  if (!Array.isArray(controls) || controls.length === 0) {
+    throw new TypeError("sendControls requires a nonempty control batch");
+  }
+  for (const control of controls) {
+    if (!state.built.capabilities[control.kind]) {
+      showToast(`${control.kind} was not admitted for this scenario.`, true);
+      return false;
+    }
   }
   const requestId = nextRequestId();
-  state.pendingControls.set(kind, {
-    requestId,
-    value,
-    deliveryFrame: null,
-  });
+  for (const { kind, value } of controls) {
+    state.pendingControls.set(kind, {
+      requestId,
+      value,
+      deliveryFrame: null,
+    });
+  }
   postWorker({
     type: "enqueue-controls",
     requestId,
-    controls: [{ kind, value }],
+    controls,
   });
+  return true;
+}
+
+function sendControl(kind, value) {
+  return sendControls([{ kind, value }]);
 }
 
 function toggleSwitch(kind, button, label) {
@@ -1669,6 +1821,67 @@ function quantityStatus(quantity) {
     return quantity?.reason ?? "Unavailable";
   }
   return quantity.complete ? "Complete model" : "Partial model";
+}
+
+function scalarText(value, unit, maximumFractionDigits = 1) {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+  const number = value.toLocaleString(undefined, { maximumFractionDigits });
+  return unit ? `${number} ${unit}` : number;
+}
+
+function renderModeTelemetry(telemetry) {
+  const dyno = telemetry?.heldDyno;
+  elements.dynoTargetValue.textContent = dyno
+    ? scalarText(dyno.targetEngineSpeedRpm, "RPM", 0)
+    : "—";
+  elements.dynoRequiredTorqueValue.textContent = dyno
+    ? scalarText(dyno.requiredActuatorTorqueNm, "N·m")
+    : "—";
+  elements.dynoAppliedTorqueValue.textContent = dyno
+    ? scalarText(dyno.appliedActuatorTorqueNm, "N·m")
+    : "—";
+  elements.dynoLimitsValue.textContent = dyno
+    ? `${scalarText(dyno.maximumAbsorbingTorqueNm, "N·m")} absorb / ${scalarText(
+        dyno.maximumDrivingTorqueNm,
+        "N·m",
+      )} drive`
+    : "—";
+  elements.dynoDispositionValue.textContent = dyno
+    ? readableToken(dyno.disposition)
+    : "—";
+
+  const vehicle = telemetry?.freeVehicle;
+  elements.vehicleSpeedValue.textContent = vehicle
+    ? scalarText(vehicle.vehicleSpeedMS * 3.6, "km/h")
+    : "—";
+  elements.vehicleDistanceValue.textContent = vehicle
+    ? scalarText(vehicle.vehicleDistanceM, "m")
+    : "—";
+  elements.vehicleGearValue.textContent = vehicle
+    ? forwardGearLabel(vehicle.selectedForwardGearOrdinal)
+    : "—";
+  elements.vehicleClutchValue.textContent = vehicle
+    ? `${scalarText(vehicle.clutchEngagement01 * 100, "%", 0)} · ${scalarText(
+        vehicle.appliedAverageClutchTorqueOnEngineNm,
+        "N·m",
+      )}`
+    : "—";
+  elements.vehicleSlipValue.textContent = vehicle
+    ? scalarText(vehicle.finalClutchSlipRadS, "rad/s")
+    : "—";
+  elements.vehicleRoadLoadValue.textContent = vehicle
+    ? `${scalarText(vehicle.appliedAverageRoadLoadForceN, "N")} / ${scalarText(
+        vehicle.requestedRoadLoadForceN,
+        "N requested",
+      )}`
+    : "—";
+  elements.vehicleDispositionValue.textContent = vehicle
+    ? `${readableToken(vehicle.clutchDisposition)} · ${readableToken(
+        vehicle.roadLoadDisposition,
+      )}`
+    : "—";
 }
 
 function acceptTelemetry(message) {
@@ -1702,6 +1915,8 @@ function acceptTelemetry(message) {
         QUANTITY_UNAVAILABLE_REASONS[power.unavailableReason] ??
         `Unavailable reason ${power.unavailableReason}`,
     },
+    heldDyno: frame.heldDyno,
+    freeVehicle: frame.freeVehicle,
   };
   const processEndDeliveryFrame =
     BigInt(message.process.firstDeliveryFrame) +
@@ -1720,7 +1935,9 @@ function acceptTelemetry(message) {
     }
     return true;
   };
-  if (!state.throttleEditPending && !pendingAtFrame("throttle")) {
+  const mayFollowTelemetry = (kind) =>
+    !state.editingControls.has(kind) && !pendingAtFrame(kind);
+  if (mayFollowTelemetry("throttle")) {
     state.liveState.throttle = frame.requestedThrottle01;
   }
   if (!pendingAtFrame("ignition")) {
@@ -1736,12 +1953,39 @@ function acceptTelemetry(message) {
     state.liveState.limiter = frame.limiterEnabled;
   }
   if (
-    !state.externalResistanceEditPending &&
-    !pendingAtFrame("external-resisting-torque") &&
+    mayFollowTelemetry("external-resisting-torque") &&
     Number.isFinite(frame.requestedExternalResistingTorqueNm)
   ) {
     state.liveState["external-resisting-torque"] =
       frame.requestedExternalResistingTorqueNm;
+  }
+  if (frame.heldDyno) {
+    if (mayFollowTelemetry("held-dyno-target-engine-speed")) {
+      state.liveState["held-dyno-target-engine-speed"] =
+        frame.heldDyno.targetEngineSpeedRpm;
+    }
+    if (mayFollowTelemetry("held-dyno-maximum-absorbing-torque")) {
+      state.liveState["held-dyno-maximum-absorbing-torque"] =
+        frame.heldDyno.maximumAbsorbingTorqueNm;
+    }
+    if (mayFollowTelemetry("held-dyno-maximum-driving-torque")) {
+      state.liveState["held-dyno-maximum-driving-torque"] =
+        frame.heldDyno.maximumDrivingTorqueNm;
+    }
+  }
+  if (frame.freeVehicle) {
+    if (mayFollowTelemetry("vehicle-selected-forward-gear")) {
+      state.liveState["vehicle-selected-forward-gear"] =
+        frame.freeVehicle.selectedForwardGearOrdinal ?? 0;
+    }
+    if (mayFollowTelemetry("vehicle-clutch-engagement")) {
+      state.liveState["vehicle-clutch-engagement"] =
+        frame.freeVehicle.clutchEngagement01;
+    }
+    if (mayFollowTelemetry("vehicle-service-brake-application")) {
+      state.liveState["vehicle-service-brake-application"] =
+        frame.freeVehicle.serviceBrakeApplication01;
+    }
   }
   renderLiveState();
 
@@ -1769,6 +2013,7 @@ function renderTelemetry() {
     elements.torqueStatus.textContent = "Unavailable";
     elements.powerStatus.textContent = "Unavailable";
     elements.elapsedValue.textContent = "00:00.000";
+    renderModeTelemetry(null);
     return;
   }
   const redline = getRedlineRpm();
@@ -1791,6 +2036,7 @@ function renderTelemetry() {
     telemetry.instantaneousPower,
   );
   elements.elapsedValue.textContent = formatDuration(telemetry.elapsedSeconds);
+  renderModeTelemetry(telemetry);
 }
 
 function getRedlineRpm() {
@@ -2411,7 +2657,7 @@ function bindEvents() {
 
   elements.throttleInput.addEventListener("input", () => {
     const value = Number(elements.throttleInput.value) / 100;
-    state.throttleEditPending = true;
+    state.editingControls.add("throttle");
     state.liveState.throttle = value;
     renderThrottleControl(value);
   });
@@ -2421,7 +2667,7 @@ function bindEvents() {
     window.clearTimeout(throttleTimer);
     throttleTimer = window.setTimeout(() => {
       sendControl("throttle", requestedValue);
-      state.throttleEditPending = false;
+      state.editingControls.delete("throttle");
     }, 30);
   });
   elements.ignitionButton.addEventListener("click", () =>
@@ -2484,17 +2730,113 @@ function bindEvents() {
   let externalResistanceTimer = null;
   elements.externalResistanceInput.addEventListener("input", () => {
     const requestedValue = Number(elements.externalResistanceInput.value);
+    window.clearTimeout(externalResistanceTimer);
     if (!Number.isFinite(requestedValue) || requestedValue < 0) {
       return;
     }
-    state.externalResistanceEditPending = true;
+    state.editingControls.add("external-resisting-torque");
     state.liveState["external-resisting-torque"] = requestedValue;
-    window.clearTimeout(externalResistanceTimer);
     externalResistanceTimer = window.setTimeout(() => {
       sendControl("external-resisting-torque", requestedValue);
-      state.externalResistanceEditPending = false;
+      state.editingControls.delete("external-resisting-torque");
     }, 80);
   });
+
+  const dynoControlKinds = [
+    "held-dyno-target-engine-speed",
+    "held-dyno-maximum-absorbing-torque",
+    "held-dyno-maximum-driving-torque",
+  ];
+  let dynoControlTimer = null;
+  const scheduleDynoControls = () => {
+    window.clearTimeout(dynoControlTimer);
+    const values = [
+      Number(elements.heldDynoTargetRpmInput.value),
+      Number(elements.heldDynoAbsorbingTorqueInput.value),
+      Number(elements.heldDynoDrivingTorqueInput.value),
+    ];
+    if (
+      !Number.isFinite(values[0]) ||
+      values[0] <= 0 ||
+      values.slice(1).some((value) => !Number.isFinite(value) || value < 0)
+    ) {
+      return;
+    }
+    for (let index = 0; index < dynoControlKinds.length; ++index) {
+      state.editingControls.add(dynoControlKinds[index]);
+      state.liveState[dynoControlKinds[index]] = values[index];
+    }
+    dynoControlTimer = window.setTimeout(() => {
+      sendControls(
+        dynoControlKinds.map((kind, index) => ({ kind, value: values[index] })),
+      );
+      for (const kind of dynoControlKinds) {
+        state.editingControls.delete(kind);
+      }
+    }, 80);
+  };
+  for (const input of [
+    elements.heldDynoTargetRpmInput,
+    elements.heldDynoAbsorbingTorqueInput,
+    elements.heldDynoDrivingTorqueInput,
+  ]) {
+    input.addEventListener("input", scheduleDynoControls);
+  }
+
+  const vehicleControlKinds = [
+    "vehicle-selected-forward-gear",
+    "vehicle-clutch-engagement",
+    "vehicle-service-brake-application",
+  ];
+  let vehicleControlTimer = null;
+  const scheduleVehicleControls = () => {
+    window.clearTimeout(vehicleControlTimer);
+    const gear = Number(elements.vehicleGearSelect.value);
+    const clutch = Number(elements.vehicleClutchInput.value) / 100;
+    const brake = Number(elements.vehicleBrakeInput.value) / 100;
+    if (
+      !Number.isSafeInteger(gear) ||
+      gear < 0 ||
+      !Number.isFinite(clutch) ||
+      clutch < 0 ||
+      clutch > 1 ||
+      !Number.isFinite(brake) ||
+      brake < 0 ||
+      brake > 1
+    ) {
+      return;
+    }
+    const values = [gear, clutch, brake];
+    for (let index = 0; index < vehicleControlKinds.length; ++index) {
+      const kind = vehicleControlKinds[index];
+      if (state.built?.capabilities[kind]) {
+        state.editingControls.add(kind);
+        state.liveState[kind] = values[index];
+      }
+    }
+    renderLiveState();
+    vehicleControlTimer = window.setTimeout(() => {
+      const controls = vehicleControlKinds
+        .map((kind, index) => ({ kind, value: values[index] }))
+        .filter(({ kind }) => state.built?.capabilities[kind]);
+      sendControls(controls);
+      for (const { kind } of controls) {
+        state.editingControls.delete(kind);
+      }
+    }, 50);
+  };
+  elements.vehicleGearSelect.addEventListener(
+    "change",
+    scheduleVehicleControls,
+  );
+  elements.vehicleClutchInput.addEventListener(
+    "input",
+    scheduleVehicleControls,
+  );
+  elements.vehicleBrakeInput.addEventListener(
+    "input",
+    scheduleVehicleControls,
+  );
   elements.clearDiagnosticsButton.addEventListener("click", () => {
     state.workerDiagnostics = [];
     renderDiagnostics();

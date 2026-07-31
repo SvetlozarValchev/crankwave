@@ -197,7 +197,10 @@
                 Apply valid engine and scenario JSON to create a session.
               </p>
             </div>
-            <span id="session-state" class="state-badge" data-state="idle">Idle</span>
+            <div class="session-badges">
+              <span id="motion-mode-badge" class="small-badge" hidden>—</span>
+              <span id="session-state" class="state-badge" data-state="idle">Idle</span>
+            </div>
           </div>
 
           <div class="transport" aria-label="Session transport">
@@ -302,23 +305,151 @@
               </span>
             </label>
 
-            <label class="number-control">
-              <span>
-                <strong>External resistance</strong>
-                <small>Free-engine load</small>
-              </span>
-              <span class="number-entry">
+            <div id="external-resistance-control">
+              <label class="number-control">
+                <span>
+                  <strong>External resistance</strong>
+                  <small>Free-engine load</small>
+                </span>
+                <span class="number-entry">
+                  <input
+                    id="external-resistance-input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value="0"
+                    disabled
+                  />
+                  <span>N·m</span>
+                </span>
+              </label>
+            </div>
+
+            <section
+              id="held-dyno-controls"
+              class="mode-control-group"
+              aria-labelledby="held-dyno-controls-title"
+              hidden
+            >
+              <div class="mode-control-heading">
+                <h3 id="held-dyno-controls-title">Held dyno</h3>
+                <span>Bounded speed control</span>
+              </div>
+              <div class="mode-number-grid">
+                <label class="number-control">
+                  <span>
+                    <strong>Target speed</strong>
+                    <small>Constant target holds RPM</small>
+                  </span>
+                  <span class="number-entry">
+                    <input
+                      id="held-dyno-target-rpm-input"
+                      type="number"
+                      min="1"
+                      step="10"
+                      value="1000"
+                      disabled
+                    />
+                    <span>RPM</span>
+                  </span>
+                </label>
+                <label class="number-control">
+                  <span>
+                    <strong>Absorbing limit</strong>
+                    <small>Maximum dyno braking torque</small>
+                  </span>
+                  <span class="number-entry">
+                    <input
+                      id="held-dyno-absorbing-torque-input"
+                      type="number"
+                      min="0"
+                      step="10"
+                      value="0"
+                      disabled
+                    />
+                    <span>N·m</span>
+                  </span>
+                </label>
+                <label class="number-control">
+                  <span>
+                    <strong>Driving limit</strong>
+                    <small>Maximum dyno motoring torque</small>
+                  </span>
+                  <span class="number-entry">
+                    <input
+                      id="held-dyno-driving-torque-input"
+                      type="number"
+                      min="0"
+                      step="10"
+                      value="0"
+                      disabled
+                    />
+                    <span>N·m</span>
+                  </span>
+                </label>
+              </div>
+            </section>
+
+            <section
+              id="free-vehicle-controls"
+              class="mode-control-group"
+              aria-labelledby="free-vehicle-controls-title"
+              hidden
+            >
+              <div class="mode-control-heading">
+                <h3 id="free-vehicle-controls-title">Drivetrain</h3>
+                <span>Vehicle operating state</span>
+              </div>
+              <label class="number-control">
+                <span>
+                  <strong>Selected gear</strong>
+                  <small>Neutral or published forward gear</small>
+                </span>
+                <span class="number-entry">
+                  <select id="vehicle-gear-select" disabled>
+                    <option value="0">Neutral</option>
+                  </select>
+                </span>
+              </label>
+              <label class="scalar-control compact-scalar-control">
+                <span class="control-label">
+                  <span>Clutch engagement</span>
+                  <output id="vehicle-clutch-output" for="vehicle-clutch-input">0%</output>
+                </span>
                 <input
-                  id="external-resistance-input"
-                  type="number"
+                  id="vehicle-clutch-input"
+                  type="range"
                   min="0"
+                  max="100"
                   step="1"
                   value="0"
                   disabled
                 />
-                <span>N·m</span>
-              </span>
-            </label>
+                <span class="range-scale">
+                  <span>Open</span>
+                  <span>Locked</span>
+                </span>
+              </label>
+              <label id="vehicle-brake-control" class="scalar-control compact-scalar-control">
+                <span class="control-label">
+                  <span>Service brake</span>
+                  <output id="vehicle-brake-output" for="vehicle-brake-input">0%</output>
+                </span>
+                <input
+                  id="vehicle-brake-input"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value="0"
+                  disabled
+                />
+                <span class="range-scale">
+                  <span>Released</span>
+                  <span>Full application</span>
+                </span>
+              </label>
+            </section>
 
             <div class="toggle-row">
               <button
@@ -411,6 +542,77 @@
                 <dd id="realtime-factor-value">—</dd>
               </div>
             </dl>
+
+            <section
+              id="held-dyno-telemetry"
+              class="mode-telemetry"
+              aria-labelledby="held-dyno-telemetry-title"
+              hidden
+            >
+              <h3 id="held-dyno-telemetry-title">Dyno state</h3>
+              <dl class="mode-telemetry-grid">
+                <div>
+                  <dt>Target</dt>
+                  <dd id="dyno-target-value">—</dd>
+                </div>
+                <div>
+                  <dt>Required torque</dt>
+                  <dd id="dyno-required-torque-value">—</dd>
+                </div>
+                <div>
+                  <dt>Applied torque</dt>
+                  <dd id="dyno-applied-torque-value">—</dd>
+                </div>
+                <div>
+                  <dt>Torque limits</dt>
+                  <dd id="dyno-limits-value">—</dd>
+                </div>
+                <div>
+                  <dt>Constraint state</dt>
+                  <dd id="dyno-disposition-value">—</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section
+              id="free-vehicle-telemetry"
+              class="mode-telemetry"
+              aria-labelledby="free-vehicle-telemetry-title"
+              hidden
+            >
+              <h3 id="free-vehicle-telemetry-title">Vehicle state</h3>
+              <dl class="mode-telemetry-grid">
+                <div>
+                  <dt>Speed</dt>
+                  <dd id="vehicle-speed-value">—</dd>
+                </div>
+                <div>
+                  <dt>Distance</dt>
+                  <dd id="vehicle-distance-value">—</dd>
+                </div>
+                <div>
+                  <dt>Gear</dt>
+                  <dd id="vehicle-gear-value">—</dd>
+                </div>
+                <div>
+                  <dt>Clutch</dt>
+                  <dd id="vehicle-clutch-value">—</dd>
+                </div>
+                <div>
+                  <dt>Clutch slip</dt>
+                  <dd id="vehicle-slip-value">—</dd>
+                </div>
+                <div>
+                  <dt>Road load</dt>
+                  <dd id="vehicle-road-load-value">—</dd>
+                </div>
+                <div>
+                  <dt>Coupling state</dt>
+                  <dd id="vehicle-disposition-value">—</dd>
+                </div>
+              </dl>
+            </section>
+
             <div class="fill-track" aria-hidden="true">
               <span id="ring-fill-meter"></span>
             </div>

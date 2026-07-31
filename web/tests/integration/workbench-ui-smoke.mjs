@@ -263,6 +263,7 @@ async function pageState(cdp) {
       session: text("#session-state"),
       sessionTitle: text("#session-title"),
       sessionSubtitle: text("#session-subtitle"),
+      motionMode: text("#motion-mode-badge"),
       diagnostics: text("#diagnostics-list"),
       rpm: text("#rpm-value"),
       elapsed: text("#elapsed-value"),
@@ -282,6 +283,30 @@ async function pageState(cdp) {
       startDisabled: document.querySelector("#start-button")?.disabled ?? true,
       starterDisabled:
         document.querySelector("#starter-button")?.disabled ?? true,
+      heldDynoControlsHidden:
+        document.querySelector("#held-dyno-controls")?.hidden ?? true,
+      dynoTargetDisabled:
+        document.querySelector("#held-dyno-target-rpm-input")?.disabled ?? true,
+      dynoTargetInput:
+        document.querySelector("#held-dyno-target-rpm-input")?.value ?? "",
+      dynoTargetTelemetry: text("#dyno-target-value"),
+      dynoLimitsTelemetry: text("#dyno-limits-value"),
+      dynoDisposition: text("#dyno-disposition-value"),
+      vehicleControlsHidden:
+        document.querySelector("#free-vehicle-controls")?.hidden ?? true,
+      vehicleGearDisabled:
+        document.querySelector("#vehicle-gear-select")?.disabled ?? true,
+      vehicleGearOptions:
+        document.querySelector("#vehicle-gear-select")?.options?.length ?? 0,
+      vehicleGearInput:
+        document.querySelector("#vehicle-gear-select")?.value ?? "",
+      vehicleClutchInput:
+        document.querySelector("#vehicle-clutch-input")?.value ?? "",
+      vehicleBrakeInput:
+        document.querySelector("#vehicle-brake-input")?.value ?? "",
+      vehicleGearTelemetry: text("#vehicle-gear-value"),
+      vehicleClutchTelemetry: text("#vehicle-clutch-value"),
+      vehicleSpeedTelemetry: text("#vehicle-speed-value"),
       restartDisabled:
         document.querySelector("#restart-button")?.disabled ?? true
     };
@@ -345,6 +370,112 @@ async function verifyRepositoryPackage(cdp, expectation) {
   }
   assert.match(built.diagnostics, /No diagnostics reported/u);
   return expectation.packageId;
+}
+
+async function verifyHeldDynoBench(cdp) {
+  const ready = await pageState(cdp);
+  assert.equal(ready.motionMode, "Held Dyno");
+  assert.equal(ready.heldDynoControlsHidden, false);
+  assert.equal(ready.vehicleControlsHidden, true);
+  assert.equal(ready.dynoTargetDisabled, true);
+
+  await cdp.evaluate(
+    `document.querySelector("#start-button").click(); true`,
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.session === "Running" &&
+      !state.dynoTargetDisabled &&
+      state.dynoTargetTelemetry !== "—" &&
+      state.dynoDisposition !== "—",
+    "released HeldDyno workbench telemetry",
+    20_000,
+  );
+  await cdp.evaluate(`(() => {
+    const values = [
+      ["#held-dyno-target-rpm-input", "3200"],
+      ["#held-dyno-absorbing-torque-input", "800"],
+      ["#held-dyno-driving-torque-input", "0"]
+    ];
+    for (const [selector, value] of values) {
+      const input = document.querySelector(selector);
+      input.value = value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    return true;
+  })()`);
+  const controlled = await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.dynoTargetTelemetry === "3,200 RPM" &&
+      state.dynoLimitsTelemetry.includes("800 N·m absorb") &&
+      state.dynoLimitsTelemetry.includes("0 N·m drive"),
+    "atomic HeldDyno target and torque-limit batch",
+  );
+  assert.equal(controlled.dynoTargetInput, "3200");
+
+  await cdp.evaluate(
+    `document.querySelector("#stop-button").click(); true`,
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) => state.session === "Paused",
+    "paused HeldDyno procedure",
+  );
+}
+
+async function verifyFreeVehicleBench(cdp) {
+  const ready = await pageState(cdp);
+  assert.equal(ready.motionMode, "Free Vehicle");
+  assert.equal(ready.heldDynoControlsHidden, true);
+  assert.equal(ready.vehicleControlsHidden, false);
+  assert.equal(ready.vehicleGearOptions, 6);
+  assert.equal(ready.vehicleGearDisabled, true);
+
+  await cdp.evaluate(
+    `document.querySelector("#start-button").click(); true`,
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.session === "Running" &&
+      !state.vehicleGearDisabled &&
+      state.vehicleSpeedTelemetry !== "—",
+    "released FreeVehicle workbench telemetry",
+    20_000,
+  );
+  await cdp.evaluate(`(() => {
+    const gear = document.querySelector("#vehicle-gear-select");
+    gear.value = "2";
+    gear.dispatchEvent(new Event("change", { bubbles: true }));
+    const clutch = document.querySelector("#vehicle-clutch-input");
+    clutch.value = "50";
+    clutch.dispatchEvent(new Event("input", { bubbles: true }));
+    const brake = document.querySelector("#vehicle-brake-input");
+    brake.value = "25";
+    brake.dispatchEvent(new Event("input", { bubbles: true }));
+    return true;
+  })()`);
+  const controlled = await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.vehicleGearTelemetry.startsWith("2 · gear-2 · 2.49:1") &&
+      state.vehicleClutchTelemetry.startsWith("50 %"),
+    "atomic FreeVehicle gear, clutch, and brake batch",
+  );
+  assert.equal(controlled.vehicleGearInput, "2");
+  assert.equal(controlled.vehicleClutchInput, "50");
+  assert.equal(controlled.vehicleBrakeInput, "25");
+
+  await cdp.evaluate(
+    `document.querySelector("#stop-button").click(); true`,
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) => state.session === "Paused",
+    "paused FreeVehicle procedure",
+  );
 }
 
 async function terminate(child) {
@@ -666,6 +797,12 @@ async function main() {
       verifiedPackages.push(
         await verifyRepositoryPackage(cdp, expectation),
       );
+      if (expectation.packageId === "bmw-m52tub28-held-dyno-pull-lift") {
+        await verifyHeldDynoBench(cdp);
+      }
+      if (expectation.packageId === "bmw-m52tub28-launch-first-second") {
+        await verifyFreeVehicleBench(cdp);
+      }
     }
     assert.deepEqual(cdp.exceptions, []);
 
