@@ -45,8 +45,8 @@
       "interpolation": "right_continuous_hold",
       "points": [
         {"time": {"value": 0, "unit": "s"}, "value": {"value": 0, "unit": "N*m"}},
-        {"time": {"value": 4, "unit": "s"}, "value": {"value": 12, "unit": "N*m"}},
-        {"time": {"value": 7, "unit": "s"}, "value": {"value": 0, "unit": "N*m"}}
+        {"time": {"value": 15, "unit": "s"}, "value": {"value": 12, "unit": "N*m"}},
+        {"time": {"value": 20, "unit": "s"}, "value": {"value": 0, "unit": "N*m"}}
       ]
     }
   },
@@ -64,9 +64,9 @@
     "event_queue_capacity": 3800,
     "telemetry_capacity_frames": 1
   },
-  "total_duration": {"value": 9.5, "unit": "s"},
-  "audible_start": {"value": 1.5, "unit": "s"},
-  "audible_duration": {"value": 8, "unit": "s"},
+  "total_duration": {"value": 30, "unit": "s"},
+  "audible_start": {"value": 14, "unit": "s"},
+  "audible_duration": {"value": 16, "unit": "s"},
   "public_seed": "12648430",
   "output": {
     "buses": ["master-engine-raw", "master-engine-audition"],
