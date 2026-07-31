@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-31
 
-Current checkpoint: **slice 15 — canonical unpaced capture procedures**
+Current checkpoint: **slice 10 topology closure — general direct-rod bank layouts**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -595,7 +595,7 @@ names that role explicitly or removes it.
 Current progress: slices 1--9 and 11--14 are executable and accepted for the currently
 admitted topology. Slice 10 remains open for the isolated general-topology commits
 listed below. Slice 14's capability-driven UI and continuous FreeEngine, HeldDyno, and
-FreeVehicle lifetimes are accepted. Slice 15 is active. Slice 12's pristine
+FreeVehicle lifetimes are accepted. Slice 15 is accepted. Slice 12's pristine
 vehicle/transmission equations and explicit non-parity service-brake boundary are
 frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md`](docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md).
@@ -659,6 +659,16 @@ applies atomic dyno and drivetrain batches, observes their returned sidecars, ve
 pause/resume/fresh-restart behavior, retains the canonical finite-export WAV hash, and
 reports zero startup underruns. The frozen contract and evidence are in
 [`docs/contracts/WEB_OPERATING_BENCH_SLICE_14.md`](docs/contracts/WEB_OPERATING_BENCH_SLICE_14.md).
+
+Slice 15 defines six finite BMW M52TUB28 procedures that cover all nine canonical
+capture roles: non-fired crank, startup/catch, settled idle, loaded rise, part load,
+unforced coast, neutral limiter, lift/recovery, and shutdown. Three existing accepted
+procedures are reused and three focused JSON scenarios are new. Fresh native and WASM
+sessions execute the exact authored timelines without changing live-bench lifetime or
+audio. All six native jobs completed concurrently in approximately `30.4 s`, bounded
+by the existing settled-idle clip. The procedure map, measured runtime evidence, and
+local proof hashes are in
+[`docs/contracts/CANONICAL_UNPACED_CAPTURE_PROCEDURES_SLICE_15.md`](docs/contracts/CANONICAL_UNPACED_CAPTURE_PROCEDURES_SLICE_15.md).
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
 and mastering unchanged. Listen immediately after the one intended behavior changes;

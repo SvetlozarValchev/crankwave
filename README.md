@@ -113,6 +113,13 @@ brake. The BMW rig publishes five forward gears in authored order with ratios `4
 gear, clutch, slip, road-load, speed, and distance telemetry; preparation and
 non-vehicle modes report no vehicle sidecar.
 
+The canonical unpaced capture set contains six finite BMW M52TUB28 procedures covering
+non-fired crank, startup/catch, settled idle, loaded rise, part load, unforced coast,
+neutral limiter, limiter lift/recovery, and key-off shutdown. They are ordinary JSON
+scenarios rendered through fresh finite sessions and can run independently in parallel;
+the measured six-job native batch completes in approximately `30.4 s` on the
+development PC.
+
 The BMW JSON migration fixture reproduces every
 sound-bearing PCM byte of the user-approved inertial dyno. The native CLI resolves
 engine-relative assets inside an explicit asset root and atomically publishes a new

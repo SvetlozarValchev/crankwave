@@ -100,6 +100,13 @@ const WORKBENCH_PACKAGES = Object.freeze([
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/warm-running-free-rev-700rpm.json",
   }),
   Object.freeze({
+    id: "bmw-m52tub28-canonical-crank",
+    label: "BMW M52TUB28 · Capture · Non-fired crank",
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-crank-only-0rpm.json",
+  }),
+  Object.freeze({
     id: "bmw-m52tub28-cold-start",
     label: "BMW M52TUB28 · Cold crank and catch",
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
@@ -126,6 +133,20 @@ const WORKBENCH_PACKAGES = Object.freeze([
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/held-dyno-pull-lift-1500-6500rpm.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52tub28-canonical-load-cycle",
+    label: "BMW M52TUB28 · Capture · Loaded rise, part load and coast",
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-loaded-rise-part-load-coast-1500-4500rpm.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52tub28-canonical-shutdown",
+    label: "BMW M52TUB28 · Capture · Key-off shutdown",
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-key-off-shutdown-700rpm.json",
   }),
   Object.freeze({
     id: "bmw-m52tub28-launch-first-second",

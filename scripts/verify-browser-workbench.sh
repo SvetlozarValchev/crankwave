@@ -26,6 +26,18 @@ node \
     "${repository_dir}/data/profiles/bmw-m52tub28-cleanroom/accessory-configurations/bmw-m52tub28-cleanroom-warm-generic-accessories-v1.json"
 
 node \
+    "${repository_dir}/web/tests/integration/canonical-captures.integration.mjs" \
+    "${workbench_dir}/web/engine-sim-offline.js" \
+    "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/engine.json" \
+    "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-crank-only-0rpm.json" \
+    "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-loaded-rise-part-load-coast-1500-4500rpm.json" \
+    "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-key-off-shutdown-700rpm.json" \
+    smooth-39 \
+    "${repository_dir}/reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav" \
+    warm-generic-accessories \
+    "${repository_dir}/data/profiles/bmw-m52tub28-cleanroom/accessory-configurations/bmw-m52tub28-cleanroom-warm-generic-accessories-v1.json"
+
+node \
     "${repository_dir}/web/tests/integration/browser-runtime.integration.mjs" \
     "${workbench_dir}/web/engine-sim-offline.js" \
     "${repository_dir}/data/engines/bmw-m52b28/engine.json" \

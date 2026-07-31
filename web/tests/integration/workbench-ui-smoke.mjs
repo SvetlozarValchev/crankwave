@@ -59,10 +59,27 @@ const NEW_REPOSITORY_PACKAGES = Object.freeze([
     scenarioId: "bmw-m52tub28-cleanroom-cold-start-crank-catch-0rpm",
   },
   {
+    packageId: "bmw-m52tub28-canonical-crank",
+    engineId: "bmw-m52tub28-cleanroom",
+    scenarioId: "bmw-m52tub28-cleanroom-canonical-crank-only-0rpm",
+  },
+  {
     packageId: "bmw-m52tub28-held-dyno-pull-lift",
     engineId: "bmw-m52tub28-cleanroom",
     scenarioId:
       "bmw-m52tub28-cleanroom-held-dyno-pull-lift-1500-6500rpm",
+  },
+  {
+    packageId: "bmw-m52tub28-canonical-load-cycle",
+    engineId: "bmw-m52tub28-cleanroom",
+    scenarioId:
+      "bmw-m52tub28-cleanroom-canonical-loaded-rise-part-load-coast-1500-4500rpm",
+  },
+  {
+    packageId: "bmw-m52tub28-canonical-shutdown",
+    engineId: "bmw-m52tub28-cleanroom",
+    scenarioId:
+      "bmw-m52tub28-cleanroom-canonical-key-off-shutdown-700rpm",
   },
   {
     packageId: "bmw-m52tub28-launch-first-second",
