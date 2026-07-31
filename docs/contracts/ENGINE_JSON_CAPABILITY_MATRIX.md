@@ -88,21 +88,23 @@ mechanism inertia and its derivative, with the same attachment added to the
 instantaneous value. The BMW M52B28 neutral baseline is
 `0.2108686520185204 kg*m^2`, with no attached inertia or external resistance.
 
-The current browser runtime executes all admitted authored scenario modes. Its v2
+The current browser runtime executes all admitted authored scenario modes. Its v3
 Worker protocol exposes the same twelve capability-gated controls as the native
 session and submits each nonempty control group as one atomic batch. `inertial_dyno`
 exposes live throttle, ignition, and fuel; `free_engine` additionally exposes limiter,
 external resistance, and a capability-gated starter. `held_dyno` exposes throttle,
 ignition, fuel, target RPM, and both torque limits. `free_vehicle` exposes throttle,
 ignition, fuel, limiter, ordered gear, and clutch, plus starter and service brake only
-when their hardware exists. FreeEngine, HeldDyno, and FreeVehicle use open-ended
+when their hardware exists. Session lifetime is selected explicitly rather than
+inferred from those modes: FreeEngine, HeldDyno, and FreeVehicle admit open-ended
 interactive sessions while fresh finite sessions remain authoritative for capture.
 Live prescribed/external-RPM following and motion-mode transitions remain future
 capabilities. Preview is still realtime audio: the same block processor runs ahead of
 the audio device rather than tying simulation steps to UI frames. The workbench now
 renders descriptor-gated dyno/drivetrain widgets, returned mode telemetry, and grouped
-named procedures. The three dynamic bench modes use continuous start/stop/restart;
-capture-only modes use run/pause/fresh-replay semantics and are never silently looped.
+named procedures. A dynamic mode selected as an interactive bench uses continuous
+start/stop/restart; finite procedures use run/pause/fresh-replay semantics and are
+never silently looped.
 
 ## Authoring, units, curves, and graph semantics
 
@@ -316,7 +318,7 @@ record per block, containing the engine sample and nullable HeldDyno/FreeVehicle
 sidecars.
 
 Slice 13 publishes this operating surface through the portable C++ session, exact C
-ABI v4, fixed-memory WASM wrapper, and `engine-sim-offline/browser-worker-v2`. The
+ABI v4, fixed-memory WASM wrapper, and `engine-sim-offline/browser-worker-v3`. The
 descriptor identifies one of seven motion modes and publishes an ordered forward-gear
 inventory where applicable. The BMW FreeVehicle fixture exposes five descriptors in
 authored order with ratios `4.21`, `2.49`, `1.66`, `1.24`, and `1.00`. Both mode
@@ -330,20 +332,20 @@ all-zero absent POD, while JavaScript maps absence to `null`.
 | Dyno minimum/maximum speed and hold-step defaults | Package `rig.dyno_defaults`; scenarios remain authoritative for an actual run | **Partial**; strict JSON parses and resolves reusable defaults, but no UI/default procedure executes them | Native and browser tools generate the same explicit held-point requests. |
 | Transmission max clutch torque and ordered gear ratios | Package `rig.transmission` | **Low-order executed and published** for neutral and ordered forward gears through the exact bounded clutch-then-road coupled solve; native/C/WASM/Worker descriptors expose stable ID, authored ordinal, ratio, and semantic ID | Brake-hold, locked reflected-inertia, neutral, launch, first-to-second, and exact five-gear BMW inventory fixtures. |
 | Held speed and prescribed RPM sweep | Session/render request | **Partial**; authored held-speed and prescribed-kinematic execution exist, while live external RPM following remains unavailable | Existing BMW held points and prescribed sweeps; a future external-follower contract. |
-| Bounded held dyno | Session/render request and timestamped mode controls | **Low-order executed and published** for finite target-RPM captures and open-ended benches with separate absorbing/driving torque limits; target and both limits are live through native/C ABI v4/WASM/Worker v2 | BMW pull, exact hold, lift, zero-drive overrun, same-boundary command batch, nullable sidecar, reaction telemetry, and listening gate. |
+| Bounded held dyno | Session/render request and timestamped mode controls | **Low-order executed and published** for finite target-RPM captures and open-ended benches with separate absorbing/driving torque limits; target and both limits are live through native/C ABI v4/WASM/Worker v3 | BMW pull, exact hold, lift, zero-drive overrun, same-boundary command batch, nullable sidecar, reaction telemetry, and listening gate. |
 | Load-target held capture | Session/render request | **Low-order executed** | Converged target/tolerance result. |
 | Inertial dyno with inertia and brake curve | Session/render request | **Low-order executed** | Existing BMW inertial pull and torque evidence. |
 | Ambient pressure/temperature, initial gas/wall state, crankcase, fuel, seed, render rates, preparation | Session/render request and rig defaults | **Typed core and executed** | Native and WASM resolve the same request identity. |
 | Relative humidity, coolant temperature, and oil temperature | Session/render request metadata/applicability conditions | **Admission/evidence only** in the current low-order executor; oil temperature must match the loss-profile condition | Do not present these as live sound or power controls until an implemented subsystem consumes them. |
 | Quality telemetry capacity | Session output allocation policy | **Low-order executed** as returned-record capacity; each exact block returns one final engine sample plus nullable mode sidecars, while authored telemetry-channel selection still fails closed | Browser transport preserves the same record boundary and nullability without confusing it with PCM or the internal event journal. |
 | Ignition, fuel, starter, dyno/limiter enable events | Timestamped session controls | **Partial**; ignition and fuel execute live in inertial-dyno, `free_engine`, `held_dyno`, and `free_vehicle`; limiter executes in the two free modes; starter is capability-gated in `free_engine` and `free_vehicle`. Motion ownership is immutable, so there is deliberately no dyno-enable/mode-switch command; a constant target is HeldDyno hold | Block-boundary and in-block control timing fixtures; unsupported mode/control combinations remain rejected atomically. |
-| Realtime throttle | Timestamped live controls | **Low-order executed**; public absolute-delivery-frame throttle executes in inertial-dyno, `free_engine`, `held_dyno`, and `free_vehicle` after preparation, and Worker v2 exposes the same atomic transport | Audible throttle response without restart in every mode that advertises the capability. |
+| Realtime throttle | Timestamped live controls | **Low-order executed**; public absolute-delivery-frame throttle executes in inertial-dyno, `free_engine`, `held_dyno`, and `free_vehicle` after preparation, and Worker v3 exposes the same atomic transport | Audible throttle response without restart in every mode that advertises the capability. |
 | Realtime external resisting torque | Timestamped live controls | **Low-order executed** for `free_engine`, including the public session API and browser Worker; other modes reject it | An in-block load step changes FreeEngine acceleration and telemetry without restarting the session. |
-| HeldDyno target RPM and torque limits | Mode-specific timestamped controls | **Low-order executed and published** through EngineSession, C ABI v4, WASM, and Worker v2 with exact capability bits and final-step telemetry | One atomic same-boundary target/absorbing/driving batch changes the first released step and reports its applied values and disposition. |
+| HeldDyno target RPM and torque limits | Mode-specific timestamped controls | **Low-order executed and published** through EngineSession, C ABI v4, WASM, and Worker v3 with exact capability bits and final-step telemetry | One atomic same-boundary target/absorbing/driving batch changes the first released step and reports its applied values and disposition. |
 | External/prescribed RPM or load-following command | A future mode-specific timestamped control | **Missing** as a public live API; authored prescribed and load-target modes remain separate finite motion owners | External follower and load-coordinate contracts must define ownership before browser exposure. |
 | Gear, clutch, and service-brake controls | Mode-authored and timestamped `free_vehicle` controls | **Low-order executed and published**; gear zero means neutral, positive values are published authored ordinals, clutch is `[0,1]`, and brake is capability-gated by positive rig capacity | An out-of-inventory gear rejects its complete batch; an admitted same-boundary gear/clutch/brake batch reaches exact final-step drivetrain telemetry. |
 | Realtime-safe presentation knobs | Timestamped parameter controls | **Missing** as public API despite typed defaults | Click-free gain/wet/HF/noise changes. |
-| Master/stems/telemetry block output | Session block result | **Low-order executed** as public borrowed route dry/IR/selected buses, raw/audition masters, and one session-telemetry record per exact 3,840-frame block; Worker v2 publishes one selected bus through the shared PCM ring and posts the engine sample plus nullable HeldDyno/FreeVehicle sidecar, while authored bus/telemetry subset selection and simultaneous browser stem publication remain absent | Route selection reaches the exact named core bus; mode sidecars match the final physics step; 128-frame AudioWorklet pulls never change the 3,840-frame engine-session quantum. |
+| Master/stems/telemetry block output | Session block result | **Low-order executed** as public borrowed route dry/IR/selected buses, raw/audition masters, and one session-telemetry record per exact 3,840-frame block; Worker v3 publishes one selected bus through the shared PCM ring and posts the engine sample plus nullable HeldDyno/FreeVehicle sidecar, while authored bus/telemetry subset selection and simultaneous browser stem publication remain absent | Route selection reaches the exact named core bus; mode sidecars match the final physics step; 128-frame AudioWorklet pulls never change the 3,840-frame engine-session quantum. |
 
 ## Deliberate exclusions
 

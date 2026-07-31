@@ -732,8 +732,10 @@ AudioWorklet
   - count genuine streaming underruns
 ```
 
-The exact transport identifier is `engine-sim-offline/browser-worker-v2`. Build results
-publish the motion mode, exact capability list, and copied forward-gear descriptors;
+The exact transport identifier is `engine-sim-offline/browser-worker-v3`. Every build
+request carries its required execution kind explicitly; the Worker and browser runtime
+pass it unchanged to the C API and never infer lifetime from scenario JSON. Build
+results publish the motion mode, exact capability list, and copied forward-gear descriptors;
 telemetry messages carry the nullable HeldDyno/FreeVehicle sidecars decoded from the C
 ABI rather than reconstructed in JavaScript.
 

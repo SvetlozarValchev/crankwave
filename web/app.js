@@ -1,6 +1,7 @@
 import {
   ESO_CANONICAL_SAMPLE_RATE,
   ESO_C_API_VERSION,
+  SessionExecutionKind,
 } from "./runtime/c-api-abi.js";
 import { WORKER_PROTOCOL_ID } from "./runtime/protocol.js";
 
@@ -11,6 +12,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: DEFAULT_PACKAGE_ID,
     label: "BMW M52B28 · Interactive free rev",
+    executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/bmw-m52b28/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52b28/scenarios/warm-running-free-rev-1500rpm.json",
@@ -18,6 +20,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52b28-dyno",
     label: "BMW M52B28 · Inertial dyno 1500–6500 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52b28/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm.json",
@@ -25,6 +28,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52b28-dyno-lift-overrun",
     label: "BMW M52B28 · Dyno with lift and overrun",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52b28/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm-lift-overrun.json",
@@ -32,6 +36,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "raspy-muscle-620-free-rev",
     label: "6.2L old-school V8 · Interactive free rev",
+    executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/raspy-muscle-620-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/raspy-muscle-620-cleanroom/scenarios/warm-running-free-rev-800rpm.json",
@@ -39,6 +44,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "raspy-muscle-620-held-idle",
     label: "6.2L old-school V8 · Held idle 800 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/raspy-muscle-620-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/raspy-muscle-620-cleanroom/scenarios/held-idle-region-800rpm.json",
@@ -46,6 +52,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "raspy-muscle-620-dyno",
     label: "6.2L old-school V8 · Inertial dyno 800–5900 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/raspy-muscle-620-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/raspy-muscle-620-cleanroom/scenarios/inertial-dyno-800-5900rpm.json",
@@ -53,6 +60,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "sequoia-3ur-fe-free-rev",
     label: "Toyota Sequoia 3UR-FE · Interactive free rev",
+    executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/sequoia-3ur-fe-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/sequoia-3ur-fe-cleanroom/scenarios/warm-running-free-rev-650rpm.json",
@@ -60,6 +68,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "sequoia-3ur-fe-held-idle",
     label: "Toyota Sequoia 3UR-FE · Held idle 650 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/sequoia-3ur-fe-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/sequoia-3ur-fe-cleanroom/scenarios/held-idle-region-650rpm.json",
@@ -67,6 +76,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "sequoia-3ur-fe-dyno",
     label: "Toyota Sequoia 3UR-FE · Inertial dyno 650–6000 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/sequoia-3ur-fe-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/sequoia-3ur-fe-cleanroom/scenarios/inertial-dyno-650-6000rpm.json",
@@ -74,6 +84,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "harley-evolution-1340-free-rev",
     label: "Harley-Davidson Evolution 1340 · Interactive free rev",
+    executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/harley-evolution-1340-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/harley-evolution-1340-cleanroom/scenarios/warm-running-free-rev-800rpm.json",
@@ -81,6 +92,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "harley-evolution-1340-held-idle",
     label: "Harley-Davidson Evolution 1340 · Held idle 800 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/harley-evolution-1340-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/harley-evolution-1340-cleanroom/scenarios/held-idle-region-800rpm.json",
@@ -88,6 +100,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "harley-evolution-1340-dyno",
     label: "Harley-Davidson Evolution 1340 · Inertial dyno 800–5000 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/harley-evolution-1340-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/harley-evolution-1340-cleanroom/scenarios/inertial-dyno-800-5000rpm.json",
@@ -95,6 +108,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52tub28-free-rev",
     label: "BMW M52TUB28 · Interactive free rev",
+    executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/warm-running-free-rev-700rpm.json",
@@ -102,6 +116,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52tub28-canonical-crank",
     label: "BMW M52TUB28 · Capture · Non-fired crank",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-crank-only-0rpm.json",
@@ -109,6 +124,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52tub28-cold-start",
     label: "BMW M52TUB28 · Cold crank and catch",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/cold-start-crank-catch-0rpm.json",
@@ -116,6 +132,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52tub28-held-idle",
     label: "BMW M52TUB28 · Held idle 700 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/held-idle-region-700rpm.json",
@@ -123,6 +140,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52tub28-dyno",
     label: "BMW M52TUB28 · Inertial dyno 700–6500 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/inertial-dyno-700-6500rpm.json",
@@ -130,6 +148,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52tub28-held-dyno-pull-lift",
     label: "BMW M52TUB28 · Held-dyno pull, hold, lift and overrun",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/held-dyno-pull-lift-1500-6500rpm.json",
@@ -137,6 +156,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52tub28-canonical-load-cycle",
     label: "BMW M52TUB28 · Capture · Loaded rise, part load and coast",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-loaded-rise-part-load-coast-1500-4500rpm.json",
@@ -144,6 +164,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52tub28-canonical-shutdown",
     label: "BMW M52TUB28 · Capture · Key-off shutdown",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/canonical-key-off-shutdown-700rpm.json",
@@ -151,6 +172,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52tub28-launch-first-second",
     label: "BMW M52TUB28 · Vehicle launch and first-to-second shift",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/free-vehicle-launch-first-second.json",
@@ -158,6 +180,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52tub28-fifth-gear-pull-lift",
     label: "BMW M52TUB28 · Fifth-gear pull and lift",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/free-vehicle-fifth-gear-pull-lift-1500rpm.json",
@@ -165,6 +188,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "honda-b18c5-held-below-vtec",
     label: "Honda B18C5 · Held below VTEC 5400 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/honda-b18c5-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/honda-b18c5-cleanroom/scenarios/held-below-vtec-5400rpm.json",
@@ -172,6 +196,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "honda-b18c5-dyno",
     label: "Honda B18C5 · Inertial dyno 5000–8000 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/honda-b18c5-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/honda-b18c5-cleanroom/scenarios/inertial-dyno-5000-8000rpm.json",
@@ -179,6 +204,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "honda-b18c5-held-above-vtec",
     label: "Honda B18C5 · Held above VTEC 7000 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/honda-b18c5-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/honda-b18c5-cleanroom/scenarios/held-above-vtec-7000rpm.json",
@@ -186,6 +212,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "kohler-ch750-governed-load-step",
     label: "Kohler CH750 · Governed load step at 2740 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
     engineUrl: "/data/engines/kohler-ch750-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/kohler-ch750-cleanroom/scenarios/governed-load-step-2740rpm.json",
@@ -240,6 +267,7 @@ const elements = {
   buildStatus: $("#build-status"),
   packageSelect: $("#package-select"),
   loadPackageButton: $("#load-package-button"),
+  executionKindSelect: $("#execution-kind-select"),
   buildButton: $("#build-button"),
   dirtyIndicator: $("#dirty-indicator"),
   documentTabs: [...document.querySelectorAll(".document-tab")],
@@ -563,7 +591,11 @@ function renderDocumentChrome() {
 
 function renderDirtyState() {
   const dirty =
-    state.documents.engine.dirty || state.documents.scenario.dirty;
+    state.documents.engine.dirty ||
+    state.documents.scenario.dirty ||
+    (state.built !== null &&
+      Number(elements.executionKindSelect.value) !==
+        state.built.descriptor.executionKindCode);
   elements.dirtyIndicator.hidden = !dirty;
 }
 
@@ -1057,6 +1089,7 @@ async function loadPackage(packageId, { quiet = false } = {}) {
 
   elements.packageSelect.disabled = true;
   elements.loadPackageButton.disabled = true;
+  elements.executionKindSelect.disabled = true;
   try {
     const [engineResponse, scenarioResponse] = await Promise.all([
       fetch(packageDefinition.engineUrl, { cache: "no-store" }),
@@ -1081,7 +1114,11 @@ async function loadPackage(packageId, { quiet = false } = {}) {
       sourceUrl: new URL(packageDefinition.scenarioUrl, location.href).href,
     });
     elements.packageSelect.value = packageDefinition.id;
+    elements.executionKindSelect.value = String(
+      packageDefinition.executionKind,
+    );
     switchDocument("engine");
+    renderDirtyState();
     if (!quiet) {
       showToast(`${packageDefinition.label} loaded.`);
     }
@@ -1090,6 +1127,7 @@ async function loadPackage(packageId, { quiet = false } = {}) {
   } finally {
     elements.packageSelect.disabled = false;
     elements.loadPackageButton.disabled = false;
+    updateBuiltControls();
   }
 }
 
@@ -1405,6 +1443,7 @@ async function buildSession() {
         engineJson: state.documents.engine.text,
         scenarioJson: state.documents.scenario.text,
         assets,
+        executionKind: Number(elements.executionKindSelect.value),
       },
       transfer,
     );
@@ -1626,6 +1665,7 @@ function updateBuiltControls() {
     "preparing",
   ].includes(state.sessionState);
   elements.buildButton.disabled = structuralBusy;
+  elements.executionKindSelect.disabled = structuralBusy;
   elements.restartButton.disabled =
     !built ||
     !state.securityAdmitted ||
@@ -2667,6 +2707,7 @@ function bindEvents() {
   elements.loadPackageButton.addEventListener("click", () => {
     void loadPackage(elements.packageSelect.value);
   });
+  elements.executionKindSelect.addEventListener("change", renderDirtyState);
   elements.buildButton.addEventListener("click", () => void buildSession());
 
   elements.addAssetsButton.addEventListener("click", () => {

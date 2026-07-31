@@ -8,6 +8,8 @@ import { setTimeout as delay } from "node:timers/promises";
 const EXPECTED_WAV_BYTES = 3_840_056;
 const EXPECTED_WAV_SHA256 =
   "2972cdad90d08d31ddfac3ca99a4efcda93a15db637d93abc2b7844085c3e4b2";
+const FINITE_EXECUTION_KIND = "1";
+const OPEN_ENDED_EXECUTION_KIND = "2";
 
 function repositoryPackageExpectations(
   packagePrefix,
@@ -20,16 +22,19 @@ function repositoryPackageExpectations(
       packageId: `${packagePrefix}-free-rev`,
       engineId,
       scenarioId: `${engineId}-warm-running-free-rev-${idleRpm}rpm`,
+      executionKind: OPEN_ENDED_EXECUTION_KIND,
     },
     {
       packageId: `${packagePrefix}-held-idle`,
       engineId,
       scenarioId: `${engineId}-held-idle-region-${idleRpm}rpm`,
+      executionKind: FINITE_EXECUTION_KIND,
     },
     {
       packageId: `${packagePrefix}-dyno`,
       engineId,
       scenarioId: `${engineId}-inertial-dyno-${dynoRange}rpm`,
+      executionKind: FINITE_EXECUTION_KIND,
     },
   ];
 }
@@ -57,60 +62,71 @@ const NEW_REPOSITORY_PACKAGES = Object.freeze([
     packageId: "bmw-m52tub28-cold-start",
     engineId: "bmw-m52tub28-cleanroom",
     scenarioId: "bmw-m52tub28-cleanroom-cold-start-crank-catch-0rpm",
+    executionKind: FINITE_EXECUTION_KIND,
   },
   {
     packageId: "bmw-m52tub28-canonical-crank",
     engineId: "bmw-m52tub28-cleanroom",
     scenarioId: "bmw-m52tub28-cleanroom-canonical-crank-only-0rpm",
+    executionKind: FINITE_EXECUTION_KIND,
   },
   {
     packageId: "bmw-m52tub28-held-dyno-pull-lift",
     engineId: "bmw-m52tub28-cleanroom",
     scenarioId:
       "bmw-m52tub28-cleanroom-held-dyno-pull-lift-1500-6500rpm",
+    executionKind: FINITE_EXECUTION_KIND,
   },
   {
     packageId: "bmw-m52tub28-canonical-load-cycle",
     engineId: "bmw-m52tub28-cleanroom",
     scenarioId:
       "bmw-m52tub28-cleanroom-canonical-loaded-rise-part-load-coast-1500-4500rpm",
+    executionKind: FINITE_EXECUTION_KIND,
   },
   {
     packageId: "bmw-m52tub28-canonical-shutdown",
     engineId: "bmw-m52tub28-cleanroom",
     scenarioId:
       "bmw-m52tub28-cleanroom-canonical-key-off-shutdown-700rpm",
+    executionKind: FINITE_EXECUTION_KIND,
   },
   {
     packageId: "bmw-m52tub28-launch-first-second",
     engineId: "bmw-m52tub28-cleanroom",
     scenarioId: "bmw-m52tub28-cleanroom-free-vehicle-launch-first-second",
+    executionKind: FINITE_EXECUTION_KIND,
   },
   {
     packageId: "bmw-m52tub28-fifth-gear-pull-lift",
     engineId: "bmw-m52tub28-cleanroom",
     scenarioId:
       "bmw-m52tub28-cleanroom-free-vehicle-fifth-gear-pull-lift-1500rpm",
+    executionKind: FINITE_EXECUTION_KIND,
   },
   {
     packageId: "honda-b18c5-held-below-vtec",
     engineId: "honda-b18c5-cleanroom",
     scenarioId: "honda-b18c5-cleanroom-held-below-vtec-5400rpm",
+    executionKind: FINITE_EXECUTION_KIND,
   },
   {
     packageId: "honda-b18c5-dyno",
     engineId: "honda-b18c5-cleanroom",
     scenarioId: "honda-b18c5-cleanroom-inertial-dyno-5000-8000rpm",
+    executionKind: FINITE_EXECUTION_KIND,
   },
   {
     packageId: "honda-b18c5-held-above-vtec",
     engineId: "honda-b18c5-cleanroom",
     scenarioId: "honda-b18c5-cleanroom-held-above-vtec-7000rpm",
+    executionKind: FINITE_EXECUTION_KIND,
   },
   {
     packageId: "kohler-ch750-governed-load-step",
     engineId: "kohler-ch750-cleanroom",
     scenarioId: "kohler-ch750-cleanroom-governed-load-step-2740rpm",
+    executionKind: FINITE_EXECUTION_KIND,
     throttlePresentation: {
       label: "Governor setpoint",
       minimum: "1,600 rpm",
@@ -270,6 +286,9 @@ async function pageState(cdp) {
       }
     };
     const selected = document.querySelector("#bus-select");
+    const executionKindSelector =
+      document.querySelector("#execution-kind-select");
+    const executionKindRect = executionKindSelector?.getBoundingClientRect();
     const engineDocument = json("#engine-editor");
     const scenarioDocument = json("#scenario-editor");
     return {
@@ -297,6 +316,13 @@ async function pageState(cdp) {
       selectedBus: selected?.value ?? "",
       selectedPackage:
         document.querySelector("#package-select")?.value ?? "",
+      executionKindInput:
+        executionKindSelector?.value ?? "",
+      executionKindVisible:
+        executionKindRect !== undefined &&
+        executionKindRect.width > 0 &&
+        executionKindRect.left >= 0 &&
+        executionKindRect.right <= window.innerWidth,
       authoredEngineId: engineDocument?.engine?.identity?.id ?? "",
       authoredScenarioId: scenarioDocument?.id ?? "",
       buildDisabled: document.querySelector("#build-button")?.disabled ?? true,
@@ -348,6 +374,7 @@ async function verifyRepositoryPackage(cdp, expectation) {
       state.selectedPackage === expectation.packageId &&
       state.authoredEngineId === expectation.engineId &&
       state.authoredScenarioId === expectation.scenarioId &&
+      state.executionKindInput === expectation.executionKind &&
       !state.buildDisabled,
     `the fetched ${expectation.packageId} repository package`,
   );
@@ -370,6 +397,13 @@ async function verifyRepositoryPackage(cdp, expectation) {
   assert.equal(built.selectedPackage, expectation.packageId);
   assert.equal(built.authoredEngineId, expectation.engineId);
   assert.equal(built.authoredScenarioId, expectation.scenarioId);
+  assert.equal(built.executionKindInput, expectation.executionKind);
+  assert.match(
+    built.sessionSubtitle,
+    expectation.executionKind === OPEN_ENDED_EXECUTION_KIND
+      ? /continuous bench/u
+      : /finite procedure/u,
+  );
   if (expectation.throttlePresentation) {
     assert.equal(
       built.throttleLabel,
@@ -390,6 +424,52 @@ async function verifyRepositoryPackage(cdp, expectation) {
   }
   assert.match(built.diagnostics, /No diagnostics reported/u);
   return expectation.packageId;
+}
+
+async function selectExecutionKindAndRebuild(cdp, executionKind) {
+  await cdp.evaluate(`(() => {
+    const selector = document.querySelector("#execution-kind-select");
+    selector.value = ${JSON.stringify(executionKind)};
+    selector.dispatchEvent(new Event("change", { bubbles: true }));
+    document.querySelector("#build-button").click();
+    return true;
+  })()`);
+  return waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.build === "Build admitted" &&
+      state.session === "Ready" &&
+      state.executionKindInput === executionKind &&
+      (executionKind === OPEN_ENDED_EXECUTION_KIND
+        ? /continuous bench/u.test(state.sessionSubtitle)
+        : /finite procedure/u.test(state.sessionSubtitle)) &&
+      !state.buildDisabled,
+    executionKind === OPEN_ENDED_EXECUTION_KIND
+      ? "the rebuilt interactive bench"
+      : "the rebuilt authored finite procedure",
+    30_000,
+  );
+}
+
+async function verifyFiniteProcedure(cdp) {
+  const ready = await pageState(cdp);
+  assert.equal(ready.executionKindInput, FINITE_EXECUTION_KIND);
+  assert.match(ready.sessionSubtitle, /finite procedure/u);
+  assert.equal(ready.startLabel, "Run procedure");
+
+  await cdp.evaluate(
+    `document.querySelector("#start-button").click(); true`,
+  );
+  const completed = await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.session === "Procedure complete" &&
+      state.restartLabel === "Run again" &&
+      !state.restartDisabled,
+    "the named finite procedure completion",
+    30_000,
+  );
+  assert.equal(completed.executionKindInput, FINITE_EXECUTION_KIND);
 }
 
 async function verifyHeldDynoBench(cdp) {
@@ -605,6 +685,7 @@ async function main() {
         !state.buildDisabled,
       "isolated workbench and WASM Worker",
     );
+    assert.equal(loaded.executionKindVisible, true);
     assert.match(loaded.diagnostics, /No diagnostics reported/u);
 
     await cdp.evaluate(
@@ -624,6 +705,7 @@ async function main() {
     assert.equal(built.throttleMinimumLabel, "Closed");
     assert.equal(built.throttleMaximumLabel, "Wide open");
     assert.equal(built.throttle, "10%");
+    assert.equal(built.executionKindInput, OPEN_ENDED_EXECUTION_KIND);
     assert.match(built.sessionSubtitle, /continuous bench/u);
     assert.equal(built.exportLabel, "Export authored scenario WAV");
     assert.match(built.diagnostics, /No diagnostics reported/u);
@@ -819,6 +901,7 @@ async function main() {
       "the compiled 6.2L V8 workbench session",
       30_000,
     );
+    assert.equal(v8Built.executionKindInput, OPEN_ENDED_EXECUTION_KIND);
     assert.match(v8Built.diagnostics, /No diagnostics reported/u);
 
     await cdp.evaluate(
@@ -850,9 +933,20 @@ async function main() {
         await verifyRepositoryPackage(cdp, expectation),
       );
       if (expectation.packageId === "bmw-m52tub28-held-dyno-pull-lift") {
+        await selectExecutionKindAndRebuild(
+          cdp,
+          OPEN_ENDED_EXECUTION_KIND,
+        );
         await verifyHeldDynoBench(cdp);
       }
+      if (expectation.packageId === "bmw-m52tub28-canonical-shutdown") {
+        await verifyFiniteProcedure(cdp);
+      }
       if (expectation.packageId === "bmw-m52tub28-launch-first-second") {
+        await selectExecutionKindAndRebuild(
+          cdp,
+          OPEN_ENDED_EXECUTION_KIND,
+        );
         await verifyFreeVehicleBench(cdp);
       }
     }

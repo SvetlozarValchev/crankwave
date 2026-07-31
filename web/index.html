@@ -64,6 +64,13 @@
         <button id="load-package-button" class="button button-quiet" type="button">
           Load preset
         </button>
+        <label class="execution-kind-picker">
+          <span class="visually-hidden">Session execution</span>
+          <select id="execution-kind-select" aria-label="Session execution">
+            <option value="2">Interactive bench</option>
+            <option value="1">Authored finite procedure</option>
+          </select>
+        </label>
         <button id="build-button" class="button button-primary" type="button">
           <span class="button-icon" aria-hidden="true">↻</span>
           Apply &amp; rebuild

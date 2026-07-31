@@ -42,7 +42,7 @@ The browser workbench is implemented on that ABI. Its Worker owns compilation an
 mutable WASM session, primes a bounded shared PCM ring, and converts the selected
 canonical 192 kHz bus to the device rate. The AudioWorklet only drains that ring.
 Engine/scenario edits rebuild atomically; a failed compile leaves the current program
-available. Worker protocol v2 publishes the explicit motion mode, capabilities,
+available. Worker protocol v3 publishes the explicit motion mode, capabilities,
 ordered gear inventory, and nullable mode-specific telemetry, and sends each nonempty
 control group through one atomic C-ABI batch. Inertial-dyno sessions admit live
 throttle, ignition, and fuel. Free-engine sessions add live limiter state, external
@@ -53,9 +53,11 @@ absorbing and driving torques. FreeVehicle sessions admit throttle, ignition, fu
 limiter, selected gear, and clutch, plus starter and service brake only when their
 compiled hardware exists. The workbench renders those controls only when the descriptor
 admits them, populates gears from the published inventory, displays the returned
-dyno/vehicle sidecars, and groups repository scenarios into named procedures. All three
-dynamic benches remain continuous; capture-only procedures complete normally and offer
-a fresh replay. JavaScript does not synthesize their physics. A `free_engine` scenario may add
+dyno/vehicle sidecars, and groups repository scenarios into named procedures. Session
+lifetime is explicit: interactive presets use continuous execution, while named
+procedures retain their complete finite timelines and offer a fresh replay. Supported
+dynamic modes can be deliberately rebuilt with either lifetime; JavaScript never
+infers lifetime from motion mode or synthesizes physics. A `free_engine` scenario may add
 `attached_inertia` and an `external_resisting_torque` trajectory; omission of either
 means canonical positive zero. The compiler derives the engine baseline with the
 versioned cycle-mean centered slider-crank kinetic-energy method, adds any attached
@@ -103,7 +105,7 @@ Finite JSON `held_dyno` scenarios now drive that same crank through a bounded si
 speed constraint. The dyno may absorb or drive only within authored limits, reports
 the exact opposite reaction torque, and exposes achieved RPM when saturated. The first
 BMW procedure covers a target-driven pull, exact plateau, lift, and unforced overrun;
-the native session, C ABI v4, WASM wrapper, and Worker protocol v2 now publish live
+the native session, C ABI v4, WASM wrapper, and Worker protocol v3 now publish live
 target and torque-limit commands plus nullable final-step dyno telemetry.
 
 Finite JSON `free_vehicle` scenarios couple the same crank to a forward-only vehicle,

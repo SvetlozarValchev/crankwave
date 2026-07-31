@@ -641,8 +641,10 @@ path. Commit `d10e9a3` adds timestamped held-dyno and drivetrain lanes, `cb5f7c2
 publishes the seven-way motion descriptor, exact capability masks, BMW's ordered
 five-gear inventory, and nullable held-dyno/free-vehicle telemetry sidecars through
 the native session, `7d7effd` replaces the exact C boundary with ABI v4, `ad0f306`
-exposes the same contract through WASM, and `d519cda` transports atomic control batches
-through Worker protocol v2. Native, C, WASM parity, and full browser gates pass. Fresh
+exposes the same contract through WASM, and `d519cda` initially transported atomic
+control batches through Worker protocol v2. The current exact Worker protocol is v3,
+which requires the caller to choose finite or open-ended execution explicitly. Native,
+C, WASM parity, and full browser gates pass. Fresh
 clean-Release renders of the accepted held-dyno, launch/shift, and fifth-gear fixtures
 retain all six raw/audition WAV hashes byte-for-byte. Slice 14 now owns the visible full
 operating bench and named procedures.
@@ -652,9 +654,12 @@ changing physics or audio. Commit `a3b7ca5` groups the existing repository
 procedures and adds the accepted BMW held-dyno, launch/shift, and fifth-gear runs;
 `c3c2563` adds descriptor-gated dyno/drivetrain controls plus mode-owned telemetry;
 and `4f43eb3` initially distinguished the continuous FreeEngine bench from finite
-procedures. The operating-bench completion admits the same open lifetime for HeldDyno
-and FreeVehicle, freezes each authored control snapshot at the audible handoff, and
-keeps exact finite capture/export as a separate fresh session. The actual WASM UI gate
+procedures. The operating-bench completion admits open lifetimes for FreeEngine,
+HeldDyno, and FreeVehicle, freezes each authored control snapshot at the audible
+handoff, and keeps exact finite procedures and capture/export as separate fresh
+sessions. A visible selector sends that exact choice end to end; named procedures
+default to finite and interactive free-rev presets default to open-ended. The actual
+WASM UI gate
 applies atomic dyno and drivetrain batches, observes their returned sidecars, verifies
 pause/resume/fresh-restart behavior, retains the canonical finite-export WAV hash, and
 reports zero startup underruns. The frozen contract and evidence are in

@@ -26,23 +26,6 @@ import {
 const RUNTIME_STATS_INTERVAL_MS = 250;
 const PRIMING_CORE_BLOCKS_PER_TURN = 4;
 
-export function liveExecutionKindForScenarioJson(scenarioJson) {
-  if (typeof scenarioJson !== "string") {
-    throw new TypeError("scenarioJson must be an exact JSON string");
-  }
-  try {
-    const document = JSON.parse(scenarioJson);
-    return ["free_engine", "held_dyno", "free_vehicle"].includes(
-      document?.mode?.type,
-    )
-      ? SessionExecutionKind.openEnded
-      : SessionExecutionKind.finiteScenario;
-  } catch {
-    // The native parser remains authoritative for path-bearing JSON diagnostics.
-    return SessionExecutionKind.finiteScenario;
-  }
-}
-
 function runtimeError(message, detailCode, operation = "browser-runtime") {
   return new EngineSimRuntimeError(message, {
     operation,
@@ -124,6 +107,7 @@ export class BrowserEngineRuntime {
     engineJson,
     scenarioJson,
     assets,
+    executionKind,
   }) {
     this.#assertNotDisposed();
     this.#assertNotExporting("build");
@@ -138,7 +122,7 @@ export class BrowserEngineRuntime {
         engineJson,
         scenarioJson,
         assets,
-        liveExecutionKindForScenarioJson(scenarioJson),
+        executionKind,
       );
     } catch (error) {
       this.#restoreAfterFailedMutation(priorState);
@@ -181,7 +165,7 @@ export class BrowserEngineRuntime {
       );
     }
     if (this.#state !== "ready") {
-      this.#replaceLiveSession();
+      this.#replaceSession();
     }
     this.#selectedBusIndex = busIndex;
     this.#discardOutput(RingState.ended);
@@ -274,7 +258,7 @@ export class BrowserEngineRuntime {
       );
     }
     this.#pausePump("restarting");
-    this.#replaceLiveSession();
+    this.#replaceSession();
     this.#discardOutput(RingState.ended);
     this.#state = "ready";
     this.start({ requestId, ...settings });
@@ -484,7 +468,7 @@ export class BrowserEngineRuntime {
           return;
         }
         if (this.#completionPending) {
-          this.#finishLiveRun();
+          this.#finishRun();
           return;
         }
         if (
@@ -510,7 +494,7 @@ export class BrowserEngineRuntime {
         );
         if (block.process.kindCode === ProcessKind.completed) {
           if (
-            this.#program.liveExecutionKind === SessionExecutionKind.openEnded
+            this.#program.executionKind === SessionExecutionKind.openEnded
           ) {
             throw runtimeError(
               "the open-ended interactive session completed unexpectedly",
@@ -525,7 +509,7 @@ export class BrowserEngineRuntime {
             this.#output.pendingFrameOffset = 0;
           }
           if (this.#drainPendingPcm() && this.#completionPending) {
-            this.#finishLiveRun();
+            this.#finishRun();
           } else {
             this.#schedulePump(2);
           }
@@ -560,9 +544,9 @@ export class BrowserEngineRuntime {
     }
   }
 
-  #finishLiveRun() {
+  #finishRun() {
     if (
-      this.#program.liveExecutionKind === SessionExecutionKind.openEnded
+      this.#program.executionKind === SessionExecutionKind.openEnded
     ) {
       throw runtimeError(
         "the open-ended interactive session reached finite completion",
@@ -638,9 +622,9 @@ export class BrowserEngineRuntime {
     this.#state = state;
   }
 
-  #replaceLiveSession() {
+  #replaceSession() {
     const replacement = this.#program.createSession(
-      this.#program.liveExecutionKind,
+      this.#program.executionKind,
     );
     const previous = this.#program.session;
     this.#program.session = replacement;

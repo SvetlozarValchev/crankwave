@@ -116,5 +116,5 @@ User verdict: accepted without a requested correction.
 
 Subsequent status: slice 13 publishes the accepted drivetrain's ordered gear inventory,
 timestamped gear/clutch/brake controls, and mode-owned telemetry through the native,
-C ABI v4, WASM, and Worker v2 boundary. See
+C ABI v4, WASM, and Worker v3 boundary. See
 [`contracts/HEADLESS_OPERATING_BENCH_API_SLICE_13.md`](contracts/HEADLESS_OPERATING_BENCH_API_SLICE_13.md).

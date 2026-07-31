@@ -5,6 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { BrowserEngineRuntime } from "../../runtime/browser-engine-runtime.js";
+import { SessionExecutionKind } from "../../runtime/c-api-abi.js";
 
 const EXPECTED_FRAME_COUNT = 7_680;
 const EXPECTED_PCM_SHA256 =
@@ -170,6 +171,7 @@ async function main() {
       engineJson,
       scenarioJson,
       assets,
+      executionKind: SessionExecutionKind.finiteScenario,
     });
     const validBuild = eventFor(events, "built", "valid-build");
     assert.ok(validBuild, "valid build did not publish its descriptor");
@@ -200,11 +202,31 @@ async function main() {
       auditionBus.index,
     );
 
+    for (const [requestId, executionKind] of [
+      ["missing-execution-kind", undefined],
+      ["zero-execution-kind", 0],
+      ["unknown-execution-kind", 99],
+    ]) {
+      assert.throws(
+        () =>
+          runtime.build({
+            requestId,
+            engineJson,
+            scenarioJson,
+            assets,
+            ...(executionKind === undefined ? {} : { executionKind }),
+          }),
+        /session execution kind must be finiteScenario or openEnded/u,
+      );
+      assert.equal(eventFor(events, "built", requestId), undefined);
+    }
+
     runtime.build({
       requestId: "malformed-replacement",
       engineJson: "{\"schema\":",
       scenarioJson,
       assets,
+      executionKind: SessionExecutionKind.finiteScenario,
     });
     const validation = eventFor(
       events,

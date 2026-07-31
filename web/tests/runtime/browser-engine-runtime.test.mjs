@@ -5,7 +5,7 @@ import {
   ControlCapability,
   SessionExecutionKind,
 } from "../../runtime/c-api-abi.js";
-import { liveExecutionKindForScenarioJson } from "../../runtime/browser-engine-runtime.js";
+import { BrowserEngineRuntime } from "../../runtime/browser-engine-runtime.js";
 import {
   LIVE_CONTROL_CAPABILITIES,
   WORKER_PROTOCOL_ID,
@@ -13,47 +13,58 @@ import {
   publicDescriptor,
 } from "../../runtime/protocol.js";
 
-test("dynamic operating-bench modes use open-ended live execution", () => {
-  for (const type of ["free_engine", "held_dyno", "free_vehicle"]) {
-    assert.equal(
-      liveExecutionKindForScenarioJson(JSON.stringify({ mode: { type } })),
-      SessionExecutionKind.openEnded,
+test("browser build forwards explicit execution kind without mode inference", () => {
+  const observed = [];
+  const sentinel = new Error("stop after compile boundary");
+  const runtime = new BrowserEngineRuntime(
+    {
+      compile(engineJson, scenarioJson, assets, executionKind) {
+        observed.push({ engineJson, scenarioJson, assets, executionKind });
+        throw sentinel;
+      },
+    },
+    () => {},
+  );
+  const cases = [
+    {
+      scenarioJson: '{"mode":{"type":"free_engine"}}',
+      executionKind: SessionExecutionKind.finiteScenario,
+    },
+    {
+      scenarioJson: '{"mode":{"type":"held_speed"}}',
+      executionKind: SessionExecutionKind.openEnded,
+    },
+    {
+      scenarioJson: '{"mode":',
+      executionKind: SessionExecutionKind.openEnded,
+    },
+  ];
+
+  for (const [index, entry] of cases.entries()) {
+    assert.throws(
+      () =>
+        runtime.build({
+          requestId: `build-${index}`,
+          engineJson: "{}",
+          scenarioJson: entry.scenarioJson,
+          assets: [],
+          executionKind: entry.executionKind,
+        }),
+      (error) => error === sentinel,
     );
   }
-});
 
-test("authored capture-only modes remain finite", () => {
-  for (const type of [
-    "held_speed",
-    "prescribed_kinematic_sweep",
-    "load_target_held_capture",
-    "inertial_dyno",
-  ]) {
-    assert.equal(
-      liveExecutionKindForScenarioJson(
-        JSON.stringify({ mode: { type } }),
-      ),
-      SessionExecutionKind.finiteScenario,
-    );
-  }
-});
-
-test("malformed JSON remains on the native diagnostic path", () => {
-  assert.equal(
-    liveExecutionKindForScenarioJson('{"mode":'),
-    SessionExecutionKind.finiteScenario,
+  assert.deepEqual(
+    observed.map(({ scenarioJson, executionKind }) => ({
+      scenarioJson,
+      executionKind,
+    })),
+    cases,
   );
 });
 
-test("execution selection requires JSON text", () => {
-  assert.throws(
-    () => liveExecutionKindForScenarioJson(null),
-    /scenarioJson must be an exact JSON string/u,
-  );
-});
-
-test("Worker protocol v2 publishes the complete typed control vocabulary", () => {
-  assert.equal(WORKER_PROTOCOL_ID, "engine-sim-offline/browser-worker-v2");
+test("Worker protocol v3 publishes the complete typed control vocabulary", () => {
+  assert.equal(WORKER_PROTOCOL_ID, "engine-sim-offline/browser-worker-v3");
   assert.deepEqual(
     LIVE_CONTROL_CAPABILITIES.map(({ kind }) => kind),
     [

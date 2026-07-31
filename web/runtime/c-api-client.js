@@ -130,7 +130,7 @@ export class CompiledEngineProgram {
     engine,
     scenario,
     session,
-    liveExecutionKind,
+    executionKind,
     engineId,
     scenarioId,
   ) {
@@ -138,7 +138,7 @@ export class CompiledEngineProgram {
     this.engine = engine;
     this.scenario = scenario;
     this.session = session;
-    this.liveExecutionKind = liveExecutionKind;
+    this.executionKind = executionKind;
     this.engineId = engineId;
     this.scenarioId = scenarioId;
   }
@@ -240,13 +240,13 @@ export class EngineSimCapiClient {
     return this.#context;
   }
 
-  compile(engineJson, scenarioJson, assets, liveExecutionKind) {
+  compile(engineJson, scenarioJson, assets, executionKind) {
     this.#assertAlive();
     const normalizedEngineJson = requireJsonText(engineJson, "engineJson");
     const normalizedScenarioJson = requireJsonText(scenarioJson, "scenarioJson");
     const normalizedAssets = normalizeAssets(assets);
     const normalizedExecutionKind =
-      requireSessionExecutionKind(liveExecutionKind);
+      requireSessionExecutionKind(executionKind);
 
     let engine = ESO_INVALID_HANDLE;
     let scenario = ESO_INVALID_HANDLE;

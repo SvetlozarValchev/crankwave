@@ -134,3 +134,29 @@ test("the Web workbench catalogs all six canonical procedures", () => {
     assert.match(app, new RegExp(`/scenarios/${file}`, "u"));
   }
 });
+
+test("every Web package declares its session lifetime independently of mode", () => {
+  const app = fs.readFileSync(path.join(REPOSITORY, "web/app.js"), "utf8");
+  const catalog = app.slice(
+    app.indexOf("const WORKBENCH_PACKAGES"),
+    app.indexOf("const RING_HEADER"),
+  );
+  const objectCount = [...catalog.matchAll(/Object\.freeze\(\{/gu)].length;
+  const entries = [
+    ...catalog.matchAll(
+      /Object\.freeze\(\{\s+id: (?:DEFAULT_PACKAGE_ID|"[^"]+"),\s+label: "([^"]+)",\s+executionKind: SessionExecutionKind\.(openEnded|finiteScenario),/gu,
+    ),
+  ];
+
+  assert.ok(objectCount > 0);
+  assert.equal(entries.length, objectCount);
+  for (const [, label, executionKind] of entries) {
+    assert.equal(
+      executionKind,
+      label.endsWith("Interactive free rev")
+        ? "openEnded"
+        : "finiteScenario",
+      label,
+    );
+  }
+});
