@@ -3,7 +3,7 @@
 // This module deliberately describes one ABI version. A mismatched module is
 // rejected during startup; there is no compatibility decoder.
 
-export const ESO_C_API_VERSION = 3;
+export const ESO_C_API_VERSION = 4;
 export const ESO_INVALID_HANDLE = 0n;
 export const ESO_CANONICAL_SAMPLE_RATE = 192_000;
 
@@ -45,6 +45,12 @@ export const ControlKind = Object.freeze({
   limiterEnabled: 4,
   externalResistingTorque: 5,
   starterEnabled: 6,
+  heldDynoTargetEngineSpeed: 7,
+  heldDynoMaximumAbsorbingTorque: 8,
+  heldDynoMaximumDrivingTorque: 9,
+  vehicleSelectedForwardGear: 10,
+  vehicleClutchEngagement: 11,
+  vehicleServiceBrakeApplication: 12,
 });
 
 export const ControlCapability = Object.freeze({
@@ -54,11 +60,47 @@ export const ControlCapability = Object.freeze({
   limiterEnabled: 1 << 3,
   externalResistingTorque: 1 << 4,
   starterEnabled: 1 << 5,
+  heldDynoTargetEngineSpeed: 1 << 6,
+  heldDynoMaximumAbsorbingTorque: 1 << 7,
+  heldDynoMaximumDrivingTorque: 1 << 8,
+  vehicleSelectedForwardGear: 1 << 9,
+  vehicleClutchEngagement: 1 << 10,
+  vehicleServiceBrakeApplication: 1 << 11,
 });
 
 export const SessionExecutionKind = Object.freeze({
   finiteScenario: 1,
   openEnded: 2,
+});
+
+export const MotionMode = Object.freeze({
+  heldSpeed: 1,
+  prescribedKinematicSweep: 2,
+  heldDyno: 3,
+  loadTargetHeldCapture: 4,
+  inertialDyno: 5,
+  freeEngine: 6,
+  freeVehicle: 7,
+});
+
+export const HeldDynoDisposition = Object.freeze({
+  tracking: 1,
+  absorbingTorqueLimited: 2,
+  drivingTorqueLimited: 3,
+});
+
+export const ClutchDisposition = Object.freeze({
+  neutral: 1,
+  disengaged: 2,
+  engineDrivingTorqueLimited: 3,
+  vehicleBackdriveTorqueLimited: 4,
+  tracking: 5,
+});
+
+export const RoadLoadDisposition = Object.freeze({
+  moving: 1,
+  stoppedWithinStep: 2,
+  heldAtRest: 3,
 });
 
 export const ProcessKind = Object.freeze({
@@ -158,6 +200,70 @@ export function sessionExecutionKindName(kind) {
   }
 }
 
+export function motionModeName(mode) {
+  switch (mode) {
+    case MotionMode.heldSpeed:
+      return "held-speed";
+    case MotionMode.prescribedKinematicSweep:
+      return "prescribed-kinematic-sweep";
+    case MotionMode.heldDyno:
+      return "held-dyno";
+    case MotionMode.loadTargetHeldCapture:
+      return "load-target-held-capture";
+    case MotionMode.inertialDyno:
+      return "inertial-dyno";
+    case MotionMode.freeEngine:
+      return "free-engine";
+    case MotionMode.freeVehicle:
+      return "free-vehicle";
+    default:
+      return `unknown-motion-mode-${mode}`;
+  }
+}
+
+export function heldDynoDispositionName(disposition) {
+  switch (disposition) {
+    case HeldDynoDisposition.tracking:
+      return "tracking";
+    case HeldDynoDisposition.absorbingTorqueLimited:
+      return "absorbing-torque-limited";
+    case HeldDynoDisposition.drivingTorqueLimited:
+      return "driving-torque-limited";
+    default:
+      return `unknown-held-dyno-disposition-${disposition}`;
+  }
+}
+
+export function clutchDispositionName(disposition) {
+  switch (disposition) {
+    case ClutchDisposition.neutral:
+      return "neutral";
+    case ClutchDisposition.disengaged:
+      return "disengaged";
+    case ClutchDisposition.engineDrivingTorqueLimited:
+      return "engine-driving-torque-limited";
+    case ClutchDisposition.vehicleBackdriveTorqueLimited:
+      return "vehicle-backdrive-torque-limited";
+    case ClutchDisposition.tracking:
+      return "tracking";
+    default:
+      return `unknown-clutch-disposition-${disposition}`;
+  }
+}
+
+export function roadLoadDispositionName(disposition) {
+  switch (disposition) {
+    case RoadLoadDisposition.moving:
+      return "moving";
+    case RoadLoadDisposition.stoppedWithinStep:
+      return "stopped-within-step";
+    case RoadLoadDisposition.heldAtRest:
+      return "held-at-rest";
+    default:
+      return `unknown-road-load-disposition-${disposition}`;
+  }
+}
+
 // Every offset is a wasm32 clang C layout offset. Startup checks the public
 // eso_abi_layout_t sizes before any of these layouts are used.
 export const Layout = Object.freeze({
@@ -172,7 +278,7 @@ export const Layout = Object.freeze({
     payloadData: 12,
     payloadBytes: 16,
   }),
-  abiLayout: Object.freeze({ size: 40 }),
+  abiLayout: Object.freeze({ size: 44 }),
   errorInfo: Object.freeze({
     size: 24,
     status: 0,
@@ -190,7 +296,7 @@ export const Layout = Object.freeze({
     messageCapacity: 12,
   }),
   diagnosticInfo: Object.freeze({
-    size: 52,
+    size: 56,
     severity: 0,
     code: 4,
     hasSubject: 8,
@@ -224,7 +330,7 @@ export const Layout = Object.freeze({
     messageBytes: 16,
   }),
   sessionDescriptor: Object.freeze({
-    size: 96,
+    size: 104,
     maximumDeliveryFrames: 0,
     controlQueueCapacity: 4,
     maximumTelemetryFrames: 8,
@@ -241,6 +347,8 @@ export const Layout = Object.freeze({
     engineIdBytes: 80,
     scenarioIdBytes: 84,
     executionKind: 88,
+    motionMode: 92,
+    forwardGearCount: 96,
   }),
   sessionIdentityBuffers: Object.freeze({
     size: 16,
@@ -259,6 +367,13 @@ export const Layout = Object.freeze({
     routeId: 28,
     idBytes: 32,
   }),
+  forwardGearDescriptor: Object.freeze({
+    size: 24,
+    gearId: 0,
+    authoredOrdinal: 4,
+    ratio: 8,
+    semanticIdBytes: 16,
+  }),
   controlCommand: Object.freeze({
     size: 40,
     deliveryFrame: 0,
@@ -266,7 +381,8 @@ export const Layout = Object.freeze({
     kind: 16,
     enabled: 20,
     scalarValue: 24,
-    reserved: 32,
+    idValue: 32,
+    reserved: 36,
   }),
   controlRejection: Object.freeze({ size: 8, code: 0, commandIndex: 4 }),
   audioCopyBuffer: Object.freeze({
@@ -310,27 +426,61 @@ export const Layout = Object.freeze({
     omittedTerms: 32,
   }),
   engineTelemetry: Object.freeze({
-    size: 544,
+    size: 536,
+    engineStepEndIndex: 0,
+    validityMask: 8,
+    ignitionEnabled: 12,
+    fuelEnabled: 16,
+    starterEnabled: 20,
+    dynoEnabled: 24,
+    limiterEnabled: 28,
+    limiterCutActive: 32,
+    theta: 40,
+    thetaCycle: 48,
+    angularSpeed: 56,
+    angularAcceleration: 64,
+    engineSpeedRpm: 72,
+    requestedThrottle: 80,
+    resolvedThrottle: 88,
+    intakePlatePosition: 96,
+    mainFlowMultiplier: 104,
+    requestedExternalResistingTorque: 112,
+    torque: 120,
+  }),
+  heldDynoTelemetry: Object.freeze({
+    size: 48,
+    targetEngineSpeedRpm: 0,
+    maximumAbsorbingTorqueNm: 8,
+    maximumDrivingTorqueNm: 16,
+    requiredActuatorTorqueNm: 24,
+    appliedActuatorTorqueNm: 32,
+    disposition: 40,
+  }),
+  freeVehicleTelemetry: Object.freeze({
+    size: 96,
+    vehicleSpeedMS: 0,
+    vehicleDistanceM: 8,
+    hasSelectedForwardGear: 16,
+    selectedForwardGearOrdinal: 20,
+    clutchEngagement01: 24,
+    serviceBrakeApplication01: 32,
+    clutchDisposition: 40,
+    hasFinalClutchSlip: 44,
+    clutchTorqueCapacityNm: 48,
+    appliedAverageClutchTorqueOnEngineNm: 56,
+    finalClutchSlipRadS: 64,
+    roadLoadDisposition: 72,
+    requestedRoadLoadForceN: 80,
+    appliedAverageRoadLoadForceN: 88,
+  }),
+  sessionTelemetry: Object.freeze({
+    size: 696,
     physicsStepEnd: 0,
-    engineStepEndIndex: 8,
-    validityMask: 16,
-    ignitionEnabled: 20,
-    fuelEnabled: 24,
-    starterEnabled: 28,
-    dynoEnabled: 32,
-    limiterEnabled: 36,
-    limiterCutActive: 40,
-    theta: 48,
-    thetaCycle: 56,
-    angularSpeed: 64,
-    angularAcceleration: 72,
-    engineSpeedRpm: 80,
-    requestedThrottle: 88,
-    resolvedThrottle: 96,
-    intakePlatePosition: 104,
-    mainFlowMultiplier: 112,
-    requestedExternalResistingTorque: 120,
-    torque: 128,
+    engine: 8,
+    hasHeldDyno: 544,
+    hasFreeVehicle: 548,
+    heldDyno: 552,
+    freeVehicle: 600,
   }),
 });
 
@@ -361,6 +511,7 @@ export const WASM32_ABI_WORDS = Object.freeze([
   1,
   Layout.controlCommand.size,
   Layout.sessionDescriptor.size,
+  Layout.forwardGearDescriptor.size,
   Layout.audioBusDescriptor.size,
-  Layout.engineTelemetry.size,
+  Layout.sessionTelemetry.size,
 ]);

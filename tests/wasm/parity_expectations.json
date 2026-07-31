@@ -3,12 +3,12 @@
   "fixture": "bmw-m52b28-short-live-parity",
   "pcm_sample_count": 7680,
   "inputs": {
-    "engine_json_sha256": "1a2d0df3e7201f9b83ccabb4c5d24f77b3e3d32584114dc58a5b1f215305aa23",
+    "engine_json_sha256": "d83e6e8227b4f7630e6b43e37a130bbfced9a394c51c4359216e8c6a80b70529",
     "scenario_json_sha256": "d6fd503c52508ece656c7672218bf0936e7ba0e310d2038a8be0e982b547b6fb",
     "impulse_response_sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc",
     "accessory_configuration_sha256": "ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97"
   },
-  "semantic_sha256": "e0b264375b80ef6ec656893235578fc5780b62d8f0d036870b1ba2d79a5591d2",
+  "semantic_sha256": "1493a854b9fef0905cb73f64c6b46c3993d7f7471ca15ee8d39a2eb44e89ab28",
   "native": {
     "telemetry_f64le_sha256": "895727b65d0a1c25865b9d1c0ff5da5f7d54c9eb575656074e900d1f7812e5aa",
     "audition_f32le_sha256": "a8e251fa34552f316a257d46c8af81e63ab96b05b073d6eaa23441c4965a34af"

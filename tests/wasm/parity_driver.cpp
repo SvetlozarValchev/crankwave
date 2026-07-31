@@ -48,6 +48,7 @@ enum class DriverStatus : std::uint32_t {
     transcript = 1014,
     output_capacity = 1015,
     unexpected_exception = 1016,
+    gear = 1017,
 };
 
 class Context {
@@ -195,9 +196,11 @@ void append_quantity_state(std::string &output, const eso_quantity_value_t &valu
     output.push_back(']');
 }
 
-void append_telemetry_state(std::string &output, const eso_engine_telemetry_t &value) {
+void append_telemetry_state(std::string &output,
+                            const eso_session_telemetry_t &telemetry) {
+    const auto &value = telemetry.engine;
     output.push_back('[');
-    append_integer(output, value.physics_step_end);
+    append_integer(output, telemetry.physics_step_end);
     output.push_back(',');
     append_integer(output, value.engine_step_end_index);
     output.push_back(',');
@@ -240,11 +243,16 @@ void append_telemetry_state(std::string &output, const eso_engine_telemetry_t &v
         output.push_back(',');
         append_quantity_state(output, *item);
     }
+    output.push_back(',');
+    append_integer(output, telemetry.has_held_dyno);
+    output.push_back(',');
+    append_integer(output, telemetry.has_free_vehicle);
     output.push_back(']');
 }
 
 void append_telemetry_numeric(std::vector<double> &output,
-                              const eso_engine_telemetry_t &value) {
+                              const eso_session_telemetry_t &telemetry) {
+    const auto &value = telemetry.engine;
     output.insert(output.end(), {
                                     value.theta_rad,
                                     value.theta_cycle_rad,
@@ -292,8 +300,24 @@ void append_bus(std::string &output, const eso_audio_bus_descriptor_t &bus,
     output.push_back('}');
 }
 
+void append_gear(std::string &output, const eso_forward_gear_descriptor_t &gear,
+                 const std::string_view semantic_id) {
+    std::uint64_t ratio_bits = 0U;
+    static_assert(sizeof(ratio_bits) == sizeof(gear.ratio));
+    std::memcpy(&ratio_bits, &gear.ratio, sizeof(ratio_bits));
+    output.push_back('[');
+    append_integer(output, gear.gear_id);
+    output.push_back(',');
+    append_integer(output, gear.authored_ordinal);
+    output.push_back(',');
+    append_integer(output, ratio_bits);
+    output.push_back(',');
+    append_json_string(output, semantic_id);
+    output.push_back(']');
+}
+
 void append_block(std::string &output, const eso_process_info_t &process,
-                  const eso_engine_telemetry_t &telemetry) {
+                  const eso_session_telemetry_t &telemetry) {
     output.push_back('[');
     append_integer(output, process.block_phase);
     output.push_back(',');
@@ -370,6 +394,19 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
                                       {result.data(), result.size()}) !=
         ESO_STATUS_OK) {
         throw DriverStatus::bus;
+    }
+    result.resize(size);
+    return result;
+}
+
+[[nodiscard]] std::string copy_gear_semantic_id(
+    eso_context_t *context, const eso_session_handle_t session,
+    const std::uint32_t gear_index, const std::size_t size) {
+    std::string result(size + 1U, '\0');
+    if (eso_session_copy_forward_gear_semantic_id(
+            context, session, gear_index, {result.data(), result.size()}) !=
+        ESO_STATUS_OK) {
+        throw DriverStatus::gear;
     }
     result.resize(size);
     return result;
@@ -457,6 +494,19 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     identity_engine.resize(descriptor.engine_id_utf8_bytes);
     identity_scenario.resize(descriptor.scenario_id_utf8_bytes);
 
+    std::vector<eso_forward_gear_descriptor_t> gears(descriptor.forward_gear_count);
+    std::vector<std::string> gear_semantic_ids;
+    gear_semantic_ids.reserve(descriptor.forward_gear_count);
+    for (std::uint32_t index = 0; index < descriptor.forward_gear_count; ++index) {
+        if (eso_session_get_forward_gear_descriptor(owner.get(), handles.session, index,
+                                                    &gears[index]) != ESO_STATUS_OK ||
+            gears[index].authored_ordinal != index + 1U) {
+            return DriverStatus::gear;
+        }
+        gear_semantic_ids.push_back(copy_gear_semantic_id(
+            owner.get(), handles.session, index, gears[index].semantic_id_utf8_bytes));
+    }
+
     std::vector<eso_audio_bus_descriptor_t> buses(descriptor.audio_bus_count);
     std::vector<std::string> bus_ids;
     bus_ids.reserve(descriptor.audio_bus_count);
@@ -481,8 +531,8 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     }
 
     eso_control_rejection_t preparation_rejection{};
-    const eso_control_command_t preparation_command{0U, 1U,  ESO_CONTROL_THROTTLE,
-                                                    0U, 0.5, 0U};
+    const eso_control_command_t preparation_command{
+        0U, 1U, ESO_CONTROL_THROTTLE, 0U, 0.5, 0U, 0U};
     const auto preparation_status = eso_session_enqueue_controls(
         owner.get(), handles.session, &preparation_command, 1U, &preparation_rejection);
     if (preparation_status != ESO_STATUS_CONTROL_REJECTED ||
@@ -500,11 +550,11 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
         descriptor.preparation_block_count * descriptor.delivery_frames_per_block;
     const std::array live_commands{
         eso_control_command_t{first_audible_frame, 1U, ESO_CONTROL_THROTTLE, 0U, 0.5,
-                              0U},
+                              0U, 0U},
         eso_control_command_t{first_audible_frame, 2U, ESO_CONTROL_IGNITION_ENABLED, 1U,
-                              0.0, 0U},
+                              0.0, 0U, 0U},
         eso_control_command_t{first_audible_frame, 3U, ESO_CONTROL_FUEL_ENABLED, 1U,
-                              0.0, 0U},
+                              0.0, 0U, 0U},
     };
     eso_control_rejection_t live_rejection{};
     const auto live_status =
@@ -533,10 +583,12 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     append_integer(metadata, abi.control_command_size_bytes);
     metadata += ",\"descriptor_size\":";
     append_integer(metadata, abi.session_descriptor_size_bytes);
+    metadata += ",\"gear_descriptor_size\":";
+    append_integer(metadata, abi.forward_gear_descriptor_size_bytes);
     metadata += ",\"bus_descriptor_size\":";
     append_integer(metadata, abi.audio_bus_descriptor_size_bytes);
     metadata += ",\"telemetry_size\":";
-    append_integer(metadata, abi.engine_telemetry_size_bytes);
+    append_integer(metadata, abi.session_telemetry_size_bytes);
     metadata += "},\"semantic\":{\"engine_id\":";
     append_json_string(metadata, engine_id);
     metadata += ",\"scenario_id\":";
@@ -573,6 +625,17 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     append_integer(metadata, descriptor.live_control_capabilities);
     metadata.push_back(',');
     append_integer(metadata, descriptor.execution_kind);
+    metadata.push_back(',');
+    append_integer(metadata, descriptor.motion_mode);
+    metadata.push_back(',');
+    append_integer(metadata, descriptor.forward_gear_count);
+    metadata += "],\"forward_gears\":[";
+    for (std::size_t index = 0; index < gears.size(); ++index) {
+        if (index != 0U) {
+            metadata.push_back(',');
+        }
+        append_gear(metadata, gears[index], gear_semantic_ids[index]);
+    }
     metadata += "],\"buses\":[";
     for (std::size_t index = 0; index < buses.size(); ++index) {
         if (index != 0U) {
@@ -607,7 +670,7 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
         audible_pcm.reserve(static_cast<std::size_t>(audible_blocks) *
                             samples_per_block);
     }
-    std::vector<eso_engine_telemetry_t> telemetry(
+    std::vector<eso_session_telemetry_t> telemetry(
         descriptor.maximum_telemetry_frames_per_process_call);
     std::vector<double> numeric;
     numeric.reserve(static_cast<std::size_t>(descriptor.total_block_count) *
@@ -662,7 +725,7 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
 
     eso_control_rejection_t terminal_rejection{};
     const eso_control_command_t terminal_command{
-        first_audible_frame, 4U, ESO_CONTROL_THROTTLE, 0U, 0.5, 0U};
+        first_audible_frame, 4U, ESO_CONTROL_THROTTLE, 0U, 0.5, 0U, 0U};
     const auto terminal_status = eso_session_enqueue_controls(
         owner.get(), handles.session, &terminal_command, 1U, &terminal_rejection);
     if (terminal_status != ESO_STATUS_CONTROL_REJECTED ||

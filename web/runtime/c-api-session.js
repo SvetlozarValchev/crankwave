@@ -6,12 +6,17 @@ import {
   ESO_CANONICAL_SAMPLE_RATE,
   ESO_INVALID_HANDLE,
   Layout,
+  MotionMode,
   ProcessKind,
   QUANTITY_FIELDS,
   SessionExecutionKind,
   TORQUE_FIELDS,
   audioBusKindName,
   blockPhaseName,
+  clutchDispositionName,
+  heldDynoDispositionName,
+  motionModeName,
+  roadLoadDispositionName,
   sessionExecutionKindName,
 } from "./c-api-abi.js";
 import { EngineSimRuntimeError } from "./c-api-errors.js";
@@ -52,6 +57,37 @@ function normalizeU64(value, label) {
   return result;
 }
 
+function requireFiniteNumber(value, label) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new TypeError(`${label} must be a finite number`);
+  }
+  return value;
+}
+
+function requireUnitInterval(value, label) {
+  const result = requireFiniteNumber(value, label);
+  if (Object.is(result, -0) || result < 0 || result > 1) {
+    throw new TypeError(`${label} must be in [0, 1]`);
+  }
+  return result;
+}
+
+function requireNonnegative(value, label) {
+  const result = requireFiniteNumber(value, label);
+  if (Object.is(result, -0) || result < 0) {
+    throw new TypeError(`${label} must be nonnegative`);
+  }
+  return result;
+}
+
+function requirePositive(value, label) {
+  const result = requireFiniteNumber(value, label);
+  if (result <= 0) {
+    throw new TypeError(`${label} must be positive`);
+  }
+  return result;
+}
+
 function readQuantity(view, pointer) {
   const layout = Layout.quantityValue;
   return {
@@ -74,7 +110,7 @@ function readTorqueValue(view, pointer) {
   };
 }
 
-function readTelemetry(view, pointer) {
+function readEngineTelemetry(view, pointer) {
   const layout = Layout.engineTelemetry;
   const torque = {};
   let fieldPointer = pointer + layout.torque;
@@ -87,9 +123,6 @@ function readTelemetry(view, pointer) {
     fieldPointer += Layout.quantityValue.size;
   }
   return {
-    physicsStepEnd: decimal(
-      view.getBigUint64(pointer + layout.physicsStepEnd, true),
-    ),
     engineStepEndIndex: decimal(
       view.getBigUint64(pointer + layout.engineStepEndIndex, true),
     ),
@@ -132,6 +165,133 @@ function readTelemetry(view, pointer) {
       true,
     ),
     torque,
+  };
+}
+
+function readPresenceFlag(view, pointer, label) {
+  const value = view.getUint32(pointer, true);
+  if (value !== 0 && value !== 1) {
+    throw new EngineSimRuntimeError(`${label} is not a canonical presence flag`, {
+      operation: "process-session",
+      detailCode: "browser-runtime-telemetry-presence-invalid",
+      diagnostics: [],
+    });
+  }
+  return value === 1;
+}
+
+function readHeldDynoTelemetry(view, pointer) {
+  const layout = Layout.heldDynoTelemetry;
+  const dispositionCode = view.getUint32(pointer + layout.disposition, true);
+  return {
+    targetEngineSpeedRpm: view.getFloat64(
+      pointer + layout.targetEngineSpeedRpm,
+      true,
+    ),
+    maximumAbsorbingTorqueNm: view.getFloat64(
+      pointer + layout.maximumAbsorbingTorqueNm,
+      true,
+    ),
+    maximumDrivingTorqueNm: view.getFloat64(
+      pointer + layout.maximumDrivingTorqueNm,
+      true,
+    ),
+    requiredActuatorTorqueNm: view.getFloat64(
+      pointer + layout.requiredActuatorTorqueNm,
+      true,
+    ),
+    appliedActuatorTorqueNm: view.getFloat64(
+      pointer + layout.appliedActuatorTorqueNm,
+      true,
+    ),
+    disposition: heldDynoDispositionName(dispositionCode),
+    dispositionCode,
+  };
+}
+
+function readFreeVehicleTelemetry(view, pointer) {
+  const layout = Layout.freeVehicleTelemetry;
+  const hasSelectedForwardGear = readPresenceFlag(
+    view,
+    pointer + layout.hasSelectedForwardGear,
+    "free-vehicle selected-forward-gear presence",
+  );
+  const hasFinalClutchSlip = readPresenceFlag(
+    view,
+    pointer + layout.hasFinalClutchSlip,
+    "free-vehicle final-clutch-slip presence",
+  );
+  const clutchDispositionCode = view.getUint32(
+    pointer + layout.clutchDisposition,
+    true,
+  );
+  const roadLoadDispositionCode = view.getUint32(
+    pointer + layout.roadLoadDisposition,
+    true,
+  );
+  return {
+    vehicleSpeedMS: view.getFloat64(pointer + layout.vehicleSpeedMS, true),
+    vehicleDistanceM: view.getFloat64(pointer + layout.vehicleDistanceM, true),
+    selectedForwardGearOrdinal: hasSelectedForwardGear
+      ? view.getUint32(pointer + layout.selectedForwardGearOrdinal, true)
+      : null,
+    clutchEngagement01: view.getFloat64(
+      pointer + layout.clutchEngagement01,
+      true,
+    ),
+    serviceBrakeApplication01: view.getFloat64(
+      pointer + layout.serviceBrakeApplication01,
+      true,
+    ),
+    clutchDisposition: clutchDispositionName(clutchDispositionCode),
+    clutchDispositionCode,
+    clutchTorqueCapacityNm: view.getFloat64(
+      pointer + layout.clutchTorqueCapacityNm,
+      true,
+    ),
+    appliedAverageClutchTorqueOnEngineNm: view.getFloat64(
+      pointer + layout.appliedAverageClutchTorqueOnEngineNm,
+      true,
+    ),
+    finalClutchSlipRadS: hasFinalClutchSlip
+      ? view.getFloat64(pointer + layout.finalClutchSlipRadS, true)
+      : null,
+    roadLoadDisposition: roadLoadDispositionName(roadLoadDispositionCode),
+    roadLoadDispositionCode,
+    requestedRoadLoadForceN: view.getFloat64(
+      pointer + layout.requestedRoadLoadForceN,
+      true,
+    ),
+    appliedAverageRoadLoadForceN: view.getFloat64(
+      pointer + layout.appliedAverageRoadLoadForceN,
+      true,
+    ),
+  };
+}
+
+function readSessionTelemetry(view, pointer) {
+  const layout = Layout.sessionTelemetry;
+  const hasHeldDyno = readPresenceFlag(
+    view,
+    pointer + layout.hasHeldDyno,
+    "held-dyno sidecar presence",
+  );
+  const hasFreeVehicle = readPresenceFlag(
+    view,
+    pointer + layout.hasFreeVehicle,
+    "free-vehicle sidecar presence",
+  );
+  return {
+    physicsStepEnd: decimal(
+      view.getBigUint64(pointer + layout.physicsStepEnd, true),
+    ),
+    ...readEngineTelemetry(view, pointer + layout.engine),
+    heldDyno: hasHeldDyno
+      ? readHeldDynoTelemetry(view, pointer + layout.heldDyno)
+      : null,
+    freeVehicle: hasFreeVehicle
+      ? readFreeVehicleTelemetry(view, pointer + layout.freeVehicle)
+      : null,
   };
 }
 
@@ -185,6 +345,7 @@ export class EngineSimSession {
   #context;
   #handle;
   #descriptor;
+  #forwardGears;
   #buses;
   #auditionBusIndex;
   #audioPointer = 0;
@@ -204,6 +365,8 @@ export class EngineSimSession {
     this.#handle = handle;
     try {
       this.#descriptor = this.#readDescriptor();
+      this.#forwardGears = this.#readForwardGears();
+      this.#descriptor.forwardGears = this.#forwardGears;
       this.#buses = this.#readBuses();
       const audition = this.#buses.filter(
         (bus) => bus.kindCode === AudioBusKind.engineAuditionMaster,
@@ -260,8 +423,8 @@ export class EngineSimSession {
       );
       this.#telemetryPointer = this.#heap.allocate(
         this.#descriptor.maximumTelemetryFramesPerProcessCall *
-          Layout.engineTelemetry.size,
-        "engine telemetry block",
+          Layout.sessionTelemetry.size,
+        "session telemetry block",
       );
       this.#processPointer = this.#heap.allocate(
         Layout.processInfo.size,
@@ -281,6 +444,11 @@ export class EngineSimSession {
   get buses() {
     this.#assertAlive();
     return this.#buses;
+  }
+
+  get forwardGears() {
+    this.#assertAlive();
+    return this.#forwardGears;
   }
 
   get auditionBus() {
@@ -343,6 +511,11 @@ export class EngineSimSession {
     );
     try {
       const view = this.#heap.view;
+      this.#heap.bytes.fill(
+        0,
+        pointer,
+        pointer + controls.length * Layout.controlCommand.size,
+      );
       let priorFrame = null;
       for (let index = 0; index < controls.length; ++index) {
         const input = controls[index];
@@ -362,20 +535,15 @@ export class EngineSimSession {
         let requiredCapability = 0;
         switch (input.kind) {
           case "throttle": {
-            if (
-              typeof input.value !== "number" ||
-              !Number.isFinite(input.value) ||
-              Object.is(input.value, -0) ||
-              input.value < 0 ||
-              input.value > 1
-            ) {
-              throw new TypeError("throttle control value must be in [0, 1]");
-            }
+            const value = requireUnitInterval(
+              input.value,
+              "throttle control value",
+            );
             requiredCapability = ControlCapability.throttle;
             view.setUint32(base + Layout.controlCommand.kind, ControlKind.throttle, true);
             view.setFloat64(
               base + Layout.controlCommand.scalarValue,
-              input.value,
+              value,
               true,
             );
             break;
@@ -446,16 +614,6 @@ export class EngineSimSession {
             break;
           case "external-resisting-torque":
             requiredCapability = ControlCapability.externalResistingTorque;
-            if (
-              typeof input.value !== "number" ||
-              !Number.isFinite(input.value) ||
-              Object.is(input.value, -0) ||
-              input.value < 0
-            ) {
-              throw new TypeError(
-                "external resisting torque must be finite and nonnegative",
-              );
-            }
             view.setUint32(
               base + Layout.controlCommand.kind,
               ControlKind.externalResistingTorque,
@@ -463,7 +621,117 @@ export class EngineSimSession {
             );
             view.setFloat64(
               base + Layout.controlCommand.scalarValue,
+              requireNonnegative(
+                input.value,
+                "external resisting torque",
+              ),
+              true,
+            );
+            break;
+          case "held-dyno-target-engine-speed":
+            requiredCapability = ControlCapability.heldDynoTargetEngineSpeed;
+            view.setUint32(
+              base + Layout.controlCommand.kind,
+              ControlKind.heldDynoTargetEngineSpeed,
+              true,
+            );
+            view.setFloat64(
+              base + Layout.controlCommand.scalarValue,
+              requirePositive(
+                input.value,
+                "held-dyno target engine speed",
+              ),
+              true,
+            );
+            break;
+          case "held-dyno-maximum-absorbing-torque":
+            requiredCapability =
+              ControlCapability.heldDynoMaximumAbsorbingTorque;
+            view.setUint32(
+              base + Layout.controlCommand.kind,
+              ControlKind.heldDynoMaximumAbsorbingTorque,
+              true,
+            );
+            view.setFloat64(
+              base + Layout.controlCommand.scalarValue,
+              requireNonnegative(
+                input.value,
+                "held-dyno maximum absorbing torque",
+              ),
+              true,
+            );
+            break;
+          case "held-dyno-maximum-driving-torque":
+            requiredCapability =
+              ControlCapability.heldDynoMaximumDrivingTorque;
+            view.setUint32(
+              base + Layout.controlCommand.kind,
+              ControlKind.heldDynoMaximumDrivingTorque,
+              true,
+            );
+            view.setFloat64(
+              base + Layout.controlCommand.scalarValue,
+              requireNonnegative(
+                input.value,
+                "held-dyno maximum driving torque",
+              ),
+              true,
+            );
+            break;
+          case "vehicle-selected-forward-gear": {
+            requiredCapability = ControlCapability.vehicleSelectedForwardGear;
+            if (
+              !Number.isSafeInteger(input.value) ||
+              Object.is(input.value, -0) ||
+              input.value < 0 ||
+              input.value > this.#descriptor.forwardGearCount
+            ) {
+              throw new TypeError(
+                "vehicle selected forward gear must be zero for neutral or a published authored ordinal",
+              );
+            }
+            view.setUint32(
+              base + Layout.controlCommand.kind,
+              ControlKind.vehicleSelectedForwardGear,
+              true,
+            );
+            view.setUint32(
+              base + Layout.controlCommand.idValue,
               input.value,
+              true,
+            );
+            break;
+          }
+          case "vehicle-clutch-engagement":
+            requiredCapability = ControlCapability.vehicleClutchEngagement;
+            view.setUint32(
+              base + Layout.controlCommand.kind,
+              ControlKind.vehicleClutchEngagement,
+              true,
+            );
+            view.setFloat64(
+              base + Layout.controlCommand.scalarValue,
+              requireUnitInterval(
+                input.value,
+                "vehicle clutch engagement",
+              ),
+              true,
+            );
+            break;
+          case "vehicle-service-brake-application":
+            requiredCapability =
+              ControlCapability.vehicleServiceBrakeApplication;
+            view.setUint32(
+              base + Layout.controlCommand.kind,
+              ControlKind.vehicleServiceBrakeApplication,
+              true,
+            );
+            view.setFloat64(
+              base + Layout.controlCommand.scalarValue,
+              requireUnitInterval(
+                input.value,
+                "vehicle service-brake application",
+              ),
               true,
             );
             break;
@@ -566,9 +834,9 @@ export class EngineSimSession {
     const telemetry = [];
     for (let index = 0; index < process.telemetryWritten; ++index) {
       telemetry.push(
-        readTelemetry(
+        readSessionTelemetry(
           view,
-          this.#telemetryPointer + index * Layout.engineTelemetry.size,
+          this.#telemetryPointer + index * Layout.sessionTelemetry.size,
         ),
       );
     }
@@ -686,6 +954,10 @@ export class EngineSimSession {
         pointer + layout.executionKind,
         true,
       );
+      const motionModeCode = view.getUint32(
+        pointer + layout.motionMode,
+        true,
+      );
       if (
         executionKindCode !== SessionExecutionKind.finiteScenario &&
         executionKindCode !== SessionExecutionKind.openEnded
@@ -695,6 +967,19 @@ export class EngineSimSession {
           {
             operation: "inspect-session",
             detailCode: "browser-runtime-session-execution-kind-invalid",
+            diagnostics: [],
+          },
+        );
+      }
+      if (
+        motionModeCode < MotionMode.heldSpeed ||
+        motionModeCode > MotionMode.freeVehicle
+      ) {
+        throw new EngineSimRuntimeError(
+          `the session descriptor has unknown motion mode ${motionModeCode}`,
+          {
+            operation: "inspect-session",
+            detailCode: "browser-runtime-motion-mode-invalid",
             diagnostics: [],
           },
         );
@@ -755,6 +1040,8 @@ export class EngineSimSession {
         ),
         executionKind: sessionExecutionKindName(executionKindCode),
         executionKindCode,
+        motionMode: motionModeName(motionModeCode),
+        motionModeCode,
         totalBlockCount: openEnded ? null : decimal(totalBlocks),
         totalBlockCountBigInt: openEnded ? null : totalBlocks,
         preparationBlockCount: decimal(preparationBlocks),
@@ -762,6 +1049,10 @@ export class EngineSimSession {
         audioBusCount: view.getUint32(pointer + layout.audioBusCount, true),
         liveControlCapabilities: view.getUint32(
           pointer + layout.liveControlCapabilities,
+          true,
+        ),
+        forwardGearCount: view.getUint32(
+          pointer + layout.forwardGearCount,
           true,
         ),
         engineIdUtf8Bytes: view.getUint32(pointer + layout.engineIdBytes, true),
@@ -824,6 +1115,89 @@ export class EngineSimSession {
       this.#heap.free(buffers);
       this.#heap.free(scenario);
       this.#heap.free(engine);
+    }
+  }
+
+  #readForwardGears() {
+    const pointer = this.#heap.allocate(
+      Layout.forwardGearDescriptor.size,
+      "forward-gear descriptor",
+    );
+    const idBuffer = this.#heap.allocate(
+      Layout.mutableUtf8Buffer.size,
+      "forward-gear semantic-id buffer",
+    );
+    try {
+      const result = [];
+      for (let index = 0; index < this.#descriptor.forwardGearCount; ++index) {
+        const status = this.#module._eso_session_get_forward_gear_descriptor(
+          this.#context,
+          this.#handle,
+          index,
+          pointer,
+        );
+        this.#client.assertStatus(status, "inspect-forward-gear");
+        const view = this.#heap.view;
+        const layout = Layout.forwardGearDescriptor;
+        const authoredOrdinal = view.getUint32(
+          pointer + layout.authoredOrdinal,
+          true,
+        );
+        if (authoredOrdinal !== index + 1) {
+          throw new EngineSimRuntimeError(
+            `forward gear ${index} has authored ordinal ${authoredOrdinal}`,
+            {
+              operation: "inspect-session",
+              detailCode: "browser-runtime-forward-gear-order-invalid",
+              diagnostics: [],
+            },
+          );
+        }
+        const semanticIdBytes = view.getUint32(
+          pointer + layout.semanticIdBytes,
+          true,
+        );
+        const semanticIdPointer = this.#heap.allocate(
+          semanticIdBytes + 1,
+          "forward-gear semantic id",
+        );
+        try {
+          view.setUint32(
+            idBuffer + Layout.mutableUtf8Buffer.data,
+            semanticIdPointer,
+            true,
+          );
+          view.setUint32(
+            idBuffer + Layout.mutableUtf8Buffer.capacity,
+            semanticIdBytes + 1,
+            true,
+          );
+          const copyStatus =
+            this.#module._eso_session_copy_forward_gear_semantic_id(
+              this.#context,
+              this.#handle,
+              index,
+              idBuffer,
+            );
+          this.#client.assertStatus(copyStatus, "copy-forward-gear-semantic-id");
+          result.push({
+            index,
+            gearId: view.getUint32(pointer + layout.gearId, true),
+            authoredOrdinal,
+            semanticId: this.#heap.decodeUtf8(
+              semanticIdPointer,
+              semanticIdBytes,
+            ),
+            ratio: view.getFloat64(pointer + layout.ratio, true),
+          });
+        } finally {
+          this.#heap.free(semanticIdPointer);
+        }
+      }
+      return result;
+    } finally {
+      this.#heap.free(idBuffer);
+      this.#heap.free(pointer);
     }
   }
 

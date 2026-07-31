@@ -35,6 +35,8 @@ const REQUIRED_EXPORTS = Object.freeze([
   "_eso_destroy_session",
   "_eso_session_get_descriptor",
   "_eso_session_copy_identity",
+  "_eso_session_get_forward_gear_descriptor",
+  "_eso_session_copy_forward_gear_semantic_id",
   "_eso_session_get_audio_bus_descriptor",
   "_eso_session_copy_audio_bus_id",
   "_eso_session_enqueue_controls",
