@@ -282,7 +282,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             ContractIssueCode::inconsistent_semantics, "random_plan.public_seed",
             "gas session random plan must belong to the scenario public seed");
 
-    auto valvetrain_result = compile_legacy_fixed_valvetrain(engine, core);
+    auto valvetrain_result = compile_legacy_selectable_valvetrain(engine, core);
     if (const auto *nested = std::get_if<ValidationReport>(&valvetrain_result)) {
         append_prefixed(report, *nested, "valvetrain");
     }
@@ -951,7 +951,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         return report;
     }
 
-    auto valvetrain = std::get<LegacyFixedValvetrain>(std::move(valvetrain_result));
+    auto valvetrain =
+        std::get<LegacySelectableValvetrain>(std::move(valvetrain_result));
 
     LegacyLowOrderGasSession session;
     session.rate_ = schedule.rate();

@@ -207,7 +207,7 @@ class LegacyLowOrderGasSession final {
     double current_theta_unwrapped_rad_ = 0.0;
     bool previous_limiter_cut_active_ = false;
     LegacyGasMixture inert_mixture_{};
-    std::optional<LegacyFixedValvetrain> valvetrain_;
+    std::optional<LegacySelectableValvetrain> valvetrain_;
     IntakeLane intake_;
     std::vector<RouteLane> routes_;
     std::vector<CylinderLane> cylinders_;

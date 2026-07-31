@@ -6,39 +6,67 @@
 #include <cstddef>
 #include <cstdint>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace engine_sim_offline::compile::detail::engine_resolution {
+namespace {
 
-void resolve_valvetrain(const ModelContext &context, ResolutionEmitter &emitter,
-                        contract::LowOrderEngineCoreV1 &core) {
-    core.valvetrain.intake.shape =
-        resolve_cam_shape(context, *context.intake_camshaft,
-                          authoring::PortKind::intake, "intake", emitter);
-    core.valvetrain.exhaust.shape =
-        resolve_cam_shape(context, *context.exhaust_camshaft,
-                          authoring::PortKind::exhaust, "exhaust", emitter);
+[[nodiscard]] contract::LegacyCamshaftProfile resolve_camshaft(
+    const ModelContext &context, const authoring::CamshaftDefinition &camshaft,
+    const authoring::PortKind port_kind, std::string role, ResolutionEmitter &emitter) {
+    contract::LegacyCamshaftProfile resolved;
+    resolved.shape = resolve_cam_shape(context, camshaft, port_kind, role, emitter);
     for (const auto &cylinder : context.document.engine.cylinders) {
         const auto semantic = cylinder.id.value;
-        const auto &intake_lobe = cam_lobe_for_cylinder(
-            context, *context.intake_camshaft, semantic, authoring::PortKind::intake);
-        const auto &exhaust_lobe = cam_lobe_for_cylinder(
-            context, *context.exhaust_camshaft, semantic, authoring::PortKind::exhaust);
-        core.valvetrain.intake.lobes.push_back({
+        const auto &lobe =
+            cam_lobe_for_cylinder(context, camshaft, semantic, port_kind);
+        resolved.lobes.push_back({
             cylinder_id(context, semantic),
-            port_id(context, port_semantic_id(semantic, authoring::PortKind::intake)),
-            emitter.authored(legacy_si_value(intake_lobe.centerline),
-                             profile_path("valvetrain.intake.lobes." + semantic +
-                                          ".crank_center_rad")),
-        });
-        core.valvetrain.exhaust.lobes.push_back({
-            cylinder_id(context, semantic),
-            port_id(context, port_semantic_id(semantic, authoring::PortKind::exhaust)),
-            emitter.authored(legacy_si_value(exhaust_lobe.centerline),
-                             profile_path("valvetrain.exhaust.lobes." + semantic +
+            port_id(context, port_semantic_id(semantic, port_kind)),
+            emitter.authored(legacy_si_value(lobe.centerline),
+                             profile_path("valvetrain." + role + ".lobes." + semantic +
                                           ".crank_center_rad")),
         });
     }
+    return resolved;
+}
+
+} // namespace
+
+void resolve_valvetrain(const ModelContext &context, ResolutionEmitter &emitter,
+                        contract::LowOrderEngineCoreV1 &core) {
+    core.valvetrain.intake =
+        resolve_camshaft(context, *context.intake_camshaft, authoring::PortKind::intake,
+                         "intake", emitter);
+    core.valvetrain.exhaust =
+        resolve_camshaft(context, *context.exhaust_camshaft,
+                         authoring::PortKind::exhaust, "exhaust", emitter);
+
+    if (context.alternate_intake_camshaft == nullptr ||
+        context.alternate_exhaust_camshaft == nullptr) {
+        return;
+    }
+
+    const auto &vtec = std::get<authoring::VtecValvetrain>(context.valvetrain->kind);
+    contract::LegacyVtecAlternateCamProfile alternate;
+    alternate.intake =
+        resolve_camshaft(context, *context.alternate_intake_camshaft,
+                         authoring::PortKind::intake, "alternate.intake", emitter);
+    alternate.exhaust =
+        resolve_camshaft(context, *context.alternate_exhaust_camshaft,
+                         authoring::PortKind::exhaust, "alternate.exhaust", emitter);
+    const auto activation_base = profile_path("valvetrain.alternate.activation");
+    alternate.activation.minimum_engine_speed_rad_s =
+        emitter.authored(legacy_si_value(vtec.activation.minimum_engine_speed),
+                         activation_base + ".minimum_engine_speed_rad_s");
+    alternate.activation.minimum_mean_manifold_pressure_pa_abs =
+        emitter.authored(legacy_si_value(vtec.activation.minimum_manifold_pressure_abs),
+                         activation_base + ".minimum_mean_manifold_pressure_pa_abs");
+    alternate.activation.minimum_throttle_linkage_opening_01 =
+        emitter.authored(vtec.activation.minimum_throttle_linkage_opening_01,
+                         activation_base + ".minimum_throttle_linkage_opening_01");
+    core.valvetrain.alternate.emplace(std::move(alternate));
 }
 
 void resolve_ignition_and_fuel(const ModelContext &context, ResolutionEmitter &emitter,

@@ -87,6 +87,55 @@ struct SimulationFixture {
     };
 };
 
+LegacyCamshaftProfile make_vtec_camshaft(InputBuilder &builder,
+                                         const LegacyCamshaftProfile &source,
+                                         std::string_view role, double maximum_lift_m) {
+    const auto base =
+        std::string{"engine.physics.low-order-operating-point-v1.valvetrain."
+                    "alternate."} +
+        std::string{role};
+    const auto &shape = std::get<LegacyHarmonicCamShape>(source.shape);
+    LegacyCamshaftProfile result;
+    result.shape = LegacyHarmonicCamShape{
+        builder.resolved(maximum_lift_m, base + ".shape.maximum_lift_m"),
+        builder.resolved(shape.duration_at_reference_lift_rad.value,
+                         base + ".shape.duration_at_reference_lift_rad"),
+        builder.resolved(shape.exponent.value, base + ".shape.exponent"),
+        builder.resolved(shape.construction_steps.value,
+                         base + ".shape.construction_steps"),
+        builder.resolved(shape.advance_rad.value, base + ".shape.advance_rad"),
+        builder.resolved(shape.base_radius_m.value, base + ".shape.base_radius_m"),
+    };
+    for (const auto &lobe : source.lobes) {
+        result.lobes.push_back({
+            lobe.cylinder_id,
+            lobe.port_id,
+            builder.resolved(lobe.crank_center_rad.value,
+                             base + ".lobes.cylinder-1.crank_center_rad"),
+        });
+    }
+    return result;
+}
+
+LegacyVtecAlternateCamProfile
+make_vtec_alternate(InputBuilder &builder, const LegacyValvetrainProfile &valvetrain) {
+    constexpr std::string_view kActivationBase =
+        "engine.physics.low-order-operating-point-v1.valvetrain.alternate.activation";
+    return {
+        make_vtec_camshaft(builder, valvetrain.intake, "intake", 0.0115),
+        make_vtec_camshaft(builder, valvetrain.exhaust, "exhaust", 0.0105),
+        {
+            builder.resolved(607.3745796940267, std::string{kActivationBase} +
+                                                    ".minimum_engine_speed_rad_s"),
+            builder.resolved(84393.05666666667,
+                             std::string{kActivationBase} +
+                                 ".minimum_mean_manifold_pressure_pa_abs"),
+            builder.resolved(0.3, std::string{kActivationBase} +
+                                      ".minimum_throttle_linkage_opening_01"),
+        },
+    };
+}
+
 [[nodiscard]] std::vector<std::byte>
 require_manifest_encoding(const RenderManifest &manifest) {
     auto result = encode_simulation_manifest_v6(manifest);
@@ -351,6 +400,81 @@ void test_sampled_cam_request_identity_wire_shape() {
         fixture.manifest.content.provenance);
     expect(changed.sha256 != first.sha256,
            "sampled cam lift mutation did not change request identity");
+}
+
+void test_vtec_request_identity_wire_shape() {
+    SimulationFixture fixture;
+    auto &resolved = simulation_inputs(fixture.manifest.content);
+    auto &valvetrain =
+        std::get<LowOrderOperatingPointV1Profile>(resolved.engine.physics_profile)
+            .core.valvetrain;
+    valvetrain.alternate = make_vtec_alternate(fixture.builder, valvetrain);
+    require_valid(validate(resolved.engine, fixture.builder.provenance),
+                  "VTEC request-identity fixture engine is invalid");
+
+    const auto manifest_document =
+        as_string(require_manifest_encoding(fixture.manifest));
+    const auto valvetrain_position = manifest_document.find("\"valvetrain\":");
+    const auto alternate_position =
+        manifest_document.find("\"alternate\":{\"intake\":", valvetrain_position);
+    const auto alternate_exhaust_position =
+        manifest_document.find("\"exhaust\":", alternate_position);
+    const auto activation_position =
+        manifest_document.find("\"activation\":", alternate_exhaust_position);
+    const auto speed_position =
+        manifest_document.find("\"minimum_engine_speed_rad_s\":", activation_position);
+    const auto pressure_position = manifest_document.find(
+        "\"minimum_mean_manifold_pressure_pa_abs\":", speed_position);
+    const auto throttle_position = manifest_document.find(
+        "\"minimum_throttle_linkage_opening_01\":", pressure_position);
+    expect(valvetrain_position != std::string::npos &&
+               alternate_position != std::string::npos &&
+               alternate_exhaust_position != std::string::npos &&
+               activation_position != std::string::npos &&
+               speed_position != std::string::npos &&
+               pressure_position != std::string::npos &&
+               throttle_position != std::string::npos &&
+               valvetrain_position < alternate_position &&
+               alternate_position < alternate_exhaust_position &&
+               alternate_exhaust_position < activation_position &&
+               activation_position < speed_position &&
+               speed_position < pressure_position &&
+               pressure_position < throttle_position,
+           "manifest omitted or reordered VTEC alternate cams and activation "
+           "thresholds");
+
+    const auto first = require_request_identity_encoding(
+        resolved.engine, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
+    const auto identity_document = as_string(first.bytes);
+    expect(identity_document.find("\"alternate\":{\"intake\":") != std::string::npos &&
+               identity_document.find("\"minimum_engine_speed_rad_s\":") !=
+                   std::string::npos &&
+               identity_document.find("\"minimum_mean_manifold_pressure_pa_abs\":") !=
+                   std::string::npos &&
+               identity_document.find("\"minimum_throttle_linkage_opening_01\":") !=
+                   std::string::npos,
+           "request identity omitted VTEC alternate cams or thresholds");
+
+    auto changed_lift = resolved.engine;
+    std::get<LegacyHarmonicCamShape>(
+        std::get<LowOrderOperatingPointV1Profile>(changed_lift.physics_profile)
+            .core.valvetrain.alternate->intake.shape)
+        .maximum_lift_m.value += 0.001;
+    const auto lift_identity = require_request_identity_encoding(
+        changed_lift, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
+    expect(lift_identity.sha256 != first.sha256,
+           "alternate VTEC cam-lift mutation did not change request identity");
+
+    auto changed_threshold = resolved.engine;
+    std::get<LowOrderOperatingPointV1Profile>(changed_threshold.physics_profile)
+        .core.valvetrain.alternate->activation.minimum_engine_speed_rad_s.value += 1.0;
+    const auto threshold_identity = require_request_identity_encoding(
+        changed_threshold, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
+    expect(threshold_identity.sha256 != first.sha256,
+           "VTEC activation-threshold mutation did not change request identity");
 }
 
 void test_fail_closed_boundaries() {
@@ -793,6 +917,7 @@ int main() {
     try {
         const auto canonical_hashes = test_deterministic_roots();
         test_sampled_cam_request_identity_wire_shape();
+        test_vtec_request_identity_wire_shape();
         test_fail_closed_boundaries();
         test_temporally_distinct_torque_capability();
         const auto customized_hashes = test_customized_direct_wire_shape();

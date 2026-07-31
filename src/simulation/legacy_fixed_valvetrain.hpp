@@ -3,6 +3,7 @@
 #include "engine_sim_offline/contract/engine.hpp"
 #include "engine_sim_offline/contract/parity_model.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
+#include "simulation/legacy_vtec_selector.hpp"
 
 #include <cstddef>
 #include <optional>
@@ -123,5 +124,42 @@ using LegacyFixedValvetrainCompileResult =
 [[nodiscard]] LegacyFixedValvetrainCompileResult
 compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
                                 const contract::LowOrderEngineCoreV1 &core);
+
+class LegacySelectableValvetrain final {
+  public:
+    LegacySelectableValvetrain(const LegacySelectableValvetrain &) = default;
+    LegacySelectableValvetrain &operator=(const LegacySelectableValvetrain &) = default;
+    LegacySelectableValvetrain(LegacySelectableValvetrain &&) noexcept = default;
+    LegacySelectableValvetrain &
+    operator=(LegacySelectableValvetrain &&) noexcept = default;
+
+    [[nodiscard]] const LegacyFixedValvetrain &
+    profile_for(const LegacyVtecSelectorInput &input) const noexcept;
+
+  private:
+    LegacySelectableValvetrain(LegacyFixedValvetrain base,
+                               std::optional<LegacyFixedValvetrain> alternate,
+                               std::optional<LegacyVtecSelectorThresholds> thresholds);
+    [[nodiscard]] bool
+    alternate_profile_active(const LegacyVtecSelectorInput &input) const noexcept;
+
+    LegacyFixedValvetrain base_;
+    std::optional<LegacyFixedValvetrain> alternate_;
+    std::optional<LegacyVtecSelectorThresholds> thresholds_;
+
+    friend std::variant<LegacySelectableValvetrain, contract::ValidationReport>
+    compile_legacy_selectable_valvetrain(const contract::EngineSpec &,
+                                         const contract::LowOrderEngineCoreV1 &);
+};
+
+using LegacySelectableValvetrainCompileResult =
+    std::variant<LegacySelectableValvetrain, contract::ValidationReport>;
+
+// Compiles the fixed base pair unchanged. When an alternate pair is present, it is
+// independently compiled through the same fixed-valvetrain compiler and selected by
+// the stateless pristine VTEC predicate.
+[[nodiscard]] LegacySelectableValvetrainCompileResult
+compile_legacy_selectable_valvetrain(const contract::EngineSpec &engine,
+                                     const contract::LowOrderEngineCoreV1 &core);
 
 } // namespace engine_sim_offline::simulation

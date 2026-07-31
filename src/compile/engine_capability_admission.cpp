@@ -263,13 +263,8 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
             "the sole shared head must reference the sole valvetrain");
     }
 
-    const auto *standard =
-        std::get_if<authoring::StandardValvetrain>(&resolved.valvetrain->kind);
-    if (standard == nullptr) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/engine/valvetrains/0/type",
-            "the current executable valvetrain admits type 'standard' only");
-    } else {
+    if (const auto *standard =
+            std::get_if<authoring::StandardValvetrain>(&resolved.valvetrain->kind)) {
         resolved.intake_camshaft = find_by_text(
             engine.camshafts, standard->intake_camshaft.value,
             [](const auto &value) -> const std::string & { return value.id.value; });
@@ -281,6 +276,31 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
             add(report, DiagnosticCode::dangling_reference, "/engine/valvetrains/0",
                 "standard valvetrain camshaft references did not resolve");
         }
+    } else if (const auto *vtec =
+                   std::get_if<authoring::VtecValvetrain>(&resolved.valvetrain->kind)) {
+        const auto find_camshaft = [&](const authoring::CamshaftRef &reference) {
+            return find_by_text(engine.camshafts, reference.value,
+                                [](const auto &value) -> const std::string & {
+                                    return value.id.value;
+                                });
+        };
+        resolved.intake_camshaft = find_camshaft(vtec->base_intake_camshaft);
+        resolved.exhaust_camshaft = find_camshaft(vtec->base_exhaust_camshaft);
+        resolved.alternate_intake_camshaft =
+            find_camshaft(vtec->alternate_intake_camshaft);
+        resolved.alternate_exhaust_camshaft =
+            find_camshaft(vtec->alternate_exhaust_camshaft);
+        if (resolved.intake_camshaft == nullptr ||
+            resolved.exhaust_camshaft == nullptr ||
+            resolved.alternate_intake_camshaft == nullptr ||
+            resolved.alternate_exhaust_camshaft == nullptr) {
+            add(report, DiagnosticCode::dangling_reference, "/engine/valvetrains/0",
+                "VTEC valvetrain camshaft references did not resolve");
+        }
+    } else {
+        add(report, DiagnosticCode::unsupported_capability,
+            "/engine/valvetrains/0/type",
+            "the executable valvetrain type did not resolve");
     }
 
     admit_engine_physical_model(resolved, report);

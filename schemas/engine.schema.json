@@ -514,15 +514,15 @@
       "additionalProperties": false,
       "required": [
         "minimum_engine_speed",
-        "minimum_vehicle_speed",
-        "minimum_manifold_vacuum",
-        "minimum_throttle_01"
+        "minimum_manifold_pressure_abs",
+        "minimum_throttle_linkage_opening_01"
       ],
       "properties": {
         "minimum_engine_speed": { "$ref": "#/$defs/quantity" },
-        "minimum_vehicle_speed": { "$ref": "#/$defs/quantity" },
-        "minimum_manifold_vacuum": { "$ref": "#/$defs/quantity" },
-        "minimum_throttle_01": { "$ref": "#/$defs/fraction" }
+        "minimum_manifold_pressure_abs": { "$ref": "#/$defs/quantity" },
+        "minimum_throttle_linkage_opening_01": {
+          "$ref": "#/$defs/fraction"
+        }
       }
     },
     "vtecValvetrain": {

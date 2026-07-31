@@ -516,6 +516,31 @@ void replace_once(std::string &text, std::string_view before, std::string_view a
     text.replace(position, before.size(), after);
 }
 
+[[nodiscard]] std::string valid_vtec_engine_json() {
+    std::string json = valid_engine_json();
+    replace_once(json,
+                 R"json(      {
+        "id": "valvetrain",
+        "type": "standard",
+        "intake_camshaft": "shared-cam",
+        "exhaust_camshaft": "shared-cam"
+      })json",
+                 R"json(      {
+        "id": "valvetrain",
+        "type": "vtec",
+        "base_intake_camshaft": "shared-cam",
+        "base_exhaust_camshaft": "shared-cam",
+        "alternate_intake_camshaft": "shared-cam",
+        "alternate_exhaust_camshaft": "shared-cam",
+        "activation": {
+          "minimum_engine_speed": {"value": 5800, "unit": "rpm"},
+          "minimum_manifold_pressure_abs": {"value": 84, "unit": "kPa"},
+          "minimum_throttle_linkage_opening_01": 0.3
+        }
+      })json");
+    return json;
+}
+
 void test_complete_scenario_and_exact_integer_wire_values() {
     const ScenarioDocument scenario = require_scenario(valid_scenario_json());
     expect(scenario.schema == "engine-sim-offline/scenario", "scenario schema changed");
@@ -756,6 +781,99 @@ void test_complete_engine_package() {
            "omitted future throttle-controller capability became authored");
 }
 
+void test_vtec_activation_contract_is_greenfield_and_strict() {
+    const auto package = require_engine(valid_vtec_engine_json());
+    const auto *vtec =
+        std::get_if<VtecValvetrain>(&package.engine.valvetrains.front().kind);
+    expect(vtec != nullptr && vtec->base_intake_camshaft.value == "shared-cam" &&
+               vtec->base_exhaust_camshaft.value == "shared-cam" &&
+               vtec->alternate_intake_camshaft.value == "shared-cam" &&
+               vtec->alternate_exhaust_camshaft.value == "shared-cam" &&
+               vtec->activation.minimum_engine_speed.value == 5800.0 &&
+               vtec->activation.minimum_engine_speed.unit == "rpm" &&
+               vtec->activation.minimum_manifold_pressure_abs.value == 84.0 &&
+               vtec->activation.minimum_manifold_pressure_abs.unit == "kPa" &&
+               vtec->activation.minimum_throttle_linkage_opening_01 == 0.3,
+           "VTEC cam references or activation thresholds were not retained");
+
+    std::string retired_vehicle_speed = valid_vtec_engine_json();
+    replace_once(
+        retired_vehicle_speed,
+        R"json(          "minimum_engine_speed": {"value": 5800, "unit": "rpm"},)json",
+        R"json(          "minimum_engine_speed": {"value": 5800, "unit": "rpm"},
+          "minimum_vehicle_speed": {"value": 10, "unit": "mph"},)json");
+    expect(has_diagnostic(
+               require_engine_report(parse_engine_document(retired_vehicle_speed)),
+               DiagnosticCode::unknown_field,
+               "/engine/valvetrains/0/activation/minimum_vehicle_speed"),
+           "pristine's stored-but-unused VTEC vehicle-speed input was accepted");
+
+    std::string retired_manifold_name = valid_vtec_engine_json();
+    replace_once(retired_manifold_name, "minimum_manifold_pressure_abs",
+                 "minimum_manifold_vacuum");
+    expect(has_diagnostic(
+               require_engine_report(parse_engine_document(retired_manifold_name)),
+               DiagnosticCode::unknown_field,
+               "/engine/valvetrains/0/activation/minimum_manifold_vacuum"),
+           "retired VTEC manifold-vacuum field name was accepted");
+
+    std::string retired_throttle_name = valid_vtec_engine_json();
+    replace_once(retired_throttle_name, "minimum_throttle_linkage_opening_01",
+                 "minimum_throttle_01");
+    expect(has_diagnostic(
+               require_engine_report(parse_engine_document(retired_throttle_name)),
+               DiagnosticCode::unknown_field,
+               "/engine/valvetrains/0/activation/minimum_throttle_01"),
+           "retired ambiguous VTEC throttle field name was accepted");
+
+    std::string wrong_speed_dimension = valid_vtec_engine_json();
+    replace_once(wrong_speed_dimension, R"json({"value": 5800, "unit": "rpm"})json",
+                 R"json({"value": 5800, "unit": "km/h"})json");
+    expect(has_diagnostic(
+               require_engine_report(parse_engine_document(wrong_speed_dimension)),
+               DiagnosticCode::invalid_unit,
+               "/engine/valvetrains/0/activation/minimum_engine_speed/unit"),
+           "VTEC engine-speed threshold accepted a linear-speed unit");
+
+    std::string wrong_pressure_dimension = valid_vtec_engine_json();
+    replace_once(wrong_pressure_dimension, R"json({"value": 84, "unit": "kPa"})json",
+                 R"json({"value": 84, "unit": "rpm"})json");
+    expect(has_diagnostic(
+               require_engine_report(parse_engine_document(wrong_pressure_dimension)),
+               DiagnosticCode::invalid_unit,
+               "/engine/valvetrains/0/activation/minimum_manifold_pressure_abs/unit"),
+           "VTEC manifold-pressure threshold accepted an angular-speed unit");
+
+    std::string negative_speed = valid_vtec_engine_json();
+    replace_once(negative_speed, R"json("value": 5800, "unit": "rpm")json",
+                 R"json("value": -1, "unit": "rpm")json");
+    expect(
+        has_diagnostic(require_engine_report(parse_engine_document(negative_speed)),
+                       DiagnosticCode::out_of_range,
+                       "/engine/valvetrains/0/activation/minimum_engine_speed/value"),
+        "negative VTEC engine-speed threshold was accepted");
+
+    std::string zero_pressure = valid_vtec_engine_json();
+    replace_once(zero_pressure, R"json("value": 84, "unit": "kPa")json",
+                 R"json("value": 0, "unit": "kPa")json");
+    expect(has_diagnostic(
+               require_engine_report(parse_engine_document(zero_pressure)),
+               DiagnosticCode::out_of_range,
+               "/engine/valvetrains/0/activation/minimum_manifold_pressure_abs/value"),
+           "nonpositive VTEC absolute manifold-pressure threshold was accepted");
+
+    std::string invalid_throttle = valid_vtec_engine_json();
+    replace_once(invalid_throttle,
+                 R"json("minimum_throttle_linkage_opening_01": 0.3)json",
+                 R"json("minimum_throttle_linkage_opening_01": 1.1)json");
+    expect(
+        has_diagnostic(require_engine_report(parse_engine_document(invalid_throttle)),
+                       DiagnosticCode::out_of_range,
+                       "/engine/valvetrains/0/activation/"
+                       "minimum_throttle_linkage_opening_01"),
+        "out-of-range VTEC throttle-linkage threshold was accepted");
+}
+
 void test_cranking_starter_contract_is_minimal_and_strict() {
     std::string cranking = valid_engine_json();
     replace_once(
@@ -830,6 +948,7 @@ int main() {
         test_cross_document_reference_validation();
         test_engine_schema_identifier_is_strict();
         test_complete_engine_package();
+        test_vtec_activation_contract_is_greenfield_and_strict();
         test_cranking_starter_contract_is_minimal_and_strict();
         test_engine_duplicate_id_and_dangling_reference_paths();
         std::cout << "authoring document parser tests passed\n";

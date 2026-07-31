@@ -297,30 +297,58 @@ void admit_engine_operating_systems(ModelContext &resolved,
                    authoring::QuantityDimension::speed,
                    "/engine/fuels/0/turbulence_to_flame_speed", false);
     std::unordered_set<std::string> used_lobes;
-    if (resolved.intake_camshaft != nullptr && resolved.exhaust_camshaft != nullptr) {
-        admit_fixed_cam_lobes(*resolved.intake_camshaft, resolved,
-                              authoring::PortKind::intake, report, used_lobes,
+    std::unordered_set<std::string> used_camshafts;
+    const auto admit_camshaft = [&](const authoring::CamshaftDefinition &camshaft,
+                                    const authoring::PortKind port_kind) {
+        admit_fixed_cam_lobes(camshaft, resolved, port_kind, report, used_lobes,
                               used_curves);
-        admit_fixed_cam_lobes(*resolved.exhaust_camshaft, resolved,
-                              authoring::PortKind::exhaust, report, used_lobes,
-                              used_curves);
-        if (!equivalent_cam_shapes(*resolved.intake_camshaft, resolved,
-                                   authoring::PortKind::intake) ||
-            !equivalent_cam_shapes(*resolved.exhaust_camshaft, resolved,
-                                   authoring::PortKind::exhaust)) {
+        if (!equivalent_cam_shapes(camshaft, resolved, port_kind)) {
             add(report, DiagnosticCode::unsupported_capability, "/engine/cam_lobes",
-                "each camshaft role requires one exact shared authored cam shape");
+                "each camshaft role requires one exact shared authored cam "
+                "shape");
         }
-        const std::unordered_set<std::string> used_camshafts{
-            resolved.intake_camshaft->id.value,
-            resolved.exhaust_camshaft->id.value,
-        };
-        if (used_camshafts.size() != engine.camshafts.size() ||
-            used_lobes.size() != engine.cam_lobes.size()) {
-            add(report, DiagnosticCode::disconnected_object, "/engine/camshafts",
-                "all declared camshafts and lobes must belong to the selected "
-                "standard valvetrain");
+        used_camshafts.insert(camshaft.id.value);
+    };
+    if (resolved.intake_camshaft != nullptr && resolved.exhaust_camshaft != nullptr) {
+        admit_camshaft(*resolved.intake_camshaft, authoring::PortKind::intake);
+        admit_camshaft(*resolved.exhaust_camshaft, authoring::PortKind::exhaust);
+    }
+    if (resolved.alternate_intake_camshaft != nullptr &&
+        resolved.alternate_exhaust_camshaft != nullptr) {
+        admit_camshaft(*resolved.alternate_intake_camshaft,
+                       authoring::PortKind::intake);
+        admit_camshaft(*resolved.alternate_exhaust_camshaft,
+                       authoring::PortKind::exhaust);
+
+        const auto *vtec =
+            std::get_if<authoring::VtecValvetrain>(&resolved.valvetrain->kind);
+        if (vtec == nullptr) {
+            add(report, DiagnosticCode::internal_failure, "/engine/valvetrains/0",
+                "alternate camshafts were admitted without VTEC activation");
+        } else {
+            const double minimum_speed_rad_s =
+                legacy_si_value(vtec->activation.minimum_engine_speed);
+            const double minimum_pressure_pa_abs =
+                legacy_si_value(vtec->activation.minimum_manifold_pressure_abs);
+            const double minimum_opening =
+                vtec->activation.minimum_throttle_linkage_opening_01;
+            if (!(std::isfinite(minimum_speed_rad_s) && minimum_speed_rad_s >= 0.0 &&
+                  std::isfinite(minimum_pressure_pa_abs) &&
+                  minimum_pressure_pa_abs > 0.0 && std::isfinite(minimum_opening) &&
+                  minimum_opening >= 0.0 && minimum_opening <= 1.0)) {
+                add(report, DiagnosticCode::invalid_value,
+                    "/engine/valvetrains/0/activation",
+                    "VTEC activation requires nonnegative engine speed, positive "
+                    "absolute manifold pressure, and a unit-interval throttle "
+                    "linkage opening");
+            }
         }
+    }
+    if (used_camshafts.size() != engine.camshafts.size() ||
+        used_lobes.size() != engine.cam_lobes.size()) {
+        add(report, DiagnosticCode::disconnected_object, "/engine/camshafts",
+            "all declared camshafts and lobes must belong to the selected "
+            "valvetrain");
     }
     if (used_curves.size() != engine.curves.size()) {
         add(report, DiagnosticCode::disconnected_object, "/engine/curves",

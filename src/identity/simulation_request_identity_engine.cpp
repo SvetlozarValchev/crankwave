@@ -649,11 +649,44 @@ write_legacy_camshaft(CanonicalJsonWriter &writer,
 }
 
 [[nodiscard]] bool
+write_legacy_vtec_activation(CanonicalJsonWriter &writer,
+                             const contract::LegacyVtecActivationProfile &activation) {
+    return writer.begin_object() && writer.key("minimum_engine_speed_rad_s") &&
+           write_resolved(writer, activation.minimum_engine_speed_rad_s, write_f64) &&
+           writer.key("minimum_mean_manifold_pressure_pa_abs") &&
+           write_resolved(writer, activation.minimum_mean_manifold_pressure_pa_abs,
+                          write_f64) &&
+           writer.key("minimum_throttle_linkage_opening_01") &&
+           write_resolved(writer, activation.minimum_throttle_linkage_opening_01,
+                          write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_vtec_alternate(CanonicalJsonWriter &writer,
+                            const contract::LegacyVtecAlternateCamProfile &alternate) {
+    return writer.begin_object() && writer.key("intake") &&
+           write_legacy_camshaft(writer, alternate.intake) && writer.key("exhaust") &&
+           write_legacy_camshaft(writer, alternate.exhaust) &&
+           writer.key("activation") &&
+           write_legacy_vtec_activation(writer, alternate.activation) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
 write_legacy_valvetrain(CanonicalJsonWriter &writer,
                         const contract::LegacyValvetrainProfile &valvetrain) {
-    return writer.begin_object() && writer.key("intake") &&
-           write_legacy_camshaft(writer, valvetrain.intake) && writer.key("exhaust") &&
-           write_legacy_camshaft(writer, valvetrain.exhaust) && writer.end_object();
+    if (!(writer.begin_object() && writer.key("intake") &&
+          write_legacy_camshaft(writer, valvetrain.intake) && writer.key("exhaust") &&
+          write_legacy_camshaft(writer, valvetrain.exhaust))) {
+        return false;
+    }
+    if (valvetrain.alternate.has_value() &&
+        !(writer.key("alternate") &&
+          write_legacy_vtec_alternate(writer, *valvetrain.alternate))) {
+        return false;
+    }
+    return writer.end_object();
 }
 
 [[nodiscard]] bool write_legacy_timing_point(CanonicalJsonWriter &writer,

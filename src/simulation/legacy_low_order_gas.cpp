@@ -358,6 +358,16 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
     }
     previous_limiter_cut_active_ = mechanics.limiter_cut_active;
 
+    const double left_boundary_manifold_pressure_pa_abs =
+        legacy_gas_pressure_pa(step_.gas_volumes[intake_.plenum_volume_index].cell);
+    const LegacyVtecSelectorInput valvetrain_selection_input{
+        mechanics.omega_legacy_rad_s,
+        left_boundary_manifold_pressure_pa_abs,
+        1.0 - mechanics.resolved_engine_throttle_01,
+    };
+    const LegacyFixedValvetrain &active_valvetrain =
+        valvetrain_->profile_for(valvetrain_selection_input);
+
     const auto fuel = fuel_.view();
 
     // Ignition consumes the old thermodynamic state but snapshots the current
@@ -436,7 +446,7 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
         lane.pressure_history_pa[history_index] = legacy_gas_pressure_pa(chamber);
 
         const auto valve_sample =
-            valvetrain_->sample_cylinder(index, mechanics.body_angle_psi_rad);
+            active_valvetrain.sample_cylinder(index, mechanics.body_angle_psi_rad);
         if (!valve_sample.has_value() ||
             valve_sample->cylinder_id != public_cylinder.cylinder_id ||
             valve_sample->intake_port_id != public_cylinder.intake_port_id ||

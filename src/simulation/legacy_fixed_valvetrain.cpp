@@ -583,4 +583,89 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
     };
 }
 
+LegacySelectableValvetrain::LegacySelectableValvetrain(
+    LegacyFixedValvetrain base, std::optional<LegacyFixedValvetrain> alternate,
+    std::optional<LegacyVtecSelectorThresholds> thresholds)
+    : base_(std::move(base)), alternate_(std::move(alternate)),
+      thresholds_(std::move(thresholds)) {}
+
+bool LegacySelectableValvetrain::alternate_profile_active(
+    const LegacyVtecSelectorInput &input) const noexcept {
+    return alternate_.has_value() && thresholds_.has_value() &&
+           legacy_vtec_alternate_profile_active(*thresholds_, input);
+}
+
+const LegacyFixedValvetrain &LegacySelectableValvetrain::profile_for(
+    const LegacyVtecSelectorInput &input) const noexcept {
+    return alternate_profile_active(input) ? *alternate_ : base_;
+}
+
+LegacySelectableValvetrainCompileResult
+compile_legacy_selectable_valvetrain(const contract::EngineSpec &engine,
+                                     const contract::LowOrderEngineCoreV1 &core) {
+    auto base_result = compile_legacy_fixed_valvetrain(engine, core);
+    if (const auto *report = std::get_if<contract::ValidationReport>(&base_result)) {
+        return *report;
+    }
+    auto base = std::get<LegacyFixedValvetrain>(std::move(base_result));
+
+    if (!core.valvetrain.alternate.has_value()) {
+        return LegacySelectableValvetrain{
+            std::move(base),
+            std::nullopt,
+            std::nullopt,
+        };
+    }
+
+    const auto &source = *core.valvetrain.alternate;
+    const double minimum_engine_speed_rad_s =
+        source.activation.minimum_engine_speed_rad_s.value;
+    const double minimum_manifold_pressure_pa_abs =
+        source.activation.minimum_mean_manifold_pressure_pa_abs.value;
+    const double minimum_throttle_linkage_opening_01 =
+        source.activation.minimum_throttle_linkage_opening_01.value;
+    const bool activation_valid = std::isfinite(minimum_engine_speed_rad_s) &&
+                                  minimum_engine_speed_rad_s >= 0.0 &&
+                                  finite_positive(minimum_manifold_pressure_pa_abs) &&
+                                  std::isfinite(minimum_throttle_linkage_opening_01) &&
+                                  minimum_throttle_linkage_opening_01 >= 0.0 &&
+                                  minimum_throttle_linkage_opening_01 <= 1.0;
+    if (!activation_valid) {
+        contract::ValidationReport report;
+        report.add(
+            contract::ContractIssueCode::invalid_value,
+            "engine.physics_profile.valvetrain.alternate.activation",
+            "VTEC activation requires finite nonnegative engine speed, finite "
+            "positive absolute manifold pressure, and finite unit-interval throttle "
+            "linkage opening");
+        return report;
+    }
+
+    auto alternate_core = core;
+    alternate_core.valvetrain.intake = source.intake;
+    alternate_core.valvetrain.exhaust = source.exhaust;
+    alternate_core.valvetrain.alternate.reset();
+    auto alternate_result = compile_legacy_fixed_valvetrain(engine, alternate_core);
+    if (auto *report = std::get_if<contract::ValidationReport>(&alternate_result)) {
+        constexpr std::string_view prefix = "engine.physics_profile.valvetrain.";
+        for (auto &issue : report->issues) {
+            if (issue.path.starts_with(prefix)) {
+                issue.path.insert(prefix.size(), "alternate.");
+            }
+        }
+        return *report;
+    }
+    auto alternate = std::get<LegacyFixedValvetrain>(std::move(alternate_result));
+
+    return LegacySelectableValvetrain{
+        std::move(base),
+        std::move(alternate),
+        LegacyVtecSelectorThresholds{
+            minimum_engine_speed_rad_s,
+            minimum_manifold_pressure_pa_abs,
+            minimum_throttle_linkage_opening_01,
+        },
+    };
+}
+
 } // namespace engine_sim_offline::simulation

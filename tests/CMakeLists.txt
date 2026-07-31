@@ -1330,6 +1330,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_legacy_vtec_selector_tests
+    legacy_vtec_selector_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_legacy_vtec_selector_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_legacy_vtec_selector_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.legacy_vtec_selector
+    COMMAND engine_sim_offline_legacy_vtec_selector_tests
+)
+
+add_executable(
     engine_sim_offline_legacy_gas_primitives_tests
     legacy_gas_primitives_test.cpp
 )

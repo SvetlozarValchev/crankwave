@@ -329,9 +329,8 @@ struct StandardValvetrain {
 
 struct VtecActivation {
     Quantity minimum_engine_speed;
-    Quantity minimum_vehicle_speed;
-    Quantity minimum_manifold_vacuum;
-    double minimum_throttle_01 = 0.0;
+    Quantity minimum_manifold_pressure_abs;
+    double minimum_throttle_linkage_opening_01 = 0.0;
 
     friend bool operator==(const VtecActivation &, const VtecActivation &) = default;
 };

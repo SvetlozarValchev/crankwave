@@ -224,6 +224,7 @@ add_library(
         src/simulation/legacy_flow_calibration.cpp
         src/simulation/legacy_gas_primitives.cpp
         src/simulation/legacy_ignition_schedule.cpp
+        src/simulation/legacy_vtec_selector.cpp
         src/simulation/inertial_crank_dynamics.cpp
         src/simulation/positive_speed_rigid_crank_zoh.cpp
         src/simulation/inertial_dyno_method_registry.cpp

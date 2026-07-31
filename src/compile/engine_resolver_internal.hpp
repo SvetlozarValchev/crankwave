@@ -60,6 +60,8 @@ struct ModelContext {
     const authoring::ValvetrainDefinition *valvetrain = nullptr;
     const authoring::CamshaftDefinition *intake_camshaft = nullptr;
     const authoring::CamshaftDefinition *exhaust_camshaft = nullptr;
+    const authoring::CamshaftDefinition *alternate_intake_camshaft = nullptr;
+    const authoring::CamshaftDefinition *alternate_exhaust_camshaft = nullptr;
     const authoring::IntakeDefinition *intake = nullptr;
     const authoring::FuelDefinition *fuel = nullptr;
     const authoring::ThrottleControllerDefinition *throttle_controller = nullptr;

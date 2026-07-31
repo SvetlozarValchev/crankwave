@@ -461,6 +461,137 @@ void accumulate_activity(const LegacyLowOrderGasStep &step,
            left.indicated_gas_torque_nm == right.indicated_gas_torque_nm;
 }
 
+void offset_cam_advance(LegacyCamshaftProfile &camshaft, double offset_rad) {
+    std::visit([&](auto &shape) { shape.advance_rad.value += offset_rad; },
+               camshaft.shape);
+}
+
+void configure_vtec_alternate(AuthoredEngineFixture &request, bool distinct_alternate,
+                              bool force_alternate_active) {
+    auto &core = engine_sim_offline::test::low_order_core(request.engine);
+    LegacyVtecAlternateCamProfile alternate;
+    alternate.intake = core.valvetrain.intake;
+    alternate.exhaust = core.valvetrain.exhaust;
+    if (distinct_alternate) {
+        offset_cam_advance(alternate.intake, 0.35);
+        offset_cam_advance(alternate.exhaust, 0.35);
+    }
+
+    alternate.activation.minimum_engine_speed_rad_s =
+        core.ignition.timing_curve_triangle_radius_rad_s;
+    alternate.activation.minimum_engine_speed_rad_s.value = 0.0;
+    alternate.activation.minimum_mean_manifold_pressure_pa_abs =
+        core.gas_path.intake.plenum_volume_m3;
+    alternate.activation.minimum_mean_manifold_pressure_pa_abs.value = 1.0;
+    alternate.activation.minimum_throttle_linkage_opening_01 =
+        core.gas_path.intake.throttle_gamma;
+    alternate.activation.minimum_throttle_linkage_opening_01.value =
+        force_alternate_active ? 0.0 : 0.8;
+    core.valvetrain.alternate.emplace(std::move(alternate));
+}
+
+[[nodiscard]] const LegacyMechanismStep &advance_mechanics(CompiledSessions &sessions,
+                                                           std::uint64_t sample_index) {
+    auto result = sessions.mechanics.advance();
+    return require_mechanics_step(result, sample_index);
+}
+
+[[nodiscard]] const LegacyLowOrderGasStep &
+advance_gas(CompiledSessions &sessions, const LegacyMechanismStep &mechanics,
+            std::uint64_t sample_index) {
+    auto result = sessions.gas.advance(mechanics);
+    return require_gas_step(result, sample_index);
+}
+
+void test_vtec_selects_one_coherent_immutable_cam_pair(
+    const AuthoredEngineFixture &canonical) {
+    auto base_request = make_short_request(canonical);
+
+    auto forced_base_request = base_request;
+    configure_vtec_alternate(forced_base_request, true, false);
+
+    auto equal_active_request = base_request;
+    configure_vtec_alternate(equal_active_request, false, true);
+
+    auto alternate_active_request = base_request;
+    configure_vtec_alternate(alternate_active_request, true, true);
+
+    auto alternate_fixed_request = base_request;
+    auto &alternate_fixed_core =
+        engine_sim_offline::test::low_order_core(alternate_fixed_request.engine);
+    const auto &alternate_source =
+        *engine_sim_offline::test::low_order_core(alternate_active_request.engine)
+             .valvetrain.alternate;
+    alternate_fixed_core.valvetrain.intake = alternate_source.intake;
+    alternate_fixed_core.valvetrain.exhaust = alternate_source.exhaust;
+
+    auto base = compile_sessions(base_request);
+    auto forced_base = compile_sessions(forced_base_request);
+    auto equal_active = compile_sessions(equal_active_request);
+    auto alternate_active = compile_sessions(alternate_active_request);
+    auto alternate_fixed = compile_sessions(alternate_fixed_request);
+
+    bool observed_intake_difference = false;
+    bool observed_exhaust_difference = false;
+    constexpr std::uint64_t kProofFrameCount = 512U;
+    for (std::uint64_t sample_index = 0; sample_index < kProofFrameCount;
+         ++sample_index) {
+        const auto &base_mechanics = advance_mechanics(base, sample_index);
+        const auto &forced_base_mechanics =
+            advance_mechanics(forced_base, sample_index);
+        const auto &equal_active_mechanics =
+            advance_mechanics(equal_active, sample_index);
+        const auto &alternate_active_mechanics =
+            advance_mechanics(alternate_active, sample_index);
+        const auto &alternate_fixed_mechanics =
+            advance_mechanics(alternate_fixed, sample_index);
+        expect(same_mechanics_step(base_mechanics, forced_base_mechanics) &&
+                   same_mechanics_step(base_mechanics, equal_active_mechanics) &&
+                   same_mechanics_step(base_mechanics, alternate_active_mechanics) &&
+                   same_mechanics_step(base_mechanics, alternate_fixed_mechanics),
+               "VTEC-only fixture changed mechanics before gas selection");
+        expect(base_mechanics.requested_throttle_01 > 0.8 &&
+                   1.0 - base_mechanics.resolved_engine_throttle_01 < 0.8,
+               "forced-base fixture no longer distinguishes requested throttle from "
+               "pristine throttle-linkage opening");
+
+        const auto &base_gas = advance_gas(base, base_mechanics, sample_index);
+        const auto &forced_base_gas =
+            advance_gas(forced_base, forced_base_mechanics, sample_index);
+        const auto &equal_active_gas =
+            advance_gas(equal_active, equal_active_mechanics, sample_index);
+        const auto &alternate_active_gas =
+            advance_gas(alternate_active, alternate_active_mechanics, sample_index);
+        const auto &alternate_fixed_gas =
+            advance_gas(alternate_fixed, alternate_fixed_mechanics, sample_index);
+
+        expect(same_gas_step(base_gas, forced_base_gas),
+               "failed VTEC gate changed the standard base-cam gas transaction");
+        expect(same_gas_step(base_gas, equal_active_gas),
+               "active equal VTEC cams changed the base-cam gas transaction");
+        expect(same_gas_step(alternate_fixed_gas, alternate_active_gas),
+               "active VTEC did not use one coherent alternate pair for the entire "
+               "gas transaction");
+
+        for (std::size_t cylinder_index = 0; cylinder_index < base_gas.cylinders.size();
+             ++cylinder_index) {
+            const auto &base_valves = base_gas.cylinders[cylinder_index].valves;
+            const auto &alternate_valves =
+                alternate_active_gas.cylinders[cylinder_index].valves;
+            observed_intake_difference =
+                observed_intake_difference ||
+                base_valves.intake_lift_m != alternate_valves.intake_lift_m;
+            observed_exhaust_difference =
+                observed_exhaust_difference ||
+                base_valves.exhaust_lift_m != alternate_valves.exhaust_lift_m;
+        }
+    }
+
+    expect(observed_intake_difference && observed_exhaust_difference,
+           "distinct alternate intake and exhaust cams never diverged from the "
+           "base pair");
+}
+
 void test_short_authored_fresh_state_and_deterministic_activity(
     const AuthoredEngineFixture &canonical) {
     const auto request = make_short_request(canonical);
@@ -630,6 +761,7 @@ void test_length_authored_collector_geometry_admission(
 }
 
 void run_tests(const AuthoredEngineFixture &canonical) {
+    test_vtec_selects_one_coherent_immutable_cam_pair(canonical);
     test_short_authored_fresh_state_and_deterministic_activity(canonical);
     test_length_authored_collector_geometry_admission(canonical);
     test_gas_method_admission_rejection(canonical);

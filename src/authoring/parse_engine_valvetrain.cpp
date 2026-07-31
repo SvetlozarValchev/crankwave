@@ -132,22 +132,29 @@ void parse_valvetrain(DocumentReader &reader, JsonValue value, std::string_view 
         const auto activation_path = pointer_member(path, "activation");
         if (reader.object(activation, activation_path, owner)) {
             reader.reject_unknown(activation, activation_path,
-                                  {"minimum_engine_speed", "minimum_vehicle_speed",
-                                   "minimum_manifold_vacuum", "minimum_throttle_01"},
+                                  {"minimum_engine_speed",
+                                   "minimum_manifold_pressure_abs",
+                                   "minimum_throttle_linkage_opening_01"},
                                   owner);
             read_quantity_member(reader, activation, "minimum_engine_speed",
                                  activation_path, QuantityDimension::angular_speed,
                                  parsed.activation.minimum_engine_speed, owner);
-            read_quantity_member(reader, activation, "minimum_vehicle_speed",
-                                 activation_path, QuantityDimension::speed,
-                                 parsed.activation.minimum_vehicle_speed, owner);
-            read_quantity_member(reader, activation, "minimum_manifold_vacuum",
+            read_quantity_member(reader, activation, "minimum_manifold_pressure_abs",
                                  activation_path, QuantityDimension::pressure,
-                                 parsed.activation.minimum_manifold_vacuum, owner);
-            reader.fraction(reader.required(activation, "minimum_throttle_01",
-                                            activation_path, owner),
-                            pointer_member(activation_path, "minimum_throttle_01"),
-                            parsed.activation.minimum_throttle_01, owner);
+                                 parsed.activation.minimum_manifold_pressure_abs,
+                                 owner);
+            reader.fraction(
+                reader.required(activation, "minimum_throttle_linkage_opening_01",
+                                activation_path, owner),
+                pointer_member(activation_path, "minimum_throttle_linkage_opening_01"),
+                parsed.activation.minimum_throttle_linkage_opening_01, owner);
+            require_nonnegative(reader, parsed.activation.minimum_engine_speed,
+                                pointer_member(activation_path, "minimum_engine_speed"),
+                                owner);
+            require_positive(
+                reader, parsed.activation.minimum_manifold_pressure_abs,
+                pointer_member(activation_path, "minimum_manifold_pressure_abs"),
+                owner);
         }
         output.kind = std::move(parsed);
     }
@@ -158,8 +165,7 @@ void parse_head(DocumentReader &reader, JsonValue value, std::string_view path,
     if (!reader.object(value, path)) {
         return;
     }
-    reader.reject_unknown(value, path,
-                          {"id", "chamber_volume", "valvetrain", "ports"});
+    reader.reject_unknown(value, path, {"id", "chamber_volume", "valvetrain", "ports"});
     read_id_member(reader, value, "id", path, output.id);
     const auto owner = subject("head", output.id.value);
     read_quantity_member(reader, value, "chamber_volume", path,

@@ -58,6 +58,55 @@ LegacySampledCamShape make_sampled_cam_shape(InputBuilder &builder,
     };
 }
 
+LegacyCamshaftProfile make_vtec_camshaft(InputBuilder &builder,
+                                         const LegacyCamshaftProfile &source,
+                                         std::string_view role, double maximum_lift_m) {
+    const auto base =
+        std::string{"engine.physics.low-order-operating-point-v1.valvetrain."
+                    "alternate."} +
+        std::string{role};
+    const auto &shape = std::get<LegacyHarmonicCamShape>(source.shape);
+    LegacyCamshaftProfile result;
+    result.shape = LegacyHarmonicCamShape{
+        builder.resolved(maximum_lift_m, base + ".shape.maximum_lift_m"),
+        builder.resolved(shape.duration_at_reference_lift_rad.value,
+                         base + ".shape.duration_at_reference_lift_rad"),
+        builder.resolved(shape.exponent.value, base + ".shape.exponent"),
+        builder.resolved(shape.construction_steps.value,
+                         base + ".shape.construction_steps"),
+        builder.resolved(shape.advance_rad.value, base + ".shape.advance_rad"),
+        builder.resolved(shape.base_radius_m.value, base + ".shape.base_radius_m"),
+    };
+    for (const auto &lobe : source.lobes) {
+        result.lobes.push_back({
+            lobe.cylinder_id,
+            lobe.port_id,
+            builder.resolved(lobe.crank_center_rad.value,
+                             base + ".lobes.cylinder-1.crank_center_rad"),
+        });
+    }
+    return result;
+}
+
+LegacyVtecAlternateCamProfile
+make_vtec_alternate(InputBuilder &builder, const LegacyValvetrainProfile &valvetrain) {
+    constexpr std::string_view kActivationBase =
+        "engine.physics.low-order-operating-point-v1.valvetrain.alternate.activation";
+    return {
+        make_vtec_camshaft(builder, valvetrain.intake, "intake", 0.0115),
+        make_vtec_camshaft(builder, valvetrain.exhaust, "exhaust", 0.0105),
+        {
+            builder.resolved(607.3745796940267, std::string{kActivationBase} +
+                                                    ".minimum_engine_speed_rad_s"),
+            builder.resolved(84393.05666666667,
+                             std::string{kActivationBase} +
+                                 ".minimum_mean_manifold_pressure_pa_abs"),
+            builder.resolved(0.3, std::string{kActivationBase} +
+                                      ".minimum_throttle_linkage_opening_01"),
+        },
+    };
+}
+
 } // namespace
 
 void run_parity_model_contract_tests() {
@@ -81,6 +130,22 @@ void run_parity_model_contract_tests() {
         "intake");
     expect(validate(sampled_engine, sampled_builder.provenance).ok(),
            "valid sampled fixed cam shape was rejected");
+
+    InputBuilder vtec_builder;
+    auto vtec_engine = make_engine(vtec_builder);
+    auto &vtec_valvetrain = operating_profile(vtec_engine).core.valvetrain;
+    vtec_valvetrain.alternate = make_vtec_alternate(vtec_builder, vtec_valvetrain);
+    expect(validate(vtec_engine, vtec_builder.provenance).ok(),
+           "valid VTEC alternate cam pair and activation thresholds were rejected");
+
+    expect_parity_mutation_rejected(
+        "nonpositive VTEC manifold-pressure threshold was accepted",
+        [](EngineSpec &engine, InputBuilder &builder) {
+            auto &valvetrain = operating_profile(engine).core.valvetrain;
+            valvetrain.alternate = make_vtec_alternate(builder, valvetrain);
+            valvetrain.alternate->activation.minimum_mean_manifold_pressure_pa_abs
+                .value = 0.0;
+        });
 
     expect_parity_mutation_rejected(
         "nonpositive sampled cam radius was accepted",

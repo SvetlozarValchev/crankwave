@@ -590,8 +590,10 @@ native session, exact C ABI, WASM transport, and Web workbench; the BMW crank/ca
 checkpoint was accepted, and source-faithful starter capabilities are wired into every
 packaged engine that declares them. Slice 7 admits arbitrary sampled fixed-cam profiles
 through the public compiler while leaving the generated harmonic path and equivalent
-session PCM byte-identical. Slice 8 is next and retains its separate Honda transition
-listening checkpoint.
+session PCM byte-identical. Slice 8's four-cam selector now executes the three consumed
+pristine predicates without the dead `min_speed` input; its source audit is frozen in
+[`docs/oracles/PRISTINE_ENGINE_SIM_VTEC.md`](docs/oracles/PRISTINE_ENGINE_SIM_VTEC.md).
+The separate Honda transition listening checkpoint remains before slice 9 begins.
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
 and mastering unchanged. Listen immediately after the one intended behavior changes;

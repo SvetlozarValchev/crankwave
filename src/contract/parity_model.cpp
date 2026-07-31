@@ -323,6 +323,24 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
     };
     visit_camshaft(core.valvetrain.intake, std::string(root) + ".valvetrain.intake");
     visit_camshaft(core.valvetrain.exhaust, std::string(root) + ".valvetrain.exhaust");
+    if constexpr (requires { core.valvetrain.alternate; }) {
+        if (core.valvetrain.alternate.has_value()) {
+            const auto &alternate = *core.valvetrain.alternate;
+            visit_camshaft(alternate.intake,
+                           std::string(root) + ".valvetrain.alternate.intake");
+            visit_camshaft(alternate.exhaust,
+                           std::string(root) + ".valvetrain.alternate.exhaust");
+            function(alternate.activation.minimum_engine_speed_rad_s,
+                     std::string(root) + ".valvetrain.alternate.activation."
+                                         "minimum_engine_speed_rad_s");
+            function(alternate.activation.minimum_mean_manifold_pressure_pa_abs,
+                     std::string(root) + ".valvetrain.alternate.activation."
+                                         "minimum_mean_manifold_pressure_pa_abs");
+            function(alternate.activation.minimum_throttle_linkage_opening_01,
+                     std::string(root) + ".valvetrain.alternate.activation."
+                                         "minimum_throttle_linkage_opening_01");
+        }
+    }
 
     function(core.ignition.firing_order, std::string(root) + ".ignition.firing_order");
     function(core.ignition.timing_curve_triangle_radius_rad_s,
@@ -1742,6 +1760,22 @@ void validate_low_order_core_domains(ValidationReport &report,
     };
     validate_camshaft(core.valvetrain.intake, PortKind::intake, "valvetrain.intake");
     validate_camshaft(core.valvetrain.exhaust, PortKind::exhaust, "valvetrain.exhaust");
+    if (core.valvetrain.alternate.has_value()) {
+        const auto &alternate = *core.valvetrain.alternate;
+        validate_camshaft(alternate.intake, PortKind::intake,
+                          "valvetrain.alternate.intake");
+        validate_camshaft(alternate.exhaust, PortKind::exhaust,
+                          "valvetrain.alternate.exhaust");
+        require(
+            report,
+            finite_nonnegative(alternate.activation.minimum_engine_speed_rad_s.value) &&
+                finite_positive(
+                    alternate.activation.minimum_mean_manifold_pressure_pa_abs.value) &&
+                detail::unit_interval(
+                    alternate.activation.minimum_throttle_linkage_opening_01.value),
+            ContractIssueCode::invalid_value, "valvetrain.alternate.activation",
+            "VTEC activation thresholds are outside their executable domains");
+    }
 
     require(report,
             core.ignition.firing_order.value.size() == engine.cylinders.size() &&

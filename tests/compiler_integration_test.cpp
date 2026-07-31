@@ -689,6 +689,53 @@ make_engine_document(const SyntheticAssets &assets) {
     return package;
 }
 
+void use_four_cam_vtec(authoring::EnginePackageDocument &document) {
+    auto &engine = document.engine;
+    auto alternate_intake = engine.camshafts[0];
+    auto alternate_exhaust = engine.camshafts[1];
+    alternate_intake.id.value = "fixture-alternate-intake-cam";
+    alternate_exhaust.id.value = "fixture-alternate-exhaust-cam";
+    alternate_intake.lobes.clear();
+    alternate_exhaust.lobes.clear();
+
+    const auto clone_lobes = [&](const authoring::CamshaftDefinition &base,
+                                 authoring::CamshaftDefinition &alternate,
+                                 const std::string_view role) {
+        for (std::size_t index = 0; index < base.lobes.size(); ++index) {
+            const auto found =
+                std::ranges::find(engine.cam_lobes, base.lobes[index].value,
+                                  [](const auto &lobe) { return lobe.id.value; });
+            expect(found != engine.cam_lobes.end(),
+                   "VTEC fixture base cam lobe did not resolve");
+            auto lobe = *found;
+            lobe.id.value = "fixture-alternate-" + std::string{role} + "-lobe-" +
+                            std::to_string(index + 1U);
+            auto &harmonic = std::get<authoring::HarmonicCamLobe>(lobe.shape);
+            harmonic.duration_at_reference_lift =
+                quantity(role == "intake" ? 240.0 : 232.0, "deg");
+            harmonic.maximum_lift = quantity(role == "intake" ? 11.5 : 10.5, "mm");
+            alternate.lobes.push_back({lobe.id.value});
+            engine.cam_lobes.push_back(std::move(lobe));
+        }
+    };
+
+    clone_lobes(engine.camshafts[0], alternate_intake, "intake");
+    clone_lobes(engine.camshafts[1], alternate_exhaust, "exhaust");
+    engine.camshafts.push_back(std::move(alternate_intake));
+    engine.camshafts.push_back(std::move(alternate_exhaust));
+    engine.valvetrains.front().kind = authoring::VtecValvetrain{
+        {"fixture-intake-cam"},
+        {"fixture-exhaust-cam"},
+        {"fixture-alternate-intake-cam"},
+        {"fixture-alternate-exhaust-cam"},
+        {
+            quantity(5800.0, "rpm"),
+            quantity(84393.05666666664, "Pa"),
+            0.3,
+        },
+    };
+}
+
 [[nodiscard]] authoring::EnginePackageDocument
 make_inline_twin_document(const SyntheticAssets &assets) {
     auto package = make_engine_document(assets);
@@ -1588,36 +1635,67 @@ void test_invalid_sampled_fixed_cams_fail_closed() {
         "one camshaft referencing two separately authored sampled curves");
 }
 
+void test_four_cam_vtec_resolves_to_si_and_provenance() {
+    const SyntheticAssets assets = make_assets();
+    auto document = make_engine_document(assets);
+    use_four_cam_vtec(document);
+    auto views = assets.views();
+
+    auto resolved =
+        require_value(compile_detail::resolve_engine_package(document, views),
+                      "valid four-cam VTEC engine resolution failed");
+    const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+        resolved.engine.physics_profile);
+    expect(profile.core.valvetrain.alternate.has_value(),
+           "resolved VTEC profile omitted its alternate cam pair");
+    const auto &alternate = *profile.core.valvetrain.alternate;
+    const auto &alternate_intake =
+        std::get<contract::LegacyHarmonicCamShape>(alternate.intake.shape);
+    const auto near = [](const double left, const double right) {
+        return std::abs(left - right) <= 1.0e-12;
+    };
+    expect(
+        near(alternate_intake.maximum_lift_m.value, 0.0115) &&
+            near(alternate.activation.minimum_engine_speed_rad_s.value,
+                 5800.0 * 0.104719755) &&
+            near(alternate.activation.minimum_mean_manifold_pressure_pa_abs.value,
+                 84393.05666666664) &&
+            near(alternate.activation.minimum_throttle_linkage_opening_01.value, 0.3),
+        "VTEC alternate cam or activation thresholds lost canonical SI values");
+
+    const auto has_resolution = [&](const std::string_view path) {
+        return std::ranges::any_of(
+            resolved.provenance.resolutions, [&](const auto &resolution) {
+                return resolution.parameter_path == path &&
+                       resolution.mode == contract::ResolutionMode::authored;
+            });
+    };
+    expect(has_resolution(
+               "engine.physics.low-order-operating-point-v1.valvetrain.alternate."
+               "intake.shape.maximum_lift_m") &&
+               has_resolution(
+                   "engine.physics.low-order-operating-point-v1.valvetrain.alternate."
+                   "activation.minimum_engine_speed_rad_s") &&
+               has_resolution(
+                   "engine.physics.low-order-operating-point-v1.valvetrain.alternate."
+                   "activation.minimum_mean_manifold_pressure_pa_abs") &&
+               has_resolution(
+                   "engine.physics.low-order-operating-point-v1.valvetrain.alternate."
+                   "activation.minimum_throttle_linkage_opening_01"),
+           "VTEC alternate cam or activation thresholds lost authored provenance");
+
+    (void)require_value(compile::compile_engine(document, views),
+                        "public compiler rejected a valid four-cam VTEC engine");
+}
+
 void test_unsupported_capability_fails_closed() {
     const SyntheticAssets assets = make_assets();
-    {
-        auto document = make_engine_document(assets);
-        auto &valvetrain = document.engine.valvetrains.front();
-        valvetrain.kind = authoring::VtecValvetrain{
-            {"fixture-intake-cam"},
-            {"fixture-exhaust-cam"},
-            {"fixture-intake-cam"},
-            {"fixture-exhaust-cam"},
-            {
-                quantity(5200.0, "rpm"),
-                quantity(20.0, "km/h"),
-                quantity(25.0, "kPa"),
-                0.6,
-            },
-        };
-        auto views = assets.views();
-        const auto result = compile::compile_engine(document, views);
-        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
-                           "/engine/valvetrains/0", "unsupported VTEC valvetrain");
-    }
-    {
-        auto document = make_engine_document(assets);
-        document.engine.layout = authoring::CylinderLayout::opposed;
-        auto views = assets.views();
-        const auto result = compile::compile_engine(document, views);
-        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
-                           "/engine/layout", "unsupported opposed engine topology");
-    }
+    auto document = make_engine_document(assets);
+    document.engine.layout = authoring::CylinderLayout::opposed;
+    auto views = assets.views();
+    const auto result = compile::compile_engine(document, views);
+    require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                       "/engine/layout", "unsupported opposed engine topology");
 }
 
 void test_direct_scenario_dto_admission_fails_closed() {
@@ -1654,6 +1732,7 @@ int main() {
         test_sampled_fixed_cam_resolves_si_curve_and_provenance();
         test_harmonic_and_equivalent_sampled_cam_sessions_are_identical();
         test_invalid_sampled_fixed_cams_fail_closed();
+        test_four_cam_vtec_resolves_to_si_and_provenance();
         test_unsupported_capability_fails_closed();
         test_direct_scenario_dto_admission_fails_closed();
         std::cout << "compiler integration tests passed\n";

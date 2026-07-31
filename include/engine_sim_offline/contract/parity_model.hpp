@@ -5,6 +5,7 @@
 #include "engine_sim_offline/contract/torque.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -350,7 +351,33 @@ template <class Camshaft> struct LegacyValvetrainProfileT {
 
 using AuthoredLegacyValvetrainProfile =
     LegacyValvetrainProfileT<AuthoredLegacyCamshaftProfile>;
-using LegacyValvetrainProfile = LegacyValvetrainProfileT<LegacyCamshaftProfile>;
+
+struct LegacyVtecActivationProfile {
+    ResolvedValue<double> minimum_engine_speed_rad_s;
+    ResolvedValue<double> minimum_mean_manifold_pressure_pa_abs;
+    ResolvedValue<double> minimum_throttle_linkage_opening_01;
+
+    friend bool operator==(const LegacyVtecActivationProfile &,
+                           const LegacyVtecActivationProfile &) = default;
+};
+
+struct LegacyVtecAlternateCamProfile {
+    LegacyCamshaftProfile intake;
+    LegacyCamshaftProfile exhaust;
+    LegacyVtecActivationProfile activation;
+
+    friend bool operator==(const LegacyVtecAlternateCamProfile &,
+                           const LegacyVtecAlternateCamProfile &) = default;
+};
+
+struct LegacyValvetrainProfile {
+    LegacyCamshaftProfile intake;
+    LegacyCamshaftProfile exhaust;
+    std::optional<LegacyVtecAlternateCamProfile> alternate;
+
+    friend bool operator==(const LegacyValvetrainProfile &,
+                           const LegacyValvetrainProfile &) = default;
+};
 
 template <template <class> class Field> struct LegacyTimingPointT {
     Field<std::string> sample_id;
