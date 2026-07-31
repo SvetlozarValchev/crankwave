@@ -613,6 +613,10 @@ scenario-mode =
     "value": prescribed-kinematic-sweep
   } /
   {
+    "kind": "held_dyno",
+    "value": held-dyno
+  } /
+  {
     "kind": "load_target_held_capture",
     "value": load-target-held-capture
   } /
@@ -634,6 +638,16 @@ held-speed = {
 prescribed-kinematic-sweep = {
   "trajectory": rpm-trajectory,
   "throttle_01": scalar-trajectory
+}
+
+held-dyno = {
+  "initial_engine_speed_rpm": resolved<f64-bits>,
+  "initial_theta_rad": resolved<f64-bits>,
+  "target_engine_speed_rpm": fixed-rate-rpm-trajectory,
+  "throttle_01": scalar-trajectory,
+  "maximum_absorbing_torque_nm": resolved<f64-bits>,
+  "maximum_driving_torque_nm": resolved<f64-bits>,
+  "constraint_method": resolved<method-identity>
 }
 
 load-target-held-capture = {

@@ -643,6 +643,16 @@ compile_scenario_control_schedule(const contract::RenderScenario &scenario,
         }
         compile_throttle_boundaries(report, scenario, sweep->throttle_01, horizon,
                                     throttle);
+    } else if (const auto *held_dyno =
+                   std::get_if<contract::HeldDyno>(&scenario.mode)) {
+        initial_theta_rad = held_dyno->initial_theta_rad.value;
+        if (!std::isfinite(initial_theta_rad)) {
+            add_issue(report, ContractIssueCode::invalid_value,
+                      "scenario.mode.initial_theta_rad.value",
+                      "initial crank angle must be finite");
+        }
+        compile_throttle_boundaries(report, scenario, held_dyno->throttle_01, horizon,
+                                    throttle);
     } else if (const auto *dyno = std::get_if<contract::InertialDyno>(&scenario.mode)) {
         initial_theta_rad = dyno->initial_theta_rad.value;
         if (!std::isfinite(initial_theta_rad)) {
@@ -668,7 +678,8 @@ compile_scenario_control_schedule(const contract::RenderScenario &scenario,
     } else {
         add_issue(report, ContractIssueCode::unsupported_value, "scenario.mode",
                   "control scheduling supports only HeldSpeed, "
-                  "PrescribedKinematicSweep, InertialDyno, and FreeEngine modes");
+                  "PrescribedKinematicSweep, HeldDyno, InertialDyno, and FreeEngine "
+                  "modes");
         return report;
     }
 

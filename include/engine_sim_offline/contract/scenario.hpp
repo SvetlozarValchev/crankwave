@@ -159,6 +159,18 @@ struct PrescribedKinematicSweep {
                            const PrescribedKinematicSweep &) = default;
 };
 
+struct HeldDyno {
+    ResolvedValue<double> initial_engine_speed_rpm;
+    ResolvedValue<double> initial_theta_rad;
+    FixedRateRpmTrajectory target_engine_speed_rpm;
+    ScalarTrajectory throttle_01;
+    ResolvedValue<double> maximum_absorbing_torque_nm;
+    ResolvedValue<double> maximum_driving_torque_nm;
+    ResolvedValue<MethodIdentity> constraint_method;
+
+    friend bool operator==(const HeldDyno &, const HeldDyno &) = default;
+};
+
 struct LoadTargetHeldCapture {
     ResolvedValue<double> engine_speed_rpm;
     ResolvedValue<double> initial_theta_rad;
@@ -216,7 +228,7 @@ struct FreeEngine {
     friend bool operator==(const FreeEngine &, const FreeEngine &) = default;
 };
 
-using ScenarioMode = std::variant<HeldSpeed, PrescribedKinematicSweep,
+using ScenarioMode = std::variant<HeldSpeed, PrescribedKinematicSweep, HeldDyno,
                                   LoadTargetHeldCapture, InertialDyno, FreeEngine>;
 
 struct RenderQuality {

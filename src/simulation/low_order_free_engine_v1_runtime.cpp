@@ -158,6 +158,47 @@ preparation_capture_torque(double indicated_gas_torque_nm,
     return result;
 }
 
+[[nodiscard]] contract::TorqueTelemetry held_dyno_capture_torque(
+    double applied_indicated_gas_torque_nm, double applied_source_friction_torque_nm,
+    double applied_actuator_torque_nm, double initial_angular_speed_rad_s) noexcept {
+    const auto crank_friction =
+        contract::torque_term_mask(contract::TorqueTerm::crank_friction);
+    const auto piston_friction =
+        contract::torque_term_mask(contract::TorqueTerm::piston_ring_friction);
+    const auto applied_friction_terms = crank_friction | piston_friction;
+    const auto starter = contract::torque_term_mask(contract::TorqueTerm::starter);
+    const auto applied_net_terms =
+        contract::indicated_gas_torque_term_mask() | applied_friction_terms | starter;
+    const double engine_torque_nm =
+        applied_indicated_gas_torque_nm + applied_source_friction_torque_nm;
+    contract::TorqueTelemetry result;
+    result.instantaneous_indicated_gas = available_torque(
+        applied_indicated_gas_torque_nm, contract::indicated_gas_torque_term_mask());
+    result.pumping_partition =
+        unavailable_torque(contract::QuantityUnavailableReason::model_not_admitted);
+    result.friction_pump_and_accessory = available_classified_torque(
+        applied_source_friction_torque_nm, applied_friction_terms,
+        contract::friction_pump_and_accessory_torque_term_mask() &
+            ~applied_friction_terms);
+    result.starter = available_torque(0.0, starter);
+    result.instantaneous_net_shaft = available_classified_torque(
+        engine_torque_nm, applied_net_terms,
+        contract::known_torque_term_mask() & ~applied_net_terms);
+    result.cycle_mean_net_shaft = unavailable_torque(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
+    result.actuator = available_torque(applied_actuator_torque_nm, 0);
+    result.dyno_reaction = available_torque(-applied_actuator_torque_nm, 0);
+    result.cycle_work_j = unavailable_quantity(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
+    result.net_bmep_pa = unavailable_quantity(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
+    result.instantaneous_power_w =
+        available_incomplete_quantity(engine_torque_nm * initial_angular_speed_rad_s);
+    result.cycle_mean_power_w = unavailable_quantity(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
+    return result;
+}
+
 [[nodiscard]] contract::FailureKind
 accounting_failure_kind(OperatingCycleAccountingErrorCode code) noexcept {
     switch (code) {
@@ -214,8 +255,8 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
     double initial_theta_rad, bool cold_bootstrap,
     double applied_positive_speed_crank_friction_torque_nm,
     double starter_maximum_torque_nm, double starter_target_speed_rad_s,
-    std::string model_id, std::string profile_id, std::string scenario_id,
-    contract::EngineId engine_id)
+    std::optional<HeldDynoMotionPlan> held_dyno_motion, std::string model_id,
+    std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
     : control_cursor_(std::move(control_cursor)), accountant_(std::move(accountant)),
       sampler_(std::move(sampler)),
       physical_gas_step_indices_(std::move(physical_gas_step_indices)),
@@ -238,6 +279,7 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
           applied_positive_speed_crank_friction_torque_nm),
       starter_maximum_torque_nm_(starter_maximum_torque_nm),
       starter_target_speed_rad_s_(starter_target_speed_rad_s),
+      held_dyno_motion_(std::move(held_dyno_motion)),
       piston_wall_boundary_angular_speed_rad_s_(initial_engine_speed_rpm *
                                                 kLegacyRpmScale),
       crank_state_{initial_theta_rad,
@@ -624,6 +666,7 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
         return *terminal_fault_;
     }
     const auto terminal_sample_count = execution_extent_.finite_physics_frame_count();
+    const bool held_dyno = held_dyno_motion_.has_value();
     if (terminal_sample_count.has_value() &&
         accepted_sample_count_ == *terminal_sample_count) {
         if (!terminal_completed_ || !preparation_finalized_ ||
@@ -660,13 +703,16 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
         return fail(std::move(*failure));
     }
 
+    // Fixed preparation is an initialization hold, not an observed actuator step.
+    // HeldDyno validation requires its target lane to remain at this exact speed
+    // through release; actuator/reaction telemetry begins with released motion.
     if (accepted_sample_count_ < release_frame_index_) {
         if (overrides.any()) {
             return fail(
                 fault(contract::FailureKind::contract_violation,
                       "free-engine-live-controls-during-held-preparation",
-                      "live throttle, ignition, fuel, limiter, and external-resistance "
-                      "overrides are not admitted during fixed held preparation"));
+                      "live control overrides are not admitted during fixed held "
+                      "preparation"));
         }
         const double omega =
             initial_engine_speed_rpm_ * std::numbers::pi_v<double> / 30.0;
@@ -701,12 +747,13 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
                 std::bit_cast<std::uint64_t>(controls->requested_throttle) &&
             mechanics.operating_state == controls->operating_state;
         const auto &state = mechanics.operating_state;
-        if (!exact_held_controls || state.starter_enabled || state.dyno_enabled) {
+        if (!exact_held_controls || state.starter_enabled ||
+            state.dyno_enabled != held_dyno) {
             return fail(fault(
                 contract::FailureKind::contract_violation,
                 "free-engine-held-condition-disagreed",
                 "preparation transaction differs from the compiled RPM, throttle, "
-                "or starter-off and dyno-off free-engine state",
+                "or starter-off motion-owner state",
                 &mechanics));
         }
         if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
@@ -781,6 +828,105 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     }
     const auto &inertia =
         std::get<CenteredSliderCrankConfigurationInertia>(inertia_calculation);
+
+    if (held_dyno) {
+        const auto &dyno = *held_dyno_motion_;
+        if (starter_enabled || overrides.has_external_resisting_torque_nm ||
+            accepted_sample_count_ >= dyno.target_engine_speed_rpm.size()) {
+            return fail(fault(
+                contract::FailureKind::contract_violation,
+                "held-dyno-control-state-disagreed",
+                "bounded held dyno requires starter off, no free-engine resistance "
+                "override, and one target sample for the current physics step"));
+        }
+        const double target_rpm =
+            overrides.has_dyno_target_engine_speed_rpm
+                ? overrides.dyno_target_engine_speed_rpm
+                : dyno.target_engine_speed_rpm[static_cast<std::size_t>(
+                      accepted_sample_count_)];
+        const double maximum_absorbing_torque_nm =
+            overrides.has_dyno_maximum_absorbing_torque_nm
+                ? overrides.dyno_maximum_absorbing_torque_nm
+                : dyno.maximum_absorbing_torque_nm;
+        const double maximum_driving_torque_nm =
+            overrides.has_dyno_maximum_driving_torque_nm
+                ? overrides.dyno_maximum_driving_torque_nm
+                : dyno.maximum_driving_torque_nm;
+        const auto calculation = detail::advance_bounded_dyno_constraint({
+            inertia.total_inertia_kg_m2,
+            inertia.total_derivative_kg_m2_per_rad,
+            crank_state_,
+            starter_off_upstream_engine_torque_nm,
+            target_rpm * std::numbers::pi_v<double> / 30.0,
+            maximum_absorbing_torque_nm,
+            maximum_driving_torque_nm,
+            step_s_,
+        });
+        if (const auto *error =
+                std::get_if<detail::BoundedDynoConstraintInputError>(&calculation)) {
+            return fail(
+                fault(contract::FailureKind::numerical_failure,
+                      "held-dyno-constraint-input-invalid",
+                      "bounded dyno constraint rejected the current step; issue=" +
+                          std::to_string(static_cast<std::uint32_t>(error->issue))));
+        }
+        if (const auto *stall =
+                std::get_if<detail::BoundedDynoConstraintStall>(&calculation)) {
+            return fail(fault(
+                contract::FailureKind::nonphysical_state, "held-dyno-crank-stalled",
+                "bounded dyno actuator could not prevent a positive-speed stall; "
+                "predicted-rad-s=" +
+                    std::to_string(stall->predicted_final_angular_speed_rad_s)));
+        }
+        const auto &motion = std::get<detail::BoundedDynoConstraintStep>(calculation);
+        if (auto failure = calculate_next_piston_wall_reactions(
+                motion.angular_acceleration_rad_s2);
+            failure.has_value()) {
+            return fail(std::move(*failure));
+        }
+        auto resolved_overrides = overrides;
+        resolved_overrides.has_external_resisting_torque_nm = true;
+        resolved_overrides.external_resisting_torque_nm =
+            std::max(0.0, -motion.applied_actuator_torque_nm);
+        resolved_overrides.has_starter_enabled = true;
+        resolved_overrides.starter_enabled = false;
+        auto core_result = core.advance(
+            {motion.final_state.angular_speed_rad_s * kRpmPerRadianPerSecond,
+             motion.angular_displacement_rad},
+            resolved_overrides);
+        if (const auto *failure = std::get_if<contract::FailureContext>(&core_result)) {
+            return fail(*failure);
+        }
+        if (std::holds_alternative<LowOrderEngineCoreV1Completed>(core_result)) {
+            return fail(fault(contract::FailureKind::contract_violation,
+                              "held-dyno-core-premature-completion",
+                              "shared core completed before the held-dyno horizon"));
+        }
+        const auto &core_step = std::get<LowOrderEngineCoreV1StepView>(core_result);
+        const auto &mechanics = core_step.mechanics.get();
+        const auto &gas = core_step.gas.get();
+        const auto capture_torque =
+            held_dyno_capture_torque(applied_indicated, applied_source_friction,
+                                     motion.applied_actuator_torque_nm,
+                                     motion.input.initial_state.angular_speed_rad_s);
+        if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
+            return fail(std::move(*failure));
+        }
+        if (auto failure = commit_next_piston_wall_boundary(mechanics, gas);
+            failure.has_value()) {
+            return fail(std::move(*failure));
+        }
+        previous_indicated_gas_torque_nm_ = gas.indicated_gas_torque_nm;
+        crank_state_ = motion.final_state;
+        ++accepted_sample_count_;
+        if (terminal_sample_count.has_value() &&
+            accepted_sample_count_ == *terminal_sample_count) {
+            terminal_completed_ = true;
+        }
+        return LowOrderFreeEngineV1StepView{std::cref(mechanics), std::cref(gas),
+                                            capture_torque};
+    }
+
     auto motion_calculation =
         detail::advance_nonnegative_speed_configuration_dependent_crank_zoh({
             inertia.total_inertia_kg_m2,

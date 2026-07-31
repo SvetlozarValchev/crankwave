@@ -362,6 +362,29 @@ void parse_mode(DocumentReader &reader, JsonValue value, std::string_view path,
         require_positive(reader, parsed.target_engine_speed,
                          pointer_member(path, "target_engine_speed"));
         output = std::move(parsed);
+    } else if (type == "held_dyno") {
+        reader.reject_unknown(value, path,
+                              {"type", "target_engine_speed",
+                               "maximum_absorbing_torque", "maximum_driving_torque",
+                               "throttle_01"});
+        HeldDynoMode parsed;
+        parse_quantity_trajectory(
+            reader, reader.required(value, "target_engine_speed", path),
+            pointer_member(path, "target_engine_speed"), parsed.target_engine_speed,
+            QuantityDimension::angular_speed);
+        read_quantity_member(reader, value, "maximum_absorbing_torque", path,
+                             QuantityDimension::torque,
+                             parsed.maximum_absorbing_torque);
+        read_quantity_member(reader, value, "maximum_driving_torque", path,
+                             QuantityDimension::torque, parsed.maximum_driving_torque);
+        parse_scalar_trajectory(reader, reader.required(value, "throttle_01", path),
+                                pointer_member(path, "throttle_01"), parsed.throttle_01,
+                                true);
+        require_nonnegative(reader, parsed.maximum_absorbing_torque,
+                            pointer_member(path, "maximum_absorbing_torque"));
+        require_nonnegative(reader, parsed.maximum_driving_torque,
+                            pointer_member(path, "maximum_driving_torque"));
+        output = std::move(parsed);
     } else if (type == "load_target_held") {
         reader.reject_unknown(value, path,
                               {"type", "target_engine_speed", "target_net_bmep",

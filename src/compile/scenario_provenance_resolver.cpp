@@ -1,5 +1,6 @@
 #include "compile/scenario_resolver_internal.hpp"
 
+#include "simulation/bounded_dyno_constraint.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/free_engine_method_registry.hpp"
 
@@ -94,6 +95,27 @@ void ScenarioResolver::register_provenance() {
                                         fixed_rate_post_step_rpm_method_identity(),
                                         rpm_dependency);
                 provenance_.add_authored("scenario.mode.throttle_01");
+            } else if constexpr (std::is_same_v<T, contract::HeldDyno>) {
+                for (const std::string_view path : {
+                         "scenario.mode.initial_engine_speed_rpm",
+                         "scenario.mode.initial_theta_rad",
+                         "scenario.authoring.mode.target_engine_speed_trajectory",
+                         "scenario.mode.throttle_01",
+                         "scenario.mode.maximum_absorbing_torque_nm",
+                         "scenario.mode.maximum_driving_torque_nm",
+                     }) {
+                    provenance_.add_authored(std::string{path});
+                }
+                constexpr std::array<std::string_view, 1> target_dependency{
+                    "scenario.authoring.mode.target_engine_speed_trajectory"};
+                provenance_.add_derived("scenario.mode.target_engine_speed_rpm",
+                                        fixed_rate_post_step_rpm_method_identity(),
+                                        target_dependency);
+                constexpr std::array<std::string_view, 1> method_dependency{
+                    "scenario.mode.kind"};
+                provenance_.add_derived("scenario.mode.constraint_method",
+                                        mode.constraint_method.value,
+                                        method_dependency);
             } else if constexpr (std::is_same_v<T, contract::LoadTargetHeldCapture>) {
                 for (const std::string_view path : {
                          "scenario.mode.engine_speed_rpm",
@@ -279,6 +301,19 @@ void ScenarioResolver::bind_resolution_ids() {
                      "scenario.mode.trajectory.kinematic_resolution");
                 mode.throttle_01.resolution_id =
                     resolution_id("scenario.mode.throttle_01");
+            } else if constexpr (std::is_same_v<T, contract::HeldDyno>) {
+                bind(mode.initial_engine_speed_rpm,
+                     "scenario.mode.initial_engine_speed_rpm");
+                bind(mode.initial_theta_rad, "scenario.mode.initial_theta_rad");
+                mode.target_engine_speed_rpm.resolution_id =
+                    resolution_id("scenario.mode.target_engine_speed_rpm");
+                mode.throttle_01.resolution_id =
+                    resolution_id("scenario.mode.throttle_01");
+                bind(mode.maximum_absorbing_torque_nm,
+                     "scenario.mode.maximum_absorbing_torque_nm");
+                bind(mode.maximum_driving_torque_nm,
+                     "scenario.mode.maximum_driving_torque_nm");
+                bind(mode.constraint_method, "scenario.mode.constraint_method");
             } else if constexpr (std::is_same_v<T, contract::LoadTargetHeldCapture>) {
                 bind(mode.engine_speed_rpm, "scenario.mode.engine_speed_rpm");
                 bind(mode.initial_theta_rad, "scenario.mode.initial_theta_rad");

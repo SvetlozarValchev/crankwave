@@ -1,5 +1,6 @@
 #include "compile/scenario_resolver_internal.hpp"
 
+#include "simulation/bounded_dyno_constraint.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/free_engine_method_registry.hpp"
 #include "simulation/inertial_dyno_method_registry.hpp"
@@ -163,6 +164,38 @@ void ScenarioResolver::compile_mode() {
                     {initial_theta_rad_, {}},
                     {throttle.points.front().value, {}},
                 };
+            } else if constexpr (std::is_same_v<T, authoring::HeldDynoMode>) {
+                const auto &method =
+                    simulation::bounded_held_dyno_constraint_method_identity();
+                const auto method_validation = contract::validate(method);
+                if (!method_validation.ok()) {
+                    append_contract_report(report_, method_validation,
+                                           authoring::DiagnosticCode::internal_failure,
+                                           "");
+                }
+                auto target = speed_trajectory(mode.target_engine_speed,
+                                               "/mode/target_engine_speed");
+                if (!target.points.empty()) {
+                    require_initial_speed(target.points.front().value,
+                                          "held-dyno target_engine_speed at time zero");
+                }
+                auto target_lane = materialize_rpm_lane(target);
+                auto throttle = scalar_trajectory(mode.throttle_01, "/mode/throttle_01",
+                                                  true, true);
+                contract::HeldDyno dyno;
+                dyno.initial_engine_speed_rpm.value =
+                    request_input_.authored_initial_engine_speed_rpm;
+                dyno.initial_theta_rad.value = initial_theta_rad_;
+                dyno.target_engine_speed_rpm = std::move(target_lane);
+                dyno.throttle_01 = std::move(throttle);
+                dyno.maximum_absorbing_torque_nm.value = quantity(
+                    mode.maximum_absorbing_torque, authoring::QuantityDimension::torque,
+                    "/mode/maximum_absorbing_torque");
+                dyno.maximum_driving_torque_nm.value = quantity(
+                    mode.maximum_driving_torque, authoring::QuantityDimension::torque,
+                    "/mode/maximum_driving_torque");
+                dyno.constraint_method.value = method;
+                scenario_.mode = std::move(dyno);
             } else if constexpr (std::is_same_v<T, authoring::LoadTargetHeldMode>) {
                 if (!context_.execution_methods.load_target_search.has_value()) {
                     add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",

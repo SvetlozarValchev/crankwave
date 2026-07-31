@@ -289,6 +289,24 @@
         "throttle_01": { "$ref": "#/$defs/scalarTrajectory" }
       }
     },
+    "heldDynoMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "target_engine_speed",
+        "maximum_absorbing_torque",
+        "maximum_driving_torque",
+        "throttle_01"
+      ],
+      "properties": {
+        "type": { "const": "held_dyno" },
+        "target_engine_speed": { "$ref": "#/$defs/quantityTrajectory" },
+        "maximum_absorbing_torque": { "$ref": "#/$defs/quantity" },
+        "maximum_driving_torque": { "$ref": "#/$defs/quantity" },
+        "throttle_01": { "$ref": "#/$defs/scalarTrajectory" }
+      }
+    },
     "loadTargetHeldMode": {
       "type": "object",
       "additionalProperties": false,
@@ -355,6 +373,7 @@
         { "$ref": "#/$defs/freeEngineMode" },
         { "$ref": "#/$defs/freeVehicleMode" },
         { "$ref": "#/$defs/heldSpeedMode" },
+        { "$ref": "#/$defs/heldDynoMode" },
         { "$ref": "#/$defs/loadTargetHeldMode" },
         { "$ref": "#/$defs/externalSpeedMode" },
         { "$ref": "#/$defs/inertialDynoMode" }

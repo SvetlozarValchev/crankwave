@@ -1267,6 +1267,29 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_bmw_m52tub28_held_dyno_tests
+    bmw_m52tub28_held_dyno_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_bmw_m52tub28_held_dyno_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_bmw_m52tub28_held_dyno_tests
+    PRIVATE
+        engine_sim_offline::simulation
+        engine_sim_offline_authored_engine_fixture_support
+)
+
+add_test(
+    NAME simulation.bmw_m52tub28_held_dyno
+    COMMAND engine_sim_offline_bmw_m52tub28_held_dyno_tests ${PROJECT_SOURCE_DIR}
+)
+
+add_executable(
     engine_sim_offline_engine_sim_v1_transient_friction_tests
     engine_sim_v1_transient_friction_test.cpp
 )

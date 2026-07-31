@@ -21,11 +21,19 @@ struct LiveControlOverrides {
     double external_resisting_torque_nm = 0.0;
     bool has_starter_enabled = false;
     bool starter_enabled = false;
+    bool has_dyno_target_engine_speed_rpm = false;
+    double dyno_target_engine_speed_rpm = 0.0;
+    bool has_dyno_maximum_absorbing_torque_nm = false;
+    double dyno_maximum_absorbing_torque_nm = 0.0;
+    bool has_dyno_maximum_driving_torque_nm = false;
+    double dyno_maximum_driving_torque_nm = 0.0;
 
     [[nodiscard]] bool any() const noexcept {
         return has_throttle || has_ignition_enabled || has_fuel_enabled ||
                has_limiter_enabled || has_external_resisting_torque_nm ||
-               has_starter_enabled;
+               has_starter_enabled || has_dyno_target_engine_speed_rpm ||
+               has_dyno_maximum_absorbing_torque_nm ||
+               has_dyno_maximum_driving_torque_nm;
     }
 
     friend bool operator==(const LiveControlOverrides &,

@@ -143,6 +143,15 @@ struct HeldSpeedMode {
     friend bool operator==(const HeldSpeedMode &, const HeldSpeedMode &) = default;
 };
 
+struct HeldDynoMode {
+    QuantityTrajectory target_engine_speed;
+    Quantity maximum_absorbing_torque;
+    Quantity maximum_driving_torque;
+    ScalarTrajectory throttle_01;
+
+    friend bool operator==(const HeldDynoMode &, const HeldDynoMode &) = default;
+};
+
 struct LoadTargetHeldMode {
     Quantity target_engine_speed;
     Quantity target_net_bmep;
@@ -181,8 +190,8 @@ struct InertialDynoMode {
 };
 
 using ScenarioMode =
-    std::variant<FreeEngineMode, FreeVehicleMode, HeldSpeedMode, LoadTargetHeldMode,
-                 ExternalSpeedMode, InertialDynoMode>;
+    std::variant<FreeEngineMode, FreeVehicleMode, HeldSpeedMode, HeldDynoMode,
+                 LoadTargetHeldMode, ExternalSpeedMode, InertialDynoMode>;
 
 struct OperatingStatePatch {
     std::optional<bool> ignition_enabled;

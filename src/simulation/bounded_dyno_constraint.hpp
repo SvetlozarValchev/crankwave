@@ -1,11 +1,24 @@
 #pragma once
 
+#include "engine_sim_offline/contract/common.hpp"
 #include "simulation/positive_speed_rigid_crank_zoh.hpp"
 
 #include <cstdint>
+#include <string_view>
 #include <variant>
 
-namespace engine_sim_offline::simulation::detail {
+namespace engine_sim_offline::simulation {
+
+inline constexpr std::string_view kBoundedHeldDynoConstraintMethodId =
+    "bounded-held-dyno-speed-constraint";
+inline constexpr std::uint32_t kBoundedHeldDynoConstraintMethodVersion = 1U;
+
+[[nodiscard]] std::string_view
+bounded_held_dyno_constraint_method_descriptor() noexcept;
+[[nodiscard]] const contract::MethodIdentity &
+bounded_held_dyno_constraint_method_identity();
+
+namespace detail {
 
 enum class BoundedDynoConstraintDisposition : std::uint8_t {
     tracking,
@@ -95,4 +108,5 @@ using BoundedDynoConstraintCalculation =
 [[nodiscard]] BoundedDynoConstraintCalculation
 advance_bounded_dyno_constraint(const BoundedDynoConstraintInput &input) noexcept;
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace detail
+} // namespace engine_sim_offline::simulation

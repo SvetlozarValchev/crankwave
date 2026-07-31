@@ -24,6 +24,11 @@ struct AuthoredEngineFixture {
 [[nodiscard]] AuthoredEngineFixture
 load_canonical_authored_engine_fixture(const std::filesystem::path &repository_root);
 
+[[nodiscard]] AuthoredEngineFixture
+load_authored_engine_fixture(const std::filesystem::path &repository_root,
+                             const std::filesystem::path &engine_relative_path,
+                             const std::filesystem::path &scenario_relative_path);
+
 // Replaces only motion ownership with a fixed-rate prescribed RPM lane. Callers
 // remain responsible for any test-specific horizon, preparation, controls, or ID.
 [[nodiscard]] AuthoredEngineFixture

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/contract/result.hpp"
+#include "simulation/bounded_dyno_constraint.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/engine_sim_v1_transient_friction.hpp"
 #include "simulation/fixed_horizon_cycle_sampling.hpp"
@@ -44,6 +45,15 @@ using LowOrderFreeEngineV1AdvanceResult =
     std::variant<LowOrderFreeEngineV1StepView, LowOrderEngineCoreV1Completed,
                  contract::FailureContext>;
 
+struct HeldDynoMotionPlan {
+    std::vector<double> target_engine_speed_rpm;
+    double maximum_absorbing_torque_nm = 0.0;
+    double maximum_driving_torque_nm = 0.0;
+
+    friend bool operator==(const HeldDynoMotionPlan &,
+                           const HeldDynoMotionPlan &) = default;
+};
+
 // Owns either warm held preparation or a zero-duration cold bootstrap followed by
 // nonnegative crank motion around one shared low-order core. The core retains all
 // gas, flame, randomness, pressure-history, and event state across the release
@@ -82,8 +92,8 @@ class LowOrderFreeEngineV1Runtime final {
         double initial_theta_rad, bool cold_bootstrap,
         double applied_positive_speed_crank_friction_torque_nm,
         double starter_maximum_torque_nm, double starter_target_speed_rad_s,
-        std::string model_id, std::string profile_id, std::string scenario_id,
-        contract::EngineId engine_id);
+        std::optional<HeldDynoMotionPlan> held_dyno_motion, std::string model_id,
+        std::string profile_id, std::string scenario_id, contract::EngineId engine_id);
 
     [[nodiscard]] contract::FailureContext
     fault(contract::FailureKind kind, std::string detail_code,
@@ -130,6 +140,7 @@ class LowOrderFreeEngineV1Runtime final {
     double applied_positive_speed_crank_friction_torque_nm_ = 0.0;
     double starter_maximum_torque_nm_ = 0.0;
     double starter_target_speed_rad_s_ = 0.0;
+    std::optional<HeldDynoMotionPlan> held_dyno_motion_;
     double piston_wall_boundary_angular_speed_rad_s_ = 0.0;
     double applied_piston_wall_friction_torque_nm_ = 0.0;
     std::uint64_t piston_wall_boundary_index_ = 0;

@@ -100,9 +100,17 @@ asset_views(const std::vector<OwnedAsset> &assets) {
 
 AuthoredEngineFixture
 load_canonical_authored_engine_fixture(const std::filesystem::path &repository_root) {
-    const auto engine_path = repository_root / "data/engines/bmw-m52b28/engine.json";
-    const auto scenario_path = repository_root / "data/engines/bmw-m52b28/scenarios/"
-                                                 "inertial-dyno-1500-6500rpm.json";
+    return load_authored_engine_fixture(
+        repository_root, "data/engines/bmw-m52b28/engine.json",
+        "data/engines/bmw-m52b28/scenarios/inertial-dyno-1500-6500rpm.json");
+}
+
+AuthoredEngineFixture
+load_authored_engine_fixture(const std::filesystem::path &repository_root,
+                             const std::filesystem::path &engine_relative_path,
+                             const std::filesystem::path &scenario_relative_path) {
+    const auto engine_path = repository_root / engine_relative_path;
+    const auto scenario_path = repository_root / scenario_relative_path;
 
     auto engine_document =
         require(authoring::parse_engine_document(read_text(engine_path)),
@@ -123,8 +131,7 @@ load_canonical_authored_engine_fixture(const std::filesystem::path &repository_r
                           "authored engine compilation failed");
     auto scenario = require(compile::compile_scenario(engine, scenario_document),
                             "authored scenario compilation failed");
-    const auto inputs =
-        compile::detail::CompiledScenarioViewAccess::inputs(scenario);
+    const auto inputs = compile::detail::CompiledScenarioViewAccess::inputs(scenario);
     return {
         inputs.engine.engine,
         inputs.engine.presentation,

@@ -78,6 +78,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
     const auto *profile =
         std::get_if<contract::LowOrderOperatingPointV1Profile>(&engine.physics_profile);
     const auto *free_engine = std::get_if<contract::FreeEngine>(&scenario.mode);
+    const auto *held_dyno = std::get_if<contract::HeldDyno>(&scenario.mode);
     const auto *fixed_horizon =
         std::get_if<contract::FixedHorizonCycleSampling>(&scenario.preparation);
     const auto *fixed_settling =
@@ -85,15 +86,27 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
     require(report, profile != nullptr, ContractIssueCode::unsupported_value,
             "engine.physics_profile",
             "free-engine runtime requires low_order_operating_point_v1");
-    require(report, free_engine != nullptr, ContractIssueCode::unsupported_value,
-            "scenario.mode", "free-engine runtime requires FreeEngine mode");
+    require(report, (free_engine != nullptr) != (held_dyno != nullptr),
+            ContractIssueCode::unsupported_value, "scenario.mode",
+            "dynamic crank runtime requires exactly one FreeEngine or HeldDyno mode");
     require(report, !simulation_request_identity_v3_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v3_sha256",
             "free-engine runtime requires the canonical nonzero request identity");
-    if (profile == nullptr || free_engine == nullptr) {
+    if (profile == nullptr || (free_engine == nullptr && held_dyno == nullptr)) {
         return report;
     }
-    const bool cold_bootstrap = free_engine->initial_engine_speed_rpm.value == 0.0;
+    const double initial_engine_speed_rpm =
+        free_engine != nullptr ? free_engine->initial_engine_speed_rpm.value
+                               : held_dyno->initial_engine_speed_rpm.value;
+    const double initial_theta_rad = free_engine != nullptr
+                                         ? free_engine->initial_theta_rad.value
+                                         : held_dyno->initial_theta_rad.value;
+    const double attached_inertia_kg_m2 =
+        free_engine != nullptr ? free_engine->attached_inertia_kg_m2.value : 0.0;
+    const auto &throttle =
+        free_engine != nullptr ? free_engine->throttle_01 : held_dyno->throttle_01;
+    const bool cold_bootstrap =
+        free_engine != nullptr && initial_engine_speed_rpm == 0.0;
     require(report,
             cold_bootstrap
                 ? fixed_settling != nullptr &&
@@ -121,13 +134,22 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
             "friction");
 
     report.append(admit_implemented_cycle_accounting_methods(engine, *profile));
-    require(report,
+    require(
+        report,
+        free_engine == nullptr ||
             free_engine->crank_dynamics_method.value ==
                 nonnegative_speed_free_engine_centered_slider_crank_method_identity(),
+        ContractIssueCode::unsupported_value,
+        "scenario.mode.crank_dynamics_method.value",
+        "free-engine runtime requires its exact nonnegative-speed "
+        "centered-slider crank method identity");
+    require(report,
+            held_dyno == nullptr || held_dyno->constraint_method.value ==
+                                        bounded_held_dyno_constraint_method_identity(),
             ContractIssueCode::unsupported_value,
-            "scenario.mode.crank_dynamics_method.value",
-            "free-engine runtime requires its exact nonnegative-speed "
-            "centered-slider crank method identity");
+            "scenario.mode.constraint_method.value",
+            "held-dyno runtime requires the exact bounded speed-constraint method "
+            "identity");
     if (fixed_horizon != nullptr) {
         require(report,
                 fixed_horizon->method.value ==
@@ -152,6 +174,9 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
             "execution_extent",
             "free-engine runtime requires a valid finite or open-ended execution "
             "extent");
+    require(report, held_dyno == nullptr || !execution_extent.is_open_ended(),
+            ContractIssueCode::unsupported_value, "execution_extent",
+            "held-dyno execution requires a finite authored target lane");
 
     const std::optional<double> release_time_s =
         cold_bootstrap ? std::optional<double>{0.0}
@@ -188,18 +213,21 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
             "integral physics frames matching capture; cold bootstrap releases at "
             "frame zero");
     if (!report.ok() || crank_friction == nullptr || !release_frame_valid ||
-        !end_frame.has_value() || free_engine->throttle_01.points.empty() ||
-        free_engine->external_resisting_torque_nm.points.empty()) {
+        !end_frame.has_value() || throttle.points.empty() ||
+        (free_engine != nullptr &&
+         free_engine->external_resisting_torque_nm.points.empty())) {
         return report;
     }
 
     require_release_or_later_boundaries(
-        report, free_engine->throttle_01, scenario.rates.physics, release_frame_index,
-        "scenario.mode.throttle_01", "free-engine throttle");
-    require_release_or_later_boundaries(
-        report, free_engine->external_resisting_torque_nm, scenario.rates.physics,
-        release_frame_index, "scenario.mode.external_resisting_torque_nm",
-        "free-engine external resisting-torque");
+        report, throttle, scenario.rates.physics, release_frame_index,
+        "scenario.mode.throttle_01", "dynamic crank throttle");
+    if (free_engine != nullptr) {
+        require_release_or_later_boundaries(
+            report, free_engine->external_resisting_torque_nm, scenario.rates.physics,
+            release_frame_index, "scenario.mode.external_resisting_torque_nm",
+            "free-engine external resisting-torque");
+    }
     if (!report.ok()) {
         return report;
     }
@@ -271,7 +299,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
             "engine.physics_profile.mechanism",
             "free-engine configuration-dependent inertia rejected the admitted "
             "centered-slider mechanism");
-    if (cycle_mean_inertia != nullptr) {
+    if (cycle_mean_inertia != nullptr && free_engine != nullptr) {
         require(report,
                 std::bit_cast<std::uint64_t>(
                     free_engine->engine_baseline_inertia_kg_m2.value) ==
@@ -285,7 +313,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
 
     CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan{
         mechanism.crank.authored_crank_inertia_kg_m2.value,
-        free_engine->attached_inertia_kg_m2.value,
+        attached_inertia_kg_m2,
         {},
     };
     configuration_inertia_plan.cylinders.reserve(mechanism.cylinders.size());
@@ -315,8 +343,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
                 geometry.clearance_volume_m3,
                 parameters.ignition_wire_angle_rad.value,
             },
-            free_engine->initial_theta_rad.value,
-            free_engine->initial_engine_speed_rpm.value * kLegacyRpmScale);
+            initial_theta_rad, initial_engine_speed_rpm * kLegacyRpmScale);
         const double initial_chamber_pressure_pa_abs =
             initial_mechanism.valid
                 ? legacy_gas_pressure_pa(legacy_initialize_gas_cell(
@@ -336,8 +363,8 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         };
         const auto initial_stage = stage_engine_sim_v1_piston_wall_friction({
             friction_plan,
-            legacy_wrap_2pi(free_engine->initial_theta_rad.value - geometric_tdc_rad),
-            free_engine->initial_engine_speed_rpm.value * kLegacyRpmScale,
+            legacy_wrap_2pi(initial_theta_rad - geometric_tdc_rad),
+            initial_engine_speed_rpm * kLegacyRpmScale,
             initial_chamber_pressure_pa_abs,
             0.0,
         });
@@ -393,8 +420,8 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         return report;
     }
     const auto initial_configuration_inertia =
-        evaluate_centered_slider_crank_configuration_inertia(
-            configuration_inertia_plan, free_engine->initial_theta_rad.value);
+        evaluate_centered_slider_crank_configuration_inertia(configuration_inertia_plan,
+                                                             initial_theta_rad);
     require(report,
             std::holds_alternative<CenteredSliderCrankConfigurationInertia>(
                 initial_configuration_inertia),
@@ -420,7 +447,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
                 profile->aggregate_loss
                     .mean_piston_speed_squared_coefficient_bar_s2_per_m2.value,
             },
-            free_engine->initial_engine_speed_rpm.value,
+            initial_engine_speed_rpm,
             stroke_m,
             true,
             contract::indicated_gas_torque_term_mask(),
@@ -457,6 +484,15 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         sampler.emplace(std::get<FixedHorizonCycleSampler>(std::move(sampling_result)));
     }
 
+    std::optional<HeldDynoMotionPlan> held_dyno_motion;
+    if (held_dyno != nullptr) {
+        held_dyno_motion.emplace(HeldDynoMotionPlan{
+            held_dyno->target_engine_speed_rpm.post_step_rpm,
+            held_dyno->maximum_absorbing_torque_nm.value,
+            held_dyno->maximum_driving_torque_nm.value,
+        });
+    }
+
     return LowOrderFreeEngineV1Runtime{
         control_schedule.fresh_cursor(),
         std::move(accountant),
@@ -468,13 +504,14 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         scenario.rates.physics,
         execution_extent,
         release_frame_index,
-        free_engine->initial_engine_speed_rpm.value,
-        free_engine->initial_theta_rad.value,
+        initial_engine_speed_rpm,
+        initial_theta_rad,
         cold_bootstrap,
         crank_friction->torque_nm,
         profile->starter.maximum_torque_nm.value,
         profile->starter.target_speed_rad_s.value,
-        "low-order-free-engine-v1",
+        std::move(held_dyno_motion),
+        held_dyno != nullptr ? "low-order-held-dyno" : "low-order-free-engine-v1",
         engine.profile_id.value,
         scenario.scenario_id,
         engine.id,

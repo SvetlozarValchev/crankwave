@@ -353,6 +353,32 @@ ValidationReport validate_clock_grid(const RenderScenario &scenario) {
                         mode.trajectory.rpm);
                     validate_trajectory_grid(mode.throttle_01,
                                              "physics.mode.throttle_01");
+                } else if constexpr (std::is_same_v<T, HeldDyno>) {
+                    detail::append_prefixed(
+                        report, validate(mode.target_engine_speed_rpm.rate),
+                        "physics.mode.target_engine_speed_rpm.rate");
+                    require(report, mode.target_engine_speed_rpm.first_step_index == 0,
+                            ContractIssueCode::inconsistent_semantics,
+                            "physics.mode.target_engine_speed_rpm.first_step_index",
+                            "held-dyno target RPM must begin at physics step zero");
+                    require(report,
+                            mode.target_engine_speed_rpm.rate == scenario.rates.physics,
+                            ContractIssueCode::inconsistent_semantics,
+                            "physics.mode.target_engine_speed_rpm.rate",
+                            "held-dyno target RPM rate must equal the physics rate");
+                    const auto total = resolve_frame_index(
+                        scenario.total_duration_s.value, scenario.rates.physics);
+                    if (total.has_value()) {
+                        require(report,
+                                mode.target_engine_speed_rpm.post_step_rpm.size() ==
+                                    *total,
+                                ContractIssueCode::inconsistent_shape,
+                                "physics.mode.target_engine_speed_rpm.post_step_rpm",
+                                "held-dyno target sample count must equal the total "
+                                "physics-frame count");
+                    }
+                    validate_trajectory_grid(mode.throttle_01,
+                                             "physics.mode.throttle_01");
                 } else if constexpr (std::is_same_v<T, InertialDyno>) {
                     validate_trajectory_grid(mode.throttle_01,
                                              "physics.mode.throttle_01");
@@ -545,6 +571,8 @@ ValidationReport validate(const RenderScenario &scenario,
                         using Mode = std::decay_t<decltype(mode)>;
                         if constexpr (std::is_same_v<Mode, HeldSpeed>) {
                             return mode.engine_speed_rpm.value;
+                        } else if constexpr (std::is_same_v<Mode, HeldDyno>) {
+                            return mode.initial_engine_speed_rpm.value;
                         } else if constexpr (std::is_same_v<Mode, InertialDyno>) {
                             return mode.initial_engine_speed_rpm.value;
                         } else if constexpr (std::is_same_v<Mode, FreeEngine>) {
@@ -676,6 +704,81 @@ ValidationReport validate(const RenderScenario &scenario,
                 validate_trajectory(report, mode.throttle_01, provenance,
                                     scenario.total_duration_s.value, true, false,
                                     "scenario.mode.throttle_01");
+            } else if constexpr (std::is_same_v<T, HeldDyno>) {
+                validate_resolved(report, mode.initial_engine_speed_rpm, provenance,
+                                  "scenario.mode.initial_engine_speed_rpm");
+                validate_resolved(report, mode.initial_theta_rad, provenance,
+                                  "scenario.mode.initial_theta_rad");
+                validate_resolved(report, mode.maximum_absorbing_torque_nm, provenance,
+                                  "scenario.mode.maximum_absorbing_torque_nm");
+                validate_resolved(report, mode.maximum_driving_torque_nm, provenance,
+                                  "scenario.mode.maximum_driving_torque_nm");
+                require(
+                    report,
+                    finite_positive(mode.initial_engine_speed_rpm.value) &&
+                        finite(mode.initial_theta_rad.value) &&
+                        finite_nonnegative(mode.maximum_absorbing_torque_nm.value) &&
+                        finite_nonnegative(mode.maximum_driving_torque_nm.value),
+                    ContractIssueCode::invalid_value, "mode",
+                    "held dyno requires positive initial speed, finite crank "
+                    "angle, and nonnegative actuator limits");
+                validate_fixed_rate_rpm_trajectory(
+                    report, mode.target_engine_speed_rpm, provenance,
+                    "scenario.mode.target_engine_speed_rpm");
+                require(
+                    report,
+                    mode.target_engine_speed_rpm.rate == scenario.rates.physics &&
+                        mode.target_engine_speed_rpm.first_step_index == 0U &&
+                        mode.target_engine_speed_rpm.post_step_rpm.size() ==
+                            contract::resolve_frame_index(
+                                scenario.total_duration_s.value, scenario.rates.physics)
+                                .value_or(0U),
+                    ContractIssueCode::inconsistent_shape,
+                    "mode.target_engine_speed_rpm",
+                    "held-dyno target lane must cover the exact physics horizon");
+                for (std::size_t index = 0;
+                     index < mode.target_engine_speed_rpm.post_step_rpm.size();
+                     ++index) {
+                    require(report,
+                            finite_positive(
+                                mode.target_engine_speed_rpm.post_step_rpm[index]),
+                            ContractIssueCode::invalid_value,
+                            "mode.target_engine_speed_rpm.post_step_rpm[" +
+                                std::to_string(index) + "]",
+                            "held-dyno target speed must remain finite and positive");
+                }
+                const auto preparation_frame_count = contract::resolve_frame_index(
+                    scenario.audible_start_s.value, scenario.rates.physics);
+                bool preparation_target_matches_initial =
+                    preparation_frame_count.has_value() &&
+                    *preparation_frame_count <=
+                        mode.target_engine_speed_rpm.post_step_rpm.size();
+                if (preparation_target_matches_initial) {
+                    const auto initial_bits = std::bit_cast<std::uint64_t>(
+                        mode.initial_engine_speed_rpm.value);
+                    for (std::uint64_t index = 0; index < *preparation_frame_count;
+                         ++index) {
+                        if (std::bit_cast<std::uint64_t>(
+                                mode.target_engine_speed_rpm
+                                    .post_step_rpm[static_cast<std::size_t>(index)]) !=
+                            initial_bits) {
+                            preparation_target_matches_initial = false;
+                            break;
+                        }
+                    }
+                }
+                require(report, preparation_target_matches_initial,
+                        ContractIssueCode::inconsistent_semantics,
+                        "mode.target_engine_speed_rpm",
+                        "held-dyno target must remain at the exact initial speed "
+                        "through fixed held preparation");
+                validate_trajectory(report, mode.throttle_01, provenance,
+                                    scenario.total_duration_s.value, true, false,
+                                    "scenario.mode.throttle_01");
+                validate_resolved(report, mode.constraint_method, provenance,
+                                  "scenario.mode.constraint_method");
+                append_prefixed(report, validate(mode.constraint_method.value),
+                                "mode.constraint_method");
             } else if constexpr (std::is_same_v<T, LoadTargetHeldCapture>) {
                 validate_resolved(report, mode.engine_speed_rpm, provenance,
                                   "scenario.mode.engine_speed_rpm");
@@ -901,11 +1004,12 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
             using Profile = std::decay_t<decltype(profile)>;
             if constexpr (std::is_same_v<Profile, LowOrderOperatingPointV1Profile>) {
                 if (!std::holds_alternative<HeldSpeed>(scenario.mode) &&
+                    !std::holds_alternative<HeldDyno>(scenario.mode) &&
                     !std::holds_alternative<InertialDyno>(scenario.mode) &&
                     !std::holds_alternative<FreeEngine>(scenario.mode)) {
                     report.add(ContractIssueCode::unsupported_value, "mode",
-                               "operating-point v1 admits held-speed, inertial-dyno, "
-                               "and free-engine modes");
+                               "operating-point v1 admits held-speed, held-dyno, "
+                               "inertial-dyno, and free-engine modes");
                 }
                 const bool free_engine =
                     std::holds_alternative<FreeEngine>(scenario.mode);
@@ -1000,7 +1104,8 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
             Availability::available &&
         torque_capability.instantaneous_net_shaft.completeness ==
             Completeness::complete;
-    if ((std::holds_alternative<InertialDyno>(scenario.mode) ||
+    if ((std::holds_alternative<HeldDyno>(scenario.mode) ||
+         std::holds_alternative<InertialDyno>(scenario.mode) ||
          std::holds_alternative<FreeEngine>(scenario.mode)) &&
         (!has_complete_instantaneous_net ||
          !torque_capability.equivalent_inertia_available)) {

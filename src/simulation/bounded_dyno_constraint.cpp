@@ -2,8 +2,72 @@
 
 #include <algorithm>
 #include <cmath>
+#include <span>
+#include <string>
 
-namespace engine_sim_offline::simulation::detail {
+namespace engine_sim_offline::simulation {
+namespace {
+
+[[nodiscard]] consteval bool
+canonical_lf_descriptor(std::string_view descriptor) noexcept {
+    if (descriptor.empty() || descriptor.back() != '\n') {
+        return false;
+    }
+    for (const char character : descriptor) {
+        if (character == '\r' || character == '\0') {
+            return false;
+        }
+    }
+    return true;
+}
+
+constexpr std::string_view kBoundedHeldDynoConstraintDescriptor =
+    R"method(engine-sim-offline.simulation-method-configuration.v1
+method=bounded-held-dyno-speed-constraint
+version=1
+operation=positive-speed-one-degree-of-freedom-bounded-dynamometer-velocity-constraint
+source=ange-yaghi-engine-sim-85f7c3b959a908ed5232ede4f1a4ac7eafe6b630-dynamometer
+solver-source=ange-yaghi-simple-2d-constraint-solver-e009f4ff1c9c4c5874e865e893cdb62e208fb2b3-optimized-nsv-rigid-body-system
+state=finite-binary64-unwrapped-theta-rad-and-positive-binary64-angular-speed-rad-s
+engine-inertia=exact-centered-slider-crank-M-of-theta-and-dM-dtheta-at-current-left-boundary
+causal-engine-input=previous-committed-indicated-torque-plus-current-source-crank-and-piston-wall-friction
+target=input-finite-nonnegative-binary64-post-step-angular-speed-rad-s
+required-actuator=M-times-target-minus-current-omega-divided-by-dt-plus-binary64-0.5-times-dM-dtheta-times-current-omega-squared-minus-held-upstream-engine-torque
+limits=required-actuator-clamped-between-negative-maximum-absorbing-torque-and-positive-maximum-driving-torque
+reaction=dyno-reaction-is-exact-negative-of-applied-actuator-torque
+alpha=held-upstream-engine-torque-plus-applied-actuator-torque-minus-velocity-inertia-torque-divided-by-M
+omega-next=omega-plus-alpha-times-dt
+theta-displacement=omega-next-times-dt
+theta-next=theta-plus-theta-displacement
+saturation=publish-achieved-speed-and-absorbing-or-driving-limit-disposition
+reverse=unsupported-and-reported-as-a-typed-within-step-stall
+binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-daz
+)method";
+
+static_assert(canonical_lf_descriptor(kBoundedHeldDynoConstraintDescriptor));
+
+[[nodiscard]] contract::MethodIdentity make_identity() noexcept {
+    return {
+        std::string{kBoundedHeldDynoConstraintMethodId},
+        kBoundedHeldDynoConstraintMethodVersion,
+        contract::sha256(std::as_bytes(
+            std::span<const char>{kBoundedHeldDynoConstraintDescriptor.data(),
+                                  kBoundedHeldDynoConstraintDescriptor.size()})),
+    };
+}
+
+} // namespace
+
+std::string_view bounded_held_dyno_constraint_method_descriptor() noexcept {
+    return kBoundedHeldDynoConstraintDescriptor;
+}
+
+const contract::MethodIdentity &bounded_held_dyno_constraint_method_identity() {
+    static const auto identity = make_identity();
+    return identity;
+}
+
+namespace detail {
 namespace {
 
 [[nodiscard]] BoundedDynoConstraintInputError
@@ -131,4 +195,5 @@ advance_bounded_dyno_constraint(const BoundedDynoConstraintInput &input) noexcep
     };
 }
 
-} // namespace engine_sim_offline::simulation::detail
+} // namespace detail
+} // namespace engine_sim_offline::simulation

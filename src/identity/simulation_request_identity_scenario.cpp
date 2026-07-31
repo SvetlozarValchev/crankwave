@@ -291,6 +291,25 @@ write_prescribed_sweep(CanonicalJsonWriter &writer,
            write_scalar_trajectory(writer, sweep.throttle_01) && writer.end_object();
 }
 
+[[nodiscard]] bool write_held_dyno(CanonicalJsonWriter &writer,
+                                   const contract::HeldDyno &dyno) {
+    return writer.begin_object() && writer.key("initial_engine_speed_rpm") &&
+           write_resolved(writer, dyno.initial_engine_speed_rpm, write_f64) &&
+           writer.key("initial_theta_rad") &&
+           write_resolved(writer, dyno.initial_theta_rad, write_f64) &&
+           writer.key("target_engine_speed_rpm") &&
+           write_fixed_rate_rpm_trajectory(writer, dyno.target_engine_speed_rpm) &&
+           writer.key("throttle_01") &&
+           write_scalar_trajectory(writer, dyno.throttle_01) &&
+           writer.key("maximum_absorbing_torque_nm") &&
+           write_resolved(writer, dyno.maximum_absorbing_torque_nm, write_f64) &&
+           writer.key("maximum_driving_torque_nm") &&
+           write_resolved(writer, dyno.maximum_driving_torque_nm, write_f64) &&
+           writer.key("constraint_method") &&
+           write_resolved(writer, dyno.constraint_method, write_method_identity) &&
+           writer.end_object();
+}
+
 [[nodiscard]] bool
 write_load_target(CanonicalJsonWriter &writer,
                   const contract::LoadTargetHeldCapture &load_target) {
@@ -384,6 +403,11 @@ write_load_target(CanonicalJsonWriter &writer,
                    std::get_if<contract::PrescribedKinematicSweep>(&mode)) {
         if (!writer.string_value("prescribed_kinematic_sweep") ||
             !writer.key("value") || !write_prescribed_sweep(writer, *sweep)) {
+            return false;
+        }
+    } else if (const auto *held_dyno = std::get_if<contract::HeldDyno>(&mode)) {
+        if (!writer.string_value("held_dyno") || !writer.key("value") ||
+            !write_held_dyno(writer, *held_dyno)) {
             return false;
         }
     } else if (const auto *load_target =
