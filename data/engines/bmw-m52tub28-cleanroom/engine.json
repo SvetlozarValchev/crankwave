@@ -596,7 +596,8 @@
       "frontal_area": {"value": 2.05, "unit": "m2"},
       "differential_ratio": 2.93,
       "tire_radius": {"value": 315, "unit": "mm"},
-      "rolling_resistance_force": {"value": 165, "unit": "N"}
+      "rolling_resistance_force": {"value": 165, "unit": "N"},
+      "maximum_service_brake_force": {"value": 14500, "unit": "N"}
     },
     "transmission": {
       "id": "e46-328i-five-speed",
