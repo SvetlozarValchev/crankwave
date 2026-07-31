@@ -1246,6 +1246,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_bounded_dyno_constraint_tests
+    bounded_dyno_constraint_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_bounded_dyno_constraint_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_bounded_dyno_constraint_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.bounded_dyno_constraint
+    COMMAND engine_sim_offline_bounded_dyno_constraint_tests
+)
+
+add_executable(
     engine_sim_offline_engine_sim_v1_transient_friction_tests
     engine_sim_v1_transient_friction_test.cpp
 )
