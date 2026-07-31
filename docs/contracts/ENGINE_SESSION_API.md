@@ -376,6 +376,7 @@ compiled scenario selects exactly one mode.
 |---|---|---|
 | prescribed/external speed | Authored trajectory executes; live commands are rejected | authored RPM trajectory, engine telemetry, audio |
 | held speed/load-target held | Authored target executes; live commands are rejected | operating-point evidence, engine telemetry, audio |
+| `held_dyno` | Finite authored target-RPM/throttle lanes and absorbing/driving limits execute; public live target/limit commands are rejected | achieved crank RPM, signed actuator and opposite dyno reaction, engine telemetry, audio |
 | `inertial_dyno` | Finite-scenario execution admits live throttle, ignition, and fuel after preparation | simulated RPM trajectory, dyno result evidence, engine telemetry, audio |
 | `free_engine` | Finite or open-ended execution admits live selected-controller demand, ignition, fuel, limiter, and external resisting torque after the audible handoff | simulated crank RPM, requested and governor-resolved throttle, requested external resisting torque, engine telemetry, audio |
 
@@ -470,7 +471,7 @@ Current classification:
 | limiter enable | implemented live command for `free_engine` after preparation |
 | external resisting torque | implemented live command for `free_engine` after preparation |
 | starter enable | implemented live command for `free_engine` after preparation when the compiled engine declares a cranking starter |
-| mode-owned RPM or brake target | not implemented as live commands |
+| mode-owned RPM or brake target | not implemented as public live commands; finite `held_dyno` executes its compiled per-step target and limits |
 | gear/clutch context | not implemented as live commands |
 | audition master, route monitor gain, mute, IR wet mix | not implemented as live commands |
 | motion ownership mode and initial state | `session_recreate` |

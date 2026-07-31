@@ -337,6 +337,7 @@ All already-typed `RenderScenario` variants have canonical tags:
 | `FixedHorizonCycleSampling` | `fixed_horizon_cycle_sampling` |
 | `HeldSpeed` | `held_speed` |
 | `PrescribedKinematicSweep` | `prescribed_kinematic_sweep` |
+| `HeldDyno` | `held_dyno` |
 | `LoadTargetHeldCapture` | `load_target_held_capture` |
 | `InertialDyno` | `inertial_dyno` |
 | `FreeEngine` | `free_engine` |
@@ -364,6 +365,24 @@ free-engine = {
   "crank_dynamics_method": resolved<method-identity>
 }
 ```
+
+The resolved HeldDyno wire value is:
+
+```text
+held-dyno = {
+  "initial_engine_speed_rpm": resolved<f64-bits>,
+  "initial_theta_rad": resolved<f64-bits>,
+  "target_engine_speed_rpm": fixed-rate-rpm-trajectory,
+  "throttle_01": scalar-trajectory,
+  "maximum_absorbing_torque_nm": resolved<f64-bits>,
+  "maximum_driving_torque_nm": resolved<f64-bits>,
+  "constraint_method": resolved<method-identity>
+}
+```
+
+The target lane is content-addressed at the physics rate. Absorbing and driving
+limits remain distinct nonnegative magnitudes; the runtime applies a signed actuator
+inside those bounds and publishes dyno reaction with the opposite sign.
 
 The authoring fields `attached_inertia` and `external_resisting_torque` are optional,
 but the resolved wire never omits their values: each omission becomes canonical

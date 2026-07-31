@@ -87,6 +87,12 @@ ports, standard valvetrains, and cams when their shared low-order runner, chambe
 cam-shape parameters are exactly execution-equivalent; heterogeneous definitions fail
 closed. Standard fixed valvetrains accept either harmonic lobe generators or explicit
 sampled angle-to-lift profiles through the same runtime sampler.
+Finite JSON `held_dyno` scenarios now drive that same crank through a bounded signed
+speed constraint. The dyno may absorb or drive only within authored limits, reports
+the exact opposite reaction torque, and exposes achieved RPM when saturated. The first
+BMW procedure covers a target-driven pull, exact plateau, lift, and unforced overrun;
+public live target/limit commands remain intentionally deferred.
+
 The BMW JSON migration fixture reproduces every
 sound-bearing PCM byte of the user-approved inertial dyno. The native CLI resolves
 engine-relative assets inside an explicit asset root and atomically publishes a new

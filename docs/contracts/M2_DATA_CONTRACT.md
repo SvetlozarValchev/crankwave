@@ -194,6 +194,7 @@ Exactly one tagged `ScenarioMode` owns crank motion:
 |---|---|---|
 | `HeldSpeed` | Positive fixed RPM, initial crank angle, throttle | Motion is held; sampled cycle-mean torque and achieved load are results. |
 | `PrescribedKinematicSweep` | RPM trajectory, initial angle, throttle trajectory, named kinematic method | The scenario imposes motion; an actuator result is the residual required to impose it. |
+| `HeldDyno` | Initial RPM/angle, target-RPM trajectory, throttle trajectory, maximum absorbing/driving torque, named constraint method | The bounded actuator attempts the target; achieved RPM and the exact opposite dyno reaction remain results when either limit saturates. |
 | `LoadTargetHeldCapture` | Fixed RPM, signed target net BMEP, tolerance, bounded throttle search, named search method | The search reports a reached target or a typed unreachable target; saturation is not disguised as success. |
 | `InertialDyno` | Initial RPM/angle, equivalent inertia, throttle trajectory, passive brake curve, named crank-dynamics method | The dynamics owner advances RPM; the brake curve supplies resistance. |
 
@@ -202,9 +203,10 @@ cover the requested interval, and carry a resolution record. Operating-state eve
 have stable IDs and strictly increasing times.
 
 Engine/scenario compatibility is capability-gated. Held-speed and load-target
-scenarios require an available, complete cycle-mean net-shaft torque form. Inertial
-dyno requires an available, complete instantaneous net-shaft torque form and admitted
-equivalent inertia. A complete form in one time domain cannot stand in for the other.
+scenarios require an available, complete cycle-mean net-shaft torque form. `HeldDyno`
+and `InertialDyno` require an available, complete instantaneous net-shaft torque form
+and admitted mechanism inertia. A complete form in one time domain cannot stand in
+for the other.
 The scenario and engine profile IDs must match. The scenario fuel identity and lower
 heating value must exactly match the executable profile's fuel identity and energy
 density, so two conflicting fuels cannot enter one render. The legacy profile's

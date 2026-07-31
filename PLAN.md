@@ -586,7 +586,8 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--10 are executable. Slice 6 reaches JSON, runtime, native
+Current progress: slices 1--11 are executable; slice 11 awaits listening acceptance.
+Slice 6 reaches JSON, runtime, native
 session, exact C ABI, WASM, and the Web workbench; the BMW crank/catch checkpoint was
 accepted. Slice 7 admits arbitrary sampled fixed-cam profiles while preserving the
 generated harmonic path. Slice 8 executes the three consumed pristine VTEC predicates
@@ -605,6 +606,16 @@ two valvetrains, and four one-cylinder cams. Its complete resolved request and a
 published WAV files are byte-identical to the accepted shared-head checkpoint. More
 general heterogeneous heads, separate intakes, crankshafts, ignition sharing, and
 master/slave journals remain isolated follow-up commits within slice 10.
+
+Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
+velocity constraint while reusing the accepted gas, source-friction,
+configuration-inertia, routing, conditioning, IR, and mastering paths. The BMW gate
+pulls from 1,500 to 6,500 RPM, holds, lifts, and then overruns with zero permitted dyno
+driving torque, so a falling engine is never forced back onto an authored pitch lane.
+Its tests and clean production render pass; user listening acceptance is pending in
+[`docs/HEADLESS_BMW_HELD_DYNO_LISTENING_GATE.md`](docs/HEADLESS_BMW_HELD_DYNO_LISTENING_GATE.md).
+The controller already consumes target RPM and torque limits per runtime step; their
+public timestamped `EngineSession`/C ABI/WASM publication remains slice 13.
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
 and mastering unchanged. Listen immediately after the one intended behavior changes;
