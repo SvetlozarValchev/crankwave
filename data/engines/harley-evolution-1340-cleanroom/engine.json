@@ -467,7 +467,7 @@
     ],
     "audition": {
       "buses": ["master-engine-audition"],
-      "monitoring_gain_linear": 128,
+      "monitoring_gain_linear": 16,
       "fade_in": {"value": 0.02, "unit": "s"},
       "fade_out": {"value": 0.02, "unit": "s"}
     },
