@@ -1,12 +1,12 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — browser operating bench complete
+Status: active — headless parity completion
 
 Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-31
 
-Current checkpoint: **slice 15 — canonical unpaced capture procedures**
+Current checkpoint: **operating-bench completion, then slice 15 canonical captures**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -114,13 +114,13 @@ same rule: imposed-RPM operation, internally dynamic operation, and a later
 load-following mode are distinct capabilities.
 
 Session creation separately requires `finite_scenario` or `open_ended`.
-`finite_scenario` executes the JSON recipe and horizon exactly. `open_ended` is
-currently FreeEngine-only: it executes the authored pre-audible history through the
-audible handoff, holds that right-continuous control snapshot, and continues the same
-mutable crank/gas/random/filter/convolution state until paused, restarted, destroyed,
-or faulted. A positive-speed FreeEngine may physically release at its earlier fixed
-horizon and acquire dynamically before the handoff. It does not loop the finite recipe
-or report elapsed-time completion.
+`finite_scenario` executes the JSON recipe and horizon exactly. `open_ended` executes
+the authored pre-audible history through the audible handoff, holds the
+right-continuous control snapshot, and continues the same mutable
+crank/gas/random/filter/convolution state until paused, restarted, destroyed, or
+faulted. FreeEngine already implements that lifetime. HeldDyno and FreeVehicle are the
+remaining operating-bench completion work before slice 15; neither may loop a finite
+recipe or report elapsed-time completion once admitted.
 
 Asset references are relative to the engine asset and are content-verified. Resolution
 generates stable IDs, derived quantities, method selections, and provenance internally;
@@ -451,8 +451,8 @@ accepted; rejected experiments are removed rather than retained as alternate mod
 ## 8. Commit and artifact policy
 
 - Work on the dedicated branch until a merge is requested.
-- Commit exactly one numbered checkpoint; split a checkpoint before coding if it cannot
-  be reviewed as one coherent change.
+- Commit one coherent bullet or subslice at a time; split a numbered checkpoint before
+  coding when it contains independently reviewable behavior.
 - Never mix sound-affecting work with plumbing or unrelated refactoring.
 - Keep the build and focused tests green at every commit boundary.
 - Do not rewrite or discard user-owned history in the original or failed repositories.
@@ -487,8 +487,10 @@ not.
 The browser is a client of this contract. It must not synthesize RPM, vehicle motion,
 load, or dyno behavior in JavaScript.
 
-Live browser playback creates an open-ended FreeEngine session. **Stop** pauses
-production and **Start** resumes the same state; **Restart** creates fresh state.
+Live browser playback creates an open-ended session for an admitted interactive motion
+owner. FreeEngine is implemented; continuous HeldDyno and FreeVehicle are the current
+completion work. **Stop** pauses production and **Start** resumes the same state;
+**Restart** creates fresh state.
 Authored-capture export creates a separate finite-scenario session. Arbitrary live
 controls beyond the authored horizon are not silently truncated into that export.
 
@@ -581,16 +583,21 @@ names that role explicitly or removes it.
     gears, and service brake. Stop for a neutral/launch/shift/fifth-gear pull check.
 13. Publish starter, dyno, drivetrain, and remaining API-relevant telemetry and controls
     through the same native/C ABI/WASM boundary.
-14. Replace the current restart-only dyno button with the full operating bench and
-    named scenarios. The UI must capability-gate real backend functions, not infer them
-    from generic live-control support.
+14. Replace the current restart-only dyno button with the capability-driven operating
+    bench and named scenarios. Complete its interactive lifetime by admitting
+    open-ended HeldDyno and FreeVehicle sessions; the UI must capability-gate real
+    backend functions, not infer them from generic live-control support.
 15. Add unpaced capture procedures for crank, startup/catch, settled idle, loaded
    rise, part load, coast fall, neutral limiter, limiter lift/recovery, and shutdown.
 16. Freeze representative fixed-cam inline/V, VTEC, governed, master/slave, and
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--14 are executable and accepted. Slice 12's pristine
+Current progress: slices 1--9 and 11--14 are executable and accepted for the currently
+admitted topology. Slice 10 remains open for the isolated general-topology commits
+listed below. Slice 14's capability-driven UI is accepted, while continuous HeldDyno
+and FreeVehicle lifetimes are the final operating-bench completion before slice 15.
+Slice 12's pristine
 vehicle/transmission equations and explicit non-parity service-brake boundary are
 frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md`](docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md).
@@ -643,14 +650,16 @@ retain all six raw/audition WAV hashes byte-for-byte. Slice 14 now owns the visi
 operating bench and named procedures.
 
 Slice 14 turns that exact backend into a visible capability-driven bench without
-changing lifetime, physics, or audio. Commit `a3b7ca5` groups the existing repository
+changing physics or audio. Commit `a3b7ca5` groups the existing repository
 procedures and adds the accepted BMW held-dyno, launch/shift, and fifth-gear runs;
 `c3c2563` adds descriptor-gated dyno/drivetrain controls plus mode-owned telemetry;
 and `4f43eb3` distinguishes the continuous FreeEngine bench from finite procedures and
 fresh replay. The actual WASM UI gate applies atomic dyno and drivetrain batches,
 observes their returned sidecars, completes and replays a finite vehicle procedure,
-retains the canonical browser WAV hash, and reports zero startup underruns. The frozen
-contract and evidence are in
+retains the canonical browser WAV hash, and reports zero startup underruns. Continuous
+HeldDyno and FreeVehicle operation remains the explicit lifetime completion instead of
+being hidden behind the finite-procedure UI. The frozen finite-procedure contract and
+evidence are in
 [`docs/contracts/WEB_OPERATING_BENCH_SLICE_14.md`](docs/contracts/WEB_OPERATING_BENCH_SLICE_14.md).
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,

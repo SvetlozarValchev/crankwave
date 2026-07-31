@@ -81,8 +81,9 @@ mechanism inertia now follows the pristine one-degree-of-freedom equation
 pristine acceleration within `0.054%`. The controlled response gate passes: WOT
 differs from pristine by `0.0134 s`, all coast crossings by at most `0.0049 s`, and
 the long natural-balance mean by `1.079 RPM`. Reverse vehicle motion, wheel slip,
-driveline compliance, the full operating-bench UI, and arbitrary live presentation
-edits remain explicit missing capabilities rather than JavaScript approximations. The
+driveline compliance, continuous HeldDyno/FreeVehicle session lifetimes, and arbitrary
+live presentation edits remain explicit missing capabilities rather than JavaScript
+approximations. The
 stopped/stalled state and pristine unilateral target-speed starter now execute through
 the same FreeEngine runtime; starter engagement and release remain explicit authored
 or live controls. The selected throttle controller may instead be pristine's stateful governor:
