@@ -74,6 +74,55 @@ void test_legacy_triangle_sampling() {
                 "triangle table included a point outside its radius");
 }
 
+void test_source_governor_written_order_and_state() {
+    constexpr LegacyGovernorControllerParameters parameters{
+        4.0,
+        12.0,
+        -1.0,
+        1.0,
+        1.0 / 16.0,
+        1.0,
+        2.0,
+    };
+    constexpr double step_s = 1.0 / 4.0;
+    LegacyGovernorControllerState state;
+    const auto exact = [](double actual, double expected, const char *message) {
+        expect(std::bit_cast<std::uint64_t>(actual) ==
+                   std::bit_cast<std::uint64_t>(expected),
+               message);
+    };
+    const auto advance = [&](double command, double speed,
+                             double expected_target, double expected_velocity,
+                             double expected_actuator,
+                             double expected_resolved_closure) {
+        const auto result = evaluate_legacy_governor_throttle(
+            state, parameters, command, speed, step_s, 1.0);
+        state = result.controller;
+        exact(result.target_engine_speed_rad_s, expected_target,
+              "governor changed target-speed interpolation order");
+        exact(state.velocity_per_s, expected_velocity,
+              "governor changed its written-order velocity update");
+        exact(state.actuator_closure_01, expected_actuator,
+              "governor changed its persistent actuator state");
+        exact(result.throttle.resolved_engine_throttle_01,
+              expected_resolved_closure,
+              "governor changed its source gamma projection");
+    };
+
+    advance(0.5, 0.0, 8.0, 0.0, 1.0, 1.0);
+    advance(0.5, 2.0, 8.0, -15.0 / 16.0, 49.0 / 64.0,
+            3871.0 / 4096.0);
+    advance(0.5, 4.0, 8.0, -1.0, 33.0 / 64.0,
+            3135.0 / 4096.0);
+    advance(0.5, 12.0, 8.0, 1.0 / 2.0, 41.0 / 64.0,
+            3567.0 / 4096.0);
+    advance(1.0, 12.0, 12.0, 3.0 / 8.0, 47.0 / 64.0,
+            3807.0 / 4096.0);
+    advance(0.0, 12.0, 4.0, 1.0, 63.0 / 64.0,
+            4095.0 / 4096.0);
+    advance(0.5, 1.0, 8.0, 0.0, 1.0, 1.0);
+}
+
 CenteredSliderCrankCylinder test_cylinder() {
     return {
         CylinderId{1}, 0.25, 0.01, 0.04, 0.14, 0.00005, 0.0,
@@ -736,6 +785,7 @@ void test_mechanics_compile_rejections() {
 void run_tests() {
     test_legacy_angle_wrapping();
     test_legacy_triangle_sampling();
+    test_source_governor_written_order_and_state();
     test_centered_slider_crank_geometry();
     test_ignition_crossing_half_open_intervals();
     test_limiter_strict_threshold_and_timer_edges();

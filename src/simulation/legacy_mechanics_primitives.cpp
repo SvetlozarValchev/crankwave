@@ -1,5 +1,6 @@
 #include "legacy_mechanics_primitives.hpp"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstddef>
@@ -112,6 +113,47 @@ LegacyDirectThrottleState evaluate_legacy_direct_throttle(
     state.main_flow_multiplier_01 =
         std::cos(kLegacyPi * state.intake_plate_position_01 / 2.0);
     return state;
+}
+
+LegacyGovernorThrottleStep evaluate_legacy_governor_throttle(
+    LegacyGovernorControllerState state,
+    const LegacyGovernorControllerParameters &parameters,
+    const double requested_speed_control_01, const double engine_speed_rad_s,
+    const double step_s,
+    const double idle_throttle_plate_position_01) noexcept {
+    const double target_engine_speed_rad_s =
+        (1.0 - requested_speed_control_01) *
+            parameters.minimum_engine_speed_rad_s +
+        requested_speed_control_01 * parameters.maximum_engine_speed_rad_s;
+    const double speed_error_squared =
+        target_engine_speed_rad_s * target_engine_speed_rad_s -
+        engine_speed_rad_s * engine_speed_rad_s;
+    state.velocity_per_s +=
+        step_s * -speed_error_squared * parameters.k_s -
+        state.velocity_per_s * step_s * parameters.k_d_per_s;
+    state.velocity_per_s =
+        std::clamp(state.velocity_per_s, parameters.minimum_velocity_per_s,
+                   parameters.maximum_velocity_per_s);
+
+    if (std::abs(engine_speed_rad_s) <
+        std::abs(0.5 * parameters.minimum_engine_speed_rad_s)) {
+        state.velocity_per_s = 0.0;
+        state.actuator_closure_01 = 1.0;
+    }
+
+    state.actuator_closure_01 += state.velocity_per_s * step_s;
+    state.actuator_closure_01 =
+        std::clamp(state.actuator_closure_01, 0.0, 1.0);
+
+    LegacyDirectThrottleState throttle;
+    throttle.resolved_engine_throttle_01 =
+        1.0 - std::pow(1.0 - state.actuator_closure_01, parameters.gamma);
+    throttle.intake_plate_position_01 =
+        idle_throttle_plate_position_01 *
+        throttle.resolved_engine_throttle_01;
+    throttle.main_flow_multiplier_01 =
+        std::cos(kLegacyPi * throttle.intake_plate_position_01 / 2.0);
+    return {state, target_engine_speed_rad_s, throttle};
 }
 
 double legacy_triangle_sample(std::span<const LegacyTrianglePoint> points, double x,

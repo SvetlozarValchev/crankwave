@@ -28,6 +28,44 @@ struct LegacyDirectThrottleState {
     double requested_throttle_01, double gamma,
     double idle_throttle_plate_position_01) noexcept;
 
+struct LegacyGovernorControllerParameters {
+    double minimum_engine_speed_rad_s = 0.0;
+    double maximum_engine_speed_rad_s = 0.0;
+    double minimum_velocity_per_s = 0.0;
+    double maximum_velocity_per_s = 0.0;
+    double k_s = 0.0;
+    double k_d_per_s = 0.0;
+    double gamma = 1.0;
+
+    friend bool operator==(const LegacyGovernorControllerParameters &,
+                           const LegacyGovernorControllerParameters &) = default;
+};
+
+struct LegacyGovernorControllerState {
+    double actuator_closure_01 = 1.0;
+    double velocity_per_s = 0.0;
+
+    friend bool operator==(const LegacyGovernorControllerState &,
+                           const LegacyGovernorControllerState &) = default;
+};
+
+struct LegacyGovernorThrottleStep {
+    LegacyGovernorControllerState controller;
+    double target_engine_speed_rad_s = 0.0;
+    LegacyDirectThrottleState throttle;
+
+    friend bool operator==(const LegacyGovernorThrottleStep &,
+                           const LegacyGovernorThrottleStep &) = default;
+};
+
+// One exact explicit-Euler update of engine-sim's Governor followed by the
+// intake plate transform. Admission owns all finite/domain checks.
+[[nodiscard]] LegacyGovernorThrottleStep evaluate_legacy_governor_throttle(
+    LegacyGovernorControllerState state,
+    const LegacyGovernorControllerParameters &parameters,
+    double requested_speed_control_01, double engine_speed_rad_s,
+    double step_s, double idle_throttle_plate_position_01) noexcept;
+
 struct LegacyCylinderGeometry {
     double piston_area_m2 = 0.0;
     double tdc_mechanism_height_m = 0.0;
