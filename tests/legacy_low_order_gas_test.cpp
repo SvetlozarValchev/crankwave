@@ -1,6 +1,7 @@
 #include "authored_engine_fixture_support.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -125,6 +126,16 @@ low_order_core(const AuthoredEngineFixture &request) {
     return engine_sim_offline::test::low_order_core(request.engine);
 }
 
+[[nodiscard]] SharedMechanismKinematicsPlan
+require_mechanism_plan(const AuthoredEngineFixture &request) {
+    auto result = compile_mechanism_kinematics_plan(request.engine,
+                                                    low_order_core(request));
+    if (const auto *report = std::get_if<ValidationReport>(&result)) {
+        fail_report("short authored mechanism plan failed admission", *report);
+    }
+    return std::get<SharedMechanismKinematicsPlan>(std::move(result));
+}
+
 struct CompiledSessions {
     LegacyLowOrderMechanicsSession mechanics;
     LegacyLowOrderGasSession gas;
@@ -133,12 +144,14 @@ struct CompiledSessions {
 [[nodiscard]] CompiledSessions compile_sessions(const AuthoredEngineFixture &request) {
     auto schedule =
         require_schedule(compile_kinematic_scenario_schedule(request.scenario));
+    auto mechanism_plan = require_mechanism_plan(request);
     auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
-        request.engine, low_order_core(request), request.scenario, schedule));
+        request.engine, low_order_core(request), request.scenario, mechanism_plan,
+        schedule));
     const auto random_plan = require_random_plan(request);
     auto gas = require_gas(CoreRuntimeFactory::compile_gas(
         request.engine, low_order_core(request), request.scenario, random_plan,
-        schedule.control_schedule(), mechanics.cylinder_models()));
+        schedule.control_schedule(), std::move(mechanism_plan)));
     return {std::move(mechanics), std::move(gas)};
 }
 
@@ -651,12 +664,11 @@ void expect_gas_compile_rejected(const AuthoredEngineFixture &request,
                                  std::string_view context) {
     auto schedule =
         require_schedule(compile_kinematic_scenario_schedule(request.scenario));
-    auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
-        request.engine, low_order_core(request), request.scenario, schedule));
+    auto mechanism_plan = require_mechanism_plan(request);
     const auto random_plan = require_random_plan(request);
     auto result = CoreRuntimeFactory::compile_gas(
         request.engine, low_order_core(request), request.scenario, random_plan,
-        schedule.control_schedule(), mechanics.cylinder_models());
+        schedule.control_schedule(), std::move(mechanism_plan));
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr, std::string{context} + " compiled successfully");
     const bool has_expected_issue = std::any_of(
@@ -673,11 +685,10 @@ void expect_random_plan_rejected(const AuthoredEngineFixture &request,
                                  std::string_view context) {
     auto schedule =
         require_schedule(compile_kinematic_scenario_schedule(request.scenario));
-    auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
-        request.engine, low_order_core(request), request.scenario, schedule));
+    auto mechanism_plan = require_mechanism_plan(request);
     auto result = CoreRuntimeFactory::compile_gas(
         request.engine, low_order_core(request), request.scenario, random_plan,
-        schedule.control_schedule(), mechanics.cylinder_models());
+        schedule.control_schedule(), std::move(mechanism_plan));
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr, std::string{context} + " compiled successfully");
     const bool has_expected_issue =
@@ -722,10 +733,7 @@ void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical)
 
     {
         auto request = make_short_request(canonical);
-        auto sweep_schedule =
-            require_schedule(compile_kinematic_scenario_schedule(request.scenario));
-        auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
-            request.engine, low_order_core(request), request.scenario, sweep_schedule));
+        auto mechanism_plan = require_mechanism_plan(request);
         const double initial_theta_rad =
             low_order_core(request).mechanism.crank.crank_tdc_reference_rad.value;
         request.scenario.mode =
@@ -735,7 +743,7 @@ void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical)
         const auto random_plan = require_random_plan(request);
         auto gas = require_gas(CoreRuntimeFactory::compile_gas(
             request.engine, low_order_core(request), request.scenario, random_plan,
-            schedule.control_schedule(), mechanics.cylinder_models()));
+            schedule.control_schedule(), std::move(mechanism_plan)));
         expect(gas.produced_sample_count() == 0U,
                "fresh held-speed gas session published samples during admission");
     }

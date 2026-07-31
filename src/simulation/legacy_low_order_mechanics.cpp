@@ -36,8 +36,9 @@ bool finite_canonical_nonnegative(double value) noexcept {
 LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
     ScenarioControlCursor control_cursor,
     std::optional<KinematicScenarioCursor> kinematic_cursor,
-    contract::RationalRateHz rate, double crank_tdc_reference_rad,
-    double initial_theta_cycle_rad, std::vector<CylinderModel> cylinders,
+    contract::RationalRateHz rate,
+    SharedMechanismKinematicsPlan mechanism_plan,
+    double initial_theta_cycle_rad,
     std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
     LegacyThrottleControllerParameters throttle_controller,
     double idle_throttle_plate_position_01,
@@ -45,9 +46,13 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
     std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
     : control_cursor_(std::move(control_cursor)),
       kinematic_cursor_(std::move(kinematic_cursor)), rate_(rate),
-      crank_tdc_reference_rad_(crank_tdc_reference_rad), step_s_(1.0 / 10000.0),
-      filter_alpha_(step_s_ / (100.0 + step_s_)), cylinders_(std::move(cylinders)),
-      maximum_event_count_(cylinders_.size() + 1U),
+      mechanism_plan_(std::move(mechanism_plan)),
+      crank_tdc_reference_rad_(
+          direct_mechanism_kinematics_plan(mechanism_plan_)
+              ->crank_tdc_reference_rad),
+      step_s_(1.0 / 10000.0), filter_alpha_(step_s_ / (100.0 + step_s_)),
+      maximum_event_count_(
+          direct_mechanism_kinematics_plan(mechanism_plan_)->cylinders.size() + 1U),
       timing_curve_(std::move(timing_curve)),
       timing_curve_radius_rad_s_(timing_curve_radius_rad_s),
       throttle_controller_(std::move(throttle_controller)),
@@ -58,11 +63,8 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
       theta_cycle_rad_(initial_theta_cycle_rad),
       theta_unwrapped_rad_(initial_theta_cycle_rad),
       ignition_saved_angle_rad_(initial_theta_cycle_rad) {
-    cylinder_model_view_.reserve(cylinders_.size());
-    for (const auto &cylinder : cylinders_) {
-        cylinder_model_view_.push_back(cylinder.crank);
-    }
-    step_.cylinders.resize(cylinders_.size());
+    step_.cylinders.resize(
+        direct_mechanism_kinematics_plan(mechanism_plan_)->cylinders.size());
     step_.events.reserve(maximum_event_count_);
 }
 
@@ -116,6 +118,15 @@ LegacyLowOrderMechanicsSession::advance(PostStepCrankMotion motion,
 LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion(
     std::optional<PostStepCrankMotion> motion, const LiveControlOverrides &overrides) {
     if (terminal_fault_.has_value()) {
+        return *terminal_fault_;
+    }
+    const auto *direct_plan =
+        direct_mechanism_kinematics_plan(mechanism_plan_);
+    if (direct_plan == nullptr) {
+        terminal_fault_ =
+            fault(contract::FailureKind::contract_violation,
+                  "legacy-mechanics-mechanism-plan-unavailable",
+                  "mechanics session has no retained direct mechanism plan");
         return *terminal_fault_;
     }
     if (control_cursor_.completed()) {
@@ -270,8 +281,9 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
         cylinder.spark_crossed = false;
     }
     if (step_.operating_state.ignition_enabled && limiter_timer_s_ == 0.0) {
-        for (std::size_t index = 0; index < cylinders_.size(); ++index) {
-            const auto &model = cylinders_[index];
+        const auto &cylinders = direct_plan->cylinders;
+        for (std::size_t index = 0; index < cylinders.size(); ++index) {
+            const auto &model = cylinders[index];
             const double spark_angle_rad = legacy_wrap_4pi(
                 model.crank.ignition_wire_angle_rad - step_.timing_advance_rad);
             const auto crossing = evaluate_legacy_ignition_crossing(
@@ -357,8 +369,9 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
     }
     ignition_saved_angle_rad_ = theta_cycle_rad_;
 
-    for (std::size_t index = 0; index < cylinders_.size(); ++index) {
-        const auto &model = cylinders_[index];
+    const auto &cylinders = direct_plan->cylinders;
+    for (std::size_t index = 0; index < cylinders.size(); ++index) {
+        const auto &model = cylinders[index];
         const auto evaluated = evaluate_centered_slider_crank(
             model.crank, theta_cycle_rad_, step_.angular_speed_rad_s);
         if (!evaluated.valid) {
@@ -396,11 +409,6 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
 bool LegacyLowOrderMechanicsSession::completed() const noexcept {
     return !terminal_fault_.has_value() && control_cursor_.completed() &&
            (!kinematic_cursor_.has_value() || kinematic_cursor_->completed());
-}
-
-std::span<const CenteredSliderCrankCylinder>
-LegacyLowOrderMechanicsSession::cylinder_models() const noexcept {
-    return cylinder_model_view_;
 }
 
 } // namespace engine_sim_offline::simulation

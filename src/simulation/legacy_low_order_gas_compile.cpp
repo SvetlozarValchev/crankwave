@@ -218,8 +218,22 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core,
     const contract::RenderScenario &scenario, const contract::RandomPlan &random_plan,
     const ScenarioControlSchedule &schedule,
-    std::span<const CenteredSliderCrankCylinder> cylinder_models) {
+    SharedMechanismKinematicsPlan mechanism_plan) {
     ValidationReport report;
+    const auto *direct_plan =
+        direct_mechanism_kinematics_plan(mechanism_plan);
+    const bool plan_matches_source =
+        mechanism_kinematics_plan_matches_source(mechanism_plan, engine, core);
+    require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
+            "mechanism_plan",
+            "legacy gas requires one compiled direct mechanism plan");
+    require(report, plan_matches_source, ContractIssueCode::inconsistent_semantics,
+            "mechanism_plan",
+            "compiled direct mechanism plan does not exactly match its resolved "
+            "engine source");
+    if (direct_plan == nullptr || !plan_matches_source) {
+        return report;
+    }
 
     require(report, engine.id.valid(), ContractIssueCode::invalid_value, "engine.id",
             "gas session requires a valid engine identity");
@@ -303,12 +317,10 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     const auto &head = gas_path.head;
     require(report,
             !engine.cylinders.empty() &&
-                mechanism.cylinders.size() == engine.cylinders.size() &&
-                cylinder_models.size() == engine.cylinders.size(),
+                mechanism.cylinders.size() == engine.cylinders.size(),
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.mechanism.cylinders",
-            "engine, mechanism, and admitted mechanics-model cylinder orders must "
-            "be equal and nonempty");
+            "engine and mechanism cylinder orders must be equal and nonempty");
     require(report, std::isfinite(mechanism.crank.crank_tdc_reference_rad.value),
             ContractIssueCode::invalid_value,
             "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
@@ -661,21 +673,21 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     for (std::size_t cylinder_index = 0; cylinder_index < engine.cylinders.size();
          ++cylinder_index) {
         if (cylinder_index >= mechanism.cylinders.size() ||
-            cylinder_index >= cylinder_models.size()) {
+            cylinder_index >= direct_plan->cylinders.size()) {
             break;
         }
         const auto &engine_cylinder = engine.cylinders[cylinder_index];
         const auto &assembly = mechanism.cylinders[cylinder_index];
         const auto &topology = assembly.topology;
         const auto &parameters = assembly.parameters;
-        const auto &model = cylinder_models[cylinder_index];
+        const auto &planned = direct_plan->cylinders[cylinder_index];
+        const auto &model = planned.crank;
         const std::string path = "engine.physics_profile.mechanism.cylinders[" +
                                  std::to_string(cylinder_index) + "]";
 
         const bool cylinder_order_matches =
             topology.cylinder_id.valid() &&
             topology.cylinder_id == engine_cylinder.id &&
-            model.cylinder_id == engine_cylinder.id &&
             mechanism_cylinder_ids.insert(topology.cylinder_id.value).second;
         require(report, cylinder_order_matches,
                 ContractIssueCode::inconsistent_semantics,
@@ -771,55 +783,24 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 path + ".parameters",
                 "cylinder gas geometry inputs are outside the admitted domain");
 
-        double piston_area_m2 = 0.0;
-        double fixed_geometry_volume_m3 = 0.0;
-        double clearance_volume_m3 = 0.0;
-        double geometric_tdc_rad = 0.0;
-        bool model_matches = false;
-        if (numeric_values_valid &&
-            std::isfinite(mechanism.crank.crank_tdc_reference_rad.value)) {
-            const auto geometry = derive_legacy_cylinder_geometry(
-                parameters.bore_m.value, parameters.crank_radius_m.value,
-                parameters.connecting_rod_length_m.value,
-                parameters.deck_height_m.value,
-                parameters.piston_compression_height_m.value,
-                parameters.head_chamber_volume_m3.value,
-                parameters.piston_displacement_term_m3.value);
-            piston_area_m2 = geometry.piston_area_m2;
-            clearance_volume_m3 = geometry.clearance_volume_m3;
-            fixed_geometry_volume_m3 = geometry.fixed_geometry_volume_m3;
-            geometric_tdc_rad =
-                legacy_wrap_2pi(mechanism.crank.crank_tdc_reference_rad.value +
-                                parameters.journal_angle_rad.value - kLegacyPi / 2.0);
-            const bool derived_values_valid =
-                finite_positive(piston_area_m2) &&
-                finite_positive(clearance_volume_m3) &&
-                finite_positive(fixed_geometry_volume_m3) &&
-                std::isfinite(geometric_tdc_rad);
-            require(report, derived_values_valid, ContractIssueCode::invalid_value,
-                    path + ".parameters",
-                    "derived piston area, clearance, and fixed planar geometry "
-                    "must be finite and positive");
-            model_matches =
-                derived_values_valid && model.cylinder_id == topology.cylinder_id &&
-                same_binary64(model.geometric_tdc_rad, geometric_tdc_rad) &&
-                same_binary64(model.piston_area_m2, piston_area_m2) &&
-                same_binary64(model.crank_radius_m, parameters.crank_radius_m.value) &&
-                same_binary64(model.connecting_rod_length_m,
-                              parameters.connecting_rod_length_m.value) &&
-                same_binary64(model.clearance_volume_m3, clearance_volume_m3) &&
-                same_binary64(model.ignition_wire_angle_rad,
-                              parameters.ignition_wire_angle_rad.value);
-            require(report, model_matches, ContractIssueCode::inconsistent_semantics,
-                    path + ".mechanics_model",
-                    "supplied admitted mechanics model must exactly match the gas "
-                    "profile's cylinder geometry and phase");
-        }
+        const double piston_area_m2 = model.piston_area_m2;
+        const double fixed_geometry_volume_m3 =
+            planned.fixed_geometry_volume_m3;
+        const bool direct_model_valid =
+            numeric_values_valid &&
+            std::isfinite(model.geometric_tdc_rad) &&
+            finite_positive(model.piston_area_m2) &&
+            finite_positive(model.clearance_volume_m3) &&
+            finite_positive(planned.fixed_geometry_volume_m3);
+        require(report, direct_model_valid, ContractIssueCode::invalid_value,
+                path + ".mechanism_plan",
+                "compiled direct mechanism plan contains invalid derived cylinder "
+                "geometry");
 
         const auto initial_sample =
             evaluate_centered_slider_crank(model, schedule.initial_theta_rad(), 0.0);
         require(report,
-                model_matches && initial_sample.valid &&
+                direct_model_valid && initial_sample.valid &&
                     finite_positive(initial_sample.chamber_volume_m3),
                 ContractIssueCode::invalid_value, path + ".initial_chamber_volume",
                 "fresh analytic chamber state must have a finite positive volume");
@@ -862,8 +843,9 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             intake_valve_edge_index.has_value() &&
             exhaust_valve_edge_index.has_value() &&
             primary_collector_edge_index.has_value() && blowby_edge_index.has_value() &&
-            route_lane_index.has_value() && stream_index.has_value() && model_matches &&
-            initial_sample.valid && finite_positive(runner_volume_m3) &&
+            route_lane_index.has_value() && stream_index.has_value() &&
+            direct_model_valid && initial_sample.valid &&
+            finite_positive(runner_volume_m3) &&
             finite_positive(primary_volume_m3);
         if (all_bindings_valid) {
             const auto &stream = random_plan.component_seeds[*stream_index];
@@ -959,6 +941,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
 
     LegacyLowOrderGasSession session;
     session.rate_ = schedule.rate();
+    session.mechanism_plan_ = std::move(mechanism_plan);
     session.first_sample_index_ = schedule.first_step_index();
     session.expected_sample_count_ =
         schedule.execution_extent().finite_physics_frame_count();

@@ -9,6 +9,7 @@
 #include "simulation/kinematic_scenario_schedule.hpp"
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 #include "simulation/operating_cycle_accountant.hpp"
 #include "simulation/positive_speed_rigid_crank_zoh.hpp"
 
@@ -190,6 +191,7 @@ class LowOrderDynamicCrankRuntime final {
   private:
     LowOrderDynamicCrankRuntime(
         ScenarioControlCursor control_cursor,
+        SharedMechanismKinematicsPlan mechanism_plan,
         std::optional<OperatingCycleAccountant> accountant,
         std::optional<FixedHorizonCycleSampler> sampler,
         std::vector<std::size_t> physical_gas_step_indices,
@@ -227,6 +229,7 @@ class LowOrderDynamicCrankRuntime final {
                                      const LegacyLowOrderGasStep &gas);
 
     ScenarioControlCursor control_cursor_;
+    SharedMechanismKinematicsPlan mechanism_plan_;
     std::optional<OperatingCycleAccountant> accountant_;
     std::optional<FixedHorizonCycleSampler> sampler_;
     std::vector<std::size_t> physical_gas_step_indices_;
@@ -271,6 +274,7 @@ class LowOrderDynamicCrankRuntime final {
                                             const contract::RenderScenario &,
                                             const LowOrderCapturePlan &,
                                             const contract::Sha256Digest &,
+                                            SharedMechanismKinematicsPlan,
                                             LowOrderExecutionExtent);
 };
 
@@ -281,6 +285,7 @@ using LowOrderDynamicCrankCompileResult =
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
     const contract::Sha256Digest &simulation_request_identity_v3_sha256,
+    SharedMechanismKinematicsPlan mechanism_plan,
     LowOrderExecutionExtent execution_extent);
 
 } // namespace engine_sim_offline::simulation

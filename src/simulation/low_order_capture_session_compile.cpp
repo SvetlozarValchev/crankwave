@@ -2,6 +2,7 @@
 
 #include "simulation/low_order_capture_buffer.hpp"
 #include "simulation/low_order_capture_plan.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <optional>
 #include <string>
@@ -65,6 +66,18 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     std::optional<LowOrderCaptureSession::ProfilePolicy> profile_policy;
     const contract::LowOrderEngineCoreV1 *core =
         operating_profile != nullptr ? &operating_profile->core : nullptr;
+    if (core == nullptr) {
+        report.add(ContractIssueCode::unsupported_value, "engine.physics_profile",
+                   "low-order capture could not select one engine core");
+        return report;
+    }
+    auto mechanism_plan_result = compile_mechanism_kinematics_plan(engine, *core);
+    if (const auto *mechanism_report =
+            std::get_if<ValidationReport>(&mechanism_plan_result)) {
+        return *mechanism_report;
+    }
+    auto mechanism_plan = std::get<SharedMechanismKinematicsPlan>(
+        std::move(mechanism_plan_result));
     if (operating_profile != nullptr) {
         if (inertial != nullptr) {
             auto inertial_result = compile_low_order_inertial_dyno_v1_runtime(
@@ -80,7 +93,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
                    free_vehicle != nullptr) {
             auto dynamic_crank_result = compile_low_order_dynamic_crank_runtime(
                 engine, scenario, capture_plan, simulation_request_identity_v3_sha256,
-                execution_extent);
+                mechanism_plan, execution_extent);
             if (auto *dynamic_crank_report =
                     std::get_if<ValidationReport>(&dynamic_crank_result)) {
                 return std::move(*dynamic_crank_report);
@@ -100,7 +113,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
                 std::get<LowOrderOperatingPointV1Runtime>(std::move(operating_result)));
         }
     }
-    if (!profile_policy.has_value() || core == nullptr) {
+    if (!profile_policy.has_value()) {
         report.add(ContractIssueCode::unsupported_value, "engine.physics_profile",
                    "low-order capture could not select one exclusive profile "
                    "policy");
@@ -108,7 +121,8 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     }
 
     auto core_result = compile_low_order_engine_core_v1_runtime(
-        engine, scenario, *core, random_plan, execution_extent);
+        engine, scenario, *core, random_plan, std::move(mechanism_plan),
+        execution_extent);
     if (const auto *core_report = std::get_if<ValidationReport>(&core_result)) {
         return *core_report;
     }

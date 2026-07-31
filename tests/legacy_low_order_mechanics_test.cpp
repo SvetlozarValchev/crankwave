@@ -3,6 +3,7 @@
 #include "simulation/legacy_low_order_mechanics.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 #include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <algorithm>
 #include <array>
@@ -351,8 +352,13 @@ CoreRuntimeFactory::MechanicsCompileResult compile_fixture(MechanicsFixture &fix
     }
     const auto &core =
         std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile).core;
+    auto mechanism_plan = compile_mechanism_kinematics_plan(fixture.engine, core);
+    if (auto *report = std::get_if<ValidationReport>(&mechanism_plan)) {
+        return std::move(*report);
+    }
     return CoreRuntimeFactory::compile_mechanics(
         fixture.engine, core, fixture.scenario,
+        std::get<SharedMechanismKinematicsPlan>(std::move(mechanism_plan)),
         std::get<KinematicScenarioSchedule>(schedule_result));
 }
 
@@ -394,8 +400,13 @@ compile_dynamic_fixture(MechanicsFixture &fixture) {
     }
     const auto &core =
         std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile).core;
+    auto mechanism_plan = compile_mechanism_kinematics_plan(fixture.engine, core);
+    if (auto *report = std::get_if<ValidationReport>(&mechanism_plan)) {
+        return std::move(*report);
+    }
     return CoreRuntimeFactory::compile_mechanics(
         fixture.engine, core, fixture.scenario,
+        std::get<SharedMechanismKinematicsPlan>(std::move(mechanism_plan)),
         std::get<ScenarioControlSchedule>(schedule_result));
 }
 
@@ -421,9 +432,6 @@ const LegacyMechanismStep &require_step(LegacyMechanicsAdvanceResult &result) {
 void test_mechanics_session_step_order_and_completion() {
     MechanicsFixture fixture;
     auto session = require_session(compile_fixture(fixture));
-    expect(session.cylinder_models().size() == 1 &&
-               session.cylinder_models()[0].cylinder_id == CylinderId{1},
-           "compiled mechanics session lost its cylinder model");
 
     auto first_result = session.advance();
     const auto &first = require_step(first_result);
@@ -489,6 +497,30 @@ void test_mechanics_session_step_order_and_completion() {
         std::get_if<LegacyMechanicsCompleted>(&stable_terminal);
     expect(stable_completed != nullptr && *stable_completed == *completed,
            "mechanics session completion is not terminal and stable");
+}
+
+void test_moved_from_mechanics_session_fails_stably() {
+    MechanicsFixture fixture;
+    auto source = require_session(compile_fixture(fixture));
+    auto destination = std::move(source);
+
+    auto first_result = source.advance();
+    const auto *first_failure = std::get_if<FailureContext>(&first_result);
+    expect(first_failure != nullptr &&
+               first_failure->kind == FailureKind::contract_violation &&
+               first_failure->detail_code ==
+                   "legacy-mechanics-mechanism-plan-unavailable",
+           "moved-from mechanics session did not fail closed with stable context");
+    const FailureContext expected_failure = *first_failure;
+
+    auto repeated_result = source.advance();
+    const auto *repeated_failure =
+        std::get_if<FailureContext>(&repeated_result);
+    expect(repeated_failure != nullptr && *repeated_failure == expected_failure,
+           "moved-from mechanics failure was not terminal and repeatable");
+
+    auto destination_result = destination.advance();
+    require_step(destination_result);
 }
 
 void test_mechanics_accepts_compiled_held_speed_schedule() {
@@ -832,6 +864,41 @@ void test_mechanics_compile_rejections() {
     }
 }
 
+void test_mechanics_rejects_stale_plan_with_unchanged_identity() {
+    MechanicsFixture fixture;
+    auto &core =
+        std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile).core;
+    auto mechanism_plan_result =
+        compile_mechanism_kinematics_plan(fixture.engine, core);
+    expect(std::holds_alternative<SharedMechanismKinematicsPlan>(
+               mechanism_plan_result),
+           "valid mechanism source did not compile before stale-plan test");
+    auto mechanism_plan = std::get<SharedMechanismKinematicsPlan>(
+        std::move(mechanism_plan_result));
+
+    auto schedule_result = compile_kinematic_scenario_schedule(fixture.scenario);
+    expect(std::holds_alternative<KinematicScenarioSchedule>(schedule_result),
+           "valid kinematic schedule did not compile before stale-plan test");
+
+    const auto engine_id = fixture.engine.id;
+    const auto profile_id = fixture.engine.profile_id.value;
+    core.mechanism.cylinders[0].parameters.journal_angle_rad.value += 0.125;
+    expect(fixture.engine.id == engine_id &&
+               fixture.engine.profile_id.value == profile_id,
+           "stale-plan test accidentally changed engine identity");
+
+    auto result = CoreRuntimeFactory::compile_mechanics(
+        fixture.engine, core, fixture.scenario, std::move(mechanism_plan),
+        std::get<KinematicScenarioSchedule>(std::move(schedule_result)));
+    const auto *report = std::get_if<ValidationReport>(&result);
+    expect(report != nullptr,
+           "mechanics admitted a stale plan after a consumed source field changed");
+    expect(std::ranges::any_of(report->issues, [](const auto &issue) {
+               return issue.path == "mechanism_plan";
+           }),
+           "stale mechanism plan rejection omitted its centralized binding path");
+}
+
 void run_tests() {
     test_legacy_angle_wrapping();
     test_legacy_triangle_sampling();
@@ -840,6 +907,7 @@ void run_tests() {
     test_ignition_crossing_half_open_intervals();
     test_limiter_strict_threshold_and_timer_edges();
     test_mechanics_session_step_order_and_completion();
+    test_moved_from_mechanics_session_fails_stably();
     test_mechanics_accepts_compiled_held_speed_schedule();
     test_mechanics_uses_authored_direct_throttle_transform();
     test_mechanics_executes_governor_with_persistent_state();
@@ -849,6 +917,7 @@ void run_tests() {
     test_mechanics_uniform_limiter_disabled_policy();
     test_mechanics_applies_live_limiter_and_external_resistance();
     test_mechanics_compile_rejections();
+    test_mechanics_rejects_stale_plan_with_unchanged_identity();
 }
 
 } // namespace

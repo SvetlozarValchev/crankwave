@@ -6,6 +6,7 @@
 #include "simulation/legacy_combustion_primitives.hpp"
 #include "simulation/legacy_fixed_valvetrain.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <array>
 #include <cstddef>
@@ -192,6 +193,7 @@ class LegacyLowOrderGasSession final {
                   std::optional<contract::RouteId> route_id = std::nullopt);
 
     contract::RationalRateHz rate_;
+    SharedMechanismKinematicsPlan mechanism_plan_;
     std::uint64_t first_sample_index_ = 0;
     std::optional<std::uint64_t> expected_sample_count_;
     std::uint64_t produced_sample_count_ = 0;

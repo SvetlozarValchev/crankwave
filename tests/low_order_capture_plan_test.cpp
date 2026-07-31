@@ -1,6 +1,7 @@
 #include "authored_engine_fixture_support.hpp"
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -49,6 +50,18 @@ require_plan(simulation::LowOrderCapturePlanCompileResult result) {
         throw std::runtime_error{std::move(message)};
     }
     return std::get<simulation::LowOrderCapturePlan>(std::move(result));
+}
+
+[[nodiscard]] simulation::SharedMechanismKinematicsPlan require_mechanism_plan(
+    simulation::MechanismKinematicsPlanCompileResult result) {
+    if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
+        std::string message = "mechanism kinematics plan was rejected";
+        for (const auto &issue : report->issues) {
+            message += "\n  " + issue.path + ": " + issue.message;
+        }
+        throw std::runtime_error{std::move(message)};
+    }
+    return std::get<simulation::SharedMechanismKinematicsPlan>(std::move(result));
 }
 
 [[nodiscard]] contract::RandomPlan
@@ -168,9 +181,11 @@ void test_physical_inventory_is_stable_and_excludes_atmosphere(
     rpm.post_step_rpm.assign(170000U, 2400.0);
     rpm.samples_f64le_sha256 =
         contract::canonical_binary64_le_sha256(rpm.post_step_rpm);
+    const auto mechanism_plan = require_mechanism_plan(
+        simulation::compile_mechanism_kinematics_plan(request.engine, reordered_core));
     auto core_runtime = simulation::compile_low_order_engine_core_v1_runtime(
         request.engine, request.scenario, reordered_core, random_plan(request),
-        finite_extent(request.scenario));
+        mechanism_plan, finite_extent(request.scenario));
     if (const auto *report = std::get_if<contract::ValidationReport>(&core_runtime)) {
         std::string message =
             "matching EngineSpec/core cylinder permutation is not executable";

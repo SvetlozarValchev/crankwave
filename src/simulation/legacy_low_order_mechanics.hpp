@@ -6,11 +6,11 @@
 #include "simulation/kinematic_scenario_schedule.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 #include "simulation/live_control.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <cstdint>
 #include <functional>
 #include <optional>
-#include <span>
 #include <string>
 #include <variant>
 #include <vector>
@@ -116,20 +116,13 @@ class LegacyLowOrderMechanicsSession final {
     [[nodiscard]] LegacyMechanicsAdvanceResult
     advance(PostStepCrankMotion motion, const LiveControlOverrides &overrides);
     [[nodiscard]] bool completed() const noexcept;
-    [[nodiscard]] std::span<const CenteredSliderCrankCylinder>
-    cylinder_models() const noexcept;
-
   private:
-    struct CylinderModel {
-        CenteredSliderCrankCylinder crank;
-        contract::RouteId exhaust_route_id;
-    };
-
     LegacyLowOrderMechanicsSession(
         ScenarioControlCursor control_cursor,
         std::optional<KinematicScenarioCursor> kinematic_cursor,
-        contract::RationalRateHz rate, double crank_tdc_reference_rad,
-        double initial_theta_cycle_rad, std::vector<CylinderModel> cylinders,
+        contract::RationalRateHz rate,
+        SharedMechanismKinematicsPlan mechanism_plan,
+        double initial_theta_cycle_rad,
         std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
         LegacyThrottleControllerParameters throttle_controller,
         double idle_throttle_plate_position_01,
@@ -149,12 +142,11 @@ class LegacyLowOrderMechanicsSession final {
     ScenarioControlCursor control_cursor_;
     std::optional<KinematicScenarioCursor> kinematic_cursor_;
     contract::RationalRateHz rate_;
+    SharedMechanismKinematicsPlan mechanism_plan_;
     double crank_tdc_reference_rad_ = 0.0;
     double step_s_ = 0.0;
     double filter_alpha_ = 0.0;
-    std::vector<CylinderModel> cylinders_;
     std::size_t maximum_event_count_ = 0;
-    std::vector<CenteredSliderCrankCylinder> cylinder_model_view_;
     std::vector<LegacyTrianglePoint> timing_curve_;
     double timing_curve_radius_rad_s_ = 0.0;
     LegacyThrottleControllerParameters throttle_controller_;

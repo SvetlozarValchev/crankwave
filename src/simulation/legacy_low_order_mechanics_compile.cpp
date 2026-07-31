@@ -1,12 +1,9 @@
 #include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <limits>
 #include <optional>
 #include <string>
-#include <unordered_set>
 #include <utility>
 
 namespace engine_sim_offline::simulation {
@@ -37,6 +34,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::MechanicsCompileResult
 detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
     const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core,
     const contract::RenderScenario &scenario,
+    SharedMechanismKinematicsPlan mechanism_plan,
     const KinematicScenarioSchedule &schedule) {
     ValidationReport report;
     require(report,
@@ -65,7 +63,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
     }
 
     auto result =
-        compile_mechanics(engine, core, scenario, schedule.control_schedule());
+        compile_mechanics(engine, core, scenario, std::move(mechanism_plan),
+                          schedule.control_schedule());
     if (auto *session = std::get_if<LegacyLowOrderMechanicsSession>(&result)) {
         session->kinematic_cursor_.emplace(schedule.fresh_cursor());
     }
@@ -75,8 +74,24 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
 detail::LowOrderEngineCoreV1RuntimeFactory::MechanicsCompileResult
 detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
     const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core,
-    const contract::RenderScenario &scenario, const ScenarioControlSchedule &schedule) {
+    const contract::RenderScenario &scenario,
+    SharedMechanismKinematicsPlan mechanism_plan,
+    const ScenarioControlSchedule &schedule) {
     ValidationReport report;
+    const auto *direct_plan =
+        direct_mechanism_kinematics_plan(mechanism_plan);
+    const bool plan_matches_source =
+        mechanism_kinematics_plan_matches_source(mechanism_plan, engine, core);
+    require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
+            "mechanism_plan",
+            "legacy mechanics requires one compiled direct mechanism plan");
+    require(report, plan_matches_source, ContractIssueCode::inconsistent_semantics,
+            "mechanism_plan",
+            "compiled direct mechanism plan does not exactly match its resolved "
+            "engine source");
+    if (direct_plan == nullptr || !plan_matches_source) {
+        return report;
+    }
     require(report, scenario.engine_profile_id == engine.profile_id.value,
             ContractIssueCode::inconsistent_semantics, "scenario.engine_profile_id",
             "mechanics session requires matching engine and scenario profiles");
@@ -202,101 +217,6 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
             ContractIssueCode::invalid_value,
             "engine.physics_profile.gas_path.intake.idle_throttle_plate_position_01",
             "idle plate position must be finite in [0,1]");
-    require(report,
-            core.mechanism.cylinders.size() == engine.cylinders.size() &&
-                !core.mechanism.cylinders.empty(),
-            ContractIssueCode::inconsistent_shape,
-            "engine.physics_profile.mechanism.cylinders",
-            "mechanism cylinders must match the nonempty engine cylinder order");
-    require(report,
-            core.mechanism.cylinders.size() <= std::numeric_limits<std::uint8_t>::max(),
-            ContractIssueCode::unsupported_value,
-            "engine.physics_profile.mechanism.cylinders",
-            "event ordinals support at most 255 cylinders per mechanics session");
-
-    std::vector<LegacyLowOrderMechanicsSession::CylinderModel> cylinders;
-    cylinders.reserve(core.mechanism.cylinders.size());
-    std::unordered_set<std::uint32_t> cylinder_ids;
-    for (std::size_t index = 0; index < core.mechanism.cylinders.size(); ++index) {
-        const auto &assembly = core.mechanism.cylinders[index];
-        const auto &parameters = assembly.parameters;
-        const auto path =
-            "engine.physics_profile.mechanism.cylinders[" + std::to_string(index) + "]";
-        const bool identity_valid =
-            assembly.topology.cylinder_id.valid() && index < engine.cylinders.size() &&
-            assembly.topology.cylinder_id == engine.cylinders[index].id &&
-            cylinder_ids.insert(assembly.topology.cylinder_id.value).second;
-        require(report, identity_valid, ContractIssueCode::inconsistent_semantics,
-                path + ".topology.cylinder_id",
-                "mechanism cylinder identity/order must be unique and match the "
-                "engine topology");
-        const auto route = std::find_if(
-            engine.routes.begin(), engine.routes.end(), [&](const auto &candidate) {
-                return candidate.id == assembly.topology.exhaust_route_id;
-            });
-        const bool exhaust_route_valid =
-            assembly.topology.exhaust_route_id.valid() &&
-            route != engine.routes.end() &&
-            route->kind.value == contract::SourceRouteKind::exhaust_outlet;
-        require(report, exhaust_route_valid, ContractIssueCode::dangling_reference,
-                path + ".topology.exhaust_route_id",
-                "mechanism cylinder requires an existing exhaust-outlet route");
-
-        const double bore_m = parameters.bore_m.value;
-        const double crank_radius_m = parameters.crank_radius_m.value;
-        const double rod_length_m = parameters.connecting_rod_length_m.value;
-        const double deck_height_m = parameters.deck_height_m.value;
-        const double compression_height_m =
-            parameters.piston_compression_height_m.value;
-        const double head_volume_m3 = parameters.head_chamber_volume_m3.value;
-        const double piston_displacement_m3 =
-            parameters.piston_displacement_term_m3.value;
-        const double journal_angle_rad = parameters.journal_angle_rad.value;
-        const double ignition_wire_angle_rad = parameters.ignition_wire_angle_rad.value;
-
-        const bool numeric_inputs_valid =
-            finite_positive(bore_m) && finite_positive(crank_radius_m) &&
-            finite_positive(rod_length_m) && crank_radius_m < rod_length_m &&
-            finite_positive(deck_height_m) && finite_positive(compression_height_m) &&
-            finite_positive(head_volume_m3) && std::isfinite(piston_displacement_m3) &&
-            std::isfinite(journal_angle_rad) && std::isfinite(ignition_wire_angle_rad);
-        require(report, numeric_inputs_valid, ContractIssueCode::invalid_value,
-                path + ".parameters",
-                "centered slider-crank inputs must be finite, positive where "
-                "required, and have crank radius below rod length");
-        if (!numeric_inputs_valid || !identity_valid || !exhaust_route_valid ||
-            !std::isfinite(crank.crank_tdc_reference_rad.value)) {
-            continue;
-        }
-
-        const auto geometry = derive_legacy_cylinder_geometry(
-            bore_m, crank_radius_m, rod_length_m, deck_height_m,
-            compression_height_m, head_volume_m3, piston_displacement_m3);
-        const double geometric_tdc_rad = legacy_wrap_2pi(
-            crank.crank_tdc_reference_rad.value + journal_angle_rad - kLegacyPi / 2.0);
-        const bool derived_valid = finite_positive(geometry.piston_area_m2) &&
-                                   finite_positive(geometry.clearance_volume_m3) &&
-                                   std::isfinite(geometric_tdc_rad);
-        require(report, derived_valid, ContractIssueCode::invalid_value, path,
-                "compiled slider-crank area, clearance, and phase must be valid");
-        if (!derived_valid) {
-            continue;
-        }
-
-        cylinders.push_back({
-            {
-                assembly.topology.cylinder_id,
-                geometric_tdc_rad,
-                geometry.piston_area_m2,
-                crank_radius_m,
-                rod_length_m,
-                geometry.clearance_volume_m3,
-                ignition_wire_angle_rad,
-            },
-            assembly.topology.exhaust_route_id,
-        });
-    }
-
     const auto &ignition = core.ignition;
     require(report, finite_positive(ignition.timing_curve_triangle_radius_rad_s.value),
             ContractIssueCode::invalid_value,
@@ -342,9 +262,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
         std::move(cursor),
         std::nullopt,
         schedule.rate(),
-        crank.crank_tdc_reference_rad.value,
+        std::move(mechanism_plan),
         schedule.initial_theta_rad(),
-        std::move(cylinders),
         std::move(timing_curve),
         ignition.timing_curve_triangle_radius_rad_s.value,
         std::move(*throttle_controller),

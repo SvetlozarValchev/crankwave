@@ -1,11 +1,11 @@
 #include "authored_engine_fixture_support.hpp"
-#include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/free_engine_method_registry.hpp"
 #include "simulation/free_vehicle_method_registry.hpp"
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_capture_session.hpp"
 #include "simulation/low_order_dynamic_crank_runtime.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <cmath>
 #include <cstdlib>
@@ -62,7 +62,12 @@ template <typename T>
     return identity;
 }
 
-[[nodiscard]] AuthoredEngineFixture
+struct FreeVehicleRequest {
+    AuthoredEngineFixture authored;
+    SharedMechanismKinematicsPlan mechanism_plan;
+};
+
+[[nodiscard]] FreeVehicleRequest
 make_free_vehicle_request(const AuthoredEngineFixture &canonical) {
     auto request = canonical;
     auto &scenario = request.scenario;
@@ -70,12 +75,18 @@ make_free_vehicle_request(const AuthoredEngineFixture &canonical) {
     expect(inertial != nullptr,
            "canonical authored scenario lost inertial-dyno ownership");
 
-    const auto inertia_calculation = calculate_centered_slider_crank_cycle_mean_inertia(
-        engine_sim_offline::test::operating_profile(request.engine).core.mechanism);
-    const auto *engine_inertia =
-        std::get_if<CenteredSliderCrankCycleMeanInertia>(&inertia_calculation);
-    expect(engine_inertia != nullptr,
-           "canonical BMW mechanism did not derive cycle-mean inertia");
+    const auto &core = engine_sim_offline::test::operating_profile(request.engine).core;
+    auto mechanism_plan_result =
+        compile_mechanism_kinematics_plan(request.engine, core);
+    if (const auto *report =
+            std::get_if<ValidationReport>(&mechanism_plan_result)) {
+        fail_report("canonical BMW mechanism plan failed admission", *report);
+    }
+    auto mechanism_plan = std::get<SharedMechanismKinematicsPlan>(
+        std::move(mechanism_plan_result));
+    const auto *direct_plan = direct_mechanism_kinematics_plan(mechanism_plan);
+    expect(direct_plan != nullptr,
+           "canonical BMW did not compile a direct mechanism plan");
 
     FreeVehicleRig rig;
     rig.id = RigId{1001U};
@@ -119,7 +130,7 @@ make_free_vehicle_request(const AuthoredEngineFixture &canonical) {
     scenario.mode = FreeVehicle{
         std::move(initial_engine_speed),
         inertial->initial_theta_rad,
-        resolved(engine_inertia->engine_equivalent_inertia_kg_m2,
+        resolved(direct_plan->cycle_mean_inertia.engine_equivalent_inertia_kg_m2,
                  "test.engine-baseline-inertia"),
         resolved(0.0, "test.initial-vehicle-speed"),
         std::move(rig),
@@ -166,7 +177,7 @@ make_free_vehicle_request(const AuthoredEngineFixture &canonical) {
     scenario.rates.capture = scenario.rates.physics;
     scenario.quality.value.capture_block_capacity_frames = 200U;
     scenario.quality.value.event_journal_capacity_records = 3800U;
-    return request;
+    return {std::move(request), std::move(mechanism_plan)};
 }
 
 [[nodiscard]] LowOrderCapturePlan
@@ -202,7 +213,9 @@ require_capture_session(LowOrderCaptureCompileResult result) {
 }
 
 void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canonical) {
-    const auto request = make_free_vehicle_request(canonical);
+    const auto compiled_request = make_free_vehicle_request(canonical);
+    const auto &request = compiled_request.authored;
+    const auto &mechanism_plan = compiled_request.mechanism_plan;
     const auto extent = LowOrderExecutionExtent::finite_scenario(kTotalFrameCount);
     auto capture_plan = require_capture_plan(
         compile_low_order_capture_plan(request.engine, request.scenario, extent));
@@ -210,11 +223,11 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
         request, request.engine, request.scenario);
     auto runtime = require_dynamic_runtime(compile_low_order_dynamic_crank_runtime(
         request.engine, request.scenario, capture_plan, nonzero_request_identity(),
-        extent));
+        mechanism_plan, extent));
     auto core = require_core_runtime(compile_low_order_engine_core_v1_runtime(
         request.engine, request.scenario,
         engine_sim_offline::test::operating_profile(request.engine).core, random_plan,
-        extent));
+        mechanism_plan, extent));
 
     const auto initial = runtime.free_vehicle_state();
     expect(
@@ -314,7 +327,8 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
 }
 
 void test_capture_session_selects_free_vehicle(const AuthoredEngineFixture &canonical) {
-    const auto request = make_free_vehicle_request(canonical);
+    const auto compiled_request = make_free_vehicle_request(canonical);
+    const auto &request = compiled_request.authored;
     auto session = require_capture_session(compile_low_order_capture_session(
         request.engine, request.scenario,
         engine_sim_offline::test::compile_fixture_random_plan(request, request.engine,

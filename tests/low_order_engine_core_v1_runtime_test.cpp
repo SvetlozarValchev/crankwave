@@ -1,6 +1,7 @@
 #include "authored_engine_fixture_support.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -105,13 +106,24 @@ finite_extent(const contract::RenderScenario &scenario) {
     return simulation::LowOrderExecutionExtent::finite_scenario(*frame_count);
 }
 
+[[nodiscard]] simulation::SharedMechanismKinematicsPlan require_mechanism_plan(
+    const contract::EngineSpec &engine,
+    const contract::LowOrderEngineCoreV1 &core) {
+    auto result = simulation::compile_mechanism_kinematics_plan(engine, core);
+    if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
+        fail_report("valid mechanism plan was rejected", *report);
+    }
+    return std::get<simulation::SharedMechanismKinematicsPlan>(std::move(result));
+}
+
 void test_prescribed_transaction_and_stable_completion(
     const test::AuthoredEngineFixture &canonical) {
     auto request = make_short_request(canonical);
     const auto &core = test::low_order_core(request.engine);
+    const auto mechanism_plan = require_mechanism_plan(request.engine, core);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
         request.engine, request.scenario, core, random_plan(request),
-        finite_extent(request.scenario)));
+        mechanism_plan, finite_extent(request.scenario)));
     expect(runtime.execution_extent().finite_physics_frame_count() == kStepCount &&
                runtime.produced_sample_count() == 0U && !runtime.completed() &&
                !runtime.faulted(),
@@ -163,9 +175,10 @@ void test_held_speed_reuses_core_without_aggregate_loss_policy(
         {0.85, "held-throttle"},
     };
 
+    const auto mechanism_plan = require_mechanism_plan(request.engine, profile.core);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
         request.engine, request.scenario, profile.core, random_plan(request),
-        finite_extent(request.scenario)));
+        mechanism_plan, finite_extent(request.scenario)));
     auto result = runtime.advance();
     const auto *step = std::get_if<simulation::LowOrderEngineCoreV1StepView>(&result);
     expect(step != nullptr && step->mechanics.get().engine_speed_rpm == kRpm &&
@@ -182,9 +195,10 @@ void test_core_ignores_capture_transport_policy(
     request.scenario.quality.value.capture_block_capacity_frames = 0U;
     request.scenario.quality.value.event_journal_capacity_records = 0U;
 
+    const auto mechanism_plan = require_mechanism_plan(request.engine, core);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
         request.engine, request.scenario, core, random_plan(request),
-        finite_extent(request.scenario)));
+        mechanism_plan, finite_extent(request.scenario)));
     const auto result = runtime.advance();
     expect(std::holds_alternative<simulation::LowOrderEngineCoreV1StepView>(result),
            "capture transport policy leaked into the shared physics core");
@@ -194,9 +208,10 @@ void test_core_pairs_external_post_step_motion_with_the_same_gas_transaction(
     const test::AuthoredEngineFixture &canonical) {
     auto request = make_short_request(canonical);
     const auto &core = test::low_order_core(request.engine);
+    const auto mechanism_plan = require_mechanism_plan(request.engine, core);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
         request.engine, request.scenario, core, random_plan(request),
-        finite_extent(request.scenario)));
+        mechanism_plan, finite_extent(request.scenario)));
 
     constexpr double kExternalRpm = 1800.0;
     auto result = runtime.advance(simulation::PostStepCrankMotion{kExternalRpm, 0.017});
@@ -253,10 +268,11 @@ void test_canonical_authored_operating_profile_uses_limiter_disabled_core(
     if (!pairing.ok()) {
         fail_report("canonical authored held operating scenario was rejected", pairing);
     }
+    const auto mechanism_plan = require_mechanism_plan(engine, operating.core);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
         engine, scenario, operating.core,
         test::compile_fixture_random_plan(canonical, engine, scenario),
-        finite_extent(scenario)));
+        mechanism_plan, finite_extent(scenario)));
     auto result = runtime.advance();
     const auto *step = std::get_if<simulation::LowOrderEngineCoreV1StepView>(&result);
     expect(step != nullptr, "canonical authored operating core produced no first step");

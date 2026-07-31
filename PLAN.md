@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-31
 
-Current checkpoint: **slice 10 topology closure — shared mechanism plan**
+Current checkpoint: **slice 10 topology closure — one-level master-rod geometry**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -631,8 +631,18 @@ throw radius, and owner-local phase. Its one-level attachment graph validates ex
 consumers, connectivity, direct-root ownership, nesting, and cycles through the same
 parser/direct-DTO firewall. Valid graphs currently fail at one explicit runtime
 capability gate; nested chamber geometry, inertia, and coupled reactions are not
-partially approximated. The next sub-slice shares one immutable mechanism plan while
-retaining the accepted direct evaluator byte-for-byte.
+partially approximated.
+
+Capture construction now compiles one immutable, source-bound mechanism-kinematics
+plan and shares that exact object with mechanics, gas, and dynamic-crank execution.
+The three former direct-cylinder geometry reconstructions and the mechanics-only
+copied cylinder view are removed. Scenario baseline inertia resolves through the same
+compiler. Exact source-field binding rejects a stale same-ID plan, and a moved-from
+mechanics session fails terminally rather than dereferencing an empty plan. Existing
+direct slider-crank formulas, floating-point evaluation order, torque-accounting
+displacement, resolved request identity, and accepted audio remain the unchanged
+authority. The next isolated sub-slice adds one-level master-rod chamber geometry to
+this shared plan; it does not combine geometry, inertia, reactions, or audio changes.
 
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,

@@ -8,6 +8,7 @@
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_capture_session.hpp"
 #include "simulation/low_order_engine_core_v1_runtime_factory.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -910,11 +911,19 @@ void test_authored_capture_mapping_and_completion(
     }
     const auto &schedule = std::get<KinematicScenarioSchedule>(schedule_result);
     const auto &core = engine_sim_offline::test::low_order_core(request.engine);
+    auto mechanism_plan_result =
+        compile_mechanism_kinematics_plan(request.engine, core);
+    if (const auto *report =
+            std::get_if<ValidationReport>(&mechanism_plan_result)) {
+        fail_report("authored mechanism plan failed admission", *report);
+    }
+    auto mechanism_plan = std::get<SharedMechanismKinematicsPlan>(
+        std::move(mechanism_plan_result));
     auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
-        request.engine, core, request.scenario, schedule));
+        request.engine, core, request.scenario, mechanism_plan, schedule));
     auto gas = require_gas(CoreRuntimeFactory::compile_gas(
         request.engine, core, request.scenario, random_plan,
-        schedule.control_schedule(), mechanics.cylinder_models()));
+        schedule.control_schedule(), std::move(mechanism_plan)));
     const auto capture_plan = require_capture_plan(compile_low_order_capture_plan(
         request.engine, request.scenario, finite_extent(request.scenario)));
     auto operating =

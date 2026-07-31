@@ -286,6 +286,7 @@ sampling_failure_summary(const FixedHorizonCycleSamplingError &error) {
 
 LowOrderDynamicCrankRuntime::LowOrderDynamicCrankRuntime(
     ScenarioControlCursor control_cursor,
+    SharedMechanismKinematicsPlan mechanism_plan,
     std::optional<OperatingCycleAccountant> accountant,
     std::optional<FixedHorizonCycleSampler> sampler,
     std::vector<std::size_t> physical_gas_step_indices,
@@ -300,7 +301,9 @@ LowOrderDynamicCrankRuntime::LowOrderDynamicCrankRuntime(
     std::optional<HeldDynoMotionPlan> held_dyno_motion,
     std::optional<FreeVehicleMotionPlan> free_vehicle_motion, std::string model_id,
     std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
-    : control_cursor_(std::move(control_cursor)), accountant_(std::move(accountant)),
+    : control_cursor_(std::move(control_cursor)),
+      mechanism_plan_(std::move(mechanism_plan)),
+      accountant_(std::move(accountant)),
       sampler_(std::move(sampler)),
       physical_gas_step_indices_(std::move(physical_gas_step_indices)),
       pressure_samples_(std::move(pressure_samples)),

@@ -1,10 +1,10 @@
 #include "compile/scenario_resolver_internal.hpp"
 
 #include "simulation/bounded_dyno_constraint.hpp"
-#include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/free_engine_method_registry.hpp"
 #include "simulation/free_vehicle_method_registry.hpp"
 #include "simulation/inertial_dyno_method_registry.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -49,6 +49,38 @@ void ScenarioResolver::require_executable_initial_crank_angle() {
 
 void ScenarioResolver::compile_mode() {
     require_executable_initial_crank_angle();
+    const auto resolve_engine_baseline_inertia = [&]() -> std::optional<double> {
+        const auto *profile =
+            std::get_if<contract::LowOrderOperatingPointV1Profile>(
+                &context_.engine.physics_profile);
+        if (profile == nullptr) {
+            add(authoring::DiagnosticCode::internal_failure, "",
+                "admitted engine has no low-order profile for mechanism-plan "
+                "compilation");
+            return std::nullopt;
+        }
+        auto result = simulation::compile_mechanism_kinematics_plan(
+            context_.engine, profile->core);
+        if (const auto *nested =
+                std::get_if<contract::ValidationReport>(&result)) {
+            add(authoring::DiagnosticCode::internal_failure, "",
+                "admitted engine mechanism could not produce its shared direct "
+                "kinematics plan; issue_count=" +
+                    std::to_string(nested->issues.size()));
+            return std::nullopt;
+        }
+        const auto &shared =
+            std::get<simulation::SharedMechanismKinematicsPlan>(result);
+        const auto *direct =
+            simulation::direct_mechanism_kinematics_plan(shared);
+        if (direct == nullptr) {
+            add(authoring::DiagnosticCode::internal_failure, "",
+                "admitted engine mechanism did not compile a direct kinematics "
+                "plan");
+            return std::nullopt;
+        }
+        return direct->cycle_mean_inertia.engine_equivalent_inertia_kg_m2;
+    };
     std::visit(
         [&](const auto &mode) {
             using T = std::decay_t<decltype(mode)>;
@@ -75,27 +107,10 @@ void ScenarioResolver::compile_mode() {
                 free_engine.initial_engine_speed_rpm.value =
                     request_input_.authored_initial_engine_speed_rpm;
                 free_engine.initial_theta_rad.value = initial_theta_rad_;
-                const auto &mechanism =
-                    std::get<contract::LowOrderOperatingPointV1Profile>(
-                        context_.engine.physics_profile)
-                        .core.mechanism;
-                const auto inertia_calculation =
-                    simulation::calculate_centered_slider_crank_cycle_mean_inertia(
-                        mechanism);
-                if (const auto *error = std::get_if<
-                        simulation::CenteredSliderCrankCycleMeanInertiaError>(
-                        &inertia_calculation)) {
-                    add(authoring::DiagnosticCode::internal_failure, "",
-                        "admitted engine mechanism could not produce its "
-                        "cycle-mean crank-referred inertia; issue=" +
-                            std::to_string(static_cast<std::uint32_t>(error->issue)) +
-                            ", cylinder_index=" +
-                            std::to_string(error->cylinder_index));
-                } else {
+                if (const auto inertia = resolve_engine_baseline_inertia();
+                    inertia.has_value()) {
                     free_engine.engine_baseline_inertia_kg_m2.value =
-                        std::get<simulation::CenteredSliderCrankCycleMeanInertia>(
-                            inertia_calculation)
-                            .engine_equivalent_inertia_kg_m2;
+                        *inertia;
                 }
                 if (mode.attached_inertia.has_value()) {
                     free_engine.attached_inertia_kg_m2.value =
@@ -209,24 +224,10 @@ void ScenarioResolver::compile_mode() {
                         "initial vehicle speed must be finite canonical nonnegative");
                 }
 
-                const auto &mechanism = operating_profile->core.mechanism;
-                const auto inertia_calculation =
-                    simulation::calculate_centered_slider_crank_cycle_mean_inertia(
-                        mechanism);
-                if (const auto *error = std::get_if<
-                        simulation::CenteredSliderCrankCycleMeanInertiaError>(
-                        &inertia_calculation)) {
-                    add(authoring::DiagnosticCode::internal_failure, "",
-                        "admitted engine mechanism could not produce its cycle-mean "
-                        "crank-referred inertia; issue=" +
-                            std::to_string(static_cast<std::uint32_t>(error->issue)) +
-                            ", cylinder_index=" +
-                            std::to_string(error->cylinder_index));
-                } else {
+                if (const auto inertia = resolve_engine_baseline_inertia();
+                    inertia.has_value()) {
                     free_vehicle.engine_baseline_inertia_kg_m2.value =
-                        std::get<simulation::CenteredSliderCrankCycleMeanInertia>(
-                            inertia_calculation)
-                            .engine_equivalent_inertia_kg_m2;
+                        *inertia;
                 }
 
                 const auto &source_rig = *context_.rig;

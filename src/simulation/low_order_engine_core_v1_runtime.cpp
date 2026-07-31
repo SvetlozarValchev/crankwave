@@ -178,6 +178,7 @@ compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
                                          const contract::RenderScenario &scenario,
                                          const contract::LowOrderEngineCoreV1 &core,
                                          const contract::RandomPlan &random_plan,
+                                         SharedMechanismKinematicsPlan mechanism_plan,
                                          LowOrderExecutionExtent execution_extent) {
     std::optional<KinematicScenarioSchedule> kinematic_schedule;
     std::optional<ScenarioControlSchedule> control_schedule;
@@ -211,9 +212,9 @@ compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
     auto mechanics_result =
         kinematic_schedule.has_value()
             ? detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
-                  engine, core, scenario, *kinematic_schedule)
+                  engine, core, scenario, mechanism_plan, *kinematic_schedule)
             : detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
-                  engine, core, scenario, *control_schedule);
+                  engine, core, scenario, mechanism_plan, *control_schedule);
     if (const auto *report =
             std::get_if<contract::ValidationReport>(&mechanics_result)) {
         return *report;
@@ -223,7 +224,7 @@ compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
 
     auto gas_result = detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         engine, core, scenario, random_plan, *control_schedule,
-        mechanics.cylinder_models());
+        std::move(mechanism_plan));
     if (const auto *report = std::get_if<contract::ValidationReport>(&gas_result)) {
         return *report;
     }

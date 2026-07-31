@@ -8,6 +8,7 @@
 #include "simulation/execution_extent.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -92,6 +93,7 @@ class LowOrderEngineCoreV1Runtime final {
                                              const contract::RenderScenario &,
                                              const contract::LowOrderEngineCoreV1 &,
                                              const contract::RandomPlan &,
+                                             SharedMechanismKinematicsPlan,
                                              LowOrderExecutionExtent);
 };
 
@@ -105,6 +107,7 @@ compile_low_order_engine_core_v1_runtime(const contract::EngineSpec &engine,
                                          const contract::RenderScenario &scenario,
                                          const contract::LowOrderEngineCoreV1 &core,
                                          const contract::RandomPlan &random_plan,
+                                         SharedMechanismKinematicsPlan mechanism_plan,
                                          LowOrderExecutionExtent execution_extent);
 
 } // namespace engine_sim_offline::simulation

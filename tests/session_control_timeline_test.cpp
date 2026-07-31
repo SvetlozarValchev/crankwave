@@ -1,6 +1,7 @@
 #include "contract_test_support.hpp"
 #include "session/control_timeline.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <array>
 #include <bit>
@@ -610,15 +611,29 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
         fixture.randomness, fixture.engine, fixture.presentation, fixture.scenario));
     const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
         fixture.engine.physics_profile);
+    auto mechanism_plan_result = simulation::compile_mechanism_kinematics_plan(
+        fixture.engine, profile.core);
+    if (const auto *report =
+            std::get_if<contract::ValidationReport>(&mechanism_plan_result)) {
+        std::string message = "valid live-control mechanism plan was rejected";
+        if (!report->issues.empty()) {
+            message += ": " + report->issues.front().path + ": " +
+                       report->issues.front().message;
+        }
+        throw std::runtime_error{std::move(message)};
+    }
+    const auto mechanism_plan =
+        std::get<simulation::SharedMechanismKinematicsPlan>(
+            std::move(mechanism_plan_result));
 
     auto old_call_shape =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
             fixture.engine, fixture.scenario, profile.core, random_plan,
-            finite_extent(fixture.scenario)));
+            mechanism_plan, finite_extent(fixture.scenario)));
     auto explicit_empty =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
             fixture.engine, fixture.scenario, profile.core, random_plan,
-            finite_extent(fixture.scenario)));
+            mechanism_plan, finite_extent(fixture.scenario)));
     for (std::uint64_t step_index = 0; step_index < 8; ++step_index) {
         auto old_result = old_call_shape.advance();
         auto empty_result = explicit_empty.advance(LiveControlOverrides{});
@@ -629,11 +644,11 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
     auto authored =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
             fixture.engine, fixture.scenario, profile.core, random_plan,
-            finite_extent(fixture.scenario)));
+            mechanism_plan, finite_extent(fixture.scenario)));
     auto controlled =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
             fixture.engine, fixture.scenario, profile.core, random_plan,
-            finite_extent(fixture.scenario)));
+            mechanism_plan, finite_extent(fixture.scenario)));
     ControlTimeline timeline{3, kPhysicsRate, kDeliveryRate};
     const std::array commands{
         TimestampedControlCommand{97, 1, SetThrottle{0.5}},

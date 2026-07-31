@@ -239,6 +239,7 @@ add_library(
         src/simulation/low_order_capture_buffer.cpp
         src/simulation/legacy_low_order_mechanics.cpp
         src/simulation/legacy_low_order_mechanics_compile.cpp
+        src/simulation/mechanism_kinematics_plan.cpp
         src/simulation/low_order_capture_session.cpp
         src/simulation/low_order_capture_session_compile.cpp
         src/simulation/legacy_mechanics_primitives.cpp

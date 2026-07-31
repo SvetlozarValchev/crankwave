@@ -3,6 +3,7 @@
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
 #include "simulation/low_order_operating_point_v1_runtime.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -136,9 +137,16 @@ core_runtime(const Fixture &value) {
     const auto &profile = test::operating_profile(value.engine);
     const auto random_plan = test::compile_fixture_random_plan(
         *value.authored, value.engine, value.scenario);
+    auto mechanism_plan_result =
+        simulation::compile_mechanism_kinematics_plan(value.engine, profile.core);
+    expect(!std::holds_alternative<contract::ValidationReport>(mechanism_plan_result),
+           "canonical operating mechanism plan was rejected");
+    auto mechanism_plan =
+        std::get<simulation::SharedMechanismKinematicsPlan>(
+            std::move(mechanism_plan_result));
     auto result = simulation::compile_low_order_engine_core_v1_runtime(
         value.engine, value.scenario, profile.core, random_plan,
-        finite_extent(value.scenario));
+        std::move(mechanism_plan), finite_extent(value.scenario));
     const auto *report = std::get_if<contract::ValidationReport>(&result);
     expect(report == nullptr, "canonical operating core was rejected");
     return std::get<simulation::LowOrderEngineCoreV1Runtime>(std::move(result));

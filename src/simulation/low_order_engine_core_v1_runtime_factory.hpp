@@ -3,8 +3,8 @@
 #include "engine_sim_offline/contract/randomness.hpp"
 #include "simulation/legacy_low_order_gas.hpp"
 #include "simulation/legacy_low_order_mechanics.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
-#include <span>
 #include <variant>
 
 namespace engine_sim_offline::simulation::detail {
@@ -21,12 +21,14 @@ struct LowOrderEngineCoreV1RuntimeFactory {
     compile_mechanics(const contract::EngineSpec &engine,
                       const contract::LowOrderEngineCoreV1 &core,
                       const contract::RenderScenario &scenario,
+                      SharedMechanismKinematicsPlan mechanism_plan,
                       const KinematicScenarioSchedule &schedule);
 
     [[nodiscard]] static MechanicsCompileResult
     compile_mechanics(const contract::EngineSpec &engine,
                       const contract::LowOrderEngineCoreV1 &core,
                       const contract::RenderScenario &scenario,
+                      SharedMechanismKinematicsPlan mechanism_plan,
                       const ScenarioControlSchedule &schedule);
 
     [[nodiscard]] static GasCompileResult
@@ -35,7 +37,7 @@ struct LowOrderEngineCoreV1RuntimeFactory {
                 const contract::RenderScenario &scenario,
                 const contract::RandomPlan &random_plan,
                 const ScenarioControlSchedule &schedule,
-                std::span<const CenteredSliderCrankCylinder> cylinder_models);
+                SharedMechanismKinematicsPlan mechanism_plan);
 };
 
 } // namespace engine_sim_offline::simulation::detail
