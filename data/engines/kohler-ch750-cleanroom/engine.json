@@ -144,14 +144,14 @@
         "angle": {"value": -45, "unit": "deg"},
         "bore": {"value": 83, "unit": "mm"},
         "deck_height": {"value": 161.5, "unit": "mm"},
-        "head": "head"
+        "head": "head-left"
       },
       {
         "id": "bank.right",
         "angle": {"value": 45, "unit": "deg"},
         "bore": {"value": 83, "unit": "mm"},
         "deck_height": {"value": 161.5, "unit": "mm"},
-        "head": "head"
+        "head": "head-right"
       }
     ],
     "intakes": [
@@ -201,16 +201,32 @@
     ],
     "ports": [
       {
-        "id": "intake-port",
-        "head": "head",
+        "id": "intake-port-left",
+        "head": "head-left",
         "kind": "intake",
         "runner_volume": {"value": 100, "unit": "cm3"},
         "runner_cross_section_area": {"value": 30, "unit": "cm2"},
         "flow_curve": "intake-valve-flow"
       },
       {
-        "id": "exhaust-port",
-        "head": "head",
+        "id": "exhaust-port-left",
+        "head": "head-left",
+        "kind": "exhaust",
+        "runner_volume": {"value": 100, "unit": "cm3"},
+        "runner_cross_section_area": {"value": 30, "unit": "cm2"},
+        "flow_curve": "exhaust-valve-flow"
+      },
+      {
+        "id": "intake-port-right",
+        "head": "head-right",
+        "kind": "intake",
+        "runner_volume": {"value": 100, "unit": "cm3"},
+        "runner_cross_section_area": {"value": 30, "unit": "cm2"},
+        "flow_curve": "intake-valve-flow"
+      },
+      {
+        "id": "exhaust-port-right",
+        "head": "head-right",
         "kind": "exhaust",
         "runner_volume": {"value": 100, "unit": "cm3"},
         "runner_cross_section_area": {"value": 30, "unit": "cm2"},
@@ -269,32 +285,56 @@
     ],
     "camshafts": [
       {
-        "id": "intake-camshaft",
+        "id": "intake-camshaft-left",
         "advance": {"value": 0, "unit": "deg"},
         "base_radius": {"value": 12.7, "unit": "mm"},
-        "lobes": ["intake-lobe-left", "intake-lobe-right"]
+        "lobes": ["intake-lobe-left"]
       },
       {
-        "id": "exhaust-camshaft",
+        "id": "exhaust-camshaft-left",
         "advance": {"value": 0, "unit": "deg"},
         "base_radius": {"value": 12.7, "unit": "mm"},
-        "lobes": ["exhaust-lobe-left", "exhaust-lobe-right"]
+        "lobes": ["exhaust-lobe-left"]
+      },
+      {
+        "id": "intake-camshaft-right",
+        "advance": {"value": 0, "unit": "deg"},
+        "base_radius": {"value": 12.7, "unit": "mm"},
+        "lobes": ["intake-lobe-right"]
+      },
+      {
+        "id": "exhaust-camshaft-right",
+        "advance": {"value": 0, "unit": "deg"},
+        "base_radius": {"value": 12.7, "unit": "mm"},
+        "lobes": ["exhaust-lobe-right"]
       }
     ],
     "valvetrains": [
       {
-        "id": "valvetrain",
+        "id": "valvetrain-left",
         "type": "standard",
-        "intake_camshaft": "intake-camshaft",
-        "exhaust_camshaft": "exhaust-camshaft"
+        "intake_camshaft": "intake-camshaft-left",
+        "exhaust_camshaft": "exhaust-camshaft-left"
+      },
+      {
+        "id": "valvetrain-right",
+        "type": "standard",
+        "intake_camshaft": "intake-camshaft-right",
+        "exhaust_camshaft": "exhaust-camshaft-right"
       }
     ],
     "heads": [
       {
-        "id": "head",
+        "id": "head-left",
         "chamber_volume": {"value": 50, "unit": "cm3"},
-        "valvetrain": "valvetrain",
-        "ports": ["intake-port", "exhaust-port"]
+        "valvetrain": "valvetrain-left",
+        "ports": ["intake-port-left", "exhaust-port-left"]
+      },
+      {
+        "id": "head-right",
+        "chamber_volume": {"value": 50, "unit": "cm3"},
+        "valvetrain": "valvetrain-right",
+        "ports": ["intake-port-right", "exhaust-port-right"]
       }
     ],
     "fuels": [
@@ -376,8 +416,8 @@
         "intake": "carburetor",
         "exhaust": "exhaust",
         "ignition_wire": "wire-left",
-        "intake_port": "intake-port",
-        "exhaust_port": "exhaust-port",
+        "intake_port": "intake-port-left",
+        "exhaust_port": "exhaust-port-left",
         "exhaust_header_primary_length": {"value": 10, "unit": "in"}
       },
       {
@@ -390,8 +430,8 @@
         "intake": "carburetor",
         "exhaust": "exhaust",
         "ignition_wire": "wire-right",
-        "intake_port": "intake-port",
-        "exhaust_port": "exhaust-port",
+        "intake_port": "intake-port-right",
+        "exhaust_port": "exhaust-port-right",
         "exhaust_header_primary_length": {"value": 10, "unit": "in"}
       }
     ],
