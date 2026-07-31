@@ -1267,6 +1267,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_bounded_clutch_coupling_tests
+    bounded_clutch_coupling_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_bounded_clutch_coupling_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_bounded_clutch_coupling_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.bounded_clutch_coupling
+    COMMAND engine_sim_offline_bounded_clutch_coupling_tests
+)
+
+add_executable(
     engine_sim_offline_forward_vehicle_road_load_tests
     forward_vehicle_road_load_test.cpp
 )

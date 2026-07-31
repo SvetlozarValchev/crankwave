@@ -211,6 +211,7 @@ engine_sim_offline_enable_renderer_numeric_policy(
 add_library(
     engine_sim_offline_simulation
     STATIC
+        src/simulation/bounded_clutch_coupling.cpp
         src/simulation/bounded_dyno_constraint.cpp
         src/simulation/centered_slider_crank_equivalent_inertia.cpp
         src/simulation/fixed_horizon_cycle_sampling.cpp
