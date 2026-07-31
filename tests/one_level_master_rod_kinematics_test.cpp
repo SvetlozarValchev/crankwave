@@ -180,6 +180,23 @@ void test_invalid_and_ambiguous_geometry_fails_closed() {
         "nonfinite slave phase did not fail closed");
 }
 
+void test_slider_solution_behind_bank_origin_fails_closed() {
+    const OneLevelMasterRodDriver driver{
+        0.05,
+        0.0,
+        0.0,
+        0.2,
+    };
+    const OneLevelMasterRodCylinder cylinder{
+        CylinderId{1}, 0.0, 0.1,
+        0.01,          1.0, 0.01,
+        0.001,         0.0, OneLevelMasterRodSlavePin{0.5, kLegacyPi},
+    };
+
+    expect(!evaluate_one_level_master_rod(driver, cylinder, kLegacyPi / 2.0, 1.0).valid,
+           "negative slider-axis position did not fail closed");
+}
+
 } // namespace
 
 int main() {
@@ -187,6 +204,7 @@ int main() {
         test_pristine_radial_five_positions_and_volumes();
         test_dual_derivative_matches_position_and_volume_finite_difference();
         test_invalid_and_ambiguous_geometry_fails_closed();
+        test_slider_solution_behind_bank_origin_fails_closed();
         std::cout << "one-level master-rod kinematics tests passed\n";
         return 0;
     } catch (const std::exception &error) {

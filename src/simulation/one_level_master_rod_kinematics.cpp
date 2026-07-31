@@ -119,7 +119,12 @@ slider_axis_position(const DualPoint point, const double bank_angle_rad,
     if (!root.has_value()) {
         return std::nullopt;
     }
-    return add(projection, *root);
+    const Dual position = add(projection, *root);
+    if (!std::isfinite(position.value) || !std::isfinite(position.derivative) ||
+        position.value < 0.0) {
+        return std::nullopt;
+    }
+    return position;
 }
 
 [[nodiscard]] std::optional<DualPoint>
