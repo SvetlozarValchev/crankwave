@@ -65,8 +65,8 @@
     "telemetry_capacity_frames": 1
   },
   "total_duration": {"value": 30, "unit": "s"},
-  "audible_start": {"value": 14, "unit": "s"},
-  "audible_duration": {"value": 16, "unit": "s"},
+  "audible_start": {"value": 1.5, "unit": "s"},
+  "audible_duration": {"value": 28.5, "unit": "s"},
   "public_seed": "12648430",
   "output": {
     "buses": ["master-engine-raw", "master-engine-audition"],
