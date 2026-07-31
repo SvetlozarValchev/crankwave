@@ -824,6 +824,93 @@ make_v_six_document(const SyntheticAssets &assets) {
     return package;
 }
 
+void use_equivalent_split_bank_heads_and_standard_valvetrains(
+    authoring::EnginePackageDocument &package) {
+    auto &engine = package.engine;
+    expect(engine.banks.size() == 2U && engine.heads.size() == 1U &&
+               engine.ports.size() == 2U && engine.valvetrains.size() == 1U &&
+               engine.camshafts.size() == 2U,
+           "split-head fixture requires the canonical shared-head V engine");
+
+    constexpr std::string_view kRightBankId = "fixture-bank-right";
+    constexpr std::string_view kRightHeadId = "fixture-head-right";
+    constexpr std::string_view kRightValvetrainId = "fixture-standard-valvetrain-right";
+    constexpr std::string_view kRightIntakePortId = "fixture-intake-port-right";
+    constexpr std::string_view kRightExhaustPortId = "fixture-exhaust-port-right";
+    constexpr std::string_view kRightIntakeCamId = "fixture-intake-cam-right";
+    constexpr std::string_view kRightExhaustCamId = "fixture-exhaust-cam-right";
+
+    const auto cylinder_uses_right_bank = [&](const std::string_view cylinder_id) {
+        const auto cylinder = std::ranges::find(
+            engine.cylinders, cylinder_id,
+            [](const auto &value) -> std::string_view { return value.id.value; });
+        expect(cylinder != engine.cylinders.end(),
+               "split-head fixture cam lobe references a missing cylinder");
+        return cylinder->bank.value == kRightBankId;
+    };
+    const auto lobe_uses_right_bank = [&](const authoring::CamLobeRef &reference) {
+        const auto lobe = std::ranges::find(
+            engine.cam_lobes, reference.value,
+            [](const auto &value) -> std::string_view { return value.id.value; });
+        expect(lobe != engine.cam_lobes.end(),
+               "split-head fixture camshaft references a missing lobe");
+        return cylinder_uses_right_bank(lobe->cylinder.value);
+    };
+
+    auto right_intake_cam = engine.camshafts[0];
+    auto right_exhaust_cam = engine.camshafts[1];
+    right_intake_cam.id.value = kRightIntakeCamId;
+    right_exhaust_cam.id.value = kRightExhaustCamId;
+    std::erase_if(engine.camshafts[0].lobes, lobe_uses_right_bank);
+    std::erase_if(engine.camshafts[1].lobes, lobe_uses_right_bank);
+    std::erase_if(right_intake_cam.lobes, [&](const auto &reference) {
+        return !lobe_uses_right_bank(reference);
+    });
+    std::erase_if(right_exhaust_cam.lobes, [&](const auto &reference) {
+        return !lobe_uses_right_bank(reference);
+    });
+    expect(!engine.camshafts[0].lobes.empty() && !engine.camshafts[1].lobes.empty() &&
+               !right_intake_cam.lobes.empty() && !right_exhaust_cam.lobes.empty(),
+           "split-head fixture produced an empty bank-local camshaft");
+    engine.camshafts.push_back(std::move(right_intake_cam));
+    engine.camshafts.push_back(std::move(right_exhaust_cam));
+
+    auto right_valvetrain = engine.valvetrains.front();
+    right_valvetrain.id.value = kRightValvetrainId;
+    auto &right_standard =
+        std::get<authoring::StandardValvetrain>(right_valvetrain.kind);
+    right_standard.intake_camshaft.value = kRightIntakeCamId;
+    right_standard.exhaust_camshaft.value = kRightExhaustCamId;
+    engine.valvetrains.push_back(std::move(right_valvetrain));
+
+    auto right_intake_port = engine.ports[0];
+    auto right_exhaust_port = engine.ports[1];
+    right_intake_port.id.value = kRightIntakePortId;
+    right_intake_port.head.value = kRightHeadId;
+    right_exhaust_port.id.value = kRightExhaustPortId;
+    right_exhaust_port.head.value = kRightHeadId;
+    engine.ports.push_back(std::move(right_intake_port));
+    engine.ports.push_back(std::move(right_exhaust_port));
+
+    auto right_head = engine.heads.front();
+    right_head.id.value = kRightHeadId;
+    right_head.valvetrain.value = kRightValvetrainId;
+    right_head.ports = {
+        {std::string{kRightIntakePortId}},
+        {std::string{kRightExhaustPortId}},
+    };
+    engine.heads.push_back(std::move(right_head));
+    engine.banks[1].head.value = kRightHeadId;
+
+    for (auto &cylinder : engine.cylinders) {
+        if (cylinder.bank.value != kRightBankId) {
+            continue;
+        }
+        cylinder.intake_port.value = kRightIntakePortId;
+        cylinder.exhaust_port.value = kRightExhaustPortId;
+    }
+}
+
 void reorder_harmless_collections(authoring::EnginePackageDocument &package) {
     std::ranges::reverse(package.engine.curves);
     std::ranges::reverse(package.engine.journals);
@@ -906,6 +993,85 @@ void reorder_harmless_collections(authoring::EnginePackageDocument &package) {
         {},
     };
     return scenario;
+}
+
+void expect_session_audio_exact(const compile::CompiledScenario &left_scenario,
+                                const compile::CompiledScenario &right_scenario,
+                                const std::string_view context) {
+    const auto make_session = [&](const compile::CompiledScenario &scenario) {
+        auto created = engine_sim_offline::create_engine_session(
+            scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+        if (const auto *error =
+                std::get_if<engine_sim_offline::EngineSessionError>(&created)) {
+            throw std::runtime_error{std::string{context} +
+                                     " session creation failed: " + error->detail_code +
+                                     ": " + error->message};
+        }
+        return std::get<engine_sim_offline::EngineSession>(std::move(created));
+    };
+    auto left = make_session(left_scenario);
+    auto right = make_session(right_scenario);
+
+    std::uint64_t compared_audio_samples = 0;
+    while (true) {
+        auto left_result = left.process_block();
+        auto right_result = right.process_block();
+        const auto *left_block =
+            std::get_if<engine_sim_offline::EngineSessionBlockView>(&left_result);
+        const auto *right_block =
+            std::get_if<engine_sim_offline::EngineSessionBlockView>(&right_result);
+        if (left_block != nullptr || right_block != nullptr) {
+            expect(left_block != nullptr && right_block != nullptr &&
+                       left_block->block_ordinal() == right_block->block_ordinal() &&
+                       left_block->phase() == right_block->phase() &&
+                       left_block->first_physics_frame() ==
+                           right_block->first_physics_frame() &&
+                       left_block->physics_frame_count() ==
+                           right_block->physics_frame_count() &&
+                       left_block->first_delivery_frame() ==
+                           right_block->first_delivery_frame() &&
+                       left_block->delivery_frame_count() ==
+                           right_block->delivery_frame_count() &&
+                       left_block->audio_buses().size() ==
+                           right_block->audio_buses().size(),
+                   std::string{context} + " sessions diverged in block structure");
+            for (std::size_t index = 0; index < left_block->audio_buses().size();
+                 ++index) {
+                const auto &left_bus = left_block->audio_buses()[index];
+                const auto &right_bus = right_block->audio_buses()[index];
+                expect(left_bus.descriptor.id == right_bus.descriptor.id &&
+                           left_bus.descriptor.kind == right_bus.descriptor.kind &&
+                           left_bus.descriptor.route_id ==
+                               right_bus.descriptor.route_id &&
+                           std::ranges::equal(std::as_bytes(left_bus.samples),
+                                              std::as_bytes(right_bus.samples)),
+                       std::string{context} + " changed a session audio bus");
+                compared_audio_samples += left_bus.samples.size();
+            }
+            continue;
+        }
+
+        if (std::holds_alternative<engine_sim_offline::EngineSessionError>(
+                left_result) ||
+            std::holds_alternative<engine_sim_offline::EngineSessionError>(
+                right_result)) {
+            throw std::runtime_error{std::string{context} +
+                                     " session failed during execution"};
+        }
+        const auto *left_completed =
+            std::get_if<engine_sim_offline::EngineSessionCompleted>(&left_result);
+        const auto *right_completed =
+            std::get_if<engine_sim_offline::EngineSessionCompleted>(&right_result);
+        expect(left_completed != nullptr && right_completed != nullptr &&
+                   left_completed->physics_frame_count ==
+                       right_completed->physics_frame_count &&
+                   left_completed->delivery_frame_count ==
+                       right_completed->delivery_frame_count &&
+                   left_completed->block_count == right_completed->block_count &&
+                   compared_audio_samples != 0U,
+               std::string{context} + " sessions did not complete identically");
+        break;
+    }
 }
 
 void attach_mixed_unit_rig(authoring::EnginePackageDocument &package) {
@@ -1236,6 +1402,108 @@ void test_v_engine_resolves_bank_geometry_and_axis_relative_journals() {
                         "public compiler rejected admitted V-six");
 }
 
+void test_equivalent_split_bank_heads_normalize_to_exact_execution() {
+    const SyntheticAssets assets = make_assets();
+    const auto shared_document = make_v_six_document(assets);
+    auto split_document = shared_document;
+    use_equivalent_split_bank_heads_and_standard_valvetrains(split_document);
+    auto views = assets.views();
+
+    const auto shared_resolved =
+        require_value(compile_detail::resolve_engine_package(shared_document, views),
+                      "shared-head V-six engine resolution failed");
+    const auto split_resolved =
+        require_value(compile_detail::resolve_engine_package(split_document, views),
+                      "equivalent split-head V-six engine resolution failed");
+    expect(shared_resolved.engine == split_resolved.engine,
+           "equivalent split heads changed the resolved executable engine");
+
+    const auto shared_engine =
+        require_value(compile::compile_engine(shared_document, views),
+                      "shared-head V-six public compilation failed");
+    const auto split_engine =
+        require_value(compile::compile_engine(split_document, views),
+                      "equivalent split-head V-six public compilation failed");
+    auto scenario_document = make_scenario_document();
+    scenario_document.id.value = "fixture-v-six-split-head-equivalence";
+    scenario_document.engine.value = "fixture-v-six";
+    const auto shared_scenario =
+        require_value(compile::compile_scenario(shared_engine, scenario_document),
+                      "shared-head V-six scenario compilation failed");
+    const auto split_scenario =
+        require_value(compile::compile_scenario(split_engine, scenario_document),
+                      "split-head V-six scenario compilation failed");
+    expect_session_audio_exact(shared_scenario, split_scenario,
+                               "equivalent split-head V-six");
+}
+
+void test_heterogeneous_split_bank_heads_fail_closed() {
+    const SyntheticAssets assets = make_assets();
+    auto views = assets.views();
+
+    {
+        auto document = make_v_six_document(assets);
+        use_equivalent_split_bank_heads_and_standard_valvetrains(document);
+        document.engine.heads[1].chamber_volume = quantity(45.0, "cm3");
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/heads", "heterogeneous split-head chamber volume");
+    }
+    {
+        auto document = make_v_six_document(assets);
+        use_equivalent_split_bank_heads_and_standard_valvetrains(document);
+        const auto right_intake_port = std::ranges::find(
+            document.engine.ports, "fixture-intake-port-right",
+            [](const auto &port) -> std::string_view { return port.id.value; });
+        expect(right_intake_port != document.engine.ports.end(),
+               "heterogeneous port fixture omitted its right intake port");
+        right_intake_port->runner_volume = quantity(93.0, "cm3");
+
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/ports",
+                           "heterogeneous split-head intake runner volume");
+    }
+    {
+        auto document = make_v_six_document(assets);
+        use_equivalent_split_bank_heads_and_standard_valvetrains(document);
+        const auto right_cylinder =
+            std::ranges::find(document.engine.cylinders, "fixture-bank-right",
+                              [](const auto &cylinder) -> std::string_view {
+                                  return cylinder.bank.value;
+                              });
+        expect(right_cylinder != document.engine.cylinders.end(),
+               "cross-head port fixture omitted a right-bank cylinder");
+        right_cylinder->intake_port.value = "fixture-intake-port";
+
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/cylinders",
+                           "right-bank cylinder bound to the left-head intake port");
+    }
+    {
+        auto document = make_v_six_document(assets);
+        use_equivalent_split_bank_heads_and_standard_valvetrains(document);
+        const auto right_intake_cam = std::ranges::find(
+            document.engine.camshafts, "fixture-intake-cam-right",
+            [](const auto &camshaft) -> std::string_view { return camshaft.id.value; });
+        expect(right_intake_cam != document.engine.camshafts.end() &&
+                   !right_intake_cam->lobes.empty(),
+               "heterogeneous cam fixture omitted its right intake cam");
+        const auto right_intake_lobe = std::ranges::find(
+            document.engine.cam_lobes, right_intake_cam->lobes.front().value,
+            [](const auto &lobe) -> std::string_view { return lobe.id.value; });
+        expect(right_intake_lobe != document.engine.cam_lobes.end(),
+               "heterogeneous cam fixture omitted its right intake lobe");
+        auto &shape = std::get<authoring::HarmonicCamLobe>(right_intake_lobe->shape);
+        shape.maximum_lift = quantity(12.0, "mm");
+
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/cam_lobes", "heterogeneous split-bank cam shape");
+    }
+}
+
 void test_asset_admission_is_exact_and_closed() {
     {
         SyntheticAssets assets = make_assets();
@@ -1498,70 +1766,8 @@ void test_harmonic_and_equivalent_sampled_cam_sessions_are_identical() {
     const auto sampled_scenario =
         require_value(compile::compile_scenario(sampled_engine, scenario_document),
                       "sampled equivalence scenario failed compilation");
-
-    const auto make_session = [](const compile::CompiledScenario &scenario,
-                                 const std::string_view context) {
-        auto created = engine_sim_offline::create_engine_session(
-            scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
-        if (const auto *error =
-                std::get_if<engine_sim_offline::EngineSessionError>(&created)) {
-            throw std::runtime_error{std::string{context} + ": " + error->detail_code +
-                                     ": " + error->message};
-        }
-        return std::get<engine_sim_offline::EngineSession>(std::move(created));
-    };
-    auto harmonic_session =
-        make_session(harmonic_scenario, "harmonic equivalence session failed");
-    auto sampled_session =
-        make_session(sampled_scenario, "sampled equivalence session failed");
-
-    std::uint64_t compared_audio_samples = 0;
-    while (true) {
-        auto harmonic_result = harmonic_session.process_block();
-        auto sampled_result = sampled_session.process_block();
-        const auto *harmonic_block =
-            std::get_if<engine_sim_offline::EngineSessionBlockView>(&harmonic_result);
-        const auto *sampled_block =
-            std::get_if<engine_sim_offline::EngineSessionBlockView>(&sampled_result);
-        if (harmonic_block != nullptr || sampled_block != nullptr) {
-            expect(harmonic_block != nullptr && sampled_block != nullptr &&
-                       harmonic_block->block_ordinal() ==
-                           sampled_block->block_ordinal() &&
-                       harmonic_block->phase() == sampled_block->phase() &&
-                       harmonic_block->audio_buses().size() ==
-                           sampled_block->audio_buses().size(),
-                   "equivalent cam sessions diverged in block structure");
-            for (std::size_t index = 0; index < harmonic_block->audio_buses().size();
-                 ++index) {
-                const auto &harmonic_bus = harmonic_block->audio_buses()[index];
-                const auto &sampled_bus = sampled_block->audio_buses()[index];
-                expect(harmonic_bus.descriptor.id == sampled_bus.descriptor.id &&
-                           harmonic_bus.descriptor.kind ==
-                               sampled_bus.descriptor.kind &&
-                           harmonic_bus.descriptor.route_id ==
-                               sampled_bus.descriptor.route_id &&
-                           std::ranges::equal(std::as_bytes(harmonic_bus.samples),
-                                              std::as_bytes(sampled_bus.samples)),
-                       "equivalent sampled cam changed a session audio bus");
-                compared_audio_samples += harmonic_bus.samples.size();
-            }
-            continue;
-        }
-        const auto *harmonic_error =
-            std::get_if<engine_sim_offline::EngineSessionError>(&harmonic_result);
-        const auto *sampled_error =
-            std::get_if<engine_sim_offline::EngineSessionError>(&sampled_result);
-        if (harmonic_error != nullptr || sampled_error != nullptr) {
-            throw std::runtime_error{"equivalent cam session failed during execution"};
-        }
-        expect(std::holds_alternative<engine_sim_offline::EngineSessionCompleted>(
-                   harmonic_result) &&
-                   std::holds_alternative<engine_sim_offline::EngineSessionCompleted>(
-                       sampled_result) &&
-                   compared_audio_samples != 0U,
-               "equivalent cam sessions did not complete with compared audio");
-        break;
-    }
+    expect_session_audio_exact(harmonic_scenario, sampled_scenario,
+                               "equivalent sampled cam");
 }
 
 template <class Mutation>
@@ -1746,6 +1952,36 @@ void test_unsupported_capability_fails_closed() {
                        "/engine/layout", "unsupported opposed engine topology");
 }
 
+void test_direct_engine_dto_identity_and_enum_admission_fails_closed() {
+    const SyntheticAssets assets = make_assets();
+    auto views = assets.views();
+
+    {
+        auto document = make_engine_document(assets);
+        document.engine.ports[1].id = document.engine.ports[0].id;
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::duplicate_id,
+                           "/engine/ports/1/id", "duplicate direct-DTO port ID");
+    }
+    {
+        auto document = make_engine_document(assets);
+        document.engine.cylinders[1].id = document.engine.cylinders[0].id;
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::duplicate_id,
+                           "/engine/cylinders/1/id",
+                           "duplicate direct-DTO cylinder ID");
+    }
+    {
+        auto document = make_engine_document(assets);
+        document.engine.ports[1].kind =
+            static_cast<authoring::PortKind>(0xffU);
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::invalid_value,
+                           "/engine/ports/1/kind",
+                           "invalid direct-DTO port kind");
+    }
+}
+
 void test_direct_scenario_dto_admission_fails_closed() {
     const SyntheticAssets assets = make_assets();
     const auto engine_document = make_engine_document(assets);
@@ -1774,6 +2010,8 @@ int main() {
         test_complete_generic_compile_and_determinism();
         test_inline_twin_one_route_reaches_executable_boundary();
         test_v_engine_resolves_bank_geometry_and_axis_relative_journals();
+        test_equivalent_split_bank_heads_normalize_to_exact_execution();
+        test_heterogeneous_split_bank_heads_fail_closed();
         test_asset_admission_is_exact_and_closed();
         test_rig_compiles_to_immutable_si_descriptors();
         test_cranking_starter_resolves_to_si_capability();
@@ -1783,6 +2021,7 @@ int main() {
         test_four_cam_vtec_resolves_to_si_and_provenance();
         test_governor_resolves_to_executable_controller();
         test_unsupported_capability_fails_closed();
+        test_direct_engine_dto_identity_and_enum_admission_fails_closed();
         test_direct_scenario_dto_admission_fails_closed();
         std::cout << "compiler integration tests passed\n";
         return EXIT_SUCCESS;

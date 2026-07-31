@@ -73,8 +73,12 @@ struct ModelContext {
     std::unordered_map<std::string, const authoring::JournalDefinition *> journals;
     std::unordered_map<std::string, const authoring::ConnectingRodDefinition *> rods;
     std::unordered_map<std::string, const authoring::PistonDefinition *> pistons;
+    std::unordered_map<std::string, const authoring::HeadDefinition *> heads;
     std::unordered_map<std::string, const authoring::PortDefinition *> authored_ports;
     std::unordered_map<std::string, const authoring::CamLobeDefinition *> cam_lobes;
+    std::unordered_map<std::string, const authoring::CamshaftDefinition *> camshafts;
+    std::unordered_map<std::string, const authoring::ValvetrainDefinition *>
+        valvetrains;
     std::unordered_map<std::string, const authoring::ExhaustDefinition *> exhausts;
     std::unordered_map<std::string, const authoring::SourceRouteDefinition *>
         source_routes;
@@ -86,6 +90,18 @@ struct ModelContext {
         cylinder_presentations;
     std::unordered_map<std::string, const authoring::RoutePresentation *>
         route_presentations;
+    std::unordered_map<std::string, const authoring::PortDefinition *>
+        intake_port_for_head;
+    std::unordered_map<std::string, const authoring::PortDefinition *>
+        exhaust_port_for_head;
+    std::unordered_map<std::string, const authoring::CamshaftDefinition *>
+        intake_camshaft_for_cylinder;
+    std::unordered_map<std::string, const authoring::CamshaftDefinition *>
+        exhaust_camshaft_for_cylinder;
+    std::unordered_map<std::string, const authoring::CamshaftDefinition *>
+        alternate_intake_camshaft_for_cylinder;
+    std::unordered_map<std::string, const authoring::CamshaftDefinition *>
+        alternate_exhaust_camshaft_for_cylinder;
 };
 
 class ResolutionEmitter {

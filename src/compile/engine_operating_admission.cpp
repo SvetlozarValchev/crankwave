@@ -1,12 +1,14 @@
 #include "compile/engine_resolver_internal.hpp"
 
+#include <bit>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <optional>
-#include <ranges>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
@@ -20,6 +22,10 @@ void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
     value.json_pointer = std::move(path);
     value.message = std::move(message);
     report.diagnostics.push_back(std::move(value));
+}
+
+[[nodiscard]] bool same_binary64(double left, double right) noexcept {
+    return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
 
 [[nodiscard]] bool supported_curve_shape(const authoring::CurveDefinition &curve,
@@ -72,18 +78,19 @@ void admit_sampled_cam_curve(const authoring::CurveDefinition &curve,
 void admit_fixed_cam_lobes(const authoring::CamshaftDefinition &camshaft,
                            const ModelContext &context,
                            authoring::PortKind expected_kind,
+                           const std::unordered_set<std::string> &expected_cylinders,
                            authoring::DiagnosticReport &report,
                            std::unordered_set<std::string> &used_lobes,
                            std::unordered_set<std::string> &used_curves) {
     std::unordered_set<std::string> covered_cylinders;
-    const auto &engine = context.document.engine;
     for (const auto &reference : camshaft.lobes) {
         const auto found = context.cam_lobes.find(reference.value);
         if (found == context.cam_lobes.end()) {
             continue;
         }
         const auto &lobe = *found->second;
-        if (lobe.port_kind != expected_kind) {
+        if (lobe.port_kind != expected_kind ||
+            !expected_cylinders.contains(lobe.cylinder.value)) {
             continue;
         }
         used_lobes.insert(lobe.id.value);
@@ -120,10 +127,12 @@ void admit_fixed_cam_lobes(const authoring::CamshaftDefinition &camshaft,
         used_curves.insert(shape.lift_curve.value);
         admit_sampled_cam_curve(*curve->second, report, "/engine/cam_lobes");
     }
-    if (covered_cylinders.size() != engine.cylinders.size()) {
+    if (camshaft.lobes.size() != expected_cylinders.size() ||
+        covered_cylinders != expected_cylinders) {
         add(report, authoring::DiagnosticCode::unsupported_capability,
             "/engine/camshafts",
-            "each admitted camshaft role requires exactly one lobe per cylinder");
+            "each selected camshaft must contain exactly one matching lobe for "
+            "every cylinder assigned to that camshaft role");
     }
 }
 
@@ -144,6 +153,20 @@ void admit_fixed_cam_lobes(const authoring::CamshaftDefinition &camshaft,
         }
     }
     return first != nullptr;
+}
+
+[[nodiscard]] const authoring::CamLobeShape *
+representative_cam_shape(const authoring::CamshaftDefinition &camshaft,
+                         const ModelContext &context,
+                         authoring::PortKind expected_kind) {
+    for (const auto &reference : camshaft.lobes) {
+        const auto found = context.cam_lobes.find(reference.value);
+        if (found != context.cam_lobes.end() &&
+            found->second->port_kind == expected_kind) {
+            return &found->second->shape;
+        }
+    }
+    return nullptr;
 }
 
 } // namespace
@@ -302,17 +325,10 @@ void admit_engine_operating_systems(ModelContext &resolved,
             }
         }
     };
-    const auto intake_port = std::ranges::find(
-        engine.ports, authoring::PortKind::intake, &authoring::PortDefinition::kind);
-    const auto exhaust_port = std::ranges::find(
-        engine.ports, authoring::PortKind::exhaust, &authoring::PortDefinition::kind);
-    if (intake_port != engine.ports.end() && exhaust_port != engine.ports.end()) {
-        validate_curve(
-            intake_port->flow_curve.value, authoring::QuantityDimension::length,
-            authoring::QuantityDimension::volume_flow_rate, "/engine/ports", true);
-        validate_curve(
-            exhaust_port->flow_curve.value, authoring::QuantityDimension::length,
-            authoring::QuantityDimension::volume_flow_rate, "/engine/ports", true);
+    for (const auto &port : engine.ports) {
+        validate_curve(port.flow_curve.value, authoring::QuantityDimension::length,
+                       authoring::QuantityDimension::volume_flow_rate, "/engine/ports",
+                       true);
     }
     validate_curve(
         engine.ignition.timing_curve.value, authoring::QuantityDimension::angular_speed,
@@ -323,27 +339,74 @@ void admit_engine_operating_systems(ModelContext &resolved,
                    "/engine/fuels/0/turbulence_to_flame_speed", false);
     std::unordered_set<std::string> used_lobes;
     std::unordered_set<std::string> used_camshafts;
-    const auto admit_camshaft = [&](const authoring::CamshaftDefinition &camshaft,
-                                    const authoring::PortKind port_kind) {
-        admit_fixed_cam_lobes(camshaft, resolved, port_kind, report, used_lobes,
-                              used_curves);
-        if (!equivalent_cam_shapes(camshaft, resolved, port_kind)) {
-            add(report, DiagnosticCode::unsupported_capability, "/engine/cam_lobes",
-                "each camshaft role requires one exact shared authored cam "
-                "shape");
+    using CamshaftByCylinder =
+        std::unordered_map<std::string, const authoring::CamshaftDefinition *>;
+    const auto admit_camshaft_role = [&](const CamshaftByCylinder &by_cylinder,
+                                         const authoring::PortKind port_kind) {
+        std::unordered_map<std::string, std::unordered_set<std::string>>
+            expected_cylinders_by_camshaft;
+        for (const auto &cylinder : engine.cylinders) {
+            const auto selected = by_cylinder.find(cylinder.id.value);
+            if (selected == by_cylinder.end() || selected->second == nullptr) {
+                add(report, DiagnosticCode::internal_failure, "/engine/camshafts",
+                    "camshaft role did not resolve for every admitted cylinder");
+                continue;
+            }
+            expected_cylinders_by_camshaft[selected->second->id.value].insert(
+                cylinder.id.value);
         }
-        used_camshafts.insert(camshaft.id.value);
+        if (by_cylinder.size() != engine.cylinders.size()) {
+            add(report, DiagnosticCode::internal_failure, "/engine/camshafts",
+                "camshaft role contains an unexpected per-cylinder binding");
+        }
+
+        const authoring::CamshaftDefinition *representative = nullptr;
+        const authoring::CamLobeShape *representative_shape = nullptr;
+        for (const auto &camshaft : engine.camshafts) {
+            const auto expected =
+                expected_cylinders_by_camshaft.find(camshaft.id.value);
+            if (expected == expected_cylinders_by_camshaft.end()) {
+                continue;
+            }
+            admit_fixed_cam_lobes(camshaft, resolved, port_kind, expected->second,
+                                  report, used_lobes, used_curves);
+            const auto *shape = representative_cam_shape(camshaft, resolved, port_kind);
+            if (!equivalent_cam_shapes(camshaft, resolved, port_kind)) {
+                add(report, DiagnosticCode::unsupported_capability, "/engine/cam_lobes",
+                    "each selected camshaft requires one exact shared authored "
+                    "lobe shape");
+            }
+            if (representative == nullptr) {
+                representative = &camshaft;
+                representative_shape = shape;
+            } else if (!same_binary64(legacy_si_value(camshaft.advance),
+                                      legacy_si_value(representative->advance)) ||
+                       !same_binary64(legacy_si_value(camshaft.base_radius),
+                                      legacy_si_value(representative->base_radius))) {
+                add(report, DiagnosticCode::unsupported_capability, "/engine/camshafts",
+                    "all camshafts selected for one role require bit-identical "
+                    "advance and base radius; lobe centerlines may differ");
+            }
+            if (representative != &camshaft &&
+                (shape == nullptr || representative_shape == nullptr ||
+                 *shape != *representative_shape)) {
+                add(report, DiagnosticCode::unsupported_capability, "/engine/cam_lobes",
+                    "all camshafts selected for one role require an exact common "
+                    "lobe shape; lobe centerlines may differ");
+            }
+            used_camshafts.insert(camshaft.id.value);
+        }
     };
-    if (resolved.intake_camshaft != nullptr && resolved.exhaust_camshaft != nullptr) {
-        admit_camshaft(*resolved.intake_camshaft, authoring::PortKind::intake);
-        admit_camshaft(*resolved.exhaust_camshaft, authoring::PortKind::exhaust);
-    }
+    admit_camshaft_role(resolved.intake_camshaft_for_cylinder,
+                        authoring::PortKind::intake);
+    admit_camshaft_role(resolved.exhaust_camshaft_for_cylinder,
+                        authoring::PortKind::exhaust);
     if (resolved.alternate_intake_camshaft != nullptr &&
         resolved.alternate_exhaust_camshaft != nullptr) {
-        admit_camshaft(*resolved.alternate_intake_camshaft,
-                       authoring::PortKind::intake);
-        admit_camshaft(*resolved.alternate_exhaust_camshaft,
-                       authoring::PortKind::exhaust);
+        admit_camshaft_role(resolved.alternate_intake_camshaft_for_cylinder,
+                            authoring::PortKind::intake);
+        admit_camshaft_role(resolved.alternate_exhaust_camshaft_for_cylinder,
+                            authoring::PortKind::exhaust);
 
         const auto *vtec =
             std::get_if<authoring::VtecValvetrain>(&resolved.valvetrain->kind);

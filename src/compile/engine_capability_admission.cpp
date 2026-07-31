@@ -14,12 +14,9 @@
 #include <limits>
 #include <new>
 #include <optional>
-#include <ranges>
-#include <set>
 #include <span>
 #include <string>
 #include <string_view>
-#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -41,18 +38,6 @@ void add(DiagnosticReport &report, DiagnosticCode code, std::string path,
     report.diagnostics.push_back(std::move(diagnostic_value));
 }
 
-template <class Range, class Projection>
-[[nodiscard]] const typename Range::value_type *
-find_by_text(const Range &range, std::string_view id, Projection projection) {
-    const auto found = std::ranges::find_if(
-        range, [&](const auto &value) { return projection(value) == id; });
-    return found == range.end() ? nullptr : &*found;
-}
-
-template <class Id> [[nodiscard]] std::string_view text(const Id &id) noexcept {
-    return id.value;
-}
-
 [[nodiscard]] bool same_binary64(double left, double right) noexcept {
     return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
@@ -60,11 +45,18 @@ template <class Id> [[nodiscard]] std::string_view text(const Id &id) noexcept {
 template <class Range, class Projection>
 void require_canonical_ids(DiagnosticReport &report, const Range &range,
                            std::string_view base, Projection projection) {
+    std::unordered_set<std::string> ids;
     for (std::size_t index = 0; index < range.size(); ++index) {
-        if (!contract::is_valid_semantic_id(projection(range[index]))) {
+        const auto &id = projection(range[index]);
+        if (!contract::is_valid_semantic_id(id)) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index(base, index) + "/id",
                 "the executable contract requires lowercase canonical semantic IDs");
+        }
+        if (!ids.insert(id).second) {
+            add(report, DiagnosticCode::duplicate_id,
+                pointer_index(base, index) + "/id",
+                "semantic IDs must be unique within their authored collection");
         }
     }
 }
@@ -115,9 +107,16 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     }
     require_count(engine.intakes.size(), 1U, "/engine/intakes",
                   "engine intake collection");
-    require_count(engine.heads.size(), 1U, "/engine/heads", "engine head collection");
-    require_count(engine.valvetrains.size(), 1U, "/engine/valvetrains",
-                  "engine valvetrain collection");
+    if (engine.heads.empty() || engine.heads.size() > engine.banks.size()) {
+        add(report, DiagnosticCode::unsupported_capability, "/engine/heads",
+            "the current topology requires one or more bank-referenced heads, no "
+            "more than the declared bank count");
+    }
+    if (engine.valvetrains.empty() || engine.valvetrains.size() > engine.heads.size()) {
+        add(report, DiagnosticCode::unsupported_capability, "/engine/valvetrains",
+            "the current topology requires one or more head-referenced "
+            "valvetrains, no more than the declared head count");
+    }
     require_count(engine.fuels.size(), 1U, "/engine/fuels", "engine fuel collection");
     require_count(engine.accessory_configurations.size(), 1U,
                   "/engine/accessory_configurations",
@@ -128,8 +127,10 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
             "the executable exhaust presentation requires one or more source routes "
             "with exactly one route per declared exhaust");
     }
-    require_count(engine.ports.size(), 2U, "/engine/ports",
-                  "shared-head intake/exhaust port collection");
+    if (engine.ports.size() != engine.heads.size() * 2U) {
+        add(report, DiagnosticCode::unsupported_capability, "/engine/ports",
+            "each admitted head requires exactly one intake and one exhaust port");
+    }
     if (engine.cylinders.empty() ||
         engine.ignition.wires.size() != engine.cylinders.size() ||
         engine.ignition.firing_order.size() != engine.cylinders.size() ||
@@ -198,6 +199,15 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     require_canonical_ids(
         report, document.presentation.buses, "/presentation/buses",
         [](const auto &value) -> const std::string & { return value.id.value; });
+    for (std::size_t index = 0; index < engine.ports.size(); ++index) {
+        const auto kind = engine.ports[index].kind;
+        if (kind != authoring::PortKind::intake &&
+            kind != authoring::PortKind::exhaust) {
+            add(report, DiagnosticCode::invalid_value,
+                pointer_index("/engine/ports", index) + "/kind",
+                "port kind must be intake or exhaust");
+        }
+    }
 
     if (report.has_errors()) {
         return report;
@@ -207,8 +217,6 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     resolved.profile_id = engine.identity.id.value + "-low-order-operating-point-v1";
     resolved.calibration_id = engine.identity.id.value + "-presentation-v1";
     resolved.crankshaft = &engine.crankshafts.front();
-    resolved.head = &engine.heads.front();
-    resolved.valvetrain = &engine.valvetrains.front();
     resolved.intake = &engine.intakes.front();
     resolved.fuel = &engine.fuels.front();
     resolved.accessory_configuration = &engine.accessory_configurations.front();
@@ -228,28 +236,44 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
           [](const auto &value) { return value.id.value; });
     index(resolved.pistons, engine.pistons,
           [](const auto &value) { return value.id.value; });
+    index(resolved.heads, engine.heads,
+          [](const auto &value) { return value.id.value; });
     index(resolved.authored_ports, engine.ports,
           [](const auto &value) { return value.id.value; });
     index(resolved.cam_lobes, engine.cam_lobes,
+          [](const auto &value) { return value.id.value; });
+    index(resolved.camshafts, engine.camshafts,
+          [](const auto &value) { return value.id.value; });
+    index(resolved.valvetrains, engine.valvetrains,
           [](const auto &value) { return value.id.value; });
     index(resolved.exhausts, engine.exhausts,
           [](const auto &value) { return value.id.value; });
     index(resolved.source_routes, engine.source_routes,
           [](const auto &value) { return value.id.value; });
 
+    std::unordered_set<std::string> used_heads;
     for (std::size_t index = 0; index < engine.banks.size(); ++index) {
         const auto &bank = engine.banks[index];
         const double bank_angle_rad = legacy_si_value(bank.angle);
-        if (bank.head.value != resolved.head->id.value ||
-            !std::isfinite(bank_angle_rad) ||
+        if (!resolved.heads.contains(bank.head.value)) {
+            add(report, DiagnosticCode::dangling_reference,
+                pointer_index("/engine/banks", index) + "/head",
+                "bank head reference did not resolve");
+        } else {
+            used_heads.insert(bank.head.value);
+        }
+        if (!std::isfinite(bank_angle_rad) ||
             (engine.layout == authoring::CylinderLayout::inline_engine &&
              !same_binary64(bank_angle_rad, 0.0))) {
             add(report, DiagnosticCode::unsupported_capability,
-                pointer_index("/engine/banks", index),
-                "every admitted bank must have a finite supported angle and "
-                "reference the sole shared head; an inline bank must have exact "
-                "zero angle");
+                pointer_index("/engine/banks", index) + "/angle",
+                "every admitted bank requires a finite supported angle; an inline "
+                "bank requires exact zero angle");
         }
+    }
+    if (used_heads.size() != engine.heads.size()) {
+        add(report, DiagnosticCode::disconnected_object, "/engine/heads",
+            "every declared head must be referenced by at least one bank");
     }
     if (engine.layout == authoring::CylinderLayout::v_engine &&
         engine.banks.size() == 2U &&
@@ -258,49 +282,109 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         add(report, DiagnosticCode::unsupported_capability, "/engine/banks",
             "an admitted V engine requires two distinct bank angles");
     }
-    if (resolved.head->valvetrain.value != resolved.valvetrain->id.value) {
-        add(report, DiagnosticCode::unsupported_capability, "/engine/heads/0",
-            "the sole shared head must reference the sole valvetrain");
+    std::unordered_set<std::string> used_valvetrains;
+    for (std::size_t index = 0; index < engine.heads.size(); ++index) {
+        const auto &head = engine.heads[index];
+        if (!resolved.valvetrains.contains(head.valvetrain.value)) {
+            add(report, DiagnosticCode::dangling_reference,
+                pointer_index("/engine/heads", index) + "/valvetrain",
+                "head valvetrain reference did not resolve");
+        } else {
+            used_valvetrains.insert(head.valvetrain.value);
+        }
+    }
+    if (used_valvetrains.size() != engine.valvetrains.size()) {
+        add(report, DiagnosticCode::disconnected_object, "/engine/valvetrains",
+            "every declared valvetrain must be referenced by at least one head");
+    }
+    if (report.has_errors()) {
+        return report;
     }
 
-    if (const auto *standard =
-            std::get_if<authoring::StandardValvetrain>(&resolved.valvetrain->kind)) {
-        resolved.intake_camshaft = find_by_text(
-            engine.camshafts, standard->intake_camshaft.value,
-            [](const auto &value) -> const std::string & { return value.id.value; });
-        resolved.exhaust_camshaft = find_by_text(
-            engine.camshafts, standard->exhaust_camshaft.value,
-            [](const auto &value) -> const std::string & { return value.id.value; });
-        if (resolved.intake_camshaft == nullptr ||
-            resolved.exhaust_camshaft == nullptr) {
-            add(report, DiagnosticCode::dangling_reference, "/engine/valvetrains/0",
-                "standard valvetrain camshaft references did not resolve");
+    resolved.head = &engine.heads.front();
+    resolved.valvetrain = resolved.valvetrains.at(resolved.head->valvetrain.value);
+
+    struct ValvetrainCams {
+        const authoring::CamshaftDefinition *intake = nullptr;
+        const authoring::CamshaftDefinition *exhaust = nullptr;
+        const authoring::CamshaftDefinition *alternate_intake = nullptr;
+        const authoring::CamshaftDefinition *alternate_exhaust = nullptr;
+    };
+    std::unordered_map<std::string, ValvetrainCams> valvetrain_cams;
+    const auto find_camshaft = [&](const authoring::CamshaftRef &reference,
+                                   const std::string &path) {
+        const auto found = resolved.camshafts.find(reference.value);
+        if (found == resolved.camshafts.end()) {
+            add(report, DiagnosticCode::dangling_reference, path,
+                "valvetrain camshaft reference did not resolve");
+            return static_cast<const authoring::CamshaftDefinition *>(nullptr);
         }
-    } else if (const auto *vtec =
-                   std::get_if<authoring::VtecValvetrain>(&resolved.valvetrain->kind)) {
-        const auto find_camshaft = [&](const authoring::CamshaftRef &reference) {
-            return find_by_text(engine.camshafts, reference.value,
-                                [](const auto &value) -> const std::string & {
-                                    return value.id.value;
-                                });
-        };
-        resolved.intake_camshaft = find_camshaft(vtec->base_intake_camshaft);
-        resolved.exhaust_camshaft = find_camshaft(vtec->base_exhaust_camshaft);
+        return found->second;
+    };
+    for (std::size_t index = 0; index < engine.valvetrains.size(); ++index) {
+        const auto &valvetrain = engine.valvetrains[index];
+        const auto path = pointer_index("/engine/valvetrains", index);
+        ValvetrainCams cams;
+        if (const auto *standard =
+                std::get_if<authoring::StandardValvetrain>(&valvetrain.kind)) {
+            cams.intake =
+                find_camshaft(standard->intake_camshaft, path + "/intake_camshaft");
+            cams.exhaust =
+                find_camshaft(standard->exhaust_camshaft, path + "/exhaust_camshaft");
+        } else if (const auto *vtec =
+                       std::get_if<authoring::VtecValvetrain>(&valvetrain.kind)) {
+            if (engine.heads.size() != 1U) {
+                add(report, DiagnosticCode::unsupported_capability, path + "/type",
+                    "multiple execution-equivalent heads currently admit standard "
+                    "valvetrains only");
+            }
+            cams.intake = find_camshaft(vtec->base_intake_camshaft,
+                                        path + "/base_intake_camshaft");
+            cams.exhaust = find_camshaft(vtec->base_exhaust_camshaft,
+                                         path + "/base_exhaust_camshaft");
+            cams.alternate_intake = find_camshaft(vtec->alternate_intake_camshaft,
+                                                  path + "/alternate_intake_camshaft");
+            cams.alternate_exhaust = find_camshaft(
+                vtec->alternate_exhaust_camshaft, path + "/alternate_exhaust_camshaft");
+        }
+        valvetrain_cams.emplace(valvetrain.id.value, cams);
+    }
+    if (report.has_errors()) {
+        return report;
+    }
+
+    for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
+        const auto &cylinder = engine.cylinders[index];
+        const auto bank = resolved.banks.find(cylinder.bank.value);
+        if (bank == resolved.banks.end()) {
+            add(report, DiagnosticCode::dangling_reference,
+                pointer_index("/engine/cylinders", index) + "/bank",
+                "cylinder bank reference did not resolve");
+            continue;
+        }
+        const auto &head = *resolved.heads.at(bank->second->head.value);
+        const auto &cams = valvetrain_cams.at(head.valvetrain.value);
+        resolved.intake_camshaft_for_cylinder.emplace(cylinder.id.value, cams.intake);
+        resolved.exhaust_camshaft_for_cylinder.emplace(cylinder.id.value, cams.exhaust);
+        if (cams.alternate_intake != nullptr && cams.alternate_exhaust != nullptr) {
+            resolved.alternate_intake_camshaft_for_cylinder.emplace(
+                cylinder.id.value, cams.alternate_intake);
+            resolved.alternate_exhaust_camshaft_for_cylinder.emplace(
+                cylinder.id.value, cams.alternate_exhaust);
+        }
+    }
+    if (report.has_errors()) {
+        return report;
+    }
+    const auto &first_cylinder = engine.cylinders.front().id.value;
+    resolved.intake_camshaft = resolved.intake_camshaft_for_cylinder.at(first_cylinder);
+    resolved.exhaust_camshaft =
+        resolved.exhaust_camshaft_for_cylinder.at(first_cylinder);
+    if (!resolved.alternate_intake_camshaft_for_cylinder.empty()) {
         resolved.alternate_intake_camshaft =
-            find_camshaft(vtec->alternate_intake_camshaft);
+            resolved.alternate_intake_camshaft_for_cylinder.at(first_cylinder);
         resolved.alternate_exhaust_camshaft =
-            find_camshaft(vtec->alternate_exhaust_camshaft);
-        if (resolved.intake_camshaft == nullptr ||
-            resolved.exhaust_camshaft == nullptr ||
-            resolved.alternate_intake_camshaft == nullptr ||
-            resolved.alternate_exhaust_camshaft == nullptr) {
-            add(report, DiagnosticCode::dangling_reference, "/engine/valvetrains/0",
-                "VTEC valvetrain camshaft references did not resolve");
-        }
-    } else {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/engine/valvetrains/0/type",
-            "the executable valvetrain type did not resolve");
+            resolved.alternate_exhaust_camshaft_for_cylinder.at(first_cylinder);
     }
 
     admit_engine_physical_model(resolved, report);

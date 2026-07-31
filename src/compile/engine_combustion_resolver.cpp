@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <string>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -12,13 +14,21 @@
 namespace engine_sim_offline::compile::detail::engine_resolution {
 namespace {
 
-[[nodiscard]] contract::LegacyCamshaftProfile resolve_camshaft(
-    const ModelContext &context, const authoring::CamshaftDefinition &camshaft,
-    const authoring::PortKind port_kind, std::string role, ResolutionEmitter &emitter) {
+using CamshaftByCylinder =
+    std::unordered_map<std::string, const authoring::CamshaftDefinition *>;
+
+[[nodiscard]] contract::LegacyCamshaftProfile
+resolve_camshaft(const ModelContext &context,
+                 const authoring::CamshaftDefinition &representative_camshaft,
+                 const CamshaftByCylinder &camshaft_by_cylinder,
+                 const authoring::PortKind port_kind, std::string role,
+                 ResolutionEmitter &emitter) {
     contract::LegacyCamshaftProfile resolved;
-    resolved.shape = resolve_cam_shape(context, camshaft, port_kind, role, emitter);
+    resolved.shape =
+        resolve_cam_shape(context, representative_camshaft, port_kind, role, emitter);
     for (const auto &cylinder : context.document.engine.cylinders) {
         const auto semantic = cylinder.id.value;
+        const auto &camshaft = *camshaft_by_cylinder.at(semantic);
         const auto &lobe =
             cam_lobe_for_cylinder(context, camshaft, semantic, port_kind);
         resolved.lobes.push_back({
@@ -36,12 +46,12 @@ namespace {
 
 void resolve_valvetrain(const ModelContext &context, ResolutionEmitter &emitter,
                         contract::LowOrderEngineCoreV1 &core) {
-    core.valvetrain.intake =
-        resolve_camshaft(context, *context.intake_camshaft, authoring::PortKind::intake,
-                         "intake", emitter);
-    core.valvetrain.exhaust =
-        resolve_camshaft(context, *context.exhaust_camshaft,
-                         authoring::PortKind::exhaust, "exhaust", emitter);
+    core.valvetrain.intake = resolve_camshaft(
+        context, *context.intake_camshaft, context.intake_camshaft_for_cylinder,
+        authoring::PortKind::intake, "intake", emitter);
+    core.valvetrain.exhaust = resolve_camshaft(
+        context, *context.exhaust_camshaft, context.exhaust_camshaft_for_cylinder,
+        authoring::PortKind::exhaust, "exhaust", emitter);
 
     if (context.alternate_intake_camshaft == nullptr ||
         context.alternate_exhaust_camshaft == nullptr) {
@@ -52,9 +62,11 @@ void resolve_valvetrain(const ModelContext &context, ResolutionEmitter &emitter,
     contract::LegacyVtecAlternateCamProfile alternate;
     alternate.intake =
         resolve_camshaft(context, *context.alternate_intake_camshaft,
+                         context.alternate_intake_camshaft_for_cylinder,
                          authoring::PortKind::intake, "alternate.intake", emitter);
     alternate.exhaust =
         resolve_camshaft(context, *context.alternate_exhaust_camshaft,
+                         context.alternate_exhaust_camshaft_for_cylinder,
                          authoring::PortKind::exhaust, "alternate.exhaust", emitter);
     const auto activation_base = profile_path("valvetrain.alternate.activation");
     alternate.activation.minimum_engine_speed_rad_s =

@@ -166,34 +166,92 @@ void admit_engine_physical_model(ModelContext &resolved,
                      pointer_index("/engine/exhausts", index) + "/primary_restriction");
     }
 
-    const authoring::PortDefinition *intake_port = nullptr;
-    const authoring::PortDefinition *exhaust_port = nullptr;
-    for (const auto &port : engine.ports) {
-        if (port.head.value != resolved.head->id.value) {
-            add(report, DiagnosticCode::unsupported_capability, "/engine/ports",
-                "every admitted port must belong to the sole shared head");
+    for (std::size_t index = 0; index < engine.ports.size(); ++index) {
+        const auto &port = engine.ports[index];
+        const auto path = pointer_index("/engine/ports", index);
+        if (!resolved.heads.contains(port.head.value)) {
+            add(report, DiagnosticCode::dangling_reference, path + "/head",
+                "port head reference did not resolve");
+            continue;
         }
-        auto *&slot =
-            port.kind == authoring::PortKind::intake ? intake_port : exhaust_port;
-        if (slot != nullptr) {
-            add(report, DiagnosticCode::unsupported_capability, "/engine/ports",
-                "the shared head requires exactly one authored port per kind");
+        auto &ports = port.kind == authoring::PortKind::intake
+                          ? resolved.intake_port_for_head
+                          : resolved.exhaust_port_for_head;
+        if (!ports.emplace(port.head.value, &port).second) {
+            add(report, DiagnosticCode::unsupported_capability, path,
+                "each admitted head requires exactly one authored port per kind");
         }
-        slot = &port;
     }
-    if (intake_port == nullptr || exhaust_port == nullptr) {
-        add(report, DiagnosticCode::unsupported_capability, "/engine/ports",
-            "the shared head requires one intake and one exhaust port");
-    } else {
+
+    for (std::size_t index = 0; index < engine.heads.size(); ++index) {
+        const auto &head = engine.heads[index];
+        const auto path = pointer_index("/engine/heads", index);
+        const auto intake = resolved.intake_port_for_head.find(head.id.value);
+        const auto exhaust = resolved.exhaust_port_for_head.find(head.id.value);
+        if (intake == resolved.intake_port_for_head.end() ||
+            exhaust == resolved.exhaust_port_for_head.end()) {
+            add(report, DiagnosticCode::unsupported_capability, path + "/ports",
+                "each admitted head requires one intake and one exhaust port");
+            continue;
+        }
         std::unordered_set<std::string> head_ports;
-        for (const auto &port : resolved.head->ports) {
+        for (const auto &port : head.ports) {
             head_ports.insert(port.value);
         }
-        if (head_ports != std::unordered_set<std::string>{intake_port->id.value,
-                                                          exhaust_port->id.value}) {
-            add(report, DiagnosticCode::unsupported_capability, "/engine/heads/0/ports",
-                "the shared head port list must exactly cover its intake and "
-                "exhaust ports");
+        const std::unordered_set<std::string> expected_ports{
+            intake->second->id.value,
+            exhaust->second->id.value,
+        };
+        if (head_ports.size() != head.ports.size() || head_ports != expected_ports) {
+            add(report, DiagnosticCode::unsupported_capability, path + "/ports",
+                "a head port list must exactly and reciprocally cover its intake "
+                "and exhaust ports");
+        }
+    }
+
+    const authoring::PortDefinition *intake_port = nullptr;
+    const authoring::PortDefinition *exhaust_port = nullptr;
+    if (resolved.head != nullptr) {
+        const auto intake = resolved.intake_port_for_head.find(resolved.head->id.value);
+        const auto exhaust =
+            resolved.exhaust_port_for_head.find(resolved.head->id.value);
+        if (intake != resolved.intake_port_for_head.end() &&
+            exhaust != resolved.exhaust_port_for_head.end()) {
+            intake_port = intake->second;
+            exhaust_port = exhaust->second;
+        }
+    }
+    if (resolved.head == nullptr || intake_port == nullptr || exhaust_port == nullptr) {
+        add(report, DiagnosticCode::unsupported_capability, "/engine/heads",
+            "the admitted head topology requires a representative intake and "
+            "exhaust port pair");
+    } else {
+        const double representative_chamber_volume_m3 =
+            legacy_si_value(resolved.head->chamber_volume);
+        for (std::size_t index = 0; index < engine.heads.size(); ++index) {
+            if (!same_binary64(legacy_si_value(engine.heads[index].chamber_volume),
+                               representative_chamber_volume_m3)) {
+                add(report, DiagnosticCode::unsupported_capability,
+                    pointer_index("/engine/heads", index) + "/chamber_volume",
+                    "the shared low-order runtime requires bit-identical chamber "
+                    "volume across execution-equivalent heads");
+            }
+        }
+        for (std::size_t index = 0; index < engine.ports.size(); ++index) {
+            const auto &port = engine.ports[index];
+            const auto &representative =
+                port.kind == authoring::PortKind::intake ? *intake_port : *exhaust_port;
+            if (!same_binary64(legacy_si_value(port.runner_volume),
+                               legacy_si_value(representative.runner_volume)) ||
+                !same_binary64(
+                    legacy_si_value(port.runner_cross_section_area),
+                    legacy_si_value(representative.runner_cross_section_area)) ||
+                port.flow_curve.value != representative.flow_curve.value) {
+                add(report, DiagnosticCode::unsupported_capability,
+                    pointer_index("/engine/ports", index),
+                    "the shared low-order runtime requires same-kind ports to have "
+                    "bit-identical runner geometry and the same flow curve");
+            }
         }
         for (std::size_t index = 0; index < engine.exhausts.size(); ++index) {
             if (!same_binary64(
@@ -229,17 +287,31 @@ void admit_engine_physical_model(ModelContext &resolved,
     for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
         const auto &cylinder = engine.cylinders[index];
         const auto path = pointer_index("/engine/cylinders", index);
-        if (!resolved.banks.contains(cylinder.bank.value) ||
+        const authoring::PortDefinition *cylinder_intake_port = nullptr;
+        const authoring::PortDefinition *cylinder_exhaust_port = nullptr;
+        const auto bank = resolved.banks.find(cylinder.bank.value);
+        if (bank != resolved.banks.end()) {
+            const auto intake =
+                resolved.intake_port_for_head.find(bank->second->head.value);
+            const auto exhaust =
+                resolved.exhaust_port_for_head.find(bank->second->head.value);
+            if (intake != resolved.intake_port_for_head.end()) {
+                cylinder_intake_port = intake->second;
+            }
+            if (exhaust != resolved.exhaust_port_for_head.end()) {
+                cylinder_exhaust_port = exhaust->second;
+            }
+        }
+        if (bank == resolved.banks.end() || cylinder_intake_port == nullptr ||
+            cylinder_exhaust_port == nullptr ||
             cylinder.crankshaft.value != resolved.crankshaft->id.value ||
             cylinder.intake.value != resolved.intake->id.value ||
-            (intake_port != nullptr &&
-             cylinder.intake_port.value != intake_port->id.value) ||
-            (exhaust_port != nullptr &&
-             cylinder.exhaust_port.value != exhaust_port->id.value) ||
+            cylinder.intake_port.value != cylinder_intake_port->id.value ||
+            cylinder.exhaust_port.value != cylinder_exhaust_port->id.value ||
             cylinder.slave_journal.has_value()) {
             add(report, DiagnosticCode::unsupported_capability, path,
                 "every admitted cylinder must use a declared bank, the shared crank, "
-                "intake and head ports without a slave journal");
+                "intake, and its bank head's exact ports without a slave journal");
         }
         used_banks.insert(cylinder.bank.value);
         used_journals.insert(cylinder.journal.value);

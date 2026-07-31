@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <ranges>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -139,10 +140,19 @@ ordered_routes(const ModelContext &context) {
 
 [[nodiscard]] const authoring::PortDefinition &
 authored_port(const ModelContext &context, authoring::PortKind kind) {
-    const auto iterator =
-        std::ranges::find_if(context.document.engine.ports,
-                             [&](const auto &port) { return port.kind == kind; });
-    return *iterator;
+    if (context.head == nullptr) {
+        throw std::logic_error{"resolved head topology has no representative head"};
+    }
+    const auto &ports = kind == authoring::PortKind::intake
+                            ? context.intake_port_for_head
+                            : context.exhaust_port_for_head;
+    const auto found = ports.find(context.head->id.value);
+    if (found == ports.end() || found->second == nullptr) {
+        throw std::logic_error{
+            "resolved head topology has no representative port for the requested "
+            "kind"};
+    }
+    return *found->second;
 }
 
 [[nodiscard]] const authoring::CamLobeDefinition &
@@ -155,7 +165,7 @@ first_cam_lobe(const ModelContext &context,
             return lobe;
         }
     }
-    return *context.cam_lobes.at(camshaft.lobes.front().value);
+    throw std::logic_error{"resolved camshaft has no lobe for its requested role"};
 }
 
 [[nodiscard]] const authoring::CamLobeDefinition &
@@ -168,7 +178,8 @@ cam_lobe_for_cylinder(const ModelContext &context,
             return lobe;
         }
     }
-    return first_cam_lobe(context, camshaft, kind);
+    throw std::logic_error{"resolved camshaft has no role-correct lobe for cylinder '" +
+                           std::string{cylinder} + "'"};
 }
 
 [[nodiscard]] contract::LegacyCamShape resolve_cam_shape(
