@@ -684,8 +684,8 @@
         "maximum_engine_speed",
         "minimum_velocity",
         "maximum_velocity",
-        "proportional_gain",
-        "derivative_gain",
+        "k_s",
+        "k_d",
         "gamma"
       ],
       "properties": {
@@ -695,8 +695,8 @@
         "maximum_engine_speed": { "$ref": "#/$defs/quantity" },
         "minimum_velocity": { "type": "number" },
         "maximum_velocity": { "type": "number" },
-        "proportional_gain": { "$ref": "#/$defs/quantity" },
-        "derivative_gain": { "$ref": "#/$defs/quantity" },
+        "k_s": { "$ref": "#/$defs/nonnegative" },
+        "k_d": { "$ref": "#/$defs/nonnegative" },
         "gamma": { "type": "number", "exclusiveMinimum": 0 }
       }
     },
