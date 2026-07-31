@@ -34,7 +34,7 @@
   },
   "mode": {
     "type": "inertial_dyno",
-    "equivalent_inertia": {"value": 4, "unit": "kg*m2"},
+    "equivalent_inertia": {"value": 10, "unit": "kg*m2"},
     "throttle_01": {
       "interpolation": "right_continuous_hold",
       "points": [

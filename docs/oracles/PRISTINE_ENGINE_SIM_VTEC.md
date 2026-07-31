@@ -74,3 +74,35 @@ The transition fixture is a full-throttle 5,000--8,000 rpm inertial pull across
 the 5,800 rpm selector boundary, accompanied by held checks at 5,400 and 7,000
 rpm. The renderer, source routing, conditioning, impulse responses, and mastering
 remain unchanged during this slice.
+
+### Explicit Honda authoring normalization
+
+The pinned Honda asset is internally inconsistent with the advance and
+crank-cycle conventions used by the known-working engine packages:
+
+- its timing table contains `-25` through `-40` degrees even though pristine
+  `IgnitionModule` treats the sampled value as advance and subtracts it from the
+  firing angle;
+- it places intake centers with `360 - center` and exhaust centers with
+  `360 + center`, opposite the working cam phasing.
+
+A literal clean-room transcription cannot produce the requested physical pull.
+With the dyno brake removed and aggregate loss reduced nearly to zero, crank
+speed fell from 5,000 to 4,665 rpm over the 15-second released horizon. Correcting
+only the cam polarity restored strong positive work; retaining the negative
+timing polarity still left the engine near 4,910 rpm after 15 seconds.
+
+The Honda package therefore retains every authored magnitude and firing offset
+but normalizes the two polarities:
+
+```text
+timing advance:  +25 ... +40 degrees
+intake centers:  360 + center - cylinder firing offset
+exhaust centers: 360 - center - cylinder firing offset
+```
+
+This is a package correction, not a VTEC-selector or simulation-algorithm change.
+With the original aggregate loss policy, 10 kg*m2 equivalent inertia, and 25 N*m
+passive brake restored, the physical fixture crosses its 8,000 rpm target near
+the end of the 15-second released horizon. Base/alternate lobe shapes, selector
+thresholds, gas execution, audio routing, and mastering remain unchanged.
