@@ -629,9 +629,12 @@ references, and the old competing master/slave fields were removed without alias
 The `type: "master_rod"` alternative now owns a master-cylinder reference, positive
 throw radius, and owner-local phase. Its one-level attachment graph validates exact
 consumers, connectivity, direct-root ownership, nesting, and cycles through the same
-parser/direct-DTO firewall. Valid graphs currently fail at one explicit runtime
-capability gate; nested chamber geometry, inertia, and coupled reactions are not
-partially approximated.
+parser/direct-DTO firewall. Resolution preserves the stable master-cylinder ID and
+throw radius beside the raw owner-local phase; the optional identity field is omitted
+for every direct cylinder, so existing direct request bytes remain unchanged. Valid
+graphs currently fail at the mechanism-plan compiler's one explicit runtime capability
+gate; nested chamber geometry, inertia, and coupled reactions are not partially
+approximated.
 
 Capture construction now compiles one immutable, source-bound mechanism-kinematics
 plan and shares that exact object with mechanics, gas, and dynamic-crank execution.

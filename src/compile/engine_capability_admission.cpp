@@ -230,19 +230,6 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         return report;
     }
 
-    for (std::size_t index = 0; index < engine.journals.size(); ++index) {
-        if (std::holds_alternative<authoring::MasterRodJournalAttachment>(
-                engine.journals[index].attachment)) {
-            add(report, DiagnosticCode::unsupported_capability,
-                pointer_index("/engine/journals", index) + "/type",
-                "master_rod attachment graph is structurally valid, but runtime "
-                "kinematics are not implemented in this topology slice");
-        }
-    }
-    if (report.has_errors()) {
-        return report;
-    }
-
     ModelContext resolved{document};
     resolved.profile_id = engine.identity.id.value + "-low-order-operating-point-v1";
     resolved.calibration_id = engine.identity.id.value + "-presentation-v1";

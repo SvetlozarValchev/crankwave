@@ -152,6 +152,14 @@ struct BankSpec {
     friend bool operator==(const BankSpec &, const BankSpec &) = default;
 };
 
+struct MasterRodAttachmentSpec {
+    CylinderId master_cylinder_id;
+    ResolvedValue<double> throw_radius_m;
+
+    friend bool operator==(const MasterRodAttachmentSpec &,
+                           const MasterRodAttachmentSpec &) = default;
+};
+
 struct CylinderSpec {
     CylinderId id;
     ResolvedValue<std::string> semantic_id;
@@ -162,6 +170,10 @@ struct CylinderSpec {
     ResolvedValue<double> compression_ratio;
     ResolvedValue<double> firing_tdc_offset_rad;
     ResolvedValue<double> journal_phase_rad;
+    // Absent for a journal attached directly to the crankshaft. When present,
+    // journal_phase_rad is the slave pin's authored local phase on this master
+    // cylinder's connecting rod.
+    std::optional<MasterRodAttachmentSpec> master_rod_attachment = std::nullopt;
 
     friend bool operator==(const CylinderSpec &, const CylinderSpec &) = default;
 };

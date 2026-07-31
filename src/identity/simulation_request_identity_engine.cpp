@@ -223,22 +223,35 @@ template <class Id>
 
 [[nodiscard]] bool write_cylinder(CanonicalJsonWriter &writer,
                                   const contract::CylinderSpec &cylinder) {
-    return writer.begin_object() && writer.key("id") &&
-           write_stable_id(writer, cylinder.id) && writer.key("semantic_id") &&
-           write_resolved(writer, cylinder.semantic_id, write_string) &&
-           writer.key("bank_id") && write_stable_id(writer, cylinder.bank_id) &&
-           writer.key("bore_m") && write_resolved(writer, cylinder.bore_m, write_f64) &&
-           writer.key("stroke_m") &&
-           write_resolved(writer, cylinder.stroke_m, write_f64) &&
-           writer.key("connecting_rod_length_m") &&
-           write_resolved(writer, cylinder.connecting_rod_length_m, write_f64) &&
-           writer.key("compression_ratio") &&
-           write_resolved(writer, cylinder.compression_ratio, write_f64) &&
-           writer.key("firing_tdc_offset_rad") &&
-           write_resolved(writer, cylinder.firing_tdc_offset_rad, write_f64) &&
-           writer.key("journal_phase_rad") &&
-           write_resolved(writer, cylinder.journal_phase_rad, write_f64) &&
-           writer.end_object();
+    if (!(writer.begin_object() && writer.key("id") &&
+          write_stable_id(writer, cylinder.id) && writer.key("semantic_id") &&
+          write_resolved(writer, cylinder.semantic_id, write_string) &&
+          writer.key("bank_id") && write_stable_id(writer, cylinder.bank_id) &&
+          writer.key("bore_m") && write_resolved(writer, cylinder.bore_m, write_f64) &&
+          writer.key("stroke_m") &&
+          write_resolved(writer, cylinder.stroke_m, write_f64) &&
+          writer.key("connecting_rod_length_m") &&
+          write_resolved(writer, cylinder.connecting_rod_length_m, write_f64) &&
+          writer.key("compression_ratio") &&
+          write_resolved(writer, cylinder.compression_ratio, write_f64) &&
+          writer.key("firing_tdc_offset_rad") &&
+          write_resolved(writer, cylinder.firing_tdc_offset_rad, write_f64) &&
+          writer.key("journal_phase_rad") &&
+          write_resolved(writer, cylinder.journal_phase_rad, write_f64))) {
+        return false;
+    }
+    if (cylinder.master_rod_attachment.has_value()) {
+        const auto &attachment = *cylinder.master_rod_attachment;
+        if (!(writer.key("master_rod_attachment") && writer.begin_object() &&
+              writer.key("master_cylinder_id") &&
+              write_stable_id(writer, attachment.master_cylinder_id) &&
+              writer.key("throw_radius_m") &&
+              write_resolved(writer, attachment.throw_radius_m, write_f64) &&
+              writer.end_object())) {
+            return false;
+        }
+    }
+    return writer.end_object();
 }
 
 [[nodiscard]] bool write_port(CanonicalJsonWriter &writer,

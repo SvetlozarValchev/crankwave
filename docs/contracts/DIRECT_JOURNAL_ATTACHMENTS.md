@@ -46,8 +46,10 @@ slave cylinder -> master_rod journal -> master cylinder
                -> direct crankshaft journal -> crankshaft
 ```
 
-`phase` is owner/master-rod-local: zero points from the master big end toward its wrist
-pin, and positive rotation follows the authored positive-angle convention.
+`phase` is owner/master-rod-local. If `e` is the master big-end-to-wrist unit vector,
+`Q` is the master big-end position, and `R(phi)` is positive counter-clockwise planar
+rotation, the slave pin is `Q + throw_radius * R(phase) * e`. Phase zero therefore
+points toward the wrist.
 `throw_radius` is the positive distance from the master rod's big-end center to the
 slave pin. The graph contract requires:
 
@@ -61,10 +63,13 @@ slave pin. The graph contract requires:
 - journal phase is finite and master-rod throw radius is finite and positive.
 
 The parser and direct-DTO compiler admission share this graph validation. A valid
-master-rod graph reaches capability admission and then fails explicitly at the
-`master_rod` type because nested kinematics and reactions are not implemented in this
-sub-slice. It cannot fall through to a direct-journal `std::get` or silently use direct
-slider-crank geometry.
+master-rod graph resolves its stable master-cylinder ID, throw radius, and raw local
+phase, then fails explicitly when the compiled-engine builder invokes the shared
+mechanism-plan compiler. Nested kinematics and reactions are not implemented in this
+sub-slice. It cannot become a public compiled engine, fall through to a direct-journal
+`std::get`, or silently execute direct slider-crank geometry. The resolution-only
+nominal stroke, compression, and displacement fields are not executable master-rod
+facts; the geometry sub-slice must replace them before this gate opens.
 
 ## Removed ambiguity
 
@@ -85,5 +90,5 @@ variant does not revive or alias any of them.
 Direct journal IDs, crankshaft ownership, phases, cylinder bindings, ordering, and
 resolved provenance remain unchanged. Existing direct engines continue through the
 same resolver/runtime path. Master-rod execution remains closed until the next topology
-slice adds one compiled kinematics plan, nested chamber geometry, inertia, and coupled
-wall reactions.
+slice supplies authoritative nested chamber geometry. Articulated inertia and coupled
+wall reactions remain later, separately gated work.

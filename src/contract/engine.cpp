@@ -1206,6 +1206,19 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
                           path + ".firing_tdc_offset_rad");
         validate_resolved(report, cylinder.journal_phase_rad, provenance,
                           path + ".journal_phase_rad");
+        if (cylinder.master_rod_attachment.has_value()) {
+            const auto &attachment = *cylinder.master_rod_attachment;
+            validate_resolved(report, attachment.throw_radius_m, provenance,
+                              path + ".master_rod_attachment.throw_radius_m");
+            require(report, attachment.master_cylinder_id.valid(),
+                    ContractIssueCode::invalid_value,
+                    path + ".master_rod_attachment.master_cylinder_id",
+                    "master-rod attachment requires a valid master cylinder ID");
+            require(report, finite_positive(attachment.throw_radius_m.value),
+                    ContractIssueCode::invalid_value,
+                    path + ".master_rod_attachment.throw_radius_m.value",
+                    "master-rod throw radius must be finite and positive");
+        }
         require(report, is_valid_semantic_id(cylinder.semantic_id.value),
                 ContractIssueCode::invalid_value, path + ".semantic_id.value",
                 "cylinder semantic ID must be canonical");
@@ -1244,6 +1257,27 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
             computed_displacement_m3 += std::numbers::pi * cylinder.bore_m.value *
                                         cylinder.bore_m.value *
                                         cylinder.stroke_m.value / 4.0;
+        }
+    }
+    for (const auto &cylinder : spec.cylinders) {
+        if (!cylinder.master_rod_attachment.has_value()) {
+            continue;
+        }
+        const auto path = resolved_path("cylinders", cylinder.semantic_id.value) +
+                          ".master_rod_attachment.master_cylinder_id";
+        const auto master_id = cylinder.master_rod_attachment->master_cylinder_id;
+        const auto master =
+            std::ranges::find(spec.cylinders, master_id, &CylinderSpec::id);
+        require(report, master != spec.cylinders.end(),
+                ContractIssueCode::dangling_reference, path,
+                "master-rod attachment references an unknown master cylinder");
+        require(report, master_id != cylinder.id,
+                ContractIssueCode::inconsistent_semantics, path,
+                "master-rod attachment cannot reference its own cylinder");
+        if (master != spec.cylinders.end()) {
+            require(report, !master->master_rod_attachment.has_value(),
+                    ContractIssueCode::inconsistent_semantics, path,
+                    "master cylinder must use a direct crankshaft journal");
         }
     }
     const auto displacement_scale = std::max(std::abs(spec.total_displacement_m3.value),

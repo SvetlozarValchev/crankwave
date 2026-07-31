@@ -7,6 +7,7 @@
 #include "authoring/parse_engine_references.hpp"
 #include "compile/engine_resolver.hpp"
 #include "simulation/legacy_fixed_valvetrain.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <algorithm>
 #include <array>
@@ -2052,10 +2053,43 @@ void test_master_rod_graph_contract_and_execution_gate() {
 
     {
         const auto document = make_master_rod_twin_document(assets);
-        const auto result = compile::compile_engine(document, views);
-        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
-                           "/engine/journals/1/type",
-                           "valid master-rod graph execution gate");
+        const auto twin_views = assets.twin_views();
+        auto resolved =
+            require_value(compile_detail::resolve_engine_package(document, twin_views),
+                          "valid master-rod graph failed to resolve");
+        expect(resolved.engine.cylinders.size() == 2U,
+               "resolved master-rod engine lost a cylinder");
+        const auto &master = resolved.engine.cylinders[0];
+        const auto &slave = resolved.engine.cylinders[1];
+        expect(!master.master_rod_attachment.has_value() &&
+                   slave.master_rod_attachment.has_value(),
+               "resolved master-rod attachment kind changed");
+        expect(slave.master_rod_attachment->master_cylinder_id == master.id &&
+                   slave.master_rod_attachment->throw_radius_m.value == 0.029 &&
+                   slave.journal_phase_rad.value ==
+                       72.0 * (3.14159265359 / 180.0),
+               "resolved master-rod attachment lost its master, throw, or local "
+               "phase");
+
+        const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+            resolved.engine.physics_profile);
+        const auto plan_result = simulation::compile_mechanism_kinematics_plan(
+            resolved.engine, profile.core);
+        const auto *runtime_rejection =
+            std::get_if<contract::ValidationReport>(&plan_result);
+        expect(runtime_rejection != nullptr && !runtime_rejection->issues.empty() &&
+                   runtime_rejection->issues.front().code ==
+                       contract::ContractIssueCode::unsupported_value &&
+                   runtime_rejection->issues.front().path ==
+                       "engine.cylinders[1].master_rod_attachment",
+               "resolved master-rod graph lost its explicit runtime execution "
+               "boundary");
+
+        const auto public_result = compile::compile_engine(document, twin_views);
+        require_diagnostic(public_result,
+                           authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/cylinders/1/master_rod_attachment",
+                           "public master-rod execution gate");
     }
     {
         auto document = make_master_rod_twin_document(assets);

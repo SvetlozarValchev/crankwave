@@ -3,6 +3,7 @@
 #include "compile/compiled_model_storage.hpp"
 #include "compile/diagnostics.hpp"
 #include "presentation/presentation_calibration_compiler.hpp"
+#include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -164,6 +165,23 @@ diagnostic_code(const contract::ContractIssueCode code) noexcept {
     return report;
 }
 
+[[nodiscard]] authoring::DiagnosticReport mechanism_admission_report(
+    const contract::ValidationReport &validation) {
+    authoring::DiagnosticReport report;
+    if (validation.issues.empty()) {
+        return internal_failure("converting an empty mechanism-admission failure");
+    }
+    report.diagnostics.reserve(validation.issues.size());
+    for (const auto &issue : validation.issues) {
+        authoring::Diagnostic value;
+        value.code = diagnostic_code(issue.code);
+        value.json_pointer = json_pointer(issue.path);
+        value.message = issue.message;
+        report.diagnostics.push_back(std::move(value));
+    }
+    return report;
+}
+
 } // namespace
 
 EngineCompileResult
@@ -190,6 +208,17 @@ CompiledEngineBuilder::build(ResolvedEnginePackage resolved) noexcept {
         }
         if (auto report = validate_assets(resolved.assets); !report.ok()) {
             return report;
+        }
+
+        const auto &profile =
+            std::get<contract::LowOrderOperatingPointV1Profile>(
+                resolved.engine.physics_profile);
+        const auto mechanism_plan =
+            simulation::compile_mechanism_kinematics_plan(resolved.engine,
+                                                          profile.core);
+        if (const auto *validation =
+                std::get_if<contract::ValidationReport>(&mechanism_plan)) {
+            return mechanism_admission_report(*validation);
         }
 
         auto storage = std::make_shared<CompiledEngineStorage>();

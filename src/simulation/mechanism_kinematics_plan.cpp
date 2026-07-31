@@ -39,6 +39,19 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
     const auto &mechanism = core.mechanism;
     const auto &crank = mechanism.crank;
 
+    for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
+        if (engine.cylinders[index].master_rod_attachment.has_value()) {
+            report.add(ContractIssueCode::unsupported_value,
+                       "engine.cylinders[" + std::to_string(index) +
+                           "].master_rod_attachment",
+                       "master-rod attachment metadata is resolved, but its runtime "
+                       "kinematics are not implemented in this checkpoint");
+        }
+    }
+    if (!report.ok()) {
+        return report;
+    }
+
     require(report, std::isfinite(crank.crank_tdc_reference_rad.value),
             ContractIssueCode::invalid_value,
             "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",

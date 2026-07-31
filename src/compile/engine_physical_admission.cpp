@@ -70,9 +70,10 @@ void admit_engine_physical_model(ModelContext &resolved,
     }
     for (std::size_t index = 0; index < engine.journals.size(); ++index) {
         const auto &journal = engine.journals[index];
-        const auto &attachment =
-            std::get<authoring::CrankshaftJournalAttachment>(journal.attachment);
-        if (attachment.crankshaft.value != resolved.crankshaft->id.value) {
+        const auto *attachment =
+            std::get_if<authoring::CrankshaftJournalAttachment>(&journal.attachment);
+        if (attachment != nullptr &&
+            attachment->crankshaft.value != resolved.crankshaft->id.value) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/engine/journals", index),
                 "each direct journal must attach to the sole admitted crankshaft");

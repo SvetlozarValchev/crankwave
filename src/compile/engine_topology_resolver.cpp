@@ -55,7 +55,7 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
             legacy_si_value(context.head->chamber_volume),
             legacy_si_value(piston.displacement_volume));
         const auto profile_base = profile_path("mechanism.cylinders." + semantic);
-        engine.cylinders.push_back({
+        contract::CylinderSpec resolved_cylinder{
             cylinder_id(context, semantic),
             emitter.authored(semantic, base + ".semantic_id"),
             bank_id(context, cylinder.bank.value),
@@ -82,7 +82,16 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
                 base + ".firing_tdc_offset_rad"),
             emitter.authored(legacy_si_value(journal.phase),
                              base + ".journal_phase_rad"),
-        });
+        };
+        if (const auto *master = std::get_if<authoring::MasterRodJournalAttachment>(
+                &journal.attachment)) {
+            resolved_cylinder.master_rod_attachment = contract::MasterRodAttachmentSpec{
+                cylinder_id(context, master->master_cylinder.value),
+                emitter.authored(legacy_si_value(master->throw_radius),
+                                 base + ".master_rod_attachment.throw_radius_m"),
+            };
+        }
+        engine.cylinders.push_back(std::move(resolved_cylinder));
     }
 
     std::vector<const contract::CylinderSpec *> stable_cylinders;
