@@ -2,12 +2,18 @@
 
 #include "authoring/parse_engine_detail.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <variant>
+#include <vector>
 
 namespace engine_sim_offline::authoring::detail {
 namespace {
@@ -207,15 +213,6 @@ void validate_required_collections(
 void validate_mechanism_references(DocumentReader &reader,
                                    const EngineDefinition &engine,
                                    const EngineIndexes &indexes) {
-    for (std::size_t index = 0; index < engine.journals.size(); ++index) {
-        const auto &journal = engine.journals[index];
-        const auto path = pointer_index("/engine/journals", index);
-        const auto owner = subject("journal", journal.id.value);
-        const auto &attachment =
-            std::get<CrankshaftJournalAttachment>(journal.attachment);
-        require_reference(reader, indexes.crankshafts, attachment.crankshaft,
-                          pointer_member(path, "crankshaft"), "crankshaft", owner);
-    }
     for (std::size_t index = 0; index < engine.pistons.size(); ++index) {
         const auto &piston = engine.pistons[index];
         if (piston.blowby) {
@@ -481,6 +478,213 @@ void validate_presentation_references(
 
 } // namespace
 
+DiagnosticReport validate_engine_mechanism_graph(const EngineDefinition &engine) {
+    DiagnosticReport report;
+    const auto add = [&](DiagnosticCode code, std::string path, std::string message,
+                         std::optional<DiagnosticSubject> owner = {}) {
+        report.diagnostics.push_back({
+            DiagnosticSeverity::error,
+            code,
+            std::move(path),
+            std::move(owner),
+            std::nullopt,
+            std::move(message),
+            {},
+        });
+    };
+
+    std::unordered_map<std::string_view, std::size_t> crankshafts;
+    std::unordered_map<std::string_view, std::size_t> journals;
+    std::unordered_map<std::string_view, std::size_t> cylinders;
+    for (std::size_t index = 0; index < engine.crankshafts.size(); ++index) {
+        const auto &id = engine.crankshafts[index].id.value;
+        if (!id.empty()) {
+            crankshafts.emplace(id, index);
+        }
+    }
+    for (std::size_t index = 0; index < engine.journals.size(); ++index) {
+        const auto &id = engine.journals[index].id.value;
+        if (!id.empty()) {
+            journals.emplace(id, index);
+        }
+    }
+    for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
+        const auto &id = engine.cylinders[index].id.value;
+        if (!id.empty()) {
+            cylinders.emplace(id, index);
+        }
+    }
+
+    std::vector<std::size_t> consumer_counts(engine.journals.size(), 0U);
+    for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
+        const auto found = journals.find(engine.cylinders[index].journal.value);
+        if (found == journals.end()) {
+            continue;
+        }
+        const auto journal_index = found->second;
+        if (consumer_counts[journal_index] >= 1U &&
+            std::holds_alternative<MasterRodJournalAttachment>(
+                engine.journals[journal_index].attachment)) {
+            add(DiagnosticCode::inconsistent_value,
+                pointer_member(pointer_index("/engine/cylinders", index),
+                               "journal"),
+                "a master_rod journal cannot be shared by multiple cylinders",
+                subject("cylinder", engine.cylinders[index].id.value));
+        }
+        ++consumer_counts[journal_index];
+    }
+
+    // Attachment edges form a functional graph. Classify real cycles before the
+    // stricter one-level check so acyclic nesting receives a distinct diagnostic.
+    std::vector<std::optional<std::size_t>> master_targets(engine.journals.size());
+    for (std::size_t index = 0; index < engine.journals.size(); ++index) {
+        const auto *master =
+            std::get_if<MasterRodJournalAttachment>(&engine.journals[index].attachment);
+        if (master == nullptr) {
+            continue;
+        }
+        const auto master_cylinder = cylinders.find(master->master_cylinder.value);
+        if (master_cylinder == cylinders.end()) {
+            continue;
+        }
+        const auto master_journal = journals.find(
+            engine.cylinders[master_cylinder->second].journal.value);
+        if (master_journal != journals.end() &&
+            std::holds_alternative<MasterRodJournalAttachment>(
+                engine.journals[master_journal->second].attachment)) {
+            master_targets[index] = master_journal->second;
+        }
+    }
+    std::vector<std::uint8_t> graph_state(engine.journals.size(), 0U);
+    std::vector<bool> cycle_members(engine.journals.size(), false);
+    for (std::size_t start = 0; start < engine.journals.size(); ++start) {
+        if (graph_state[start] != 0U || !master_targets[start].has_value()) {
+            continue;
+        }
+        std::vector<std::size_t> path;
+        auto cursor = start;
+        while (graph_state[cursor] == 0U && master_targets[cursor].has_value()) {
+            graph_state[cursor] = 1U;
+            path.push_back(cursor);
+            cursor = *master_targets[cursor];
+        }
+        if (graph_state[cursor] == 1U) {
+            const auto cycle_begin = std::ranges::find(path, cursor);
+            if (cycle_begin != path.end()) {
+                const auto canonical = *std::min_element(cycle_begin, path.end());
+                for (auto member = cycle_begin; member != path.end(); ++member) {
+                    cycle_members[*member] = true;
+                }
+                const auto cycle_path =
+                    pointer_index("/engine/journals", canonical);
+                add(DiagnosticCode::forbidden_cycle,
+                    pointer_member(cycle_path, "master_cylinder"),
+                    "master_rod attachment graph contains a cylinder-to-master "
+                    "cycle",
+                    subject("journal", engine.journals[canonical].id.value));
+            }
+        }
+        for (const auto member : path) {
+            graph_state[member] = 2U;
+        }
+    }
+
+    for (std::size_t index = 0; index < engine.journals.size(); ++index) {
+        const auto &journal = engine.journals[index];
+        const auto path = pointer_index("/engine/journals", index);
+        const auto owner = subject("journal", journal.id.value);
+        if (!std::isfinite(journal.phase.value)) {
+            add(DiagnosticCode::invalid_value,
+                pointer_member(pointer_member(path, "phase"), "value"),
+                "journal phase must be finite", owner);
+        }
+        const auto consumer_count = consumer_counts[index];
+        if (consumer_count == 0U) {
+            add(DiagnosticCode::disconnected_object, path,
+                "every declared journal must be referenced by a cylinder", owner);
+        }
+
+        if (const auto *direct =
+                std::get_if<CrankshaftJournalAttachment>(&journal.attachment)) {
+            if (direct->crankshaft.value.empty()) {
+                add(DiagnosticCode::missing_value,
+                    pointer_member(path, "crankshaft"),
+                    "direct journal requires a crankshaft reference", owner);
+            } else if (!crankshafts.contains(direct->crankshaft.value)) {
+                add(DiagnosticCode::dangling_reference,
+                    pointer_member(path, "crankshaft"),
+                    "crankshaft reference '" + direct->crankshaft.value +
+                        "' does not resolve",
+                    owner);
+            }
+            continue;
+        }
+
+        const auto &master =
+            std::get<MasterRodJournalAttachment>(journal.attachment);
+        if (!std::isfinite(master.throw_radius.value)) {
+            add(DiagnosticCode::invalid_value,
+                pointer_member(pointer_member(path, "throw_radius"), "value"),
+                "master-rod throw radius must be finite", owner);
+        } else if (master.throw_radius.value <= 0.0) {
+            add(DiagnosticCode::out_of_range,
+                pointer_member(pointer_member(path, "throw_radius"), "value"),
+                "master-rod throw radius must be positive", owner);
+        }
+        if (consumer_count > 1U) {
+            add(DiagnosticCode::inconsistent_value, path,
+                "a master_rod journal must be referenced by exactly one cylinder",
+                owner);
+        }
+        if (master.master_cylinder.value.empty()) {
+            add(DiagnosticCode::missing_value,
+                pointer_member(path, "master_cylinder"),
+                "master_rod journal requires a master cylinder reference", owner);
+            continue;
+        }
+        const auto master_cylinder = cylinders.find(master.master_cylinder.value);
+        if (master_cylinder == cylinders.end()) {
+            add(DiagnosticCode::dangling_reference,
+                pointer_member(path, "master_cylinder"),
+                "master cylinder reference '" + master.master_cylinder.value +
+                    "' does not resolve",
+                owner);
+            continue;
+        }
+        const auto master_journal = journals.find(
+            engine.cylinders[master_cylinder->second].journal.value);
+        if (master_journal == journals.end()) {
+            continue;
+        }
+        const auto &master_attachment =
+            engine.journals[master_journal->second].attachment;
+        if (cycle_members[index]) {
+            continue;
+        }
+        if (!std::holds_alternative<CrankshaftJournalAttachment>(master_attachment)) {
+            add(DiagnosticCode::inconsistent_value,
+                pointer_member(path, "master_cylinder"),
+                "master_cylinder must use a direct crankshaft journal; nested "
+                "attachment is forbidden",
+                owner);
+            continue;
+        }
+        const auto &derived_crankshaft =
+            std::get<CrankshaftJournalAttachment>(master_attachment).crankshaft;
+        if (!derived_crankshaft.value.empty() &&
+            !crankshafts.contains(derived_crankshaft.value)) {
+            add(DiagnosticCode::dangling_reference,
+                pointer_member(
+                    pointer_index("/engine/journals", master_journal->second),
+                    "crankshaft"),
+                "master cylinder's direct crankshaft reference '" +
+                    derived_crankshaft.value + "' does not resolve",
+                owner);
+        }
+    }
+    return report;
+}
+
 void validate_engine_document(DocumentReader &reader,
                               const EnginePackageDocument &document) {
     validate_required_collections(reader, document);
@@ -491,6 +695,11 @@ void validate_engine_document(DocumentReader &reader,
     validate_system_references(reader, document.engine, indexes);
     validate_cylinder_and_route_references(reader, document.engine, indexes);
     validate_presentation_references(reader, document.presentation, indexes);
+    for (auto &diagnostic :
+         validate_engine_mechanism_graph(document.engine).diagnostics) {
+        reader.add(diagnostic.code, diagnostic.json_pointer,
+                   std::move(diagnostic.message), diagnostic.subject);
+    }
 }
 
 } // namespace engine_sim_offline::authoring::detail

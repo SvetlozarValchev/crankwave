@@ -18,7 +18,8 @@ opposed, or custom explicit bank axes, plus presentation, scenarios, determinist
 assets, and randomness. Compilation is data-driven and has no engine-name branch.
 Important original capabilities such as multiple crankshafts, heterogeneous physical
 heads, separate intakes, master/slave journals, and general multi-head/VTEC topology
-remain represented but fail closed until their executor support exists.
+remain unexecuted. Master/slave journals now have a strict validated graph contract but
+fail closed before resolution until their kinematics executor exists.
 Execution-equivalent bank-local heads, ports, standard valvetrains, and cams now
 normalize to the unchanged shared low-order profile. Vehicle and transmission rig
 objects parse, resolve, and execute through the finite forward-only FreeVehicle
@@ -144,7 +145,9 @@ never silently looped.
 - A cylinder explicitly references its bank, one journal, piston, rod, intake, exhaust
   route, ignition wire, and intake/exhaust ports. A direct journal uses the required
   `type: "crankshaft"` variant and owns the crankshaft reference, so the cylinder's
-  crankshaft is derived through exactly one path.
+  crankshaft is derived through exactly one path. A `type: "master_rod"` journal owns
+  `master_cylinder`, positive `throw_radius`, and local `phase`; its crankshaft derives
+  through that master cylinder's direct journal.
 - References must resolve, forbidden cycles are rejected, and every connected physical
   object must be reachable from the engine root.
 - The authoring graph can represent broader sharing than the current executor admits.
@@ -153,8 +156,10 @@ never silently looped.
   antipodal opposed banks, or one or more custom banks with explicit finite axes. Banks
   may share one head/valvetrain or use execution-equivalent bank-local heads and
   standard valvetrains; single-head VTEC remains admitted. Direct journals and exhaust
-  routes may be shared; identity is never inferred from array position. Other graph
-  shapes fail closed.
+  routes may be shared. A master-rod journal must have exactly one cylinder consumer,
+  attach to a cylinder on a direct journal, and remain one level deep; its runtime
+  execution is not yet admitted. Identity is never inferred from array position. Other
+  graph shapes fail closed.
 - Compiler-assigned dense numeric IDs and deterministic reduction order are resolved
   artifacts; they are never authored API identities.
 
@@ -233,8 +238,8 @@ the remainder as explicit capability diagnostics:
 |---|---|---|---|
 | Multiple crankshafts attached to one engine | `engine.crankshafts[]` plus references | **Missing**; executable profile has one crank assembly | Two-crank structural fixture compiles and steps without identity collapse. |
 | Crank throw, crank/flywheel mass, inertia, friction torque, TDC reference | Crankshaft physical fields | **Low-order executed/Partial**; positive-speed FreeEngine applies the authored crank-friction magnitude as the pristine saturated rotation constraint and the source one-step-lagged piston-wall law through centered inverse dynamics | BMW resolved-value comparison, direct pristine wall-reaction trace comparison, and WOT/coast response check. |
-| Rod journals with arbitrary phase | `engine.journals[]` direct variant with required `type: "crankshaft"`, `crankshaft`, and `phase` | **Low-order executed/Partial**; a dynamic cylinder set may reference and share declared direct journals with arbitrary finite phase, while a master-rod attachment variant remains unsupported | V8 and direct shared-journal fixtures preserve phases and reference identity. |
-| Master/slave rod attachment | A future distinct `type: "master_rod"` journal variant; retired `master_journal`, `slave_throw`, and `slave_journal` fields are not part of the current schema | **Missing** | Master/slave V-twin geometry and uneven firing fixture. |
+| Rod journals with arbitrary phase | `engine.journals[]` tagged union; the direct variant requires `type: "crankshaft"`, `crankshaft`, and `phase` | **Low-order executed/Partial**; a dynamic cylinder set may reference and share direct journals with arbitrary finite phase | V8 and direct shared-journal fixtures preserve phases and reference identity. |
+| Master/slave rod attachment | `engine.journals[]` `type: "master_rod"` variant with `master_cylinder`, positive `throw_radius`, and finite local `phase`; retired `master_journal`, `slave_throw`, and `slave_journal` fields remain forbidden | **Graph admitted/execution closed**; references, exact-one consumer, connectivity, one-level direct master, and cycle rules validate, then capability admission rejects explicitly before resolution | Programmatic two-cylinder graph plus bounded invalid-graph diagnostics; execution still requires the master/slave V-twin geometry and uneven-firing fixture. |
 | Connecting-rod mass, inertia, center of mass, length | `engine.connecting_rods[]` | **Partial**; mass/inertia/length exist in BMW profile, center of mass is absent | Resolved mechanism quantities and inertial torque are verified. |
 | Piston mass, blowby, compression height, wrist-pin position, displacement term | `engine.pistons[]` and gas-path blowby restriction | **Partial**; BMW has mass, blowby, compression height, displacement term; wrist-pin position is absent | BMW geometry/clearance comparison and blowby flow check. |
 | Banks with angle, bore, and deck height | `engine.banks[]` | **Low-order executed/Partial**; execution admits one zero-angle inline bank, exactly two finite distinct-angle V banks, exactly two antipodal opposed banks, or custom explicit finite axes, including authored bank bore/deck geometry; all use direct centered rods | Inline, Toyota V8, Subaru EJ25 opposed, and synthetic three-axis custom fixtures preserve bank geometry and axis-relative mechanics. |

@@ -1,5 +1,6 @@
 #include "compile/engine_resolver_internal.hpp"
 
+#include "authoring/parse_engine_references.hpp"
 #include "compile/diagnostics.hpp"
 #include "compile/stable_id.hpp"
 #include "presentation/pcm16_ir_decoder.hpp"
@@ -220,6 +221,24 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         }
     }
 
+    auto mechanism_graph = authoring::detail::validate_engine_mechanism_graph(engine);
+    for (auto &diagnostic : mechanism_graph.diagnostics) {
+        report.diagnostics.push_back(std::move(diagnostic));
+    }
+
+    if (report.has_errors()) {
+        return report;
+    }
+
+    for (std::size_t index = 0; index < engine.journals.size(); ++index) {
+        if (std::holds_alternative<authoring::MasterRodJournalAttachment>(
+                engine.journals[index].attachment)) {
+            add(report, DiagnosticCode::unsupported_capability,
+                pointer_index("/engine/journals", index) + "/type",
+                "master_rod attachment graph is structurally valid, but runtime "
+                "kinematics are not implemented in this topology slice");
+        }
+    }
     if (report.has_errors()) {
         return report;
     }

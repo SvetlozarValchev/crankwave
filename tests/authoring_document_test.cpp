@@ -515,6 +515,51 @@ void replace_once(std::string &text, std::string_view before, std::string_view a
     text.replace(position, before.size(), after);
 }
 
+[[nodiscard]] std::string valid_master_rod_engine_json() {
+    std::string json = valid_engine_json();
+    replace_once(
+        json,
+        R"json(        "phase": {"value": 0, "unit": "deg"}
+      }
+    ],
+    "connecting_rods")json",
+        R"json(        "phase": {"value": 0, "unit": "deg"}
+      },
+      {
+        "id": "slave-journal",
+        "type": "master_rod",
+        "master_cylinder": "cylinder",
+        "throw_radius": {"value": 30, "unit": "mm"},
+        "phase": {"value": 72, "unit": "deg"}
+      }
+    ],
+    "connecting_rods")json");
+    replace_once(
+        json,
+        R"json(        "exhaust_header_primary_length": {"value": 500, "unit": "mm"}
+      }
+    ],
+    "source_routes")json",
+        R"json(        "exhaust_header_primary_length": {"value": 500, "unit": "mm"}
+      },
+      {
+        "id": "slave-cylinder",
+        "bank": "bank",
+        "journal": "slave-journal",
+        "connecting_rod": "rod",
+        "piston": "piston",
+        "intake": "intake",
+        "exhaust": "exhaust",
+        "ignition_wire": "wire",
+        "intake_port": "intake-port",
+        "exhaust_port": "exhaust-port",
+        "exhaust_header_primary_length": {"value": 500, "unit": "mm"}
+      }
+    ],
+    "source_routes")json");
+    return json;
+}
+
 [[nodiscard]] std::string valid_engine_with_vehicle_rig_json() {
     std::string json = valid_engine_json();
     replace_once(json, "\n}", R"json(,
@@ -1140,13 +1185,22 @@ void test_direct_journal_attachment_contract_is_unambiguous() {
                DiagnosticCode::missing_value, "/engine/journals/0/type"),
            "direct journal without its required type discriminator was accepted");
 
+    const auto master_package = require_engine(valid_master_rod_engine_json());
+    const auto *master = std::get_if<MasterRodJournalAttachment>(
+        &master_package.engine.journals[1].attachment);
+    expect(master != nullptr && master->master_cylinder.value == "cylinder" &&
+               master->throw_radius.value == 30.0 &&
+               master_package.engine.journals[1].phase.value == 72.0 &&
+               master_package.engine.cylinders[1].journal.value == "slave-journal",
+           "master_rod journal shape or graph references changed during parsing");
+
     std::string wrong_type = valid_engine_json();
     replace_once(wrong_type, R"json("type": "crankshaft")json",
-                 R"json("type": "master_rod")json");
+                 R"json("type": "gearbox")json");
     expect(has_diagnostic(require_engine_report(parse_engine_document(wrong_type)),
                           DiagnosticCode::invalid_value,
                           "/engine/journals/0/type"),
-           "unimplemented journal attachment variant was accepted");
+           "unknown journal attachment variant was accepted");
 
     const auto expect_retired_field = [](std::string json,
                                          std::string_view before,

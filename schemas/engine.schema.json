@@ -241,7 +241,7 @@
         "tdc_reference_angle": { "$ref": "#/$defs/quantity" }
       }
     },
-    "journal": {
+    "crankshaftJournal": {
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "type", "crankshaft", "phase"],
@@ -251,6 +251,24 @@
         "crankshaft": { "$ref": "#/$defs/id" },
         "phase": { "$ref": "#/$defs/quantity" }
       }
+    },
+    "masterRodJournal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "master_cylinder", "throw_radius", "phase"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "master_rod" },
+        "master_cylinder": { "$ref": "#/$defs/id" },
+        "throw_radius": { "$ref": "#/$defs/quantity" },
+        "phase": { "$ref": "#/$defs/quantity" }
+      }
+    },
+    "journal": {
+      "oneOf": [
+        { "$ref": "#/$defs/crankshaftJournal" },
+        { "$ref": "#/$defs/masterRodJournal" }
+      ]
     },
     "connectingRod": {
       "type": "object",

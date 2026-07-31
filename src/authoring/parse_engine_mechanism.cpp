@@ -50,19 +50,36 @@ void parse_journal(DocumentReader &reader, JsonValue value, std::string_view pat
     if (!reader.object(value, path)) {
         return;
     }
-    reader.reject_unknown(value, path, {"id", "type", "crankshaft", "phase"});
+    std::string type;
+    reader.string(reader.required(value, "type", path), pointer_member(path, "type"),
+                  type);
+    if (type == "crankshaft") {
+        reader.reject_unknown(value, path, {"id", "type", "crankshaft", "phase"});
+    } else if (type == "master_rod") {
+        reader.reject_unknown(
+            value, path,
+            {"id", "type", "master_cylinder", "throw_radius", "phase"});
+    } else if (!type.empty()) {
+        reader.add(DiagnosticCode::invalid_value, pointer_member(path, "type"),
+                   "unknown journal attachment type '" + type + "'");
+    }
+
     read_id_member(reader, value, "id", path, output.id);
     const auto owner = subject("journal", output.id.value);
-    std::string type;
-    reader.string(reader.required(value, "type", path, owner),
-                  pointer_member(path, "type"), type, owner);
-    if (!type.empty() && type != "crankshaft") {
-        reader.add(DiagnosticCode::invalid_value, pointer_member(path, "type"),
-                   "journal type must be crankshaft", owner);
+    if (type == "crankshaft") {
+        CrankshaftJournalAttachment parsed;
+        read_ref_member(reader, value, "crankshaft", path, parsed.crankshaft, owner);
+        output.attachment = std::move(parsed);
+    } else if (type == "master_rod") {
+        MasterRodJournalAttachment parsed;
+        read_ref_member(reader, value, "master_cylinder", path,
+                        parsed.master_cylinder, owner);
+        read_quantity_member(reader, value, "throw_radius", path,
+                             QuantityDimension::length, parsed.throw_radius, owner);
+        require_positive(reader, parsed.throw_radius,
+                         pointer_member(path, "throw_radius"), owner);
+        output.attachment = std::move(parsed);
     }
-    CrankshaftJournalAttachment attachment;
-    read_ref_member(reader, value, "crankshaft", path, attachment.crankshaft, owner);
-    output.attachment = std::move(attachment);
     read_quantity_member(reader, value, "phase", path, QuantityDimension::angle,
                          output.phase, owner);
 }

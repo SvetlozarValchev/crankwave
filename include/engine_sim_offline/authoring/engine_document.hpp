@@ -198,7 +198,16 @@ struct CrankshaftJournalAttachment {
                            const CrankshaftJournalAttachment &) = default;
 };
 
-using JournalAttachment = std::variant<CrankshaftJournalAttachment>;
+struct MasterRodJournalAttachment {
+    CylinderRef master_cylinder;
+    Quantity throw_radius;
+
+    friend bool operator==(const MasterRodJournalAttachment &,
+                           const MasterRodJournalAttachment &) = default;
+};
+
+using JournalAttachment =
+    std::variant<CrankshaftJournalAttachment, MasterRodJournalAttachment>;
 
 struct JournalDefinition {
     JournalId id;

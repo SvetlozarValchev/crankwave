@@ -4,6 +4,7 @@
 #include "engine_sim_offline/contract/common.hpp"
 #include "engine_sim_offline/session.hpp"
 
+#include "authoring/parse_engine_references.hpp"
 #include "compile/engine_resolver.hpp"
 #include "simulation/legacy_fixed_valvetrain.hpp"
 
@@ -767,6 +768,20 @@ make_inline_twin_document(const SyntheticAssets &assets) {
     for (auto &bus : presentation.buses) {
         bus.routes.resize(1U);
     }
+    return package;
+}
+
+[[nodiscard]] authoring::EnginePackageDocument
+make_master_rod_twin_document(const SyntheticAssets &assets) {
+    auto package = make_inline_twin_document(assets);
+    auto &engine = package.engine;
+    engine.identity.id.value = "fixture-master-rod-twin";
+    engine.identity.display_name = "Synthetic compiler integration master-rod twin";
+    engine.journals[1].attachment = authoring::MasterRodJournalAttachment{
+        {"fixture-cylinder-1"},
+        quantity(29.0, "mm"),
+    };
+    engine.journals[1].phase = quantity(72.0, "deg");
     return package;
 }
 
@@ -2020,6 +2035,155 @@ void test_layout_shape_fails_closed() {
     }
 }
 
+void test_master_rod_graph_contract_and_execution_gate() {
+    const SyntheticAssets assets = make_assets();
+    auto views = assets.views();
+    const auto require_graph_diagnostic = [](const authoring::DiagnosticReport &report,
+                                             const authoring::DiagnosticCode code,
+                                             const std::string_view path,
+                                             const std::string_view context) {
+        const auto found =
+            std::ranges::find_if(report.diagnostics, [&](const auto &diagnostic) {
+                return diagnostic.code == code && diagnostic.json_pointer == path;
+            });
+        expect(found != report.diagnostics.end(),
+               std::string{context} + ": graph diagnostic changed");
+    };
+
+    {
+        const auto document = make_master_rod_twin_document(assets);
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/journals/1/type",
+                           "valid master-rod graph execution gate");
+    }
+    {
+        auto document = make_master_rod_twin_document(assets);
+        std::get<authoring::MasterRodJournalAttachment>(
+            document.engine.journals[1].attachment)
+            .master_cylinder.value = "missing-cylinder";
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::dangling_reference,
+                           "/engine/journals/1/master_cylinder",
+                           "dangling master cylinder");
+    }
+    {
+        auto document = make_master_rod_twin_document(assets);
+        std::get<authoring::MasterRodJournalAttachment>(
+            document.engine.journals[1].attachment)
+            .throw_radius.value = 0.0;
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::out_of_range,
+                           "/engine/journals/1/throw_radius/value",
+                           "zero master-rod throw");
+    }
+    {
+        auto document = make_master_rod_twin_document(assets);
+        document.engine.journals[1].phase.value =
+            std::numeric_limits<double>::quiet_NaN();
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::invalid_value,
+                           "/engine/journals/1/phase/value",
+                           "nonfinite master-rod phase");
+    }
+    {
+        auto document = make_master_rod_twin_document(assets);
+        std::get<authoring::MasterRodJournalAttachment>(
+            document.engine.journals[1].attachment)
+            .master_cylinder.value = "fixture-cylinder-2";
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::forbidden_cycle,
+                           "/engine/journals/1/master_cylinder",
+                           "self master-rod cycle");
+    }
+    {
+        auto document = make_master_rod_twin_document(assets);
+        document.engine.journals[0].attachment = authoring::MasterRodJournalAttachment{
+            {"fixture-cylinder-2"},
+            quantity(29.0, "mm"),
+        };
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::forbidden_cycle,
+                           "/engine/journals/0/master_cylinder",
+                           "two-journal master-rod cycle");
+    }
+    {
+        auto document = make_master_rod_twin_document(assets);
+        document.engine.cylinders[1].journal.value = "fixture-journal-1";
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::disconnected_object,
+                           "/engine/journals/1", "unconsumed master-rod journal");
+    }
+    {
+        authoring::EngineDefinition graph;
+        graph.crankshafts.resize(1U);
+        graph.crankshafts[0].id.value = "crank";
+        graph.journals = {
+            {{"direct"},
+             authoring::CrankshaftJournalAttachment{{"crank"}},
+             quantity(0.0, "deg")},
+            {{"master-level-1"},
+             authoring::MasterRodJournalAttachment{{"cylinder-1"},
+                                                   quantity(20.0, "mm")},
+             quantity(60.0, "deg")},
+            {{"master-level-2"},
+             authoring::MasterRodJournalAttachment{{"cylinder-2"},
+                                                   quantity(15.0, "mm")},
+             quantity(120.0, "deg")},
+        };
+        graph.cylinders.resize(3U);
+        graph.cylinders[0].id.value = "cylinder-1";
+        graph.cylinders[0].journal.value = "direct";
+        graph.cylinders[1].id.value = "cylinder-2";
+        graph.cylinders[1].journal.value = "master-level-1";
+        graph.cylinders[2].id.value = "cylinder-3";
+        graph.cylinders[2].journal.value = "master-level-2";
+        const auto report = authoring::detail::validate_engine_mechanism_graph(graph);
+        require_graph_diagnostic(report, authoring::DiagnosticCode::inconsistent_value,
+                                 "/engine/journals/2/master_cylinder",
+                                 "acyclic nested master-rod graph");
+        expect(
+            std::ranges::none_of(report.diagnostics,
+                                 [](const auto &diagnostic) {
+                                     return diagnostic.code ==
+                                            authoring::DiagnosticCode::forbidden_cycle;
+                                 }),
+            "acyclic nested graph was misclassified as a cycle");
+    }
+    {
+        authoring::EngineDefinition graph;
+        graph.crankshafts.resize(1U);
+        graph.crankshafts[0].id.value = "crank";
+        graph.journals = {
+            {{"direct"},
+             authoring::CrankshaftJournalAttachment{{"crank"}},
+             quantity(0.0, "deg")},
+            {{"slave"},
+             authoring::MasterRodJournalAttachment{{"cylinder-1"},
+                                                   quantity(20.0, "mm")},
+             quantity(60.0, "deg")},
+        };
+        graph.cylinders.resize(3U);
+        graph.cylinders[0].id.value = "cylinder-1";
+        graph.cylinders[0].journal.value = "direct";
+        graph.cylinders[1].id.value = "cylinder-2";
+        graph.cylinders[1].journal.value = "slave";
+        graph.cylinders[2].id.value = "cylinder-3";
+        graph.cylinders[2].journal.value = "slave";
+        const auto report = authoring::detail::validate_engine_mechanism_graph(graph);
+        require_graph_diagnostic(report, authoring::DiagnosticCode::inconsistent_value,
+                                 "/engine/cylinders/2/journal",
+                                 "multiply consumed master-rod journal");
+        expect(
+            std::ranges::none_of(report.diagnostics,
+                                 [](const auto &diagnostic) {
+                                     return diagnostic.code ==
+                                            authoring::DiagnosticCode::forbidden_cycle;
+                                 }),
+            "double-consumer graph unexpectedly depended on a self-cycle");
+    }
+}
+
 void test_direct_engine_dto_identity_and_enum_admission_fails_closed() {
     const SyntheticAssets assets = make_assets();
     auto views = assets.views();
@@ -2088,6 +2252,7 @@ int main() {
         test_four_cam_vtec_resolves_to_si_and_provenance();
         test_governor_resolves_to_executable_controller();
         test_layout_shape_fails_closed();
+        test_master_rod_graph_contract_and_execution_gate();
         test_direct_engine_dto_identity_and_enum_admission_fails_closed();
         test_direct_scenario_dto_admission_fails_closed();
         std::cout << "compiler integration tests passed\n";

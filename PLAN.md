@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-31
 
-Current checkpoint: **slice 10 topology closure — master/slave journal graph**
+Current checkpoint: **slice 10 topology closure — shared mechanism plan**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -626,8 +626,13 @@ The direct journal contract is now a single tagged attachment path:
 `cylinder.journal -> journal.crankshaft`. Every current engine uses required
 `type: "crankshaft"`; reciprocal crankshaft journal lists, repeated cylinder crank
 references, and the old competing master/slave fields were removed without aliases.
-The next topology sub-slice may add `type: "master_rod"` to that same union without
-reviving any retired shape.
+The `type: "master_rod"` alternative now owns a master-cylinder reference, positive
+throw radius, and owner-local phase. Its one-level attachment graph validates exact
+consumers, connectivity, direct-root ownership, nesting, and cycles through the same
+parser/direct-DTO firewall. Valid graphs currently fail at one explicit runtime
+capability gate; nested chamber geometry, inertia, and coupled reactions are not
+partially approximated. The next sub-slice shares one immutable mechanism plan while
+retaining the accepted direct evaluator byte-for-byte.
 
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,
