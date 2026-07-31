@@ -285,7 +285,8 @@ void run(const std::filesystem::path &repository_root) {
     eso_session_descriptor_t free_descriptor{};
     constexpr auto kFreeEngineLiveControls =
         kInertialDynoLiveControls | ESO_LIVE_CONTROL_CAPABILITY_LIMITER_ENABLED |
-        ESO_LIVE_CONTROL_CAPABILITY_EXTERNAL_RESISTING_TORQUE;
+        ESO_LIVE_CONTROL_CAPABILITY_EXTERNAL_RESISTING_TORQUE |
+        ESO_LIVE_CONTROL_CAPABILITY_STARTER_ENABLED;
     expect(eso_session_get_descriptor(context, free_session, &free_descriptor) ==
                    ESO_STATUS_OK &&
                free_descriptor.live_control_capabilities == kFreeEngineLiveControls,

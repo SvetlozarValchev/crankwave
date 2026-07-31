@@ -165,7 +165,8 @@ void run(const std::filesystem::path &repository_root) {
         kEngineLiveControlCapabilityFuelEnabled;
     constexpr auto kFreeEngineLiveControls =
         kInertialDynoLiveControls | kEngineLiveControlCapabilityLimiterEnabled |
-        kEngineLiveControlCapabilityExternalResistingTorque;
+        kEngineLiveControlCapabilityExternalResistingTorque |
+        kEngineLiveControlCapabilityStarterEnabled;
 
     // The complete simulation -> capture -> excitation -> presentation quantum
     // must use only session-owned bounded storage once construction is complete.
