@@ -123,6 +123,10 @@ class LowOrderCaptureSession final {
     [[nodiscard]] bool completed() const noexcept;
     [[nodiscard]] std::uint64_t published_sample_count() const noexcept;
     [[nodiscard]] std::uint64_t published_block_count() const noexcept;
+    [[nodiscard]] std::optional<HeldDynoRuntimeStateView>
+    held_dyno_state() const noexcept;
+    [[nodiscard]] std::optional<FreeVehicleRuntimeStateView>
+    free_vehicle_state() const noexcept;
 
   private:
     using ProfilePolicy =

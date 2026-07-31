@@ -831,11 +831,25 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
                           "committed indicated torque"));
     }
 
-    if (free_vehicle && overrides.any()) {
+    const bool has_vehicle_override =
+        overrides.has_vehicle_selected_forward_gear ||
+        overrides.has_vehicle_clutch_engagement ||
+        overrides.has_vehicle_service_brake_application;
+    if (free_vehicle &&
+        (overrides.has_external_resisting_torque_nm ||
+         overrides.has_dyno_target_engine_speed_rpm ||
+         overrides.has_dyno_maximum_absorbing_torque_nm ||
+         overrides.has_dyno_maximum_driving_torque_nm)) {
         return fail(fault(contract::FailureKind::contract_violation,
                           "free-vehicle-live-controls-not-admitted",
-                          "finite FreeVehicle execution consumes only its authored "
-                          "right-continuous control lanes"));
+                          "FreeVehicle does not admit external-resistance or held-dyno "
+                          "live controls"));
+    }
+    if (!free_vehicle && has_vehicle_override) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "vehicle-live-controls-without-vehicle",
+                          "gear, clutch, and service-brake controls require "
+                          "FreeVehicle motion ownership"));
     }
 
     const double applied_indicated = *previous_indicated_gas_torque_nm_;
@@ -882,7 +896,7 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
         std::get<CenteredSliderCrankConfigurationInertia>(inertia_calculation);
 
     if (held_dyno) {
-        const auto &dyno = *held_dyno_motion_;
+        auto &dyno = *held_dyno_motion_;
         if (starter_enabled || overrides.has_external_resisting_torque_nm ||
             accepted_sample_count_ >= dyno.target_engine_speed_rpm.size()) {
             return fail(
@@ -970,6 +984,14 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
         }
         previous_indicated_gas_torque_nm_ = gas.indicated_gas_torque_nm;
         crank_state_ = motion.final_state;
+        dyno.last_state = HeldDynoRuntimeStateView{
+            target_rpm,
+            maximum_absorbing_torque_nm,
+            maximum_driving_torque_nm,
+            motion.required_actuator_torque_nm,
+            motion.applied_actuator_torque_nm,
+            motion.disposition,
+        };
         ++accepted_sample_count_;
         if (terminal_sample_count.has_value() &&
             accepted_sample_count_ == *terminal_sample_count) {
@@ -1073,6 +1095,33 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
                     .service_brake_application_01[vehicle.next_service_brake_boundary]
                     .value;
             ++vehicle.next_service_brake_boundary;
+        }
+        if (overrides.has_vehicle_selected_forward_gear) {
+            const auto ordinal = overrides.vehicle_selected_forward_gear_ordinal;
+            if (ordinal > vehicle.gears.size()) {
+                return fail(fault(
+                    contract::FailureKind::contract_violation,
+                    "free-vehicle-live-gear-out-of-range",
+                    "live forward-gear ordinal exceeds the compiled transmission"));
+            }
+            vehicle.current_gear_index =
+                ordinal == 0U ? std::optional<std::size_t>{}
+                              : std::optional<std::size_t>{ordinal - 1U};
+        }
+        if (overrides.has_vehicle_clutch_engagement) {
+            vehicle.current_clutch_engagement_01 =
+                overrides.vehicle_clutch_engagement_01;
+        }
+        if (overrides.has_vehicle_service_brake_application) {
+            if (!(vehicle.maximum_service_brake_force_n > 0.0)) {
+                return fail(fault(
+                    contract::FailureKind::contract_violation,
+                    "free-vehicle-live-service-brake-unavailable",
+                    "live service-brake control requires positive compiled brake "
+                    "capacity"));
+            }
+            vehicle.current_service_brake_application_01 =
+                overrides.vehicle_service_brake_application_01;
         }
 
         std::optional<detail::ForwardGearReduction> selected_gear;
@@ -1179,6 +1228,16 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
             drivetrain.applied_clutch_impulse_on_engine_nm_s;
         vehicle.last_road_load_impulse_n_s = drivetrain.applied_road_load_impulse_n_s;
         vehicle.last_clutch_slip_rad_s = drivetrain.final_clutch_slip_rad_s;
+        vehicle.last_clutch_disposition = drivetrain.clutch_disposition;
+        vehicle.last_clutch_torque_capacity_nm = drivetrain.clutch_torque_capacity_nm;
+        vehicle.last_applied_average_clutch_torque_on_engine_nm =
+            drivetrain.applied_average_clutch_torque_on_engine_nm;
+        vehicle.last_road_load_disposition = drivetrain.road_load_disposition;
+        vehicle.last_requested_road_load_force_n =
+            drivetrain.road_load_force_capacity_n;
+        vehicle.last_applied_average_road_load_force_n =
+            drivetrain.applied_average_road_load_force_n;
+        vehicle.has_committed_drivetrain_step = true;
         ++accepted_sample_count_;
         if (terminal_sample_count.has_value() &&
             accepted_sample_count_ == *terminal_sample_count) {
@@ -1264,22 +1323,33 @@ LowOrderDynamicCrankRuntime::free_vehicle_state() const noexcept {
         return std::nullopt;
     }
     const auto &vehicle = *free_vehicle_motion_;
-    std::optional<contract::GearId> selected_gear_id;
+    std::optional<std::uint32_t> selected_forward_gear_ordinal;
     if (vehicle.current_gear_index.has_value() &&
         *vehicle.current_gear_index < vehicle.gears.size()) {
-        selected_gear_id = vehicle.gears[*vehicle.current_gear_index].gear_id;
+        selected_forward_gear_ordinal =
+            static_cast<std::uint32_t>(*vehicle.current_gear_index + 1U);
     }
     return FreeVehicleRuntimeStateView{
+        vehicle.has_committed_drivetrain_step,
         crank_state_.angular_speed_rad_s * kRpmPerRadianPerSecond,
         vehicle.vehicle_speed_m_s,
         vehicle.vehicle_distance_m,
-        selected_gear_id,
+        selected_forward_gear_ordinal,
         vehicle.current_clutch_engagement_01,
         vehicle.current_service_brake_application_01,
-        vehicle.last_clutch_impulse_on_engine_nm_s,
-        vehicle.last_road_load_impulse_n_s,
+        vehicle.last_clutch_disposition,
+        vehicle.last_clutch_torque_capacity_nm,
+        vehicle.last_applied_average_clutch_torque_on_engine_nm,
         vehicle.last_clutch_slip_rad_s,
+        vehicle.last_road_load_disposition,
+        vehicle.last_requested_road_load_force_n,
+        vehicle.last_applied_average_road_load_force_n,
     };
+}
+
+std::optional<HeldDynoRuntimeStateView>
+LowOrderDynamicCrankRuntime::held_dyno_state() const noexcept {
+    return held_dyno_motion_.has_value() ? held_dyno_motion_->last_state : std::nullopt;
 }
 
 std::uint64_t LowOrderDynamicCrankRuntime::release_frame_index() const noexcept {

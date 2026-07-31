@@ -42,18 +42,39 @@ struct LowOrderDynamicCrankStepView {
     contract::TorqueTelemetry capture_torque;
 };
 
-// Simulation-internal inspection for verification and tuning. This deliberately is
-// not part of the authored contract, capture result, session API, C ABI, or WASM ABI.
+// Simulation-internal final-step snapshots. The capture/session layers translate
+// these into their own public telemetry types; simulation enums and plans never cross
+// that boundary directly.
+struct HeldDynoRuntimeStateView {
+    double target_engine_speed_rpm = 0.0;
+    double maximum_absorbing_torque_nm = 0.0;
+    double maximum_driving_torque_nm = 0.0;
+    double required_actuator_torque_nm = 0.0;
+    double applied_actuator_torque_nm = 0.0;
+    detail::BoundedDynoConstraintDisposition disposition =
+        detail::BoundedDynoConstraintDisposition::tracking;
+
+    friend bool operator==(const HeldDynoRuntimeStateView &,
+                           const HeldDynoRuntimeStateView &) = default;
+};
+
 struct FreeVehicleRuntimeStateView {
+    bool has_committed_drivetrain_step = false;
     double engine_speed_rpm = 0.0;
     double vehicle_speed_m_s = 0.0;
     double vehicle_distance_m = 0.0;
-    std::optional<contract::GearId> selected_gear_id;
+    std::optional<std::uint32_t> selected_forward_gear_ordinal;
     double clutch_engagement_01 = 0.0;
     double service_brake_application_01 = 0.0;
-    double last_clutch_impulse_on_engine_nm_s = 0.0;
-    double last_road_load_impulse_n_s = 0.0;
-    std::optional<double> last_clutch_slip_rad_s;
+    detail::BoundedClutchCouplingDisposition clutch_disposition =
+        detail::BoundedClutchCouplingDisposition::neutral;
+    double clutch_torque_capacity_nm = 0.0;
+    double applied_average_clutch_torque_on_engine_nm = 0.0;
+    std::optional<double> final_clutch_slip_rad_s;
+    detail::ForwardVehicleRoadLoadDisposition road_load_disposition =
+        detail::ForwardVehicleRoadLoadDisposition::held_at_rest;
+    double requested_road_load_force_n = 0.0;
+    double applied_average_road_load_force_n = 0.0;
 
     friend bool operator==(const FreeVehicleRuntimeStateView &,
                            const FreeVehicleRuntimeStateView &) = default;
@@ -67,6 +88,7 @@ struct HeldDynoMotionPlan {
     std::vector<double> target_engine_speed_rpm;
     double maximum_absorbing_torque_nm = 0.0;
     double maximum_driving_torque_nm = 0.0;
+    std::optional<HeldDynoRuntimeStateView> last_state;
 
     friend bool operator==(const HeldDynoMotionPlan &,
                            const HeldDynoMotionPlan &) = default;
@@ -123,6 +145,15 @@ struct FreeVehicleMotionPlan {
     double last_clutch_impulse_on_engine_nm_s = 0.0;
     double last_road_load_impulse_n_s = 0.0;
     std::optional<double> last_clutch_slip_rad_s;
+    detail::BoundedClutchCouplingDisposition last_clutch_disposition =
+        detail::BoundedClutchCouplingDisposition::neutral;
+    double last_clutch_torque_capacity_nm = 0.0;
+    double last_applied_average_clutch_torque_on_engine_nm = 0.0;
+    detail::ForwardVehicleRoadLoadDisposition last_road_load_disposition =
+        detail::ForwardVehicleRoadLoadDisposition::held_at_rest;
+    double last_requested_road_load_force_n = 0.0;
+    double last_applied_average_road_load_force_n = 0.0;
+    bool has_committed_drivetrain_step = false;
 
     friend bool operator==(const FreeVehicleMotionPlan &,
                            const FreeVehicleMotionPlan &) = default;
@@ -153,6 +184,8 @@ class LowOrderDynamicCrankRuntime final {
     [[nodiscard]] std::uint64_t release_frame_index() const noexcept;
     [[nodiscard]] std::optional<FreeVehicleRuntimeStateView>
     free_vehicle_state() const noexcept;
+    [[nodiscard]] std::optional<HeldDynoRuntimeStateView>
+    held_dyno_state() const noexcept;
 
   private:
     LowOrderDynamicCrankRuntime(

@@ -32,6 +32,24 @@ LowOrderCaptureSession::operator=(LowOrderCaptureSession &&) noexcept = default;
 
 LowOrderCaptureSession::~LowOrderCaptureSession() = default;
 
+std::optional<HeldDynoRuntimeStateView>
+LowOrderCaptureSession::held_dyno_state() const noexcept {
+    const auto *dynamic = std::get_if<LowOrderDynamicCrankRuntime>(&profile_policy_);
+    return dynamic != nullptr ? dynamic->held_dyno_state() : std::nullopt;
+}
+
+std::optional<FreeVehicleRuntimeStateView>
+LowOrderCaptureSession::free_vehicle_state() const noexcept {
+    const auto *dynamic = std::get_if<LowOrderDynamicCrankRuntime>(&profile_policy_);
+    if (dynamic == nullptr) {
+        return std::nullopt;
+    }
+    auto state = dynamic->free_vehicle_state();
+    return state.has_value() && state->has_committed_drivetrain_step
+               ? std::move(state)
+               : std::nullopt;
+}
+
 contract::FailureContext
 LowOrderCaptureSession::fault(contract::FailureKind kind, std::string detail_code,
                               std::string state_summary,

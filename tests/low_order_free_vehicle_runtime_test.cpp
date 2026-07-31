@@ -220,7 +220,7 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
     expect(
         initial.has_value() && std::abs(initial->engine_speed_rpm - 3000.0) < 1e-10 &&
             initial->vehicle_speed_m_s == 0.0 && initial->vehicle_distance_m == 0.0 &&
-            initial->selected_gear_id == GearId{1011U} &&
+            initial->selected_forward_gear_ordinal == 1U &&
             initial->clutch_engagement_01 == 1.0 &&
             initial->service_brake_application_01 == 1.0,
         "initial simulation-internal FreeVehicle snapshot is incomplete");
@@ -254,8 +254,8 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
         if (accepted == kPreparationEndFrame + 1U) {
             expect(state->vehicle_speed_m_s == 0.0 &&
                        state->vehicle_distance_m == 0.0 &&
-                       state->last_clutch_impulse_on_engine_nm_s < 0.0 &&
-                       state->last_road_load_impulse_n_s > 0.0,
+                       state->applied_average_clutch_torque_on_engine_nm < 0.0 &&
+                       state->applied_average_road_load_force_n > 0.0,
                    "service brake did not hold the first released clutch step");
             expect(step->capture_torque.actuator.availability ==
                            Availability::unavailable &&
@@ -276,7 +276,7 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
             checked_launch = true;
         }
         if (accepted == kFifthGearSelectionFrame + 1U) {
-            expect(state->selected_gear_id == GearId{1015U} &&
+            expect(state->selected_forward_gear_ordinal == 5U &&
                        state->clutch_engagement_01 == 1.0 &&
                        state->service_brake_application_01 == 0.0,
                    "right-continuous fifth-gear event missed its left boundary");

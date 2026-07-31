@@ -70,6 +70,14 @@ template <class... Visitors> struct Overloaded : Visitors... {
 };
 template <class... Visitors> Overloaded(Visitors...) -> Overloaded<Visitors...>;
 
+[[nodiscard]] bool finite_canonical_nonnegative(double value) noexcept {
+    return std::isfinite(value) && !std::signbit(value) && value >= 0.0;
+}
+
+[[nodiscard]] bool finite_canonical_unit_interval(double value) noexcept {
+    return finite_canonical_nonnegative(value) && value <= 1.0;
+}
+
 } // namespace
 
 PhysicsStepProjection project_delivery_frame_to_physics_step(
@@ -255,11 +263,29 @@ contract::RationalRateHz ControlTimeline::delivery_rate() const noexcept {
 bool ControlTimeline::payload_is_valid(
     const LiveControlPayload &payload) const noexcept {
     if (const auto *throttle = std::get_if<SetThrottle>(&payload)) {
-        return std::isfinite(throttle->throttle_01) && throttle->throttle_01 >= 0.0 &&
-               throttle->throttle_01 <= 1.0;
+        return finite_canonical_unit_interval(throttle->throttle_01);
     }
     if (const auto *resistance = std::get_if<SetExternalResistingTorque>(&payload)) {
-        return std::isfinite(resistance->torque_nm) && resistance->torque_nm >= 0.0;
+        return finite_canonical_nonnegative(resistance->torque_nm);
+    }
+    if (const auto *target = std::get_if<SetDynoTargetEngineSpeed>(&payload)) {
+        return std::isfinite(target->engine_speed_rpm) &&
+               !std::signbit(target->engine_speed_rpm) &&
+               target->engine_speed_rpm > 0.0;
+    }
+    if (const auto *limit =
+            std::get_if<SetDynoMaximumAbsorbingTorque>(&payload)) {
+        return finite_canonical_nonnegative(limit->torque_nm);
+    }
+    if (const auto *limit = std::get_if<SetDynoMaximumDrivingTorque>(&payload)) {
+        return finite_canonical_nonnegative(limit->torque_nm);
+    }
+    if (const auto *clutch = std::get_if<SetVehicleClutchEngagement>(&payload)) {
+        return finite_canonical_unit_interval(clutch->engagement_01);
+    }
+    if (const auto *brake =
+            std::get_if<SetVehicleServiceBrakeApplication>(&payload)) {
+        return finite_canonical_unit_interval(brake->application_01);
     }
     return true;
 }
@@ -289,6 +315,34 @@ void ControlTimeline::apply(const LiveControlPayload &payload) noexcept {
                    [this](const SetExternalResistingTorque &command) {
                        overrides_.has_external_resisting_torque_nm = true;
                        overrides_.external_resisting_torque_nm = command.torque_nm;
+                   },
+                   [this](const SetDynoTargetEngineSpeed &command) {
+                       overrides_.has_dyno_target_engine_speed_rpm = true;
+                       overrides_.dyno_target_engine_speed_rpm =
+                           command.engine_speed_rpm;
+                   },
+                   [this](const SetDynoMaximumAbsorbingTorque &command) {
+                       overrides_.has_dyno_maximum_absorbing_torque_nm = true;
+                       overrides_.dyno_maximum_absorbing_torque_nm =
+                           command.torque_nm;
+                   },
+                   [this](const SetDynoMaximumDrivingTorque &command) {
+                       overrides_.has_dyno_maximum_driving_torque_nm = true;
+                       overrides_.dyno_maximum_driving_torque_nm = command.torque_nm;
+                   },
+                   [this](const SetVehicleSelectedForwardGear &command) {
+                       overrides_.has_vehicle_selected_forward_gear = true;
+                       overrides_.vehicle_selected_forward_gear_ordinal =
+                           command.forward_gear_ordinal;
+                   },
+                   [this](const SetVehicleClutchEngagement &command) {
+                       overrides_.has_vehicle_clutch_engagement = true;
+                       overrides_.vehicle_clutch_engagement_01 = command.engagement_01;
+                   },
+                   [this](const SetVehicleServiceBrakeApplication &command) {
+                       overrides_.has_vehicle_service_brake_application = true;
+                       overrides_.vehicle_service_brake_application_01 =
+                           command.application_01;
                    },
                },
                payload);

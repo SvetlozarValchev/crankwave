@@ -569,6 +569,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
             held_dyno->target_engine_speed_rpm.post_step_rpm,
             held_dyno->maximum_absorbing_torque_nm.value,
             held_dyno->maximum_driving_torque_nm.value,
+            std::nullopt,
         });
     }
 

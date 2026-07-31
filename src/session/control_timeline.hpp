@@ -52,9 +52,55 @@ struct SetExternalResistingTorque {
                            const SetExternalResistingTorque &) = default;
 };
 
+struct SetDynoTargetEngineSpeed {
+    double engine_speed_rpm = 0.0;
+
+    friend bool operator==(const SetDynoTargetEngineSpeed &,
+                           const SetDynoTargetEngineSpeed &) = default;
+};
+
+struct SetDynoMaximumAbsorbingTorque {
+    double torque_nm = 0.0;
+
+    friend bool operator==(const SetDynoMaximumAbsorbingTorque &,
+                           const SetDynoMaximumAbsorbingTorque &) = default;
+};
+
+struct SetDynoMaximumDrivingTorque {
+    double torque_nm = 0.0;
+
+    friend bool operator==(const SetDynoMaximumDrivingTorque &,
+                           const SetDynoMaximumDrivingTorque &) = default;
+};
+
+struct SetVehicleSelectedForwardGear {
+    // Zero is neutral; positive values are one-based authored gear ordinals.
+    std::uint32_t forward_gear_ordinal = 0U;
+
+    friend bool operator==(const SetVehicleSelectedForwardGear &,
+                           const SetVehicleSelectedForwardGear &) = default;
+};
+
+struct SetVehicleClutchEngagement {
+    double engagement_01 = 0.0;
+
+    friend bool operator==(const SetVehicleClutchEngagement &,
+                           const SetVehicleClutchEngagement &) = default;
+};
+
+struct SetVehicleServiceBrakeApplication {
+    double application_01 = 0.0;
+
+    friend bool operator==(const SetVehicleServiceBrakeApplication &,
+                           const SetVehicleServiceBrakeApplication &) = default;
+};
+
 using LiveControlPayload =
     std::variant<SetThrottle, SetIgnitionEnabled, SetFuelEnabled, SetStarterEnabled,
-                 SetLimiterEnabled, SetExternalResistingTorque>;
+                 SetLimiterEnabled, SetExternalResistingTorque,
+                 SetDynoTargetEngineSpeed, SetDynoMaximumAbsorbingTorque,
+                 SetDynoMaximumDrivingTorque, SetVehicleSelectedForwardGear,
+                 SetVehicleClutchEngagement, SetVehicleServiceBrakeApplication>;
 
 struct TimestampedControlCommand {
     std::uint64_t delivery_frame = 0;

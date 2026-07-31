@@ -244,6 +244,86 @@ void test_starter_level_is_sticky_until_release() {
            "starter level did not persist until its explicit release");
 }
 
+void test_dyno_and_vehicle_levels_are_sticky() {
+    ControlTimeline timeline{11, kPhysicsRate, kDeliveryRate};
+    const std::array commands{
+        TimestampedControlCommand{0, 1, SetDynoTargetEngineSpeed{2500.0}},
+        TimestampedControlCommand{0, 2, SetDynoMaximumAbsorbingTorque{350.0}},
+        TimestampedControlCommand{0, 3, SetDynoMaximumDrivingTorque{20.0}},
+        TimestampedControlCommand{0, 4, SetVehicleSelectedForwardGear{2U}},
+        TimestampedControlCommand{0, 5, SetVehicleClutchEngagement{0.25}},
+        TimestampedControlCommand{0, 6, SetVehicleServiceBrakeApplication{0.75}},
+        TimestampedControlCommand{19, 7, SetDynoTargetEngineSpeed{4500.0}},
+        TimestampedControlCommand{19, 8, SetDynoMaximumDrivingTorque{0.0}},
+        TimestampedControlCommand{19, 9, SetVehicleSelectedForwardGear{0U}},
+        TimestampedControlCommand{19, 10, SetVehicleClutchEngagement{1.0}},
+        TimestampedControlCommand{19, 11,
+                                  SetVehicleServiceBrakeApplication{0.0}},
+    };
+    expect(static_cast<bool>(timeline.enqueue(commands)),
+           "valid dyno/drivetrain command batch was rejected");
+
+    const auto step0 = timeline.drain_for_physics_step(0);
+    LiveControlOverrides expected_step0;
+    expected_step0.has_dyno_target_engine_speed_rpm = true;
+    expected_step0.dyno_target_engine_speed_rpm = 2500.0;
+    expected_step0.has_dyno_maximum_absorbing_torque_nm = true;
+    expected_step0.dyno_maximum_absorbing_torque_nm = 350.0;
+    expected_step0.has_dyno_maximum_driving_torque_nm = true;
+    expected_step0.dyno_maximum_driving_torque_nm = 20.0;
+    expected_step0.has_vehicle_selected_forward_gear = true;
+    expected_step0.vehicle_selected_forward_gear_ordinal = 2U;
+    expected_step0.has_vehicle_clutch_engagement = true;
+    expected_step0.vehicle_clutch_engagement_01 = 0.25;
+    expected_step0.has_vehicle_service_brake_application = true;
+    expected_step0.vehicle_service_brake_application_01 = 0.75;
+    expect(step0 && step0.controls.applied_command_count == 6U &&
+               step0.controls.overrides == expected_step0 &&
+               step0.controls.overrides.any(),
+           "step-zero dyno/drivetrain levels were not applied together");
+
+    const auto step1 = timeline.drain_for_physics_step(1);
+    auto expected_step1 = expected_step0;
+    expected_step1.dyno_target_engine_speed_rpm = 4500.0;
+    expected_step1.dyno_maximum_driving_torque_nm = 0.0;
+    expected_step1.vehicle_selected_forward_gear_ordinal = 0U;
+    expected_step1.vehicle_clutch_engagement_01 = 1.0;
+    expected_step1.vehicle_service_brake_application_01 = 0.0;
+    expect(step1 && step1.controls.applied_command_count == 5U &&
+               step1.controls.overrides == expected_step1,
+           "later dyno/drivetrain commands did not replace sticky levels");
+}
+
+void test_dyno_and_vehicle_payload_validation() {
+    const std::array invalid_commands{
+        TimestampedControlCommand{0, 1, SetThrottle{-0.0}},
+        TimestampedControlCommand{0, 1, SetExternalResistingTorque{-0.0}},
+        TimestampedControlCommand{0, 1, SetDynoTargetEngineSpeed{0.0}},
+        TimestampedControlCommand{
+            0, 1,
+            SetDynoTargetEngineSpeed{std::numeric_limits<double>::infinity()}},
+        TimestampedControlCommand{0, 1, SetDynoMaximumAbsorbingTorque{-0.0}},
+        TimestampedControlCommand{0, 1, SetDynoMaximumDrivingTorque{-1.0}},
+        TimestampedControlCommand{0, 1, SetVehicleClutchEngagement{-0.0}},
+        TimestampedControlCommand{0, 1, SetVehicleClutchEngagement{1.01}},
+        TimestampedControlCommand{0, 1,
+                                  SetVehicleServiceBrakeApplication{-0.0}},
+        TimestampedControlCommand{
+            0, 1, SetVehicleServiceBrakeApplication{
+                      std::numeric_limits<double>::quiet_NaN()}},
+    };
+
+    for (const auto &command : invalid_commands) {
+        ControlTimeline timeline{1, kPhysicsRate, kDeliveryRate};
+        const auto result = timeline.enqueue(std::span{&command, 1U});
+        expect(!result && result.error == ControlTimelineError::invalid_payload &&
+                   result.command_index == 0U &&
+                   timeline.queued_command_count() == 0U &&
+                   !timeline.current_overrides().any(),
+               "noncanonical dyno/drivetrain payload entered the timeline");
+    }
+}
+
 void test_ordering_lateness_and_cursor_rejections() {
     {
         ControlTimeline timeline{4, kPhysicsRate, kDeliveryRate};
@@ -607,6 +687,8 @@ void run_tests() {
     test_atomic_batch_rejection();
     test_limiter_and_external_resistance_payloads();
     test_starter_level_is_sticky_until_release();
+    test_dyno_and_vehicle_levels_are_sticky();
+    test_dyno_and_vehicle_payload_validation();
     test_ordering_lateness_and_cursor_rejections();
     test_success_path_does_not_allocate();
     test_simulation_preserves_schedule_bits_until_a_field_is_overridden();
