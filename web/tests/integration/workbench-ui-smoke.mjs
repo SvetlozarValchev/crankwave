@@ -264,6 +264,9 @@ async function pageState(cdp) {
       sessionTitle: text("#session-title"),
       sessionSubtitle: text("#session-subtitle"),
       motionMode: text("#motion-mode-badge"),
+      startLabel: text("#start-button-label"),
+      stopLabel: text("#stop-button-label"),
+      restartLabel: text("#restart-button-label"),
       diagnostics: text("#diagnostics-list"),
       rpm: text("#rpm-value"),
       elapsed: text("#elapsed-value"),
@@ -378,6 +381,9 @@ async function verifyHeldDynoBench(cdp) {
   assert.equal(ready.heldDynoControlsHidden, false);
   assert.equal(ready.vehicleControlsHidden, true);
   assert.equal(ready.dynoTargetDisabled, true);
+  assert.equal(ready.startLabel, "Run procedure");
+  assert.equal(ready.stopLabel, "Pause procedure");
+  assert.equal(ready.restartDisabled, true);
 
   await cdp.evaluate(
     `document.querySelector("#start-button").click(); true`,
@@ -423,6 +429,10 @@ async function verifyHeldDynoBench(cdp) {
     (state) => state.session === "Paused",
     "paused HeldDyno procedure",
   );
+  const paused = await pageState(cdp);
+  assert.equal(paused.startLabel, "Resume procedure");
+  assert.equal(paused.restartLabel, "Restart procedure");
+  assert.equal(paused.restartDisabled, false);
 }
 
 async function verifyFreeVehicleBench(cdp) {
@@ -468,13 +478,36 @@ async function verifyFreeVehicleBench(cdp) {
   assert.equal(controlled.vehicleClutchInput, "50");
   assert.equal(controlled.vehicleBrakeInput, "25");
 
+  const completed = await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.session === "Procedure complete" &&
+      state.restartLabel === "Run again" &&
+      !state.restartDisabled,
+    "finite FreeVehicle procedure completion",
+    20_000,
+  );
+  const completedElapsed = uiDurationSeconds(completed.elapsed);
+  assert.ok(completedElapsed >= 11);
+  await cdp.evaluate(
+    `document.querySelector("#restart-button").click(); true`,
+  );
+  const replayed = await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.session === "Running" &&
+      uiDurationSeconds(state.elapsed) < completedElapsed,
+    "fresh FreeVehicle procedure replay",
+    20_000,
+  );
+  assert.equal(replayed.stopLabel, "Pause procedure");
   await cdp.evaluate(
     `document.querySelector("#stop-button").click(); true`,
   );
   await waitUntil(
     () => pageState(cdp),
     (state) => state.session === "Paused",
-    "paused FreeVehicle procedure",
+    "paused replayed FreeVehicle procedure",
   );
 }
 
@@ -572,7 +605,7 @@ async function main() {
     assert.equal(built.throttleMinimumLabel, "Closed");
     assert.equal(built.throttleMaximumLabel, "Wide open");
     assert.equal(built.throttle, "10%");
-    assert.match(built.sessionSubtitle, /interactive bench/u);
+    assert.match(built.sessionSubtitle, /continuous bench/u);
     assert.equal(built.exportLabel, "Export authored scenario WAV");
     assert.match(built.diagnostics, /No diagnostics reported/u);
 
@@ -762,7 +795,7 @@ async function main() {
         state.session === "Ready" &&
         state.sessionTitle === "raspy-muscle-620-cleanroom" &&
         state.busCount === 8 &&
-        /interactive bench/u.test(state.sessionSubtitle) &&
+        /continuous bench/u.test(state.sessionSubtitle) &&
         !state.startDisabled,
       "the compiled 6.2L V8 workbench session",
       30_000,

@@ -248,8 +248,11 @@ const elements = {
   sessionState: $("#session-state"),
   motionModeBadge: $("#motion-mode-badge"),
   startButton: $("#start-button"),
+  startButtonLabel: $("#start-button-label"),
   stopButton: $("#stop-button"),
+  stopButtonLabel: $("#stop-button-label"),
   restartButton: $("#restart-button"),
+  restartButtonLabel: $("#restart-button-label"),
   gestureNote: $("#gesture-note"),
   rpmValue: $("#rpm-value"),
   rpmMeter: $("#rpm-meter"),
@@ -1406,7 +1409,9 @@ function setSessionState(nextState, detail = "") {
   elements.sessionState.dataset.state =
     nextState === "failed" ? "error" : nextState;
   elements.sessionState.textContent =
-    nextState.charAt(0).toUpperCase() + nextState.slice(1);
+    nextState === "completed" && state.built?.descriptor.openEnded === false
+      ? "Procedure complete"
+      : nextState.charAt(0).toUpperCase() + nextState.slice(1);
   if (detail) {
     elements.sessionSubtitle.textContent = detail;
   }
@@ -1508,8 +1513,12 @@ function acceptBuilt(message) {
   elements.sessionTitle.textContent = message.engineId;
   elements.sessionSubtitle.textContent =
     message.descriptor.executionKind === "open-ended"
-      ? `${message.scenarioId} · interactive bench`
-      : `${message.scenarioId} · finite authored run`;
+      ? `${message.scenarioId} · ${readableToken(
+          message.descriptor.motionMode,
+        )} · continuous bench`
+      : `${message.scenarioId} · ${readableToken(
+          message.descriptor.motionMode,
+        )} · finite procedure`;
   setSessionState("ready");
   setChip(elements.buildStatus, "Build admitted", "good");
   renderDocumentChrome();
@@ -1597,7 +1606,10 @@ function updateBuiltControls() {
   ].includes(state.sessionState);
   elements.buildButton.disabled = structuralBusy;
   elements.restartButton.disabled =
-    !built || !state.securityAdmitted || structuralBusy;
+    !built ||
+    !state.securityAdmitted ||
+    structuralBusy ||
+    state.sessionState === "ready";
   elements.exportButton.disabled =
     !built ||
     active ||
@@ -1630,6 +1642,24 @@ function updateBuiltControls() {
     !running || !capabilities["vehicle-service-brake-application"];
   const admitted = Object.values(capabilities).some(Boolean);
   elements.controlsAdmission.textContent = admitted ? "Admitted" : "Not admitted";
+
+  const openEnded = built?.descriptor.openEnded === true;
+  if (!built) {
+    elements.startButtonLabel.textContent = "Start";
+    elements.stopButtonLabel.textContent = "Stop";
+    elements.restartButtonLabel.textContent = "Restart";
+  } else if (openEnded) {
+    elements.startButtonLabel.textContent =
+      state.sessionState === "paused" ? "Resume" : "Start";
+    elements.stopButtonLabel.textContent = "Stop";
+    elements.restartButtonLabel.textContent = "Restart";
+  } else {
+    elements.startButtonLabel.textContent =
+      state.sessionState === "paused" ? "Resume procedure" : "Run procedure";
+    elements.stopButtonLabel.textContent = "Pause procedure";
+    elements.restartButtonLabel.textContent =
+      state.sessionState === "completed" ? "Run again" : "Restart procedure";
+  }
 }
 
 async function ensureAudioContext() {
@@ -2338,8 +2368,8 @@ function acceptWorkerState(message) {
     setChip(elements.buildStatus, "Build admitted", "good");
   } else if (message.state === "completed") {
     state.starterInputHeld = false;
-    setChip(elements.buildStatus, "Authored run complete", "good");
-    showToast("The finite authored scenario completed.");
+    setChip(elements.buildStatus, "Procedure complete", "good");
+    showToast("The finite procedure completed. Run again creates fresh state.");
   } else if (message.state === "paused") {
     state.starterInputHeld = false;
     setChip(elements.buildStatus, "Session stopped", "");
