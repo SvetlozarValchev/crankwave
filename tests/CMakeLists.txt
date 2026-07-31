@@ -1384,6 +1384,33 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_subaru_ej25_topology_tests
+    subaru_ej25_topology_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_subaru_ej25_topology_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_subaru_ej25_topology_tests
+    PRIVATE
+        engine_sim_offline::simulation
+        engine_sim_offline_authored_engine_fixture_support
+)
+
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_subaru_ej25_topology_tests
+)
+
+add_test(
+    NAME simulation.subaru_ej25_topology
+    COMMAND engine_sim_offline_subaru_ej25_topology_tests ${PROJECT_SOURCE_DIR}
+)
+
+add_executable(
     engine_sim_offline_engine_sim_v1_transient_friction_tests
     engine_sim_v1_transient_friction_test.cpp
 )

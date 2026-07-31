@@ -96,11 +96,14 @@ The compiler accepts the currently executable low-order topology without inspect
 engine name and fails closed on unsupported capabilities. Cylinder and
 exhaust/presentation-route execution is count-derived rather than fixed to the BMW
 fixture's six cylinders and two routes. A separate inline-twin/one-route fixture reaches
-the same session boundary. A two-bank engine may retain distinct bank-local heads,
-ports, standard valvetrains, and cams when their shared low-order runner, chamber, and
-cam-shape parameters are exactly execution-equivalent; heterogeneous definitions fail
-closed. Standard fixed valvetrains accept either harmonic lobe generators or explicit
-sampled angle-to-lift profiles through the same runtime sampler.
+the same session boundary. Direct centered rods execute on inline, V, opposed, and
+custom explicit bank axes; a pristine-derived Subaru EJ25 fixture proves the opposed
+bank/journal mapping across a bounded dynamic capture. Banks may retain distinct
+bank-local heads, ports, standard valvetrains, and cams when their shared low-order
+runner, chamber, and cam-shape parameters are exactly execution-equivalent;
+heterogeneous definitions fail closed. Standard fixed valvetrains accept either
+harmonic lobe generators or explicit sampled angle-to-lift profiles through the same
+runtime sampler.
 Finite JSON `held_dyno` scenarios now drive that same crank through a bounded signed
 speed constraint. The dyno may absorb or drive only within authored limits, reports
 the exact opposite reaction torque, and exposes achieved RPM when saturated. The first

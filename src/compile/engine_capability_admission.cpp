@@ -42,6 +42,12 @@ void add(DiagnosticReport &report, DiagnosticCode code, std::string path,
     return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
 
+[[nodiscard]] bool antipodal_bank_axes(double left, double right) noexcept {
+    constexpr double kLegacyPi = 3.14159265359;
+    const double separation = std::abs(std::remainder(left - right, 2.0 * kLegacyPi));
+    return std::isfinite(separation) && std::abs(separation - kLegacyPi) <= 1.0e-12;
+}
+
 template <class Range, class Projection>
 void require_canonical_ids(DiagnosticReport &report, const Range &range,
                            std::string_view base, Projection projection) {
@@ -78,9 +84,11 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
             "legacy_low_order_v1 admits four-stroke engines only");
     }
     if (engine.layout != authoring::CylinderLayout::inline_engine &&
-        engine.layout != authoring::CylinderLayout::v_engine) {
+        engine.layout != authoring::CylinderLayout::v_engine &&
+        engine.layout != authoring::CylinderLayout::opposed &&
+        engine.layout != authoring::CylinderLayout::custom) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/layout",
-            "the current executable topology admits inline and V engines only");
+            "the executable direct-rod topology requires a known bank layout");
     }
     if (!contract::is_valid_semantic_id(engine.identity.id.value)) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/identity/id",
@@ -104,6 +112,9 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     } else if (engine.layout == authoring::CylinderLayout::v_engine) {
         require_count(engine.banks.size(), 2U, "/engine/banks",
                       "V-engine bank collection");
+    } else if (engine.layout == authoring::CylinderLayout::opposed) {
+        require_count(engine.banks.size(), 2U, "/engine/banks",
+                      "opposed engine bank collection");
     }
     require_count(engine.intakes.size(), 1U, "/engine/intakes",
                   "engine intake collection");
@@ -281,6 +292,13 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
             legacy_si_value(engine.banks[1].angle)) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/banks",
             "an admitted V engine requires two distinct bank angles");
+    }
+    if (engine.layout == authoring::CylinderLayout::opposed &&
+        engine.banks.size() == 2U &&
+        !antipodal_bank_axes(legacy_si_value(engine.banks[0].angle),
+                             legacy_si_value(engine.banks[1].angle))) {
+        add(report, DiagnosticCode::unsupported_capability, "/engine/banks",
+            "an opposed engine requires two antipodal bank axes");
     }
     std::unordered_set<std::string> used_valvetrains;
     for (std::size_t index = 0; index < engine.heads.size(); ++index) {

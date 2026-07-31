@@ -1,0 +1,8 @@
+{
+  "schema_id": "engine-sim-offline.accessory-configuration.v1",
+  "configuration_id": "subaru-ej25-cleanroom-warm-generic-accessories-v1",
+  "engine_id": "subaru-ej25-cleanroom",
+  "serialization": "utf-8-json-lf-with-one-final-lf-byte-identity-v1",
+  "aggregate_loss_method": "chen-flynn-cycle-mean-aggregate-loss-v1",
+  "claim_boundary": "Generic warm-running executor prior only; the pristine EJ25 asset does not provide measured aggregate loss coefficients or an accessory inventory."
+}

@@ -1164,6 +1164,28 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
                     ContractIssueCode::inconsistent_semantics, "engine.banks",
                     "V-engine bank angles must be distinct");
         }
+    } else if (spec.cylinder_layout.value == CylinderLayoutKind::flat_engine) {
+        const bool complete_angles = spec.banks.size() == 2U &&
+                                     spec.banks[0].angle_rad.has_value() &&
+                                     spec.banks[1].angle_rad.has_value();
+        require(report, complete_angles, ContractIssueCode::inconsistent_shape,
+                "engine.banks",
+                "a flat engine requires two banks with explicit angles");
+        if (complete_angles) {
+            const double separation = std::abs(std::remainder(
+                spec.banks[0].angle_rad->value - spec.banks[1].angle_rad->value,
+                2.0 * std::numbers::pi));
+            require(report, detail::nearly_equal(separation, std::numbers::pi),
+                    ContractIssueCode::inconsistent_semantics, "engine.banks",
+                    "flat-engine bank axes must be antipodal");
+        }
+    } else if (spec.cylinder_layout.value == CylinderLayoutKind::other) {
+        require(report,
+                std::ranges::all_of(
+                    spec.banks,
+                    [](const BankSpec &bank) { return bank.angle_rad.has_value(); }),
+                ContractIssueCode::inconsistent_shape, "engine.banks",
+                "a custom engine requires an explicit axis for every bank");
     }
 
     std::unordered_set<std::uint32_t> cylinder_ids;

@@ -824,6 +824,39 @@ make_v_six_document(const SyntheticAssets &assets) {
     return package;
 }
 
+[[nodiscard]] authoring::EnginePackageDocument
+make_custom_six_document(const SyntheticAssets &assets) {
+    auto package = make_engine_document(assets);
+    auto &engine = package.engine;
+    engine.identity.id.value = "fixture-custom-six";
+    engine.identity.display_name = "Synthetic compiler integration custom-six";
+    engine.layout = authoring::CylinderLayout::custom;
+
+    auto bank_zero = engine.banks.front();
+    bank_zero.id.value = "fixture-bank-zero";
+    bank_zero.angle = quantity(0.0, "deg");
+    auto bank_120 = bank_zero;
+    bank_120.id.value = "fixture-bank-120";
+    bank_120.angle = quantity(120.0, "deg");
+    auto bank_240 = bank_zero;
+    bank_240.id.value = "fixture-bank-240";
+    bank_240.angle = quantity(240.0, "deg");
+    engine.banks = {
+        std::move(bank_zero),
+        std::move(bank_120),
+        std::move(bank_240),
+    };
+
+    constexpr std::array<std::string_view, kCylinderCount> bank_ids{
+        "fixture-bank-zero", "fixture-bank-120", "fixture-bank-240",
+        "fixture-bank-240",  "fixture-bank-120", "fixture-bank-zero",
+    };
+    for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
+        engine.cylinders[index].bank.value = bank_ids[index];
+    }
+    return package;
+}
+
 void use_equivalent_split_bank_heads_and_standard_valvetrains(
     authoring::EnginePackageDocument &package) {
     auto &engine = package.engine;
@@ -1403,6 +1436,37 @@ void test_v_engine_resolves_bank_geometry_and_axis_relative_journals() {
                         "public compiler rejected admitted V-six");
 }
 
+void test_custom_engine_resolves_arbitrary_bank_axes_for_direct_rods() {
+    const SyntheticAssets assets = make_assets();
+    const auto document = make_custom_six_document(assets);
+    auto views = assets.views();
+    auto resolved =
+        require_value(compile_detail::resolve_engine_package(document, views),
+                      "custom-six direct-rod engine resolution failed");
+
+    expect(resolved.engine.cylinder_layout.value ==
+                   contract::CylinderLayoutKind::other &&
+               resolved.engine.banks.size() == 3U &&
+               std::ranges::all_of(
+                   resolved.engine.banks,
+                   [](const auto &bank) { return bank.angle_rad.has_value(); }),
+           "custom-six did not retain its explicit arbitrary bank axes");
+
+    const auto &physics = std::get<contract::LowOrderOperatingPointV1Profile>(
+        resolved.engine.physics_profile);
+    expect(physics.core.mechanism.cylinders.size() == kCylinderCount &&
+               std::ranges::all_of(
+                   physics.core.mechanism.cylinders,
+                   [](const auto &cylinder) {
+                       return std::abs(cylinder.parameters.journal_angle_rad.value) <=
+                              1.0e-12;
+                   }),
+           "custom-six did not resolve raw journal phase minus each bank axis");
+
+    (void)require_value(compile::compile_engine(document, views),
+                        "public compiler rejected admitted custom-six");
+}
+
 void test_equivalent_split_bank_heads_normalize_to_exact_execution() {
     const SyntheticAssets assets = make_assets();
     const auto shared_document = make_v_six_document(assets);
@@ -1949,14 +2013,23 @@ void test_governor_resolves_to_executable_controller() {
                         "public compiler rejected a valid governor engine");
 }
 
-void test_unsupported_capability_fails_closed() {
+void test_layout_shape_fails_closed() {
     const SyntheticAssets assets = make_assets();
-    auto document = make_engine_document(assets);
-    document.engine.layout = authoring::CylinderLayout::opposed;
     auto views = assets.views();
-    const auto result = compile::compile_engine(document, views);
-    require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
-                       "/engine/layout", "unsupported opposed engine topology");
+    {
+        auto document = make_engine_document(assets);
+        document.engine.layout = authoring::CylinderLayout::opposed;
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/banks", "one-bank opposed engine topology");
+    }
+    {
+        auto document = make_v_six_document(assets);
+        document.engine.layout = authoring::CylinderLayout::opposed;
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/banks", "non-antipodal opposed bank axes");
+    }
 }
 
 void test_direct_engine_dto_identity_and_enum_admission_fails_closed() {
@@ -2015,6 +2088,7 @@ int main() {
         test_complete_generic_compile_and_determinism();
         test_inline_twin_one_route_reaches_executable_boundary();
         test_v_engine_resolves_bank_geometry_and_axis_relative_journals();
+        test_custom_engine_resolves_arbitrary_bank_axes_for_direct_rods();
         test_equivalent_split_bank_heads_normalize_to_exact_execution();
         test_heterogeneous_split_bank_heads_fail_closed();
         test_asset_admission_is_exact_and_closed();
@@ -2025,7 +2099,7 @@ int main() {
         test_invalid_sampled_fixed_cams_fail_closed();
         test_four_cam_vtec_resolves_to_si_and_provenance();
         test_governor_resolves_to_executable_controller();
-        test_unsupported_capability_fails_closed();
+        test_layout_shape_fails_closed();
         test_direct_engine_dto_identity_and_enum_admission_fails_closed();
         test_direct_scenario_dto_admission_fails_closed();
         std::cout << "compiler integration tests passed\n";

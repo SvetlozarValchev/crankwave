@@ -31,7 +31,7 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
         const double crank_radius_m = legacy_si_value(context.crankshaft->throw_radius);
         const double raw_journal_phase_rad = legacy_si_value(journal.phase);
         contract::ResolvedValue<double> effective_journal_phase;
-        if (source.layout == authoring::CylinderLayout::v_engine) {
+        if (source.layout != authoring::CylinderLayout::inline_engine) {
             const auto raw_phase_path =
                 "engine.cylinders." + semantic + ".journal_phase_rad";
             const auto bank_angle_path = "engine.banks." + bank.id.value + ".angle_rad";

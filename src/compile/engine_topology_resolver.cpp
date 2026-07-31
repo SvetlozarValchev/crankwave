@@ -31,7 +31,7 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
             emitter.authored(bank->id.value, base + ".semantic_id"),
             std::nullopt,
         };
-        if (source.layout == authoring::CylinderLayout::v_engine) {
+        if (source.layout != authoring::CylinderLayout::inline_engine) {
             resolved_bank.angle_rad =
                 emitter.authored(legacy_si_value(bank->angle), base + ".angle_rad");
         }

@@ -13,16 +13,17 @@ configurability.
 The repository now has a strict product JSON schema/parser and a generic immutable
 compiler for the currently executable low-order slice: mechanism, gas path, fixed and
 sampled/VTEC valvetrains, direct and governed throttle control, ignition, fuel, dynamic
-nonempty cylinder and exhaust-route sets, one-bank inline or exactly two-bank V layouts,
-presentation, scenarios, deterministic assets, and randomness. Compilation is
-data-driven and has no engine-name branch. Important original capabilities such as
-multiple crankshafts, other bank topologies, heterogeneous physical heads, separate
-intakes, slave journals, and general multi-head/VTEC topology remain represented but
-fail closed until their executor support exists. Execution-equivalent bank-local heads,
-ports, standard valvetrains, and cams now normalize to the unchanged shared low-order
-profile. Vehicle and transmission rig objects parse, resolve, and execute through the
-finite forward-only FreeVehicle drivetrain; its operating state is published through
-the same native/C/WASM/Worker boundary.
+nonempty cylinder and exhaust-route sets, and direct centered rods on inline, V,
+opposed, or custom explicit bank axes, plus presentation, scenarios, deterministic
+assets, and randomness. Compilation is data-driven and has no engine-name branch.
+Important original capabilities such as multiple crankshafts, heterogeneous physical
+heads, separate intakes, master/slave journals, and general multi-head/VTEC topology
+remain represented but fail closed until their executor support exists.
+Execution-equivalent bank-local heads, ports, standard valvetrains, and cams now
+normalize to the unchanged shared low-order profile. Vehicle and transmission rig
+objects parse, resolve, and execute through the finite forward-only FreeVehicle
+drivetrain; its operating state is published through the same native/C/WASM/Worker
+boundary.
 There is no executable C++ engine factory; product engines enter only through JSON
 compilation.
 
@@ -145,12 +146,13 @@ never silently looped.
 - References must resolve, forbidden cycles are rejected, and every connected physical
   object must be reachable from the engine root.
 - The authoring graph can represent broader sharing than the current executor admits.
-  Current execution accepts one crankshaft, one shared intake, and either one
-  zero-angle inline bank or exactly two finite, distinct-angle V banks. Banks may share
-  one head/valvetrain or use execution-equivalent bank-local heads and standard
-  valvetrains; single-head VTEC remains admitted. Direct journals and exhaust routes
-  may be shared; identity is never inferred from array position. Other graph shapes
-  fail closed.
+  Current execution accepts one crankshaft, one shared intake, and direct centered rods
+  on one zero-angle inline bank, exactly two finite distinct-angle V banks, exactly two
+  antipodal opposed banks, or one or more custom banks with explicit finite axes. Banks
+  may share one head/valvetrain or use execution-equivalent bank-local heads and
+  standard valvetrains; single-head VTEC remains admitted. Direct journals and exhaust
+  routes may be shared; identity is never inferred from array position. Other graph
+  shapes fail closed.
 - Compiler-assigned dense numeric IDs and deterministic reduction order are resolved
   artifacts; they are never authored API identities.
 
@@ -233,8 +235,8 @@ the remainder as explicit capability diagnostics:
 | Slave journals and rod `slave_throw` | Journal/rod references and physical fields | **Missing** | Master/slave V-twin geometry and uneven firing fixture. |
 | Connecting-rod mass, inertia, center of mass, length | `engine.connecting_rods[]` | **Partial**; mass/inertia/length exist in BMW profile, center of mass is absent | Resolved mechanism quantities and inertial torque are verified. |
 | Piston mass, blowby, compression height, wrist-pin position, displacement term | `engine.pistons[]` and gas-path blowby restriction | **Partial**; BMW has mass, blowby, compression height, displacement term; wrist-pin position is absent | BMW geometry/clearance comparison and blowby flow check. |
-| Banks with angle, bore, and deck height | `engine.banks[]` | **Low-order executed/Partial**; execution admits one zero-angle inline bank or exactly two finite, distinct-angle V banks, including authored bank bore/deck geometry; opposed and other arbitrary layouts remain unsupported | Inline, V8, and direct-journal V-twin fixtures preserve bank geometry and axis-relative mechanics. |
-| Arbitrary cylinder-to-bank/crank/journal/intake/exhaust/wire connections | Explicit cylinder references | **Partial**; dynamic cylinders, two-bank V bindings, direct shared journals, distinct wires, firing order, and exhaust sharing execute, while the profile still requires one crankshaft and one shared intake; bank-local heads/standard valvetrains must be execution-equivalent | Toyota and direct-journal V-twin fixtures prove the admitted non-inline connection patterns. |
+| Banks with angle, bore, and deck height | `engine.banks[]` | **Low-order executed/Partial**; execution admits one zero-angle inline bank, exactly two finite distinct-angle V banks, exactly two antipodal opposed banks, or custom explicit finite axes, including authored bank bore/deck geometry; all use direct centered rods | Inline, Toyota V8, Subaru EJ25 opposed, and synthetic three-axis custom fixtures preserve bank geometry and axis-relative mechanics. |
+| Arbitrary cylinder-to-bank/crank/journal/intake/exhaust/wire connections | Explicit cylinder references | **Partial**; dynamic cylinders, direct bank-axis bindings, direct shared journals, distinct wires, firing order, and exhaust sharing execute, while the profile still requires one crankshaft and one shared intake; bank-local heads/standard valvetrains must be execution-equivalent | Toyota V8, Subaru EJ25, and synthetic three-axis custom fixtures prove the admitted non-inline connection patterns. |
 | Per-cylinder primary length | Physical exhaust path in `engine`, compiled to propagation delay | **Low-order executed** | Resolved length/delay comparison at each supported sample rate. |
 
 ### Gas exchange, manifolds, heads, and exhaust
@@ -380,6 +382,7 @@ it does not block checkpoints 1-10.
 |---|---|---|
 | BMW M52B28 clean-room baseline | Inline bank, six cylinders, shared intake/head, two shared exhaust routes, flow/timing/flame curves, fixed valvetrain, gains, IRs, held points, and dyno pull | Compare JSON-compiled held and dyno clips with the accepted C++-profile baseline. |
 | Toyota 3UR-FE V8 | Two authored bank angles, direct shared journals, generic firing order, and grouped/shared exhaust systems | Route solos plus full dyno pull; cadence and grouping accepted by ear. |
+| Subaru EJ25 flat-four | Two antipodal authored bank axes, four distinct direct journals, bank-local equivalent heads/cams, and exact opposed mechanism pairs | Structural/runtime fixture only for this topology slice; add listening when it becomes a catalog engine. |
 | Honda B18C5 | Standard/alternate cams and the executed pristine RPM, manifold-pressure, and resolved linkage-opening predicates; the dead source `min_speed` input is intentionally absent | Below, transition, and above-VTEC clips; no unrelated renderer change. |
 | Master/slave-journal V-twin | Shared crank journal, slave journal/throw, bank angles, unequal firing intervals | Low/high held points and short climb demonstrate correct cadence. |
 | Governed small-engine V-twin | Governor parameters, starter/crank/catch, idle restriction, bank-local heads/ports/cams, and load response | Start, governed hold, and load-step clip. |

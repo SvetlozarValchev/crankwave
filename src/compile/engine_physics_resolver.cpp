@@ -262,6 +262,21 @@ resolve_valve_flow_point(const authoring::CurveSample &source, std::size_t index
     };
 }
 
+[[nodiscard]] contract::CylinderLayoutKind
+resolve_cylinder_layout(authoring::CylinderLayout layout) {
+    switch (layout) {
+    case authoring::CylinderLayout::inline_engine:
+        return contract::CylinderLayoutKind::inline_engine;
+    case authoring::CylinderLayout::v_engine:
+        return contract::CylinderLayoutKind::vee_engine;
+    case authoring::CylinderLayout::opposed:
+        return contract::CylinderLayoutKind::flat_engine;
+    case authoring::CylinderLayout::custom:
+        return contract::CylinderLayoutKind::other;
+    }
+    throw std::logic_error{"admitted cylinder layout is unknown"};
+}
+
 contract::MethodIdentity legacy_low_order_method_identity() {
     return contract::legacy_low_order_v1_method_identity();
 }
@@ -293,11 +308,8 @@ contract::EngineSpec assemble_engine(const ModelContext &context,
     engine.ignition = emitter.derived(
         contract::IgnitionKind::spark_ignition, "engine.ignition",
         derived_method_identity("spark-ignition-kind-v1"), {"engine.profile_id"});
-    engine.cylinder_layout =
-        emitter.authored(source.layout == authoring::CylinderLayout::v_engine
-                             ? contract::CylinderLayoutKind::vee_engine
-                             : contract::CylinderLayoutKind::inline_engine,
-                         "engine.cylinder_layout");
+    engine.cylinder_layout = emitter.authored(resolve_cylinder_layout(source.layout),
+                                              "engine.cylinder_layout");
 
     resolve_public_topology(context, emitter, engine);
 

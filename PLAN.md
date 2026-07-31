@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-31
 
-Current checkpoint: **slice 10 topology closure — general direct-rod bank layouts**
+Current checkpoint: **slice 10 topology closure — master/slave journal graph**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -615,9 +615,12 @@ clip-relative fades differ. Slice 10 now admits source-faithful bank-local heads
 ports, standard valvetrains, and cams when their shared low-order physical profiles are
 execution-equivalent. The Kohler fixture has been restored to two heads, four ports,
 two valvetrains, and four one-cylinder cams. Its complete resolved request and all five
-published WAV files are byte-identical to the accepted shared-head checkpoint. More
-general heterogeneous heads, separate intakes, crankshafts, ignition sharing, and
-master/slave journals remain isolated follow-up commits within slice 10.
+published WAV files are byte-identical to the accepted shared-head checkpoint. Direct
+centered rods now execute on inline, V, opposed, and custom explicit bank axes. A
+pristine-derived Subaru EJ25 fixture preserves its antipodal banks, direct journal
+bindings, and opposed mechanism pairs across a bounded runtime capture. More general
+heterogeneous heads, separate intakes, crankshafts, ignition sharing, and master/slave
+journals remain isolated follow-up commits within slice 10.
 
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,
