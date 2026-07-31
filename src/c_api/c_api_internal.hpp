@@ -216,7 +216,9 @@ quantity_value(const contract::QuantityValue &value) noexcept;
 [[nodiscard]] eso_torque_value_nm_t
 torque_value(const contract::TorqueValueNm &value) noexcept;
 [[nodiscard]] eso_engine_telemetry_t
-engine_telemetry(const EngineTelemetryFrame &frame) noexcept;
+engine_telemetry(const contract::EngineCaptureSample &engine) noexcept;
+[[nodiscard]] eso_session_telemetry_t
+session_telemetry(const EngineTelemetryFrame &frame) noexcept;
 
 } // namespace engine_sim_offline::c_api
 

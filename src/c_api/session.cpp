@@ -81,6 +81,24 @@ namespace {
     case ESO_CONTROL_EXTERNAL_RESISTING_TORQUE:
         payload = SetEngineExternalResistingTorque{input.scalar_value};
         break;
+    case ESO_CONTROL_HELD_DYNO_TARGET_ENGINE_SPEED:
+        payload = SetHeldDynoTargetEngineSpeed{input.scalar_value};
+        break;
+    case ESO_CONTROL_HELD_DYNO_MAXIMUM_ABSORBING_TORQUE:
+        payload = SetHeldDynoMaximumAbsorbingTorque{input.scalar_value};
+        break;
+    case ESO_CONTROL_HELD_DYNO_MAXIMUM_DRIVING_TORQUE:
+        payload = SetHeldDynoMaximumDrivingTorque{input.scalar_value};
+        break;
+    case ESO_CONTROL_VEHICLE_SELECTED_FORWARD_GEAR:
+        payload = SetVehicleSelectedForwardGear{input.id_value};
+        break;
+    case ESO_CONTROL_VEHICLE_CLUTCH_ENGAGEMENT:
+        payload = SetVehicleClutchEngagement{input.scalar_value};
+        break;
+    case ESO_CONTROL_VEHICLE_SERVICE_BRAKE_APPLICATION:
+        payload = SetVehicleServiceBrakeApplication{input.scalar_value};
+        break;
     default:
         payload = SetEngineThrottle{input.scalar_value};
         break;
@@ -96,16 +114,31 @@ namespace {
     case ESO_CONTROL_THROTTLE:
         return input.enabled == 0U && std::isfinite(input.scalar_value) &&
                !std::signbit(input.scalar_value) && input.scalar_value >= 0.0 &&
-               input.scalar_value <= 1.0;
+               input.scalar_value <= 1.0 && input.id_value == 0U;
     case ESO_CONTROL_IGNITION_ENABLED:
     case ESO_CONTROL_FUEL_ENABLED:
     case ESO_CONTROL_STARTER_ENABLED:
     case ESO_CONTROL_LIMITER_ENABLED:
         return input.enabled <= 1U && input.scalar_value == 0.0 &&
-               !std::signbit(input.scalar_value);
+               !std::signbit(input.scalar_value) && input.id_value == 0U;
     case ESO_CONTROL_EXTERNAL_RESISTING_TORQUE:
+    case ESO_CONTROL_HELD_DYNO_MAXIMUM_ABSORBING_TORQUE:
+    case ESO_CONTROL_HELD_DYNO_MAXIMUM_DRIVING_TORQUE:
         return input.enabled == 0U && std::isfinite(input.scalar_value) &&
-               !std::signbit(input.scalar_value) && input.scalar_value >= 0.0;
+               !std::signbit(input.scalar_value) && input.scalar_value >= 0.0 &&
+               input.id_value == 0U;
+    case ESO_CONTROL_HELD_DYNO_TARGET_ENGINE_SPEED:
+        return input.enabled == 0U && std::isfinite(input.scalar_value) &&
+               !std::signbit(input.scalar_value) && input.scalar_value > 0.0 &&
+               input.id_value == 0U;
+    case ESO_CONTROL_VEHICLE_SELECTED_FORWARD_GEAR:
+        return input.enabled == 0U && input.scalar_value == 0.0 &&
+               !std::signbit(input.scalar_value);
+    case ESO_CONTROL_VEHICLE_CLUTCH_ENGAGEMENT:
+    case ESO_CONTROL_VEHICLE_SERVICE_BRAKE_APPLICATION:
+        return input.enabled == 0U && std::isfinite(input.scalar_value) &&
+               !std::signbit(input.scalar_value) && input.scalar_value >= 0.0 &&
+               input.scalar_value <= 1.0 && input.id_value == 0U;
     default:
         return false;
     }
@@ -130,6 +163,26 @@ session_execution_kind(const EngineSessionExecutionKind input) noexcept {
         return ESO_SESSION_EXECUTION_FINITE_SCENARIO;
     case EngineSessionExecutionKind::open_ended:
         return ESO_SESSION_EXECUTION_OPEN_ENDED;
+    }
+    return 0U;
+}
+
+[[nodiscard]] eso_motion_mode_t motion_mode(const EngineMotionMode input) noexcept {
+    switch (input) {
+    case EngineMotionMode::held_speed:
+        return ESO_MOTION_HELD_SPEED;
+    case EngineMotionMode::prescribed_kinematic_sweep:
+        return ESO_MOTION_PRESCRIBED_KINEMATIC_SWEEP;
+    case EngineMotionMode::held_dyno:
+        return ESO_MOTION_HELD_DYNO;
+    case EngineMotionMode::load_target_held_capture:
+        return ESO_MOTION_LOAD_TARGET_HELD_CAPTURE;
+    case EngineMotionMode::inertial_dyno:
+        return ESO_MOTION_INERTIAL_DYNO;
+    case EngineMotionMode::free_engine:
+        return ESO_MOTION_FREE_ENGINE;
+    case EngineMotionMode::free_vehicle:
+        return ESO_MOTION_FREE_VEHICLE;
     }
     return 0U;
 }
@@ -239,6 +292,8 @@ eso_session_get_descriptor(eso_context_t *const context,
             descriptor.engine_id.size(),
             descriptor.scenario_id.size(),
             session_execution_kind(descriptor.execution_kind),
+            motion_mode(descriptor.motion_mode),
+            static_cast<std::uint32_t>(descriptor.forward_gears.size()),
         };
         clear_error(*context);
         return ESO_STATUS_OK;
@@ -353,6 +408,77 @@ eso_status_t eso_session_copy_audio_bus_id(
     });
 }
 
+eso_status_t eso_session_get_forward_gear_descriptor(
+    eso_context_t *const context, const eso_session_handle_t session,
+    const uint32_t gear_index,
+    eso_forward_gear_descriptor_t *const out_descriptor) noexcept {
+    if (context == nullptr) {
+        return ESO_STATUS_INVALID_ARGUMENT;
+    }
+    return engine_sim_offline::c_api::boundary(*context, [&]() -> eso_status_t {
+        using namespace engine_sim_offline::c_api;
+        if (out_descriptor == nullptr) {
+            return invalid_pointer(*context, "out_descriptor must not be null");
+        }
+        const auto *entry = context->sessions.get(session);
+        if (entry == nullptr) {
+            return invalid_handle(
+                *context, "engine-session handle is stale, invalid, or wrong-kind");
+        }
+        const auto gears = entry->session.descriptor().forward_gears;
+        if (gear_index >= gears.size()) {
+            return set_error(*context, ESO_STATUS_INVALID_ARGUMENT,
+                             ESO_ERROR_STAGE_ARGUMENT, ESO_ERROR_INVALID_COUNT,
+                             "c-api-forward-gear-index-invalid",
+                             "forward gear index is outside the session descriptor");
+        }
+        const auto &gear = gears[gear_index];
+        *out_descriptor = {
+            gear.id.value,
+            gear.authored_ordinal,
+            gear.ratio,
+            gear.semantic_id.size(),
+        };
+        clear_error(*context);
+        return ESO_STATUS_OK;
+    });
+}
+
+eso_status_t eso_session_copy_forward_gear_semantic_id(
+    eso_context_t *const context, const eso_session_handle_t session,
+    const uint32_t gear_index, const eso_mutable_utf8_buffer_t buffer) noexcept {
+    if (context == nullptr) {
+        return ESO_STATUS_INVALID_ARGUMENT;
+    }
+    return engine_sim_offline::c_api::boundary(*context, [&]() -> eso_status_t {
+        using namespace engine_sim_offline::c_api;
+        const auto *entry = context->sessions.get(session);
+        if (entry == nullptr) {
+            return invalid_handle(
+                *context, "engine-session handle is stale, invalid, or wrong-kind");
+        }
+        const auto gears = entry->session.descriptor().forward_gears;
+        if (gear_index >= gears.size()) {
+            return set_error(*context, ESO_STATUS_INVALID_ARGUMENT,
+                             ESO_ERROR_STAGE_ARGUMENT, ESO_ERROR_INVALID_COUNT,
+                             "c-api-forward-gear-index-invalid",
+                             "forward gear index is outside the session descriptor");
+        }
+        const auto status = copy_text(gears[gear_index].semantic_id, buffer);
+        if (status != ESO_STATUS_OK) {
+            return set_error(*context, status, ESO_ERROR_STAGE_ARGUMENT,
+                             status == ESO_STATUS_BUFFER_TOO_SMALL
+                                 ? ESO_ERROR_BUFFER_CAPACITY
+                                 : ESO_ERROR_INVALID_POINTER,
+                             "c-api-forward-gear-id-buffer-invalid",
+                             "forward gear semantic-ID output buffer is invalid or "
+                             "too small");
+        }
+        clear_error(*context);
+        return ESO_STATUS_OK;
+    });
+}
+
 eso_status_t eso_session_enqueue_controls(
     eso_context_t *const context, const eso_session_handle_t session,
     const eso_control_command_t *const commands, const size_t command_count,
@@ -412,7 +538,7 @@ eso_status_t eso_session_process(eso_context_t *const context,
                                  const eso_session_handle_t session,
                                  eso_audio_copy_buffer_t *const audio_buffers,
                                  const size_t audio_buffer_count,
-                                 eso_engine_telemetry_t *const telemetry,
+                                 eso_session_telemetry_t *const telemetry,
                                  const size_t telemetry_capacity,
                                  eso_process_info_t *const out_process) noexcept {
     if (context == nullptr) {
@@ -560,7 +686,7 @@ eso_status_t eso_session_process(eso_context_t *const context,
                     "session telemetry exceeded its compiled caller capacity");
             }
             for (const auto &frame : block.telemetry()) {
-                telemetry[telemetry_written] = engine_telemetry(frame);
+                telemetry[telemetry_written] = session_telemetry(frame);
                 ++telemetry_written;
             }
         }

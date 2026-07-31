@@ -267,8 +267,9 @@ eso_status_t eso_get_abi_layout(eso_abi_layout_t *const out_layout) noexcept {
         std::endian::native == std::endian::little ? 1U : 0U,
         static_cast<std::uint32_t>(sizeof(eso_control_command_t)),
         static_cast<std::uint32_t>(sizeof(eso_session_descriptor_t)),
+        static_cast<std::uint32_t>(sizeof(eso_forward_gear_descriptor_t)),
         static_cast<std::uint32_t>(sizeof(eso_audio_bus_descriptor_t)),
-        static_cast<std::uint32_t>(sizeof(eso_engine_telemetry_t)),
+        static_cast<std::uint32_t>(sizeof(eso_session_telemetry_t)),
     };
     return ESO_STATUS_OK;
 }

@@ -15,7 +15,7 @@ extern "C" {
  * This is the only engine-sim-offline C ABI. It is a greenfield, exact-version
  * contract rather than a compatibility family.
  */
-#define ESO_C_API_VERSION UINT32_C(3)
+#define ESO_C_API_VERSION UINT32_C(4)
 #define ESO_INVALID_HANDLE UINT64_C(0)
 
 typedef struct eso_context eso_context_t;
@@ -191,8 +191,9 @@ typedef struct eso_abi_layout {
     uint32_t little_endian;
     uint32_t control_command_size_bytes;
     uint32_t session_descriptor_size_bytes;
+    uint32_t forward_gear_descriptor_size_bytes;
     uint32_t audio_bus_descriptor_size_bytes;
-    uint32_t engine_telemetry_size_bytes;
+    uint32_t session_telemetry_size_bytes;
 } eso_abi_layout_t;
 
 typedef uint32_t eso_live_control_capability_mask_t;
@@ -202,13 +203,30 @@ enum {
     ESO_LIVE_CONTROL_CAPABILITY_FUEL_ENABLED = UINT32_C(1) << 2U,
     ESO_LIVE_CONTROL_CAPABILITY_LIMITER_ENABLED = UINT32_C(1) << 3U,
     ESO_LIVE_CONTROL_CAPABILITY_EXTERNAL_RESISTING_TORQUE = UINT32_C(1) << 4U,
-    ESO_LIVE_CONTROL_CAPABILITY_STARTER_ENABLED = UINT32_C(1) << 5U
+    ESO_LIVE_CONTROL_CAPABILITY_STARTER_ENABLED = UINT32_C(1) << 5U,
+    ESO_LIVE_CONTROL_CAPABILITY_HELD_DYNO_TARGET_ENGINE_SPEED = UINT32_C(1) << 6U,
+    ESO_LIVE_CONTROL_CAPABILITY_HELD_DYNO_MAXIMUM_ABSORBING_TORQUE = UINT32_C(1) << 7U,
+    ESO_LIVE_CONTROL_CAPABILITY_HELD_DYNO_MAXIMUM_DRIVING_TORQUE = UINT32_C(1) << 8U,
+    ESO_LIVE_CONTROL_CAPABILITY_VEHICLE_SELECTED_FORWARD_GEAR = UINT32_C(1) << 9U,
+    ESO_LIVE_CONTROL_CAPABILITY_VEHICLE_CLUTCH_ENGAGEMENT = UINT32_C(1) << 10U,
+    ESO_LIVE_CONTROL_CAPABILITY_VEHICLE_SERVICE_BRAKE_APPLICATION = UINT32_C(1) << 11U
 };
 
 typedef uint32_t eso_session_execution_kind_t;
 enum {
     ESO_SESSION_EXECUTION_FINITE_SCENARIO = 1,
     ESO_SESSION_EXECUTION_OPEN_ENDED = 2
+};
+
+typedef uint32_t eso_motion_mode_t;
+enum {
+    ESO_MOTION_HELD_SPEED = 1,
+    ESO_MOTION_PRESCRIBED_KINEMATIC_SWEEP = 2,
+    ESO_MOTION_HELD_DYNO = 3,
+    ESO_MOTION_LOAD_TARGET_HELD_CAPTURE = 4,
+    ESO_MOTION_INERTIAL_DYNO = 5,
+    ESO_MOTION_FREE_ENGINE = 6,
+    ESO_MOTION_FREE_VEHICLE = 7
 };
 
 typedef struct eso_session_descriptor {
@@ -233,12 +251,21 @@ typedef struct eso_session_descriptor {
      * callers must not infer it from the count.
      */
     eso_session_execution_kind_t execution_kind;
+    eso_motion_mode_t motion_mode;
+    uint32_t forward_gear_count;
 } eso_session_descriptor_t;
 
 typedef struct eso_session_identity_buffers {
     eso_mutable_utf8_buffer_t engine_id;
     eso_mutable_utf8_buffer_t scenario_id;
 } eso_session_identity_buffers_t;
+
+typedef struct eso_forward_gear_descriptor {
+    uint32_t gear_id;
+    uint32_t authored_ordinal;
+    double ratio;
+    size_t semantic_id_utf8_bytes;
+} eso_forward_gear_descriptor_t;
 
 typedef uint32_t eso_audio_bus_kind_t;
 enum {
@@ -266,15 +293,22 @@ enum {
     ESO_CONTROL_FUEL_ENABLED = 3,
     ESO_CONTROL_LIMITER_ENABLED = 4,
     ESO_CONTROL_EXTERNAL_RESISTING_TORQUE = 5,
-    ESO_CONTROL_STARTER_ENABLED = 6
+    ESO_CONTROL_STARTER_ENABLED = 6,
+    ESO_CONTROL_HELD_DYNO_TARGET_ENGINE_SPEED = 7,
+    ESO_CONTROL_HELD_DYNO_MAXIMUM_ABSORBING_TORQUE = 8,
+    ESO_CONTROL_HELD_DYNO_MAXIMUM_DRIVING_TORQUE = 9,
+    ESO_CONTROL_VEHICLE_SELECTED_FORWARD_GEAR = 10,
+    ESO_CONTROL_VEHICLE_CLUTCH_ENGAGEMENT = 11,
+    ESO_CONTROL_VEHICLE_SERVICE_BRAKE_APPLICATION = 12
 };
 
 /*
- * enabled must be exactly 0 or 1 for boolean controls and zero for scalar
- * controls. scalar_value must be positive zero for boolean controls; it carries
- * nonnegative throttle_01 or external resisting torque in N*m for the
- * corresponding scalar control. Negative zero is not canonical. Reserved
- * members must be zero.
+ * Boolean controls use enabled exactly 0 or 1 and require scalar_value to be
+ * positive zero and id_value to be zero. Scalar controls require enabled and
+ * id_value to be zero. The selected-forward-gear control requires enabled and
+ * scalar_value to be zero; id_value is zero for neutral and otherwise carries
+ * the one-based authored forward-gear ordinal. Negative zero is not canonical.
+ * reserved must be zero.
  */
 typedef struct eso_control_command {
     uint64_t delivery_frame;
@@ -282,7 +316,8 @@ typedef struct eso_control_command {
     eso_control_kind_t kind;
     uint32_t enabled;
     double scalar_value;
-    uint64_t reserved;
+    uint32_t id_value;
+    uint32_t reserved;
 } eso_control_command_t;
 
 typedef struct eso_control_rejection {
@@ -339,7 +374,6 @@ typedef struct eso_torque_telemetry {
 } eso_torque_telemetry_t;
 
 typedef struct eso_engine_telemetry {
-    uint64_t physics_step_end;
     uint64_t engine_step_end_index;
     uint32_t validity_mask;
     uint32_t ignition_enabled;
@@ -360,6 +394,69 @@ typedef struct eso_engine_telemetry {
     double requested_external_resisting_torque_nm;
     eso_torque_telemetry_t torque;
 } eso_engine_telemetry_t;
+
+typedef uint32_t eso_held_dyno_disposition_t;
+enum {
+    ESO_HELD_DYNO_TRACKING = 1,
+    ESO_HELD_DYNO_ABSORBING_TORQUE_LIMITED = 2,
+    ESO_HELD_DYNO_DRIVING_TORQUE_LIMITED = 3
+};
+
+typedef struct eso_held_dyno_telemetry {
+    double target_engine_speed_rpm;
+    double maximum_absorbing_torque_nm;
+    double maximum_driving_torque_nm;
+    double required_actuator_torque_nm;
+    double applied_actuator_torque_nm;
+    eso_held_dyno_disposition_t disposition;
+} eso_held_dyno_telemetry_t;
+
+typedef uint32_t eso_clutch_disposition_t;
+enum {
+    ESO_CLUTCH_NEUTRAL = 1,
+    ESO_CLUTCH_DISENGAGED = 2,
+    ESO_CLUTCH_ENGINE_DRIVING_TORQUE_LIMITED = 3,
+    ESO_CLUTCH_VEHICLE_BACKDRIVE_TORQUE_LIMITED = 4,
+    ESO_CLUTCH_TRACKING = 5
+};
+
+typedef uint32_t eso_road_load_disposition_t;
+enum {
+    ESO_ROAD_LOAD_MOVING = 1,
+    ESO_ROAD_LOAD_STOPPED_WITHIN_STEP = 2,
+    ESO_ROAD_LOAD_HELD_AT_REST = 3
+};
+
+typedef struct eso_free_vehicle_telemetry {
+    double vehicle_speed_m_s;
+    double vehicle_distance_m;
+    uint32_t has_selected_forward_gear;
+    uint32_t selected_forward_gear_ordinal;
+    double clutch_engagement_01;
+    double service_brake_application_01;
+    eso_clutch_disposition_t clutch_disposition;
+    uint32_t has_final_clutch_slip;
+    double clutch_torque_capacity_nm;
+    double applied_average_clutch_torque_on_engine_nm;
+    double final_clutch_slip_rad_s;
+    eso_road_load_disposition_t road_load_disposition;
+    double requested_road_load_force_n;
+    double applied_average_road_load_force_n;
+} eso_free_vehicle_telemetry_t;
+
+/*
+ * has_held_dyno and has_free_vehicle are canonical 0/1 discriminators. An
+ * absent sidecar is returned as an all-zero POD. The selected-gear and
+ * final-clutch-slip presence fields follow the same rule within FreeVehicle.
+ */
+typedef struct eso_session_telemetry {
+    uint64_t physics_step_end;
+    eso_engine_telemetry_t engine;
+    uint32_t has_held_dyno;
+    uint32_t has_free_vehicle;
+    eso_held_dyno_telemetry_t held_dyno;
+    eso_free_vehicle_telemetry_t free_vehicle;
+} eso_session_telemetry_t;
 
 typedef struct eso_audio_copy_buffer {
     uint32_t bus_index;
@@ -459,6 +556,12 @@ eso_status_t
 eso_session_copy_audio_bus_id(eso_context_t *context, eso_session_handle_t session,
                               uint32_t bus_index,
                               eso_mutable_utf8_buffer_t buffer) ESO_C_API_NOEXCEPT;
+eso_status_t eso_session_get_forward_gear_descriptor(
+    eso_context_t *context, eso_session_handle_t session, uint32_t gear_index,
+    eso_forward_gear_descriptor_t *out_descriptor) ESO_C_API_NOEXCEPT;
+eso_status_t eso_session_copy_forward_gear_semantic_id(
+    eso_context_t *context, eso_session_handle_t session, uint32_t gear_index,
+    eso_mutable_utf8_buffer_t buffer) ESO_C_API_NOEXCEPT;
 
 eso_status_t
 eso_session_enqueue_controls(eso_context_t *context, eso_session_handle_t session,
@@ -475,7 +578,7 @@ eso_session_enqueue_controls(eso_context_t *context, eso_session_handle_t sessio
 eso_status_t eso_session_process(eso_context_t *context, eso_session_handle_t session,
                                  eso_audio_copy_buffer_t *audio_buffers,
                                  size_t audio_buffer_count,
-                                 eso_engine_telemetry_t *telemetry,
+                                 eso_session_telemetry_t *telemetry,
                                  size_t telemetry_capacity,
                                  eso_process_info_t *out_process) ESO_C_API_NOEXCEPT;
 
