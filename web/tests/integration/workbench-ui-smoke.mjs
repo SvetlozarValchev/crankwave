@@ -234,6 +234,8 @@ async function pageState(cdp) {
       authoredScenarioId: scenarioDocument?.id ?? "",
       buildDisabled: document.querySelector("#build-button")?.disabled ?? true,
       startDisabled: document.querySelector("#start-button")?.disabled ?? true,
+      starterDisabled:
+        document.querySelector("#starter-button")?.disabled ?? true,
       restartDisabled:
         document.querySelector("#restart-button")?.disabled ?? true
     };
@@ -426,6 +428,7 @@ async function main() {
     await delay(500);
     let running = await pageState(cdp);
     assert.equal(running.underruns, "0");
+    assert.equal(running.starterDisabled, false);
 
     await cdp.evaluate(`(() => {
       const throttle = document.querySelector("#throttle-input");
@@ -580,6 +583,7 @@ async function main() {
       30_000,
     );
     assert.equal(v8Running.underruns, "0");
+    assert.equal(v8Running.starterDisabled, false);
     await cdp.evaluate(
       `document.querySelector("#stop-button").click(); true`,
     );

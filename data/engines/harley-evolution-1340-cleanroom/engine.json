@@ -4,7 +4,7 @@
     "identity": {
       "id": "harley-evolution-1340-cleanroom",
       "display_name": "Harley-Davidson Evolution 1340 V-Twin (Clean Room BRAAP)",
-      "description": "Source-faithful JSON port of the clean-room carbureted 45-degree Evolution 1340 V-twin definition. The shared crankpin, 0/315-degree ignition phasing, bank geometry, airflow, cam timing, fuel, exhaust routing, and presentation values come from the source. The current Chen-Flynn loss coefficients and accessory descriptor are generic executor policy because the source declares neither measured aggregate losses nor an accessory inventory. The source's fuel density and 140 N*m at 400 rpm starter capability are documented provenance but are not executed by the current low-order profile."
+      "description": "Source-faithful JSON port of the clean-room carbureted 45-degree Evolution 1340 V-twin definition. The shared crankpin, 0/315-degree ignition phasing, bank geometry, airflow, cam timing, fuel, exhaust routing, presentation values, and 140 N*m at 400 rpm cranking starter come from the source. The current Chen-Flynn loss coefficients and accessory descriptor are generic executor policy because the source declares neither measured aggregate losses nor an accessory inventory. The source's fuel density is not an executor input."
     },
     "cycle": "four_stroke",
     "layout": "v_engine",
@@ -378,7 +378,9 @@
     ],
     "throttle_controller": "direct-throttle",
     "starter": {
-      "type": "mechanically_disengaged"
+      "type": "cranking",
+      "torque": {"value": 140, "unit": "N*m"},
+      "target_speed": {"value": 400, "unit": "rpm"}
     },
     "cylinders": [
       {

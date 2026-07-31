@@ -4,7 +4,7 @@
     "identity": {
       "id": "sequoia-3ur-fe-cleanroom",
       "display_name": "Toyota Sequoia 3UR-FE 5.7L V8 (Clean Room)",
-      "description": "Clean-room Toyota 3UR-FE-style 90-degree naturally aspirated V8 authored from public dimensions and output targets without a branded sound asset. Physical, airflow, combustion, ignition, exhaust, and source-presentation values are preserved from the clean-room MR definition. The Chen-Flynn losses, accessory descriptor, and mechanically disengaged starter state are current executor policy: the source declares no measured loss inventory and its 300 N*m at 230 rpm cranking starter and 0.745 kg/L fuel density are not executed by the current low-order runtime."
+      "description": "Clean-room Toyota 3UR-FE-style 90-degree naturally aspirated V8 authored from public dimensions and output targets without a branded sound asset. Physical, airflow, combustion, ignition, exhaust, source-presentation values, and the 300 N*m at 230 rpm cranking starter are preserved from the clean-room MR definition. The Chen-Flynn losses and accessory descriptor are current executor policy because the source declares no measured loss inventory. The source's 0.745 kg/L fuel density is not an executor input."
     },
     "cycle": "four_stroke",
     "layout": "v_engine",
@@ -448,7 +448,9 @@
     ],
     "throttle_controller": "direct-throttle",
     "starter": {
-      "type": "mechanically_disengaged"
+      "type": "cranking",
+      "torque": {"value": 300, "unit": "N*m"},
+      "target_speed": {"value": 230, "unit": "rpm"}
     },
     "cylinders": [
       {

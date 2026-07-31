@@ -4,7 +4,7 @@
     "identity": {
       "id": "raspy-muscle-620-cleanroom",
       "display_name": "Clean-Room 6.2L Rough Old-School Muscle V8",
-      "description": "Fictional, unbranded clean-room 90-degree naturally aspirated cross-plane V8 authored for a rough old-school muscle-car character. The physical, airflow, combustion, ignition, exhaust, and presentation values come from the clean-room source definition. The current Chen-Flynn loss coefficients and accessory descriptor are generic executor policy because the source definition declares neither measured losses nor an accessory inventory."
+      "description": "Fictional, unbranded clean-room 90-degree naturally aspirated cross-plane V8 authored for a rough old-school muscle-car character. The physical, airflow, combustion, ignition, exhaust, presentation values, and 270 N*m at 220 rpm cranking starter come from the clean-room source definition. The current Chen-Flynn loss coefficients and accessory descriptor are generic executor policy because the source definition declares neither measured losses nor an accessory inventory."
     },
     "cycle": "four_stroke",
     "layout": "v_engine",
@@ -553,7 +553,9 @@
     ],
     "throttle_controller": "direct-throttle",
     "starter": {
-      "type": "mechanically_disengaged"
+      "type": "cranking",
+      "torque": {"value": 270, "unit": "N*m"},
+      "target_speed": {"value": 220, "unit": "rpm"}
     },
     "cylinders": [
       {

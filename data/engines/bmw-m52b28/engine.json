@@ -830,7 +830,11 @@
       }
     ],
     "throttle_controller": "direct-throttle",
-    "starter": {"type": "mechanically_disengaged"},
+    "starter": {
+      "type": "cranking",
+      "torque": {"value": 150, "unit": "lb*ft"},
+      "target_speed": {"value": 500, "unit": "rpm"}
+    },
     "cylinders": [
       {
         "id": "cylinder-1",
