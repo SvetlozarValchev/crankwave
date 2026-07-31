@@ -13,7 +13,7 @@ Machine schema:
 [`schemas/render_manifest_simulation_v6.cddl`](../../schemas/render_manifest_simulation_v6.cddl)
 
 Schema SHA-256:
-`b1f71b9be97552e6275257218ff59f3495ad678d0a54c11471d57b6ba8111f48`
+`2a6d57bb8bfc11f636a0e3e2db5a6f4971ec7e73519ffda5069f9ade502add18`
 
 ## 1. Scope and admission
 
@@ -341,6 +341,7 @@ All already-typed `RenderScenario` variants have canonical tags:
 | `LoadTargetHeldCapture` | `load_target_held_capture` |
 | `InertialDyno` | `inertial_dyno` |
 | `FreeEngine` | `free_engine` |
+| `FreeVehicle` | `free_vehicle` |
 | `ScalarTrajectory` in `RpmTrajectory::rpm` | `scalar_trajectory` |
 | `FixedRateRpmTrajectory` in `RpmTrajectory::rpm` | `fixed_rate_rpm` |
 

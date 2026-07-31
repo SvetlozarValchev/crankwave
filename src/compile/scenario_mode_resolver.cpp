@@ -3,6 +3,7 @@
 #include "simulation/bounded_dyno_constraint.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/free_engine_method_registry.hpp"
+#include "simulation/free_vehicle_method_registry.hpp"
 #include "simulation/inertial_dyno_method_registry.hpp"
 
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -137,9 +139,273 @@ void ScenarioResolver::compile_mode() {
                 free_engine.crank_dynamics_method.value = method;
                 scenario_.mode = std::move(free_engine);
             } else if constexpr (std::is_same_v<T, authoring::FreeVehicleMode>) {
-                add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
-                    "free-vehicle drivetrain dynamics are not implemented by "
-                    "the current scenario executor");
+                const auto &crank_method = simulation::
+                    nonnegative_speed_free_engine_centered_slider_crank_method_identity();
+                const auto &road_load_method =
+                    simulation::forward_vehicle_road_load_method_identity();
+                const auto &clutch_method =
+                    simulation::bounded_clutch_coupling_method_identity();
+                const auto &drivetrain_method =
+                    simulation::bounded_forward_vehicle_drivetrain_method_identity();
+                for (const auto *method : {&crank_method, &road_load_method,
+                                           &clutch_method, &drivetrain_method}) {
+                    const auto method_validation = contract::validate(*method);
+                    if (!method_validation.ok()) {
+                        append_contract_report(
+                            report_, method_validation,
+                            authoring::DiagnosticCode::internal_failure, "");
+                    }
+                }
+                if (!std::isfinite(request_input_.authored_initial_engine_speed_rpm) ||
+                    request_input_.authored_initial_engine_speed_rpm < 0.0 ||
+                    (request_input_.authored_initial_engine_speed_rpm == 0.0 &&
+                     std::signbit(request_input_.authored_initial_engine_speed_rpm))) {
+                    add(authoring::DiagnosticCode::out_of_range,
+                        "/initial_state/engine_speed",
+                        "free-vehicle execution requires a finite canonical "
+                        "nonnegative initial engine speed");
+                }
+                if (context_.rig == nullptr) {
+                    add(authoring::DiagnosticCode::dangling_reference, "/mode/rig",
+                        "free-vehicle rig reference does not resolve in the compiled "
+                        "engine package");
+                    return;
+                }
+                if (context_.rig->semantic_id.value != mode.rig.value) {
+                    add(authoring::DiagnosticCode::dangling_reference, "/mode/rig",
+                        "free-vehicle rig reference does not name the compiled rig");
+                    return;
+                }
+                if (!context_.rig->vehicle.has_value() ||
+                    !context_.rig->transmission.has_value()) {
+                    add(authoring::DiagnosticCode::unsupported_capability, "/mode/rig",
+                        "free-vehicle execution requires a rig with both a vehicle and "
+                        "a transmission");
+                    return;
+                }
+                const auto *operating_profile =
+                    std::get_if<contract::LowOrderOperatingPointV1Profile>(
+                        &context_.engine.physics_profile);
+                if (operating_profile == nullptr) {
+                    add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
+                        "free-vehicle execution requires a low-order operating-"
+                        "point engine profile");
+                    return;
+                }
+
+                contract::FreeVehicle free_vehicle;
+                free_vehicle.initial_engine_speed_rpm.value =
+                    request_input_.authored_initial_engine_speed_rpm;
+                free_vehicle.initial_theta_rad.value = initial_theta_rad_;
+                free_vehicle.initial_vehicle_speed_m_s.value = quantity(
+                    mode.initial_vehicle_speed, authoring::QuantityDimension::speed,
+                    "/mode/initial_vehicle_speed");
+                if (!std::isfinite(free_vehicle.initial_vehicle_speed_m_s.value) ||
+                    free_vehicle.initial_vehicle_speed_m_s.value < 0.0 ||
+                    (free_vehicle.initial_vehicle_speed_m_s.value == 0.0 &&
+                     std::signbit(free_vehicle.initial_vehicle_speed_m_s.value))) {
+                    add(authoring::DiagnosticCode::out_of_range,
+                        "/mode/initial_vehicle_speed",
+                        "initial vehicle speed must be finite canonical nonnegative");
+                }
+
+                const auto &mechanism = operating_profile->core.mechanism;
+                const auto inertia_calculation =
+                    simulation::calculate_centered_slider_crank_cycle_mean_inertia(
+                        mechanism);
+                if (const auto *error = std::get_if<
+                        simulation::CenteredSliderCrankCycleMeanInertiaError>(
+                        &inertia_calculation)) {
+                    add(authoring::DiagnosticCode::internal_failure, "",
+                        "admitted engine mechanism could not produce its cycle-mean "
+                        "crank-referred inertia; issue=" +
+                            std::to_string(static_cast<std::uint32_t>(error->issue)) +
+                            ", cylinder_index=" +
+                            std::to_string(error->cylinder_index));
+                } else {
+                    free_vehicle.engine_baseline_inertia_kg_m2.value =
+                        std::get<simulation::CenteredSliderCrankCycleMeanInertia>(
+                            inertia_calculation)
+                            .engine_equivalent_inertia_kg_m2;
+                }
+
+                const auto &source_rig = *context_.rig;
+                const auto &source_vehicle = *source_rig.vehicle;
+                const auto &source_transmission = *source_rig.transmission;
+                free_vehicle.rig.id = {source_rig.runtime_id};
+                free_vehicle.rig.semantic_id = source_rig.semantic_id;
+                free_vehicle.rig.vehicle = {
+                    {source_vehicle.runtime_id},
+                    source_vehicle.semantic_id,
+                    source_vehicle.mass_kg,
+                    source_vehicle.drag_coefficient,
+                    source_vehicle.frontal_area_m2,
+                    source_vehicle.differential_ratio,
+                    source_vehicle.tire_radius_m,
+                    source_vehicle.rolling_resistance_force_n,
+                    source_vehicle.maximum_service_brake_force_n,
+                };
+                free_vehicle.rig.transmission.id = {source_transmission.runtime_id};
+                free_vehicle.rig.transmission.semantic_id =
+                    source_transmission.semantic_id;
+                free_vehicle.rig.transmission.maximum_clutch_torque_nm =
+                    source_transmission.maximum_clutch_torque_nm;
+                free_vehicle.rig.transmission.gears.reserve(
+                    source_transmission.gears.size());
+                for (const auto &gear : source_transmission.gears) {
+                    free_vehicle.rig.transmission.gears.push_back({
+                        {gear.runtime_id},
+                        gear.authored_ordinal,
+                        gear.semantic_id,
+                        gear.ratio,
+                    });
+                }
+
+                const auto find_gear = [&](std::string_view semantic_id)
+                    -> const contract::ForwardGearSpec * {
+                    const auto found = std::ranges::find(
+                        free_vehicle.rig.transmission.gears, semantic_id,
+                        [](const auto &gear) -> const std::string & {
+                            return gear.semantic_id.value;
+                        });
+                    return found == free_vehicle.rig.transmission.gears.end() ? nullptr
+                                                                              : &*found;
+                };
+                const auto resolve_gear =
+                    [&](const std::optional<authoring::GearRef> &ref,
+                        std::string_view path) -> std::optional<contract::GearId> {
+                    if (!ref.has_value()) {
+                        return std::nullopt;
+                    }
+                    const auto *gear = find_gear(ref->value);
+                    if (gear == nullptr) {
+                        add(authoring::DiagnosticCode::dangling_reference, path,
+                            "gear reference '" + ref->value +
+                                "' does not resolve in "
+                                "the selected transmission");
+                        return std::nullopt;
+                    }
+                    return gear->id;
+                };
+
+                free_vehicle.throttle_01 = scalar_trajectory(
+                    mode.throttle_01, "/mode/throttle_01", true, true);
+                free_vehicle.selected_gear.value = {{
+                    "initial-gear",
+                    0.0,
+                    resolve_gear(mode.initial_gear, "/mode/initial_gear"),
+                }};
+                free_vehicle.clutch_engagement_01.value = {{
+                    "initial-clutch-engagement",
+                    0.0,
+                    mode.initial_clutch_engagement_01,
+                }};
+                free_vehicle.service_brake_application_01.value = {{
+                    "initial-service-brake-application",
+                    0.0,
+                    mode.initial_service_brake_application_01,
+                }};
+
+                std::optional<std::uint64_t> previous_gear_frame;
+                std::optional<std::uint64_t> previous_clutch_frame;
+                std::optional<std::uint64_t> previous_brake_frame;
+                for (std::size_t index = 0; index < document_.events.size(); ++index) {
+                    const auto &event = document_.events[index];
+                    const auto base = "/events/" + std::to_string(index);
+                    const bool drivetrain_event =
+                        std::holds_alternative<authoring::SelectGearEvent>(
+                            event.payload) ||
+                        std::holds_alternative<authoring::SetClutchEngagementEvent>(
+                            event.payload) ||
+                        std::holds_alternative<
+                            authoring::SetServiceBrakeApplicationEvent>(event.payload);
+                    if (!drivetrain_event) {
+                        continue;
+                    }
+                    if (!contract::is_valid_semantic_id(event.id.value)) {
+                        add(authoring::DiagnosticCode::invalid_value, base + "/id",
+                            "executable event IDs use the canonical lowercase "
+                            "semantic-ID grammar");
+                    }
+                    const double time_s =
+                        quantity(event.time, authoring::QuantityDimension::duration,
+                                 base + "/time");
+                    const auto frame = physics_frame(time_s, base + "/time");
+                    if (!frame.has_value()) {
+                        continue;
+                    }
+                    if (*frame >= request_input_.total_physics_frames) {
+                        add(authoring::DiagnosticCode::unsupported_capability,
+                            base + "/time",
+                            "an event at or after the final physics step cannot be "
+                            "enacted");
+                        continue;
+                    }
+
+                    const auto append_or_replace =
+                        [&](auto &lane, std::optional<std::uint64_t> &previous_frame,
+                            auto point, std::string_view lane_name) {
+                            if (previous_frame.has_value() &&
+                                *previous_frame == *frame) {
+                                add(authoring::DiagnosticCode::unsupported_capability,
+                                    base + "/time",
+                                    "two " + std::string{lane_name} +
+                                        " events cannot occupy one physics boundary");
+                                return;
+                            }
+                            previous_frame = *frame;
+                            if (*frame == 0U) {
+                                lane.front() = std::move(point);
+                            } else {
+                                lane.push_back(std::move(point));
+                            }
+                        };
+                    if (const auto *selection =
+                            std::get_if<authoring::SelectGearEvent>(&event.payload)) {
+                        append_or_replace(
+                            free_vehicle.selected_gear.value, previous_gear_frame,
+                            contract::GearSelectionPoint{
+                                event.id.value, time_s,
+                                resolve_gear(selection->gear, base + "/payload/gear")},
+                            "gear-selection");
+                    } else if (const auto *clutch =
+                                   std::get_if<authoring::SetClutchEngagementEvent>(
+                                       &event.payload)) {
+                        append_or_replace(
+                            free_vehicle.clutch_engagement_01.value,
+                            previous_clutch_frame,
+                            contract::ScalarControlPoint{event.id.value, time_s,
+                                                         clutch->engagement_01},
+                            "clutch-engagement");
+                    } else if (const auto *brake = std::get_if<
+                                   authoring::SetServiceBrakeApplicationEvent>(
+                                   &event.payload)) {
+                        append_or_replace(
+                            free_vehicle.service_brake_application_01.value,
+                            previous_brake_frame,
+                            contract::ScalarControlPoint{event.id.value, time_s,
+                                                         brake->application_01},
+                            "service-brake");
+                    }
+                }
+
+                const bool brake_requested = std::ranges::any_of(
+                    free_vehicle.service_brake_application_01.value,
+                    [](const auto &point) { return point.value > 0.0; });
+                if (brake_requested &&
+                    !free_vehicle.rig.vehicle.maximum_service_brake_force_n
+                         .has_value()) {
+                    add(authoring::DiagnosticCode::unsupported_capability,
+                        "/mode/initial_service_brake_application_01",
+                        "nonzero service-brake application requires the selected "
+                        "vehicle to declare maximum_service_brake_force");
+                }
+
+                free_vehicle.crank_dynamics_method.value = crank_method;
+                free_vehicle.road_load_method.value = road_load_method;
+                free_vehicle.clutch_coupling_method.value = clutch_method;
+                free_vehicle.drivetrain_dynamics_method.value = drivetrain_method;
+                scenario_.mode = std::move(free_vehicle);
             } else if constexpr (std::is_same_v<T, authoring::HeldSpeedMode>) {
                 const auto speed_rpm = engine_speed_rpm(mode.target_engine_speed,
                                                         "/mode/target_engine_speed");

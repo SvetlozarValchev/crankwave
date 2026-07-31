@@ -221,6 +221,69 @@ void ScenarioResolver::register_provenance() {
                     "scenario.mode.kind"};
                 provenance_.add_derived("scenario.mode.crank_dynamics_method",
                                         mode.crank_dynamics_method.value, dependency);
+            } else if constexpr (std::is_same_v<T, contract::FreeVehicle>) {
+                for (const std::string_view path : {
+                         "scenario.mode.initial_engine_speed_rpm",
+                         "scenario.mode.initial_theta_rad",
+                         "scenario.mode.initial_vehicle_speed_m_s",
+                         "scenario.mode.throttle_01",
+                         "scenario.mode.selected_gear",
+                         "scenario.mode.clutch_engagement_01",
+                         "scenario.mode.service_brake_application_01",
+                     }) {
+                    provenance_.add_authored(std::string{path});
+                }
+
+                const auto &profile =
+                    std::get<contract::LowOrderOperatingPointV1Profile>(
+                        context_.engine.physics_profile);
+                std::vector<std::string> inertia_dependency_storage;
+                inertia_dependency_storage.reserve(
+                    1U + 5U * profile.core.mechanism.cylinders.size());
+                const auto append_dependency = [&](const auto &resolved) {
+                    const auto *record = find_resolution(context_.engine_provenance,
+                                                         resolved.resolution_id);
+                    if (record == nullptr) {
+                        add(authoring::DiagnosticCode::internal_failure, "",
+                            "engine mechanism inertia input has no provenance "
+                            "resolution");
+                        return;
+                    }
+                    inertia_dependency_storage.push_back(record->parameter_path);
+                };
+                append_dependency(
+                    profile.core.mechanism.crank.authored_crank_inertia_kg_m2);
+                for (const auto &cylinder : profile.core.mechanism.cylinders) {
+                    append_dependency(cylinder.parameters.crank_radius_m);
+                    append_dependency(cylinder.parameters.connecting_rod_length_m);
+                    append_dependency(cylinder.parameters.piston_mass_kg);
+                    append_dependency(cylinder.parameters.connecting_rod_mass_kg);
+                    append_dependency(cylinder.parameters.connecting_rod_inertia_kg_m2);
+                }
+                std::vector<std::string_view> inertia_dependencies;
+                inertia_dependencies.reserve(inertia_dependency_storage.size());
+                for (const auto &path : inertia_dependency_storage) {
+                    inertia_dependencies.push_back(path);
+                }
+                provenance_.add_derived(
+                    "scenario.mode.engine_baseline_inertia_kg_m2",
+                    simulation::
+                        centered_slider_crank_cycle_mean_inertia_method_identity(),
+                    inertia_dependencies);
+
+                constexpr std::array<std::string_view, 1> method_dependency{
+                    "scenario.mode.kind"};
+                provenance_.add_derived("scenario.mode.crank_dynamics_method",
+                                        mode.crank_dynamics_method.value,
+                                        method_dependency);
+                provenance_.add_derived("scenario.mode.road_load_method",
+                                        mode.road_load_method.value, method_dependency);
+                provenance_.add_derived("scenario.mode.clutch_coupling_method",
+                                        mode.clutch_coupling_method.value,
+                                        method_dependency);
+                provenance_.add_derived("scenario.mode.drivetrain_dynamics_method",
+                                        mode.drivetrain_dynamics_method.value,
+                                        method_dependency);
             }
         },
         scenario_.mode);
@@ -353,6 +416,26 @@ void ScenarioResolver::bind_resolution_ids() {
                 mode.external_resisting_torque_nm.resolution_id =
                     resolution_id("scenario.mode.external_resisting_torque_nm");
                 bind(mode.crank_dynamics_method, "scenario.mode.crank_dynamics_method");
+            } else if constexpr (std::is_same_v<T, contract::FreeVehicle>) {
+                bind(mode.initial_engine_speed_rpm,
+                     "scenario.mode.initial_engine_speed_rpm");
+                bind(mode.initial_theta_rad, "scenario.mode.initial_theta_rad");
+                bind(mode.engine_baseline_inertia_kg_m2,
+                     "scenario.mode.engine_baseline_inertia_kg_m2");
+                bind(mode.initial_vehicle_speed_m_s,
+                     "scenario.mode.initial_vehicle_speed_m_s");
+                mode.throttle_01.resolution_id =
+                    resolution_id("scenario.mode.throttle_01");
+                bind(mode.selected_gear, "scenario.mode.selected_gear");
+                bind(mode.clutch_engagement_01, "scenario.mode.clutch_engagement_01");
+                bind(mode.service_brake_application_01,
+                     "scenario.mode.service_brake_application_01");
+                bind(mode.crank_dynamics_method, "scenario.mode.crank_dynamics_method");
+                bind(mode.road_load_method, "scenario.mode.road_load_method");
+                bind(mode.clutch_coupling_method,
+                     "scenario.mode.clutch_coupling_method");
+                bind(mode.drivetrain_dynamics_method,
+                     "scenario.mode.drivetrain_dynamics_method");
             }
         },
         scenario_.mode);

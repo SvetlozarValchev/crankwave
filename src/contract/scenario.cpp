@@ -80,6 +80,15 @@ void validate_resolution_id(ValidationReport &report, const std::string &resolut
     }
 }
 
+template <class T>
+void validate_copied_resolved(ValidationReport &report, const ResolvedValue<T> &value,
+                              const ProvenanceLedger &provenance,
+                              const std::string &structural_path,
+                              const std::string &engine_parameter_path) {
+    validate_resolution_id(report, value.resolution_id, provenance,
+                           structural_path + ".resolution_id", engine_parameter_path);
+}
+
 void validate_trajectory(ValidationReport &report, const ScalarTrajectory &trajectory,
                          const ProvenanceLedger &provenance, double total_duration_s,
                          bool unit_interval_values, bool nonnegative_values,
@@ -273,19 +282,26 @@ ValidationReport validate_clock_grid(const RenderScenario &scenario) {
                         "fixed preparation horizon must resolve to an integral "
                         "physics-frame index");
                     if (fixed_horizon.has_value() && audible_start.has_value()) {
-                        const auto *free_engine =
-                            std::get_if<FreeEngine>(&scenario.mode);
-                        const bool warm_free_engine =
-                            free_engine != nullptr &&
-                            free_engine->initial_engine_speed_rpm.value > 0.0;
+                        const double free_motion_initial_rpm = std::visit(
+                            [](const auto &mode) {
+                                using Mode = std::decay_t<decltype(mode)>;
+                                if constexpr (std::is_same_v<Mode, FreeEngine> ||
+                                              std::is_same_v<Mode, FreeVehicle>) {
+                                    return mode.initial_engine_speed_rpm.value;
+                                } else {
+                                    return 0.0;
+                                }
+                            },
+                            scenario.mode);
+                        const bool warm_free_motion = free_motion_initial_rpm > 0.0;
                         require(
                             report,
-                            warm_free_engine ? *fixed_horizon <= *audible_start
+                            warm_free_motion ? *fixed_horizon <= *audible_start
                                              : *fixed_horizon == *audible_start,
                             ContractIssueCode::inconsistent_semantics,
                             "physics.preparation.fixed_preparation_horizon_s",
-                            warm_free_engine
-                                ? "free-engine fixed preparation must end at or before "
+                            warm_free_motion
+                                ? "free-motion fixed preparation must end at or before "
                                   "the audible-start physics frame"
                                 : "fixed preparation horizon must equal the "
                                   "audible-start physics frame");
@@ -388,6 +404,28 @@ ValidationReport validate_clock_grid(const RenderScenario &scenario) {
                     validate_trajectory_grid(
                         mode.external_resisting_torque_nm,
                         "physics.mode.external_resisting_torque_nm");
+                } else if constexpr (std::is_same_v<T, FreeVehicle>) {
+                    validate_trajectory_grid(mode.throttle_01,
+                                             "physics.mode.throttle_01");
+                    const auto validate_control_lane_grid =
+                        [&](const auto &lane, const std::string &path) {
+                            for (std::size_t index = 0; index < lane.value.size();
+                                 ++index) {
+                                resolve_physics_boundary(
+                                    lane.value[index].time_s,
+                                    path + ".value[" + std::to_string(index) +
+                                        "].time_s",
+                                    "control boundary must resolve to an integral "
+                                    "physics-frame index");
+                            }
+                        };
+                    validate_control_lane_grid(mode.selected_gear,
+                                               "physics.mode.selected_gear");
+                    validate_control_lane_grid(mode.clutch_engagement_01,
+                                               "physics.mode.clutch_engagement_01");
+                    validate_control_lane_grid(
+                        mode.service_brake_application_01,
+                        "physics.mode.service_brake_application_01");
                 }
             },
             scenario.mode);
@@ -538,12 +576,20 @@ ValidationReport validate(const RenderScenario &scenario,
                     ContractIssueCode::invalid_value, "preparation",
                     "fixed horizon must be finite and positive, and retained "
                     "cycle capacity must be positive and representable");
-                const auto *free_engine = std::get_if<FreeEngine>(&scenario.mode);
-                const bool warm_free_engine =
-                    free_engine != nullptr &&
-                    free_engine->initial_engine_speed_rpm.value > 0.0;
+                const double free_motion_initial_rpm = std::visit(
+                    [](const auto &mode) {
+                        using Mode = std::decay_t<decltype(mode)>;
+                        if constexpr (std::is_same_v<Mode, FreeEngine> ||
+                                      std::is_same_v<Mode, FreeVehicle>) {
+                            return mode.initial_engine_speed_rpm.value;
+                        } else {
+                            return 0.0;
+                        }
+                    },
+                    scenario.mode);
+                const bool warm_free_motion = free_motion_initial_rpm > 0.0;
                 const bool preparation_boundary_valid =
-                    warm_free_engine
+                    warm_free_motion
                         ? preparation.fixed_preparation_horizon_s.value <=
                               scenario.audible_start_s.value
                         : std::bit_cast<std::uint64_t>(
@@ -553,8 +599,8 @@ ValidationReport validate(const RenderScenario &scenario,
                 require(report, preparation_boundary_valid,
                         ContractIssueCode::inconsistent_semantics,
                         "preparation.fixed_preparation_horizon_s.value",
-                        warm_free_engine
-                            ? "free-engine fixed preparation must end at or before "
+                        warm_free_motion
+                            ? "free-motion fixed preparation must end at or before "
                               "audible start"
                             : "fixed preparation horizon must exactly equal audible "
                               "start");
@@ -576,6 +622,8 @@ ValidationReport validate(const RenderScenario &scenario,
                         } else if constexpr (std::is_same_v<Mode, InertialDyno>) {
                             return mode.initial_engine_speed_rpm.value;
                         } else if constexpr (std::is_same_v<Mode, FreeEngine>) {
+                            return mode.initial_engine_speed_rpm.value;
+                        } else if constexpr (std::is_same_v<Mode, FreeVehicle>) {
                             return mode.initial_engine_speed_rpm.value;
                         } else {
                             return 0.0;
@@ -976,6 +1024,289 @@ ValidationReport validate(const RenderScenario &scenario,
                                   "scenario.mode.crank_dynamics_method");
                 append_prefixed(report, validate(mode.crank_dynamics_method.value),
                                 "mode.crank_dynamics_method");
+            } else if constexpr (std::is_same_v<T, FreeVehicle>) {
+                validate_resolved(report, mode.initial_engine_speed_rpm, provenance,
+                                  "scenario.mode.initial_engine_speed_rpm");
+                validate_resolved(report, mode.initial_theta_rad, provenance,
+                                  "scenario.mode.initial_theta_rad");
+                validate_resolved(report, mode.engine_baseline_inertia_kg_m2,
+                                  provenance,
+                                  "scenario.mode.engine_baseline_inertia_kg_m2");
+                validate_resolved(report, mode.initial_vehicle_speed_m_s, provenance,
+                                  "scenario.mode.initial_vehicle_speed_m_s");
+                require(
+                    report,
+                    finite_nonnegative(mode.initial_engine_speed_rpm.value) &&
+                        !(mode.initial_engine_speed_rpm.value == 0.0 &&
+                          std::signbit(mode.initial_engine_speed_rpm.value)) &&
+                        finite(mode.initial_theta_rad.value) &&
+                        finite_positive(mode.engine_baseline_inertia_kg_m2.value) &&
+                        finite_nonnegative(mode.initial_vehicle_speed_m_s.value) &&
+                        !(mode.initial_vehicle_speed_m_s.value == 0.0 &&
+                          std::signbit(mode.initial_vehicle_speed_m_s.value)),
+                    ContractIssueCode::invalid_value, "mode",
+                    "free vehicle requires canonical nonnegative engine and vehicle "
+                    "speeds, positive engine inertia, and a finite crank angle");
+
+                const auto *sampling =
+                    std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
+                const auto *settling =
+                    std::get_if<FixedSettling>(&scenario.preparation);
+                if (mode.initial_engine_speed_rpm.value > 0.0) {
+                    require(report, sampling != nullptr,
+                            ContractIssueCode::unsupported_value, "preparation",
+                            "positive-speed free vehicle requires fixed-horizon cycle "
+                            "sampling before release");
+                } else {
+                    require(report,
+                            settling != nullptr &&
+                                settling->warm_up_duration_s.value == 0.0 &&
+                                !std::signbit(settling->warm_up_duration_s.value) &&
+                                settling->settling_duration_s.value == 0.0 &&
+                                !std::signbit(settling->settling_duration_s.value) &&
+                                scenario.audible_start_s.value == 0.0 &&
+                                !std::signbit(scenario.audible_start_s.value),
+                            ContractIssueCode::inconsistent_semantics, "preparation",
+                            "zero-speed free vehicle requires canonical zero-duration "
+                            "fixed settling and an immediate canonical-zero audible "
+                            "start");
+                }
+                if (sampling != nullptr) {
+                    require(report,
+                            sampling->fixed_preparation_horizon_s.value <=
+                                scenario.audible_start_s.value,
+                            ContractIssueCode::inconsistent_semantics,
+                            "preparation.fixed_preparation_horizon_s.value",
+                            "free-vehicle release is the fixed preparation horizon and "
+                            "must not follow audible start");
+                }
+
+                const auto &rig = mode.rig;
+                require(report, rig.id.valid(), ContractIssueCode::invalid_value,
+                        "mode.rig.id", "rig runtime ID must be nonzero");
+                validate_copied_resolved(report, rig.semantic_id, provenance,
+                                         "scenario.mode.rig.semantic_id",
+                                         "rig.semantic_id");
+                require(report, is_valid_semantic_id(rig.semantic_id.value),
+                        ContractIssueCode::invalid_value, "mode.rig.semantic_id.value",
+                        "rig semantic ID must be canonical");
+
+                const auto &vehicle = rig.vehicle;
+                require(report, vehicle.id.valid(), ContractIssueCode::invalid_value,
+                        "mode.rig.vehicle.id", "vehicle runtime ID must be nonzero");
+                validate_copied_resolved(report, vehicle.semantic_id, provenance,
+                                         "scenario.mode.rig.vehicle.semantic_id",
+                                         "rig.vehicle.semantic_id");
+                validate_copied_resolved(report, vehicle.mass_kg, provenance,
+                                         "scenario.mode.rig.vehicle.mass_kg",
+                                         "rig.vehicle.mass_kg");
+                validate_copied_resolved(report, vehicle.drag_coefficient, provenance,
+                                         "scenario.mode.rig.vehicle.drag_coefficient",
+                                         "rig.vehicle.drag_coefficient");
+                validate_copied_resolved(report, vehicle.frontal_area_m2, provenance,
+                                         "scenario.mode.rig.vehicle.frontal_area_m2",
+                                         "rig.vehicle.frontal_area_m2");
+                validate_copied_resolved(report, vehicle.differential_ratio, provenance,
+                                         "scenario.mode.rig.vehicle.differential_ratio",
+                                         "rig.vehicle.differential_ratio");
+                validate_copied_resolved(report, vehicle.tire_radius_m, provenance,
+                                         "scenario.mode.rig.vehicle.tire_radius_m",
+                                         "rig.vehicle.tire_radius_m");
+                validate_copied_resolved(
+                    report, vehicle.rolling_resistance_force_n, provenance,
+                    "scenario.mode.rig.vehicle.rolling_resistance_force_n",
+                    "rig.vehicle.rolling_resistance_force_n");
+                if (vehicle.maximum_service_brake_force_n.has_value()) {
+                    validate_copied_resolved(
+                        report, *vehicle.maximum_service_brake_force_n, provenance,
+                        "scenario.mode.rig.vehicle.maximum_service_brake_force_n",
+                        "rig.vehicle.maximum_service_brake_force_n");
+                }
+                require(
+                    report,
+                    is_valid_semantic_id(vehicle.semantic_id.value) &&
+                        finite_positive(vehicle.mass_kg.value) &&
+                        finite_nonnegative(vehicle.drag_coefficient.value) &&
+                        !std::signbit(vehicle.drag_coefficient.value) &&
+                        finite_nonnegative(vehicle.frontal_area_m2.value) &&
+                        !std::signbit(vehicle.frontal_area_m2.value) &&
+                        finite_positive(vehicle.differential_ratio.value) &&
+                        finite_positive(vehicle.tire_radius_m.value) &&
+                        finite_nonnegative(vehicle.rolling_resistance_force_n.value) &&
+                        !std::signbit(vehicle.rolling_resistance_force_n.value) &&
+                        (!vehicle.maximum_service_brake_force_n.has_value() ||
+                         finite_positive(vehicle.maximum_service_brake_force_n->value)),
+                    ContractIssueCode::invalid_value, "mode.rig.vehicle",
+                    "vehicle identity and physical values are outside the admitted "
+                    "forward-vehicle domain");
+
+                const auto &transmission = rig.transmission;
+                require(report, transmission.id.valid(),
+                        ContractIssueCode::invalid_value, "mode.rig.transmission.id",
+                        "transmission runtime ID must be nonzero");
+                validate_copied_resolved(report, transmission.semantic_id, provenance,
+                                         "scenario.mode.rig.transmission.semantic_id",
+                                         "rig.transmission.semantic_id");
+                validate_copied_resolved(
+                    report, transmission.maximum_clutch_torque_nm, provenance,
+                    "scenario.mode.rig.transmission.maximum_clutch_torque_nm",
+                    "rig.transmission.maximum_clutch_torque_nm");
+                require(
+                    report,
+                    is_valid_semantic_id(transmission.semantic_id.value) &&
+                        finite_positive(transmission.maximum_clutch_torque_nm.value),
+                    ContractIssueCode::invalid_value, "mode.rig.transmission",
+                    "transmission identity and maximum clutch torque must be "
+                    "valid and positive");
+                require(report, !transmission.gears.empty(),
+                        ContractIssueCode::missing_value, "mode.rig.transmission.gears",
+                        "free-vehicle transmission requires forward gears");
+                std::unordered_set<std::uint32_t> gear_ids;
+                std::unordered_set<std::string> gear_semantic_ids;
+                for (std::size_t index = 0; index < transmission.gears.size();
+                     ++index) {
+                    const auto &gear = transmission.gears[index];
+                    const auto structural_path =
+                        "scenario.mode.rig.transmission.gears[" +
+                        std::to_string(index) + "]";
+                    const auto source_path =
+                        "rig.transmission.gears." + gear.semantic_id.value;
+                    require(report,
+                            gear.id.valid() && gear_ids.insert(gear.id.value).second,
+                            gear.id.valid() ? ContractIssueCode::duplicate_identity
+                                            : ContractIssueCode::invalid_value,
+                            "mode.rig.transmission.gears[" + std::to_string(index) +
+                                "].id",
+                            "gear runtime IDs must be nonzero and unique");
+                    validate_copied_resolved(report, gear.authored_ordinal, provenance,
+                                             structural_path + ".authored_ordinal",
+                                             source_path + ".authored_ordinal");
+                    validate_copied_resolved(report, gear.semantic_id, provenance,
+                                             structural_path + ".semantic_id",
+                                             source_path + ".semantic_id");
+                    validate_copied_resolved(report, gear.ratio, provenance,
+                                             structural_path + ".ratio",
+                                             source_path + ".ratio");
+                    require(
+                        report,
+                        gear.authored_ordinal.value == index + 1U &&
+                            is_valid_semantic_id(gear.semantic_id.value) &&
+                            gear_semantic_ids.insert(gear.semantic_id.value).second &&
+                            finite_positive(gear.ratio.value),
+                        ContractIssueCode::inconsistent_semantics,
+                        "mode.rig.transmission.gears[" + std::to_string(index) + "]",
+                        "gears must preserve unique canonical identity, one-based "
+                        "authored order, and positive forward ratios");
+                }
+
+                validate_trajectory(report, mode.throttle_01, provenance,
+                                    scenario.total_duration_s.value, true, false,
+                                    "scenario.mode.throttle_01");
+                validate_resolved(report, mode.selected_gear, provenance,
+                                  "scenario.mode.selected_gear");
+                validate_resolved(report, mode.clutch_engagement_01, provenance,
+                                  "scenario.mode.clutch_engagement_01");
+                validate_resolved(report, mode.service_brake_application_01, provenance,
+                                  "scenario.mode.service_brake_application_01");
+
+                const auto validate_lane = [&](const auto &points,
+                                               const std::string &path,
+                                               const auto &validate_value) {
+                    require(report, !points.empty(), ContractIssueCode::missing_value,
+                            path, "right-continuous control lane must not be empty");
+                    for (std::size_t index = 0; index < points.size(); ++index) {
+                        const auto &point = points[index];
+                        const auto point_path =
+                            path + "[" + std::to_string(index) + "]";
+                        require(report, is_valid_semantic_id(point.event_id),
+                                ContractIssueCode::invalid_value,
+                                point_path + ".event_id",
+                                "control event ID must be canonical");
+                        if (!event_ids.insert(point.event_id).second) {
+                            report.add(ContractIssueCode::duplicate_identity,
+                                       point_path + ".event_id",
+                                       "event IDs must be unique across scenario "
+                                       "control lanes");
+                        }
+                        require(report,
+                                finite(point.time_s) && point.time_s >= 0.0 &&
+                                    point.time_s < scenario.total_duration_s.value,
+                                ContractIssueCode::invalid_value,
+                                point_path + ".time_s",
+                                "control time must be finite and precede the final "
+                                "physics step");
+                        if (index == 0U) {
+                            require(report, point.time_s == 0.0,
+                                    ContractIssueCode::inconsistent_semantics,
+                                    point_path + ".time_s",
+                                    "right-continuous control lane must begin at "
+                                    "time zero");
+                        } else {
+                            require(report, point.time_s > points[index - 1U].time_s,
+                                    ContractIssueCode::inconsistent_semantics,
+                                    point_path + ".time_s",
+                                    "control times must be strictly increasing");
+                        }
+                        validate_value(point, point_path);
+                    }
+                };
+                validate_lane(
+                    mode.selected_gear.value, "mode.selected_gear.value",
+                    [&](const GearSelectionPoint &point, const std::string &path) {
+                        require(report,
+                                !point.gear_id.has_value() ||
+                                    gear_ids.contains(point.gear_id->value),
+                                ContractIssueCode::dangling_reference,
+                                path + ".gear_id",
+                                "selected gear must be neutral or name an embedded "
+                                "forward gear");
+                    });
+                validate_lane(
+                    mode.clutch_engagement_01.value, "mode.clutch_engagement_01.value",
+                    [&](const ScalarControlPoint &point, const std::string &path) {
+                        require(report,
+                                detail::unit_interval(point.value) &&
+                                    !std::signbit(point.value),
+                                ContractIssueCode::invalid_value, path + ".value",
+                                "clutch engagement must be canonical and in [0, 1]");
+                    });
+                validate_lane(
+                    mode.service_brake_application_01.value,
+                    "mode.service_brake_application_01.value",
+                    [&](const ScalarControlPoint &point, const std::string &path) {
+                        require(report,
+                                detail::unit_interval(point.value) &&
+                                    !std::signbit(point.value),
+                                ContractIssueCode::invalid_value, path + ".value",
+                                "service-brake application must be canonical and in "
+                                "[0, 1]");
+                    });
+                const bool brake_requested = std::ranges::any_of(
+                    mode.service_brake_application_01.value,
+                    [](const auto &point) { return point.value > 0.0; });
+                require(report,
+                        !brake_requested ||
+                            vehicle.maximum_service_brake_force_n.has_value(),
+                        ContractIssueCode::unsupported_value,
+                        "mode.service_brake_application_01.value",
+                        "nonzero service-brake application requires a declared "
+                        "maximum service-brake force");
+
+                for (const auto &[method, path] :
+                     {std::pair{
+                          &mode.crank_dynamics_method,
+                          std::string_view{"scenario.mode.crank_dynamics_method"}},
+                      std::pair{&mode.road_load_method,
+                                std::string_view{"scenario.mode.road_load_method"}},
+                      std::pair{
+                          &mode.clutch_coupling_method,
+                          std::string_view{"scenario.mode.clutch_coupling_method"}},
+                      std::pair{&mode.drivetrain_dynamics_method,
+                                std::string_view{
+                                    "scenario.mode.drivetrain_dynamics_method"}}}) {
+                    validate_resolved(report, *method, provenance, std::string{path});
+                    append_prefixed(report, validate(method->value), std::string{path});
+                }
             }
         },
         scenario.mode);
@@ -1006,24 +1337,26 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                 if (!std::holds_alternative<HeldSpeed>(scenario.mode) &&
                     !std::holds_alternative<HeldDyno>(scenario.mode) &&
                     !std::holds_alternative<InertialDyno>(scenario.mode) &&
-                    !std::holds_alternative<FreeEngine>(scenario.mode)) {
+                    !std::holds_alternative<FreeEngine>(scenario.mode) &&
+                    !std::holds_alternative<FreeVehicle>(scenario.mode)) {
                     report.add(ContractIssueCode::unsupported_value, "mode",
                                "operating-point v1 admits held-speed, held-dyno, "
-                               "inertial-dyno, and free-engine modes");
+                               "inertial-dyno, free-engine, and free-vehicle modes");
                 }
-                const bool free_engine =
-                    std::holds_alternative<FreeEngine>(scenario.mode);
-                double free_engine_release_s = scenario.audible_start_s.value;
-                if (free_engine) {
+                const bool free_motion =
+                    std::holds_alternative<FreeEngine>(scenario.mode) ||
+                    std::holds_alternative<FreeVehicle>(scenario.mode);
+                double free_motion_release_s = scenario.audible_start_s.value;
+                if (free_motion) {
                     if (const auto *sampling = std::get_if<FixedHorizonCycleSampling>(
                             &scenario.preparation)) {
-                        free_engine_release_s =
+                        free_motion_release_s =
                             sampling->fixed_preparation_horizon_s.value;
                     } else {
-                        free_engine_release_s = 0.0;
+                        free_motion_release_s = 0.0;
                     }
                 }
-                if (!free_engine) {
+                if (!free_motion) {
                     const auto *sampling =
                         std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
                     if (sampling == nullptr) {
@@ -1058,12 +1391,12 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                     std::ranges::all_of(
                         scenario.operating_state.value, [&](const auto &point) {
                             const auto &state = point.state;
-                            if (free_engine) {
+                            if (free_motion) {
                                 return !state.dyno_enabled &&
                                        (!state.starter_enabled ||
                                         (profile.starter.type.value ==
                                              StarterCapabilityType::cranking &&
-                                         point.time_s >= free_engine_release_s));
+                                         point.time_s >= free_motion_release_s));
                             }
                             return state.ignition_enabled && state.fuel_enabled &&
                                    !state.starter_enabled && state.dyno_enabled &&
@@ -1073,8 +1406,8 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                     report.add(
                         ContractIssueCode::inconsistent_semantics,
                         "operating_state.value",
-                        free_engine
-                            ? "free-engine operating-point v1 requires dyno disabled "
+                        free_motion
+                            ? "free-motion operating-point v1 requires dyno disabled "
                               "and permits starter engagement only when the engine "
                               "has a compiled cranking starter and held preparation "
                               "has ended; ignition and fuel may change while the "
@@ -1106,7 +1439,8 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
             Completeness::complete;
     if ((std::holds_alternative<HeldDyno>(scenario.mode) ||
          std::holds_alternative<InertialDyno>(scenario.mode) ||
-         std::holds_alternative<FreeEngine>(scenario.mode)) &&
+         std::holds_alternative<FreeEngine>(scenario.mode) ||
+         std::holds_alternative<FreeVehicle>(scenario.mode)) &&
         (!has_complete_instantaneous_net ||
          !torque_capability.equivalent_inertia_available)) {
         report.add(ContractIssueCode::unsupported_value, "mode",

@@ -154,9 +154,8 @@ void ScenarioResolver::compile_common_fields() {
         request_input_.audible_delivery_frames = *audible_delivery;
     }
 
-    request_input_.authored_initial_engine_speed_rpm =
-        engine_speed_rpm(document_.initial_state.engine_speed,
-                         "/initial_state/engine_speed");
+    request_input_.authored_initial_engine_speed_rpm = engine_speed_rpm(
+        document_.initial_state.engine_speed, "/initial_state/engine_speed");
     initial_theta_rad_ =
         quantity(document_.initial_state.crank_angle,
                  authoring::QuantityDimension::angle, "/initial_state/crank_angle");
@@ -208,10 +207,23 @@ void ScenarioResolver::compile_operating_state() {
         const auto event_path = "/events/" + std::to_string(index);
         const auto *patch = std::get_if<authoring::OperatingStatePatch>(&event.payload);
         if (patch == nullptr) {
+            const bool free_vehicle =
+                std::holds_alternative<authoring::FreeVehicleMode>(document_.mode);
+            const bool drivetrain_event =
+                std::holds_alternative<authoring::SelectGearEvent>(event.payload) ||
+                std::holds_alternative<authoring::SetClutchEngagementEvent>(
+                    event.payload) ||
+                std::holds_alternative<authoring::SetServiceBrakeApplicationEvent>(
+                    event.payload);
+            if (free_vehicle && drivetrain_event) {
+                // FreeVehicle mode compiles these into its three immutable control
+                // lanes. They are not operating-state patches.
+                continue;
+            }
             add(authoring::DiagnosticCode::unsupported_capability,
                 event_path + "/payload/type",
-                "current execution contracts cannot enact gear, clutch, "
-                "monitoring, or lifecycle events");
+                "the selected mode cannot enact this gear, clutch, brake, "
+                "monitoring, or lifecycle event");
             continue;
         }
         if (!contract::is_valid_semantic_id(event.id.value)) {

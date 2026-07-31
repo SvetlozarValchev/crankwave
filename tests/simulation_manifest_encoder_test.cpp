@@ -885,6 +885,139 @@ void test_free_engine_request_wire_shape() {
            "free-engine inertia mutation did not change request identity");
 }
 
+void test_free_vehicle_request_wire_shape() {
+    SimulationFixture fixture;
+    auto &resolved = simulation_inputs(fixture.manifest.content);
+
+    FreeVehicle free_vehicle;
+    free_vehicle.initial_engine_speed_rpm =
+        fixture.builder.resolved(1500.0, "scenario.mode.initial_engine_speed_rpm");
+    free_vehicle.initial_theta_rad =
+        fixture.builder.resolved(0.0, "scenario.mode.initial_theta_rad");
+    free_vehicle.engine_baseline_inertia_kg_m2 =
+        fixture.builder.resolved(0.20, "scenario.mode.engine_baseline_inertia_kg_m2");
+    free_vehicle.initial_vehicle_speed_m_s =
+        fixture.builder.resolved(8.0, "scenario.mode.initial_vehicle_speed_m_s");
+    free_vehicle.rig.id = RigId{20U};
+    free_vehicle.rig.semantic_id =
+        fixture.builder.resolved(std::string{"fixture-rig"}, "rig.semantic_id");
+    free_vehicle.rig.vehicle.id = VehicleId{21U};
+    free_vehicle.rig.vehicle.semantic_id = fixture.builder.resolved(
+        std::string{"fixture-vehicle"}, "rig.vehicle.semantic_id");
+    free_vehicle.rig.vehicle.mass_kg =
+        fixture.builder.resolved(1500.0, "rig.vehicle.mass_kg");
+    free_vehicle.rig.vehicle.drag_coefficient =
+        fixture.builder.resolved(0.30, "rig.vehicle.drag_coefficient");
+    free_vehicle.rig.vehicle.frontal_area_m2 =
+        fixture.builder.resolved(2.10, "rig.vehicle.frontal_area_m2");
+    free_vehicle.rig.vehicle.differential_ratio =
+        fixture.builder.resolved(3.25, "rig.vehicle.differential_ratio");
+    free_vehicle.rig.vehicle.tire_radius_m =
+        fixture.builder.resolved(0.33, "rig.vehicle.tire_radius_m");
+    free_vehicle.rig.vehicle.rolling_resistance_force_n =
+        fixture.builder.resolved(180.0, "rig.vehicle.rolling_resistance_force_n");
+    free_vehicle.rig.vehicle.maximum_service_brake_force_n =
+        fixture.builder.resolved(12000.0, "rig.vehicle.maximum_service_brake_force_n");
+    free_vehicle.rig.transmission.id = TransmissionId{22U};
+    free_vehicle.rig.transmission.semantic_id = fixture.builder.resolved(
+        std::string{"fixture-transmission"}, "rig.transmission.semantic_id");
+    free_vehicle.rig.transmission.maximum_clutch_torque_nm =
+        fixture.builder.resolved(450.0, "rig.transmission.maximum_clutch_torque_nm");
+    free_vehicle.rig.transmission.gears = {
+        {
+            GearId{23U},
+            fixture.builder.resolved(1U,
+                                     "rig.transmission.gears.gear-1.authored_ordinal"),
+            fixture.builder.resolved(std::string{"gear-1"},
+                                     "rig.transmission.gears.gear-1.semantic_id"),
+            fixture.builder.resolved(3.50, "rig.transmission.gears.gear-1.ratio"),
+        },
+        {
+            GearId{24U},
+            fixture.builder.resolved(2U,
+                                     "rig.transmission.gears.gear-2.authored_ordinal"),
+            fixture.builder.resolved(std::string{"gear-2"},
+                                     "rig.transmission.gears.gear-2.semantic_id"),
+            fixture.builder.resolved(2.10, "rig.transmission.gears.gear-2.ratio"),
+        },
+    };
+    free_vehicle.throttle_01 = {
+        TrajectoryInterpolation::right_continuous_hold,
+        {{0.0, 0.2}, {2.0, 0.8}},
+        fixture.builder.add_resolution("scenario.mode.throttle_01"),
+    };
+    free_vehicle.selected_gear = fixture.builder.resolved(
+        std::vector<GearSelectionPoint>{{"initial-gear", 0.0, GearId{23U}},
+                                        {"select-second", 2.25, GearId{24U}}},
+        "scenario.mode.selected_gear");
+    free_vehicle.clutch_engagement_01 = fixture.builder.resolved(
+        std::vector<ScalarControlPoint>{{"initial-clutch-engagement", 0.0, 0.25},
+                                        {"engage-clutch", 2.5, 0.8}},
+        "scenario.mode.clutch_engagement_01");
+    free_vehicle.service_brake_application_01 = fixture.builder.resolved(
+        std::vector<ScalarControlPoint>{{"initial-service-brake-application", 0.0, 0.0},
+                                        {"apply-brake", 2.75, 0.5}},
+        "scenario.mode.service_brake_application_01");
+    free_vehicle.crank_dynamics_method = fixture.builder.resolved(
+        method("free-crank-v1", 70), "scenario.mode.crank_dynamics_method");
+    free_vehicle.road_load_method = fixture.builder.resolved(
+        method("road-load-v1", 71), "scenario.mode.road_load_method");
+    free_vehicle.clutch_coupling_method = fixture.builder.resolved(
+        method("clutch-coupling-v1", 72), "scenario.mode.clutch_coupling_method");
+    free_vehicle.drivetrain_dynamics_method =
+        fixture.builder.resolved(method("drivetrain-dynamics-v1", 73),
+                                 "scenario.mode.drivetrain_dynamics_method");
+    resolved.scenario.mode = std::move(free_vehicle);
+
+    const auto encode = [&](const RenderScenario &scenario) {
+        return require_request_identity_encoding(resolved.engine, scenario,
+                                                 fixture.manifest.content.randomness,
+                                                 fixture.manifest.content.provenance);
+    };
+    const auto first = encode(resolved.scenario);
+    const auto second = encode(resolved.scenario);
+    expect(first == second,
+           "identical free-vehicle requests produced different identity bytes");
+
+    const auto document = as_string(first.bytes);
+    constexpr std::string_view kFreeVehiclePrefix =
+        "\"mode\":{\"kind\":\"free_vehicle\",\"value\":{"
+        "\"initial_engine_speed_rpm\":";
+    expect(
+        document.find(kFreeVehiclePrefix) != std::string::npos &&
+            document.find("\"maximum_service_brake_force_n\":") != std::string::npos &&
+            document.find("\"selected_gear\":") != std::string::npos &&
+            document.find("\"clutch_engagement_01\":") != std::string::npos &&
+            document.find("\"service_brake_application_01\":") != std::string::npos &&
+            document.find("\"drivetrain_dynamics_method\":") != std::string::npos,
+        "free-vehicle request fields were omitted or reordered");
+
+    const auto expect_mutation_changes_identity = [&](auto mutate,
+                                                      std::string_view message) {
+        auto scenario = resolved.scenario;
+        mutate(std::get<FreeVehicle>(scenario.mode));
+        expect(encode(scenario).sha256 != first.sha256, message);
+    };
+    expect_mutation_changes_identity(
+        [](FreeVehicle &mode) {
+            mode.rig.transmission.gears.front().ratio.value += 0.01;
+        },
+        "free-vehicle gear-ratio mutation did not change request identity");
+    expect_mutation_changes_identity(
+        [](FreeVehicle &mode) {
+            mode.selected_gear.value.back().gear_id = GearId{23U};
+        },
+        "free-vehicle gear-selection mutation did not change request identity");
+    expect_mutation_changes_identity(
+        [](FreeVehicle &mode) { mode.clutch_engagement_01.value.back().value = 0.7; },
+        "free-vehicle clutch mutation did not change request identity");
+    expect_mutation_changes_identity(
+        [](FreeVehicle &mode) {
+            mode.service_brake_application_01.value.back().value = 0.4;
+        },
+        "free-vehicle service-brake mutation did not change request identity");
+}
+
 void check_golden_hashes(const GoldenHashes &canonical,
                          const GoldenHashes &customized) {
     bool mismatch = false;
@@ -923,6 +1056,7 @@ int main() {
         const auto customized_hashes = test_customized_direct_wire_shape();
         test_compact_fixed_rate_scenario();
         test_free_engine_request_wire_shape();
+        test_free_vehicle_request_wire_shape();
         check_golden_hashes(canonical_hashes, customized_hashes);
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';

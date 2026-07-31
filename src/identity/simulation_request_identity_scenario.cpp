@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
 #include <variant>
 
@@ -38,6 +39,30 @@ template <class Range, class WriteElement>
 
 [[nodiscard]] bool write_u64(CanonicalJsonWriter &writer, std::uint64_t value) {
     return writer.uint64_hex_value(value);
+}
+
+template <class Id>
+[[nodiscard]] bool write_stable_id(CanonicalJsonWriter &writer, Id id) {
+    if (!id.valid()) {
+        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                           "scenario contains an invalid stable ID");
+    }
+    return writer.uint32_value(id.value);
+}
+
+template <class Id>
+[[nodiscard]] bool write_optional_stable_id(CanonicalJsonWriter &writer,
+                                            const std::optional<Id> &id) {
+    return id.has_value() ? write_stable_id(writer, *id) : writer.null_value();
+}
+
+template <class T, class WriteValue>
+[[nodiscard]] bool
+write_optional_resolved(CanonicalJsonWriter &writer,
+                        const std::optional<contract::ResolvedValue<T>> &value,
+                        WriteValue write_value) {
+    return value.has_value() ? write_resolved(writer, *value, write_value)
+                             : writer.null_value();
 }
 
 [[nodiscard]] bool
@@ -389,6 +414,145 @@ write_load_target(CanonicalJsonWriter &writer,
            writer.end_object();
 }
 
+[[nodiscard]] bool write_forward_gear_spec(CanonicalJsonWriter &writer,
+                                           const contract::ForwardGearSpec &gear) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, gear.id) && writer.key("authored_ordinal") &&
+           write_resolved(writer, gear.authored_ordinal, write_u32) &&
+           writer.key("semantic_id") &&
+           write_resolved(writer, gear.semantic_id, write_string) &&
+           writer.key("ratio") && write_resolved(writer, gear.ratio, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_forward_transmission_spec(CanonicalJsonWriter &writer,
+                                const contract::ForwardTransmissionSpec &transmission) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, transmission.id) && writer.key("semantic_id") &&
+           write_resolved(writer, transmission.semantic_id, write_string) &&
+           writer.key("maximum_clutch_torque_nm") &&
+           write_resolved(writer, transmission.maximum_clutch_torque_nm, write_f64) &&
+           writer.key("gears") &&
+           write_array(
+               writer, transmission.gears,
+               [](CanonicalJsonWriter &output, const contract::ForwardGearSpec &gear) {
+                   return write_forward_gear_spec(output, gear);
+               }) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_forward_vehicle_spec(CanonicalJsonWriter &writer,
+                           const contract::ForwardVehicleSpec &vehicle) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, vehicle.id) && writer.key("semantic_id") &&
+           write_resolved(writer, vehicle.semantic_id, write_string) &&
+           writer.key("mass_kg") &&
+           write_resolved(writer, vehicle.mass_kg, write_f64) &&
+           writer.key("drag_coefficient") &&
+           write_resolved(writer, vehicle.drag_coefficient, write_f64) &&
+           writer.key("frontal_area_m2") &&
+           write_resolved(writer, vehicle.frontal_area_m2, write_f64) &&
+           writer.key("differential_ratio") &&
+           write_resolved(writer, vehicle.differential_ratio, write_f64) &&
+           writer.key("tire_radius_m") &&
+           write_resolved(writer, vehicle.tire_radius_m, write_f64) &&
+           writer.key("rolling_resistance_force_n") &&
+           write_resolved(writer, vehicle.rolling_resistance_force_n, write_f64) &&
+           writer.key("maximum_service_brake_force_n") &&
+           write_optional_resolved(writer, vehicle.maximum_service_brake_force_n,
+                                   write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_free_vehicle_rig(CanonicalJsonWriter &writer,
+                                          const contract::FreeVehicleRig &rig) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, rig.id) && writer.key("semantic_id") &&
+           write_resolved(writer, rig.semantic_id, write_string) &&
+           writer.key("vehicle") && write_forward_vehicle_spec(writer, rig.vehicle) &&
+           writer.key("transmission") &&
+           write_forward_transmission_spec(writer, rig.transmission) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_gear_selection_point(CanonicalJsonWriter &writer,
+                           const contract::GearSelectionPoint &point) {
+    return writer.begin_object() && writer.key("event_id") &&
+           writer.string_value(point.event_id) && writer.key("time_s") &&
+           writer.binary64_bits_value(point.time_s) && writer.key("gear_id") &&
+           write_optional_stable_id(writer, point.gear_id) && writer.end_object();
+}
+
+[[nodiscard]] bool
+write_gear_selection_points(CanonicalJsonWriter &writer,
+                            const std::vector<contract::GearSelectionPoint> &points) {
+    return write_array(
+        writer, points,
+        [](CanonicalJsonWriter &output, const contract::GearSelectionPoint &point) {
+            return write_gear_selection_point(output, point);
+        });
+}
+
+[[nodiscard]] bool
+write_scalar_control_point(CanonicalJsonWriter &writer,
+                           const contract::ScalarControlPoint &point) {
+    return writer.begin_object() && writer.key("event_id") &&
+           writer.string_value(point.event_id) && writer.key("time_s") &&
+           writer.binary64_bits_value(point.time_s) && writer.key("value") &&
+           writer.binary64_bits_value(point.value) && writer.end_object();
+}
+
+[[nodiscard]] bool
+write_scalar_control_points(CanonicalJsonWriter &writer,
+                            const std::vector<contract::ScalarControlPoint> &points) {
+    return write_array(
+        writer, points,
+        [](CanonicalJsonWriter &output, const contract::ScalarControlPoint &point) {
+            return write_scalar_control_point(output, point);
+        });
+}
+
+[[nodiscard]] bool write_free_vehicle(CanonicalJsonWriter &writer,
+                                      const contract::FreeVehicle &free_vehicle) {
+    return writer.begin_object() && writer.key("initial_engine_speed_rpm") &&
+           write_resolved(writer, free_vehicle.initial_engine_speed_rpm, write_f64) &&
+           writer.key("initial_theta_rad") &&
+           write_resolved(writer, free_vehicle.initial_theta_rad, write_f64) &&
+           writer.key("engine_baseline_inertia_kg_m2") &&
+           write_resolved(writer, free_vehicle.engine_baseline_inertia_kg_m2,
+                          write_f64) &&
+           writer.key("initial_vehicle_speed_m_s") &&
+           write_resolved(writer, free_vehicle.initial_vehicle_speed_m_s, write_f64) &&
+           writer.key("rig") && write_free_vehicle_rig(writer, free_vehicle.rig) &&
+           writer.key("throttle_01") &&
+           write_scalar_trajectory(writer, free_vehicle.throttle_01) &&
+           writer.key("selected_gear") &&
+           write_resolved(writer, free_vehicle.selected_gear,
+                          write_gear_selection_points) &&
+           writer.key("clutch_engagement_01") &&
+           write_resolved(writer, free_vehicle.clutch_engagement_01,
+                          write_scalar_control_points) &&
+           writer.key("service_brake_application_01") &&
+           write_resolved(writer, free_vehicle.service_brake_application_01,
+                          write_scalar_control_points) &&
+           writer.key("crank_dynamics_method") &&
+           write_resolved(writer, free_vehicle.crank_dynamics_method,
+                          write_method_identity) &&
+           writer.key("road_load_method") &&
+           write_resolved(writer, free_vehicle.road_load_method,
+                          write_method_identity) &&
+           writer.key("clutch_coupling_method") &&
+           write_resolved(writer, free_vehicle.clutch_coupling_method,
+                          write_method_identity) &&
+           writer.key("drivetrain_dynamics_method") &&
+           write_resolved(writer, free_vehicle.drivetrain_dynamics_method,
+                          write_method_identity) &&
+           writer.end_object();
+}
+
 [[nodiscard]] bool write_scenario_mode(CanonicalJsonWriter &writer,
                                        const contract::ScenarioMode &mode) {
     if (!writer.begin_object() || !writer.key("kind")) {
@@ -424,6 +588,11 @@ write_load_target(CanonicalJsonWriter &writer,
     } else if (const auto *free_engine = std::get_if<contract::FreeEngine>(&mode)) {
         if (!writer.string_value("free_engine") || !writer.key("value") ||
             !write_free_engine(writer, *free_engine)) {
+            return false;
+        }
+    } else if (const auto *free_vehicle = std::get_if<contract::FreeVehicle>(&mode)) {
+        if (!writer.string_value("free_vehicle") || !writer.key("value") ||
+            !write_free_vehicle(writer, *free_vehicle)) {
             return false;
         }
     } else {

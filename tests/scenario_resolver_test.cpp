@@ -3,6 +3,7 @@
 #include "contract_test_support.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/free_engine_method_registry.hpp"
+#include "simulation/free_vehicle_method_registry.hpp"
 
 #include <array>
 #include <cmath>
@@ -142,6 +143,48 @@ void test_held_speed_resolution_on_the_integer_clock() {
     engine.provenance_schema_id = compiler_schema;
     presentation.provenance_schema_id = compiler_schema;
 
+    compile::ResolvedRigDescriptor rig;
+    rig.runtime_id = 10U;
+    rig.semantic_id = builder.resolved(std::string{"fixture-rig"}, "rig.semantic_id");
+    rig.vehicle.emplace();
+    rig.vehicle->runtime_id = 11U;
+    rig.vehicle->semantic_id =
+        builder.resolved(std::string{"fixture-vehicle"}, "rig.vehicle.semantic_id");
+    rig.vehicle->mass_kg = builder.resolved(1500.0, "rig.vehicle.mass_kg");
+    rig.vehicle->drag_coefficient =
+        builder.resolved(0.30, "rig.vehicle.drag_coefficient");
+    rig.vehicle->frontal_area_m2 =
+        builder.resolved(2.10, "rig.vehicle.frontal_area_m2");
+    rig.vehicle->differential_ratio =
+        builder.resolved(3.25, "rig.vehicle.differential_ratio");
+    rig.vehicle->tire_radius_m = builder.resolved(0.33, "rig.vehicle.tire_radius_m");
+    rig.vehicle->rolling_resistance_force_n =
+        builder.resolved(180.0, "rig.vehicle.rolling_resistance_force_n");
+    rig.vehicle->maximum_service_brake_force_n =
+        builder.resolved(12000.0, "rig.vehicle.maximum_service_brake_force_n");
+    rig.transmission.emplace();
+    rig.transmission->runtime_id = 12U;
+    rig.transmission->semantic_id = builder.resolved(
+        std::string{"fixture-transmission"}, "rig.transmission.semantic_id");
+    rig.transmission->maximum_clutch_torque_nm =
+        builder.resolved(450.0, "rig.transmission.maximum_clutch_torque_nm");
+    rig.transmission->gears = {
+        {
+            13U,
+            builder.resolved(1U, "rig.transmission.gears.gear-1.authored_ordinal"),
+            builder.resolved(std::string{"gear-1"},
+                             "rig.transmission.gears.gear-1.semantic_id"),
+            builder.resolved(3.50, "rig.transmission.gears.gear-1.ratio"),
+        },
+        {
+            14U,
+            builder.resolved(2U, "rig.transmission.gears.gear-2.authored_ordinal"),
+            builder.resolved(std::string{"gear-2"},
+                             "rig.transmission.gears.gear-2.semantic_id"),
+            builder.resolved(2.10, "rig.transmission.gears.gear-2.ratio"),
+        },
+    };
+
     const auto &profile =
         std::get<contract::LowOrderOperatingPointV1Profile>(engine.physics_profile);
     const compile::ResolvedFuelDescriptor fuel{
@@ -176,7 +219,7 @@ void test_held_speed_resolution_on_the_integer_clock() {
     const auto document = held_speed_scenario(engine.engine_id.value, fuel.authored_id);
     const compile::ScenarioResolverContext context{
         engine,
-        nullptr,
+        &rig,
         presentation,
         randomness,
         builder.provenance,
@@ -330,6 +373,128 @@ void test_held_speed_resolution_on_the_integer_clock() {
                std::get<compile::ResolvedScenarioContracts>(repeated_free_engine) ==
                    free_engine_contracts,
            "identical authored free-engine scenario did not resolve deterministically");
+
+    auto free_vehicle_document = document;
+    free_vehicle_document.id.value = "resolver.free-vehicle";
+    free_vehicle_document.initial_state.dyno_enabled = false;
+    free_vehicle_document.initial_state.limiter_enabled = true;
+    authoring::FreeVehicleMode authored_free_vehicle;
+    authored_free_vehicle.rig.value = "fixture-rig";
+    authored_free_vehicle.initial_gear = authoring::GearRef{"gear-1"};
+    authored_free_vehicle.initial_vehicle_speed = quantity(10.0, "m/s");
+    authored_free_vehicle.initial_clutch_engagement_01 = 0.25;
+    authored_free_vehicle.initial_service_brake_application_01 = 0.0;
+    authored_free_vehicle.throttle_01.interpolation =
+        authoring::TrajectoryInterpolation::right_continuous_hold;
+    authored_free_vehicle.throttle_01.points = {
+        {quantity(0.0, "s"), 0.2},
+        {quantity(2.0, "s"), 0.8},
+    };
+    free_vehicle_document.mode = authored_free_vehicle;
+    free_vehicle_document.events = {
+        {authoring::ScenarioEventId{"select-second"}, quantity(2.25, "s"),
+         authoring::SelectGearEvent{authoring::GearRef{"gear-2"}}},
+        {authoring::ScenarioEventId{"engage-clutch"}, quantity(2.5, "s"),
+         authoring::SetClutchEngagementEvent{0.8}},
+        {authoring::ScenarioEventId{"apply-brake"}, quantity(2.75, "s"),
+         authoring::SetServiceBrakeApplicationEvent{0.5}},
+    };
+
+    auto free_vehicle_result =
+        compile::resolve_scenario_document(free_vehicle_document, context);
+    if (const auto *report =
+            std::get_if<authoring::DiagnosticReport>(&free_vehicle_result)) {
+        const auto message =
+            report->diagnostics.empty()
+                ? std::string{"free-vehicle resolver returned an empty diagnostic"}
+                : report->diagnostics.front().json_pointer + ": " +
+                      report->diagnostics.front().message;
+        throw std::runtime_error{message};
+    }
+    const auto &free_vehicle_contracts =
+        std::get<compile::ResolvedScenarioContracts>(free_vehicle_result);
+    const auto &free_vehicle =
+        std::get<contract::FreeVehicle>(free_vehicle_contracts.scenario.mode);
+    expect(free_vehicle.rig.id.value == rig.runtime_id &&
+               free_vehicle.rig.semantic_id == rig.semantic_id &&
+               free_vehicle.rig.vehicle.mass_kg == rig.vehicle->mass_kg &&
+               free_vehicle.rig.vehicle.maximum_service_brake_force_n ==
+                   rig.vehicle->maximum_service_brake_force_n &&
+               free_vehicle.rig.transmission.maximum_clutch_torque_nm ==
+                   rig.transmission->maximum_clutch_torque_nm &&
+               free_vehicle.rig.transmission.gears[1].ratio ==
+                   rig.transmission->gears[1].ratio,
+           "free-vehicle resolver did not retain engine-owned rig values and "
+           "provenance IDs verbatim");
+    expect(
+        free_vehicle.initial_vehicle_speed_m_s.value == 10.0 &&
+            free_vehicle.selected_gear.value.size() == 2U &&
+            free_vehicle.selected_gear.value.front().gear_id == contract::GearId{13U} &&
+            free_vehicle.selected_gear.value.back().gear_id == contract::GearId{14U} &&
+            free_vehicle.clutch_engagement_01.value.size() == 2U &&
+            free_vehicle.clutch_engagement_01.value.back().value == 0.8 &&
+            free_vehicle.service_brake_application_01.value.size() == 2U &&
+            free_vehicle.service_brake_application_01.value.back().value == 0.5,
+        "free-vehicle initial state or right-continuous control lanes changed "
+        "during resolution");
+    expect(free_vehicle.drivetrain_dynamics_method.value ==
+                   engine_sim_offline::simulation::
+                       bounded_forward_vehicle_drivetrain_method_identity() &&
+               contract::validate(free_vehicle_contracts.scenario,
+                                  free_vehicle_contracts.combined_provenance)
+                   .ok(),
+           "free-vehicle resolver did not bind the exact coupled method or a valid "
+           "self-contained contract");
+    auto repeated_free_vehicle =
+        compile::resolve_scenario_document(free_vehicle_document, context);
+    expect(std::holds_alternative<compile::ResolvedScenarioContracts>(
+               repeated_free_vehicle) &&
+               std::get<compile::ResolvedScenarioContracts>(repeated_free_vehicle) ==
+                   free_vehicle_contracts,
+           "identical authored free-vehicle scenario did not resolve "
+           "deterministically");
+
+    auto rig_without_brake = rig;
+    rig_without_brake.vehicle->maximum_service_brake_force_n.reset();
+    const compile::ScenarioResolverContext no_brake_context{
+        engine,
+        &rig_without_brake,
+        presentation,
+        randomness,
+        builder.provenance,
+        std::span<const compile::ResolvedFuelDescriptor>{&fuel, 1U},
+        buses,
+        {},
+        contract::DistributionIntent::local_evaluation,
+        {},
+    };
+    const auto no_brake_result =
+        compile::resolve_scenario_document(free_vehicle_document, no_brake_context);
+    const auto *no_brake_report =
+        std::get_if<authoring::DiagnosticReport>(&no_brake_result);
+    expect(no_brake_report != nullptr &&
+               has_diagnostic(*no_brake_report,
+                              authoring::DiagnosticCode::unsupported_capability,
+                              "/mode/initial_service_brake_application_01"),
+           "nonzero service-brake lane was accepted without a brake actuator");
+
+    auto negative_zero_controls = free_vehicle_document;
+    auto &negative_zero_mode =
+        std::get<authoring::FreeVehicleMode>(negative_zero_controls.mode);
+    negative_zero_mode.initial_clutch_engagement_01 = -0.0;
+    negative_zero_mode.initial_service_brake_application_01 = -0.0;
+    const auto negative_zero_controls_result =
+        compile::resolve_scenario_document(negative_zero_controls, context);
+    const auto *negative_zero_controls_report =
+        std::get_if<authoring::DiagnosticReport>(&negative_zero_controls_result);
+    expect(negative_zero_controls_report != nullptr &&
+               has_diagnostic(*negative_zero_controls_report,
+                              authoring::DiagnosticCode::invalid_value,
+                              "/mode/clutch_engagement_01/0") &&
+               has_diagnostic(*negative_zero_controls_report,
+                              authoring::DiagnosticCode::invalid_value,
+                              "/mode/service_brake_application_01/0"),
+           "negative-zero clutch or service-brake control reached execution");
 
     auto negative_resistance = free_engine_document;
     std::get<authoring::FreeEngineMode>(negative_resistance.mode)

@@ -627,6 +627,10 @@ scenario-mode =
   {
     "kind": "free_engine",
     "value": free-engine
+  } /
+  {
+    "kind": "free_vehicle",
+    "value": free-vehicle
   }
 
 held-speed = {
@@ -681,6 +685,71 @@ free-engine = {
   "throttle_01": scalar-trajectory,
   "external_resisting_torque_nm": scalar-trajectory,
   "crank_dynamics_method": resolved<method-identity>
+}
+
+free-vehicle = {
+  "initial_engine_speed_rpm": resolved<f64-bits>,
+  "initial_theta_rad": resolved<f64-bits>,
+  "engine_baseline_inertia_kg_m2": resolved<f64-bits>,
+  "initial_vehicle_speed_m_s": resolved<f64-bits>,
+  "rig": free-vehicle-rig,
+  "throttle_01": scalar-trajectory,
+  "selected_gear": resolved<gear-selection-point-array>,
+  "clutch_engagement_01": resolved<scalar-control-point-array>,
+  "service_brake_application_01": resolved<scalar-control-point-array>,
+  "crank_dynamics_method": resolved<method-identity>,
+  "road_load_method": resolved<method-identity>,
+  "clutch_coupling_method": resolved<method-identity>,
+  "drivetrain_dynamics_method": resolved<method-identity>
+}
+
+free-vehicle-rig = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>,
+  "vehicle": forward-vehicle-spec,
+  "transmission": forward-transmission-spec
+}
+
+forward-vehicle-spec = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>,
+  "mass_kg": resolved<f64-bits>,
+  "drag_coefficient": resolved<f64-bits>,
+  "frontal_area_m2": resolved<f64-bits>,
+  "differential_ratio": resolved<f64-bits>,
+  "tire_radius_m": resolved<f64-bits>,
+  "rolling_resistance_force_n": resolved<f64-bits>,
+  "maximum_service_brake_force_n": resolved<f64-bits> / null
+}
+
+forward-transmission-spec = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>,
+  "maximum_clutch_torque_nm": resolved<f64-bits>,
+  "gears": [* forward-gear-spec]
+}
+
+forward-gear-spec = {
+  "id": stable-id,
+  "authored_ordinal": resolved<u32>,
+  "semantic_id": resolved<tstr>,
+  "ratio": resolved<f64-bits>
+}
+
+gear-selection-point-array = [* gear-selection-point]
+
+gear-selection-point = {
+  "event_id": tstr,
+  "time_s": f64-bits,
+  "gear_id": stable-id / null
+}
+
+scalar-control-point-array = [* scalar-control-point]
+
+scalar-control-point = {
+  "event_id": tstr,
+  "time_s": f64-bits,
+  "value": f64-bits
 }
 
 brake-torque-point = {

@@ -4,6 +4,7 @@
 #include "engine_sim_offline/contract/provenance.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -228,8 +229,98 @@ struct FreeEngine {
     friend bool operator==(const FreeEngine &, const FreeEngine &) = default;
 };
 
-using ScenarioMode = std::variant<HeldSpeed, PrescribedKinematicSweep, HeldDyno,
-                                  LoadTargetHeldCapture, InertialDyno, FreeEngine>;
+struct ForwardGearSpec {
+    GearId id;
+    // One-based authored order. Neutral is not a gear entry.
+    ResolvedValue<std::uint32_t> authored_ordinal;
+    ResolvedValue<std::string> semantic_id;
+    ResolvedValue<double> ratio;
+
+    friend bool operator==(const ForwardGearSpec &, const ForwardGearSpec &) = default;
+};
+
+struct ForwardTransmissionSpec {
+    TransmissionId id;
+    ResolvedValue<std::string> semantic_id;
+    ResolvedValue<double> maximum_clutch_torque_nm;
+    // Authored forward-gear order is executable product data.
+    std::vector<ForwardGearSpec> gears;
+
+    friend bool operator==(const ForwardTransmissionSpec &,
+                           const ForwardTransmissionSpec &) = default;
+};
+
+struct ForwardVehicleSpec {
+    VehicleId id;
+    ResolvedValue<std::string> semantic_id;
+    ResolvedValue<double> mass_kg;
+    ResolvedValue<double> drag_coefficient;
+    ResolvedValue<double> frontal_area_m2;
+    ResolvedValue<double> differential_ratio;
+    ResolvedValue<double> tire_radius_m;
+    ResolvedValue<double> rolling_resistance_force_n;
+    // Missing means that this rig has no service-brake actuator.
+    std::optional<ResolvedValue<double>> maximum_service_brake_force_n;
+
+    friend bool operator==(const ForwardVehicleSpec &,
+                           const ForwardVehicleSpec &) = default;
+};
+
+struct FreeVehicleRig {
+    RigId id;
+    ResolvedValue<std::string> semantic_id;
+    ForwardVehicleSpec vehicle;
+    ForwardTransmissionSpec transmission;
+
+    friend bool operator==(const FreeVehicleRig &, const FreeVehicleRig &) = default;
+};
+
+struct GearSelectionPoint {
+    std::string event_id;
+    double time_s = 0.0;
+    // Null is neutral; a value names one entry in rig.transmission.gears.
+    std::optional<GearId> gear_id;
+
+    friend bool operator==(const GearSelectionPoint &,
+                           const GearSelectionPoint &) = default;
+};
+
+struct ScalarControlPoint {
+    std::string event_id;
+    double time_s = 0.0;
+    double value = 0.0;
+
+    friend bool operator==(const ScalarControlPoint &,
+                           const ScalarControlPoint &) = default;
+};
+
+struct FreeVehicle {
+    ResolvedValue<double> initial_engine_speed_rpm;
+    ResolvedValue<double> initial_theta_rad;
+    ResolvedValue<double> engine_baseline_inertia_kg_m2;
+    ResolvedValue<double> initial_vehicle_speed_m_s;
+    // The selected engine-owned rig is copied into the immutable scenario. Its
+    // ResolvedValue leaves retain their original engine-provenance resolution IDs.
+    FreeVehicleRig rig;
+    ScalarTrajectory throttle_01;
+    // All three lanes are right-continuous, start at time zero, and apply at the
+    // left boundary of the corresponding physics step.
+    ResolvedValue<std::vector<GearSelectionPoint>> selected_gear;
+    ResolvedValue<std::vector<ScalarControlPoint>> clutch_engagement_01;
+    ResolvedValue<std::vector<ScalarControlPoint>> service_brake_application_01;
+    ResolvedValue<MethodIdentity> crank_dynamics_method;
+    ResolvedValue<MethodIdentity> road_load_method;
+    ResolvedValue<MethodIdentity> clutch_coupling_method;
+    // Identifies the exact bounded coupled solve, including row order and
+    // iteration count; the primitive method identities above identify its rows.
+    ResolvedValue<MethodIdentity> drivetrain_dynamics_method;
+
+    friend bool operator==(const FreeVehicle &, const FreeVehicle &) = default;
+};
+
+using ScenarioMode =
+    std::variant<HeldSpeed, PrescribedKinematicSweep, HeldDyno, LoadTargetHeldCapture,
+                 InertialDyno, FreeEngine, FreeVehicle>;
 
 struct RenderQuality {
     std::string profile_id;
