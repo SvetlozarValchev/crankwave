@@ -157,9 +157,9 @@ The clean runtime does not need to reproduce that defect, unrelated solver drift
 GUI polling. It must declare one causal left-boundary operation order and keep control
 projection, telemetry, and offline/WASM execution identical at that boundary.
 
-## Slice-12 boundary
+## Slice-12 implementation boundary
 
-Slice 12 will implement this in separately reviewable changes:
+Slice 12 implements this in separately reviewable changes:
 
 1. forward vehicle state plus passive rolling and aerodynamic load;
 2. an explicitly parameterized, one-sided service brake as a greenfield extension;
