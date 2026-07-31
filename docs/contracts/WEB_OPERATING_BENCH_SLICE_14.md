@@ -1,10 +1,14 @@
 # Web operating bench — slice 14
 
-Status: frozen implementation contract
+Status: implemented and frozen on 2026-07-31
 
 Scope: turn the slice-13 native/C ABI/WASM/Worker operating surface into a usable
 browser bench without changing session physics, lifetime, audio routing, DSP, or WAV
 publication.
+
+Implementation chain: contract `755e5f6`; grouped repository procedures `a3b7ca5`;
+descriptor-driven controls and telemetry `c3c2563`; finite-procedure lifecycle
+`4f43eb3`.
 
 ## 1. One backend remains authoritative
 
@@ -72,7 +76,7 @@ or in another mode, unavailable sidecars render as unavailable rather than zero.
 
 ## 6. Gate
 
-The slice passes when the actual fixed-memory WASM workbench demonstrates:
+Passed. The actual fixed-memory WASM workbench demonstrates:
 
 - the three named BMW procedures compile from repository JSON;
 - mode and lifetime labels come from the descriptor;
@@ -83,3 +87,17 @@ The slice passes when the actual fixed-memory WASM workbench demonstrates:
 - finite completion offers a fresh run and FreeEngine still pauses/resumes continuously;
 - the existing canonical browser WAV hash, zero-startup-underrun gate, native/WASM
   parity bounds, and six accepted held-dyno/vehicle WAV hashes remain unchanged.
+
+The browser gate loads all three BMW procedures, identifies HeldDyno and FreeVehicle
+from their descriptors, renders neutral plus five ordered gears, submits
+`3200 RPM / 800 N·m / 0 N·m` as one dyno batch, and submits second gear, 50% clutch,
+and 25% service brake as one drivetrain batch. Returned sidecars report the applied
+values. The finite launch reaches **Procedure complete**, then **Run again** starts a
+fresh session. The canonical browser WAV remains 3,840,056 bytes with SHA-256
+`2972cdad90d08d31ddfac3ca99a4efcda93a15db637d93abc2b7844085c3e4b2`, and the
+workbench reports zero startup underruns.
+
+No renderer source, engine/scenario data, C ABI, WASM core, Worker protocol, or audio
+code changed in slice 14. The renderer source closure is therefore identical to the
+slice-13 production proof, which reproduced all six accepted HeldDyno/FreeVehicle WAV
+hashes byte-for-byte.

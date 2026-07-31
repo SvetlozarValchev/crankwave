@@ -51,9 +51,11 @@ hardware, while resolving crank RPM from engine torque and engine-owned inertia.
 Finite held-dyno sessions admit throttle, ignition, fuel, target RPM, and separate
 maximum absorbing and driving torques. Finite free-vehicle sessions admit throttle,
 ignition, fuel, limiter, selected gear, and clutch, plus starter and service brake only
-when their compiled hardware exists. The visible full dyno/drivetrain bench and named
-procedures remain the next UI slice; JavaScript does not synthesize their physics. A
-`free_engine` scenario may add
+when their compiled hardware exists. The workbench renders those controls only when the
+descriptor admits them, populates gears from the published inventory, displays the
+returned dyno/vehicle sidecars, and groups repository scenarios into named procedures.
+FreeEngine remains continuous; finite procedures complete normally and offer a fresh
+replay. JavaScript does not synthesize their physics. A `free_engine` scenario may add
 `attached_inertia` and an `external_resisting_torque` trajectory; omission of either
 means canonical positive zero. The compiler derives the engine baseline with the
 versioned cycle-mean centered slider-crank kinetic-energy method, adds any attached

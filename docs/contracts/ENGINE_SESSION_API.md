@@ -877,21 +877,24 @@ The implemented workbench provides:
   diagnostics;
 - engine/scenario identity, current dirty/rebuild state, selected publication bus, and
   the exact capabilities reported by the compiled session;
-- capability-gated throttle, ignition, fuel, momentary starter, limiter, and
-  external-resisting-torque controls;
-- start, stop, and restart actions, where stop pauses the current open-ended session,
-  start resumes it, and restart creates fresh mutable state;
-- RPM, torque, power, recent telemetry trace, simulation realtime factor, measured
-  worker lead, ring fill, and real callback-underrun counters;
+- capability-gated throttle, ignition, fuel, momentary starter, limiter, FreeEngine
+  external resistance, HeldDyno target/limits, and FreeVehicle gear/clutch/brake
+  controls; related dyno and drivetrain values use atomic Worker batches;
+- continuous FreeEngine start/stop/restart actions and mode-aware finite-procedure
+  run/pause/fresh-replay actions;
+- RPM, torque, power, recent telemetry trace, returned HeldDyno/FreeVehicle state,
+  simulation realtime factor, measured worker lead, ring fill, and real
+  callback-underrun counters;
 - deterministic downloadable Float32 WAV export of the authored finite capture from a
   fresh `finite_scenario` session using the same C ABI.
 
-The slice-13 backend and Worker publish held-dyno and drivetrain controls, but the
-visible workbench intentionally retains its existing widgets. The full held-dyno and
-vehicle bench, gear/clutch/brake widgets, and named procedures belong to slice 14. The
-UI does not invent imposed-RPM/load controls, display fake per-bus meters, or mutate
-structural JSON directly inside a running solver. Route selection creates a fresh
-session. Structural edits become active only after an explicit successful rebuild.
+The workbench groups repository scenarios by engine and includes the accepted BMW
+held-dyno pull/lift, vehicle launch/shift, and fifth-gear pull/lift procedures. It
+renders its explicit mode from the descriptor and its neutral/forward options from the
+published gear inventory. The UI does not invent imposed-RPM/load controls, display
+fake per-bus meters, or mutate structural JSON directly inside a running solver. Route
+selection creates a fresh session. Structural edits become active only after an
+explicit successful rebuild.
 
 The full browser gate compiles the BMW fixture, exports the complete authored
 warm-running free-rev capture, starts and primes open-ended playback, applies throttle,
@@ -903,14 +906,19 @@ sessions. It verifies capability masks `455` and `3631`, the five BMW forward ge
 three-command atomic batch, null preparation sidecars, populated released sidecars,
 and rejection of an invalid-gear batch without partial admission.
 
+The slice-14 UI gate applies one three-value dyno batch and one three-value drivetrain
+batch, observes the exact returned sidecars, lets the finite vehicle procedure complete,
+and starts a fresh replay. The existing canonical browser WAV hash remains unchanged.
+
 ## 14. Implementation order
 
 The authoritative execution sequence is [`PLAN.md`](../../PLAN.md). The native
 session/bake cutover is checkpoint 8; C ABI and WASM are checkpoint 9; the
 Worker/ring/AudioWorklet transport and initial workbench are checkpoint 10; and the
 operating-mode/control/telemetry publication is slice 13. All are implemented and
-sealed. Slice 14 is the visible full operating bench and named procedures. Later
-control capabilities remain fail-closed until individually implemented.
+sealed. Slice 14 adds the visible full operating bench and named procedures. Slice 15
+owns the wider canonical capture-procedure library. Later control capabilities remain
+fail-closed until individually implemented.
 
 Each step preserves one implementation path. No temporary browser synthesizer,
 pre-recorded engine loop, or compatibility parser becomes a production dependency.

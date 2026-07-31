@@ -1,12 +1,12 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — portable operating-bench transport complete
+Status: active — browser operating bench complete
 
 Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-31
 
-Current checkpoint: **slice 14 — full operating bench and named procedures**
+Current checkpoint: **slice 15 — canonical unpaced capture procedures**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -590,7 +590,7 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--13 are executable and accepted. Slice 12's pristine
+Current progress: slices 1--14 are executable and accepted. Slice 12's pristine
 vehicle/transmission equations and explicit non-parity service-brake boundary are
 frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md`](docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md).
@@ -641,6 +641,17 @@ through Worker protocol v2. Native, C, WASM parity, and full browser gates pass.
 clean-Release renders of the accepted held-dyno, launch/shift, and fifth-gear fixtures
 retain all six raw/audition WAV hashes byte-for-byte. Slice 14 now owns the visible full
 operating bench and named procedures.
+
+Slice 14 turns that exact backend into a visible capability-driven bench without
+changing lifetime, physics, or audio. Commit `a3b7ca5` groups the existing repository
+procedures and adds the accepted BMW held-dyno, launch/shift, and fifth-gear runs;
+`c3c2563` adds descriptor-gated dyno/drivetrain controls plus mode-owned telemetry;
+and `4f43eb3` distinguishes the continuous FreeEngine bench from finite procedures and
+fresh replay. The actual WASM UI gate applies atomic dyno and drivetrain batches,
+observes their returned sidecars, completes and replays a finite vehicle procedure,
+retains the canonical browser WAV hash, and reports zero startup underruns. The frozen
+contract and evidence are in
+[`docs/contracts/WEB_OPERATING_BENCH_SLICE_14.md`](docs/contracts/WEB_OPERATING_BENCH_SLICE_14.md).
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
 and mastering unchanged. Listen immediately after the one intended behavior changes;

@@ -98,8 +98,10 @@ exposes throttle, ignition, fuel, limiter, ordered gear, and clutch, plus starte
 service brake only when their hardware exists. Only `free_engine` is open-ended.
 Live prescribed/external-RPM following and motion-mode transitions remain future
 capabilities. Preview is still realtime audio: the same block processor runs ahead of
-the audio device rather than tying simulation steps to UI frames. Full dyno and
-drivetrain widgets and named procedures remain separate workbench work.
+the audio device rather than tying simulation steps to UI frames. The workbench now
+renders descriptor-gated dyno/drivetrain widgets, returned mode telemetry, and grouped
+named procedures. FreeEngine uses continuous start/stop/restart; finite modes use
+run/pause/fresh-replay semantics and are never silently looped.
 
 ## Authoring, units, curves, and graph semantics
 
