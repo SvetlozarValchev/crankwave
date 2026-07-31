@@ -4,6 +4,7 @@
 #include "simulation/cycle_accounting_method_registry.hpp"
 #include "simulation/engine_sim_v1_transient_friction.hpp"
 #include "simulation/free_engine_method_registry.hpp"
+#include "simulation/free_vehicle_method_registry.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 
@@ -65,6 +66,24 @@ void require_release_or_later_boundaries(ValidationReport &report,
     }
 }
 
+template <typename Point>
+void require_release_or_later_control_boundaries(ValidationReport &report,
+                                                 const std::vector<Point> &points,
+                                                 const contract::RationalRateHz &rate,
+                                                 std::uint64_t release_frame,
+                                                 const std::string &path,
+                                                 const std::string &lane_name) {
+    for (std::size_t index = 1; index < points.size(); ++index) {
+        const auto boundary = contract::resolve_frame_index(points[index].time_s, rate);
+        require(report, boundary.has_value() && *boundary >= release_frame,
+                ContractIssueCode::unsupported_value,
+                path + ".value[" + std::to_string(index) + "].time_s",
+                lane_name +
+                    " transitions must occur at or after the fixed held-preparation "
+                    "release frame");
+    }
+}
+
 } // namespace
 
 LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
@@ -79,6 +98,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         std::get_if<contract::LowOrderOperatingPointV1Profile>(&engine.physics_profile);
     const auto *free_engine = std::get_if<contract::FreeEngine>(&scenario.mode);
     const auto *held_dyno = std::get_if<contract::HeldDyno>(&scenario.mode);
+    const auto *free_vehicle = std::get_if<contract::FreeVehicle>(&scenario.mode);
     const auto *fixed_horizon =
         std::get_if<contract::FixedHorizonCycleSampling>(&scenario.preparation);
     const auto *fixed_settling =
@@ -86,27 +106,35 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     require(report, profile != nullptr, ContractIssueCode::unsupported_value,
             "engine.physics_profile",
             "dynamic-crank runtime requires low_order_operating_point_v1");
-    require(report, (free_engine != nullptr) != (held_dyno != nullptr),
-            ContractIssueCode::unsupported_value, "scenario.mode",
-            "dynamic crank runtime requires exactly one FreeEngine or HeldDyno mode");
+    const std::uint32_t dynamic_mode_count =
+        static_cast<std::uint32_t>(free_engine != nullptr) +
+        static_cast<std::uint32_t>(held_dyno != nullptr) +
+        static_cast<std::uint32_t>(free_vehicle != nullptr);
+    require(report, dynamic_mode_count == 1U, ContractIssueCode::unsupported_value,
+            "scenario.mode",
+            "dynamic crank runtime requires exactly one FreeEngine, HeldDyno, or "
+            "FreeVehicle mode");
     require(report, !simulation_request_identity_v3_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v3_sha256",
             "dynamic-crank runtime requires the canonical nonzero request identity");
-    if (profile == nullptr || (free_engine == nullptr && held_dyno == nullptr)) {
+    if (profile == nullptr || dynamic_mode_count != 1U) {
         return report;
     }
     const double initial_engine_speed_rpm =
-        free_engine != nullptr ? free_engine->initial_engine_speed_rpm.value
-                               : held_dyno->initial_engine_speed_rpm.value;
-    const double initial_theta_rad = free_engine != nullptr
-                                         ? free_engine->initial_theta_rad.value
-                                         : held_dyno->initial_theta_rad.value;
+        free_engine != nullptr    ? free_engine->initial_engine_speed_rpm.value
+        : free_vehicle != nullptr ? free_vehicle->initial_engine_speed_rpm.value
+                                  : held_dyno->initial_engine_speed_rpm.value;
+    const double initial_theta_rad =
+        free_engine != nullptr    ? free_engine->initial_theta_rad.value
+        : free_vehicle != nullptr ? free_vehicle->initial_theta_rad.value
+                                  : held_dyno->initial_theta_rad.value;
     const double attached_inertia_kg_m2 =
         free_engine != nullptr ? free_engine->attached_inertia_kg_m2.value : 0.0;
-    const auto &throttle =
-        free_engine != nullptr ? free_engine->throttle_01 : held_dyno->throttle_01;
-    const bool cold_bootstrap =
-        free_engine != nullptr && initial_engine_speed_rpm == 0.0;
+    const auto &throttle = free_engine != nullptr    ? free_engine->throttle_01
+                           : free_vehicle != nullptr ? free_vehicle->throttle_01
+                                                     : held_dyno->throttle_01;
+    const bool cold_bootstrap = (free_engine != nullptr || free_vehicle != nullptr) &&
+                                initial_engine_speed_rpm == 0.0;
     require(report,
             cold_bootstrap
                 ? fixed_settling != nullptr &&
@@ -143,6 +171,36 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         "scenario.mode.crank_dynamics_method.value",
         "dynamic-crank runtime requires its exact nonnegative-speed "
         "centered-slider crank method identity");
+    require(
+        report,
+        free_vehicle == nullptr ||
+            free_vehicle->crank_dynamics_method.value ==
+                nonnegative_speed_free_engine_centered_slider_crank_method_identity(),
+        ContractIssueCode::unsupported_value,
+        "scenario.mode.crank_dynamics_method.value",
+        "FreeVehicle runtime requires the exact nonnegative-speed centered-slider "
+        "crank method identity");
+    require(report,
+            free_vehicle == nullptr || free_vehicle->road_load_method.value ==
+                                           forward_vehicle_road_load_method_identity(),
+            ContractIssueCode::unsupported_value,
+            "scenario.mode.road_load_method.value",
+            "FreeVehicle runtime requires the exact forward road-load method "
+            "identity");
+    require(report,
+            free_vehicle == nullptr || free_vehicle->clutch_coupling_method.value ==
+                                           bounded_clutch_coupling_method_identity(),
+            ContractIssueCode::unsupported_value,
+            "scenario.mode.clutch_coupling_method.value",
+            "FreeVehicle runtime requires the exact bounded clutch method identity");
+    require(report,
+            free_vehicle == nullptr ||
+                free_vehicle->drivetrain_dynamics_method.value ==
+                    bounded_forward_vehicle_drivetrain_method_identity(),
+            ContractIssueCode::unsupported_value,
+            "scenario.mode.drivetrain_dynamics_method.value",
+            "FreeVehicle runtime requires the exact fixed-128-pass coupled drivetrain "
+            "method identity");
     require(report,
             held_dyno == nullptr || held_dyno->constraint_method.value ==
                                         bounded_held_dyno_constraint_method_identity(),
@@ -177,6 +235,9 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     require(report, held_dyno == nullptr || !execution_extent.is_open_ended(),
             ContractIssueCode::unsupported_value, "execution_extent",
             "held-dyno execution requires a finite authored target lane");
+    require(report, free_vehicle == nullptr || !execution_extent.is_open_ended(),
+            ContractIssueCode::unsupported_value, "execution_extent",
+            "FreeVehicle execution requires a finite authored horizon");
 
     const std::optional<double> release_time_s =
         cold_bootstrap ? std::optional<double>{0.0}
@@ -227,6 +288,20 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
             report, free_engine->external_resisting_torque_nm, scenario.rates.physics,
             release_frame_index, "scenario.mode.external_resisting_torque_nm",
             "FreeEngine external resisting-torque");
+    }
+    if (free_vehicle != nullptr) {
+        require_release_or_later_control_boundaries(
+            report, free_vehicle->selected_gear.value, scenario.rates.physics,
+            release_frame_index, "scenario.mode.selected_gear",
+            "FreeVehicle selected-gear");
+        require_release_or_later_control_boundaries(
+            report, free_vehicle->clutch_engagement_01.value, scenario.rates.physics,
+            release_frame_index, "scenario.mode.clutch_engagement_01",
+            "FreeVehicle clutch");
+        require_release_or_later_control_boundaries(
+            report, free_vehicle->service_brake_application_01.value,
+            scenario.rates.physics, release_frame_index,
+            "scenario.mode.service_brake_application_01", "FreeVehicle service brake");
     }
     if (!report.ok()) {
         return report;
@@ -299,10 +374,13 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
             "engine.physics_profile.mechanism",
             "dynamic-crank configuration-dependent inertia rejected the admitted "
             "centered-slider mechanism");
-    if (cycle_mean_inertia != nullptr && free_engine != nullptr) {
+    if (cycle_mean_inertia != nullptr &&
+        (free_engine != nullptr || free_vehicle != nullptr)) {
+        const double authored_engine_baseline_inertia_kg_m2 =
+            free_engine != nullptr ? free_engine->engine_baseline_inertia_kg_m2.value
+                                   : free_vehicle->engine_baseline_inertia_kg_m2.value;
         require(report,
-                std::bit_cast<std::uint64_t>(
-                    free_engine->engine_baseline_inertia_kg_m2.value) ==
+                std::bit_cast<std::uint64_t>(authored_engine_baseline_inertia_kg_m2) ==
                     std::bit_cast<std::uint64_t>(
                         cycle_mean_inertia->engine_equivalent_inertia_kg_m2),
                 ContractIssueCode::inconsistent_semantics,
@@ -494,6 +572,118 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         });
     }
 
+    std::optional<FreeVehicleMotionPlan> free_vehicle_motion;
+    if (free_vehicle != nullptr) {
+        const auto &vehicle = free_vehicle->rig.vehicle;
+        const auto &transmission = free_vehicle->rig.transmission;
+        FreeVehicleMotionPlan plan;
+        plan.vehicle_mass_kg = vehicle.mass_kg.value;
+        plan.drag_coefficient = vehicle.drag_coefficient.value;
+        plan.frontal_area_m2 = vehicle.frontal_area_m2.value;
+        plan.differential_ratio = vehicle.differential_ratio.value;
+        plan.tire_radius_m = vehicle.tire_radius_m.value;
+        plan.rolling_resistance_force_n = vehicle.rolling_resistance_force_n.value;
+        plan.maximum_service_brake_force_n =
+            vehicle.maximum_service_brake_force_n.has_value()
+                ? vehicle.maximum_service_brake_force_n->value
+                : 0.0;
+        plan.maximum_clutch_torque_nm = transmission.maximum_clutch_torque_nm.value;
+        plan.vehicle_speed_m_s = free_vehicle->initial_vehicle_speed_m_s.value;
+
+        plan.gears.reserve(transmission.gears.size());
+        for (std::size_t index = 0; index < transmission.gears.size(); ++index) {
+            const auto &gear = transmission.gears[index];
+            const auto calculation = detail::calculate_forward_gear_reduction({
+                vehicle.mass_kg.value,
+                gear.ratio.value,
+                vehicle.differential_ratio.value,
+                vehicle.tire_radius_m.value,
+            });
+            const auto *reduction =
+                std::get_if<detail::ForwardGearReduction>(&calculation);
+            require(report, reduction != nullptr, ContractIssueCode::invalid_value,
+                    "scenario.mode.rig.transmission.gears[" + std::to_string(index) +
+                        "].ratio.value",
+                    "FreeVehicle forward reduction rejected the resolved vehicle "
+                    "and gear geometry");
+            if (reduction != nullptr) {
+                plan.gears.push_back({gear.id, *reduction});
+            }
+        }
+        if (!report.ok()) {
+            return report;
+        }
+
+        plan.selected_gear.reserve(free_vehicle->selected_gear.value.size());
+        for (std::size_t index = 0; index < free_vehicle->selected_gear.value.size();
+             ++index) {
+            const auto &point = free_vehicle->selected_gear.value[index];
+            const auto step =
+                contract::resolve_frame_index(point.time_s, scenario.rates.physics);
+            std::optional<std::size_t> gear_index;
+            if (point.gear_id.has_value()) {
+                const auto found = std::ranges::find(
+                    plan.gears, *point.gear_id, &FreeVehicleGearMotionPlan::gear_id);
+                require(report, found != plan.gears.end(),
+                        ContractIssueCode::dangling_reference,
+                        "scenario.mode.selected_gear.value[" + std::to_string(index) +
+                            "].gear_id",
+                        "compiled FreeVehicle gear event references no forward "
+                        "reduction");
+                if (found != plan.gears.end()) {
+                    gear_index = static_cast<std::size_t>(found - plan.gears.begin());
+                }
+            }
+            require(report, step.has_value(), ContractIssueCode::inconsistent_semantics,
+                    "scenario.mode.selected_gear.value[" + std::to_string(index) +
+                        "].time_s",
+                    "FreeVehicle gear boundary must resolve to an integral physics "
+                    "frame");
+            if (step.has_value()) {
+                plan.selected_gear.push_back({*step, gear_index});
+            }
+        }
+
+        const auto compile_scalar_lane =
+            [&](const std::vector<contract::ScalarControlPoint> &points,
+                const std::string &path,
+                std::vector<FreeVehicleScalarControlBoundary> &output) {
+                output.reserve(points.size());
+                for (std::size_t index = 0; index < points.size(); ++index) {
+                    const auto step = contract::resolve_frame_index(
+                        points[index].time_s, scenario.rates.physics);
+                    require(report, step.has_value(),
+                            ContractIssueCode::inconsistent_semantics,
+                            path + ".value[" + std::to_string(index) + "].time_s",
+                            "FreeVehicle control boundary must resolve to an integral "
+                            "physics frame");
+                    if (step.has_value()) {
+                        output.push_back({*step, points[index].value});
+                    }
+                }
+            };
+        compile_scalar_lane(free_vehicle->clutch_engagement_01.value,
+                            "scenario.mode.clutch_engagement_01",
+                            plan.clutch_engagement_01);
+        compile_scalar_lane(free_vehicle->service_brake_application_01.value,
+                            "scenario.mode.service_brake_application_01",
+                            plan.service_brake_application_01);
+        require(report,
+                !plan.selected_gear.empty() && !plan.clutch_engagement_01.empty() &&
+                    !plan.service_brake_application_01.empty(),
+                ContractIssueCode::missing_value, "scenario.mode",
+                "FreeVehicle runtime requires nonempty gear, clutch, and service "
+                "brake lanes");
+        if (!report.ok()) {
+            return report;
+        }
+        plan.current_gear_index = plan.selected_gear.front().gear_index;
+        plan.current_clutch_engagement_01 = plan.clutch_engagement_01.front().value;
+        plan.current_service_brake_application_01 =
+            plan.service_brake_application_01.front().value;
+        free_vehicle_motion.emplace(std::move(plan));
+    }
+
     return LowOrderDynamicCrankRuntime{
         control_schedule.fresh_cursor(),
         std::move(accountant),
@@ -512,7 +702,10 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         profile->starter.maximum_torque_nm.value,
         profile->starter.target_speed_rad_s.value,
         std::move(held_dyno_motion),
-        held_dyno != nullptr ? "low-order-held-dyno" : "low-order-free-engine-v1",
+        std::move(free_vehicle_motion),
+        held_dyno != nullptr      ? "low-order-held-dyno"
+        : free_vehicle != nullptr ? "low-order-free-vehicle-v1"
+                                  : "low-order-free-engine-v1",
         engine.profile_id.value,
         scenario.scenario_id,
         engine.id,

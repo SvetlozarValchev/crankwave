@@ -98,7 +98,8 @@ using ScenarioControlScheduleResult =
     std::variant<ScenarioControlSchedule, contract::ValidationReport>;
 
 // Compiles control lanes for held speed, prescribed kinematics, inertial dyno,
-// and free-engine scenarios. Motion-specific admission remains with the motion owner.
+// free-engine, and free-vehicle scenarios. Motion-specific admission remains with
+// the motion owner.
 [[nodiscard]] ScenarioControlScheduleResult
 compile_scenario_control_schedule(const contract::RenderScenario &scenario,
                                   LowOrderExecutionExtent execution_extent);

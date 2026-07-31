@@ -199,6 +199,48 @@ preparation_capture_torque(double indicated_gas_torque_nm,
     return result;
 }
 
+[[nodiscard]] contract::TorqueTelemetry free_vehicle_capture_torque(
+    double held_upstream_engine_torque_nm, double initial_angular_speed_rad_s,
+    double applied_indicated_gas_torque_nm, double applied_source_friction_torque_nm,
+    double applied_starter_torque_nm) noexcept {
+    const auto crank_friction =
+        contract::torque_term_mask(contract::TorqueTerm::crank_friction);
+    const auto piston_friction =
+        contract::torque_term_mask(contract::TorqueTerm::piston_ring_friction);
+    const auto applied_friction_terms = crank_friction | piston_friction;
+    const auto starter = contract::torque_term_mask(contract::TorqueTerm::starter);
+    const auto applied_net_terms =
+        contract::indicated_gas_torque_term_mask() | applied_friction_terms | starter;
+    contract::TorqueTelemetry result;
+    result.instantaneous_indicated_gas = available_torque(
+        applied_indicated_gas_torque_nm, contract::indicated_gas_torque_term_mask());
+    result.pumping_partition =
+        unavailable_torque(contract::QuantityUnavailableReason::model_not_admitted);
+    result.friction_pump_and_accessory = available_classified_torque(
+        applied_source_friction_torque_nm, applied_friction_terms,
+        contract::friction_pump_and_accessory_torque_term_mask() &
+            ~applied_friction_terms);
+    result.starter = available_torque(applied_starter_torque_nm, starter);
+    result.instantaneous_net_shaft = available_classified_torque(
+        held_upstream_engine_torque_nm, applied_net_terms,
+        contract::known_torque_term_mask() & ~applied_net_terms);
+    result.cycle_mean_net_shaft = unavailable_torque(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
+    result.actuator = unavailable_torque(
+        contract::QuantityUnavailableReason::scenario_not_applicable);
+    result.dyno_reaction = unavailable_torque(
+        contract::QuantityUnavailableReason::scenario_not_applicable);
+    result.cycle_work_j = unavailable_quantity(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
+    result.net_bmep_pa = unavailable_quantity(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
+    result.instantaneous_power_w = available_incomplete_quantity(
+        held_upstream_engine_torque_nm * initial_angular_speed_rad_s);
+    result.cycle_mean_power_w = unavailable_quantity(
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted);
+    return result;
+}
+
 [[nodiscard]] contract::FailureKind
 accounting_failure_kind(OperatingCycleAccountingErrorCode code) noexcept {
     switch (code) {
@@ -255,7 +297,8 @@ LowOrderDynamicCrankRuntime::LowOrderDynamicCrankRuntime(
     double initial_theta_rad, bool cold_bootstrap,
     double applied_positive_speed_crank_friction_torque_nm,
     double starter_maximum_torque_nm, double starter_target_speed_rad_s,
-    std::optional<HeldDynoMotionPlan> held_dyno_motion, std::string model_id,
+    std::optional<HeldDynoMotionPlan> held_dyno_motion,
+    std::optional<FreeVehicleMotionPlan> free_vehicle_motion, std::string model_id,
     std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
     : control_cursor_(std::move(control_cursor)), accountant_(std::move(accountant)),
       sampler_(std::move(sampler)),
@@ -280,6 +323,7 @@ LowOrderDynamicCrankRuntime::LowOrderDynamicCrankRuntime(
       starter_maximum_torque_nm_(starter_maximum_torque_nm),
       starter_target_speed_rad_s_(starter_target_speed_rad_s),
       held_dyno_motion_(std::move(held_dyno_motion)),
+      free_vehicle_motion_(std::move(free_vehicle_motion)),
       piston_wall_boundary_angular_speed_rad_s_(initial_engine_speed_rpm *
                                                 kLegacyRpmScale),
       crank_state_{initial_theta_rad,
@@ -667,6 +711,7 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
     }
     const auto terminal_sample_count = execution_extent_.finite_physics_frame_count();
     const bool held_dyno = held_dyno_motion_.has_value();
+    const bool free_vehicle = free_vehicle_motion_.has_value();
     if (terminal_sample_count.has_value() &&
         accepted_sample_count_ == *terminal_sample_count) {
         if (!terminal_completed_ || !preparation_finalized_ ||
@@ -784,6 +829,13 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
                           "dynamic-crank-causal-input-missing",
                           "released motion requires finalized preparation and prior "
                           "committed indicated torque"));
+    }
+
+    if (free_vehicle && overrides.any()) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "free-vehicle-live-controls-not-admitted",
+                          "finite FreeVehicle execution consumes only its authored "
+                          "right-continuous control lanes"));
     }
 
     const double applied_indicated = *previous_indicated_gas_torque_nm_;
@@ -995,6 +1047,146 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
                     motion_calculation);
         }
     }
+
+    if (free_vehicle) {
+        auto &vehicle = *free_vehicle_motion_;
+        while (vehicle.next_selected_gear_boundary < vehicle.selected_gear.size() &&
+               vehicle.selected_gear[vehicle.next_selected_gear_boundary].step_index <=
+                   accepted_sample_count_) {
+            vehicle.current_gear_index =
+                vehicle.selected_gear[vehicle.next_selected_gear_boundary].gear_index;
+            ++vehicle.next_selected_gear_boundary;
+        }
+        while (vehicle.next_clutch_boundary < vehicle.clutch_engagement_01.size() &&
+               vehicle.clutch_engagement_01[vehicle.next_clutch_boundary].step_index <=
+                   accepted_sample_count_) {
+            vehicle.current_clutch_engagement_01 =
+                vehicle.clutch_engagement_01[vehicle.next_clutch_boundary].value;
+            ++vehicle.next_clutch_boundary;
+        }
+        while (vehicle.next_service_brake_boundary <
+                   vehicle.service_brake_application_01.size() &&
+               vehicle.service_brake_application_01[vehicle.next_service_brake_boundary]
+                       .step_index <= accepted_sample_count_) {
+            vehicle.current_service_brake_application_01 =
+                vehicle
+                    .service_brake_application_01[vehicle.next_service_brake_boundary]
+                    .value;
+            ++vehicle.next_service_brake_boundary;
+        }
+
+        std::optional<detail::ForwardGearReduction> selected_gear;
+        if (vehicle.current_gear_index.has_value()) {
+            if (*vehicle.current_gear_index >= vehicle.gears.size()) {
+                return fail(fault(contract::FailureKind::contract_violation,
+                                  "free-vehicle-gear-state-invalid",
+                                  "compiled selected-gear index is outside the "
+                                  "forward-gear inventory"));
+            }
+            selected_gear = vehicle.gears[*vehicle.current_gear_index].reduction;
+        }
+        const auto drivetrain_calculation =
+            detail::advance_coupled_free_vehicle_drivetrain({
+                inertia.total_inertia_kg_m2,
+                motion.final_state.angular_speed_rad_s,
+                vehicle.vehicle_mass_kg,
+                vehicle.vehicle_speed_m_s,
+                selected_gear,
+                vehicle.maximum_clutch_torque_nm,
+                vehicle.current_clutch_engagement_01,
+                vehicle.drag_coefficient,
+                vehicle.frontal_area_m2,
+                vehicle.rolling_resistance_force_n,
+                vehicle.maximum_service_brake_force_n,
+                vehicle.current_service_brake_application_01,
+                step_s_,
+            });
+        if (const auto *error =
+                std::get_if<detail::CoupledFreeVehicleDrivetrainInputError>(
+                    &drivetrain_calculation)) {
+            return fail(
+                fault(contract::FailureKind::numerical_failure,
+                      "free-vehicle-drivetrain-step-failed",
+                      "coupled clutch and road-load projection rejected the current "
+                      "left boundary; issue=" +
+                          std::to_string(static_cast<std::uint32_t>(error->issue))));
+        }
+        const auto &drivetrain =
+            std::get<detail::CoupledFreeVehicleDrivetrainStep>(drivetrain_calculation);
+        const double angular_displacement_rad =
+            drivetrain.final_engine_speed_rad_s * step_s_;
+        const double final_theta_rad =
+            crank_state_.theta_rad + angular_displacement_rad;
+        const double angular_acceleration_rad_s2 =
+            (drivetrain.final_engine_speed_rad_s - crank_state_.angular_speed_rad_s) /
+            step_s_;
+        const double final_vehicle_distance_m =
+            vehicle.vehicle_distance_m + drivetrain.final_vehicle_speed_m_s * step_s_;
+        if (!std::isfinite(angular_displacement_rad) ||
+            !std::isfinite(final_theta_rad) ||
+            !std::isfinite(angular_acceleration_rad_s2) ||
+            !std::isfinite(final_vehicle_distance_m) ||
+            final_vehicle_distance_m < vehicle.vehicle_distance_m) {
+            return fail(fault(contract::FailureKind::numerical_failure,
+                              "free-vehicle-state-commit-failed",
+                              "semi-implicit engine or vehicle state commit became "
+                              "nonfinite or reversed forward distance"));
+        }
+        if (auto failure =
+                calculate_next_piston_wall_reactions(angular_acceleration_rad_s2);
+            failure.has_value()) {
+            return fail(std::move(*failure));
+        }
+        auto resolved_overrides = overrides;
+        resolved_overrides.has_external_resisting_torque_nm = true;
+        resolved_overrides.external_resisting_torque_nm = 0.0;
+        resolved_overrides.has_starter_enabled = true;
+        resolved_overrides.starter_enabled = starter_enabled;
+        auto core_result =
+            core.advance({drivetrain.final_engine_speed_rad_s * kRpmPerRadianPerSecond,
+                          angular_displacement_rad},
+                         resolved_overrides);
+        if (const auto *failure = std::get_if<contract::FailureContext>(&core_result)) {
+            return fail(*failure);
+        }
+        if (std::holds_alternative<LowOrderEngineCoreV1Completed>(core_result)) {
+            return fail(fault(contract::FailureKind::contract_violation,
+                              "free-vehicle-core-premature-completion",
+                              "shared core completed before the FreeVehicle "
+                              "horizon"));
+        }
+        const auto &core_step = std::get<LowOrderEngineCoreV1StepView>(core_result);
+        const auto &mechanics = core_step.mechanics.get();
+        const auto &gas = core_step.gas.get();
+        const auto capture_torque = free_vehicle_capture_torque(
+            motion.input.held_upstream_engine_torque_nm,
+            motion.input.initial_state.angular_speed_rad_s, applied_indicated,
+            applied_source_friction, applied_starter_torque_nm);
+        if (mechanics.engine_speed_rpm > 0.0) {
+            if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
+                return fail(std::move(*failure));
+            }
+        }
+        if (auto failure = commit_next_piston_wall_boundary(mechanics, gas);
+            failure.has_value()) {
+            return fail(std::move(*failure));
+        }
+        previous_indicated_gas_torque_nm_ = gas.indicated_gas_torque_nm;
+        crank_state_ = {final_theta_rad, drivetrain.final_engine_speed_rad_s};
+        vehicle.vehicle_speed_m_s = drivetrain.final_vehicle_speed_m_s;
+        vehicle.vehicle_distance_m = final_vehicle_distance_m;
+        vehicle.last_clutch_impulse_on_engine_nm_s =
+            drivetrain.applied_clutch_impulse_on_engine_nm_s;
+        vehicle.last_road_load_impulse_n_s = drivetrain.applied_road_load_impulse_n_s;
+        vehicle.last_clutch_slip_rad_s = drivetrain.final_clutch_slip_rad_s;
+        ++accepted_sample_count_;
+        if (terminal_sample_count.has_value() &&
+            accepted_sample_count_ == *terminal_sample_count) {
+            terminal_completed_ = true;
+        }
+        return LowOrderDynamicCrankStepView{std::cref(mechanics), std::cref(gas),
+                                            capture_torque};
+    }
     if (auto failure =
             calculate_next_piston_wall_reactions(motion.angular_acceleration_rad_s2);
         failure.has_value()) {
@@ -1064,6 +1256,30 @@ bool LowOrderDynamicCrankRuntime::held_preparation_active() const noexcept {
 
 std::uint64_t LowOrderDynamicCrankRuntime::accepted_sample_count() const noexcept {
     return accepted_sample_count_;
+}
+
+std::optional<FreeVehicleRuntimeStateView>
+LowOrderDynamicCrankRuntime::free_vehicle_state() const noexcept {
+    if (!free_vehicle_motion_.has_value()) {
+        return std::nullopt;
+    }
+    const auto &vehicle = *free_vehicle_motion_;
+    std::optional<contract::GearId> selected_gear_id;
+    if (vehicle.current_gear_index.has_value() &&
+        *vehicle.current_gear_index < vehicle.gears.size()) {
+        selected_gear_id = vehicle.gears[*vehicle.current_gear_index].gear_id;
+    }
+    return FreeVehicleRuntimeStateView{
+        crank_state_.angular_speed_rad_s * kRpmPerRadianPerSecond,
+        vehicle.vehicle_speed_m_s,
+        vehicle.vehicle_distance_m,
+        selected_gear_id,
+        vehicle.current_clutch_engagement_01,
+        vehicle.current_service_brake_application_01,
+        vehicle.last_clutch_impulse_on_engine_nm_s,
+        vehicle.last_road_load_impulse_n_s,
+        vehicle.last_clutch_slip_rad_s,
+    };
 }
 
 std::uint64_t LowOrderDynamicCrankRuntime::release_frame_index() const noexcept {
