@@ -16,10 +16,12 @@ sampled/VTEC valvetrains, direct and governed throttle control, ignition, fuel, 
 nonempty cylinder and exhaust-route sets, one-bank inline or exactly two-bank V layouts,
 presentation, scenarios, deterministic assets, and randomness. Compilation is
 data-driven and has no engine-name branch. Important original capabilities such as
-multiple crankshafts, other bank topologies, separate physical heads/intakes, slave
-journals, and general multi-head/valvetrain topology remain represented but fail closed
-until their executor support exists. Vehicle and transmission rig objects parse and
-resolve, but no drivetrain executor consumes them.
+multiple crankshafts, other bank topologies, heterogeneous physical heads, separate
+intakes, slave journals, and general multi-head/VTEC topology remain represented but
+fail closed until their executor support exists. Execution-equivalent bank-local heads,
+ports, standard valvetrains, and cams now normalize to the unchanged shared low-order
+profile. Vehicle and transmission rig objects parse and resolve, but no drivetrain
+executor consumes them.
 There is no executable C++ engine factory; product engines enter only through JSON
 compilation.
 
@@ -115,9 +117,11 @@ simulation steps to UI frames.
 - Every bank, crankshaft, journal, piston/rod assembly, cylinder, head, camshaft,
   valvetrain, intake, exhaust route, ignition wire, curve, controller, and asset has a
   unique stable string ID within its namespace.
-- References preserve object sharing. Six cylinders referencing one intake mean one
-  shared manifold; six copied intake objects mean six independent manifolds. The
-  compiler must not merge structurally equal objects.
+- References preserve authored object sharing. Six cylinders referencing one intake
+  mean one shared manifold; copied intake objects remain distinct and are not currently
+  executable. The shared low-order head profile is the one explicit exception: separate
+  bank-local heads may normalize only after exact execution-equivalence admission;
+  differing definitions fail closed instead of being silently merged.
 - Ordered lists remain ordered where order affects behavior: crankshafts, cylinders,
   lobes, firing order, exhaust accumulation, and transmission gears.
 - A cylinder explicitly references its bank, crankshaft/journal, piston, rod, intake,
@@ -125,10 +129,12 @@ simulation steps to UI frames.
 - References must resolve, forbidden cycles are rejected, and every connected physical
   object must be reachable from the engine root.
 - The authoring graph can represent broader sharing than the current executor admits.
-  Current execution accepts one crankshaft, one shared intake/head/standard
-  valvetrain, and either one zero-angle inline bank or exactly two finite,
-  distinct-angle V banks. Direct journals and exhaust routes may be shared; identity
-  is never inferred from array position. Other graph shapes fail closed.
+  Current execution accepts one crankshaft, one shared intake, and either one
+  zero-angle inline bank or exactly two finite, distinct-angle V banks. Banks may share
+  one head/valvetrain or use execution-equivalent bank-local heads and standard
+  valvetrains; single-head VTEC remains admitted. Direct journals and exhaust routes
+  may be shared; identity is never inferred from array position. Other graph shapes
+  fail closed.
 - Compiler-assigned dense numeric IDs and deterministic reduction order are resolved
   artifacts; they are never authored API identities.
 
@@ -212,7 +218,7 @@ the remainder as explicit capability diagnostics:
 | Connecting-rod mass, inertia, center of mass, length | `engine.connecting_rods[]` | **Partial**; mass/inertia/length exist in BMW profile, center of mass is absent | Resolved mechanism quantities and inertial torque are verified. |
 | Piston mass, blowby, compression height, wrist-pin position, displacement term | `engine.pistons[]` and gas-path blowby restriction | **Partial**; BMW has mass, blowby, compression height, displacement term; wrist-pin position is absent | BMW geometry/clearance comparison and blowby flow check. |
 | Banks with angle, bore, and deck height | `engine.banks[]` | **Low-order executed/Partial**; execution admits one zero-angle inline bank or exactly two finite, distinct-angle V banks, including authored bank bore/deck geometry; opposed and other arbitrary layouts remain unsupported | Inline, V8, and direct-journal V-twin fixtures preserve bank geometry and axis-relative mechanics. |
-| Arbitrary cylinder-to-bank/crank/journal/intake/exhaust/wire connections | Explicit cylinder references | **Partial**; dynamic cylinders, two-bank V bindings, direct shared journals, distinct wires, firing order, and exhaust sharing execute, while the profile still requires one crankshaft and one shared intake/head/valvetrain | Toyota and direct-journal V-twin fixtures prove the admitted non-inline connection patterns. |
+| Arbitrary cylinder-to-bank/crank/journal/intake/exhaust/wire connections | Explicit cylinder references | **Partial**; dynamic cylinders, two-bank V bindings, direct shared journals, distinct wires, firing order, and exhaust sharing execute, while the profile still requires one crankshaft and one shared intake; bank-local heads/standard valvetrains must be execution-equivalent | Toyota and direct-journal V-twin fixtures prove the admitted non-inline connection patterns. |
 | Per-cylinder primary length | Physical exhaust path in `engine`, compiled to propagation delay | **Low-order executed** | Resolved length/delay comparison at each supported sample rate. |
 
 ### Gas exchange, manifolds, heads, and exhaust
@@ -225,13 +231,13 @@ the remainder as explicit capability diagnostics:
 | Idle throttle plate position | Intake physical/control field | **Low-order executed** | Closed-command idle flow remains nonzero and bounded. |
 | Intake molecular AFR | Fuel/mixture ownership, referenced by intake if model requires it | **Partial**; scenario/fuel owns stoichiometric AFR | Compiler rejects conflicting duplicated AFR authority. |
 | Intake runner velocity decay | Intake gas-exchange method parameter | **Low-order executed** | BMW gas-state regression. |
-| Shareable heads per bank | `engine.heads[]` and bank references | **Partial**; admitted inline and V layouts require exactly one shared head and one standard or VTEC valvetrain | Two-bank fixture can select one shared or two distinct heads. |
-| Chamber and intake/exhaust runner volume/area | Head physical fields | **Low-order executed** | BMW clearance and gas-volume comparison. |
+| Shareable heads per bank | `engine.heads[]` and bank references | **Partial/Low-order executed** for one shared head or execution-equivalent bank-local heads with standard valvetrains; heterogeneous heads and multi-head VTEC fail closed | Shared-head and split-head V fixtures resolve to the exact same executable contract and PCM; Kohler retains its two source heads. |
+| Chamber and intake/exhaust runner volume/area | Head physical fields | **Low-order executed**; bank-local values must be bit-identical while the runtime retains one shared coefficient profile | BMW clearance/gas-volume comparison and split-head rejection fixtures. |
 | Arbitrary intake/exhaust port-flow curves | Head curve references | **Typed core/Low-order executed** | Curves preserve units, radius, clamping, and sampled values. |
 | Multiple, shareable exhaust systems | `engine.exhausts[]` and cylinder route references | **Low-order executed** for a dynamic nonempty exhaust set; cylinders may share routes and copied exhaust objects remain independent | Inline-six, V8, and V-twin grouping fixtures prove sharing and independent collectors. |
 | Collector length/area, outlet restriction, primary length/restriction, velocity decay | Exhaust physical fields | **Low-order executed** | BMW resolved graph and gas-state regression. |
 | `exhaust.collector_volume` convenience | Compiler authoring convenience deriving `collector_length = collector_volume / collector_area` | **Low-order executed**; exactly one of explicit collector length or collector volume is required | Explicit length and derived length compile to the same resolved model. |
-| Executable gas volumes and flow edges | Compiler-derived from authored intakes, heads/ports, cylinders, exhausts, and their stable references | **Low-order executed/Partial** within the admitted one-crank, one-intake/head, inline/two-bank-V slice | Authors state each physical fact once; the compiler deterministically constructs and validates the supported internal graph. |
+| Executable gas volumes and flow edges | Compiler-derived from authored intakes, heads/ports, cylinders, exhausts, and their stable references | **Low-order executed/Partial** within the admitted one-crank, one-intake, shared-or-equivalent-head, inline/two-bank-V slice | Authors state each physical fact once; the compiler deterministically constructs and validates the supported internal graph. |
 
 ### Camshafts and valvetrain
 
@@ -240,7 +246,7 @@ the remainder as explicit capability diagnostics:
 | Cam advance, base radius, sampled lobe profile | `engine.camshafts[]` and angle-to-length `engine.curves[]` referenced by `sampled_cam_lobe` | **Low-order executed** for standard fixed valvetrains; sampled profiles retain source triangle weighting, clamping, advance, and crank phasing | Sampled and generated-equivalent lobes resolve and render byte-identically. |
 | Arbitrary lobe centerlines added to a cam | Ordered cam lobe references by cylinder/port and centerline | **Low-order executed/Partial** | Firing-independent lobe ordering survives compilation. |
 | Harmonic lobe generator parameters | Compiler-side curve generator | **Low-order executed** internally | Generator golden samples match the accepted BMW profile. |
-| Standard intake/exhaust cam valvetrain | `engine.valvetrains[]`, `type: "standard"` | **Low-order executed** | BMW valve-lift traces remain unchanged. |
+| Standard intake/exhaust cam valvetrain | `engine.valvetrains[]`, `type: "standard"` | **Low-order executed** for shared or bank-local standard valvetrains; same-role bank-local cams require exact advance, base radius, and lobe shape while retaining per-cylinder centerlines | BMW valve-lift traces remain unchanged; shared/split V forms produce byte-identical PCM. |
 | VTEC base and alternate intake/exhaust cams | `engine.valvetrains[]`, `type: "vtec"` | **Low-order executed**; the base and alternate pairs compile independently through the same fixed-cam sampler, and one coherent pair serves both ports for every cylinder in a gas frame | Honda fixture selects all four authored cams correctly while fixed-cam engines remain unchanged. |
 | VTEC RPM, absolute manifold-pressure, and resolved throttle-linkage-opening thresholds | `activation.minimum_engine_speed`, `activation.minimum_manifold_pressure_abs`, and `activation.minimum_throttle_linkage_opening_01` | **Low-order executed** with pristine's strict, stateless three-predicate selector; pristine's stored-but-unused `min_speed` is deliberately absent from the greenfield JSON contract | Honda transition matrix covers all three executed predicates at equality and on either side; vehicle speed cannot affect selection because no dead compatibility field exists. |
 
@@ -348,7 +354,7 @@ it does not block checkpoints 1-10.
 | Toyota 3UR-FE V8 | Two authored bank angles, direct shared journals, generic firing order, and grouped/shared exhaust systems | Route solos plus full dyno pull; cadence and grouping accepted by ear. |
 | Honda B18C5 | Standard/alternate cams and the executed pristine RPM, manifold-pressure, and resolved linkage-opening predicates; the dead source `min_speed` input is intentionally absent | Below, transition, and above-VTEC clips; no unrelated renderer change. |
 | Master/slave-journal V-twin | Shared crank journal, slave journal/throw, bank angles, unequal firing intervals | Low/high held points and short climb demonstrate correct cadence. |
-| Governed small-engine V-twin | Governor parameters, starter/crank/catch, idle restriction, and load response | Start, governed hold, and load-step clip. |
+| Governed small-engine V-twin | Governor parameters, starter/crank/catch, idle restriction, bank-local heads/ports/cams, and load response | Start, governed hold, and load-step clip. |
 | BMW fifth-gear rig | Vehicle, transmission, clutch, differential, tire, drag, and rolling load | Realtime/offline fifth-gear climb agrees in RPM/torque trajectory and sound. |
 
 Cutover checkpoints 1-10 use two narrow checks:

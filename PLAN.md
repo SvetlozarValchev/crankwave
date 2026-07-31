@@ -586,7 +586,7 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--9 are executable. Slice 6 reaches JSON, runtime, native
+Current progress: slices 1--10 are executable. Slice 6 reaches JSON, runtime, native
 session, exact C ABI, WASM, and the Web workbench; the BMW crank/catch checkpoint was
 accepted. Slice 7 admits arbitrary sampled fixed-cam profiles while preserving the
 generated harmonic path. Slice 8 executes the three consumed pristine VTEC predicates
@@ -598,8 +598,13 @@ demand through the same native/WASM throttle command. The Kohler CH750 fixture n
 releases at `1.5 s`, settles before a `12 N m` load at `15 s`, unloads at `20 s`, and
 publishes only the `14--30 s` listening interval. Its source buses are byte-identical
 to that interval from a full-acquisition render; only the audition file's intentional
-clip-relative fades differ. The focused listening checkpoint is ready before topology
-slice 10.
+clip-relative fades differ. Slice 10 now admits source-faithful bank-local heads,
+ports, standard valvetrains, and cams when their shared low-order physical profiles are
+execution-equivalent. The Kohler fixture has been restored to two heads, four ports,
+two valvetrains, and four one-cylinder cams. Its complete resolved request and all five
+published WAV files are byte-identical to the accepted shared-head checkpoint. More
+general heterogeneous heads, separate intakes, crankshafts, ignition sharing, and
+master/slave journals remain isolated follow-up commits within slice 10.
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
 and mastering unchanged. Listen immediately after the one intended behavior changes;
