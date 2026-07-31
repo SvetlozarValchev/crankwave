@@ -1,7 +1,7 @@
 # BMW free-vehicle listening gate
 
-Status: awaiting user listening decision on 2026-07-31. Implementation, focused
-regressions, clean production renders, and accepted-path byte checks pass.
+Status: accepted by user on 2026-07-31 after implementation, focused regressions,
+clean production renders, and accepted-path byte checks passed.
 
 This is the slice-12 checkpoint from [`../PLAN.md`](../PLAN.md). It adds only the
 forward vehicle motion owner around the accepted engine and audio core. Gas,
@@ -112,4 +112,4 @@ natural fifth-gear acceleration, and lift sound coherent through the unchanged B
 renderer. A rejection is fixed inside slice 12 before public drivetrain/API work is
 stacked on top. Slice 13 does not begin until the user accepts this listening set.
 
-User verdict: pending.
+User verdict: accepted without a requested correction.

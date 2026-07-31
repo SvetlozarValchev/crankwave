@@ -586,9 +586,9 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--11 are executable and accepted. Slice 12 is executable and
-paused at its required listening gate; its pristine vehicle/transmission equations
-and the explicit non-parity service-brake boundary are frozen in
+Current progress: slices 1--12 are executable and accepted. Slice 12's pristine
+vehicle/transmission equations and explicit non-parity service-brake boundary are
+frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md`](docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md).
 Slice 6 reaches JSON, runtime, native
 session, exact C ABI, WASM, and the Web workbench; the BMW crank/catch checkpoint was
@@ -625,8 +625,8 @@ ordered forward gears, bounded clutch slip, passive rolling/aerodynamic road loa
 and an explicitly authored one-sided service brake. Its self-contained resolved
 request has no hidden rig pointer, and the exact clutch-then-road projection is method
 identity bound. The accepted held-dyno raw and audition WAVs remain byte-identical.
-The clean BMW neutral/launch/first-to-second and already-moving fifth-gear pull/lift
-recordings are awaiting the user's decision in
+The user accepted the clean BMW neutral/launch/first-to-second and already-moving
+fifth-gear pull/lift recordings in
 [`docs/BMW_FREE_VEHICLE_LISTENING_GATE.md`](docs/BMW_FREE_VEHICLE_LISTENING_GATE.md).
 Public live gear, clutch, brake, and drivetrain telemetry remain slice 13.
 
