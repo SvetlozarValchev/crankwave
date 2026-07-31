@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -143,18 +144,59 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
             "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
             "crank TDC reference must be finite");
     const auto &intake = core.gas_path.intake;
-    const auto *direct =
-        std::get_if<contract::DirectThrottleControllerV1>(
-            &core.throttle_controller);
+    std::optional<LegacyThrottleControllerParameters> throttle_controller;
+    std::visit(
+        [&](const auto &controller) {
+            if constexpr (requires { controller.minimum_engine_speed_rad_s; }) {
+                const bool valid =
+                    std::isfinite(controller.minimum_engine_speed_rad_s.value) &&
+                    controller.minimum_engine_speed_rad_s.value >= 0.0 &&
+                    finite_positive(controller.maximum_engine_speed_rad_s.value) &&
+                    controller.minimum_engine_speed_rad_s.value <=
+                        controller.maximum_engine_speed_rad_s.value &&
+                    std::isfinite(controller.minimum_velocity_per_s.value) &&
+                    std::isfinite(controller.maximum_velocity_per_s.value) &&
+                    controller.minimum_velocity_per_s.value <=
+                        controller.maximum_velocity_per_s.value &&
+                    std::isfinite(controller.k_s.value) &&
+                    controller.k_s.value >= 0.0 &&
+                    std::isfinite(controller.k_d_per_s.value) &&
+                    controller.k_d_per_s.value >= 0.0 &&
+                    finite_positive(controller.gamma.value);
+                require(report, valid, ContractIssueCode::invalid_value,
+                        "engine.physics_profile.throttle_controller.governor",
+                        "governor parameters are outside their admitted domain");
+                if (valid) {
+                    throttle_controller = LegacyGovernorControllerParameters{
+                        controller.minimum_engine_speed_rad_s.value,
+                        controller.maximum_engine_speed_rad_s.value,
+                        controller.minimum_velocity_per_s.value,
+                        controller.maximum_velocity_per_s.value,
+                        controller.k_s.value,
+                        controller.k_d_per_s.value,
+                        controller.gamma.value,
+                    };
+                }
+            } else {
+                const bool valid = finite_positive(controller.gamma.value);
+                require(report, valid, ContractIssueCode::invalid_value,
+                        "engine.physics_profile.throttle_controller.direct.gamma",
+                        "direct throttle gamma must be finite and positive");
+                if (valid) {
+                    throttle_controller =
+                        LegacyDirectThrottleControllerParameters{
+                            controller.gamma.value};
+                }
+            }
+        },
+        core.throttle_controller);
     require(report,
-            direct != nullptr && finite_positive(direct->gamma.value) &&
-                std::isfinite(intake.idle_throttle_plate_position_01.value) &&
+            std::isfinite(intake.idle_throttle_plate_position_01.value) &&
                 intake.idle_throttle_plate_position_01.value >= 0.0 &&
                 intake.idle_throttle_plate_position_01.value <= 1.0,
             ContractIssueCode::invalid_value,
-            "engine.physics_profile.throttle_controller",
-            "direct throttle gamma must be finite and positive and the idle "
-            "plate position must be finite in [0,1]");
+            "engine.physics_profile.gas_path.intake.idle_throttle_plate_position_01",
+            "idle plate position must be finite in [0,1]");
     require(report,
             core.mechanism.cylinders.size() == engine.cylinders.size() &&
                 !core.mechanism.cylinders.empty(),
@@ -300,7 +342,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
         std::move(cylinders),
         std::move(timing_curve),
         ignition.timing_curve_triangle_radius_rad_s.value,
-        direct->gamma.value,
+        std::move(*throttle_controller),
         intake.idle_throttle_plate_position_01.value,
         ignition.limiter_speed_rpm.value,
         ignition.limiter_hold_s.value,

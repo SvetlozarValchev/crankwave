@@ -39,7 +39,8 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
     contract::RationalRateHz rate, double crank_tdc_reference_rad,
     double initial_theta_cycle_rad, std::vector<CylinderModel> cylinders,
     std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
-    double throttle_gamma, double idle_throttle_plate_position_01,
+    LegacyThrottleControllerParameters throttle_controller,
+    double idle_throttle_plate_position_01,
     double limiter_speed_rpm, double limiter_hold_s, std::string model_id,
     std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
     : control_cursor_(std::move(control_cursor)),
@@ -49,7 +50,7 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
       maximum_event_count_(cylinders_.size() + 1U),
       timing_curve_(std::move(timing_curve)),
       timing_curve_radius_rad_s_(timing_curve_radius_rad_s),
-      throttle_gamma_(throttle_gamma),
+      throttle_controller_(std::move(throttle_controller)),
       idle_throttle_plate_position_01_(idle_throttle_plate_position_01),
       limiter_speed_rpm_(limiter_speed_rpm), limiter_hold_s_(limiter_hold_s),
       model_id_(std::move(model_id)), profile_id_(std::move(profile_id)),
@@ -239,8 +240,22 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
     step_.theta_cycle_rad = theta_cycle_rad_;
     step_.theta_unwrapped_rad = theta_unwrapped_rad_;
 
-    const auto throttle = evaluate_legacy_direct_throttle(
-        step_.requested_throttle_01, throttle_gamma_, idle_throttle_plate_position_01_);
+    LegacyDirectThrottleState throttle;
+    if (const auto *direct =
+            std::get_if<LegacyDirectThrottleControllerParameters>(
+                &throttle_controller_)) {
+        throttle = evaluate_legacy_direct_throttle(
+            step_.requested_throttle_01, direct->gamma,
+            idle_throttle_plate_position_01_);
+    } else {
+        const auto governed = evaluate_legacy_governor_throttle(
+            governor_state_,
+            std::get<LegacyGovernorControllerParameters>(throttle_controller_),
+            step_.requested_throttle_01, step_.angular_speed_rad_s, step_s_,
+            idle_throttle_plate_position_01_);
+        governor_state_ = governed.controller;
+        throttle = governed.throttle;
+    }
     step_.resolved_engine_throttle_01 = throttle.resolved_engine_throttle_01;
     step_.intake_plate_position_01 = throttle.intake_plate_position_01;
     step_.main_flow_multiplier_01 = throttle.main_flow_multiplier_01;

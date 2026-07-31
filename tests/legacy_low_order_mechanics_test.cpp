@@ -522,6 +522,56 @@ void test_mechanics_uses_authored_direct_throttle_transform() {
                 "mechanics changed the authored intake flow attenuation");
 }
 
+void test_mechanics_executes_governor_with_persistent_state() {
+    MechanicsFixture fixture;
+    auto &profile =
+        std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile);
+    const auto prototype =
+        std::get<DirectThrottleControllerV1>(profile.core.throttle_controller).gamma;
+    const auto resolved = [&](double value) {
+        auto field = prototype;
+        field.value = value;
+        return field;
+    };
+    profile.core.throttle_controller = GovernorThrottleControllerV1{
+        resolved(100.0),
+        resolved(200.0),
+        resolved(-5.0),
+        resolved(5.0),
+        resolved(0.0006),
+        resolved(200.0),
+        resolved(2.0),
+    };
+    auto &rpm = fixed_rpm(fixture);
+    rpm.post_step_rpm = {1000.0, 1000.0, 1000.0, 1000.0};
+    rpm.samples_f64le_sha256 = canonical_binary64_le_sha256(rpm.post_step_rpm);
+
+    auto session = require_session(compile_fixture(fixture));
+    LegacyGovernorControllerState expected_state;
+    const LegacyGovernorControllerParameters parameters{
+        100.0, 200.0, -5.0, 5.0, 0.0006, 200.0, 2.0,
+    };
+    for (std::size_t index = 0; index < rpm.post_step_rpm.size(); ++index) {
+        auto result = session.advance();
+        const auto &step = require_step(result);
+        const auto expected = evaluate_legacy_governor_throttle(
+            expected_state, parameters, index < 2U ? 0.25 : 0.75,
+            1000.0 * kLegacyRpmScale, 1.0 / 10000.0,
+            profile.core.gas_path.intake.idle_throttle_plate_position_01.value);
+        expected_state = expected.controller;
+        expect(std::bit_cast<std::uint64_t>(step.resolved_engine_throttle_01) ==
+                       std::bit_cast<std::uint64_t>(
+                           expected.throttle.resolved_engine_throttle_01) &&
+                   std::bit_cast<std::uint64_t>(step.intake_plate_position_01) ==
+                       std::bit_cast<std::uint64_t>(
+                           expected.throttle.intake_plate_position_01) &&
+                   std::bit_cast<std::uint64_t>(step.main_flow_multiplier_01) ==
+                       std::bit_cast<std::uint64_t>(
+                           expected.throttle.main_flow_multiplier_01),
+               "mechanics changed the governor state update or intake projection");
+    }
+}
+
 void test_mechanics_accepts_external_post_step_motion_for_inertial_controls() {
     MechanicsFixture fixture;
     configure_inertial_controls(fixture);
@@ -792,6 +842,7 @@ void run_tests() {
     test_mechanics_session_step_order_and_completion();
     test_mechanics_accepts_compiled_held_speed_schedule();
     test_mechanics_uses_authored_direct_throttle_transform();
+    test_mechanics_executes_governor_with_persistent_state();
     test_mechanics_accepts_external_post_step_motion_for_inertial_controls();
     test_mechanics_accepts_canonical_external_zero_motion();
     test_mechanics_rejects_noncanonical_external_motion();

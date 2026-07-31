@@ -3,6 +3,7 @@
 #include "engine_sim_offline/contract/common.hpp"
 
 #include <span>
+#include <variant>
 
 namespace engine_sim_offline::simulation {
 
@@ -40,6 +41,18 @@ struct LegacyGovernorControllerParameters {
     friend bool operator==(const LegacyGovernorControllerParameters &,
                            const LegacyGovernorControllerParameters &) = default;
 };
+
+struct LegacyDirectThrottleControllerParameters {
+    double gamma = 1.0;
+
+    friend bool operator==(const LegacyDirectThrottleControllerParameters &,
+                           const LegacyDirectThrottleControllerParameters &) =
+        default;
+};
+
+using LegacyThrottleControllerParameters =
+    std::variant<LegacyDirectThrottleControllerParameters,
+                 LegacyGovernorControllerParameters>;
 
 struct LegacyGovernorControllerState {
     double actuator_closure_01 = 1.0;

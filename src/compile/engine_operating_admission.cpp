@@ -158,21 +158,46 @@ void admit_engine_operating_systems(ModelContext &resolved,
         engine.throttle_controllers->size() != 1U) {
         add(report, DiagnosticCode::unsupported_capability,
             "/engine/throttle_controllers",
-            "the current engine requires one explicitly selected direct throttle "
+            "the current engine requires one explicitly selected throttle "
             "controller");
     } else {
         resolved.throttle_controller = &engine.throttle_controllers->front();
-        const auto *direct = std::get_if<authoring::DirectThrottleController>(
-            &resolved.throttle_controller->kind);
         if (engine.throttle_controller->value !=
-                resolved.throttle_controller->id.value ||
-            direct == nullptr || !std::isfinite(direct->gamma) ||
-            direct->gamma <= 0.0) {
+            resolved.throttle_controller->id.value) {
             add(report, DiagnosticCode::unsupported_capability,
                 "/engine/throttle_controller",
-                "legacy_low_order_v1 requires a selected direct controller with "
-                "finite positive gamma");
+                "the selected throttle controller does not match the admitted "
+                "definition");
         }
+        std::visit(
+            [&](const auto &controller) {
+                if constexpr (requires { controller.minimum_engine_speed; }) {
+                    const double minimum_speed =
+                        legacy_si_value(controller.minimum_engine_speed);
+                    const double maximum_speed =
+                        legacy_si_value(controller.maximum_engine_speed);
+                    if (!std::isfinite(minimum_speed) || minimum_speed < 0.0 ||
+                        !std::isfinite(maximum_speed) || maximum_speed <= 0.0 ||
+                        minimum_speed > maximum_speed ||
+                        !std::isfinite(controller.minimum_velocity) ||
+                        !std::isfinite(controller.maximum_velocity) ||
+                        controller.minimum_velocity > controller.maximum_velocity ||
+                        !std::isfinite(controller.k_s) || controller.k_s < 0.0 ||
+                        !std::isfinite(controller.k_d) || controller.k_d < 0.0 ||
+                        !std::isfinite(controller.gamma) ||
+                        controller.gamma <= 0.0) {
+                        add(report, DiagnosticCode::invalid_value,
+                            "/engine/throttle_controller",
+                            "governor parameters are outside their admitted domain");
+                    }
+                } else if (!std::isfinite(controller.gamma) ||
+                           controller.gamma <= 0.0) {
+                    add(report, DiagnosticCode::invalid_value,
+                        "/engine/throttle_controller/gamma",
+                        "direct throttle gamma must be finite and positive");
+                }
+            },
+            resolved.throttle_controller->kind);
     }
     if (engine.default_fuel.value != resolved.fuel->id.value) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/default_fuel",

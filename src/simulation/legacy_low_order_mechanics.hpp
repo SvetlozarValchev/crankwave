@@ -131,7 +131,8 @@ class LegacyLowOrderMechanicsSession final {
         contract::RationalRateHz rate, double crank_tdc_reference_rad,
         double initial_theta_cycle_rad, std::vector<CylinderModel> cylinders,
         std::vector<LegacyTrianglePoint> timing_curve, double timing_curve_radius_rad_s,
-        double throttle_gamma, double idle_throttle_plate_position_01,
+        LegacyThrottleControllerParameters throttle_controller,
+        double idle_throttle_plate_position_01,
         double limiter_speed_rpm, double limiter_hold_s, std::string model_id,
         std::string profile_id, std::string scenario_id,
         contract::EngineId engine_id);
@@ -156,7 +157,8 @@ class LegacyLowOrderMechanicsSession final {
     std::vector<CenteredSliderCrankCylinder> cylinder_model_view_;
     std::vector<LegacyTrianglePoint> timing_curve_;
     double timing_curve_radius_rad_s_ = 0.0;
-    double throttle_gamma_ = 0.0;
+    LegacyThrottleControllerParameters throttle_controller_;
+    LegacyGovernorControllerState governor_state_;
     double idle_throttle_plate_position_01_ = 0.0;
     double limiter_speed_rpm_ = 0.0;
     double limiter_hold_s_ = 0.0;

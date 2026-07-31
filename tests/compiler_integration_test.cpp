@@ -1691,6 +1691,51 @@ void test_four_cam_vtec_resolves_to_si_and_provenance() {
                         "public compiler rejected a valid four-cam VTEC engine");
 }
 
+void test_governor_resolves_to_executable_controller() {
+    const SyntheticAssets assets = make_assets();
+    auto document = make_engine_document(assets);
+    document.engine.throttle_controllers =
+        std::vector<authoring::ThrottleControllerDefinition>{{
+            {"fixture-governor"},
+            authoring::ThrottleControllerKind{
+                authoring::GovernorThrottleController{
+                    quantity(1600.0, "rpm"),
+                    quantity(366.5191425, "rad/s"),
+                    -5.0,
+                    5.0,
+                    0.0006,
+                    200.0,
+                    2.0,
+                }},
+        }};
+    document.engine.throttle_controller = {"fixture-governor"};
+    auto views = assets.views();
+    const auto resolved =
+        require_value(compile_detail::resolve_engine_package(document, views),
+                      "valid governor engine resolution failed");
+    const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+        resolved.engine.physics_profile);
+    const auto *governor =
+        std::get_if<contract::GovernorThrottleControllerV1>(
+            &profile.core.throttle_controller);
+    const auto near = [](double left, double right) {
+        return std::abs(left - right) <= 1.0e-12;
+    };
+    expect(governor != nullptr &&
+               near(governor->minimum_engine_speed_rad_s.value,
+                    1600.0 * 0.104719755) &&
+               near(governor->maximum_engine_speed_rad_s.value, 366.5191425) &&
+               governor->minimum_velocity_per_s.value == -5.0 &&
+               governor->maximum_velocity_per_s.value == 5.0 &&
+               governor->k_s.value == 0.0006 &&
+               governor->k_d_per_s.value == 200.0 &&
+               governor->gamma.value == 2.0,
+           "governor controller lost its source parameters or SI conversion");
+
+    (void)require_value(compile::compile_engine(document, views),
+                        "public compiler rejected a valid governor engine");
+}
+
 void test_unsupported_capability_fails_closed() {
     const SyntheticAssets assets = make_assets();
     auto document = make_engine_document(assets);
@@ -1736,6 +1781,7 @@ int main() {
         test_harmonic_and_equivalent_sampled_cam_sessions_are_identical();
         test_invalid_sampled_fixed_cams_fail_closed();
         test_four_cam_vtec_resolves_to_si_and_provenance();
+        test_governor_resolves_to_executable_controller();
         test_unsupported_capability_fails_closed();
         test_direct_scenario_dto_admission_fails_closed();
         std::cout << "compiler integration tests passed\n";
