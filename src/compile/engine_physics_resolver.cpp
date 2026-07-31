@@ -315,6 +315,7 @@ contract::EngineSpec assemble_engine(const ModelContext &context,
 
     contract::LowOrderOperatingPointV1Profile profile;
     resolve_mechanism(context, emitter, profile.core);
+    resolve_throttle_controller(context, emitter, profile.core);
     resolve_gas_path(context, emitter, profile.core);
     resolve_valvetrain(context, emitter, profile.core);
     resolve_ignition_and_fuel(context, emitter, profile.core);

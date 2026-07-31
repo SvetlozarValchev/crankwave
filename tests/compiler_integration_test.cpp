@@ -1205,7 +1205,10 @@ void test_v_engine_resolves_bank_geometry_and_axis_relative_journals() {
                near(right_core->parameters.deck_height_m.value, 0.220),
            "V-six core did not resolve raw journal phase minus bank angle");
     expect(
-        near(physics.core.gas_path.intake.throttle_gamma.value, 1.65) &&
+        near(std::get<contract::DirectThrottleControllerV1>(
+                 physics.core.throttle_controller)
+                 .gamma.value,
+             1.65) &&
             near(physics.core.gas_path.intake.idle_throttle_plate_position_01.value,
                  0.99715) &&
             near(physics.core.gas_path.intake.idle_bypass.source_rating.value, 0.0) &&

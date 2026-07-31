@@ -484,7 +484,7 @@ void configure_vtec_alternate(AuthoredEngineFixture &request, bool distinct_alte
         core.gas_path.intake.plenum_volume_m3;
     alternate.activation.minimum_mean_manifold_pressure_pa_abs.value = 1.0;
     alternate.activation.minimum_throttle_linkage_opening_01 =
-        core.gas_path.intake.throttle_gamma;
+        std::get<DirectThrottleControllerV1>(core.throttle_controller).gamma;
     alternate.activation.minimum_throttle_linkage_opening_01.value =
         force_alternate_active ? 0.0 : 0.8;
     core.valvetrain.alternate.emplace(std::move(alternate));

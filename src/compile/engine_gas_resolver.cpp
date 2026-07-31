@@ -23,11 +23,6 @@ void resolve_gas_path(const ModelContext &context, ResolutionEmitter &emitter,
                          intake_base + ".runner_length_m"),
         emitter.authored(context.intake->runner_velocity_decay_01,
                          intake_base + ".velocity_decay"),
-        emitter.authored(
-            std::get<authoring::DirectThrottleController>(
-                context.throttle_controller->kind)
-                .gamma,
-            intake_base + ".throttle_gamma"),
         emitter.authored(context.intake->idle_throttle_position_01,
                          intake_base + ".idle_throttle_plate_position_01"),
         resolve_restriction(context.intake->main_restriction,

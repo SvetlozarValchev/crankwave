@@ -148,12 +148,36 @@ void visit_intake(const Intake &intake, const std::string &base, Function functi
              base + ".plenum_cross_section_area_m2");
     function(intake.runner_length_m, base + ".runner_length_m");
     function(intake.velocity_decay, base + ".velocity_decay");
-    function(intake.throttle_gamma, base + ".throttle_gamma");
     function(intake.idle_throttle_plate_position_01,
              base + ".idle_throttle_plate_position_01");
     visit_restriction(intake.main_throttle, base + ".main_throttle", function);
     visit_restriction(intake.idle_bypass, base + ".idle_bypass", function);
     visit_restriction(intake.plenum_to_runner, base + ".plenum_to_runner", function);
+}
+
+template <class Controller, class Function>
+void visit_throttle_controller(const Controller &controller, const std::string &base,
+                               Function function) {
+    std::visit(
+        [&](const auto &value) {
+            if constexpr (requires { value.minimum_engine_speed_rad_s; }) {
+                const auto governor_base = base + ".governor";
+                function(value.minimum_engine_speed_rad_s,
+                         governor_base + ".minimum_engine_speed_rad_s");
+                function(value.maximum_engine_speed_rad_s,
+                         governor_base + ".maximum_engine_speed_rad_s");
+                function(value.minimum_velocity_per_s,
+                         governor_base + ".minimum_velocity_per_s");
+                function(value.maximum_velocity_per_s,
+                         governor_base + ".maximum_velocity_per_s");
+                function(value.k_s, governor_base + ".k_s");
+                function(value.k_d_per_s, governor_base + ".k_d_per_s");
+                function(value.gamma, governor_base + ".gamma");
+            } else {
+                function(value.gamma, base + ".direct.gamma");
+            }
+        },
+        controller);
 }
 
 template <class Point, class Function>
@@ -301,6 +325,9 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
                                       cylinder_name(cylinder),
                                   function);
     }
+
+    visit_throttle_controller(core.throttle_controller,
+                              std::string(root) + ".throttle_controller", function);
 
     visit_intake(core.gas_path.intake, std::string(root) + ".gas_path.intake",
                  function);
@@ -657,6 +684,40 @@ void validate_resolved_cam_shape_domains(ValidationReport &report,
     }
 }
 
+template <class Controller>
+void validate_throttle_controller_domains(ValidationReport &report,
+                                          const Controller &controller,
+                                          const std::string &path) {
+    std::visit(
+        [&](const auto &value) {
+            if constexpr (requires { value.minimum_engine_speed_rad_s; }) {
+                detail::require(
+                    report,
+                    detail::finite_nonnegative(
+                        value.minimum_engine_speed_rad_s.value) &&
+                        detail::finite_positive(
+                            value.maximum_engine_speed_rad_s.value) &&
+                        value.minimum_engine_speed_rad_s.value <=
+                            value.maximum_engine_speed_rad_s.value &&
+                        detail::finite(value.minimum_velocity_per_s.value) &&
+                        detail::finite(value.maximum_velocity_per_s.value) &&
+                        value.minimum_velocity_per_s.value <=
+                            value.maximum_velocity_per_s.value &&
+                        detail::finite_nonnegative(value.k_s.value) &&
+                        detail::finite_nonnegative(value.k_d_per_s.value) &&
+                        detail::finite_positive(value.gamma.value),
+                    ContractIssueCode::invalid_value, path + ".governor",
+                    "governor controller parameters are outside their domain");
+            } else {
+                detail::require(report, detail::finite_positive(value.gamma.value),
+                                ContractIssueCode::invalid_value,
+                                path + ".direct.gamma",
+                                "direct throttle gamma must be finite and positive");
+            }
+        },
+        controller);
+}
+
 void validate_authored_low_order_core_domains(
     ValidationReport &report, const AuthoredLowOrderEngineCoreV1 &core) {
     using detail::finite;
@@ -675,6 +736,8 @@ void validate_authored_low_order_core_domains(
             "crank assembly values are outside their physical domain");
     require(report, !core.mechanism.cylinders.empty(), ContractIssueCode::missing_value,
             "mechanism.cylinders", "legacy mechanism requires at least one cylinder");
+    validate_throttle_controller_domains(report, core.throttle_controller,
+                                         "throttle_controller");
 
     for (std::size_t index = 0; index < core.mechanism.cylinders.size(); ++index) {
         const auto &cylinder = core.mechanism.cylinders[index];
@@ -748,7 +811,6 @@ void validate_authored_low_order_core_domains(
                 finite_positive(intake.plenum_cross_section_area_m2.value) &&
                 finite_positive(intake.runner_length_m.value) &&
                 finite_nonnegative(intake.velocity_decay.value) &&
-                finite_positive(intake.throttle_gamma.value) &&
                 detail::unit_interval(intake.idle_throttle_plate_position_01.value),
             ContractIssueCode::invalid_value, "gas_path.intake",
             "legacy intake parameters are outside their domain");
@@ -1188,6 +1250,8 @@ void validate_low_order_core_domains(ValidationReport &report,
                 finite_nonnegative(crank.running_friction_torque_magnitude_nm.value),
             ContractIssueCode::invalid_value, "mechanism.crank",
             "crank assembly values are outside their physical domain");
+    validate_throttle_controller_domains(report, core.throttle_controller,
+                                         "throttle_controller");
     require(report,
             core.mechanism.cylinders.size() == engine.cylinders.size() &&
                 unique_valid_projected(core.mechanism.cylinders,
@@ -1504,7 +1568,6 @@ void validate_low_order_core_domains(ValidationReport &report,
                 finite_positive(intake.plenum_cross_section_area_m2.value) &&
                 finite_positive(intake.runner_length_m.value) &&
                 finite_nonnegative(intake.velocity_decay.value) &&
-                finite_positive(intake.throttle_gamma.value) &&
                 detail::unit_interval(intake.idle_throttle_plate_position_01.value),
             ContractIssueCode::invalid_value, "gas_path.intake",
             "legacy intake parameters are outside their domain");

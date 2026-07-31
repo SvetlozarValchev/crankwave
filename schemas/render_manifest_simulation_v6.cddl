@@ -163,12 +163,32 @@ low-order-operating-point-v1-profile = {
 
 low-order-engine-core-v1 = {
   "mechanism": legacy-mechanism-profile,
+  "throttle_controller": throttle-controller-v1,
   "gas_path": legacy-gas-path-profile,
   "valvetrain": legacy-valvetrain-profile,
   "ignition": legacy-ignition-profile,
   "fuel": legacy-fuel-profile,
   "combustion_random_streams": [* legacy-combustion-random-stream],
   "excitation": legacy-reference-excitation-profile
+}
+
+throttle-controller-v1 = {
+  "kind": "direct",
+  "value": {
+    "gamma": resolved<f64-bits>
+  }
+} /
+{
+  "kind": "governor",
+  "value": {
+    "minimum_engine_speed_rad_s": resolved<f64-bits>,
+    "maximum_engine_speed_rad_s": resolved<f64-bits>,
+    "minimum_velocity_per_s": resolved<f64-bits>,
+    "maximum_velocity_per_s": resolved<f64-bits>,
+    "k_s": resolved<f64-bits>,
+    "k_d_per_s": resolved<f64-bits>,
+    "gamma": resolved<f64-bits>
+  }
 }
 
 legacy-fixed-crank-loss-v1 = {
@@ -264,7 +284,6 @@ legacy-intake-parameters = {
   "plenum_cross_section_area_m2": resolved<f64-bits>,
   "runner_length_m": resolved<f64-bits>,
   "velocity_decay": resolved<f64-bits>,
-  "throttle_gamma": resolved<f64-bits>,
   "idle_throttle_plate_position_01": resolved<f64-bits>,
   "main_throttle": legacy-restriction,
   "idle_bypass": legacy-restriction,

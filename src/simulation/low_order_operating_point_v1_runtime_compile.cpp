@@ -136,6 +136,15 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
     if (profile == nullptr || held == nullptr || preparation == nullptr) {
         return report;
     }
+    const auto *direct =
+        std::get_if<contract::DirectThrottleControllerV1>(
+            &profile->core.throttle_controller);
+    require(report, direct != nullptr, ContractIssueCode::unsupported_value,
+            "engine.physics_profile.throttle_controller",
+            "held operating-point accounting currently requires direct throttle");
+    if (direct == nullptr) {
+        return report;
+    }
 
     const double expected_mass_afr = legacy_pseudo_gas_stoichiometric_mass_afr(
         profile->core.fuel.molecular_afr.value,
@@ -413,7 +422,7 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
         *fixed_horizon_frame,
         simulation_request_identity_v3_sha256,
         std::move(conditions),
-        profile->core.gas_path.intake.throttle_gamma.value,
+        direct->gamma.value,
         profile->core.gas_path.intake.idle_throttle_plate_position_01.value,
         "low-order-operating-point-v1",
         engine.profile_id.value,

@@ -43,6 +43,7 @@ double legacy_si_value(const authoring::Quantity &quantity) {
     const double pound_force = 4.44822;
     const double cc = centimetre * centimetre * centimetre;
     if (quantity.unit == "1" || quantity.unit == "rad" ||
+        quantity.unit == "rad/s" ||
         quantity.unit == "m" || quantity.unit == "m2" ||
         quantity.unit == "m3" || quantity.unit == "kg" ||
         quantity.unit == "kg*m2" || quantity.unit == "N*m" ||

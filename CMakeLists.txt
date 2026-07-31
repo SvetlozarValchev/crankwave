@@ -132,6 +132,7 @@ add_library(
         src/compile/engine_operating_admission.cpp
         src/compile/engine_physical_admission.cpp
         src/compile/engine_physics_resolver.cpp
+        src/compile/engine_throttle_resolver.cpp
         src/compile/engine_presentation_admission.cpp
         src/compile/engine_presentation_resolver.cpp
         src/compile/engine_resolution_support.cpp

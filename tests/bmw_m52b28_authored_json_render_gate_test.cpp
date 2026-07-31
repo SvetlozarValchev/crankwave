@@ -17,7 +17,7 @@ namespace contract = engine_sim_offline::contract;
 // These generic identities were established by a clean public JSON compile/render.
 // They intentionally do not inherit obsolete BMW-profile provenance/container IDs.
 constexpr std::string_view kExpectedGenericRequestIdentitySha256 =
-    "dcd6708a3cdb8799a12f7aca907483a86f4ccb070315408a9bc8fe80c0e7eafd";
+    "72c50c83f8d6c8266d8a68045cbc2e02ad022d916126c969dbf91ab177dbfe40";
 constexpr std::uint64_t kExpectedGenericAuditionWaveByteCount = UINT64_C(8640586);
 constexpr std::string_view kExpectedGenericAuditionWaveSha256 =
     "f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552";

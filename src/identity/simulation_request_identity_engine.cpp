@@ -446,8 +446,6 @@ write_legacy_intake_topology(CanonicalJsonWriter &writer,
            write_resolved(writer, intake.runner_length_m, write_f64) &&
            writer.key("velocity_decay") &&
            write_resolved(writer, intake.velocity_decay, write_f64) &&
-           writer.key("throttle_gamma") &&
-           write_resolved(writer, intake.throttle_gamma, write_f64) &&
            writer.key("idle_throttle_plate_position_01") &&
            write_resolved(writer, intake.idle_throttle_plate_position_01, write_f64) &&
            writer.key("main_throttle") &&
@@ -457,6 +455,45 @@ write_legacy_intake_topology(CanonicalJsonWriter &writer,
            writer.key("plenum_to_runner") &&
            write_legacy_restriction(writer, intake.plenum_to_runner) &&
            writer.end_object();
+}
+
+[[nodiscard]] bool write_throttle_controller(
+    CanonicalJsonWriter &writer,
+    const contract::ThrottleControllerV1 &controller) {
+    return std::visit(
+        [&](const auto &value) {
+            if constexpr (requires { value.minimum_engine_speed_rad_s; }) {
+                return writer.begin_object() && writer.key("kind") &&
+                       writer.string_value("governor") && writer.key("value") &&
+                       writer.begin_object() &&
+                       writer.key("minimum_engine_speed_rad_s") &&
+                       write_resolved(writer, value.minimum_engine_speed_rad_s,
+                                      write_f64) &&
+                       writer.key("maximum_engine_speed_rad_s") &&
+                       write_resolved(writer, value.maximum_engine_speed_rad_s,
+                                      write_f64) &&
+                       writer.key("minimum_velocity_per_s") &&
+                       write_resolved(writer, value.minimum_velocity_per_s,
+                                      write_f64) &&
+                       writer.key("maximum_velocity_per_s") &&
+                       write_resolved(writer, value.maximum_velocity_per_s,
+                                      write_f64) &&
+                       writer.key("k_s") &&
+                       write_resolved(writer, value.k_s, write_f64) &&
+                       writer.key("k_d_per_s") &&
+                       write_resolved(writer, value.k_d_per_s, write_f64) &&
+                       writer.key("gamma") &&
+                       write_resolved(writer, value.gamma, write_f64) &&
+                       writer.end_object() && writer.end_object();
+            } else {
+                return writer.begin_object() && writer.key("kind") &&
+                       writer.string_value("direct") && writer.key("value") &&
+                       writer.begin_object() && writer.key("gamma") &&
+                       write_resolved(writer, value.gamma, write_f64) &&
+                       writer.end_object() && writer.end_object();
+            }
+        },
+        controller);
 }
 
 [[nodiscard]] bool
@@ -860,7 +897,10 @@ write_legacy_excitation(CanonicalJsonWriter &writer,
 write_low_order_engine_core(CanonicalJsonWriter &writer,
                             const contract::LowOrderEngineCoreV1 &core) {
     return writer.begin_object() && writer.key("mechanism") &&
-           write_legacy_mechanism(writer, core.mechanism) && writer.key("gas_path") &&
+           write_legacy_mechanism(writer, core.mechanism) &&
+           writer.key("throttle_controller") &&
+           write_throttle_controller(writer, core.throttle_controller) &&
+           writer.key("gas_path") &&
            write_legacy_gas_path(writer, core.gas_path) && writer.key("valvetrain") &&
            write_legacy_valvetrain(writer, core.valvetrain) && writer.key("ignition") &&
            write_legacy_ignition(writer, core.ignition) && writer.key("fuel") &&

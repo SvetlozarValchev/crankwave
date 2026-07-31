@@ -338,12 +338,10 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             "intake volume, areas, runner length, and velocity decay are outside "
             "the admitted domain");
     require(report,
-            finite_positive(intake.throttle_gamma.value) &&
-                intake.idle_throttle_plate_position_01.value >= 0.0 &&
+            intake.idle_throttle_plate_position_01.value >= 0.0 &&
                 intake.idle_throttle_plate_position_01.value <= 1.0,
             ContractIssueCode::invalid_value, "engine.physics_profile.gas_path.intake",
-            "direct throttle gamma must be finite and positive and the idle "
-            "plate position must be finite in [0,1]");
+            "idle plate position must be finite in [0,1]");
     static_cast<void>(
         admit_restriction(intake.main_throttle, report,
                           "engine.physics_profile.gas_path.intake.main_throttle"));

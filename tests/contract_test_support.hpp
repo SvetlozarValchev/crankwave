@@ -211,6 +211,10 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
     };
     core.mechanism.cylinders.push_back(std::move(cylinder));
 
+    core.throttle_controller = DirectThrottleControllerV1{
+        builder.resolved(2.0, path("throttle_controller.direct.gamma")),
+    };
+
     core.gas_path.intake_topology = {
         GasVolumeId{1},
         FlowEdgeId{1},
@@ -221,7 +225,6 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
         builder.resolved(0.01, path("gas_path.intake.plenum_cross_section_area_m2")),
         builder.resolved(0.15, path("gas_path.intake.runner_length_m")),
         builder.resolved(1.0, path("gas_path.intake.velocity_decay")),
-        builder.resolved(2.0, path("gas_path.intake.throttle_gamma")),
         builder.resolved(0.0, path("gas_path.intake.idle_throttle_plate_position_01")),
         make_restriction(builder, LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
                          kCarb500, path("gas_path.intake.main_throttle")),

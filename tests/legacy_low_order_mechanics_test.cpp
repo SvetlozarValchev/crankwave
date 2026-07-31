@@ -457,7 +457,8 @@ void test_mechanics_uses_authored_direct_throttle_transform() {
     MechanicsFixture fixture;
     auto &profile =
         std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile);
-    profile.core.gas_path.intake.throttle_gamma.value = 1.65;
+    std::get<DirectThrottleControllerV1>(profile.core.throttle_controller)
+        .gamma.value = 1.65;
     profile.core.gas_path.intake.idle_throttle_plate_position_01.value = 0.99715;
 
     auto session = require_session(compile_fixture(fixture));

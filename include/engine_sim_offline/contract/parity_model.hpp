@@ -158,7 +158,6 @@ template <template <class> class Field> struct LegacyIntakeParametersT {
     Field<double> plenum_cross_section_area_m2;
     Field<double> runner_length_m;
     Field<double> velocity_decay;
-    Field<double> throttle_gamma;
     Field<double> idle_throttle_plate_position_01;
     LegacyRestrictionT<Field> main_throttle;
     LegacyRestrictionT<Field> idle_bypass;
@@ -529,8 +528,42 @@ using AuthoredLegacyReferenceExcitationProfile =
 using LegacyReferenceExcitationProfile = LegacyReferenceExcitationProfileT<
     ResolvedValue, CylinderId, LegacyExcitationCylinderPath, LegacyExcitationRoute>;
 
+template <template <class> class Field> struct DirectThrottleControllerV1T {
+    Field<double> gamma;
+
+    friend bool operator==(const DirectThrottleControllerV1T &,
+                           const DirectThrottleControllerV1T &) = default;
+};
+
+template <template <class> class Field> struct GovernorThrottleControllerV1T {
+    Field<double> minimum_engine_speed_rad_s;
+    Field<double> maximum_engine_speed_rad_s;
+    Field<double> minimum_velocity_per_s;
+    Field<double> maximum_velocity_per_s;
+    Field<double> k_s;
+    Field<double> k_d_per_s;
+    Field<double> gamma;
+
+    friend bool operator==(const GovernorThrottleControllerV1T &,
+                           const GovernorThrottleControllerV1T &) = default;
+};
+
+using AuthoredDirectThrottleControllerV1 =
+    DirectThrottleControllerV1T<AuthoredValue>;
+using DirectThrottleControllerV1 = DirectThrottleControllerV1T<ResolvedValue>;
+using AuthoredGovernorThrottleControllerV1 =
+    GovernorThrottleControllerV1T<AuthoredValue>;
+using GovernorThrottleControllerV1 =
+    GovernorThrottleControllerV1T<ResolvedValue>;
+using AuthoredThrottleControllerV1 =
+    std::variant<AuthoredDirectThrottleControllerV1,
+                 AuthoredGovernorThrottleControllerV1>;
+using ThrottleControllerV1 =
+    std::variant<DirectThrottleControllerV1, GovernorThrottleControllerV1>;
+
 struct AuthoredLowOrderEngineCoreV1 {
     AuthoredLegacyMechanismProfile mechanism;
+    AuthoredThrottleControllerV1 throttle_controller;
     AuthoredLegacyGasPathProfile gas_path;
     AuthoredLegacyValvetrainProfile valvetrain;
     AuthoredLegacyIgnitionProfile ignition;
@@ -543,6 +576,7 @@ struct AuthoredLowOrderEngineCoreV1 {
 
 struct LowOrderEngineCoreV1 {
     LegacyMechanismProfile mechanism;
+    ThrottleControllerV1 throttle_controller;
     LegacyGasPathProfile gas_path;
     LegacyValvetrainProfile valvetrain;
     LegacyIgnitionProfile ignition;

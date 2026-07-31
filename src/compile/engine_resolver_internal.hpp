@@ -224,6 +224,9 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
 
 void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
                        contract::LowOrderEngineCoreV1 &core);
+void resolve_throttle_controller(const ModelContext &context,
+                                 ResolutionEmitter &emitter,
+                                 contract::LowOrderEngineCoreV1 &core);
 void resolve_gas_path(const ModelContext &context, ResolutionEmitter &emitter,
                       contract::LowOrderEngineCoreV1 &core);
 void resolve_valvetrain(const ModelContext &context, ResolutionEmitter &emitter,
