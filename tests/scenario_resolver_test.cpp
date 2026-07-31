@@ -73,6 +73,9 @@ void test_free_engine_method_identity_is_bound_to_nonnegative_semantics() {
                descriptor.find("stall-commit=") != std::string_view::npos &&
                descriptor.find("rest-constraint=") != std::string_view::npos &&
                descriptor.find("rest-motion=") != std::string_view::npos &&
+               descriptor.find("warm-acquisition=dynamic-physics-continues-without-"
+                               "reset-from-release-through-an-equal-or-later-audible-"
+                               "start-boundary") != std::string_view::npos &&
                descriptor.find("reverse=unsupported-and-never-published") !=
                    std::string_view::npos,
            "free-engine method descriptor lost nonnegative-speed execution "

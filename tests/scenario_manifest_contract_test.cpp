@@ -405,10 +405,38 @@ void run_scenario_manifest_contract_tests() {
            "free engine rejected ignition and fuel off while starter and dyno were "
            "off");
 
+    auto warm_free_engine = stopped_free_engine_scenario;
+    std::get<FreeEngine>(warm_free_engine.mode).initial_engine_speed_rpm.value = 3000.0;
+    warm_free_engine.preparation = fixed_horizon_preparation;
+    std::get<FixedHorizonCycleSampling>(warm_free_engine.preparation)
+        .fixed_preparation_horizon_s.value = 1.5;
+    warm_free_engine.audible_start_s.value = 2.0;
+    warm_free_engine.audible_duration_s.value = 1.0;
+    warm_free_engine.total_duration_s.value = 3.0;
+    expect(validate(warm_free_engine, stopped_free_engine_builder.provenance).ok(),
+           "positive-speed free engine rejected release before audible start");
+
+    auto equal_release_and_audition = warm_free_engine;
+    std::get<FixedHorizonCycleSampling>(equal_release_and_audition.preparation)
+        .fixed_preparation_horizon_s.value = 2.0;
+    expect(validate(equal_release_and_audition, stopped_free_engine_builder.provenance)
+               .ok(),
+           "positive-speed free engine rejected release at audible start");
+
+    auto late_warm_release = warm_free_engine;
+    std::get<FixedHorizonCycleSampling>(late_warm_release.preparation)
+        .fixed_preparation_horizon_s.value = 2.5;
+    auto free_engine_report =
+        validate(late_warm_release, stopped_free_engine_builder.provenance);
+    expect(!free_engine_report.ok() &&
+               has_issue(free_engine_report, ContractIssueCode::inconsistent_semantics,
+                         "preparation.fixed_preparation_horizon_s.value"),
+           "positive-speed free engine admitted release after audible start");
+
     auto negative_zero_initial_speed = stopped_free_engine_scenario;
     std::get<FreeEngine>(negative_zero_initial_speed.mode)
         .initial_engine_speed_rpm.value = -0.0;
-    auto free_engine_report =
+    free_engine_report =
         validate(negative_zero_initial_speed, stopped_free_engine_builder.provenance);
     expect(!free_engine_report.ok() &&
                has_issue(free_engine_report, ContractIssueCode::invalid_value, "mode"),

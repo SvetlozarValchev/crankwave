@@ -271,8 +271,7 @@ class EngineSession::Implementation final {
                 return EngineControlRejection{
                     EngineControlRejectionCode::unavailable_during_preparation,
                     index,
-                    "live controls cannot replace the authored held-speed "
-                    "preparation state",
+                    "live controls cannot replace the authored pre-audible state",
                 };
             }
             const auto projection = session::project_delivery_frame_to_physics_step(

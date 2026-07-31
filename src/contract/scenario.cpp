@@ -273,12 +273,22 @@ ValidationReport validate_clock_grid(const RenderScenario &scenario) {
                         "fixed preparation horizon must resolve to an integral "
                         "physics-frame index");
                     if (fixed_horizon.has_value() && audible_start.has_value()) {
+                        const auto *free_engine =
+                            std::get_if<FreeEngine>(&scenario.mode);
+                        const bool warm_free_engine =
+                            free_engine != nullptr &&
+                            free_engine->initial_engine_speed_rpm.value > 0.0;
                         require(
-                            report, *fixed_horizon == *audible_start,
+                            report,
+                            warm_free_engine ? *fixed_horizon <= *audible_start
+                                             : *fixed_horizon == *audible_start,
                             ContractIssueCode::inconsistent_semantics,
                             "physics.preparation.fixed_preparation_horizon_s",
-                            "fixed preparation horizon must equal the audible-start "
-                            "physics frame");
+                            warm_free_engine
+                                ? "free-engine fixed preparation must end at or before "
+                                  "the audible-start physics frame"
+                                : "fixed preparation horizon must equal the "
+                                  "audible-start physics frame");
                     }
                 }
             },
@@ -502,18 +512,33 @@ ValidationReport validate(const RenderScenario &scenario,
                     ContractIssueCode::invalid_value, "preparation",
                     "fixed horizon must be finite and positive, and retained "
                     "cycle capacity must be positive and representable");
+                const auto *free_engine = std::get_if<FreeEngine>(&scenario.mode);
+                const bool warm_free_engine =
+                    free_engine != nullptr &&
+                    free_engine->initial_engine_speed_rpm.value > 0.0;
+                const bool preparation_boundary_valid =
+                    warm_free_engine
+                        ? preparation.fixed_preparation_horizon_s.value <=
+                              scenario.audible_start_s.value
+                        : std::bit_cast<std::uint64_t>(
+                              preparation.fixed_preparation_horizon_s.value) ==
+                              std::bit_cast<std::uint64_t>(
+                                  scenario.audible_start_s.value);
+                require(report, preparation_boundary_valid,
+                        ContractIssueCode::inconsistent_semantics,
+                        "preparation.fixed_preparation_horizon_s.value",
+                        warm_free_engine
+                            ? "free-engine fixed preparation must end at or before "
+                              "audible start"
+                            : "fixed preparation horizon must exactly equal audible "
+                              "start");
                 require(report,
-                        std::bit_cast<std::uint64_t>(
-                            preparation.fixed_preparation_horizon_s.value) ==
-                                std::bit_cast<std::uint64_t>(
-                                    scenario.audible_start_s.value) &&
-                            detail::nearly_equal(scenario.audible_start_s.value +
-                                                     scenario.audible_duration_s.value,
-                                                 scenario.total_duration_s.value),
+                        detail::nearly_equal(scenario.audible_start_s.value +
+                                                 scenario.audible_duration_s.value,
+                                             scenario.total_duration_s.value),
                         ContractIssueCode::inconsistent_semantics,
                         "total_duration_s.value",
-                        "fixed preparation horizon must exactly equal audible start, "
-                        "and the audible interval must end at total duration");
+                        "audible interval must end at total duration");
 
                 const double engine_speed_rpm = std::visit(
                     [](const auto &mode) {
@@ -831,14 +856,12 @@ ValidationReport validate(const RenderScenario &scenario,
                 }
                 if (sampling != nullptr) {
                     require(report,
-                            std::bit_cast<std::uint64_t>(
-                                sampling->fixed_preparation_horizon_s.value) ==
-                                std::bit_cast<std::uint64_t>(
-                                    scenario.audible_start_s.value),
+                            sampling->fixed_preparation_horizon_s.value <=
+                                scenario.audible_start_s.value,
                             ContractIssueCode::inconsistent_semantics,
                             "preparation.fixed_preparation_horizon_s.value",
-                            "free-engine release is exactly the fixed horizon and "
-                            "audible-start boundary");
+                            "free-engine release is the fixed preparation horizon and "
+                            "must not follow audible start");
                 }
                 validate_trajectory(report, mode.throttle_01, provenance,
                                     scenario.total_duration_s.value, true, false,
@@ -886,6 +909,16 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                 }
                 const bool free_engine =
                     std::holds_alternative<FreeEngine>(scenario.mode);
+                double free_engine_release_s = scenario.audible_start_s.value;
+                if (free_engine) {
+                    if (const auto *sampling = std::get_if<FixedHorizonCycleSampling>(
+                            &scenario.preparation)) {
+                        free_engine_release_s =
+                            sampling->fixed_preparation_horizon_s.value;
+                    } else {
+                        free_engine_release_s = 0.0;
+                    }
+                }
                 if (!free_engine) {
                     const auto *sampling =
                         std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
@@ -926,8 +959,7 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                                        (!state.starter_enabled ||
                                         (profile.starter.type.value ==
                                              StarterCapabilityType::cranking &&
-                                         point.time_s >=
-                                             scenario.audible_start_s.value));
+                                         point.time_s >= free_engine_release_s));
                             }
                             return state.ignition_enabled && state.fuel_enabled &&
                                    !state.starter_enabled && state.dyno_enabled &&

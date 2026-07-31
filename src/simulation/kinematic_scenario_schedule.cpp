@@ -678,27 +678,28 @@ compile_scenario_control_schedule(const contract::RenderScenario &scenario,
     }
 
     if (execution_extent.is_open_ended()) {
-        const auto release = contract::resolve_frame_index(
+        const auto audible_handoff = contract::resolve_frame_index(
             scenario.audible_start_s.value, scenario.rates.physics);
-        if (!release.has_value()) {
+        if (!audible_handoff.has_value()) {
             add_issue(report, ContractIssueCode::inconsistent_semantics,
                       "scenario.audible_start_s.value",
                       "open-ended control scheduling requires an exact release "
                       "physics frame");
             return report;
         }
-        // Open execution consumes the authored recipe through the exact release
-        // boundary, then holds that RCH snapshot. Later boundaries belong to the
+        // Open execution consumes the authored recipe through the exact audible
+        // handoff, then holds that RCH snapshot. Later boundaries belong to the
         // finite recording procedure and must not drive the interactive bench.
-        std::erase_if(operating_state, [release](const auto &boundary) {
-            return boundary.step_index > *release;
+        std::erase_if(operating_state, [audible_handoff](const auto &boundary) {
+            return boundary.step_index > *audible_handoff;
         });
-        std::erase_if(throttle, [release](const auto &boundary) {
-            return boundary.step_index > *release;
+        std::erase_if(throttle, [audible_handoff](const auto &boundary) {
+            return boundary.step_index > *audible_handoff;
         });
-        std::erase_if(external_resisting_torque, [release](const auto &boundary) {
-            return boundary.step_index > *release;
-        });
+        std::erase_if(external_resisting_torque,
+                      [audible_handoff](const auto &boundary) {
+                          return boundary.step_index > *audible_handoff;
+                      });
     }
 
     auto mutable_storage = std::make_shared<detail::ScenarioControlScheduleStorage>();

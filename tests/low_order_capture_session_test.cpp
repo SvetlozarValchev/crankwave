@@ -365,6 +365,7 @@ fixture_random_plan(const engine_sim_offline::test::AuthoredEngineFixture &autho
 
 struct FreeEngineCaptureTrace {
     std::vector<EngineCaptureSample> frames;
+    std::vector<std::byte> encoded_capture;
     LowOrderCaptureCompleted completion;
 };
 
@@ -392,8 +393,9 @@ drain_free_engine_live_controls(void *context, std::uint64_t physics_step) noexc
     return {true, overrides};
 }
 
-[[nodiscard]] FreeEngineCaptureTrace run_free_engine_capture(
-    const engine_sim_offline::test::AuthoredEngineFixture &request) {
+[[nodiscard]] FreeEngineCaptureTrace
+run_free_engine_capture(const engine_sim_offline::test::AuthoredEngineFixture &request,
+                        const bool retain_encoded_capture = false) {
     auto capture = require_simulation(compile_low_order_capture_session(
         request.engine, request.scenario,
         fixture_random_plan(request, request.engine, request.scenario),
@@ -410,6 +412,11 @@ drain_free_engine_live_controls(void *context, std::uint64_t physics_step) noexc
                    "free-engine capture blocks lost contiguous frame order");
             trace.frames.insert(trace.frames.end(), block.engine().begin(),
                                 block.engine().end());
+            if (retain_encoded_capture) {
+                const auto bytes = encode_capture_block(block);
+                trace.encoded_capture.insert(trace.encoded_capture.end(), bytes.begin(),
+                                             bytes.end());
+            }
             return true;
         });
         if (const auto *failure = std::get_if<FailureContext>(&result)) {
@@ -1204,6 +1211,65 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
            "released free-engine motion did not respond to authored throttle");
 }
 
+void test_free_engine_capture_runs_dynamic_pre_audible_acquisition(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    constexpr double kAudibleStartS = 0.30;
+    const auto request = [&] {
+        auto value = make_free_engine_capture_request(
+            canonical, 0.15, kFreeEngineInitialResistingTorqueNm,
+            kFreeEngineBoundaryResistingTorqueNm, kFreeEngineControlBoundaryS);
+        value.scenario.audible_start_s.value = kAudibleStartS;
+        value.scenario.audible_duration_s.value =
+            value.scenario.total_duration_s.value - kAudibleStartS;
+        return value;
+    }();
+    const auto trace = run_free_engine_capture(request, true);
+    auto earlier_audition = request;
+    earlier_audition.scenario.audible_start_s.value = kAudibleStartS - kOuterStepS;
+    earlier_audition.scenario.audible_duration_s.value =
+        earlier_audition.scenario.total_duration_s.value -
+        earlier_audition.scenario.audible_start_s.value;
+    const auto earlier_audition_trace = run_free_engine_capture(earlier_audition, true);
+    const auto release_frame =
+        *resolve_frame_index(kOperatingCutoffTimeS, request.scenario.rates.capture);
+    const auto control_boundary_frame = *resolve_frame_index(
+        kFreeEngineControlBoundaryS, request.scenario.rates.capture);
+    const auto audible_start_frame =
+        *resolve_frame_index(kAudibleStartS, request.scenario.rates.capture);
+
+    expect(release_frame < control_boundary_frame &&
+               control_boundary_frame < audible_start_frame &&
+               trace.frames[release_frame - 1U].engine_speed_rpm == kOperatingHeldRpm &&
+               trace.frames[release_frame].angular_acceleration_rad_s2 != 0.0 &&
+               trace.frames[control_boundary_frame].requested_throttle_01 == 0.15 &&
+               trace.frames[control_boundary_frame]
+                       .requested_external_resisting_torque_nm ==
+                   kFreeEngineBoundaryResistingTorqueNm &&
+               trace.frames[audible_start_frame - 1U].engine_speed_rpm !=
+                   kOperatingHeldRpm &&
+               trace.encoded_capture == earlier_audition_trace.encoded_capture,
+           "FreeEngine did not release, execute authored controls, and evolve before "
+           "the independent audible-start boundary without resetting or changing "
+           "the physical trace");
+
+    auto late_release = request;
+    std::get<FixedHorizonCycleSampling>(late_release.scenario.preparation)
+        .fixed_preparation_horizon_s.value = kAudibleStartS + kOuterStepS;
+    const auto rejected = compile_low_order_capture_session(
+        late_release.engine, late_release.scenario,
+        fixture_random_plan(late_release, late_release.engine, late_release.scenario),
+        nonzero_request_identity(), finite_extent(late_release.scenario));
+    const auto *report = std::get_if<ValidationReport>(&rejected);
+    expect(report != nullptr && !report->ok() &&
+               std::ranges::any_of(
+                   report->issues,
+                   [](const ContractIssue &issue) {
+                       return issue.path ==
+                              "scenario.preparation.fixed_preparation_horizon_s.value";
+                   }),
+           "FreeEngine admitted a held-preparation release after audible start");
+}
+
 void test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
     const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
     constexpr double kLiveResistingTorqueNm = 7.5;
@@ -1781,6 +1847,7 @@ void run_tests(const engine_sim_offline::test::AuthoredEngineFixture &canonical)
     test_operating_capture_rejects_zero_request_identity(canonical);
     test_free_engine_capture_holds_preparation_and_executes_authored_controls(
         canonical);
+    test_free_engine_capture_runs_dynamic_pre_audible_acquisition(canonical);
     test_free_engine_capture_applies_live_limiter_and_resistance_after_release(
         canonical);
     test_open_free_engine_capture_runs_past_authored_horizon_in_full_blocks(canonical);

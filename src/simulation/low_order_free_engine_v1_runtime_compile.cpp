@@ -153,31 +153,52 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
             "free-engine runtime requires a valid finite or open-ended execution "
             "extent");
 
-    const auto release_frame = contract::resolve_frame_index(
+    const std::optional<double> release_time_s =
+        cold_bootstrap ? std::optional<double>{0.0}
+        : fixed_horizon != nullptr
+            ? std::optional<double>{fixed_horizon->fixed_preparation_horizon_s.value}
+            : std::nullopt;
+    std::uint64_t release_frame_index = 0U;
+    bool release_frame_valid = false;
+    if (release_time_s.has_value()) {
+        if (const auto resolved =
+                contract::resolve_frame_index(*release_time_s, scenario.rates.physics);
+            resolved.has_value()) {
+            release_frame_index = *resolved;
+            release_frame_valid = true;
+        }
+    }
+    const auto audible_start_frame = contract::resolve_frame_index(
         scenario.audible_start_s.value, scenario.rates.physics);
     const auto end_frame = contract::resolve_frame_index(
         scenario.total_duration_s.value, scenario.rates.physics);
     const auto finite_execution = execution_extent.finite_physics_frame_count();
-    require(report,
-            release_frame.has_value() && end_frame.has_value() &&
-                *end_frame > *release_frame &&
-                (cold_bootstrap ? *release_frame == 0U : *release_frame > 0U) &&
-                (!finite_execution.has_value() || *finite_execution == *end_frame),
-            ContractIssueCode::inconsistent_semantics, "scenario.audible_start_s.value",
-            "free-engine release and horizon must resolve to ordered integral "
-            "physics frames matching capture; cold bootstrap releases at frame zero");
-    if (!report.ok() || crank_friction == nullptr || !release_frame.has_value() ||
+    bool ordered_frame_grid = false;
+    if (release_frame_valid && audible_start_frame.has_value() &&
+        end_frame.has_value()) {
+        ordered_frame_grid =
+            release_frame_index <= *audible_start_frame &&
+            *end_frame > release_frame_index &&
+            (cold_bootstrap ? release_frame_index == 0U : release_frame_index > 0U) &&
+            (!finite_execution.has_value() || *finite_execution == *end_frame);
+    }
+    require(report, ordered_frame_grid, ContractIssueCode::inconsistent_semantics,
+            "scenario.preparation.fixed_preparation_horizon_s.value",
+            "free-engine release, audible start, and horizon must resolve to ordered "
+            "integral physics frames matching capture; cold bootstrap releases at "
+            "frame zero");
+    if (!report.ok() || crank_friction == nullptr || !release_frame_valid ||
         !end_frame.has_value() || free_engine->throttle_01.points.empty() ||
         free_engine->external_resisting_torque_nm.points.empty()) {
         return report;
     }
 
     require_release_or_later_boundaries(
-        report, free_engine->throttle_01, scenario.rates.physics, *release_frame,
+        report, free_engine->throttle_01, scenario.rates.physics, release_frame_index,
         "scenario.mode.throttle_01", "free-engine throttle");
     require_release_or_later_boundaries(
         report, free_engine->external_resisting_torque_nm, scenario.rates.physics,
-        *release_frame, "scenario.mode.external_resisting_torque_nm",
+        release_frame_index, "scenario.mode.external_resisting_torque_nm",
         "free-engine external resisting-torque");
     if (!report.ok()) {
         return report;
@@ -446,7 +467,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         std::move(piston_wall_cylinders),
         scenario.rates.physics,
         execution_extent,
-        *release_frame,
+        release_frame_index,
         free_engine->initial_engine_speed_rpm.value,
         free_engine->initial_theta_rad.value,
         cold_bootstrap,

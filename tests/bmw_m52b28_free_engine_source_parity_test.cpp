@@ -165,8 +165,10 @@ run_controlled_scenario(const contract::EngineSpec &engine,
                         const contract::RenderScenario &scenario, const double held_rpm,
                         const double released_throttle, const bool observe_upward,
                         const bool observe_long_balance = false) {
+    const auto &preparation =
+        std::get<contract::FixedHorizonCycleSampling>(scenario.preparation);
     const auto release_frame = contract::resolve_frame_index(
-        scenario.audible_start_s.value, scenario.rates.physics);
+        preparation.fixed_preparation_horizon_s.value, scenario.rates.physics);
     const auto horizon = contract::resolve_frame_index(scenario.total_duration_s.value,
                                                        scenario.rates.physics);
     gate::expect(release_frame.has_value() && horizon.has_value() &&
