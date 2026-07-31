@@ -119,6 +119,27 @@ const WORKBENCH_PACKAGES = Object.freeze([
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/inertial-dyno-700-6500rpm.json",
   }),
+  Object.freeze({
+    id: "honda-b18c5-held-below-vtec",
+    label: "Honda B18C5 · Held below VTEC 5400 rpm",
+    engineUrl: "/data/engines/honda-b18c5-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/honda-b18c5-cleanroom/scenarios/held-below-vtec-5400rpm.json",
+  }),
+  Object.freeze({
+    id: "honda-b18c5-dyno",
+    label: "Honda B18C5 · Inertial dyno 5000–8000 rpm",
+    engineUrl: "/data/engines/honda-b18c5-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/honda-b18c5-cleanroom/scenarios/inertial-dyno-5000-8000rpm.json",
+  }),
+  Object.freeze({
+    id: "honda-b18c5-held-above-vtec",
+    label: "Honda B18C5 · Held above VTEC 7000 rpm",
+    engineUrl: "/data/engines/honda-b18c5-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/honda-b18c5-cleanroom/scenarios/held-above-vtec-7000rpm.json",
+  }),
 ]);
 
 const RING_HEADER = Object.freeze({
