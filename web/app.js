@@ -140,6 +140,13 @@ const WORKBENCH_PACKAGES = Object.freeze([
     scenarioUrl:
       "/data/engines/honda-b18c5-cleanroom/scenarios/held-above-vtec-7000rpm.json",
   }),
+  Object.freeze({
+    id: "kohler-ch750-governed-load-step",
+    label: "Kohler CH750 · Governed load step at 2740 rpm",
+    engineUrl: "/data/engines/kohler-ch750-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/kohler-ch750-cleanroom/scenarios/governed-load-step-2740rpm.json",
+  }),
 ]);
 
 const RING_HEADER = Object.freeze({
@@ -233,8 +240,11 @@ const elements = {
   busSelect: $("#bus-select"),
   exportButton: $("#export-button"),
   controlsAdmission: $("#controls-admission"),
+  throttleLabel: $("#throttle-label"),
   throttleInput: $("#throttle-input"),
   throttleOutput: $("#throttle-output"),
+  throttleMinimumLabel: $("#throttle-minimum-label"),
+  throttleMaximumLabel: $("#throttle-maximum-label"),
   starterButton: $("#starter-button"),
   starterLabel: $("#starter-label"),
   ignitionButton: $("#ignition-button"),
@@ -286,6 +296,7 @@ const state = {
   requestKinds: new Map(),
   buildRequestId: null,
   buildMutationRequests: new Set(),
+  buildThrottlePresentations: new Map(),
   mutationPriorStates: new Map(),
   built: null,
   sessionState: "idle",
@@ -1086,13 +1097,84 @@ function authoredLiveState() {
   };
 }
 
+function angularSpeedRpm(quantity) {
+  if (!Number.isFinite(quantity?.value)) {
+    return Number.NaN;
+  }
+  if (quantity.unit === "rpm") {
+    return quantity.value;
+  }
+  if (quantity.unit === "rad/s") {
+    return (quantity.value * 60) / (2 * Math.PI);
+  }
+  return Number.NaN;
+}
+
+function throttlePresentation(engineDocument) {
+  const engine = engineDocument?.engine;
+  const selectedId = engine?.throttle_controller;
+  const controllers = Array.isArray(engine?.throttle_controllers)
+    ? engine.throttle_controllers
+    : [];
+  const selected = controllers.find(
+    (controller) => controller?.id === selectedId,
+  );
+  if (selected?.type !== "governor") {
+    return Object.freeze({ type: "direct" });
+  }
+
+  const minimumRpm = angularSpeedRpm(selected.minimum_engine_speed);
+  const maximumRpm = angularSpeedRpm(selected.maximum_engine_speed);
+  if (
+    !Number.isFinite(minimumRpm) ||
+    !Number.isFinite(maximumRpm) ||
+    minimumRpm < 0 ||
+    maximumRpm < minimumRpm
+  ) {
+    return Object.freeze({ type: "direct" });
+  }
+  return Object.freeze({ type: "governor", minimumRpm, maximumRpm });
+}
+
+function activeThrottlePresentation() {
+  return (
+    state.built?.throttlePresentation ??
+    throttlePresentation(state.documents.engine.parsed)
+  );
+}
+
+function formatRpm(value) {
+  return `${Math.round(value).toLocaleString()} rpm`;
+}
+
+function renderThrottleControl(value) {
+  const presentation = activeThrottlePresentation();
+  if (presentation.type === "governor") {
+    const setpointRpm =
+      presentation.minimumRpm +
+      value * (presentation.maximumRpm - presentation.minimumRpm);
+    elements.throttleLabel.textContent = "Governor setpoint";
+    elements.throttleOutput.value = formatRpm(setpointRpm);
+    elements.throttleMinimumLabel.textContent = formatRpm(
+      presentation.minimumRpm,
+    );
+    elements.throttleMaximumLabel.textContent = formatRpm(
+      presentation.maximumRpm,
+    );
+    return;
+  }
+
+  elements.throttleLabel.textContent = "Throttle";
+  elements.throttleOutput.value = `${Math.round(value * 100)}%`;
+  elements.throttleMinimumLabel.textContent = "Closed";
+  elements.throttleMaximumLabel.textContent = "Wide open";
+}
+
 function renderLiveState() {
   elements.throttleInput.value = String(
     Math.round(state.liveState.throttle * 100),
   );
-  elements.throttleOutput.value = `${Math.round(
-    state.liveState.throttle * 100,
-  )}%`;
+  renderThrottleControl(state.liveState.throttle);
   elements.starterButton.setAttribute(
     "aria-pressed",
     String(state.liveState.starter),
@@ -1161,6 +1243,10 @@ async function buildSession() {
     const requestId = nextRequestId();
     state.buildRequestId = requestId;
     state.buildMutationRequests.add(requestId);
+    state.buildThrottlePresentations.set(
+      requestId,
+      throttlePresentation(state.documents.engine.parsed),
+    );
     state.mutationPriorStates.set(requestId, priorState);
     const transfer = assets.map((asset) => asset.bytes);
     postWorker(
@@ -1223,17 +1309,23 @@ function acceptBuilt(message) {
     return;
   }
   const isInitialBuild = message.requestId === state.buildRequestId;
+  const compiledThrottlePresentation =
+    state.buildThrottlePresentations.get(message.requestId) ??
+    state.built?.throttlePresentation ??
+    throttlePresentation(state.documents.engine.parsed);
   state.buildMutationRequests.delete(message.requestId);
+  state.buildThrottlePresentations.delete(message.requestId);
   state.mutationPriorStates.delete(message.requestId);
   state.requestKinds.delete(message.requestId);
-  resetRunPresentation();
-  resetLiveControls();
   state.built = {
     engineId: message.engineId,
     scenarioId: message.scenarioId,
     descriptor: message.descriptor,
     capabilities: normalizeCapabilities(message.descriptor),
+    throttlePresentation: compiledThrottlePresentation,
   };
+  resetRunPresentation();
+  resetLiveControls();
   if (isInitialBuild) {
     state.documents.engine.dirty = false;
     state.documents.scenario.dirty = false;
@@ -1901,6 +1993,7 @@ function acceptWorkerDiagnostics(message) {
   ) {
     const priorState = state.mutationPriorStates.get(message.requestId);
     state.buildMutationRequests.delete(message.requestId);
+    state.buildThrottlePresentations.delete(message.requestId);
     state.mutationPriorStates.delete(message.requestId);
     state.requestKinds.delete(message.requestId);
     setSessionState(
@@ -2024,6 +2117,7 @@ function acceptWorkerError(message) {
   const retainedPriorBuild =
     state.buildMutationRequests.has(message.requestId) && Boolean(state.built);
   state.buildMutationRequests.delete(message.requestId);
+  state.buildThrottlePresentations.delete(message.requestId);
   state.mutationPriorStates.delete(message.requestId);
   state.workerDiagnostics = [
     ...state.workerDiagnostics,
@@ -2277,7 +2371,7 @@ function bindEvents() {
     const value = Number(elements.throttleInput.value) / 100;
     state.throttleEditPending = true;
     state.liveState.throttle = value;
-    elements.throttleOutput.value = `${Math.round(value * 100)}%`;
+    renderThrottleControl(value);
   });
   let throttleTimer = null;
   elements.throttleInput.addEventListener("input", () => {

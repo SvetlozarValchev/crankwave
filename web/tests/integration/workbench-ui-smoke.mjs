@@ -73,6 +73,17 @@ const NEW_REPOSITORY_PACKAGES = Object.freeze([
     engineId: "honda-b18c5-cleanroom",
     scenarioId: "honda-b18c5-cleanroom-held-above-vtec-7000rpm",
   },
+  {
+    packageId: "kohler-ch750-governed-load-step",
+    engineId: "kohler-ch750-cleanroom",
+    scenarioId: "kohler-ch750-cleanroom-governed-load-step-2740rpm",
+    throttlePresentation: {
+      label: "Governor setpoint",
+      minimum: "1,600 rpm",
+      maximum: "3,500 rpm",
+      authoredValue: "2,740 rpm",
+    },
+  },
 ]);
 
 function usage() {
@@ -238,7 +249,10 @@ async function pageState(cdp) {
       diagnostics: text("#diagnostics-list"),
       rpm: text("#rpm-value"),
       elapsed: text("#elapsed-value"),
+      throttleLabel: text("#throttle-label"),
       throttle: document.querySelector("#throttle-output")?.value ?? "",
+      throttleMinimumLabel: text("#throttle-minimum-label"),
+      throttleMaximumLabel: text("#throttle-maximum-label"),
       exportLabel: text("#export-button"),
       underruns: text("#underrun-value"),
       busCount: selected?.options?.length ?? 0,
@@ -294,6 +308,24 @@ async function verifyRepositoryPackage(cdp, expectation) {
   assert.equal(built.selectedPackage, expectation.packageId);
   assert.equal(built.authoredEngineId, expectation.engineId);
   assert.equal(built.authoredScenarioId, expectation.scenarioId);
+  if (expectation.throttlePresentation) {
+    assert.equal(
+      built.throttleLabel,
+      expectation.throttlePresentation.label,
+    );
+    assert.equal(
+      built.throttleMinimumLabel,
+      expectation.throttlePresentation.minimum,
+    );
+    assert.equal(
+      built.throttleMaximumLabel,
+      expectation.throttlePresentation.maximum,
+    );
+    assert.equal(
+      built.throttle,
+      expectation.throttlePresentation.authoredValue,
+    );
+  }
   assert.match(built.diagnostics, /No diagnostics reported/u);
   return expectation.packageId;
 }
@@ -388,6 +420,10 @@ async function main() {
       "the compiled BMW workbench session",
     );
     assert.equal(built.selectedBus, "7");
+    assert.equal(built.throttleLabel, "Throttle");
+    assert.equal(built.throttleMinimumLabel, "Closed");
+    assert.equal(built.throttleMaximumLabel, "Wide open");
+    assert.equal(built.throttle, "10%");
     assert.match(built.sessionSubtitle, /interactive bench/u);
     assert.equal(built.exportLabel, "Export authored scenario WAV");
     assert.match(built.diagnostics, /No diagnostics reported/u);

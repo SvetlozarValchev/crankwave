@@ -284,7 +284,7 @@
 
             <label class="scalar-control">
               <span class="control-label">
-                <span>Throttle</span>
+                <span id="throttle-label">Throttle</span>
                 <output id="throttle-output" for="throttle-input">10%</output>
               </span>
               <input
@@ -296,7 +296,10 @@
                 value="10"
                 disabled
               />
-              <span class="range-scale"><span>Closed</span><span>Wide open</span></span>
+              <span class="range-scale">
+                <span id="throttle-minimum-label">Closed</span>
+                <span id="throttle-maximum-label">Wide open</span>
+              </span>
             </label>
 
             <label class="number-control">
