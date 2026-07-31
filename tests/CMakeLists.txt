@@ -1309,6 +1309,30 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_coupled_free_vehicle_drivetrain_tests
+    coupled_free_vehicle_drivetrain_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_coupled_free_vehicle_drivetrain_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_coupled_free_vehicle_drivetrain_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_coupled_free_vehicle_drivetrain_tests
+)
+
+add_test(
+    NAME simulation.coupled_free_vehicle_drivetrain
+    COMMAND engine_sim_offline_coupled_free_vehicle_drivetrain_tests
+)
+
+add_executable(
     engine_sim_offline_bmw_m52tub28_held_dyno_tests
     bmw_m52tub28_held_dyno_test.cpp
 )

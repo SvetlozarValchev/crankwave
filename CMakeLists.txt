@@ -214,8 +214,10 @@ add_library(
         src/simulation/bounded_clutch_coupling.cpp
         src/simulation/bounded_dyno_constraint.cpp
         src/simulation/centered_slider_crank_equivalent_inertia.cpp
+        src/simulation/coupled_free_vehicle_drivetrain.cpp
         src/simulation/fixed_horizon_cycle_sampling.cpp
         src/simulation/free_engine_method_registry.cpp
+        src/simulation/free_vehicle_method_registry.cpp
         src/simulation/chen_flynn_cycle_mean_loss.cpp
         src/simulation/cycle_accounting_method_descriptors.cpp
         src/simulation/cycle_accounting_method_registry.cpp
