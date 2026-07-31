@@ -105,12 +105,17 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
     const auto &presentation_contract = engine_package.presentation;
     const auto &scenario = scenario_contracts.scenario;
 
+    const bool supports_open_ended_execution =
+        std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
+        std::holds_alternative<contract::HeldDyno>(scenario.mode) ||
+        std::holds_alternative<contract::FreeVehicle>(scenario.mode);
     if (execution_kind == EngineSessionExecutionKind::open_ended &&
-        !std::holds_alternative<contract::FreeEngine>(scenario.mode)) {
+        !supports_open_ended_execution) {
         return build_error(
             EngineSessionErrorCode::unsupported_configuration,
-            "open-session-requires-free-engine",
-            "open-ended execution is admitted only for a FreeEngine scenario");
+            "open-session-requires-dynamic-bench-mode",
+            "open-ended execution is admitted only for FreeEngine, HeldDyno, or "
+            "FreeVehicle scenarios");
     }
 
     auto random_result = contract::compile_random_plan(

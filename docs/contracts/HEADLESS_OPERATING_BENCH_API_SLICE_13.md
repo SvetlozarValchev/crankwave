@@ -1,6 +1,6 @@
 # Headless operating-bench API — slice 13
 
-Status: implemented and frozen on 2026-07-31
+Status: implemented on 2026-07-31; amended to complete open operating-bench lifetime
 
 Scope: publish already-executed starter, bounded held-dyno, and free-vehicle behavior
 through the portable C++ session, exact C ABI, WASM, and browser runtime boundary
@@ -13,12 +13,15 @@ protocol v2 `d519cda`.
 
 ## 1. Lifetime and ownership
 
-This slice does not add another motion model or session lifetime.
+The current contract does not add another motion model. It admits one continuous bench
+lifetime for every already-executed dynamic operating mode.
 
-- `free_engine` remains the only mode admitted for `open_ended` execution.
-- `held_dyno` and `free_vehicle` remain exact `finite_scenario` procedures.
-- Slice 14 owns the full operating-bench procedure and any separately specified
-  lifetime extension it needs.
+- `free_engine`, `held_dyno`, and `free_vehicle` admit `open_ended` execution for the
+  interactive bench.
+- The same compiled `held_dyno` and `free_vehicle` scenarios retain exact
+  `finite_scenario` execution for authored capture/export.
+- Open execution consumes authored initialization through the audible handoff, freezes
+  each applicable right-continuous lane there, and accepts live controls afterward.
 - Motion ownership cannot change inside a session. There is no live dyno-enable,
   dyno-disable, or mode-switch command. A constant held-dyno target is the hold
   operation.

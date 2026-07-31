@@ -609,10 +609,14 @@ compile_scenario_control_schedule(const contract::RenderScenario &scenario,
                   "finite execution extent must equal the authored scenario "
                   "physics horizon");
     }
-    if (execution_extent.is_open_ended() &&
-        !std::holds_alternative<contract::FreeEngine>(scenario.mode)) {
+    const bool supports_open_ended_execution =
+        std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
+        std::holds_alternative<contract::HeldDyno>(scenario.mode) ||
+        std::holds_alternative<contract::FreeVehicle>(scenario.mode);
+    if (execution_extent.is_open_ended() && !supports_open_ended_execution) {
         add_issue(report, ContractIssueCode::unsupported_value, "execution_extent",
-                  "open-ended control scheduling is admitted only for FreeEngine");
+                  "open-ended control scheduling is admitted only for FreeEngine, "
+                  "HeldDyno, or FreeVehicle");
     }
 
     double initial_theta_rad = 0.0;
@@ -708,9 +712,9 @@ compile_scenario_control_schedule(const contract::RenderScenario &scenario,
                       "physics frame");
             return report;
         }
-        // Open execution consumes the authored recipe through the exact audible
-        // handoff, then holds that RCH snapshot. Later boundaries belong to the
-        // finite recording procedure and must not drive the interactive bench.
+        // Open execution consumes the authored initialization through the exact
+        // audible handoff, then holds that RCH snapshot. Later boundaries belong to
+        // the finite recording procedure and must not drive the interactive bench.
         std::erase_if(operating_state, [audible_handoff](const auto &boundary) {
             return boundary.step_index > *audible_handoff;
         });

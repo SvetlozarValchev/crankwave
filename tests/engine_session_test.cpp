@@ -375,7 +375,7 @@ void run(const std::filesystem::path &repository_root) {
     auto rejected_open_dyno =
         create_engine_session(scenario, EngineSessionExecutionKind::open_ended);
     gate::expect(std::holds_alternative<EngineSessionError>(rejected_open_dyno),
-                 "open-ended execution was admitted for a non-FreeEngine scenario");
+                 "open-ended execution was admitted for a capture-only scenario");
 
     auto open_free_session =
         require_session(free_scenario, EngineSessionExecutionKind::open_ended);
@@ -390,7 +390,8 @@ void run(const std::filesystem::path &repository_root) {
 
     const auto held_dyno_scenario =
         gate::compile_authored_bmw_m52tub28_held_dyno_scenario(repository_root);
-    auto held_dyno_session = require_session(held_dyno_scenario);
+    auto held_dyno_session = require_session(
+        held_dyno_scenario, EngineSessionExecutionKind::open_ended);
     const auto held_dyno_descriptor = held_dyno_session.descriptor();
     gate::expect(
         held_dyno_descriptor.motion_mode == EngineMotionMode::held_dyno &&
@@ -398,7 +399,8 @@ void run(const std::filesystem::path &repository_root) {
                 kHeldDynoLiveControls &&
             held_dyno_descriptor.forward_gears.empty() &&
             held_dyno_descriptor.execution_kind ==
-                EngineSessionExecutionKind::finite_scenario,
+                EngineSessionExecutionKind::open_ended &&
+            held_dyno_descriptor.total_block_count == 0U,
         "held-dyno descriptor did not expose its exact native contract");
     const auto held_dyno_first_live_frame =
         held_dyno_descriptor.preparation_block_count *
@@ -439,7 +441,8 @@ void run(const std::filesystem::path &repository_root) {
 
     const auto free_vehicle_scenario =
         gate::compile_authored_bmw_m52tub28_free_vehicle_scenario(repository_root);
-    auto free_vehicle_session = require_session(free_vehicle_scenario);
+    auto free_vehicle_session = require_session(
+        free_vehicle_scenario, EngineSessionExecutionKind::open_ended);
     const auto free_vehicle_descriptor = free_vehicle_session.descriptor();
     constexpr std::array<std::string_view, 5U> kExpectedGearIds{
         "gear-1", "gear-2", "gear-3", "gear-4", "gear-5"};
@@ -452,7 +455,8 @@ void run(const std::filesystem::path &repository_root) {
             free_vehicle_descriptor.forward_gears.size() ==
                 kExpectedGearIds.size() &&
             free_vehicle_descriptor.execution_kind ==
-                EngineSessionExecutionKind::finite_scenario,
+                EngineSessionExecutionKind::open_ended &&
+            free_vehicle_descriptor.total_block_count == 0U,
         "FreeVehicle descriptor did not expose its exact native contract");
     for (std::size_t index = 0U; index < kExpectedGearIds.size(); ++index) {
         const auto &gear = free_vehicle_descriptor.forward_gears[index];
@@ -517,15 +521,66 @@ void run(const std::filesystem::path &repository_root) {
                 free_vehicle_telemetry.free_vehicle->vehicle_distance_m),
         "FreeVehicle telemetry did not atomically reflect its drivetrain commands");
 
-    auto rejected_open_held_dyno = create_engine_session(
-        held_dyno_scenario, EngineSessionExecutionKind::open_ended);
-    auto rejected_open_free_vehicle = create_engine_session(
-        free_vehicle_scenario, EngineSessionExecutionKind::open_ended);
+    auto finite_held_dyno = require_session(held_dyno_scenario);
+    auto finite_free_vehicle = require_session(free_vehicle_scenario);
     gate::expect(
-        std::holds_alternative<EngineSessionError>(rejected_open_held_dyno) &&
-            std::holds_alternative<EngineSessionError>(
-                rejected_open_free_vehicle),
-        "finite-only dyno or drivetrain mode admitted open-ended execution");
+        finite_held_dyno.descriptor().execution_kind ==
+                EngineSessionExecutionKind::finite_scenario &&
+            finite_held_dyno.descriptor().total_block_count > 0U &&
+            finite_free_vehicle.descriptor().execution_kind ==
+                EngineSessionExecutionKind::finite_scenario &&
+            finite_free_vehicle.descriptor().total_block_count > 0U,
+        "finite authored dyno or drivetrain capture lost its exact horizon");
+
+    auto authored_open_held = require_session(
+        held_dyno_scenario, EngineSessionExecutionKind::open_ended);
+    const auto authored_held_block = require_first_audible_block(
+        authored_open_held, authored_open_held.descriptor(),
+        "authored open held-dyno session");
+    gate::expect(authored_held_block.telemetry().front().held_dyno.has_value(),
+                 "open HeldDyno published no sidecar at its handoff");
+    const auto authored_handoff_target = authored_held_block.telemetry()
+                                             .front()
+                                             .held_dyno->target_engine_speed_rpm;
+    gate::expect(
+        authored_handoff_target >= 1500.0 &&
+            authored_handoff_target < 1500.1,
+        "open HeldDyno did not retain its authored handoff target");
+    const auto authored_held_next = authored_open_held.process_block();
+    const auto *authored_held_next_block =
+        std::get_if<EngineSessionBlockView>(&authored_held_next);
+    gate::expect(
+        authored_held_next_block != nullptr &&
+            authored_held_next_block->telemetry().front().held_dyno.has_value() &&
+            authored_held_next_block->telemetry()
+                    .front()
+                    .held_dyno->target_engine_speed_rpm == authored_handoff_target,
+        "open HeldDyno did not hold its target after the authored handoff");
+
+    auto authored_open_vehicle = require_session(
+        free_vehicle_scenario, EngineSessionExecutionKind::open_ended);
+    auto authored_vehicle_block = require_first_audible_block(
+        authored_open_vehicle, authored_open_vehicle.descriptor(),
+        "authored open FreeVehicle session");
+    for (std::uint32_t index = 0U; index < 3U; ++index) {
+        const auto next = authored_open_vehicle.process_block();
+        const auto *block = std::get_if<EngineSessionBlockView>(&next);
+        gate::expect(block != nullptr,
+                     "open FreeVehicle completed after its audible handoff");
+        authored_vehicle_block = *block;
+    }
+    const auto &authored_vehicle_telemetry =
+        authored_vehicle_block.telemetry().front();
+    gate::expect(
+        authored_vehicle_telemetry.engine.requested_throttle_01 == 0.1 &&
+            authored_vehicle_telemetry.free_vehicle.has_value() &&
+            !authored_vehicle_telemetry.free_vehicle
+                 ->selected_forward_gear_ordinal.has_value() &&
+            authored_vehicle_telemetry.free_vehicle->clutch_engagement_01 == 0.0 &&
+            authored_vehicle_telemetry.free_vehicle
+                    ->service_brake_application_01 == 1.0,
+        "open FreeVehicle executed finite-procedure events after the authored "
+        "handoff");
 
     const auto command_beyond_authored_horizon =
         (free_descriptor.total_block_count + 10U) *

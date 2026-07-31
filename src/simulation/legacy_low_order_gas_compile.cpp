@@ -264,11 +264,16 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     require(report, schedule.execution_extent().valid(),
             ContractIssueCode::inconsistent_shape, "schedule.execution_extent",
             "gas session requires a valid finite or open-ended execution extent");
+    const bool supports_open_ended_execution =
+        std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
+        std::holds_alternative<contract::HeldDyno>(scenario.mode) ||
+        std::holds_alternative<contract::FreeVehicle>(scenario.mode);
     require(report,
             !schedule.execution_extent().is_open_ended() ||
-                std::holds_alternative<contract::FreeEngine>(scenario.mode),
+                supports_open_ended_execution,
             ContractIssueCode::unsupported_value, "schedule.execution_extent",
-            "open-ended gas execution is admitted only for FreeEngine");
+            "open-ended gas execution is admitted only for FreeEngine, HeldDyno, or "
+            "FreeVehicle");
     require(report,
             random_plan.generator == contract::pcg32_generator_method_identity(),
             ContractIssueCode::unsupported_value, "random_plan.generator",

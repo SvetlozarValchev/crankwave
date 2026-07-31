@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-31
 
-Current checkpoint: **operating-bench completion, then slice 15 canonical captures**
+Current checkpoint: **slice 15 — canonical unpaced capture procedures**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -118,9 +118,9 @@ Session creation separately requires `finite_scenario` or `open_ended`.
 the authored pre-audible history through the audible handoff, holds the
 right-continuous control snapshot, and continues the same mutable
 crank/gas/random/filter/convolution state until paused, restarted, destroyed, or
-faulted. FreeEngine already implements that lifetime. HeldDyno and FreeVehicle are the
-remaining operating-bench completion work before slice 15; neither may loop a finite
-recipe or report elapsed-time completion once admitted.
+faulted. FreeEngine, HeldDyno, and FreeVehicle implement that lifetime; none loops a
+finite recipe or reports elapsed-time completion. A separate `finite_scenario` session
+remains authoritative for exact authored capture and export.
 
 Asset references are relative to the engine asset and are content-verified. Resolution
 generates stable IDs, derived quantities, method selections, and provenance internally;
@@ -487,10 +487,9 @@ not.
 The browser is a client of this contract. It must not synthesize RPM, vehicle motion,
 load, or dyno behavior in JavaScript.
 
-Live browser playback creates an open-ended session for an admitted interactive motion
-owner. FreeEngine is implemented; continuous HeldDyno and FreeVehicle are the current
-completion work. **Stop** pauses production and **Start** resumes the same state;
-**Restart** creates fresh state.
+Live browser playback creates an open-ended session for an admitted FreeEngine,
+HeldDyno, or FreeVehicle motion owner. **Stop** pauses production and **Start** resumes
+the same state; **Restart** creates fresh state.
 Authored-capture export creates a separate finite-scenario session. Arbitrary live
 controls beyond the authored horizon are not silently truncated into that export.
 
@@ -595,9 +594,8 @@ names that role explicitly or removes it.
 
 Current progress: slices 1--9 and 11--14 are executable and accepted for the currently
 admitted topology. Slice 10 remains open for the isolated general-topology commits
-listed below. Slice 14's capability-driven UI is accepted, while continuous HeldDyno
-and FreeVehicle lifetimes are the final operating-bench completion before slice 15.
-Slice 12's pristine
+listed below. Slice 14's capability-driven UI and continuous FreeEngine, HeldDyno, and
+FreeVehicle lifetimes are accepted. Slice 15 is active. Slice 12's pristine
 vehicle/transmission equations and explicit non-parity service-brake boundary are
 frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md`](docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md).
@@ -653,13 +651,13 @@ Slice 14 turns that exact backend into a visible capability-driven bench without
 changing physics or audio. Commit `a3b7ca5` groups the existing repository
 procedures and adds the accepted BMW held-dyno, launch/shift, and fifth-gear runs;
 `c3c2563` adds descriptor-gated dyno/drivetrain controls plus mode-owned telemetry;
-and `4f43eb3` distinguishes the continuous FreeEngine bench from finite procedures and
-fresh replay. The actual WASM UI gate applies atomic dyno and drivetrain batches,
-observes their returned sidecars, completes and replays a finite vehicle procedure,
-retains the canonical browser WAV hash, and reports zero startup underruns. Continuous
-HeldDyno and FreeVehicle operation remains the explicit lifetime completion instead of
-being hidden behind the finite-procedure UI. The frozen finite-procedure contract and
-evidence are in
+and `4f43eb3` initially distinguished the continuous FreeEngine bench from finite
+procedures. The operating-bench completion admits the same open lifetime for HeldDyno
+and FreeVehicle, freezes each authored control snapshot at the audible handoff, and
+keeps exact finite capture/export as a separate fresh session. The actual WASM UI gate
+applies atomic dyno and drivetrain batches, observes their returned sidecars, verifies
+pause/resume/fresh-restart behavior, retains the canonical finite-export WAV hash, and
+reports zero startup underruns. The frozen contract and evidence are in
 [`docs/contracts/WEB_OPERATING_BENCH_SLICE_14.md`](docs/contracts/WEB_OPERATING_BENCH_SLICE_14.md).
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,

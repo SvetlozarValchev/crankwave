@@ -253,12 +253,12 @@ void test_motion_contract_surface(eso_context_t *context,
     eso_session_handle_t held_dyno_session = ESO_INVALID_HANDLE;
     eso_session_handle_t free_vehicle_session = ESO_INVALID_HANDLE;
     expect(eso_create_session(context, held_dyno_scenario,
-                              ESO_SESSION_EXECUTION_FINITE_SCENARIO,
+                              ESO_SESSION_EXECUTION_OPEN_ENDED,
                               &held_dyno_session) == ESO_STATUS_OK &&
                eso_create_session(context, free_vehicle_scenario,
-                                  ESO_SESSION_EXECUTION_FINITE_SCENARIO,
+                                  ESO_SESSION_EXECUTION_OPEN_ENDED,
                                   &free_vehicle_session) == ESO_STATUS_OK,
-           "C ABI v4 motion-session creation failed");
+           "C ABI v4 open operating-bench session creation failed");
 
     constexpr auto kCoreLiveControls = ESO_LIVE_CONTROL_CAPABILITY_THROTTLE |
                                        ESO_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED |
@@ -279,12 +279,17 @@ void test_motion_contract_surface(eso_context_t *context,
     expect(eso_session_get_descriptor(context, held_dyno_session, &held_descriptor) ==
                    ESO_STATUS_OK &&
                held_descriptor.motion_mode == ESO_MOTION_HELD_DYNO &&
+               held_descriptor.execution_kind == ESO_SESSION_EXECUTION_OPEN_ENDED &&
+               held_descriptor.total_block_count == 0U &&
                held_descriptor.forward_gear_count == 0U &&
                held_descriptor.live_control_capabilities == kHeldDynoLiveControls,
            "held-dyno C descriptor lost its exact motion contract");
     expect(eso_session_get_descriptor(context, free_vehicle_session,
                                       &vehicle_descriptor) == ESO_STATUS_OK &&
                vehicle_descriptor.motion_mode == ESO_MOTION_FREE_VEHICLE &&
+               vehicle_descriptor.execution_kind ==
+                   ESO_SESSION_EXECUTION_OPEN_ENDED &&
+               vehicle_descriptor.total_block_count == 0U &&
                vehicle_descriptor.forward_gear_count == 5U &&
                vehicle_descriptor.live_control_capabilities == kFreeVehicleLiveControls,
            "FreeVehicle C descriptor lost its exact motion contract");

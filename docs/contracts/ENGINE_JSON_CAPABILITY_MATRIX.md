@@ -92,16 +92,17 @@ The current browser runtime executes all admitted authored scenario modes. Its v
 Worker protocol exposes the same twelve capability-gated controls as the native
 session and submits each nonempty control group as one atomic batch. `inertial_dyno`
 exposes live throttle, ignition, and fuel; `free_engine` additionally exposes limiter,
-external resistance, and a capability-gated starter. Finite `held_dyno` exposes
-throttle, ignition, fuel, target RPM, and both torque limits. Finite `free_vehicle`
-exposes throttle, ignition, fuel, limiter, ordered gear, and clutch, plus starter and
-service brake only when their hardware exists. Only `free_engine` is open-ended.
+external resistance, and a capability-gated starter. `held_dyno` exposes throttle,
+ignition, fuel, target RPM, and both torque limits. `free_vehicle` exposes throttle,
+ignition, fuel, limiter, ordered gear, and clutch, plus starter and service brake only
+when their hardware exists. FreeEngine, HeldDyno, and FreeVehicle use open-ended
+interactive sessions while fresh finite sessions remain authoritative for capture.
 Live prescribed/external-RPM following and motion-mode transitions remain future
 capabilities. Preview is still realtime audio: the same block processor runs ahead of
 the audio device rather than tying simulation steps to UI frames. The workbench now
 renders descriptor-gated dyno/drivetrain widgets, returned mode telemetry, and grouped
-named procedures. FreeEngine uses continuous start/stop/restart; finite modes use
-run/pause/fresh-replay semantics and are never silently looped.
+named procedures. The three dynamic bench modes use continuous start/stop/restart;
+capture-only modes use run/pause/fresh-replay semantics and are never silently looped.
 
 ## Authoring, units, curves, and graph semantics
 
@@ -325,11 +326,11 @@ all-zero absent POD, while JavaScript maps absence to `null`.
 
 | Pristine capability | Intended owner | Current status | Acceptance requirement |
 |---|---|---|---|
-| Vehicle mass, drag coefficient, frontal area, differential ratio, tire radius, rolling-resistance force, optional maximum service-brake force | Package `rig.vehicle` | **Low-order executed** for finite authored forward-only `free_vehicle` scenarios; passive road load follows the frozen pristine law and the service brake is an explicit greenfield extension | BMW held-brake launch and fifth-gear pull/lift fixtures; accepted held-dyno audio remains byte-identical. |
+| Vehicle mass, drag coefficient, frontal area, differential ratio, tire radius, rolling-resistance force, optional maximum service-brake force | Package `rig.vehicle` | **Low-order executed** for finite capture and open-ended forward-only `free_vehicle` sessions; passive road load follows the frozen pristine law and the service brake is an explicit greenfield extension | BMW held-brake launch and fifth-gear pull/lift fixtures; accepted held-dyno audio remains byte-identical. |
 | Dyno minimum/maximum speed and hold-step defaults | Package `rig.dyno_defaults`; scenarios remain authoritative for an actual run | **Partial**; strict JSON parses and resolves reusable defaults, but no UI/default procedure executes them | Native and browser tools generate the same explicit held-point requests. |
 | Transmission max clutch torque and ordered gear ratios | Package `rig.transmission` | **Low-order executed and published** for neutral and ordered forward gears through the exact bounded clutch-then-road coupled solve; native/C/WASM/Worker descriptors expose stable ID, authored ordinal, ratio, and semantic ID | Brake-hold, locked reflected-inertia, neutral, launch, first-to-second, and exact five-gear BMW inventory fixtures. |
 | Held speed and prescribed RPM sweep | Session/render request | **Partial**; authored held-speed and prescribed-kinematic execution exist, while live external RPM following remains unavailable | Existing BMW held points and prescribed sweeps; a future external-follower contract. |
-| Bounded held dyno | Session/render request and timestamped mode controls | **Low-order executed and published** for finite target-RPM and throttle trajectories with separate absorbing/driving torque limits; target and both limits are live through native/C ABI v4/WASM/Worker v2 | BMW pull, exact hold, lift, zero-drive overrun, same-boundary command batch, nullable sidecar, reaction telemetry, and listening gate. |
+| Bounded held dyno | Session/render request and timestamped mode controls | **Low-order executed and published** for finite target-RPM captures and open-ended benches with separate absorbing/driving torque limits; target and both limits are live through native/C ABI v4/WASM/Worker v2 | BMW pull, exact hold, lift, zero-drive overrun, same-boundary command batch, nullable sidecar, reaction telemetry, and listening gate. |
 | Load-target held capture | Session/render request | **Low-order executed** | Converged target/tolerance result. |
 | Inertial dyno with inertia and brake curve | Session/render request | **Low-order executed** | Existing BMW inertial pull and torque evidence. |
 | Ambient pressure/temperature, initial gas/wall state, crankcase, fuel, seed, render rates, preparation | Session/render request and rig defaults | **Typed core and executed** | Native and WASM resolve the same request identity. |

@@ -150,9 +150,14 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
                 ContractIssueCode::inconsistent_shape, "execution_extent",
                 "finite capture extent must equal the authored scenario horizon");
     } else {
-        require(report, std::holds_alternative<contract::FreeEngine>(scenario.mode),
+        const bool supports_open_ended_execution =
+            std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
+            std::holds_alternative<contract::HeldDyno>(scenario.mode) ||
+            std::holds_alternative<contract::FreeVehicle>(scenario.mode);
+        require(report, supports_open_ended_execution,
                 ContractIssueCode::unsupported_value, "execution_extent",
-                "open-ended low-order capture is admitted only for FreeEngine");
+                "open-ended low-order capture is admitted only for FreeEngine, "
+                "HeldDyno, or FreeVehicle");
     }
 
     require(report,

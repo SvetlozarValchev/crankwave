@@ -40,10 +40,12 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     require(report, execution_extent.valid(), ContractIssueCode::invalid_value,
             "execution_extent",
             "low-order capture session requires a valid execution extent");
-    require(report, !execution_extent.is_open_ended() || free_engine != nullptr,
+    require(report,
+            !execution_extent.is_open_ended() || free_engine != nullptr ||
+                held_dyno != nullptr || free_vehicle != nullptr,
             ContractIssueCode::unsupported_value, "execution_extent",
-            "open-ended low-order capture sessions are admitted only for "
-            "FreeEngine");
+            "open-ended low-order capture sessions are admitted only for FreeEngine, "
+            "HeldDyno, or FreeVehicle");
     if (!report.ok()) {
         return report;
     }

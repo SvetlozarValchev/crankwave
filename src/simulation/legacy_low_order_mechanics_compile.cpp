@@ -112,9 +112,14 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
                 "compiled finite control schedule length must equal the scenario "
                 "physics horizon");
     } else {
-        require(report, std::holds_alternative<contract::FreeEngine>(scenario.mode),
+        const bool supports_open_ended_execution =
+            std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
+            std::holds_alternative<contract::HeldDyno>(scenario.mode) ||
+            std::holds_alternative<contract::FreeVehicle>(scenario.mode);
+        require(report, supports_open_ended_execution,
                 ContractIssueCode::unsupported_value, "schedule.execution_extent",
-                "open-ended mechanics execution is admitted only for FreeEngine");
+                "open-ended mechanics execution is admitted only for FreeEngine, "
+                "HeldDyno, or FreeVehicle");
     }
     require(report, scenario.rates.physics == contract::RationalRateHz{10000, 1},
             ContractIssueCode::unsupported_value, "scenario.rates.physics",

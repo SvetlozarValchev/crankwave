@@ -37,7 +37,8 @@ Session creation has one mandatory execution-kind choice:
 - `finite_scenario` executes the authored scenario as its exact finite recording
   recipe and may produce request-bound completion evidence;
 - `open_ended` uses the same compiled scenario to initialize a continuous interactive
-  FreeEngine session, but has no elapsed-time completion horizon.
+  FreeEngine, HeldDyno, or FreeVehicle bench, but has no elapsed-time completion
+  horizon.
 
 This choice is session lifetime policy rather than another sound model. There is no
 default kind, synthetic long duration, finite-session loop, or compatibility overload.
@@ -125,8 +126,8 @@ BMW, Honda, or Toyota code branch.
 
 ### 3.2 Session configuration
 
-The compiled scenario is an immutable, finite recording recipe. It selects one
-operating context without changing the engine:
+The compiled scenario is an immutable authored recording and bench-initialization
+recipe. It selects one operating context without changing the engine:
 
 - one motion-ownership mode;
 - audio delivery sample rate and requested bus layout;
@@ -183,12 +184,13 @@ modify the engine document or compiled scenario. The implemented payloads are:
 
 An inertial-dyno session admits throttle, ignition, and fuel. A FreeEngine session adds
 limiter state and external resisting torque, and adds starter state only when the
-compiled engine declares a positive cranking starter. A finite HeldDyno session admits
-throttle, ignition, fuel, target RPM, and both signed-direction torque limits. A finite
-FreeVehicle session admits throttle, ignition, fuel, limiter, gear, and clutch; it adds
-starter only for a cranking starter and service brake only for a rig with positive
-brake capacity. Prescribed live RPM, load-following commands, presentation monitoring,
-lifecycle commands, and motion-mode transitions are not live session capabilities.
+compiled engine declares a positive cranking starter. HeldDyno admits throttle,
+ignition, fuel, target RPM, and both signed-direction torque limits. FreeVehicle admits
+throttle, ignition, fuel, limiter, gear, and clutch; it adds starter only for a cranking
+starter and service brake only for a rig with positive brake capacity. HeldDyno and
+FreeVehicle expose those controls in both finite capture and open-ended bench sessions.
+Prescribed live RPM, load-following commands, presentation monitoring, lifecycle
+commands, and motion-mode transitions are not live session capabilities.
 
 No untyped string-to-value property mutation enters the processing path.
 
@@ -235,8 +237,9 @@ EngineSessionCreateResult create_engine_session(
 Session creation validates the selected lifetime, capabilities, and ownership mode,
 compiles method-owned simulation, excitation, DSP, and IR-kernel state, reserves
 bounded processing storage, and returns a mutable `EngineSession`. Open-ended
-execution is currently admitted only for `FreeEngine`; requesting it for any other
-motion owner fails session creation rather than substituting finite execution.
+execution is admitted for `FreeEngine`, `HeldDyno`, and `FreeVehicle`; requesting it
+for a capture-only motion owner fails session creation rather than substituting finite
+execution.
 
 One session:
 
@@ -257,9 +260,10 @@ scenario. There is no reset operation on the implemented session.
 `EngineSessionBlockPhase::preparation`; the native artifact publisher discards those
 blocks and begins publication at the first `audible` block. The descriptor reports the
 exact preparation block count, so this boundary is explicit rather than an implicit
-warm-up. Here `preparation` means **pre-audible history**. For a positive-speed
-FreeEngine, its fixed-horizon held preparation may end earlier; the crank then advances
-dynamically and authored controls continue to execute until the audible boundary.
+warm-up. Here `preparation` means **pre-audible history**. For a positive-speed dynamic
+bench mode, its fixed-horizon held preparation may end earlier; the selected motion
+owner then advances dynamically and authored controls continue to execute until the
+audible boundary.
 
 Live commands may be queued before processing begins, but any command whose absolute
 delivery-frame target falls inside the preparation interval is rejected with
@@ -268,13 +272,14 @@ delivery-frame target falls inside the preparation interval is rejected with
 
 Both execution kinds run the same authored pre-audible history, preserving crank, gas,
 combustion, random, filter, convolution, and resampler state. A positive-speed
-FreeEngine is held through its fixed horizon, then physically releases without a reset;
-held-speed and inertial modes retain release-at-audible equality. At the later audible
-handoff, `open_ended` resolves one right-continuous snapshot of every authored
-operating-state, throttle-controller-demand, and external-resisting-torque lane. The
-declared positive-zero default participates when that optional lane is omitted. A
+dynamic bench mode is held through its fixed horizon, then physically releases without
+a reset; held-speed and inertial modes retain release-at-audible equality. At the later
+audible handoff, `open_ended` resolves one right-continuous snapshot of every applicable
+authored operating-state, throttle-controller-demand, FreeEngine external-resistance,
+HeldDyno target/limit, and FreeVehicle gear/clutch/service-brake lane. The declared
+positive-zero default participates when the optional FreeEngine lane is omitted. A
 boundary exactly at the audible handoff participates; later boundaries belong to the
-finite recording procedure. That snapshot remains in force until a live command
+finite recording procedure. Each snapshot remains in force until a live command
 replaces its lane.
 
 ### 4.4 Enqueue controls
@@ -384,14 +389,15 @@ compiled scenario selects exactly one mode.
 |---|---|---|
 | `held_speed` | Authored fixed target executes; live commands are rejected | operating-point evidence, engine telemetry, audio |
 | `prescribed_kinematic_sweep` | Authored trajectory executes; live commands are rejected | authored RPM trajectory, engine telemetry, audio |
-| `held_dyno` | Finite execution admits live throttle, ignition, fuel, target RPM, and maximum absorbing/driving torque after preparation | achieved crank RPM, signed actuator and opposite dyno reaction, mode sidecar, engine telemetry, audio |
+| `held_dyno` | Finite or open-ended execution admits live throttle, ignition, fuel, target RPM, and maximum absorbing/driving torque after preparation | achieved crank RPM, signed actuator and opposite dyno reaction, mode sidecar, engine telemetry, audio |
 | `load_target_held_capture` | Authored RPM/load target executes; live commands are rejected | converged operating-point evidence, engine telemetry, audio |
 | `inertial_dyno` | Finite-scenario execution admits live throttle, ignition, and fuel after preparation | simulated RPM trajectory, dyno result evidence, engine telemetry, audio |
 | `free_engine` | Finite or open-ended execution admits live selected-controller demand, ignition, fuel, limiter, and external resisting torque after the audible handoff | simulated crank RPM, requested and governor-resolved throttle, requested external resisting torque, engine telemetry, audio |
-| `free_vehicle` | Finite execution admits live selected-controller demand, ignition, fuel, limiter, selected gear, and clutch; starter and service brake are capability-gated by engine/rig data | simulated crank RPM, clutch and road-load state, vehicle speed/distance, mode sidecar, engine telemetry, audio |
+| `free_vehicle` | Finite or open-ended execution admits live selected-controller demand, ignition, fuel, limiter, selected gear, and clutch; starter and service brake are capability-gated by engine/rig data | simulated crank RPM, clutch and road-load state, vehicle speed/distance, mode sidecar, engine telemetry, audio |
 
-`open_ended` is currently a FreeEngine-only lifetime. The other modes remain exact
-finite recording procedures even where they admit live controls.
+`open_ended` is the interactive lifetime for the three dynamic operating-bench modes.
+Their separately created `finite_scenario` sessions remain the exact authored capture
+procedures.
 
 `external_speed` is appropriate for a host game or editor scrubber that already owns
 drivetrain RPM. The full simulator still calculates achieved load from its physical
@@ -481,9 +487,9 @@ Current classification:
 | limiter enable | implemented live command for `free_engine` and `free_vehicle` after preparation |
 | external resisting torque | implemented live command for `free_engine` after preparation |
 | starter enable | implemented live command for `free_engine` and `free_vehicle` after preparation when the compiled engine declares a cranking starter |
-| held-dyno target RPM and absorbing/driving limits | implemented live commands for finite `held_dyno` after preparation |
-| selected gear and clutch engagement | implemented live commands for finite `free_vehicle` after preparation |
-| service-brake application | implemented live command for finite `free_vehicle` after preparation when the rig declares positive brake capacity |
+| held-dyno target RPM and absorbing/driving limits | implemented live commands for finite or open-ended `held_dyno` after preparation |
+| selected gear and clutch engagement | implemented live commands for finite or open-ended `free_vehicle` after preparation |
+| service-brake application | implemented live command for finite or open-ended `free_vehicle` after preparation when the rig declares positive brake capacity |
 | prescribed RPM, load-following target, generic dyno enable, or mode transition | not implemented as public live commands |
 | audition master, route monitor gain, mute, IR wet mix | not implemented as live commands |
 | motion ownership mode and initial state | `session_recreate` |
@@ -826,7 +832,7 @@ the active compiled scenario and session continue unchanged.
 ### 12.2 Session-creation failure
 
 Examples include unsupported motion mode, output rate, bus set, quality, initial state,
-capacity, unknown execution kind, or an `open_ended` request for a non-FreeEngine mode.
+capacity, unknown execution kind, or an `open_ended` request for a capture-only mode.
 No session is returned and the compiled scenario remains reusable.
 
 ### 12.3 Control rejection
@@ -880,8 +886,8 @@ The implemented workbench provides:
 - capability-gated throttle, ignition, fuel, momentary starter, limiter, FreeEngine
   external resistance, HeldDyno target/limits, and FreeVehicle gear/clutch/brake
   controls; related dyno and drivetrain values use atomic Worker batches;
-- continuous FreeEngine start/stop/restart actions and mode-aware finite-procedure
-  run/pause/fresh-replay actions;
+- continuous FreeEngine, HeldDyno, and FreeVehicle start/stop/restart actions, while
+  capture-only modes retain finite-procedure run/pause/fresh-replay actions;
 - RPM, torque, power, recent telemetry trace, returned HeldDyno/FreeVehicle state,
   simulation realtime factor, measured worker lead, ring fill, and real
   callback-underrun counters;
@@ -901,14 +907,16 @@ warm-running free-rev capture, starts and primes open-ended playback, applies th
 continues past the authored horizon, verifies Stop/Start/Restart, selects another
 route, and reports zero startup underruns on the development PC.
 
-The slice-13 runtime gate additionally exercises actual WASM HeldDyno and FreeVehicle
-sessions. It verifies capability masks `455` and `3631`, the five BMW forward gears, a
-three-command atomic batch, null preparation sidecars, populated released sidecars,
-and rejection of an invalid-gear batch without partial admission.
+The operating-bench runtime gate additionally exercises actual open-ended WASM
+HeldDyno and FreeVehicle sessions. It verifies capability masks `455` and `3631`, the
+five BMW forward gears, a three-command atomic batch, null preparation sidecars,
+populated released sidecars, and rejection of an invalid-gear batch without partial
+admission.
 
-The slice-14 UI gate applies one three-value dyno batch and one three-value drivetrain
-batch, observes the exact returned sidecars, lets the finite vehicle procedure complete,
-and starts a fresh replay. The existing canonical browser WAV hash remains unchanged.
+The workbench UI gate applies one three-value dyno batch and one three-value drivetrain
+batch, observes the exact returned sidecars, and verifies stop/resume/fresh-restart
+semantics for the continuous benches. The existing canonical finite-export browser WAV
+hash remains unchanged.
 
 ## 14. Implementation order
 

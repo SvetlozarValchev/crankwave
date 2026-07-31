@@ -381,8 +381,8 @@ async function verifyHeldDynoBench(cdp) {
   assert.equal(ready.heldDynoControlsHidden, false);
   assert.equal(ready.vehicleControlsHidden, true);
   assert.equal(ready.dynoTargetDisabled, true);
-  assert.equal(ready.startLabel, "Run procedure");
-  assert.equal(ready.stopLabel, "Pause procedure");
+  assert.equal(ready.startLabel, "Start");
+  assert.equal(ready.stopLabel, "Stop");
   assert.equal(ready.restartDisabled, true);
 
   await cdp.evaluate(
@@ -427,11 +427,11 @@ async function verifyHeldDynoBench(cdp) {
   await waitUntil(
     () => pageState(cdp),
     (state) => state.session === "Paused",
-    "paused HeldDyno procedure",
+    "paused HeldDyno bench",
   );
   const paused = await pageState(cdp);
-  assert.equal(paused.startLabel, "Resume procedure");
-  assert.equal(paused.restartLabel, "Restart procedure");
+  assert.equal(paused.startLabel, "Resume");
+  assert.equal(paused.restartLabel, "Restart");
   assert.equal(paused.restartDisabled, false);
 }
 
@@ -442,6 +442,8 @@ async function verifyFreeVehicleBench(cdp) {
   assert.equal(ready.vehicleControlsHidden, false);
   assert.equal(ready.vehicleGearOptions, 6);
   assert.equal(ready.vehicleGearDisabled, true);
+  assert.equal(ready.startLabel, "Start");
+  assert.equal(ready.stopLabel, "Stop");
 
   await cdp.evaluate(
     `document.querySelector("#start-button").click(); true`,
@@ -478,36 +480,36 @@ async function verifyFreeVehicleBench(cdp) {
   assert.equal(controlled.vehicleClutchInput, "50");
   assert.equal(controlled.vehicleBrakeInput, "25");
 
-  const completed = await waitUntil(
-    () => pageState(cdp),
-    (state) =>
-      state.session === "Procedure complete" &&
-      state.restartLabel === "Run again" &&
-      !state.restartDisabled,
-    "finite FreeVehicle procedure completion",
-    20_000,
+  await cdp.evaluate(
+    `document.querySelector("#stop-button").click(); true`,
   );
-  const completedElapsed = uiDurationSeconds(completed.elapsed);
-  assert.ok(completedElapsed >= 11);
+  const paused = await waitUntil(
+    () => pageState(cdp),
+    (state) => state.session === "Paused" && !state.restartDisabled,
+    "paused FreeVehicle bench",
+  );
+  const pausedElapsed = uiDurationSeconds(paused.elapsed);
+  assert.equal(paused.startLabel, "Resume");
+  assert.equal(paused.restartLabel, "Restart");
   await cdp.evaluate(
     `document.querySelector("#restart-button").click(); true`,
   );
-  const replayed = await waitUntil(
+  const restarted = await waitUntil(
     () => pageState(cdp),
     (state) =>
       state.session === "Running" &&
-      uiDurationSeconds(state.elapsed) < completedElapsed,
-    "fresh FreeVehicle procedure replay",
+      uiDurationSeconds(state.elapsed) < pausedElapsed,
+    "fresh FreeVehicle bench restart",
     20_000,
   );
-  assert.equal(replayed.stopLabel, "Pause procedure");
+  assert.equal(restarted.stopLabel, "Stop");
   await cdp.evaluate(
     `document.querySelector("#stop-button").click(); true`,
   );
   await waitUntil(
     () => pageState(cdp),
     (state) => state.session === "Paused",
-    "paused replayed FreeVehicle procedure",
+    "paused restarted FreeVehicle bench",
   );
 }
 

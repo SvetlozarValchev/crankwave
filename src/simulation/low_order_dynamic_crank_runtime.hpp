@@ -118,9 +118,9 @@ struct FreeVehicleScalarControlBoundary {
                            const FreeVehicleScalarControlBoundary &) = default;
 };
 
-// Compact finite-scenario drivetrain state. Engine/gas state remains owned by the
-// shared dynamic-crank runtime; this plan owns only the independently translating
-// vehicle and its right-continuous authored control lanes.
+// Compact drivetrain state. Engine/gas state remains owned by the shared
+// dynamic-crank runtime; this plan owns only the independently translating vehicle
+// and its right-continuous authored initialization/control lanes.
 struct FreeVehicleMotionPlan {
     double vehicle_mass_kg = 0.0;
     double drag_coefficient = 0.0;

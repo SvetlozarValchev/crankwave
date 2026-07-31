@@ -23,12 +23,12 @@ state. Native baking is an unpaced loop over that same method followed by transa
 artifact publication; there is no second whole-render implementation.
 
 Session creation must explicitly select `finite_scenario` or `open_ended`. Native
-baking uses the exact finite scenario recipe. Interactive playback currently admits
-open-ended execution only for FreeEngine: it runs the same authored pre-audible
-history, holds the right-continuous control snapshot at the audible handoff, and
-preserves continuous physical and DSP state until the caller restarts, destroys, or
-faults the session. A warm FreeEngine may physically release at its fixed preparation
-horizon and continue dynamic acquisition before that later audible handoff.
+baking uses the exact finite scenario recipe. Interactive playback admits open-ended
+FreeEngine, HeldDyno, and FreeVehicle execution: it runs the same authored pre-audible
+history, holds each applicable right-continuous control snapshot at the audible
+handoff, and preserves continuous physical and DSP state until the caller restarts,
+destroys, or faults the session. A warm dynamic bench may physically release at its
+fixed preparation horizon and continue acquisition before that later audible handoff.
 
 Exact C ABI v4 exposes strict JSON compilation, immutable engine/scenario handles,
 mutable sessions, twelve typed controls, caller-owned PCM/session telemetry, ordered
@@ -48,14 +48,14 @@ control group through one atomic C-ABI batch. Inertial-dyno sessions admit live
 throttle, ignition, and fuel. Free-engine sessions add live limiter state, external
 resisting torque, and a momentary starter when the compiled engine declares cranking
 hardware, while resolving crank RPM from engine torque and engine-owned inertia.
-Finite held-dyno sessions admit throttle, ignition, fuel, target RPM, and separate
-maximum absorbing and driving torques. Finite free-vehicle sessions admit throttle,
-ignition, fuel, limiter, selected gear, and clutch, plus starter and service brake only
-when their compiled hardware exists. The workbench renders those controls only when the
-descriptor admits them, populates gears from the published inventory, displays the
-returned dyno/vehicle sidecars, and groups repository scenarios into named procedures.
-FreeEngine remains continuous; finite procedures complete normally and offer a fresh
-replay. JavaScript does not synthesize their physics. A `free_engine` scenario may add
+HeldDyno sessions admit throttle, ignition, fuel, target RPM, and separate maximum
+absorbing and driving torques. FreeVehicle sessions admit throttle, ignition, fuel,
+limiter, selected gear, and clutch, plus starter and service brake only when their
+compiled hardware exists. The workbench renders those controls only when the descriptor
+admits them, populates gears from the published inventory, displays the returned
+dyno/vehicle sidecars, and groups repository scenarios into named procedures. All three
+dynamic benches remain continuous; capture-only procedures complete normally and offer
+a fresh replay. JavaScript does not synthesize their physics. A `free_engine` scenario may add
 `attached_inertia` and an `external_resisting_torque` trajectory; omission of either
 means canonical positive zero. The compiler derives the engine baseline with the
 versioned cycle-mean centered slider-crank kinetic-energy method, adds any attached
@@ -81,9 +81,8 @@ mechanism inertia now follows the pristine one-degree-of-freedom equation
 pristine acceleration within `0.054%`. The controlled response gate passes: WOT
 differs from pristine by `0.0134 s`, all coast crossings by at most `0.0049 s`, and
 the long natural-balance mean by `1.079 RPM`. Reverse vehicle motion, wheel slip,
-driveline compliance, continuous HeldDyno/FreeVehicle session lifetimes, and arbitrary
-live presentation edits remain explicit missing capabilities rather than JavaScript
-approximations. The
+driveline compliance, and arbitrary live presentation edits remain explicit missing
+capabilities rather than JavaScript approximations. The
 stopped/stalled state and pristine unilateral target-speed starter now execute through
 the same FreeEngine runtime; starter engagement and release remain explicit authored
 or live controls. The selected throttle controller may instead be pristine's stateful governor:
@@ -155,8 +154,8 @@ and the shared native/WASM lifecycle is in
 - `scenario.json` owns operating mode, controls/events, ambient state, render horizon,
   rates, quality, and seed.
 - Session creation owns whether that finite recipe is executed to completion or used
-  to initialize an open-ended FreeEngine bench. The choice is mandatory and never
-  implemented by looping a finite clip.
+  to initialize an admitted open-ended FreeEngine, HeldDyno, or FreeVehicle bench. The
+  choice is mandatory and never implemented by looping a finite clip.
 - Referenced assets such as impulse responses are resolved relative to the engine
   document and content-verified.
 - Offline and realtime execution use one block-processing implementation. Their

@@ -13,23 +13,21 @@ import {
   publicDescriptor,
 } from "../../runtime/protocol.js";
 
-test("FreeEngine uses open-ended live execution", () => {
-  assert.equal(
-    liveExecutionKindForScenarioJson(
-      JSON.stringify({ mode: { type: "free_engine" } }),
-    ),
-    SessionExecutionKind.openEnded,
-  );
+test("dynamic operating-bench modes use open-ended live execution", () => {
+  for (const type of ["free_engine", "held_dyno", "free_vehicle"]) {
+    assert.equal(
+      liveExecutionKindForScenarioJson(JSON.stringify({ mode: { type } })),
+      SessionExecutionKind.openEnded,
+    );
+  }
 });
 
-test("authored non-FreeEngine modes remain finite", () => {
+test("authored capture-only modes remain finite", () => {
   for (const type of [
     "held_speed",
     "prescribed_kinematic_sweep",
-    "held_dyno",
     "load_target_held_capture",
     "inertial_dyno",
-    "free_vehicle",
   ]) {
     assert.equal(
       liveExecutionKindForScenarioJson(

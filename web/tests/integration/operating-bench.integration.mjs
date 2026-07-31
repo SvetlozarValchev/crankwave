@@ -58,14 +58,15 @@ function compileProgram(client, engineJson, scenarioJson, assets) {
     engineJson,
     scenarioJson,
     assets,
-    SessionExecutionKind.finiteScenario,
+    SessionExecutionKind.openEnded,
   );
 }
 
 function testHeldDyno(program) {
   const { session } = program;
   const descriptor = session.descriptor;
-  assert.equal(descriptor.executionKind, "finite-scenario");
+  assert.equal(descriptor.executionKind, "open-ended");
+  assert.equal(descriptor.totalBlockCount, null);
   assert.equal(descriptor.motionModeCode, MotionMode.heldDyno);
   assert.equal(descriptor.motionMode, "held-dyno");
   assert.equal(descriptor.liveControlCapabilities, HELD_DYNO_CAPABILITIES);
@@ -113,7 +114,8 @@ function testHeldDyno(program) {
 function testFreeVehicle(program) {
   const { session } = program;
   const descriptor = session.descriptor;
-  assert.equal(descriptor.executionKind, "finite-scenario");
+  assert.equal(descriptor.executionKind, "open-ended");
+  assert.equal(descriptor.totalBlockCount, null);
   assert.equal(descriptor.motionModeCode, MotionMode.freeVehicle);
   assert.equal(descriptor.motionMode, "free-vehicle");
   assert.equal(descriptor.liveControlCapabilities, FREE_VEHICLE_CAPABILITIES);

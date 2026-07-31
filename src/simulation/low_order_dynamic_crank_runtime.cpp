@@ -727,7 +727,8 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
         accepted_sample_count_ == std::numeric_limits<std::uint64_t>::max()) {
         return fail(fault(contract::FailureKind::contract_violation,
                           "dynamic-crank-frame-counter-overflow",
-                          "open-ended FreeEngine exhausted its uint64 physics "
+                          "open-ended dynamic-crank execution exhausted its uint64 "
+                          "physics "
                           "clock"));
     }
 
@@ -740,7 +741,7 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
             overflow ? "dynamic-crank-frame-counter-overflow"
                      : "dynamic-crank-control-step-disagreed",
             overflow
-                ? "open-ended FreeEngine control cursor exhausted its uint64 "
+                ? "open-ended dynamic-crank control cursor exhausted its uint64 "
                   "physics clock"
                 : "dynamic-crank load cursor lost the next contiguous physics step"));
     }
@@ -897,19 +898,25 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
 
     if (held_dyno) {
         auto &dyno = *held_dyno_motion_;
+        const bool target_sample_available =
+            !dyno.target_engine_speed_rpm.empty() &&
+            (accepted_sample_count_ < dyno.target_engine_speed_rpm.size() ||
+             execution_extent_.is_open_ended());
         if (starter_enabled || overrides.has_external_resisting_torque_nm ||
-            accepted_sample_count_ >= dyno.target_engine_speed_rpm.size()) {
+            !target_sample_available) {
             return fail(
                 fault(contract::FailureKind::contract_violation,
                       "held-dyno-control-state-disagreed",
                       "bounded held dyno requires starter off, no external-resistance "
                       "override, and one target sample for the current physics step"));
         }
-        const double target_rpm =
-            overrides.has_dyno_target_engine_speed_rpm
-                ? overrides.dyno_target_engine_speed_rpm
-                : dyno.target_engine_speed_rpm[static_cast<std::size_t>(
-                      accepted_sample_count_)];
+        const auto authored_target_index = std::min<std::uint64_t>(
+            accepted_sample_count_, dyno.target_engine_speed_rpm.size() - 1U);
+        const double target_rpm = overrides.has_dyno_target_engine_speed_rpm
+                                      ? overrides.dyno_target_engine_speed_rpm
+                                      : dyno.target_engine_speed_rpm[
+                                            static_cast<std::size_t>(
+                                                authored_target_index)];
         const double maximum_absorbing_torque_nm =
             overrides.has_dyno_maximum_absorbing_torque_nm
                 ? overrides.dyno_maximum_absorbing_torque_nm

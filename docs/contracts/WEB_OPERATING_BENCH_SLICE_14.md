@@ -1,14 +1,16 @@
 # Web operating bench — slice 14
 
-Status: implemented and frozen on 2026-07-31
+Status: implemented on 2026-07-31; amended to complete continuous dynamic benches
 
 Scope: turn the slice-13 native/C ABI/WASM/Worker operating surface into a usable
-browser bench without changing session physics, lifetime, audio routing, DSP, or WAV
-publication.
+browser bench. FreeEngine, HeldDyno, and FreeVehicle use the admitted continuous bench
+lifetime; finite authored capture/export remains a separate fresh session. Physics,
+audio routing, DSP, and WAV publication are unchanged.
 
 Implementation chain: contract `755e5f6`; grouped repository procedures `a3b7ca5`;
-descriptor-driven controls and telemetry `c3c2563`; finite-procedure lifecycle
-`4f43eb3`.
+descriptor-driven controls and telemetry `c3c2563`; initial finite-procedure lifecycle
+`4f43eb3`; current contract revision completes open HeldDyno/FreeVehicle lifetime
+through the unchanged execution-kind boundary.
 
 ## 1. One backend remains authoritative
 
@@ -55,14 +57,17 @@ control for that field is awaiting its first causally affected block.
 
 ## 4. Lifetime and procedure semantics
 
-- FreeEngine remains the only `open_ended` motion mode. **Stop** pauses it, **Start**
-  resumes it, and **Restart** creates fresh state.
-- HeldDyno, FreeVehicle, inertial-dyno, held, and prescribed procedures remain exact
-  `finite_scenario` sessions. **Run procedure** starts one, completion is terminal, and
-  **Run again** creates a fresh session.
-- Slice 14 does not extend an authored horizon, loop a capture, or silently convert a
-  finite mode to FreeEngine. A later continuous-dyno/vehicle lifetime must be designed
-  and admitted explicitly.
+- FreeEngine, HeldDyno, and FreeVehicle use `open_ended` execution in the interactive
+  bench. **Stop** pauses the same state, **Start** resumes it, and **Restart** creates
+  fresh state with the same motion owner.
+- Open execution follows authored initialization through the audible handoff and then
+  holds the applicable operating, throttle, dyno, or drivetrain snapshot until live
+  controls replace it. Later authored procedure events are not replayed into the bench.
+- Inertial-dyno, held, prescribed, and other capture-only modes remain exact
+  `finite_scenario` sessions. Their completion is terminal and a new run creates fresh
+  state.
+- No interactive mode extends or loops a finite capture, and no mode is converted to
+  FreeEngine. HeldDyno and FreeVehicle retain their own motion ownership continuously.
 - WAV export remains a fresh unpaced execution of the authored finite scenario. Live
   UI changes are not mislabeled as part of that authored capture.
 
@@ -84,7 +89,8 @@ Passed. The actual fixed-memory WASM workbench demonstrates:
 - the five BMW gears render in authored order;
 - admitted controls reach returned mode telemetry, while a non-admitted widget is not
   actionable;
-- finite completion offers a fresh run and FreeEngine still pauses/resumes continuously;
+- all three dynamic benches pause/resume continuously and restart from fresh authored
+  initialization;
 - the existing canonical browser WAV hash, zero-startup-underrun gate, native/WASM
   parity bounds, and six accepted held-dyno/vehicle WAV hashes remain unchanged.
 
@@ -92,8 +98,8 @@ The browser gate loads all three BMW procedures, identifies HeldDyno and FreeVeh
 from their descriptors, renders neutral plus five ordered gears, submits
 `3200 RPM / 800 N·m / 0 N·m` as one dyno batch, and submits second gear, 50% clutch,
 and 25% service brake as one drivetrain batch. Returned sidecars report the applied
-values. The finite launch reaches **Procedure complete**, then **Run again** starts a
-fresh session. The canonical browser WAV remains 3,840,056 bytes with SHA-256
+values. Both dynamic sessions remain nonterminal until stopped or restarted. The
+canonical finite-export browser WAV remains 3,840,056 bytes with SHA-256
 `2972cdad90d08d31ddfac3ca99a4efcda93a15db637d93abc2b7844085c3e4b2`, and the
 workbench reports zero startup underruns.
 

@@ -32,7 +32,9 @@ export function liveExecutionKindForScenarioJson(scenarioJson) {
   }
   try {
     const document = JSON.parse(scenarioJson);
-    return document?.mode?.type === "free_engine"
+    return ["free_engine", "held_dyno", "free_vehicle"].includes(
+      document?.mode?.type,
+    )
       ? SessionExecutionKind.openEnded
       : SessionExecutionKind.finiteScenario;
   } catch {

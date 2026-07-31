@@ -232,13 +232,6 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
             "execution_extent",
             "dynamic-crank runtime requires a valid finite or open-ended execution "
             "extent");
-    require(report, held_dyno == nullptr || !execution_extent.is_open_ended(),
-            ContractIssueCode::unsupported_value, "execution_extent",
-            "held-dyno execution requires a finite authored target lane");
-    require(report, free_vehicle == nullptr || !execution_extent.is_open_ended(),
-            ContractIssueCode::unsupported_value, "execution_extent",
-            "FreeVehicle execution requires a finite authored horizon");
-
     const std::optional<double> release_time_s =
         cold_bootstrap ? std::optional<double>{0.0}
         : fixed_horizon != nullptr
@@ -565,8 +558,25 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
 
     std::optional<HeldDynoMotionPlan> held_dyno_motion;
     if (held_dyno != nullptr) {
+        auto target_engine_speed_rpm =
+            held_dyno->target_engine_speed_rpm.post_step_rpm;
+        if (execution_extent.is_open_ended()) {
+            const auto retained_sample_count = *audible_start_frame + 1U;
+            require(report, retained_sample_count <= target_engine_speed_rpm.size(),
+                    ContractIssueCode::inconsistent_shape,
+                    "scenario.mode.target_engine_speed_rpm",
+                    "open HeldDyno initialization requires a target sample at the "
+                    "audible handoff");
+            if (retained_sample_count <= target_engine_speed_rpm.size()) {
+                target_engine_speed_rpm.resize(
+                    static_cast<std::size_t>(retained_sample_count));
+            }
+        }
+        if (!report.ok()) {
+            return report;
+        }
         held_dyno_motion.emplace(HeldDynoMotionPlan{
-            held_dyno->target_engine_speed_rpm.post_step_rpm,
+            std::move(target_engine_speed_rpm),
             held_dyno->maximum_absorbing_torque_nm.value,
             held_dyno->maximum_driving_torque_nm.value,
             std::nullopt,
@@ -669,6 +679,15 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         compile_scalar_lane(free_vehicle->service_brake_application_01.value,
                             "scenario.mode.service_brake_application_01",
                             plan.service_brake_application_01);
+        if (execution_extent.is_open_ended()) {
+            const auto after_audible_handoff = [audible_start_frame](const auto &point) {
+                return point.step_index > *audible_start_frame;
+            };
+            std::erase_if(plan.selected_gear, after_audible_handoff);
+            std::erase_if(plan.clutch_engagement_01, after_audible_handoff);
+            std::erase_if(plan.service_brake_application_01,
+                          after_audible_handoff);
+        }
         require(report,
                 !plan.selected_gear.empty() && !plan.clutch_engagement_01.empty() &&
                     !plan.service_brake_application_01.empty(),
