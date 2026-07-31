@@ -59,6 +59,23 @@ const NEW_REPOSITORY_PACKAGES = Object.freeze([
     scenarioId: "bmw-m52tub28-cleanroom-cold-start-crank-catch-0rpm",
   },
   {
+    packageId: "bmw-m52tub28-held-dyno-pull-lift",
+    engineId: "bmw-m52tub28-cleanroom",
+    scenarioId:
+      "bmw-m52tub28-cleanroom-held-dyno-pull-lift-1500-6500rpm",
+  },
+  {
+    packageId: "bmw-m52tub28-launch-first-second",
+    engineId: "bmw-m52tub28-cleanroom",
+    scenarioId: "bmw-m52tub28-cleanroom-free-vehicle-launch-first-second",
+  },
+  {
+    packageId: "bmw-m52tub28-fifth-gear-pull-lift",
+    engineId: "bmw-m52tub28-cleanroom",
+    scenarioId:
+      "bmw-m52tub28-cleanroom-free-vehicle-fifth-gear-pull-lift-1500rpm",
+  },
+  {
     packageId: "honda-b18c5-held-below-vtec",
     engineId: "honda-b18c5-cleanroom",
     scenarioId: "honda-b18c5-cleanroom-held-below-vtec-5400rpm",

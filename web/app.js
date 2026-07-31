@@ -121,6 +121,27 @@ const WORKBENCH_PACKAGES = Object.freeze([
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/inertial-dyno-700-6500rpm.json",
   }),
   Object.freeze({
+    id: "bmw-m52tub28-held-dyno-pull-lift",
+    label: "BMW M52TUB28 · Held-dyno pull, hold, lift and overrun",
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52tub28-cleanroom/scenarios/held-dyno-pull-lift-1500-6500rpm.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52tub28-launch-first-second",
+    label: "BMW M52TUB28 · Vehicle launch and first-to-second shift",
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52tub28-cleanroom/scenarios/free-vehicle-launch-first-second.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52tub28-fifth-gear-pull-lift",
+    label: "BMW M52TUB28 · Fifth-gear pull and lift",
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52tub28-cleanroom/scenarios/free-vehicle-fifth-gear-pull-lift-1500rpm.json",
+  }),
+  Object.freeze({
     id: "honda-b18c5-held-below-vtec",
     label: "Honda B18C5 · Held below VTEC 5400 rpm",
     engineUrl: "/data/engines/honda-b18c5-cleanroom/engine.json",
@@ -936,11 +957,28 @@ function packageById(id) {
 
 function populatePackageSelect() {
   elements.packageSelect.textContent = "";
+  const groups = new Map();
   for (const packageDefinition of WORKBENCH_PACKAGES) {
+    const separator = packageDefinition.label.indexOf(" · ");
+    const groupLabel =
+      separator < 0
+        ? "Repository procedures"
+        : packageDefinition.label.slice(0, separator);
+    const procedureLabel =
+      separator < 0
+        ? packageDefinition.label
+        : packageDefinition.label.slice(separator + 3);
+    let group = groups.get(groupLabel);
+    if (!group) {
+      group = document.createElement("optgroup");
+      group.label = groupLabel;
+      groups.set(groupLabel, group);
+      elements.packageSelect.append(group);
+    }
     const option = document.createElement("option");
     option.value = packageDefinition.id;
-    option.textContent = packageDefinition.label;
-    elements.packageSelect.append(option);
+    option.textContent = procedureLabel;
+    group.append(option);
   }
   elements.packageSelect.value = DEFAULT_PACKAGE_ID;
 }
