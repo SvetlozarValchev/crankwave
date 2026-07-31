@@ -1267,6 +1267,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_forward_vehicle_road_load_tests
+    forward_vehicle_road_load_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_forward_vehicle_road_load_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_forward_vehicle_road_load_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.forward_vehicle_road_load
+    COMMAND engine_sim_offline_forward_vehicle_road_load_tests
+)
+
+add_executable(
     engine_sim_offline_bmw_m52tub28_held_dyno_tests
     bmw_m52tub28_held_dyno_test.cpp
 )

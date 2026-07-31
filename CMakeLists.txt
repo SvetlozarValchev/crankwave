@@ -221,6 +221,7 @@ add_library(
         src/simulation/engine_sim_v1_starter_motor.cpp
         src/simulation/engine_sim_v1_transient_friction.cpp
         src/simulation/four_stroke_cycle_integrator.cpp
+        src/simulation/forward_vehicle_road_load.cpp
         src/simulation/legacy_combustion_primitives.cpp
         src/simulation/legacy_fixed_valvetrain.cpp
         src/simulation/legacy_flow_calibration.cpp
