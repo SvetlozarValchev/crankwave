@@ -20,8 +20,9 @@ multiple crankshafts, other bank topologies, heterogeneous physical heads, separ
 intakes, slave journals, and general multi-head/VTEC topology remain represented but
 fail closed until their executor support exists. Execution-equivalent bank-local heads,
 ports, standard valvetrains, and cams now normalize to the unchanged shared low-order
-profile. Vehicle and transmission rig objects parse and resolve, but no drivetrain
-executor consumes them.
+profile. Vehicle and transmission rig objects parse, resolve, and execute through the
+finite forward-only FreeVehicle drivetrain; its operating state is published through
+the same native/C/WASM/Worker boundary.
 There is no executable C++ engine factory; product engines enter only through JSON
 compilation.
 
@@ -29,7 +30,8 @@ The JSON cutover is an authoring and packaging change. It must reproduce the acc
 renderer before it is allowed to change an audio algorithm. The implemented browser
 workbench compiles those same documents through the fixed-memory WASM C ABI, streams
 one selected canonical bus through a bounded PCM ring, and exports a fresh unpaced
-session. It does not expand the executor's admitted engine or live-control capability.
+session. Its adapter exposes only capabilities reported by the compiled session; it
+does not invent an additional JavaScript executor.
 
 ## What was audited
 
@@ -60,7 +62,7 @@ sections have separate logical ownership:
 | Required `presentation` | Per-cylinder and per-route audible gains, IR assets and gains, convolution wet mix, conditioning, source/stem publication, and default monitoring mix. | Physical manifold geometry or live operating state. |
 | Optional `rig` | Vehicle, transmission, clutch capability, dyno/load model, ambient and thermal defaults, and optional default test procedures. | Engine internals or current control values. |
 | Session/render request | Operating mode, initial state, rates/quality, seed, duration, held point or trajectory, and output selection. | Reusable engine construction. |
-| Timestamped live controls | Throttle request, ignition/fuel/starter state, gear/clutch, and the mode-specific RPM/load/dyno command. | Structural edits to the compiled engine graph. |
+| Timestamped live controls | Throttle request; ignition, fuel, starter, and limiter state; FreeEngine external resistance; HeldDyno target RPM and absorbing/driving limits; and FreeVehicle gear, clutch, and capability-gated service brake. | Structural edits to the compiled engine graph or a motion-owner transition. |
 
 ### Operating-mode authority
 
@@ -68,10 +70,13 @@ RPM, load, and throttle cannot all be independent authoritative inputs:
 
 | Mode | Host supplies | Simulator resolves |
 |---|---|---|
-| Free engine/vehicle | Throttle, ignition, starter, gear, clutch, optional external resisting torque | RPM and produced torque |
-| Held dyno | Throttle and target RPM | Required dyno torque and engine state |
-| Load-target held point | RPM and target load/BMEP | Throttle |
-| External RPM follower | RPM trajectory and throttle | Cylinder state and reaction torque telemetry |
+| `held_speed` | Authored fixed RPM and throttle | Engine state and reaction-torque evidence |
+| `prescribed_kinematic_sweep` | Authored RPM trajectory and throttle | Cylinder state and reaction-torque telemetry |
+| `held_dyno` | Throttle, ignition/fuel state, positive target RPM, and nonnegative absorbing/driving limits | Achieved RPM, required/applied actuator torque, dyno reaction, and limit disposition |
+| `load_target_held_capture` | Fixed RPM and target load/BMEP | Converged throttle and operating-point evidence |
+| `inertial_dyno` | Throttle and ignition/fuel state around the compiled passive brake/inertia protocol | Crank RPM and target-crossing evidence |
+| `free_engine` | Throttle, ignition/fuel/limiter state, capability-gated starter, and external resisting torque | Crank RPM, torque, stall, and limiter-cut state |
+| `free_vehicle` | Throttle, ignition/fuel/limiter state, capability-gated starter, gear, clutch, and capability-gated service brake | Crank RPM, clutch torque/slip, vehicle speed/distance, and road load |
 
 For `free_engine`, the scenario may declare nonnegative `attached_inertia` and an
 `external_resisting_torque` trajectory. Both are optional and default to canonical
@@ -83,12 +88,18 @@ mechanism inertia and its derivative, with the same attachment added to the
 instantaneous value. The BMW M52B28 neutral baseline is
 `0.2108686520185204 kg*m^2`, with no attached inertia or external resistance.
 
-The current browser workbench executes all admitted authored scenario modes.
-`inertial_dyno` exposes live throttle, ignition, and fuel; `free_engine` additionally
-exposes limiter state and external resisting torque. Interactive held-RPM targets and
-external-RPM following remain future session capabilities. Preview is still realtime
-audio: the same block processor runs ahead of the audio device rather than tying
-simulation steps to UI frames.
+The current browser runtime executes all admitted authored scenario modes. Its v2
+Worker protocol exposes the same twelve capability-gated controls as the native
+session and submits each nonempty control group as one atomic batch. `inertial_dyno`
+exposes live throttle, ignition, and fuel; `free_engine` additionally exposes limiter,
+external resistance, and a capability-gated starter. Finite `held_dyno` exposes
+throttle, ignition, fuel, target RPM, and both torque limits. Finite `free_vehicle`
+exposes throttle, ignition, fuel, limiter, ordered gear, and clutch, plus starter and
+service brake only when their hardware exists. Only `free_engine` is open-ended.
+Live prescribed/external-RPM following and motion-mode transitions remain future
+capabilities. Preview is still realtime audio: the same block processor runs ahead of
+the audio device rather than tying simulation steps to UI frames. Full dyno and
+drivetrain widgets and named procedures remain separate workbench work.
 
 ## Authoring, units, curves, and graph semantics
 
@@ -199,7 +210,7 @@ the remainder as explicit capability diagnostics:
 |---|---|---|---|
 | Engine name and reusable parameter preset | `engine.identity` and authoring templates | **Typed core** with strict JSON compilation; reusable template tooling is later | BMW compiles to the frozen execution values without changing audio. |
 | Redline | `engine.limits.redline` | **Low-order executed** in ignition profile | Limiter boundary and declared redline remain distinct and validated. |
-| Starter speed and torque | `engine.starter` with `type: "cranking"`; `mechanically_disengaged` explicitly declares no executable cranking capability | **Low-order executed** in `free_engine` with the pristine unilateral target-speed torque constraint; held and dyno modes require the starter disengaged | BMW crank/catch fixture demonstrates torque, target speed, engagement, and caller-owned release. |
+| Starter speed and torque | `engine.starter` with `type: "cranking"`; `mechanically_disengaged` explicitly declares no executable cranking capability | **Low-order executed** in `free_engine` and `free_vehicle` with the pristine unilateral target-speed torque constraint; held-speed and dyno-owned modes require the starter disengaged | BMW crank/catch fixture demonstrates torque, target speed, engagement, caller-owned release, and capability-gated publication. |
 | Direct throttle linkage gamma | `engine.throttle_controllers[]` with `type: "direct"` and `engine.throttle_controller` selecting one | **Low-order executed**; the selected controller's finite positive gamma reaches the command-to-plate mapping | A sweep proves the authored command-to-plate curve. |
 | Governor (`min_speed`, `max_speed`, signed `min_v`/`max_v`, `k_s`, `k_d`, `gamma`) | `engine.throttle_controllers[]` with `type: "governor"`; velocity bounds are not throttle-output fractions | **Low-order executed** with pristine's persistent explicit-Euler update; public normalized throttle demand selects the target between minimum and maximum speed, and telemetry retains requested and resolved throttle separately | Kohler CH750 V-twin settles at the requested 2,740 RPM before a deterministic 12 N m load/unload step. |
 | Chen--Flynn cycle-mean loss coefficients and required oil temperature (clean-room extension, not a pristine capability) | `engine.losses` with `type: "chen_flynn_cycle_mean"` | **Low-order executed** in operating-point accounting and as one-cycle-lagged inertial-dyno resistance; `free_engine` retains the cycle-mean evidence but does not apply it to crank motion | Generic compilation selects the registered method and derives torque-term accounting without an engine-name branch; do not call it pristine parity. |
@@ -297,28 +308,39 @@ The current executable session quantum is exact: 200 physics frames at 10 kHz be
 3,840; a larger value does not change the current quantum.
 `quality.event_queue_capacity` bounds caller-authored timestamped control commands, not
 the internal simulation event journal. `quality.telemetry_capacity_frames` bounds
-records returned per call; the current session emits one final-engine-sample telemetry
-record per block.
+records returned per call; the current session emits one final-step session-telemetry
+record per block, containing the engine sample and nullable HeldDyno/FreeVehicle
+sidecars.
+
+Slice 13 publishes this operating surface through the portable C++ session, exact C
+ABI v4, fixed-memory WASM wrapper, and `engine-sim-offline/browser-worker-v2`. The
+descriptor identifies one of seven motion modes and publishes an ordered forward-gear
+inventory where applicable. The BMW FreeVehicle fixture exposes five descriptors in
+authored order with ratios `4.21`, `2.49`, `1.66`, `1.24`, and `1.00`. Both mode
+sidecars are absent during preparation and for nonapplicable modes; after release the
+one owned by HeldDyno or FreeVehicle is present. C uses explicit presence fields and an
+all-zero absent POD, while JavaScript maps absence to `null`.
 
 | Pristine capability | Intended owner | Current status | Acceptance requirement |
 |---|---|---|---|
 | Vehicle mass, drag coefficient, frontal area, differential ratio, tire radius, rolling-resistance force, optional maximum service-brake force | Package `rig.vehicle` | **Low-order executed** for finite authored forward-only `free_vehicle` scenarios; passive road load follows the frozen pristine law and the service brake is an explicit greenfield extension | BMW held-brake launch and fifth-gear pull/lift fixtures; accepted held-dyno audio remains byte-identical. |
 | Dyno minimum/maximum speed and hold-step defaults | Package `rig.dyno_defaults`; scenarios remain authoritative for an actual run | **Partial**; strict JSON parses and resolves reusable defaults, but no UI/default procedure executes them | Native and browser tools generate the same explicit held-point requests. |
-| Transmission max clutch torque and ordered gear ratios | Package `rig.transmission` | **Low-order executed** for neutral and ordered forward gears through the exact bounded clutch-then-road coupled solve | Brake-hold, locked reflected-inertia, neutral, launch, and first-to-second fixtures. |
-| Held speed and prescribed RPM sweep | Session/render request | **Partial**; constant held-speed execution exists, while prescribed/external RPM following remains unavailable | Existing BMW held points and a future dyno listening pull. |
-| Bounded held dyno | Session/render request | **Low-order executed** for finite authored target-RPM and throttle trajectories with separate absorbing/driving torque limits; target/limit commands are not yet public live controls | BMW pull, exact hold, lift, zero-drive overrun, reaction telemetry, and listening gate. |
+| Transmission max clutch torque and ordered gear ratios | Package `rig.transmission` | **Low-order executed and published** for neutral and ordered forward gears through the exact bounded clutch-then-road coupled solve; native/C/WASM/Worker descriptors expose stable ID, authored ordinal, ratio, and semantic ID | Brake-hold, locked reflected-inertia, neutral, launch, first-to-second, and exact five-gear BMW inventory fixtures. |
+| Held speed and prescribed RPM sweep | Session/render request | **Partial**; authored held-speed and prescribed-kinematic execution exist, while live external RPM following remains unavailable | Existing BMW held points and prescribed sweeps; a future external-follower contract. |
+| Bounded held dyno | Session/render request and timestamped mode controls | **Low-order executed and published** for finite target-RPM and throttle trajectories with separate absorbing/driving torque limits; target and both limits are live through native/C ABI v4/WASM/Worker v2 | BMW pull, exact hold, lift, zero-drive overrun, same-boundary command batch, nullable sidecar, reaction telemetry, and listening gate. |
 | Load-target held capture | Session/render request | **Low-order executed** | Converged target/tolerance result. |
 | Inertial dyno with inertia and brake curve | Session/render request | **Low-order executed** | Existing BMW inertial pull and torque evidence. |
 | Ambient pressure/temperature, initial gas/wall state, crankcase, fuel, seed, render rates, preparation | Session/render request and rig defaults | **Typed core and executed** | Native and WASM resolve the same request identity. |
 | Relative humidity, coolant temperature, and oil temperature | Session/render request metadata/applicability conditions | **Admission/evidence only** in the current low-order executor; oil temperature must match the loss-profile condition | Do not present these as live sound or power controls until an implemented subsystem consumes them. |
-| Quality telemetry capacity | Session output allocation policy | **Low-order executed** as returned-record capacity; each exact block currently returns one final engine-capture record, while authored telemetry-channel selection still fails closed | Browser transport preserves the same record boundary without confusing it with PCM or the internal event journal. |
-| Ignition, fuel, starter, dyno/limiter enable events | Timestamped session controls | **Partial**; ignition and fuel execute live in inertial-dyno and `free_engine`, while limiter and a capability-gated momentary starter execute live in `free_engine`; dyno enable remains unavailable as a public live control | Block-boundary and in-block control timing fixtures; unsupported mode/control combinations remain rejected. |
-| Realtime throttle | Timestamped live controls | **Partial**; public absolute-delivery-frame throttle executes in inertial-dyno and `free_engine` sessions after preparation, and the browser Worker exposes that transport | Audible throttle response without restart in both admitted live modes. |
+| Quality telemetry capacity | Session output allocation policy | **Low-order executed** as returned-record capacity; each exact block returns one final engine sample plus nullable mode sidecars, while authored telemetry-channel selection still fails closed | Browser transport preserves the same record boundary and nullability without confusing it with PCM or the internal event journal. |
+| Ignition, fuel, starter, dyno/limiter enable events | Timestamped session controls | **Partial**; ignition and fuel execute live in inertial-dyno, `free_engine`, `held_dyno`, and `free_vehicle`; limiter executes in the two free modes; starter is capability-gated in `free_engine` and `free_vehicle`. Motion ownership is immutable, so there is deliberately no dyno-enable/mode-switch command; a constant target is HeldDyno hold | Block-boundary and in-block control timing fixtures; unsupported mode/control combinations remain rejected atomically. |
+| Realtime throttle | Timestamped live controls | **Low-order executed**; public absolute-delivery-frame throttle executes in inertial-dyno, `free_engine`, `held_dyno`, and `free_vehicle` after preparation, and Worker v2 exposes the same atomic transport | Audible throttle response without restart in every mode that advertises the capability. |
 | Realtime external resisting torque | Timestamped live controls | **Low-order executed** for `free_engine`, including the public session API and browser Worker; other modes reject it | An in-block load step changes FreeEngine acceleration and telemetry without restarting the session. |
-| Realtime RPM/load mode command | Mode-specific timestamped control | **Missing** as a public live API; the held-dyno runtime consumes its compiled target and limits per step, but no session/C ABI/WASM command publishes them yet | RPM follower and held-dyno browser fixtures. |
-| Gear, clutch, and service-brake controls | Mode-authored controls now; timestamped public live controls later | **Partial**; finite `free_vehicle` scenarios execute exact right-continuous gear/clutch/brake boundaries, but `EngineSession`, C ABI, WASM, and browser live commands are not yet published | Authored vehicle fixture shifts under load; slice 13 publishes the same controls without changing their physics. |
+| HeldDyno target RPM and torque limits | Mode-specific timestamped controls | **Low-order executed and published** through EngineSession, C ABI v4, WASM, and Worker v2 with exact capability bits and final-step telemetry | One atomic same-boundary target/absorbing/driving batch changes the first released step and reports its applied values and disposition. |
+| External/prescribed RPM or load-following command | A future mode-specific timestamped control | **Missing** as a public live API; authored prescribed and load-target modes remain separate finite motion owners | External follower and load-coordinate contracts must define ownership before browser exposure. |
+| Gear, clutch, and service-brake controls | Mode-authored and timestamped `free_vehicle` controls | **Low-order executed and published**; gear zero means neutral, positive values are published authored ordinals, clutch is `[0,1]`, and brake is capability-gated by positive rig capacity | An out-of-inventory gear rejects its complete batch; an admitted same-boundary gear/clutch/brake batch reaches exact final-step drivetrain telemetry. |
 | Realtime-safe presentation knobs | Timestamped parameter controls | **Missing** as public API despite typed defaults | Click-free gain/wet/HF/noise changes. |
-| Master/stems/telemetry block output | Session block result | **Low-order executed** as public borrowed route dry/IR/selected buses, raw/audition masters, and one telemetry record per exact 3,840-frame block; the browser Worker publishes one selected bus through the shared PCM ring and posts telemetry, while authored bus/telemetry subset selection and simultaneous browser stem publication remain absent | Route selection reaches the exact named core bus; 128-frame AudioWorklet pulls never change the 3,840-frame engine-session quantum. |
+| Master/stems/telemetry block output | Session block result | **Low-order executed** as public borrowed route dry/IR/selected buses, raw/audition masters, and one session-telemetry record per exact 3,840-frame block; Worker v2 publishes one selected bus through the shared PCM ring and posts the engine sample plus nullable HeldDyno/FreeVehicle sidecar, while authored bus/telemetry subset selection and simultaneous browser stem publication remain absent | Route selection reaches the exact named core bus; mode sidecars match the final physics step; 128-frame AudioWorklet pulls never change the 3,840-frame engine-session quantum. |
 
 ## Deliberate exclusions
 

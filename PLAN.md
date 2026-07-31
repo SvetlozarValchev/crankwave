@@ -1,13 +1,12 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — headless executable parity after the JSON/runtime cutover
+Status: active — portable operating-bench transport complete
 
 Branch: `clean-room/bmw-baseline`
 
 Date: 2026-07-31
 
-Current checkpoint: **headless parity — capability ledger, then stopped/cranking
-mechanics**
+Current checkpoint: **slice 14 — full operating bench and named procedures**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -96,7 +95,9 @@ products built on this boundary.
 
 `scenario.json` owns one finite operating and recording request:
 
-- free-engine, held-speed, prescribed-speed, or inertial-dyno ownership;
+- exactly one of the seven implemented motion owners: `held_speed`,
+  `prescribed_kinematic_sweep`, `held_dyno`, `load_target_held_capture`,
+  `inertial_dyno`, `free_engine`, or `free_vehicle`;
 - throttle and other control trajectories;
 - ignition, fuel-cut, limiter, startup/shutdown, and other events only when implemented;
 - ambient, fuel, initial thermal state, preparation, duration, rates, quality, and seed;
@@ -350,10 +351,10 @@ long-double format.
 The pinned 18-block parity fixture proves exact bus topology, clocks, control
 acceptance/rejection, discrete telemetry, and completion state. Semantic transcript
 SHA-256 is
-`e0b264375b80ef6ec656893235578fc5780b62d8f0d036870b1ba2d79a5591d2`;
+`1493a854b9fef0905cb73f64c6b46c3993d7f7471ca15ee8d39a2eb44e89ab28`;
 native/WASM bundle hashes are
-`50e3dde5db8e69ec3a869e79f3a2919985aefbabfc066cb04de428ffea0b23de` and
-`22c164d528ff93d38ec266241dcc96b5d0d65aa217a156a43ff51fae11f94219`.
+`535c4754edf41c0ea0adb83d5790e17bda384ab69be7df885941d6be992034cb` and
+`53dea2aa3956ce2035290cb1ae49de9276f7bb16b15dedcba51e4c273edda73b`.
 Across 7,680 audition samples, maximum absolute PCM error is
 `1.862645149230957e-9` and RMS error is `2.1807662361359516e-11`, both within the
 predeclared tight bounds. The reproducible gate is
@@ -468,7 +469,8 @@ Recreate pristine engine-sim's meaningful executable engine and operating behavi
 this clean-room core without importing its implementation, `.mr` runtime, or native
 GUI. The operating-bench portion of the behavioral oracle is:
 
-- manual ignition, momentary starter, throttle, dyno enable/hold/target/torque;
+- manual ignition, momentary starter, throttle, and held-dyno target plus separate
+  absorbing/driving torque limits;
 - neutral and ordered forward gears, clutch engagement, service brake, and vehicle
   response;
 - engine, dyno, clutch, gear, speed, and load telemetry;
@@ -496,11 +498,13 @@ Each session has one explicit motion owner:
 
 | Mode | Caller controls | Runtime resolves |
 |---|---|---|
-| Free engine | throttle, ignition, starter, external resisting torque | crank RPM, torque, stall/idle/limiter state |
-| Free vehicle | throttle, ignition, starter, gear, clutch, brake | crank RPM, clutch torque/slip, vehicle speed and load |
-| Held dyno | throttle, target RPM, maximum absorbing/driving torque | dyno reaction, achieved RPM and engine state |
-| Inertial dyno | throttle and the declared passive brake/inertia protocol | crank RPM and target-crossing evidence |
-| External RPM follower | RPM trajectory and throttle | reaction torque and engine state |
+| `held_speed` | authored fixed RPM; no live controls | engine state, torque, and held-point evidence |
+| `prescribed_kinematic_sweep` | authored RPM trajectory; no live controls | reaction torque, engine state, and audio |
+| `held_dyno` | throttle, ignition, fuel, target RPM, maximum absorbing torque, and maximum driving torque | dyno reaction, achieved RPM, and engine state |
+| `load_target_held_capture` | authored RPM and load target; no live controls | converged throttle and held-point evidence |
+| `inertial_dyno` | throttle, ignition, and fuel | crank RPM and target-crossing evidence |
+| `free_engine` | throttle, ignition, fuel, limiter, external resisting torque, and conditional starter | crank RPM, torque, and stall/idle/limiter state |
+| `free_vehicle` | throttle, ignition, fuel, limiter, gear, clutch, conditional starter, and conditional service brake | crank RPM, clutch torque/slip, vehicle speed, distance, and road load |
 
 No mode may hide a prescribed pitch ramp behind a “natural” or “dyno” label.
 
@@ -586,7 +590,7 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--12 are executable and accepted. Slice 12's pristine
+Current progress: slices 1--13 are executable and accepted. Slice 12's pristine
 vehicle/transmission equations and explicit non-parity service-brake boundary are
 frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md`](docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md).
@@ -617,8 +621,6 @@ pulls from 1,500 to 6,500 RPM, holds, lifts, and then overruns with zero permitt
 driving torque, so a falling engine is never forced back onto an authored pitch lane.
 Its tests and clean production render pass; the user accepted the listening result in
 [`docs/HEADLESS_BMW_HELD_DYNO_LISTENING_GATE.md`](docs/HEADLESS_BMW_HELD_DYNO_LISTENING_GATE.md).
-The controller already consumes target RPM and torque limits per runtime step; their
-public timestamped `EngineSession`/C ABI/WASM publication remains slice 13.
 
 Slice 12 now executes finite authored forward-vehicle requests with neutral and
 ordered forward gears, bounded clutch slip, passive rolling/aerodynamic road load,
@@ -628,7 +630,17 @@ identity bound. The accepted held-dyno raw and audition WAVs remain byte-identic
 The user accepted the clean BMW neutral/launch/first-to-second and already-moving
 fifth-gear pull/lift recordings in
 [`docs/BMW_FREE_VEHICLE_LISTENING_GATE.md`](docs/BMW_FREE_VEHICLE_LISTENING_GATE.md).
-Public live gear, clutch, brake, and drivetrain telemetry remain slice 13.
+
+Slice 13 publishes the already-executed operating behavior without changing its sound
+path. Commit `d10e9a3` adds timestamped held-dyno and drivetrain lanes, `cb5f7c2`
+publishes the seven-way motion descriptor, exact capability masks, BMW's ordered
+five-gear inventory, and nullable held-dyno/free-vehicle telemetry sidecars through
+the native session, `7d7effd` replaces the exact C boundary with ABI v4, `ad0f306`
+exposes the same contract through WASM, and `d519cda` transports atomic control batches
+through Worker protocol v2. Native, C, WASM parity, and full browser gates pass. Fresh
+clean-Release renders of the accepted held-dyno, launch/shift, and fifth-gear fixtures
+retain all six raw/audition WAV hashes byte-for-byte. Slice 14 now owns the visible full
+operating bench and named procedures.
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
 and mastering unchanged. Listen immediately after the one intended behavior changes;

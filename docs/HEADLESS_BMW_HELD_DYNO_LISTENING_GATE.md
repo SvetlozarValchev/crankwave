@@ -24,9 +24,11 @@ step. The contract requires the target lane to equal the exact initial RPM throu
 that hidden interval. Actuator and reaction telemetry begin when dynamic motion is
 released.
 
-The internal runtime accepts a per-step target RPM and absorbing/driving limit. Those
-commands are not yet published through `EngineSession`, the C ABI, WASM, or the browser;
-that public boundary remains slice 13.
+At this slice-11 checkpoint, the internal runtime accepted a per-step target RPM and
+absorbing/driving limit, but those commands were not yet public. Slice 13 subsequently
+published them through `EngineSession`, exact C ABI v4, WASM, and Worker protocol v2;
+see
+[`contracts/HEADLESS_OPERATING_BENCH_API_SLICE_13.md`](contracts/HEADLESS_OPERATING_BENCH_API_SLICE_13.md).
 
 ## BMW procedure
 

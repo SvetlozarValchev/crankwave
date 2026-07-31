@@ -113,3 +113,8 @@ renderer. A rejection is fixed inside slice 12 before public drivetrain/API work
 stacked on top. Slice 13 does not begin until the user accepts this listening set.
 
 User verdict: accepted without a requested correction.
+
+Subsequent status: slice 13 publishes the accepted drivetrain's ordered gear inventory,
+timestamped gear/clutch/brake controls, and mode-owned telemetry through the native,
+C ABI v4, WASM, and Worker v2 boundary. See
+[`contracts/HEADLESS_OPERATING_BENCH_API_SLICE_13.md`](contracts/HEADLESS_OPERATING_BENCH_API_SLICE_13.md).

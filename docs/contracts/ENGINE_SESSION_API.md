@@ -173,14 +173,22 @@ modify the engine document or compiled scenario. The implemented payloads are:
 - fuel enabled;
 - starter enabled;
 - limiter enabled;
-- nonnegative external resisting torque in N m.
+- nonnegative external resisting torque in N m;
+- positive held-dyno target engine speed in RPM;
+- nonnegative held-dyno maximum absorbing torque in N m;
+- nonnegative held-dyno maximum driving torque in N m;
+- selected one-based forward-gear ordinal, with zero meaning neutral;
+- clutch engagement in `[0, 1]`;
+- service-brake application in `[0, 1]`.
 
 An inertial-dyno session admits throttle, ignition, and fuel. A FreeEngine session adds
 limiter state and external resisting torque, and adds starter state only when the
-compiled engine declares a positive cranking starter. Imposed RPM, brake/dyno targets,
-gear/clutch, presentation monitoring, and lifecycle commands are not live session
-capabilities yet. Their presence in an authored finite scenario does not imply a
-corresponding live command.
+compiled engine declares a positive cranking starter. A finite HeldDyno session admits
+throttle, ignition, fuel, target RPM, and both signed-direction torque limits. A finite
+FreeVehicle session admits throttle, ignition, fuel, limiter, gear, and clutch; it adds
+starter only for a cranking starter and service brake only for a rig with positive
+brake capacity. Prescribed live RPM, load-following commands, presentation monitoring,
+lifecycle commands, and motion-mode transitions are not live session capabilities.
 
 No untyped string-to-value property mutation enters the processing path.
 
@@ -282,7 +290,7 @@ Every command contains:
 
 - an absolute delivery-frame index relative to the session origin;
 - a strictly increasing caller sequence number;
-- one of the five implemented typed control payloads.
+- one of the twelve implemented typed control payloads.
 
 Delivery-frame indices, not milliseconds or wall-clock timestamps, are authoritative.
 The selected numerical method defines the causal projection from a delivery frame to
@@ -374,11 +382,13 @@ compiled scenario selects exactly one mode.
 
 | Mode | Current live-session status | Session results |
 |---|---|---|
-| prescribed/external speed | Authored trajectory executes; live commands are rejected | authored RPM trajectory, engine telemetry, audio |
-| held speed/load-target held | Authored target executes; live commands are rejected | operating-point evidence, engine telemetry, audio |
-| `held_dyno` | Finite authored target-RPM/throttle lanes and absorbing/driving limits execute; public live target/limit commands are rejected | achieved crank RPM, signed actuator and opposite dyno reaction, engine telemetry, audio |
+| `held_speed` | Authored fixed target executes; live commands are rejected | operating-point evidence, engine telemetry, audio |
+| `prescribed_kinematic_sweep` | Authored trajectory executes; live commands are rejected | authored RPM trajectory, engine telemetry, audio |
+| `held_dyno` | Finite execution admits live throttle, ignition, fuel, target RPM, and maximum absorbing/driving torque after preparation | achieved crank RPM, signed actuator and opposite dyno reaction, mode sidecar, engine telemetry, audio |
+| `load_target_held_capture` | Authored RPM/load target executes; live commands are rejected | converged operating-point evidence, engine telemetry, audio |
 | `inertial_dyno` | Finite-scenario execution admits live throttle, ignition, and fuel after preparation | simulated RPM trajectory, dyno result evidence, engine telemetry, audio |
 | `free_engine` | Finite or open-ended execution admits live selected-controller demand, ignition, fuel, limiter, and external resisting torque after the audible handoff | simulated crank RPM, requested and governor-resolved throttle, requested external resisting torque, engine telemetry, audio |
+| `free_vehicle` | Finite execution admits live selected-controller demand, ignition, fuel, limiter, selected gear, and clutch; starter and service brake are capability-gated by engine/rig data | simulated crank RPM, clutch and road-load state, vehicle speed/distance, mode sidecar, engine telemetry, audio |
 
 `open_ended` is currently a FreeEngine-only lifetime. The other modes remain exact
 finite recording procedures even where they admit live controls.
@@ -431,26 +441,26 @@ controlled response gate passes: WOT differs from pristine by `0.0134 s`, every 
 crossing by at most `0.0049 s`, and the long natural-balance mean by `1.079 RPM`. The
 frozen pristine oracle remains the authority for each subsequent mechanics slice.
 
-### 5.2 Future mode controls
+### 5.2 Remaining mode controls
 
-Live imposed RPM, held-RPM targets, brake torque, dyno controller targets, and motion
-mode changes are not implemented. When added, they must preserve the ownership rules
-above and be capability-described rather than accepted by an untyped generic payload.
-Changing motion mode will require a new session unless a later explicit transition is
-designed and implemented.
+Live imposed/prescribed RPM, generic brake or dyno-enable commands, load-following
+targets, and motion-mode changes are not implemented. HeldDyno target RPM and its
+separate absorbing/driving limits are implemented and do not switch ownership: a
+constant target is the hold operation. Any future control must preserve the ownership
+rules above and be capability-described rather than accepted by an untyped generic
+payload. Changing motion mode requires a new session unless a later explicit
+transition is designed and implemented.
 
 ### 5.3 Gear and clutch
 
-Gear ratios, final drive, wheel inertia, and road load do not belong in
-`authoring::EnginePackageDocument`.
+Gear ratios, final drive, wheel inertia, and road load belong to the reusable
+engine-package `rig`, not the physical engine object. A `free_vehicle` scenario selects
+that rig and owns crank motion through the coupled drivetrain.
 
-The implemented session API has no gear or clutch live payload. A future
-`gear_index`/`clutch_01` context must remain separate from engine definition and may
-only have mechanical effect when an explicit test-cell drivetrain owns that behavior.
-
-An eventual road-audition model is a separate test-cell definition composed with the
-compiled scenario. It must declare which subsystem owns crank motion and equivalent
-inertia.
+The session publishes the rig's ordered forward-gear descriptors. Timestamped
+selected-gear ordinal, clutch engagement, and capability-gated service-brake
+application are implemented FreeVehicle controls. They remain session operating state,
+not structural engine-definition fields.
 
 ## 6. Current mutation boundary
 
@@ -466,13 +476,15 @@ Current classification:
 
 | Field family | Class |
 |---|---|
-| selected throttle-controller demand | implemented live command for `inertial_dyno` and `free_engine` after the audible handoff; direct means linkage demand, governor means normalized speed demand |
-| ignition/fuel enable | implemented live command for `inertial_dyno` and `free_engine` after preparation |
-| limiter enable | implemented live command for `free_engine` after preparation |
+| selected throttle-controller demand | implemented live command for `held_dyno`, `inertial_dyno`, `free_engine`, and `free_vehicle` after preparation; direct means linkage demand, governor means normalized speed demand |
+| ignition/fuel enable | implemented live command for `held_dyno`, `inertial_dyno`, `free_engine`, and `free_vehicle` after preparation |
+| limiter enable | implemented live command for `free_engine` and `free_vehicle` after preparation |
 | external resisting torque | implemented live command for `free_engine` after preparation |
-| starter enable | implemented live command for `free_engine` after preparation when the compiled engine declares a cranking starter |
-| mode-owned RPM or brake target | not implemented as public live commands; finite `held_dyno` executes its compiled per-step target and limits |
-| gear/clutch context | not implemented as live commands |
+| starter enable | implemented live command for `free_engine` and `free_vehicle` after preparation when the compiled engine declares a cranking starter |
+| held-dyno target RPM and absorbing/driving limits | implemented live commands for finite `held_dyno` after preparation |
+| selected gear and clutch engagement | implemented live commands for finite `free_vehicle` after preparation |
+| service-brake application | implemented live command for finite `free_vehicle` after preparation when the rig declares positive brake capacity |
+| prescribed RPM, load-following target, generic dyno enable, or mode transition | not implemented as public live commands |
 | audition master, route monitor gain, mute, IR wet mix | not implemented as live commands |
 | motion ownership mode and initial state | `session_recreate` |
 | FreeEngine attached inertia or authored external resisting-torque trajectory | `session_recreate` |
@@ -543,6 +555,9 @@ After session creation, `EngineSession::descriptor()` returns:
 - preparation block count;
 - the exact authored total block count for `finite_scenario`, or canonical
   `0` for `open_ended`;
+- the explicit seven-way motion mode;
+- ordered forward-gear descriptors with stable ID, authored ordinal, ratio, and
+  semantic ID when the selected rig has a transmission;
 - all audio bus descriptors;
 - the exact bit mask of live controls admitted by this session mode.
 
@@ -558,6 +573,14 @@ and resolved throttle, intake command, ignition/fuel/starter/dyno/limiter state,
 requested FreeEngine external resisting torque, and torque telemetry. For a governor,
 requested throttle is the normalized speed demand while resolved throttle is the
 stateful actuator output actually sent through the linkage.
+
+The frame also carries nullable mode-owned sidecars. HeldDyno publishes its applied
+target and limits, required/applied actuator torque, and constraint disposition.
+FreeVehicle publishes vehicle speed/distance, selected gear, applied clutch/brake,
+clutch torque/slip/disposition, and requested/applied road load. Both sidecars are
+absent during preparation and for nonapplicable modes; exactly the selected mode's
+sidecar is present after release. The accepted BMW vehicle descriptor publishes five
+gears with ordinals `1..5` and ratios `4.21`, `2.49`, `1.66`, `1.24`, and `1.00`.
 
 The authored `telemetry_capacity_frames` is a returned-record bound. It is not an audio
 frame count and it does not reserve the internal combustion event journal. The current
@@ -627,7 +650,8 @@ There is no form that omits `execution_kind`.
 
 The implemented ABI:
 
-- the sole accepted exact version is `ESO_C_API_VERSION == 3`;
+- the sole accepted exact version is `ESO_C_API_VERSION == 4`, with no older-layout
+  decoder or compatibility symbol family;
 - no C++ exception crosses the boundary;
 - every call returns an explicit status;
 - parse/compile diagnostics and related locations are copied into caller-owned buffers;
@@ -643,6 +667,12 @@ The implemented ABI:
   `ESO_SESSION_EXECUTION_OPEN_ENDED`;
 - the session descriptor reports that kind and uses canonical
   `total_block_count == 0` only for open-ended execution;
+- the descriptor reports one of seven motion modes, and gear query/copy functions
+  expose the ordered forward-gear inventory;
+- twelve capability bits and control kinds share one fixed-layout command; gear uses
+  `id_value`, while the other payload fields must retain their canonical zero values;
+- `eso_session_telemetry_t` wraps engine telemetry with HeldDyno and FreeVehicle
+  presence flags and sidecars; every absent sidecar is bytewise all-zero;
 - requested PCM and telemetry buffers are completely preflighted before the session
   advances;
 - successful control conversion and block processing use session-owned bounded scratch;
@@ -660,10 +690,10 @@ It uses the pinned Emscripten 6.0.4 container digest recorded by the script, smo
 all public module exports and the fixed memory, runs the wasm32 binary128 admission
 test, and drives an 18-block controlled BMW fixture through the C ABI on both targets.
 The fixture has exact semantic transcript SHA-256
-`e0b264375b80ef6ec656893235578fc5780b62d8f0d036870b1ba2d79a5591d2`.
+`1493a854b9fef0905cb73f64c6b46c3993d7f7471ca15ee8d39a2eb44e89ab28`.
 Its native and WASM bundle hashes are respectively
-`50e3dde5db8e69ec3a869e79f3a2919985aefbabfc066cb04de428ffea0b23de` and
-`22c164d528ff93d38ec266241dcc96b5d0d65aa217a156a43ff51fae11f94219`.
+`535c4754edf41c0ea0adb83d5790e17bda384ab69be7df885941d6be992034cb` and
+`53dea2aa3956ce2035290cb1ae49de9276f7bb16b15dedcba51e4c273edda73b`.
 Across 7,680 audition samples, observed maximum absolute Float32 PCM error is
 `1.862645149230957e-9` and RMS error is `2.1807662361359516e-11`; the checked ceilings
 and each target's exact telemetry/PCM hashes live in
@@ -696,6 +726,11 @@ AudioWorklet
   - count genuine streaming underruns
 ```
 
+The exact transport identifier is `engine-sim-offline/browser-worker-v2`. Build results
+publish the motion mode, exact capability list, and copied forward-gear descriptors;
+telemetry messages carry the nullable HeldDyno/FreeVehicle sidecars decoded from the C
+ABI rather than reconstructed in JavaScript.
+
 The full simulator does not run in the AudioWorklet. The Worker produces one exact
 3,840-frame session block at a time; at 192 kHz that is 20 ms. A versioned Worker-side
 129-tap windowed-sinc adapter converts the selected canonical bus to the actual
@@ -713,12 +748,14 @@ requested lead. Once released, the open-ended session continues the same crank, 
 random, filter, convolution, and resampler state; it is not a loop of the authored
 finite clip.
 
-The Worker maintains a bounded lead selected by the adapter. A UI command carries an
-absolute delivery-frame target that must not already have been generated and must not
-fall inside preparation. The Worker enqueues it before processing the containing
-20 ms block. Audio already in the ring cannot be changed retroactively, so ring fill
-plus one method quantum defines the measured control lead; the UI displays that
-latency rather than claiming zero-latency response.
+The Worker maintains a bounded lead selected by the adapter. A control request carries
+a nonempty atomic batch. Every command has an absolute delivery-frame target that must
+not already have been generated and must not fall inside preparation; one default
+timestamp is resolved once for the whole batch when callers omit it. The Worker passes
+the complete batch to one C enqueue operation and returns one `controls-result` before
+processing the containing 20 ms block. Audio already in the ring cannot be changed
+retroactively, so ring fill plus one method quantum defines the measured control lead;
+the UI displays that latency rather than claiming zero-latency response.
 
 PCM transport is one fixed-capacity single-producer/single-consumer
 `SharedArrayBuffer` ring with atomic read/write indices and counters. Controls,
@@ -849,23 +886,31 @@ The implemented workbench provides:
 - deterministic downloadable Float32 WAV export of the authored finite capture from a
   fresh `finite_scenario` session using the same C ABI.
 
-The workbench does not invent unsupported RPM/load/gear controls, display fake
-per-bus meters, or mutate structural JSON directly inside a running solver. Route
-selection creates a fresh session. Structural edits become active only after an
-explicit successful rebuild.
+The slice-13 backend and Worker publish held-dyno and drivetrain controls, but the
+visible workbench intentionally retains its existing widgets. The full held-dyno and
+vehicle bench, gear/clutch/brake widgets, and named procedures belong to slice 14. The
+UI does not invent imposed-RPM/load controls, display fake per-bus meters, or mutate
+structural JSON directly inside a running solver. Route selection creates a fresh
+session. Structural edits become active only after an explicit successful rebuild.
 
 The full browser gate compiles the BMW fixture, exports the complete authored
 warm-running free-rev capture, starts and primes open-ended playback, applies throttle,
 continues past the authored horizon, verifies Stop/Start/Restart, selects another
 route, and reports zero startup underruns on the development PC.
 
+The slice-13 runtime gate additionally exercises actual WASM HeldDyno and FreeVehicle
+sessions. It verifies capability masks `455` and `3631`, the five BMW forward gears, a
+three-command atomic batch, null preparation sidecars, populated released sidecars,
+and rejection of an invalid-gear batch without partial admission.
+
 ## 14. Implementation order
 
 The authoritative execution sequence is [`PLAN.md`](../../PLAN.md). The native
 session/bake cutover is checkpoint 8; C ABI and WASM are checkpoint 9; the
-Worker/ring/AudioWorklet transport and workbench are checkpoint 10. All three are
-implemented and sealed. Later control capabilities remain fail-closed until they are
-individually implemented.
+Worker/ring/AudioWorklet transport and initial workbench are checkpoint 10; and the
+operating-mode/control/telemetry publication is slice 13. All are implemented and
+sealed. Slice 14 is the visible full operating bench and named procedures. Later
+control capabilities remain fail-closed until individually implemented.
 
 Each step preserves one implementation path. No temporary browser synthesizer,
 pre-recorded engine loop, or compatibility parser becomes a production dependency.

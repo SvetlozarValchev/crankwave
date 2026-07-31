@@ -12,8 +12,9 @@ dead fields, or a general-purpose scripting language.
 
 ## Current status
 
-The accepted engine-sim-equivalent exhaust audio path, low-order simulation, dyno
-scenarios, block presentation pipeline, WAV publication, and telemetry are implemented.
+The accepted engine-sim-equivalent exhaust audio path, low-order simulation, dyno and
+forward-vehicle scenarios, block presentation pipeline, WAV publication, and telemetry
+are implemented.
 Strict engine/scenario JSON compilation is the only production input path. A compiled
 scenario can create an independent mutable `EngineSession`, whose bounded
 `process_block()` method
@@ -29,21 +30,30 @@ preserves continuous physical and DSP state until the caller restarts, destroys,
 faults the session. A warm FreeEngine may physically release at its fixed preparation
 horizon and continue dynamic acquisition before that later audible handoff.
 
-An exact-version C ABI now exposes strict JSON compilation, immutable engine/scenario
-handles, mutable sessions, typed controls, caller-owned PCM/telemetry, and structured
-diagnostics without leaking C++ types or exceptions. The Emscripten build exports that
-same boundary with fixed 128 MiB memory. A pinned headless gate checks all public
-exports, wasm32 numeric admission, exact native/WASM semantic state, target-specific
-hashes, and tight continuous telemetry/PCM error bounds.
+Exact C ABI v4 exposes strict JSON compilation, immutable engine/scenario handles,
+mutable sessions, twelve typed controls, caller-owned PCM/session telemetry, ordered
+forward-gear discovery, and structured diagnostics without leaking C++ types or
+exceptions. Its descriptor identifies one of all seven implemented motion modes. The
+Emscripten build exports that same boundary with fixed 128 MiB memory. A pinned headless
+gate checks all public exports, wasm32 numeric admission, exact native/WASM semantic
+state, target-specific hashes, and tight continuous telemetry/PCM error bounds.
 
 The browser workbench is implemented on that ABI. Its Worker owns compilation and the
 mutable WASM session, primes a bounded shared PCM ring, and converts the selected
 canonical 192 kHz bus to the device rate. The AudioWorklet only drains that ring.
 Engine/scenario edits rebuild atomically; a failed compile leaves the current program
-available. Inertial-dyno sessions admit live throttle, ignition, and fuel. Free-engine
-sessions add live limiter state, external resisting torque, and a momentary starter
-when the compiled engine declares cranking hardware, while resolving crank RPM from
-engine torque and engine-owned inertia. A `free_engine` scenario may add
+available. Worker protocol v2 publishes the explicit motion mode, capabilities,
+ordered gear inventory, and nullable mode-specific telemetry, and sends each nonempty
+control group through one atomic C-ABI batch. Inertial-dyno sessions admit live
+throttle, ignition, and fuel. Free-engine sessions add live limiter state, external
+resisting torque, and a momentary starter when the compiled engine declares cranking
+hardware, while resolving crank RPM from engine torque and engine-owned inertia.
+Finite held-dyno sessions admit throttle, ignition, fuel, target RPM, and separate
+maximum absorbing and driving torques. Finite free-vehicle sessions admit throttle,
+ignition, fuel, limiter, selected gear, and clutch, plus starter and service brake only
+when their compiled hardware exists. The visible full dyno/drivetrain bench and named
+procedures remain the next UI slice; JavaScript does not synthesize their physics. A
+`free_engine` scenario may add
 `attached_inertia` and an `external_resisting_torque` trajectory; omission of either
 means canonical positive zero. The compiler derives the engine baseline with the
 versioned cycle-mean centered slider-crank kinetic-energy method, adds any attached
@@ -68,12 +78,12 @@ mechanism inertia now follows the pristine one-degree-of-freedom equation
 `Q = M(theta)*alpha + 0.5*dM/dtheta*omega^2`; an audited 6,000-rpm coast tick predicts
 pristine acceleration within `0.054%`. The controlled response gate passes: WOT
 differs from pristine by `0.0134 s`, all coast crossings by at most `0.0049 s`, and
-the long natural-balance mean by `1.079 RPM`. A
-drivetrain, gears, regulated idle, and arbitrary live presentation edits remain
-explicit missing capabilities rather than UI-only approximations. The stopped/stalled
-state and pristine unilateral target-speed starter now execute through the same
-FreeEngine runtime; starter engagement and release remain explicit authored or live
-controls. The selected throttle controller may instead be pristine's stateful governor:
+the long natural-balance mean by `1.079 RPM`. Reverse vehicle motion, wheel slip,
+driveline compliance, the full operating-bench UI, and arbitrary live presentation
+edits remain explicit missing capabilities rather than JavaScript approximations. The
+stopped/stalled state and pristine unilateral target-speed starter now execute through
+the same FreeEngine runtime; starter engagement and release remain explicit authored
+or live controls. The selected throttle controller may instead be pristine's stateful governor:
 the public normalized demand becomes its speed command, while telemetry separately
 reports that request and the governor-resolved throttle opening. The Kohler CH750
 fixture exercises this path through a settled 12 N m load step.
@@ -91,7 +101,15 @@ Finite JSON `held_dyno` scenarios now drive that same crank through a bounded si
 speed constraint. The dyno may absorb or drive only within authored limits, reports
 the exact opposite reaction torque, and exposes achieved RPM when saturated. The first
 BMW procedure covers a target-driven pull, exact plateau, lift, and unforced overrun;
-public live target/limit commands remain intentionally deferred.
+the native session, C ABI v4, WASM wrapper, and Worker protocol v2 now publish live
+target and torque-limit commands plus nullable final-step dyno telemetry.
+
+Finite JSON `free_vehicle` scenarios couple the same crank to a forward-only vehicle,
+ordered transmission, bounded clutch, passive road load, and optional one-sided service
+brake. The BMW rig publishes five forward gears in authored order with ratios `4.21`,
+`2.49`, `1.66`, `1.24`, and `1.00`. Released blocks carry nullable final-step vehicle,
+gear, clutch, slip, road-load, speed, and distance telemetry; preparation and
+non-vehicle modes report no vehicle sidecar.
 
 The BMW JSON migration fixture reproduces every
 sound-bearing PCM byte of the user-approved inertial dyno. The native CLI resolves
