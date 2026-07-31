@@ -206,6 +206,30 @@ compile::CompiledScenario compile_authored_bmw_m52tub28_cold_start_scenario(
     return scenario;
 }
 
+compile::CompiledScenario compile_authored_bmw_m52tub28_held_dyno_scenario(
+    const std::filesystem::path &repository_root) {
+    auto scenario = compile_authored_scenario_file(
+        repository_root, "bmw-m52tub28-cleanroom",
+        "held-dyno-pull-lift-1500-6500rpm.json");
+    expect(
+        scenario.id() ==
+            "bmw-m52tub28-cleanroom-held-dyno-pull-lift-1500-6500rpm",
+        "public compiled held-dyno scenario retained the wrong authored ID");
+    return scenario;
+}
+
+compile::CompiledScenario compile_authored_bmw_m52tub28_free_vehicle_scenario(
+    const std::filesystem::path &repository_root) {
+    auto scenario = compile_authored_scenario_file(
+        repository_root, "bmw-m52tub28-cleanroom",
+        "free-vehicle-launch-first-second.json");
+    expect(
+        scenario.id() ==
+            "bmw-m52tub28-cleanroom-free-vehicle-launch-first-second",
+        "public compiled FreeVehicle scenario retained the wrong authored ID");
+    return scenario;
+}
+
 RenderSinkStatus
 VerifyingMemorySink::protocol_error(std::string message) const {
     return RenderSinkError{

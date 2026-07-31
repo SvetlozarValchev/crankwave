@@ -83,6 +83,7 @@ void run(const std::filesystem::path &repository_root) {
     double final_actuator_torque_nm = 0.0;
     double final_dyno_reaction_nm = 0.0;
     bool final_dyno_telemetry_available = false;
+    bool observed_released_sidecar = false;
     while (true) {
         auto result =
             session.publish_next_block([&](const contract::CaptureBlockView &block) {
@@ -145,9 +146,23 @@ void run(const std::filesystem::path &repository_root) {
         if (const auto *completed =
                 std::get_if<simulation::LowOrderCaptureCompleted>(&result)) {
             expect(completed->sample_count == *horizon && observed_frames == *horizon &&
-                       session.completed() && !session.faulted(),
+                       session.completed() && !session.faulted() &&
+                       observed_released_sidecar,
                    "held-dyno capture did not complete its exact horizon");
             break;
+        }
+        const auto state = session.held_dyno_state();
+        if (observed_frames <= *release) {
+            expect(!state.has_value(),
+                   "capture session exposed held-dyno sidecar during held "
+                   "preparation");
+        } else {
+            expect(state.has_value() &&
+                       std::isfinite(state->target_engine_speed_rpm) &&
+                       std::isfinite(state->required_actuator_torque_nm) &&
+                       std::isfinite(state->applied_actuator_torque_nm),
+                   "capture session omitted its released held-dyno sidecar");
+            observed_released_sidecar = true;
         }
     }
 

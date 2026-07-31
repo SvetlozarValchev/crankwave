@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <exception>
 #include <limits>
 #include <memory>
@@ -92,16 +93,19 @@ public_control_error(session::ControlTimelineError error) noexcept {
 [[nodiscard]] EngineLiveControlCapabilityMask
 live_control_capabilities(const contract::ScenarioMode &mode,
                           const contract::EngineSpec &engine) noexcept {
+    const auto starter_capability = [&engine]() noexcept {
+        const auto *profile = std::get_if<contract::LowOrderOperatingPointV1Profile>(
+            &engine.physics_profile);
+        return profile != nullptr &&
+               profile->starter.type.value == contract::StarterCapabilityType::cranking;
+    };
     if (std::holds_alternative<contract::FreeEngine>(mode)) {
         auto result = kEngineLiveControlCapabilityThrottle |
                       kEngineLiveControlCapabilityIgnitionEnabled |
                       kEngineLiveControlCapabilityFuelEnabled |
                       kEngineLiveControlCapabilityLimiterEnabled |
                       kEngineLiveControlCapabilityExternalResistingTorque;
-        const auto *profile = std::get_if<contract::LowOrderOperatingPointV1Profile>(
-            &engine.physics_profile);
-        if (profile != nullptr &&
-            profile->starter.type.value == contract::StarterCapabilityType::cranking) {
+        if (starter_capability()) {
             result |= kEngineLiveControlCapabilityStarterEnabled;
         }
         return result;
@@ -111,7 +115,58 @@ live_control_capabilities(const contract::ScenarioMode &mode,
                kEngineLiveControlCapabilityIgnitionEnabled |
                kEngineLiveControlCapabilityFuelEnabled;
     }
+    if (std::holds_alternative<contract::HeldDyno>(mode)) {
+        return kEngineLiveControlCapabilityThrottle |
+               kEngineLiveControlCapabilityIgnitionEnabled |
+               kEngineLiveControlCapabilityFuelEnabled |
+               kEngineLiveControlCapabilityHeldDynoTargetEngineSpeed |
+               kEngineLiveControlCapabilityHeldDynoMaximumAbsorbingTorque |
+               kEngineLiveControlCapabilityHeldDynoMaximumDrivingTorque;
+    }
+    if (const auto *vehicle = std::get_if<contract::FreeVehicle>(&mode)) {
+        auto result = kEngineLiveControlCapabilityThrottle |
+                      kEngineLiveControlCapabilityIgnitionEnabled |
+                      kEngineLiveControlCapabilityFuelEnabled |
+                      kEngineLiveControlCapabilityLimiterEnabled |
+                      kEngineLiveControlCapabilityVehicleSelectedForwardGear |
+                      kEngineLiveControlCapabilityVehicleClutchEngagement;
+        if (starter_capability()) {
+            result |= kEngineLiveControlCapabilityStarterEnabled;
+        }
+        if (vehicle->rig.vehicle.maximum_service_brake_force_n.has_value() &&
+            vehicle->rig.vehicle.maximum_service_brake_force_n->value > 0.0) {
+            result |= kEngineLiveControlCapabilityVehicleServiceBrakeApplication;
+        }
+        return result;
+    }
     return 0U;
+}
+
+[[nodiscard]] EngineMotionMode
+motion_mode(const contract::ScenarioMode &mode) noexcept {
+    return std::visit(
+        [](const auto &value) noexcept {
+            using Mode = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<Mode, contract::HeldSpeed>) {
+                return EngineMotionMode::held_speed;
+            } else if constexpr (std::is_same_v<Mode,
+                                                contract::PrescribedKinematicSweep>) {
+                return EngineMotionMode::prescribed_kinematic_sweep;
+            } else if constexpr (std::is_same_v<Mode, contract::HeldDyno>) {
+                return EngineMotionMode::held_dyno;
+            } else if constexpr (std::is_same_v<Mode,
+                                                contract::LoadTargetHeldCapture>) {
+                return EngineMotionMode::load_target_held_capture;
+            } else if constexpr (std::is_same_v<Mode, contract::InertialDyno>) {
+                return EngineMotionMode::inertial_dyno;
+            } else if constexpr (std::is_same_v<Mode, contract::FreeEngine>) {
+                return EngineMotionMode::free_engine;
+            } else {
+                static_assert(std::is_same_v<Mode, contract::FreeVehicle>);
+                return EngineMotionMode::free_vehicle;
+            }
+        },
+        mode);
 }
 
 [[nodiscard]] EngineLiveControlCapabilityMask
@@ -129,13 +184,76 @@ required_capability(const EngineControlPayload &payload) noexcept {
                 return kEngineLiveControlCapabilityStarterEnabled;
             } else if constexpr (std::is_same_v<Payload, SetEngineLimiterEnabled>) {
                 return kEngineLiveControlCapabilityLimiterEnabled;
+            } else if constexpr (std::is_same_v<Payload,
+                                                SetEngineExternalResistingTorque>) {
+                return kEngineLiveControlCapabilityExternalResistingTorque;
+            } else if constexpr (std::is_same_v<Payload,
+                                                SetHeldDynoTargetEngineSpeed>) {
+                return kEngineLiveControlCapabilityHeldDynoTargetEngineSpeed;
+            } else if constexpr (std::is_same_v<Payload,
+                                                SetHeldDynoMaximumAbsorbingTorque>) {
+                return kEngineLiveControlCapabilityHeldDynoMaximumAbsorbingTorque;
+            } else if constexpr (std::is_same_v<Payload,
+                                                SetHeldDynoMaximumDrivingTorque>) {
+                return kEngineLiveControlCapabilityHeldDynoMaximumDrivingTorque;
+            } else if constexpr (std::is_same_v<Payload,
+                                                SetVehicleSelectedForwardGear>) {
+                return kEngineLiveControlCapabilityVehicleSelectedForwardGear;
+            } else if constexpr (std::is_same_v<Payload, SetVehicleClutchEngagement>) {
+                return kEngineLiveControlCapabilityVehicleClutchEngagement;
             } else {
                 static_assert(
-                    std::is_same_v<Payload, SetEngineExternalResistingTorque>);
-                return kEngineLiveControlCapabilityExternalResistingTorque;
+                    std::is_same_v<Payload, SetVehicleServiceBrakeApplication>);
+                return kEngineLiveControlCapabilityVehicleServiceBrakeApplication;
             }
         },
         payload);
+}
+
+[[nodiscard]] EngineHeldDynoDisposition public_dyno_disposition(
+    simulation::detail::BoundedDynoConstraintDisposition disposition) noexcept {
+    using Internal = simulation::detail::BoundedDynoConstraintDisposition;
+    switch (disposition) {
+    case Internal::tracking:
+        return EngineHeldDynoDisposition::tracking;
+    case Internal::absorbing_torque_limited:
+        return EngineHeldDynoDisposition::absorbing_torque_limited;
+    case Internal::driving_torque_limited:
+        return EngineHeldDynoDisposition::driving_torque_limited;
+    }
+    return EngineHeldDynoDisposition::tracking;
+}
+
+[[nodiscard]] EngineClutchDisposition public_clutch_disposition(
+    simulation::detail::BoundedClutchCouplingDisposition disposition) noexcept {
+    using Internal = simulation::detail::BoundedClutchCouplingDisposition;
+    switch (disposition) {
+    case Internal::neutral:
+        return EngineClutchDisposition::neutral;
+    case Internal::disengaged:
+        return EngineClutchDisposition::disengaged;
+    case Internal::engine_driving_torque_limited:
+        return EngineClutchDisposition::engine_driving_torque_limited;
+    case Internal::vehicle_backdrive_torque_limited:
+        return EngineClutchDisposition::vehicle_backdrive_torque_limited;
+    case Internal::tracking:
+        return EngineClutchDisposition::tracking;
+    }
+    return EngineClutchDisposition::neutral;
+}
+
+[[nodiscard]] EngineRoadLoadDisposition public_road_load_disposition(
+    simulation::detail::ForwardVehicleRoadLoadDisposition disposition) noexcept {
+    using Internal = simulation::detail::ForwardVehicleRoadLoadDisposition;
+    switch (disposition) {
+    case Internal::moving:
+        return EngineRoadLoadDisposition::moving;
+    case Internal::stopped_within_step:
+        return EngineRoadLoadDisposition::stopped_within_step;
+    case Internal::held_at_rest:
+        return EngineRoadLoadDisposition::held_at_rest;
+    }
+    return EngineRoadLoadDisposition::held_at_rest;
 }
 
 } // namespace
@@ -210,6 +328,16 @@ class EngineSession::Implementation final {
         scenario_id_ = inputs.scenario.scenario.scenario_id;
         live_control_capabilities_ = live_control_capabilities(
             inputs.scenario.scenario.mode, inputs.engine.engine);
+        motion_mode_ = motion_mode(inputs.scenario.scenario.mode);
+        if (const auto *vehicle =
+                std::get_if<contract::FreeVehicle>(&inputs.scenario.scenario.mode)) {
+            forward_gear_descriptors_.reserve(vehicle->rig.transmission.gears.size());
+            for (const auto &gear : vehicle->rig.transmission.gears) {
+                forward_gear_descriptors_.push_back(
+                    {gear.id, gear.authored_ordinal.value, gear.semantic_id.value,
+                     gear.ratio.value});
+            }
+        }
         build_audio_bus_descriptors(inputs);
     }
 
@@ -227,6 +355,8 @@ class EngineSession::Implementation final {
             audio_bus_descriptors_,
             live_control_capabilities_,
             execution_kind_,
+            motion_mode_,
+            forward_gear_descriptors_,
         };
     }
 
@@ -265,6 +395,17 @@ class EngineSession::Implementation final {
                     index,
                     "the requested live control is unavailable for this "
                     "operating mode",
+                };
+            }
+            if (const auto *gear =
+                    std::get_if<SetVehicleSelectedForwardGear>(&source.payload);
+                gear != nullptr &&
+                gear->forward_gear_ordinal > forward_gear_descriptors_.size()) {
+                return EngineControlRejection{
+                    EngineControlRejectionCode::invalid_payload,
+                    index,
+                    "the selected forward-gear ordinal is outside the session "
+                    "inventory",
                 };
             }
             if (source.delivery_frame < first_live_delivery_frame) {
@@ -317,10 +458,36 @@ class EngineSession::Implementation final {
                     } else if constexpr (std::is_same_v<Payload,
                                                         SetEngineLimiterEnabled>) {
                         return session::SetLimiterEnabled{payload.enabled};
+                    } else if constexpr (std::is_same_v<
+                                             Payload,
+                                             SetEngineExternalResistingTorque>) {
+                        return session::SetExternalResistingTorque{payload.torque_nm};
+                    } else if constexpr (std::is_same_v<Payload,
+                                                        SetHeldDynoTargetEngineSpeed>) {
+                        return session::SetDynoTargetEngineSpeed{
+                            payload.engine_speed_rpm};
+                    } else if constexpr (std::is_same_v<
+                                             Payload,
+                                             SetHeldDynoMaximumAbsorbingTorque>) {
+                        return session::SetDynoMaximumAbsorbingTorque{
+                            payload.torque_nm};
+                    } else if constexpr (std::is_same_v<
+                                             Payload,
+                                             SetHeldDynoMaximumDrivingTorque>) {
+                        return session::SetDynoMaximumDrivingTorque{payload.torque_nm};
+                    } else if constexpr (std::is_same_v<
+                                             Payload, SetVehicleSelectedForwardGear>) {
+                        return session::SetVehicleSelectedForwardGear{
+                            payload.forward_gear_ordinal};
+                    } else if constexpr (std::is_same_v<Payload,
+                                                        SetVehicleClutchEngagement>) {
+                        return session::SetVehicleClutchEngagement{
+                            payload.engagement_01};
                     } else {
                         static_assert(
-                            std::is_same_v<Payload, SetEngineExternalResistingTorque>);
-                        return session::SetExternalResistingTorque{payload.torque_nm};
+                            std::is_same_v<Payload, SetVehicleServiceBrakeApplication>);
+                        return session::SetVehicleServiceBrakeApplication{
+                            payload.application_01};
                     }
                 },
                 source.payload);
@@ -386,7 +553,12 @@ class EngineSession::Implementation final {
                         return false;
                     }
                     const auto &last = capture.engine().back();
-                    telemetry_[0] = {last.step_end_index, last};
+                    telemetry_[0] = {
+                        last.step_end_index,
+                        last,
+                        std::nullopt,
+                        std::nullopt,
+                    };
 
                     auto excitation_result = excitation_.process_block(
                         capture,
@@ -442,6 +614,59 @@ class EngineSession::Implementation final {
                     "session-block-extent-disagreed",
                     "simulation, excitation, and presentation block clocks "
                     "diverged"));
+            }
+
+            telemetry_[0].held_dyno.reset();
+            telemetry_[0].free_vehicle.reset();
+            if (const auto dyno = simulation_.held_dyno_state(); dyno.has_value()) {
+                const auto &torque = telemetry_[0].engine.torque;
+                if (torque.actuator.availability != contract::Availability::available ||
+                    torque.dyno_reaction.availability !=
+                        contract::Availability::available ||
+                    std::bit_cast<std::uint64_t>(torque.actuator.value_nm) !=
+                        std::bit_cast<std::uint64_t>(
+                            dyno->applied_actuator_torque_nm) ||
+                    std::bit_cast<std::uint64_t>(torque.dyno_reaction.value_nm) !=
+                        std::bit_cast<std::uint64_t>(
+                            -dyno->applied_actuator_torque_nm)) {
+                    return fail(processing_error(
+                        "session-held-dyno-telemetry-disagreed",
+                        "held-dyno sidecar and common torque telemetry describe "
+                        "different committed actuator values"));
+                }
+                telemetry_[0].held_dyno = EngineHeldDynoTelemetry{
+                    dyno->target_engine_speed_rpm,
+                    dyno->maximum_absorbing_torque_nm,
+                    dyno->maximum_driving_torque_nm,
+                    dyno->required_actuator_torque_nm,
+                    dyno->applied_actuator_torque_nm,
+                    public_dyno_disposition(dyno->disposition),
+                };
+            }
+            if (const auto vehicle = simulation_.free_vehicle_state();
+                vehicle.has_value()) {
+                if (std::bit_cast<std::uint64_t>(vehicle->engine_speed_rpm) !=
+                    std::bit_cast<std::uint64_t>(
+                        telemetry_[0].engine.engine_speed_rpm)) {
+                    return fail(processing_error(
+                        "session-free-vehicle-telemetry-disagreed",
+                        "free-vehicle sidecar and common engine telemetry describe "
+                        "different committed crank speeds"));
+                }
+                telemetry_[0].free_vehicle = EngineFreeVehicleTelemetry{
+                    vehicle->vehicle_speed_m_s,
+                    vehicle->vehicle_distance_m,
+                    vehicle->selected_forward_gear_ordinal,
+                    vehicle->clutch_engagement_01,
+                    vehicle->service_brake_application_01,
+                    public_clutch_disposition(vehicle->clutch_disposition),
+                    vehicle->clutch_torque_capacity_nm,
+                    vehicle->applied_average_clutch_torque_on_engine_nm,
+                    vehicle->final_clutch_slip_rad_s,
+                    public_road_load_disposition(vehicle->road_load_disposition),
+                    vehicle->requested_road_load_force_n,
+                    vehicle->applied_average_road_load_force_n,
+                };
             }
 
             bind_audio_bus_views(*audio);
@@ -652,10 +877,12 @@ class EngineSession::Implementation final {
     std::vector<std::string> audio_bus_ids_;
     std::vector<EngineAudioBusDescriptor> audio_bus_descriptors_;
     std::vector<EngineAudioBusBlockView> audio_bus_views_;
+    std::vector<EngineForwardGearDescriptor> forward_gear_descriptors_;
     std::array<EngineTelemetryFrame, 1> telemetry_{};
     std::uint64_t total_block_count_ = 0;
     std::uint64_t preparation_block_count_ = 0;
     EngineLiveControlCapabilityMask live_control_capabilities_ = 0U;
+    EngineMotionMode motion_mode_ = EngineMotionMode::held_speed;
     bool has_accepted_live_controls_ = false;
     std::optional<EngineSessionCompleted> terminal_completion_;
     std::optional<EngineSessionError> terminal_error_;

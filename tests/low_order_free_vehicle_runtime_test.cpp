@@ -218,11 +218,18 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
 
     const auto initial = runtime.free_vehicle_state();
     expect(
-        initial.has_value() && std::abs(initial->engine_speed_rpm - 3000.0) < 1e-10 &&
+        initial.has_value() && !initial->has_committed_drivetrain_step &&
+            std::abs(initial->engine_speed_rpm - 3000.0) < 1e-10 &&
             initial->vehicle_speed_m_s == 0.0 && initial->vehicle_distance_m == 0.0 &&
             initial->selected_forward_gear_ordinal == 1U &&
             initial->clutch_engagement_01 == 1.0 &&
-            initial->service_brake_application_01 == 1.0,
+            initial->service_brake_application_01 == 1.0 &&
+            initial->clutch_disposition ==
+                engine_sim_offline::simulation::detail::
+                    BoundedClutchCouplingDisposition::neutral &&
+            initial->road_load_disposition ==
+                engine_sim_offline::simulation::detail::
+                    ForwardVehicleRoadLoadDisposition::held_at_rest,
         "initial simulation-internal FreeVehicle snapshot is incomplete");
 
     bool checked_held_release = false;
@@ -248,14 +255,23 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
 
         const auto accepted = runtime.accepted_sample_count();
         if (accepted <= kPreparationEndFrame) {
-            expect(state->vehicle_speed_m_s == 0.0 && state->vehicle_distance_m == 0.0,
+            expect(!state->has_committed_drivetrain_step &&
+                       state->vehicle_speed_m_s == 0.0 &&
+                       state->vehicle_distance_m == 0.0,
                    "held preparation advanced the vehicle");
         }
         if (accepted == kPreparationEndFrame + 1U) {
-            expect(state->vehicle_speed_m_s == 0.0 &&
+            expect(state->has_committed_drivetrain_step &&
+                       state->vehicle_speed_m_s == 0.0 &&
                        state->vehicle_distance_m == 0.0 &&
                        state->applied_average_clutch_torque_on_engine_nm < 0.0 &&
-                       state->applied_average_road_load_force_n > 0.0,
+                       state->applied_average_road_load_force_n > 0.0 &&
+                       state->clutch_disposition !=
+                           engine_sim_offline::simulation::detail::
+                               BoundedClutchCouplingDisposition::neutral &&
+                       state->clutch_disposition !=
+                           engine_sim_offline::simulation::detail::
+                               BoundedClutchCouplingDisposition::disengaged,
                    "service brake did not hold the first released clutch step");
             expect(step->capture_torque.actuator.availability ==
                            Availability::unavailable &&
@@ -271,7 +287,10 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
         if (accepted == kBrakeReleaseFrame + 200U) {
             expect(state->service_brake_application_01 == 0.0 &&
                        state->vehicle_speed_m_s > 0.0 &&
-                       state->vehicle_distance_m > 0.0,
+                       state->vehicle_distance_m > 0.0 &&
+                       state->road_load_disposition ==
+                           engine_sim_offline::simulation::detail::
+                               ForwardVehicleRoadLoadDisposition::moving,
                    "BMW did not launch after the authored service-brake release");
             checked_launch = true;
         }
@@ -304,6 +323,7 @@ void test_capture_session_selects_free_vehicle(const AuthoredEngineFixture &cano
         LowOrderExecutionExtent::finite_scenario(kTotalFrameCount)));
 
     std::uint64_t captured_frames = 0U;
+    bool observed_released_sidecar = false;
     while (true) {
         auto result = session.publish_next_block([&](const CaptureBlockView &block) {
             expect(block.clock().first_sample_index == captured_frames,
@@ -318,9 +338,20 @@ void test_capture_session_selects_free_vehicle(const AuthoredEngineFixture &cano
         }
         if (const auto *completed = std::get_if<LowOrderCaptureCompleted>(&result)) {
             expect(completed->sample_count == kTotalFrameCount &&
-                       captured_frames == kTotalFrameCount,
+                       captured_frames == kTotalFrameCount &&
+                       observed_released_sidecar,
                    "FreeVehicle capture completion disagreed with its blocks");
             return;
+        }
+        const auto state = session.free_vehicle_state();
+        if (captured_frames <= kPreparationEndFrame) {
+            expect(!state.has_value(),
+                   "capture session exposed FreeVehicle sidecar during held "
+                   "preparation");
+        } else {
+            expect(state.has_value() && state->has_committed_drivetrain_step,
+                   "capture session omitted its released FreeVehicle sidecar");
+            observed_released_sidecar = true;
         }
     }
 }

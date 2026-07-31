@@ -45,9 +45,56 @@ struct EngineAudioBusBlockView {
     std::span<const float> samples;
 };
 
+enum class EngineHeldDynoDisposition : std::uint8_t {
+    tracking,
+    absorbing_torque_limited,
+    driving_torque_limited,
+};
+
+struct EngineHeldDynoTelemetry {
+    double target_engine_speed_rpm = 0.0;
+    double maximum_absorbing_torque_nm = 0.0;
+    double maximum_driving_torque_nm = 0.0;
+    double required_actuator_torque_nm = 0.0;
+    double applied_actuator_torque_nm = 0.0;
+    EngineHeldDynoDisposition disposition = EngineHeldDynoDisposition::tracking;
+};
+
+enum class EngineClutchDisposition : std::uint8_t {
+    neutral,
+    disengaged,
+    engine_driving_torque_limited,
+    vehicle_backdrive_torque_limited,
+    tracking,
+};
+
+enum class EngineRoadLoadDisposition : std::uint8_t {
+    moving,
+    stopped_within_step,
+    held_at_rest,
+};
+
+struct EngineFreeVehicleTelemetry {
+    double vehicle_speed_m_s = 0.0;
+    double vehicle_distance_m = 0.0;
+    std::optional<std::uint32_t> selected_forward_gear_ordinal;
+    double clutch_engagement_01 = 0.0;
+    double service_brake_application_01 = 0.0;
+    EngineClutchDisposition clutch_disposition = EngineClutchDisposition::neutral;
+    double clutch_torque_capacity_nm = 0.0;
+    double applied_average_clutch_torque_on_engine_nm = 0.0;
+    std::optional<double> final_clutch_slip_rad_s;
+    EngineRoadLoadDisposition road_load_disposition =
+        EngineRoadLoadDisposition::held_at_rest;
+    double requested_road_load_force_n = 0.0;
+    double applied_average_road_load_force_n = 0.0;
+};
+
 struct EngineTelemetryFrame {
     std::uint64_t physics_step_end = 0;
     contract::EngineCaptureSample engine;
+    std::optional<EngineHeldDynoTelemetry> held_dyno;
+    std::optional<EngineFreeVehicleTelemetry> free_vehicle;
 };
 
 enum class EngineSessionBlockPhase : std::uint8_t {
@@ -135,10 +182,56 @@ struct SetEngineExternalResistingTorque {
                            const SetEngineExternalResistingTorque &) = default;
 };
 
+struct SetHeldDynoTargetEngineSpeed {
+    double engine_speed_rpm = 0.0;
+
+    friend bool operator==(const SetHeldDynoTargetEngineSpeed &,
+                           const SetHeldDynoTargetEngineSpeed &) = default;
+};
+
+struct SetHeldDynoMaximumAbsorbingTorque {
+    double torque_nm = 0.0;
+
+    friend bool operator==(const SetHeldDynoMaximumAbsorbingTorque &,
+                           const SetHeldDynoMaximumAbsorbingTorque &) = default;
+};
+
+struct SetHeldDynoMaximumDrivingTorque {
+    double torque_nm = 0.0;
+
+    friend bool operator==(const SetHeldDynoMaximumDrivingTorque &,
+                           const SetHeldDynoMaximumDrivingTorque &) = default;
+};
+
+struct SetVehicleSelectedForwardGear {
+    // Zero selects neutral. Positive values are one-based authored gear ordinals.
+    std::uint32_t forward_gear_ordinal = 0U;
+
+    friend bool operator==(const SetVehicleSelectedForwardGear &,
+                           const SetVehicleSelectedForwardGear &) = default;
+};
+
+struct SetVehicleClutchEngagement {
+    double engagement_01 = 0.0;
+
+    friend bool operator==(const SetVehicleClutchEngagement &,
+                           const SetVehicleClutchEngagement &) = default;
+};
+
+struct SetVehicleServiceBrakeApplication {
+    double application_01 = 0.0;
+
+    friend bool operator==(const SetVehicleServiceBrakeApplication &,
+                           const SetVehicleServiceBrakeApplication &) = default;
+};
+
 using EngineControlPayload =
     std::variant<SetEngineThrottle, SetEngineIgnitionEnabled, SetEngineFuelEnabled,
                  SetEngineStarterEnabled, SetEngineLimiterEnabled,
-                 SetEngineExternalResistingTorque>;
+                 SetEngineExternalResistingTorque, SetHeldDynoTargetEngineSpeed,
+                 SetHeldDynoMaximumAbsorbingTorque, SetHeldDynoMaximumDrivingTorque,
+                 SetVehicleSelectedForwardGear, SetVehicleClutchEngagement,
+                 SetVehicleServiceBrakeApplication>;
 
 using EngineLiveControlCapabilityMask = std::uint32_t;
 
@@ -154,6 +247,18 @@ inline constexpr EngineLiveControlCapabilityMask
     kEngineLiveControlCapabilityExternalResistingTorque = UINT32_C(1) << 4U;
 inline constexpr EngineLiveControlCapabilityMask
     kEngineLiveControlCapabilityStarterEnabled = UINT32_C(1) << 5U;
+inline constexpr EngineLiveControlCapabilityMask
+    kEngineLiveControlCapabilityHeldDynoTargetEngineSpeed = UINT32_C(1) << 6U;
+inline constexpr EngineLiveControlCapabilityMask
+    kEngineLiveControlCapabilityHeldDynoMaximumAbsorbingTorque = UINT32_C(1) << 7U;
+inline constexpr EngineLiveControlCapabilityMask
+    kEngineLiveControlCapabilityHeldDynoMaximumDrivingTorque = UINT32_C(1) << 8U;
+inline constexpr EngineLiveControlCapabilityMask
+    kEngineLiveControlCapabilityVehicleSelectedForwardGear = UINT32_C(1) << 9U;
+inline constexpr EngineLiveControlCapabilityMask
+    kEngineLiveControlCapabilityVehicleClutchEngagement = UINT32_C(1) << 10U;
+inline constexpr EngineLiveControlCapabilityMask
+    kEngineLiveControlCapabilityVehicleServiceBrakeApplication = UINT32_C(1) << 11U;
 
 struct EngineControlCommand {
     std::uint64_t delivery_frame = 0;
@@ -200,6 +305,23 @@ struct EngineSessionError {
     std::optional<contract::FailureContext> simulation_failure;
 };
 
+enum class EngineMotionMode : std::uint8_t {
+    held_speed,
+    prescribed_kinematic_sweep,
+    held_dyno,
+    load_target_held_capture,
+    inertial_dyno,
+    free_engine,
+    free_vehicle,
+};
+
+struct EngineForwardGearDescriptor {
+    contract::GearId id;
+    std::uint32_t authored_ordinal = 0U;
+    std::string_view semantic_id;
+    double ratio = 0.0;
+};
+
 // String and bus views borrow storage from the producing EngineSession. They remain
 // valid until that session is moved, assigned, or destroyed.
 struct EngineSessionDescriptor {
@@ -216,6 +338,8 @@ struct EngineSessionDescriptor {
     EngineLiveControlCapabilityMask live_control_capabilities = 0U;
     EngineSessionExecutionKind execution_kind =
         EngineSessionExecutionKind::finite_scenario;
+    EngineMotionMode motion_mode = EngineMotionMode::held_speed;
+    std::span<const EngineForwardGearDescriptor> forward_gears;
 };
 
 struct EngineSessionCompleted {
