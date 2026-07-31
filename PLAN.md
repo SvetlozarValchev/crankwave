@@ -612,7 +612,7 @@ velocity constraint while reusing the accepted gas, source-friction,
 configuration-inertia, routing, conditioning, IR, and mastering paths. The BMW gate
 pulls from 1,500 to 6,500 RPM, holds, lifts, and then overruns with zero permitted dyno
 driving torque, so a falling engine is never forced back onto an authored pitch lane.
-Its tests and clean production render pass; user listening acceptance is pending in
+Its tests and clean production render pass; the user accepted the listening result in
 [`docs/HEADLESS_BMW_HELD_DYNO_LISTENING_GATE.md`](docs/HEADLESS_BMW_HELD_DYNO_LISTENING_GATE.md).
 The controller already consumes target RPM and torque limits per runtime step; their
 public timestamped `EngineSession`/C ABI/WASM publication remains slice 13.

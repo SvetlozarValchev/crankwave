@@ -1,7 +1,7 @@
 # Headless BMW held-dyno listening gate
 
-Status: implementation, regression, and production render passed; user listening
-decision pending.
+Status: accepted by user on 2026-07-31 after implementation, regression, and clean
+production-render checks passed.
 
 This is the slice-11 checkpoint from [`../PLAN.md`](../PLAN.md). It changes only crank
 motion ownership: the accepted BMW gas, combustion, friction, configuration-inertia,
@@ -92,5 +92,6 @@ execution facts.
 This gate asks only whether the target-driven pull, exact hold, lift, and unforced
 overrun sound coherent through the already accepted BMW renderer. It does not accept
 public live dyno controls, drivetrain behavior, or later capture procedures. Slice 12
-must not begin until this listening result is accepted or the isolated motion change
-is corrected.
+may now begin from the exact artifact and implementation identities recorded above.
+
+User verdict: accepted without a requested correction.
