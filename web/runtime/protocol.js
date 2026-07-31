@@ -5,7 +5,7 @@ import {
 } from "./c-api-abi.js";
 import { PCM_RING_HEADER_SCHEMA } from "./pcm-ring-buffer.js";
 
-export const WORKER_PROTOCOL_ID = "engine-sim-offline/browser-worker-v1";
+export const WORKER_PROTOCOL_ID = "engine-sim-offline/browser-worker-v2";
 
 export const LIVE_CONTROL_CAPABILITIES = Object.freeze([
   Object.freeze({
@@ -41,6 +41,48 @@ export const LIVE_CONTROL_CAPABILITIES = Object.freeze([
     valueType: "number",
     minimum: 0,
     unit: "N*m",
+  }),
+  Object.freeze({
+    kind: "held-dyno-target-engine-speed",
+    mask: ControlCapability.heldDynoTargetEngineSpeed,
+    valueType: "number",
+    exclusiveMinimum: 0,
+    unit: "rpm",
+  }),
+  Object.freeze({
+    kind: "held-dyno-maximum-absorbing-torque",
+    mask: ControlCapability.heldDynoMaximumAbsorbingTorque,
+    valueType: "number",
+    minimum: 0,
+    unit: "N*m",
+  }),
+  Object.freeze({
+    kind: "held-dyno-maximum-driving-torque",
+    mask: ControlCapability.heldDynoMaximumDrivingTorque,
+    valueType: "number",
+    minimum: 0,
+    unit: "N*m",
+  }),
+  Object.freeze({
+    kind: "vehicle-selected-forward-gear",
+    mask: ControlCapability.vehicleSelectedForwardGear,
+    valueType: "integer",
+    minimum: 0,
+    unit: "authored-ordinal",
+  }),
+  Object.freeze({
+    kind: "vehicle-clutch-engagement",
+    mask: ControlCapability.vehicleClutchEngagement,
+    valueType: "number",
+    minimum: 0,
+    maximum: 1,
+  }),
+  Object.freeze({
+    kind: "vehicle-service-brake-application",
+    mask: ControlCapability.vehicleServiceBrakeApplication,
+    valueType: "number",
+    minimum: 0,
+    maximum: 1,
   }),
 ]);
 
@@ -79,11 +121,15 @@ export function publicDescriptor(program, selectedBusIndex) {
     executionKind: descriptor.executionKind,
     executionKindCode: descriptor.executionKindCode,
     openEnded: descriptor.executionKind === "open-ended",
+    motionMode: descriptor.motionMode,
+    motionModeCode: descriptor.motionModeCode,
     liveControlCapabilities,
     controls: LIVE_CONTROL_CAPABILITIES.filter(
       ({ mask }) => (liveControlCapabilities & mask) !== 0,
     ),
     buses: program.session.buses.map((bus) => ({ ...bus })),
+    forwardGearCount: descriptor.forwardGearCount,
+    forwardGears: descriptor.forwardGears.map((gear) => ({ ...gear })),
     selectedBusIndex,
     totalDeliveryFrames:
       totalDeliveryFrames === null

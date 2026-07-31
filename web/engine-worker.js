@@ -90,8 +90,8 @@ async function dispatch(message) {
     case "restart":
       runtime.restart(message);
       break;
-    case "control":
-      runtime.control(message);
+    case "enqueue-controls":
+      runtime.enqueueControls(message);
       break;
     case "export-wav":
       await runtime.exportWav(message);

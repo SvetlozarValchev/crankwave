@@ -2,6 +2,7 @@ import {
   ESO_CANONICAL_SAMPLE_RATE,
   ESO_C_API_VERSION,
 } from "./runtime/c-api-abi.js";
+import { WORKER_PROTOCOL_ID } from "./runtime/protocol.js";
 
 const WORKER_URL = "/web/engine-worker.js";
 const WORKLET_URL = "/web/audio-worklet.js";
@@ -159,7 +160,6 @@ const RING_HEADER = Object.freeze({
   generation: 5,
   producerState: 6,
 });
-const WORKER_PROTOCOL_ID = "engine-sim-offline/browser-worker-v1";
 const RING_SCHEMA_ID = "engine-sim-offline/pcm-ring-spsc-v1";
 const RING_HEADER_SCHEMA = Object.freeze({
   id: RING_SCHEMA_ID,
@@ -1603,10 +1603,9 @@ function sendControl(kind, value) {
     deliveryFrame: null,
   });
   postWorker({
-    type: "control",
+    type: "enqueue-controls",
     requestId,
-    kind,
-    value,
+    controls: [{ kind, value }],
   });
 }
 
@@ -2068,22 +2067,27 @@ function acceptWorkerState(message) {
   }
 }
 
-function acceptControlResult(message) {
+function acceptControlsResult(message) {
   state.requestKinds.delete(message.requestId);
-  const pending = state.pendingControls.get(message.kind);
-  if (message.accepted) {
-    state.lastAcceptedControlFrame = message.deliveryFrame;
-    if (pending?.requestId === message.requestId) {
-      pending.deliveryFrame = message.deliveryFrame;
-    }
-  } else if (pending?.requestId === message.requestId) {
-    state.pendingControls.delete(message.kind);
+  if (!Array.isArray(message.controls) || message.controls.length === 0) {
+    throw new Error("The Worker returned an invalid controls result.");
   }
-  if (!message.accepted) {
-    showToast(
-      `${message.kind} control rejected: ${message.reason ?? "not admitted"}`,
-      true,
-    );
+  for (const control of message.controls) {
+    const pending = state.pendingControls.get(control.kind);
+    if (message.accepted) {
+      state.lastAcceptedControlFrame = control.deliveryFrame;
+      if (pending?.requestId === message.requestId) {
+        pending.deliveryFrame = control.deliveryFrame;
+      }
+    } else if (pending?.requestId === message.requestId) {
+      state.pendingControls.delete(control.kind);
+    }
+    if (!message.accepted) {
+      showToast(
+        `${control.kind} control rejected: ${message.reason ?? "not admitted"}`,
+        true,
+      );
+    }
   }
 }
 
@@ -2199,8 +2203,8 @@ function handleWorkerMessage(event) {
       case "runtime-stats":
         acceptRuntimeStats(message);
         break;
-      case "control-result":
-        acceptControlResult(message);
+      case "controls-result":
+        acceptControlsResult(message);
         break;
       case "wav-export":
         acceptWavExport(message);

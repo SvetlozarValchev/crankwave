@@ -15,6 +15,17 @@ node --test "${repository_dir}"/web/tests/runtime/*.test.mjs
 "${repository_dir}/scripts/build-workbench.sh"
 
 node \
+    "${repository_dir}/web/tests/integration/operating-bench.integration.mjs" \
+    "${workbench_dir}/web/engine-sim-offline.js" \
+    "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/engine.json" \
+    "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/scenarios/held-dyno-pull-lift-1500-6500rpm.json" \
+    "${repository_dir}/data/engines/bmw-m52tub28-cleanroom/scenarios/free-vehicle-launch-first-second.json" \
+    smooth-39 \
+    "${repository_dir}/reference/fixtures/engine-sim-ir-library/presentation/smooth_39.wav" \
+    warm-generic-accessories \
+    "${repository_dir}/data/profiles/bmw-m52tub28-cleanroom/accessory-configurations/bmw-m52tub28-cleanroom-warm-generic-accessories-v1.json"
+
+node \
     "${repository_dir}/web/tests/integration/browser-runtime.integration.mjs" \
     "${workbench_dir}/web/engine-sim-offline.js" \
     "${repository_dir}/data/engines/bmw-m52b28/engine.json" \

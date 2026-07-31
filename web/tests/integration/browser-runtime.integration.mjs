@@ -176,6 +176,10 @@ async function main() {
     assert.equal(validBuild.descriptor.executionKind, "finite-scenario");
     assert.equal(validBuild.descriptor.executionKindCode, 1);
     assert.equal(validBuild.descriptor.openEnded, false);
+    assert.equal(validBuild.descriptor.motionMode, "inertial-dyno");
+    assert.equal(validBuild.descriptor.motionModeCode, 5);
+    assert.equal(validBuild.descriptor.forwardGearCount, 0);
+    assert.deepEqual(validBuild.descriptor.forwardGears, []);
     assert.equal(validBuild.descriptor.totalBlockCount, "18");
     assert.equal(validBuild.descriptor.totalDeliveryFrames, "69120");
     assert.equal(validBuild.descriptor.liveControlCapabilities, 0b00111);
@@ -213,24 +217,25 @@ async function main() {
     assert.equal(validation.diagnostics[0].document, "engine");
     assert.equal(validation.error.stageName, "engine-parse");
 
-    for (const [index, control] of [
-      ["throttle", 0.5],
-      ["ignition", true],
-      ["fuel", true],
-    ].entries()) {
-      const [kind, value] = control;
-      runtime.control({
-        requestId: `live-control-${index}`,
-        kind,
-        value,
-      });
-      const accepted = eventFor(
-        events,
-        "control-result",
-        `live-control-${index}`,
-      );
-      assert.equal(accepted?.accepted, true);
-    }
+    runtime.enqueueControls({
+      requestId: "live-controls",
+      controls: [
+        { kind: "throttle", value: 0.5 },
+        { kind: "ignition", value: true },
+        { kind: "fuel", value: true },
+      ],
+    });
+    const accepted = eventFor(events, "controls-result", "live-controls");
+    assert.equal(accepted?.accepted, true);
+    assert.deepEqual(
+      accepted.controls.map(({ kind }) => kind),
+      ["throttle", "ignition", "fuel"],
+    );
+    assert.equal(
+      new Set(accepted.controls.map(({ deliveryFrame }) => deliveryFrame)).size,
+      1,
+      "one atomic control batch did not resolve one shared default frame",
+    );
 
     const firstTelemetry = waitForEvent(
       (resolve) => {
@@ -243,7 +248,10 @@ async function main() {
       outputSampleRate: 48_000,
       leadFrames: 960,
     });
-    await firstTelemetry;
+    const preparationTelemetry = await firstTelemetry;
+    assert.ok(preparationTelemetry.frames.length > 0);
+    assert.equal(preparationTelemetry.frames.at(-1).heldDyno, null);
+    assert.equal(preparationTelemetry.frames.at(-1).freeVehicle, null);
     assert.equal(
       eventFor(events, "audio-ring", "start-before-route-replacement"),
       undefined,

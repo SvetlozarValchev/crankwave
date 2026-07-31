@@ -278,49 +278,63 @@ export class BrowserEngineRuntime {
     this.start({ requestId, ...settings });
   }
 
-  control({ requestId, kind, value, deliveryFrame }) {
-    this.#requireProgram("control");
-    this.#assertNotExporting("control");
+  enqueueControls({ requestId, controls }) {
+    this.#requireProgram("enqueue-controls");
+    this.#assertNotExporting("enqueue-controls");
     const descriptor = this.#program.session.descriptor;
     if (descriptor.liveControlCapabilities === 0) {
       throw runtimeError(
         "the compiled scenario does not accept live controls",
         "browser-runtime-controls-unavailable",
-        "control",
+        "enqueue-controls",
       );
     }
-    const capability = liveControlCapability(kind);
-    if (capability === null) {
-      throw runtimeError(
-        `unsupported live control: ${String(kind)}`,
-        "browser-runtime-unsupported-control",
-        "control",
-      );
-    }
-    if ((descriptor.liveControlCapabilities & capability.mask) === 0) {
-      throw runtimeError(
-        `${kind} was not admitted for the compiled scenario`,
-        "browser-runtime-control-not-admitted",
-        "control",
-      );
+    if (!Array.isArray(controls) || controls.length === 0) {
+      throw new TypeError("controls must be a non-empty array");
     }
     const session = this.#program.session;
     const defaultFrame =
       session.nextDeliveryFrame > session.firstAudibleDeliveryFrame
         ? session.nextDeliveryFrame
         : session.firstAudibleDeliveryFrame;
-    const resolvedFrame =
-      deliveryFrame === undefined ? defaultFrame : BigInt(deliveryFrame);
-    session.enqueueControls([
-      { kind, value, deliveryFrame: resolvedFrame },
-    ]);
+    const resolvedControls = controls.map((control, index) => {
+      if (typeof control !== "object" || control === null) {
+        throw new TypeError(`control ${index} must be an object`);
+      }
+      const capability = liveControlCapability(control.kind);
+      if (capability === null) {
+        throw runtimeError(
+          `unsupported live control: ${String(control.kind)}`,
+          "browser-runtime-unsupported-control",
+          "enqueue-controls",
+        );
+      }
+      if ((descriptor.liveControlCapabilities & capability.mask) === 0) {
+        throw runtimeError(
+          `${control.kind} was not admitted for the compiled scenario`,
+          "browser-runtime-control-not-admitted",
+          "enqueue-controls",
+        );
+      }
+      return {
+        kind: control.kind,
+        value: control.value,
+        deliveryFrame:
+          control.deliveryFrame === undefined
+            ? defaultFrame
+            : BigInt(control.deliveryFrame),
+      };
+    });
+    session.enqueueControls(resolvedControls);
     this.#emit({
-      type: "control-result",
+      type: "controls-result",
       requestId,
       accepted: true,
-      kind,
-      value,
-      deliveryFrame: resolvedFrame.toString(10),
+      controls: resolvedControls.map((control) => ({
+        kind: control.kind,
+        value: control.value,
+        deliveryFrame: control.deliveryFrame.toString(10),
+      })),
     });
   }
 
