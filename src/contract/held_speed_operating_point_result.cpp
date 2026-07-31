@@ -1046,13 +1046,13 @@ validate(const HeldSpeedOperatingPointResult &operating_point,
                         profile->accessory_configuration.configuration_id.value &&
                     conditions.accessory_configuration.content_sha256 ==
                         profile->accessory_configuration.content_sha256.value &&
-                    conditions.starter_mechanically_disengaged ==
-                        profile->starter.mechanically_disengaged.value &&
+                    conditions.starter_mechanically_disengaged &&
                     conditions.starter_included_terms ==
                         profile->starter.included_terms.value,
                 ContractIssueCode::inconsistent_semantics, "conditions",
-                "operating-point cycle reference, accessory, and starter "
-                "conditions must exactly match the admitted engine profile");
+                "operating-point cycle reference and accessory must match the "
+                "admitted engine profile, and the scenario starter must be "
+                "mechanically disengaged with the profile's starter term");
     }
 
     std::vector<GasVolumeId> expected_physical_volumes;

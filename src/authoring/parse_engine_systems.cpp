@@ -147,8 +147,8 @@ void parse_combustion(DocumentReader &reader, JsonValue value, std::string_view 
         output.maximum_turbulence_effect, subject_value);
     reader.nonnegative_number(
         reader.required(value, "maximum_dilution_effect", path, subject_value),
-        pointer_member(path, "maximum_dilution_effect"),
-        output.maximum_dilution_effect, subject_value);
+        pointer_member(path, "maximum_dilution_effect"), output.maximum_dilution_effect,
+        subject_value);
     if (output.maximum_dilution_effect <= 0.0) {
         reader.add(DiagnosticCode::out_of_range,
                    pointer_member(path, "maximum_dilution_effect"),
@@ -156,9 +156,9 @@ void parse_combustion(DocumentReader &reader, JsonValue value, std::string_view 
     }
 }
 
-void parse_accessory_configuration(
-    DocumentReader &reader, JsonValue value, std::string_view path,
-    AccessoryConfigurationDefinition &output) {
+void parse_accessory_configuration(DocumentReader &reader, JsonValue value,
+                                   std::string_view path,
+                                   AccessoryConfigurationDefinition &output) {
     if (!reader.object(value, path)) {
         return;
     }
@@ -177,10 +177,8 @@ void parse_accessory_configuration(
         std::string parsed;
         if (reader.string(digest, pointer_member(path, "sha256"), parsed, owner)) {
             const bool is_lowercase_sha256 =
-                parsed.size() == 64U &&
-                std::ranges::all_of(parsed, [](char byte) {
-                    return (byte >= '0' && byte <= '9') ||
-                           (byte >= 'a' && byte <= 'f');
+                parsed.size() == 64U && std::ranges::all_of(parsed, [](char byte) {
+                    return (byte >= '0' && byte <= '9') || (byte >= 'a' && byte <= 'f');
                 });
             if (!is_lowercase_sha256) {
                 reader.add(DiagnosticCode::invalid_value,
@@ -210,13 +208,12 @@ void parse_losses(DocumentReader &reader, JsonValue value, std::string_view path
         return;
     }
 
-    reader.reject_unknown(
-        value, path,
-        {"type", "constant_fmep", "peak_pressure_coefficient",
-         "mean_piston_speed_coefficient",
-         "mean_piston_speed_squared_coefficient", "required_oil_temperature",
-         "accessory_configuration_id"},
-        subject_value);
+    reader.reject_unknown(value, path,
+                          {"type", "constant_fmep", "peak_pressure_coefficient",
+                           "mean_piston_speed_coefficient",
+                           "mean_piston_speed_squared_coefficient",
+                           "required_oil_temperature", "accessory_configuration_id"},
+                          subject_value);
     ChenFlynnLossDefinition parsed;
     read_quantity_member(reader, value, "constant_fmep", path,
                          QuantityDimension::pressure, parsed.constant_fmep,
@@ -234,19 +231,18 @@ void parse_losses(DocumentReader &reader, JsonValue value, std::string_view path
     read_quantity_member(reader, value, "required_oil_temperature", path,
                          QuantityDimension::temperature,
                          parsed.required_oil_temperature, subject_value);
-    reader.ref(reader.required(value, "accessory_configuration_id", path,
-                               subject_value),
-               pointer_member(path, "accessory_configuration_id"),
-               parsed.accessory_configuration_id, subject_value);
+    reader.ref(
+        reader.required(value, "accessory_configuration_id", path, subject_value),
+        pointer_member(path, "accessory_configuration_id"),
+        parsed.accessory_configuration_id, subject_value);
     require_nonnegative(reader, parsed.constant_fmep,
                         pointer_member(path, "constant_fmep"), subject_value);
     require_nonnegative(reader, parsed.mean_piston_speed_coefficient,
                         pointer_member(path, "mean_piston_speed_coefficient"),
                         subject_value);
-    require_nonnegative(
-        reader, parsed.mean_piston_speed_squared_coefficient,
-        pointer_member(path, "mean_piston_speed_squared_coefficient"),
-        subject_value);
+    require_nonnegative(reader, parsed.mean_piston_speed_squared_coefficient,
+                        pointer_member(path, "mean_piston_speed_squared_coefficient"),
+                        subject_value);
     output = std::move(parsed);
 }
 
@@ -290,17 +286,15 @@ void parse_throttle_controller(DocumentReader &reader, JsonValue value,
                              QuantityDimension::angular_speed,
                              parsed.maximum_engine_speed, owner);
         reader.number(reader.required(value, "minimum_velocity", path, owner),
-                      pointer_member(path, "minimum_velocity"),
-                      parsed.minimum_velocity, owner);
+                      pointer_member(path, "minimum_velocity"), parsed.minimum_velocity,
+                      owner);
         reader.number(reader.required(value, "maximum_velocity", path, owner),
-                      pointer_member(path, "maximum_velocity"),
-                      parsed.maximum_velocity, owner);
+                      pointer_member(path, "maximum_velocity"), parsed.maximum_velocity,
+                      owner);
         reader.nonnegative_number(reader.required(value, "k_s", path, owner),
-                                  pointer_member(path, "k_s"), parsed.k_s,
-                                  owner);
+                                  pointer_member(path, "k_s"), parsed.k_s, owner);
         reader.nonnegative_number(reader.required(value, "k_d", path, owner),
-                                  pointer_member(path, "k_d"), parsed.k_d,
-                                  owner);
+                                  pointer_member(path, "k_d"), parsed.k_d, owner);
         reader.nonnegative_number(reader.required(value, "gamma", path, owner),
                                   pointer_member(path, "gamma"), parsed.gamma, owner);
         if (parsed.minimum_engine_speed.value > parsed.maximum_engine_speed.value) {
@@ -334,30 +328,18 @@ void parse_starter(DocumentReader &reader, JsonValue value, std::string_view pat
         reader.reject_unknown(value, path, {"type"}, subject_value);
         output = MechanicallyDisengagedStarter{};
     } else if (type == "cranking") {
-        reader.reject_unknown(
-            value, path, {"type", "torque", "target_speed", "release_speed"},
-            subject_value);
+        reader.reject_unknown(value, path, {"type", "torque", "target_speed"},
+                              subject_value);
         CrankingStarter parsed;
-        read_quantity_member(reader, value, "torque", path,
-                             QuantityDimension::torque, parsed.torque,
-                             subject_value);
+        read_quantity_member(reader, value, "torque", path, QuantityDimension::torque,
+                             parsed.torque, subject_value);
         read_quantity_member(reader, value, "target_speed", path,
                              QuantityDimension::angular_speed, parsed.target_speed,
                              subject_value);
-        const auto release = reader.optional(value, "release_speed");
-        if (release.valid() && !release.is_null()) {
-            Quantity parsed_release;
-            reader.quantity(release, pointer_member(path, "release_speed"),
-                            QuantityDimension::angular_speed, parsed_release,
-                            subject_value);
-            require_positive(reader, parsed_release,
-                             pointer_member(path, "release_speed"), subject_value);
-            parsed.release_speed = std::move(parsed_release);
-        }
-        require_nonnegative(reader, parsed.torque, pointer_member(path, "torque"),
-                            subject_value);
-        require_nonnegative(reader, parsed.target_speed,
-                            pointer_member(path, "target_speed"), subject_value);
+        require_positive(reader, parsed.torque, pointer_member(path, "torque"),
+                         subject_value);
+        require_positive(reader, parsed.target_speed,
+                         pointer_member(path, "target_speed"), subject_value);
         output = std::move(parsed);
     } else if (!type.empty()) {
         reader.add(DiagnosticCode::invalid_value, pointer_member(path, "type"),

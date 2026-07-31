@@ -1267,6 +1267,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_engine_sim_v1_starter_motor_tests
+    engine_sim_v1_starter_motor_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_engine_sim_v1_starter_motor_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_engine_sim_v1_starter_motor_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.engine_sim_v1_starter_motor
+    COMMAND engine_sim_offline_engine_sim_v1_starter_motor_tests
+)
+
+add_executable(
     engine_sim_offline_cycle_accounting_method_registry_tests
     cycle_accounting_method_registry_test.cpp
 )

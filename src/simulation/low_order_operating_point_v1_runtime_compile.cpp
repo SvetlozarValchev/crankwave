@@ -339,7 +339,7 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
         },
         held->engine_speed_rpm.value,
         stroke_m,
-        profile->starter.mechanically_disengaged.value,
+        true,
         contract::indicated_gas_torque_term_mask(),
         profile->aggregate_loss.included_terms.value,
         profile->starter.included_terms.value,
@@ -400,7 +400,7 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
             profile->accessory_configuration.configuration_id.value,
             profile->accessory_configuration.content_sha256.value,
         },
-        profile->starter.mechanically_disengaged.value,
+        true,
         profile->starter.included_terms.value,
     };
 

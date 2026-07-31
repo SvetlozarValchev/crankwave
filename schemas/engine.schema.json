@@ -721,13 +721,7 @@
       "properties": {
         "type": { "const": "cranking" },
         "torque": { "$ref": "#/$defs/quantity" },
-        "target_speed": { "$ref": "#/$defs/quantity" },
-        "release_speed": {
-          "anyOf": [
-            { "$ref": "#/$defs/quantity" },
-            { "type": "null" }
-          ]
-        }
+        "target_speed": { "$ref": "#/$defs/quantity" }
       }
     },
     "starter": {

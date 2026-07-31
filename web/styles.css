@@ -1074,11 +1074,13 @@ code,
   transition: transform 120ms ease;
 }
 
-.switch-control[aria-checked="true"] .switch-track {
+.switch-control[aria-checked="true"] .switch-track,
+.switch-control[aria-pressed="true"] .switch-track {
   background: var(--accent-dark);
 }
 
-.switch-control[aria-checked="true"] .switch-track span {
+.switch-control[aria-checked="true"] .switch-track span,
+.switch-control[aria-pressed="true"] .switch-track span {
   background: var(--accent-bright);
   transform: translateX(12px);
 }

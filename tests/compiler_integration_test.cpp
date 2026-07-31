@@ -1234,6 +1234,35 @@ void test_rig_compiles_to_immutable_si_descriptors() {
         "/rig/dyno_defaults/maximum_engine_speed", "mixed-unit inverted dyno range");
 }
 
+void test_cranking_starter_resolves_to_si_capability() {
+    const SyntheticAssets assets = make_assets();
+    auto document = make_engine_document(assets);
+    document.engine.starter = authoring::CrankingStarter{
+        quantity(110.0, "lb*ft"),
+        quantity(240.0, "rpm"),
+    };
+    auto views = assets.views();
+
+    auto resolved =
+        require_value(compile_detail::resolve_engine_package(document, views),
+                      "cranking starter engine resolution failed");
+    const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+        resolved.engine.physics_profile);
+    constexpr double kExpectedTorqueNm =
+        110.0 * (4.44822 * ((1.0 / 100.0) * 2.54 * 12.0));
+    constexpr double kExpectedTargetSpeedRadS = 240.0 * 0.104719755;
+    expect(profile.starter.type.value == contract::StarterCapabilityType::cranking &&
+               profile.starter.maximum_torque_nm.value == kExpectedTorqueNm &&
+               profile.starter.target_speed_rad_s.value == kExpectedTargetSpeedRadS &&
+               profile.starter.included_terms.value ==
+                   contract::torque_term_mask(contract::TorqueTerm::starter),
+           "cranking starter capability did not resolve type, maximum torque, "
+           "target speed, and torque ownership in SI");
+
+    (void)require_value(compile::compile_engine(document, views),
+                        "public compiler rejected a cranking-capable engine");
+}
+
 void test_unsupported_capability_fails_closed() {
     const SyntheticAssets assets = make_assets();
     {
@@ -1296,6 +1325,7 @@ int main() {
         test_v_engine_resolves_bank_geometry_and_axis_relative_journals();
         test_asset_admission_is_exact_and_closed();
         test_rig_compiles_to_immutable_si_descriptors();
+        test_cranking_starter_resolves_to_si_capability();
         test_unsupported_capability_fails_closed();
         test_direct_scenario_dto_admission_fails_closed();
         std::cout << "compiler integration tests passed\n";

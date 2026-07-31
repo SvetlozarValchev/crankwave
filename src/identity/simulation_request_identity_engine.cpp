@@ -66,8 +66,19 @@ write_optional_resolved(CanonicalJsonWriter &writer,
     return writer.uint64_hex_value(value);
 }
 
-[[nodiscard]] bool write_bool(CanonicalJsonWriter &writer, bool value) {
-    return writer.bool_value(value);
+[[nodiscard]] bool
+write_starter_capability_type(CanonicalJsonWriter &writer,
+                              contract::StarterCapabilityType value) {
+    switch (value) {
+    case contract::StarterCapabilityType::mechanically_disengaged:
+        return writer.string_value("mechanically_disengaged");
+    case contract::StarterCapabilityType::cranking:
+        return writer.string_value("cranking");
+    case contract::StarterCapabilityType::unspecified:
+        break;
+    }
+    return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                       "starter capability type is unspecified or unknown");
 }
 
 [[nodiscard]] bool write_sha256(CanonicalJsonWriter &writer,
@@ -806,11 +817,15 @@ write_low_order_engine_core(CanonicalJsonWriter &writer,
            writer.end_object();
 }
 
-[[nodiscard]] bool write_mechanically_disengaged_starter(
-    CanonicalJsonWriter &writer,
-    const contract::MechanicallyDisengagedStarterV1 &starter) {
-    return writer.begin_object() && writer.key("mechanically_disengaged") &&
-           write_resolved(writer, starter.mechanically_disengaged, write_bool) &&
+[[nodiscard]] bool
+write_starter_capability(CanonicalJsonWriter &writer,
+                         const contract::StarterCapabilityV1 &starter) {
+    return writer.begin_object() && writer.key("type") &&
+           write_resolved(writer, starter.type, write_starter_capability_type) &&
+           writer.key("maximum_torque_nm") &&
+           write_resolved(writer, starter.maximum_torque_nm, write_f64) &&
+           writer.key("target_speed_rad_s") &&
+           write_resolved(writer, starter.target_speed_rad_s, write_f64) &&
            writer.key("included_terms") &&
            write_resolved(writer, starter.included_terms, write_u64) &&
            writer.end_object();
@@ -827,8 +842,7 @@ write_low_order_engine_core(CanonicalJsonWriter &writer,
            write_chen_flynn_aggregate_loss(writer, profile.aggregate_loss) &&
            writer.key("accessory_configuration") &&
            write_accessory_configuration(writer, profile.accessory_configuration) &&
-           writer.key("starter") &&
-           write_mechanically_disengaged_starter(writer, profile.starter) &&
+           writer.key("starter") && write_starter_capability(writer, profile.starter) &&
            writer.key("cycle_quadrature") &&
            write_resolved(writer, profile.cycle_quadrature, write_method_identity) &&
            writer.end_object() && writer.end_object();

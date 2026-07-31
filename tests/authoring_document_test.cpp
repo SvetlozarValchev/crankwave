@@ -756,6 +756,38 @@ void test_complete_engine_package() {
            "omitted future throttle-controller capability became authored");
 }
 
+void test_cranking_starter_contract_is_minimal_and_strict() {
+    std::string cranking = valid_engine_json();
+    replace_once(
+        cranking, R"json("starter": {"type": "mechanically_disengaged"})json",
+        R"json("starter": {"type": "cranking", "torque": {"value": 110, "unit": "lb*ft"}, "target_speed": {"value": 240, "unit": "rpm"}})json");
+    const auto package = require_engine(cranking);
+    const auto *starter = std::get_if<CrankingStarter>(&package.engine.starter);
+    expect(starter != nullptr && starter->torque.value == 110.0 &&
+               starter->torque.unit == "lb*ft" &&
+               starter->target_speed.value == 240.0 &&
+               starter->target_speed.unit == "rpm",
+           "cranking starter torque or target speed was not retained");
+
+    std::string retired_release = cranking;
+    replace_once(
+        retired_release, R"json("target_speed": {"value": 240, "unit": "rpm"})json",
+        R"json("target_speed": {"value": 240, "unit": "rpm"}, "release_speed": {"value": 500, "unit": "rpm"})json");
+    const auto retired_release_result = parse_engine_document(retired_release);
+    expect(has_diagnostic(require_engine_report(retired_release_result),
+                          DiagnosticCode::unknown_field,
+                          "/engine/starter/release_speed"),
+           "retired starter release_speed field was accepted");
+
+    std::string zero_torque = cranking;
+    replace_once(zero_torque, R"json("torque": {"value": 110, "unit": "lb*ft"})json",
+                 R"json("torque": {"value": 0, "unit": "N*m"})json");
+    const auto zero_torque_result = parse_engine_document(zero_torque);
+    expect(has_diagnostic(require_engine_report(zero_torque_result),
+                          DiagnosticCode::out_of_range, "/engine/starter/torque/value"),
+           "zero-torque cranking starter was accepted");
+}
+
 void test_engine_duplicate_id_and_dangling_reference_paths() {
     std::string duplicate = valid_engine_json();
     replace_once(duplicate, R"json("id": "exhaust-port")json",
@@ -798,6 +830,7 @@ int main() {
         test_cross_document_reference_validation();
         test_engine_schema_identifier_is_strict();
         test_complete_engine_package();
+        test_cranking_starter_contract_is_minimal_and_strict();
         test_engine_duplicate_id_and_dangling_reference_paths();
         std::cout << "authoring document parser tests passed\n";
         return EXIT_SUCCESS;

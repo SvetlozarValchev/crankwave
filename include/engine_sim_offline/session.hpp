@@ -77,8 +77,7 @@ class EngineSessionBlockView final {
     [[nodiscard]] std::span<const EngineTelemetryFrame> telemetry() const noexcept;
 
   private:
-    EngineSessionBlockView(std::uint64_t block_ordinal,
-                           EngineSessionBlockPhase phase,
+    EngineSessionBlockView(std::uint64_t block_ordinal, EngineSessionBlockPhase phase,
                            std::uint64_t first_physics_frame,
                            std::uint64_t first_delivery_frame,
                            std::span<const EngineAudioBusBlockView> audio_buses,
@@ -115,6 +114,13 @@ struct SetEngineFuelEnabled {
                            const SetEngineFuelEnabled &) = default;
 };
 
+struct SetEngineStarterEnabled {
+    bool enabled = false;
+
+    friend bool operator==(const SetEngineStarterEnabled &,
+                           const SetEngineStarterEnabled &) = default;
+};
+
 struct SetEngineLimiterEnabled {
     bool enabled = false;
 
@@ -131,7 +137,8 @@ struct SetEngineExternalResistingTorque {
 
 using EngineControlPayload =
     std::variant<SetEngineThrottle, SetEngineIgnitionEnabled, SetEngineFuelEnabled,
-                 SetEngineLimiterEnabled, SetEngineExternalResistingTorque>;
+                 SetEngineStarterEnabled, SetEngineLimiterEnabled,
+                 SetEngineExternalResistingTorque>;
 
 using EngineLiveControlCapabilityMask = std::uint32_t;
 
@@ -145,6 +152,8 @@ inline constexpr EngineLiveControlCapabilityMask
     kEngineLiveControlCapabilityLimiterEnabled = UINT32_C(1) << 3U;
 inline constexpr EngineLiveControlCapabilityMask
     kEngineLiveControlCapabilityExternalResistingTorque = UINT32_C(1) << 4U;
+inline constexpr EngineLiveControlCapabilityMask
+    kEngineLiveControlCapabilityStarterEnabled = UINT32_C(1) << 5U;
 
 struct EngineControlCommand {
     std::uint64_t delivery_frame = 0;
@@ -170,8 +179,7 @@ enum class EngineControlRejectionCode : std::uint8_t {
 };
 
 struct EngineControlRejection {
-    EngineControlRejectionCode code =
-        EngineControlRejectionCode::internal_clock_error;
+    EngineControlRejectionCode code = EngineControlRejectionCode::internal_clock_error;
     std::size_t command_index = 0;
     std::string message;
 };
@@ -200,10 +208,8 @@ struct EngineSessionDescriptor {
     compile::CompiledSessionCapacities capacities;
     contract::RationalRateHz physics_rate = kEngineSessionPhysicsRateHz;
     contract::RationalRateHz delivery_rate = kEngineSessionDeliveryRateHz;
-    std::uint32_t physics_frames_per_block =
-        kEngineSessionPhysicsFramesPerBlock;
-    std::uint32_t delivery_frames_per_block =
-        kEngineSessionDeliveryFramesPerBlock;
+    std::uint32_t physics_frames_per_block = kEngineSessionPhysicsFramesPerBlock;
+    std::uint32_t delivery_frames_per_block = kEngineSessionDeliveryFramesPerBlock;
     std::uint64_t total_block_count = 0;
     std::uint64_t preparation_block_count = 0;
     std::span<const EngineAudioBusDescriptor> audio_buses;
@@ -220,8 +226,7 @@ struct EngineSessionCompleted {
     // the authored request identity does not include the accepted live command
     // journal.
     bool live_controls_accepted = false;
-    std::optional<contract::HeldSpeedOperatingPointResult>
-        held_speed_operating_point;
+    std::optional<contract::HeldSpeedOperatingPointResult> held_speed_operating_point;
     std::optional<contract::InertialDynoResult> inertial_dyno;
 };
 

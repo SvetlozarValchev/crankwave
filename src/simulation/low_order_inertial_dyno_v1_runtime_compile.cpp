@@ -208,7 +208,7 @@ LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
         },
         dyno->initial_engine_speed_rpm.value,
         stroke_m,
-        profile->starter.mechanically_disengaged.value,
+        true,
         contract::indicated_gas_torque_term_mask(),
         profile->aggregate_loss.included_terms.value,
         profile->starter.included_terms.value,

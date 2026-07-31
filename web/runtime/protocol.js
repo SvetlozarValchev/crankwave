@@ -26,6 +26,11 @@ export const LIVE_CONTROL_CAPABILITIES = Object.freeze([
     valueType: "boolean",
   }),
   Object.freeze({
+    kind: "starter",
+    mask: ControlCapability.starterEnabled,
+    valueType: "boolean",
+  }),
+  Object.freeze({
     kind: "limiter",
     mask: ControlCapability.limiterEnabled,
     valueType: "boolean",

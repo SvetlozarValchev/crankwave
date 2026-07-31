@@ -25,13 +25,13 @@ using namespace engine_sim_offline::contract::test;
 using namespace engine_sim_offline::identity;
 
 constexpr std::string_view kExpectedCanonicalManifestSha256 =
-    "887c8bb9ea92e4a2451b7e4d2f51307dd694e99eab5c43096b89d63abc13a6e6";
+    "88e426d8f7cd81729a3f1a85620d03f7b644da05b7a4e2d0d1dce7e5f7153a48";
 constexpr std::string_view kExpectedCanonicalRequestIdentitySha256 =
-    "ad47f9d644e11a2053fee87e48c6e878de8ef85a3af2c74210e6412e9e2c109a";
+    "12983cacf3f34b17f058d2285e3104fb66ed9597a154107c001141e9d78f7710";
 constexpr std::string_view kExpectedCustomizedManifestSha256 =
-    "28e9576c9a40a295248f9d7e89669a7624d30e9487ea69c5e211795ec7aecb72";
+    "cd276c055b1c9f5b250699e260d2e7589a8c541d980997f8e2b8c786a1767da5";
 constexpr std::string_view kExpectedCustomizedRequestIdentitySha256 =
-    "47fa477a602f2aa331b3d84f3e06e93be2b49dd9cf1a5542278d6ad40a3ad600";
+    "75298fa47370eaf88af92a629f3a23276d1efc4717c17f000b1d2f41b881e37e";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -394,7 +394,9 @@ void configure_customized_operating_point_wire_fixture(SimulationFixture &fixtur
                                  path("accessory_configuration.content_sha256")),
     };
     profile.starter = {
-        fixture.builder.resolved(true, path("starter.mechanically_disengaged")),
+        fixture.builder.resolved(StarterCapabilityType::cranking, path("starter.type")),
+        fixture.builder.resolved(150.0, path("starter.maximum_torque_nm")),
+        fixture.builder.resolved(27.2271363, path("starter.target_speed_rad_s")),
         fixture.builder.resolved(torque_term_mask(TorqueTerm::starter),
                                  path("starter.included_terms")),
     };
@@ -474,8 +476,12 @@ void configure_customized_operating_point_wire_fixture(SimulationFixture &fixtur
                 std::string::npos &&
             manifest_document.find("\"accessory_configuration\":{\"configuration_id\":",
                                    aggregate_loss) != std::string::npos &&
-            manifest_document.find("\"starter\":{\"mechanically_disengaged\":",
+            manifest_document.find("\"starter\":{\"type\":{\"value\":\"cranking\",",
                                    accessory) != std::string::npos &&
+            manifest_document.find("\"maximum_torque_nm\":", starter) !=
+                std::string::npos &&
+            manifest_document.find("\"target_speed_rad_s\":", starter) !=
+                std::string::npos &&
             manifest_document.find(
                 "\"cycle_quadrature\":{\"value\":{\"id\":"
                 "\"four-stroke-piecewise-linear-cycle-quadrature-v1\"",
@@ -509,6 +515,19 @@ void configure_customized_operating_point_wire_fixture(SimulationFixture &fixtur
            "identical customized requests produced different identity encodings");
     expect(as_string(first_identity.bytes).find(kSamplingPrefix) != std::string::npos,
            "customized request identity omitted fixed-horizon sampling");
+    expect(as_string(first_identity.bytes)
+                   .find("\"starter\":{\"type\":{\"value\":\"cranking\",") !=
+               std::string::npos,
+           "customized request identity omitted cranking starter capability");
+
+    auto changed_engine = resolved.engine;
+    std::get<LowOrderOperatingPointV1Profile>(changed_engine.physics_profile)
+        .starter.maximum_torque_nm.value += 1.0;
+    const auto changed_identity = require_request_identity_encoding(
+        changed_engine, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
+    expect(changed_identity.sha256 != first_identity.sha256,
+           "starter maximum torque mutation did not change request identity");
 
     return {
         digest_hex(sha256(first_manifest)),

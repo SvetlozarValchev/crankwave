@@ -321,7 +321,7 @@ Fixture fixture(const std::filesystem::path &repository_root) {
             operating_profile.accessory_configuration.configuration_id.value,
             operating_profile.accessory_configuration.content_sha256.value,
         },
-        operating_profile.starter.mechanically_disengaged.value,
+        true,
         operating_profile.starter.included_terms.value,
     };
     HeldSpeedOperatingPointResult result{

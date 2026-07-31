@@ -1,5 +1,6 @@
 #include "simulation/low_order_free_engine_v1_runtime.hpp"
 
+#include "simulation/engine_sim_v1_starter_motor.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 
@@ -119,7 +120,8 @@ preparation_capture_torque(double indicated_gas_torque_nm,
 [[nodiscard]] contract::TorqueTelemetry released_capture_torque(
     double held_upstream_engine_torque_nm, double held_resisting_torque_nm,
     double initial_angular_speed_rad_s, double applied_indicated_gas_torque_nm,
-    double applied_source_friction_torque_nm) noexcept {
+    double applied_source_friction_torque_nm,
+    double applied_starter_torque_nm) noexcept {
     const auto crank_friction =
         contract::torque_term_mask(contract::TorqueTerm::crank_friction);
     const auto piston_friction =
@@ -137,7 +139,7 @@ preparation_capture_torque(double indicated_gas_torque_nm,
         applied_source_friction_torque_nm, applied_friction_terms,
         contract::friction_pump_and_accessory_torque_term_mask() &
             ~applied_friction_terms);
-    result.starter = available_torque(0.0, starter);
+    result.starter = available_torque(applied_starter_torque_nm, starter);
     result.instantaneous_net_shaft = available_classified_torque(
         held_upstream_engine_torque_nm, applied_net_terms,
         contract::known_torque_term_mask() & ~applied_net_terms);
@@ -210,8 +212,10 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
     contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
     std::uint64_t release_frame_index, double initial_engine_speed_rpm,
     double initial_theta_rad, bool cold_bootstrap,
-    double applied_positive_speed_crank_friction_torque_nm, std::string model_id,
-    std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
+    double applied_positive_speed_crank_friction_torque_nm,
+    double starter_maximum_torque_nm, double starter_target_speed_rad_s,
+    std::string model_id, std::string profile_id, std::string scenario_id,
+    contract::EngineId engine_id)
     : control_cursor_(std::move(control_cursor)), accountant_(std::move(accountant)),
       sampler_(std::move(sampler)),
       physical_gas_step_indices_(std::move(physical_gas_step_indices)),
@@ -232,6 +236,8 @@ LowOrderFreeEngineV1Runtime::LowOrderFreeEngineV1Runtime(
       initial_engine_speed_rpm_(initial_engine_speed_rpm),
       applied_positive_speed_crank_friction_torque_nm_(
           applied_positive_speed_crank_friction_torque_nm),
+      starter_maximum_torque_nm_(starter_maximum_torque_nm),
+      starter_target_speed_rad_s_(starter_target_speed_rad_s),
       piston_wall_boundary_angular_speed_rad_s_(initial_engine_speed_rpm *
                                                 kLegacyRpmScale),
       crank_state_{initial_theta_rad,
@@ -734,26 +740,32 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     }
 
     const double applied_indicated = *previous_indicated_gas_torque_nm_;
-    constexpr double applied_starter_torque_nm = 0.0;
+    const bool starter_enabled = overrides.has_starter_enabled
+                                     ? overrides.starter_enabled
+                                     : controls->operating_state.starter_enabled;
+    if (starter_enabled &&
+        (!(starter_maximum_torque_nm_ > 0.0) || !(starter_target_speed_rad_s_ > 0.0))) {
+        return fail(fault(contract::FailureKind::contract_violation,
+                          "free-engine-starter-capability-missing",
+                          "starter engagement requires a compiled cranking starter "
+                          "with positive maximum torque and target speed"));
+    }
     const double applied_external_resisting_torque_nm =
         overrides.has_external_resisting_torque_nm
             ? overrides.external_resisting_torque_nm
             : controls->external_resisting_torque_nm;
     const double applied_crank_friction_torque_nm =
-        crank_state_.angular_speed_rad_s > 0.0
+        crank_state_.angular_speed_rad_s > 0.0 || starter_enabled
             ? applied_positive_speed_crank_friction_torque_nm_
-            : std::clamp(applied_external_resisting_torque_nm -
-                             (applied_indicated +
-                              applied_piston_wall_friction_torque_nm_ +
-                              applied_starter_torque_nm),
-                         applied_positive_speed_crank_friction_torque_nm_,
-                         -applied_positive_speed_crank_friction_torque_nm_);
+            : std::clamp(
+                  applied_external_resisting_torque_nm -
+                      (applied_indicated + applied_piston_wall_friction_torque_nm_),
+                  applied_positive_speed_crank_friction_torque_nm_,
+                  -applied_positive_speed_crank_friction_torque_nm_);
     const double applied_source_friction =
         applied_crank_friction_torque_nm + applied_piston_wall_friction_torque_nm_;
-    const double applied_upstream_engine_torque_nm =
-        applied_starter_torque_nm == 0.0
-            ? applied_indicated + applied_source_friction
-            : applied_indicated + applied_source_friction + applied_starter_torque_nm;
+    const double starter_off_upstream_engine_torque_nm =
+        applied_indicated + applied_source_friction;
     const auto inertia_calculation =
         evaluate_centered_slider_crank_configuration_inertia(
             configuration_inertia_plan_, crank_state_.theta_rad);
@@ -774,7 +786,7 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
             inertia.total_inertia_kg_m2,
             inertia.total_derivative_kg_m2_per_rad,
             crank_state_,
-            applied_upstream_engine_torque_nm,
+            starter_off_upstream_engine_torque_nm,
             applied_external_resisting_torque_nm,
             step_s_,
         });
@@ -790,6 +802,53 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     }
     auto motion = std::get<detail::NonnegativeSpeedConfigurationDependentCrankZohStep>(
         motion_calculation);
+    double applied_starter_torque_nm = 0.0;
+    if (starter_enabled) {
+        const auto starter_calculation = calculate_engine_sim_v1_starter_motor_torque({
+            true,
+            starter_target_speed_rad_s_,
+            motion.unconstrained_predicted_final_angular_speed_rad_s,
+            starter_maximum_torque_nm_,
+            inertia.total_inertia_kg_m2,
+            step_s_,
+        });
+        if (const auto *error =
+                std::get_if<EngineSimV1StarterMotorInputError>(&starter_calculation)) {
+            return fail(
+                fault(contract::FailureKind::contract_violation,
+                      "free-engine-starter-motor-failed",
+                      "engaged source-faithful starter rejected its resolved "
+                      "capability or crank input; issue=" +
+                          std::to_string(static_cast<std::uint32_t>(error->issue))));
+        }
+        applied_starter_torque_nm =
+            std::get<EngineSimV1StarterMotorTorque>(starter_calculation)
+                .applied_crank_torque_nm;
+        if (applied_starter_torque_nm > 0.0) {
+            motion_calculation =
+                detail::advance_nonnegative_speed_configuration_dependent_crank_zoh({
+                    inertia.total_inertia_kg_m2,
+                    inertia.total_derivative_kg_m2_per_rad,
+                    crank_state_,
+                    starter_off_upstream_engine_torque_nm + applied_starter_torque_nm,
+                    applied_external_resisting_torque_nm,
+                    step_s_,
+                });
+            if (const auto *error = std::get_if<
+                    detail::NonnegativeSpeedConfigurationDependentCrankZohInputError>(
+                    &motion_calculation)) {
+                return fail(fault(
+                    contract::FailureKind::numerical_failure,
+                    "free-engine-starter-crank-dynamics-failed",
+                    "starter-assisted nonnegative crank step rejected input; "
+                    "issue=" +
+                        std::to_string(static_cast<std::uint32_t>(error->issue))));
+            }
+            motion =
+                std::get<detail::NonnegativeSpeedConfigurationDependentCrankZohStep>(
+                    motion_calculation);
+        }
+    }
     if (auto failure =
             calculate_next_piston_wall_reactions(motion.angular_acceleration_rad_s2);
         failure.has_value()) {
@@ -801,6 +860,8 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     resolved_overrides.has_external_resisting_torque_nm = true;
     resolved_overrides.external_resisting_torque_nm =
         applied_external_resisting_torque_nm;
+    resolved_overrides.has_starter_enabled = true;
+    resolved_overrides.starter_enabled = starter_enabled;
     auto core_result = core.advance({post_step_rpm, motion.angular_displacement_rad},
                                     resolved_overrides);
     if (const auto *failure = std::get_if<contract::FailureContext>(&core_result)) {
@@ -818,11 +879,11 @@ LowOrderFreeEngineV1Runtime::advance(LowOrderEngineCoreV1Runtime &core,
     // This frame reports exactly the prior committed engine torque and current
     // right-continuous external resistance used for its motion. Newly committed
     // gas state becomes causal input only for the following frame.
-    const auto capture_torque =
-        released_capture_torque(motion.input.held_upstream_engine_torque_nm,
-                                motion.input.held_resisting_torque_nm,
-                                motion.input.initial_state.angular_speed_rad_s,
-                                applied_indicated, applied_source_friction);
+    const auto capture_torque = released_capture_torque(
+        motion.input.held_upstream_engine_torque_nm,
+        motion.input.held_resisting_torque_nm,
+        motion.input.initial_state.angular_speed_rad_s, applied_indicated,
+        applied_source_friction, applied_starter_torque_nm);
     if (mechanics.engine_speed_rpm > 0.0) {
         if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
             return fail(std::move(*failure));

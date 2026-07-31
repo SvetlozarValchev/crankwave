@@ -585,6 +585,11 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
+Current progress: slices 1--5 are complete. Slice 6 is implemented through the JSON,
+runtime, native session, exact C ABI, WASM transport, and Web workbench and is awaiting
+the required BMW crank/catch listening decision. Slice 7 must not begin before that
+decision.
+
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
 and mastering unchanged. Listen immediately after the one intended behavior changes;
 do not stack later slices to excuse a bad result.

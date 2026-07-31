@@ -16,9 +16,9 @@ namespace {
 }
 
 template <std::size_t NumeratorCount, std::size_t DenominatorCount>
-void cancel_common_factors(std::array<std::uint64_t, NumeratorCount> &numerators,
-                           std::array<std::uint64_t, DenominatorCount> &denominators)
-    noexcept {
+void cancel_common_factors(
+    std::array<std::uint64_t, NumeratorCount> &numerators,
+    std::array<std::uint64_t, DenominatorCount> &denominators) noexcept {
     for (auto &denominator : denominators) {
         for (auto &numerator : numerators) {
             const auto divisor = std::gcd(numerator, denominator);
@@ -252,10 +252,11 @@ contract::RationalRateHz ControlTimeline::delivery_rate() const noexcept {
     return delivery_rate_;
 }
 
-bool ControlTimeline::payload_is_valid(const LiveControlPayload &payload) const noexcept {
+bool ControlTimeline::payload_is_valid(
+    const LiveControlPayload &payload) const noexcept {
     if (const auto *throttle = std::get_if<SetThrottle>(&payload)) {
-        return std::isfinite(throttle->throttle_01) &&
-               throttle->throttle_01 >= 0.0 && throttle->throttle_01 <= 1.0;
+        return std::isfinite(throttle->throttle_01) && throttle->throttle_01 >= 0.0 &&
+               throttle->throttle_01 <= 1.0;
     }
     if (const auto *resistance = std::get_if<SetExternalResistingTorque>(&payload)) {
         return std::isfinite(resistance->torque_nm) && resistance->torque_nm >= 0.0;
@@ -264,30 +265,33 @@ bool ControlTimeline::payload_is_valid(const LiveControlPayload &payload) const 
 }
 
 void ControlTimeline::apply(const LiveControlPayload &payload) noexcept {
-    std::visit(
-        Overloaded{
-            [this](const SetThrottle &command) {
-                overrides_.has_throttle = true;
-                overrides_.throttle_01 = command.throttle_01;
-            },
-            [this](const SetIgnitionEnabled &command) {
-                overrides_.has_ignition_enabled = true;
-                overrides_.ignition_enabled = command.enabled;
-            },
-            [this](const SetFuelEnabled &command) {
-                overrides_.has_fuel_enabled = true;
-                overrides_.fuel_enabled = command.enabled;
-            },
-            [this](const SetLimiterEnabled &command) {
-                overrides_.has_limiter_enabled = true;
-                overrides_.limiter_enabled = command.enabled;
-            },
-            [this](const SetExternalResistingTorque &command) {
-                overrides_.has_external_resisting_torque_nm = true;
-                overrides_.external_resisting_torque_nm = command.torque_nm;
-            },
-        },
-        payload);
+    std::visit(Overloaded{
+                   [this](const SetThrottle &command) {
+                       overrides_.has_throttle = true;
+                       overrides_.throttle_01 = command.throttle_01;
+                   },
+                   [this](const SetIgnitionEnabled &command) {
+                       overrides_.has_ignition_enabled = true;
+                       overrides_.ignition_enabled = command.enabled;
+                   },
+                   [this](const SetFuelEnabled &command) {
+                       overrides_.has_fuel_enabled = true;
+                       overrides_.fuel_enabled = command.enabled;
+                   },
+                   [this](const SetStarterEnabled &command) {
+                       overrides_.has_starter_enabled = true;
+                       overrides_.starter_enabled = command.enabled;
+                   },
+                   [this](const SetLimiterEnabled &command) {
+                       overrides_.has_limiter_enabled = true;
+                       overrides_.limiter_enabled = command.enabled;
+                   },
+                   [this](const SetExternalResistingTorque &command) {
+                       overrides_.has_external_resisting_torque_nm = true;
+                       overrides_.external_resisting_torque_nm = command.torque_nm;
+                   },
+               },
+               payload);
 }
 
 std::size_t ControlTimeline::tail_index() const noexcept {

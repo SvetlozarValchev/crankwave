@@ -80,8 +80,10 @@ class LowOrderFreeEngineV1Runtime final {
         contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
         std::uint64_t release_frame_index, double initial_engine_speed_rpm,
         double initial_theta_rad, bool cold_bootstrap,
-        double applied_positive_speed_crank_friction_torque_nm, std::string model_id,
-        std::string profile_id, std::string scenario_id, contract::EngineId engine_id);
+        double applied_positive_speed_crank_friction_torque_nm,
+        double starter_maximum_torque_nm, double starter_target_speed_rad_s,
+        std::string model_id, std::string profile_id, std::string scenario_id,
+        contract::EngineId engine_id);
 
     [[nodiscard]] contract::FailureContext
     fault(contract::FailureKind kind, std::string detail_code,
@@ -126,6 +128,8 @@ class LowOrderFreeEngineV1Runtime final {
     double step_s_ = 0.0;
     double initial_engine_speed_rpm_ = 0.0;
     double applied_positive_speed_crank_friction_torque_nm_ = 0.0;
+    double starter_maximum_torque_nm_ = 0.0;
+    double starter_target_speed_rad_s_ = 0.0;
     double piston_wall_boundary_angular_speed_rad_s_ = 0.0;
     double applied_piston_wall_friction_torque_nm_ = 0.0;
     std::uint64_t piston_wall_boundary_index_ = 0;

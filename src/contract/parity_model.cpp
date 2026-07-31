@@ -361,8 +361,9 @@ void visit_operating_profile_fields(const Profile &profile, std::string_view roo
              accessory_root + ".content_sha256");
 
     const auto starter_root = std::string(root) + ".starter";
-    function(profile.starter.mechanically_disengaged,
-             starter_root + ".mechanically_disengaged");
+    function(profile.starter.type, starter_root + ".type");
+    function(profile.starter.maximum_torque_nm, starter_root + ".maximum_torque_nm");
+    function(profile.starter.target_speed_rad_s, starter_root + ".target_speed_rad_s");
     function(profile.starter.included_terms, starter_root + ".included_terms");
     function(profile.cycle_quadrature, std::string(root) + ".cycle_quadrature");
 }
@@ -1003,12 +1004,32 @@ void validate_operating_accounting_domains(ValidationReport &report,
             "accessory_configuration.content_sha256.value",
             "accessory configuration descriptor digest must be nonzero");
 
+    const auto starter_type = starter.type.value;
     require(report,
-            starter.mechanically_disengaged.value &&
-                starter.included_terms.value == kOperatingStarterTerms,
-            ContractIssueCode::inconsistent_semantics, "starter",
-            "operating-point starter must be mechanically disengaged and own exactly "
-            "the starter torque term");
+            starter_type == StarterCapabilityType::mechanically_disengaged ||
+                starter_type == StarterCapabilityType::cranking,
+            ContractIssueCode::invalid_value, "starter.type.value",
+            "starter capability type must be mechanically_disengaged or cranking");
+    if (starter_type == StarterCapabilityType::mechanically_disengaged) {
+        require(report,
+                starter.maximum_torque_nm.value == 0.0 &&
+                    !std::signbit(starter.maximum_torque_nm.value) &&
+                    starter.target_speed_rad_s.value == 0.0 &&
+                    !std::signbit(starter.target_speed_rad_s.value),
+                ContractIssueCode::inconsistent_semantics, "starter",
+                "mechanically disengaged starter capability must carry canonical "
+                "positive-zero torque and target speed");
+    } else if (starter_type == StarterCapabilityType::cranking) {
+        require(report,
+                finite_positive(starter.maximum_torque_nm.value) &&
+                    finite_positive(starter.target_speed_rad_s.value),
+                ContractIssueCode::invalid_value, "starter",
+                "cranking starter capability requires finite positive maximum "
+                "torque and target speed");
+    }
+    require(report, starter.included_terms.value == kOperatingStarterTerms,
+            ContractIssueCode::inconsistent_semantics, "starter.included_terms.value",
+            "starter capability must own exactly the starter torque term");
     const auto indicated = indicated_gas_torque_term_mask();
     require(report,
             (indicated & loss.included_terms.value) == 0 &&

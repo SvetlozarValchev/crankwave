@@ -149,7 +149,9 @@ low-order-operating-point-v1-profile = {
     "content_sha256": resolved<sha256>
   },
   "starter": {
-    "mechanically_disengaged": resolved<bool>,
+    "type": resolved<"mechanically_disengaged" / "cranking">,
+    "maximum_torque_nm": resolved<f64-bits>,
+    "target_speed_rad_s": resolved<f64-bits>,
     "included_terms": resolved<torque-term-mask>
   },
   "cycle_quadrature": resolved<method-identity>
@@ -323,7 +325,7 @@ The current `ExecutablePhysicsProfile` has exactly two typed alternatives:
 
 Both wire values contain the complete shared core. M3 then contains its explicit
 fixed-crank loss; the operating form contains its aggregate loss, accessory identity,
-disengaged starter, and cycle-quadrature method. The legacy name is the admitted
+starter capability, and cycle-quadrature method. The legacy name is the admitted
 physics-profile identity from the M3 model record. It is not a P1.8 alias and neither
 alternative imports a reference reader or fixture object.
 

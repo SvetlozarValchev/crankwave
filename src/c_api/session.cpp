@@ -72,6 +72,9 @@ namespace {
     case ESO_CONTROL_FUEL_ENABLED:
         payload = SetEngineFuelEnabled{input.enabled != 0U};
         break;
+    case ESO_CONTROL_STARTER_ENABLED:
+        payload = SetEngineStarterEnabled{input.enabled != 0U};
+        break;
     case ESO_CONTROL_LIMITER_ENABLED:
         payload = SetEngineLimiterEnabled{input.enabled != 0U};
         break;
@@ -96,6 +99,7 @@ namespace {
                input.scalar_value <= 1.0;
     case ESO_CONTROL_IGNITION_ENABLED:
     case ESO_CONTROL_FUEL_ENABLED:
+    case ESO_CONTROL_STARTER_ENABLED:
     case ESO_CONTROL_LIMITER_ENABLED:
         return input.enabled <= 1U && input.scalar_value == 0.0 &&
                !std::signbit(input.scalar_value);

@@ -461,13 +461,11 @@ struct MechanicallyDisengagedStarter {
 struct CrankingStarter {
     Quantity torque;
     Quantity target_speed;
-    std::optional<Quantity> release_speed;
 
     friend bool operator==(const CrankingStarter &, const CrankingStarter &) = default;
 };
 
-using StarterDefinition =
-    std::variant<MechanicallyDisengagedStarter, CrankingStarter>;
+using StarterDefinition = std::variant<MechanicallyDisengagedStarter, CrankingStarter>;
 
 struct CylinderDefinition {
     CylinderId id;

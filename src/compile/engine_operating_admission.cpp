@@ -22,23 +22,22 @@ void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
     report.diagnostics.push_back(std::move(value));
 }
 
-[[nodiscard]] bool supported_curve_shape(
-    const authoring::CurveDefinition &curve,
-    authoring::QuantityDimension input,
-    authoring::QuantityDimension output) noexcept {
+[[nodiscard]] bool supported_curve_shape(const authoring::CurveDefinition &curve,
+                                         authoring::QuantityDimension input,
+                                         authoring::QuantityDimension output) noexcept {
     return curve.input_dimension == input && curve.output_dimension == output &&
-           curve.evaluation ==
-               authoring::CurveEvaluation::triangle_weighted_samples &&
+           curve.evaluation == authoring::CurveEvaluation::triangle_weighted_samples &&
            curve.triangle_filter_radius.has_value() &&
            curve.below_domain == authoring::CurveBoundaryBehavior::clamp &&
            curve.above_domain == authoring::CurveBoundaryBehavior::clamp &&
            curve.samples.size() >= 2U;
 }
 
-void admit_harmonic_lobes(
-    const authoring::CamshaftDefinition &camshaft, const ModelContext &context,
-    authoring::PortKind expected_kind, authoring::DiagnosticReport &report,
-    std::unordered_set<std::string> &used_lobes) {
+void admit_harmonic_lobes(const authoring::CamshaftDefinition &camshaft,
+                          const ModelContext &context,
+                          authoring::PortKind expected_kind,
+                          authoring::DiagnosticReport &report,
+                          std::unordered_set<std::string> &used_lobes) {
     std::unordered_set<std::string> covered_cylinders;
     const auto &engine = context.document.engine;
     for (const auto &reference : camshaft.lobes) {
@@ -63,8 +62,7 @@ void admit_harmonic_lobes(
         const double admitted_reference_lift_m =
             50.0 * (((1.0 / 100.0) * 2.54) / 1000.0);
         if (!std::isfinite(reference_lift_m) ||
-            std::abs(reference_lift_m - admitted_reference_lift_m) >
-                1.0e-15) {
+            std::abs(reference_lift_m - admitted_reference_lift_m) > 1.0e-15) {
             add(report, authoring::DiagnosticCode::unsupported_capability,
                 "/engine/cam_lobes",
                 "legacy_low_order_v1 admits the exact 0.050-inch harmonic "
@@ -85,9 +83,10 @@ void admit_harmonic_lobes(
     }
 }
 
-[[nodiscard]] bool equivalent_harmonic_shapes(
-    const authoring::CamshaftDefinition &camshaft, const ModelContext &context,
-    authoring::PortKind expected_kind) {
+[[nodiscard]] bool
+equivalent_harmonic_shapes(const authoring::CamshaftDefinition &camshaft,
+                           const ModelContext &context,
+                           authoring::PortKind expected_kind) {
     const authoring::HarmonicCamLobe *first = nullptr;
     for (const auto &reference : camshaft.lobes) {
         const auto found = context.cam_lobes.find(reference.value);
@@ -137,30 +136,18 @@ void admit_engine_operating_systems(ModelContext &resolved,
                 "finite positive gamma");
         }
     }
-    if (!std::holds_alternative<authoring::MechanicallyDisengagedStarter>(
-            engine.starter)) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/engine/starter/type",
-            "the operating-point profile requires a mechanically disengaged "
-            "starter");
-    }
-
     if (engine.default_fuel.value != resolved.fuel->id.value) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/engine/default_fuel",
+        add(report, DiagnosticCode::unsupported_capability, "/engine/default_fuel",
             "the sole admitted fuel must be selected as the engine default");
     }
     if (resolved.fuel->density.has_value()) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/engine/fuels/0/density",
+        add(report, DiagnosticCode::unsupported_capability, "/engine/fuels/0/density",
             "fuel density is parsed but not consumed by legacy_low_order_v1");
     }
 
-    const auto *loss =
-        std::get_if<authoring::ChenFlynnLossDefinition>(&engine.losses);
-    if (loss == nullptr ||
-        loss->accessory_configuration_id.value !=
-            resolved.accessory_configuration->id.value) {
+    const auto *loss = std::get_if<authoring::ChenFlynnLossDefinition>(&engine.losses);
+    if (loss == nullptr || loss->accessory_configuration_id.value !=
+                               resolved.accessory_configuration->id.value) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/losses",
             "the operating profile requires Chen-Flynn loss accounting bound to "
             "the declared accessory configuration");
@@ -182,15 +169,13 @@ void admit_engine_operating_systems(ModelContext &resolved,
         cylinder_wires.insert(wire);
     }
     if (declared_wires != cylinder_wires) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/engine/ignition/wires",
+        add(report, DiagnosticCode::unsupported_capability, "/engine/ignition/wires",
             "declared ignition wires must exactly cover the cylinder-owned "
             "ignition wires");
     }
 
     std::unordered_set<std::string> firing_wires;
-    for (std::size_t index = 0;
-         index < engine.ignition.firing_order.size(); ++index) {
+    for (std::size_t index = 0; index < engine.ignition.firing_order.size(); ++index) {
         const auto &event = engine.ignition.firing_order[index];
         if (!firing_wires.insert(event.wire.value).second ||
             !resolved.cylinder_for_wire.contains(event.wire.value)) {
@@ -198,8 +183,8 @@ void admit_engine_operating_systems(ModelContext &resolved,
                 pointer_index("/engine/ignition/firing_order", index),
                 "firing order must cover each cylinder-owned ignition wire once");
         }
-        resolved.firing_angle_for_wire_rad.emplace(
-            event.wire.value, legacy_si_value(event.crank_angle));
+        resolved.firing_angle_for_wire_rad.emplace(event.wire.value,
+                                                   legacy_si_value(event.crank_angle));
     }
     if (firing_wires.size() != engine.cylinders.size()) {
         add(report, DiagnosticCode::unsupported_capability,
@@ -218,70 +203,57 @@ void admit_engine_operating_systems(ModelContext &resolved,
     }
 
     std::unordered_set<std::string> used_curves;
-    const auto validate_curve =
-        [&](std::string_view curve_id,
-            authoring::QuantityDimension input_dimension,
-            authoring::QuantityDimension output_dimension,
-            std::string_view path, bool flow_curve) {
-            const auto found = resolved.curves.find(std::string{curve_id});
-            if (found == resolved.curves.end()) {
-                add(report, DiagnosticCode::dangling_reference,
-                    std::string{path}, "curve reference did not resolve");
-                return;
+    const auto validate_curve = [&](std::string_view curve_id,
+                                    authoring::QuantityDimension input_dimension,
+                                    authoring::QuantityDimension output_dimension,
+                                    std::string_view path, bool flow_curve) {
+        const auto found = resolved.curves.find(std::string{curve_id});
+        if (found == resolved.curves.end()) {
+            add(report, DiagnosticCode::dangling_reference, std::string{path},
+                "curve reference did not resolve");
+            return;
+        }
+        used_curves.insert(std::string{curve_id});
+        const auto &curve = *found->second;
+        if (!supported_curve_shape(curve, input_dimension, output_dimension)) {
+            add(report, DiagnosticCode::unsupported_capability, std::string{path},
+                "legacy_low_order_v1 requires a clamped triangle-weighted "
+                "curve with an explicit radius and at least two samples");
+        }
+        double previous = -std::numeric_limits<double>::infinity();
+        for (const auto &sample : curve.samples) {
+            const double input_value = legacy_si_value(sample.input);
+            if (!(std::isfinite(input_value) && input_value > previous)) {
+                add(report, DiagnosticCode::invalid_value, std::string{path},
+                    "curve abscissas must be finite and strictly increasing");
+                break;
             }
-            used_curves.insert(std::string{curve_id});
-            const auto &curve = *found->second;
-            if (!supported_curve_shape(curve, input_dimension,
-                                       output_dimension)) {
-                add(report, DiagnosticCode::unsupported_capability,
-                    std::string{path},
-                    "legacy_low_order_v1 requires a clamped triangle-weighted "
-                    "curve with an explicit radius and at least two samples");
+            previous = input_value;
+            if (flow_curve && (sample.output.unit != "cfm" ||
+                               sample.output.standard !=
+                                   std::optional<std::string>{"port_28_inh2o"})) {
+                add(report, DiagnosticCode::unsupported_capability, std::string{path},
+                    "valve-flow curves require CFM values calibrated at "
+                    "28 inH2O");
+                break;
             }
-            double previous = -std::numeric_limits<double>::infinity();
-            for (const auto &sample : curve.samples) {
-                const double input_value = legacy_si_value(sample.input);
-                if (!(std::isfinite(input_value) &&
-                      input_value > previous)) {
-                    add(report, DiagnosticCode::invalid_value,
-                        std::string{path},
-                        "curve abscissas must be finite and strictly increasing");
-                    break;
-                }
-                previous = input_value;
-                if (flow_curve &&
-                    (sample.output.unit != "cfm" ||
-                     sample.output.standard !=
-                         std::optional<std::string>{"port_28_inh2o"})) {
-                    add(report, DiagnosticCode::unsupported_capability,
-                        std::string{path},
-                        "valve-flow curves require CFM values calibrated at "
-                        "28 inH2O");
-                    break;
-                }
-            }
-        };
+        }
+    };
     const auto intake_port = std::ranges::find(
-        engine.ports, authoring::PortKind::intake,
-        &authoring::PortDefinition::kind);
+        engine.ports, authoring::PortKind::intake, &authoring::PortDefinition::kind);
     const auto exhaust_port = std::ranges::find(
-        engine.ports, authoring::PortKind::exhaust,
-        &authoring::PortDefinition::kind);
-    if (intake_port != engine.ports.end() &&
-        exhaust_port != engine.ports.end()) {
-        validate_curve(intake_port->flow_curve.value,
-                       authoring::QuantityDimension::length,
-                       authoring::QuantityDimension::volume_flow_rate,
-                       "/engine/ports", true);
-        validate_curve(exhaust_port->flow_curve.value,
-                       authoring::QuantityDimension::length,
-                       authoring::QuantityDimension::volume_flow_rate,
-                       "/engine/ports", true);
+        engine.ports, authoring::PortKind::exhaust, &authoring::PortDefinition::kind);
+    if (intake_port != engine.ports.end() && exhaust_port != engine.ports.end()) {
+        validate_curve(
+            intake_port->flow_curve.value, authoring::QuantityDimension::length,
+            authoring::QuantityDimension::volume_flow_rate, "/engine/ports", true);
+        validate_curve(
+            exhaust_port->flow_curve.value, authoring::QuantityDimension::length,
+            authoring::QuantityDimension::volume_flow_rate, "/engine/ports", true);
     }
-    validate_curve(engine.ignition.timing_curve.value,
-                   authoring::QuantityDimension::angular_speed,
-                   authoring::QuantityDimension::angle,
-                   "/engine/ignition/timing_curve", false);
+    validate_curve(
+        engine.ignition.timing_curve.value, authoring::QuantityDimension::angular_speed,
+        authoring::QuantityDimension::angle, "/engine/ignition/timing_curve", false);
     validate_curve(resolved.fuel->turbulence_to_flame_speed.value,
                    authoring::QuantityDimension::dimensionless,
                    authoring::QuantityDimension::speed,
@@ -293,18 +265,16 @@ void admit_engine_operating_systems(ModelContext &resolved,
     }
 
     std::unordered_set<std::string> used_lobes;
-    if (resolved.intake_camshaft != nullptr &&
-        resolved.exhaust_camshaft != nullptr) {
+    if (resolved.intake_camshaft != nullptr && resolved.exhaust_camshaft != nullptr) {
         admit_harmonic_lobes(*resolved.intake_camshaft, resolved,
                              authoring::PortKind::intake, report, used_lobes);
         admit_harmonic_lobes(*resolved.exhaust_camshaft, resolved,
                              authoring::PortKind::exhaust, report, used_lobes);
         if (!equivalent_harmonic_shapes(*resolved.intake_camshaft, resolved,
-                                       authoring::PortKind::intake) ||
+                                        authoring::PortKind::intake) ||
             !equivalent_harmonic_shapes(*resolved.exhaust_camshaft, resolved,
-                                       authoring::PortKind::exhaust)) {
-            add(report, DiagnosticCode::unsupported_capability,
-                "/engine/cam_lobes",
+                                        authoring::PortKind::exhaust)) {
+            add(report, DiagnosticCode::unsupported_capability, "/engine/cam_lobes",
                 "each camshaft role currently requires one shared harmonic shape");
         }
         const std::unordered_set<std::string> used_camshafts{
@@ -313,8 +283,7 @@ void admit_engine_operating_systems(ModelContext &resolved,
         };
         if (used_camshafts.size() != engine.camshafts.size() ||
             used_lobes.size() != engine.cam_lobes.size()) {
-            add(report, DiagnosticCode::disconnected_object,
-                "/engine/camshafts",
+            add(report, DiagnosticCode::disconnected_object, "/engine/camshafts",
                 "all declared camshafts and lobes must belong to the selected "
                 "standard valvetrain");
         }

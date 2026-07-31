@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-_Static_assert(ESO_C_API_VERSION == 2, "unexpected C ABI version");
+_Static_assert(ESO_C_API_VERSION == 3, "unexpected C ABI version");
 _Static_assert(sizeof(eso_engine_handle_t) == sizeof(uint64_t),
                "engine handle width changed");
 _Static_assert(sizeof(eso_scenario_handle_t) == sizeof(uint64_t),
@@ -12,7 +12,8 @@ _Static_assert(sizeof(eso_session_handle_t) == sizeof(uint64_t),
                "session handle width changed");
 _Static_assert(ESO_CONTROL_THROTTLE == 1 && ESO_CONTROL_IGNITION_ENABLED == 2 &&
                    ESO_CONTROL_FUEL_ENABLED == 3 && ESO_CONTROL_LIMITER_ENABLED == 4 &&
-                   ESO_CONTROL_EXTERNAL_RESISTING_TORQUE == 5,
+                   ESO_CONTROL_EXTERNAL_RESISTING_TORQUE == 5 &&
+                   ESO_CONTROL_STARTER_ENABLED == 6,
                "control kind values changed");
 _Static_assert(ESO_LIVE_CONTROL_CAPABILITY_THROTTLE == (UINT32_C(1) << 0U) &&
                    ESO_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED ==
@@ -20,7 +21,9 @@ _Static_assert(ESO_LIVE_CONTROL_CAPABILITY_THROTTLE == (UINT32_C(1) << 0U) &&
                    ESO_LIVE_CONTROL_CAPABILITY_FUEL_ENABLED == (UINT32_C(1) << 2U) &&
                    ESO_LIVE_CONTROL_CAPABILITY_LIMITER_ENABLED == (UINT32_C(1) << 3U) &&
                    ESO_LIVE_CONTROL_CAPABILITY_EXTERNAL_RESISTING_TORQUE ==
-                       (UINT32_C(1) << 4U),
+                       (UINT32_C(1) << 4U) &&
+                   ESO_LIVE_CONTROL_CAPABILITY_STARTER_ENABLED ==
+                       (UINT32_C(1) << 5U),
                "live-control capability bits changed");
 _Static_assert(sizeof(((eso_control_command_t *)0)->scalar_value) == sizeof(double),
                "control scalar width changed");

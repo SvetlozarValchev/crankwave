@@ -1,3 +1,8 @@
+import {
+  ESO_CANONICAL_SAMPLE_RATE,
+  ESO_C_API_VERSION,
+} from "./runtime/c-api-abi.js";
+
 const WORKER_URL = "/web/engine-worker.js";
 const WORKLET_URL = "/web/audio-worklet.js";
 const DEFAULT_PACKAGE_ID = "bmw-m52b28-free-rev";
@@ -92,6 +97,13 @@ const WORKBENCH_PACKAGES = Object.freeze([
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/warm-running-free-rev-700rpm.json",
+  }),
+  Object.freeze({
+    id: "bmw-m52tub28-cold-start",
+    label: "BMW M52TUB28 · Cold crank and catch",
+    engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
+    scenarioUrl:
+      "/data/engines/bmw-m52tub28-cleanroom/scenarios/cold-start-crank-catch-0rpm.json",
   }),
   Object.freeze({
     id: "bmw-m52tub28-held-idle",
@@ -202,6 +214,8 @@ const elements = {
   controlsAdmission: $("#controls-admission"),
   throttleInput: $("#throttle-input"),
   throttleOutput: $("#throttle-output"),
+  starterButton: $("#starter-button"),
+  starterLabel: $("#starter-label"),
   ignitionButton: $("#ignition-button"),
   ignitionLabel: $("#ignition-label"),
   fuelButton: $("#fuel-button"),
@@ -257,6 +271,7 @@ const state = {
   securityAdmitted: false,
   liveState: {
     throttle: 0.1,
+    starter: false,
     ignition: true,
     fuel: true,
     limiter: false,
@@ -264,6 +279,7 @@ const state = {
   },
   throttleEditPending: false,
   externalResistanceEditPending: false,
+  starterInputHeld: false,
   pendingControls: new Map(),
   lastAcceptedControlFrame: null,
   audio: {
@@ -1040,6 +1056,7 @@ function authoredLiveState() {
         : 0,
     ignition: scenario?.initial_state?.ignition_enabled === true,
     fuel: scenario?.initial_state?.fuel_enabled === true,
+    starter: scenario?.initial_state?.starter_enabled === true,
     limiter: scenario?.initial_state?.limiter_enabled === true,
     "external-resisting-torque":
       Number.isFinite(authoredResistance) && authoredResistance >= 0
@@ -1055,6 +1072,13 @@ function renderLiveState() {
   elements.throttleOutput.value = `${Math.round(
     state.liveState.throttle * 100,
   )}%`;
+  elements.starterButton.setAttribute(
+    "aria-pressed",
+    String(state.liveState.starter),
+  );
+  elements.starterLabel.textContent = state.liveState.starter
+    ? "Cranking"
+    : "Hold to crank";
   elements.ignitionButton.setAttribute(
     "aria-checked",
     String(state.liveState.ignition),
@@ -1080,6 +1104,7 @@ function resetLiveControls() {
   state.pendingControls.clear();
   state.throttleEditPending = false;
   state.externalResistanceEditPending = false;
+  state.starterInputHeld = false;
   state.liveState = authoredLiveState();
   renderLiveState();
 }
@@ -1162,6 +1187,7 @@ function normalizeCapabilities(descriptor) {
   );
   return {
     throttle: controls.has("throttle"),
+    starter: controls.has("starter"),
     ignition: controls.has("ignition"),
     fuel: controls.has("fuel"),
     limiter: controls.has("limiter"),
@@ -1298,12 +1324,14 @@ function updateBuiltControls() {
 
   const capabilities = built?.capabilities ?? {
     throttle: false,
+    starter: false,
     ignition: false,
     fuel: false,
     limiter: false,
     "external-resisting-torque": false,
   };
   elements.throttleInput.disabled = !running || !capabilities.throttle;
+  elements.starterButton.disabled = !running || !capabilities.starter;
   elements.ignitionButton.disabled = !running || !capabilities.ignition;
   elements.fuelButton.disabled = !running || !capabilities.fuel;
   elements.limiterButton.disabled = !running || !capabilities.limiter;
@@ -1364,6 +1392,12 @@ function stopSession() {
   ) {
     return;
   }
+  if (state.liveState.starter && state.built?.capabilities.starter) {
+    state.liveState.starter = false;
+    renderLiveState();
+    sendControl("starter", false);
+  }
+  state.starterInputHeld = false;
   postWorker({ type: "stop", requestId: nextRequestId() });
 }
 
@@ -1544,6 +1578,9 @@ function acceptTelemetry(message) {
   }
   if (!pendingAtFrame("fuel")) {
     state.liveState.fuel = frame.fuelEnabled;
+  }
+  if (!pendingAtFrame("starter")) {
+    state.liveState.starter = frame.starterEnabled;
   }
   if (!pendingAtFrame("limiter") && typeof frame.limiterEnabled === "boolean") {
     state.liveState.limiter = frame.limiterEnabled;
@@ -1861,8 +1898,8 @@ function admitReadyMessage(message) {
   const counters = schema?.counters;
   if (
     message.protocol !== WORKER_PROTOCOL_ID ||
-    message.apiVersion !== 2 ||
-    message.canonicalSampleRate !== 192000 ||
+    message.apiVersion !== ESO_C_API_VERSION ||
+    message.canonicalSampleRate !== ESO_CANONICAL_SAMPLE_RATE ||
     message.structuralEditContract !== "compile-and-replace" ||
     schema?.id !== RING_SCHEMA_ID ||
     schema.headerBytes !== RING_HEADER.byteLength ||
@@ -1903,11 +1940,14 @@ function acceptWorkerState(message) {
   } else if (message.state === "ready") {
     setChip(elements.buildStatus, "Build admitted", "good");
   } else if (message.state === "completed") {
+    state.starterInputHeld = false;
     setChip(elements.buildStatus, "Authored run complete", "good");
     showToast("The finite authored scenario completed.");
   } else if (message.state === "paused") {
+    state.starterInputHeld = false;
     setChip(elements.buildStatus, "Session stopped", "");
   } else if (message.state === "failed") {
+    state.starterInputHeld = false;
     setChip(elements.buildStatus, "Runtime fault", "bad");
   } else if (message.state === "exporting") {
     setChip(elements.buildStatus, "Exporting WAV", "busy");
@@ -2240,6 +2280,50 @@ function bindEvents() {
   elements.limiterButton.addEventListener("click", () =>
     toggleSwitch("limiter", elements.limiterButton, elements.limiterLabel),
   );
+  const setStarterHeld = (enabled) => {
+    if (state.starterInputHeld === enabled) {
+      return;
+    }
+    if (enabled && elements.starterButton.disabled) {
+      return;
+    }
+    state.starterInputHeld = enabled;
+    state.liveState.starter = enabled;
+    renderLiveState();
+    sendControl("starter", enabled);
+  };
+  elements.starterButton.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    elements.starterButton.setPointerCapture(event.pointerId);
+    setStarterHeld(true);
+  });
+  elements.starterButton.addEventListener("pointerup", () =>
+    setStarterHeld(false),
+  );
+  elements.starterButton.addEventListener("pointercancel", () =>
+    setStarterHeld(false),
+  );
+  elements.starterButton.addEventListener("lostpointercapture", () =>
+    setStarterHeld(false),
+  );
+  elements.starterButton.addEventListener("keydown", (event) => {
+    if ((event.key === " " || event.key === "Enter") && !event.repeat) {
+      event.preventDefault();
+      setStarterHeld(true);
+    }
+  });
+  elements.starterButton.addEventListener("keyup", (event) => {
+    if (event.key === " " || event.key === "Enter") {
+      event.preventDefault();
+      setStarterHeld(false);
+    }
+  });
+  window.addEventListener("blur", () => setStarterHeld(false));
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      setStarterHeld(false);
+    }
+  });
   let externalResistanceTimer = null;
   elements.externalResistanceInput.addEventListener("input", () => {
     const requestedValue = Number(elements.externalResistanceInput.value);

@@ -36,11 +36,7 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
     AuthoredLowOrderOperatingPointV1Profile profile;
     auto &core = profile.core;
     core.mechanism.crank = {
-        authored(0.0),
-        authored(5.0),
-        authored(5.9),
-        authored(0.2),
-        authored(10.0),
+        authored(0.0), authored(5.0), authored(5.9), authored(0.2), authored(10.0),
     };
     core.mechanism.cylinders.push_back({
         {
@@ -233,7 +229,9 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
         authored(digest(77)),
     };
     profile.starter = {
-        authored(true),
+        authored(StarterCapabilityType::mechanically_disengaged),
+        authored(0.0),
+        authored(0.0),
         authored(torque_term_mask(TorqueTerm::starter)),
     };
     profile.cycle_quadrature = authored(
@@ -408,10 +406,25 @@ void run_authored_profile_contract_tests() {
                 torque_term_mask(TorqueTerm::accessory);
         });
     expect_authored_mutation_rejected(
-        "engaged operating starter declaration was accepted",
+        "unspecified starter capability was accepted",
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {
-            profile.starter.mechanically_disengaged.value = false;
+            profile.starter.type.value = StarterCapabilityType::unspecified;
         });
+    expect_authored_mutation_rejected(
+        "mechanically disengaged starter carried nonzero torque",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.starter.maximum_torque_nm.value = 1.0;
+        });
+    {
+        auto cranking = make_authored_profile();
+        cranking.starter.type.value = StarterCapabilityType::cranking;
+        cranking.starter.maximum_torque_nm.value = 150.0;
+        cranking.starter.target_speed_rad_s.value = 27.0;
+        expect(validate(AuthoredExecutablePhysicsProfile{std::move(cranking)},
+                        make_provenance())
+                   .ok(),
+               "valid cranking starter capability was rejected");
+    }
     expect_authored_mutation_rejected(
         "wrong operating cycle quadrature was accepted",
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {

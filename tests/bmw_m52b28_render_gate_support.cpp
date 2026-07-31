@@ -142,11 +142,12 @@ std::vector<std::byte> read_bytes(const std::filesystem::path &path) {
 [[nodiscard]] compile::CompiledScenario
 compile_authored_scenario_file(
     const std::filesystem::path &repository_root,
+    const std::string_view engine_directory,
     const std::string_view scenario_filename) {
-    const auto engine_path =
-        repository_root / "data/engines/bmw-m52b28/engine.json";
+    const auto engine_path = repository_root / "data/engines" /
+                             engine_directory / "engine.json";
     const auto scenario_path =
-        repository_root / "data/engines/bmw-m52b28/scenarios" /
+        repository_root / "data/engines" / engine_directory / "scenarios" /
         scenario_filename;
 
     auto engine_document = require(
@@ -167,8 +168,6 @@ compile_authored_scenario_file(
     auto engine = require(
         compile::compile_engine(engine_document, asset_views),
         "public engine compilation failed");
-    expect(engine.id() == "bmw-m52b28",
-           "public compiled engine retained the wrong authored ID");
     auto scenario = require(
         compile::compile_scenario(engine, scenario_document),
         "public scenario compilation failed");
@@ -178,7 +177,7 @@ compile_authored_scenario_file(
 compile::CompiledScenario
 compile_authored_scenario(const std::filesystem::path &repository_root) {
     auto scenario = compile_authored_scenario_file(
-        repository_root, "inertial-dyno-1500-6500rpm.json");
+        repository_root, "bmw-m52b28", "inertial-dyno-1500-6500rpm.json");
     expect(scenario.id() ==
                "bmw-m52b28-inertial-dyno-1500-6500rpm",
            "public compiled scenario retained the wrong authored ID");
@@ -188,10 +187,22 @@ compile_authored_scenario(const std::filesystem::path &repository_root) {
 compile::CompiledScenario compile_authored_free_engine_scenario(
     const std::filesystem::path &repository_root) {
     auto scenario = compile_authored_scenario_file(
-        repository_root, "warm-running-free-rev-1500rpm.json");
+        repository_root, "bmw-m52b28", "warm-running-free-rev-1500rpm.json");
     expect(scenario.id() ==
                "bmw-m52b28-warm-running-free-rev-1500rpm",
            "public compiled free-engine scenario retained the wrong authored ID");
+    return scenario;
+}
+
+compile::CompiledScenario compile_authored_bmw_m52tub28_cold_start_scenario(
+    const std::filesystem::path &repository_root) {
+    auto scenario = compile_authored_scenario_file(
+        repository_root, "bmw-m52tub28-cleanroom",
+        "cold-start-crank-catch-0rpm.json");
+    expect(
+        scenario.id() ==
+            "bmw-m52tub28-cleanroom-cold-start-crank-catch-0rpm",
+        "public compiled crank/catch scenario retained the wrong authored ID");
     return scenario;
 }
 

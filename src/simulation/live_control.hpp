@@ -19,10 +19,13 @@ struct LiveControlOverrides {
     bool limiter_enabled = false;
     bool has_external_resisting_torque_nm = false;
     double external_resisting_torque_nm = 0.0;
+    bool has_starter_enabled = false;
+    bool starter_enabled = false;
 
     [[nodiscard]] bool any() const noexcept {
         return has_throttle || has_ignition_enabled || has_fuel_enabled ||
-               has_limiter_enabled || has_external_resisting_torque_nm;
+               has_limiter_enabled || has_external_resisting_torque_nm ||
+               has_starter_enabled;
     }
 
     friend bool operator==(const LiveControlOverrides &,

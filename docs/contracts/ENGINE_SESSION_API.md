@@ -170,11 +170,13 @@ modify the engine document or compiled scenario. The implemented payloads are:
 - requested throttle in `[0, 1]`;
 - ignition enabled;
 - fuel enabled;
+- starter enabled;
 - limiter enabled;
 - nonnegative external resisting torque in N m.
 
 An inertial-dyno session admits throttle, ignition, and fuel. A FreeEngine session adds
-limiter state and external resisting torque. Starter, imposed RPM, brake/dyno targets,
+limiter state and external resisting torque, and adds starter state only when the
+compiled engine declares a positive cranking starter. Imposed RPM, brake/dyno targets,
 gear/clutch, presentation monitoring, and lifecycle commands are not live session
 capabilities yet. Their presence in an authored finite scenario does not imply a
 corresponding live command.
@@ -463,7 +465,7 @@ Current classification:
 | ignition/fuel enable | implemented live command for `inertial_dyno` and `free_engine` after preparation |
 | limiter enable | implemented live command for `free_engine` after preparation |
 | external resisting torque | implemented live command for `free_engine` after preparation |
-| starter enable | not implemented as a live command |
+| starter enable | implemented live command for `free_engine` after preparation when the compiled engine declares a cranking starter |
 | mode-owned RPM, brake, or controller target | not implemented as live commands |
 | gear/clutch context | not implemented as live commands |
 | audition master, route monitor gain, mute, IR wet mix | not implemented as live commands |
@@ -618,7 +620,7 @@ There is no form that omits `execution_kind`.
 
 The implemented ABI:
 
-- the sole accepted exact version is `ESO_C_API_VERSION == 2`;
+- the sole accepted exact version is `ESO_C_API_VERSION == 3`;
 - no C++ exception crosses the boundary;
 - every call returns an explicit status;
 - parse/compile diagnostics and related locations are copied into caller-owned buffers;
@@ -831,7 +833,7 @@ The implemented workbench provides:
   diagnostics;
 - engine/scenario identity, current dirty/rebuild state, selected publication bus, and
   the exact capabilities reported by the compiled session;
-- capability-gated throttle, ignition, fuel, limiter, and
+- capability-gated throttle, ignition, fuel, momentary starter, limiter, and
   external-resisting-torque controls;
 - start, stop, and restart actions, where stop pauses the current open-ended session,
   start resumes it, and restart creates fresh mutable state;
@@ -840,7 +842,7 @@ The implemented workbench provides:
 - deterministic downloadable Float32 WAV export of the authored finite capture from a
   fresh `finite_scenario` session using the same C ABI.
 
-The workbench does not invent unsupported RPM/load/gear/starter controls, display fake
+The workbench does not invent unsupported RPM/load/gear controls, display fake
 per-bus meters, or mutate structural JSON directly inside a running solver. Route
 selection creates a fresh session. Structural edits become active only after an
 explicit successful rebuild.

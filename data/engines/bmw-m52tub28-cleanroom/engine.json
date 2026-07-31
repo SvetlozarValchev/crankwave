@@ -4,7 +4,7 @@
     "identity": {
       "id": "bmw-m52tub28-cleanroom",
       "display_name": "BMW M52TUB28 2.8L I6 (Clean Room Baseline)",
-      "description": "Frozen smooth-baseline port of the clean-room M52TUB28 inline-six, preserving the source mechanism, fixed effective cam timing, airflow, combustion, ignition, exhaust routing, and presentation calibration from m52tub28_cleanroom_baseline.mr. The source's 150 N*m at 260 rpm cranking starter, 0.745 kg/L fuel density, and 20 kHz simulation setting are outside the admitted operating-point engine contract; the current package uses a mechanically disengaged starter, omits density, and selects the executor's 10 kHz scenario rate. Chen-Flynn losses and the accessory descriptor are explicit generic executor policy because the source declares neither."
+      "description": "Frozen smooth-baseline port of the clean-room M52TUB28 inline-six, preserving the source mechanism, fixed effective cam timing, airflow, combustion, ignition, exhaust routing, presentation calibration, and 150 N*m at 260 rpm cranking starter from m52tub28_cleanroom_baseline.mr. The source's 0.745 kg/L fuel density and 20 kHz simulation setting are not executor inputs; the current package omits density and selects the scenario's 10 kHz physics rate. Chen-Flynn losses and the accessory descriptor are explicit generic executor policy because the source declares neither."
     },
     "cycle": "four_stroke",
     "layout": "inline",
@@ -492,7 +492,9 @@
     ],
     "throttle_controller": "direct-throttle",
     "starter": {
-      "type": "mechanically_disengaged"
+      "type": "cranking",
+      "torque": {"value": 150, "unit": "N*m"},
+      "target_speed": {"value": 260, "unit": "rpm"}
     },
     "cylinders": [
       {

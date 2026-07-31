@@ -53,6 +53,11 @@ const NEW_REPOSITORY_PACKAGES = Object.freeze([
     700,
     "700-6500",
   ),
+  {
+    packageId: "bmw-m52tub28-cold-start",
+    engineId: "bmw-m52tub28-cleanroom",
+    scenarioId: "bmw-m52tub28-cleanroom-cold-start-crank-catch-0rpm",
+  },
 ]);
 
 function usage() {
@@ -347,7 +352,7 @@ async function main() {
       (state) =>
         state.readyState === "complete" &&
         state.isolated &&
-        state.worker === "WASM ABI 2" &&
+        state.worker === "WASM ABI 3" &&
         !state.buildDisabled,
       "isolated workbench and WASM Worker",
     );

@@ -3,7 +3,7 @@
 // This module deliberately describes one ABI version. A mismatched module is
 // rejected during startup; there is no compatibility decoder.
 
-export const ESO_C_API_VERSION = 2;
+export const ESO_C_API_VERSION = 3;
 export const ESO_INVALID_HANDLE = 0n;
 export const ESO_CANONICAL_SAMPLE_RATE = 192_000;
 
@@ -44,6 +44,7 @@ export const ControlKind = Object.freeze({
   fuelEnabled: 3,
   limiterEnabled: 4,
   externalResistingTorque: 5,
+  starterEnabled: 6,
 });
 
 export const ControlCapability = Object.freeze({
@@ -52,6 +53,7 @@ export const ControlCapability = Object.freeze({
   fuelEnabled: 1 << 2,
   limiterEnabled: 1 << 3,
   externalResistingTorque: 1 << 4,
+  starterEnabled: 1 << 5,
 });
 
 export const SessionExecutionKind = Object.freeze({

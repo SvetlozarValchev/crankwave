@@ -545,27 +545,30 @@ struct AccessoryConfigurationIdentityV1 {
                            const AccessoryConfigurationIdentityV1 &) = default;
 };
 
-struct AuthoredMechanicallyDisengagedStarterV1 {
-    AuthoredValue<bool> mechanically_disengaged;
-    AuthoredValue<TorqueTermMask> included_terms;
-
-    friend bool operator==(const AuthoredMechanicallyDisengagedStarterV1 &,
-                           const AuthoredMechanicallyDisengagedStarterV1 &) = default;
+enum class StarterCapabilityType : std::uint8_t {
+    unspecified,
+    mechanically_disengaged,
+    cranking,
 };
 
-struct MechanicallyDisengagedStarterV1 {
-    ResolvedValue<bool> mechanically_disengaged;
-    ResolvedValue<TorqueTermMask> included_terms;
+template <template <class> class Field> struct StarterCapabilityV1T {
+    Field<StarterCapabilityType> type;
+    Field<double> maximum_torque_nm;
+    Field<double> target_speed_rad_s;
+    Field<TorqueTermMask> included_terms;
 
-    friend bool operator==(const MechanicallyDisengagedStarterV1 &,
-                           const MechanicallyDisengagedStarterV1 &) = default;
+    friend bool operator==(const StarterCapabilityV1T &,
+                           const StarterCapabilityV1T &) = default;
 };
+
+using AuthoredStarterCapabilityV1 = StarterCapabilityV1T<AuthoredValue>;
+using StarterCapabilityV1 = StarterCapabilityV1T<ResolvedValue>;
 
 struct AuthoredLowOrderOperatingPointV1Profile {
     AuthoredLowOrderEngineCoreV1 core;
     AuthoredChenFlynnCycleMeanAggregateLossV1 aggregate_loss;
     AuthoredAccessoryConfigurationIdentityV1 accessory_configuration;
-    AuthoredMechanicallyDisengagedStarterV1 starter;
+    AuthoredStarterCapabilityV1 starter;
     AuthoredValue<MethodSelection> cycle_quadrature;
 
     friend bool operator==(const AuthoredLowOrderOperatingPointV1Profile &,
@@ -576,7 +579,7 @@ struct LowOrderOperatingPointV1Profile {
     LowOrderEngineCoreV1 core;
     ChenFlynnCycleMeanAggregateLossV1 aggregate_loss;
     AccessoryConfigurationIdentityV1 accessory_configuration;
-    MechanicallyDisengagedStarterV1 starter;
+    StarterCapabilityV1 starter;
     ResolvedValue<MethodIdentity> cycle_quadrature;
 
     friend bool operator==(const LowOrderOperatingPointV1Profile &,

@@ -474,6 +474,15 @@ void run_scenario_manifest_contract_tests() {
                          "operating_state.value"),
            "free engine admitted starter engagement before starter capability");
 
+    auto cranking_engine = stopped_free_engine;
+    auto &cranking_profile =
+        std::get<LowOrderOperatingPointV1Profile>(cranking_engine.physics_profile);
+    cranking_profile.starter.type.value = StarterCapabilityType::cranking;
+    cranking_profile.starter.maximum_torque_nm.value = 150.0;
+    cranking_profile.starter.target_speed_rad_s.value = 27.2271363;
+    expect(validate_for_engine(starter_enabled_free_engine, cranking_engine).ok(),
+           "stopped free engine rejected an engaged compiled cranking starter");
+
     expect(validate(content, builder.provenance, source_matrix).ok(),
            "valid render manifest content was rejected");
 

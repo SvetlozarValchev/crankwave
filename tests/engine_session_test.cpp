@@ -259,6 +259,64 @@ void run(const std::filesystem::path &repository_root) {
     gate::expect(!free_session.enqueue_controls(free_controls).has_value(),
                  "free-engine session rejected an advertised live control");
 
+    const auto starter_scenario =
+        gate::compile_authored_bmw_m52tub28_cold_start_scenario(repository_root);
+    auto starter_session = require_session(starter_scenario);
+    const auto starter_descriptor = starter_session.descriptor();
+    gate::expect(
+        starter_descriptor.preparation_block_count == 0U &&
+            (starter_descriptor.live_control_capabilities &
+             kEngineLiveControlCapabilityStarterEnabled) != 0U,
+        "crank/catch session did not expose immediate starter control");
+    auto live_starter_session = require_session(starter_scenario);
+    const EngineControlCommand live_starter_release{
+        0U,
+        1U,
+        SetEngineStarterEnabled{false},
+    };
+    gate::expect(
+        !live_starter_session
+             .enqueue_controls(std::span{&live_starter_release, 1U})
+             .has_value(),
+        "cranking-capable FreeEngine rejected its advertised starter control");
+    const auto live_starter_result = live_starter_session.process_block();
+    const auto *live_starter_block =
+        std::get_if<EngineSessionBlockView>(&live_starter_result);
+    gate::expect(
+        live_starter_block != nullptr &&
+            !live_starter_block->telemetry().front().engine.starter_enabled,
+        "first-boundary starter release did not reach executed mechanics");
+
+    bool observed_cranking = false;
+    bool observed_ignition = false;
+    bool observed_starter_release = false;
+    for (std::uint64_t block_index = 0; block_index < 75U; ++block_index) {
+        auto result = starter_session.process_block();
+        if (const auto *error = std::get_if<EngineSessionError>(&result)) {
+            throw std::runtime_error{"starter session failed: " +
+                                     session_error_text(*error)};
+        }
+        const auto *block = std::get_if<EngineSessionBlockView>(&result);
+        gate::expect(block != nullptr && !block->telemetry().empty(),
+                     "starter session completed before its crank/catch interval");
+        const auto &engine = block->telemetry().front().engine;
+        observed_cranking =
+            observed_cranking ||
+            (engine.starter_enabled && engine.engine_speed_rpm > 100.0);
+        observed_ignition =
+            observed_ignition ||
+            (engine.ignition_enabled && engine.starter_enabled &&
+             engine.engine_speed_rpm > 0.0);
+        observed_starter_release =
+            observed_starter_release ||
+            (!engine.starter_enabled && engine.ignition_enabled &&
+             engine.engine_speed_rpm > 0.0);
+    }
+    gate::expect(observed_cranking && observed_ignition &&
+                     observed_starter_release,
+                 "crank/catch session did not crank, energize ignition, and release "
+                 "the starter while the engine remained rotating");
+
     auto rejected_open_dyno =
         create_engine_session(scenario, EngineSessionExecutionKind::open_ended);
     gate::expect(std::holds_alternative<EngineSessionError>(rejected_open_dyno),

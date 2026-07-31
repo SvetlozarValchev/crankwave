@@ -31,6 +31,13 @@ struct SetFuelEnabled {
     friend bool operator==(const SetFuelEnabled &, const SetFuelEnabled &) = default;
 };
 
+struct SetStarterEnabled {
+    bool enabled = false;
+
+    friend bool operator==(const SetStarterEnabled &,
+                           const SetStarterEnabled &) = default;
+};
+
 struct SetLimiterEnabled {
     bool enabled = false;
 
@@ -46,7 +53,7 @@ struct SetExternalResistingTorque {
 };
 
 using LiveControlPayload =
-    std::variant<SetThrottle, SetIgnitionEnabled, SetFuelEnabled,
+    std::variant<SetThrottle, SetIgnitionEnabled, SetFuelEnabled, SetStarterEnabled,
                  SetLimiterEnabled, SetExternalResistingTorque>;
 
 struct TimestampedControlCommand {
@@ -72,8 +79,7 @@ enum class ControlTimelineError : std::uint8_t {
     noncontiguous_physics_step,
 };
 
-inline constexpr std::size_t kNoCommandIndex =
-    std::numeric_limits<std::size_t>::max();
+inline constexpr std::size_t kNoCommandIndex = std::numeric_limits<std::size_t>::max();
 
 struct ControlTimelineResult {
     ControlTimelineError error = ControlTimelineError::none;
@@ -100,9 +106,10 @@ struct PhysicsStepProjection {
 //
 // The calculation is exact integer arithmetic. Invalid rates and any result that
 // cannot be represented by uint64_t are reported rather than saturated.
-[[nodiscard]] PhysicsStepProjection project_delivery_frame_to_physics_step(
-    std::uint64_t delivery_frame, contract::RationalRateHz physics_rate,
-    contract::RationalRateHz delivery_rate) noexcept;
+[[nodiscard]] PhysicsStepProjection
+project_delivery_frame_to_physics_step(std::uint64_t delivery_frame,
+                                       contract::RationalRateHz physics_rate,
+                                       contract::RationalRateHz delivery_rate) noexcept;
 
 struct PhysicsStepControls {
     std::uint64_t physics_step = 0;
@@ -164,7 +171,8 @@ class ControlTimeline final {
         std::uint64_t physics_step = 0;
     };
 
-    [[nodiscard]] bool payload_is_valid(const LiveControlPayload &payload) const noexcept;
+    [[nodiscard]] bool
+    payload_is_valid(const LiveControlPayload &payload) const noexcept;
     void apply(const LiveControlPayload &payload) noexcept;
     [[nodiscard]] std::size_t tail_index() const noexcept;
 

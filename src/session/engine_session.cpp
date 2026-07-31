@@ -63,8 +63,7 @@ public_control_error(session::ControlTimelineError error) noexcept {
     return EngineControlRejectionCode::internal_clock_error;
 }
 
-[[nodiscard]] std::string control_error_message(
-    session::ControlTimelineError error) {
+[[nodiscard]] std::string control_error_message(session::ControlTimelineError error) {
     using Internal = session::ControlTimelineError;
     switch (error) {
     case Internal::capacity_exceeded:
@@ -91,13 +90,21 @@ public_control_error(session::ControlTimelineError error) noexcept {
 }
 
 [[nodiscard]] EngineLiveControlCapabilityMask
-live_control_capabilities(const contract::ScenarioMode &mode) noexcept {
+live_control_capabilities(const contract::ScenarioMode &mode,
+                          const contract::EngineSpec &engine) noexcept {
     if (std::holds_alternative<contract::FreeEngine>(mode)) {
-        return kEngineLiveControlCapabilityThrottle |
-               kEngineLiveControlCapabilityIgnitionEnabled |
-               kEngineLiveControlCapabilityFuelEnabled |
-               kEngineLiveControlCapabilityLimiterEnabled |
-               kEngineLiveControlCapabilityExternalResistingTorque;
+        auto result = kEngineLiveControlCapabilityThrottle |
+                      kEngineLiveControlCapabilityIgnitionEnabled |
+                      kEngineLiveControlCapabilityFuelEnabled |
+                      kEngineLiveControlCapabilityLimiterEnabled |
+                      kEngineLiveControlCapabilityExternalResistingTorque;
+        const auto *profile = std::get_if<contract::LowOrderOperatingPointV1Profile>(
+            &engine.physics_profile);
+        if (profile != nullptr &&
+            profile->starter.type.value == contract::StarterCapabilityType::cranking) {
+            result |= kEngineLiveControlCapabilityStarterEnabled;
+        }
+        return result;
     }
     if (std::holds_alternative<contract::InertialDyno>(mode)) {
         return kEngineLiveControlCapabilityThrottle |
@@ -114,18 +121,17 @@ required_capability(const EngineControlPayload &payload) noexcept {
             using Payload = std::decay_t<decltype(value)>;
             if constexpr (std::is_same_v<Payload, SetEngineThrottle>) {
                 return kEngineLiveControlCapabilityThrottle;
-            } else if constexpr (
-                std::is_same_v<Payload, SetEngineIgnitionEnabled>) {
+            } else if constexpr (std::is_same_v<Payload, SetEngineIgnitionEnabled>) {
                 return kEngineLiveControlCapabilityIgnitionEnabled;
-            } else if constexpr (
-                std::is_same_v<Payload, SetEngineFuelEnabled>) {
+            } else if constexpr (std::is_same_v<Payload, SetEngineFuelEnabled>) {
                 return kEngineLiveControlCapabilityFuelEnabled;
-            } else if constexpr (
-                std::is_same_v<Payload, SetEngineLimiterEnabled>) {
+            } else if constexpr (std::is_same_v<Payload, SetEngineStarterEnabled>) {
+                return kEngineLiveControlCapabilityStarterEnabled;
+            } else if constexpr (std::is_same_v<Payload, SetEngineLimiterEnabled>) {
                 return kEngineLiveControlCapabilityLimiterEnabled;
             } else {
-                static_assert(std::is_same_v<
-                              Payload, SetEngineExternalResistingTorque>);
+                static_assert(
+                    std::is_same_v<Payload, SetEngineExternalResistingTorque>);
                 return kEngineLiveControlCapabilityExternalResistingTorque;
             }
         },
@@ -136,8 +142,7 @@ required_capability(const EngineControlPayload &payload) noexcept {
 
 EngineSessionBlockView::EngineSessionBlockView(
     const std::uint64_t block_ordinal, const EngineSessionBlockPhase phase,
-    const std::uint64_t first_physics_frame,
-    const std::uint64_t first_delivery_frame,
+    const std::uint64_t first_physics_frame, const std::uint64_t first_delivery_frame,
     const std::span<const EngineAudioBusBlockView> audio_buses,
     const std::span<const EngineTelemetryFrame> telemetry) noexcept
     : block_ordinal_(block_ordinal), phase_(phase),
@@ -191,9 +196,8 @@ class EngineSession::Implementation final {
           excitation_(std::move(components.excitation)),
           presentation_(std::move(components.presentation)),
           capacities_(compiled_scenario_.session_capacities()),
-          control_timeline_(
-              capacities_.control_command_queue_capacity,
-              kEngineSessionPhysicsRateHz, kEngineSessionDeliveryRateHz),
+          control_timeline_(capacities_.control_command_queue_capacity,
+                            kEngineSessionPhysicsRateHz, kEngineSessionDeliveryRateHz),
           control_scratch_(capacities_.control_command_queue_capacity),
           total_block_count_(execution_kind_ ==
                                      EngineSessionExecutionKind::finite_scenario
@@ -204,8 +208,8 @@ class EngineSession::Implementation final {
             compile::detail::CompiledScenarioViewAccess::inputs(compiled_scenario_);
         engine_id_ = inputs.engine.engine.engine_id.value;
         scenario_id_ = inputs.scenario.scenario.scenario_id;
-        live_control_capabilities_ =
-            live_control_capabilities(inputs.scenario.scenario.mode);
+        live_control_capabilities_ = live_control_capabilities(
+            inputs.scenario.scenario.mode, inputs.engine.engine);
         build_audio_bus_descriptors(inputs);
     }
 
@@ -271,10 +275,9 @@ class EngineSession::Implementation final {
                     "preparation state",
                 };
             }
-            const auto projection =
-                session::project_delivery_frame_to_physics_step(
-                    source.delivery_frame, kEngineSessionPhysicsRateHz,
-                    kEngineSessionDeliveryRateHz);
+            const auto projection = session::project_delivery_frame_to_physics_step(
+                source.delivery_frame, kEngineSessionPhysicsRateHz,
+                kEngineSessionDeliveryRateHz);
             if (!projection) {
                 return EngineControlRejection{
                     EngineControlRejectionCode::internal_clock_error,
@@ -303,28 +306,29 @@ class EngineSession::Implementation final {
                     using Payload = std::decay_t<decltype(payload)>;
                     if constexpr (std::is_same_v<Payload, SetEngineThrottle>) {
                         return session::SetThrottle{payload.throttle_01};
-                    } else if constexpr (
-                        std::is_same_v<Payload, SetEngineIgnitionEnabled>) {
+                    } else if constexpr (std::is_same_v<Payload,
+                                                        SetEngineIgnitionEnabled>) {
                         return session::SetIgnitionEnabled{payload.enabled};
-                    } else if constexpr (
-                        std::is_same_v<Payload, SetEngineFuelEnabled>) {
+                    } else if constexpr (std::is_same_v<Payload,
+                                                        SetEngineFuelEnabled>) {
                         return session::SetFuelEnabled{payload.enabled};
-                    } else if constexpr (
-                        std::is_same_v<Payload, SetEngineLimiterEnabled>) {
+                    } else if constexpr (std::is_same_v<Payload,
+                                                        SetEngineStarterEnabled>) {
+                        return session::SetStarterEnabled{payload.enabled};
+                    } else if constexpr (std::is_same_v<Payload,
+                                                        SetEngineLimiterEnabled>) {
                         return session::SetLimiterEnabled{payload.enabled};
                     } else {
-                        static_assert(std::is_same_v<
-                                      Payload,
-                                      SetEngineExternalResistingTorque>);
-                        return session::SetExternalResistingTorque{
-                            payload.torque_nm};
+                        static_assert(
+                            std::is_same_v<Payload, SetEngineExternalResistingTorque>);
+                        return session::SetExternalResistingTorque{payload.torque_nm};
                     }
                 },
                 source.payload);
         }
         const auto result = control_timeline_.enqueue(
-            std::span<const session::TimestampedControlCommand>{
-                control_scratch_.data(), commands.size()});
+            std::span<const session::TimestampedControlCommand>{control_scratch_.data(),
+                                                                commands.size()});
         if (result) {
             has_accepted_live_controls_ = true;
             return std::nullopt;
@@ -332,7 +336,7 @@ class EngineSession::Implementation final {
         return EngineControlRejection{
             public_control_error(result.error),
             result.command_index == session::kNoCommandIndex ? 0U
-                                                              : result.command_index,
+                                                             : result.command_index,
             control_error_message(result.error),
         };
     }
@@ -377,10 +381,8 @@ class EngineSession::Implementation final {
 
             auto simulation_result = simulation_.publish_next_block(
                 [&](const contract::CaptureBlockView &capture) -> bool {
-                    if (capture.frame_count() !=
-                            kEngineSessionPhysicsFramesPerBlock ||
-                        capture.clock().first_sample_index !=
-                            expected_first_physics ||
+                    if (capture.frame_count() != kEngineSessionPhysicsFramesPerBlock ||
+                        capture.clock().first_sample_index != expected_first_physics ||
                         capture.engine().empty()) {
                         return false;
                     }
@@ -393,13 +395,11 @@ class EngineSession::Implementation final {
                                 &excitation_block,
                             const excitation::ExhaustExcitationDiagnosticBlockView &)
                             -> bool {
-                            audio.emplace(
-                                presentation_->process(excitation_block));
+                            audio.emplace(presentation_->process(excitation_block));
                             return true;
                         });
                     if (auto *failure =
-                            std::get_if<contract::FailureContext>(
-                                &excitation_result)) {
+                            std::get_if<contract::FailureContext>(&excitation_result)) {
                         nested_failure = std::move(*failure);
                         return false;
                     }
@@ -419,9 +419,8 @@ class EngineSession::Implementation final {
                     "session-simulation-failed",
                     "simulation rejected the current physics block", *failure));
             }
-            if (auto *completed =
-                    std::get_if<simulation::LowOrderCaptureCompleted>(
-                        &simulation_result)) {
+            if (auto *completed = std::get_if<simulation::LowOrderCaptureCompleted>(
+                    &simulation_result)) {
                 if (execution_kind_ == EngineSessionExecutionKind::open_ended) {
                     return fail(processing_error(
                         "open-session-completed-unexpectedly",
@@ -431,20 +430,15 @@ class EngineSession::Implementation final {
             }
 
             const auto &published =
-                std::get<simulation::LowOrderCaptureBlockPublished>(
-                    simulation_result);
-            if (!audio.has_value() ||
-                published.block_ordinal != expected_block ||
+                std::get<simulation::LowOrderCaptureBlockPublished>(simulation_result);
+            if (!audio.has_value() || published.block_ordinal != expected_block ||
                 published.first_sample_index != expected_first_physics ||
-                published.frame_count !=
-                    kEngineSessionPhysicsFramesPerBlock ||
+                published.frame_count != kEngineSessionPhysicsFramesPerBlock ||
                 published.published_sample_count !=
-                    expected_first_physics +
-                        kEngineSessionPhysicsFramesPerBlock ||
+                    expected_first_physics + kEngineSessionPhysicsFramesPerBlock ||
                 audio->first_input_frame_index() != expected_first_physics ||
                 audio->first_source_frame_index() != expected_first_delivery ||
-                audio->frame_count() !=
-                    kEngineSessionDeliveryFramesPerBlock) {
+                audio->frame_count() != kEngineSessionDeliveryFramesPerBlock) {
                 return fail(processing_error(
                     "session-block-extent-disagreed",
                     "simulation, excitation, and presentation block clocks "
@@ -453,25 +447,19 @@ class EngineSession::Implementation final {
 
             bind_audio_bus_views(*audio);
             const auto cursor_error = control_timeline_.advance_delivery_cursor(
-                expected_first_delivery +
-                kEngineSessionDeliveryFramesPerBlock);
+                expected_first_delivery + kEngineSessionDeliveryFramesPerBlock);
             if (cursor_error != session::ControlTimelineError::none) {
-                return fail(processing_error(
-                    "session-control-cursor-failed",
-                    control_error_message(cursor_error)));
+                return fail(processing_error("session-control-cursor-failed",
+                                             control_error_message(cursor_error)));
             }
 
-            const auto phase =
-                expected_block < preparation_block_count_
-                    ? EngineSessionBlockPhase::preparation
-                    : EngineSessionBlockPhase::audible;
+            const auto phase = expected_block < preparation_block_count_
+                                   ? EngineSessionBlockPhase::preparation
+                                   : EngineSessionBlockPhase::audible;
             return EngineSessionBlockView{
-                expected_block,
-                phase,
-                expected_first_physics,
-                expected_first_delivery,
-                audio_bus_views_,
-                telemetry_,
+                expected_block,         phase,
+                expected_first_physics, expected_first_delivery,
+                audio_bus_views_,       telemetry_,
             };
         } catch (const std::bad_alloc &) {
             return fail({
@@ -483,9 +471,9 @@ class EngineSession::Implementation final {
         } catch (const std::exception &error) {
             return fail(processing_error("session-process-threw", error.what()));
         } catch (...) {
-            return fail(processing_error(
-                "session-process-threw",
-                "session processing threw a non-standard exception"));
+            return fail(
+                processing_error("session-process-threw",
+                                 "session processing threw a non-standard exception"));
         }
     }
 
@@ -504,10 +492,10 @@ class EngineSession::Implementation final {
                 throw std::logic_error{
                     "presentation route is absent from the compiled engine"};
             }
-            const auto requirement = std::ranges::find(
-                inputs.scenario.source_matrix.required_source_routes,
-                engine_route->semantic_id.value,
-                &contract::SourceRouteRequirement::semantic_id);
+            const auto requirement =
+                std::ranges::find(inputs.scenario.source_matrix.required_source_routes,
+                                  engine_route->semantic_id.value,
+                                  &contract::SourceRouteRequirement::semantic_id);
             if (requirement ==
                     inputs.scenario.source_matrix.required_source_routes.end() ||
                 requirement->artifact_roles.size() != 3U) {
@@ -521,12 +509,10 @@ class EngineSession::Implementation final {
 
         const contract::OutputBusRequirement *raw = nullptr;
         const contract::OutputBusRequirement *audition = nullptr;
-        for (const auto &bus :
-             inputs.scenario.source_matrix.required_output_buses) {
+        for (const auto &bus : inputs.scenario.source_matrix.required_output_buses) {
             if (bus.kind == contract::OutputBusKind::master_engine_raw) {
                 raw = &bus;
-            } else if (bus.kind ==
-                       contract::OutputBusKind::master_engine_audition) {
+            } else if (bus.kind == contract::OutputBusKind::master_engine_audition) {
                 audition = &bus;
             }
         }
@@ -541,27 +527,26 @@ class EngineSession::Implementation final {
         for (std::size_t route = 0; route < route_count; ++route) {
             const auto route_id = calibration_.routes()[route].route_id();
             const auto base = route * 3U;
-            audio_bus_descriptors_.push_back(
-                {audio_bus_ids_[base], EngineAudioBusKind::exhaust_route_dry,
-                 route_id});
+            audio_bus_descriptors_.push_back({audio_bus_ids_[base],
+                                              EngineAudioBusKind::exhaust_route_dry,
+                                              route_id});
             audio_bus_descriptors_.push_back(
                 {audio_bus_ids_[base + 1U],
                  EngineAudioBusKind::exhaust_route_configured_ir, route_id});
             audio_bus_descriptors_.push_back(
-                {audio_bus_ids_[base + 2U],
-                 EngineAudioBusKind::exhaust_route_selected, route_id});
+                {audio_bus_ids_[base + 2U], EngineAudioBusKind::exhaust_route_selected,
+                 route_id});
         }
-        audio_bus_descriptors_.push_back(
-            {audio_bus_ids_[bus_count - 2U],
-             EngineAudioBusKind::engine_raw_master, std::nullopt});
-        audio_bus_descriptors_.push_back(
-            {audio_bus_ids_[bus_count - 1U],
-             EngineAudioBusKind::engine_audition_master, std::nullopt});
+        audio_bus_descriptors_.push_back({audio_bus_ids_[bus_count - 2U],
+                                          EngineAudioBusKind::engine_raw_master,
+                                          std::nullopt});
+        audio_bus_descriptors_.push_back({audio_bus_ids_[bus_count - 1U],
+                                          EngineAudioBusKind::engine_audition_master,
+                                          std::nullopt});
         audio_bus_views_.resize(bus_count);
     }
 
-    void bind_audio_bus_views(
-        const presentation::PresentationAudioBlockView &audio) {
+    void bind_audio_bus_views(const presentation::PresentationAudioBlockView &audio) {
         std::size_t bus = 0;
         for (std::size_t route = 0; route < audio.route_count(); ++route) {
             using Role = presentation::PresentationAudioStemRole;
@@ -618,20 +603,18 @@ class EngineSession::Implementation final {
         if (!has_accepted_live_controls_ &&
             completed.held_speed_operating_point.has_value()) {
             const auto report = contract::validate(
-                *completed.held_speed_operating_point,
-                inputs.scenario.scenario, inputs.engine.engine,
-                simulation_request_identity_);
+                *completed.held_speed_operating_point, inputs.scenario.scenario,
+                inputs.engine.engine, simulation_request_identity_);
             if (!report.ok()) {
                 return fail(processing_error(
                     "session-held-result-invalid",
                     "held-speed completion evidence failed request validation"));
             }
         }
-        if (!has_accepted_live_controls_ &&
-            completed.inertial_dyno.has_value()) {
-            const auto report = contract::validate(
-                *completed.inertial_dyno, inputs.scenario.scenario,
-                simulation_request_identity_);
+        if (!has_accepted_live_controls_ && completed.inertial_dyno.has_value()) {
+            const auto report =
+                contract::validate(*completed.inertial_dyno, inputs.scenario.scenario,
+                                   simulation_request_identity_);
             if (!report.ok()) {
                 return fail(processing_error(
                     "session-inertial-result-invalid",
@@ -647,9 +630,8 @@ class EngineSession::Implementation final {
             has_accepted_live_controls_
                 ? std::optional<contract::HeldSpeedOperatingPointResult>{}
                 : completed.held_speed_operating_point,
-            has_accepted_live_controls_
-                ? std::optional<contract::InertialDynoResult>{}
-                : completed.inertial_dyno,
+            has_accepted_live_controls_ ? std::optional<contract::InertialDynoResult>{}
+                                        : completed.inertial_dyno,
         };
         return *terminal_completion_;
     }
@@ -696,8 +678,7 @@ EngineSessionDescriptor EngineSession::descriptor() const noexcept {
 }
 
 std::optional<EngineControlRejection>
-EngineSession::enqueue_controls(
-    const std::span<const EngineControlCommand> commands) {
+EngineSession::enqueue_controls(const std::span<const EngineControlCommand> commands) {
     if (!implementation_) {
         return EngineControlRejection{
             EngineControlRejectionCode::internal_clock_error,
@@ -724,11 +705,9 @@ namespace session_detail {
 
 class EngineSessionFactory final {
   public:
-    [[nodiscard]] static EngineSession
-    make(BuiltSessionComponents components) {
+    [[nodiscard]] static EngineSession make(BuiltSessionComponents components) {
         return EngineSession{
-            std::make_unique<EngineSession::Implementation>(
-                std::move(components))};
+            std::make_unique<EngineSession::Implementation>(std::move(components))};
     }
 };
 

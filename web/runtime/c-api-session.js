@@ -412,6 +412,22 @@ export class EngineSimSession {
               true,
             );
             break;
+          case "starter":
+            requiredCapability = ControlCapability.starterEnabled;
+            view.setUint32(
+              base + Layout.controlCommand.kind,
+              ControlKind.starterEnabled,
+              true,
+            );
+            if (typeof input.value !== "boolean") {
+              throw new TypeError("starter control value must be boolean");
+            }
+            view.setUint32(
+              base + Layout.controlCommand.enabled,
+              input.value ? 1 : 0,
+              true,
+            );
+            break;
           case "limiter":
             requiredCapability = ControlCapability.limiterEnabled;
             view.setUint32(

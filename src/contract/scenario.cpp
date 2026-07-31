@@ -922,7 +922,12 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                         scenario.operating_state.value, [&](const auto &point) {
                             const auto &state = point.state;
                             if (free_engine) {
-                                return !state.starter_enabled && !state.dyno_enabled;
+                                return !state.dyno_enabled &&
+                                       (!state.starter_enabled ||
+                                        (profile.starter.type.value ==
+                                             StarterCapabilityType::cranking &&
+                                         point.time_s >=
+                                             scenario.audible_start_s.value));
                             }
                             return state.ignition_enabled && state.fuel_enabled &&
                                    !state.starter_enabled && state.dyno_enabled &&
@@ -933,10 +938,11 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                         ContractIssueCode::inconsistent_semantics,
                         "operating_state.value",
                         free_engine
-                            ? "free-engine operating-point v1 currently requires the "
-                              "starter and dyno disabled at every journal point; "
-                              "ignition and fuel may change while the crank remains "
-                              "dynamically owned"
+                            ? "free-engine operating-point v1 requires dyno disabled "
+                              "and permits starter engagement only when the engine "
+                              "has a compiled cranking starter and held preparation "
+                              "has ended; ignition and fuel may change while the "
+                              "crank remains dynamically owned"
                             : "operating-point v1 requires fired held-running state at "
                               "every journal point");
                 }

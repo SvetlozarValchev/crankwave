@@ -76,16 +76,18 @@ AuthoredAccessoryConfigurationIdentityV1 {
   AuthoredValue<Sha256Digest> content_sha256
 }
 
-AuthoredMechanicallyDisengagedStarterV1 {
-  AuthoredValue<bool> mechanically_disengaged
-  AuthoredValue<TorqueTermMask> included_terms
+StarterCapabilityV1T<Field> {
+  Field<StarterCapabilityType> type
+  Field<double> maximum_torque_nm
+  Field<double> target_speed_rad_s
+  Field<TorqueTermMask> included_terms
 }
 
 AuthoredLowOrderOperatingPointV1Profile {
   AuthoredLowOrderEngineCoreV1 core
   AuthoredChenFlynnCycleMeanAggregateLossV1 aggregate_loss
   AuthoredAccessoryConfigurationIdentityV1 accessory_configuration
-  AuthoredMechanicallyDisengagedStarterV1 starter
+  AuthoredStarterCapabilityV1 starter
   AuthoredValue<MethodSelection> cycle_quadrature
 }
 ```
@@ -141,10 +143,12 @@ state evolves in this profile.
 
 `aggregate_loss.included_terms` is exactly
 `friction_pump_and_accessory_torque_term_mask()` (`0x7e`).
-`starter.mechanically_disengaged` is exactly `true` and
-`starter.included_terms` is exactly the starter bit (`0x80`). The accounting compiler
-must prove that indicated gas (`0x01`), aggregate loss (`0x7e`), and starter (`0x80`)
-are pairwise disjoint and their union is the complete known mask (`0xff`).
+`starter.type` is either `mechanically_disengaged`, with canonical positive-zero
+torque and target speed, or `cranking`, with finite positive maximum torque and target
+speed. `starter.included_terms` is exactly the starter bit (`0x80`). Held and
+inertial-dyno scenario journals still require starter disabled. The accounting
+compiler must prove that indicated gas (`0x01`), aggregate loss (`0x7e`), and starter
+(`0x80`) are pairwise disjoint and their union is the complete known mask (`0xff`).
 
 The first BMW profile accessory authority is exactly:
 
@@ -494,9 +498,9 @@ tau_brake_mean(k) = W_brake(k) / (4*pi)
 net_BMEP(k) = W_brake(k) / total_displacement
 ```
 
-The canonical positive-zero starter work is complete only because the profile is
-mechanically disengaged and the complete scenario journal keeps the starter disabled.
-It is not an inferred residual.
+The canonical positive-zero starter work is complete because the complete held/dyno
+scenario journal keeps the starter disabled, regardless of whether the engine has
+cranking hardware. It is not an inferred residual.
 
 The M4 correlation replaces the M3 `13.558174560000001 N*m` fixed crank-friction
 term. Adding both would double-count crank friction.
@@ -520,9 +524,10 @@ resolved, content-identified accessory configuration. A changed configuration re
 a new admitted coefficient set.
 
 Starter torque remains separate. For a positive-speed held-running capture it is an
-available complete zero only if the scenario declares the starter disabled and the
-profile declares it mechanically disengaged. Starter-enabled operation is rejected
-until an engaged-starter model exists.
+available complete zero when the scenario declares the starter disabled. Engaged
+starter operation is admitted only in `free_engine`, where the source-faithful
+unilateral target-speed constraint applies positive-forward torque up to the compiled
+maximum and engagement/release remain owned by the authored or live control state.
 
 Chen–Flynn supplies no oil-temperature law. This M4 profile admits only the fixed warm
 oil state `363.15 K` and rejects other oil temperatures rather than inventing a

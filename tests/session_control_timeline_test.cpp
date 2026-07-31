@@ -222,6 +222,28 @@ void test_limiter_and_external_resistance_payloads() {
            "nonfinite external resisting torque entered the timeline");
 }
 
+void test_starter_level_is_sticky_until_release() {
+    ControlTimeline timeline{2, kPhysicsRate, kDeliveryRate};
+    const std::array commands{
+        TimestampedControlCommand{0, 1, SetStarterEnabled{true}},
+        TimestampedControlCommand{19, 2, SetStarterEnabled{false}},
+    };
+    expect(static_cast<bool>(timeline.enqueue(commands)),
+           "valid starter press/release commands were rejected");
+
+    const auto pressed = timeline.drain_for_physics_step(0);
+    expect(pressed && pressed.controls.applied_command_count == 1 &&
+               pressed.controls.overrides.has_starter_enabled &&
+               pressed.controls.overrides.starter_enabled,
+           "starter press did not become the right-continuous level");
+
+    const auto released = timeline.drain_for_physics_step(1);
+    expect(released && released.controls.applied_command_count == 1 &&
+               released.controls.overrides.has_starter_enabled &&
+               !released.controls.overrides.starter_enabled,
+           "starter level did not persist until its explicit release");
+}
+
 void test_ordering_lateness_and_cursor_rejections() {
     {
         ControlTimeline timeline{4, kPhysicsRate, kDeliveryRate};
@@ -584,6 +606,7 @@ void run_tests() {
     test_right_continuous_drain_and_sequence_order();
     test_atomic_batch_rejection();
     test_limiter_and_external_resistance_payloads();
+    test_starter_level_is_sticky_until_release();
     test_ordering_lateness_and_cursor_rejections();
     test_success_path_does_not_allocate();
     test_simulation_preserves_schedule_bits_until_a_field_is_overridden();

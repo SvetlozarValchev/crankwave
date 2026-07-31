@@ -206,6 +206,9 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
     if (overrides.has_fuel_enabled) {
         step_.operating_state.fuel_enabled = overrides.fuel_enabled;
     }
+    if (overrides.has_starter_enabled) {
+        step_.operating_state.starter_enabled = overrides.starter_enabled;
+    }
     if (overrides.has_limiter_enabled) {
         step_.operating_state.limiter_enabled = overrides.limiter_enabled;
     }

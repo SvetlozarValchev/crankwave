@@ -430,7 +430,10 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
         builder.resolved(digest(1), path("accessory_configuration.content_sha256")),
     };
     profile.starter = {
-        builder.resolved(true, path("starter.mechanically_disengaged")),
+        builder.resolved(StarterCapabilityType::mechanically_disengaged,
+                         path("starter.type")),
+        builder.resolved(0.0, path("starter.maximum_torque_nm")),
+        builder.resolved(0.0, path("starter.target_speed_rad_s")),
         builder.resolved(torque_term_mask(TorqueTerm::starter),
                          path("starter.included_terms")),
     };
