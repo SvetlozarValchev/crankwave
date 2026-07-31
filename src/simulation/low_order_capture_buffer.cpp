@@ -23,9 +23,6 @@ constexpr auto kCombustion =
     contract::capture_validity_mask(contract::CaptureValidity::combustion);
 constexpr auto kTorque =
     contract::capture_validity_mask(contract::CaptureValidity::torque);
-// Measured worst-case drift across 120 simulated seconds is 1.863e-12. Keep
-// the repair window deliberately close to the public 1e-12 admission boundary.
-constexpr double kLegacyMixtureRoundoffRepairEnvelope = 4.0e-12;
 
 [[nodiscard]] LowOrderCaptureBufferFault shape_fault(std::string detail) {
     LowOrderCaptureBufferFault result;
@@ -48,25 +45,33 @@ constexpr double kLegacyMixtureRoundoffRepairEnvelope = 4.0e-12;
 } // namespace
 
 contract::MixtureFractions
-capture_mixture_for_contract(const LegacyGasMixture &mixture) noexcept {
+capture_mixture_for_contract(const LegacyGasMixture &mixture,
+                             const double amount_mol) noexcept {
     const contract::MixtureFractions raw{
         mixture.fuel_fraction,
         mixture.inert_fraction,
         mixture.oxygen_fraction,
     };
+    if (amount_mol == 0.0) {
+        return {};
+    }
+    if (!(amount_mol > 0.0) || !std::isfinite(raw.fuel) || !std::isfinite(raw.inert) ||
+        !std::isfinite(raw.oxygen) || raw.fuel < 0.0 || raw.inert < 0.0 ||
+        raw.oxygen < 0.0) {
+        return raw;
+    }
     const double sum = raw.fuel + raw.inert + raw.oxygen;
     const double unity_error = std::abs(sum - 1.0);
     if (!std::isfinite(sum) || !(sum > 0.0) ||
-        unity_error <= contract::kMixtureFractionUnityTolerance ||
-        unity_error > kLegacyMixtureRoundoffRepairEnvelope) {
+        unity_error <= contract::kMixtureFractionUnityTolerance) {
         return raw;
     }
 
-    // This is an observation-boundary conversion only. Feeding normalization back
-    // into LegacyGasCell would diverge from engine-sim's transfer/reaction arithmetic
-    // and could change combustion and audio. The narrow envelope repairs accumulated
-    // binary64 roundoff; grossly off-unity, negative, and nonfinite mixtures remain
-    // invalid and are rejected by the capture contract.
+    // This is an observation-boundary conversion only. Common scaling does not alter
+    // the represented species ratios, while feeding normalization back into
+    // LegacyGasCell would diverge from engine-sim's transfer/reaction arithmetic and
+    // could change combustion and audio. Negative, nonfinite, and zero-sum states are
+    // left invalid for the capture contract to reject.
     return {
         raw.fuel / sum,
         raw.inert / sum,
@@ -232,7 +237,7 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
             legacy_gas_pressure_pa(chamber),
             legacy_gas_temperature_k(chamber),
             chamber.amount_mol,
-            capture_mixture_for_contract(chamber.mixture),
+            capture_mixture_for_contract(chamber.mixture, chamber.amount_mol),
             gas_cylinder.outer_step_combustion_heat_release_j,
             gas_cylinder.flame.radial_travel_m,
             gas_cylinder.flame.axial_travel_m,
@@ -296,7 +301,7 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
             volume.cell.thermal_energy_j,
             volume.cell.momentum_x_kg_m_s,
             volume.cell.momentum_y_kg_m_s,
-            capture_mixture_for_contract(volume.cell.mixture),
+            capture_mixture_for_contract(volume.cell.mixture, volume.cell.amount_mol),
         });
     }
 

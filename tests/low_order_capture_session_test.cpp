@@ -515,10 +515,10 @@ find_cylinder(const LegacyMechanismStep &mechanics, CylinderId id) {
     return {value.fuel_fraction, value.inert_fraction, value.oxygen_fraction};
 }
 
-void test_capture_projection_normalizes_only_out_of_contract_roundoff() {
+void test_capture_projection_canonicalizes_legacy_mixture_weights() {
     const LegacyGasMixture exact{0.05, 0.74, 0.21};
     expect(engine_sim_offline::simulation::detail::capture_mixture_for_contract(
-               exact) == mixture(exact),
+               exact, 1.0) == mixture(exact),
            "capture projection changed an already admitted legacy mixture");
 
     // Exact plenum state from the reported M52TUB28 open-ended rev/lift failure.
@@ -533,7 +533,8 @@ void test_capture_projection_normalizes_only_out_of_contract_roundoff() {
            "roundoff regression fixture no longer exceeds the public tolerance");
 
     const auto projected =
-        engine_sim_offline::simulation::detail::capture_mixture_for_contract(drifted);
+        engine_sim_offline::simulation::detail::capture_mixture_for_contract(drifted,
+                                                                             1.0);
     const double projected_sum = projected.fuel + projected.inert + projected.oxygen;
     expect(std::abs(projected_sum - 1.0) <= kMixtureFractionUnityTolerance &&
                projected.fuel == drifted.fuel_fraction / raw_sum &&
@@ -541,10 +542,29 @@ void test_capture_projection_normalizes_only_out_of_contract_roundoff() {
                projected.oxygen == drifted.oxygen_fraction / raw_sum,
            "capture projection did not remove common-scale legacy mixture drift");
 
-    const LegacyGasMixture grossly_invalid{0.2, 0.2, 0.2};
+    // The legacy solver admits nonnegative species weights and uses their ratios.
+    // Their common scale is not public composition semantics, so observation must
+    // remain valid after any duration rather than relying on a finite drift window.
+    const LegacyGasMixture scaled{0.2, 0.2, 0.2};
+    const auto projected_scaled =
+        engine_sim_offline::simulation::detail::capture_mixture_for_contract(scaled,
+                                                                             1.0);
+    expect(projected_scaled == MixtureFractions{1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0},
+           "capture projection retained a noncanonical common species scale");
+
     expect(engine_sim_offline::simulation::detail::capture_mixture_for_contract(
-               grossly_invalid) == mixture(grossly_invalid),
-           "capture projection masked a grossly off-unity legacy mixture");
+               exact, 0.0) == MixtureFractions{},
+           "empty gas cell retained undefined legacy mixture weights");
+
+    const LegacyGasMixture negative{-0.1, 0.8, 0.3};
+    expect(engine_sim_offline::simulation::detail::capture_mixture_for_contract(
+               negative, 1.0) == mixture(negative),
+           "capture projection masked a negative legacy mixture weight");
+
+    const LegacyGasMixture zero_sum{};
+    expect(engine_sim_offline::simulation::detail::capture_mixture_for_contract(
+               zero_sum, 1.0) == mixture(zero_sum),
+           "capture projection masked a positive cell with zero species weight");
 }
 
 void expect_positive_zero(double value, std::string_view field) {
@@ -1841,7 +1861,7 @@ void test_capture_partition_admission_rejection(
 }
 
 void run_tests(const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
-    test_capture_projection_normalizes_only_out_of_contract_roundoff();
+    test_capture_projection_canonicalizes_legacy_mixture_weights();
     test_authored_capture_mapping_and_completion(canonical);
     test_operating_capture_publishes_request_bound_completion_evidence(canonical);
     test_operating_capture_rejects_zero_request_identity(canonical);
