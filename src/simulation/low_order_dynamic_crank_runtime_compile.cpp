@@ -1,4 +1,4 @@
-#include "simulation/low_order_free_engine_v1_runtime.hpp"
+#include "simulation/low_order_dynamic_crank_runtime.hpp"
 
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/cycle_accounting_method_registry.hpp"
@@ -67,7 +67,7 @@ void require_release_or_later_boundaries(ValidationReport &report,
 
 } // namespace
 
-LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
+LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
     const contract::Sha256Digest &simulation_request_identity_v3_sha256,
@@ -85,13 +85,13 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         std::get_if<contract::FixedSettling>(&scenario.preparation);
     require(report, profile != nullptr, ContractIssueCode::unsupported_value,
             "engine.physics_profile",
-            "free-engine runtime requires low_order_operating_point_v1");
+            "dynamic-crank runtime requires low_order_operating_point_v1");
     require(report, (free_engine != nullptr) != (held_dyno != nullptr),
             ContractIssueCode::unsupported_value, "scenario.mode",
             "dynamic crank runtime requires exactly one FreeEngine or HeldDyno mode");
     require(report, !simulation_request_identity_v3_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v3_sha256",
-            "free-engine runtime requires the canonical nonzero request identity");
+            "dynamic-crank runtime requires the canonical nonzero request identity");
     if (profile == nullptr || (free_engine == nullptr && held_dyno == nullptr)) {
         return report;
     }
@@ -117,9 +117,9 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
                 : fixed_horizon != nullptr,
             ContractIssueCode::unsupported_value, "scenario.preparation",
             cold_bootstrap
-                ? "zero-speed free-engine runtime requires canonical zero-duration "
+                ? "zero-speed dynamic-crank runtime requires canonical zero-duration "
                   "fixed settling"
-                : "positive-speed free-engine runtime requires fixed-horizon cycle "
+                : "positive-speed dynamic-crank runtime requires fixed-horizon cycle "
                   "sampling");
 
     const auto crank_friction_calculation =
@@ -130,7 +130,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
     require(report, crank_friction != nullptr, ContractIssueCode::invalid_value,
             "engine.physics_profile.mechanism.crank."
             "running_friction_torque_magnitude_nm.value",
-            "free-engine runtime requires finite nonnegative pristine crank "
+            "dynamic-crank runtime requires finite nonnegative pristine crank "
             "friction");
 
     report.append(admit_implemented_cycle_accounting_methods(engine, *profile));
@@ -141,7 +141,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
                 nonnegative_speed_free_engine_centered_slider_crank_method_identity(),
         ContractIssueCode::unsupported_value,
         "scenario.mode.crank_dynamics_method.value",
-        "free-engine runtime requires its exact nonnegative-speed "
+        "dynamic-crank runtime requires its exact nonnegative-speed "
         "centered-slider crank method identity");
     require(report,
             held_dyno == nullptr || held_dyno->constraint_method.value ==
@@ -156,12 +156,12 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
                     contract::fixed_horizon_cycle_sampling_method_identity(),
                 ContractIssueCode::unsupported_value,
                 "scenario.preparation.method.value",
-                "positive-speed free-engine runtime requires the exact implemented "
+                "positive-speed dynamic-crank runtime requires the exact implemented "
                 "fixed-horizon sampling method");
     }
     require(report, scenario.rates.physics == scenario.rates.capture,
             ContractIssueCode::inconsistent_semantics, "scenario.rates",
-            "free-engine runtime requires identical physics and capture clocks");
+            "dynamic-crank runtime requires identical physics and capture clocks");
     require(report,
             capture_plan.engine_profile_id == engine.profile_id.value &&
                 capture_plan.scenario_id == scenario.scenario_id &&
@@ -169,10 +169,10 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
                 capture_plan.capture_buffer.rate == scenario.rates.capture &&
                 capture_plan.execution_extent == execution_extent,
             ContractIssueCode::inconsistent_semantics, "capture_plan",
-            "free-engine capture plan belongs to another engine or scenario");
+            "dynamic-crank capture plan belongs to another engine or scenario");
     require(report, execution_extent.valid(), ContractIssueCode::invalid_value,
             "execution_extent",
-            "free-engine runtime requires a valid finite or open-ended execution "
+            "dynamic-crank runtime requires a valid finite or open-ended execution "
             "extent");
     require(report, held_dyno == nullptr || !execution_extent.is_open_ended(),
             ContractIssueCode::unsupported_value, "execution_extent",
@@ -209,7 +209,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
     }
     require(report, ordered_frame_grid, ContractIssueCode::inconsistent_semantics,
             "scenario.preparation.fixed_preparation_horizon_s.value",
-            "free-engine release, audible start, and horizon must resolve to ordered "
+            "dynamic-crank release, audible start, and horizon must resolve to ordered "
             "integral physics frames matching capture; cold bootstrap releases at "
             "frame zero");
     if (!report.ok() || crank_friction == nullptr || !release_frame_valid ||
@@ -226,7 +226,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         require_release_or_later_boundaries(
             report, free_engine->external_resisting_torque_nm, scenario.rates.physics,
             release_frame_index, "scenario.mode.external_resisting_torque_nm",
-            "free-engine external resisting-torque");
+            "FreeEngine external resisting-torque");
     }
     if (!report.ok()) {
         return report;
@@ -249,7 +249,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         const auto *cylinder = find_cylinder(engine, binding.cylinder_id);
         require(report, cylinder != nullptr, ContractIssueCode::dangling_reference,
                 "capture_plan.cylinder_chambers[" + std::to_string(index) + "]",
-                "free-engine chamber binding references an unknown cylinder");
+                "dynamic-crank chamber binding references an unknown cylinder");
         if (cylinder == nullptr) {
             continue;
         }
@@ -260,7 +260,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
                 std::bit_cast<std::uint64_t>(cylinder->stroke_m.value) ==
                     std::bit_cast<std::uint64_t>(stroke_m),
                 ContractIssueCode::inconsistent_semantics, "engine.cylinders",
-                "free-engine runtime requires bit-identical cylinder strokes");
+                "dynamic-crank runtime requires bit-identical cylinder strokes");
         cylinders.push_back({
             binding.cylinder_id,
             binding.chamber_volume_id,
@@ -279,7 +279,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         const auto gas_index = find_capture_volume_index(capture_plan, id);
         require(report, gas_index.has_value(), ContractIssueCode::dangling_reference,
                 "capture_plan.physical_gas_volume_ids[" + std::to_string(index) + "]",
-                "free-engine physical pressure volume is absent from capture "
+                "dynamic-crank physical pressure volume is absent from capture "
                 "topology");
         if (gas_index.has_value()) {
             physical_gas_step_indices.push_back(*gas_index);
@@ -297,7 +297,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         &cycle_mean_inertia_calculation);
     require(report, cycle_mean_inertia != nullptr, ContractIssueCode::invalid_value,
             "engine.physics_profile.mechanism",
-            "free-engine configuration-dependent inertia rejected the admitted "
+            "dynamic-crank configuration-dependent inertia rejected the admitted "
             "centered-slider mechanism");
     if (cycle_mean_inertia != nullptr && free_engine != nullptr) {
         require(report,
@@ -307,7 +307,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
                         cycle_mean_inertia->engine_equivalent_inertia_kg_m2),
                 ContractIssueCode::inconsistent_semantics,
                 "scenario.mode.engine_baseline_inertia_kg_m2.value",
-                "free-engine cycle-mean inertia reference differs from the compiled "
+                "dynamic-crank cycle-mean inertia reference differs from the compiled "
                 "engine mechanism");
     }
 
@@ -317,7 +317,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         {},
     };
     configuration_inertia_plan.cylinders.reserve(mechanism.cylinders.size());
-    std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders;
+    std::vector<LowOrderDynamicCrankPistonWallCylinderPlan> piston_wall_cylinders;
     piston_wall_cylinders.reserve(mechanism.cylinders.size());
     for (std::size_t index = 0; index < mechanism.cylinders.size(); ++index) {
         const auto &assembly = mechanism.cylinders[index];
@@ -372,7 +372,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
                 ContractIssueCode::dangling_reference,
                 "engine.physics_profile.mechanism.cylinders[" + std::to_string(index) +
                     "].topology.chamber_volume_id",
-                "free-engine piston-wall cylinder chamber is absent from the "
+                "dynamic-crank piston-wall cylinder chamber is absent from the "
                 "captured gas transaction");
         require(
             report,
@@ -380,7 +380,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
             ContractIssueCode::invalid_value,
             "engine.physics_profile.mechanism.cylinders[" + std::to_string(index) +
                 "].parameters",
-            "free-engine piston-wall source law rejected the resolved "
+            "dynamic-crank piston-wall source law rejected the resolved "
             "centered-slider mechanism");
         if (chamber_gas_index.has_value() &&
             std::holds_alternative<EngineSimV1PistonWallFrictionStage>(initial_stage)) {
@@ -407,14 +407,14 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
             configuration_inertia_plan.cylinders.size() == mechanism.cylinders.size(),
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.mechanism.cylinders",
-            "free-engine configuration-inertia inventory must cover every "
+            "dynamic-crank configuration-inertia inventory must cover every "
             "mechanism cylinder exactly once");
     require(report,
             !piston_wall_cylinders.empty() &&
                 piston_wall_cylinders.size() == mechanism.cylinders.size(),
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.mechanism.cylinders",
-            "free-engine piston-wall inventory must cover every mechanism "
+            "dynamic-crank piston-wall inventory must cover every mechanism "
             "cylinder exactly once");
     if (!report.ok()) {
         return report;
@@ -426,7 +426,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
             std::holds_alternative<CenteredSliderCrankConfigurationInertia>(
                 initial_configuration_inertia),
             ContractIssueCode::invalid_value, "scenario.mode.initial_theta_rad.value",
-            "free-engine configuration inertia rejected the initial crank "
+            "dynamic-crank configuration inertia rejected the initial crank "
             "boundary");
     if (!report.ok()) {
         return report;
@@ -460,7 +460,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         if (const auto *error =
                 std::get_if<OperatingCycleAccountingError>(&accountant_result)) {
             report.add(ContractIssueCode::unsupported_value, "engine.physics_profile",
-                       "free-engine variable-speed accountant rejected the admitted "
+                       "dynamic-crank variable-speed accountant rejected the admitted "
                        "profile; code=" +
                            std::to_string(static_cast<std::uint32_t>(error->code)));
             return report;
@@ -476,9 +476,10 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         });
         if (const auto *error =
                 std::get_if<FixedHorizonCycleSamplingError>(&sampling_result)) {
-            report.add(ContractIssueCode::unsupported_value, "scenario.preparation",
-                       "free-engine fixed-horizon sampler rejected preparation; code=" +
-                           std::to_string(static_cast<std::uint32_t>(error->code)));
+            report.add(
+                ContractIssueCode::unsupported_value, "scenario.preparation",
+                "dynamic-crank fixed-horizon sampler rejected preparation; code=" +
+                    std::to_string(static_cast<std::uint32_t>(error->code)));
             return report;
         }
         sampler.emplace(std::get<FixedHorizonCycleSampler>(std::move(sampling_result)));
@@ -493,7 +494,7 @@ LowOrderFreeEngineV1CompileResult compile_low_order_free_engine_v1_runtime(
         });
     }
 
-    return LowOrderFreeEngineV1Runtime{
+    return LowOrderDynamicCrankRuntime{
         control_schedule.fresh_cursor(),
         std::move(accountant),
         std::move(sampler),

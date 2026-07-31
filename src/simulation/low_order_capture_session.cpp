@@ -108,8 +108,7 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
                           "low-order-live-control-provider-invalid",
                           "live-control provider is incomplete"));
     }
-    if (live_controls != nullptr &&
-        live_controls->physics_rate != rate_) {
+    if (live_controls != nullptr && live_controls->physics_rate != rate_) {
         return fail(fault(contract::FailureKind::contract_violation,
                           "low-order-live-control-rate-mismatch",
                           "live-control physics rate differs from the admitted "
@@ -151,13 +150,13 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
             }
             inertial_dyno = *policy->inertial_dyno_result();
         } else if (const auto *policy =
-                       std::get_if<LowOrderFreeEngineV1Runtime>(&profile_policy_)) {
+                       std::get_if<LowOrderDynamicCrankRuntime>(&profile_policy_)) {
             if (policy->accepted_sample_count() != *expected_samples ||
                 !policy->finalized() || policy->faulted()) {
                 return fail(fault(
                     contract::FailureKind::contract_violation,
-                    "low-order-free-engine-policy-completion-disagreed",
-                    "free-engine policy did not finish the exact capture horizon"));
+                    "low-order-dynamic-crank-policy-completion-disagreed",
+                    "dynamic-crank policy did not finish the exact capture horizon"));
             }
         }
         terminal_completion_ = LowOrderCaptureCompleted{
@@ -186,22 +185,22 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
             const auto drained = live_controls->drain_for_physics_step(
                 live_controls->context, core_.produced_sample_count());
             if (!drained.valid) {
-                return fail(fault(
-                    contract::FailureKind::contract_violation,
-                    "low-order-live-control-step-mismatch",
-                    "live-control timeline did not resolve the next contiguous "
-                    "physics step"));
+                return fail(
+                    fault(contract::FailureKind::contract_violation,
+                          "low-order-live-control-step-mismatch",
+                          "live-control timeline did not resolve the next contiguous "
+                          "physics step"));
             }
             live_overrides = drained.overrides;
             if (live_overrides.any() &&
                 std::holds_alternative<LowOrderOperatingPointV1Runtime>(
                     profile_policy_)) {
-                return fail(fault(
-                    contract::FailureKind::contract_violation,
-                    "low-order-live-controls-not-admitted-for-held-evidence",
-                    "held-speed operating-point evidence does not admit live "
-                    "throttle, ignition, fuel, limiter, or external-resistance "
-                    "overrides"));
+                return fail(
+                    fault(contract::FailureKind::contract_violation,
+                          "low-order-live-controls-not-admitted-for-held-evidence",
+                          "held-speed operating-point evidence does not admit live "
+                          "throttle, ignition, fuel, limiter, or external-resistance "
+                          "overrides"));
             }
         }
 
@@ -211,8 +210,7 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
         if (auto *inertial =
                 std::get_if<LowOrderInertialDynoV1Runtime>(&profile_policy_)) {
             auto result = inertial->advance(core_, live_overrides);
-            if (const auto *failure =
-                    std::get_if<contract::FailureContext>(&result)) {
+            if (const auto *failure = std::get_if<contract::FailureContext>(&result)) {
                 return fail(*failure);
             }
             if (const auto *completed =
@@ -233,9 +231,9 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
             mechanics_pointer = &step.mechanics.get();
             gas_pointer = &step.gas.get();
             motion_policy_capture_torque = step.capture_torque;
-        } else if (auto *free_engine =
-                       std::get_if<LowOrderFreeEngineV1Runtime>(&profile_policy_)) {
-            auto result = free_engine->advance(core_, live_overrides);
+        } else if (auto *dynamic_crank =
+                       std::get_if<LowOrderDynamicCrankRuntime>(&profile_policy_)) {
+            auto result = dynamic_crank->advance(core_, live_overrides);
             if (const auto *failure = std::get_if<contract::FailureContext>(&result)) {
                 return fail(*failure);
             }
@@ -245,15 +243,15 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
                     completed->sample_count != *expected_samples ||
                     published_sample_count_ + capture_->frame_count() !=
                         *expected_samples) {
-                    return fail(fault(
-                        contract::FailureKind::contract_violation,
-                        "low-order-core-premature-completion",
-                        "free-engine mechanics completed before the admitted "
-                        "capture horizon"));
+                    return fail(
+                        fault(contract::FailureKind::contract_violation,
+                              "low-order-core-premature-completion",
+                              "dynamic-crank mechanics completed before the admitted "
+                              "capture horizon"));
                 }
                 break;
             }
-            const auto &step = std::get<LowOrderFreeEngineV1StepView>(result);
+            const auto &step = std::get<LowOrderDynamicCrankStepView>(result);
             mechanics_pointer = &step.mechanics.get();
             gas_pointer = &step.gas.get();
             motion_policy_capture_torque = step.capture_torque;
@@ -308,19 +306,19 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
                         }
                         return std::get<contract::FailureContext>(std::move(evaluated));
                     } else if constexpr (std::is_same_v<
-                                             Policy,
-                                             LowOrderInertialDynoV1Runtime>) {
+                                             Policy, LowOrderInertialDynoV1Runtime>) {
                         return fault(contract::FailureKind::contract_violation,
                                      "low-order-inertial-policy-double-advanced",
                                      "inertial torque policy was invoked twice for "
                                      "one core transaction",
                                      &mechanics);
                     } else {
-                        return fault(contract::FailureKind::contract_violation,
-                                     "low-order-free-engine-policy-double-advanced",
-                                     "free-engine torque policy was invoked twice for "
-                                     "one core transaction",
-                                     &mechanics);
+                        return fault(
+                            contract::FailureKind::contract_violation,
+                            "low-order-dynamic-crank-policy-double-advanced",
+                            "dynamic-crank torque policy was invoked twice for "
+                            "one core transaction",
+                            &mechanics);
                     }
                 },
                 profile_policy_);
@@ -362,14 +360,13 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
         const auto report = contract::validate(block);
         const auto state_summary =
             report.ok()
-                ? std::string{
-                      "allocation-free admitted-layout validation rejected the "
-                      "capture block without a public diagnostic"}
+                ? std::string{"allocation-free admitted-layout validation rejected the "
+                              "capture block without a public diagnostic"}
                 : "path=" + report.issues.front().path + "; " +
                       report.issues.front().message;
         return fail(fault(contract::FailureKind::contract_violation,
-                          "low-order-capture-block-invalid",
-                          state_summary, last_mechanics));
+                          "low-order-capture-block-invalid", state_summary,
+                          last_mechanics));
     }
 
     bool accepted = false;

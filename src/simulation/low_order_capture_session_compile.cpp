@@ -74,16 +74,16 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
                 std::in_place_type<LowOrderInertialDynoV1Runtime>,
                 std::get<LowOrderInertialDynoV1Runtime>(std::move(inertial_result)));
         } else if (free_engine != nullptr || held_dyno != nullptr) {
-            auto free_engine_result = compile_low_order_free_engine_v1_runtime(
+            auto dynamic_crank_result = compile_low_order_dynamic_crank_runtime(
                 engine, scenario, capture_plan, simulation_request_identity_v3_sha256,
                 execution_extent);
-            if (auto *free_engine_report =
-                    std::get_if<ValidationReport>(&free_engine_result)) {
-                return std::move(*free_engine_report);
+            if (auto *dynamic_crank_report =
+                    std::get_if<ValidationReport>(&dynamic_crank_result)) {
+                return std::move(*dynamic_crank_report);
             }
             profile_policy.emplace(
-                std::in_place_type<LowOrderFreeEngineV1Runtime>,
-                std::get<LowOrderFreeEngineV1Runtime>(std::move(free_engine_result)));
+                std::in_place_type<LowOrderDynamicCrankRuntime>,
+                std::get<LowOrderDynamicCrankRuntime>(std::move(dynamic_crank_result)));
         } else {
             auto operating_result = compile_low_order_operating_point_v1_runtime(
                 engine, scenario, capture_plan, simulation_request_identity_v3_sha256);

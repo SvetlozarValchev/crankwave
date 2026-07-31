@@ -21,7 +21,7 @@
 
 namespace engine_sim_offline::simulation {
 
-struct LowOrderFreeEngineV1PistonWallCylinderPlan {
+struct LowOrderDynamicCrankPistonWallCylinderPlan {
     contract::CylinderId cylinder_id;
     contract::GasVolumeId chamber_volume_id;
     std::size_t mechanism_cylinder_index = 0;
@@ -31,18 +31,18 @@ struct LowOrderFreeEngineV1PistonWallCylinderPlan {
     EngineSimV1PistonWallCylinderPlan friction;
 
     friend bool
-    operator==(const LowOrderFreeEngineV1PistonWallCylinderPlan &,
-               const LowOrderFreeEngineV1PistonWallCylinderPlan &) = default;
+    operator==(const LowOrderDynamicCrankPistonWallCylinderPlan &,
+               const LowOrderDynamicCrankPistonWallCylinderPlan &) = default;
 };
 
-struct LowOrderFreeEngineV1StepView {
+struct LowOrderDynamicCrankStepView {
     std::reference_wrapper<const LegacyMechanismStep> mechanics;
     std::reference_wrapper<const LegacyLowOrderGasStep> gas;
     contract::TorqueTelemetry capture_torque;
 };
 
-using LowOrderFreeEngineV1AdvanceResult =
-    std::variant<LowOrderFreeEngineV1StepView, LowOrderEngineCoreV1Completed,
+using LowOrderDynamicCrankAdvanceResult =
+    std::variant<LowOrderDynamicCrankStepView, LowOrderEngineCoreV1Completed,
                  contract::FailureContext>;
 
 struct HeldDynoMotionPlan {
@@ -58,18 +58,18 @@ struct HeldDynoMotionPlan {
 // nonnegative crank motion around one shared low-order core. The core retains all
 // gas, flame, randomness, pressure-history, and event state across the release
 // boundary. Reverse rotation is not part of this runtime.
-class LowOrderFreeEngineV1Runtime final {
+class LowOrderDynamicCrankRuntime final {
   public:
-    LowOrderFreeEngineV1Runtime(const LowOrderFreeEngineV1Runtime &) = delete;
-    LowOrderFreeEngineV1Runtime &
-    operator=(const LowOrderFreeEngineV1Runtime &) = delete;
-    LowOrderFreeEngineV1Runtime(LowOrderFreeEngineV1Runtime &&) noexcept = default;
-    LowOrderFreeEngineV1Runtime &
-    operator=(LowOrderFreeEngineV1Runtime &&) noexcept = default;
+    LowOrderDynamicCrankRuntime(const LowOrderDynamicCrankRuntime &) = delete;
+    LowOrderDynamicCrankRuntime &
+    operator=(const LowOrderDynamicCrankRuntime &) = delete;
+    LowOrderDynamicCrankRuntime(LowOrderDynamicCrankRuntime &&) noexcept = default;
+    LowOrderDynamicCrankRuntime &
+    operator=(LowOrderDynamicCrankRuntime &&) noexcept = default;
 
-    [[nodiscard]] LowOrderFreeEngineV1AdvanceResult
+    [[nodiscard]] LowOrderDynamicCrankAdvanceResult
     advance(LowOrderEngineCoreV1Runtime &core);
-    [[nodiscard]] LowOrderFreeEngineV1AdvanceResult
+    [[nodiscard]] LowOrderDynamicCrankAdvanceResult
     advance(LowOrderEngineCoreV1Runtime &core, const LiveControlOverrides &overrides);
 
     [[nodiscard]] bool faulted() const noexcept;
@@ -79,14 +79,14 @@ class LowOrderFreeEngineV1Runtime final {
     [[nodiscard]] std::uint64_t release_frame_index() const noexcept;
 
   private:
-    LowOrderFreeEngineV1Runtime(
+    LowOrderDynamicCrankRuntime(
         ScenarioControlCursor control_cursor,
         std::optional<OperatingCycleAccountant> accountant,
         std::optional<FixedHorizonCycleSampler> sampler,
         std::vector<std::size_t> physical_gas_step_indices,
         std::vector<OperatingGasVolumePressureSample> pressure_samples,
         CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan,
-        std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders,
+        std::vector<LowOrderDynamicCrankPistonWallCylinderPlan> piston_wall_cylinders,
         contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
         std::uint64_t release_frame_index, double initial_engine_speed_rpm,
         double initial_theta_rad, bool cold_bootstrap,
@@ -99,7 +99,7 @@ class LowOrderFreeEngineV1Runtime final {
     fault(contract::FailureKind kind, std::string detail_code,
           std::string state_summary, const LegacyMechanismStep *mechanics = nullptr,
           std::optional<contract::GasVolumeId> gas_volume_id = std::nullopt) const;
-    [[nodiscard]] LowOrderFreeEngineV1AdvanceResult
+    [[nodiscard]] LowOrderDynamicCrankAdvanceResult
     fail(contract::FailureContext failure);
     [[nodiscard]] std::optional<contract::FailureContext>
     update_accounting(const LegacyMechanismStep &mechanics,
@@ -122,7 +122,7 @@ class LowOrderFreeEngineV1Runtime final {
     std::vector<std::size_t> physical_gas_step_indices_;
     std::vector<OperatingGasVolumePressureSample> pressure_samples_;
     CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan_;
-    std::vector<LowOrderFreeEngineV1PistonWallCylinderPlan> piston_wall_cylinders_;
+    std::vector<LowOrderDynamicCrankPistonWallCylinderPlan> piston_wall_cylinders_;
     std::vector<double> piston_wall_boundary_phase_rad_;
     std::vector<double> piston_wall_boundary_pressure_pa_abs_;
     std::vector<double> retained_piston_wall_reaction_magnitude_n_;
@@ -155,19 +155,18 @@ class LowOrderFreeEngineV1Runtime final {
     bool terminal_completed_ = false;
     std::optional<contract::FailureContext> terminal_fault_;
 
-    friend std::variant<LowOrderFreeEngineV1Runtime, contract::ValidationReport>
-    compile_low_order_free_engine_v1_runtime(const contract::EngineSpec &,
-                                             const contract::RenderScenario &,
-                                             const LowOrderCapturePlan &,
-                                             const contract::Sha256Digest &,
-                                             LowOrderExecutionExtent);
+    friend std::variant<LowOrderDynamicCrankRuntime, contract::ValidationReport>
+    compile_low_order_dynamic_crank_runtime(const contract::EngineSpec &,
+                                            const contract::RenderScenario &,
+                                            const LowOrderCapturePlan &,
+                                            const contract::Sha256Digest &,
+                                            LowOrderExecutionExtent);
 };
 
-using LowOrderFreeEngineV1CompileResult =
-    std::variant<LowOrderFreeEngineV1Runtime, contract::ValidationReport>;
+using LowOrderDynamicCrankCompileResult =
+    std::variant<LowOrderDynamicCrankRuntime, contract::ValidationReport>;
 
-[[nodiscard]] LowOrderFreeEngineV1CompileResult
-compile_low_order_free_engine_v1_runtime(
+[[nodiscard]] LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
     const contract::Sha256Digest &simulation_request_identity_v3_sha256,

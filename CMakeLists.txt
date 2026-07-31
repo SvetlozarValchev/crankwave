@@ -241,8 +241,8 @@ add_library(
         src/simulation/kinematic_scenario_schedule.cpp
         src/simulation/low_order_capture_plan.cpp
         src/simulation/low_order_engine_core_v1_runtime.cpp
-        src/simulation/low_order_free_engine_v1_runtime.cpp
-        src/simulation/low_order_free_engine_v1_runtime_compile.cpp
+        src/simulation/low_order_dynamic_crank_runtime.cpp
+        src/simulation/low_order_dynamic_crank_runtime_compile.cpp
         src/simulation/low_order_inertial_dyno_v1_runtime.cpp
         src/simulation/low_order_inertial_dyno_v1_runtime_compile.cpp
         src/simulation/low_order_operating_point_v1_runtime.cpp

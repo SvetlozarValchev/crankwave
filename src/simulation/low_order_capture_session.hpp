@@ -5,8 +5,8 @@
 #include "engine_sim_offline/contract/result.hpp"
 #include "engine_sim_offline/contract/scenario.hpp"
 #include "simulation/live_control.hpp"
+#include "simulation/low_order_dynamic_crank_runtime.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
-#include "simulation/low_order_free_engine_v1_runtime.hpp"
 #include "simulation/low_order_inertial_dyno_v1_runtime.hpp"
 #include "simulation/low_order_operating_point_v1_runtime.hpp"
 
@@ -43,10 +43,9 @@ class LowOrderCaptureBlockConsumer final {
                                           const contract::CaptureBlockView &>,
                      bool>)
     LowOrderCaptureBlockConsumer(Consumer &&consumer) noexcept
-        : context_(const_cast<void *>(static_cast<const void *>(
-              std::addressof(consumer)))),
-          invoke_([](void *context,
-                     const contract::CaptureBlockView &block) -> bool {
+        : context_(
+              const_cast<void *>(static_cast<const void *>(std::addressof(consumer)))),
+          invoke_([](void *context, const contract::CaptureBlockView &block) -> bool {
               using Target = std::remove_reference_t<Consumer>;
               return static_cast<bool>(
                   std::invoke(*static_cast<Target *>(context), block));
@@ -128,7 +127,7 @@ class LowOrderCaptureSession final {
   private:
     using ProfilePolicy =
         std::variant<LowOrderOperatingPointV1Runtime, LowOrderInertialDynoV1Runtime,
-                     LowOrderFreeEngineV1Runtime>;
+                     LowOrderDynamicCrankRuntime>;
 
     LowOrderCaptureSession(LowOrderEngineCoreV1Runtime core,
                            ProfilePolicy profile_policy,
