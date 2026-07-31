@@ -75,16 +75,13 @@ the 5,800 rpm selector boundary, accompanied by held checks at 5,400 and 7,000
 rpm. The renderer, source routing, conditioning, impulse responses, and mastering
 remain unchanged during this slice.
 
-### Explicit Honda authoring normalization
+### Explicit Honda direction normalization
 
-The pinned Honda asset is internally inconsistent with the advance and
-crank-cycle conventions used by the known-working engine packages:
-
-- its timing table contains `-25` through `-40` degrees even though pristine
-  `IgnitionModule` treats the sampled value as advance and subtracts it from the
-  firing angle;
-- it places intake centers with `360 - center` and exhaust centers with
-  `360 + center`, opposite the working cam phasing.
+The pinned Honda asset couples a negative starter speed to reverse crank
+rotation. Its ignition advance, cam centers, and firing phases are consequently
+authored in that direction. The clean-room runtime exposes positive RPM and a
+forward public crank-cycle coordinate, so signed crank-referenced angles must be
+reflected rather than copied literally.
 
 A literal clean-room transcription cannot produce the requested physical pull.
 With the dyno brake removed and aggregate loss reduced nearly to zero, crank
@@ -92,13 +89,14 @@ speed fell from 5,000 to 4,665 rpm over the 15-second released horizon. Correcti
 only the cam polarity restored strong positive work; retaining the negative
 timing polarity still left the engine near 4,910 rpm after 15 seconds.
 
-The Honda package therefore retains every authored magnitude and firing offset
-but normalizes the two polarities:
+The Honda package retains every authored magnitude and the 1-3-4-2 firing
+sequence while normalizing all direction-dependent angles:
 
 ```text
-timing advance:  +25 ... +40 degrees
-intake centers:  360 + center - cylinder firing offset
-exhaust centers: 360 - center - cylinder firing offset
+timing advance:   -source timing
+cam lobe center: (-source center) modulo 720 degrees
+firing phases:    cylinder 1=0, cylinder 3=180,
+                  cylinder 4=360, cylinder 2=540 degrees
 ```
 
 This is a package correction, not a VTEC-selector or simulation-algorithm change.
