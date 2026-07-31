@@ -585,10 +585,13 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--5 are complete. Slice 6 is implemented through the JSON,
-runtime, native session, exact C ABI, WASM transport, and Web workbench and is awaiting
-the required BMW crank/catch listening decision. Slice 7 must not begin before that
-decision.
+Current progress: slices 1--7 are complete. Slice 6 executes through the JSON, runtime,
+native session, exact C ABI, WASM transport, and Web workbench; the BMW crank/catch
+checkpoint was accepted, and source-faithful starter capabilities are wired into every
+packaged engine that declares them. Slice 7 admits arbitrary sampled fixed-cam profiles
+through the public compiler while leaving the generated harmonic path and equivalent
+session PCM byte-identical. Slice 8 is next and retains its separate Honda transition
+listening checkpoint.
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
 and mastering unchanged. Listen immediately after the one intended behavior changes;

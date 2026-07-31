@@ -175,18 +175,43 @@ cam_lobe_for_cylinder(const ModelContext &context,
     const ModelContext &context, const authoring::CamshaftDefinition &camshaft,
     authoring::PortKind kind, std::string role, ResolutionEmitter &emitter) {
     const auto &lobe = first_cam_lobe(context, camshaft, kind);
-    const auto &shape = std::get<authoring::HarmonicCamLobe>(lobe.shape);
     const auto base = profile_path("valvetrain." + role + ".shape");
-    return {
-        emitter.authored(legacy_si_value(shape.maximum_lift), base + ".maximum_lift_m"),
-        emitter.authored(legacy_si_value(shape.duration_at_reference_lift),
-                         base + ".duration_at_reference_lift_rad"),
-        emitter.authored(shape.gamma, base + ".exponent"),
-        emitter.authored(shape.sample_count, base + ".construction_steps"),
-        emitter.authored(legacy_si_value(camshaft.advance), base + ".advance_rad"),
-        emitter.authored(legacy_si_value(camshaft.base_radius),
-                         base + ".base_radius_m"),
-    };
+    if (const auto *shape = std::get_if<authoring::HarmonicCamLobe>(&lobe.shape)) {
+        return contract::LegacyHarmonicCamShape{
+            emitter.authored(legacy_si_value(shape->maximum_lift),
+                             base + ".maximum_lift_m"),
+            emitter.authored(legacy_si_value(shape->duration_at_reference_lift),
+                             base + ".duration_at_reference_lift_rad"),
+            emitter.authored(shape->gamma, base + ".exponent"),
+            emitter.authored(shape->sample_count, base + ".construction_steps"),
+            emitter.authored(legacy_si_value(camshaft.advance), base + ".advance_rad"),
+            emitter.authored(legacy_si_value(camshaft.base_radius),
+                             base + ".base_radius_m"),
+        };
+    }
+
+    const auto &shape = std::get<authoring::SampledCamLobe>(lobe.shape);
+    const auto &curve = *context.curves.at(shape.lift_curve.value);
+    contract::LegacySampledCamShape resolved;
+    resolved.triangle_radius_rad = emitter.authored(
+        legacy_si_value(*curve.triangle_filter_radius), base + ".triangle_radius_rad");
+    resolved.samples.reserve(curve.samples.size());
+    for (std::size_t index = 0; index < curve.samples.size(); ++index) {
+        const auto id = sample_id(index);
+        const auto path = base + ".samples." + id;
+        resolved.samples.push_back({
+            emitter.authored(id, path + ".sample_id"),
+            emitter.authored(legacy_si_value(curve.samples[index].input),
+                             path + ".angle_rad"),
+            emitter.authored(legacy_si_value(curve.samples[index].output),
+                             path + ".lift_m"),
+        });
+    }
+    resolved.advance_rad =
+        emitter.authored(legacy_si_value(camshaft.advance), base + ".advance_rad");
+    resolved.base_radius_m = emitter.authored(legacy_si_value(camshaft.base_radius),
+                                              base + ".base_radius_m");
+    return resolved;
 }
 
 [[nodiscard]] contract::LegacyValveFlowPoint

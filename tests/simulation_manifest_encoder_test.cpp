@@ -288,6 +288,71 @@ struct GoldenHashes {
     };
 }
 
+void test_sampled_cam_request_identity_wire_shape() {
+    SimulationFixture fixture;
+    auto &resolved = simulation_inputs(fixture.manifest.content);
+    auto &intake =
+        std::get<LowOrderOperatingPointV1Profile>(resolved.engine.physics_profile)
+            .core.valvetrain.intake;
+    const auto harmonic = std::get<LegacyHarmonicCamShape>(intake.shape);
+    constexpr std::string_view kBase =
+        "engine.physics.low-order-operating-point-v1.valvetrain.intake.shape";
+    const auto point = [&](std::string id, double angle_rad, double lift_m) {
+        const auto path = std::string{kBase} + ".samples." + id;
+        return LegacySampledCamPoint{
+            fixture.builder.resolved(id, path + ".sample_id"),
+            fixture.builder.resolved(angle_rad, path + ".angle_rad"),
+            fixture.builder.resolved(lift_m, path + ".lift_m"),
+        };
+    };
+    intake.shape = LegacySampledCamShape{
+        fixture.builder.resolved(0.01, std::string{kBase} + ".triangle_radius_rad"),
+        {
+            point("opening", -1.0, 0.0),
+            point("peak", 0.0, 0.009),
+            point("closing", 1.0, 0.0),
+        },
+        harmonic.advance_rad,
+        harmonic.base_radius_m,
+    };
+
+    const auto first = require_request_identity_encoding(
+        resolved.engine, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
+    const auto second = require_request_identity_encoding(
+        resolved.engine, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
+    expect(first == second, "sampled cam request identity was not deterministic");
+
+    const auto document = as_string(first.bytes);
+    const auto shape = document.find("\"shape\":{\"kind\":\"sampled\","
+                                     "\"triangle_radius_rad\":");
+    const auto samples = document.find("\"samples\":[{\"sample_id\":", shape);
+    const auto angle = document.find("\"angle_rad\":", samples);
+    const auto lift = document.find("\"lift_m\":", angle);
+    const auto lobes = document.find("\"lobes\":", lift);
+    expect(shape != std::string::npos && samples != std::string::npos &&
+               angle != std::string::npos && lift != std::string::npos &&
+               lobes != std::string::npos && shape < samples && samples < angle &&
+               angle < lift && lift < lobes,
+           "sampled cam request identity omitted or reordered its disjoint wire "
+           "object");
+    expect(document.find("\"maximum_lift_m\":", shape) > lobes,
+           "sampled cam wire object leaked harmonic shape members");
+
+    auto changed_engine = resolved.engine;
+    std::get<LegacySampledCamShape>(
+        std::get<LowOrderOperatingPointV1Profile>(changed_engine.physics_profile)
+            .core.valvetrain.intake.shape)
+        .samples[1]
+        .lift_m.value += 0.001;
+    const auto changed = require_request_identity_encoding(
+        changed_engine, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
+    expect(changed.sha256 != first.sha256,
+           "sampled cam lift mutation did not change request identity");
+}
+
 void test_fail_closed_boundaries() {
     SimulationFixture fixture;
 
@@ -727,6 +792,7 @@ void check_golden_hashes(const GoldenHashes &canonical,
 int main() {
     try {
         const auto canonical_hashes = test_deterministic_roots();
+        test_sampled_cam_request_identity_wire_shape();
         test_fail_closed_boundaries();
         test_temporally_distinct_torque_capability();
         const auto customized_hashes = test_customized_direct_wire_shape();

@@ -77,7 +77,9 @@ The compiler accepts the currently executable low-order topology without inspect
 engine name and fails closed on unsupported capabilities. Cylinder and
 exhaust/presentation-route execution is count-derived rather than fixed to the BMW
 fixture's six cylinders and two routes. A separate inline-twin/one-route fixture reaches
-the same session boundary. The BMW JSON migration fixture reproduces every
+the same session boundary. Standard fixed valvetrains accept either harmonic lobe
+generators or explicit sampled angle-to-lift profiles through the same runtime sampler.
+The BMW JSON migration fixture reproduces every
 sound-bearing PCM byte of the user-approved inertial dyno. The native CLI resolves
 engine-relative assets inside an explicit asset root and atomically publishes a new
 output directory.

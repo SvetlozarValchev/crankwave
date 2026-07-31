@@ -19,6 +19,7 @@
 #include <string_view>
 #include <type_traits>
 #include <unordered_set>
+#include <variant>
 
 namespace engine_sim_offline::contract {
 namespace {
@@ -200,7 +201,8 @@ void visit_exhaust_parameters(const Parameters &parameters, const std::string &b
 }
 
 template <class Shape, class Function>
-void visit_cam_shape(const Shape &shape, const std::string &base, Function function) {
+void visit_harmonic_cam_shape(const Shape &shape, const std::string &base,
+                              Function function) {
     function(shape.maximum_lift_m, base + ".maximum_lift_m");
     function(shape.duration_at_reference_lift_rad,
              base + ".duration_at_reference_lift_rad");
@@ -208,6 +210,42 @@ void visit_cam_shape(const Shape &shape, const std::string &base, Function funct
     function(shape.construction_steps, base + ".construction_steps");
     function(shape.advance_rad, base + ".advance_rad");
     function(shape.base_radius_m, base + ".base_radius_m");
+}
+
+template <class Function>
+void visit_cam_shape(const AuthoredLegacyCamShape &shape, const std::string &base,
+                     Function function) {
+    visit_harmonic_cam_shape(shape, base, function);
+}
+
+template <class Function>
+void visit_resolved_cam_shape(const LegacyHarmonicCamShape &shape,
+                              const std::string &base, Function function) {
+    visit_harmonic_cam_shape(shape, base, function);
+}
+
+template <class Function>
+void visit_resolved_cam_shape(const LegacySampledCamShape &shape,
+                              const std::string &base, Function function) {
+    function(shape.triangle_radius_rad, base + ".triangle_radius_rad");
+    for (const auto &sample : shape.samples) {
+        const auto sample_base = base + ".samples." + sample.sample_id.value;
+        function(sample.sample_id, sample_base + ".sample_id");
+        function(sample.angle_rad, sample_base + ".angle_rad");
+        function(sample.lift_m, sample_base + ".lift_m");
+    }
+    function(shape.advance_rad, base + ".advance_rad");
+    function(shape.base_radius_m, base + ".base_radius_m");
+}
+
+template <class Function>
+void visit_cam_shape(const LegacyCamShape &shape, const std::string &base,
+                     Function function) {
+    std::visit(
+        [&](const auto &resolved_shape) {
+            visit_resolved_cam_shape(resolved_shape, base, function);
+        },
+        shape);
 }
 
 template <class TimingPoint, class Function>
@@ -550,6 +588,53 @@ void validate_sample_ids(ValidationReport &report, const std::vector<Point> &poi
             report.add(ContractIssueCode::duplicate_identity,
                        path + "[" + std::to_string(index) + "].sample_id.value",
                        "table sample IDs must be unique");
+        }
+    }
+}
+
+void validate_resolved_cam_shape_domains(ValidationReport &report,
+                                         const LegacyHarmonicCamShape &shape,
+                                         const std::string &path) {
+    detail::require(
+        report,
+        detail::finite_positive(shape.maximum_lift_m.value) &&
+            detail::finite_positive(shape.duration_at_reference_lift_rad.value) &&
+            detail::finite_positive(shape.exponent.value) &&
+            shape.construction_steps.value >= 5 &&
+            detail::finite(shape.advance_rad.value) &&
+            detail::finite_positive(shape.base_radius_m.value),
+        ContractIssueCode::invalid_value, path, "cam shape is outside its domain");
+}
+
+void validate_resolved_cam_shape_domains(ValidationReport &report,
+                                         const LegacySampledCamShape &shape,
+                                         const std::string &path) {
+    detail::require(report,
+                    detail::finite_positive(shape.triangle_radius_rad.value) &&
+                        detail::finite(shape.advance_rad.value) &&
+                        detail::finite_positive(shape.base_radius_m.value),
+                    ContractIssueCode::invalid_value, path,
+                    "sampled cam shape is outside its domain");
+    detail::require(report, shape.samples.size() >= 2,
+                    ContractIssueCode::inconsistent_shape, path + ".samples",
+                    "sampled cam shape requires at least two samples");
+    validate_sample_ids(report, shape.samples, path + ".samples");
+
+    for (std::size_t index = 0; index < shape.samples.size(); ++index) {
+        const auto &sample = shape.samples[index];
+        const auto sample_path = path + ".samples[" + std::to_string(index) + "]";
+        detail::require(report,
+                        detail::finite(sample.angle_rad.value) &&
+                            detail::finite_nonnegative(sample.lift_m.value),
+                        ContractIssueCode::invalid_value, sample_path,
+                        "sampled cam point is outside its domain");
+        if (index != 0) {
+            detail::require(report,
+                            sample.angle_rad.value >
+                                shape.samples[index - 1].angle_rad.value,
+                            ContractIssueCode::inconsistent_semantics,
+                            sample_path + ".angle_rad.value",
+                            "sampled cam angles must be strictly increasing");
         }
     }
 }
@@ -1619,16 +1704,11 @@ void validate_low_order_core_domains(ValidationReport &report,
     const auto validate_camshaft = [&](const LegacyCamshaftProfile &camshaft,
                                        PortKind expected_kind,
                                        const std::string &path) {
-        const auto &shape = camshaft.shape;
-        require(report,
-                finite_positive(shape.maximum_lift_m.value) &&
-                    finite_positive(shape.duration_at_reference_lift_rad.value) &&
-                    finite_positive(shape.exponent.value) &&
-                    shape.construction_steps.value >= 5 &&
-                    finite(shape.advance_rad.value) &&
-                    finite_positive(shape.base_radius_m.value),
-                ContractIssueCode::invalid_value, path + ".shape",
-                "cam shape is outside its domain");
+        std::visit(
+            [&](const auto &shape) {
+                validate_resolved_cam_shape_domains(report, shape, path + ".shape");
+            },
+            camshaft.shape);
         require(report,
                 camshaft.lobes.size() == engine.cylinders.size() &&
                     unique_valid_projected(

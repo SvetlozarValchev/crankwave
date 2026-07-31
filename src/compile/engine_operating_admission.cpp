@@ -33,11 +33,48 @@ void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
            curve.samples.size() >= 2U;
 }
 
-void admit_harmonic_lobes(const authoring::CamshaftDefinition &camshaft,
-                          const ModelContext &context,
-                          authoring::PortKind expected_kind,
-                          authoring::DiagnosticReport &report,
-                          std::unordered_set<std::string> &used_lobes) {
+void admit_sampled_cam_curve(const authoring::CurveDefinition &curve,
+                             authoring::DiagnosticReport &report,
+                             std::string_view path) {
+    if (!supported_curve_shape(curve, authoring::QuantityDimension::angle,
+                               authoring::QuantityDimension::length)) {
+        add(report, authoring::DiagnosticCode::unsupported_capability,
+            std::string{path},
+            "sampled cam lobes require a clamped triangle-weighted angle-to-length "
+            "curve with an explicit radius and at least two samples");
+    }
+
+    if (!curve.triangle_filter_radius.has_value() ||
+        !std::isfinite(legacy_si_value(*curve.triangle_filter_radius)) ||
+        legacy_si_value(*curve.triangle_filter_radius) <= 0.0) {
+        add(report, authoring::DiagnosticCode::invalid_value, std::string{path},
+            "sampled cam-lobe triangle radius must be finite and positive");
+    }
+
+    double previous_angle_rad = -std::numeric_limits<double>::infinity();
+    for (const auto &sample : curve.samples) {
+        const double angle_rad = legacy_si_value(sample.input);
+        const double lift_m = legacy_si_value(sample.output);
+        if (!(std::isfinite(angle_rad) && angle_rad > previous_angle_rad)) {
+            add(report, authoring::DiagnosticCode::invalid_value, std::string{path},
+                "sampled cam-lobe angles must be finite and strictly increasing");
+            break;
+        }
+        previous_angle_rad = angle_rad;
+        if (!(std::isfinite(lift_m) && lift_m >= 0.0)) {
+            add(report, authoring::DiagnosticCode::invalid_value, std::string{path},
+                "sampled cam-lobe lifts must be finite and nonnegative");
+            break;
+        }
+    }
+}
+
+void admit_fixed_cam_lobes(const authoring::CamshaftDefinition &camshaft,
+                           const ModelContext &context,
+                           authoring::PortKind expected_kind,
+                           authoring::DiagnosticReport &report,
+                           std::unordered_set<std::string> &used_lobes,
+                           std::unordered_set<std::string> &used_curves) {
     std::unordered_set<std::string> covered_cylinders;
     const auto &engine = context.document.engine;
     for (const auto &reference : camshaft.lobes) {
@@ -51,30 +88,37 @@ void admit_harmonic_lobes(const authoring::CamshaftDefinition &camshaft,
         }
         used_lobes.insert(lobe.id.value);
         covered_cylinders.insert(lobe.cylinder.value);
-        if (!std::holds_alternative<authoring::HarmonicCamLobe>(lobe.shape)) {
-            add(report, authoring::DiagnosticCode::unsupported_capability,
-                "/engine/cam_lobes",
-                "the current fixed valvetrain admits harmonic cam lobes only");
+        if (const auto *shape = std::get_if<authoring::HarmonicCamLobe>(&lobe.shape)) {
+            const double reference_lift_m = legacy_si_value(shape->reference_lift);
+            const double admitted_reference_lift_m =
+                50.0 * (((1.0 / 100.0) * 2.54) / 1000.0);
+            if (!std::isfinite(reference_lift_m) ||
+                std::abs(reference_lift_m - admitted_reference_lift_m) > 1.0e-15) {
+                add(report, authoring::DiagnosticCode::unsupported_capability,
+                    "/engine/cam_lobes",
+                    "legacy_low_order_v1 admits the exact 0.050-inch harmonic "
+                    "reference lift only");
+            }
+            if (!(shape->gamma > 0.0 && shape->sample_count >= 6U &&
+                  shape->sample_count <= 1'000'000U)) {
+                add(report, authoring::DiagnosticCode::unsupported_capability,
+                    "/engine/cam_lobes",
+                    "harmonic gamma must be positive and sample_count must be in "
+                    "[6,1000000] for the current fixed valvetrain");
+            }
             continue;
         }
-        const auto &shape = std::get<authoring::HarmonicCamLobe>(lobe.shape);
-        const double reference_lift_m = legacy_si_value(shape.reference_lift);
-        const double admitted_reference_lift_m =
-            50.0 * (((1.0 / 100.0) * 2.54) / 1000.0);
-        if (!std::isfinite(reference_lift_m) ||
-            std::abs(reference_lift_m - admitted_reference_lift_m) > 1.0e-15) {
-            add(report, authoring::DiagnosticCode::unsupported_capability,
+
+        const auto &shape = std::get<authoring::SampledCamLobe>(lobe.shape);
+        const auto curve = context.curves.find(shape.lift_curve.value);
+        if (curve == context.curves.end()) {
+            add(report, authoring::DiagnosticCode::dangling_reference,
                 "/engine/cam_lobes",
-                "legacy_low_order_v1 admits the exact 0.050-inch harmonic "
-                "reference lift only");
+                "sampled cam-lobe lift-curve reference did not resolve");
+            continue;
         }
-        if (!(shape.gamma > 0.0 && shape.sample_count >= 6U &&
-              shape.sample_count <= 1'000'000U)) {
-            add(report, authoring::DiagnosticCode::unsupported_capability,
-                "/engine/cam_lobes",
-                "harmonic gamma must be positive and sample_count must be in "
-                "[6,1000000] for the current fixed valvetrain");
-        }
+        used_curves.insert(shape.lift_curve.value);
+        admit_sampled_cam_curve(*curve->second, report, "/engine/cam_lobes");
     }
     if (covered_cylinders.size() != engine.cylinders.size()) {
         add(report, authoring::DiagnosticCode::unsupported_capability,
@@ -83,25 +127,19 @@ void admit_harmonic_lobes(const authoring::CamshaftDefinition &camshaft,
     }
 }
 
-[[nodiscard]] bool
-equivalent_harmonic_shapes(const authoring::CamshaftDefinition &camshaft,
-                           const ModelContext &context,
-                           authoring::PortKind expected_kind) {
-    const authoring::HarmonicCamLobe *first = nullptr;
+[[nodiscard]] bool equivalent_cam_shapes(const authoring::CamshaftDefinition &camshaft,
+                                         const ModelContext &context,
+                                         authoring::PortKind expected_kind) {
+    const authoring::CamLobeShape *first = nullptr;
     for (const auto &reference : camshaft.lobes) {
         const auto found = context.cam_lobes.find(reference.value);
         if (found == context.cam_lobes.end() ||
             found->second->port_kind != expected_kind) {
             continue;
         }
-        const auto *shape =
-            std::get_if<authoring::HarmonicCamLobe>(&found->second->shape);
-        if (shape == nullptr) {
-            return false;
-        }
         if (first == nullptr) {
-            first = shape;
-        } else if (*first != *shape) {
+            first = &found->second->shape;
+        } else if (*first != found->second->shape) {
             return false;
         }
     }
@@ -258,24 +296,20 @@ void admit_engine_operating_systems(ModelContext &resolved,
                    authoring::QuantityDimension::dimensionless,
                    authoring::QuantityDimension::speed,
                    "/engine/fuels/0/turbulence_to_flame_speed", false);
-    if (used_curves.size() != engine.curves.size()) {
-        add(report, DiagnosticCode::disconnected_object, "/engine/curves",
-            "all declared curves must be consumed by the admitted gas, ignition, "
-            "or fuel paths");
-    }
-
     std::unordered_set<std::string> used_lobes;
     if (resolved.intake_camshaft != nullptr && resolved.exhaust_camshaft != nullptr) {
-        admit_harmonic_lobes(*resolved.intake_camshaft, resolved,
-                             authoring::PortKind::intake, report, used_lobes);
-        admit_harmonic_lobes(*resolved.exhaust_camshaft, resolved,
-                             authoring::PortKind::exhaust, report, used_lobes);
-        if (!equivalent_harmonic_shapes(*resolved.intake_camshaft, resolved,
-                                        authoring::PortKind::intake) ||
-            !equivalent_harmonic_shapes(*resolved.exhaust_camshaft, resolved,
-                                        authoring::PortKind::exhaust)) {
+        admit_fixed_cam_lobes(*resolved.intake_camshaft, resolved,
+                              authoring::PortKind::intake, report, used_lobes,
+                              used_curves);
+        admit_fixed_cam_lobes(*resolved.exhaust_camshaft, resolved,
+                              authoring::PortKind::exhaust, report, used_lobes,
+                              used_curves);
+        if (!equivalent_cam_shapes(*resolved.intake_camshaft, resolved,
+                                   authoring::PortKind::intake) ||
+            !equivalent_cam_shapes(*resolved.exhaust_camshaft, resolved,
+                                   authoring::PortKind::exhaust)) {
             add(report, DiagnosticCode::unsupported_capability, "/engine/cam_lobes",
-                "each camshaft role currently requires one shared harmonic shape");
+                "each camshaft role requires one exact shared authored cam shape");
         }
         const std::unordered_set<std::string> used_camshafts{
             resolved.intake_camshaft->id.value,
@@ -287,6 +321,11 @@ void admit_engine_operating_systems(ModelContext &resolved,
                 "all declared camshafts and lobes must belong to the selected "
                 "standard valvetrain");
         }
+    }
+    if (used_curves.size() != engine.curves.size()) {
+        add(report, DiagnosticCode::disconnected_object, "/engine/curves",
+            "all declared curves must be consumed by the admitted gas, ignition, "
+            "fuel, or fixed-valvetrain paths");
     }
 }
 

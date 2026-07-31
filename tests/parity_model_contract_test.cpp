@@ -32,6 +32,32 @@ LowOrderOperatingPointV1Profile &operating_profile(EngineSpec &engine) {
     return std::get<LowOrderOperatingPointV1Profile>(engine.physics_profile);
 }
 
+LegacySampledCamShape make_sampled_cam_shape(InputBuilder &builder,
+                                             const LegacyHarmonicCamShape &harmonic,
+                                             std::string_view role) {
+    const auto base =
+        std::string{"engine.physics.low-order-operating-point-v1.valvetrain."} +
+        std::string{role} + ".shape";
+    const auto point = [&](std::string id, double angle_rad, double lift_m) {
+        const auto path = base + ".samples." + id;
+        return LegacySampledCamPoint{
+            builder.resolved(id, path + ".sample_id"),
+            builder.resolved(angle_rad, path + ".angle_rad"),
+            builder.resolved(lift_m, path + ".lift_m"),
+        };
+    };
+    return {
+        builder.resolved(0.01, base + ".triangle_radius_rad"),
+        {
+            point("opening", -1.0, 0.0),
+            point("peak", 0.0, 0.009),
+            point("closing", 1.0, 0.0),
+        },
+        harmonic.advance_rad,
+        harmonic.base_radius_m,
+    };
+}
+
 } // namespace
 
 void run_parity_model_contract_tests() {
@@ -46,6 +72,75 @@ void run_parity_model_contract_tests() {
         .core.fuel.burning_efficiency_randomness_01.value = 0.0;
     expect(validate(deterministic_engine, deterministic_builder.provenance).ok(),
            "zero burning-efficiency variation invalidated the engine profile");
+
+    InputBuilder sampled_builder;
+    auto sampled_engine = make_engine(sampled_builder);
+    auto &sampled_intake = operating_profile(sampled_engine).core.valvetrain.intake;
+    sampled_intake.shape = make_sampled_cam_shape(
+        sampled_builder, std::get<LegacyHarmonicCamShape>(sampled_intake.shape),
+        "intake");
+    expect(validate(sampled_engine, sampled_builder.provenance).ok(),
+           "valid sampled fixed cam shape was rejected");
+
+    expect_parity_mutation_rejected(
+        "nonpositive sampled cam radius was accepted",
+        [](EngineSpec &engine, InputBuilder &builder) {
+            auto &intake = operating_profile(engine).core.valvetrain.intake;
+            intake.shape = make_sampled_cam_shape(
+                builder, std::get<LegacyHarmonicCamShape>(intake.shape), "intake");
+            std::get<LegacySampledCamShape>(intake.shape).triangle_radius_rad.value =
+                0.0;
+        });
+
+    expect_parity_mutation_rejected(
+        "undersized sampled cam table was accepted",
+        [](EngineSpec &engine, InputBuilder &builder) {
+            auto &intake = operating_profile(engine).core.valvetrain.intake;
+            intake.shape = make_sampled_cam_shape(
+                builder, std::get<LegacyHarmonicCamShape>(intake.shape), "intake");
+            std::get<LegacySampledCamShape>(intake.shape).samples.resize(1);
+        });
+
+    expect_parity_mutation_rejected(
+        "noncanonical sampled cam point identity was accepted",
+        [](EngineSpec &engine, InputBuilder &builder) {
+            auto &intake = operating_profile(engine).core.valvetrain.intake;
+            intake.shape = make_sampled_cam_shape(
+                builder, std::get<LegacyHarmonicCamShape>(intake.shape), "intake");
+            std::get<LegacySampledCamShape>(intake.shape)
+                .samples.front()
+                .sample_id.value = "Not Canonical";
+        });
+
+    expect_parity_mutation_rejected(
+        "duplicate sampled cam point identity was accepted",
+        [](EngineSpec &engine, InputBuilder &builder) {
+            auto &intake = operating_profile(engine).core.valvetrain.intake;
+            intake.shape = make_sampled_cam_shape(
+                builder, std::get<LegacyHarmonicCamShape>(intake.shape), "intake");
+            auto &samples = std::get<LegacySampledCamShape>(intake.shape).samples;
+            samples[1].sample_id.value = samples[0].sample_id.value;
+        });
+
+    expect_parity_mutation_rejected(
+        "unordered sampled cam angles were accepted",
+        [](EngineSpec &engine, InputBuilder &builder) {
+            auto &intake = operating_profile(engine).core.valvetrain.intake;
+            intake.shape = make_sampled_cam_shape(
+                builder, std::get<LegacyHarmonicCamShape>(intake.shape), "intake");
+            std::get<LegacySampledCamShape>(intake.shape).samples[1].angle_rad.value =
+                -1.0;
+        });
+
+    expect_parity_mutation_rejected(
+        "negative sampled cam lift was accepted",
+        [](EngineSpec &engine, InputBuilder &builder) {
+            auto &intake = operating_profile(engine).core.valvetrain.intake;
+            intake.shape = make_sampled_cam_shape(
+                builder, std::get<LegacyHarmonicCamShape>(intake.shape), "intake");
+            std::get<LegacySampledCamShape>(intake.shape).samples[1].lift_m.value =
+                -0.001;
+        });
 
     expect_parity_mutation_rejected("non-legacy subsystem method identity was accepted",
                                     [](EngineSpec &engine, InputBuilder &) {

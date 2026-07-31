@@ -286,7 +286,7 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
     const auto make_cam = [&](std::string name, PortId port_id) {
         const auto base = path("valvetrain." + name);
         LegacyCamshaftProfile camshaft;
-        camshaft.shape = {
+        camshaft.shape = LegacyHarmonicCamShape{
             builder.resolved(0.009, base + ".shape.maximum_lift_m"),
             builder.resolved(3.6, base + ".shape.duration_at_reference_lift_rad"),
             builder.resolved(0.8, base + ".shape.exponent"),

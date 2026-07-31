@@ -164,10 +164,11 @@ declared radius are triangle-weighted and normalized, and values outside the sam
 domain clamp to the first/last sample. Duplicate sample abscissas are rejected at the
 new authoring boundary rather than preserving ambiguous insertion behavior.
 
-Flow tables, ignition timing, and fuel turbulence/flame-speed response use curve
-references. The current cam compiler admits `harmonic_cam_lobe` and expands it to an
-ordinary sampled lobe curve; arbitrary sampled cam-lobe authoring remains unsupported.
-The generator is not a separate runtime graph language.
+Flow tables, ignition timing, fuel turbulence/flame-speed response, and authored
+sampled cam lobes use curve references. The fixed-cam compiler admits both
+`harmonic_cam_lobe`, which it expands to an ordinary sampled table, and
+`sampled_cam_lobe`, which executes the referenced angle-to-lift samples directly. The
+generator is not a separate runtime graph language.
 
 ## Status legend
 
@@ -235,7 +236,7 @@ the remainder as explicit capability diagnostics:
 
 | Pristine capability | Intended JSON ownership | Current status | Acceptance requirement |
 |---|---|---|---|
-| Cam advance, base radius, sampled lobe profile | `engine.camshafts[]` | **Partial**; BMW harmonic shape/advance/base radius exist, arbitrary sampled lobe authoring does not | Sampled and generated-equivalent lobes resolve identically. |
+| Cam advance, base radius, sampled lobe profile | `engine.camshafts[]` and angle-to-length `engine.curves[]` referenced by `sampled_cam_lobe` | **Low-order executed** for standard fixed valvetrains; sampled profiles retain source triangle weighting, clamping, advance, and crank phasing | Sampled and generated-equivalent lobes resolve and render byte-identically. |
 | Arbitrary lobe centerlines added to a cam | Ordered cam lobe references by cylinder/port and centerline | **Low-order executed/Partial** | Firing-independent lobe ordering survives compilation. |
 | Harmonic lobe generator parameters | Compiler-side curve generator | **Low-order executed** internally | Generator golden samples match the accepted BMW profile. |
 | Standard intake/exhaust cam valvetrain | `engine.valvetrains[]`, `type: "standard"` | **Low-order executed** | BMW valve-lift traces remain unchanged. |

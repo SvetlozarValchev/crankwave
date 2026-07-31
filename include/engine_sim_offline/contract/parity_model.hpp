@@ -288,7 +288,28 @@ template <template <class> class Field> struct LegacyCamShapeT {
 };
 
 using AuthoredLegacyCamShape = LegacyCamShapeT<AuthoredValue>;
-using LegacyCamShape = LegacyCamShapeT<ResolvedValue>;
+using LegacyHarmonicCamShape = LegacyCamShapeT<ResolvedValue>;
+
+struct LegacySampledCamPoint {
+    ResolvedValue<std::string> sample_id;
+    ResolvedValue<double> angle_rad;
+    ResolvedValue<double> lift_m;
+
+    friend bool operator==(const LegacySampledCamPoint &,
+                           const LegacySampledCamPoint &) = default;
+};
+
+struct LegacySampledCamShape {
+    ResolvedValue<double> triangle_radius_rad;
+    std::vector<LegacySampledCamPoint> samples;
+    ResolvedValue<double> advance_rad;
+    ResolvedValue<double> base_radius_m;
+
+    friend bool operator==(const LegacySampledCamShape &,
+                           const LegacySampledCamShape &) = default;
+};
+
+using LegacyCamShape = std::variant<LegacyHarmonicCamShape, LegacySampledCamShape>;
 
 struct AuthoredLegacyCamLobe {
     AuthoredValue<std::string> cylinder_id;

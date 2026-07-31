@@ -5,6 +5,7 @@
 #include "engine_sim_offline/session.hpp"
 
 #include "compile/engine_resolver.hpp"
+#include "simulation/legacy_fixed_valvetrain.hpp"
 
 #include <algorithm>
 #include <array>
@@ -14,6 +15,7 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <limits>
 #include <numbers>
 #include <optional>
 #include <ranges>
@@ -31,6 +33,7 @@ namespace authoring = engine_sim_offline::authoring;
 namespace compile = engine_sim_offline::compile;
 namespace contract = engine_sim_offline::contract;
 namespace compile_detail = engine_sim_offline::compile::detail;
+namespace simulation = engine_sim_offline::simulation;
 
 constexpr std::size_t kCylinderCount = 6U;
 constexpr std::uint32_t kIrSampleRateHz = 44100U;
@@ -260,6 +263,69 @@ struct SyntheticAssets {
         intake ? 1.15 : 1.1,
         100U,
     };
+}
+
+[[nodiscard]] authoring::CurveDefinition
+make_sampled_cam_curve(std::string id = "fixture-sampled-intake-cam") {
+    authoring::CurveDefinition curve;
+    curve.id = {std::move(id)};
+    curve.input_dimension = authoring::QuantityDimension::angle;
+    curve.output_dimension = authoring::QuantityDimension::length;
+    curve.evaluation = authoring::CurveEvaluation::triangle_weighted_samples;
+    curve.triangle_filter_radius = quantity(2.5, "deg");
+    curve.below_domain = authoring::CurveBoundaryBehavior::clamp;
+    curve.above_domain = authoring::CurveBoundaryBehavior::clamp;
+    curve.samples = {
+        {quantity(-120.0, "deg"), quantity(0.0, "mm")},
+        {quantity(-40.0, "deg"), quantity(3.1, "mm")},
+        {quantity(0.0, "deg"), quantity(9.8, "mm")},
+        {quantity(40.0, "deg"), quantity(3.1, "mm")},
+        {quantity(120.0, "deg"), quantity(0.0, "mm")},
+    };
+    return curve;
+}
+
+void use_sampled_intake_cam(authoring::EnginePackageDocument &document,
+                            std::string curve_id = "fixture-sampled-intake-cam") {
+    for (auto &lobe : document.engine.cam_lobes) {
+        if (lobe.port_kind == authoring::PortKind::intake) {
+            lobe.shape = authoring::SampledCamLobe{authoring::CurveRef{curve_id}};
+        }
+    }
+}
+
+[[nodiscard]] authoring::CurveDefinition sampled_cam_curve_from_table(
+    std::string id, const std::span<const simulation::LegacyTrianglePoint> table,
+    const double triangle_radius_rad) {
+    authoring::CurveDefinition curve;
+    curve.id = {std::move(id)};
+    curve.input_dimension = authoring::QuantityDimension::angle;
+    curve.output_dimension = authoring::QuantityDimension::length;
+    curve.evaluation = authoring::CurveEvaluation::triangle_weighted_samples;
+    curve.triangle_filter_radius = quantity(triangle_radius_rad, "rad");
+    curve.below_domain = authoring::CurveBoundaryBehavior::clamp;
+    curve.above_domain = authoring::CurveBoundaryBehavior::clamp;
+    curve.samples.reserve(table.size());
+    for (const auto &point : table) {
+        curve.samples.push_back({quantity(point.x, "rad"), quantity(point.y, "m")});
+    }
+    return curve;
+}
+
+[[nodiscard]] simulation::LegacyFixedValvetrain
+require_fixed_valvetrain(const contract::EngineSpec &engine,
+                         const contract::LowOrderOperatingPointV1Profile &profile,
+                         const std::string_view context) {
+    auto result = simulation::compile_legacy_fixed_valvetrain(engine, profile.core);
+    if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
+        std::string message{context};
+        if (!report->issues.empty()) {
+            message += " at " + report->issues.front().path + ": " +
+                       report->issues.front().message;
+        }
+        throw std::runtime_error{message};
+    }
+    return std::get<simulation::LegacyFixedValvetrain>(std::move(result));
 }
 
 [[nodiscard]] std::string indexed_id(const std::string_view prefix,
@@ -1263,6 +1329,265 @@ void test_cranking_starter_resolves_to_si_capability() {
                         "public compiler rejected a cranking-capable engine");
 }
 
+void test_sampled_fixed_cam_resolves_si_curve_and_provenance() {
+    const SyntheticAssets assets = make_assets();
+    auto document = make_engine_document(assets);
+    document.engine.curves.push_back(make_sampled_cam_curve());
+    use_sampled_intake_cam(document);
+    auto views = assets.views();
+
+    auto resolved =
+        require_value(compile_detail::resolve_engine_package(document, views),
+                      "valid sampled fixed cam was rejected");
+    const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+        resolved.engine.physics_profile);
+    const auto *sampled = std::get_if<contract::LegacySampledCamShape>(
+        &profile.core.valvetrain.intake.shape);
+    const auto *harmonic = std::get_if<contract::LegacyHarmonicCamShape>(
+        &profile.core.valvetrain.exhaust.shape);
+    expect(sampled != nullptr && harmonic != nullptr,
+           "sampled intake changed the independent harmonic exhaust shape");
+
+    const auto near = [](const double left, const double right) {
+        return std::abs(left - right) <= 1.0e-12;
+    };
+    const double degrees_to_radians = std::numbers::pi_v<double> / 180.0;
+    expect(sampled->samples.size() == 5U &&
+               sampled->samples[0].sample_id.value == "sample-1" &&
+               sampled->samples[4].sample_id.value == "sample-5" &&
+               near(sampled->triangle_radius_rad.value, 2.5 * degrees_to_radians) &&
+               near(sampled->samples[0].angle_rad.value, -120.0 * degrees_to_radians) &&
+               near(sampled->samples[2].angle_rad.value, 0.0) &&
+               near(sampled->samples[2].lift_m.value, 0.0098) &&
+               near(sampled->advance_rad.value, 0.0) &&
+               near(sampled->base_radius_m.value, 0.0155),
+           "sampled fixed cam lost stable sample IDs or canonical SI values");
+
+    const auto has_resolution = [&](const std::string_view path) {
+        return std::ranges::any_of(
+            resolved.provenance.resolutions, [&](const auto &resolution) {
+                return resolution.parameter_path == path &&
+                       resolution.mode == contract::ResolutionMode::authored;
+            });
+    };
+    expect(has_resolution(
+               "engine.physics.low-order-operating-point-v1.valvetrain.intake.shape."
+               "triangle_radius_rad") &&
+               has_resolution(
+                   "engine.physics.low-order-operating-point-v1.valvetrain.intake."
+                   "shape.samples.sample-1.sample_id") &&
+               has_resolution(
+                   "engine.physics.low-order-operating-point-v1.valvetrain.intake."
+                   "shape.samples.sample-1.angle_rad") &&
+               has_resolution(
+                   "engine.physics.low-order-operating-point-v1.valvetrain.intake."
+                   "shape.samples.sample-1.lift_m"),
+           "sampled fixed cam lost authored per-sample provenance");
+
+    (void)require_value(compile::compile_engine(document, views),
+                        "public compiler rejected a valid sampled fixed cam");
+}
+
+void test_harmonic_and_equivalent_sampled_cam_sessions_are_identical() {
+    const SyntheticAssets assets = make_assets();
+    const auto harmonic_document = make_engine_document(assets);
+    auto views = assets.views();
+    const auto harmonic_resolved =
+        require_value(compile_detail::resolve_engine_package(harmonic_document, views),
+                      "harmonic equivalence fixture failed to resolve");
+    const auto &harmonic_profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+        harmonic_resolved.engine.physics_profile);
+    const auto harmonic_valvetrain = require_fixed_valvetrain(
+        harmonic_resolved.engine, harmonic_profile,
+        "harmonic equivalence fixture failed to compile its valvetrain");
+
+    auto sampled_document = harmonic_document;
+    constexpr std::string_view kIntakeCurveId = "sampled-equivalent-intake-lift";
+    constexpr std::string_view kExhaustCurveId = "sampled-equivalent-exhaust-lift";
+    sampled_document.engine.curves.push_back(sampled_cam_curve_from_table(
+        std::string{kIntakeCurveId}, harmonic_valvetrain.intake_lobe_table(),
+        harmonic_valvetrain.intake_lobe_triangle_radius_rad()));
+    sampled_document.engine.curves.push_back(sampled_cam_curve_from_table(
+        std::string{kExhaustCurveId}, harmonic_valvetrain.exhaust_lobe_table(),
+        harmonic_valvetrain.exhaust_lobe_triangle_radius_rad()));
+    for (auto &lobe : sampled_document.engine.cam_lobes) {
+        lobe.shape = authoring::SampledCamLobe{authoring::CurveRef{std::string{
+            lobe.port_kind == authoring::PortKind::intake ? kIntakeCurveId
+                                                          : kExhaustCurveId}}};
+    }
+
+    const auto sampled_resolved =
+        require_value(compile_detail::resolve_engine_package(sampled_document, views),
+                      "equivalent sampled fixture failed to resolve");
+    const auto &sampled_profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+        sampled_resolved.engine.physics_profile);
+    const auto sampled_valvetrain = require_fixed_valvetrain(
+        sampled_resolved.engine, sampled_profile,
+        "equivalent sampled fixture failed to compile its valvetrain");
+    expect(std::ranges::equal(std::as_bytes(harmonic_valvetrain.intake_lobe_table()),
+                              std::as_bytes(sampled_valvetrain.intake_lobe_table())) &&
+               std::ranges::equal(
+                   std::as_bytes(harmonic_valvetrain.exhaust_lobe_table()),
+                   std::as_bytes(sampled_valvetrain.exhaust_lobe_table())) &&
+               harmonic_valvetrain.intake_lobe_triangle_radius_rad() ==
+                   sampled_valvetrain.intake_lobe_triangle_radius_rad() &&
+               harmonic_valvetrain.exhaust_lobe_triangle_radius_rad() ==
+                   sampled_valvetrain.exhaust_lobe_triangle_radius_rad(),
+           "generated harmonic and equivalent sampled cam tables differ");
+
+    const auto harmonic_engine =
+        require_value(compile::compile_engine(harmonic_document, views),
+                      "harmonic equivalence engine failed public compilation");
+    const auto sampled_engine =
+        require_value(compile::compile_engine(sampled_document, views),
+                      "sampled equivalence engine failed public compilation");
+    const auto scenario_document = make_scenario_document();
+    const auto harmonic_scenario =
+        require_value(compile::compile_scenario(harmonic_engine, scenario_document),
+                      "harmonic equivalence scenario failed compilation");
+    const auto sampled_scenario =
+        require_value(compile::compile_scenario(sampled_engine, scenario_document),
+                      "sampled equivalence scenario failed compilation");
+
+    const auto make_session = [](const compile::CompiledScenario &scenario,
+                                 const std::string_view context) {
+        auto created = engine_sim_offline::create_engine_session(
+            scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+        if (const auto *error =
+                std::get_if<engine_sim_offline::EngineSessionError>(&created)) {
+            throw std::runtime_error{std::string{context} + ": " + error->detail_code +
+                                     ": " + error->message};
+        }
+        return std::get<engine_sim_offline::EngineSession>(std::move(created));
+    };
+    auto harmonic_session =
+        make_session(harmonic_scenario, "harmonic equivalence session failed");
+    auto sampled_session =
+        make_session(sampled_scenario, "sampled equivalence session failed");
+
+    std::uint64_t compared_audio_samples = 0;
+    while (true) {
+        auto harmonic_result = harmonic_session.process_block();
+        auto sampled_result = sampled_session.process_block();
+        const auto *harmonic_block =
+            std::get_if<engine_sim_offline::EngineSessionBlockView>(&harmonic_result);
+        const auto *sampled_block =
+            std::get_if<engine_sim_offline::EngineSessionBlockView>(&sampled_result);
+        if (harmonic_block != nullptr || sampled_block != nullptr) {
+            expect(harmonic_block != nullptr && sampled_block != nullptr &&
+                       harmonic_block->block_ordinal() ==
+                           sampled_block->block_ordinal() &&
+                       harmonic_block->phase() == sampled_block->phase() &&
+                       harmonic_block->audio_buses().size() ==
+                           sampled_block->audio_buses().size(),
+                   "equivalent cam sessions diverged in block structure");
+            for (std::size_t index = 0; index < harmonic_block->audio_buses().size();
+                 ++index) {
+                const auto &harmonic_bus = harmonic_block->audio_buses()[index];
+                const auto &sampled_bus = sampled_block->audio_buses()[index];
+                expect(harmonic_bus.descriptor.id == sampled_bus.descriptor.id &&
+                           harmonic_bus.descriptor.kind ==
+                               sampled_bus.descriptor.kind &&
+                           harmonic_bus.descriptor.route_id ==
+                               sampled_bus.descriptor.route_id &&
+                           std::ranges::equal(std::as_bytes(harmonic_bus.samples),
+                                              std::as_bytes(sampled_bus.samples)),
+                       "equivalent sampled cam changed a session audio bus");
+                compared_audio_samples += harmonic_bus.samples.size();
+            }
+            continue;
+        }
+        const auto *harmonic_error =
+            std::get_if<engine_sim_offline::EngineSessionError>(&harmonic_result);
+        const auto *sampled_error =
+            std::get_if<engine_sim_offline::EngineSessionError>(&sampled_result);
+        if (harmonic_error != nullptr || sampled_error != nullptr) {
+            throw std::runtime_error{"equivalent cam session failed during execution"};
+        }
+        expect(std::holds_alternative<engine_sim_offline::EngineSessionCompleted>(
+                   harmonic_result) &&
+                   std::holds_alternative<engine_sim_offline::EngineSessionCompleted>(
+                       sampled_result) &&
+                   compared_audio_samples != 0U,
+               "equivalent cam sessions did not complete with compared audio");
+        break;
+    }
+}
+
+template <class Mutation>
+void expect_sampled_fixed_cam_rejected(const SyntheticAssets &assets, Mutation mutation,
+                                       const authoring::DiagnosticCode code,
+                                       const std::string_view context) {
+    auto document = make_engine_document(assets);
+    document.engine.curves.push_back(make_sampled_cam_curve());
+    use_sampled_intake_cam(document);
+    mutation(document);
+    auto views = assets.views();
+    const auto result = compile::compile_engine(document, views);
+    require_diagnostic(result, code, "/engine/cam_lobes", context);
+}
+
+void test_invalid_sampled_fixed_cams_fail_closed() {
+    const SyntheticAssets assets = make_assets();
+
+    expect_sampled_fixed_cam_rejected(
+        assets,
+        [](auto &document) {
+            document.engine.curves.back().input_dimension =
+                authoring::QuantityDimension::angular_speed;
+        },
+        authoring::DiagnosticCode::unsupported_capability,
+        "sampled cam with a non-angle domain");
+    expect_sampled_fixed_cam_rejected(
+        assets,
+        [](auto &document) {
+            document.engine.curves.back().triangle_filter_radius->value =
+                std::numeric_limits<double>::infinity();
+        },
+        authoring::DiagnosticCode::invalid_value,
+        "sampled cam with a non-finite triangle radius");
+    expect_sampled_fixed_cam_rejected(
+        assets,
+        [](auto &document) { document.engine.curves.back().samples.resize(1U); },
+        authoring::DiagnosticCode::unsupported_capability,
+        "sampled cam with fewer than two samples");
+    expect_sampled_fixed_cam_rejected(
+        assets,
+        [](auto &document) {
+            document.engine.curves.back().samples[2].input =
+                document.engine.curves.back().samples[1].input;
+        },
+        authoring::DiagnosticCode::invalid_value,
+        "sampled cam with non-increasing angles");
+    expect_sampled_fixed_cam_rejected(
+        assets,
+        [](auto &document) {
+            document.engine.curves.back().samples[2].output = quantity(-0.1, "mm");
+        },
+        authoring::DiagnosticCode::invalid_value, "sampled cam with negative lift");
+    expect_sampled_fixed_cam_rejected(
+        assets,
+        [](auto &document) {
+            document.engine.curves.push_back(
+                make_sampled_cam_curve("fixture-second-sampled-intake-cam"));
+            bool retained_first = false;
+            for (auto &lobe : document.engine.cam_lobes) {
+                if (lobe.port_kind != authoring::PortKind::intake) {
+                    continue;
+                }
+                if (!retained_first) {
+                    retained_first = true;
+                    continue;
+                }
+                lobe.shape = authoring::SampledCamLobe{
+                    authoring::CurveRef{"fixture-second-sampled-intake-cam"}};
+                break;
+            }
+        },
+        authoring::DiagnosticCode::unsupported_capability,
+        "one camshaft referencing two separately authored sampled curves");
+}
+
 void test_unsupported_capability_fails_closed() {
     const SyntheticAssets assets = make_assets();
     {
@@ -1326,6 +1651,9 @@ int main() {
         test_asset_admission_is_exact_and_closed();
         test_rig_compiles_to_immutable_si_descriptors();
         test_cranking_starter_resolves_to_si_capability();
+        test_sampled_fixed_cam_resolves_si_curve_and_provenance();
+        test_harmonic_and_equivalent_sampled_cam_sessions_are_identical();
+        test_invalid_sampled_fixed_cams_fail_closed();
         test_unsupported_capability_fails_closed();
         test_direct_scenario_dto_admission_fails_closed();
         std::cout << "compiler integration tests passed\n";

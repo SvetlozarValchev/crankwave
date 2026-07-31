@@ -7,6 +7,7 @@
 #include <string>
 #include <unordered_set>
 #include <utility>
+#include <variant>
 
 namespace engine_sim_offline::simulation {
 namespace {
@@ -39,8 +40,20 @@ void require(ValidationReport &report, bool condition, ContractIssueCode code,
     return method.value.id == "legacy_low_order_v1" && method.value.version == 1;
 }
 
+template <class Predicate>
+[[nodiscard]] bool all_unique(std::size_t size, Predicate predicate) {
+    for (std::size_t left = 0; left < size; ++left) {
+        for (std::size_t right = left + 1U; right < size; ++right) {
+            if (predicate(left, right)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 [[nodiscard]] std::optional<AdmittedCamShape>
-admit_cam_shape(const contract::LegacyCamShape &shape, ValidationReport &report,
+admit_cam_shape(const contract::LegacyHarmonicCamShape &shape, ValidationReport &report,
                 const std::string &path) {
     const double maximum_lift_m = shape.maximum_lift_m.value;
     const double duration_at_reference_lift_rad =
@@ -94,8 +107,61 @@ admit_cam_shape(const contract::LegacyCamShape &shape, ValidationReport &report,
     return AdmittedCamShape{radius_rad};
 }
 
+[[nodiscard]] std::optional<AdmittedCamShape>
+admit_cam_shape(const contract::LegacySampledCamShape &shape, ValidationReport &report,
+                const std::string &path) {
+    const bool metadata_valid = finite_positive(shape.triangle_radius_rad.value) &&
+                                std::isfinite(shape.advance_rad.value) &&
+                                finite_positive(shape.base_radius_m.value);
+    require(report, metadata_valid, ContractIssueCode::invalid_value, path + ".shape",
+            "sampled cam shape requires a finite positive triangle radius and base "
+            "radius and finite advance");
+
+    const bool count_valid = shape.samples.size() >= 2U;
+    require(report, count_valid, ContractIssueCode::inconsistent_shape,
+            path + ".shape.samples",
+            "sampled cam shape requires at least two angle/lift samples");
+
+    bool points_valid = true;
+    bool unique_sample_ids = true;
+    std::unordered_set<std::string> sample_ids;
+    sample_ids.reserve(shape.samples.size());
+    for (std::size_t index = 0; index < shape.samples.size(); ++index) {
+        const auto &point = shape.samples[index];
+        const bool point_valid =
+            contract::is_valid_semantic_id(point.sample_id.value) &&
+            std::isfinite(point.angle_rad.value) && std::isfinite(point.lift_m.value) &&
+            point.lift_m.value >= 0.0 &&
+            (index == 0U ||
+             point.angle_rad.value > shape.samples[index - 1U].angle_rad.value);
+        require(report, point_valid, ContractIssueCode::invalid_value,
+                path + ".shape.samples[" + std::to_string(index) + "]",
+                "sampled cam points require identity, finite nonnegative lift, and "
+                "finite strictly increasing angle");
+        points_valid = points_valid && point_valid;
+        unique_sample_ids =
+            sample_ids.insert(point.sample_id.value).second && unique_sample_ids;
+    }
+    require(report, unique_sample_ids, ContractIssueCode::duplicate_identity,
+            path + ".shape.samples",
+            "sampled cam point identities must be unique within the profile");
+
+    if (!metadata_valid || !count_valid || !points_valid || !unique_sample_ids) {
+        return std::nullopt;
+    }
+    return AdmittedCamShape{shape.triangle_radius_rad.value};
+}
+
+[[nodiscard]] std::optional<AdmittedCamShape>
+admit_cam_shape(const contract::LegacyCamShape &shape, ValidationReport &report,
+                const std::string &path) {
+    return std::visit(
+        [&](const auto &resolved) { return admit_cam_shape(resolved, report, path); },
+        shape);
+}
+
 [[nodiscard]] std::vector<LegacyTrianglePoint>
-construct_lobe_table(const contract::LegacyCamShape &shape, double radius_rad) {
+construct_lobe_table(const contract::LegacyHarmonicCamShape &shape, double radius_rad) {
     const double centimetre_source = 1.0 / 100.0;
     const double inch_source = centimetre_source * 2.54;
     const double reference_lift_m = 50.0 * (inch_source / 1000.0);
@@ -127,16 +193,33 @@ construct_lobe_table(const contract::LegacyCamShape &shape, double radius_rad) {
     return table;
 }
 
-template <class Predicate>
-[[nodiscard]] bool all_unique(std::size_t size, Predicate predicate) {
-    for (std::size_t left = 0; left < size; ++left) {
-        for (std::size_t right = left + 1U; right < size; ++right) {
-            if (predicate(left, right)) {
-                return false;
-            }
-        }
+[[nodiscard]] std::vector<LegacyTrianglePoint>
+construct_lobe_table(const contract::LegacySampledCamShape &shape, double) {
+    std::vector<LegacyTrianglePoint> table;
+    table.reserve(shape.samples.size());
+    for (const auto &point : shape.samples) {
+        table.push_back({point.angle_rad.value, point.lift_m.value});
     }
-    return true;
+    return table;
+}
+
+[[nodiscard]] std::vector<LegacyTrianglePoint>
+construct_lobe_table(const contract::LegacyCamShape &shape, double radius_rad) {
+    return std::visit(
+        [&](const auto &resolved) {
+            return construct_lobe_table(resolved, radius_rad);
+        },
+        shape);
+}
+
+[[nodiscard]] double cam_advance_rad(const contract::LegacyCamShape &shape) noexcept {
+    return std::visit([](const auto &resolved) { return resolved.advance_rad.value; },
+                      shape);
+}
+
+[[nodiscard]] double cam_base_radius_m(const contract::LegacyCamShape &shape) noexcept {
+    return std::visit([](const auto &resolved) { return resolved.base_radius_m.value; },
+                      shape);
 }
 
 void admit_flow_table(const std::vector<contract::LegacyValveFlowPoint> &source,
@@ -493,10 +576,10 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
         intake_shape->radius_rad,
         exhaust_shape->radius_rad,
         head.flow_table_triangle_radius_m.value,
-        valvetrain.intake.shape.advance_rad.value,
-        valvetrain.exhaust.shape.advance_rad.value,
-        valvetrain.intake.shape.base_radius_m.value,
-        valvetrain.exhaust.shape.base_radius_m.value,
+        cam_advance_rad(valvetrain.intake.shape),
+        cam_advance_rad(valvetrain.exhaust.shape),
+        cam_base_radius_m(valvetrain.intake.shape),
+        cam_base_radius_m(valvetrain.exhaust.shape),
     };
 }
 

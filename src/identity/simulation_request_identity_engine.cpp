@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <variant>
 
 namespace engine_sim_offline::identity::detail {
@@ -560,8 +561,9 @@ write_legacy_gas_path(CanonicalJsonWriter &writer,
            writer.end_object();
 }
 
-[[nodiscard]] bool write_legacy_cam_shape(CanonicalJsonWriter &writer,
-                                          const contract::LegacyCamShape &shape) {
+[[nodiscard]] bool
+write_legacy_harmonic_cam_shape(CanonicalJsonWriter &writer,
+                                const contract::LegacyHarmonicCamShape &shape) {
     return writer.begin_object() && writer.key("maximum_lift_m") &&
            write_resolved(writer, shape.maximum_lift_m, write_f64) &&
            writer.key("duration_at_reference_lift_rad") &&
@@ -575,6 +577,53 @@ write_legacy_gas_path(CanonicalJsonWriter &writer,
            writer.key("base_radius_m") &&
            write_resolved(writer, shape.base_radius_m, write_f64) &&
            writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_sampled_cam_point(CanonicalJsonWriter &writer,
+                               const contract::LegacySampledCamPoint &point) {
+    return writer.begin_object() && writer.key("sample_id") &&
+           write_resolved(writer, point.sample_id, write_string) &&
+           writer.key("angle_rad") &&
+           write_resolved(writer, point.angle_rad, write_f64) && writer.key("lift_m") &&
+           write_resolved(writer, point.lift_m, write_f64) && writer.end_object();
+}
+
+[[nodiscard]] bool
+write_legacy_sampled_cam_shape(CanonicalJsonWriter &writer,
+                               const contract::LegacySampledCamShape &shape) {
+    return writer.begin_object() && writer.key("kind") &&
+           writer.string_value("sampled") && writer.key("triangle_radius_rad") &&
+           write_resolved(writer, shape.triangle_radius_rad, write_f64) &&
+           writer.key("samples") &&
+           write_array(writer, shape.samples,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacySampledCamPoint &point) {
+                           return write_legacy_sampled_cam_point(output, point);
+                       }) &&
+           writer.key("advance_rad") &&
+           write_resolved(writer, shape.advance_rad, write_f64) &&
+           writer.key("base_radius_m") &&
+           write_resolved(writer, shape.base_radius_m, write_f64) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool write_legacy_cam_shape(CanonicalJsonWriter &writer,
+                                          const contract::LegacyCamShape &shape) {
+    if (shape.valueless_by_exception()) {
+        return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
+                           "legacy cam-shape variant is valueless");
+    }
+    return std::visit(
+        [&](const auto &resolved_shape) {
+            using Shape = std::decay_t<decltype(resolved_shape)>;
+            if constexpr (std::is_same_v<Shape, contract::LegacyHarmonicCamShape>) {
+                return write_legacy_harmonic_cam_shape(writer, resolved_shape);
+            } else {
+                return write_legacy_sampled_cam_shape(writer, resolved_shape);
+            }
+        },
+        shape);
 }
 
 [[nodiscard]] bool write_legacy_cam_lobe(CanonicalJsonWriter &writer,
