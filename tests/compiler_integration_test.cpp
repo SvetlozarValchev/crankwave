@@ -379,20 +379,16 @@ make_engine_document(const SyntheticAssets &assets) {
         const auto journal_id = indexed_id("fixture-journal-", one_based);
         const auto rod_id = indexed_id("fixture-rod-", one_based);
         const auto piston_id = indexed_id("fixture-piston-", one_based);
-        crankshaft.journals.push_back({journal_id});
         engine.journals.push_back({
             {journal_id},
-            {"fixture-crank"},
+            authoring::CrankshaftJournalAttachment{{"fixture-crank"}},
             quantity(journal_phases_deg[index], "deg"),
-            std::nullopt,
-            std::nullopt,
         });
         engine.connecting_rods.push_back({
             {rod_id},
             quantity(148.0, "mm"),
             quantity(570.0, "g"),
             quantity(0.0011, "kg*m2"),
-            std::nullopt,
             std::nullopt,
         });
         engine.pistons.push_back({
@@ -596,9 +592,7 @@ make_engine_document(const SyntheticAssets &assets) {
         engine.cylinders.push_back({
             {indexed_id("fixture-cylinder-", one_based)},
             {"fixture-bank"},
-            {"fixture-crank"},
             {indexed_id("fixture-journal-", one_based)},
-            std::nullopt,
             {indexed_id("fixture-rod-", one_based)},
             {indexed_id("fixture-piston-", one_based)},
             {"fixture-shared-intake"},
@@ -743,7 +737,6 @@ make_inline_twin_document(const SyntheticAssets &assets) {
     engine.identity.id.value = "fixture-inline-twin";
     engine.identity.display_name = "Synthetic compiler integration inline-twin";
 
-    engine.crankshafts.front().journals.resize(2U);
     engine.journals.resize(2U);
     engine.journals[0].phase = quantity(0.0, "deg");
     engine.journals[1].phase = quantity(180.0, "deg");
@@ -804,11 +797,6 @@ make_v_six_document(const SyntheticAssets &assets) {
         engine.cylinders[index].journal.value =
             indexed_id("fixture-journal-", shared_journal_indices[index]);
     }
-    engine.crankshafts.front().journals = {
-        {"fixture-journal-1"},
-        {"fixture-journal-3"},
-        {"fixture-journal-5"},
-    };
     engine.journals = {
         engine.journals[0],
         engine.journals[2],

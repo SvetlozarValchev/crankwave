@@ -229,8 +229,7 @@
         "flywheel_mass",
         "moment_of_inertia",
         "friction_torque",
-        "tdc_reference_angle",
-        "journals"
+        "tdc_reference_angle"
       ],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
@@ -239,33 +238,18 @@
         "flywheel_mass": { "$ref": "#/$defs/quantity" },
         "moment_of_inertia": { "$ref": "#/$defs/quantity" },
         "friction_torque": { "$ref": "#/$defs/quantity" },
-        "tdc_reference_angle": { "$ref": "#/$defs/quantity" },
-        "journals": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/id" }
-        }
+        "tdc_reference_angle": { "$ref": "#/$defs/quantity" }
       }
     },
     "journal": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "crankshaft", "phase"],
+      "required": ["id", "type", "crankshaft", "phase"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "crankshaft" },
         "crankshaft": { "$ref": "#/$defs/id" },
-        "phase": { "$ref": "#/$defs/quantity" },
-        "master_journal": {
-          "anyOf": [
-            { "$ref": "#/$defs/id" },
-            { "type": "null" }
-          ]
-        },
-        "slave_throw": {
-          "anyOf": [
-            { "$ref": "#/$defs/quantity" },
-            { "type": "null" }
-          ]
-        }
+        "phase": { "$ref": "#/$defs/quantity" }
       }
     },
     "connectingRod": {
@@ -283,12 +267,6 @@
         "mass": { "$ref": "#/$defs/quantity" },
         "moment_of_inertia": { "$ref": "#/$defs/quantity" },
         "center_of_mass_from_crank_pin": {
-          "anyOf": [
-            { "$ref": "#/$defs/quantity" },
-            { "type": "null" }
-          ]
-        },
-        "slave_throw": {
           "anyOf": [
             { "$ref": "#/$defs/quantity" },
             { "type": "null" }
@@ -736,7 +714,6 @@
       "required": [
         "id",
         "bank",
-        "crankshaft",
         "journal",
         "connecting_rod",
         "piston",
@@ -750,14 +727,7 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "bank": { "$ref": "#/$defs/id" },
-        "crankshaft": { "$ref": "#/$defs/id" },
         "journal": { "$ref": "#/$defs/id" },
-        "slave_journal": {
-          "anyOf": [
-            { "$ref": "#/$defs/id" },
-            { "type": "null" }
-          ]
-        },
         "connecting_rod": { "$ref": "#/$defs/id" },
         "piston": { "$ref": "#/$defs/id" },
         "intake": { "$ref": "#/$defs/id" },

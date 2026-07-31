@@ -207,29 +207,14 @@ void validate_required_collections(
 void validate_mechanism_references(DocumentReader &reader,
                                    const EngineDefinition &engine,
                                    const EngineIndexes &indexes) {
-    for (std::size_t index = 0; index < engine.crankshafts.size(); ++index) {
-        const auto &crankshaft = engine.crankshafts[index];
-        const auto path = pointer_index("/engine/crankshafts", index);
-        const auto owner = subject("crankshaft", crankshaft.id.value);
-        for (std::size_t journal_index = 0;
-             journal_index < crankshaft.journals.size(); ++journal_index) {
-            require_reference(
-                reader, indexes.journals, crankshaft.journals[journal_index],
-                pointer_index(pointer_member(path, "journals"), journal_index),
-                "journal", owner);
-        }
-    }
     for (std::size_t index = 0; index < engine.journals.size(); ++index) {
         const auto &journal = engine.journals[index];
         const auto path = pointer_index("/engine/journals", index);
         const auto owner = subject("journal", journal.id.value);
-        require_reference(reader, indexes.crankshafts, journal.crankshaft,
+        const auto &attachment =
+            std::get<CrankshaftJournalAttachment>(journal.attachment);
+        require_reference(reader, indexes.crankshafts, attachment.crankshaft,
                           pointer_member(path, "crankshaft"), "crankshaft", owner);
-        if (journal.master_journal) {
-            require_reference(reader, indexes.journals, *journal.master_journal,
-                              pointer_member(path, "master_journal"), "journal",
-                              owner);
-        }
     }
     for (std::size_t index = 0; index < engine.pistons.size(); ++index) {
         const auto &piston = engine.pistons[index];
@@ -413,15 +398,8 @@ void validate_cylinder_and_route_references(
         const auto owner = subject("cylinder", cylinder.id.value);
         require_reference(reader, indexes.banks, cylinder.bank,
                           pointer_member(path, "bank"), "bank", owner);
-        require_reference(reader, indexes.crankshafts, cylinder.crankshaft,
-                          pointer_member(path, "crankshaft"), "crankshaft", owner);
         require_reference(reader, indexes.journals, cylinder.journal,
                           pointer_member(path, "journal"), "journal", owner);
-        if (cylinder.slave_journal) {
-            require_reference(reader, indexes.journals, *cylinder.slave_journal,
-                              pointer_member(path, "slave_journal"), "journal",
-                              owner);
-        }
         require_reference(reader, indexes.connecting_rods, cylinder.connecting_rod,
                           pointer_member(path, "connecting_rod"), "connecting_rod",
                           owner);

@@ -110,12 +110,11 @@
         "flywheel_mass": {"value": 2.26796185, "unit": "kg"},
         "moment_of_inertia": {"value": 0.11493422388431833, "unit": "kg*m2"},
         "friction_torque": {"value": 10, "unit": "lb*ft"},
-        "tdc_reference_angle": {"value": 45, "unit": "deg"},
-        "journals": ["shared-pin"]
+        "tdc_reference_angle": {"value": 45, "unit": "deg"}
       }
     ],
     "journals": [
-      {"id": "shared-pin", "crankshaft": "crank", "phase": {"value": 0, "unit": "deg"}}
+      {"id": "shared-pin", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 0, "unit": "deg"}}
     ],
     "connecting_rods": [
       {
@@ -409,7 +408,6 @@
       {
         "id": "cylinder-left",
         "bank": "bank.left",
-        "crankshaft": "crank",
         "journal": "shared-pin",
         "connecting_rod": "rod",
         "piston": "piston",
@@ -423,7 +421,6 @@
       {
         "id": "cylinder-right",
         "bank": "bank.right",
-        "crankshaft": "crank",
         "journal": "shared-pin",
         "connecting_rod": "rod",
         "piston": "piston",

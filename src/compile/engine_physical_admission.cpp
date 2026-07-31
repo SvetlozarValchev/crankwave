@@ -68,37 +68,22 @@ void admit_engine_physical_model(ModelContext &resolved,
             "/engine/crankshafts/0/friction_torque",
             "the positive-speed crank friction magnitude must be explicit");
     }
-    std::unordered_set<std::string> declared_journals;
-    for (const auto &journal : engine.journals) {
-        declared_journals.insert(journal.id.value);
-    }
-    std::unordered_set<std::string> crank_journals;
-    for (const auto &reference : resolved.crankshaft->journals) {
-        crank_journals.insert(reference.value);
-    }
-    if (crank_journals.size() != resolved.crankshaft->journals.size() ||
-        crank_journals != declared_journals) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/engine/crankshafts/0/journals",
-            "the sole crankshaft journal list must cover every declared direct "
-            "journal exactly once");
-    }
     for (std::size_t index = 0; index < engine.journals.size(); ++index) {
         const auto &journal = engine.journals[index];
-        if (journal.crankshaft.value != resolved.crankshaft->id.value ||
-            journal.master_journal.has_value() || journal.slave_throw.has_value()) {
+        const auto &attachment =
+            std::get<authoring::CrankshaftJournalAttachment>(journal.attachment);
+        if (attachment.crankshaft.value != resolved.crankshaft->id.value) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/engine/journals", index),
-                "the current centered inline crank admits direct journals only");
+                "each direct journal must attach to the sole admitted crankshaft");
         }
     }
     for (std::size_t index = 0; index < engine.connecting_rods.size(); ++index) {
         const auto &rod = engine.connecting_rods[index];
-        if (rod.center_of_mass_from_crank_pin.has_value() ||
-            rod.slave_throw.has_value()) {
+        if (rod.center_of_mass_from_crank_pin.has_value()) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/engine/connecting_rods", index),
-                "rod center-of-mass and slave-throw execution are not admitted");
+                "rod center-of-mass execution is not admitted");
         }
     }
     for (std::size_t index = 0; index < engine.pistons.size(); ++index) {
@@ -304,14 +289,12 @@ void admit_engine_physical_model(ModelContext &resolved,
         }
         if (bank == resolved.banks.end() || cylinder_intake_port == nullptr ||
             cylinder_exhaust_port == nullptr ||
-            cylinder.crankshaft.value != resolved.crankshaft->id.value ||
             cylinder.intake.value != resolved.intake->id.value ||
             cylinder.intake_port.value != cylinder_intake_port->id.value ||
-            cylinder.exhaust_port.value != cylinder_exhaust_port->id.value ||
-            cylinder.slave_journal.has_value()) {
+            cylinder.exhaust_port.value != cylinder_exhaust_port->id.value) {
             add(report, DiagnosticCode::unsupported_capability, path,
-                "every admitted cylinder must use a declared bank, the shared crank, "
-                "intake, and its bank head's exact ports without a slave journal");
+                "every admitted cylinder must use a declared bank, shared intake, "
+                "and its bank head's exact ports");
         }
         used_banks.insert(cylinder.bank.value);
         used_journals.insert(cylinder.journal.value);

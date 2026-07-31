@@ -113,15 +113,14 @@
         "flywheel_mass": {"value": 13.5, "unit": "kg"},
         "moment_of_inertia": {"value": 0.39330648, "unit": "kg*m2"},
         "friction_torque": {"value": 24, "unit": "lb*ft"},
-        "tdc_reference_angle": {"value": 45, "unit": "deg"},
-        "journals": ["journal-12", "journal-34", "journal-56", "journal-78"]
+        "tdc_reference_angle": {"value": 45, "unit": "deg"}
       }
     ],
     "journals": [
-      {"id": "journal-12", "crankshaft": "crank", "phase": {"value": 0, "unit": "deg"}},
-      {"id": "journal-34", "crankshaft": "crank", "phase": {"value": 270, "unit": "deg"}},
-      {"id": "journal-56", "crankshaft": "crank", "phase": {"value": 90, "unit": "deg"}},
-      {"id": "journal-78", "crankshaft": "crank", "phase": {"value": 180, "unit": "deg"}}
+      {"id": "journal-12", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 0, "unit": "deg"}},
+      {"id": "journal-34", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 270, "unit": "deg"}},
+      {"id": "journal-56", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 90, "unit": "deg"}},
+      {"id": "journal-78", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 180, "unit": "deg"}}
     ],
     "connecting_rods": [
       {
@@ -561,7 +560,6 @@
       {
         "id": "cylinder-1",
         "bank": "bank.odd",
-        "crankshaft": "crank",
         "journal": "journal-12",
         "connecting_rod": "rod",
         "piston": "piston",
@@ -575,7 +573,6 @@
       {
         "id": "cylinder-3",
         "bank": "bank.odd",
-        "crankshaft": "crank",
         "journal": "journal-34",
         "connecting_rod": "rod",
         "piston": "piston",
@@ -589,7 +586,6 @@
       {
         "id": "cylinder-5",
         "bank": "bank.odd",
-        "crankshaft": "crank",
         "journal": "journal-56",
         "connecting_rod": "rod",
         "piston": "piston",
@@ -603,7 +599,6 @@
       {
         "id": "cylinder-7",
         "bank": "bank.odd",
-        "crankshaft": "crank",
         "journal": "journal-78",
         "connecting_rod": "rod",
         "piston": "piston",
@@ -617,7 +612,6 @@
       {
         "id": "cylinder-2",
         "bank": "bank.even",
-        "crankshaft": "crank",
         "journal": "journal-12",
         "connecting_rod": "rod",
         "piston": "piston",
@@ -631,7 +625,6 @@
       {
         "id": "cylinder-4",
         "bank": "bank.even",
-        "crankshaft": "crank",
         "journal": "journal-34",
         "connecting_rod": "rod",
         "piston": "piston",
@@ -645,7 +638,6 @@
       {
         "id": "cylinder-6",
         "bank": "bank.even",
-        "crankshaft": "crank",
         "journal": "journal-56",
         "connecting_rod": "rod",
         "piston": "piston",
@@ -659,7 +651,6 @@
       {
         "id": "cylinder-8",
         "bank": "bank.even",
-        "crankshaft": "crank",
         "journal": "journal-78",
         "connecting_rod": "rod",
         "piston": "piston",

@@ -191,13 +191,13 @@ void expect(bool condition, std::string_view message) {
         "mass": {"value": 12, "unit": "kg"},
         "flywheel_mass": {"value": 8, "unit": "kg"},
         "moment_of_inertia": {"value": 0.2, "unit": "kg*m2"},
-        "tdc_reference_angle": {"value": 0, "unit": "deg"},
-        "journals": ["journal"]
+        "tdc_reference_angle": {"value": 0, "unit": "deg"}
       }
     ],
     "journals": [
       {
         "id": "journal",
+        "type": "crankshaft",
         "crankshaft": "crank",
         "phase": {"value": 0, "unit": "deg"}
       }
@@ -391,7 +391,6 @@ void expect(bool condition, std::string_view message) {
       {
         "id": "cylinder",
         "bank": "bank",
-        "crankshaft": "crank",
         "journal": "journal",
         "connecting_rod": "rod",
         "piston": "piston",
@@ -1122,6 +1121,80 @@ void test_cranking_starter_contract_is_minimal_and_strict() {
            "zero-torque cranking starter was accepted");
 }
 
+void test_direct_journal_attachment_contract_is_unambiguous() {
+    const auto package = require_engine(valid_engine_json());
+    expect(package.engine.journals.size() == 1U &&
+               std::get<CrankshaftJournalAttachment>(
+                   package.engine.journals.front().attachment)
+                       .crankshaft.value == "crank" &&
+               package.engine.cylinders.size() == 1U &&
+               package.engine.cylinders.front().journal.value == "journal",
+           "direct journal ownership or cylinder attachment changed during parsing");
+
+    std::string missing_type = valid_engine_json();
+    replace_once(missing_type, R"json(        "type": "crankshaft",
+)json",
+                 "");
+    expect(has_diagnostic(
+               require_engine_report(parse_engine_document(missing_type)),
+               DiagnosticCode::missing_value, "/engine/journals/0/type"),
+           "direct journal without its required type discriminator was accepted");
+
+    std::string wrong_type = valid_engine_json();
+    replace_once(wrong_type, R"json("type": "crankshaft")json",
+                 R"json("type": "master_rod")json");
+    expect(has_diagnostic(require_engine_report(parse_engine_document(wrong_type)),
+                          DiagnosticCode::invalid_value,
+                          "/engine/journals/0/type"),
+           "unimplemented journal attachment variant was accepted");
+
+    const auto expect_retired_field = [](std::string json,
+                                         std::string_view before,
+                                         std::string_view after,
+                                         std::string_view pointer) {
+        replace_once(json, before, after);
+        expect(has_diagnostic(require_engine_report(parse_engine_document(json)),
+                              DiagnosticCode::unknown_field, pointer),
+               std::string{"retired direct-mechanism field was accepted at "} +
+                   std::string{pointer});
+    };
+
+    expect_retired_field(
+        valid_engine_json(),
+        R"json("tdc_reference_angle": {"value": 0, "unit": "deg"})json",
+        R"json("tdc_reference_angle": {"value": 0, "unit": "deg"}, "journals": ["journal"])json",
+        "/engine/crankshafts/0/journals");
+    expect_retired_field(
+        valid_engine_json(), R"json("crankshaft": "crank",
+        "phase")json",
+        R"json("crankshaft": "crank", "master_journal": "journal",
+        "phase")json",
+        "/engine/journals/0/master_journal");
+    expect_retired_field(
+        valid_engine_json(), R"json("crankshaft": "crank",
+        "phase")json",
+        R"json("crankshaft": "crank", "slave_throw": {"value": 10, "unit": "mm"},
+        "phase")json",
+        "/engine/journals/0/slave_throw");
+    expect_retired_field(
+        valid_engine_json(),
+        R"json("moment_of_inertia": {"value": 0.001, "unit": "kg*m2"})json",
+        R"json("moment_of_inertia": {"value": 0.001, "unit": "kg*m2"}, "slave_throw": {"value": 10, "unit": "mm"})json",
+        "/engine/connecting_rods/0/slave_throw");
+    expect_retired_field(
+        valid_engine_json(), R"json("bank": "bank",
+        "journal")json",
+        R"json("bank": "bank", "crankshaft": "crank",
+        "journal")json",
+        "/engine/cylinders/0/crankshaft");
+    expect_retired_field(
+        valid_engine_json(), R"json("journal": "journal",
+        "connecting_rod")json",
+        R"json("journal": "journal", "slave_journal": "journal",
+        "connecting_rod")json",
+        "/engine/cylinders/0/slave_journal");
+}
+
 void test_engine_duplicate_id_and_dangling_reference_paths() {
     std::string duplicate = valid_engine_json();
     replace_once(duplicate, R"json("id": "exhaust-port")json",
@@ -1167,6 +1240,7 @@ int main() {
         test_complete_engine_package();
         test_vtec_activation_contract_is_greenfield_and_strict();
         test_cranking_starter_contract_is_minimal_and_strict();
+        test_direct_journal_attachment_contract_is_unambiguous();
         test_engine_duplicate_id_and_dangling_reference_paths();
         std::cout << "authoring document parser tests passed\n";
         return EXIT_SUCCESS;

@@ -622,6 +622,13 @@ bindings, and opposed mechanism pairs across a bounded runtime capture. More gen
 heterogeneous heads, separate intakes, crankshafts, ignition sharing, and master/slave
 journals remain isolated follow-up commits within slice 10.
 
+The direct journal contract is now a single tagged attachment path:
+`cylinder.journal -> journal.crankshaft`. Every current engine uses required
+`type: "crankshaft"`; reciprocal crankshaft journal lists, repeated cylinder crank
+references, and the old competing master/slave fields were removed without aliases.
+The next topology sub-slice may add `type: "master_rod"` to that same union without
+reviving any retired shape.
+
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,
 configuration-inertia, routing, conditioning, IR, and mastering paths. The BMW gate

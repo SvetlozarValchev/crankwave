@@ -141,8 +141,10 @@ never silently looped.
   differing definitions fail closed instead of being silently merged.
 - Ordered lists remain ordered where order affects behavior: crankshafts, cylinders,
   lobes, firing order, exhaust accumulation, and transmission gears.
-- A cylinder explicitly references its bank, crankshaft/journal, piston, rod, intake,
-  exhaust route, ignition wire, intake/exhaust ports, and optional slave journal.
+- A cylinder explicitly references its bank, one journal, piston, rod, intake, exhaust
+  route, ignition wire, and intake/exhaust ports. A direct journal uses the required
+  `type: "crankshaft"` variant and owns the crankshaft reference, so the cylinder's
+  crankshaft is derived through exactly one path.
 - References must resolve, forbidden cycles are rejected, and every connected physical
   object must be reachable from the engine root.
 - The authoring graph can represent broader sharing than the current executor admits.
@@ -231,12 +233,12 @@ the remainder as explicit capability diagnostics:
 |---|---|---|---|
 | Multiple crankshafts attached to one engine | `engine.crankshafts[]` plus references | **Missing**; executable profile has one crank assembly | Two-crank structural fixture compiles and steps without identity collapse. |
 | Crank throw, crank/flywheel mass, inertia, friction torque, TDC reference | Crankshaft physical fields | **Low-order executed/Partial**; positive-speed FreeEngine applies the authored crank-friction magnitude as the pristine saturated rotation constraint and the source one-step-lagged piston-wall law through centered inverse dynamics | BMW resolved-value comparison, direct pristine wall-reaction trace comparison, and WOT/coast response check. |
-| Rod journals with arbitrary phase | `engine.journals[]` | **Low-order executed/Partial**; a dynamic cylinder set may reference and share declared direct journals with arbitrary finite phase, while master/slave journals remain unsupported | V8 and direct shared-journal fixtures preserve phases and reference identity. |
-| Slave journals and rod `slave_throw` | Journal/rod references and physical fields | **Missing** | Master/slave V-twin geometry and uneven firing fixture. |
+| Rod journals with arbitrary phase | `engine.journals[]` direct variant with required `type: "crankshaft"`, `crankshaft`, and `phase` | **Low-order executed/Partial**; a dynamic cylinder set may reference and share declared direct journals with arbitrary finite phase, while a master-rod attachment variant remains unsupported | V8 and direct shared-journal fixtures preserve phases and reference identity. |
+| Master/slave rod attachment | A future distinct `type: "master_rod"` journal variant; retired `master_journal`, `slave_throw`, and `slave_journal` fields are not part of the current schema | **Missing** | Master/slave V-twin geometry and uneven firing fixture. |
 | Connecting-rod mass, inertia, center of mass, length | `engine.connecting_rods[]` | **Partial**; mass/inertia/length exist in BMW profile, center of mass is absent | Resolved mechanism quantities and inertial torque are verified. |
 | Piston mass, blowby, compression height, wrist-pin position, displacement term | `engine.pistons[]` and gas-path blowby restriction | **Partial**; BMW has mass, blowby, compression height, displacement term; wrist-pin position is absent | BMW geometry/clearance comparison and blowby flow check. |
 | Banks with angle, bore, and deck height | `engine.banks[]` | **Low-order executed/Partial**; execution admits one zero-angle inline bank, exactly two finite distinct-angle V banks, exactly two antipodal opposed banks, or custom explicit finite axes, including authored bank bore/deck geometry; all use direct centered rods | Inline, Toyota V8, Subaru EJ25 opposed, and synthetic three-axis custom fixtures preserve bank geometry and axis-relative mechanics. |
-| Arbitrary cylinder-to-bank/crank/journal/intake/exhaust/wire connections | Explicit cylinder references | **Partial**; dynamic cylinders, direct bank-axis bindings, direct shared journals, distinct wires, firing order, and exhaust sharing execute, while the profile still requires one crankshaft and one shared intake; bank-local heads/standard valvetrains must be execution-equivalent | Toyota V8, Subaru EJ25, and synthetic three-axis custom fixtures prove the admitted non-inline connection patterns. |
+| Arbitrary cylinder-to-bank/journal/intake/exhaust/wire connections | Explicit cylinder references; crank ownership derives through the referenced journal | **Partial**; dynamic cylinders, direct bank-axis bindings, direct shared journals, distinct wires, firing order, and exhaust sharing execute, while the profile still requires one crankshaft and one shared intake; bank-local heads/standard valvetrains must be execution-equivalent | Toyota V8, Subaru EJ25, and synthetic three-axis custom fixtures prove the admitted non-inline connection patterns. |
 | Per-cylinder primary length | Physical exhaust path in `engine`, compiled to propagation delay | **Low-order executed** | Resolved length/delay comparison at each supported sample rate. |
 
 ### Gas exchange, manifolds, heads, and exhaust

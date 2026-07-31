@@ -186,18 +186,24 @@ struct CrankshaftDefinition {
     Quantity moment_of_inertia;
     std::optional<Quantity> friction_torque;
     Quantity tdc_reference_angle;
-    std::vector<JournalRef> journals;
 
     friend bool operator==(const CrankshaftDefinition &,
                            const CrankshaftDefinition &) = default;
 };
 
+struct CrankshaftJournalAttachment {
+    CrankshaftRef crankshaft;
+
+    friend bool operator==(const CrankshaftJournalAttachment &,
+                           const CrankshaftJournalAttachment &) = default;
+};
+
+using JournalAttachment = std::variant<CrankshaftJournalAttachment>;
+
 struct JournalDefinition {
     JournalId id;
-    CrankshaftRef crankshaft;
+    JournalAttachment attachment;
     Quantity phase;
-    std::optional<JournalRef> master_journal;
-    std::optional<Quantity> slave_throw;
 
     friend bool operator==(const JournalDefinition &,
                            const JournalDefinition &) = default;
@@ -209,7 +215,6 @@ struct ConnectingRodDefinition {
     Quantity mass;
     Quantity moment_of_inertia;
     std::optional<Quantity> center_of_mass_from_crank_pin;
-    std::optional<Quantity> slave_throw;
 
     friend bool operator==(const ConnectingRodDefinition &,
                            const ConnectingRodDefinition &) = default;
@@ -469,9 +474,7 @@ using StarterDefinition = std::variant<MechanicallyDisengagedStarter, CrankingSt
 struct CylinderDefinition {
     CylinderId id;
     BankRef bank;
-    CrankshaftRef crankshaft;
     JournalRef journal;
-    std::optional<JournalRef> slave_journal;
     ConnectingRodRef connecting_rod;
     PistonRef piston;
     IntakeRef intake;

@@ -1,5 +1,6 @@
 #include "authoring/parse_engine_detail.hpp"
 
+#include <string>
 #include <utility>
 
 namespace engine_sim_offline::authoring::detail {
@@ -12,7 +13,7 @@ void parse_crankshaft(DocumentReader &reader, JsonValue value, std::string_view 
     reader.reject_unknown(value, path,
                           {"id", "throw_radius", "mass", "flywheel_mass",
                            "moment_of_inertia", "friction_torque",
-                           "tdc_reference_angle", "journals"});
+                           "tdc_reference_angle"});
     read_id_member(reader, value, "id", path, output.id);
     const auto owner = subject("crankshaft", output.id.value);
     read_quantity_member(reader, value, "throw_radius", path, QuantityDimension::length,
@@ -35,12 +36,6 @@ void parse_crankshaft(DocumentReader &reader, JsonValue value, std::string_view 
     }
     read_quantity_member(reader, value, "tdc_reference_angle", path,
                          QuantityDimension::angle, output.tdc_reference_angle, owner);
-    read_required_array(
-        reader, value, "journals", path, output.journals,
-        [&](JsonValue item, std::string_view item_path, JournalRef &reference) {
-            reader.ref(item, item_path, reference, owner);
-        },
-        owner);
     require_positive(reader, output.throw_radius, pointer_member(path, "throw_radius"),
                      owner);
     require_nonnegative(reader, output.mass, pointer_member(path, "mass"), owner);
@@ -55,32 +50,21 @@ void parse_journal(DocumentReader &reader, JsonValue value, std::string_view pat
     if (!reader.object(value, path)) {
         return;
     }
-    reader.reject_unknown(
-        value, path, {"id", "crankshaft", "phase", "master_journal", "slave_throw"});
+    reader.reject_unknown(value, path, {"id", "type", "crankshaft", "phase"});
     read_id_member(reader, value, "id", path, output.id);
     const auto owner = subject("journal", output.id.value);
-    read_ref_member(reader, value, "crankshaft", path, output.crankshaft, owner);
+    std::string type;
+    reader.string(reader.required(value, "type", path, owner),
+                  pointer_member(path, "type"), type, owner);
+    if (!type.empty() && type != "crankshaft") {
+        reader.add(DiagnosticCode::invalid_value, pointer_member(path, "type"),
+                   "journal type must be crankshaft", owner);
+    }
+    CrankshaftJournalAttachment attachment;
+    read_ref_member(reader, value, "crankshaft", path, attachment.crankshaft, owner);
+    output.attachment = std::move(attachment);
     read_quantity_member(reader, value, "phase", path, QuantityDimension::angle,
                          output.phase, owner);
-    const auto master = reader.optional(value, "master_journal");
-    if (master.valid() && !master.is_null()) {
-        JournalRef parsed;
-        if (reader.ref(master, pointer_member(path, "master_journal"), parsed, owner)) {
-            output.master_journal = std::move(parsed);
-        }
-    }
-    const auto throw_value = reader.optional(value, "slave_throw");
-    if (throw_value.valid() && !throw_value.is_null()) {
-        Quantity parsed;
-        reader.quantity(throw_value, pointer_member(path, "slave_throw"),
-                        QuantityDimension::length, parsed, owner);
-        require_positive(reader, parsed, pointer_member(path, "slave_throw"), owner);
-        output.slave_throw = std::move(parsed);
-    }
-    if (output.master_journal && !output.slave_throw) {
-        reader.add(DiagnosticCode::missing_value, pointer_member(path, "slave_throw"),
-                   "slave journal requires slave_throw", owner);
-    }
 }
 
 void parse_connecting_rod(DocumentReader &reader, JsonValue value,
@@ -90,7 +74,7 @@ void parse_connecting_rod(DocumentReader &reader, JsonValue value,
     }
     reader.reject_unknown(value, path,
                           {"id", "length", "mass", "moment_of_inertia",
-                           "center_of_mass_from_crank_pin", "slave_throw"});
+                           "center_of_mass_from_crank_pin"});
     read_id_member(reader, value, "id", path, output.id);
     const auto owner = subject("connecting_rod", output.id.value);
     read_quantity_member(reader, value, "length", path, QuantityDimension::length,
@@ -110,14 +94,6 @@ void parse_connecting_rod(DocumentReader &reader, JsonValue value,
                             pointer_member(path, "center_of_mass_from_crank_pin"),
                             owner);
         output.center_of_mass_from_crank_pin = std::move(parsed);
-    }
-    const auto throw_value = reader.optional(value, "slave_throw");
-    if (throw_value.valid() && !throw_value.is_null()) {
-        Quantity parsed;
-        reader.quantity(throw_value, pointer_member(path, "slave_throw"),
-                        QuantityDimension::length, parsed, owner);
-        require_nonnegative(reader, parsed, pointer_member(path, "slave_throw"), owner);
-        output.slave_throw = std::move(parsed);
     }
     require_positive(reader, output.length, pointer_member(path, "length"), owner);
     require_nonnegative(reader, output.mass, pointer_member(path, "mass"), owner);
@@ -189,21 +165,13 @@ void parse_cylinder(DocumentReader &reader, JsonValue value, std::string_view pa
     }
     reader.reject_unknown(
         value, path,
-        {"id", "bank", "crankshaft", "journal", "slave_journal", "connecting_rod",
+        {"id", "bank", "journal", "connecting_rod",
          "piston", "intake", "exhaust", "ignition_wire", "intake_port", "exhaust_port",
          "exhaust_header_primary_length"});
     read_id_member(reader, value, "id", path, output.id);
     const auto owner = subject("cylinder", output.id.value);
     read_ref_member(reader, value, "bank", path, output.bank, owner);
-    read_ref_member(reader, value, "crankshaft", path, output.crankshaft, owner);
     read_ref_member(reader, value, "journal", path, output.journal, owner);
-    const auto slave = reader.optional(value, "slave_journal");
-    if (slave.valid() && !slave.is_null()) {
-        JournalRef parsed;
-        if (reader.ref(slave, pointer_member(path, "slave_journal"), parsed, owner)) {
-            output.slave_journal = std::move(parsed);
-        }
-    }
     read_ref_member(reader, value, "connecting_rod", path, output.connecting_rod,
                     owner);
     read_ref_member(reader, value, "piston", path, output.piston, owner);

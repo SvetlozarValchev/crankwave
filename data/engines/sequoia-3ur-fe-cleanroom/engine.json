@@ -110,15 +110,14 @@
         "flywheel_mass": {"value": 7, "unit": "kg"},
         "moment_of_inertia": {"value": 0.4081346, "unit": "kg*m2"},
         "friction_torque": {"value": 22, "unit": "lb*ft"},
-        "tdc_reference_angle": {"value": 45, "unit": "deg"},
-        "journals": ["journal-12", "journal-34", "journal-56", "journal-78"]
+        "tdc_reference_angle": {"value": 45, "unit": "deg"}
       }
     ],
     "journals": [
-      {"id": "journal-12", "crankshaft": "crank", "phase": {"value": 0, "unit": "deg"}},
-      {"id": "journal-34", "crankshaft": "crank", "phase": {"value": 270, "unit": "deg"}},
-      {"id": "journal-56", "crankshaft": "crank", "phase": {"value": 90, "unit": "deg"}},
-      {"id": "journal-78", "crankshaft": "crank", "phase": {"value": 180, "unit": "deg"}}
+      {"id": "journal-12", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 0, "unit": "deg"}},
+      {"id": "journal-34", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 270, "unit": "deg"}},
+      {"id": "journal-56", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 90, "unit": "deg"}},
+      {"id": "journal-78", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 180, "unit": "deg"}}
     ],
     "connecting_rods": [
       {
@@ -454,56 +453,56 @@
     },
     "cylinders": [
       {
-        "id": "cylinder-1", "bank": "bank.odd", "crankshaft": "crank",
+        "id": "cylinder-1", "bank": "bank.odd",
         "journal": "journal-12", "connecting_rod": "rod", "piston": "piston",
         "intake": "intake", "exhaust": "exhaust.odd", "ignition_wire": "wire-1",
         "intake_port": "intake-port", "exhaust_port": "exhaust-port",
         "exhaust_header_primary_length": {"value": 430, "unit": "mm"}
       },
       {
-        "id": "cylinder-3", "bank": "bank.odd", "crankshaft": "crank",
+        "id": "cylinder-3", "bank": "bank.odd",
         "journal": "journal-34", "connecting_rod": "rod", "piston": "piston",
         "intake": "intake", "exhaust": "exhaust.odd", "ignition_wire": "wire-3",
         "intake_port": "intake-port", "exhaust_port": "exhaust-port",
         "exhaust_header_primary_length": {"value": 455, "unit": "mm"}
       },
       {
-        "id": "cylinder-5", "bank": "bank.odd", "crankshaft": "crank",
+        "id": "cylinder-5", "bank": "bank.odd",
         "journal": "journal-56", "connecting_rod": "rod", "piston": "piston",
         "intake": "intake", "exhaust": "exhaust.odd", "ignition_wire": "wire-5",
         "intake_port": "intake-port", "exhaust_port": "exhaust-port",
         "exhaust_header_primary_length": {"value": 480, "unit": "mm"}
       },
       {
-        "id": "cylinder-7", "bank": "bank.odd", "crankshaft": "crank",
+        "id": "cylinder-7", "bank": "bank.odd",
         "journal": "journal-78", "connecting_rod": "rod", "piston": "piston",
         "intake": "intake", "exhaust": "exhaust.odd", "ignition_wire": "wire-7",
         "intake_port": "intake-port", "exhaust_port": "exhaust-port",
         "exhaust_header_primary_length": {"value": 505, "unit": "mm"}
       },
       {
-        "id": "cylinder-2", "bank": "bank.even", "crankshaft": "crank",
+        "id": "cylinder-2", "bank": "bank.even",
         "journal": "journal-12", "connecting_rod": "rod", "piston": "piston",
         "intake": "intake", "exhaust": "exhaust.even", "ignition_wire": "wire-2",
         "intake_port": "intake-port", "exhaust_port": "exhaust-port",
         "exhaust_header_primary_length": {"value": 440, "unit": "mm"}
       },
       {
-        "id": "cylinder-4", "bank": "bank.even", "crankshaft": "crank",
+        "id": "cylinder-4", "bank": "bank.even",
         "journal": "journal-34", "connecting_rod": "rod", "piston": "piston",
         "intake": "intake", "exhaust": "exhaust.even", "ignition_wire": "wire-4",
         "intake_port": "intake-port", "exhaust_port": "exhaust-port",
         "exhaust_header_primary_length": {"value": 465, "unit": "mm"}
       },
       {
-        "id": "cylinder-6", "bank": "bank.even", "crankshaft": "crank",
+        "id": "cylinder-6", "bank": "bank.even",
         "journal": "journal-56", "connecting_rod": "rod", "piston": "piston",
         "intake": "intake", "exhaust": "exhaust.even", "ignition_wire": "wire-6",
         "intake_port": "intake-port", "exhaust_port": "exhaust-port",
         "exhaust_header_primary_length": {"value": 490, "unit": "mm"}
       },
       {
-        "id": "cylinder-8", "bank": "bank.even", "crankshaft": "crank",
+        "id": "cylinder-8", "bank": "bank.even",
         "journal": "journal-78", "connecting_rod": "rod", "piston": "piston",
         "intake": "intake", "exhaust": "exhaust.even", "ignition_wire": "wire-8",
         "intake_port": "intake-port", "exhaust_port": "exhaust-port",
