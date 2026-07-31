@@ -11,14 +11,15 @@ No. The clean-room core does **not** yet execute all of pristine `engine-sim`'s 
 configurability.
 
 The repository now has a strict product JSON schema/parser and a generic immutable
-compiler for the currently executable low-order slice: mechanism, gas path, fixed
-valvetrain, ignition, fuel, dynamic nonempty cylinder and exhaust-route sets, one-bank
-inline or exactly two-bank V layouts, presentation, scenarios, deterministic assets,
-and randomness. Compilation is data-driven and has no engine-name branch. Important
-original capabilities such as multiple crankshafts, other bank topologies, separate
-physical heads/intakes, slave journals, arbitrary valvetrains, VTEC, and governors
-remain represented but fail closed until their executor support exists. Vehicle and
-transmission rig objects parse and resolve, but no drivetrain executor consumes them.
+compiler for the currently executable low-order slice: mechanism, gas path, fixed and
+sampled/VTEC valvetrains, direct and governed throttle control, ignition, fuel, dynamic
+nonempty cylinder and exhaust-route sets, one-bank inline or exactly two-bank V layouts,
+presentation, scenarios, deterministic assets, and randomness. Compilation is
+data-driven and has no engine-name branch. Important original capabilities such as
+multiple crankshafts, other bank topologies, separate physical heads/intakes, slave
+journals, and general multi-head/valvetrain topology remain represented but fail closed
+until their executor support exists. Vehicle and transmission rig objects parse and
+resolve, but no drivetrain executor consumes them.
 There is no executable C++ engine factory; product engines enter only through JSON
 compilation.
 
@@ -194,7 +195,7 @@ the remainder as explicit capability diagnostics:
 | Redline | `engine.limits.redline` | **Low-order executed** in ignition profile | Limiter boundary and declared redline remain distinct and validated. |
 | Starter speed and torque | `engine.starter` with `type: "cranking"`; `mechanically_disengaged` explicitly declares no executable cranking capability | **Low-order executed** in `free_engine` with the pristine unilateral target-speed torque constraint; held and dyno modes require the starter disengaged | BMW crank/catch fixture demonstrates torque, target speed, engagement, and caller-owned release. |
 | Direct throttle linkage gamma | `engine.throttle_controllers[]` with `type: "direct"` and `engine.throttle_controller` selecting one | **Low-order executed**; the selected controller's finite positive gamma reaches the command-to-plate mapping | A sweep proves the authored command-to-plate curve. |
-| Governor (`min_speed`, `max_speed`, signed `min_v`/`max_v`, `k_s`, `k_d`, `gamma`) | `engine.throttle_controllers[]` with `type: "governor"`; velocity bounds are not throttle-output fractions | **Missing** | Small-engine fixture holds governed speed under a load step. |
+| Governor (`min_speed`, `max_speed`, signed `min_v`/`max_v`, `k_s`, `k_d`, `gamma`) | `engine.throttle_controllers[]` with `type: "governor"`; velocity bounds are not throttle-output fractions | **Low-order executed** with pristine's persistent explicit-Euler update; public normalized throttle demand selects the target between minimum and maximum speed, and telemetry retains requested and resolved throttle separately | Kohler CH750 V-twin settles at the requested 2,740 RPM before a deterministic 12 N m load/unload step. |
 | Chen--Flynn cycle-mean loss coefficients and required oil temperature (clean-room extension, not a pristine capability) | `engine.losses` with `type: "chen_flynn_cycle_mean"` | **Low-order executed** in operating-point accounting and as one-cycle-lagged inertial-dyno resistance; `free_engine` retains the cycle-mean evidence but does not apply it to crank motion | Generic compilation selects the registered method and derives torque-term accounting without an engine-name branch; do not call it pristine parity. |
 | Accessory-configuration URI and content hash | `engine.accessory_configurations[]` referenced by the selected loss model | **Metadata/evidence only**; current execution records identity and digest but does not interpret payload bytes | Do not expose it as a power/audio tuning surface until a typed accessory-load schema is executed. |
 | Dyno min/max/hold step defaults | `rig.dyno_defaults`, not engine physics | **Partial**; package JSON parses and resolves the defaults with provenance, but they do not schedule a run or drive a UI sequence | Native and browser UI generate the same held-point sequence. |
@@ -347,7 +348,7 @@ it does not block checkpoints 1-10.
 | Toyota 3UR-FE V8 | Two authored bank angles, direct shared journals, generic firing order, and grouped/shared exhaust systems | Route solos plus full dyno pull; cadence and grouping accepted by ear. |
 | Honda B18C5 | Standard/alternate cams and the executed pristine RPM, manifold-pressure, and resolved linkage-opening predicates; the dead source `min_speed` input is intentionally absent | Below, transition, and above-VTEC clips; no unrelated renderer change. |
 | Master/slave-journal V-twin | Shared crank journal, slave journal/throw, bank angles, unequal firing intervals | Low/high held points and short climb demonstrate correct cadence. |
-| Governed single-cylinder engine | Governor parameters, starter/crank/catch, idle restriction, and load response | Start, governed hold, and load-step clip. |
+| Governed small-engine V-twin | Governor parameters, starter/crank/catch, idle restriction, and load response | Start, governed hold, and load-step clip. |
 | BMW fifth-gear rig | Vehicle, transmission, clutch, differential, tire, drag, and rolling load | Realtime/offline fifth-gear climb agrees in RPM/torque trajectory and sound. |
 
 Cutover checkpoints 1-10 use two narrow checks:

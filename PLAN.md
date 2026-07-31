@@ -114,10 +114,12 @@ load-following mode are distinct capabilities.
 
 Session creation separately requires `finite_scenario` or `open_ended`.
 `finite_scenario` executes the JSON recipe and horizon exactly. `open_ended` is
-currently FreeEngine-only: it executes preparation through the exact release boundary,
-holds the authored right-continuous release snapshot, and continues the same mutable
-crank/gas/random/filter/convolution state until paused, restarted, destroyed, or
-faulted. It does not loop the finite recipe or report elapsed-time completion.
+currently FreeEngine-only: it executes the authored pre-audible history through the
+audible handoff, holds that right-continuous control snapshot, and continues the same
+mutable crank/gas/random/filter/convolution state until paused, restarted, destroyed,
+or faulted. A positive-speed FreeEngine may physically release at its earlier fixed
+horizon and acquire dynamically before the handoff. It does not loop the finite recipe
+or report elapsed-time completion.
 
 Asset references are relative to the engine asset and are content-verified. Resolution
 generates stable IDs, derived quantities, method selections, and provenance internally;
@@ -422,8 +424,7 @@ executable parity** with pristine Ange Yaghi `engine-sim` commit
 `85f7c3b959a908ed5232ede4f1a4ac7eafe6b630`. The operating bench in section 9 is the
 first vertical slice of that target, not its final boundary. The two BMW inertial-dyno
 scenarios remain regression fixtures for the accepted renderer; they are not a
-substitute for starter, alternate valvetrains, governors, general engine topology,
-vehicle dynamics, or live test-cell controls.
+substitute for general engine topology, vehicle dynamics, or live test-cell controls.
 
 Parity means reproducing meaningful executable capability and behavior behind the
 current JSON, `EngineSession`, native, C ABI, and WASM boundaries. It does **not** mean
@@ -475,11 +476,11 @@ GUI. The operating-bench portion of the behavioral oracle is:
   procedures;
 - an unpaced bake that runs the same controls through the same session.
 
-The remaining engine-definition parity surface includes sampled cam profiles, alternate
-VTEC cams and their executable activation conditions, governor throttle control,
-shareable heads/intakes/valvetrains, general bank/crank/journal connections, and
-master/slave rod geometry. Configuration that reached pristine physics or output is in
-scope. Display-only fields, dead inputs, and source-library presets are not.
+The remaining engine-definition parity surface includes shareable
+heads/intakes/valvetrains, general bank/crank/journal connections, multiple
+crankshafts, and master/slave rod geometry. Configuration that reached pristine physics
+or output is in scope. Display-only fields, dead inputs, and source-library presets are
+not.
 
 The browser is a client of this contract. It must not synthesize RPM, vehicle motion,
 load, or dyno behavior in JavaScript.
@@ -585,15 +586,20 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--7 are complete. Slice 6 executes through the JSON, runtime,
-native session, exact C ABI, WASM transport, and Web workbench; the BMW crank/catch
-checkpoint was accepted, and source-faithful starter capabilities are wired into every
-packaged engine that declares them. Slice 7 admits arbitrary sampled fixed-cam profiles
-through the public compiler while leaving the generated harmonic path and equivalent
-session PCM byte-identical. Slice 8's four-cam selector now executes the three consumed
-pristine predicates without the dead `min_speed` input; its source audit is frozen in
+Current progress: slices 1--9 are executable. Slice 6 reaches JSON, runtime, native
+session, exact C ABI, WASM, and the Web workbench; the BMW crank/catch checkpoint was
+accepted. Slice 7 admits arbitrary sampled fixed-cam profiles while preserving the
+generated harmonic path. Slice 8 executes the three consumed pristine VTEC predicates
+without the dead `min_speed` input; its Honda transition checkpoint was accepted and
+its source audit is frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_VTEC.md`](docs/oracles/PRISTINE_ENGINE_SIM_VTEC.md).
-The separate Honda transition listening checkpoint remains before slice 9 begins.
+Slice 9 executes pristine's persistent governor update and exposes normalized speed
+demand through the same native/WASM throttle command. The Kohler CH750 fixture now
+releases at `1.5 s`, settles before a `12 N m` load at `15 s`, unloads at `20 s`, and
+publishes only the `14--30 s` listening interval. Its source buses are byte-identical
+to that interval from a full-acquisition render; only the audition file's intentional
+clip-relative fades differ. The focused listening checkpoint is ready before topology
+slice 10.
 
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
 and mastering unchanged. Listen immediately after the one intended behavior changes;

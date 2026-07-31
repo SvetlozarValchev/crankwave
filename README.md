@@ -23,9 +23,11 @@ artifact publication; there is no second whole-render implementation.
 
 Session creation must explicitly select `finite_scenario` or `open_ended`. Native
 baking uses the exact finite scenario recipe. Interactive playback currently admits
-open-ended execution only for FreeEngine: it runs the same preparation, holds the
-authored release-state snapshot, and preserves continuous physical and DSP state until
-the caller restarts, destroys, or faults the session.
+open-ended execution only for FreeEngine: it runs the same authored pre-audible
+history, holds the right-continuous control snapshot at the audible handoff, and
+preserves continuous physical and DSP state until the caller restarts, destroys, or
+faults the session. A warm FreeEngine may physically release at its fixed preparation
+horizon and continue dynamic acquisition before that later audible handoff.
 
 An exact-version C ABI now exposes strict JSON compilation, immutable engine/scenario
 handles, mutable sessions, typed controls, caller-owned PCM/telemetry, and structured
@@ -71,7 +73,10 @@ drivetrain, gears, regulated idle, and arbitrary live presentation edits remain
 explicit missing capabilities rather than UI-only approximations. The stopped/stalled
 state and pristine unilateral target-speed starter now execute through the same
 FreeEngine runtime; starter engagement and release remain explicit authored or live
-controls.
+controls. The selected throttle controller may instead be pristine's stateful governor:
+the public normalized demand becomes its speed command, while telemetry separately
+reports that request and the governor-resolved throttle opening. The Kohler CH750
+fixture exercises this path through a settled 12 N m load step.
 
 The compiler accepts the currently executable low-order topology without inspecting an
 engine name and fails closed on unsupported capabilities. Cylinder and

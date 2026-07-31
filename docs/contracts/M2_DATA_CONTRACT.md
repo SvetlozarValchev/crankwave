@@ -180,11 +180,13 @@ accepted low-order core without also inheriting M3's incomplete fixed-loss model
 - a public deterministic seed.
 
 Preparation is causal history. For `FixedSettling`, warm-up plus settling ends exactly
-at the audible start. For `FixedHorizonCycleSampling`, the fixed horizon equals the
-audible start and retains the declared trailing complete-cycle sample. In both cases
-the audible interval ends at total duration; cropping does not imply a state reset.
+at the audible start. For `FixedHorizonCycleSampling`, held/inertial operation retains
+the same equality. A positive-speed FreeEngine instead retains the declared trailing
+complete-cycle sample at its fixed horizon, may physically release there, and may run
+dynamic hidden acquisition until an equal-or-later audible start. In every case the
+audible interval ends at total duration, and cropping does not imply a state reset.
 These relationships are rechecked after every duration is resolved to an integer
-physics/stream frame, so binary64 near-equality cannot leave an undeclared frame gap.
+physics/stream frame, so binary64 near-equality cannot leave an undeclared boundary.
 
 Exactly one tagged `ScenarioMode` owns crank motion:
 

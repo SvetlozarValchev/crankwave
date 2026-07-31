@@ -167,7 +167,8 @@ lifetime decision.
 Live controls are typed, timestamped commands sent after session creation. They do not
 modify the engine document or compiled scenario. The implemented payloads are:
 
-- requested throttle in `[0, 1]`;
+- selected throttle-controller demand in `[0, 1]`: direct linkage demand for a direct
+  controller, or the normalized minimum-to-maximum speed command for a governor;
 - ignition enabled;
 - fuel enabled;
 - starter enabled;
@@ -248,22 +249,25 @@ scenario. There is no reset operation on the implemented session.
 `EngineSessionBlockPhase::preparation`; the native artifact publisher discards those
 blocks and begins publication at the first `audible` block. The descriptor reports the
 exact preparation block count, so this boundary is explicit rather than an implicit
-warm-up.
+warm-up. Here `preparation` means **pre-audible history**. For a positive-speed
+FreeEngine, its fixed-horizon held preparation may end earlier; the crank then advances
+dynamically and authored controls continue to execute until the audible boundary.
 
 Live commands may be queued before processing begins, but any command whose absolute
 delivery-frame target falls inside the preparation interval is rejected with
 `unavailable_during_preparation`. The first legal target is
 `preparation_block_count * 3840`.
 
-Both execution kinds run the same authored preparation through the exact release
-boundary, preserving crank, gas, combustion, random, filter, convolution, and
-resampler state. At that boundary, `open_ended` resolves one right-continuous snapshot
-of every authored operating-state, throttle, and external-resisting-torque lane. The
+Both execution kinds run the same authored pre-audible history, preserving crank, gas,
+combustion, random, filter, convolution, and resampler state. A positive-speed
+FreeEngine is held through its fixed horizon, then physically releases without a reset;
+held-speed and inertial modes retain release-at-audible equality. At the later audible
+handoff, `open_ended` resolves one right-continuous snapshot of every authored
+operating-state, throttle-controller-demand, and external-resisting-torque lane. The
 declared positive-zero default participates when that optional lane is omitted. A
-boundary exactly at release participates in the snapshot. Boundaries strictly after
-release belong to the finite recording procedure and do not automatically drive the
-interactive bench. The release snapshot then remains in force until a live command
-replaces that lane.
+boundary exactly at the audible handoff participates; later boundaries belong to the
+finite recording procedure. That snapshot remains in force until a live command
+replaces its lane.
 
 ### 4.4 Enqueue controls
 
@@ -373,7 +377,7 @@ compiled scenario selects exactly one mode.
 | prescribed/external speed | Authored trajectory executes; live commands are rejected | authored RPM trajectory, engine telemetry, audio |
 | held speed/load-target held | Authored target executes; live commands are rejected | operating-point evidence, engine telemetry, audio |
 | `inertial_dyno` | Finite-scenario execution admits live throttle, ignition, and fuel after preparation | simulated RPM trajectory, dyno result evidence, engine telemetry, audio |
-| `free_engine` | Finite or open-ended execution admits live throttle, ignition, fuel, limiter, and external resisting torque after preparation | simulated crank RPM, requested external resisting torque, engine telemetry, audio |
+| `free_engine` | Finite or open-ended execution admits live selected-controller demand, ignition, fuel, limiter, and external resisting torque after the audible handoff | simulated crank RPM, requested and governor-resolved throttle, requested external resisting torque, engine telemetry, audio |
 
 `open_ended` is currently a FreeEngine-only lifetime. The other modes remain exact
 finite recording procedures even where they admit live controls.
@@ -461,12 +465,12 @@ Current classification:
 
 | Field family | Class |
 |---|---|
-| throttle request | implemented live command for `inertial_dyno` and `free_engine` after preparation |
+| selected throttle-controller demand | implemented live command for `inertial_dyno` and `free_engine` after the audible handoff; direct means linkage demand, governor means normalized speed demand |
 | ignition/fuel enable | implemented live command for `inertial_dyno` and `free_engine` after preparation |
 | limiter enable | implemented live command for `free_engine` after preparation |
 | external resisting torque | implemented live command for `free_engine` after preparation |
 | starter enable | implemented live command for `free_engine` after preparation when the compiled engine declares a cranking starter |
-| mode-owned RPM, brake, or controller target | not implemented as live commands |
+| mode-owned RPM or brake target | not implemented as live commands |
 | gear/clutch context | not implemented as live commands |
 | audition master, route monitor gain, mute, IR wet mix | not implemented as live commands |
 | motion ownership mode and initial state | `session_recreate` |
@@ -550,7 +554,9 @@ physics and delivery ranges. It returns one `EngineTelemetryFrame`: the final
 `EngineCaptureSample` of that block plus its physics-step end. That capture carries its
 own validity mask and currently available crank angle, angular motion/RPM, requested
 and resolved throttle, intake command, ignition/fuel/starter/dyno/limiter state,
-requested FreeEngine external resisting torque, and torque telemetry.
+requested FreeEngine external resisting torque, and torque telemetry. For a governor,
+requested throttle is the normalized speed demand while resolved throttle is the
+stateful actuator output actually sent through the linkage.
 
 The authored `telemetry_capacity_frames` is a returned-record bound. It is not an audio
 frame count and it does not reserve the internal combustion event journal. The current

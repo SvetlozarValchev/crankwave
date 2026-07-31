@@ -37,7 +37,9 @@ The clock-grid validator requires:
   grid;
 - fixed warm-up plus settling to end exactly at the physics audible-start frame;
 - the fixed-horizon complete-cycle sampling endpoint to resolve exactly on the
-  physics grid and equal the physics audible-start frame.
+  physics grid; it equals audible start for held/inertial operation, while a warm
+  positive-speed FreeEngine may end at or before audible start and run dynamic hidden
+  acquisition in the gap.
 
 Manifest media validation and capture horizon validation use the same resolver, so
 they cannot silently round the same scenario differently.
