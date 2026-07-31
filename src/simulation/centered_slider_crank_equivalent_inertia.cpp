@@ -92,8 +92,17 @@ calculate_centered_slider_crank_cycle_mean_inertia(
 
     for (std::size_t cylinder_index = 0; cylinder_index < mechanism.cylinders.size();
          ++cylinder_index) {
-        const auto &parameters = mechanism.cylinders[cylinder_index].parameters;
-        const double crank_radius_m = parameters.crank_radius_m.value;
+        const auto &cylinder = mechanism.cylinders[cylinder_index];
+        const auto &parameters = cylinder.parameters;
+        const auto *direct =
+            std::get_if<contract::LegacyDirectJournalKinematics>(
+                &cylinder.kinematics);
+        if (direct == nullptr) {
+            return error(CenteredSliderCrankCycleMeanInertiaIssue::
+                             unsupported_cylinder_kinematics,
+                         cylinder_index);
+        }
+        const double crank_radius_m = direct->crank_radius_m.value;
         const double connecting_rod_length_m = parameters.connecting_rod_length_m.value;
         const double piston_mass_kg = parameters.piston_mass_kg.value;
         const double connecting_rod_mass_kg = parameters.connecting_rod_mass_kg.value;

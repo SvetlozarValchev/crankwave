@@ -71,7 +71,49 @@ template <template <class> class Field> struct LegacyCylinderParametersT {
 };
 
 using AuthoredLegacyCylinderParameters = LegacyCylinderParametersT<AuthoredValue>;
-using LegacyCylinderParameters = LegacyCylinderParametersT<ResolvedValue>;
+
+struct LegacyCylinderParameters {
+    ResolvedValue<double> bore_m;
+    ResolvedValue<double> connecting_rod_length_m;
+    ResolvedValue<double> deck_height_m;
+    ResolvedValue<double> piston_compression_height_m;
+    ResolvedValue<double> head_chamber_volume_m3;
+    ResolvedValue<double> piston_displacement_term_m3;
+    ResolvedValue<double> piston_mass_kg;
+    ResolvedValue<double> connecting_rod_mass_kg;
+    ResolvedValue<double> connecting_rod_inertia_kg_m2;
+    ResolvedValue<double> ignition_wire_angle_rad;
+    ResolvedValue<double> header_primary_length_m;
+
+    friend bool operator==(const LegacyCylinderParameters &,
+                           const LegacyCylinderParameters &) = default;
+};
+
+struct LegacyDirectJournalKinematics {
+    ResolvedValue<double> stroke_m;
+    ResolvedValue<double> crank_radius_m;
+    // Cylinder-axis-relative crank journal phase. This retains the exact direct
+    // mechanism value and provenance path used before attachments were typed.
+    ResolvedValue<double> journal_angle_rad;
+
+    friend bool operator==(const LegacyDirectJournalKinematics &,
+                           const LegacyDirectJournalKinematics &) = default;
+};
+
+struct LegacyMasterRodJournalKinematics {
+    CylinderId master_cylinder_id;
+    ResolvedValue<double> throw_radius_m;
+    // Authored local phase about the master rod; zero points toward its wrist pin
+    // and positive phase rotates counter-clockwise.
+    ResolvedValue<double> master_local_phase_rad;
+
+    friend bool operator==(const LegacyMasterRodJournalKinematics &,
+                           const LegacyMasterRodJournalKinematics &) = default;
+};
+
+using LegacyCylinderKinematics =
+    std::variant<std::monostate, LegacyDirectJournalKinematics,
+                 LegacyMasterRodJournalKinematics>;
 
 struct AuthoredLegacyCylinderAssembly {
     AuthoredLegacyCylinderTopology topology;
@@ -84,6 +126,7 @@ struct AuthoredLegacyCylinderAssembly {
 struct LegacyCylinderAssembly {
     LegacyCylinderTopology topology;
     LegacyCylinderParameters parameters;
+    LegacyCylinderKinematics kinematics;
 
     friend bool operator==(const LegacyCylinderAssembly &,
                            const LegacyCylinderAssembly &) = default;

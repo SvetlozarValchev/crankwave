@@ -882,7 +882,9 @@ void test_mechanics_rejects_stale_plan_with_unchanged_identity() {
 
     const auto engine_id = fixture.engine.id;
     const auto profile_id = fixture.engine.profile_id.value;
-    core.mechanism.cylinders[0].parameters.journal_angle_rad.value += 0.125;
+    std::get<LegacyDirectJournalKinematics>(
+        core.mechanism.cylinders[0].kinematics)
+        .journal_angle_rad.value += 0.125;
     expect(fixture.engine.id == engine_id &&
                fixture.engine.profile_id.value == profile_id,
            "stale-plan test accidentally changed engine identity");

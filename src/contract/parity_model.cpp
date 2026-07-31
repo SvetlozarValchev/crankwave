@@ -45,6 +45,21 @@ constexpr TorqueCapability kOperatingTorqueCapability{
     },
     true,
 };
+constexpr TorqueCapability kGeometryOnlyTorqueCapability{
+    {
+        Availability::unavailable,
+        Completeness::incomplete,
+        0,
+        0,
+    },
+    {
+        Availability::unavailable,
+        Completeness::incomplete,
+        0,
+        0,
+    },
+    false,
+};
 
 template <class T>
 void validate_authored(ValidationReport &report, const AuthoredValue<T> &value,
@@ -100,12 +115,20 @@ const typename Range::value_type *find_by_id(const Range &range, Id id,
     return iterator == range.end() ? nullptr : &*iterator;
 }
 
-template <class Parameters, class Function>
-void visit_cylinder_parameters(const Parameters &parameters, const std::string &base,
+template <class Cylinder, class Function>
+void visit_cylinder_parameters(const Cylinder &cylinder, const std::string &base,
                                Function function) {
+    const auto &parameters = cylinder.parameters;
     function(parameters.bore_m, base + ".bore_m");
-    function(parameters.stroke_m, base + ".stroke_m");
-    function(parameters.crank_radius_m, base + ".crank_radius_m");
+    if constexpr (requires { parameters.stroke_m; }) {
+        function(parameters.stroke_m, base + ".stroke_m");
+        function(parameters.crank_radius_m, base + ".crank_radius_m");
+    } else if (const auto *direct =
+                   std::get_if<LegacyDirectJournalKinematics>(
+                       &cylinder.kinematics)) {
+        function(direct->stroke_m, base + ".stroke_m");
+        function(direct->crank_radius_m, base + ".crank_radius_m");
+    }
     function(parameters.connecting_rod_length_m, base + ".connecting_rod_length_m");
     function(parameters.deck_height_m, base + ".deck_height_m");
     function(parameters.piston_compression_height_m,
@@ -117,9 +140,25 @@ void visit_cylinder_parameters(const Parameters &parameters, const std::string &
     function(parameters.connecting_rod_mass_kg, base + ".connecting_rod_mass_kg");
     function(parameters.connecting_rod_inertia_kg_m2,
              base + ".connecting_rod_inertia_kg_m2");
-    function(parameters.journal_angle_rad, base + ".journal_angle_rad");
+    if constexpr (requires { parameters.journal_angle_rad; }) {
+        function(parameters.journal_angle_rad, base + ".journal_angle_rad");
+    } else if (const auto *direct =
+                   std::get_if<LegacyDirectJournalKinematics>(
+                       &cylinder.kinematics)) {
+        function(direct->journal_angle_rad, base + ".journal_angle_rad");
+    }
     function(parameters.ignition_wire_angle_rad, base + ".ignition_wire_angle_rad");
     function(parameters.header_primary_length_m, base + ".header_primary_length_m");
+    if constexpr (requires { cylinder.kinematics; }) {
+        if (const auto *master =
+                std::get_if<LegacyMasterRodJournalKinematics>(
+                    &cylinder.kinematics)) {
+            function(master->throw_radius_m,
+                     base + ".kinematics.throw_radius_m");
+            function(master->master_local_phase_rad,
+                     base + ".kinematics.master_local_phase_rad");
+        }
+    }
 }
 
 template <class Crank, class Function>
@@ -320,7 +359,7 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
                                  const auto &route_name) {
     visit_crank(core.mechanism.crank, std::string(root) + ".mechanism.crank", function);
     for (const auto &cylinder : core.mechanism.cylinders) {
-        visit_cylinder_parameters(cylinder.parameters,
+        visit_cylinder_parameters(cylinder,
                                   std::string(root) + ".mechanism.cylinders." +
                                       cylinder_name(cylinder),
                                   function);
@@ -1303,6 +1342,7 @@ void validate_low_order_core_domains(ValidationReport &report,
     std::unordered_set<std::uint32_t> atmosphere_volume_ids;
     std::unordered_set<std::uint32_t> used_exhaust_route_ids;
     double profile_displacement_m3 = 0.0;
+    bool has_master_kinematics = false;
 
     const auto require_unique_resource = [&](auto &ids, const auto id,
                                              const std::string &path,
@@ -1455,58 +1495,114 @@ void validate_low_order_core_domains(ValidationReport &report,
             used_exhaust_route_ids.insert(topology.exhaust_route_id.value);
         }
 
-        require(report,
-                finite_positive(parameters.bore_m.value) &&
-                    finite_positive(parameters.stroke_m.value) &&
-                    finite_positive(parameters.crank_radius_m.value) &&
-                    finite_positive(parameters.connecting_rod_length_m.value) &&
-                    parameters.connecting_rod_length_m.value >
-                        parameters.crank_radius_m.value &&
-                    finite_positive(parameters.deck_height_m.value) &&
-                    finite_positive(parameters.piston_compression_height_m.value) &&
-                    finite_positive(parameters.head_chamber_volume_m3.value) &&
-                    finite(parameters.piston_displacement_term_m3.value) &&
-                    finite_positive(parameters.piston_mass_kg.value) &&
-                    finite_positive(parameters.connecting_rod_mass_kg.value) &&
-                    finite_positive(parameters.connecting_rod_inertia_kg_m2.value) &&
-                    finite(parameters.journal_angle_rad.value) &&
-                    finite(parameters.ignition_wire_angle_rad.value) &&
-                    finite_nonnegative(parameters.header_primary_length_m.value),
-                ContractIssueCode::invalid_value, path + ".parameters",
+        const bool common_parameters_valid =
+            finite_positive(parameters.bore_m.value) &&
+            finite_positive(parameters.connecting_rod_length_m.value) &&
+            finite_positive(parameters.deck_height_m.value) &&
+            finite_positive(parameters.piston_compression_height_m.value) &&
+            finite_positive(parameters.head_chamber_volume_m3.value) &&
+            finite(parameters.piston_displacement_term_m3.value) &&
+            finite_positive(parameters.piston_mass_kg.value) &&
+            finite_positive(parameters.connecting_rod_mass_kg.value) &&
+            finite_positive(parameters.connecting_rod_inertia_kg_m2.value) &&
+            finite(parameters.ignition_wire_angle_rad.value) &&
+            finite_nonnegative(parameters.header_primary_length_m.value);
+        require(report, common_parameters_valid, ContractIssueCode::invalid_value,
+                path + ".parameters",
                 "legacy cylinder parameters are outside their physical domain");
-        require(report,
-                detail::nearly_equal(2.0 * parameters.crank_radius_m.value,
-                                     parameters.stroke_m.value),
-                ContractIssueCode::inconsistent_semantics,
-                path + ".parameters.crank_radius_m.value",
-                "twice crank radius must equal stroke");
+
+        const auto *direct =
+            std::get_if<LegacyDirectJournalKinematics>(&cylinder.kinematics);
+        const auto *master =
+            std::get_if<LegacyMasterRodJournalKinematics>(&cylinder.kinematics);
+        require(report, direct != nullptr || master != nullptr,
+                ContractIssueCode::missing_value, path + ".kinematics",
+                "legacy cylinder requires an explicit journal attachment");
+
+        if (direct != nullptr) {
+            require(report,
+                    finite_positive(direct->stroke_m.value) &&
+                        finite_positive(direct->crank_radius_m.value) &&
+                        parameters.connecting_rod_length_m.value >
+                            direct->crank_radius_m.value &&
+                        finite(direct->journal_angle_rad.value),
+                    ContractIssueCode::invalid_value, path + ".parameters",
+                    "direct-journal cylinder kinematics are outside their physical "
+                    "domain");
+            require(report,
+                    detail::nearly_equal(2.0 * direct->crank_radius_m.value,
+                                         direct->stroke_m.value),
+                    ContractIssueCode::inconsistent_semantics,
+                    path + ".parameters.crank_radius_m.value",
+                    "twice crank radius must equal stroke");
+        }
+        if (master != nullptr) {
+            has_master_kinematics = true;
+            const auto *master_engine_cylinder =
+                find_by_id(engine.cylinders, master->master_cylinder_id,
+                           &CylinderSpec::id);
+            const auto *master_core_cylinder = find_by_id(
+                core.mechanism.cylinders, master->master_cylinder_id,
+                [](const LegacyCylinderAssembly &candidate) {
+                    return candidate.topology.cylinder_id;
+                });
+            require(report,
+                    master->master_cylinder_id.valid() &&
+                        master->master_cylinder_id != topology.cylinder_id &&
+                        master_engine_cylinder != nullptr &&
+                        !master_engine_cylinder->master_rod_attachment.has_value() &&
+                        master_core_cylinder != nullptr &&
+                        std::holds_alternative<LegacyDirectJournalKinematics>(
+                            master_core_cylinder->kinematics) &&
+                        finite_positive(master->throw_radius_m.value) &&
+                        finite(master->master_local_phase_rad.value),
+                    ContractIssueCode::invalid_value, path + ".kinematics",
+                    "master-rod attachment requires an existing distinct master "
+                    "cylinder, positive throw, and finite local phase");
+        }
 
         if (engine_cylinder != nullptr) {
             const double bank_angle_rad =
                 engine_bank != nullptr && engine_bank->angle_rad.has_value()
                     ? engine_bank->angle_rad->value
                     : 0.0;
-            require(
-                report,
-                detail::nearly_equal(parameters.bore_m.value,
-                                     engine_cylinder->bore_m.value) &&
-                    detail::nearly_equal(parameters.stroke_m.value,
+            bool kinematics_match = false;
+            if (direct != nullptr) {
+                kinematics_match =
+                    !engine_cylinder->master_rod_attachment.has_value() &&
+                    detail::nearly_equal(direct->stroke_m.value,
                                          engine_cylinder->stroke_m.value) &&
                     detail::nearly_equal(
-                        parameters.connecting_rod_length_m.value,
-                        engine_cylinder->connecting_rod_length_m.value) &&
-                    detail::nearly_equal(parameters.journal_angle_rad.value,
-                                         engine_cylinder->journal_phase_rad.value -
-                                             bank_angle_rad) &&
-                    detail::nearly_equal(parameters.ignition_wire_angle_rad.value,
-                                         engine_cylinder->firing_tdc_offset_rad.value),
-                ContractIssueCode::inconsistent_semantics, path + ".parameters",
-                "legacy cylinder geometry and axis-relative phases must agree with "
-                "EngineSpec");
+                        direct->journal_angle_rad.value,
+                        engine_cylinder->journal_phase_rad.value - bank_angle_rad);
+            } else if (master != nullptr) {
+                const auto &attachment = engine_cylinder->master_rod_attachment;
+                kinematics_match =
+                    attachment.has_value() &&
+                    master->master_cylinder_id == attachment->master_cylinder_id &&
+                    detail::nearly_equal(master->throw_radius_m.value,
+                                         attachment->throw_radius_m.value) &&
+                    detail::nearly_equal(
+                        master->master_local_phase_rad.value,
+                        engine_cylinder->journal_phase_rad.value);
+            }
+            require(report,
+                    detail::nearly_equal(parameters.bore_m.value,
+                                         engine_cylinder->bore_m.value) &&
+                        detail::nearly_equal(
+                            parameters.connecting_rod_length_m.value,
+                            engine_cylinder->connecting_rod_length_m.value) &&
+                        detail::nearly_equal(
+                            parameters.ignition_wire_angle_rad.value,
+                            engine_cylinder->firing_tdc_offset_rad.value) &&
+                        kinematics_match,
+                    ContractIssueCode::inconsistent_semantics, path,
+                    "legacy cylinder geometry and typed journal attachment must "
+                    "agree with EngineSpec");
         }
 
-        if (finite_positive(parameters.bore_m.value) &&
-            finite_positive(parameters.crank_radius_m.value) &&
+        if (direct != nullptr && finite_positive(parameters.bore_m.value) &&
+            finite_positive(direct->crank_radius_m.value) &&
             finite_positive(parameters.connecting_rod_length_m.value) &&
             finite_positive(parameters.deck_height_m.value) &&
             finite_positive(parameters.piston_compression_height_m.value) &&
@@ -1515,7 +1611,7 @@ void validate_low_order_core_domains(ValidationReport &report,
             const auto piston_area_m2 =
                 kLegacyPi * parameters.bore_m.value * parameters.bore_m.value / 4.0;
             const auto tdc_mechanism_height_m =
-                parameters.crank_radius_m.value * std::cos(0.0) +
+                direct->crank_radius_m.value * std::cos(0.0) +
                 std::sqrt(parameters.connecting_rod_length_m.value *
                           parameters.connecting_rod_length_m.value);
             const auto clearance_volume_m3 =
@@ -1525,7 +1621,7 @@ void validate_low_order_core_domains(ValidationReport &report,
                     (parameters.deck_height_m.value - tdc_mechanism_height_m -
                      parameters.piston_compression_height_m.value);
             const auto swept_volume_m3 =
-                piston_area_m2 * (2.0 * parameters.crank_radius_m.value);
+                piston_area_m2 * (2.0 * direct->crank_radius_m.value);
             const auto fixed_geometry_volume_m3 =
                 parameters.head_chamber_volume_m3.value -
                 parameters.piston_displacement_term_m3.value +
@@ -1557,10 +1653,11 @@ void validate_low_order_core_domains(ValidationReport &report,
         }
     }
     require(report,
-            detail::nearly_equal(profile_displacement_m3,
-                                 engine.total_displacement_m3.value),
+            has_master_kinematics ||
+                detail::nearly_equal(profile_displacement_m3,
+                                     engine.total_displacement_m3.value),
             ContractIssueCode::inconsistent_semantics, "mechanism.cylinders",
-            "legacy mechanism displacement must agree with EngineSpec");
+            "direct legacy mechanism displacement must agree with EngineSpec");
 
     const auto &intake = core.gas_path.intake;
     require(report,
@@ -2182,9 +2279,14 @@ void validate_operating_geometry(ValidationReport &report,
         if (engine_cylinder == engine.cylinders.end()) {
             continue;
         }
+        const auto *direct =
+            std::get_if<LegacyDirectJournalKinematics>(&assembly.kinematics);
+        if (direct == nullptr) {
+            continue;
+        }
         detail::require(
             report,
-            std::bit_cast<std::uint64_t>(assembly.parameters.stroke_m.value) ==
+            std::bit_cast<std::uint64_t>(direct->stroke_m.value) ==
                 std::bit_cast<std::uint64_t>(engine_cylinder->stroke_m.value),
             ContractIssueCode::inconsistent_semantics,
             "mechanism.cylinders." + engine_cylinder->semantic_id.value +
@@ -2263,12 +2365,25 @@ void validate_resolved_profile_specific(ValidationReport &report,
                                           profile.starter);
     validate_resolved_accessory_evidence(report, profile.accessory_configuration,
                                          provenance);
-    validate_operating_geometry(report, profile.core, engine);
+    const bool has_master_kinematics = std::ranges::any_of(
+        profile.core.mechanism.cylinders, [](const auto &cylinder) {
+            return std::holds_alternative<LegacyMasterRodJournalKinematics>(
+                cylinder.kinematics);
+        });
+    if (!has_master_kinematics) {
+        validate_operating_geometry(report, profile.core, engine);
+    }
+    const auto expected_capability = has_master_kinematics
+                                         ? kGeometryOnlyTorqueCapability
+                                         : kOperatingTorqueCapability;
     detail::require(
-        report, engine.torque_capability.value == kOperatingTorqueCapability,
+        report, engine.torque_capability.value == expected_capability,
         ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",
-        "operating-point profile requires complete instantaneous and cycle-mean net "
-        "torque coverage plus admitted equivalent inertia");
+        has_master_kinematics
+            ? "geometry-only master-rod profile must leave net torque and equivalent "
+              "inertia unavailable"
+            : "operating-point profile requires complete instantaneous and cycle-mean "
+              "net torque coverage plus admitted equivalent inertia");
 }
 
 } // namespace

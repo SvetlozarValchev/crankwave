@@ -20,6 +20,7 @@ struct DirectMechanismCylinderPlan {
     contract::GasVolumeId chamber_volume_id;
     contract::RouteId exhaust_route_id;
     double bore_m = 0.0;
+    double stroke_m = 0.0;
     double deck_height_m = 0.0;
     double piston_compression_height_m = 0.0;
     double head_chamber_volume_m3 = 0.0;

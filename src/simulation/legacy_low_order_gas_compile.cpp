@@ -680,6 +680,9 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         const auto &assembly = mechanism.cylinders[cylinder_index];
         const auto &topology = assembly.topology;
         const auto &parameters = assembly.parameters;
+        const auto *direct =
+            std::get_if<contract::LegacyDirectJournalKinematics>(
+                &assembly.kinematics);
         const auto &planned = direct_plan->cylinders[cylinder_index];
         const auto &model = planned.crank;
         const std::string path = "engine.physics_profile.mechanism.cylinders[" +
@@ -767,16 +770,16 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         }
 
         const bool numeric_values_valid =
-            finite_positive(parameters.bore_m.value) &&
-            finite_positive(parameters.crank_radius_m.value) &&
+            direct != nullptr && finite_positive(parameters.bore_m.value) &&
+            finite_positive(direct->crank_radius_m.value) &&
             finite_positive(parameters.connecting_rod_length_m.value) &&
-            parameters.crank_radius_m.value <
+            direct->crank_radius_m.value <
                 parameters.connecting_rod_length_m.value &&
             finite_positive(parameters.deck_height_m.value) &&
             finite_positive(parameters.piston_compression_height_m.value) &&
             finite_positive(parameters.head_chamber_volume_m3.value) &&
             std::isfinite(parameters.piston_displacement_term_m3.value) &&
-            std::isfinite(parameters.journal_angle_rad.value) &&
+            std::isfinite(direct->journal_angle_rad.value) &&
             std::isfinite(parameters.ignition_wire_angle_rad.value) &&
             finite_nonnegative(parameters.header_primary_length_m.value);
         require(report, numeric_values_valid, ContractIssueCode::invalid_value,

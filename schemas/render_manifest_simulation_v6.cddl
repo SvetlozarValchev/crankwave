@@ -95,7 +95,13 @@ cylinder-spec = {
   "connecting_rod_length_m": resolved<f64-bits>,
   "compression_ratio": resolved<f64-bits>,
   "firing_tdc_offset_rad": resolved<f64-bits>,
-  "journal_phase_rad": resolved<f64-bits>
+  "journal_phase_rad": resolved<f64-bits>,
+  ? "master_rod_attachment": master-rod-attachment-spec
+}
+
+master-rod-attachment-spec = {
+  "master_cylinder_id": stable-id,
+  "throw_radius_m": resolved<f64-bits>
 }
 
 port-spec = {
@@ -231,6 +237,10 @@ legacy-crank-assembly = {
 legacy-cylinder-assembly = {
   "topology": legacy-cylinder-topology,
   "parameters": legacy-cylinder-parameters
+} / {
+  "topology": legacy-cylinder-topology,
+  "parameters": legacy-common-cylinder-parameters,
+  "kinematics": legacy-master-rod-cylinder-kinematics
 }
 
 legacy-cylinder-topology = {
@@ -263,6 +273,27 @@ legacy-cylinder-parameters = {
   "journal_angle_rad": resolved<f64-bits>,
   "ignition_wire_angle_rad": resolved<f64-bits>,
   "header_primary_length_m": resolved<f64-bits>
+}
+
+legacy-common-cylinder-parameters = {
+  "bore_m": resolved<f64-bits>,
+  "connecting_rod_length_m": resolved<f64-bits>,
+  "deck_height_m": resolved<f64-bits>,
+  "piston_compression_height_m": resolved<f64-bits>,
+  "head_chamber_volume_m3": resolved<f64-bits>,
+  "piston_displacement_term_m3": resolved<f64-bits>,
+  "piston_mass_kg": resolved<f64-bits>,
+  "connecting_rod_mass_kg": resolved<f64-bits>,
+  "connecting_rod_inertia_kg_m2": resolved<f64-bits>,
+  "ignition_wire_angle_rad": resolved<f64-bits>,
+  "header_primary_length_m": resolved<f64-bits>
+}
+
+legacy-master-rod-cylinder-kinematics = {
+  "type": "master_rod",
+  "master_cylinder_id": stable-id,
+  "throw_radius_m": resolved<f64-bits>,
+  "master_local_phase_rad": resolved<f64-bits>
 }
 
 legacy-gas-path-profile = {

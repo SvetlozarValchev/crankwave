@@ -30,19 +30,83 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
             context.route_for_exhaust.at(cylinder.exhaust.value);
         const double crank_radius_m = legacy_si_value(context.crankshaft->throw_radius);
         const double raw_journal_phase_rad = legacy_si_value(journal.phase);
-        contract::ResolvedValue<double> effective_journal_phase;
-        if (source.layout != authoring::CylinderLayout::inline_engine) {
+        const auto *master_attachment =
+            std::get_if<authoring::MasterRodJournalAttachment>(&journal.attachment);
+        std::optional<contract::ResolvedValue<double>> direct_journal_phase;
+        std::optional<contract::ResolvedValue<double>> master_local_phase;
+        if (master_attachment != nullptr) {
+            master_local_phase = emitter.authored(
+                raw_journal_phase_rad,
+                base + ".kinematics.master_local_phase_rad");
+        } else if (source.layout != authoring::CylinderLayout::inline_engine) {
             const auto raw_phase_path =
                 "engine.cylinders." + semantic + ".journal_phase_rad";
-            const auto bank_angle_path = "engine.banks." + bank.id.value + ".angle_rad";
-            effective_journal_phase = emitter.derived(
+            const auto bank_angle_path =
+                "engine.banks." + bank.id.value + ".angle_rad";
+            direct_journal_phase = emitter.derived(
                 raw_journal_phase_rad - legacy_si_value(bank.angle),
                 base + ".journal_angle_rad",
                 derived_method_identity("cylinder-axis-relative-journal-phase-v1"),
                 {raw_phase_path, bank_angle_path});
         } else {
-            effective_journal_phase =
+            direct_journal_phase =
                 emitter.authored(raw_journal_phase_rad, base + ".journal_angle_rad");
+        }
+        auto bore_m = emitter.authored(legacy_si_value(bank.bore), base + ".bore_m");
+        std::optional<contract::ResolvedValue<double>> direct_stroke_m;
+        std::optional<contract::ResolvedValue<double>> direct_crank_radius_m;
+        if (master_attachment == nullptr) {
+            // Keep direct resolution emission in its historical order. Resolution
+            // identifiers are part of the canonical request identity.
+            direct_stroke_m = emitter.derived(
+                2.0 * crank_radius_m, base + ".stroke_m",
+                derived_method_identity("twice-crank-throw-stroke-v1"),
+                {base + ".crank_radius_m"});
+            direct_crank_radius_m =
+                emitter.authored(crank_radius_m, base + ".crank_radius_m");
+        }
+        auto connecting_rod_length_m = emitter.authored(
+            legacy_si_value(rod.length), base + ".connecting_rod_length_m");
+        auto deck_height_m = emitter.authored(legacy_si_value(bank.deck_height),
+                                              base + ".deck_height_m");
+        auto piston_compression_height_m = emitter.authored(
+            legacy_si_value(piston.compression_height),
+            base + ".piston_compression_height_m");
+        auto head_chamber_volume_m3 = emitter.authored(
+            legacy_si_value(context.head->chamber_volume),
+            base + ".head_chamber_volume_m3");
+        auto piston_displacement_term_m3 = emitter.authored(
+            legacy_si_value(piston.displacement_volume),
+            base + ".piston_displacement_term_m3");
+        auto piston_mass_kg =
+            emitter.authored(legacy_si_value(piston.mass), base + ".piston_mass_kg");
+        auto connecting_rod_mass_kg = emitter.authored(
+            legacy_si_value(rod.mass), base + ".connecting_rod_mass_kg");
+        auto connecting_rod_inertia_kg_m2 = emitter.authored(
+            legacy_si_value(rod.moment_of_inertia),
+            base + ".connecting_rod_inertia_kg_m2");
+
+        auto ignition_wire_angle_rad = emitter.authored(
+            context.firing_angle_for_wire_rad.at(cylinder.ignition_wire.value),
+            base + ".ignition_wire_angle_rad");
+        auto header_primary_length_m = emitter.authored(
+            legacy_si_value(cylinder.exhaust_header_primary_length),
+            base + ".header_primary_length_m");
+
+        contract::LegacyCylinderKinematics kinematics;
+        if (master_attachment != nullptr) {
+            kinematics = contract::LegacyMasterRodJournalKinematics{
+                cylinder_id(context, master_attachment->master_cylinder.value),
+                emitter.authored(legacy_si_value(master_attachment->throw_radius),
+                                 base + ".kinematics.throw_radius_m"),
+                std::move(*master_local_phase),
+            };
+        } else {
+            kinematics = contract::LegacyDirectJournalKinematics{
+                std::move(*direct_stroke_m),
+                std::move(*direct_crank_radius_m),
+                std::move(*direct_journal_phase),
+            };
         }
         core.mechanism.cylinders.push_back({
             {
@@ -62,35 +126,19 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
                 route_id(context, route_semantic),
             },
             {
-                emitter.authored(legacy_si_value(bank.bore), base + ".bore_m"),
-                emitter.derived(2.0 * crank_radius_m, base + ".stroke_m",
-                                derived_method_identity("twice-crank-throw-stroke-v1"),
-                                {base + ".crank_radius_m"}),
-                emitter.authored(crank_radius_m, base + ".crank_radius_m"),
-                emitter.authored(legacy_si_value(rod.length),
-                                 base + ".connecting_rod_length_m"),
-                emitter.authored(legacy_si_value(bank.deck_height),
-                                 base + ".deck_height_m"),
-                emitter.authored(legacy_si_value(piston.compression_height),
-                                 base + ".piston_compression_height_m"),
-                emitter.authored(legacy_si_value(context.head->chamber_volume),
-                                 base + ".head_chamber_volume_m3"),
-                emitter.authored(legacy_si_value(piston.displacement_volume),
-                                 base + ".piston_displacement_term_m3"),
-                emitter.authored(legacy_si_value(piston.mass),
-                                 base + ".piston_mass_kg"),
-                emitter.authored(legacy_si_value(rod.mass),
-                                 base + ".connecting_rod_mass_kg"),
-                emitter.authored(legacy_si_value(rod.moment_of_inertia),
-                                 base + ".connecting_rod_inertia_kg_m2"),
-                std::move(effective_journal_phase),
-                emitter.authored(
-                    context.firing_angle_for_wire_rad.at(cylinder.ignition_wire.value),
-                    base + ".ignition_wire_angle_rad"),
-                emitter.authored(
-                    legacy_si_value(cylinder.exhaust_header_primary_length),
-                    base + ".header_primary_length_m"),
+                std::move(bore_m),
+                std::move(connecting_rod_length_m),
+                std::move(deck_height_m),
+                std::move(piston_compression_height_m),
+                std::move(head_chamber_volume_m3),
+                std::move(piston_displacement_term_m3),
+                std::move(piston_mass_kg),
+                std::move(connecting_rod_mass_kg),
+                std::move(connecting_rod_inertia_kg_m2),
+                std::move(ignition_wire_angle_rad),
+                std::move(header_primary_length_m),
             },
+            std::move(kinematics),
         });
     }
 }

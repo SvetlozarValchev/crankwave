@@ -193,7 +193,16 @@ void ScenarioResolver::register_provenance() {
                 append_dependency(
                     profile.core.mechanism.crank.authored_crank_inertia_kg_m2);
                 for (const auto &cylinder : profile.core.mechanism.cylinders) {
-                    append_dependency(cylinder.parameters.crank_radius_m);
+                    const auto *direct =
+                        std::get_if<contract::LegacyDirectJournalKinematics>(
+                            &cylinder.kinematics);
+                    if (direct == nullptr) {
+                        add(authoring::DiagnosticCode::internal_failure, "",
+                            "admitted dynamic scenario has non-direct cylinder "
+                            "kinematics");
+                        continue;
+                    }
+                    append_dependency(direct->crank_radius_m);
                     append_dependency(cylinder.parameters.connecting_rod_length_m);
                     append_dependency(cylinder.parameters.piston_mass_kg);
                     append_dependency(cylinder.parameters.connecting_rod_mass_kg);
@@ -254,7 +263,16 @@ void ScenarioResolver::register_provenance() {
                 append_dependency(
                     profile.core.mechanism.crank.authored_crank_inertia_kg_m2);
                 for (const auto &cylinder : profile.core.mechanism.cylinders) {
-                    append_dependency(cylinder.parameters.crank_radius_m);
+                    const auto *direct =
+                        std::get_if<contract::LegacyDirectJournalKinematics>(
+                            &cylinder.kinematics);
+                    if (direct == nullptr) {
+                        add(authoring::DiagnosticCode::internal_failure, "",
+                            "admitted dynamic scenario has non-direct cylinder "
+                            "kinematics");
+                        continue;
+                    }
+                    append_dependency(direct->crank_radius_m);
                     append_dependency(cylinder.parameters.connecting_rod_length_m);
                     append_dependency(cylinder.parameters.piston_mass_kg);
                     append_dependency(cylinder.parameters.connecting_rod_mass_kg);

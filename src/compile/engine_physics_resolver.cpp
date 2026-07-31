@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace engine_sim_offline::compile::detail::engine_resolution {
@@ -262,6 +263,16 @@ resolve_valve_flow_point(const authoring::CurveSample &source, std::size_t index
     };
 }
 
+[[nodiscard]] contract::TorqueCapability geometry_only_torque_capability() {
+    constexpr contract::NetTorqueFormCapability unavailable{
+        contract::Availability::unavailable,
+        contract::Completeness::incomplete,
+        0,
+        0,
+    };
+    return {unavailable, unavailable, false};
+}
+
 [[nodiscard]] contract::CylinderLayoutKind
 resolve_cylinder_layout(authoring::CylinderLayout layout) {
     switch (layout) {
@@ -344,11 +355,23 @@ contract::EngineSpec assemble_engine(const ModelContext &context,
     resolve_ignition_and_fuel(context, emitter, profile.core);
     resolve_excitation(context, emitter, profile.core);
     resolve_operating_accounting(context, emitter, profile);
+    const bool has_master_kinematics = std::ranges::any_of(
+        profile.core.mechanism.cylinders, [](const auto &cylinder) {
+            return std::holds_alternative<
+                contract::LegacyMasterRodJournalKinematics>(cylinder.kinematics);
+        });
     engine.physics_profile = std::move(profile);
-    engine.torque_capability =
-        emitter.derived(operating_torque_capability(), "engine.torque_capability",
-                        derived_method_identity("operating-point-torque-capability-v1"),
-                        {"engine.methods.losses"});
+    if (has_master_kinematics) {
+        engine.torque_capability = emitter.derived(
+            geometry_only_torque_capability(), "engine.torque_capability",
+            derived_method_identity("geometry-only-torque-capability-v1"),
+            {"engine.methods.mechanism"});
+    } else {
+        engine.torque_capability = emitter.derived(
+            operating_torque_capability(), "engine.torque_capability",
+            derived_method_identity("operating-point-torque-capability-v1"),
+            {"engine.methods.losses"});
+    }
     return engine;
 }
 

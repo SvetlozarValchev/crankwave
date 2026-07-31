@@ -32,12 +32,15 @@ void expect_near(double actual, double expected, double tolerance,
 
 [[nodiscard]] contract::LegacyCylinderAssembly bmw_cylinder(double phase_rad) {
     contract::LegacyCylinderAssembly cylinder;
-    cylinder.parameters.crank_radius_m.value = 0.042;
     cylinder.parameters.connecting_rod_length_m.value = 0.135;
     cylinder.parameters.piston_mass_kg.value = 0.280;
     cylinder.parameters.connecting_rod_mass_kg.value = 0.300;
     cylinder.parameters.connecting_rod_inertia_kg_m2.value = 0.0015884918028487504;
-    cylinder.parameters.journal_angle_rad.value = phase_rad;
+    cylinder.kinematics = contract::LegacyDirectJournalKinematics{
+        {{0.084}, {}},
+        {{0.042}, {}},
+        {{phase_rad}, {}},
+    };
     return cylinder;
 }
 
@@ -137,8 +140,10 @@ void test_bmw_m52_cycle_mean_components_and_phase_invariance() {
                 "BMW engine equivalent inertia changed");
 
     for (std::size_t index = 0; index < mechanism.cylinders.size(); ++index) {
-        mechanism.cylinders[index].parameters.journal_angle_rad.value =
-            0.123456789 * static_cast<double>(index + 1U);
+        std::get<contract::LegacyDirectJournalKinematics>(
+            mechanism.cylinders[index].kinematics)
+            .journal_angle_rad.value =
+                0.123456789 * static_cast<double>(index + 1U);
     }
     const auto shifted = require_result(
         simulation::calculate_centered_slider_crank_cycle_mean_inertia(mechanism));

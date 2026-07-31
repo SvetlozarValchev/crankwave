@@ -142,15 +142,18 @@ void verify_resolved_topology(const test::AuthoredEngineFixture &fixture) {
         const auto &cylinder = find_cylinder(engine, item.id);
         const auto &bank = find_bank(engine, item.bank);
         const auto &assembly = find_core_cylinder(core, cylinder.id);
+        const auto &direct =
+            std::get<contract::LegacyDirectJournalKinematics>(
+                assembly.kinematics);
         expect(cylinder.bank_id == bank.id &&
                    near(cylinder.journal_phase_rad.value,
                         item.raw_journal_degrees * kDegreesToRadians) &&
-                   near(assembly.parameters.journal_angle_rad.value,
+                   near(direct.journal_angle_rad.value,
                         item.effective_journal_degrees * kDegreesToRadians),
                "EJ25 raw/effective journal phase mapping changed");
         const double geometric_tdc = std::remainder(
             core.mechanism.crank.crank_tdc_reference_rad.value +
-                assembly.parameters.journal_angle_rad.value - kLegacyPi / 2.0,
+                direct.journal_angle_rad.value - kLegacyPi / 2.0,
             2.0 * kLegacyPi);
         expect(near(std::abs(geometric_tdc),
                     item.geometric_tdc_degrees * kDegreesToRadians),

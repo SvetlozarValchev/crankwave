@@ -24,6 +24,7 @@ inline constexpr std::size_t kNoCenteredSliderCrankInertiaCylinder =
 enum class CenteredSliderCrankCycleMeanInertiaIssue : std::uint8_t {
     nonfinite_authored_crank_inertia,
     nonpositive_authored_crank_inertia,
+    unsupported_cylinder_kinematics,
     nonfinite_crank_radius,
     nonpositive_crank_radius,
     nonfinite_connecting_rod_length,

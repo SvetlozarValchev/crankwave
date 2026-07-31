@@ -39,13 +39,29 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
     const auto &mechanism = core.mechanism;
     const auto &crank = mechanism.crank;
 
-    for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
-        if (engine.cylinders[index].master_rod_attachment.has_value()) {
+    for (std::size_t index = 0; index < mechanism.cylinders.size(); ++index) {
+        const auto &kinematics = mechanism.cylinders[index].kinematics;
+        const bool engine_declares_master =
+            index < engine.cylinders.size() &&
+            engine.cylinders[index].master_rod_attachment.has_value();
+        if (engine_declares_master) {
             report.add(ContractIssueCode::unsupported_value,
                        "engine.cylinders[" + std::to_string(index) +
                            "].master_rod_attachment",
                        "master-rod attachment metadata is resolved, but its runtime "
                        "kinematics are not implemented in this checkpoint");
+        } else if (std::holds_alternative<
+                       contract::LegacyMasterRodJournalKinematics>(kinematics)) {
+            report.add(ContractIssueCode::unsupported_value,
+                       "engine.physics_profile.mechanism.cylinders[" +
+                           std::to_string(index) + "].kinematics",
+                       "master-rod core kinematics require matching public attachment "
+                       "metadata and are not executable in this checkpoint");
+        } else if (std::holds_alternative<std::monostate>(kinematics)) {
+            report.add(ContractIssueCode::missing_value,
+                       "engine.physics_profile.mechanism.cylinders[" +
+                           std::to_string(index) + "].kinematics",
+                       "mechanism cylinder requires an explicit journal attachment");
         }
     }
     if (!report.ok()) {
@@ -80,6 +96,9 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
     for (std::size_t index = 0; index < mechanism.cylinders.size(); ++index) {
         const auto &assembly = mechanism.cylinders[index];
         const auto &parameters = assembly.parameters;
+        const auto *direct =
+            std::get_if<contract::LegacyDirectJournalKinematics>(
+                &assembly.kinematics);
         const auto path =
             "engine.physics_profile.mechanism.cylinders[" +
             std::to_string(index) + "]";
@@ -103,8 +122,16 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
                 path + ".topology.exhaust_route_id",
                 "mechanism cylinder requires an existing exhaust-outlet route");
 
+        require(report, direct != nullptr, ContractIssueCode::unsupported_value,
+                path + ".kinematics",
+                "direct mechanism plan requires direct-journal kinematics");
+        if (direct == nullptr) {
+            continue;
+        }
+
         const double bore_m = parameters.bore_m.value;
-        const double crank_radius_m = parameters.crank_radius_m.value;
+        const double stroke_m = direct->stroke_m.value;
+        const double crank_radius_m = direct->crank_radius_m.value;
         const double rod_length_m = parameters.connecting_rod_length_m.value;
         const double deck_height_m = parameters.deck_height_m.value;
         const double compression_height_m =
@@ -112,12 +139,14 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
         const double head_volume_m3 = parameters.head_chamber_volume_m3.value;
         const double piston_displacement_m3 =
             parameters.piston_displacement_term_m3.value;
-        const double journal_angle_rad = parameters.journal_angle_rad.value;
+        const double journal_angle_rad = direct->journal_angle_rad.value;
         const double ignition_wire_angle_rad =
             parameters.ignition_wire_angle_rad.value;
 
         const bool numeric_inputs_valid =
-            finite_positive(bore_m) && finite_positive(crank_radius_m) &&
+            finite_positive(bore_m) && finite_positive(stroke_m) &&
+            finite_positive(crank_radius_m) &&
+            same_binary64(stroke_m, 2.0 * crank_radius_m) &&
             finite_positive(rod_length_m) && crank_radius_m < rod_length_m &&
             finite_positive(deck_height_m) && finite_positive(compression_height_m) &&
             finite_positive(head_volume_m3) &&
@@ -164,6 +193,7 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
             assembly.topology.chamber_volume_id,
             assembly.topology.exhaust_route_id,
             bore_m,
+            stroke_m,
             deck_height_m,
             compression_height_m,
             head_volume_m3,
@@ -229,19 +259,25 @@ bool mechanism_kinematics_plan_matches_source(
         const auto &planned = direct->cylinders[index];
         const auto &assembly = mechanism.cylinders[index];
         const auto &parameters = assembly.parameters;
+        const auto *kinematics =
+            std::get_if<contract::LegacyDirectJournalKinematics>(
+                &assembly.kinematics);
         const auto route = std::find_if(
             engine.routes.begin(), engine.routes.end(), [&](const auto &candidate) {
                 return candidate.id == planned.exhaust_route_id;
             });
-        if (planned.crank.cylinder_id != engine.cylinders[index].id ||
+        if (kinematics == nullptr ||
+            engine.cylinders[index].master_rod_attachment.has_value() ||
+            planned.crank.cylinder_id != engine.cylinders[index].id ||
             planned.crank.cylinder_id != assembly.topology.cylinder_id ||
             planned.chamber_volume_id != assembly.topology.chamber_volume_id ||
             planned.exhaust_route_id != assembly.topology.exhaust_route_id ||
             route == engine.routes.end() ||
             route->kind.value != contract::SourceRouteKind::exhaust_outlet ||
             !same_binary64(planned.bore_m, parameters.bore_m.value) ||
+            !same_binary64(planned.stroke_m, kinematics->stroke_m.value) ||
             !same_binary64(planned.crank.crank_radius_m,
-                           parameters.crank_radius_m.value) ||
+                           kinematics->crank_radius_m.value) ||
             !same_binary64(planned.crank.connecting_rod_length_m,
                            parameters.connecting_rod_length_m.value) ||
             !same_binary64(planned.deck_height_m,
@@ -253,7 +289,7 @@ bool mechanism_kinematics_plan_matches_source(
             !same_binary64(planned.piston_displacement_term_m3,
                            parameters.piston_displacement_term_m3.value) ||
             !same_binary64(planned.authored_journal_angle_rad,
-                           parameters.journal_angle_rad.value) ||
+                           kinematics->journal_angle_rad.value) ||
             !same_binary64(planned.crank.ignition_wire_angle_rad,
                            parameters.ignition_wire_angle_rad.value) ||
             !same_binary64(planned.piston_mass_kg,

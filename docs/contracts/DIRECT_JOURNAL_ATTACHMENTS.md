@@ -1,6 +1,7 @@
 # Journal attachment graph
 
-Status: topology sub-slice 10B2; graph implemented, master-rod execution closed
+Status: topology sub-slice 10C2b1; graph and typed resolved core implemented,
+master-rod execution closed
 
 ## One ownership path
 
@@ -64,12 +65,15 @@ slave pin. The graph contract requires:
 
 The parser and direct-DTO compiler admission share this graph validation. A valid
 master-rod graph resolves its stable master-cylinder ID, throw radius, and raw local
-phase, then fails explicitly when the compiled-engine builder invokes the shared
-mechanism-plan compiler. Nested kinematics and reactions are not implemented in this
-sub-slice. It cannot become a public compiled engine, fall through to a direct-journal
-`std::get`, or silently execute direct slider-crank geometry. The resolution-only
-nominal stroke, compression, and displacement fields are not executable master-rod
-facts; the geometry sub-slice must replace them before this gate opens.
+phase into a distinct core alternative. It has no direct-only stroke, crank radius,
+or axis-relative journal phase to consume accidentally. The engine publishes
+geometry-only capability: both net-torque forms and equivalent inertia are unavailable.
+The shared mechanism-plan compiler then rejects execution explicitly. Nested
+kinematics and reactions are not implemented in this sub-slice. It cannot become a
+public compiled engine or silently execute direct slider-crank geometry. The
+resolution-only nominal stroke, compression, and displacement fields in `EngineSpec`
+are not executable master-rod facts; the geometry sub-slice must avoid using them for
+accounting when its narrow prescribed-motion gate opens.
 
 ## Removed ambiguity
 
@@ -89,6 +93,8 @@ variant does not revive or alias any of them.
 
 Direct journal IDs, crankshaft ownership, phases, cylinder bindings, ordering, and
 resolved provenance remain unchanged. Existing direct engines continue through the
-same resolver/runtime path. Master-rod execution remains closed until the next topology
-slice supplies authoritative nested chamber geometry. Articulated inertia and coupled
-wall reactions remain later, separately gated work.
+same resolver/runtime path and canonical request shape. Master-rod execution remains
+closed until the next topology slice supplies authoritative nested chamber geometry.
+That first gate is limited to prescribed external-speed motion; articulated inertia,
+coupled wall reactions, and dynamic operating modes remain later, separately gated
+work.

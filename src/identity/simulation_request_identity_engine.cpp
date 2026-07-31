@@ -354,46 +354,88 @@ write_legacy_cylinder_topology(CanonicalJsonWriter &writer,
 
 [[nodiscard]] bool
 write_legacy_cylinder_parameters(CanonicalJsonWriter &writer,
-                                 const contract::LegacyCylinderParameters &parameters) {
-    return writer.begin_object() && writer.key("bore_m") &&
-           write_resolved(writer, parameters.bore_m, write_f64) &&
-           writer.key("stroke_m") &&
-           write_resolved(writer, parameters.stroke_m, write_f64) &&
-           writer.key("crank_radius_m") &&
-           write_resolved(writer, parameters.crank_radius_m, write_f64) &&
-           writer.key("connecting_rod_length_m") &&
-           write_resolved(writer, parameters.connecting_rod_length_m, write_f64) &&
-           writer.key("deck_height_m") &&
-           write_resolved(writer, parameters.deck_height_m, write_f64) &&
-           writer.key("piston_compression_height_m") &&
-           write_resolved(writer, parameters.piston_compression_height_m, write_f64) &&
-           writer.key("head_chamber_volume_m3") &&
-           write_resolved(writer, parameters.head_chamber_volume_m3, write_f64) &&
-           writer.key("piston_displacement_term_m3") &&
-           write_resolved(writer, parameters.piston_displacement_term_m3, write_f64) &&
-           writer.key("piston_mass_kg") &&
-           write_resolved(writer, parameters.piston_mass_kg, write_f64) &&
-           writer.key("connecting_rod_mass_kg") &&
-           write_resolved(writer, parameters.connecting_rod_mass_kg, write_f64) &&
-           writer.key("connecting_rod_inertia_kg_m2") &&
-           write_resolved(writer, parameters.connecting_rod_inertia_kg_m2, write_f64) &&
-           writer.key("journal_angle_rad") &&
-           write_resolved(writer, parameters.journal_angle_rad, write_f64) &&
-           writer.key("ignition_wire_angle_rad") &&
+                                 const contract::LegacyCylinderAssembly &cylinder) {
+    const auto &parameters = cylinder.parameters;
+    const auto *direct = std::get_if<contract::LegacyDirectJournalKinematics>(
+        &cylinder.kinematics);
+    const auto *master =
+        std::get_if<contract::LegacyMasterRodJournalKinematics>(
+            &cylinder.kinematics);
+    if (direct == nullptr && master == nullptr) {
+        return false;
+    }
+    if (!(writer.begin_object() && writer.key("bore_m") &&
+          write_resolved(writer, parameters.bore_m, write_f64))) {
+        return false;
+    }
+    if (direct != nullptr &&
+        !(writer.key("stroke_m") &&
+          write_resolved(writer, direct->stroke_m, write_f64) &&
+          writer.key("crank_radius_m") &&
+          write_resolved(writer, direct->crank_radius_m, write_f64))) {
+        return false;
+    }
+    if (!(writer.key("connecting_rod_length_m") &&
+          write_resolved(writer, parameters.connecting_rod_length_m, write_f64) &&
+          writer.key("deck_height_m") &&
+          write_resolved(writer, parameters.deck_height_m, write_f64) &&
+          writer.key("piston_compression_height_m") &&
+          write_resolved(writer, parameters.piston_compression_height_m, write_f64) &&
+          writer.key("head_chamber_volume_m3") &&
+          write_resolved(writer, parameters.head_chamber_volume_m3, write_f64) &&
+          writer.key("piston_displacement_term_m3") &&
+          write_resolved(writer, parameters.piston_displacement_term_m3, write_f64) &&
+          writer.key("piston_mass_kg") &&
+          write_resolved(writer, parameters.piston_mass_kg, write_f64) &&
+          writer.key("connecting_rod_mass_kg") &&
+          write_resolved(writer, parameters.connecting_rod_mass_kg, write_f64) &&
+          writer.key("connecting_rod_inertia_kg_m2") &&
+          write_resolved(writer, parameters.connecting_rod_inertia_kg_m2, write_f64))) {
+        return false;
+    }
+    if (direct != nullptr &&
+        !(writer.key("journal_angle_rad") &&
+          write_resolved(writer, direct->journal_angle_rad, write_f64))) {
+        return false;
+    }
+    return writer.key("ignition_wire_angle_rad") &&
            write_resolved(writer, parameters.ignition_wire_angle_rad, write_f64) &&
            writer.key("header_primary_length_m") &&
            write_resolved(writer, parameters.header_primary_length_m, write_f64) &&
            writer.end_object();
 }
 
+[[nodiscard]] bool write_master_rod_kinematics(
+    CanonicalJsonWriter &writer,
+    const contract::LegacyMasterRodJournalKinematics &kinematics) {
+    return writer.begin_object() && writer.key("type") &&
+           writer.string_value("master_rod") && writer.key("master_cylinder_id") &&
+           write_stable_id(writer, kinematics.master_cylinder_id) &&
+           writer.key("throw_radius_m") &&
+           write_resolved(writer, kinematics.throw_radius_m, write_f64) &&
+           writer.key("master_local_phase_rad") &&
+           write_resolved(writer, kinematics.master_local_phase_rad, write_f64) &&
+           writer.end_object();
+}
+
 [[nodiscard]] bool
 write_legacy_cylinder_assembly(CanonicalJsonWriter &writer,
                                const contract::LegacyCylinderAssembly &cylinder) {
-    return writer.begin_object() && writer.key("topology") &&
-           write_legacy_cylinder_topology(writer, cylinder.topology) &&
-           writer.key("parameters") &&
-           write_legacy_cylinder_parameters(writer, cylinder.parameters) &&
-           writer.end_object();
+    if (!(writer.begin_object() && writer.key("topology") &&
+          write_legacy_cylinder_topology(writer, cylinder.topology) &&
+          writer.key("parameters") &&
+          write_legacy_cylinder_parameters(writer, cylinder))) {
+        return false;
+    }
+    if (const auto *master =
+            std::get_if<contract::LegacyMasterRodJournalKinematics>(
+                &cylinder.kinematics)) {
+        if (!(writer.key("kinematics") &&
+              write_master_rod_kinematics(writer, *master))) {
+            return false;
+        }
+    }
+    return writer.end_object();
 }
 
 [[nodiscard]] bool write_legacy_crank(CanonicalJsonWriter &writer,

@@ -301,10 +301,12 @@ configuration_inertia_plan(const EngineSpec &engine, double attached_inertia_kg_
     plan.cylinders.reserve(mechanism.cylinders.size());
     for (const auto &assembly : mechanism.cylinders) {
         const auto &parameters = assembly.parameters;
+        const auto &direct =
+            std::get<LegacyDirectJournalKinematics>(assembly.kinematics);
         plan.cylinders.push_back({
             legacy_wrap_2pi(mechanism.crank.crank_tdc_reference_rad.value +
-                            parameters.journal_angle_rad.value - kLegacyPi / 2.0),
-            parameters.crank_radius_m.value,
+                            direct.journal_angle_rad.value - kLegacyPi / 2.0),
+            direct.crank_radius_m.value,
             parameters.connecting_rod_length_m.value,
             parameters.piston_mass_kg.value,
             parameters.connecting_rod_mass_kg.value,

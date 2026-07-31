@@ -249,8 +249,11 @@ void verify_shared_direct_plan_bits(
     for (std::size_t index = 0; index < mechanism.cylinders.size(); ++index) {
         const auto &assembly = mechanism.cylinders[index];
         const auto &parameters = assembly.parameters;
+        const auto &direct =
+            std::get<contract::LegacyDirectJournalKinematics>(
+                assembly.kinematics);
         const auto geometry = simulation::derive_legacy_cylinder_geometry(
-            parameters.bore_m.value, parameters.crank_radius_m.value,
+            parameters.bore_m.value, direct.crank_radius_m.value,
             parameters.connecting_rod_length_m.value,
             parameters.deck_height_m.value,
             parameters.piston_compression_height_m.value,
@@ -258,7 +261,7 @@ void verify_shared_direct_plan_bits(
             parameters.piston_displacement_term_m3.value);
         const double geometric_tdc_rad = simulation::legacy_wrap_2pi(
             mechanism.crank.crank_tdc_reference_rad.value +
-            parameters.journal_angle_rad.value - simulation::kLegacyPi / 2.0);
+            direct.journal_angle_rad.value - simulation::kLegacyPi / 2.0);
         const auto &compiled = plan->cylinders[index];
         const auto &crank = compiled.crank;
         expect(crank.cylinder_id == assembly.topology.cylinder_id &&
@@ -269,7 +272,7 @@ void verify_shared_direct_plan_bits(
                    same_binary64(crank.geometric_tdc_rad, geometric_tdc_rad) &&
                    same_binary64(crank.piston_area_m2, geometry.piston_area_m2) &&
                    same_binary64(crank.crank_radius_m,
-                                 parameters.crank_radius_m.value) &&
+                                 direct.crank_radius_m.value) &&
                    same_binary64(crank.connecting_rod_length_m,
                                  parameters.connecting_rod_length_m.value) &&
                    same_binary64(crank.clearance_volume_m3,
@@ -277,6 +280,7 @@ void verify_shared_direct_plan_bits(
                    same_binary64(crank.ignition_wire_angle_rad,
                                  parameters.ignition_wire_angle_rad.value) &&
                    same_binary64(compiled.bore_m, parameters.bore_m.value) &&
+                   same_binary64(compiled.stroke_m, direct.stroke_m.value) &&
                    same_binary64(compiled.fixed_geometry_volume_m3,
                                  geometry.fixed_geometry_volume_m3) &&
                    same_binary64(compiled.piston_mass_kg,

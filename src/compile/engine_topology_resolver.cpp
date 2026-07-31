@@ -55,6 +55,14 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
             legacy_si_value(context.head->chamber_volume),
             legacy_si_value(piston.displacement_volume));
         const auto profile_base = profile_path("mechanism.cylinders." + semantic);
+        const auto *master_attachment =
+            std::get_if<authoring::MasterRodJournalAttachment>(&journal.attachment);
+        const auto crank_radius_dependency =
+            master_attachment == nullptr
+                ? profile_base + ".crank_radius_m"
+                : profile_path("mechanism.cylinders." +
+                               master_attachment->master_cylinder.value) +
+                      ".crank_radius_m";
         contract::CylinderSpec resolved_cylinder{
             cylinder_id(context, semantic),
             emitter.authored(semantic, base + ".semantic_id"),
@@ -62,7 +70,7 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
             emitter.authored(bore_m, base + ".bore_m"),
             emitter.derived(stroke_m, base + ".stroke_m",
                             derived_method_identity("twice-crank-throw-stroke-v1"),
-                            {profile_base + ".crank_radius_m"}),
+                            {crank_radius_dependency}),
             emitter.authored(legacy_si_value(rod.length),
                              base + ".connecting_rod_length_m"),
             emitter.derived(
@@ -70,7 +78,7 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
                 derived_method_identity("legacy-slider-crank-compression-ratio-v1"),
                 {
                     profile_base + ".bore_m",
-                    profile_base + ".crank_radius_m",
+                    crank_radius_dependency,
                     profile_base + ".connecting_rod_length_m",
                     profile_base + ".deck_height_m",
                     profile_base + ".piston_compression_height_m",
@@ -83,11 +91,10 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
             emitter.authored(legacy_si_value(journal.phase),
                              base + ".journal_phase_rad"),
         };
-        if (const auto *master = std::get_if<authoring::MasterRodJournalAttachment>(
-                &journal.attachment)) {
+        if (master_attachment != nullptr) {
             resolved_cylinder.master_rod_attachment = contract::MasterRodAttachmentSpec{
-                cylinder_id(context, master->master_cylinder.value),
-                emitter.authored(legacy_si_value(master->throw_radius),
+                cylinder_id(context, master_attachment->master_cylinder.value),
+                emitter.authored(legacy_si_value(master_attachment->throw_radius),
                                  base + ".master_rod_attachment.throw_radius_m"),
             };
         }

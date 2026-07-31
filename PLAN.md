@@ -630,11 +630,14 @@ The `type: "master_rod"` alternative now owns a master-cylinder reference, posit
 throw radius, and owner-local phase. Its one-level attachment graph validates exact
 consumers, connectivity, direct-root ownership, nesting, and cycles through the same
 parser/direct-DTO firewall. Resolution preserves the stable master-cylinder ID and
-throw radius beside the raw owner-local phase; the optional identity field is omitted
-for every direct cylinder, so existing direct request bytes remain unchanged. Valid
-graphs currently fail at the mechanism-plan compiler's one explicit runtime capability
-gate; nested chamber geometry, inertia, and coupled reactions are not partially
-approximated.
+throw radius beside the raw owner-local phase. The resolved mechanism core is now a
+fail-closed tagged union: a direct cylinder alone owns stroke, crank radius, and
+axis-relative journal phase, while a master-rod cylinder owns only its master ID,
+throw, and local phase. Direct canonical request bytes and provenance order remain
+unchanged. A mechanism containing a master rod truthfully publishes no net-torque or
+equivalent-inertia capability and still fails at the mechanism-plan compiler's one
+explicit runtime capability gate; nested chamber geometry, inertia, and coupled
+reactions are not partially approximated.
 
 Capture construction now compiles one immutable, source-bound mechanism-kinematics
 plan and shares that exact object with mechanics, gas, and dynamic-crank execution.
@@ -645,7 +648,9 @@ mechanics session fails terminally rather than dereferencing an empty plan. Exis
 direct slider-crank formulas, floating-point evaluation order, torque-accounting
 displacement, resolved request identity, and accepted audio remain the unchanged
 authority. The next isolated sub-slice adds one-level master-rod chamber geometry to
-this shared plan; it does not combine geometry, inertia, reactions, or audio changes.
+this shared plan for prescribed external-speed execution only; it does not combine
+geometry with nominal displacement accounting, inertia, reactions, or audio-model
+changes.
 
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,

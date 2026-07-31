@@ -1390,6 +1390,10 @@ void test_v_engine_resolves_bank_geometry_and_axis_relative_journals() {
     const auto *right = find_cylinder("fixture-cylinder-2");
     const auto *left_core = find_mechanism_cylinder(left->id);
     const auto *right_core = find_mechanism_cylinder(right->id);
+    const auto &left_direct =
+        std::get<contract::LegacyDirectJournalKinematics>(left_core->kinematics);
+    const auto &right_direct =
+        std::get<contract::LegacyDirectJournalKinematics>(right_core->kinematics);
     const auto &physics = std::get<contract::LowOrderOperatingPointV1Profile>(
         resolved.engine.physics_profile);
     constexpr double kLegacyDegreesToRadians = 3.14159265359 / 180.0;
@@ -1401,9 +1405,9 @@ void test_v_engine_resolves_bank_geometry_and_axis_relative_journals() {
                near(right->journal_phase_rad.value, 0.0) &&
                near(left->bore_m.value, 0.082) && near(right->bore_m.value, 0.084),
            "V-six lost its raw shared-journal phase or per-bank bore geometry");
-    expect(near(left_core->parameters.journal_angle_rad.value,
+    expect(near(left_direct.journal_angle_rad.value,
                 45.0 * kLegacyDegreesToRadians) &&
-               near(right_core->parameters.journal_angle_rad.value,
+               near(right_direct.journal_angle_rad.value,
                     -45.0 * kLegacyDegreesToRadians) &&
                near(left_core->parameters.deck_height_m.value, 0.218) &&
                near(right_core->parameters.deck_height_m.value, 0.220),
@@ -1462,8 +1466,11 @@ void test_custom_engine_resolves_arbitrary_bank_axes_for_direct_rods() {
                std::ranges::all_of(
                    physics.core.mechanism.cylinders,
                    [](const auto &cylinder) {
-                       return std::abs(cylinder.parameters.journal_angle_rad.value) <=
-                              1.0e-12;
+                       const auto *direct =
+                           std::get_if<contract::LegacyDirectJournalKinematics>(
+                               &cylinder.kinematics);
+                       return direct != nullptr &&
+                              std::abs(direct->journal_angle_rad.value) <= 1.0e-12;
                    }),
            "custom-six did not resolve raw journal phase minus each bank axis");
 
@@ -2073,6 +2080,38 @@ void test_master_rod_graph_contract_and_execution_gate() {
 
         const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
             resolved.engine.physics_profile);
+        expect(profile.core.mechanism.cylinders.size() == 2U,
+               "resolved master-rod core lost a cylinder");
+        const auto *direct_core =
+            std::get_if<contract::LegacyDirectJournalKinematics>(
+                &profile.core.mechanism.cylinders[0].kinematics);
+        const auto *master_core =
+            std::get_if<contract::LegacyMasterRodJournalKinematics>(
+                &profile.core.mechanism.cylinders[1].kinematics);
+        expect(direct_core != nullptr && master_core != nullptr &&
+                   direct_core->stroke_m.value == master.stroke_m.value &&
+                   direct_core->crank_radius_m.value == 0.039 &&
+                   master_core->master_cylinder_id == master.id &&
+                   master_core->throw_radius_m.value ==
+                       slave.master_rod_attachment->throw_radius_m.value &&
+                   master_core->master_local_phase_rad.value ==
+                       slave.journal_phase_rad.value,
+               "resolved core lost its exact direct/master attachment alternatives");
+        const auto &torque_capability = resolved.engine.torque_capability.value;
+        expect(torque_capability.instantaneous_net_shaft.availability ==
+                       contract::Availability::unavailable &&
+                   torque_capability.instantaneous_net_shaft.completeness ==
+                       contract::Completeness::incomplete &&
+                   torque_capability.instantaneous_net_shaft.included_terms == 0 &&
+                   torque_capability.instantaneous_net_shaft.omitted_terms == 0 &&
+                   torque_capability.cycle_mean_net_shaft.availability ==
+                       contract::Availability::unavailable &&
+                   torque_capability.cycle_mean_net_shaft.completeness ==
+                       contract::Completeness::incomplete &&
+                   torque_capability.cycle_mean_net_shaft.included_terms == 0 &&
+                   torque_capability.cycle_mean_net_shaft.omitted_terms == 0 &&
+                   !torque_capability.equivalent_inertia_available,
+               "geometry-only master core falsely advertised torque or inertia");
         const auto plan_result = simulation::compile_mechanism_kinematics_plan(
             resolved.engine, profile.core);
         const auto *runtime_rejection =

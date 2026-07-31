@@ -193,21 +193,49 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
         FlowEdgeId{5},  FlowEdgeId{6},  FlowEdgeId{7}, RouteId{1},
     };
     const auto cylinder_path = path("mechanism.cylinders.cylinder-1");
+    auto bore_m = builder.resolved(0.084, cylinder_path + ".bore_m");
+    auto stroke_m = builder.resolved(0.084, cylinder_path + ".stroke_m");
+    auto crank_radius_m =
+        builder.resolved(0.042, cylinder_path + ".crank_radius_m");
+    auto connecting_rod_length_m =
+        builder.resolved(0.135, cylinder_path + ".connecting_rod_length_m");
+    auto deck_height_m =
+        builder.resolved(0.211, cylinder_path + ".deck_height_m");
+    auto piston_compression_height_m = builder.resolved(
+        0.03182, cylinder_path + ".piston_compression_height_m");
+    auto head_chamber_volume_m3 =
+        builder.resolved(0.000046, cylinder_path + ".head_chamber_volume_m3");
+    auto piston_displacement_term_m3 = builder.resolved(
+        0.0, cylinder_path + ".piston_displacement_term_m3");
+    auto piston_mass_kg =
+        builder.resolved(0.28, cylinder_path + ".piston_mass_kg");
+    auto connecting_rod_mass_kg =
+        builder.resolved(0.30, cylinder_path + ".connecting_rod_mass_kg");
+    auto connecting_rod_inertia_kg_m2 = builder.resolved(
+        0.0015, cylinder_path + ".connecting_rod_inertia_kg_m2");
+    auto journal_angle_rad =
+        builder.resolved(0.0, cylinder_path + ".journal_angle_rad");
+    auto ignition_wire_angle_rad =
+        builder.resolved(0.0, cylinder_path + ".ignition_wire_angle_rad");
+    auto header_primary_length_m =
+        builder.resolved(0.0, cylinder_path + ".header_primary_length_m");
     cylinder.parameters = {
-        builder.resolved(0.084, cylinder_path + ".bore_m"),
-        builder.resolved(0.084, cylinder_path + ".stroke_m"),
-        builder.resolved(0.042, cylinder_path + ".crank_radius_m"),
-        builder.resolved(0.135, cylinder_path + ".connecting_rod_length_m"),
-        builder.resolved(0.211, cylinder_path + ".deck_height_m"),
-        builder.resolved(0.03182, cylinder_path + ".piston_compression_height_m"),
-        builder.resolved(0.000046, cylinder_path + ".head_chamber_volume_m3"),
-        builder.resolved(0.0, cylinder_path + ".piston_displacement_term_m3"),
-        builder.resolved(0.28, cylinder_path + ".piston_mass_kg"),
-        builder.resolved(0.30, cylinder_path + ".connecting_rod_mass_kg"),
-        builder.resolved(0.0015, cylinder_path + ".connecting_rod_inertia_kg_m2"),
-        builder.resolved(0.0, cylinder_path + ".journal_angle_rad"),
-        builder.resolved(0.0, cylinder_path + ".ignition_wire_angle_rad"),
-        builder.resolved(0.0, cylinder_path + ".header_primary_length_m"),
+        std::move(bore_m),
+        std::move(connecting_rod_length_m),
+        std::move(deck_height_m),
+        std::move(piston_compression_height_m),
+        std::move(head_chamber_volume_m3),
+        std::move(piston_displacement_term_m3),
+        std::move(piston_mass_kg),
+        std::move(connecting_rod_mass_kg),
+        std::move(connecting_rod_inertia_kg_m2),
+        std::move(ignition_wire_angle_rad),
+        std::move(header_primary_length_m),
+    };
+    cylinder.kinematics = LegacyDirectJournalKinematics{
+        std::move(stroke_m),
+        std::move(crank_radius_m),
+        std::move(journal_angle_rad),
     };
     core.mechanism.cylinders.push_back(std::move(cylinder));
 
