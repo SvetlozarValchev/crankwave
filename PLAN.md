@@ -586,7 +586,10 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--11 are executable; slice 11 awaits listening acceptance.
+Current progress: slices 1--11 are executable and accepted. Slice 12 is active; its
+pristine vehicle/transmission equations and the explicit non-parity service-brake
+boundary are frozen in
+[`docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md`](docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md).
 Slice 6 reaches JSON, runtime, native
 session, exact C ABI, WASM, and the Web workbench; the BMW crank/catch checkpoint was
 accepted. Slice 7 admits arbitrary sampled fixed-cam profiles while preserving the
