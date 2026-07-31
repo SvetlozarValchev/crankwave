@@ -516,6 +516,73 @@ void replace_once(std::string &text, std::string_view before, std::string_view a
     text.replace(position, before.size(), after);
 }
 
+[[nodiscard]] std::string valid_engine_with_vehicle_rig_json() {
+    std::string json = valid_engine_json();
+    replace_once(json, "\n}", R"json(,
+  "rig": {
+    "id": "road-rig",
+    "vehicle": {
+      "id": "test-car",
+      "mass": {"value": 1395, "unit": "kg"},
+      "drag_coefficient": 0.29,
+      "frontal_area": {"value": 2.05, "unit": "m2"},
+      "differential_ratio": 2.93,
+      "tire_radius": {"value": 0.315, "unit": "m"},
+      "rolling_resistance_force": {"value": 165, "unit": "N"},
+      "maximum_service_brake_force": {"value": 14500, "unit": "N"}
+    },
+    "transmission": {
+      "id": "five-speed",
+      "maximum_clutch_torque": {"value": 380, "unit": "N*m"},
+      "gears": [
+        {"id": "gear-1", "ratio": 4.21},
+        {"id": "gear-2", "ratio": 2.49}
+      ]
+    }
+  }
+})json");
+    return json;
+}
+
+[[nodiscard]] std::string valid_free_vehicle_scenario_json() {
+    std::string json = valid_scenario_json();
+    replace_once(json,
+                 R"json(    "type": "held_speed",
+    "target_engine_speed": {"value": 3000, "unit": "rpm"},
+    "throttle_01": {
+      "interpolation": "linear",
+      "points": [
+        {"time": {"value": 0, "unit": "s"}, "value": 0.5},
+        {"time": {"value": 2000, "unit": "ms"}, "value": 1.0}
+      ]
+    })json",
+                 R"json(    "type": "free_vehicle",
+    "rig": "road-rig",
+    "initial_gear": null,
+    "initial_vehicle_speed": {"value": 36, "unit": "km/h"},
+    "initial_clutch_engagement_01": 0.25,
+    "initial_service_brake_application_01": 0.6,
+    "throttle_01": {
+      "interpolation": "right_continuous_hold",
+      "points": [
+        {"time": {"value": 0, "unit": "s"}, "value": 0.2},
+        {"time": {"value": 1, "unit": "s"}, "value": 0.8}
+      ]
+    })json");
+    return json;
+}
+
+void replace_monitoring_event_payload(std::string &json, std::string_view replacement) {
+    replace_once(json,
+                 R"json(      "payload": {
+        "type": "set_conditioning_monitoring",
+        "jitter_scale": 0.4,
+        "derivative_mix_01": 0.2,
+        "air_noise_mix_01": 0.1
+      })json",
+                 replacement);
+}
+
 [[nodiscard]] std::string valid_vtec_engine_json() {
     std::string json = valid_engine_json();
     replace_once(json,
@@ -656,6 +723,155 @@ void test_free_engine_requires_and_retains_throttle_trajectory() {
     expect(has_diagnostic(require_report(missing), DiagnosticCode::missing_value,
                           "/mode/throttle_01"),
            "free-engine mode without a throttle trajectory was accepted");
+}
+
+void test_free_vehicle_vocabulary_is_explicit_and_greenfield() {
+    const EnginePackageDocument package =
+        require_engine(valid_engine_with_vehicle_rig_json());
+    expect(package.rig.has_value() && package.rig->vehicle.has_value() &&
+               package.rig->vehicle->maximum_service_brake_force.has_value() &&
+               package.rig->vehicle->maximum_service_brake_force->value == 14500.0 &&
+               package.rig->transmission.has_value() &&
+               package.rig->transmission->gears.size() == 2U,
+           "vehicle service-brake capability or forward gears were not retained");
+
+    const ScenarioDocument neutral =
+        require_scenario(valid_free_vehicle_scenario_json());
+    const auto *mode = std::get_if<FreeVehicleMode>(&neutral.mode);
+    expect(mode != nullptr && !mode->initial_gear.has_value() &&
+               mode->initial_vehicle_speed.value == 36.0 &&
+               mode->initial_vehicle_speed.unit == "km/h" &&
+               mode->initial_clutch_engagement_01 == 0.25 &&
+               mode->initial_service_brake_application_01 == 0.6 &&
+               mode->throttle_01.points.size() == 2U,
+           "neutral FreeVehicle initial state changed during parsing");
+    expect(validate_scenario_references(neutral, package).ok(),
+           "nullable neutral initial gear was treated as a dangling reference");
+
+    std::string selected = valid_free_vehicle_scenario_json();
+    replace_once(selected, R"json("initial_gear": null)json",
+                 R"json("initial_gear": "gear-2")json");
+    const ScenarioDocument selected_scenario = require_scenario(selected);
+    const auto &selected_mode = std::get<FreeVehicleMode>(selected_scenario.mode);
+    expect(selected_mode.initial_gear.has_value() &&
+               selected_mode.initial_gear->value == "gear-2" &&
+               validate_scenario_references(selected_scenario, package).ok(),
+           "selected forward gear was not retained or resolved");
+
+    std::string dangling = selected;
+    replace_once(dangling, R"json("initial_gear": "gear-2")json",
+                 R"json("initial_gear": "missing-gear")json");
+    const auto dangling_report =
+        validate_scenario_references(require_scenario(dangling), package);
+    expect(has_diagnostic(dangling_report, DiagnosticCode::dangling_reference,
+                          "/mode/initial_gear"),
+           "dangling nullable initial gear lost its diagnostic path");
+
+    std::string neutral_event = valid_free_vehicle_scenario_json();
+    replace_monitoring_event_payload(
+        neutral_event,
+        R"json(      "payload": {"type": "select_gear", "gear": null})json");
+    const ScenarioDocument neutral_event_scenario = require_scenario(neutral_event);
+    const auto *select =
+        std::get_if<SelectGearEvent>(&neutral_event_scenario.events.front().payload);
+    expect(select != nullptr && !select->gear.has_value() &&
+               validate_scenario_references(neutral_event_scenario, package).ok(),
+           "nullable neutral gear event was not retained or reference-safe");
+
+    std::string selected_event = neutral_event;
+    replace_once(selected_event, R"json("gear": null)json",
+                 R"json("gear": "gear-1")json");
+    const ScenarioDocument selected_event_scenario = require_scenario(selected_event);
+    const auto *selected_event_payload =
+        std::get_if<SelectGearEvent>(&selected_event_scenario.events.front().payload);
+    expect(selected_event_payload != nullptr &&
+               selected_event_payload->gear.has_value() &&
+               selected_event_payload->gear->value == "gear-1" &&
+               validate_scenario_references(selected_event_scenario, package).ok(),
+           "selected forward-gear event was not retained or resolved");
+
+    std::string clutch = valid_free_vehicle_scenario_json();
+    replace_monitoring_event_payload(clutch,
+                                     R"json(      "payload": {
+        "type": "set_clutch_engagement",
+        "engagement_01": 0.75
+      })json");
+    const ScenarioDocument clutch_scenario = require_scenario(clutch);
+    const auto &clutch_event =
+        std::get<SetClutchEngagementEvent>(clutch_scenario.events.front().payload);
+    expect(clutch_event.engagement_01 == 0.75,
+           "clutch engagement event changed during parsing");
+
+    std::string service_brake = valid_free_vehicle_scenario_json();
+    replace_monitoring_event_payload(service_brake,
+                                     R"json(      "payload": {
+        "type": "set_service_brake_application",
+        "application_01": 0.9
+      })json");
+    const ScenarioDocument service_brake_scenario = require_scenario(service_brake);
+    const auto &brake_event = std::get<SetServiceBrakeApplicationEvent>(
+        service_brake_scenario.events.front().payload);
+    expect(brake_event.application_01 == 0.9,
+           "service-brake application event changed during parsing");
+
+    std::string invalid_brake = service_brake;
+    replace_once(invalid_brake, R"json("application_01": 0.9)json",
+                 R"json("application_01": 1.1)json");
+    expect(has_diagnostic(require_report(parse_scenario_document(invalid_brake)),
+                          DiagnosticCode::out_of_range,
+                          "/events/0/payload/application_01"),
+           "out-of-range service-brake application was accepted");
+
+    std::string legacy_mode = valid_free_vehicle_scenario_json();
+    replace_once(legacy_mode, "initial_clutch_engagement_01",
+                 "initial_clutch_position_01");
+    const auto legacy_mode_result = parse_scenario_document(legacy_mode);
+    const auto &legacy_mode_report = require_report(legacy_mode_result);
+    expect(has_diagnostic(legacy_mode_report, DiagnosticCode::unknown_field,
+                          "/mode/initial_clutch_position_01") &&
+               has_diagnostic(legacy_mode_report, DiagnosticCode::missing_value,
+                              "/mode/initial_clutch_engagement_01"),
+           "retired clutch-position mode vocabulary was accepted");
+
+    std::string legacy_event = clutch;
+    replace_once(legacy_event, "set_clutch_engagement", "set_clutch");
+    expect(has_diagnostic(require_report(parse_scenario_document(legacy_event)),
+                          DiagnosticCode::invalid_value, "/events/0/payload/type"),
+           "retired set_clutch event vocabulary was accepted");
+
+    std::string nullable_brake = valid_engine_with_vehicle_rig_json();
+    replace_once(
+        nullable_brake,
+        R"json("maximum_service_brake_force": {"value": 14500, "unit": "N"})json",
+        R"json("maximum_service_brake_force": null)json");
+    const auto null_brake_package = require_engine(nullable_brake);
+    expect(null_brake_package.rig->vehicle.has_value() &&
+               !null_brake_package.rig->vehicle->maximum_service_brake_force,
+           "null service-brake capability did not remain unavailable");
+
+    std::string zero_brake = valid_engine_with_vehicle_rig_json();
+    replace_once(zero_brake, R"json({"value": 14500, "unit": "N"})json",
+                 R"json({"value": 0, "unit": "N"})json");
+    expect(has_diagnostic(require_engine_report(parse_engine_document(zero_brake)),
+                          DiagnosticCode::out_of_range,
+                          "/rig/vehicle/maximum_service_brake_force/value"),
+           "zero service-brake capacity was accepted");
+
+    std::string reverse = valid_engine_with_vehicle_rig_json();
+    replace_once(reverse, R"json({"id": "gear-2", "ratio": 2.49})json",
+                 R"json({"id": "gear-2", "ratio": -2.49})json");
+    expect(has_diagnostic(require_engine_report(parse_engine_document(reverse)),
+                          DiagnosticCode::out_of_range,
+                          "/rig/transmission/gears/1/ratio"),
+           "negative reverse ratio was accepted as a forward gear");
+
+    std::string zero_differential = valid_engine_with_vehicle_rig_json();
+    replace_once(zero_differential, R"json("differential_ratio": 2.93)json",
+                 R"json("differential_ratio": 0)json");
+    expect(
+        has_diagnostic(require_engine_report(parse_engine_document(zero_differential)),
+                       DiagnosticCode::out_of_range, "/rig/vehicle/differential_ratio"),
+        "zero differential ratio was accepted by the forward drivetrain");
 }
 
 void test_strict_paths_and_continuous_control_authority() {
@@ -942,6 +1158,7 @@ int main() {
     try {
         test_complete_scenario_and_exact_integer_wire_values();
         test_free_engine_requires_and_retains_throttle_trajectory();
+        test_free_vehicle_vocabulary_is_explicit_and_greenfield();
         test_strict_paths_and_continuous_control_authority();
         test_semantic_ranges_limits_and_mixed_duration_units();
         test_syntax_diagnostic_location();

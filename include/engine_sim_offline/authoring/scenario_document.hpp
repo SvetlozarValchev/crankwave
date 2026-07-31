@@ -129,8 +129,12 @@ struct FreeEngineMode {
 
 struct FreeVehicleMode {
     RigRef rig;
-    GearRef initial_gear;
-    double initial_clutch_position_01 = 0.0;
+    // Null is neutral; the ordered transmission gear list contains forward gears
+    // only.
+    std::optional<GearRef> initial_gear;
+    Quantity initial_vehicle_speed;
+    double initial_clutch_engagement_01 = 0.0;
+    double initial_service_brake_application_01 = 0.0;
     ScalarTrajectory throttle_01;
 
     friend bool operator==(const FreeVehicleMode &, const FreeVehicleMode &) = default;
@@ -205,15 +209,24 @@ struct OperatingStatePatch {
 };
 
 struct SelectGearEvent {
-    GearRef gear;
+    // Null selects neutral.
+    std::optional<GearRef> gear;
 
     friend bool operator==(const SelectGearEvent &, const SelectGearEvent &) = default;
 };
 
-struct SetClutchEvent {
-    double clutch_position_01 = 0.0;
+struct SetClutchEngagementEvent {
+    double engagement_01 = 0.0;
 
-    friend bool operator==(const SetClutchEvent &, const SetClutchEvent &) = default;
+    friend bool operator==(const SetClutchEngagementEvent &,
+                           const SetClutchEngagementEvent &) = default;
+};
+
+struct SetServiceBrakeApplicationEvent {
+    double application_01 = 0.0;
+
+    friend bool operator==(const SetServiceBrakeApplicationEvent &,
+                           const SetServiceBrakeApplicationEvent &) = default;
 };
 
 struct SetRouteMonitoringEvent {
@@ -255,9 +268,10 @@ struct LifecycleEvent {
 };
 
 using ScenarioEventPayload =
-    std::variant<OperatingStatePatch, SelectGearEvent, SetClutchEvent,
-                 SetRouteMonitoringEvent, SetMasterMonitoringEvent,
-                 SetConditioningMonitoringEvent, LifecycleEvent>;
+    std::variant<OperatingStatePatch, SelectGearEvent, SetClutchEngagementEvent,
+                 SetServiceBrakeApplicationEvent, SetRouteMonitoringEvent,
+                 SetMasterMonitoringEvent, SetConditioningMonitoringEvent,
+                 LifecycleEvent>;
 
 struct ScenarioEvent {
     ScenarioEventId id;

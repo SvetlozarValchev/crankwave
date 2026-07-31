@@ -49,6 +49,7 @@ struct ResolvedVehicleDescriptor {
     contract::ResolvedValue<double> differential_ratio;
     contract::ResolvedValue<double> tire_radius_m;
     contract::ResolvedValue<double> rolling_resistance_force_n;
+    std::optional<contract::ResolvedValue<double>> maximum_service_brake_force_n;
 
     friend bool operator==(const ResolvedVehicleDescriptor &,
                            const ResolvedVehicleDescriptor &) = default;

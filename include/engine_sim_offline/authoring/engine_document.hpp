@@ -604,6 +604,8 @@ struct VehicleDefinition {
     double differential_ratio = 0.0;
     Quantity tire_radius;
     Quantity rolling_resistance_force;
+    // Missing means that this rig does not provide a service-brake actuator.
+    std::optional<Quantity> maximum_service_brake_force;
 
     friend bool operator==(const VehicleDefinition &,
                            const VehicleDefinition &) = default;

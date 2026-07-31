@@ -965,9 +965,15 @@
         "mass": { "$ref": "#/$defs/quantity" },
         "drag_coefficient": { "$ref": "#/$defs/nonnegative" },
         "frontal_area": { "$ref": "#/$defs/quantity" },
-        "differential_ratio": { "$ref": "#/$defs/nonnegative" },
+        "differential_ratio": { "type": "number", "exclusiveMinimum": 0 },
         "tire_radius": { "$ref": "#/$defs/quantity" },
-        "rolling_resistance_force": { "$ref": "#/$defs/quantity" }
+        "rolling_resistance_force": { "$ref": "#/$defs/quantity" },
+        "maximum_service_brake_force": {
+          "anyOf": [
+            { "$ref": "#/$defs/quantity" },
+            { "type": "null" }
+          ]
+        }
       }
     },
     "gear": {
@@ -976,7 +982,7 @@
       "required": ["id", "ratio"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "ratio": { "type": "number", "not": { "const": 0 } }
+        "ratio": { "type": "number", "exclusiveMinimum": 0 }
       }
     },
     "transmission": {

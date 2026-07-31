@@ -268,14 +268,25 @@
         "type",
         "rig",
         "initial_gear",
-        "initial_clutch_position_01",
+        "initial_vehicle_speed",
+        "initial_clutch_engagement_01",
+        "initial_service_brake_application_01",
         "throttle_01"
       ],
       "properties": {
         "type": { "const": "free_vehicle" },
         "rig": { "$ref": "#/$defs/id" },
-        "initial_gear": { "$ref": "#/$defs/id" },
-        "initial_clutch_position_01": { "$ref": "#/$defs/fraction" },
+        "initial_gear": {
+          "anyOf": [
+            { "$ref": "#/$defs/id" },
+            { "type": "null" }
+          ]
+        },
+        "initial_vehicle_speed": { "$ref": "#/$defs/quantity" },
+        "initial_clutch_engagement_01": { "$ref": "#/$defs/fraction" },
+        "initial_service_brake_application_01": {
+          "$ref": "#/$defs/fraction"
+        },
         "throttle_01": { "$ref": "#/$defs/scalarTrajectory" }
       }
     },
@@ -398,16 +409,30 @@
       "required": ["type", "gear"],
       "properties": {
         "type": { "const": "select_gear" },
-        "gear": { "$ref": "#/$defs/id" }
+        "gear": {
+          "anyOf": [
+            { "$ref": "#/$defs/id" },
+            { "type": "null" }
+          ]
+        }
       }
     },
-    "setClutchEvent": {
+    "setClutchEngagementEvent": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "clutch_position_01"],
+      "required": ["type", "engagement_01"],
       "properties": {
-        "type": { "const": "set_clutch" },
-        "clutch_position_01": { "$ref": "#/$defs/fraction" }
+        "type": { "const": "set_clutch_engagement" },
+        "engagement_01": { "$ref": "#/$defs/fraction" }
+      }
+    },
+    "setServiceBrakeApplicationEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "application_01"],
+      "properties": {
+        "type": { "const": "set_service_brake_application" },
+        "application_01": { "$ref": "#/$defs/fraction" }
       }
     },
     "setRouteMonitoringEvent": {
@@ -501,7 +526,8 @@
       "oneOf": [
         { "$ref": "#/$defs/operatingStatePatch" },
         { "$ref": "#/$defs/selectGearEvent" },
-        { "$ref": "#/$defs/setClutchEvent" },
+        { "$ref": "#/$defs/setClutchEngagementEvent" },
+        { "$ref": "#/$defs/setServiceBrakeApplicationEvent" },
         { "$ref": "#/$defs/setRouteMonitoringEvent" },
         { "$ref": "#/$defs/setMasterMonitoringEvent" },
         { "$ref": "#/$defs/setConditioningMonitoringEvent" },

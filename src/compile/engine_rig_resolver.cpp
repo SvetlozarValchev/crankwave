@@ -131,6 +131,15 @@ void admit_engine_rig(ModelContext &context, authoring::DiagnosticReport &report
                                            report),
                             "/rig/vehicle/rolling_resistance_force",
                             "vehicle rolling-resistance force");
+        if (vehicle.maximum_service_brake_force) {
+            require_positive(report,
+                             admit_quantity(*vehicle.maximum_service_brake_force,
+                                            authoring::QuantityDimension::force,
+                                            "/rig/vehicle/maximum_service_brake_force",
+                                            report),
+                             "/rig/vehicle/maximum_service_brake_force",
+                             "maximum service-brake force");
+        }
     }
 
     if (rig.transmission) {
@@ -157,9 +166,9 @@ void admit_engine_rig(ModelContext &context, authoring::DiagnosticReport &report
                 add(report, authoring::DiagnosticCode::duplicate_id, base + "/id",
                     "gear IDs must be unique");
             }
-            if (!std::isfinite(gear.ratio) || gear.ratio == 0.0) {
+            if (!std::isfinite(gear.ratio) || !(gear.ratio > 0.0)) {
                 add(report, authoring::DiagnosticCode::out_of_range, base + "/ratio",
-                    "gear ratio must be finite and nonzero");
+                    "forward gear ratio must be finite and positive");
             }
         }
     }
@@ -228,6 +237,13 @@ std::optional<ResolvedRigDescriptor> assemble_rig(const ModelContext &context,
                                                authoring::QuantityDimension::force,
                                                "/rig/vehicle/rolling_resistance_force"),
                              "rig.vehicle.rolling_resistance_force_n");
+        if (vehicle.maximum_service_brake_force) {
+            output.maximum_service_brake_force_n = emitter.authored(
+                resolved_quantity(*vehicle.maximum_service_brake_force,
+                                  authoring::QuantityDimension::force,
+                                  "/rig/vehicle/maximum_service_brake_force"),
+                "rig.vehicle.maximum_service_brake_force_n");
+        }
         rig.vehicle = std::move(output);
     }
 

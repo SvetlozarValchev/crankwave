@@ -94,29 +94,26 @@ void parse_conditioning(DocumentReader &reader, JsonValue value, std::string_vie
     if (!reader.object(value, path)) {
         return;
     }
-    reader.reject_unknown(
-        value, path,
-        {"jitter_scale", "jitter_modulation_cutoff_frequency",
-         "derivative_mix_01", "air_noise_mix_01",
-         "air_noise_cutoff_frequency"});
-    reader.nonnegative_number(
-        reader.required(value, "jitter_scale", path),
-        pointer_member(path, "jitter_scale"), output.jitter_scale);
-    read_quantity_member(reader, value, "jitter_modulation_cutoff_frequency",
-                         path, QuantityDimension::frequency,
+    reader.reject_unknown(value, path,
+                          {"jitter_scale", "jitter_modulation_cutoff_frequency",
+                           "derivative_mix_01", "air_noise_mix_01",
+                           "air_noise_cutoff_frequency"});
+    reader.nonnegative_number(reader.required(value, "jitter_scale", path),
+                              pointer_member(path, "jitter_scale"),
+                              output.jitter_scale);
+    read_quantity_member(reader, value, "jitter_modulation_cutoff_frequency", path,
+                         QuantityDimension::frequency,
                          output.jitter_modulation_cutoff_frequency);
     reader.fraction(reader.required(value, "derivative_mix_01", path),
                     pointer_member(path, "derivative_mix_01"),
                     output.derivative_mix_01);
     reader.fraction(reader.required(value, "air_noise_mix_01", path),
-                    pointer_member(path, "air_noise_mix_01"),
-                    output.air_noise_mix_01);
+                    pointer_member(path, "air_noise_mix_01"), output.air_noise_mix_01);
     read_quantity_member(reader, value, "air_noise_cutoff_frequency", path,
                          QuantityDimension::frequency,
                          output.air_noise_cutoff_frequency);
     require_positive(reader, output.jitter_modulation_cutoff_frequency,
-                     pointer_member(path,
-                                    "jitter_modulation_cutoff_frequency"));
+                     pointer_member(path, "jitter_modulation_cutoff_frequency"));
     require_positive(reader, output.air_noise_cutoff_frequency,
                      pointer_member(path, "air_noise_cutoff_frequency"));
 }
@@ -173,7 +170,7 @@ void parse_vehicle(DocumentReader &reader, JsonValue value, std::string_view pat
     reader.reject_unknown(value, path,
                           {"id", "mass", "drag_coefficient", "frontal_area",
                            "differential_ratio", "tire_radius",
-                           "rolling_resistance_force"});
+                           "rolling_resistance_force", "maximum_service_brake_force"});
     read_id_member(reader, value, "id", path, output.id);
     const auto owner = subject("vehicle", output.id.value);
     read_quantity_member(reader, value, "mass", path, QuantityDimension::mass,
@@ -183,14 +180,30 @@ void parse_vehicle(DocumentReader &reader, JsonValue value, std::string_view pat
                               output.drag_coefficient, owner);
     read_quantity_member(reader, value, "frontal_area", path, QuantityDimension::area,
                          output.frontal_area, owner);
-    reader.nonnegative_number(reader.required(value, "differential_ratio", path, owner),
-                              pointer_member(path, "differential_ratio"),
-                              output.differential_ratio, owner);
+    reader.number(reader.required(value, "differential_ratio", path, owner),
+                  pointer_member(path, "differential_ratio"), output.differential_ratio,
+                  owner);
+    if (!(output.differential_ratio > 0.0)) {
+        reader.add(DiagnosticCode::out_of_range,
+                   pointer_member(path, "differential_ratio"),
+                   "differential ratio must be positive", owner);
+    }
     read_quantity_member(reader, value, "tire_radius", path, QuantityDimension::length,
                          output.tire_radius, owner);
     read_quantity_member(reader, value, "rolling_resistance_force", path,
-                         QuantityDimension::force,
-                         output.rolling_resistance_force, owner);
+                         QuantityDimension::force, output.rolling_resistance_force,
+                         owner);
+    const auto maximum_service_brake_force =
+        reader.optional(value, "maximum_service_brake_force");
+    if (maximum_service_brake_force.valid() && !maximum_service_brake_force.is_null()) {
+        Quantity parsed;
+        reader.quantity(maximum_service_brake_force,
+                        pointer_member(path, "maximum_service_brake_force"),
+                        QuantityDimension::force, parsed, owner);
+        require_positive(reader, parsed,
+                         pointer_member(path, "maximum_service_brake_force"), owner);
+        output.maximum_service_brake_force = std::move(parsed);
+    }
     require_positive(reader, output.mass, pointer_member(path, "mass"), owner);
     require_positive(reader, output.frontal_area, pointer_member(path, "frontal_area"),
                      owner);
@@ -211,9 +224,9 @@ void parse_gear(DocumentReader &reader, JsonValue value, std::string_view path,
     const auto owner = subject("gear", output.id.value);
     reader.number(reader.required(value, "ratio", path, owner),
                   pointer_member(path, "ratio"), output.ratio, owner);
-    if (output.ratio == 0.0) {
+    if (!(output.ratio > 0.0)) {
         reader.add(DiagnosticCode::out_of_range, pointer_member(path, "ratio"),
-                   "gear ratio must be nonzero", owner);
+                   "forward gear ratio must be positive", owner);
     }
 }
 
@@ -238,20 +251,17 @@ void parse_transmission(DocumentReader &reader, JsonValue value, std::string_vie
                      pointer_member(path, "maximum_clutch_torque"), owner);
 }
 
-void parse_dyno_defaults(DocumentReader &reader, JsonValue value,
-                         std::string_view path, DynoDefaultsDefinition &output) {
+void parse_dyno_defaults(DocumentReader &reader, JsonValue value, std::string_view path,
+                         DynoDefaultsDefinition &output) {
     if (!reader.object(value, path)) {
         return;
     }
     reader.reject_unknown(
-        value, path,
-        {"minimum_engine_speed", "maximum_engine_speed", "hold_step"});
+        value, path, {"minimum_engine_speed", "maximum_engine_speed", "hold_step"});
     read_quantity_member(reader, value, "minimum_engine_speed", path,
-                         QuantityDimension::angular_speed,
-                         output.minimum_engine_speed);
+                         QuantityDimension::angular_speed, output.minimum_engine_speed);
     read_quantity_member(reader, value, "maximum_engine_speed", path,
-                         QuantityDimension::angular_speed,
-                         output.maximum_engine_speed);
+                         QuantityDimension::angular_speed, output.maximum_engine_speed);
     read_quantity_member(reader, value, "hold_step", path,
                          QuantityDimension::angular_speed, output.hold_step);
     require_nonnegative(reader, output.minimum_engine_speed,
@@ -260,8 +270,7 @@ void parse_dyno_defaults(DocumentReader &reader, JsonValue value,
                      pointer_member(path, "maximum_engine_speed"));
     require_positive(reader, output.hold_step, pointer_member(path, "hold_step"));
     if (output.minimum_engine_speed.unit == output.maximum_engine_speed.unit &&
-        output.minimum_engine_speed.value >=
-            output.maximum_engine_speed.value) {
+        output.minimum_engine_speed.value >= output.maximum_engine_speed.value) {
         reader.add(DiagnosticCode::inconsistent_value,
                    pointer_member(path, "maximum_engine_speed"),
                    "maximum engine speed must exceed minimum engine speed");
@@ -275,10 +284,9 @@ void parse_presentation(DocumentReader &reader, JsonValue value, std::string_vie
     if (!reader.object(value, path)) {
         return;
     }
-    reader.reject_unknown(
-        value, path,
-        {"assets", "cylinder_routes", "routes", "conditioning", "buses",
-         "audition", "publication_gain_linear"});
+    reader.reject_unknown(value, path,
+                          {"assets", "cylinder_routes", "routes", "conditioning",
+                           "buses", "audition", "publication_gain_linear"});
     read_required_array(
         reader, value, "assets", path, output.assets,
         [&](JsonValue item, std::string_view item_path, AudioAssetDefinition &asset) {
@@ -303,10 +311,9 @@ void parse_presentation(DocumentReader &reader, JsonValue value, std::string_vie
         });
     parse_audition(reader, reader.required(value, "audition", path),
                    pointer_member(path, "audition"), output.audition);
-    reader.nonnegative_number(
-        reader.required(value, "publication_gain_linear", path),
-        pointer_member(path, "publication_gain_linear"),
-        output.publication_gain_linear);
+    reader.nonnegative_number(reader.required(value, "publication_gain_linear", path),
+                              pointer_member(path, "publication_gain_linear"),
+                              output.publication_gain_linear);
 }
 
 void parse_rig(DocumentReader &reader, JsonValue value, std::string_view path,

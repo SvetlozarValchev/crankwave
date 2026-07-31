@@ -27,6 +27,20 @@ using detail::read_ref_member;
 using detail::require_nonnegative;
 using detail::require_positive;
 
+template <class Tag>
+void parse_required_nullable_ref(DocumentReader &reader, JsonValue object,
+                                 std::string_view member, std::string_view object_path,
+                                 std::optional<StableRef<Tag>> &output) {
+    const auto value = reader.required(object, member, object_path);
+    if (!value.valid() || value.is_null()) {
+        return;
+    }
+    StableRef<Tag> parsed;
+    if (reader.ref(value, pointer_member(object_path, member), parsed)) {
+        output = std::move(parsed);
+    }
+}
+
 [[nodiscard]] std::optional<double>
 duration_seconds(const Quantity &quantity) noexcept {
     if (quantity.unit == "s") {
@@ -337,14 +351,24 @@ void parse_mode(DocumentReader &reader, JsonValue value, std::string_view path,
         output = std::move(parsed);
     } else if (type == "free_vehicle") {
         reader.reject_unknown(value, path,
-                              {"type", "rig", "initial_gear",
-                               "initial_clutch_position_01", "throttle_01"});
+                              {"type", "rig", "initial_gear", "initial_vehicle_speed",
+                               "initial_clutch_engagement_01",
+                               "initial_service_brake_application_01", "throttle_01"});
         FreeVehicleMode parsed;
         read_ref_member(reader, value, "rig", path, parsed.rig);
-        read_ref_member(reader, value, "initial_gear", path, parsed.initial_gear);
-        reader.fraction(reader.required(value, "initial_clutch_position_01", path),
-                        pointer_member(path, "initial_clutch_position_01"),
-                        parsed.initial_clutch_position_01);
+        parse_required_nullable_ref(reader, value, "initial_gear", path,
+                                    parsed.initial_gear);
+        read_quantity_member(reader, value, "initial_vehicle_speed", path,
+                             QuantityDimension::speed, parsed.initial_vehicle_speed);
+        require_nonnegative(reader, parsed.initial_vehicle_speed,
+                            pointer_member(path, "initial_vehicle_speed"));
+        reader.fraction(reader.required(value, "initial_clutch_engagement_01", path),
+                        pointer_member(path, "initial_clutch_engagement_01"),
+                        parsed.initial_clutch_engagement_01);
+        reader.fraction(
+            reader.required(value, "initial_service_brake_application_01", path),
+            pointer_member(path, "initial_service_brake_application_01"),
+            parsed.initial_service_brake_application_01);
         parse_scalar_trajectory(reader, reader.required(value, "throttle_01", path),
                                 pointer_member(path, "throttle_01"), parsed.throttle_01,
                                 true);
@@ -541,14 +565,19 @@ void parse_event_payload(DocumentReader &reader, JsonValue value, std::string_vi
     } else if (type == "select_gear") {
         reader.reject_unknown(value, path, {"type", "gear"});
         SelectGearEvent parsed;
-        read_ref_member(reader, value, "gear", path, parsed.gear);
+        parse_required_nullable_ref(reader, value, "gear", path, parsed.gear);
         output = std::move(parsed);
-    } else if (type == "set_clutch") {
-        reader.reject_unknown(value, path, {"type", "clutch_position_01"});
-        SetClutchEvent parsed;
-        reader.fraction(reader.required(value, "clutch_position_01", path),
-                        pointer_member(path, "clutch_position_01"),
-                        parsed.clutch_position_01);
+    } else if (type == "set_clutch_engagement") {
+        reader.reject_unknown(value, path, {"type", "engagement_01"});
+        SetClutchEngagementEvent parsed;
+        reader.fraction(reader.required(value, "engagement_01", path),
+                        pointer_member(path, "engagement_01"), parsed.engagement_01);
+        output = std::move(parsed);
+    } else if (type == "set_service_brake_application") {
+        reader.reject_unknown(value, path, {"type", "application_01"});
+        SetServiceBrakeApplicationEvent parsed;
+        reader.fraction(reader.required(value, "application_01", path),
+                        pointer_member(path, "application_01"), parsed.application_01);
         output = std::move(parsed);
     } else if (type == "set_route_monitoring") {
         reader.reject_unknown(value, path,
@@ -904,10 +933,11 @@ validate_scenario_references(const ScenarioDocument &scenario,
                              "rig reference '" + mode->rig.value +
                                  "' does not resolve");
             }
-            if (transmission == nullptr ||
-                !contains_id(transmission->gears, mode->initial_gear)) {
+            if (mode->initial_gear.has_value() &&
+                (transmission == nullptr ||
+                 !contains_id(transmission->gears, *mode->initial_gear))) {
                 add_dangling(report, "/mode/initial_gear",
-                             "initial gear reference '" + mode->initial_gear.value +
+                             "initial gear reference '" + mode->initial_gear->value +
                                  "' does not resolve");
             }
         }
@@ -917,10 +947,11 @@ validate_scenario_references(const ScenarioDocument &scenario,
             const auto payload_path =
                 pointer_member(pointer_index("/events", index), "payload");
             if (const auto *event = std::get_if<SelectGearEvent>(&payload)) {
-                if (transmission == nullptr ||
-                    !contains_id(transmission->gears, event->gear)) {
+                if (event->gear.has_value() &&
+                    (transmission == nullptr ||
+                     !contains_id(transmission->gears, *event->gear))) {
                     add_dangling(report, pointer_member(payload_path, "gear"),
-                                 "gear reference '" + event->gear.value +
+                                 "gear reference '" + event->gear->value +
                                      "' does not resolve");
                 }
             } else if (const auto *event =

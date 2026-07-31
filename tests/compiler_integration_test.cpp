@@ -1085,6 +1085,7 @@ void attach_mixed_unit_rig(authoring::EnginePackageDocument &package) {
         2.93,
         quantity(315.0, "mm"),
         quantity(165.0, "N"),
+        quantity(14500.0, "N"),
     };
     rig.transmission = authoring::TransmissionDefinition{
         {"fixture-five-speed"},
@@ -1092,7 +1093,7 @@ void attach_mixed_unit_rig(authoring::EnginePackageDocument &package) {
         {
             {{"gear-low"}, 4.21},
             {{"gear-high"}, 1.0},
-            {{"gear-reverse"}, -3.7},
+            {{"gear-overdrive"}, 0.73},
         },
     };
     rig.dyno_defaults = authoring::DynoDefaultsDefinition{
@@ -1564,15 +1565,18 @@ void test_rig_compiles_to_immutable_si_descriptors() {
     expect(near(rig.vehicle->mass_kg.value, 1395.0) &&
                near(rig.vehicle->frontal_area_m2.value, 2.05) &&
                near(rig.vehicle->tire_radius_m.value, 0.315) &&
-               near(rig.vehicle->rolling_resistance_force_n.value, 165.0),
+               near(rig.vehicle->rolling_resistance_force_n.value, 165.0) &&
+               rig.vehicle->maximum_service_brake_force_n.has_value() &&
+               near(rig.vehicle->maximum_service_brake_force_n->value, 14500.0),
            "vehicle rig quantities were not canonicalized to SI");
     expect(rig.transmission->gears.size() == 3U &&
                rig.transmission->gears[0].semantic_id.value == "gear-low" &&
                rig.transmission->gears[0].authored_ordinal.value == 1U &&
                rig.transmission->gears[1].semantic_id.value == "gear-high" &&
                rig.transmission->gears[1].authored_ordinal.value == 2U &&
-               rig.transmission->gears[2].ratio.value == -3.7,
-           "transmission gear order stopped matching authored order");
+               rig.transmission->gears[2].semantic_id.value == "gear-overdrive" &&
+               rig.transmission->gears[2].ratio.value == 0.73,
+           "ordered forward-gear data stopped matching authored order");
     expect(rig.transmission->gears[0].runtime_id == 2U &&
                rig.transmission->gears[1].runtime_id == 1U &&
                rig.transmission->gears[2].runtime_id == 3U,
@@ -1616,6 +1620,13 @@ void test_rig_compiles_to_immutable_si_descriptors() {
     require_diagnostic(
         inconsistent_result, authoring::DiagnosticCode::inconsistent_value,
         "/rig/dyno_defaults/maximum_engine_speed", "mixed-unit inverted dyno range");
+
+    auto reverse_gear = document;
+    reverse_gear.rig->transmission->gears[2].ratio = -3.7;
+    const auto reverse_gear_result = compile::compile_engine(reverse_gear, views);
+    require_diagnostic(reverse_gear_result, authoring::DiagnosticCode::out_of_range,
+                       "/rig/transmission/gears/2/ratio",
+                       "negative reverse gear in forward-only transmission");
 }
 
 void test_cranking_starter_resolves_to_si_capability() {
@@ -1903,16 +1914,15 @@ void test_governor_resolves_to_executable_controller() {
     document.engine.throttle_controllers =
         std::vector<authoring::ThrottleControllerDefinition>{{
             {"fixture-governor"},
-            authoring::ThrottleControllerKind{
-                authoring::GovernorThrottleController{
-                    quantity(1600.0, "rpm"),
-                    quantity(366.5191425, "rad/s"),
-                    -5.0,
-                    5.0,
-                    0.0006,
-                    200.0,
-                    2.0,
-                }},
+            authoring::ThrottleControllerKind{authoring::GovernorThrottleController{
+                quantity(1600.0, "rpm"),
+                quantity(366.5191425, "rad/s"),
+                -5.0,
+                5.0,
+                0.0006,
+                200.0,
+                2.0,
+            }},
         }};
     document.engine.throttle_controller = {"fixture-governor"};
     auto views = assets.views();
@@ -1921,20 +1931,17 @@ void test_governor_resolves_to_executable_controller() {
                       "valid governor engine resolution failed");
     const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
         resolved.engine.physics_profile);
-    const auto *governor =
-        std::get_if<contract::GovernorThrottleControllerV1>(
-            &profile.core.throttle_controller);
+    const auto *governor = std::get_if<contract::GovernorThrottleControllerV1>(
+        &profile.core.throttle_controller);
     const auto near = [](double left, double right) {
         return std::abs(left - right) <= 1.0e-12;
     };
     expect(governor != nullptr &&
-               near(governor->minimum_engine_speed_rad_s.value,
-                    1600.0 * 0.104719755) &&
+               near(governor->minimum_engine_speed_rad_s.value, 1600.0 * 0.104719755) &&
                near(governor->maximum_engine_speed_rad_s.value, 366.5191425) &&
                governor->minimum_velocity_per_s.value == -5.0 &&
                governor->maximum_velocity_per_s.value == 5.0 &&
-               governor->k_s.value == 0.0006 &&
-               governor->k_d_per_s.value == 200.0 &&
+               governor->k_s.value == 0.0006 && governor->k_d_per_s.value == 200.0 &&
                governor->gamma.value == 2.0,
            "governor controller lost its source parameters or SI conversion");
 
@@ -1973,12 +1980,10 @@ void test_direct_engine_dto_identity_and_enum_admission_fails_closed() {
     }
     {
         auto document = make_engine_document(assets);
-        document.engine.ports[1].kind =
-            static_cast<authoring::PortKind>(0xffU);
+        document.engine.ports[1].kind = static_cast<authoring::PortKind>(0xffU);
         const auto result = compile::compile_engine(document, views);
         require_diagnostic(result, authoring::DiagnosticCode::invalid_value,
-                           "/engine/ports/1/kind",
-                           "invalid direct-DTO port kind");
+                           "/engine/ports/1/kind", "invalid direct-DTO port kind");
     }
 }
 
