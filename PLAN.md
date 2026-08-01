@@ -631,12 +631,20 @@ bindings, and opposed mechanism pairs across a bounded runtime capture. More gen
 ignition wires now preserve their public sharing identity and execute pristine's
 stateless one-post-to-many-cylinder fan-out. A shared-wire inline twin and an
 equal-angle split-wire twin retain different canonical engine identities while
-producing byte-identical PCM. The first separate-intake checkpoint replaces the
+producing byte-identical PCM. The first separate-intake checkpoint replaced the
 resolved and runtime singleton with stable intake identities, ordered per-intake gas
 profiles, and explicit cylinder-to-intake lanes while deliberately retaining the
-one-intake authoring admission gate. It is an architecture-only checkpoint: the
-single-intake BMW PCM remains the required byte-exact authority before distinct
-intakes are admitted in the next commit. Multiple crankshafts remain an isolated
+one-intake compiler gate. The second checkpoint lifts only that gate: every authored
+intake must be reachable, distinct objects retain independent plenum state even when
+their values match, global throttle fans out through lane-local plate/restriction
+parameters, and cylinders keep their explicit intake bindings. The pristine-derived
+Shovelhead diagnostic compares a shared manifold, two equal-valued distinct manifolds,
+and a rear lane differentiated only by source-backed idle-plate and runner-decay
+values. It is a topology/behavior fixture rather than a pristine audio oracle because
+pristine ships no multi-intake WAV and exposes no intake audio source. The
+source authority is frozen in
+[`docs/oracles/PRISTINE_ENGINE_SIM_SEPARATE_INTAKES.md`](docs/oracles/PRISTINE_ENGINE_SIM_SEPARATE_INTAKES.md).
+The single-intake BMW PCM remains byte-exact. Multiple crankshafts remain an isolated
 follow-up within slice 10. The ignition source
 authority is frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md`](docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md).

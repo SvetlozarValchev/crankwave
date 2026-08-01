@@ -2787,6 +2787,23 @@ void test_direct_engine_dto_identity_and_enum_admission_fails_closed() {
 
     {
         auto document = make_engine_document(assets);
+        document.engine.intakes.clear();
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::missing_value,
+                           "/engine/intakes", "empty direct-DTO intake collection");
+    }
+    {
+        auto document = make_engine_document(assets);
+        auto unused_intake = document.engine.intakes.front();
+        unused_intake.id.value = "fixture-unused-intake";
+        document.engine.intakes.push_back(std::move(unused_intake));
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::disconnected_object,
+                           "/engine/cylinders",
+                           "unreferenced direct-DTO intake object");
+    }
+    {
+        auto document = make_engine_document(assets);
         document.engine.ports[1].id = document.engine.ports[0].id;
         const auto result = compile::compile_engine(document, views);
         require_diagnostic(result, authoring::DiagnosticCode::duplicate_id,

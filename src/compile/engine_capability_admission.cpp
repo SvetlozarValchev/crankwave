@@ -117,8 +117,10 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         require_count(engine.banks.size(), 2U, "/engine/banks",
                       "opposed engine bank collection");
     }
-    require_count(engine.intakes.size(), 1U, "/engine/intakes",
-                  "engine intake collection");
+    if (engine.intakes.empty()) {
+        add(report, DiagnosticCode::missing_value, "/engine/intakes",
+            "engine intake collection requires at least one item");
+    }
     if (engine.heads.empty() || engine.heads.size() > engine.banks.size()) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/heads",
             "the current topology requires one or more bank-referenced heads, no "

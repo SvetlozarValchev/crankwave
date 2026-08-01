@@ -159,18 +159,50 @@ load_source(const std::filesystem::path &repository_root,
 [[nodiscard]] authoring::CurveDefinition &
 find_curve(authoring::EnginePackageDocument &document,
            const std::string_view curve_id) {
-    const auto found = std::ranges::find(document.engine.curves, curve_id,
-                                         [](const auto &curve) -> std::string_view {
-                                             return curve.id.value;
-                                         });
+    const auto found = std::ranges::find(
+        document.engine.curves, curve_id,
+        [](const auto &curve) -> std::string_view { return curve.id.value; });
     expect(found != document.engine.curves.end(),
            "Shovelhead diagnostic control could not find its selected curve");
     return *found;
 }
 
-[[nodiscard]] ShovelheadSource make_uniform_flow_control(
-    const std::filesystem::path &repository_root, const ShovelheadSource &source,
-    const bool one_times) {
+[[nodiscard]] authoring::IntakeDefinition &
+find_intake(authoring::EnginePackageDocument &document,
+            const std::string_view intake_id) {
+    const auto found = std::ranges::find(
+        document.engine.intakes, intake_id,
+        [](const auto &intake) -> std::string_view { return intake.id.value; });
+    expect(found != document.engine.intakes.end(),
+           "Shovelhead fixture could not find its selected intake");
+    return *found;
+}
+
+[[nodiscard]] const authoring::IntakeDefinition &
+find_intake(const authoring::EnginePackageDocument &document,
+            const std::string_view intake_id) {
+    const auto found = std::ranges::find(
+        document.engine.intakes, intake_id,
+        [](const auto &intake) -> std::string_view { return intake.id.value; });
+    expect(found != document.engine.intakes.end(),
+           "Shovelhead fixture could not find its selected intake");
+    return *found;
+}
+
+[[nodiscard]] authoring::CylinderDefinition &
+find_cylinder(authoring::EnginePackageDocument &document,
+              const std::string_view cylinder_id) {
+    const auto found = std::ranges::find(
+        document.engine.cylinders, cylinder_id,
+        [](const auto &cylinder) -> std::string_view { return cylinder.id.value; });
+    expect(found != document.engine.cylinders.end(),
+           "Shovelhead fixture could not find its selected cylinder");
+    return *found;
+}
+
+[[nodiscard]] ShovelheadSource
+make_uniform_flow_control(const std::filesystem::path &repository_root,
+                          const ShovelheadSource &source, const bool one_times) {
     auto document = source.engine_document;
     if (one_times) {
         find_curve(document, "intake-valve-flow-2x").samples =
@@ -183,9 +215,23 @@ find_curve(authoring::EnginePackageDocument &document,
         find_curve(document, "exhaust-valve-flow-1x").samples =
             find_curve(document, "exhaust-valve-flow-2x").samples;
     }
+    return compile_source(std::move(document), source.scenario_document,
+                          repository_root /
+                              "data/engines/shovelhead-bank-local-heads/engine.json");
+}
+
+[[nodiscard]] ShovelheadSource
+make_equal_split_intake_control(const std::filesystem::path &repository_root,
+                                const ShovelheadSource &differentiated) {
+    auto document = differentiated.engine_document;
+    const auto &front = find_intake(document, "intake");
+    auto &rear = find_intake(document, "intake.rear");
+    rear.idle_throttle_position_01 = front.idle_throttle_position_01;
+    rear.runner_velocity_decay_01 = front.runner_velocity_decay_01;
     return compile_source(
-        std::move(document), source.scenario_document,
-        repository_root / "data/engines/shovelhead-bank-local-heads/engine.json");
+        std::move(document), differentiated.scenario_document,
+        repository_root /
+            "data/engines/shovelhead-bank-local-heads/engine-separate-intakes.json");
 }
 
 [[nodiscard]] const contract::EngineSpec &
@@ -257,6 +303,147 @@ void verify_uniform_control_delta(
     expect(changed_curves == 2U && normalized == source_assignment,
            "Shovelhead uniform-flow control differs outside one bank's two flow "
            "tables");
+}
+
+void verify_separate_intake_authored_deltas(
+    const authoring::EnginePackageDocument &shared,
+    const authoring::EnginePackageDocument &equal_split,
+    const authoring::EnginePackageDocument &differentiated) {
+    expect(shared.engine.intakes.size() == 1U &&
+               equal_split.engine.intakes.size() == 2U &&
+               differentiated.engine.intakes.size() == 2U,
+           "Shovelhead A/B/C intake fixture has the wrong authored shape");
+
+    const auto &source = find_intake(shared, "intake");
+    const auto &equal_front = find_intake(equal_split, "intake");
+    const auto &equal_rear = find_intake(equal_split, "intake.rear");
+    const auto &different_front = find_intake(differentiated, "intake");
+    const auto &different_rear = find_intake(differentiated, "intake.rear");
+    auto normalized_equal_rear = equal_rear;
+    normalized_equal_rear.id = source.id;
+    auto normalized_different_rear = different_rear;
+    normalized_different_rear.id = source.id;
+    normalized_different_rear.idle_throttle_position_01 =
+        source.idle_throttle_position_01;
+    normalized_different_rear.runner_velocity_decay_01 =
+        source.runner_velocity_decay_01;
+    expect(equal_front == source && normalized_equal_rear == source &&
+               different_front == source && normalized_different_rear == source,
+           "split intake variants changed dimensions or restrictions outside the "
+           "selected rear-lane controls");
+    expect(source.idle_throttle_position_01 == 0.991 &&
+               source.runner_velocity_decay_01 == 1.0 &&
+               different_rear.idle_throttle_position_01 == 0.993 &&
+               different_rear.runner_velocity_decay_01 == 0.5,
+           "Shovelhead/TRX520 source intake values changed");
+
+    auto normalized_differentiated = differentiated;
+    normalized_differentiated.engine.identity = shared.engine.identity;
+    std::erase_if(normalized_differentiated.engine.intakes,
+                  [](const auto &intake) { return intake.id.value == "intake.rear"; });
+    find_cylinder(normalized_differentiated, "cylinder.rear").intake.value = "intake";
+    expect(normalized_differentiated == shared,
+           "authored C differs from shared A outside its description, rear intake, "
+           "and rear-cylinder binding");
+
+    auto normalized_equal = equal_split;
+    auto &normalized_rear = find_intake(normalized_equal, "intake.rear");
+    normalized_rear.idle_throttle_position_01 =
+        different_rear.idle_throttle_position_01;
+    normalized_rear.runner_velocity_decay_01 = different_rear.runner_velocity_decay_01;
+    expect(normalized_equal == differentiated,
+           "derived B differs from authored C outside the two rear intake controls");
+}
+
+[[nodiscard]] bool same_restriction_values(const contract::LegacyRestriction &left,
+                                           const contract::LegacyRestriction &right) {
+    return left.calibration.value == right.calibration.value &&
+           left.source_rating.value == right.source_rating.value &&
+           left.resolved_k.value == right.resolved_k.value;
+}
+
+[[nodiscard]] bool
+same_intake_base_values(const contract::LegacyIntakeParameters &left,
+                        const contract::LegacyIntakeParameters &right) {
+    return left.plenum_volume_m3.value == right.plenum_volume_m3.value &&
+           left.plenum_cross_section_area_m2.value ==
+               right.plenum_cross_section_area_m2.value &&
+           left.runner_length_m.value == right.runner_length_m.value &&
+           same_restriction_values(left.main_throttle, right.main_throttle) &&
+           same_restriction_values(left.idle_bypass, right.idle_bypass) &&
+           same_restriction_values(left.plenum_to_runner, right.plenum_to_runner);
+}
+
+[[nodiscard]] bool same_intake_values(const contract::LegacyIntakeParameters &left,
+                                      const contract::LegacyIntakeParameters &right) {
+    return same_intake_base_values(left, right) &&
+           left.velocity_decay.value == right.velocity_decay.value &&
+           left.idle_throttle_plate_position_01.value ==
+               right.idle_throttle_plate_position_01.value;
+}
+
+void verify_resolved_intake_bindings(const ShovelheadSource &equal_split,
+                                     const ShovelheadSource &differentiated) {
+    const auto verify_shape = [](const contract::EngineSpec &engine) {
+        const auto &core = test::low_order_core(engine);
+        expect(engine.intakes.size() == 2U && core.gas_path.intakes.size() == 2U &&
+                   engine.intakes[0].semantic_id.value == "intake" &&
+                   engine.intakes[1].semantic_id.value == "intake.rear",
+               "split intakes did not resolve in stable semantic IntakeId order");
+        const auto &front = core.gas_path.intakes[0].topology;
+        const auto &rear = core.gas_path.intakes[1].topology;
+        expect(front.intake_id == engine.intakes[0].id &&
+                   rear.intake_id == engine.intakes[1].id &&
+                   front.intake_id != rear.intake_id &&
+                   front.plenum_volume_id != rear.plenum_volume_id &&
+                   front.main_throttle_edge_id != rear.main_throttle_edge_id &&
+                   front.idle_bypass_edge_id != rear.idle_bypass_edge_id,
+               "equal-valued split intakes collapsed their runtime identities");
+
+        const auto front_cylinder =
+            std::ranges::find(engine.cylinders, "cylinder.front",
+                              [](const auto &cylinder) -> std::string_view {
+                                  return cylinder.semantic_id.value;
+                              });
+        const auto rear_cylinder =
+            std::ranges::find(engine.cylinders, "cylinder.rear",
+                              [](const auto &cylinder) -> std::string_view {
+                                  return cylinder.semantic_id.value;
+                              });
+        expect(front_cylinder != engine.cylinders.end() &&
+                   rear_cylinder != engine.cylinders.end() &&
+                   front_cylinder->intake_id == front.intake_id &&
+                   rear_cylinder->intake_id == rear.intake_id,
+               "public cylinders lost their exact split-intake bindings");
+        for (const auto &assembly : core.mechanism.cylinders) {
+            const auto public_cylinder =
+                std::ranges::find(engine.cylinders, assembly.topology.cylinder_id,
+                                  &contract::CylinderSpec::id);
+            expect(public_cylinder != engine.cylinders.end() &&
+                       public_cylinder->intake_id == assembly.topology.intake_id,
+                   "mechanism cylinders lost their public IntakeId binding");
+        }
+    };
+
+    const auto &equal_engine = resolved_engine(equal_split);
+    const auto &different_engine = resolved_engine(differentiated);
+    verify_shape(equal_engine);
+    verify_shape(different_engine);
+    const auto &equal_intakes = test::low_order_core(equal_engine).gas_path.intakes;
+    const auto &different_intakes =
+        test::low_order_core(different_engine).gas_path.intakes;
+    expect(same_intake_values(equal_intakes[0].parameters, equal_intakes[1].parameters),
+           "equal-valued B resolved unequal intake parameters");
+    expect(same_intake_values(equal_intakes[0].parameters,
+                              different_intakes[0].parameters) &&
+               same_intake_base_values(equal_intakes[1].parameters,
+                                       different_intakes[1].parameters) &&
+               different_intakes[1].parameters.idle_throttle_plate_position_01.value ==
+                   0.993 &&
+               different_intakes[1].parameters.velocity_decay.value == 0.5 &&
+               !same_intake_values(equal_intakes[1].parameters,
+                                   different_intakes[1].parameters),
+           "differentiated C did not isolate its rear intake parameters");
 }
 
 void expect_two_times_source_flow(const contract::LegacyBankHeadProfile &two_times,
@@ -422,13 +609,22 @@ void run(const std::filesystem::path &repository_root) {
         make_uniform_flow_control(repository_root, source_assignment, true);
     const auto uniform_two_times =
         make_uniform_flow_control(repository_root, source_assignment, false);
+    const auto differentiated_intakes = load_source(
+        repository_root,
+        "data/engines/shovelhead-bank-local-heads/engine-separate-intakes.json");
+    const auto equal_split_intakes =
+        make_equal_split_intake_control(repository_root, differentiated_intakes);
     verify_only_four_flow_curve_references_differ(source_assignment.engine_document,
                                                   swapped_assignment.engine_document);
     verify_uniform_control_delta(source_assignment.engine_document,
                                  uniform_one_times.engine_document, "-2x");
     verify_uniform_control_delta(source_assignment.engine_document,
                                  uniform_two_times.engine_document, "-1x");
+    verify_separate_intake_authored_deltas(source_assignment.engine_document,
+                                           equal_split_intakes.engine_document,
+                                           differentiated_intakes.engine_document);
     verify_resolved_head_bindings(source_assignment, swapped_assignment);
+    verify_resolved_intake_bindings(equal_split_intakes, differentiated_intakes);
 
     const auto first_source_pcm =
         render_audition_pcm(source_assignment.compiled_scenario);
@@ -439,6 +635,12 @@ void run(const std::filesystem::path &repository_root) {
         render_audition_pcm(uniform_one_times.compiled_scenario);
     const auto uniform_two_times_pcm =
         render_audition_pcm(uniform_two_times.compiled_scenario);
+    const auto first_equal_split_pcm =
+        render_audition_pcm(equal_split_intakes.compiled_scenario);
+    const auto second_equal_split_pcm =
+        render_audition_pcm(equal_split_intakes.compiled_scenario);
+    const auto differentiated_intakes_pcm =
+        render_audition_pcm(differentiated_intakes.compiled_scenario);
     expect(first_source_pcm == second_source_pcm,
            "repeated Shovelhead A renders were not byte-identical");
     expect(first_source_pcm.size() == swapped_pcm.size() &&
@@ -452,6 +654,14 @@ void run(const std::filesystem::path &repository_root) {
                first_source_pcm != uniform_two_times_pcm,
            "changing only the rear head to 2x flow did not change audition PCM; "
            "the executor may have collapsed to the front profile");
+    expect(first_equal_split_pcm == second_equal_split_pcm,
+           "repeated equal-valued split-intake renders were not byte-identical");
+    expect(first_source_pcm.size() == first_equal_split_pcm.size() &&
+               first_source_pcm != first_equal_split_pcm,
+           "identity-distinct equal-valued intakes behaved as one shared plenum");
+    expect(first_equal_split_pcm.size() == differentiated_intakes_pcm.size() &&
+               first_equal_split_pcm != differentiated_intakes_pcm,
+           "TRX520 rear intake controls did not change Shovelhead audition PCM");
 }
 
 } // namespace
@@ -463,7 +673,7 @@ int main(const int argc, char **argv) {
         }
         run(argv[1]);
     } catch (const std::exception &error) {
-        std::cerr << "Shovelhead bank-local head failure: " << error.what() << '\n';
+        std::cerr << "Shovelhead topology failure: " << error.what() << '\n';
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;

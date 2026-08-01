@@ -28,10 +28,10 @@ The values come from current engine state:
 - `Engine::getThrottle()` returns the linkage-resolved throttle closedness, not
   the caller's unshaped throttle request.
 
-The clean-room runtime has one admitted shared intake in this slice, so its mean
-manifold pressure is the retained left-boundary pressure of that intake plenum.
-It evaluates the selector once per 10 kHz gas frame before valve sampling. Every
-cylinder in that frame therefore sees one coherent base or alternate cam pair.
+The clean-room runtime takes the arithmetic mean across all admitted intake-plenum
+pressures in canonical intake order; one intake remains the identity case. It
+evaluates the selector once per 10 kHz gas frame before valve sampling. Every cylinder
+in that frame therefore sees one coherent base or alternate cam pair.
 
 ## Deliberately absent input
 
