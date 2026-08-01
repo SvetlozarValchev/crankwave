@@ -96,7 +96,7 @@ struct LegacyCylinderGeometry {
 [[nodiscard]] LegacyCylinderGeometry derive_legacy_cylinder_geometry(
     double bore_m, double crank_radius_m, double connecting_rod_length_m,
     double deck_height_m, double piston_compression_height_m,
-    double head_chamber_volume_m3,
+    double piston_wrist_pin_position_m, double head_chamber_volume_m3,
     double piston_displacement_term_m3) noexcept;
 
 struct LegacyTrianglePoint {

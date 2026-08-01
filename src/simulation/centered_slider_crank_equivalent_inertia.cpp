@@ -11,12 +11,13 @@ namespace {
 
 constexpr std::string_view kMethodDescriptor =
     R"method(engine-sim-offline.simulation-method-configuration.v1
-method=centered-slider-crank-cycle-mean-equivalent-inertia-v1
-version=1
+method=centered-slider-crank-cycle-mean-equivalent-inertia-v2
+version=2
 operation=full-cycle-mean-crank-referred-kinetic-energy-equivalent-inertia
 mechanism=one-authored-rigid-crank-plus-zero-or-more-centered-rigid-rod-and-translating-piston-assemblies
 crank-contribution=authored-crank-inertia-kg-m2-without-readding-crank-or-flywheel-mass
-rod-center=midpoint-between-crank-pin-and-wrist-pin
+rod-center=authored-distance-from-crank-pin-over-connecting-rod-length
+rod-center-default=exact-midpoint
 quadrature=4096-point-uniform-midpoint-over-binary64-two-times-pi
 sample-angle-rad=(sample-index-plus-binary64-0.5)-times-two-pi-divided-by-4096
 slider-position=r-times-cos-phi-plus-sqrt(l-times-l-minus-r-times-r-times-sin-phi-times-sin-phi)
@@ -29,15 +30,16 @@ external_numeric_authority=renderer-build-source-standard-library-math-runtime-a
 
 constexpr std::string_view kRigidGroupMethodDescriptor =
     R"method(engine-sim-offline.simulation-method-configuration.v1
-method=centered-slider-crank-rigid-group-cycle-mean-equivalent-inertia-v1
-version=1
+method=centered-slider-crank-rigid-group-cycle-mean-equivalent-inertia-v2
+version=2
 operation=full-cycle-mean-crank-referred-kinetic-energy-equivalent-inertia
 mechanism=two-or-more-authored-co-centered-co-phased-one-to-one-rigid-cranks-plus-zero-or-more-centered-rigid-rod-and-translating-piston-assemblies
 crank-group-motion=one-common-crank-angle-and-angular-speed-degree-of-freedom
 crank-contribution=authored-rotational-moment-of-inertia-kg-m2-summed-in-resolved-authored-crank-vector-order
 crank-summation=copy-first-authored-value-then-add-each-subsequent-authored-value-in-written-binary64-order-with-finite-overflow-rejection
 crank-and-flywheel-mass=not-consumed-and-not-rederived-into-rotational-inertia
-rod-center=midpoint-between-crank-pin-and-wrist-pin
+rod-center=authored-distance-from-crank-pin-over-connecting-rod-length
+rod-center-default=exact-midpoint
 quadrature=4096-point-uniform-midpoint-over-binary64-two-times-pi
 sample-angle-rad=(sample-index-plus-binary64-0.5)-times-two-pi-divided-by-4096
 slider-position=r-times-cos-phi-plus-sqrt(l-times-l-minus-r-times-r-times-sin-phi-times-sin-phi)
@@ -154,6 +156,8 @@ calculate_centered_slider_crank_cycle_mean_inertia(
         }
         const double crank_radius_m = direct->crank_radius_m.value;
         const double connecting_rod_length_m = parameters.connecting_rod_length_m.value;
+        const double connecting_rod_center_of_mass_from_crank_pin_m =
+            parameters.connecting_rod_center_of_mass_from_crank_pin_m.value;
         const double piston_mass_kg = parameters.piston_mass_kg.value;
         const double connecting_rod_mass_kg = parameters.connecting_rod_mass_kg.value;
         const double connecting_rod_inertia_kg_m2 =
@@ -177,6 +181,17 @@ calculate_centered_slider_crank_cycle_mean_inertia(
         if (!(connecting_rod_length_m > crank_radius_m)) {
             return error(CenteredSliderCrankCycleMeanInertiaIssue::
                              connecting_rod_not_longer_than_crank_radius,
+                         cylinder_index);
+        }
+        if (!std::isfinite(connecting_rod_center_of_mass_from_crank_pin_m)) {
+            return error(CenteredSliderCrankCycleMeanInertiaIssue::
+                             nonfinite_connecting_rod_center_of_mass,
+                         cylinder_index);
+        }
+        if (connecting_rod_center_of_mass_from_crank_pin_m < 0.0 ||
+            connecting_rod_center_of_mass_from_crank_pin_m > connecting_rod_length_m) {
+            return error(CenteredSliderCrankCycleMeanInertiaIssue::
+                             connecting_rod_center_of_mass_out_of_range,
                          cylinder_index);
         }
         if (!std::isfinite(piston_mass_kg)) {
@@ -212,6 +227,13 @@ calculate_centered_slider_crank_cycle_mean_inertia(
         double piston_translation_sum_kg_m2 = 0.0;
         double rod_translation_sum_kg_m2 = 0.0;
         double rod_rotation_sum_kg_m2 = 0.0;
+        const double midpoint_m = 0.5 * connecting_rod_length_m;
+        const bool midpoint_center =
+            connecting_rod_center_of_mass_from_crank_pin_m == midpoint_m;
+        const double rod_center_fraction =
+            midpoint_center ? 0.5
+                            : connecting_rod_center_of_mass_from_crank_pin_m /
+                                  connecting_rod_length_m;
         for (std::size_t sample_index = 0;
              sample_index < kCenteredSliderCrankCycleMeanInertiaQuadraturePoints;
              ++sample_index) {
@@ -229,9 +251,15 @@ calculate_centered_slider_crank_cycle_mean_inertia(
             const double crank_pin_dy_dtheta_m = -crank_radius_m * sine;
             const double wrist_pin_dy_dtheta_m =
                 -crank_radius_m * sine - crank_radius_squared * sine * cosine / root;
-            const double rod_center_dx_dtheta_m = 0.5 * crank_pin_dx_dtheta_m;
+            const double rod_center_dx_dtheta_m =
+                midpoint_center ? 0.5 * crank_pin_dx_dtheta_m
+                                : crank_pin_dx_dtheta_m +
+                                      rod_center_fraction * -crank_pin_dx_dtheta_m;
             const double rod_center_dy_dtheta_m =
-                0.5 * (crank_pin_dy_dtheta_m + wrist_pin_dy_dtheta_m);
+                midpoint_center ? 0.5 * (crank_pin_dy_dtheta_m + wrist_pin_dy_dtheta_m)
+                                : crank_pin_dy_dtheta_m +
+                                      rod_center_fraction * (wrist_pin_dy_dtheta_m -
+                                                             crank_pin_dy_dtheta_m);
             const double rod_angle_derivative = crank_radius_m * cosine / root;
 
             piston_translation_sum_kg_m2 +=
@@ -302,6 +330,7 @@ evaluate_centered_slider_crank_configuration_inertia(
         if (!std::isfinite(cylinder.geometric_tdc_rad) ||
             !std::isfinite(cylinder.crank_radius_m) ||
             !std::isfinite(cylinder.connecting_rod_length_m) ||
+            !std::isfinite(cylinder.connecting_rod_center_of_mass_from_crank_pin_m) ||
             !std::isfinite(cylinder.piston_mass_kg) ||
             !std::isfinite(cylinder.connecting_rod_mass_kg) ||
             !std::isfinite(cylinder.connecting_rod_inertia_kg_m2)) {
@@ -310,7 +339,10 @@ evaluate_centered_slider_crank_configuration_inertia(
                 cylinder_index);
         }
         if (!(cylinder.crank_radius_m > 0.0) ||
-            !(cylinder.connecting_rod_length_m > cylinder.crank_radius_m)) {
+            !(cylinder.connecting_rod_length_m > cylinder.crank_radius_m) ||
+            cylinder.connecting_rod_center_of_mass_from_crank_pin_m < 0.0 ||
+            cylinder.connecting_rod_center_of_mass_from_crank_pin_m >
+                cylinder.connecting_rod_length_m) {
             return configuration_error(CenteredSliderCrankConfigurationInertiaIssue::
                                            invalid_slider_crank_geometry,
                                        cylinder_index);
@@ -351,12 +383,31 @@ evaluate_centered_slider_crank_configuration_inertia(
         const double crank_pin_axis_first = -cylinder.crank_radius_m * sine;
         const double crank_pin_normal_second = -cylinder.crank_radius_m * sine;
         const double crank_pin_axis_second = -cylinder.crank_radius_m * cosine;
-        const double rod_center_normal_first = 0.5 * crank_pin_normal_first;
+        const double midpoint_m = 0.5 * cylinder.connecting_rod_length_m;
+        const bool midpoint_center =
+            cylinder.connecting_rod_center_of_mass_from_crank_pin_m == midpoint_m;
+        const double rod_center_fraction =
+            midpoint_center ? 0.5
+                            : cylinder.connecting_rod_center_of_mass_from_crank_pin_m /
+                                  cylinder.connecting_rod_length_m;
+        const double rod_center_normal_first =
+            midpoint_center ? 0.5 * crank_pin_normal_first
+                            : crank_pin_normal_first +
+                                  rod_center_fraction * -crank_pin_normal_first;
         const double rod_center_axis_first =
-            0.5 * (crank_pin_axis_first + piston_axis_first);
-        const double rod_center_normal_second = 0.5 * crank_pin_normal_second;
+            midpoint_center
+                ? 0.5 * (crank_pin_axis_first + piston_axis_first)
+                : crank_pin_axis_first +
+                      rod_center_fraction * (piston_axis_first - crank_pin_axis_first);
+        const double rod_center_normal_second =
+            midpoint_center ? 0.5 * crank_pin_normal_second
+                            : crank_pin_normal_second +
+                                  rod_center_fraction * -crank_pin_normal_second;
         const double rod_center_axis_second =
-            0.5 * (crank_pin_axis_second + piston_axis_second);
+            midpoint_center
+                ? 0.5 * (crank_pin_axis_second + piston_axis_second)
+                : crank_pin_axis_second + rod_center_fraction * (piston_axis_second -
+                                                                 crank_pin_axis_second);
         const double rod_angle_first = cylinder.crank_radius_m * cosine / root;
         const double rod_angle_second = -cylinder.crank_radius_m *
                                         (rod_length_squared - crank_radius_squared) *

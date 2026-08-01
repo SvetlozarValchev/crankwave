@@ -308,6 +308,7 @@ configuration_inertia_plan(const EngineSpec &engine, double attached_inertia_kg_
                             direct.journal_angle_rad.value - kLegacyPi / 2.0),
             direct.crank_radius_m.value,
             parameters.connecting_rod_length_m.value,
+            parameters.connecting_rod_center_of_mass_from_crank_pin_m.value,
             parameters.piston_mass_kg.value,
             parameters.connecting_rod_mass_kg.value,
             parameters.connecting_rod_inertia_kg_m2.value,

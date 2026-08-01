@@ -275,6 +275,8 @@ compile_one_level_master_rod_kinematics_plan(
         const double deck_height_m = parameters.deck_height_m.value;
         const double compression_height_m =
             parameters.piston_compression_height_m.value;
+        const double wrist_pin_position_m =
+            parameters.piston_wrist_pin_position_m.value;
         const double head_volume_m3 = head == nullptr
                                           ? std::numeric_limits<double>::quiet_NaN()
                                           : head->chamber_volume_m3.value;
@@ -283,10 +285,12 @@ compile_one_level_master_rod_kinematics_plan(
         const double ignition_wire_angle_rad = parameters.ignition_wire_angle_rad.value;
         const double piston_area_m2 = kLegacyPi * bore_m * bore_m / 4.0;
         const double fixed_geometry_volume_m3 =
-            head_volume_m3 + piston_area_m2 * (deck_height_m - compression_height_m);
+            head_volume_m3 + piston_area_m2 * (deck_height_m - wrist_pin_position_m -
+                                               compression_height_m);
         const bool common_geometry_valid =
             finite_positive(bore_m) && finite_positive(connecting_rod_length_m) &&
             finite_positive(deck_height_m) && finite_positive(compression_height_m) &&
+            std::isfinite(wrist_pin_position_m) && wrist_pin_position_m >= 0.0 &&
             finite_positive(head_volume_m3) && std::isfinite(piston_displacement_m3) &&
             std::isfinite(ignition_wire_angle_rad) && finite_positive(piston_area_m2) &&
             finite_positive(fixed_geometry_volume_m3);
@@ -350,6 +354,7 @@ compile_one_level_master_rod_kinematics_plan(
                         piston_area_m2,
                         deck_height_m,
                         compression_height_m,
+                        wrist_pin_position_m,
                         head_volume_m3,
                         piston_displacement_m3,
                         OneLevelMasterRodRootJournal{},
@@ -410,6 +415,7 @@ compile_one_level_master_rod_kinematics_plan(
                         piston_area_m2,
                         deck_height_m,
                         compression_height_m,
+                        wrist_pin_position_m,
                         head_volume_m3,
                         piston_displacement_m3,
                         OneLevelMasterRodSlavePin{
@@ -618,6 +624,8 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
         const double deck_height_m = parameters.deck_height_m.value;
         const double compression_height_m =
             parameters.piston_compression_height_m.value;
+        const double wrist_pin_position_m =
+            parameters.piston_wrist_pin_position_m.value;
         const double head_volume_m3 = head == nullptr
                                           ? std::numeric_limits<double>::quiet_NaN()
                                           : head->chamber_volume_m3.value;
@@ -632,6 +640,7 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
             same_binary64(stroke_m, 2.0 * crank_radius_m) &&
             finite_positive(rod_length_m) && crank_radius_m < rod_length_m &&
             finite_positive(deck_height_m) && finite_positive(compression_height_m) &&
+            std::isfinite(wrist_pin_position_m) && wrist_pin_position_m >= 0.0 &&
             finite_positive(head_volume_m3) && std::isfinite(piston_displacement_m3) &&
             std::isfinite(journal_angle_rad) && std::isfinite(ignition_wire_angle_rad);
         require(report, numeric_inputs_valid, ContractIssueCode::invalid_value,
@@ -647,7 +656,7 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
         // the former mechanics compiler: derive first, then form/wrap TDC.
         const auto geometry = derive_legacy_cylinder_geometry(
             bore_m, crank_radius_m, rod_length_m, deck_height_m, compression_height_m,
-            head_volume_m3, piston_displacement_m3);
+            wrist_pin_position_m, head_volume_m3, piston_displacement_m3);
         const double geometric_tdc_rad =
             legacy_wrap_2pi(cylinder_crank->crank_tdc_reference_rad.value +
                             journal_angle_rad - kLegacyPi / 2.0);
@@ -678,6 +687,7 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
             stroke_m,
             deck_height_m,
             compression_height_m,
+            wrist_pin_position_m,
             head_volume_m3,
             piston_displacement_m3,
             journal_angle_rad,
@@ -685,6 +695,7 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
             parameters.piston_mass_kg.value,
             parameters.connecting_rod_mass_kg.value,
             parameters.connecting_rod_inertia_kg_m2.value,
+            parameters.connecting_rod_center_of_mass_from_crank_pin_m.value,
         });
     }
 
@@ -816,6 +827,8 @@ bool mechanism_kinematics_plan_matches_source(
                                parameters.deck_height_m.value) ||
                 !same_binary64(geometry->piston_compression_height_m,
                                parameters.piston_compression_height_m.value) ||
+                !same_binary64(geometry->piston_wrist_pin_position_m,
+                               parameters.piston_wrist_pin_position_m.value) ||
                 !same_binary64(geometry->head_chamber_volume_m3,
                                head->chamber_volume_m3.value) ||
                 !same_binary64(geometry->piston_displacement_term_m3,
@@ -829,6 +842,7 @@ bool mechanism_kinematics_plan_matches_source(
                     head->chamber_volume_m3.value +
                         planned.piston_area_m2 *
                             (parameters.deck_height_m.value -
+                             parameters.piston_wrist_pin_position_m.value -
                              parameters.piston_compression_height_m.value)) ||
                 !same_binary64(planned.ignition_wire_angle_rad,
                                parameters.ignition_wire_angle_rad.value)) {
@@ -958,6 +972,8 @@ bool mechanism_kinematics_plan_matches_source(
             !same_binary64(planned.deck_height_m, parameters.deck_height_m.value) ||
             !same_binary64(planned.piston_compression_height_m,
                            parameters.piston_compression_height_m.value) ||
+            !same_binary64(planned.piston_wrist_pin_position_m,
+                           parameters.piston_wrist_pin_position_m.value) ||
             !same_binary64(planned.head_chamber_volume_m3,
                            head->chamber_volume_m3.value) ||
             !same_binary64(planned.piston_displacement_term_m3,
@@ -970,7 +986,10 @@ bool mechanism_kinematics_plan_matches_source(
             !same_binary64(planned.connecting_rod_mass_kg,
                            parameters.connecting_rod_mass_kg.value) ||
             !same_binary64(planned.connecting_rod_inertia_kg_m2,
-                           parameters.connecting_rod_inertia_kg_m2.value)) {
+                           parameters.connecting_rod_inertia_kg_m2.value) ||
+            !same_binary64(
+                planned.connecting_rod_center_of_mass_from_crank_pin_m,
+                parameters.connecting_rod_center_of_mass_from_crank_pin_m.value)) {
             return false;
         }
     }

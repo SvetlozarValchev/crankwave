@@ -201,9 +201,13 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
     auto crank_radius_m = builder.resolved(0.042, cylinder_path + ".crank_radius_m");
     auto connecting_rod_length_m =
         builder.resolved(0.135, cylinder_path + ".connecting_rod_length_m");
+    auto connecting_rod_center_of_mass_from_crank_pin_m = builder.resolved(
+        0.0675, cylinder_path + ".connecting_rod_center_of_mass_from_crank_pin_m");
     auto deck_height_m = builder.resolved(0.211, cylinder_path + ".deck_height_m");
     auto piston_compression_height_m =
         builder.resolved(0.03182, cylinder_path + ".piston_compression_height_m");
+    auto piston_wrist_pin_position_m =
+        builder.resolved(0.0, cylinder_path + ".piston_wrist_pin_position_m");
     auto piston_displacement_term_m3 =
         builder.resolved(0.0, cylinder_path + ".piston_displacement_term_m3");
     auto piston_mass_kg = builder.resolved(0.28, cylinder_path + ".piston_mass_kg");
@@ -223,8 +227,10 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
     cylinder.parameters = {
         std::move(bore_m),
         std::move(connecting_rod_length_m),
+        std::move(connecting_rod_center_of_mass_from_crank_pin_m),
         std::move(deck_height_m),
         std::move(piston_compression_height_m),
+        std::move(piston_wrist_pin_position_m),
         std::move(piston_displacement_term_m3),
         std::move(piston_mass_kg),
         std::move(connecting_rod_mass_kg),

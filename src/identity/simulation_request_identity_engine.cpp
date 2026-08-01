@@ -408,10 +408,16 @@ write_legacy_cylinder_parameters(CanonicalJsonWriter &writer,
     }
     if (!(writer.key("connecting_rod_length_m") &&
           write_resolved(writer, parameters.connecting_rod_length_m, write_f64) &&
+          writer.key("connecting_rod_center_of_mass_from_crank_pin_m") &&
+          write_resolved(writer,
+                         parameters.connecting_rod_center_of_mass_from_crank_pin_m,
+                         write_f64) &&
           writer.key("deck_height_m") &&
           write_resolved(writer, parameters.deck_height_m, write_f64) &&
           writer.key("piston_compression_height_m") &&
           write_resolved(writer, parameters.piston_compression_height_m, write_f64) &&
+          writer.key("piston_wrist_pin_position_m") &&
+          write_resolved(writer, parameters.piston_wrist_pin_position_m, write_f64) &&
           writer.key("piston_displacement_term_m3") &&
           write_resolved(writer, parameters.piston_displacement_term_m3, write_f64) &&
           writer.key("piston_mass_kg") &&

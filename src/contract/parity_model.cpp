@@ -131,9 +131,23 @@ void visit_cylinder_parameters(const Cylinder &cylinder, const std::string &base
         function(direct->crank_radius_m, base + ".crank_radius_m");
     }
     function(parameters.connecting_rod_length_m, base + ".connecting_rod_length_m");
+    if constexpr (requires {
+                      parameters.connecting_rod_center_of_mass_from_crank_pin_m;
+                      parameters.piston_wrist_pin_position_m;
+                  }) {
+        function(parameters.connecting_rod_center_of_mass_from_crank_pin_m,
+                 base + ".connecting_rod_center_of_mass_from_crank_pin_m");
+    }
     function(parameters.deck_height_m, base + ".deck_height_m");
     function(parameters.piston_compression_height_m,
              base + ".piston_compression_height_m");
+    if constexpr (requires {
+                      parameters.connecting_rod_center_of_mass_from_crank_pin_m;
+                      parameters.piston_wrist_pin_position_m;
+                  }) {
+        function(parameters.piston_wrist_pin_position_m,
+                 base + ".piston_wrist_pin_position_m");
+    }
     function(parameters.piston_displacement_term_m3,
              base + ".piston_displacement_term_m3");
     function(parameters.piston_mass_kg, base + ".piston_mass_kg");
@@ -1681,8 +1695,13 @@ void validate_low_order_core_domains(ValidationReport &report,
         const bool common_parameters_valid =
             finite_positive(parameters.bore_m.value) &&
             finite_positive(parameters.connecting_rod_length_m.value) &&
+            finite_nonnegative(
+                parameters.connecting_rod_center_of_mass_from_crank_pin_m.value) &&
+            parameters.connecting_rod_center_of_mass_from_crank_pin_m.value <=
+                parameters.connecting_rod_length_m.value &&
             finite_positive(parameters.deck_height_m.value) &&
             finite_positive(parameters.piston_compression_height_m.value) &&
+            finite_nonnegative(parameters.piston_wrist_pin_position_m.value) &&
             finite(parameters.piston_displacement_term_m3.value) &&
             finite_positive(parameters.piston_mass_kg.value) &&
             finite_positive(parameters.connecting_rod_mass_kg.value) &&
@@ -1805,6 +1824,7 @@ void validate_low_order_core_domains(ValidationReport &report,
                 parameters.piston_displacement_term_m3.value +
                 piston_area_m2 *
                     (parameters.deck_height_m.value - tdc_mechanism_height_m -
+                     parameters.piston_wrist_pin_position_m.value -
                      parameters.piston_compression_height_m.value);
             const auto swept_volume_m3 =
                 piston_area_m2 * (2.0 * direct->crank_radius_m.value);
@@ -1812,6 +1832,7 @@ void validate_low_order_core_domains(ValidationReport &report,
                 head->chamber_volume_m3.value -
                 parameters.piston_displacement_term_m3.value +
                 piston_area_m2 * (parameters.deck_height_m.value -
+                                  parameters.piston_wrist_pin_position_m.value -
                                   parameters.piston_compression_height_m.value);
             require(report,
                     finite_positive(piston_area_m2) &&

@@ -94,6 +94,8 @@ finite_driver_values(const OneLevelMasterRodDriver &driver) noexcept {
         !finite_positive(cylinder.piston_area_m2) ||
         !finite_positive(cylinder.deck_height_m) ||
         !finite_positive(cylinder.piston_compression_height_m) ||
+        !std::isfinite(cylinder.piston_wrist_pin_position_m) ||
+        cylinder.piston_wrist_pin_position_m < 0.0 ||
         !finite_positive(cylinder.head_chamber_volume_m3) ||
         !std::isfinite(cylinder.piston_displacement_term_m3)) {
         return false;
@@ -209,8 +211,9 @@ OneLevelMasterRodSample evaluate_one_level_master_rod(
 
     // Preserve pristine CombustionChamber::getVolume() written order.
     const double sweep_volume_m3 =
-        cylinder.piston_area_m2 * (cylinder.deck_height_m - position->value -
-                                   cylinder.piston_compression_height_m);
+        cylinder.piston_area_m2 *
+        (cylinder.deck_height_m - position->value -
+         cylinder.piston_wrist_pin_position_m - cylinder.piston_compression_height_m);
     sample.piston_axis_position_m = position->value;
     sample.piston_axis_derivative_m_per_rad = position->derivative;
     sample.chamber_volume_m3 = sweep_volume_m3 + cylinder.head_chamber_volume_m3 -
@@ -288,8 +291,9 @@ OneLevelMasterRodFullCycleCheck certify_one_level_master_rod_full_cycle(
     // direct root, max(s) = Lm + r exactly. For a slave, |P| <= r + t gives the
     // sufficient bound max(s) <= Ls + r + t.
     const double sweep_volume_lower_bound_m3 =
-        cylinder.piston_area_m2 * (cylinder.deck_height_m - maximum_axis_position_m -
-                                   cylinder.piston_compression_height_m);
+        cylinder.piston_area_m2 *
+        (cylinder.deck_height_m - maximum_axis_position_m -
+         cylinder.piston_wrist_pin_position_m - cylinder.piston_compression_height_m);
     check.minimum_chamber_volume_m3 = sweep_volume_lower_bound_m3 +
                                       cylinder.head_chamber_volume_m3 -
                                       cylinder.piston_displacement_term_m3;
@@ -301,8 +305,8 @@ OneLevelMasterRodFullCycleCheck certify_one_level_master_rod_full_cycle(
     }
     const double volume_scale_m3 =
         cylinder.piston_area_m2 *
-            (std::abs(cylinder.deck_height_m) +
-             std::abs(maximum_axis_position_m) +
+            (std::abs(cylinder.deck_height_m) + std::abs(maximum_axis_position_m) +
+             std::abs(cylinder.piston_wrist_pin_position_m) +
              std::abs(cylinder.piston_compression_height_m)) +
         std::abs(cylinder.head_chamber_volume_m3) +
         std::abs(cylinder.piston_displacement_term_m3);

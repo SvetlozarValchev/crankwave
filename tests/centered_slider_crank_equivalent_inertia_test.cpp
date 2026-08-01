@@ -33,6 +33,7 @@ void expect_near(double actual, double expected, double tolerance,
 [[nodiscard]] contract::LegacyCylinderAssembly bmw_cylinder(double phase_rad) {
     contract::LegacyCylinderAssembly cylinder;
     cylinder.parameters.connecting_rod_length_m.value = 0.135;
+    cylinder.parameters.connecting_rod_center_of_mass_from_crank_pin_m.value = 0.0675;
     cylinder.parameters.piston_mass_kg.value = 0.280;
     cylinder.parameters.connecting_rod_mass_kg.value = 0.300;
     cylinder.parameters.connecting_rod_inertia_kg_m2.value = 0.0015884918028487504;
@@ -60,7 +61,7 @@ void expect_near(double actual, double expected, double tolerance,
 [[nodiscard]] simulation::CenteredSliderCrankConfigurationInertiaCylinderPlan
 bmw_configuration_cylinder(double geometric_tdc_rad) {
     return {
-        geometric_tdc_rad, 0.042, 0.135, 0.280, 0.300, 0.0015884918028487504,
+        geometric_tdc_rad, 0.042, 0.135, 0.0675, 0.280, 0.300, 0.0015884918028487504,
     };
 }
 
@@ -236,6 +237,57 @@ void test_configuration_inertia_dead_center_matches_closed_form() {
            "dead-center inertia derivative was nonzero");
 }
 
+void test_nonmidpoint_rod_center_matches_closed_form_and_finite_difference() {
+    auto cylinder = bmw_configuration_cylinder(0.0);
+    cylinder.connecting_rod_center_of_mass_from_crank_pin_m =
+        0.4 * cylinder.connecting_rod_length_m;
+    const simulation::CenteredSliderCrankConfigurationInertiaPlan plan{
+        0.2,
+        0.0,
+        {cylinder},
+    };
+
+    const auto dead_center = require_configuration(
+        simulation::evaluate_centered_slider_crank_configuration_inertia(plan, 0.0));
+    const double center_fraction =
+        cylinder.connecting_rod_center_of_mass_from_crank_pin_m /
+        cylinder.connecting_rod_length_m;
+    const double expected_translation =
+        cylinder.connecting_rod_mass_kg * cylinder.crank_radius_m *
+        cylinder.crank_radius_m * (1.0 - center_fraction) * (1.0 - center_fraction);
+    const double expected_rotation =
+        cylinder.connecting_rod_inertia_kg_m2 * cylinder.crank_radius_m *
+        cylinder.crank_radius_m /
+        (cylinder.connecting_rod_length_m * cylinder.connecting_rod_length_m);
+    expect(dead_center.piston_translation_inertia_kg_m2 == 0.0,
+           "nonmidpoint dead-center piston translation inertia was nonzero");
+    expect_near(dead_center.connecting_rod_translation_inertia_kg_m2,
+                expected_translation, 1.0e-18,
+                "nonmidpoint dead-center rod translation missed its closed form");
+    expect_near(dead_center.connecting_rod_rotation_inertia_kg_m2, expected_rotation,
+                1.0e-18,
+                "rod COM position incorrectly changed dead-center rotation inertia");
+    expect(dead_center.total_derivative_kg_m2_per_rad == 0.0,
+           "nonmidpoint dead-center inertia derivative was nonzero");
+
+    constexpr double angle_rad = 0.731;
+    constexpr double step_rad = 1.0e-6;
+    const auto center = require_configuration(
+        simulation::evaluate_centered_slider_crank_configuration_inertia(plan,
+                                                                         angle_rad));
+    const auto before = require_configuration(
+        simulation::evaluate_centered_slider_crank_configuration_inertia(
+            plan, angle_rad - step_rad));
+    const auto after = require_configuration(
+        simulation::evaluate_centered_slider_crank_configuration_inertia(
+            plan, angle_rad + step_rad));
+    const double finite_difference =
+        (after.total_inertia_kg_m2 - before.total_inertia_kg_m2) / (2.0 * step_rad);
+    expect_near(center.total_derivative_kg_m2_per_rad, finite_difference, 5.0e-11,
+                "nonmidpoint analytic inertia derivative disagrees with its finite "
+                "difference");
+}
+
 void test_analytic_configuration_derivative_matches_kinetic_energy_coefficient() {
     const auto engine_only_plan = bmw_configuration_plan(0.0);
     const auto source_audit_sample = require_configuration(
@@ -349,6 +401,7 @@ void run_tests() {
     test_invalid_inputs_return_typed_cylinder_evidence();
     test_configuration_inertia_preserves_fixed_crank_and_attached_load();
     test_configuration_inertia_dead_center_matches_closed_form();
+    test_nonmidpoint_rod_center_matches_closed_form_and_finite_difference();
     test_analytic_configuration_derivative_matches_kinetic_energy_coefficient();
     test_configuration_inertia_reconstructs_pristine_coast_tick();
     test_configuration_inertia_rejects_invalid_phase_inputs_with_typed_evidence();

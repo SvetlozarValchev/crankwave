@@ -54,7 +54,7 @@ finite_slider_crank_input(const CenteredSliderCrankCylinder &cylinder,
 LegacyCylinderGeometry derive_legacy_cylinder_geometry(
     const double bore_m, const double crank_radius_m,
     const double connecting_rod_length_m, const double deck_height_m,
-    const double piston_compression_height_m,
+    const double piston_compression_height_m, const double piston_wrist_pin_position_m,
     const double head_chamber_volume_m3,
     const double piston_displacement_term_m3) noexcept {
     LegacyCylinderGeometry result;
@@ -66,11 +66,11 @@ LegacyCylinderGeometry derive_legacy_cylinder_geometry(
         head_chamber_volume_m3 - piston_displacement_term_m3 +
         result.piston_area_m2 *
             (deck_height_m - result.tdc_mechanism_height_m -
-             piston_compression_height_m);
+             piston_wrist_pin_position_m - piston_compression_height_m);
     result.fixed_geometry_volume_m3 =
         head_chamber_volume_m3 +
         result.piston_area_m2 *
-            (deck_height_m - piston_compression_height_m);
+            (deck_height_m - piston_wrist_pin_position_m - piston_compression_height_m);
     result.swept_volume_m3 =
         result.piston_area_m2 * (2.0 * crank_radius_m);
     result.compression_ratio =

@@ -81,20 +81,43 @@ void admit_engine_physical_model(ModelContext &resolved,
                 "direct journal crankshaft reference did not resolve");
         }
     }
+    const bool has_master_rod_journal =
+        std::ranges::any_of(engine.journals, [](const auto &journal) {
+            return std::get_if<authoring::MasterRodJournalAttachment>(
+                       &journal.attachment) != nullptr;
+        });
     for (std::size_t index = 0; index < engine.connecting_rods.size(); ++index) {
         const auto &rod = engine.connecting_rods[index];
         if (rod.center_of_mass_from_crank_pin.has_value()) {
-            add(report, DiagnosticCode::unsupported_capability,
-                pointer_index("/engine/connecting_rods", index),
-                "rod center-of-mass execution is not admitted");
+            const double center_of_mass_m =
+                legacy_si_value(*rod.center_of_mass_from_crank_pin);
+            const double rod_length_m = legacy_si_value(rod.length);
+            if (!std::isfinite(center_of_mass_m) || center_of_mass_m < 0.0 ||
+                center_of_mass_m > rod_length_m) {
+                add(report, DiagnosticCode::invalid_value,
+                    pointer_index("/engine/connecting_rods", index) +
+                        "/center_of_mass_from_crank_pin",
+                    "rod center of mass must lie between the crank pin and wrist pin");
+            } else if (has_master_rod_journal &&
+                       std::abs(center_of_mass_m - 0.5 * rod_length_m) > 1.0e-12) {
+                add(report, DiagnosticCode::unsupported_capability,
+                    pointer_index("/engine/connecting_rods", index) +
+                        "/center_of_mass_from_crank_pin",
+                    "non-midpoint rod center-of-mass execution is not yet admitted "
+                    "for master-rod mechanisms");
+            }
         }
     }
     for (std::size_t index = 0; index < engine.pistons.size(); ++index) {
         const auto &piston = engine.pistons[index];
         if (piston.wrist_pin_position.has_value()) {
-            add(report, DiagnosticCode::unsupported_capability,
-                pointer_index("/engine/pistons", index) + "/wrist_pin_position",
-                "wrist-pin position is not executed by the centered low-order core");
+            const double wrist_pin_position_m =
+                legacy_si_value(*piston.wrist_pin_position);
+            if (!std::isfinite(wrist_pin_position_m) || wrist_pin_position_m < 0.0) {
+                add(report, DiagnosticCode::invalid_value,
+                    pointer_index("/engine/pistons", index) + "/wrist_pin_position",
+                    "piston wrist-pin position must be finite and nonnegative");
+            }
         }
         if (!piston.blowby.has_value() ||
             !supported_flow_bench(

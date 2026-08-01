@@ -58,8 +58,10 @@ The fixture does not claim byte-for-byte source serialization:
   `0.001 CFM` for all four pistons so its accepted audio remains unchanged. The core
   now executes per-piston blowby; restoring these source values is intentionally a
   separate sound-bearing fixture change.
-- Source zero-valued connecting-rod center-of-mass and piston wrist-pin fields are not
-  authored because the current core does not execute them.
+- Source zero-valued connecting-rod center-of-mass and piston wrist-pin fields remain
+  omitted. The current core resolves those omissions to the exact rod midpoint and
+  zero axial offset, respectively, and executes both physical quantities without
+  changing this accepted fixture.
 - Chen--Flynn coefficients, the accessory descriptor, head exhaust-runner
   cross-section area, and the 10 kHz physics/capture rate are executor policy, not
   measured EJ25 source facts.

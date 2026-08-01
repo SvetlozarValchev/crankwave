@@ -27,6 +27,7 @@ struct DirectMechanismCylinderPlan {
     double stroke_m = 0.0;
     double deck_height_m = 0.0;
     double piston_compression_height_m = 0.0;
+    double piston_wrist_pin_position_m = 0.0;
     double head_chamber_volume_m3 = 0.0;
     double piston_displacement_term_m3 = 0.0;
     double authored_journal_angle_rad = 0.0;
@@ -34,6 +35,7 @@ struct DirectMechanismCylinderPlan {
     double piston_mass_kg = 0.0;
     double connecting_rod_mass_kg = 0.0;
     double connecting_rod_inertia_kg_m2 = 0.0;
+    double connecting_rod_center_of_mass_from_crank_pin_m = 0.0;
 
     friend bool operator==(const DirectMechanismCylinderPlan &,
                            const DirectMechanismCylinderPlan &) = default;

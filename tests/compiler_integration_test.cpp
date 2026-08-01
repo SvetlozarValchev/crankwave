@@ -1425,6 +1425,124 @@ void test_per_piston_blowby_resolves_to_bound_cylinder() {
                         "public compiler rejected unequal per-piston blowby");
 }
 
+void test_rod_center_of_mass_and_wrist_pin_resolution_and_admission() {
+    const SyntheticAssets assets = make_assets();
+    auto views = assets.views();
+    constexpr std::string_view kCylinderPath =
+        "engine.physics.low-order-operating-point-v1.mechanism.cylinders."
+        "fixture-cylinder-1";
+    const auto resolution_for = [](const auto &resolved, const std::string_view path) {
+        return std::ranges::find(resolved.provenance.resolutions, path,
+                                 &contract::ResolutionRecord::parameter_path);
+    };
+
+    {
+        const auto document = make_engine_document(assets);
+        const auto resolved =
+            require_value(compile_detail::resolve_engine_package(document, views),
+                          "omitted rod COM and wrist-pin defaults failed to resolve");
+        const auto &parameters = std::get<contract::LowOrderOperatingPointV1Profile>(
+                                     resolved.engine.physics_profile)
+                                     .core.mechanism.cylinders.front()
+                                     .parameters;
+        const std::string com_path = std::string{kCylinderPath} +
+                                     ".connecting_rod_center_of_mass_from_crank_pin_m";
+        const std::string wrist_path =
+            std::string{kCylinderPath} + ".piston_wrist_pin_position_m";
+        const auto com_resolution = resolution_for(resolved, com_path);
+        const auto wrist_resolution = resolution_for(resolved, wrist_path);
+        expect(parameters.connecting_rod_center_of_mass_from_crank_pin_m.value ==
+                       0.5 * parameters.connecting_rod_length_m.value &&
+                   parameters.piston_wrist_pin_position_m.value == 0.0 &&
+                   !std::signbit(parameters.piston_wrist_pin_position_m.value),
+               "omitted rod COM or wrist-pin position lost its exact physical "
+               "default");
+        expect(com_resolution != resolved.provenance.resolutions.end() &&
+                   com_resolution->mode == contract::ResolutionMode::derived &&
+                   com_resolution->method.has_value() &&
+                   com_resolution->method->id ==
+                       "connecting-rod-midpoint-from-length-v1" &&
+                   com_resolution->dependency_parameter_paths ==
+                       std::vector<std::string>{std::string{kCylinderPath} +
+                                                ".connecting_rod_length_m"} &&
+                   wrist_resolution != resolved.provenance.resolutions.end() &&
+                   wrist_resolution->mode ==
+                       contract::ResolutionMode::declared_default &&
+                   !wrist_resolution->method.has_value() &&
+                   wrist_resolution->dependency_parameter_paths.empty(),
+               "omitted rod COM or wrist-pin position lost its resolution "
+               "provenance");
+    }
+
+    {
+        auto document = make_engine_document(assets);
+        document.engine.connecting_rods.front().center_of_mass_from_crank_pin =
+            quantity(50.0, "mm");
+        document.engine.pistons.front().wrist_pin_position = quantity(4.0, "mm");
+        const auto resolved =
+            require_value(compile_detail::resolve_engine_package(document, views),
+                          "explicit rod COM and wrist-pin position failed to resolve");
+        const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+            resolved.engine.physics_profile);
+        const auto &parameters = profile.core.mechanism.cylinders.front().parameters;
+        const std::string com_path = std::string{kCylinderPath} +
+                                     ".connecting_rod_center_of_mass_from_crank_pin_m";
+        const std::string wrist_path =
+            std::string{kCylinderPath} + ".piston_wrist_pin_position_m";
+        const auto com_resolution = resolution_for(resolved, com_path);
+        const auto wrist_resolution = resolution_for(resolved, wrist_path);
+        const auto plan_result = simulation::compile_mechanism_kinematics_plan(
+            resolved.engine, profile.core);
+        const auto *shared_plan =
+            std::get_if<simulation::SharedMechanismKinematicsPlan>(&plan_result);
+        const auto *direct_plan =
+            shared_plan == nullptr
+                ? nullptr
+                : simulation::direct_mechanism_kinematics_plan(*shared_plan);
+        expect(parameters.connecting_rod_center_of_mass_from_crank_pin_m.value ==
+                       0.05 &&
+                   parameters.piston_wrist_pin_position_m.value == 0.004 &&
+                   com_resolution != resolved.provenance.resolutions.end() &&
+                   com_resolution->mode == contract::ResolutionMode::authored &&
+                   wrist_resolution != resolved.provenance.resolutions.end() &&
+                   wrist_resolution->mode == contract::ResolutionMode::authored &&
+                   direct_plan != nullptr && !direct_plan->cylinders.empty() &&
+                   direct_plan->cylinders.front()
+                           .connecting_rod_center_of_mass_from_crank_pin_m == 0.05 &&
+                   direct_plan->cylinders.front().piston_wrist_pin_position_m == 0.004,
+               "explicit rod COM or wrist-pin position did not reach the resolved "
+               "profile and executable plan as authored data");
+    }
+
+    for (const double invalid_com_mm : {-1.0, 149.0}) {
+        auto document = make_engine_document(assets);
+        document.engine.connecting_rods.front().center_of_mass_from_crank_pin =
+            quantity(invalid_com_mm, "mm");
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::invalid_value,
+                           "/engine/connecting_rods/0/center_of_mass_from_crank_pin",
+                           "rod COM outside its closed physical interval");
+    }
+    {
+        auto document = make_engine_document(assets);
+        document.engine.pistons.front().wrist_pin_position = quantity(-1.0, "mm");
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::invalid_value,
+                           "/engine/pistons/0/wrist_pin_position",
+                           "negative piston wrist-pin position");
+    }
+    {
+        auto document = make_master_rod_twin_document(assets);
+        document.engine.connecting_rods.front().center_of_mass_from_crank_pin =
+            quantity(50.0, "mm");
+        const auto twin_views = assets.twin_views();
+        const auto result = compile::compile_engine(document, twin_views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/connecting_rods/0/center_of_mass_from_crank_pin",
+                           "non-midpoint rod COM on a master-rod mechanism");
+    }
+}
+
 void test_inline_twin_one_route_reaches_executable_boundary() {
     const SyntheticAssets assets = make_assets();
     const auto document = make_inline_twin_document(assets);
@@ -2764,6 +2882,7 @@ void test_master_rod_graph_contract_and_public_admission() {
             simulation::kLegacyPi * bore_m * bore_m / 4.0,
             slave_assembly.parameters.deck_height_m.value,
             slave_assembly.parameters.piston_compression_height_m.value,
+            slave_assembly.parameters.piston_wrist_pin_position_m.value,
             profile.core.gas_path.heads.front().chamber_volume_m3.value,
             slave_assembly.parameters.piston_displacement_term_m3.value,
             simulation::OneLevelMasterRodSlavePin{
@@ -2826,6 +2945,7 @@ void test_master_rod_graph_contract_and_public_admission() {
             simulation::kLegacyPi * bore_m * bore_m / 4.0,
             root_assembly.parameters.deck_height_m.value,
             root_assembly.parameters.piston_compression_height_m.value,
+            root_assembly.parameters.piston_wrist_pin_position_m.value,
             profile.core.gas_path.heads.front().chamber_volume_m3.value,
             root_assembly.parameters.piston_displacement_term_m3.value,
             simulation::OneLevelMasterRodRootJournal{},
@@ -3088,6 +3208,7 @@ int main() {
         test_complete_generic_compile_and_determinism();
         test_crankshaft_identity_output_and_cylinder_bindings_resolve();
         test_per_piston_blowby_resolves_to_bound_cylinder();
+        test_rod_center_of_mass_and_wrist_pin_resolution_and_admission();
         test_inline_twin_one_route_reaches_executable_boundary();
         test_shared_ignition_wire_fans_out_without_topology_collapse();
         test_v_engine_resolves_bank_geometry_and_axis_relative_journals();

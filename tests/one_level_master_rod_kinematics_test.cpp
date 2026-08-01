@@ -59,9 +59,8 @@ RadialFiveFixture radial_five() {
         {},
     };
     fixture.cylinders[0] = {
-        CylinderId{1}, 0.0,    12.0 * inch,
-        area_m2,       deck_m, compression_m,
-        chamber_m3,    0.0,    OneLevelMasterRodRootJournal{},
+        CylinderId{1}, 0.0, 12.0 * inch, area_m2, deck_m,
+        compression_m, 0.0, chamber_m3,  0.0,     OneLevelMasterRodRootJournal{},
     };
     for (std::size_t index = 1; index < fixture.cylinders.size(); ++index) {
         const double phase = static_cast<double>(index) * 72.0 * degree;
@@ -72,6 +71,7 @@ RadialFiveFixture radial_five() {
             area_m2,
             deck_m,
             compression_m,
+            0.0,
             chamber_m3,
             0.0,
             OneLevelMasterRodSlavePin{2.9 * inch, phase},
@@ -156,6 +156,47 @@ void test_dual_derivative_matches_position_and_volume_finite_difference() {
     }
 }
 
+void test_wrist_pin_position_offsets_slave_volume_without_changing_motion() {
+    const auto fixture = radial_five();
+    const auto &centered_cylinder = fixture.cylinders[2];
+    auto offset_cylinder = centered_cylinder;
+    constexpr double wrist_pin_offset_m = 0.001;
+    offset_cylinder.piston_wrist_pin_position_m = wrist_pin_offset_m;
+
+    constexpr double body_angle_rad = 0.731;
+    constexpr double angular_speed_rad_s = 173.0;
+    const auto centered = evaluate_one_level_master_rod(
+        fixture.driver, centered_cylinder, body_angle_rad, angular_speed_rad_s);
+    const auto offset = evaluate_one_level_master_rod(
+        fixture.driver, offset_cylinder, body_angle_rad, angular_speed_rad_s);
+    expect(centered.valid && offset.valid,
+           "wrist-pin slave-volume comparison was rejected");
+    expect(offset.piston_axis_position_m == centered.piston_axis_position_m &&
+               offset.piston_axis_derivative_m_per_rad ==
+                   centered.piston_axis_derivative_m_per_rad &&
+               offset.dvolume_dtheta_m3_per_rad == centered.dvolume_dtheta_m3_per_rad &&
+               offset.piston_speed_abs_m_s == centered.piston_speed_abs_m_s,
+           "wrist-pin position changed one-level slave kinematics");
+    const double expected_volume_delta_m3 =
+        centered_cylinder.piston_area_m2 * wrist_pin_offset_m;
+    expect_near(offset.chamber_volume_m3,
+                centered.chamber_volume_m3 - expected_volume_delta_m3, 1.0e-18,
+                "wrist-pin position did not apply a constant slave volume offset");
+
+    const auto centered_certificate =
+        certify_one_level_master_rod_full_cycle(fixture.driver, centered_cylinder);
+    const auto offset_certificate =
+        certify_one_level_master_rod_full_cycle(fixture.driver, offset_cylinder);
+    expect(centered_certificate.admitted() && offset_certificate.admitted(),
+           "wrist-pin slave fixture lost full-cycle admission");
+    expect_near(offset_certificate.minimum_chamber_volume_m3,
+                centered_certificate.minimum_chamber_volume_m3 -
+                    expected_volume_delta_m3,
+                1.0e-18,
+                "wrist-pin slave certificate did not retain the constant volume "
+                "offset");
+}
+
 void test_radial_five_full_cycle_certificate_margins() {
     const OneLevelMasterRodFullCycleCheck unavailable;
     expect(unavailable.reason == OneLevelMasterRodFullCycleReason::invalid_geometry &&
@@ -196,9 +237,11 @@ void test_full_cycle_certificate_rejects_later_unreachable_geometry() {
         0.2,
     };
     const OneLevelMasterRodCylinder cylinder{
-        CylinderId{1}, 0.0, 0.05,
-        0.01,          1.0, 0.01,
-        0.001,         0.0, OneLevelMasterRodSlavePin{0.08, kLegacyPi / 2.0},
+        CylinderId{1}, 0.0,
+        0.05,          0.01,
+        1.0,           0.01,
+        0.0,           0.001,
+        0.0,           OneLevelMasterRodSlavePin{0.08, kLegacyPi / 2.0},
     };
 
     const auto initially_valid =
@@ -228,15 +271,11 @@ void test_full_cycle_certificate_rejects_later_backward_solution() {
         0.2,
     };
     const OneLevelMasterRodCylinder cylinder{
-        CylinderId{1},
-        3.0 * kLegacyPi / 2.0,
-        0.05,
-        0.01,
-        1.0,
-        0.01,
-        0.001,
-        0.0,
-        OneLevelMasterRodSlavePin{0.05, 0.0},
+        CylinderId{1}, 3.0 * kLegacyPi / 2.0,
+        0.05,          0.01,
+        1.0,           0.01,
+        0.0,           0.001,
+        0.0,           OneLevelMasterRodSlavePin{0.05, 0.0},
     };
 
     const auto initially_valid =
@@ -263,9 +302,8 @@ void test_full_cycle_certificate_rejects_later_nonpositive_volume() {
         0.2,
     };
     const OneLevelMasterRodCylinder cylinder{
-        CylinderId{1}, 0.0,  0.2,
-        0.01,          0.22, 0.01,
-        0.0003,        0.0,  OneLevelMasterRodRootJournal{},
+        CylinderId{1}, 0.0, 0.2,    0.01, 0.22,
+        0.01,          0.0, 0.0003, 0.0,  OneLevelMasterRodRootJournal{},
     };
 
     const auto initially_valid =
@@ -300,6 +338,7 @@ void test_full_cycle_certificate_rejects_binary64_ambiguous_reach() {
         0.01,
         1.0,
         0.01,
+        0.0,
         0.001,
         0.0,
         OneLevelMasterRodRootJournal{},
@@ -357,9 +396,8 @@ void test_slider_solution_behind_bank_origin_fails_closed() {
         0.2,
     };
     const OneLevelMasterRodCylinder cylinder{
-        CylinderId{1}, 0.0, 0.1,
-        0.01,          1.0, 0.01,
-        0.001,         0.0, OneLevelMasterRodSlavePin{0.5, kLegacyPi},
+        CylinderId{1}, 0.0, 0.1,   0.01, 1.0,
+        0.01,          0.0, 0.001, 0.0,  OneLevelMasterRodSlavePin{0.5, kLegacyPi},
     };
 
     expect(!evaluate_one_level_master_rod(driver, cylinder, kLegacyPi / 2.0, 1.0).valid,
@@ -372,6 +410,7 @@ int main() {
     try {
         test_pristine_radial_five_positions_and_volumes();
         test_dual_derivative_matches_position_and_volume_finite_difference();
+        test_wrist_pin_position_offsets_slave_volume_without_changing_motion();
         test_radial_five_full_cycle_certificate_margins();
         test_full_cycle_certificate_rejects_later_unreachable_geometry();
         test_full_cycle_certificate_rejects_later_backward_solution();

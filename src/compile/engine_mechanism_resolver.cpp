@@ -72,11 +72,26 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
         }
         auto connecting_rod_length_m = emitter.authored(
             legacy_si_value(rod.length), base + ".connecting_rod_length_m");
+        auto connecting_rod_center_of_mass_from_crank_pin_m =
+            rod.center_of_mass_from_crank_pin.has_value()
+                ? emitter.authored(
+                      legacy_si_value(*rod.center_of_mass_from_crank_pin),
+                      base + ".connecting_rod_center_of_mass_from_crank_pin_m")
+                : emitter.derived(
+                      0.5 * legacy_si_value(rod.length),
+                      base + ".connecting_rod_center_of_mass_from_crank_pin_m",
+                      derived_method_identity("connecting-rod-midpoint-from-length-v1"),
+                      {base + ".connecting_rod_length_m"});
         auto deck_height_m = emitter.authored(legacy_si_value(bank.deck_height),
                                               base + ".deck_height_m");
         auto piston_compression_height_m =
             emitter.authored(legacy_si_value(piston.compression_height),
                              base + ".piston_compression_height_m");
+        auto piston_wrist_pin_position_m =
+            piston.wrist_pin_position.has_value()
+                ? emitter.authored(legacy_si_value(*piston.wrist_pin_position),
+                                   base + ".piston_wrist_pin_position_m")
+                : emitter.declared_default(0.0, base + ".piston_wrist_pin_position_m");
         auto piston_displacement_term_m3 =
             emitter.authored(legacy_si_value(piston.displacement_volume),
                              base + ".piston_displacement_term_m3");
@@ -134,8 +149,10 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
             {
                 std::move(bore_m),
                 std::move(connecting_rod_length_m),
+                std::move(connecting_rod_center_of_mass_from_crank_pin_m),
                 std::move(deck_height_m),
                 std::move(piston_compression_height_m),
+                std::move(piston_wrist_pin_position_m),
                 std::move(piston_displacement_term_m3),
                 std::move(piston_mass_kg),
                 std::move(connecting_rod_mass_kg),

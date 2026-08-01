@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-02
 
-Current checkpoint: **post-slice-15 parity closure — rod and wrist-pin geometry**
+Current checkpoint: **post-slice-15 parity closure — intake-local molecular AFR**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -824,7 +824,9 @@ engine-definition parity in this order, with one coherent commit per bullet:
    (**complete; source-value Shovelhead free-rev accepted by user listening on
    2026-08-02**);
 2. execute connecting-rod center of mass and piston wrist-pin geometry where pristine
-   physics consumes them;
+   physics consumes them (**complete; physical rod COM and axial wrist-pin semantics
+   are source-audited, synthetic closed forms pass, and accepted BMW/Shovelhead
+   default-field output remains exact on 2026-08-02**);
 3. complete intake-local molecular-AFR ownership without duplicating fuel authority;
 4. generalize physics, capture, excitation, and propagation-delay rate ownership while
    retaining exact output for every existing 10 kHz fixture;

@@ -50,6 +50,7 @@ struct EngineSimV1PistonWallCylinderPlan {
     double piston_area_m2 = 0.0;
     double crank_radius_m = 0.0;
     double connecting_rod_length_m = 0.0;
+    double connecting_rod_center_of_mass_from_crank_pin_m = 0.0;
     double piston_mass_kg = 0.0;
     double connecting_rod_mass_kg = 0.0;
     double connecting_rod_inertia_kg_m2 = 0.0;

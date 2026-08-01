@@ -124,6 +124,12 @@ class ResolutionEmitter {
     }
 
     template <class Value>
+    [[nodiscard]] contract::ResolvedValue<Value> declared_default(Value value,
+                                                                  std::string path) {
+        return {std::move(value), declared_default_id(std::move(path))};
+    }
+
+    template <class Value>
     [[nodiscard]] contract::ResolvedValue<Value>
     derived(Value value, std::string path, contract::MethodIdentity method,
             std::span<const std::string_view> dependencies) {
@@ -144,6 +150,7 @@ class ResolutionEmitter {
 
   private:
     [[nodiscard]] std::string authored_id(std::string path);
+    [[nodiscard]] std::string declared_default_id(std::string path);
     [[nodiscard]] std::string
     derived_id(std::string path, contract::MethodIdentity method,
                std::span<const std::string_view> dependencies);

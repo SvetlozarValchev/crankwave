@@ -203,6 +203,69 @@ void test_centered_slider_crank_geometry() {
     expect(!invalid.valid, "negative slider-crank radicand did not fail closed");
 }
 
+void test_wrist_pin_position_is_a_constant_axial_volume_offset() {
+    constexpr double bore_m = 0.084;
+    constexpr double crank_radius_m = 0.042;
+    constexpr double rod_length_m = 0.135;
+    constexpr double deck_height_m = 0.208;
+    constexpr double compression_height_m = 0.031;
+    constexpr double head_volume_m3 = 60.0e-6;
+    constexpr double piston_displacement_m3 = 0.0;
+    constexpr double wrist_pin_offset_m = 0.001;
+
+    const auto centered = derive_legacy_cylinder_geometry(
+        bore_m, crank_radius_m, rod_length_m, deck_height_m, compression_height_m, 0.0,
+        head_volume_m3, piston_displacement_m3);
+    const auto offset = derive_legacy_cylinder_geometry(
+        bore_m, crank_radius_m, rod_length_m, deck_height_m, compression_height_m,
+        wrist_pin_offset_m, head_volume_m3, piston_displacement_m3);
+    const double expected_volume_delta_m3 =
+        centered.piston_area_m2 * wrist_pin_offset_m;
+
+    expect(same_binary64(offset.piston_area_m2, centered.piston_area_m2) &&
+               same_binary64(offset.tdc_mechanism_height_m,
+                             centered.tdc_mechanism_height_m) &&
+               same_binary64(offset.swept_volume_m3, centered.swept_volume_m3),
+           "wrist-pin position changed direct slider-crank kinematics");
+    expect_near(offset.clearance_volume_m3,
+                centered.clearance_volume_m3 - expected_volume_delta_m3, 1.0e-18,
+                "wrist-pin position did not apply its axial clearance-volume "
+                "offset");
+    expect_near(offset.fixed_geometry_volume_m3,
+                centered.fixed_geometry_volume_m3 - expected_volume_delta_m3, 1.0e-18,
+                "wrist-pin position did not apply its fixed-volume offset");
+    expect_near(offset.compression_ratio,
+                (offset.clearance_volume_m3 + offset.swept_volume_m3) /
+                    offset.clearance_volume_m3,
+                1.0e-15,
+                "wrist-pin clearance offset did not propagate to compression "
+                "ratio");
+
+    auto centered_cylinder = test_cylinder();
+    centered_cylinder.clearance_volume_m3 = centered.clearance_volume_m3;
+    auto offset_cylinder = centered_cylinder;
+    offset_cylinder.clearance_volume_m3 = offset.clearance_volume_m3;
+    constexpr double diagnostic_angle_rad = 1.173;
+    const auto centered_sample =
+        evaluate_centered_slider_crank(centered_cylinder, diagnostic_angle_rad, 240.0);
+    const auto offset_sample =
+        evaluate_centered_slider_crank(offset_cylinder, diagnostic_angle_rad, 240.0);
+    expect(centered_sample.valid && offset_sample.valid,
+           "wrist-pin direct-volume comparison was rejected");
+    expect(
+        same_binary64(offset_sample.piston_travel_m, centered_sample.piston_travel_m) &&
+            same_binary64(offset_sample.dx_dtheta_m_per_rad,
+                          centered_sample.dx_dtheta_m_per_rad) &&
+            same_binary64(offset_sample.piston_speed_abs_m_s,
+                          centered_sample.piston_speed_abs_m_s) &&
+            same_binary64(offset_sample.dvolume_dtheta_m3_per_rad,
+                          centered_sample.dvolume_dtheta_m3_per_rad),
+        "wrist-pin volume offset changed direct runtime motion");
+    expect_near(offset_sample.chamber_volume_m3,
+                centered_sample.chamber_volume_m3 - expected_volume_delta_m3, 1.0e-18,
+                "wrist-pin direct runtime offset was not constant over angle");
+}
+
 void test_ignition_crossing_half_open_intervals() {
     const auto increasing = evaluate_legacy_ignition_crossing(1.0, 2.0, 1.5, -1.0);
     expect(increasing.crossed,
@@ -1184,6 +1247,7 @@ void run_tests() {
     test_legacy_triangle_sampling();
     test_source_governor_written_order_and_state();
     test_centered_slider_crank_geometry();
+    test_wrist_pin_position_is_a_constant_axial_volume_offset();
     test_ignition_crossing_half_open_intervals();
     test_limiter_strict_threshold_and_timer_edges();
     test_mechanics_session_step_order_and_completion();

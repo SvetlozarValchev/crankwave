@@ -157,6 +157,14 @@ std::string ResolutionEmitter::authored_id(std::string path) {
     return resolution_ids_.at(path);
 }
 
+std::string ResolutionEmitter::declared_default_id(std::string path) {
+    if (builder_ != nullptr) {
+        builder_->add_declared_default(std::move(path));
+        return {};
+    }
+    return resolution_ids_.at(path);
+}
+
 std::string ResolutionEmitter::derived_id(
     std::string path, contract::MethodIdentity method,
     std::span<const std::string_view> dependencies) {

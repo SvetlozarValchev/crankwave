@@ -420,11 +420,13 @@ total_equivalent_inertia_kg_m2
 ```
 
 The first is derived by
-`centered-slider-crank-cycle-mean-equivalent-inertia-v1`, the second is authored or
+`centered-slider-crank-cycle-mean-equivalent-inertia-v2`, the second is authored or
 declared-default positive zero, and the third is their versioned exact cycle-mean
-reference sum. Free-running dynamics evaluates analytic `M(theta)` and `dM/dtheta`
-from the engine mechanism and adds the attachment to the instantaneous `M(theta)`;
-the reference sum validates that the same mechanism and attachment were compiled.
+reference sum. Version 2 evaluates rod-center translation at the authored physical
+distance from crank pin, with omission deriving the exact midpoint. Free-running
+dynamics evaluates analytic `M(theta)` and `dM/dtheta` from the same engine mechanism
+and adds the attachment to the instantaneous `M(theta)`; the reference sum validates
+that the same mechanism and attachment were compiled.
 The external resisting-torque lane is independent and defaults to positive zero; it
 is not used to duplicate engine losses.
 
@@ -437,9 +439,10 @@ preparation, so the range is not the controlled pristine-engine-sim ablation env
 This interactive gate does not claim coastdown parity. Gas-exchange pumping already
 contributes through cylinder pressure-volume torque. FreeEngine applies the authored
 pristine crank-friction magnitude and the pristine C++ piston-wall law with its
-previous-step wall-reaction dependency. A full midpoint-rod centered-slider inverse
-dynamics replaces the legacy constraint solver for that reaction; direct held and
-coast traces keep its resulting one-step friction-force difference below `0.4%` L1.
+previous-step wall-reaction dependency. A full authored-COM centered-slider inverse
+dynamics replaces the legacy constraint solver for that reaction; an omitted rod COM
+resolves to the exact midpoint. Direct held and coast traces keep its resulting
+one-step friction-force difference below `0.4%` L1.
 The generic Chen--Flynn accountant certifies only fixed warm preparation and is
 discarded at dynamic release. It does not advance FreeEngine RPM, and released cycle
 integration remains explicitly unavailable. Free-running mechanics evaluates pristine's

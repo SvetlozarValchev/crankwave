@@ -285,6 +285,7 @@
         "mass": { "$ref": "#/$defs/quantity" },
         "moment_of_inertia": { "$ref": "#/$defs/quantity" },
         "center_of_mass_from_crank_pin": {
+          "description": "Physical distance from the crank-pin center to the rod center of mass along the connecting rod. When omitted, it resolves to half the authored rod length.",
           "anyOf": [
             { "$ref": "#/$defs/quantity" },
             { "type": "null" }
@@ -306,6 +307,7 @@
         "mass": { "$ref": "#/$defs/quantity" },
         "compression_height": { "$ref": "#/$defs/quantity" },
         "wrist_pin_position": {
+          "description": "Nonnegative axial offset that places the piston reference point outward from the wrist-pin center. When omitted, it resolves to zero.",
           "anyOf": [
             { "$ref": "#/$defs/quantity" },
             { "type": "null" }

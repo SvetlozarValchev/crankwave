@@ -13,14 +13,14 @@ namespace engine_sim_offline::simulation {
 
 inline constexpr std::string_view
     kCenteredSliderCrankCycleMeanEquivalentInertiaMethodId =
-        "centered-slider-crank-cycle-mean-equivalent-inertia-v1";
+        "centered-slider-crank-cycle-mean-equivalent-inertia-v2";
 inline constexpr std::uint32_t
-    kCenteredSliderCrankCycleMeanEquivalentInertiaMethodVersion = 1U;
+    kCenteredSliderCrankCycleMeanEquivalentInertiaMethodVersion = 2U;
 inline constexpr std::string_view
     kCenteredSliderCrankRigidGroupCycleMeanEquivalentInertiaMethodId =
-        "centered-slider-crank-rigid-group-cycle-mean-equivalent-inertia-v1";
+        "centered-slider-crank-rigid-group-cycle-mean-equivalent-inertia-v2";
 inline constexpr std::uint32_t
-    kCenteredSliderCrankRigidGroupCycleMeanEquivalentInertiaMethodVersion = 1U;
+    kCenteredSliderCrankRigidGroupCycleMeanEquivalentInertiaMethodVersion = 2U;
 inline constexpr std::size_t kCenteredSliderCrankCycleMeanInertiaQuadraturePoints =
     4096U;
 inline constexpr std::size_t kNoCenteredSliderCrankInertiaCylinder =
@@ -35,6 +35,8 @@ enum class CenteredSliderCrankCycleMeanInertiaIssue : std::uint8_t {
     nonpositive_crank_radius,
     nonfinite_connecting_rod_length,
     connecting_rod_not_longer_than_crank_radius,
+    nonfinite_connecting_rod_center_of_mass,
+    connecting_rod_center_of_mass_out_of_range,
     nonfinite_piston_mass,
     negative_piston_mass,
     nonfinite_connecting_rod_mass,
@@ -95,6 +97,8 @@ struct CenteredSliderCrankConfigurationInertiaCylinderPlan {
     double geometric_tdc_rad = 0.0;
     double crank_radius_m = 0.0;
     double connecting_rod_length_m = 0.0;
+    // Physical distance from the crank pin to the rod center of mass.
+    double connecting_rod_center_of_mass_from_crank_pin_m = 0.0;
     double piston_mass_kg = 0.0;
     double connecting_rod_mass_kg = 0.0;
     double connecting_rod_inertia_kg_m2 = 0.0;

@@ -490,12 +490,14 @@ source-dyno torque parity.
 
 For non-prescribed FreeEngine scenarios, engine inertia is not authored again in the
 scenario. The versioned
-`centered-slider-crank-cycle-mean-equivalent-inertia-v1` method evaluates 4,096
+`centered-slider-crank-cycle-mean-equivalent-inertia-v2` method evaluates 4,096
 uniform midpoint samples over one slider-crank revolution. It adds the authored crank
-inertia once to the full-cycle mean piston translation, connecting-rod center
-translation, and connecting-rod rotation kinetic-energy contributions. This produces
-one constant crank-referred cycle-mean reference without introducing a general
-constraint solver solely to identify and validate the authored mechanism.
+inertia once to the full-cycle mean piston translation, authored connecting-rod-center
+translation, and connecting-rod rotation kinetic-energy contributions. The rod center
+is the authored distance from crank pin divided by rod length; omission derives the
+exact midpoint. This produces one constant crank-referred cycle-mean reference without
+introducing a general constraint solver solely to identify and validate the authored
+mechanism.
 
 The optional scenario `attached_inertia` is a nonnegative crank-referred addition and
 defaults to canonical positive zero. The compiler resolves

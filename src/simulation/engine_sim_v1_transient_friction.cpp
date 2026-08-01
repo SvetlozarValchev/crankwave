@@ -24,6 +24,7 @@ piston_wall_error(EngineSimV1PistonWallIssue issue) noexcept {
 [[nodiscard]] bool finite_plan(const EngineSimV1PistonWallCylinderPlan &plan) noexcept {
     return std::isfinite(plan.piston_area_m2) && std::isfinite(plan.crank_radius_m) &&
            std::isfinite(plan.connecting_rod_length_m) &&
+           std::isfinite(plan.connecting_rod_center_of_mass_from_crank_pin_m) &&
            std::isfinite(plan.piston_mass_kg) &&
            std::isfinite(plan.connecting_rod_mass_kg) &&
            std::isfinite(plan.connecting_rod_inertia_kg_m2) &&
@@ -64,7 +65,10 @@ validate_step_input(const EngineSimV1PistonWallStepInput &input) noexcept {
         return piston_wall_error(EngineSimV1PistonWallIssue::nonpositive_piston_area);
     }
     if (!(input.plan.crank_radius_m > 0.0) ||
-        !(input.plan.connecting_rod_length_m > input.plan.crank_radius_m)) {
+        !(input.plan.connecting_rod_length_m > input.plan.crank_radius_m) ||
+        input.plan.connecting_rod_center_of_mass_from_crank_pin_m < 0.0 ||
+        input.plan.connecting_rod_center_of_mass_from_crank_pin_m >
+            input.plan.connecting_rod_length_m) {
         return piston_wall_error(
             EngineSimV1PistonWallIssue::invalid_slider_crank_geometry);
     }
@@ -253,9 +257,24 @@ calculate_engine_sim_v1_next_piston_wall_reaction(
         wrist_pin_second.axis * omega_squared +
             wrist_pin_first.axis * angular_acceleration_rad_s2,
     };
+    const double midpoint_m = 0.5 * rod_length;
+    const bool midpoint_center =
+        plan.connecting_rod_center_of_mass_from_crank_pin_m == midpoint_m;
+    const double rod_center_fraction =
+        midpoint_center
+            ? 0.5
+            : plan.connecting_rod_center_of_mass_from_crank_pin_m / rod_length;
     const Vector2 rod_center_acceleration{
-        0.5 * (crank_pin_acceleration.normal + wrist_pin_acceleration.normal),
-        0.5 * (crank_pin_acceleration.axis + wrist_pin_acceleration.axis),
+        midpoint_center
+            ? 0.5 * (crank_pin_acceleration.normal + wrist_pin_acceleration.normal)
+            : crank_pin_acceleration.normal +
+                  rod_center_fraction *
+                      (wrist_pin_acceleration.normal - crank_pin_acceleration.normal),
+        midpoint_center
+            ? 0.5 * (crank_pin_acceleration.axis + wrist_pin_acceleration.axis)
+            : crank_pin_acceleration.axis +
+                  rod_center_fraction *
+                      (wrist_pin_acceleration.axis - crank_pin_acceleration.axis),
     };
     const Vector2 rod{
         -crank_pin_normal,
@@ -277,7 +296,8 @@ calculate_engine_sim_v1_next_piston_wall_reaction(
         plan.piston_mass_kg * wrist_pin_acceleration.axis - signed_axis_external_force;
     const double rod_moment_balance =
         -plan.connecting_rod_inertia_kg_m2 * rod_angular_acceleration -
-        (plan.connecting_rod_mass_kg * 0.5) * cross(rod, rod_center_acceleration);
+        (plan.connecting_rod_mass_kg * rod_center_fraction) *
+            cross(rod, rod_center_acceleration);
 
     // In the local (normal, axis) basis:
     // cross(rod, axis) = rod.normal and cross(rod, normal) = -rod.axis.

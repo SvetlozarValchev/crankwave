@@ -97,8 +97,10 @@ using AuthoredLegacyCylinderParameters = LegacyCylinderParametersT<AuthoredValue
 struct LegacyCylinderParameters {
     ResolvedValue<double> bore_m;
     ResolvedValue<double> connecting_rod_length_m;
+    ResolvedValue<double> connecting_rod_center_of_mass_from_crank_pin_m;
     ResolvedValue<double> deck_height_m;
     ResolvedValue<double> piston_compression_height_m;
+    ResolvedValue<double> piston_wrist_pin_position_m;
     ResolvedValue<double> piston_displacement_term_m3;
     ResolvedValue<double> piston_mass_kg;
     ResolvedValue<double> connecting_rod_mass_kg;

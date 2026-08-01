@@ -228,6 +228,9 @@ void ScenarioResolver::register_provenance() {
                     }
                     append_dependency(direct->crank_radius_m);
                     append_dependency(cylinder.parameters.connecting_rod_length_m);
+                    append_dependency(
+                        cylinder.parameters
+                            .connecting_rod_center_of_mass_from_crank_pin_m);
                     append_dependency(cylinder.parameters.piston_mass_kg);
                     append_dependency(cylinder.parameters.connecting_rod_mass_kg);
                     append_dependency(cylinder.parameters.connecting_rod_inertia_kg_m2);
@@ -302,6 +305,9 @@ void ScenarioResolver::register_provenance() {
                     }
                     append_dependency(direct->crank_radius_m);
                     append_dependency(cylinder.parameters.connecting_rod_length_m);
+                    append_dependency(
+                        cylinder.parameters
+                            .connecting_rod_center_of_mass_from_crank_pin_m);
                     append_dependency(cylinder.parameters.piston_mass_kg);
                     append_dependency(cylinder.parameters.connecting_rod_mass_kg);
                     append_dependency(cylinder.parameters.connecting_rod_inertia_kg_m2);

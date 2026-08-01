@@ -256,6 +256,7 @@ void verify_shared_direct_plan_bits(
             parameters.bore_m.value, direct.crank_radius_m.value,
             parameters.connecting_rod_length_m.value, parameters.deck_height_m.value,
             parameters.piston_compression_height_m.value,
+            parameters.piston_wrist_pin_position_m.value,
             core.gas_path.heads.front().chamber_volume_m3.value,
             parameters.piston_displacement_term_m3.value);
         const double geometric_tdc_rad = simulation::legacy_wrap_2pi(

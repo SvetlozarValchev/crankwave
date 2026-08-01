@@ -64,6 +64,9 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
             bore_m, crank_radius_m, legacy_si_value(rod.length),
             legacy_si_value(bank.deck_height),
             legacy_si_value(piston.compression_height),
+            piston.wrist_pin_position.has_value()
+                ? legacy_si_value(*piston.wrist_pin_position)
+                : 0.0,
             legacy_si_value(head.chamber_volume),
             legacy_si_value(piston.displacement_volume));
         const auto profile_base = profile_path("mechanism.cylinders." + semantic);

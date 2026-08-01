@@ -34,7 +34,7 @@ void expect_near(double actual, double expected, double tolerance,
 
 EngineSimV1PistonWallCylinderPlan m52_cylinder_plan() {
     return {
-        0x1.6b2f7682c25fcp-8,  0.042,    0.135, 0.280, 0.300,
+        0x1.6b2f7682c25fcp-8,  0.042,    0.135, 0.0675, 0.280, 0.300,
         0.0015884918028487504, 101325.0,
     };
 }
@@ -181,6 +181,45 @@ void test_ideal_wall_reaction_matches_static_slider_crank_balance() {
                 "static wall magnitude did not match slider-crank force balance");
 }
 
+void test_nonmidpoint_rod_center_matches_dead_center_inverse_dynamics() {
+    auto plan = m52_cylinder_plan();
+    plan.connecting_rod_center_of_mass_from_crank_pin_m =
+        0.4 * plan.connecting_rod_length_m;
+    const auto stage_calculation = stage_engine_sim_v1_piston_wall_friction({
+        plan,
+        0.0,
+        300.0,
+        plan.crankcase_pressure_pa_abs,
+        0.0,
+    });
+    const auto *stage =
+        std::get_if<EngineSimV1PistonWallFrictionStage>(&stage_calculation);
+    expect(stage != nullptr,
+           "nonmidpoint dead-center piston friction stage was rejected");
+
+    constexpr double angular_acceleration_rad_s2 = -120.0;
+    const auto reaction_calculation = calculate_engine_sim_v1_next_piston_wall_reaction(
+        *stage, angular_acceleration_rad_s2);
+    const auto *reaction =
+        std::get_if<EngineSimV1PistonWallReaction>(&reaction_calculation);
+    expect(reaction != nullptr, "nonmidpoint dead-center wall reaction was rejected");
+
+    const double center_fraction = plan.connecting_rod_center_of_mass_from_crank_pin_m /
+                                   plan.connecting_rod_length_m;
+    const double expected_signed_wall_n =
+        angular_acceleration_rad_s2 * plan.crank_radius_m *
+        (-plan.connecting_rod_inertia_kg_m2 /
+             (plan.connecting_rod_length_m * plan.connecting_rod_length_m) +
+         plan.connecting_rod_mass_kg * center_fraction * (1.0 - center_fraction));
+    expect_near(reaction->signed_wall_on_piston_force_n, expected_signed_wall_n,
+                1.0e-12,
+                "nonmidpoint wall reaction missed the dead-center Newton-Euler "
+                "closed form");
+    expect_near(reaction->wall_reaction_magnitude_n, std::abs(expected_signed_wall_n),
+                1.0e-12,
+                "nonmidpoint wall magnitude disagrees with its signed reaction");
+}
+
 void test_dynamic_wall_reaction_is_retained_for_only_the_next_stage() {
     const EngineSimV1PistonWallStepInput input{
         m52_cylinder_plan(), 1.1, 314.1592653589793, 450000.0, 800.0,
@@ -264,6 +303,7 @@ int main() {
         test_piston_friction_matches_pristine_written_order();
         test_piston_friction_zero_speed_and_positive_running_sign();
         test_ideal_wall_reaction_matches_static_slider_crank_balance();
+        test_nonmidpoint_rod_center_matches_dead_center_inverse_dynamics();
         test_dynamic_wall_reaction_is_retained_for_only_the_next_stage();
         test_invalid_piston_wall_inputs_are_typed();
     } catch (const std::exception &error) {

@@ -46,6 +46,8 @@ struct OneLevelMasterRodCylinder {
     double piston_area_m2 = 0.0;
     double deck_height_m = 0.0;
     double piston_compression_height_m = 0.0;
+    // Axial piston-datum offset: positive places the datum deckward of the pin.
+    double piston_wrist_pin_position_m = 0.0;
     double head_chamber_volume_m3 = 0.0;
     double piston_displacement_term_m3 = 0.0;
     OneLevelMasterRodJournal journal;
