@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-01
 
-Current checkpoint: **slice 10 topology closure — shared ignition fan-out**
+Current checkpoint: **slice 10 topology closure — bank-local head execution**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -626,6 +626,10 @@ producing byte-identical PCM. Heterogeneous heads, separate intakes, and multipl
 crankshafts remain isolated follow-up commits within slice 10. The ignition source
 authority is frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md`](docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md).
+Before heterogeneous-head execution, exhaust-primary cross-section ownership is
+singular: the referenced head exhaust port owns runner/primary area. The former
+execution-inert duplicate on each exhaust system was deleted from the greenfield JSON
+contract without an alias.
 
 The direct journal contract is now a single tagged attachment path:
 `cylinder.journal -> journal.crankshaft`. Every current engine uses required

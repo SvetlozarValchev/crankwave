@@ -239,17 +239,6 @@ void admit_engine_physical_model(ModelContext &resolved,
                     "bit-identical runner geometry and the same flow curve");
             }
         }
-        for (std::size_t index = 0; index < engine.exhausts.size(); ++index) {
-            if (!same_binary64(
-                    legacy_si_value(engine.exhausts[index].primary_cross_section_area),
-                    legacy_si_value(exhaust_port->runner_cross_section_area))) {
-                add(report, DiagnosticCode::unsupported_capability,
-                    pointer_index("/engine/exhausts", index) +
-                        "/primary_cross_section_area",
-                    "the shared-head runtime requires exhaust primary area to "
-                    "match the exhaust-port runner area");
-            }
-        }
         const auto intake_curve = resolved.curves.find(intake_port->flow_curve.value);
         const auto exhaust_curve = resolved.curves.find(exhaust_port->flow_curve.value);
         if (intake_curve != resolved.curves.end() &&

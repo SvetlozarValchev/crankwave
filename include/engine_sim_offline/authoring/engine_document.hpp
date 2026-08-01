@@ -272,7 +272,6 @@ struct ExhaustDefinition {
     std::optional<Quantity> collector_length;
     std::optional<Quantity> collector_volume;
     Quantity primary_tube_length;
-    Quantity primary_cross_section_area;
     FlowRestriction outlet_restriction;
     FlowRestriction primary_restriction;
     double velocity_decay_01 = 0.0;

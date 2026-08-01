@@ -190,7 +190,6 @@
         "collector_cross_section_area": {"value": 0.0040715040790526395, "unit": "m2"},
         "collector_length": {"value": 1.8, "unit": "m"},
         "primary_tube_length": {"value": 760, "unit": "mm"},
-        "primary_cross_section_area": {"value": 8.8, "unit": "cm2"},
         "outlet_restriction": {
           "type": "flow_bench",
           "rated_flow": {"value": 900, "unit": "cfm", "standard": "carburetor_1p5_inhg"},
@@ -208,7 +207,6 @@
         "collector_cross_section_area": {"value": 0.0040715040790526395, "unit": "m2"},
         "collector_length": {"value": 1.97, "unit": "m"},
         "primary_tube_length": {"value": 790, "unit": "mm"},
-        "primary_cross_section_area": {"value": 8.8, "unit": "cm2"},
         "outlet_restriction": {
           "type": "flow_bench",
           "rated_flow": {"value": 900, "unit": "cfm", "standard": "carburetor_1p5_inhg"},

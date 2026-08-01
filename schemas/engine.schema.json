@@ -379,7 +379,6 @@
         "id",
         "collector_cross_section_area",
         "primary_tube_length",
-        "primary_cross_section_area",
         "outlet_restriction",
         "primary_restriction",
         "velocity_decay_01"
@@ -400,7 +399,6 @@
           ]
         },
         "primary_tube_length": { "$ref": "#/$defs/quantity" },
-        "primary_cross_section_area": { "$ref": "#/$defs/quantity" },
         "outlet_restriction": { "$ref": "#/$defs/flowRestriction" },
         "primary_restriction": { "$ref": "#/$defs/flowRestriction" },
         "velocity_decay_01": { "$ref": "#/$defs/fraction" }

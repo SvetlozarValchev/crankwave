@@ -258,7 +258,6 @@ void expect(bool condition, std::string_view message) {
         "collector_cross_section_area": {"value": 20, "unit": "cm2"},
         "collector_length": {"value": 600, "unit": "mm"},
         "primary_tube_length": {"value": 500, "unit": "mm"},
-        "primary_cross_section_area": {"value": 8, "unit": "cm2"},
         "outlet_restriction": {
           "type": "orifice",
           "effective_area": {"value": 12, "unit": "cm2"},
@@ -1249,6 +1248,20 @@ void test_direct_journal_attachment_contract_is_unambiguous() {
         "/engine/cylinders/0/slave_journal");
 }
 
+void test_exhaust_primary_area_has_single_greenfield_owner() {
+    std::string duplicate_area = valid_engine_json();
+    replace_once(
+        duplicate_area,
+        R"json("primary_tube_length": {"value": 500, "unit": "mm"},)json",
+        R"json("primary_tube_length": {"value": 500, "unit": "mm"},
+        "primary_cross_section_area": {"value": 8, "unit": "cm2"},)json");
+    expect(has_diagnostic(
+               require_engine_report(parse_engine_document(duplicate_area)),
+               DiagnosticCode::unknown_field,
+               "/engine/exhausts/0/primary_cross_section_area"),
+           "retired exhaust-system primary area compatibility field was accepted");
+}
+
 void test_engine_duplicate_id_and_dangling_reference_paths() {
     std::string duplicate = valid_engine_json();
     replace_once(duplicate, R"json("id": "exhaust-port")json",
@@ -1295,6 +1308,7 @@ int main() {
         test_vtec_activation_contract_is_greenfield_and_strict();
         test_cranking_starter_contract_is_minimal_and_strict();
         test_direct_journal_attachment_contract_is_unambiguous();
+        test_exhaust_primary_area_has_single_greenfield_owner();
         test_engine_duplicate_id_and_dangling_reference_paths();
         std::cout << "authoring document parser tests passed\n";
         return EXIT_SUCCESS;

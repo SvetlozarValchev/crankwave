@@ -471,10 +471,6 @@
         },
         "collector_volume": {"value": 50, "unit": "L"},
         "primary_tube_length": {"value": 20, "unit": "in"},
-        "primary_cross_section_area": {
-          "value": 0.0014643846145918652,
-          "unit": "m2"
-        },
         "outlet_restriction": {
           "type": "flow_bench",
           "rated_flow": {
@@ -503,10 +499,6 @@
         },
         "collector_volume": {"value": 50, "unit": "L"},
         "primary_tube_length": {"value": 20, "unit": "in"},
-        "primary_cross_section_area": {
-          "value": 0.0014643846145918652,
-          "unit": "m2"
-        },
         "outlet_restriction": {
           "type": "flow_bench",
           "rated_flow": {

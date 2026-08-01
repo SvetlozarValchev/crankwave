@@ -56,8 +56,8 @@ void parse_exhaust(DocumentReader &reader, JsonValue value, std::string_view pat
     reader.reject_unknown(value, path,
                           {"id", "collector_cross_section_area", "collector_length",
                            "collector_volume", "primary_tube_length",
-                           "primary_cross_section_area", "outlet_restriction",
-                           "primary_restriction", "velocity_decay_01"});
+                           "outlet_restriction", "primary_restriction",
+                           "velocity_decay_01"});
     read_id_member(reader, value, "id", path, output.id);
     const auto owner = subject("exhaust", output.id.value);
     read_quantity_member(reader, value, "collector_cross_section_area", path,
@@ -88,9 +88,6 @@ void parse_exhaust(DocumentReader &reader, JsonValue value, std::string_view pat
     }
     read_quantity_member(reader, value, "primary_tube_length", path,
                          QuantityDimension::length, output.primary_tube_length, owner);
-    read_quantity_member(reader, value, "primary_cross_section_area", path,
-                         QuantityDimension::area, output.primary_cross_section_area,
-                         owner);
     parse_flow_restriction(
         reader, reader.required(value, "outlet_restriction", path, owner),
         pointer_member(path, "outlet_restriction"), output.outlet_restriction, owner);
@@ -104,8 +101,6 @@ void parse_exhaust(DocumentReader &reader, JsonValue value, std::string_view pat
                      pointer_member(path, "collector_cross_section_area"), owner);
     require_nonnegative(reader, output.primary_tube_length,
                         pointer_member(path, "primary_tube_length"), owner);
-    require_positive(reader, output.primary_cross_section_area,
-                     pointer_member(path, "primary_cross_section_area"), owner);
 }
 
 void parse_port(DocumentReader &reader, JsonValue value, std::string_view path,

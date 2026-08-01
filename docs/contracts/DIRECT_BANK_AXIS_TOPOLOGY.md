@@ -59,8 +59,9 @@ The fixture does not claim byte-for-byte source serialization:
   equivalent blowby restriction.
 - Source zero-valued connecting-rod center-of-mass and piston wrist-pin fields are not
   authored because the current core does not execute them.
-- Chen--Flynn coefficients, the accessory descriptor, exhaust primary area, and the
-  10 kHz physics/capture rate are executor policy, not measured EJ25 source facts.
+- Chen--Flynn coefficients, the accessory descriptor, head exhaust-runner
+  cross-section area, and the 10 kHz physics/capture rate are executor policy, not
+  measured EJ25 source facts.
 - The source Impreza vehicle/transmission is outside this topology-only engine fixture.
 
 ## Acceptance and exclusions

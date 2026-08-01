@@ -449,7 +449,6 @@ make_engine_document(const SyntheticAssets &assets) {
             quantity(710.0, "mm"),
             std::nullopt,
             quantity(465.0, "mm"),
-            quantity(3.9, "cm2"),
             authoring::FlowRestriction{authoring::FlowBenchRestriction{
                 quantity(410.0, "cfm", std::string{"carburetor_1p5_inhg"}),
                 quantity(1.5, "inHg"),
