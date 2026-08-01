@@ -159,8 +159,9 @@ engine-data change is `piston.front` blowby from 0.1 to the source-authored 0.2 
     `58e0193182c2e748802b2edd0ba89d51c1c7c19bc9d39b27bf4c3caae1c310dd` /
     `0cf90124648b5c7a925e3256b7e861abd0c01598b22a879852cc1643f483d83f`
 
-Status on 2026-08-02: candidate rendered; auditory acceptance pending. Do not begin
-rod center-of-mass or wrist-pin work until this pair is accepted.
+Status on 2026-08-02: the source-value candidate is accepted as the current Shovelhead
+baseline by user listening through the calibrated open-ended FreeEngine bench. Rod
+center-of-mass and wrist-pin work may proceed as the next isolated parity item.
 The Web workbench exposes the candidate through two presets. The open-ended
 `harley-shovelhead-free-rev` bench admits live FreeEngine controls; the finite
 `harley-shovelhead-source-pull` runs the same 3-second settling and 6-second

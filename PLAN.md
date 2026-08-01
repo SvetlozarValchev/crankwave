@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-02
 
-Current checkpoint: **post-slice-15 parity closure — per-cylinder blowby audition**
+Current checkpoint: **post-slice-15 parity closure — rod and wrist-pin geometry**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -821,7 +821,8 @@ The architecture cutover and operating-bench slices are complete. Finish the rem
 engine-definition parity in this order, with one coherent commit per bullet:
 
 1. execute each referenced piston's authored blowby restriction independently
-   (**executor and source-value candidate complete; A/B audition pending**);
+   (**complete; source-value Shovelhead free-rev accepted by user listening on
+   2026-08-02**);
 2. execute connecting-rod center of mass and piston wrist-pin geometry where pristine
    physics consumes them;
 3. complete intake-local molecular-AFR ownership without duplicating fuel authority;
