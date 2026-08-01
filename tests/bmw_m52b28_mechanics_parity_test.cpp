@@ -242,7 +242,7 @@ void verify_shared_direct_plan_bits(
                same_binary64(plan->crank_tdc_reference_rad,
                              mechanism.cranks.front().crank_tdc_reference_rad.value) &&
                same_binary64(
-                   plan->authored_crank_inertia_kg_m2,
+                   plan->rigid_crank_group.authored_crank_inertia_kg_m2,
                    mechanism.cranks.front().authored_crank_inertia_kg_m2.value) &&
                plan->cylinders.size() == mechanism.cylinders.size(),
            "BMW shared mechanism crank or cylinder inventory changed");

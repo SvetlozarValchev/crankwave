@@ -322,5 +322,25 @@
       "fade_out": {"value": 0.02, "unit": "s"}
     },
     "publication_gain_linear": 1.4901161193847656E-8
+  },
+  "rig": {
+    "id": "cocentered-split-crank-v-twin-minimal-rig",
+    "vehicle": {
+      "id": "minimal-vehicle",
+      "mass": {"value": 1000, "unit": "kg"},
+      "drag_coefficient": 0.3,
+      "frontal_area": {"value": 2, "unit": "m2"},
+      "differential_ratio": 4,
+      "tire_radius": {"value": 0.3, "unit": "m"},
+      "rolling_resistance_force": {"value": 100, "unit": "N"},
+      "maximum_service_brake_force": {"value": 5000, "unit": "N"}
+    },
+    "transmission": {
+      "id": "minimal-direct-drive",
+      "maximum_clutch_torque": {"value": 1000, "unit": "N*m"},
+      "gears": [
+        {"id": "direct", "ratio": 1}
+      ]
+    }
   }
 }

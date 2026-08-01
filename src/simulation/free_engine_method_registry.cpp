@@ -69,6 +69,31 @@ external_numeric_authority=renderer-build-source-standard-library-math-runtime-a
 static_assert(
     canonical_lf_descriptor(kNonnegativeSpeedFreeEngineCenteredSliderCrankDescriptor));
 
+constexpr std::string_view
+    kNonnegativeSpeedFreeEngineCenteredSliderCrankRigidGroupDescriptor =
+        R"method(engine-sim-offline.simulation-method-configuration.v1
+method=nonnegative-speed-free-engine-centered-slider-crank-rigid-group-v1
+version=1
+operation=nonnegative-speed-free-engine-centered-slider-crank-one-degree-of-freedom-for-one-co-centered-co-phased-one-to-one-rigid-crank-group
+crank-group-order=resolved-authored-crank-vector-order
+crank-group-inertia=copy-first-authored-rotational-moment-of-inertia-kg-m2-then-add-each-subsequent-authored-value-in-written-binary64-order-with-finite-overflow-rejection
+crank-group-running-friction=copy-first-authored-running-friction-torque-magnitude-nm-then-add-each-subsequent-authored-value-in-written-binary64-order-with-finite-overflow-rejection
+crank-and-flywheel-mass=not-consumed-and-not-rederived-into-rotational-inertia-or-friction
+crank-group-motion=one-common-finite-binary64-unwrapped-theta-rad-and-one-common-finite-canonical-nonnegative-binary64-angular-speed-rad-s
+configuration-inertia=rigid-group-authored-rotational-inertia-plus-unchanged-centered-slider-crank-piston-and-connecting-rod-kinetic-energy-coefficient-M-of-theta
+source-crank-friction=unchanged-pristine-engine-sim-positive-speed-and-rest-constraint-law-consuming-the-rigid-group-running-friction-magnitude
+attached-inertia=finite-nonnegative-binary64-constant-crank-referred-inertia-added-to-M-of-theta
+downstream-arithmetic=byte-identical-nonnegative-speed-free-engine-centered-slider-crank-v1-operation-order-after-rigid-group-property-resolution
+stall-rest-starter-piston-wall-friction-external-resistance-and-vehicle-coupling=unchanged-from-nonnegative-speed-free-engine-centered-slider-crank-v1
+work-energy-evidence=none
+reverse=unsupported-and-never-published
+binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-daz
+external_numeric_authority=renderer-build-source-standard-library-math-runtime-and-thread-numeric-environment-identities
+)method";
+
+static_assert(canonical_lf_descriptor(
+    kNonnegativeSpeedFreeEngineCenteredSliderCrankRigidGroupDescriptor));
+
 constexpr std::string_view kFreeEngineEquivalentInertiaSumDescriptor =
     R"method(engine-sim-offline.simulation-method-configuration.v1
 method=free-engine-equivalent-inertia-sum-v1
@@ -106,6 +131,20 @@ nonnegative_speed_free_engine_centered_slider_crank_method_identity() {
         make_identity(kNonnegativeSpeedFreeEngineCenteredSliderCrankMethodId,
                       kNonnegativeSpeedFreeEngineCenteredSliderCrankMethodVersion,
                       kNonnegativeSpeedFreeEngineCenteredSliderCrankDescriptor);
+    return identity;
+}
+
+std::string_view
+nonnegative_speed_free_engine_centered_slider_crank_rigid_group_method_descriptor() noexcept {
+    return kNonnegativeSpeedFreeEngineCenteredSliderCrankRigidGroupDescriptor;
+}
+
+const contract::MethodIdentity &
+nonnegative_speed_free_engine_centered_slider_crank_rigid_group_method_identity() {
+    static const auto identity = make_identity(
+        kNonnegativeSpeedFreeEngineCenteredSliderCrankRigidGroupMethodId,
+        kNonnegativeSpeedFreeEngineCenteredSliderCrankRigidGroupMethodVersion,
+        kNonnegativeSpeedFreeEngineCenteredSliderCrankRigidGroupDescriptor);
     return identity;
 }
 

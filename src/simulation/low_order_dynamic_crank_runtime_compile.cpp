@@ -119,18 +119,10 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
             "mechanism_plan",
             "dynamic-crank runtime requires one compiled direct mechanism plan");
-    const bool exactly_one_crankshaft = profile != nullptr &&
-                                        engine.crankshafts.size() == 1U &&
-                                        profile->core.mechanism.cranks.size() == 1U;
-    require(report, exactly_one_crankshaft, ContractIssueCode::unsupported_value,
-            "engine.crankshafts",
-            "dynamic-crank runtime requires exactly one crankshaft; prescribed "
-            "kinematics is the only current multiple-crankshaft execution mode");
     require(report, !simulation_request_identity_v6_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v6_sha256",
             "dynamic-crank runtime requires the canonical nonzero request identity");
-    if (profile == nullptr || dynamic_mode_count != 1U || direct_plan == nullptr ||
-        !exactly_one_crankshaft) {
+    if (profile == nullptr || dynamic_mode_count != 1U || direct_plan == nullptr) {
         return report;
     }
     const auto *output_crank = contract::find_output_crank(profile->core.mechanism);
@@ -181,34 +173,34 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
 
     const auto crank_friction_calculation =
         calculate_engine_sim_v1_positive_speed_crank_friction(
-            {output_crank->running_friction_torque_magnitude_nm.value});
+            {direct_plan->rigid_crank_group.running_friction_torque_magnitude_nm});
     const auto *crank_friction =
         std::get_if<EngineSimV1PositiveSpeedCrankFriction>(&crank_friction_calculation);
     require(report, crank_friction != nullptr, ContractIssueCode::invalid_value,
-            "engine.physics_profile.mechanism.output_crankshaft."
-            "running_friction_torque_magnitude_nm.value",
-            "dynamic-crank runtime requires finite nonnegative pristine crank "
+            "mechanism_plan.rigid_crank_group."
+            "running_friction_torque_magnitude_nm",
+            "dynamic-crank runtime requires finite nonnegative rigid crank-group "
             "friction");
 
     report.append(admit_implemented_cycle_accounting_methods(engine, *profile));
-    require(
-        report,
-        free_engine == nullptr ||
-            free_engine->crank_dynamics_method.value ==
-                nonnegative_speed_free_engine_centered_slider_crank_method_identity(),
-        ContractIssueCode::unsupported_value,
-        "scenario.mode.crank_dynamics_method.value",
-        "dynamic-crank runtime requires its exact nonnegative-speed "
-        "centered-slider crank method identity");
-    require(
-        report,
-        free_vehicle == nullptr ||
-            free_vehicle->crank_dynamics_method.value ==
-                nonnegative_speed_free_engine_centered_slider_crank_method_identity(),
-        ContractIssueCode::unsupported_value,
-        "scenario.mode.crank_dynamics_method.value",
-        "FreeVehicle runtime requires the exact nonnegative-speed centered-slider "
-        "crank method identity");
+    const auto &expected_crank_dynamics_method =
+        direct_plan->rigid_crank_group.crankshaft_count > 1U
+            ? nonnegative_speed_free_engine_centered_slider_crank_rigid_group_method_identity()
+            : nonnegative_speed_free_engine_centered_slider_crank_method_identity();
+    require(report,
+            free_engine == nullptr || free_engine->crank_dynamics_method.value ==
+                                          expected_crank_dynamics_method,
+            ContractIssueCode::unsupported_value,
+            "scenario.mode.crank_dynamics_method.value",
+            "dynamic-crank runtime requires its exact nonnegative-speed "
+            "centered-slider crank method identity");
+    require(report,
+            free_vehicle == nullptr || free_vehicle->crank_dynamics_method.value ==
+                                           expected_crank_dynamics_method,
+            ContractIssueCode::unsupported_value,
+            "scenario.mode.crank_dynamics_method.value",
+            "FreeVehicle runtime requires the exact nonnegative-speed centered-slider "
+            "crank method identity");
     require(report,
             free_vehicle == nullptr || free_vehicle->road_load_method.value ==
                                            forward_vehicle_road_load_method_identity(),
@@ -403,7 +395,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     }
 
     CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan{
-        direct_plan->authored_crank_inertia_kg_m2,
+        direct_plan->rigid_crank_group.authored_crank_inertia_kg_m2,
         attached_inertia_kg_m2,
         {},
     };

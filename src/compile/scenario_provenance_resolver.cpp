@@ -49,6 +49,28 @@ void ScenarioResolver::register_common_provenance() {
 
 void ScenarioResolver::register_provenance() {
     register_common_provenance();
+    std::vector<std::string> crank_dynamics_dependency_storage{"scenario.mode.kind"};
+    if (context_.engine.crankshafts.size() > 1U) {
+        crank_dynamics_dependency_storage.reserve(1U +
+                                                  context_.engine.crankshafts.size());
+        for (const auto &crankshaft : context_.engine.crankshafts) {
+            const auto *record = find_resolution(context_.engine_provenance,
+                                                 crankshaft.semantic_id.resolution_id);
+            if (record == nullptr) {
+                add(authoring::DiagnosticCode::internal_failure, "",
+                    "rigid crank-group method selection has no crankshaft identity "
+                    "provenance resolution");
+                continue;
+            }
+            crank_dynamics_dependency_storage.push_back(record->parameter_path);
+        }
+    }
+    std::vector<std::string_view> crank_dynamics_dependencies;
+    crank_dynamics_dependencies.reserve(crank_dynamics_dependency_storage.size());
+    for (const auto &path : crank_dynamics_dependency_storage) {
+        crank_dynamics_dependencies.push_back(path);
+    }
+
     std::visit(
         [&](const auto &preparation) {
             using T = std::decay_t<decltype(preparation)>;
@@ -178,7 +200,8 @@ void ScenarioResolver::register_provenance() {
                         context_.engine.physics_profile);
                 std::vector<std::string> inertia_dependency_storage;
                 inertia_dependency_storage.reserve(
-                    1U + 5U * profile.core.mechanism.cylinders.size());
+                    profile.core.mechanism.cranks.size() +
+                    5U * profile.core.mechanism.cylinders.size());
                 const auto append_dependency = [&](const auto &resolved) {
                     const auto *record = find_resolution(context_.engine_provenance,
                                                          resolved.resolution_id);
@@ -214,11 +237,14 @@ void ScenarioResolver::register_provenance() {
                 for (const auto &path : inertia_dependency_storage) {
                     inertia_dependencies.push_back(path);
                 }
-                provenance_.add_derived(
-                    "scenario.mode.engine_baseline_inertia_kg_m2",
-                    simulation::
-                        centered_slider_crank_cycle_mean_inertia_method_identity(),
-                    inertia_dependencies);
+                const auto &inertia_method =
+                    profile.core.mechanism.cranks.size() > 1U
+                        ? simulation::
+                              centered_slider_crank_rigid_group_cycle_mean_inertia_method_identity()
+                        : simulation::
+                              centered_slider_crank_cycle_mean_inertia_method_identity();
+                provenance_.add_derived("scenario.mode.engine_baseline_inertia_kg_m2",
+                                        inertia_method, inertia_dependencies);
                 constexpr std::array<std::string_view, 2> total_dependencies{
                     "scenario.mode.engine_baseline_inertia_kg_m2",
                     "scenario.mode.attached_inertia_kg_m2",
@@ -227,10 +253,9 @@ void ScenarioResolver::register_provenance() {
                     "scenario.mode.total_equivalent_inertia_kg_m2",
                     simulation::free_engine_equivalent_inertia_sum_method_identity(),
                     total_dependencies);
-                constexpr std::array<std::string_view, 1> dependency{
-                    "scenario.mode.kind"};
                 provenance_.add_derived("scenario.mode.crank_dynamics_method",
-                                        mode.crank_dynamics_method.value, dependency);
+                                        mode.crank_dynamics_method.value,
+                                        crank_dynamics_dependencies);
             } else if constexpr (std::is_same_v<T, contract::FreeVehicle>) {
                 for (const std::string_view path : {
                          "scenario.mode.initial_engine_speed_rpm",
@@ -249,7 +274,8 @@ void ScenarioResolver::register_provenance() {
                         context_.engine.physics_profile);
                 std::vector<std::string> inertia_dependency_storage;
                 inertia_dependency_storage.reserve(
-                    1U + 5U * profile.core.mechanism.cylinders.size());
+                    profile.core.mechanism.cranks.size() +
+                    5U * profile.core.mechanism.cylinders.size());
                 const auto append_dependency = [&](const auto &resolved) {
                     const auto *record = find_resolution(context_.engine_provenance,
                                                          resolved.resolution_id);
@@ -285,25 +311,29 @@ void ScenarioResolver::register_provenance() {
                 for (const auto &path : inertia_dependency_storage) {
                     inertia_dependencies.push_back(path);
                 }
-                provenance_.add_derived(
-                    "scenario.mode.engine_baseline_inertia_kg_m2",
-                    simulation::
-                        centered_slider_crank_cycle_mean_inertia_method_identity(),
-                    inertia_dependencies);
+                const auto &inertia_method =
+                    profile.core.mechanism.cranks.size() > 1U
+                        ? simulation::
+                              centered_slider_crank_rigid_group_cycle_mean_inertia_method_identity()
+                        : simulation::
+                              centered_slider_crank_cycle_mean_inertia_method_identity();
+                provenance_.add_derived("scenario.mode.engine_baseline_inertia_kg_m2",
+                                        inertia_method, inertia_dependencies);
 
-                constexpr std::array<std::string_view, 1> method_dependency{
+                constexpr std::array<std::string_view, 1> mode_method_dependency{
                     "scenario.mode.kind"};
                 provenance_.add_derived("scenario.mode.crank_dynamics_method",
                                         mode.crank_dynamics_method.value,
-                                        method_dependency);
+                                        crank_dynamics_dependencies);
                 provenance_.add_derived("scenario.mode.road_load_method",
-                                        mode.road_load_method.value, method_dependency);
+                                        mode.road_load_method.value,
+                                        mode_method_dependency);
                 provenance_.add_derived("scenario.mode.clutch_coupling_method",
                                         mode.clutch_coupling_method.value,
-                                        method_dependency);
+                                        mode_method_dependency);
                 provenance_.add_derived("scenario.mode.drivetrain_dynamics_method",
                                         mode.drivetrain_dynamics_method.value,
-                                        method_dependency);
+                                        mode_method_dependency);
             }
         },
         scenario_.mode);

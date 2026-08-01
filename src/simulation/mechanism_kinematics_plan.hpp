@@ -5,6 +5,7 @@
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 #include "simulation/one_level_master_rod_kinematics.hpp"
+#include "simulation/rigid_crank_group.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -43,7 +44,7 @@ struct DirectMechanismKinematicsPlan {
     std::string engine_profile_id;
     contract::CrankshaftId output_crankshaft_id;
     double crank_tdc_reference_rad = 0.0;
-    double authored_crank_inertia_kg_m2 = 0.0;
+    RigidCrankGroupProperties rigid_crank_group;
     CenteredSliderCrankCycleMeanInertia cycle_mean_inertia;
     std::vector<DirectMechanismCylinderPlan> cylinders;
 

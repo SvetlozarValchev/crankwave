@@ -3,7 +3,7 @@
 Status: design and implementation inventory  
 Pristine reference: Ange Yaghi `engine-sim` commit
 `85f7c3b959a908ed5232ede4f1a4ac7eafe6b630`  
-Clean-room inventory date: 2026-07-31
+Clean-room inventory date: 2026-08-01
 
 ## Answer
 
@@ -16,11 +16,10 @@ sampled/VTEC valvetrains, direct and governed throttle control, ignition, fuel, 
 nonempty cylinder and exhaust-route sets, and direct centered rods on inline, V,
 opposed, or custom explicit bank axes, plus presentation, scenarios, deterministic
 assets, and randomness. Compilation is data-driven and has no engine-name branch.
-Important original capabilities such as multiple crankshafts and general
-multi-head/VTEC topology remain unexecuted. Master/slave journals now have a
-strict validated graph contract but
-resolve only into an internal typed attachment and fail closed at the shared
-mechanism-plan compiler before a public compiled engine exists.
+Co-centered, co-phased multiple crankshafts now execute as one rigid dynamic group;
+independent, offset, geared, compliant, or backlash-coupled crankshafts and general
+multi-head/VTEC topology remain unexecuted. Master/slave journals have a strict
+validated graph contract and execute only under finite prescribed motion.
 Bank-local heads and ports resolve into explicit ordered per-bank chamber/runner/flow
 profiles, with cylinders bound by BankId. Their chamber volume, runner geometry, flow
 curves, and intake/exhaust flow radii may differ. Standard valvetrains and cams retain
@@ -158,8 +157,10 @@ never silently looped.
 - The authoring graph can represent broader sharing than the current executor admits.
   Current compilation carries authored-order crankshaft identities, an explicit
   output-crankshaft selection, and exact cylinder bindings. Finite prescribed motion
-  admits a co-phased group of one or more crankshafts with direct journals; every
-  torque-owning mode still requires exactly one crankshaft. Execution accepts one or
+  admits a co-phased group of one or more crankshafts with direct journals. FreeEngine,
+  HeldDyno, and FreeVehicle additionally execute that co-centered, co-phased group as
+  one rigid dynamic degree of freedom; HeldSpeed, LoadTargetHeld, and InertialDyno
+  still require exactly one crankshaft. Execution accepts one or
   more reachable shared or distinct intakes, one identical shared piston blowby
   restriction, and direct centered rods on one zero-angle inline bank, exactly two
   finite distinct-angle V banks, exactly two antipodal opposed banks, or one or more
@@ -247,14 +248,14 @@ the remainder as explicit capability diagnostics:
 
 | Pristine capability | Intended JSON ownership | Current status | Acceptance requirement |
 |---|---|---|---|
-| Multiple crankshafts attached to one engine | Authored-order `engine.crankshafts[]`, required `engine.output_crankshaft`, and journal-owned references | **Low-order executed for finite prescribed direct-journal motion**; public and resolved contracts preserve stable crank identities, explicit output selection, and cylinder bindings. All currently representable shafts are co-centered and must have bit-identical TDC references. Torque-owning modes and multi-crank master/slave mechanisms remain closed pending rigid-group dynamics | The co-centered split-crank V-twin A/B fixture executes with distinct request identities and exact byte-identical PCM while retaining its secondary cylinder binding. Unequal phase, cross-crank master/slave ownership, and non-prescribed execution fail closed. |
-| Crank throw, crank/flywheel mass, inertia, friction torque, TDC reference | Crankshaft physical fields | **Low-order executed/Partial**; positive-speed FreeEngine applies the authored crank-friction magnitude as the pristine saturated rotation constraint and the source one-step-lagged piston-wall law through centered inverse dynamics | BMW resolved-value comparison, direct pristine wall-reaction trace comparison, and WOT/coast response check. |
+| Multiple crankshafts attached to one engine | Authored-order `engine.crankshafts[]`, required `engine.output_crankshaft`, and journal-owned references | **Low-order executed** for finite prescribed direct-journal motion and for co-centered, co-phased rigid-group FreeEngine, HeldDyno, and FreeVehicle dynamics. Public and resolved contracts preserve stable crank identities, explicit output selection, and cylinder bindings. HeldSpeed, LoadTargetHeld, InertialDyno, unequal TDC references, and multi-crank master/slave mechanisms remain closed | The split-crank V-twin one-crank/two-crank fixtures retain distinct request identities but produce exact telemetry and PCM when aggregate inertia/friction and geometry match. Secondary-only inertia and friction mutations each change dynamic motion in the expected direction. |
+| Crank throw, crank/flywheel mass, inertia, friction torque, TDC reference | Crankshaft physical fields | **Low-order executed/Partial**; positive-speed dynamics apply the authored running friction as the pristine saturated rotation constraint and the source one-step-lagged piston-wall law through centered inverse dynamics. A rigid group sums authored rotational inertia and friction in authored order; it does not derive rotational inertia from crank/flywheel mass | BMW resolved-value comparison, direct pristine wall-reaction trace comparison, WOT/coast response check, and split-crank aggregate/mutation fixture. |
 | Rod journals with arbitrary phase | `engine.journals[]` tagged union; the direct variant requires `type: "crankshaft"`, `crankshaft`, and `phase` | **Low-order executed/Partial**; a dynamic cylinder set may reference and share direct journals with arbitrary finite phase | V8 and direct shared-journal fixtures preserve phases and reference identity. |
 | Master/slave rod attachment | `engine.journals[]` `type: "master_rod"` variant with `master_cylinder`, positive `throw_radius`, and finite local `phase`; retired `master_journal`, `slave_throw`, and `slave_journal` fields remain forbidden | **Low-order executed for finite prescribed motion**; references, exact-one consumer, connectivity, one-level direct master, and cycle rules validate. The immutable plan distinguishes roots from slave attachments, publishes no master-rod torque or inertia capability, and reproduces pristine one-level geometry without nominal slave stroke or displacement. Full-cycle certification precedes admission. Public mechanics, gas, capture, excitation, and audio consume the plan only for a finite `PrescribedKinematicSweep`; every torque-owning/dynamic mode remains closed | Canonical pristine-derived radial-five JSON preserves five banks, four slave pins, firing/cam/route associations, doubled head-flow tables, and exact IR identity. Its 800-frame public capture has active sources and its four-block `EngineSession` produces finite nonzero PCM. Malformed graphs, failed certificates, stale plans, and non-prescribed modes remain rejected. |
 | Connecting-rod mass, inertia, center of mass, length | `engine.connecting_rods[]` | **Partial**; mass/inertia/length exist in BMW profile, center of mass is absent | Resolved mechanism quantities and inertial torque are verified. |
 | Piston mass, blowby, compression height, wrist-pin position, displacement term | `engine.pistons[]` and gas-path blowby restriction | **Partial**; mass, compression height, and displacement execute, but every referenced piston must currently use one identical blowby restriction and wrist-pin position is absent | BMW geometry/clearance comparison, blowby flow check, and Shovelhead normalization boundary. |
 | Banks with angle, bore, and deck height | `engine.banks[]` | **Low-order executed/Partial**; execution admits one zero-angle inline bank, exactly two finite distinct-angle V banks, exactly two antipodal opposed banks, or custom explicit finite axes, including authored bank bore/deck geometry; all use direct centered rods | Inline, Toyota V8, Subaru EJ25 opposed, and synthetic three-axis custom fixtures preserve bank geometry and axis-relative mechanics. |
-| Arbitrary cylinder-to-bank/journal/intake/exhaust/wire connections | Explicit cylinder references; crank ownership derives through the referenced journal | **Partial**; dynamic cylinders, direct bank-axis and bank-local-head bindings, direct shared journals, prescribed co-phased multi-crank bindings, shared or distinct intakes and ignition wires, firing order, and exhaust sharing execute, while torque-owning modes still require one crankshaft and all profiles require common same-role cam shapes | Toyota V8, Subaru EJ25, Shovelhead V-twin, synthetic three-axis custom, shared-wire inline-twin, separate-intake, and split-crank fixtures prove the admitted connection patterns. |
+| Arbitrary cylinder-to-bank/journal/intake/exhaust/wire connections | Explicit cylinder references; crank ownership derives through the referenced journal | **Partial**; dynamic cylinders, direct bank-axis and bank-local-head bindings, direct shared journals, prescribed and rigid-dynamic co-phased multi-crank bindings, shared or distinct intakes and ignition wires, firing order, and exhaust sharing execute. Multi-crank master/slave and all profiles with differing same-role cam shapes remain closed | Toyota V8, Subaru EJ25, Shovelhead V-twin, synthetic three-axis custom, shared-wire inline-twin, separate-intake, and split-crank fixtures prove the admitted connection patterns. |
 | Per-cylinder primary length | Physical exhaust path in `engine`, compiled to propagation delay | **Low-order executed** | Resolved length/delay comparison at each supported sample rate. |
 
 ### Gas exchange, manifolds, heads, and exhaust
@@ -273,7 +274,7 @@ the remainder as explicit capability diagnostics:
 | Multiple, shareable exhaust systems | `engine.exhausts[]` and cylinder route references | **Low-order executed** for a dynamic nonempty exhaust set; cylinders may share routes and copied exhaust objects remain independent | Inline-six, V8, and V-twin grouping fixtures prove sharing and independent collectors. |
 | Collector length/area, outlet restriction, primary length/restriction, velocity decay | Exhaust physical fields | **Low-order executed** | BMW resolved graph and gas-state regression. |
 | `exhaust.collector_volume` convenience | Compiler authoring convenience deriving `collector_length = collector_volume / collector_area` | **Low-order executed**; exactly one of explicit collector length or collector volume is required | Explicit length and derived length compile to the same resolved model. |
-| Executable gas volumes and flow edges | Compiler-derived from authored intakes, heads/ports, cylinders, exhausts, and their stable references | **Low-order executed/Partial** within the admitted one-crank, multi-intake, bank-local-head topology | Authors state each physical fact once; the compiler deterministically constructs and validates the supported internal graph. |
+| Executable gas volumes and flow edges | Compiler-derived from authored intakes, heads/ports, cylinders, exhausts, and their stable references | **Low-order executed/Partial** within the admitted rigid co-phased crank group, multi-intake, bank-local-head topology | Authors state each physical fact once; the compiler deterministically constructs and validates the supported internal graph. |
 
 ### Camshafts and valvetrain
 

@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-01
 
-Current checkpoint: **slice 10 topology closure — prescribed multiple-crankshaft execution**
+Current checkpoint: **slice 10 topology closure — co-centered rigid multiple-crankshaft dynamics**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -648,14 +648,20 @@ The single-intake BMW PCM remains byte-exact. The first isolated crankshaft
 checkpoint carries authored-order crank identities, an explicit output-crank
 selection, and exact direct/master-root cylinder bindings through the public engine,
 resolved mechanism, provenance, request-v6 identity, and manifest-v9 wire. The second
-checkpoint admits co-phased multiple-crank direct journals only under finite prescribed
+checkpoint admits co-phased multiple-crank direct journals under finite prescribed
 kinematics. A semantically named V-twin A/B fixture decomposes one crank into two while
 preserving aggregate authored values, cylinder geometry, journal phase, and exact PCM;
 its request identity changes and its rear cylinder retains the secondary-crank binding.
-Changing only the explicit output selection also changes identity. Unequal TDC
-references, cross-crank master/slave declarations, and every torque-owning mode remain
-closed. Rigid-group dynamic aggregation remains a separate follow-up within slice 10;
-the source boundary is frozen in
+Changing only the explicit output selection also changes identity. The third checkpoint
+reduces that same co-centered, co-phased group to one dynamic degree of freedom for
+FreeEngine, HeldDyno, and FreeVehicle. It sums only authored rotational inertia and
+running friction in resolved authored-crank order; crank and flywheel masses are not
+re-derived or double-counted. An aggregate-equivalent one-crank/two-crank coast fixture
+produces exact engine telemetry, session telemetry, and audition PCM while retaining
+distinct request identities. Separate mutations of only the secondary inertia and only
+the secondary friction change the resolved motion in the expected direction. Unequal
+TDC references, cross-crank master/slave declarations, HeldSpeed, LoadTargetHeld, and
+InertialDyno remain closed. The source boundary is frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_MULTIPLE_CRANKSHAFTS.md`](docs/oracles/PRISTINE_ENGINE_SIM_MULTIPLE_CRANKSHAFTS.md).
 The ignition source
 authority is frozen in

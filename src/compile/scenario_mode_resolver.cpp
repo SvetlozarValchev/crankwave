@@ -63,16 +63,20 @@ void ScenarioResolver::compile_mode() {
     const bool multiple_crankshafts = context_.engine.crankshafts.size() > 1U;
     const bool prescribed_motion =
         std::holds_alternative<authoring::ExternalSpeedMode>(document_.mode);
-    if (multiple_crankshafts && !prescribed_motion) {
+    const bool rigid_group_dynamic_motion =
+        std::holds_alternative<authoring::FreeEngineMode>(document_.mode) ||
+        std::holds_alternative<authoring::HeldDynoMode>(document_.mode) ||
+        std::holds_alternative<authoring::FreeVehicleMode>(document_.mode);
+    if (multiple_crankshafts && !(prescribed_motion || rigid_group_dynamic_motion)) {
         add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
-            "multiple-crankshaft engines currently admit external_speed prescribed "
-            "motion only; torque-owning modes require exactly one crankshaft");
+            "multiple-crankshaft engines admit external_speed prescribed motion "
+            "and FreeEngine, HeldDyno, or FreeVehicle rigid-group dynamics only");
         return;
     }
     if (multiple_crankshafts && contains_master_rod) {
         add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
-            "multiple-crankshaft prescribed execution currently admits direct-journal "
-            "cylinders only");
+            "multiple-crankshaft execution currently admits direct-journal cylinders "
+            "only");
         return;
     }
     if (contains_master_rod && !prescribed_motion) {
@@ -116,8 +120,12 @@ void ScenarioResolver::compile_mode() {
         [&](const auto &mode) {
             using T = std::decay_t<decltype(mode)>;
             if constexpr (std::is_same_v<T, authoring::FreeEngineMode>) {
-                const auto &method = simulation::
-                    nonnegative_speed_free_engine_centered_slider_crank_method_identity();
+                const auto &method =
+                    multiple_crankshafts
+                        ? simulation::
+                              nonnegative_speed_free_engine_centered_slider_crank_rigid_group_method_identity()
+                        : simulation::
+                              nonnegative_speed_free_engine_centered_slider_crank_method_identity();
                 const auto method_validation = contract::validate(method);
                 if (!method_validation.ok()) {
                     append_contract_report(report_, method_validation,
@@ -184,8 +192,12 @@ void ScenarioResolver::compile_mode() {
                 free_engine.crank_dynamics_method.value = method;
                 scenario_.mode = std::move(free_engine);
             } else if constexpr (std::is_same_v<T, authoring::FreeVehicleMode>) {
-                const auto &crank_method = simulation::
-                    nonnegative_speed_free_engine_centered_slider_crank_method_identity();
+                const auto &crank_method =
+                    multiple_crankshafts
+                        ? simulation::
+                              nonnegative_speed_free_engine_centered_slider_crank_rigid_group_method_identity()
+                        : simulation::
+                              nonnegative_speed_free_engine_centered_slider_crank_method_identity();
                 const auto &road_load_method =
                     simulation::forward_vehicle_road_load_method_identity();
                 const auto &clutch_method =

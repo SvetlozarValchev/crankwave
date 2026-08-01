@@ -97,10 +97,17 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
         std::holds_alternative<contract::PrescribedKinematicSweep>(scenario.mode);
     const bool exactly_one_crankshaft =
         engine.crankshafts.size() == 1U && core.mechanism.cranks.size() == 1U;
-    require(report, prescribed_motion || exactly_one_crankshaft,
-            ContractIssueCode::unsupported_value, "engine.crankshafts",
-            "legacy torque-owning mechanics requires exactly one crankshaft; "
-            "multiple crankshafts are admitted only with prescribed kinematics");
+    const bool rigid_group_dynamic_motion =
+        direct_plan != nullptr &&
+        (std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
+         std::holds_alternative<contract::HeldDyno>(scenario.mode) ||
+         std::holds_alternative<contract::FreeVehicle>(scenario.mode));
+    const bool admitted_crank_group =
+        prescribed_motion || exactly_one_crankshaft || rigid_group_dynamic_motion;
+    require(report, admitted_crank_group, ContractIssueCode::unsupported_value,
+            "engine.crankshafts",
+            "multiple-crankshaft mechanics admits prescribed kinematics and "
+            "FreeEngine, HeldDyno, or FreeVehicle rigid-group dynamics only");
     if (radial_plan != nullptr) {
         require(report,
                 has_kinematic_schedule &&
@@ -122,7 +129,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
                 : "compiled one-level master-rod mechanism plan does not exactly "
                   "match its resolved engine source");
     if ((direct_plan == nullptr && radial_plan == nullptr) || !plan_matches_source ||
-        (!prescribed_motion && !exactly_one_crankshaft) ||
+        !admitted_crank_group ||
         (radial_plan != nullptr &&
          (!has_kinematic_schedule ||
           !std::holds_alternative<contract::PrescribedKinematicSweep>(

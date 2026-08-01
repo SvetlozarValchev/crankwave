@@ -134,7 +134,7 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
                     add(report, DiagnosticCode::unsupported_capability,
                         pointer_index("/engine/crankshafts", index) +
                             "/tdc_reference_angle",
-                        "prescribed multiple-crankshaft execution requires every "
+                        "multiple-crankshaft execution requires every "
                         "currently representable crankshaft to share the output "
                         "crankshaft's exact finite TDC reference for a co-phased 1:1 "
                         "rigid group");

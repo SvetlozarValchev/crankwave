@@ -1,5 +1,7 @@
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 
+#include "simulation/rigid_crank_group.hpp"
+
 #include <cmath>
 #include <numbers>
 #include <span>
@@ -25,6 +27,28 @@ binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-daz
 external_numeric_authority=renderer-build-source-standard-library-math-runtime-and-thread-numeric-environment-identities
 )method";
 
+constexpr std::string_view kRigidGroupMethodDescriptor =
+    R"method(engine-sim-offline.simulation-method-configuration.v1
+method=centered-slider-crank-rigid-group-cycle-mean-equivalent-inertia-v1
+version=1
+operation=full-cycle-mean-crank-referred-kinetic-energy-equivalent-inertia
+mechanism=two-or-more-authored-co-centered-co-phased-one-to-one-rigid-cranks-plus-zero-or-more-centered-rigid-rod-and-translating-piston-assemblies
+crank-group-motion=one-common-crank-angle-and-angular-speed-degree-of-freedom
+crank-contribution=authored-rotational-moment-of-inertia-kg-m2-summed-in-resolved-authored-crank-vector-order
+crank-summation=copy-first-authored-value-then-add-each-subsequent-authored-value-in-written-binary64-order-with-finite-overflow-rejection
+crank-and-flywheel-mass=not-consumed-and-not-rederived-into-rotational-inertia
+rod-center=midpoint-between-crank-pin-and-wrist-pin
+quadrature=4096-point-uniform-midpoint-over-binary64-two-times-pi
+sample-angle-rad=(sample-index-plus-binary64-0.5)-times-two-pi-divided-by-4096
+slider-position=r-times-cos-phi-plus-sqrt(l-times-l-minus-r-times-r-times-sin-phi-times-sin-phi)
+equivalent-inertia=rigid-group-authored-crank-inertia-plus-cycle-mean-sum-of-piston-mass-times-piston-position-derivative-squared-plus-rod-mass-times-rod-center-velocity-derivative-norm-squared-plus-rod-inertia-times-rod-angle-derivative-squared
+journal-phase=omitted-because-full-cycle-mean-is-invariant-under-periodic-phase-shift
+downstream-arithmetic=unchanged-centered-slider-crank-cylinder-quadrature-and-final-component-addition-order
+summation=ascending-cylinder-vector-order-then-ascending-sample-index
+binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-daz
+external_numeric_authority=renderer-build-source-standard-library-math-runtime-and-thread-numeric-environment-identities
+)method";
+
 [[nodiscard]] consteval bool
 canonical_lf_descriptor(std::string_view descriptor) noexcept {
     if (descriptor.empty() || descriptor.back() != '\n') {
@@ -39,6 +63,7 @@ canonical_lf_descriptor(std::string_view descriptor) noexcept {
 }
 
 static_assert(canonical_lf_descriptor(kMethodDescriptor));
+static_assert(canonical_lf_descriptor(kRigidGroupMethodDescriptor));
 
 [[nodiscard]] CenteredSliderCrankCycleMeanInertiaCalculation
 error(CenteredSliderCrankCycleMeanInertiaIssue issue,
@@ -69,24 +94,45 @@ centered_slider_crank_cycle_mean_inertia_method_identity() {
     return identity;
 }
 
+std::string_view
+centered_slider_crank_rigid_group_cycle_mean_inertia_method_descriptor() noexcept {
+    return kRigidGroupMethodDescriptor;
+}
+
+const contract::MethodIdentity &
+centered_slider_crank_rigid_group_cycle_mean_inertia_method_identity() {
+    static const contract::MethodIdentity identity{
+        std::string{kCenteredSliderCrankRigidGroupCycleMeanEquivalentInertiaMethodId},
+        kCenteredSliderCrankRigidGroupCycleMeanEquivalentInertiaMethodVersion,
+        contract::sha256(std::as_bytes(std::span<const char>{
+            kRigidGroupMethodDescriptor.data(), kRigidGroupMethodDescriptor.size()})),
+    };
+    return identity;
+}
+
 CenteredSliderCrankCycleMeanInertiaCalculation
 calculate_centered_slider_crank_cycle_mean_inertia(
     const contract::LegacyMechanismProfile &mechanism) noexcept {
-    const auto *output_crank = contract::find_output_crank(mechanism);
-    if (output_crank == nullptr) {
-        return error(
-            CenteredSliderCrankCycleMeanInertiaIssue::missing_output_crankshaft);
-    }
-    const double authored_crank_inertia_kg_m2 =
-        output_crank->authored_crank_inertia_kg_m2.value;
-    if (!std::isfinite(authored_crank_inertia_kg_m2)) {
+    const auto crank_group_inertia_calculation =
+        calculate_rigid_crank_group_authored_inertia(mechanism);
+    const auto *crank_group_inertia =
+        std::get_if<double>(&crank_group_inertia_calculation);
+    if (crank_group_inertia == nullptr) {
+        const auto issue =
+            std::get<RigidCrankGroupError>(crank_group_inertia_calculation).issue;
+        if (issue == RigidCrankGroupIssue::empty_group ||
+            issue == RigidCrankGroupIssue::missing_output_crankshaft) {
+            return error(
+                CenteredSliderCrankCycleMeanInertiaIssue::missing_output_crankshaft);
+        }
+        if (issue == RigidCrankGroupIssue::nonpositive_authored_crank_inertia) {
+            return error(CenteredSliderCrankCycleMeanInertiaIssue::
+                             nonpositive_authored_crank_inertia);
+        }
         return error(
             CenteredSliderCrankCycleMeanInertiaIssue::nonfinite_authored_crank_inertia);
     }
-    if (!(authored_crank_inertia_kg_m2 > 0.0)) {
-        return error(CenteredSliderCrankCycleMeanInertiaIssue::
-                         nonpositive_authored_crank_inertia);
-    }
+    const double authored_crank_inertia_kg_m2 = *crank_group_inertia;
 
     CenteredSliderCrankCycleMeanInertia result;
     result.authored_crank_inertia_kg_m2 = authored_crank_inertia_kg_m2;

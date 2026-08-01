@@ -16,6 +16,11 @@ inline constexpr std::string_view
         "centered-slider-crank-cycle-mean-equivalent-inertia-v1";
 inline constexpr std::uint32_t
     kCenteredSliderCrankCycleMeanEquivalentInertiaMethodVersion = 1U;
+inline constexpr std::string_view
+    kCenteredSliderCrankRigidGroupCycleMeanEquivalentInertiaMethodId =
+        "centered-slider-crank-rigid-group-cycle-mean-equivalent-inertia-v1";
+inline constexpr std::uint32_t
+    kCenteredSliderCrankRigidGroupCycleMeanEquivalentInertiaMethodVersion = 1U;
 inline constexpr std::size_t kCenteredSliderCrankCycleMeanInertiaQuadraturePoints =
     4096U;
 inline constexpr std::size_t kNoCenteredSliderCrankInertiaCylinder =
@@ -69,6 +74,12 @@ centered_slider_crank_cycle_mean_inertia_method_descriptor() noexcept;
 
 [[nodiscard]] const contract::MethodIdentity &
 centered_slider_crank_cycle_mean_inertia_method_identity();
+
+[[nodiscard]] std::string_view
+centered_slider_crank_rigid_group_cycle_mean_inertia_method_descriptor() noexcept;
+
+[[nodiscard]] const contract::MethodIdentity &
+centered_slider_crank_rigid_group_cycle_mean_inertia_method_identity();
 
 // Returns the constant crank-referred inertia whose rotational kinetic energy is
 // the full-cycle mean kinetic energy of the admitted centered slider-crank

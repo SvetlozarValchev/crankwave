@@ -83,8 +83,8 @@ LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
                                         profile->core.mechanism.cranks.size() == 1U;
     require(report, exactly_one_crankshaft, ContractIssueCode::unsupported_value,
             "engine.crankshafts",
-            "inertial-dyno runtime requires exactly one crankshaft; prescribed "
-            "kinematics is the only current multiple-crankshaft execution mode");
+            "the InertialDyno runtime requires exactly one crankshaft and "
+            "does not consume rigid crank-group dynamics");
     require(report, !simulation_request_identity_v6_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v6_sha256",
             "inertial runtime requires the canonical nonzero request identity");

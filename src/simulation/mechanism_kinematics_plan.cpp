@@ -545,6 +545,14 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
             ContractIssueCode::unsupported_value,
             "engine.physics_profile.mechanism.cylinders",
             "event ordinals support at most 255 cylinders per mechanics session");
+    const auto rigid_crank_group_calculation =
+        calculate_rigid_crank_group_properties(mechanism);
+    const auto *rigid_crank_group =
+        std::get_if<RigidCrankGroupProperties>(&rigid_crank_group_calculation);
+    require(report, rigid_crank_group != nullptr, ContractIssueCode::invalid_value,
+            "engine.physics_profile.mechanism.cranks",
+            "rigid crank-group authored rotational inertia and running friction "
+            "must aggregate to finite values in resolved authored order");
     if (!report.ok()) {
         return report;
     }
@@ -554,8 +562,7 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
     plan.engine_profile_id = engine.profile_id.value;
     plan.output_crankshaft_id = mechanism.output_crankshaft_id;
     plan.crank_tdc_reference_rad = output_crank->crank_tdc_reference_rad.value;
-    plan.authored_crank_inertia_kg_m2 =
-        output_crank->authored_crank_inertia_kg_m2.value;
+    plan.rigid_crank_group = *rigid_crank_group;
     plan.cylinders.reserve(mechanism.cylinders.size());
 
     std::unordered_set<std::uint32_t> cylinder_ids;
@@ -895,8 +902,13 @@ bool mechanism_kinematics_plan_matches_source(
     }
 
     const auto *direct = direct_mechanism_kinematics_plan(plan);
+    const auto rigid_crank_group_calculation =
+        calculate_rigid_crank_group_properties(mechanism);
+    const auto *rigid_crank_group =
+        std::get_if<RigidCrankGroupProperties>(&rigid_crank_group_calculation);
     if (!co_phased_crank_group_topology_matches(engine, mechanism) ||
-        direct == nullptr || direct->engine_id != engine.id ||
+        rigid_crank_group == nullptr || direct == nullptr ||
+        direct->engine_id != engine.id ||
         direct->engine_profile_id != engine.profile_id.value ||
         direct->output_crankshaft_id != mechanism.output_crankshaft_id ||
         direct->cylinders.empty() ||
@@ -904,10 +916,14 @@ bool mechanism_kinematics_plan_matches_source(
         direct->cylinders.size() != mechanism.cylinders.size() ||
         !same_binary64(direct->crank_tdc_reference_rad,
                        output_crank->crank_tdc_reference_rad.value) ||
-        !same_binary64(direct->authored_crank_inertia_kg_m2,
-                       output_crank->authored_crank_inertia_kg_m2.value) ||
+        direct->rigid_crank_group.crankshaft_count !=
+            rigid_crank_group->crankshaft_count ||
+        !same_binary64(direct->rigid_crank_group.authored_crank_inertia_kg_m2,
+                       rigid_crank_group->authored_crank_inertia_kg_m2) ||
+        !same_binary64(direct->rigid_crank_group.running_friction_torque_magnitude_nm,
+                       rigid_crank_group->running_friction_torque_magnitude_nm) ||
         !same_binary64(direct->cycle_mean_inertia.authored_crank_inertia_kg_m2,
-                       output_crank->authored_crank_inertia_kg_m2.value)) {
+                       rigid_crank_group->authored_crank_inertia_kg_m2)) {
         return false;
     }
 

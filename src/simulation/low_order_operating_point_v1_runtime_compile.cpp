@@ -135,9 +135,8 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
                                         profile->core.mechanism.cranks.size() == 1U;
     require(report, exactly_one_crankshaft, ContractIssueCode::unsupported_value,
             "engine.crankshafts",
-            "torque-owning operating runtime requires exactly one crankshaft; "
-            "prescribed kinematics is the only current multiple-crankshaft execution "
-            "mode");
+            "the HeldSpeed operating runtime requires exactly one crankshaft and "
+            "does not consume rigid crank-group dynamics");
     require(report, !simulation_request_identity_v6_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v6_sha256",
             "operating runtime requires the canonical nonzero request identity");

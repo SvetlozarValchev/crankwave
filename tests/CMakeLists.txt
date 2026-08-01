@@ -1470,18 +1470,18 @@ add_test(
 )
 
 add_executable(
-    engine_sim_offline_multiple_crankshaft_prescribed_tests
-    multiple_crankshaft_prescribed_test.cpp
+    engine_sim_offline_multiple_crankshaft_execution_tests
+    multiple_crankshaft_execution_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_multiple_crankshaft_prescribed_tests
+    engine_sim_offline_multiple_crankshaft_execution_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_multiple_crankshaft_prescribed_tests
+    engine_sim_offline_multiple_crankshaft_execution_tests
     PRIVATE
         engine_sim_offline::compile
         engine_sim_offline::request_identity
@@ -1489,13 +1489,13 @@ target_link_libraries(
 )
 
 engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_multiple_crankshaft_prescribed_tests
+    engine_sim_offline_multiple_crankshaft_execution_tests
 )
 
 add_test(
-    NAME simulation.multiple_crankshaft_prescribed
+    NAME simulation.multiple_crankshaft_execution
     COMMAND
-        engine_sim_offline_multiple_crankshaft_prescribed_tests
+        engine_sim_offline_multiple_crankshaft_execution_tests
         ${PROJECT_SOURCE_DIR}
 )
 
