@@ -385,12 +385,14 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
         auto &output = step_.cylinders[index];
         output.cylinder_id = model.crank.cylinder_id;
         output.exhaust_route_id = model.exhaust_route_id;
-        output.geometric_tdc_rad = model.crank.geometric_tdc_rad;
+        output.coordinates = DirectCylinderCoordinates{
+            model.crank.geometric_tdc_rad,
+            evaluated.phase_rad,
+            evaluated.piston_travel_m,
+            evaluated.dx_dtheta_m_per_rad,
+        };
         output.ignition_wire_angle_rad = model.crank.ignition_wire_angle_rad;
-        output.phase_rad = evaluated.phase_rad;
-        output.piston_travel_m = evaluated.piston_travel_m;
         output.chamber_volume_m3 = evaluated.chamber_volume_m3;
-        output.dx_dtheta_m_per_rad = evaluated.dx_dtheta_m_per_rad;
         output.dvolume_dtheta_m3_per_rad = evaluated.dvolume_dtheta_m3_per_rad;
         output.piston_speed_abs_m_s = evaluated.piston_speed_abs_m_s;
     }

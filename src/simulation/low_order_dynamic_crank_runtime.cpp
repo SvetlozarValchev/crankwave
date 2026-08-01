@@ -489,6 +489,8 @@ LowOrderDynamicCrankRuntime::commit_next_piston_wall_boundary(
         }
         const auto &mechanism = mechanics.cylinders[plan.mechanism_cylinder_index];
         const auto &chamber = gas.gas_volumes[plan.chamber_gas_step_index];
+        const auto *coordinates =
+            std::get_if<DirectCylinderCoordinates>(&mechanism.coordinates);
         if (mechanism.cylinder_id != plan.cylinder_id || !chamber.physically_resolved ||
             chamber.gas_volume_id != plan.chamber_volume_id) {
             return fault(contract::FailureKind::contract_violation,
@@ -497,15 +499,22 @@ LowOrderDynamicCrankRuntime::commit_next_piston_wall_boundary(
                          "compiled piston-wall binding",
                          &mechanics, plan.chamber_volume_id);
         }
+        if (coordinates == nullptr) {
+            return fault(contract::FailureKind::contract_violation,
+                         "dynamic-crank-piston-wall-coordinate-kind-disagreed",
+                         "dynamic piston-wall reaction requires direct-cylinder "
+                         "coordinates",
+                         &mechanics, plan.chamber_volume_id);
+        }
         const double pressure_pa_abs = legacy_gas_pressure_pa(chamber.cell);
-        if (!std::isfinite(mechanism.phase_rad) || !std::isfinite(pressure_pa_abs) ||
+        if (!std::isfinite(coordinates->phase_rad) || !std::isfinite(pressure_pa_abs) ||
             !(pressure_pa_abs > 0.0)) {
             return fault(contract::FailureKind::numerical_failure,
                          "dynamic-crank-piston-wall-boundary-nonphysical",
                          "next piston-wall phase or chamber pressure is nonphysical",
                          &mechanics, plan.chamber_volume_id);
         }
-        next_piston_wall_boundary_phase_rad_[index] = mechanism.phase_rad;
+        next_piston_wall_boundary_phase_rad_[index] = coordinates->phase_rad;
         next_piston_wall_boundary_pressure_pa_abs_[index] = pressure_pa_abs;
     }
     if (!std::isfinite(mechanics.angular_speed_rad_s) ||

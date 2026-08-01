@@ -21,15 +21,34 @@ namespace detail {
 struct LowOrderEngineCoreV1RuntimeFactory;
 }
 
+struct DirectCylinderCoordinates {
+    double geometric_tdc_rad = 0.0;
+    double phase_rad = 0.0;
+    double piston_travel_m = 0.0;
+    double dx_dtheta_m_per_rad = 0.0;
+
+    friend bool operator==(const DirectCylinderCoordinates &,
+                           const DirectCylinderCoordinates &) = default;
+};
+
+struct OneLevelMasterRodCoordinates {
+    double piston_axis_position_m = 0.0;
+    double piston_axis_derivative_m_per_rad = 0.0;
+
+    friend bool operator==(const OneLevelMasterRodCoordinates &,
+                           const OneLevelMasterRodCoordinates &) = default;
+};
+
+using MechanismCylinderCoordinates =
+    std::variant<std::monostate, DirectCylinderCoordinates,
+                 OneLevelMasterRodCoordinates>;
+
 struct MechanismCylinderSample {
     contract::CylinderId cylinder_id;
     contract::RouteId exhaust_route_id;
-    double geometric_tdc_rad = 0.0;
+    MechanismCylinderCoordinates coordinates;
     double ignition_wire_angle_rad = 0.0;
-    double phase_rad = 0.0;
-    double piston_travel_m = 0.0;
     double chamber_volume_m3 = 0.0;
-    double dx_dtheta_m_per_rad = 0.0;
     double dvolume_dtheta_m3_per_rad = 0.0;
     double piston_speed_abs_m_s = 0.0;
     bool spark_crossed = false;

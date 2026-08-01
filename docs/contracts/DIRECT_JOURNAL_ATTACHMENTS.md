@@ -93,6 +93,14 @@ engine admission belongs atomically with the prescribed-motion mechanics/gas run
 gate, so a geometry-only plan cannot accidentally become a partially executable
 engine.
 
+The mutable mechanics sample also has one tagged coordinate payload. Direct cylinders
+own geometric TDC, wrapped centered-slider phase, TDC-relative piston travel, and its
+angle derivative. A one-level master-rod alternative owns absolute bank-axis position
+and its angle derivative instead. An unpopulated sample is explicitly empty. The
+shared chamber volume, volume derivative, and absolute piston speed remain outside
+that tag because gas and capture consume them for either geometry. No radial runtime
+emits the new alternative yet.
+
 The public engine compiler still rejects this plan at one explicit execution gate, so
 it cannot silently enter the direct mechanics, gas, crank, or capture runtimes. The
 resolution-only nominal stroke, compression, and displacement fields in `EngineSpec`

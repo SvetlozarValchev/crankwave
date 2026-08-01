@@ -430,6 +430,9 @@ const LegacyMechanismStep &require_step(LegacyMechanicsAdvanceResult &result) {
 }
 
 void test_mechanics_session_step_order_and_completion() {
+    expect(std::holds_alternative<std::monostate>(
+               MechanismCylinderSample{}.coordinates),
+           "unpopulated mechanics sample fabricated direct coordinates");
     MechanicsFixture fixture;
     auto session = require_session(compile_fixture(fixture));
 
@@ -450,6 +453,10 @@ void test_mechanics_session_step_order_and_completion() {
                first.cylinders[0].cylinder_id == CylinderId{1} &&
                first.cylinders[0].chamber_volume_m3 > 0.0,
            "first mechanics cylinder state or spark crossing changed");
+    const auto *first_coordinates =
+        std::get_if<DirectCylinderCoordinates>(&first.cylinders[0].coordinates);
+    expect(first_coordinates != nullptr,
+           "direct mechanics did not emit tagged direct coordinates");
     expect(first.events.size() == 2 && first.events[0].ordinal_within_step == 0 &&
                std::holds_alternative<SparkCrossing>(first.events[0].payload) &&
                first.events[1].ordinal_within_step == 1 &&

@@ -674,6 +674,14 @@ checkpoint grants no execution authority: the immutable master-rod plan does not
 invoke the certificate, and the public engine gate remains closed until prescribed
 radial mechanics and gas are wired in the same admitted path.
 
+The internal mechanics-cylinder sample now separates direct centered-slider
+coordinates from one-level master-rod axis coordinates with an explicit tagged union
+and empty state. Existing direct mechanics populates the direct alternative at the
+same statement boundary, while dynamic piston-wall reaction requires that alternative
+before reading phase. Gas and capture continue to consume only the common volume,
+volume derivative, and piston-speed fields. This refactor admits no radial execution
+and changes no public JSON, capture, C, or WASM schema.
+
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,
 configuration-inertia, routing, conditioning, IR, and mastering paths. The BMW gate

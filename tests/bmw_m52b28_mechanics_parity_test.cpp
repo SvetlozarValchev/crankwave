@@ -605,18 +605,24 @@ void verify_geometry(const simulation::LegacyMechanismStep &step,
             fail_frame(step.sample_index,
                        "mechanics cylinder identity, order, or route changed");
         }
-        const bool finite = std::isfinite(cylinder.geometric_tdc_rad) &&
+        const auto *coordinates =
+            std::get_if<simulation::DirectCylinderCoordinates>(&cylinder.coordinates);
+        if (coordinates == nullptr) {
+            fail_frame(step.sample_index,
+                       "direct mechanics emitted non-direct coordinates");
+        }
+        const bool finite = std::isfinite(coordinates->geometric_tdc_rad) &&
                             std::isfinite(cylinder.ignition_wire_angle_rad) &&
-                            std::isfinite(cylinder.phase_rad) &&
-                            std::isfinite(cylinder.piston_travel_m) &&
+                            std::isfinite(coordinates->phase_rad) &&
+                            std::isfinite(coordinates->piston_travel_m) &&
                             std::isfinite(cylinder.chamber_volume_m3) &&
-                            std::isfinite(cylinder.dx_dtheta_m_per_rad) &&
+                            std::isfinite(coordinates->dx_dtheta_m_per_rad) &&
                             std::isfinite(cylinder.dvolume_dtheta_m3_per_rad) &&
                             std::isfinite(cylinder.piston_speed_abs_m_s);
         const bool physical =
-            cylinder.phase_rad >= 0.0 && cylinder.phase_rad < 2.0 * kLegacyPi &&
-            cylinder.piston_travel_m >= -1.0e-15 &&
-            cylinder.piston_travel_m <= 2.0 * model.crank_radius_m + 1.0e-15 &&
+            coordinates->phase_rad >= 0.0 && coordinates->phase_rad < 2.0 * kLegacyPi &&
+            coordinates->piston_travel_m >= -1.0e-15 &&
+            coordinates->piston_travel_m <= 2.0 * model.crank_radius_m + 1.0e-15 &&
             cylinder.chamber_volume_m3 > 0.0 && cylinder.piston_speed_abs_m_s >= 0.0;
         if (!finite || !physical) {
             fail_frame(step.sample_index,
