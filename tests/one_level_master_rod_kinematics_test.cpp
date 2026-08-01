@@ -156,6 +156,168 @@ void test_dual_derivative_matches_position_and_volume_finite_difference() {
     }
 }
 
+void test_radial_five_full_cycle_certificate_margins() {
+    const OneLevelMasterRodFullCycleCheck unavailable;
+    expect(unavailable.reason == OneLevelMasterRodFullCycleReason::invalid_geometry &&
+               std::isnan(unavailable.forward_reach_margin_m) &&
+               std::isnan(unavailable.minimum_chamber_volume_m3),
+           "default full-cycle check exposed unavailable certificate margins");
+
+    const auto fixture = radial_five();
+
+    const auto root =
+        certify_one_level_master_rod_full_cycle(fixture.driver, fixture.cylinders[0]);
+    expect(root.reason == OneLevelMasterRodFullCycleReason::admitted,
+           "canonical radial-five root was not certified");
+    expect(root.admitted(), "admitted root check did not report admission");
+    expect_near(root.forward_reach_margin_m, 0.23495, 1.0e-15,
+                "canonical radial-five root reach margin changed");
+    expect_near(root.minimum_chamber_volume_m3, 0.00029, 1.0e-17,
+                "canonical radial-five root minimum volume changed");
+
+    for (std::size_t index = 1; index < fixture.cylinders.size(); ++index) {
+        const auto slave = certify_one_level_master_rod_full_cycle(
+            fixture.driver, fixture.cylinders[index]);
+        expect(slave.reason == OneLevelMasterRodFullCycleReason::admitted,
+               "canonical radial-five slave was not certified");
+        expect(slave.admitted(), "admitted slave check did not report admission");
+        expect_near(slave.forward_reach_margin_m, 0.08763, 1.0e-15,
+                    "canonical radial-five slave reach margin changed");
+        expect_near(slave.minimum_chamber_volume_m3, 0.00029, 1.0e-17,
+                    "canonical radial-five slave volume bound changed");
+    }
+}
+
+void test_full_cycle_certificate_rejects_later_unreachable_geometry() {
+    const OneLevelMasterRodDriver driver{
+        0.05,
+        0.0,
+        0.0,
+        0.2,
+    };
+    const OneLevelMasterRodCylinder cylinder{
+        CylinderId{1}, 0.0, 0.05,
+        0.01,          1.0, 0.01,
+        0.001,         0.0, OneLevelMasterRodSlavePin{0.08, kLegacyPi / 2.0},
+    };
+
+    const auto initially_valid =
+        evaluate_one_level_master_rod(driver, cylinder, 0.0, 1.0);
+    expect(initially_valid.valid,
+           "reachability fixture must be valid at its initial point");
+    expect_near(initially_valid.piston_axis_position_m, 0.02178476627210968, 2.0e-14,
+                "reachability fixture initial position changed");
+    expect(!evaluate_one_level_master_rod(driver, cylinder, kLegacyPi / 2.0, 1.0).valid,
+           "reachability fixture must fail later in the cycle");
+
+    const auto check = certify_one_level_master_rod_full_cycle(driver, cylinder);
+    expect(check.reason == OneLevelMasterRodFullCycleReason::reachability_not_certified,
+           "later-unreachable geometry was not rejected analytically");
+    expect(!check.admitted(), "unreachable geometry reported admission");
+    expect_near(check.forward_reach_margin_m, -0.08, 1.0e-15,
+                "unreachable slave margin changed");
+    expect(std::isnan(check.minimum_chamber_volume_m3),
+           "unreachable geometry reported a volume certificate");
+}
+
+void test_full_cycle_certificate_rejects_later_backward_solution() {
+    const OneLevelMasterRodDriver driver{
+        0.05,
+        0.0,
+        0.0,
+        0.2,
+    };
+    const OneLevelMasterRodCylinder cylinder{
+        CylinderId{1},
+        3.0 * kLegacyPi / 2.0,
+        0.05,
+        0.01,
+        1.0,
+        0.01,
+        0.001,
+        0.0,
+        OneLevelMasterRodSlavePin{0.05, 0.0},
+    };
+
+    const auto initially_valid =
+        evaluate_one_level_master_rod(driver, cylinder, 0.0, 1.0);
+    expect(initially_valid.valid,
+           "backward-solution fixture must be valid at its initial point");
+    expect_near(initially_valid.piston_axis_position_m, 0.05, 1.0e-12,
+                "backward-solution fixture initial position changed");
+    expect(!evaluate_one_level_master_rod(driver, cylinder, kLegacyPi, 1.0).valid,
+           "backward-solution fixture must fail later in the cycle");
+
+    const auto check = certify_one_level_master_rod_full_cycle(driver, cylinder);
+    expect(check.reason == OneLevelMasterRodFullCycleReason::reachability_not_certified,
+           "later-backward geometry was not rejected analytically");
+    expect_near(check.forward_reach_margin_m, -0.05, 1.0e-15,
+                "backward-solution reach margin changed");
+}
+
+void test_full_cycle_certificate_rejects_later_nonpositive_volume() {
+    const OneLevelMasterRodDriver driver{
+        0.05,
+        0.0,
+        0.0,
+        0.2,
+    };
+    const OneLevelMasterRodCylinder cylinder{
+        CylinderId{1}, 0.0,  0.2,
+        0.01,          0.22, 0.01,
+        0.0003,        0.0,  OneLevelMasterRodRootJournal{},
+    };
+
+    const auto initially_valid =
+        evaluate_one_level_master_rod(driver, cylinder, 0.0, 1.0);
+    expect(initially_valid.valid, "volume fixture must be valid at its initial point");
+    expect_near(initially_valid.piston_axis_position_m, std::sqrt(0.0375), 1.0e-12,
+                "volume fixture initial position changed");
+    expect(!evaluate_one_level_master_rod(driver, cylinder, kLegacyPi / 2.0, 1.0).valid,
+           "volume fixture must fail later in the cycle");
+
+    const auto check = certify_one_level_master_rod_full_cycle(driver, cylinder);
+    expect(check.reason ==
+               OneLevelMasterRodFullCycleReason::chamber_volume_not_certified,
+           "later-nonpositive volume was not rejected analytically");
+    expect_near(check.forward_reach_margin_m, 0.15, 1.0e-15,
+                "volume fixture reach margin changed");
+    expect_near(check.minimum_chamber_volume_m3, -0.0001, 1.0e-17,
+                "volume fixture lower bound changed");
+}
+
+void test_full_cycle_certificate_rejects_binary64_ambiguous_reach() {
+    const OneLevelMasterRodDriver driver{
+        1.3108598873974466e-05,
+        0.0,
+        4.3476180674614939,
+        1.3108598873974468e-05,
+    };
+    const OneLevelMasterRodCylinder cylinder{
+        CylinderId{1},
+        driver.master_bank_angle_rad,
+        driver.master_connecting_rod_length_m,
+        0.01,
+        1.0,
+        0.01,
+        0.001,
+        0.0,
+        OneLevelMasterRodRootJournal{},
+    };
+
+    expect(!evaluate_one_level_master_rod(
+                driver, cylinder, driver.master_bank_angle_rad, 1.0)
+                .valid,
+           "binary64 ambiguity fixture unexpectedly produced a valid point");
+    const auto check = certify_one_level_master_rod_full_cycle(driver, cylinder);
+    expect(check.reason == OneLevelMasterRodFullCycleReason::reachability_not_certified,
+           "ULP-scale linkage clearance was admitted as a stable full-cycle proof");
+    expect(check.forward_reach_margin_m > 0.0,
+           "binary64 ambiguity fixture lost its positive ideal reach margin");
+    expect(std::isnan(check.minimum_chamber_volume_m3),
+           "ambiguous reach reported a volume certificate");
+}
+
 void test_invalid_and_ambiguous_geometry_fails_closed() {
     auto fixture = radial_five();
     fixture.cylinders[0].bank_angle_rad = 0.125;
@@ -163,6 +325,13 @@ void test_invalid_and_ambiguous_geometry_fails_closed() {
         !evaluate_one_level_master_rod(fixture.driver, fixture.cylinders[0], 0.0, 1.0)
              .valid,
         "root cylinder differing from its driver did not fail closed");
+    const auto mismatched_root =
+        certify_one_level_master_rod_full_cycle(fixture.driver, fixture.cylinders[0]);
+    expect(mismatched_root.reason == OneLevelMasterRodFullCycleReason::invalid_geometry,
+           "ambiguous root geometry did not receive the invalid reason");
+    expect(std::isnan(mismatched_root.forward_reach_margin_m) &&
+               std::isnan(mismatched_root.minimum_chamber_volume_m3),
+           "invalid geometry reported certificate margins");
 
     fixture = radial_five();
     fixture.driver.master_connecting_rod_length_m = fixture.driver.crank_radius_m / 2.0;
@@ -203,6 +372,11 @@ int main() {
     try {
         test_pristine_radial_five_positions_and_volumes();
         test_dual_derivative_matches_position_and_volume_finite_difference();
+        test_radial_five_full_cycle_certificate_margins();
+        test_full_cycle_certificate_rejects_later_unreachable_geometry();
+        test_full_cycle_certificate_rejects_later_backward_solution();
+        test_full_cycle_certificate_rejects_later_nonpositive_volume();
+        test_full_cycle_certificate_rejects_binary64_ambiguous_reach();
         test_invalid_and_ambiguous_geometry_fails_closed();
         test_slider_solution_behind_bank_origin_fails_closed();
         std::cout << "one-level master-rod kinematics tests passed\n";

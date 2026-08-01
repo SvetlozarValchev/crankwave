@@ -2,12 +2,17 @@
 
 #include "simulation/legacy_mechanics_primitives.hpp"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
+#include <limits>
 #include <optional>
 
 namespace engine_sim_offline::simulation {
 namespace {
+
+constexpr double kBinary64CertificateGuard =
+    128.0 * std::numeric_limits<double>::epsilon();
 
 struct Dual {
     double value = 0.0;
@@ -73,6 +78,14 @@ struct DualPoint {
            std::isfinite(driver.master_bank_angle_rad) &&
            finite_positive(driver.master_connecting_rod_length_m) &&
            driver.crank_radius_m < driver.master_connecting_rod_length_m;
+}
+
+[[nodiscard]] bool
+finite_driver_values(const OneLevelMasterRodDriver &driver) noexcept {
+    return finite_positive(driver.crank_radius_m) &&
+           std::isfinite(driver.crank_journal_global_phase_rad) &&
+           std::isfinite(driver.master_bank_angle_rad) &&
+           finite_positive(driver.master_connecting_rod_length_m);
 }
 
 [[nodiscard]] bool finite_cylinder(const OneLevelMasterRodCylinder &cylinder) noexcept {
@@ -213,6 +226,101 @@ OneLevelMasterRodSample evaluate_one_level_master_rod(
     }
     sample.valid = true;
     return sample;
+}
+
+OneLevelMasterRodFullCycleCheck certify_one_level_master_rod_full_cycle(
+    const OneLevelMasterRodDriver &driver,
+    const OneLevelMasterRodCylinder &cylinder) noexcept {
+    constexpr double unavailable = std::numeric_limits<double>::quiet_NaN();
+    OneLevelMasterRodFullCycleCheck check{
+        OneLevelMasterRodFullCycleReason::invalid_geometry,
+        unavailable,
+        unavailable,
+    };
+    if (!finite_driver_values(driver) || !finite_cylinder(cylinder)) {
+        return check;
+    }
+
+    const auto *slave = std::get_if<OneLevelMasterRodSlavePin>(&cylinder.journal);
+    if (slave == nullptr &&
+        (!same_binary64(cylinder.bank_angle_rad, driver.master_bank_angle_rad) ||
+         !same_binary64(cylinder.connecting_rod_length_m,
+                        driver.master_connecting_rod_length_m))) {
+        return check;
+    }
+
+    const double master_reach_margin_m =
+        driver.master_connecting_rod_length_m - driver.crank_radius_m;
+    double maximum_axis_position_m =
+        driver.master_connecting_rod_length_m + driver.crank_radius_m;
+    check.forward_reach_margin_m = master_reach_margin_m;
+    if (slave != nullptr) {
+        const double driven_point_radius_bound_m =
+            driver.crank_radius_m + slave->throw_radius_m;
+        const double slave_reach_margin_m =
+            cylinder.connecting_rod_length_m - driven_point_radius_bound_m;
+        check.forward_reach_margin_m =
+            std::min(master_reach_margin_m, slave_reach_margin_m);
+        maximum_axis_position_m =
+            cylinder.connecting_rod_length_m + driven_point_radius_bound_m;
+    }
+    if (!std::isfinite(check.forward_reach_margin_m) ||
+        !std::isfinite(maximum_axis_position_m)) {
+        check.reason = OneLevelMasterRodFullCycleReason::invalid_geometry;
+        check.forward_reach_margin_m = unavailable;
+        return check;
+    }
+    const double reach_scale_m =
+        slave == nullptr
+            ? std::max(driver.master_connecting_rod_length_m,
+                       driver.crank_radius_m)
+            : std::max({driver.master_connecting_rod_length_m,
+                        driver.crank_radius_m, cylinder.connecting_rod_length_m,
+                        slave->throw_radius_m});
+    const double numerical_reach_guard_m =
+        kBinary64CertificateGuard * reach_scale_m;
+    if (!(check.forward_reach_margin_m > numerical_reach_guard_m)) {
+        check.reason = OneLevelMasterRodFullCycleReason::reachability_not_certified;
+        return check;
+    }
+
+    // Preserve pristine CombustionChamber::getVolume() written order. For a
+    // direct root, max(s) = Lm + r exactly. For a slave, |P| <= r + t gives the
+    // sufficient bound max(s) <= Ls + r + t.
+    const double sweep_volume_lower_bound_m3 =
+        cylinder.piston_area_m2 * (cylinder.deck_height_m - maximum_axis_position_m -
+                                   cylinder.piston_compression_height_m);
+    check.minimum_chamber_volume_m3 = sweep_volume_lower_bound_m3 +
+                                      cylinder.head_chamber_volume_m3 -
+                                      cylinder.piston_displacement_term_m3;
+    if (!std::isfinite(check.minimum_chamber_volume_m3)) {
+        check.reason = OneLevelMasterRodFullCycleReason::invalid_geometry;
+        check.forward_reach_margin_m = unavailable;
+        check.minimum_chamber_volume_m3 = unavailable;
+        return check;
+    }
+    const double volume_scale_m3 =
+        cylinder.piston_area_m2 *
+            (std::abs(cylinder.deck_height_m) +
+             std::abs(maximum_axis_position_m) +
+             std::abs(cylinder.piston_compression_height_m)) +
+        std::abs(cylinder.head_chamber_volume_m3) +
+        std::abs(cylinder.piston_displacement_term_m3);
+    const double numerical_volume_guard_m3 =
+        kBinary64CertificateGuard * volume_scale_m3;
+    if (!std::isfinite(numerical_volume_guard_m3)) {
+        check.reason = OneLevelMasterRodFullCycleReason::invalid_geometry;
+        check.forward_reach_margin_m = unavailable;
+        check.minimum_chamber_volume_m3 = unavailable;
+        return check;
+    }
+    if (!(check.minimum_chamber_volume_m3 > numerical_volume_guard_m3)) {
+        check.reason = OneLevelMasterRodFullCycleReason::chamber_volume_not_certified;
+        return check;
+    }
+
+    check.reason = OneLevelMasterRodFullCycleReason::admitted;
+    return check;
 }
 
 } // namespace engine_sim_offline::simulation

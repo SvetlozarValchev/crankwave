@@ -666,6 +666,14 @@ mode without changing held-speed or dynamic-crank behavior. The master-rod publi
 engine gate remains closed until the full-cycle certificate and radial mechanics/gas
 integration land together.
 
+The isolated full-cycle certificate primitive is now implemented. It analytically
+proves exact root reach and minimum volume and uses conservative one-level slave bounds
+without an angular sample grid. Canonical radial-five margins and three geometries that
+are valid at one point but fail later in the revolution are regression fixtures. This
+checkpoint grants no execution authority: the immutable master-rod plan does not yet
+invoke the certificate, and the public engine gate remains closed until prescribed
+radial mechanics and gas are wired in the same admitted path.
+
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,
 configuration-inertia, routing, conditioning, IR, and mastering paths. The BMW gate

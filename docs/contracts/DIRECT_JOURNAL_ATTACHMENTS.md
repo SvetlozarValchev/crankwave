@@ -1,7 +1,8 @@
 # Journal attachment graph
 
-Status: topology sub-slice 10C2b3; graph, typed core, pure geometry, and immutable
-mechanism plan implemented; master-rod runtime execution closed
+Status: topology sub-slice 10C2b4; graph, typed core, pure geometry, immutable
+mechanism plan, and analytic full-cycle certificate implemented; master-rod runtime
+execution closed
 
 ## One ownership path
 
@@ -76,10 +77,21 @@ one-level master/slave position and volume construction. The plan contains no sl
 stroke, nominal displacement, clearance-volume shortcut, equivalent inertia, wall
 reaction, or torque authority.
 
-This plan is point-evaluable, not yet executable. It does not certify that every
-cylinder remains reachable with positive chamber volume across a complete revolution;
-that full-cycle admission check belongs atomically to the prescribed-motion runtime
-gate.
+This plan is point-evaluable, not yet executable. A separate analytic primitive now
+certifies each resolved root or slave cylinder over a complete revolution without an
+angular sample grid. For a root it uses the exact `L + r` maximum piston-axis position.
+For a slave it uses the deliberately sufficient bounds `L_slave > r + throw` for
+forward reach and `s <= L_slave + r + throw` for maximum piston-axis position. Both
+paths evaluate the resulting minimum chamber volume in the pristine written order and
+require it to be strictly positive. Scale-aware binary64 guards reject ULP-scale reach
+or volume clearances instead of promising that numerically ambiguous geometry will
+execute. A failed sufficient slave proof is reported as `not_certified`; it is not
+mislabeled as proof that the authored linkage is impossible.
+
+The immutable plan does not invoke this certificate yet. Wiring the certificate to
+engine admission belongs atomically with the prescribed-motion mechanics/gas runtime
+gate, so a geometry-only plan cannot accidentally become a partially executable
+engine.
 
 The public engine compiler still rejects this plan at one explicit execution gate, so
 it cannot silently enter the direct mechanics, gas, crank, or capture runtimes. The
