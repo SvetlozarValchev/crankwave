@@ -9,6 +9,7 @@
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
 #include "simulation/low_order_inertial_dyno_v1_runtime.hpp"
 #include "simulation/low_order_operating_point_v1_runtime.hpp"
+#include "simulation/low_order_prescribed_kinematic_runtime.hpp"
 
 #include <concepts>
 #include <cstdint>
@@ -131,7 +132,7 @@ class LowOrderCaptureSession final {
   private:
     using ProfilePolicy =
         std::variant<LowOrderOperatingPointV1Runtime, LowOrderInertialDynoV1Runtime,
-                     LowOrderDynamicCrankRuntime>;
+                     LowOrderDynamicCrankRuntime, LowOrderPrescribedKinematicRuntime>;
 
     LowOrderCaptureSession(LowOrderEngineCoreV1Runtime core,
                            ProfilePolicy profile_policy,

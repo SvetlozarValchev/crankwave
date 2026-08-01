@@ -1833,6 +1833,176 @@ void test_declared_capture_capacity_drives_publication(
            "dynamic-capacity block was not published atomically");
 }
 
+[[nodiscard]] bool is_unavailable(const TorqueValueNm &value,
+                                  QuantityUnavailableReason reason) noexcept {
+    return value ==
+           TorqueValueNm{
+               0.0, Availability::unavailable, Completeness::incomplete, reason, 0U,
+               0U};
+}
+
+[[nodiscard]] bool is_unavailable(const QuantityValue &value,
+                                  QuantityUnavailableReason reason) noexcept {
+    return value == QuantityValue{0.0, Availability::unavailable,
+                                  Completeness::incomplete, reason};
+}
+
+void verify_prescribed_torque(const CaptureBlockView &block) {
+    for (std::size_t frame = 0; frame < block.frame_count(); ++frame) {
+        const auto *engine = block.engine_sample(frame);
+        expect(engine != nullptr, "prescribed capture lost an engine frame");
+
+        double aggregate_indicated_gas_torque_nm = 0.0;
+        for (std::size_t cylinder = 0; cylinder < block.layout().cylinders().size();
+             ++cylinder) {
+            const auto *sample = block.cylinder_sample(frame, cylinder);
+            expect(sample != nullptr,
+                   "prescribed capture lost a cylinder torque sample");
+            aggregate_indicated_gas_torque_nm += sample->indicated_gas_torque.value_nm;
+        }
+
+        const auto &torque = engine->torque;
+        expect(torque.instantaneous_indicated_gas ==
+                   TorqueValueNm{aggregate_indicated_gas_torque_nm,
+                                 Availability::available, Completeness::complete,
+                                 QuantityUnavailableReason::none,
+                                 indicated_gas_torque_term_mask(), 0U},
+               "prescribed capture did not publish the exact aggregate "
+               "indicated-gas torque");
+        expect(is_unavailable(torque.pumping_partition,
+                              QuantityUnavailableReason::model_not_admitted) &&
+                   is_unavailable(torque.friction_pump_and_accessory,
+                                  QuantityUnavailableReason::model_not_admitted) &&
+                   is_unavailable(torque.starter,
+                                  QuantityUnavailableReason::model_not_admitted) &&
+                   is_unavailable(torque.instantaneous_net_shaft,
+                                  QuantityUnavailableReason::model_not_admitted) &&
+                   is_unavailable(
+                       torque.cycle_mean_net_shaft,
+                       QuantityUnavailableReason::cycle_integration_not_admitted) &&
+                   is_unavailable(torque.actuator,
+                                  QuantityUnavailableReason::model_not_admitted) &&
+                   is_unavailable(torque.dyno_reaction,
+                                  QuantityUnavailableReason::model_not_admitted) &&
+                   is_unavailable(
+                       torque.cycle_work_j,
+                       QuantityUnavailableReason::cycle_integration_not_admitted) &&
+                   is_unavailable(
+                       torque.net_bmep_pa,
+                       QuantityUnavailableReason::cycle_integration_not_admitted) &&
+                   is_unavailable(torque.instantaneous_power_w,
+                                  QuantityUnavailableReason::model_not_admitted) &&
+                   is_unavailable(
+                       torque.cycle_mean_power_w,
+                       QuantityUnavailableReason::cycle_integration_not_admitted) &&
+                   validate(torque).ok(),
+               "prescribed capture invented an unavailable torque, power, work, "
+               "or BMEP quantity");
+    }
+}
+
+struct PrescribedLiveControlContext {
+    std::uint64_t next_step = 0U;
+};
+
+[[nodiscard]] engine_sim_offline::simulation::detail::LowOrderLiveControlStep
+drain_prescribed_live_control(void *context, std::uint64_t physics_step) noexcept {
+    auto &state = *static_cast<PrescribedLiveControlContext *>(context);
+    if (physics_step != state.next_step) {
+        return {};
+    }
+    ++state.next_step;
+    LiveControlOverrides overrides;
+    overrides.has_throttle = true;
+    overrides.throttle_01 = 0.25;
+    return {true, overrides};
+}
+
+[[nodiscard]] engine_sim_offline::test::AuthoredEngineFixture
+make_prescribed_capture_request(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    auto request = engine_sim_offline::test::make_prescribed_fixture(
+        canonical, std::vector<double>(kOperatingStepCount, kOperatingHeldRpm));
+    request.scenario.preparation = FixedSettling{
+        {0.1, "prescribed-capture-test.warm-up"},
+        {0.12, "prescribed-capture-test.settling"},
+    };
+    request.scenario.total_duration_s.value = kOperatingTotalDurationS;
+    request.scenario.audible_start_s.value = kOperatingCutoffTimeS;
+    request.scenario.audible_duration_s.value =
+        kOperatingTotalDurationS - kOperatingCutoffTimeS;
+    return request;
+}
+
+void test_prescribed_capture_is_finite_and_gas_torque_only(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    const auto request = make_prescribed_capture_request(canonical);
+    expect(validate_clock_grid(request.scenario).ok(),
+           "happy prescribed capture fixture is not on its declared clocks");
+    expect(validate_for_engine(request.scenario, request.engine).ok(),
+           "happy prescribed capture fixture is not admitted for its engine");
+
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario,
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity(), finite_extent(request.scenario)));
+
+    std::uint64_t published_frames = 0U;
+    std::uint64_t published_blocks = 0U;
+    while (published_frames < kOperatingStepCount) {
+        std::exception_ptr callback_error;
+        auto result = capture.publish_next_block([&](const CaptureBlockView &block) {
+            try {
+                verify_prescribed_torque(block);
+                published_frames += block.frame_count();
+                ++published_blocks;
+                return true;
+            } catch (...) {
+                callback_error = std::current_exception();
+                return false;
+            }
+        });
+        if (callback_error != nullptr) {
+            std::rethrow_exception(callback_error);
+        }
+        expect(std::holds_alternative<LowOrderCaptureBlockPublished>(result),
+               "prescribed session failed before its finite horizon");
+    }
+
+    auto completion =
+        capture.publish_next_block([](const CaptureBlockView &) { return true; });
+    const auto *completed = std::get_if<LowOrderCaptureCompleted>(&completion);
+    expect(completed != nullptr && completed->sample_count == kOperatingStepCount &&
+               completed->block_count == published_blocks &&
+               !completed->held_speed_operating_point.has_value() &&
+               !completed->inertial_dyno.has_value() && capture.completed() &&
+               !capture.faulted(),
+           "prescribed session did not finish without invented result evidence");
+
+    auto controlled = require_simulation(compile_low_order_capture_session(
+        request.engine, request.scenario,
+        fixture_random_plan(request, request.engine, request.scenario),
+        nonzero_request_identity(), finite_extent(request.scenario)));
+    PrescribedLiveControlContext context;
+    const engine_sim_offline::simulation::detail::LowOrderLiveControlProvider provider{
+        &context, request.scenario.rates.physics, &drain_prescribed_live_control};
+    std::size_t callback_count = 0U;
+    auto rejected = controlled.publish_next_block(
+        [&](const CaptureBlockView &) {
+            ++callback_count;
+            return true;
+        },
+        provider);
+    const auto *failure = std::get_if<FailureContext>(&rejected);
+    expect(failure != nullptr &&
+               failure->detail_code ==
+                   "prescribed-kinematic-live-controls-not-admitted" &&
+               controlled.faulted() && !controlled.completed() &&
+               controlled.published_sample_count() == 0U &&
+               controlled.published_block_count() == 0U && callback_count == 0U,
+           "prescribed session applied or published a live control override");
+}
+
 void test_capture_partition_admission_rejection(
     const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
     {
@@ -1860,14 +2030,19 @@ void test_capture_partition_admission_rejection(
                                            "wrong fixed-horizon method configuration");
     }
     {
-        auto request = engine_sim_offline::test::make_prescribed_fixture(
-            canonical, std::vector<double>(kOperatingStepCount, kOperatingHeldRpm));
-        request.scenario.total_duration_s.value = kOperatingTotalDurationS;
-        request.scenario.audible_start_s.value = kOperatingCutoffTimeS;
-        request.scenario.audible_duration_s.value =
-            kOperatingTotalDurationS - kOperatingCutoffTimeS;
-        expect_simulation_compile_rejected(request,
-                                           "prescribed motion with operating profile");
+        auto request = make_prescribed_capture_request(canonical);
+        auto fixed_horizon =
+            std::get<FixedHorizonCycleSampling>(canonical.scenario.preparation);
+        fixed_horizon.fixed_preparation_horizon_s.value = kOperatingCutoffTimeS;
+        request.scenario.preparation = std::move(fixed_horizon);
+        expect_simulation_compile_rejected(
+            request, "fixed-horizon preparation for prescribed motion");
+    }
+    {
+        auto request = make_prescribed_capture_request(canonical);
+        request.scenario.operating_state.value.front().state.dyno_enabled = false;
+        expect_simulation_compile_rejected(
+            request, "non-held operating state for prescribed motion");
     }
 }
 
@@ -1890,6 +2065,7 @@ void run_tests(const engine_sim_offline::test::AuthoredEngineFixture &canonical)
     test_consumer_rejection_is_a_stable_terminal_fault(canonical);
     test_consumer_exception_is_a_stable_terminal_fault(canonical);
     test_reentrant_publication_preserves_outer_view_and_faults(canonical);
+    test_prescribed_capture_is_finite_and_gas_torque_only(canonical);
     test_capture_partition_admission_rejection(canonical);
 }
 

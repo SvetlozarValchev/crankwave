@@ -143,6 +143,10 @@ void run_scenario_manifest_contract_tests() {
     fixed_rpm_scenario.mode = std::move(fixed_sweep);
     fixed_rpm_scenario.mode_resolution_id =
         fixed_rpm_builder.add_resolution("scenario.mode.kind");
+    fixed_rpm_scenario.preparation = FixedSettling{
+        fixed_rpm_builder.resolved(1.0, "scenario.preparation.warm_up_duration_s"),
+        fixed_rpm_builder.resolved(1.0, "scenario.preparation.settling_duration_s"),
+    };
     expect(validate(fixed_rpm_scenario, fixed_rpm_builder.provenance).ok(),
            "valid owned fixed-rate RPM trajectory was rejected");
 
@@ -358,10 +362,14 @@ void run_scenario_manifest_contract_tests() {
     expect(validate_for_engine(operating_scenario, operating_engine).ok(),
            "valid operating-profile held-speed scenario was rejected");
 
-    auto wrong_operating_mode = operating_scenario;
-    wrong_operating_mode.mode = fixed_rpm_scenario.mode;
-    expect(!validate_for_engine(wrong_operating_mode, operating_engine).ok(),
-           "operating profile accepted a prescribed sweep");
+    expect(validate_for_engine(fixed_rpm_scenario, operating_engine).ok(),
+           "operating profile rejected a direct prescribed sweep with fixed "
+           "settling");
+    auto sampled_prescribed_scenario = fixed_rpm_scenario;
+    sampled_prescribed_scenario.preparation = operating_scenario.preparation;
+    expect(!validate_for_engine(sampled_prescribed_scenario, operating_engine).ok(),
+           "operating profile accepted fixed-horizon evidence for a prescribed "
+           "sweep");
     auto fixed_operating_preparation = operating_scenario;
     fixed_operating_preparation.preparation = FixedSettling{};
     expect(!validate_for_engine(fixed_operating_preparation, operating_engine).ok(),

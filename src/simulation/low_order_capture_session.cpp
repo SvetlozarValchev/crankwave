@@ -176,6 +176,16 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
                     "low-order-dynamic-crank-policy-completion-disagreed",
                     "dynamic-crank policy did not finish the exact capture horizon"));
             }
+        } else if (const auto *policy = std::get_if<LowOrderPrescribedKinematicRuntime>(
+                       &profile_policy_)) {
+            if (policy->accepted_sample_count() != *expected_samples ||
+                !policy->finalized() || policy->faulted()) {
+                return fail(fault(
+                    contract::FailureKind::contract_violation,
+                    "low-order-prescribed-policy-completion-disagreed",
+                    "prescribed-kinematic policy did not finish the exact capture "
+                    "horizon"));
+            }
         }
         terminal_completion_ = LowOrderCaptureCompleted{
             published_sample_count_,
@@ -219,6 +229,14 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
                           "held-speed operating-point evidence does not admit live "
                           "throttle, ignition, fuel, limiter, or external-resistance "
                           "overrides"));
+            }
+            if (auto *prescribed =
+                    std::get_if<LowOrderPrescribedKinematicRuntime>(&profile_policy_)) {
+                if (const auto failure =
+                        prescribed->reject_live_overrides(live_overrides);
+                    failure.has_value()) {
+                    return fail(*failure);
+                }
             }
         }
 
@@ -320,6 +338,16 @@ LowOrderCaptureAdvanceResult LowOrderCaptureSession::publish_next_block_impl(
                         auto evaluated = policy.advance(mechanics, gas);
                         if (const auto *step =
                                 std::get_if<LowOrderOperatingPointV1Step>(&evaluated)) {
+                            return step->capture_torque;
+                        }
+                        return std::get<contract::FailureContext>(std::move(evaluated));
+                    } else if constexpr (std::is_same_v<
+                                             Policy,
+                                             LowOrderPrescribedKinematicRuntime>) {
+                        auto evaluated = policy.advance(mechanics, gas);
+                        if (const auto *step =
+                                std::get_if<LowOrderPrescribedKinematicStep>(
+                                    &evaluated)) {
                             return step->capture_torque;
                         }
                         return std::get<contract::FailureContext>(std::move(evaluated));

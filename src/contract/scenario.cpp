@@ -1335,14 +1335,18 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
             using Profile = std::decay_t<decltype(profile)>;
             if constexpr (std::is_same_v<Profile, LowOrderOperatingPointV1Profile>) {
                 if (!std::holds_alternative<HeldSpeed>(scenario.mode) &&
+                    !std::holds_alternative<PrescribedKinematicSweep>(scenario.mode) &&
                     !std::holds_alternative<HeldDyno>(scenario.mode) &&
                     !std::holds_alternative<InertialDyno>(scenario.mode) &&
                     !std::holds_alternative<FreeEngine>(scenario.mode) &&
                     !std::holds_alternative<FreeVehicle>(scenario.mode)) {
                     report.add(ContractIssueCode::unsupported_value, "mode",
-                               "operating-point v1 admits held-speed, held-dyno, "
-                               "inertial-dyno, free-engine, and free-vehicle modes");
+                               "operating-point v1 admits held-speed, prescribed-"
+                               "kinematic-sweep, held-dyno, inertial-dyno, free-"
+                               "engine, and free-vehicle modes");
                 }
+                const bool prescribed_motion =
+                    std::holds_alternative<PrescribedKinematicSweep>(scenario.mode);
                 const bool free_motion =
                     std::holds_alternative<FreeEngine>(scenario.mode) ||
                     std::holds_alternative<FreeVehicle>(scenario.mode);
@@ -1356,7 +1360,14 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                         free_motion_release_s = 0.0;
                     }
                 }
-                if (!free_motion) {
+                if (prescribed_motion) {
+                    if (!std::holds_alternative<FixedSettling>(scenario.preparation)) {
+                        report.add(
+                            ContractIssueCode::unsupported_value, "preparation",
+                            "prescribed kinematic operating-point execution requires "
+                            "fixed settling");
+                    }
+                } else if (!free_motion) {
                     const auto *sampling =
                         std::get_if<FixedHorizonCycleSampling>(&scenario.preparation);
                     if (sampling == nullptr) {

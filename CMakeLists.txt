@@ -253,6 +253,7 @@ add_library(
         src/simulation/low_order_inertial_dyno_v1_runtime_compile.cpp
         src/simulation/low_order_operating_point_v1_runtime.cpp
         src/simulation/low_order_operating_point_v1_runtime_compile.cpp
+        src/simulation/low_order_prescribed_kinematic_runtime.cpp
         src/simulation/operating_cycle_accountant.cpp
 )
 add_library(

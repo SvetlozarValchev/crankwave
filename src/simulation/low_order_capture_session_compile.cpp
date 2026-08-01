@@ -32,6 +32,8 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     const auto *operating_profile =
         std::get_if<contract::LowOrderOperatingPointV1Profile>(&engine.physics_profile);
     const auto *inertial = std::get_if<contract::InertialDyno>(&scenario.mode);
+    const auto *prescribed =
+        std::get_if<contract::PrescribedKinematicSweep>(&scenario.mode);
     const auto *free_engine = std::get_if<contract::FreeEngine>(&scenario.mode);
     const auto *held_dyno = std::get_if<contract::HeldDyno>(&scenario.mode);
     const auto *free_vehicle = std::get_if<contract::FreeVehicle>(&scenario.mode);
@@ -79,7 +81,18 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
     auto mechanism_plan = std::get<SharedMechanismKinematicsPlan>(
         std::move(mechanism_plan_result));
     if (operating_profile != nullptr) {
-        if (inertial != nullptr) {
+        if (prescribed != nullptr) {
+            auto prescribed_result = compile_low_order_prescribed_kinematic_runtime(
+                engine, scenario, execution_extent);
+            if (auto *prescribed_report =
+                    std::get_if<ValidationReport>(&prescribed_result)) {
+                return std::move(*prescribed_report);
+            }
+            profile_policy.emplace(
+                std::in_place_type<LowOrderPrescribedKinematicRuntime>,
+                std::get<LowOrderPrescribedKinematicRuntime>(
+                    std::move(prescribed_result)));
+        } else if (inertial != nullptr) {
             auto inertial_result = compile_low_order_inertial_dyno_v1_runtime(
                 engine, scenario, capture_plan, simulation_request_identity_v3_sha256);
             if (auto *inertial_report =

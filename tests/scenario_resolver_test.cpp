@@ -275,6 +275,53 @@ void test_held_speed_resolution_on_the_integer_clock() {
                std::get<compile::ResolvedScenarioContracts>(repeated) == resolved,
            "identical authored scenario did not resolve deterministically");
 
+    auto external_speed_document = document;
+    external_speed_document.id.value = "resolver.external-speed";
+    external_speed_document.preparation = authoring::FixedSettlingPreparation{
+        quantity(1.0, "s"),
+        quantity(1.0, "s"),
+    };
+    authoring::ExternalSpeedMode external_speed;
+    external_speed.engine_speed.value_dimension =
+        authoring::QuantityDimension::angular_speed;
+    external_speed.engine_speed.interpolation =
+        authoring::TrajectoryInterpolation::linear;
+    external_speed.engine_speed.points = {
+        {quantity(0.0, "s"), quantity(3000.0, "rpm")},
+        {quantity(3.0, "s"), quantity(4500.0, "rpm")},
+    };
+    external_speed.throttle_01.interpolation =
+        authoring::TrajectoryInterpolation::right_continuous_hold;
+    external_speed.throttle_01.points = {{quantity(0.0, "s"), 0.85}};
+    external_speed_document.mode = std::move(external_speed);
+
+    auto external_speed_result =
+        compile::resolve_scenario_document(external_speed_document, context);
+    if (const auto *report =
+            std::get_if<authoring::DiagnosticReport>(&external_speed_result)) {
+        const auto message =
+            report->diagnostics.empty()
+                ? std::string{"external-speed resolver returned an empty diagnostic"}
+                : report->diagnostics.front().json_pointer + ": " +
+                      report->diagnostics.front().message;
+        throw std::runtime_error{message};
+    }
+    const auto &external_speed_contracts =
+        std::get<compile::ResolvedScenarioContracts>(external_speed_result);
+    const auto &prescribed = std::get<contract::PrescribedKinematicSweep>(
+        external_speed_contracts.scenario.mode);
+    const auto &rpm_lane =
+        std::get<contract::FixedRateRpmTrajectory>(prescribed.trajectory.rpm);
+    expect(std::holds_alternative<contract::FixedSettling>(
+               external_speed_contracts.scenario.preparation) &&
+               rpm_lane.post_step_rpm.size() == 30000U &&
+               rpm_lane.post_step_rpm.front() > 3000.0 &&
+               rpm_lane.post_step_rpm.back() == 4500.0 &&
+               prescribed.throttle_01.points.size() == 1U &&
+               prescribed.throttle_01.points.front().value == 0.85,
+           "direct external-speed scenario did not compile to prescribed motion "
+           "with fixed settling");
+
     auto with_events = document;
     authoring::OperatingStatePatch retain_limiter_policy;
     retain_limiter_policy.limiter_enabled = false;

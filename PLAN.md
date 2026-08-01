@@ -656,6 +656,16 @@ holds it behind one explicit runtime gate. The next isolated sub-slice opens tha
 only for prescribed external-speed mechanics, gas, and capture execution, and owns
 the required full-cycle reachability and positive-volume admission check.
 
+The existing direct mechanism now admits `prescribed_kinematic_sweep` through the
+public scenario contract and finite capture path. It reuses the established kinematic
+schedule, mechanics, gas, excitation, and presentation core. Its dedicated capture
+policy publishes only complete instantaneous indicated-gas torque; shaft/reaction
+torque, power, work, and cycle evidence remain explicitly unavailable, and live
+overrides are rejected. This closes a previously documented-but-unreachable direct
+mode without changing held-speed or dynamic-crank behavior. The master-rod public
+engine gate remains closed until the full-cycle certificate and radial mechanics/gas
+integration land together.
+
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,
 configuration-inertia, routing, conditioning, IR, and mastering paths. The BMW gate

@@ -74,7 +74,7 @@ RPM, load, and throttle cannot all be independent authoritative inputs:
 | Mode | Host supplies | Simulator resolves |
 |---|---|---|
 | `held_speed` | Authored fixed RPM and throttle | Engine state and reaction-torque evidence |
-| `prescribed_kinematic_sweep` | Authored RPM trajectory and throttle | Cylinder state and reaction-torque telemetry |
+| `prescribed_kinematic_sweep` | Authored RPM trajectory and throttle | Cylinder state, audio, and complete instantaneous indicated-gas torque; shaft/reaction torque, power, work, and cycle evidence remain explicitly unavailable |
 | `held_dyno` | Throttle, ignition/fuel state, positive target RPM, and nonnegative absorbing/driving limits | Achieved RPM, required/applied actuator torque, dyno reaction, and limit disposition |
 | `load_target_held_capture` | Fixed RPM and target load/BMEP | Converged throttle and operating-point evidence |
 | `inertial_dyno` | Throttle and ignition/fuel state around the compiled passive brake/inertia protocol | Crank RPM and target-crossing evidence |
