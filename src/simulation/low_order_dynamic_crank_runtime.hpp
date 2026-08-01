@@ -284,7 +284,7 @@ using LowOrderDynamicCrankCompileResult =
 [[nodiscard]] LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
-    const contract::Sha256Digest &simulation_request_identity_v6_sha256,
+    const contract::Sha256Digest &simulation_request_identity_v7_sha256,
     SharedMechanismKinematicsPlan mechanism_plan,
     LowOrderExecutionExtent execution_extent);
 

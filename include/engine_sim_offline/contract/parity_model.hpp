@@ -405,6 +405,7 @@ struct AuthoredLegacyCamLobe {
 struct LegacyCamLobe {
     CylinderId cylinder_id;
     PortId port_id;
+    std::uint32_t profile_index = 0;
     ResolvedValue<double> crank_center_rad;
 
     friend bool operator==(const LegacyCamLobe &, const LegacyCamLobe &) = default;
@@ -420,7 +421,17 @@ template <class Shape, class Lobe> struct LegacyCamshaftProfileT {
 
 using AuthoredLegacyCamshaftProfile =
     LegacyCamshaftProfileT<AuthoredLegacyCamShape, AuthoredLegacyCamLobe>;
-using LegacyCamshaftProfile = LegacyCamshaftProfileT<LegacyCamShape, LegacyCamLobe>;
+
+// A resolved role spans every physical camshaft serving that valve role. Profiles
+// are ordered by first use in engine-cylinder order; each lobe selects the profile
+// owned by its bank-local physical camshaft.
+struct LegacyCamshaftProfile {
+    std::vector<LegacyCamShape> profiles;
+    std::vector<LegacyCamLobe> lobes;
+
+    friend bool operator==(const LegacyCamshaftProfile &,
+                           const LegacyCamshaftProfile &) = default;
+};
 
 template <class Camshaft> struct LegacyValvetrainProfileT {
     Camshaft intake;

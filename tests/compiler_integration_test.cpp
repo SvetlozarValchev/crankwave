@@ -332,6 +332,13 @@ require_fixed_valvetrain(const contract::EngineSpec &engine,
     return std::get<simulation::LegacyFixedValvetrain>(std::move(result));
 }
 
+[[nodiscard]] const contract::LegacyCamShape &
+only_cam_profile(const contract::LegacyCamshaftProfile &camshaft) {
+    expect(camshaft.profiles.size() == 1U,
+           "fixture camshaft did not contain exactly one profile");
+    return camshaft.profiles.front();
+}
+
 [[nodiscard]] std::string indexed_id(const std::string_view prefix,
                                      const std::size_t one_based_index) {
     return std::string{prefix} + std::to_string(one_based_index);
@@ -2054,9 +2061,9 @@ void test_sampled_fixed_cam_resolves_si_curve_and_provenance() {
     const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
         resolved.engine.physics_profile);
     const auto *sampled = std::get_if<contract::LegacySampledCamShape>(
-        &profile.core.valvetrain.intake.shape);
+        &only_cam_profile(profile.core.valvetrain.intake));
     const auto *harmonic = std::get_if<contract::LegacyHarmonicCamShape>(
-        &profile.core.valvetrain.exhaust.shape);
+        &only_cam_profile(profile.core.valvetrain.exhaust));
     expect(sampled != nullptr && harmonic != nullptr,
            "sampled intake changed the independent harmonic exhaust shape");
 
@@ -2082,19 +2089,19 @@ void test_sampled_fixed_cam_resolves_si_curve_and_provenance() {
                        resolution.mode == contract::ResolutionMode::authored;
             });
     };
-    expect(has_resolution(
-               "engine.physics.low-order-operating-point-v1.valvetrain.intake.shape."
-               "triangle_radius_rad") &&
-               has_resolution(
-                   "engine.physics.low-order-operating-point-v1.valvetrain.intake."
-                   "shape.samples.sample-1.sample_id") &&
-               has_resolution(
-                   "engine.physics.low-order-operating-point-v1.valvetrain.intake."
-                   "shape.samples.sample-1.angle_rad") &&
-               has_resolution(
-                   "engine.physics.low-order-operating-point-v1.valvetrain.intake."
-                   "shape.samples.sample-1.lift_m"),
-           "sampled fixed cam lost authored per-sample provenance");
+    expect(
+        has_resolution("engine.physics.low-order-operating-point-v1.valvetrain.intake."
+                       "profiles.profile-0.shape.triangle_radius_rad") &&
+            has_resolution(
+                "engine.physics.low-order-operating-point-v1.valvetrain.intake."
+                "profiles.profile-0.shape.samples.sample-1.sample_id") &&
+            has_resolution(
+                "engine.physics.low-order-operating-point-v1.valvetrain.intake."
+                "profiles.profile-0.shape.samples.sample-1.angle_rad") &&
+            has_resolution(
+                "engine.physics.low-order-operating-point-v1.valvetrain.intake."
+                "profiles.profile-0.shape.samples.sample-1.lift_m"),
+        "sampled fixed cam lost authored per-sample provenance");
 
     (void)require_value(compile::compile_engine(document, views),
                         "public compiler rejected a valid sampled fixed cam");
@@ -2116,12 +2123,16 @@ void test_harmonic_and_equivalent_sampled_cam_sessions_are_identical() {
     auto sampled_document = harmonic_document;
     constexpr std::string_view kIntakeCurveId = "sampled-equivalent-intake-lift";
     constexpr std::string_view kExhaustCurveId = "sampled-equivalent-exhaust-lift";
+    const auto &harmonic_intake_profile =
+        harmonic_valvetrain.intake_cam_profiles().front();
+    const auto &harmonic_exhaust_profile =
+        harmonic_valvetrain.exhaust_cam_profiles().front();
     sampled_document.engine.curves.push_back(sampled_cam_curve_from_table(
-        std::string{kIntakeCurveId}, harmonic_valvetrain.intake_lobe_table(),
-        harmonic_valvetrain.intake_lobe_triangle_radius_rad()));
+        std::string{kIntakeCurveId}, harmonic_intake_profile.lobe_table,
+        harmonic_intake_profile.lobe_triangle_radius_rad));
     sampled_document.engine.curves.push_back(sampled_cam_curve_from_table(
-        std::string{kExhaustCurveId}, harmonic_valvetrain.exhaust_lobe_table(),
-        harmonic_valvetrain.exhaust_lobe_triangle_radius_rad()));
+        std::string{kExhaustCurveId}, harmonic_exhaust_profile.lobe_table,
+        harmonic_exhaust_profile.lobe_triangle_radius_rad));
     for (auto &lobe : sampled_document.engine.cam_lobes) {
         lobe.shape = authoring::SampledCamLobe{authoring::CurveRef{std::string{
             lobe.port_kind == authoring::PortKind::intake ? kIntakeCurveId
@@ -2136,15 +2147,20 @@ void test_harmonic_and_equivalent_sampled_cam_sessions_are_identical() {
     const auto sampled_valvetrain = require_fixed_valvetrain(
         sampled_resolved.engine, sampled_profile,
         "equivalent sampled fixture failed to compile its valvetrain");
-    expect(std::ranges::equal(std::as_bytes(harmonic_valvetrain.intake_lobe_table()),
-                              std::as_bytes(sampled_valvetrain.intake_lobe_table())) &&
+    const auto &sampled_intake_profile =
+        sampled_valvetrain.intake_cam_profiles().front();
+    const auto &sampled_exhaust_profile =
+        sampled_valvetrain.exhaust_cam_profiles().front();
+    expect(std::ranges::equal(
+               std::as_bytes(std::span{harmonic_intake_profile.lobe_table}),
+               std::as_bytes(std::span{sampled_intake_profile.lobe_table})) &&
                std::ranges::equal(
-                   std::as_bytes(harmonic_valvetrain.exhaust_lobe_table()),
-                   std::as_bytes(sampled_valvetrain.exhaust_lobe_table())) &&
-               harmonic_valvetrain.intake_lobe_triangle_radius_rad() ==
-                   sampled_valvetrain.intake_lobe_triangle_radius_rad() &&
-               harmonic_valvetrain.exhaust_lobe_triangle_radius_rad() ==
-                   sampled_valvetrain.exhaust_lobe_triangle_radius_rad(),
+                   std::as_bytes(std::span{harmonic_exhaust_profile.lobe_table}),
+                   std::as_bytes(std::span{sampled_exhaust_profile.lobe_table})) &&
+               harmonic_intake_profile.lobe_triangle_radius_rad ==
+                   sampled_intake_profile.lobe_triangle_radius_rad &&
+               harmonic_exhaust_profile.lobe_triangle_radius_rad ==
+                   sampled_exhaust_profile.lobe_triangle_radius_rad,
            "generated harmonic and equivalent sampled cam tables differ");
 
     const auto harmonic_engine =
@@ -2253,7 +2269,7 @@ void test_four_cam_vtec_resolves_to_si_and_provenance() {
            "resolved VTEC profile omitted its alternate cam pair");
     const auto &alternate = *profile.core.valvetrain.alternate;
     const auto &alternate_intake =
-        std::get<contract::LegacyHarmonicCamShape>(alternate.intake.shape);
+        std::get<contract::LegacyHarmonicCamShape>(only_cam_profile(alternate.intake));
     const auto near = [](const double left, const double right) {
         return std::abs(left - right) <= 1.0e-12;
     };
@@ -2275,7 +2291,7 @@ void test_four_cam_vtec_resolves_to_si_and_provenance() {
     };
     expect(has_resolution(
                "engine.physics.low-order-operating-point-v1.valvetrain.alternate."
-               "intake.shape.maximum_lift_m") &&
+               "intake.profiles.profile-0.shape.maximum_lift_m") &&
                has_resolution(
                    "engine.physics.low-order-operating-point-v1.valvetrain.alternate."
                    "activation.minimum_engine_speed_rad_s") &&

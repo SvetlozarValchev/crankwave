@@ -8,25 +8,25 @@
 ; from the complete owned binary64 vector using the typed contract's canonical
 ; little-endian grammar.
 
-render-manifest-simulation-v9 = {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v9",
-  "content": render-manifest-content-simulation-v9,
+render-manifest-simulation-v10 = {
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v10",
+  "content": render-manifest-content-simulation-v10,
   "execution": execution-facts
 }
 
 ; Canonical identity for a resolved simulator request before presentation/render
 ; composition. This domain is intentionally distinct from the completed manifest.
-simulation-request-identity-v6 = {
-  "wire_schema": "engine-sim-offline.simulation-request-identity.v6",
+simulation-request-identity-v7 = {
+  "wire_schema": "engine-sim-offline.simulation-request-identity.v7",
   "engine": engine-spec,
   "scenario": render-scenario,
   "random_plan": random-plan,
   "provenance": provenance-bundle-ref
 }
 
-render-manifest-content-simulation-v9 = {
-  "schema_version": 9,
-  "inputs": simulation-manifest-inputs-v8,
+render-manifest-content-simulation-v10 = {
+  "schema_version": 10,
+  "inputs": simulation-manifest-inputs-v9,
   "provenance": provenance-bundle-ref,
   "determinism": determinism-envelope,
   "rates": render-rates,
@@ -37,12 +37,12 @@ render-manifest-content-simulation-v9 = {
   "artifacts": [* artifact-record]
 }
 
-simulation-manifest-inputs-v8 = {
-  "kind": "simulation_v8",
-  "value": simulation-inputs-v8
+simulation-manifest-inputs-v9 = {
+  "kind": "simulation_v9",
+  "value": simulation-inputs-v9
 }
 
-simulation-inputs-v8 = {
+simulation-inputs-v9 = {
   "resolved": resolved-render-inputs
 }
 
@@ -396,15 +396,18 @@ legacy-exhaust-route-parameters = {
 
 legacy-valvetrain-profile = {
   "intake": legacy-camshaft-profile,
-  "exhaust": legacy-camshaft-profile
+  "exhaust": legacy-camshaft-profile,
+  ? "alternate": legacy-vtec-alternate-cam-profile
 }
 
 legacy-camshaft-profile = {
-  "shape": legacy-cam-shape,
+  "profiles": [* legacy-cam-shape],
   "lobes": [* legacy-cam-lobe]
 }
 
-legacy-cam-shape = {
+legacy-cam-shape = legacy-harmonic-cam-shape / legacy-sampled-cam-shape
+
+legacy-harmonic-cam-shape = {
   "maximum_lift_m": resolved<f64-bits>,
   "duration_at_reference_lift_rad": resolved<f64-bits>,
   "exponent": resolved<f64-bits>,
@@ -413,10 +416,37 @@ legacy-cam-shape = {
   "base_radius_m": resolved<f64-bits>
 }
 
+legacy-sampled-cam-shape = {
+  "kind": "sampled",
+  "triangle_radius_rad": resolved<f64-bits>,
+  "samples": [* legacy-sampled-cam-point],
+  "advance_rad": resolved<f64-bits>,
+  "base_radius_m": resolved<f64-bits>
+}
+
+legacy-sampled-cam-point = {
+  "sample_id": resolved<tstr>,
+  "angle_rad": resolved<f64-bits>,
+  "lift_m": resolved<f64-bits>
+}
+
 legacy-cam-lobe = {
   "cylinder_id": stable-id,
   "port_id": stable-id,
+  "profile_index": u32,
   "crank_center_rad": resolved<f64-bits>
+}
+
+legacy-vtec-alternate-cam-profile = {
+  "intake": legacy-camshaft-profile,
+  "exhaust": legacy-camshaft-profile,
+  "activation": legacy-vtec-activation-profile
+}
+
+legacy-vtec-activation-profile = {
+  "minimum_engine_speed_rad_s": resolved<f64-bits>,
+  "minimum_mean_manifold_pressure_pa_abs": resolved<f64-bits>,
+  "minimum_throttle_linkage_opening_01": resolved<f64-bits>
 }
 
 legacy-ignition-profile = {

@@ -25,13 +25,13 @@ using namespace engine_sim_offline::contract::test;
 using namespace engine_sim_offline::identity;
 
 constexpr std::string_view kExpectedCanonicalManifestSha256 =
-    "c07b429eb2e844d9ace23eacde1d479ebb6b671834d16ca4ea6e8c25081cd430";
+    "02e12c54cda7aea3c76ac03c0a83dceb01f6aa3aaa5cff4fc5ddeca5b2fbe074";
 constexpr std::string_view kExpectedCanonicalRequestIdentitySha256 =
-    "6019a719d67897c6ae0180323d299253c3edf14556e873e96134edee24b4edac";
+    "31ec9d39c3ab2529e0d4f042965536d4becb23cb18f5643b0294eedb53369f94";
 constexpr std::string_view kExpectedCustomizedManifestSha256 =
-    "ba58627be6cf75c49cde1c21e34df06b5fb7f6f612f88e468ac5acb053a1f76a";
+    "df06c59fc3de14232e4b538e04d894d40faa529f8116a3bea5fc8f6284322eba";
 constexpr std::string_view kExpectedCustomizedRequestIdentitySha256 =
-    "ded56a01243c0e115b75f642d560efd91c3cfd430c89a4898a70e4b147aa5c30";
+    "e8e6d29bcba2989fb7260458791944d5ab59c3ae77e02b527ab07d55f46145a6";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -66,7 +66,7 @@ void require_valid(const ValidationReport &report, std::string_view message) {
 
 [[nodiscard]] ExecutionFacts deterministic_execution() {
     return {
-        "simulation-manifest-encoder-test-v9",
+        "simulation-manifest-encoder-test-v10",
         "2026-07-28T12:34:56Z",
         std::chrono::nanoseconds{UINT64_C(1234567890)},
         "linux",
@@ -87,6 +87,18 @@ struct SimulationFixture {
     };
 };
 
+LegacyCamShape &only_cam_profile(LegacyCamshaftProfile &camshaft) {
+    expect(camshaft.profiles.size() == 1U,
+           "fixture camshaft did not contain exactly one profile");
+    return camshaft.profiles.front();
+}
+
+const LegacyCamShape &only_cam_profile(const LegacyCamshaftProfile &camshaft) {
+    expect(camshaft.profiles.size() == 1U,
+           "fixture camshaft did not contain exactly one profile");
+    return camshaft.profiles.front();
+}
+
 LegacyCamshaftProfile make_vtec_camshaft(InputBuilder &builder,
                                          const LegacyCamshaftProfile &source,
                                          std::string_view role, double maximum_lift_m) {
@@ -94,22 +106,25 @@ LegacyCamshaftProfile make_vtec_camshaft(InputBuilder &builder,
         std::string{"engine.physics.low-order-operating-point-v1.valvetrain."
                     "alternate."} +
         std::string{role};
-    const auto &shape = std::get<LegacyHarmonicCamShape>(source.shape);
+    const auto profile_base = base + ".profiles.profile-0";
+    const auto &shape = std::get<LegacyHarmonicCamShape>(only_cam_profile(source));
     LegacyCamshaftProfile result;
-    result.shape = LegacyHarmonicCamShape{
-        builder.resolved(maximum_lift_m, base + ".shape.maximum_lift_m"),
+    result.profiles.push_back(LegacyHarmonicCamShape{
+        builder.resolved(maximum_lift_m, profile_base + ".shape.maximum_lift_m"),
         builder.resolved(shape.duration_at_reference_lift_rad.value,
-                         base + ".shape.duration_at_reference_lift_rad"),
-        builder.resolved(shape.exponent.value, base + ".shape.exponent"),
+                         profile_base + ".shape.duration_at_reference_lift_rad"),
+        builder.resolved(shape.exponent.value, profile_base + ".shape.exponent"),
         builder.resolved(shape.construction_steps.value,
-                         base + ".shape.construction_steps"),
-        builder.resolved(shape.advance_rad.value, base + ".shape.advance_rad"),
-        builder.resolved(shape.base_radius_m.value, base + ".shape.base_radius_m"),
-    };
+                         profile_base + ".shape.construction_steps"),
+        builder.resolved(shape.advance_rad.value, profile_base + ".shape.advance_rad"),
+        builder.resolved(shape.base_radius_m.value,
+                         profile_base + ".shape.base_radius_m"),
+    });
     for (const auto &lobe : source.lobes) {
         result.lobes.push_back({
             lobe.cylinder_id,
             lobe.port_id,
+            lobe.profile_index,
             builder.resolved(lobe.crank_center_rad.value,
                              base + ".lobes.cylinder-1.crank_center_rad"),
         });
@@ -138,7 +153,7 @@ make_vtec_alternate(InputBuilder &builder, const LegacyValvetrainProfile &valvet
 
 [[nodiscard]] std::vector<std::byte>
 require_manifest_encoding(const RenderManifest &manifest) {
-    auto result = encode_simulation_manifest_v9(manifest);
+    auto result = encode_simulation_manifest_v10(manifest);
     if (const auto *error = std::get_if<RenderSinkError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
     }
@@ -148,7 +163,7 @@ require_manifest_encoding(const RenderManifest &manifest) {
 [[nodiscard]] SimulationRequestIdentityEncoding require_request_identity_encoding(
     const EngineSpec &engine, const RenderScenario &scenario,
     const RandomPlan &random_plan, const ProvenanceBundleRef &provenance) {
-    auto result = encode_simulation_request_identity_v6(engine, scenario, random_plan,
+    auto result = encode_simulation_request_identity_v7(engine, scenario, random_plan,
                                                         provenance);
     if (const auto *error = std::get_if<SimulationRequestIdentityError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
@@ -158,7 +173,7 @@ require_manifest_encoding(const RenderManifest &manifest) {
 
 void expect_manifest_error(const RenderManifest &manifest,
                            std::string_view detail_code) {
-    const auto result = encode_simulation_manifest_v9(manifest);
+    const auto result = encode_simulation_manifest_v10(manifest);
     const auto *error = std::get_if<RenderSinkError>(&result);
     expect(error != nullptr, "invalid simulation manifest unexpectedly encoded");
     expect(error->kind == RenderSinkErrorKind::protocol_violation,
@@ -172,7 +187,7 @@ void expect_request_identity_error(const EngineSpec &engine,
                                    const RandomPlan &random_plan,
                                    const ProvenanceBundleRef &provenance,
                                    std::string_view detail_code) {
-    const auto result = encode_simulation_request_identity_v6(engine, scenario,
+    const auto result = encode_simulation_request_identity_v7(engine, scenario,
                                                               random_plan, provenance);
     const auto *error = std::get_if<SimulationRequestIdentityError>(&result);
     expect(error != nullptr,
@@ -199,8 +214,8 @@ struct GoldenHashes {
 
     const auto manifest_document = as_string(first_manifest);
     constexpr std::string_view kManifestPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v9\","
-        "\"content\":{\"schema_version\":9,\"inputs\":{\"kind\":\"simulation_v8\","
+        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v10\","
+        "\"content\":{\"schema_version\":10,\"inputs\":{\"kind\":\"simulation_v9\","
         "\"value\":{\"resolved\":{\"engine\":";
     expect(manifest_document.starts_with(kManifestPrefix),
            "simulation manifest root, discriminator, or member order changed");
@@ -252,7 +267,7 @@ struct GoldenHashes {
                std::string::npos,
            "presentation-calibration v2 was not emitted");
     expect(manifest_document.find("\"algorithm_record\":") == std::string::npos,
-           "retired presentation algorithm record leaked into manifest v9");
+           "retired presentation algorithm record leaked into manifest v10");
 
     constexpr std::string_view kProfilePrefix =
         "\"physics_profile\":{\"kind\":\"low_order_operating_point_v1\",\"value\":{"
@@ -311,10 +326,10 @@ struct GoldenHashes {
            "operating-point profile was flattened or its member order changed");
     expect(manifest_document.find("\"mechanism\":{\"crank\":", profile) ==
                std::string::npos,
-           "retired singular crank assembly leaked into manifest v9");
+           "retired singular crank assembly leaked into manifest v10");
     expect(manifest_document.find("\"intake_topology\":", gas_path) ==
                std::string::npos,
-           "retired singular intake topology leaked into manifest v9");
+           "retired singular intake topology leaked into manifest v10");
     expect(manifest_document.find("\"instantaneous_net_shaft\":{"
                                   "\"availability\":\"available\","
                                   "\"completeness\":\"complete\","
@@ -332,7 +347,7 @@ struct GoldenHashes {
     expect(manifest_document.find("\"physical_net_complete\":") == std::string::npos &&
                manifest_document.find("\"cycle_integration_available\":") ==
                    std::string::npos,
-           "retired torque projection leaked into manifest v9");
+           "retired torque projection leaked into manifest v10");
 
     const auto &resolved = simulation_inputs(fixture.manifest.content);
     const auto first_identity = require_request_identity_encoding(
@@ -348,7 +363,7 @@ struct GoldenHashes {
 
     const auto identity_document = as_string(first_identity.bytes);
     constexpr std::string_view kIdentityPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v6\","
+        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v7\","
         "\"engine\":";
     expect(identity_document.starts_with(kIdentityPrefix),
            "request identity root or member order changed");
@@ -444,9 +459,10 @@ void test_sampled_cam_request_identity_wire_shape() {
     auto &intake =
         std::get<LowOrderOperatingPointV1Profile>(resolved.engine.physics_profile)
             .core.valvetrain.intake;
-    const auto harmonic = std::get<LegacyHarmonicCamShape>(intake.shape);
+    const auto harmonic = std::get<LegacyHarmonicCamShape>(only_cam_profile(intake));
     constexpr std::string_view kBase =
-        "engine.physics.low-order-operating-point-v1.valvetrain.intake.shape";
+        "engine.physics.low-order-operating-point-v1.valvetrain.intake.profiles."
+        "profile-0.shape";
     const auto point = [&](std::string id, double angle_rad, double lift_m) {
         const auto path = std::string{kBase} + ".samples." + id;
         return LegacySampledCamPoint{
@@ -455,7 +471,7 @@ void test_sampled_cam_request_identity_wire_shape() {
             fixture.builder.resolved(lift_m, path + ".lift_m"),
         };
     };
-    intake.shape = LegacySampledCamShape{
+    only_cam_profile(intake) = LegacySampledCamShape{
         fixture.builder.resolved(0.01, std::string{kBase} + ".triangle_radius_rad"),
         {
             point("opening", -1.0, 0.0),
@@ -475,16 +491,18 @@ void test_sampled_cam_request_identity_wire_shape() {
     expect(first == second, "sampled cam request identity was not deterministic");
 
     const auto document = as_string(first.bytes);
-    const auto shape = document.find("\"shape\":{\"kind\":\"sampled\","
+    const auto shape = document.find("\"profiles\":[{\"kind\":\"sampled\","
                                      "\"triangle_radius_rad\":");
     const auto samples = document.find("\"samples\":[{\"sample_id\":", shape);
     const auto angle = document.find("\"angle_rad\":", samples);
     const auto lift = document.find("\"lift_m\":", angle);
     const auto lobes = document.find("\"lobes\":", lift);
+    const auto profile_index = document.find("\"profile_index\":0", lobes);
     expect(shape != std::string::npos && samples != std::string::npos &&
                angle != std::string::npos && lift != std::string::npos &&
-               lobes != std::string::npos && shape < samples && samples < angle &&
-               angle < lift && lift < lobes,
+               lobes != std::string::npos && profile_index != std::string::npos &&
+               shape < samples && samples < angle && angle < lift && lift < lobes &&
+               lobes < profile_index,
            "sampled cam request identity omitted or reordered its disjoint wire "
            "object");
     expect(document.find("\"maximum_lift_m\":", shape) > lobes,
@@ -492,8 +510,9 @@ void test_sampled_cam_request_identity_wire_shape() {
 
     auto changed_engine = resolved.engine;
     std::get<LegacySampledCamShape>(
-        std::get<LowOrderOperatingPointV1Profile>(changed_engine.physics_profile)
-            .core.valvetrain.intake.shape)
+        only_cam_profile(
+            std::get<LowOrderOperatingPointV1Profile>(changed_engine.physics_profile)
+                .core.valvetrain.intake))
         .samples[1]
         .lift_m.value += 0.001;
     const auto changed = require_request_identity_encoding(
@@ -559,8 +578,9 @@ void test_vtec_request_identity_wire_shape() {
 
     auto changed_lift = resolved.engine;
     std::get<LegacyHarmonicCamShape>(
-        std::get<LowOrderOperatingPointV1Profile>(changed_lift.physics_profile)
-            .core.valvetrain.alternate->intake.shape)
+        only_cam_profile(
+            std::get<LowOrderOperatingPointV1Profile>(changed_lift.physics_profile)
+                .core.valvetrain.alternate->intake))
         .maximum_lift_m.value += 0.001;
     const auto lift_identity = require_request_identity_encoding(
         changed_lift, resolved.scenario, fixture.manifest.content.randomness,
@@ -581,7 +601,8 @@ void test_vtec_request_identity_wire_shape() {
 void test_fail_closed_boundaries() {
     SimulationFixture fixture;
 
-    for (const auto schema_version : {UINT32_C(6), UINT32_C(7), UINT32_C(8)}) {
+    for (const auto schema_version :
+         {UINT32_C(6), UINT32_C(7), UINT32_C(8), UINT32_C(9)}) {
         auto unsupported_schema = fixture.manifest;
         unsupported_schema.content.schema_version = schema_version;
         expect_manifest_error(unsupported_schema,

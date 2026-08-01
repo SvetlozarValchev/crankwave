@@ -171,10 +171,10 @@ public_sample(const FixedHorizonCycleSample &sample,
 
 [[nodiscard]] contract::HeldSpeedOperatingPointResult public_operating_point(
     const FixedHorizonCycleSamplingEvidence &evidence,
-    const contract::Sha256Digest &simulation_request_identity_v6_sha256,
+    const contract::Sha256Digest &simulation_request_identity_v7_sha256,
     const contract::HeldSpeedOperatingPointConditions &conditions) {
     return {
-        simulation_request_identity_v6_sha256,
+        simulation_request_identity_v7_sha256,
         conditions,
         std::string{contract::kGenericChenFlynnLowOrderModelPredictionApplicability},
         {
@@ -260,7 +260,7 @@ LowOrderOperatingPointV1Runtime::LowOrderOperatingPointV1Runtime(
     std::vector<OperatingGasVolumePressureSample> pressure_samples,
     TransactionShape transaction_shape,
     std::uint64_t fixed_preparation_horizon_frame_count,
-    contract::Sha256Digest simulation_request_identity_v6_sha256,
+    contract::Sha256Digest simulation_request_identity_v7_sha256,
     contract::HeldSpeedOperatingPointConditions conditions, double throttle_gamma,
     double idle_throttle_plate_position_01, std::string model_id,
     std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
@@ -269,7 +269,7 @@ LowOrderOperatingPointV1Runtime::LowOrderOperatingPointV1Runtime(
       pressure_samples_(std::move(pressure_samples)),
       transaction_shape_(std::move(transaction_shape)),
       fixed_preparation_horizon_frame_count_(fixed_preparation_horizon_frame_count),
-      simulation_request_identity_v6_sha256_(simulation_request_identity_v6_sha256),
+      simulation_request_identity_v7_sha256_(simulation_request_identity_v7_sha256),
       conditions_(std::move(conditions)), throttle_gamma_(throttle_gamma),
       idle_throttle_plate_position_01_(idle_throttle_plate_position_01),
       model_id_(std::move(model_id)), profile_id_(std::move(profile_id)),
@@ -582,7 +582,7 @@ LowOrderOperatingPointV1Runtime::finalize_at_fixed_horizon(
 
     auto point =
         public_operating_point(std::get<FixedHorizonCycleSampled>(result).evidence,
-                               simulation_request_identity_v6_sha256_, conditions_);
+                               simulation_request_identity_v7_sha256_, conditions_);
     const auto report = contract::validate(point);
     if (!report.ok()) {
         const auto summary =

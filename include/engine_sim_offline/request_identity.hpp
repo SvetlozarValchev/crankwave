@@ -14,8 +14,8 @@
 
 namespace engine_sim_offline::identity {
 
-inline constexpr std::string_view kSimulationRequestIdentityWireSchemaV6 =
-    "engine-sim-offline.simulation-request-identity.v6";
+inline constexpr std::string_view kSimulationRequestIdentityWireSchemaV7 =
+    "engine-sim-offline.simulation-request-identity.v7";
 
 struct SimulationRequestIdentityEncoding {
     std::vector<std::byte> bytes;
@@ -50,9 +50,9 @@ using SimulationRequestIdentityEncodingResult =
 // Encodes the complete resolved simulation factory identity without presentation
 // or run facts. The random plan is the exact canonical plan consumed by execution,
 // including every provisioned component lane. The digest covers the exact canonical
-// v6 bytes, including final LF.
+// v7 bytes, including final LF.
 [[nodiscard]] SimulationRequestIdentityEncodingResult
-encode_simulation_request_identity_v6(const contract::EngineSpec &engine,
+encode_simulation_request_identity_v7(const contract::EngineSpec &engine,
                                       const contract::RenderScenario &scenario,
                                       const contract::RandomPlan &random_plan,
                                       const contract::ProvenanceBundleRef &provenance);

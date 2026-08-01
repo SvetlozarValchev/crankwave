@@ -328,18 +328,22 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
 
     const auto make_cam = [&](std::string name, PortId port_id) {
         const auto base = path("valvetrain." + name);
+        const auto profile_base = base + ".profiles.profile-0";
         LegacyCamshaftProfile camshaft;
-        camshaft.shape = LegacyHarmonicCamShape{
-            builder.resolved(0.009, base + ".shape.maximum_lift_m"),
-            builder.resolved(3.6, base + ".shape.duration_at_reference_lift_rad"),
-            builder.resolved(0.8, base + ".shape.exponent"),
-            builder.resolved<std::uint32_t>(100, base + ".shape.construction_steps"),
-            builder.resolved(0.0, base + ".shape.advance_rad"),
-            builder.resolved(0.015, base + ".shape.base_radius_m"),
-        };
+        camshaft.profiles.push_back(LegacyHarmonicCamShape{
+            builder.resolved(0.009, profile_base + ".shape.maximum_lift_m"),
+            builder.resolved(3.6,
+                             profile_base + ".shape.duration_at_reference_lift_rad"),
+            builder.resolved(0.8, profile_base + ".shape.exponent"),
+            builder.resolved<std::uint32_t>(100,
+                                            profile_base + ".shape.construction_steps"),
+            builder.resolved(0.0, profile_base + ".shape.advance_rad"),
+            builder.resolved(0.015, profile_base + ".shape.base_radius_m"),
+        });
         camshaft.lobes.push_back({
             CylinderId{1},
             port_id,
+            0U,
             builder.resolved(0.0, base + ".lobes.cylinder-1.crank_center_rad"),
         });
         return camshaft;
@@ -841,7 +845,7 @@ inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
     const auto source_matrix = make_source_matrix();
 
     RenderManifestContent content;
-    content.schema_version = 9;
+    content.schema_version = 10;
     content.inputs = SimulationManifestInputs{
         ResolvedRenderInputs{engine, presentation, randomness, scenario}};
     content.provenance = builder.provenance.bundle;

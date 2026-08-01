@@ -392,7 +392,16 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
                       std::string(root) + ".gas_path.piston_blowby", function);
 
     const auto visit_camshaft = [&](const auto &camshaft, const std::string &base) {
-        visit_cam_shape(camshaft.shape, base + ".shape", function);
+        if constexpr (requires { camshaft.shape; }) {
+            visit_cam_shape(camshaft.shape, base + ".shape", function);
+        } else {
+            for (std::size_t index = 0; index < camshaft.profiles.size(); ++index) {
+                visit_cam_shape(camshaft.profiles[index],
+                                base + ".profiles.profile-" + std::to_string(index) +
+                                    ".shape",
+                                function);
+            }
+        }
         for (const auto &lobe : camshaft.lobes) {
             function(lobe.crank_center_rad,
                      base + ".lobes." + cylinder_name(lobe) + ".crank_center_rad");
@@ -2071,11 +2080,17 @@ void validate_low_order_core_domains(ValidationReport &report,
     const auto validate_camshaft = [&](const LegacyCamshaftProfile &camshaft,
                                        PortKind expected_kind,
                                        const std::string &path) {
-        std::visit(
-            [&](const auto &shape) {
-                validate_resolved_cam_shape_domains(report, shape, path + ".shape");
-            },
-            camshaft.shape);
+        require(report, !camshaft.profiles.empty(), ContractIssueCode::missing_value,
+                path + ".profiles", "camshaft role requires at least one profile");
+        for (std::size_t index = 0; index < camshaft.profiles.size(); ++index) {
+            std::visit(
+                [&](const auto &shape) {
+                    validate_resolved_cam_shape_domains(
+                        report, shape,
+                        path + ".profiles.profile-" + std::to_string(index) + ".shape");
+                },
+                camshaft.profiles[index]);
+        }
         require(report,
                 camshaft.lobes.size() == engine.cylinders.size() &&
                     unique_valid_projected(
@@ -2083,7 +2098,16 @@ void validate_low_order_core_domains(ValidationReport &report,
                         [](const LegacyCamLobe &lobe) { return lobe.cylinder_id; }),
                 ContractIssueCode::inconsistent_shape, path + ".lobes",
                 "camshaft must have one lobe per cylinder");
+        std::unordered_set<std::uint32_t> used_profile_indices;
         for (const auto &lobe : camshaft.lobes) {
+            const bool profile_valid = lobe.profile_index < camshaft.profiles.size();
+            require(report, profile_valid, ContractIssueCode::dangling_reference,
+                    path + ".lobes." + cylinder_name(engine, lobe.cylinder_id) +
+                        ".profile_index",
+                    "cam lobe references an unknown bank-local cam profile");
+            if (profile_valid) {
+                used_profile_indices.insert(lobe.profile_index);
+            }
             const auto port =
                 std::ranges::find(engine.ports, lobe.port_id, &PortSpec::id);
             const auto *mechanism_cylinder =
@@ -2106,6 +2130,27 @@ void validate_low_order_core_domains(ValidationReport &report,
                     path + ".lobes." + cylinder_name(engine, lobe.cylinder_id),
                     "cam lobe must bind the matching cylinder port");
         }
+        require(report, used_profile_indices.size() == camshaft.profiles.size(),
+                ContractIssueCode::inconsistent_shape, path + ".profiles",
+                "every bank-local cam profile must be used by at least one lobe");
+        std::unordered_set<std::uint32_t> encountered_profile_indices;
+        std::uint32_t next_profile_index = 0U;
+        bool canonical_profile_order = true;
+        for (const auto &cylinder : engine.cylinders) {
+            const auto lobe = std::ranges::find(camshaft.lobes, cylinder.id,
+                                                &LegacyCamLobe::cylinder_id);
+            if (lobe == camshaft.lobes.end() ||
+                !encountered_profile_indices.insert(lobe->profile_index).second) {
+                continue;
+            }
+            canonical_profile_order =
+                canonical_profile_order && lobe->profile_index == next_profile_index;
+            ++next_profile_index;
+        }
+        require(report, canonical_profile_order,
+                ContractIssueCode::inconsistent_semantics, path + ".profiles",
+                "cam profiles must be indexed by first use in engine-cylinder "
+                "order");
     };
     validate_camshaft(core.valvetrain.intake, PortKind::intake, "valvetrain.intake");
     validate_camshaft(core.valvetrain.exhaust, PortKind::exhaust, "valvetrain.exhaust");

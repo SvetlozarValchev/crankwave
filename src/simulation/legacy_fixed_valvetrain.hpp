@@ -24,11 +24,23 @@ struct LegacyValvetrainFlowProfile {
                            const LegacyValvetrainFlowProfile &) = default;
 };
 
+struct LegacyCompiledCamProfile {
+    std::vector<LegacyTrianglePoint> lobe_table;
+    double lobe_triangle_radius_rad = 0.0;
+    double advance_rad = 0.0;
+    double base_radius_m = 0.0;
+
+    friend bool operator==(const LegacyCompiledCamProfile &,
+                           const LegacyCompiledCamProfile &) = default;
+};
+
 struct LegacyValvetrainCylinderBinding {
     contract::CylinderId cylinder_id;
     contract::PortId intake_port_id;
     contract::PortId exhaust_port_id;
     std::size_t flow_profile_index = 0;
+    std::size_t intake_cam_profile_index = 0;
+    std::size_t exhaust_cam_profile_index = 0;
     double intake_stored_lobe_angle_rad = 0.0;
     double exhaust_stored_lobe_angle_rad = 0.0;
 
@@ -60,19 +72,12 @@ class LegacyFixedValvetrain final {
 
     [[nodiscard]] std::span<const LegacyValvetrainCylinderBinding>
     cylinder_bindings() const noexcept;
-    [[nodiscard]] std::span<const LegacyTrianglePoint>
-    intake_lobe_table() const noexcept;
-    [[nodiscard]] std::span<const LegacyTrianglePoint>
-    exhaust_lobe_table() const noexcept;
+    [[nodiscard]] std::span<const LegacyCompiledCamProfile>
+    intake_cam_profiles() const noexcept;
+    [[nodiscard]] std::span<const LegacyCompiledCamProfile>
+    exhaust_cam_profiles() const noexcept;
     [[nodiscard]] std::span<const LegacyValvetrainFlowProfile>
     flow_profiles() const noexcept;
-
-    [[nodiscard]] double intake_lobe_triangle_radius_rad() const noexcept;
-    [[nodiscard]] double exhaust_lobe_triangle_radius_rad() const noexcept;
-    [[nodiscard]] double intake_advance_rad() const noexcept;
-    [[nodiscard]] double exhaust_advance_rad() const noexcept;
-    [[nodiscard]] double intake_base_radius_m() const noexcept;
-    [[nodiscard]] double exhaust_base_radius_m() const noexcept;
 
     // body_angle_psi_rad is LegacyMechanismStep::body_angle_psi_rad. Sampling is
     // read-only and performs no allocation.
@@ -93,12 +98,9 @@ class LegacyFixedValvetrain final {
     LegacyFixedValvetrain(
         double crank_tdc_reference_rad,
         std::vector<LegacyValvetrainCylinderBinding> cylinder_bindings,
-        std::vector<LegacyTrianglePoint> intake_lobe_table,
-        std::vector<LegacyTrianglePoint> exhaust_lobe_table,
-        std::vector<LegacyValvetrainFlowProfile> flow_profiles,
-        double intake_lobe_triangle_radius_rad, double exhaust_lobe_triangle_radius_rad,
-        double intake_advance_rad, double exhaust_advance_rad,
-        double intake_base_radius_m, double exhaust_base_radius_m);
+        std::vector<LegacyCompiledCamProfile> intake_cam_profiles,
+        std::vector<LegacyCompiledCamProfile> exhaust_cam_profiles,
+        std::vector<LegacyValvetrainFlowProfile> flow_profiles);
 
     [[nodiscard]] LegacyCylinderValveSample
     sample_admitted_cylinder(std::size_t cylinder_index,
@@ -106,15 +108,9 @@ class LegacyFixedValvetrain final {
 
     double crank_tdc_reference_rad_ = 0.0;
     std::vector<LegacyValvetrainCylinderBinding> cylinder_bindings_;
-    std::vector<LegacyTrianglePoint> intake_lobe_table_;
-    std::vector<LegacyTrianglePoint> exhaust_lobe_table_;
+    std::vector<LegacyCompiledCamProfile> intake_cam_profiles_;
+    std::vector<LegacyCompiledCamProfile> exhaust_cam_profiles_;
     std::vector<LegacyValvetrainFlowProfile> flow_profiles_;
-    double intake_lobe_triangle_radius_rad_ = 0.0;
-    double exhaust_lobe_triangle_radius_rad_ = 0.0;
-    double intake_advance_rad_ = 0.0;
-    double exhaust_advance_rad_ = 0.0;
-    double intake_base_radius_m_ = 0.0;
-    double exhaust_base_radius_m_ = 0.0;
 
     friend std::variant<LegacyFixedValvetrain, contract::ValidationReport>
     compile_legacy_fixed_valvetrain(const contract::EngineSpec &,

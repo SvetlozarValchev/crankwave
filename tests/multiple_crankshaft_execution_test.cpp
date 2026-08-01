@@ -229,7 +229,7 @@ core_cylinder(const contract::LowOrderOperatingPointV1Profile &physics,
 [[nodiscard]] identity::SimulationRequestIdentityEncoding
 request_identity(const compile::CompiledScenario &scenario) {
     const auto resolved = inputs(scenario);
-    auto encoded = identity::encode_simulation_request_identity_v6(
+    auto encoded = identity::encode_simulation_request_identity_v7(
         resolved.engine.engine, resolved.scenario.scenario,
         resolved.scenario.random_plan, resolved.scenario.combined_provenance.bundle);
     if (const auto *error =

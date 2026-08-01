@@ -60,7 +60,7 @@ NativeBakePlanResult derive_native_bake_plan(
     };
 
     contract::RenderManifestContent manifest_basis;
-    manifest_basis.schema_version = 9;
+    manifest_basis.schema_version = 10;
     manifest_basis.inputs = contract::SimulationManifestInputs{request.resolved_inputs};
     manifest_basis.provenance = request.provenance.bundle;
     manifest_basis.determinism = determinism.manifest_identity();

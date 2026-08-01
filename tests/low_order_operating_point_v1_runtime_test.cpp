@@ -183,7 +183,7 @@ void test_complete_cycle_evidence_reaches_public_result(
     const auto &point = *operating.operating_point_result();
     const auto &sampling = point.sampling;
     const auto &sample = sampling.trailing_complete_cycles;
-    expect(point.simulation_request_identity_v6_sha256 == value.request_identity &&
+    expect(point.simulation_request_identity_v7_sha256 == value.request_identity &&
                sampling.method ==
                    contract::fixed_horizon_cycle_sampling_method_identity() &&
                sampling.trailing_complete_cycle_count == kTrailingCompleteCycleCount &&

@@ -69,7 +69,7 @@ RenderScenario request(const Sha256Digest &) {
 
 InertialDynoResult result(const Sha256Digest &request_digest) {
     InertialDynoResult value;
-    value.simulation_request_identity_v6_sha256 = request_digest;
+    value.simulation_request_identity_v7_sha256 = request_digest;
     value.start_engine_speed_rpm = 1000.0;
     value.target_engine_speed_rpm = 1800.0;
     value.release_engine_speed_rpm = 1000.0;

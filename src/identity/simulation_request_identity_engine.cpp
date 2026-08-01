@@ -779,7 +779,8 @@ write_legacy_sampled_cam_shape(CanonicalJsonWriter &writer,
                                          const contract::LegacyCamLobe &lobe) {
     return writer.begin_object() && writer.key("cylinder_id") &&
            write_stable_id(writer, lobe.cylinder_id) && writer.key("port_id") &&
-           write_stable_id(writer, lobe.port_id) && writer.key("crank_center_rad") &&
+           write_stable_id(writer, lobe.port_id) && writer.key("profile_index") &&
+           writer.uint32_value(lobe.profile_index) && writer.key("crank_center_rad") &&
            write_resolved(writer, lobe.crank_center_rad, write_f64) &&
            writer.end_object();
 }
@@ -787,8 +788,13 @@ write_legacy_sampled_cam_shape(CanonicalJsonWriter &writer,
 [[nodiscard]] bool
 write_legacy_camshaft(CanonicalJsonWriter &writer,
                       const contract::LegacyCamshaftProfile &camshaft) {
-    return writer.begin_object() && writer.key("shape") &&
-           write_legacy_cam_shape(writer, camshaft.shape) && writer.key("lobes") &&
+    return writer.begin_object() && writer.key("profiles") &&
+           write_array(
+               writer, camshaft.profiles,
+               [](CanonicalJsonWriter &output, const contract::LegacyCamShape &shape) {
+                   return write_legacy_cam_shape(output, shape);
+               }) &&
+           writer.key("lobes") &&
            write_array(
                writer, camshaft.lobes,
                [](CanonicalJsonWriter &output, const contract::LegacyCamLobe &lobe) {

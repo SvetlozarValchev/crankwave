@@ -363,7 +363,7 @@ validate_bake_result(const contract::RenderResult &result,
 
     contract::ValidationReport report;
     contract::Sha256Digest request_identity;
-    auto identity_result = identity::encode_simulation_request_identity_v6(
+    auto identity_result = identity::encode_simulation_request_identity_v7(
         inputs.engine.engine, inputs.scenario.scenario, inputs.scenario.random_plan,
         inputs.scenario.combined_provenance.bundle);
     if (const auto *encoded = std::get_if<identity::SimulationRequestIdentityEncoding>(
@@ -373,7 +373,7 @@ validate_bake_result(const contract::RenderResult &result,
         const auto &error =
             std::get<identity::SimulationRequestIdentityError>(identity_result);
         report.add(contract::ContractIssueCode::inconsistent_semantics,
-                   "simulation_request_identity_v6",
+                   "simulation_request_identity_v7",
                    error.detail_code + ": " + error.message);
     }
 

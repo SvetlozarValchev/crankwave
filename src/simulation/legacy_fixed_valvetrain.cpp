@@ -222,6 +222,17 @@ construct_lobe_table(const contract::LegacyCamShape &shape, double radius_rad) {
                       shape);
 }
 
+[[nodiscard]] LegacyCompiledCamProfile
+compile_cam_profile(const contract::LegacyCamShape &shape,
+                    const AdmittedCamShape admitted) {
+    return {
+        construct_lobe_table(shape, admitted.radius_rad),
+        admitted.radius_rad,
+        cam_advance_rad(shape),
+        cam_base_radius_m(shape),
+    };
+}
+
 void admit_flow_table(const std::vector<contract::LegacyValveFlowPoint> &source,
                       ValidationReport &report, const std::string &path) {
     require(report, source.size() >= 2U, ContractIssueCode::inconsistent_shape, path,
@@ -321,37 +332,28 @@ find_bank_index(const contract::EngineSpec &engine, contract::BankId bank_id) no
 LegacyFixedValvetrain::LegacyFixedValvetrain(
     double crank_tdc_reference_rad,
     std::vector<LegacyValvetrainCylinderBinding> cylinder_bindings,
-    std::vector<LegacyTrianglePoint> intake_lobe_table,
-    std::vector<LegacyTrianglePoint> exhaust_lobe_table,
-    std::vector<LegacyValvetrainFlowProfile> flow_profiles,
-    double intake_lobe_triangle_radius_rad, double exhaust_lobe_triangle_radius_rad,
-    double intake_advance_rad, double exhaust_advance_rad, double intake_base_radius_m,
-    double exhaust_base_radius_m)
+    std::vector<LegacyCompiledCamProfile> intake_cam_profiles,
+    std::vector<LegacyCompiledCamProfile> exhaust_cam_profiles,
+    std::vector<LegacyValvetrainFlowProfile> flow_profiles)
     : crank_tdc_reference_rad_(crank_tdc_reference_rad),
       cylinder_bindings_(std::move(cylinder_bindings)),
-      intake_lobe_table_(std::move(intake_lobe_table)),
-      exhaust_lobe_table_(std::move(exhaust_lobe_table)),
-      flow_profiles_(std::move(flow_profiles)),
-      intake_lobe_triangle_radius_rad_(intake_lobe_triangle_radius_rad),
-      exhaust_lobe_triangle_radius_rad_(exhaust_lobe_triangle_radius_rad),
-      intake_advance_rad_(intake_advance_rad),
-      exhaust_advance_rad_(exhaust_advance_rad),
-      intake_base_radius_m_(intake_base_radius_m),
-      exhaust_base_radius_m_(exhaust_base_radius_m) {}
+      intake_cam_profiles_(std::move(intake_cam_profiles)),
+      exhaust_cam_profiles_(std::move(exhaust_cam_profiles)),
+      flow_profiles_(std::move(flow_profiles)) {}
 
 std::span<const LegacyValvetrainCylinderBinding>
 LegacyFixedValvetrain::cylinder_bindings() const noexcept {
     return cylinder_bindings_;
 }
 
-std::span<const LegacyTrianglePoint>
-LegacyFixedValvetrain::intake_lobe_table() const noexcept {
-    return intake_lobe_table_;
+std::span<const LegacyCompiledCamProfile>
+LegacyFixedValvetrain::intake_cam_profiles() const noexcept {
+    return intake_cam_profiles_;
 }
 
-std::span<const LegacyTrianglePoint>
-LegacyFixedValvetrain::exhaust_lobe_table() const noexcept {
-    return exhaust_lobe_table_;
+std::span<const LegacyCompiledCamProfile>
+LegacyFixedValvetrain::exhaust_cam_profiles() const noexcept {
+    return exhaust_cam_profiles_;
 }
 
 std::span<const LegacyValvetrainFlowProfile>
@@ -359,46 +361,27 @@ LegacyFixedValvetrain::flow_profiles() const noexcept {
     return flow_profiles_;
 }
 
-double LegacyFixedValvetrain::intake_lobe_triangle_radius_rad() const noexcept {
-    return intake_lobe_triangle_radius_rad_;
-}
-
-double LegacyFixedValvetrain::exhaust_lobe_triangle_radius_rad() const noexcept {
-    return exhaust_lobe_triangle_radius_rad_;
-}
-
-double LegacyFixedValvetrain::intake_advance_rad() const noexcept {
-    return intake_advance_rad_;
-}
-
-double LegacyFixedValvetrain::exhaust_advance_rad() const noexcept {
-    return exhaust_advance_rad_;
-}
-
-double LegacyFixedValvetrain::intake_base_radius_m() const noexcept {
-    return intake_base_radius_m_;
-}
-
-double LegacyFixedValvetrain::exhaust_base_radius_m() const noexcept {
-    return exhaust_base_radius_m_;
-}
-
 LegacyCylinderValveSample LegacyFixedValvetrain::sample_admitted_cylinder(
     std::size_t cylinder_index, double body_angle_psi_rad) const noexcept {
     const auto &binding = cylinder_bindings_[cylinder_index];
     const auto &flow_profile = flow_profiles_[binding.flow_profile_index];
-    const double intake_base =
-        cam_base(body_angle_psi_rad, crank_tdc_reference_rad_, intake_advance_rad_);
-    const double exhaust_base =
-        cam_base(body_angle_psi_rad, crank_tdc_reference_rad_, exhaust_advance_rad_);
+    const auto &intake_profile = intake_cam_profiles_[binding.intake_cam_profile_index];
+    const auto &exhaust_profile =
+        exhaust_cam_profiles_[binding.exhaust_cam_profile_index];
+    const double intake_base = cam_base(body_angle_psi_rad, crank_tdc_reference_rad_,
+                                        intake_profile.advance_rad);
+    const double exhaust_base = cam_base(body_angle_psi_rad, crank_tdc_reference_rad_,
+                                         exhaust_profile.advance_rad);
     const double intake_argument =
         wrap_to_minus_pi_inclusive(intake_base + binding.intake_stored_lobe_angle_rad);
     const double exhaust_argument = wrap_to_minus_pi_inclusive(
         exhaust_base + binding.exhaust_stored_lobe_angle_rad);
-    const double intake_lift = legacy_triangle_sample(
-        intake_lobe_table_, intake_argument, intake_lobe_triangle_radius_rad_);
-    const double exhaust_lift = legacy_triangle_sample(
-        exhaust_lobe_table_, exhaust_argument, exhaust_lobe_triangle_radius_rad_);
+    const double intake_lift =
+        legacy_triangle_sample(intake_profile.lobe_table, intake_argument,
+                               intake_profile.lobe_triangle_radius_rad);
+    const double exhaust_lift =
+        legacy_triangle_sample(exhaust_profile.lobe_table, exhaust_argument,
+                               exhaust_profile.lobe_triangle_radius_rad);
 
     return {
         binding.cylinder_id,
@@ -484,10 +467,24 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
             "engine.physics_profile.mechanism.cylinders",
             "valvetrain requires nonempty mechanism cylinders matching engine order");
 
-    const auto intake_shape = admit_cam_shape(
-        valvetrain.intake.shape, report, "engine.physics_profile.valvetrain.intake");
-    const auto exhaust_shape = admit_cam_shape(
-        valvetrain.exhaust.shape, report, "engine.physics_profile.valvetrain.exhaust");
+    const auto admit_cam_profiles = [&](const contract::LegacyCamshaftProfile &camshaft,
+                                        const std::string &path) {
+        std::vector<std::optional<AdmittedCamShape>> admitted;
+        require(report, !camshaft.profiles.empty(), ContractIssueCode::missing_value,
+                path + ".profiles",
+                "camshaft role requires at least one bank-local profile");
+        admitted.reserve(camshaft.profiles.size());
+        for (std::size_t index = 0; index < camshaft.profiles.size(); ++index) {
+            admitted.push_back(
+                admit_cam_shape(camshaft.profiles[index], report,
+                                path + ".profiles[" + std::to_string(index) + "]"));
+        }
+        return admitted;
+    };
+    const auto intake_shapes = admit_cam_profiles(
+        valvetrain.intake, "engine.physics_profile.valvetrain.intake");
+    const auto exhaust_shapes = admit_cam_profiles(
+        valvetrain.exhaust, "engine.physics_profile.valvetrain.exhaust");
     bool exact_ordered_head_coverage =
         !engine.banks.empty() && gas_path.heads.size() == engine.banks.size();
     for (std::size_t index = 0; index < engine.banks.size(); ++index) {
@@ -541,19 +538,44 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
         require(report, unique_cylinders && unique_ports,
                 ContractIssueCode::duplicate_identity, path + ".lobes",
                 "camshaft cylinder and port bindings must be unique");
+        std::unordered_set<std::uint32_t> used_profile_indices;
         for (std::size_t index = 0; index < camshaft.lobes.size(); ++index) {
             const auto &lobe = camshaft.lobes[index];
             const auto *port = find_port(engine, lobe.port_id);
-            const bool valid = lobe.cylinder_id.valid() && lobe.port_id.valid() &&
-                               std::isfinite(lobe.crank_center_rad.value) &&
-                               port != nullptr &&
-                               port->cylinder_id == lobe.cylinder_id &&
-                               port->kind.value == expected_kind;
+            const bool profile_valid = lobe.profile_index < camshaft.profiles.size();
+            const bool valid =
+                lobe.cylinder_id.valid() && lobe.port_id.valid() && profile_valid &&
+                std::isfinite(lobe.crank_center_rad.value) && port != nullptr &&
+                port->cylinder_id == lobe.cylinder_id &&
+                port->kind.value == expected_kind;
             require(report, valid, ContractIssueCode::inconsistent_semantics,
                     path + ".lobes[" + std::to_string(index) + "]",
                     "cam lobe must bind a finite center to its cylinder's matching "
                     "engine port kind");
+            if (profile_valid) {
+                used_profile_indices.insert(lobe.profile_index);
+            }
         }
+        require(report, used_profile_indices.size() == camshaft.profiles.size(),
+                ContractIssueCode::inconsistent_shape, path + ".profiles",
+                "every bank-local cam profile must be used by at least one lobe");
+        std::unordered_set<std::uint32_t> encountered_profile_indices;
+        std::uint32_t next_profile_index = 0U;
+        bool canonical_profile_order = true;
+        for (const auto &cylinder : engine.cylinders) {
+            const auto *lobe = find_lobe(camshaft, cylinder.id);
+            if (lobe == nullptr ||
+                !encountered_profile_indices.insert(lobe->profile_index).second) {
+                continue;
+            }
+            canonical_profile_order =
+                canonical_profile_order && lobe->profile_index == next_profile_index;
+            ++next_profile_index;
+        }
+        require(report, canonical_profile_order,
+                ContractIssueCode::inconsistent_semantics, path + ".profiles",
+                "cam profiles must be indexed by first use in engine-cylinder "
+                "order");
     };
     admit_cam_lobes(valvetrain.intake, contract::PortKind::intake,
                     "engine.physics_profile.valvetrain.intake");
@@ -606,15 +628,29 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
                 intake_lobe->port_id,
                 exhaust_lobe->port_id,
                 *flow_profile_index,
+                intake_lobe->profile_index,
+                exhaust_lobe->profile_index,
                 intake_lobe->crank_center_rad.value / 2.0,
                 exhaust_lobe->crank_center_rad.value / 2.0,
             });
         }
     }
 
-    if (!report.ok() || output_crank == nullptr || !intake_shape.has_value() ||
-        !exhaust_shape.has_value()) {
+    if (!report.ok() || output_crank == nullptr) {
         return report;
+    }
+
+    std::vector<LegacyCompiledCamProfile> intake_cam_profiles;
+    intake_cam_profiles.reserve(valvetrain.intake.profiles.size());
+    for (std::size_t index = 0; index < valvetrain.intake.profiles.size(); ++index) {
+        intake_cam_profiles.push_back(compile_cam_profile(
+            valvetrain.intake.profiles[index], *intake_shapes[index]));
+    }
+    std::vector<LegacyCompiledCamProfile> exhaust_cam_profiles;
+    exhaust_cam_profiles.reserve(valvetrain.exhaust.profiles.size());
+    for (std::size_t index = 0; index < valvetrain.exhaust.profiles.size(); ++index) {
+        exhaust_cam_profiles.push_back(compile_cam_profile(
+            valvetrain.exhaust.profiles[index], *exhaust_shapes[index]));
     }
 
     std::vector<LegacyValvetrainFlowProfile> flow_profiles;
@@ -633,15 +669,9 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
     return LegacyFixedValvetrain{
         output_crank->crank_tdc_reference_rad.value,
         std::move(bindings),
-        construct_lobe_table(valvetrain.intake.shape, intake_shape->radius_rad),
-        construct_lobe_table(valvetrain.exhaust.shape, exhaust_shape->radius_rad),
+        std::move(intake_cam_profiles),
+        std::move(exhaust_cam_profiles),
         std::move(flow_profiles),
-        intake_shape->radius_rad,
-        exhaust_shape->radius_rad,
-        cam_advance_rad(valvetrain.intake.shape),
-        cam_advance_rad(valvetrain.exhaust.shape),
-        cam_base_radius_m(valvetrain.intake.shape),
-        cam_base_radius_m(valvetrain.exhaust.shape),
     };
 }
 

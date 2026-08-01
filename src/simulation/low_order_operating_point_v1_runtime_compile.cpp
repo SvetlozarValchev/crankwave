@@ -113,7 +113,7 @@ find_core_route(const contract::LowOrderEngineCoreV1 &core,
 LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
-    const contract::Sha256Digest &simulation_request_identity_v6_sha256) {
+    const contract::Sha256Digest &simulation_request_identity_v7_sha256) {
     ValidationReport report;
     report.append(contract::validate_for_engine(scenario, engine));
 
@@ -137,8 +137,8 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
             "engine.crankshafts",
             "the HeldSpeed operating runtime requires exactly one crankshaft and "
             "does not consume rigid crank-group dynamics");
-    require(report, !simulation_request_identity_v6_sha256.is_zero(),
-            ContractIssueCode::missing_value, "simulation_request_identity_v6_sha256",
+    require(report, !simulation_request_identity_v7_sha256.is_zero(),
+            ContractIssueCode::missing_value, "simulation_request_identity_v7_sha256",
             "operating runtime requires the canonical nonzero request identity");
     if (profile == nullptr || held == nullptr || preparation == nullptr ||
         !exactly_one_crankshaft) {
@@ -441,7 +441,7 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
         std::move(pressure_samples),
         std::move(transaction_shape),
         *fixed_horizon_frame,
-        simulation_request_identity_v6_sha256,
+        simulation_request_identity_v7_sha256,
         std::move(conditions),
         direct->gamma.value,
         profile->core.gas_path.intakes.front()

@@ -61,7 +61,7 @@ preparation_scenario(const contract::RenderScenario &scenario,
 LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
-    const contract::Sha256Digest &simulation_request_identity_v6_sha256) {
+    const contract::Sha256Digest &simulation_request_identity_v7_sha256) {
     ValidationReport report;
     report.append(contract::validate_for_engine(scenario, engine));
 
@@ -85,8 +85,8 @@ LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
             "engine.crankshafts",
             "the InertialDyno runtime requires exactly one crankshaft and "
             "does not consume rigid crank-group dynamics");
-    require(report, !simulation_request_identity_v6_sha256.is_zero(),
-            ContractIssueCode::missing_value, "simulation_request_identity_v6_sha256",
+    require(report, !simulation_request_identity_v7_sha256.is_zero(),
+            ContractIssueCode::missing_value, "simulation_request_identity_v7_sha256",
             "inertial runtime requires the canonical nonzero request identity");
     if (profile == nullptr || dyno == nullptr || preparation == nullptr ||
         !exactly_one_crankshaft) {
@@ -155,7 +155,7 @@ LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
 
     auto held_scenario = preparation_scenario(scenario, *dyno);
     auto preparation_result = compile_low_order_operating_point_v1_runtime(
-        engine, held_scenario, capture_plan, simulation_request_identity_v6_sha256);
+        engine, held_scenario, capture_plan, simulation_request_identity_v7_sha256);
     if (auto *nested = std::get_if<ValidationReport>(&preparation_result)) {
         return std::move(*nested);
     }
@@ -268,7 +268,7 @@ LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
         dyno->initial_engine_speed_rpm.value,
         dyno->initial_theta_rad.value,
         dyno->target_engine_speed_rpm.value,
-        simulation_request_identity_v6_sha256,
+        simulation_request_identity_v7_sha256,
         dyno->brake_curve_resolution_id,
         dyno->brake_torque_method.value,
         dyno->crank_dynamics_method.value,

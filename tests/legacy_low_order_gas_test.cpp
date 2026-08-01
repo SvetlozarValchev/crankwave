@@ -738,8 +738,10 @@ sample_intake_lane(const AuthoredEngineFixture &request,
 }
 
 void offset_cam_advance(LegacyCamshaftProfile &camshaft, double offset_rad) {
-    std::visit([&](auto &shape) { shape.advance_rad.value += offset_rad; },
-               camshaft.shape);
+    for (auto &profile : camshaft.profiles) {
+        std::visit([&](auto &shape) { shape.advance_rad.value += offset_rad; },
+                   profile);
+    }
 }
 
 void configure_vtec_alternate(AuthoredEngineFixture &request, bool distinct_alternate,

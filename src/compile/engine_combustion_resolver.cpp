@@ -24,8 +24,9 @@ resolve_camshaft(const ModelContext &context,
                  const authoring::PortKind port_kind, std::string role,
                  ResolutionEmitter &emitter) {
     contract::LegacyCamshaftProfile resolved;
-    resolved.shape =
-        resolve_cam_shape(context, representative_camshaft, port_kind, role, emitter);
+    resolved.profiles.push_back(
+        resolve_cam_shape(context, representative_camshaft, port_kind,
+                          role + ".profiles.profile-0", emitter));
     for (const auto &cylinder : context.document.engine.cylinders) {
         const auto semantic = cylinder.id.value;
         const auto &camshaft = *camshaft_by_cylinder.at(semantic);
@@ -34,6 +35,7 @@ resolve_camshaft(const ModelContext &context,
         resolved.lobes.push_back({
             cylinder_id(context, semantic),
             port_id(context, port_semantic_id(semantic, port_kind)),
+            0U,
             emitter.authored(legacy_si_value(lobe.centerline),
                              profile_path("valvetrain." + role + ".lobes." + semantic +
                                           ".crank_center_rad")),
@@ -87,8 +89,7 @@ void resolve_ignition_and_fuel(const ModelContext &context, ResolutionEmitter &e
     std::vector<contract::CylinderId> firing_order;
     firing_order.reserve(engine.cylinders.size());
     for (const auto &event : engine.ignition.firing_order) {
-        for (const auto &cylinder :
-             context.cylinders_for_wire.at(event.wire.value)) {
+        for (const auto &cylinder : context.cylinders_for_wire.at(event.wire.value)) {
             firing_order.push_back(cylinder_id(context, cylinder));
         }
     }

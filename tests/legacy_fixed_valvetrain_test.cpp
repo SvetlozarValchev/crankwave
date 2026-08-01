@@ -45,6 +45,12 @@ constexpr double kExpectedExhaustKAt105CrankDegrees = 0.001214419956248241;
     return *profile;
 }
 
+[[nodiscard]] LegacyCamShape &only_cam_profile(LegacyCamshaftProfile &camshaft) {
+    expect(camshaft.profiles.size() == 1U,
+           "fixture camshaft did not contain exactly one profile");
+    return camshaft.profiles.front();
+}
+
 [[nodiscard]] LegacyFixedValvetrainCompileResult
 compile_fixture_valvetrain(EngineSpec &engine) {
     return compile_legacy_fixed_valvetrain(engine, operating_profile(engine).core);
@@ -107,8 +113,8 @@ struct ValvetrainFixture {
             harmonic.advance_rad.value = 0.0;
             harmonic.base_radius_m.value = 0.6 * inch_source;
         };
-        configure_shape(profile.core.valvetrain.intake.shape);
-        configure_shape(profile.core.valvetrain.exhaust.shape);
+        configure_shape(only_cam_profile(profile.core.valvetrain.intake));
+        configure_shape(only_cam_profile(profile.core.valvetrain.exhaust));
 
         constexpr std::array<double, 13> intake_cfm{
             0.0,   35.0,  60.0,  90.0,  125.0, 150.0, 175.0,
@@ -169,8 +175,8 @@ struct ValvetrainFixture {
 
 [[nodiscard]] LegacySampledCamShape
 make_sampled_shape(InputBuilder &builder, std::string role, double advance_rad = 0.5) {
-    const std::string base =
-        "engine.physics.low-order-operating-point-v1.valvetrain." + role + ".shape";
+    const std::string base = "engine.physics.low-order-operating-point-v1.valvetrain." +
+                             role + ".profiles.profile-0.shape";
     const auto make_point = [&](std::string id, double angle_rad, double lift_m) {
         const std::string point_base = base + ".samples." + id;
         LegacySampledCamPoint point;
@@ -194,8 +200,9 @@ make_sampled_shape(InputBuilder &builder, std::string role, double advance_rad =
 
 void configure_sampled_shapes(ValvetrainFixture &fixture) {
     auto &valvetrain = operating_profile(fixture.engine).core.valvetrain;
-    valvetrain.intake.shape = make_sampled_shape(fixture.builder, "intake");
-    valvetrain.exhaust.shape = make_sampled_shape(fixture.builder, "exhaust");
+    only_cam_profile(valvetrain.intake) = make_sampled_shape(fixture.builder, "intake");
+    only_cam_profile(valvetrain.exhaust) =
+        make_sampled_shape(fixture.builder, "exhaust");
 }
 
 [[nodiscard]] LegacyHarmonicCamShape &harmonic_shape(LegacyCamShape &shape) {
@@ -271,13 +278,19 @@ void test_exact_lobe_construction_and_bindings() {
     const auto &profile = operating_profile(fixture.engine);
     auto valvetrain = require_valvetrain(compile_fixture_valvetrain(fixture.engine));
 
-    const auto intake = valvetrain.intake_lobe_table();
-    const auto exhaust = valvetrain.exhaust_lobe_table();
+    const auto intake_profiles = valvetrain.intake_cam_profiles();
+    const auto exhaust_profiles = valvetrain.exhaust_cam_profiles();
+    expect(intake_profiles.size() == 1U && exhaust_profiles.size() == 1U,
+           "single-profile fixture did not compile one profile per valve role");
+    const auto &intake_profile = intake_profiles.front();
+    const auto &exhaust_profile = exhaust_profiles.front();
+    const auto &intake = intake_profile.lobe_table;
+    const auto &exhaust = exhaust_profile.lobe_table;
     expect(intake.size() == 199 && exhaust.size() == 199,
            "N=100 did not produce two 199-sample lobe tables");
-    expect(same_binary64(valvetrain.intake_lobe_triangle_radius_rad(),
+    expect(same_binary64(intake_profile.lobe_triangle_radius_rad,
                          kExpectedLobeRadiusRad) &&
-               same_binary64(valvetrain.exhaust_lobe_triangle_radius_rad(),
+               same_binary64(exhaust_profile.lobe_triangle_radius_rad,
                              kExpectedLobeRadiusRad),
            "BMW lobe triangle radius changed");
     expect(same_binary64(intake.front().x, -kExpectedLobeDomainRad) &&
@@ -325,10 +338,14 @@ void test_exact_lobe_construction_and_bindings() {
                bindings[0].intake_port_id == PortId{1} &&
                bindings[0].exhaust_port_id == PortId{2} &&
                bindings[0].flow_profile_index == 0U &&
+               bindings[0].intake_cam_profile_index == 0U &&
+               bindings[0].exhaust_cam_profile_index == 0U &&
                bindings[1].cylinder_id == CylinderId{2} &&
                bindings[1].intake_port_id == PortId{3} &&
                bindings[1].exhaust_port_id == PortId{4} &&
-               bindings[1].flow_profile_index == 0U,
+               bindings[1].flow_profile_index == 0U &&
+               bindings[1].intake_cam_profile_index == 0U &&
+               bindings[1].exhaust_cam_profile_index == 0U,
            "lobe-vector reordering changed admitted cylinder/port order");
     const auto intake_lobe_2 =
         std::find_if(profile.core.valvetrain.intake.lobes.begin(),
@@ -366,8 +383,10 @@ void test_sampling_goldens_wrap_and_span_contract() {
                same_binary64(peak->exhaust_valve_k, kExpectedPeakExhaustK) &&
                peak->intake_valve_k != peak->exhaust_valve_k,
            "peak valve conductance lost the distinct BMW flow tables");
-    expect(peak->intake_lift_m < valvetrain.intake_base_radius_m() &&
-               peak->exhaust_lift_m < valvetrain.exhaust_base_radius_m(),
+    expect(peak->intake_lift_m <
+                   valvetrain.intake_cam_profiles().front().base_radius_m &&
+               peak->exhaust_lift_m <
+                   valvetrain.exhaust_cam_profiles().front().base_radius_m,
            "cam base radius was added to valve lift");
 
     const double crank105 = 105.0 * kDegreeSource;
@@ -455,15 +474,17 @@ void test_sampled_lobe_copy_endpoints_wrap_advance_and_multiple_lobes() {
         {0.0, 0.009},
         {1.0, 0.002},
     }};
-    expect(std::ranges::equal(valvetrain.intake_lobe_table(), expected_table) &&
-               std::ranges::equal(valvetrain.exhaust_lobe_table(), expected_table),
+    const auto &intake_profile = valvetrain.intake_cam_profiles().front();
+    const auto &exhaust_profile = valvetrain.exhaust_cam_profiles().front();
+    expect(std::ranges::equal(intake_profile.lobe_table, expected_table) &&
+               std::ranges::equal(exhaust_profile.lobe_table, expected_table),
            "sampled cam points were reordered, regenerated, or otherwise changed");
-    expect(same_binary64(valvetrain.intake_lobe_triangle_radius_rad(), 1.0) &&
-               same_binary64(valvetrain.exhaust_lobe_triangle_radius_rad(), 1.0) &&
-               same_binary64(valvetrain.intake_advance_rad(), 0.5) &&
-               same_binary64(valvetrain.exhaust_advance_rad(), 0.5) &&
-               same_binary64(valvetrain.intake_base_radius_m(), 0.015) &&
-               same_binary64(valvetrain.exhaust_base_radius_m(), 0.015),
+    expect(same_binary64(intake_profile.lobe_triangle_radius_rad, 1.0) &&
+               same_binary64(exhaust_profile.lobe_triangle_radius_rad, 1.0) &&
+               same_binary64(intake_profile.advance_rad, 0.5) &&
+               same_binary64(exhaust_profile.advance_rad, 0.5) &&
+               same_binary64(intake_profile.base_radius_m, 0.015) &&
+               same_binary64(exhaust_profile.base_radius_m, 0.015),
            "sampled cam metadata changed during fixed-valvetrain compilation");
 
     const auto advanced_peak = valvetrain.sample_cylinder(CylinderId{1}, -0.5);
@@ -600,6 +621,31 @@ void test_focused_admission_failures() {
         "valvetrain.exhaust.lobes");
     expect_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
+            profile.core.valvetrain.intake.profiles.clear();
+        },
+        "valvetrain.intake.profiles");
+    expect_compile_rejected(
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
+            profile.core.valvetrain.intake.lobes.front().profile_index = 1U;
+        },
+        "valvetrain.intake.lobes");
+    expect_compile_rejected(
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
+            profile.core.valvetrain.intake.profiles.push_back(
+                profile.core.valvetrain.intake.profiles.front());
+        },
+        "valvetrain.intake.profiles");
+    expect_compile_rejected(
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
+            auto &camshaft = profile.core.valvetrain.intake;
+            camshaft.profiles.push_back(camshaft.profiles.front());
+            for (auto &lobe : camshaft.lobes) {
+                lobe.profile_index = lobe.cylinder_id == CylinderId{1} ? 1U : 0U;
+            }
+        },
+        "valvetrain.intake.profiles");
+    expect_compile_rejected(
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             auto &cylinder_one = *std::find_if(
                 profile.core.valvetrain.intake.lobes.begin(),
                 profile.core.valvetrain.intake.lobes.end(),
@@ -644,80 +690,83 @@ void test_focused_admission_failures() {
         "gas_path.heads");
     expect_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            harmonic_shape(profile.core.valvetrain.intake.shape).advance_rad.value =
-                std::numeric_limits<double>::quiet_NaN();
+            harmonic_shape(only_cam_profile(profile.core.valvetrain.intake))
+                .advance_rad.value = std::numeric_limits<double>::quiet_NaN();
         },
-        "valvetrain.intake.shape");
+        "valvetrain.intake.profiles[0]");
     expect_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            harmonic_shape(profile.core.valvetrain.intake.shape)
+            harmonic_shape(only_cam_profile(profile.core.valvetrain.intake))
                 .construction_steps.value = 5;
         },
-        "valvetrain.intake.shape");
+        "valvetrain.intake.profiles[0]");
     expect_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            harmonic_shape(profile.core.valvetrain.intake.shape).maximum_lift_m.value =
-                0.0005;
+            harmonic_shape(only_cam_profile(profile.core.valvetrain.intake))
+                .maximum_lift_m.value = 0.0005;
         },
-        "valvetrain.intake.shape");
+        "valvetrain.intake.profiles[0]");
     expect_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            harmonic_shape(profile.core.valvetrain.exhaust.shape)
+            harmonic_shape(only_cam_profile(profile.core.valvetrain.exhaust))
                 .duration_at_reference_lift_rad.value =
                 std::numeric_limits<double>::denorm_min();
         },
-        "valvetrain.exhaust.shape");
+        "valvetrain.exhaust.profiles[0]");
 
     expect_sampled_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            sampled_shape(profile.core.valvetrain.intake.shape)
+            sampled_shape(only_cam_profile(profile.core.valvetrain.intake))
                 .triangle_radius_rad.value = 0.0;
         },
-        "valvetrain.intake.shape");
+        "valvetrain.intake.profiles[0]");
     expect_sampled_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            sampled_shape(profile.core.valvetrain.exhaust.shape).base_radius_m.value =
-                -0.001;
+            sampled_shape(only_cam_profile(profile.core.valvetrain.exhaust))
+                .base_radius_m.value = -0.001;
         },
-        "valvetrain.exhaust.shape");
+        "valvetrain.exhaust.profiles[0]");
     expect_sampled_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            sampled_shape(profile.core.valvetrain.intake.shape).advance_rad.value =
-                std::numeric_limits<double>::infinity();
+            sampled_shape(only_cam_profile(profile.core.valvetrain.intake))
+                .advance_rad.value = std::numeric_limits<double>::infinity();
         },
-        "valvetrain.intake.shape");
+        "valvetrain.intake.profiles[0]");
     expect_sampled_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            sampled_shape(profile.core.valvetrain.intake.shape).samples.resize(1U);
+            sampled_shape(only_cam_profile(profile.core.valvetrain.intake))
+                .samples.resize(1U);
         },
-        "valvetrain.intake.shape.samples");
-    expect_sampled_compile_rejected(
-        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            auto &samples = sampled_shape(profile.core.valvetrain.intake.shape).samples;
-            samples[1].angle_rad.value = samples[0].angle_rad.value;
-        },
-        "valvetrain.intake.shape.samples[1]");
-    expect_sampled_compile_rejected(
-        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            sampled_shape(profile.core.valvetrain.exhaust.shape)
-                .samples[1]
-                .angle_rad.value = std::numeric_limits<double>::quiet_NaN();
-        },
-        "valvetrain.exhaust.shape.samples[1]");
-    expect_sampled_compile_rejected(
-        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            sampled_shape(profile.core.valvetrain.intake.shape)
-                .samples[1]
-                .lift_m.value = -0.001;
-        },
-        "valvetrain.intake.shape.samples[1]");
+        "valvetrain.intake.profiles[0].shape.samples");
     expect_sampled_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             auto &samples =
-                sampled_shape(profile.core.valvetrain.exhaust.shape).samples;
+                sampled_shape(only_cam_profile(profile.core.valvetrain.intake)).samples;
+            samples[1].angle_rad.value = samples[0].angle_rad.value;
+        },
+        "valvetrain.intake.profiles[0].shape.samples[1]");
+    expect_sampled_compile_rejected(
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
+            sampled_shape(only_cam_profile(profile.core.valvetrain.exhaust))
+                .samples[1]
+                .angle_rad.value = std::numeric_limits<double>::quiet_NaN();
+        },
+        "valvetrain.exhaust.profiles[0].shape.samples[1]");
+    expect_sampled_compile_rejected(
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
+            sampled_shape(only_cam_profile(profile.core.valvetrain.intake))
+                .samples[1]
+                .lift_m.value = -0.001;
+        },
+        "valvetrain.intake.profiles[0].shape.samples[1]");
+    expect_sampled_compile_rejected(
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
+            auto &samples =
+                sampled_shape(only_cam_profile(profile.core.valvetrain.exhaust))
+                    .samples;
             samples[1].sample_id.value = samples[0].sample_id.value;
         },
-        "valvetrain.exhaust.shape.samples");
+        "valvetrain.exhaust.profiles[0].shape.samples");
 }
 
 void run_tests() {
