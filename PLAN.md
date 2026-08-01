@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-01
 
-Current checkpoint: **slice 10 topology closure — bank-local head execution**
+Current checkpoint: **slice 10 topology closure — separate intake execution**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -173,7 +173,7 @@ resampler is not expected to reproduce a 192 kHz WAV container.
 The current generic identities are:
 
 ```text
-simulation request SHA-256: e1052791be6dcb8c6e75919393ff3bb2980a0055e019cb8fae824240d38db6e7
+simulation request SHA-256: 97b66006384e9a506582da6c768e50b4a48e446d235e59b19f91dbfa54624689
 audition WAV byte count:    8640586
 audition WAV SHA-256:       f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552
 ```
@@ -631,8 +631,13 @@ bindings, and opposed mechanism pairs across a bounded runtime capture. More gen
 ignition wires now preserve their public sharing identity and execute pristine's
 stateless one-post-to-many-cylinder fan-out. A shared-wire inline twin and an
 equal-angle split-wire twin retain different canonical engine identities while
-producing byte-identical PCM. Separate intakes and multiple crankshafts remain isolated
-follow-up commits within slice 10. The ignition source
+producing byte-identical PCM. The first separate-intake checkpoint replaces the
+resolved and runtime singleton with stable intake identities, ordered per-intake gas
+profiles, and explicit cylinder-to-intake lanes while deliberately retaining the
+one-intake authoring admission gate. It is an architecture-only checkpoint: the
+single-intake BMW PCM remains the required byte-exact authority before distinct
+intakes are admitted in the next commit. Multiple crankshafts remain an isolated
+follow-up within slice 10. The ignition source
 authority is frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md`](docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md).
 Exhaust-primary cross-section ownership is singular: the referenced bank head's

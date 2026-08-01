@@ -76,7 +76,7 @@ DirectoryRenderSink::Implementation::commit(const contract::RenderManifest &mani
 
     ManifestEncodingResult encoded;
     try {
-        encoded = encode_simulation_manifest_v7(manifest);
+        encoded = encode_simulation_manifest_v8(manifest);
     } catch (const std::exception &error) {
         return terminal_failure(detail::publication_error(
             "manifest-encoding-threw",
@@ -93,7 +93,7 @@ DirectoryRenderSink::Implementation::commit(const contract::RenderManifest &mani
     if (manifest_bytes.empty()) {
         return terminal_failure(detail::protocol_error(
             "manifest-encoding-empty",
-            "the simulation-v7 manifest encoder returned an empty document"));
+            "the simulation-v8 manifest encoder returned an empty document"));
     }
 
 #if defined(__linux__)

@@ -171,10 +171,10 @@ public_sample(const FixedHorizonCycleSample &sample,
 
 [[nodiscard]] contract::HeldSpeedOperatingPointResult public_operating_point(
     const FixedHorizonCycleSamplingEvidence &evidence,
-    const contract::Sha256Digest &simulation_request_identity_v4_sha256,
+    const contract::Sha256Digest &simulation_request_identity_v5_sha256,
     const contract::HeldSpeedOperatingPointConditions &conditions) {
     return {
-        simulation_request_identity_v4_sha256,
+        simulation_request_identity_v5_sha256,
         conditions,
         std::string{contract::kGenericChenFlynnLowOrderModelPredictionApplicability},
         {
@@ -260,22 +260,20 @@ LowOrderOperatingPointV1Runtime::LowOrderOperatingPointV1Runtime(
     std::vector<OperatingGasVolumePressureSample> pressure_samples,
     TransactionShape transaction_shape,
     std::uint64_t fixed_preparation_horizon_frame_count,
-    contract::Sha256Digest simulation_request_identity_v4_sha256,
-    contract::HeldSpeedOperatingPointConditions conditions,
-    double throttle_gamma, double idle_throttle_plate_position_01,
-    std::string model_id, std::string profile_id, std::string scenario_id,
-    contract::EngineId engine_id)
+    contract::Sha256Digest simulation_request_identity_v5_sha256,
+    contract::HeldSpeedOperatingPointConditions conditions, double throttle_gamma,
+    double idle_throttle_plate_position_01, std::string model_id,
+    std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
     : accountant_(std::move(accountant)), sampler_(std::move(sampler)),
       physical_gas_step_indices_(std::move(physical_gas_step_indices)),
       pressure_samples_(std::move(pressure_samples)),
       transaction_shape_(std::move(transaction_shape)),
       fixed_preparation_horizon_frame_count_(fixed_preparation_horizon_frame_count),
-      simulation_request_identity_v4_sha256_(simulation_request_identity_v4_sha256),
+      simulation_request_identity_v5_sha256_(simulation_request_identity_v5_sha256),
       conditions_(std::move(conditions)), throttle_gamma_(throttle_gamma),
       idle_throttle_plate_position_01_(idle_throttle_plate_position_01),
-      model_id_(std::move(model_id)),
-      profile_id_(std::move(profile_id)), scenario_id_(std::move(scenario_id)),
-      engine_id_(engine_id) {}
+      model_id_(std::move(model_id)), profile_id_(std::move(profile_id)),
+      scenario_id_(std::move(scenario_id)), engine_id_(engine_id) {}
 
 contract::FailureContext LowOrderOperatingPointV1Runtime::fault(
     contract::FailureKind kind, std::string detail_code, std::string state_summary,
@@ -372,11 +370,9 @@ LowOrderOperatingPointV1Runtime::validate_transaction(
             std::bit_cast<std::uint64_t>(
                 expected_throttle.resolved_engine_throttle_01) &&
         std::bit_cast<std::uint64_t>(mechanics.intake_plate_position_01) ==
-            std::bit_cast<std::uint64_t>(
-                expected_throttle.intake_plate_position_01) &&
+            std::bit_cast<std::uint64_t>(expected_throttle.intake_plate_position_01) &&
         std::bit_cast<std::uint64_t>(mechanics.main_flow_multiplier_01) ==
-            std::bit_cast<std::uint64_t>(
-                expected_throttle.main_flow_multiplier_01);
+            std::bit_cast<std::uint64_t>(expected_throttle.main_flow_multiplier_01);
     if (!exact_effective_throttle) {
         return fault(
             contract::FailureKind::contract_violation,
@@ -586,7 +582,7 @@ LowOrderOperatingPointV1Runtime::finalize_at_fixed_horizon(
 
     auto point =
         public_operating_point(std::get<FixedHorizonCycleSampled>(result).evidence,
-                               simulation_request_identity_v4_sha256_, conditions_);
+                               simulation_request_identity_v5_sha256_, conditions_);
     const auto report = contract::validate(point);
     if (!report.ok()) {
         const auto summary =

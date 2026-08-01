@@ -126,8 +126,7 @@ void visit_cylinder_parameters(const Cylinder &cylinder, const std::string &base
         function(parameters.stroke_m, base + ".stroke_m");
         function(parameters.crank_radius_m, base + ".crank_radius_m");
     } else if (const auto *direct =
-                   std::get_if<LegacyDirectJournalKinematics>(
-                       &cylinder.kinematics)) {
+                   std::get_if<LegacyDirectJournalKinematics>(&cylinder.kinematics)) {
         function(direct->stroke_m, base + ".stroke_m");
         function(direct->crank_radius_m, base + ".crank_radius_m");
     }
@@ -144,18 +143,15 @@ void visit_cylinder_parameters(const Cylinder &cylinder, const std::string &base
     if constexpr (requires { parameters.journal_angle_rad; }) {
         function(parameters.journal_angle_rad, base + ".journal_angle_rad");
     } else if (const auto *direct =
-                   std::get_if<LegacyDirectJournalKinematics>(
-                       &cylinder.kinematics)) {
+                   std::get_if<LegacyDirectJournalKinematics>(&cylinder.kinematics)) {
         function(direct->journal_angle_rad, base + ".journal_angle_rad");
     }
     function(parameters.ignition_wire_angle_rad, base + ".ignition_wire_angle_rad");
     function(parameters.header_primary_length_m, base + ".header_primary_length_m");
     if constexpr (requires { cylinder.kinematics; }) {
         if (const auto *master =
-                std::get_if<LegacyMasterRodJournalKinematics>(
-                    &cylinder.kinematics)) {
-            function(master->throw_radius_m,
-                     base + ".kinematics.throw_radius_m");
+                std::get_if<LegacyMasterRodJournalKinematics>(&cylinder.kinematics)) {
+            function(master->throw_radius_m, base + ".kinematics.throw_radius_m");
             function(master->master_local_phase_rad,
                      base + ".kinematics.master_local_phase_rad");
         }
@@ -361,7 +357,8 @@ void visit_pressure_gains(const Gains &gains, const std::string &base,
 template <class Core, class Function>
 void visit_low_order_core_fields(const Core &core, std::string_view root,
                                  Function function, const auto &cylinder_name,
-                                 const auto &head_name, const auto &route_name) {
+                                 const auto &intake_name, const auto &head_name,
+                                 const auto &route_name) {
     visit_crank(core.mechanism.crank, std::string(root) + ".mechanism.crank", function);
     for (const auto &cylinder : core.mechanism.cylinders) {
         visit_cylinder_parameters(cylinder,
@@ -373,11 +370,13 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
     visit_throttle_controller(core.throttle_controller,
                               std::string(root) + ".throttle_controller", function);
 
-    visit_intake(core.gas_path.intake, std::string(root) + ".gas_path.intake",
-                 function);
+    for (const auto &intake : core.gas_path.intakes) {
+        visit_intake(intake.parameters,
+                     std::string(root) + ".gas_path.intakes." + intake_name(intake),
+                     function);
+    }
     for (const auto &head : core.gas_path.heads) {
-        visit_head(head,
-                   std::string(root) + ".gas_path.heads." + head_name(head),
+        visit_head(head, std::string(root) + ".gas_path.heads." + head_name(head),
                    function);
     }
     for (const auto &route : core.gas_path.exhaust_routes) {
@@ -521,9 +520,14 @@ std::string cylinder_name(const EngineSpec &engine, CylinderId id) {
 }
 
 std::string bank_name(const EngineSpec &engine, BankId id) {
+    return semantic_id_for(engine.banks, id, &BankSpec::id,
+                           [](const BankSpec &bank) { return bank.semantic_id.value; });
+}
+
+std::string intake_name(const EngineSpec &engine, IntakeId id) {
     return semantic_id_for(
-        engine.banks, id, &BankSpec::id,
-        [](const BankSpec &bank) { return bank.semantic_id.value; });
+        engine.intakes, id, &IntakeSpec::id,
+        [](const IntakeSpec &intake) { return intake.semantic_id.value; });
 }
 
 std::string route_name(const EngineSpec &engine, RouteId id) {
@@ -821,24 +825,79 @@ void validate_authored_low_order_core_domains(
                 ContractIssueCode::inconsistent_semantics,
                 path + ".parameters.crank_radius_m.value",
                 "twice crank radius must equal stroke");
-
     }
 
-    const auto &intake = core.gas_path.intake;
-    require(report,
-            finite_positive(intake.plenum_volume_m3.value) &&
-                finite_positive(intake.plenum_cross_section_area_m2.value) &&
-                finite_positive(intake.runner_length_m.value) &&
-                finite_nonnegative(intake.velocity_decay.value) &&
-                detail::unit_interval(intake.idle_throttle_plate_position_01.value),
-            ContractIssueCode::invalid_value, "gas_path.intake",
-            "legacy intake parameters are outside their domain");
-    validate_restriction_domain(report, intake.main_throttle,
-                                "gas_path.intake.main_throttle");
-    validate_restriction_domain(report, intake.idle_bypass,
-                                "gas_path.intake.idle_bypass");
-    validate_restriction_domain(report, intake.plenum_to_runner,
-                                "gas_path.intake.plenum_to_runner");
+    require(report, !core.gas_path.intakes.empty(), ContractIssueCode::missing_value,
+            "gas_path.intakes", "legacy gas path requires at least one intake");
+    std::unordered_set<std::string> intake_ids;
+    std::unordered_set<std::string> plenum_ids;
+    std::unordered_set<std::string> intake_boundary_edge_ids;
+    std::string previous_intake_id;
+    for (std::size_t index = 0; index < core.gas_path.intakes.size(); ++index) {
+        const auto &profile = core.gas_path.intakes[index];
+        const auto &intake = profile.parameters;
+        const auto path = "gas_path.intakes[" + std::to_string(index) + "]";
+        const auto topology_path = path + ".topology";
+        const auto parameters_path = path + ".parameters";
+        require(report,
+                previous_intake_id.empty() ||
+                    previous_intake_id < profile.topology.intake_id.value,
+                ContractIssueCode::inconsistent_shape, "gas_path.intakes",
+                "intakes must be uniquely identified and ordered by intake ID");
+        previous_intake_id = profile.topology.intake_id.value;
+        require(report, intake_ids.insert(profile.topology.intake_id.value).second,
+                ContractIssueCode::duplicate_identity, topology_path + ".intake_id",
+                "intake profiles must have unique intake identities");
+        require(
+            report, plenum_ids.insert(profile.topology.plenum_volume_id.value).second,
+            ContractIssueCode::duplicate_identity, topology_path + ".plenum_volume_id",
+            "each intake profile must own a distinct plenum");
+        require(
+            report,
+            intake_boundary_edge_ids
+                .insert(profile.topology.main_throttle_edge_id.value)
+                .second,
+            ContractIssueCode::duplicate_identity,
+            topology_path + ".main_throttle_edge_id",
+            "each intake boundary edge must be bound by exactly one intake profile");
+        require(
+            report,
+            intake_boundary_edge_ids.insert(profile.topology.idle_bypass_edge_id.value)
+                .second,
+            ContractIssueCode::duplicate_identity,
+            topology_path + ".idle_bypass_edge_id",
+            "each intake boundary edge must be bound by exactly one intake profile");
+        require(report,
+                finite_positive(intake.plenum_volume_m3.value) &&
+                    finite_positive(intake.plenum_cross_section_area_m2.value) &&
+                    finite_positive(intake.runner_length_m.value) &&
+                    finite_nonnegative(intake.velocity_decay.value) &&
+                    detail::unit_interval(intake.idle_throttle_plate_position_01.value),
+                ContractIssueCode::invalid_value, parameters_path,
+                "legacy intake parameters are outside their domain");
+        validate_restriction_domain(report, intake.main_throttle,
+                                    parameters_path + ".main_throttle");
+        validate_restriction_domain(report, intake.idle_bypass,
+                                    parameters_path + ".idle_bypass");
+        validate_restriction_domain(report, intake.plenum_to_runner,
+                                    parameters_path + ".plenum_to_runner");
+    }
+    std::unordered_set<std::string> used_intake_ids;
+    for (std::size_t index = 0; index < core.mechanism.cylinders.size(); ++index) {
+        const auto &intake_id =
+            core.mechanism.cylinders[index].topology.intake_id.value;
+        const auto path =
+            "mechanism.cylinders[" + std::to_string(index) + "].topology.intake_id";
+        require(report, intake_ids.contains(intake_id),
+                ContractIssueCode::dangling_reference, path,
+                "legacy cylinder references an unknown intake profile");
+        if (intake_ids.contains(intake_id)) {
+            used_intake_ids.insert(intake_id);
+        }
+    }
+    require(report, used_intake_ids == intake_ids,
+            ContractIssueCode::inconsistent_shape, "mechanism.cylinders",
+            "every legacy intake profile must be used by at least one cylinder");
     validate_restriction_domain(report, core.gas_path.piston_blowby,
                                 "gas_path.piston_blowby");
 
@@ -1276,8 +1335,8 @@ void validate_low_order_core_domains(ValidationReport &report,
         const auto &head = core.gas_path.heads[index];
         heads_match_engine_banks =
             heads_match_engine_banks && head.bank_id.valid() &&
-            (index == 0 || core.gas_path.heads[index - 1].bank_id.value <
-                               head.bank_id.value) &&
+            (index == 0 ||
+             core.gas_path.heads[index - 1].bank_id.value < head.bank_id.value) &&
             index < engine.banks.size() && head.bank_id == engine.banks[index].id;
     }
     require(report, heads_match_engine_banks, ContractIssueCode::inconsistent_shape,
@@ -1286,6 +1345,26 @@ void validate_low_order_core_domains(ValidationReport &report,
     const auto find_head = [&](BankId bank_id) -> const LegacyBankHeadProfile * {
         return find_by_id(core.gas_path.heads, bank_id,
                           &LegacyBankHeadProfile::bank_id);
+    };
+    bool intakes_match_engine = core.gas_path.intakes.size() == engine.intakes.size();
+    for (std::size_t index = 0; index < core.gas_path.intakes.size(); ++index) {
+        const auto &intake = core.gas_path.intakes[index];
+        intakes_match_engine =
+            intakes_match_engine && intake.topology.intake_id.valid() &&
+            (index == 0 || core.gas_path.intakes[index - 1].topology.intake_id.value <
+                               intake.topology.intake_id.value) &&
+            index < engine.intakes.size() &&
+            intake.topology.intake_id == engine.intakes[index].id;
+    }
+    require(report, intakes_match_engine, ContractIssueCode::inconsistent_shape,
+            "gas_path.intakes",
+            "intake profiles must cover EngineSpec intakes exactly once in "
+            "IntakeId order");
+    const auto find_intake = [&](IntakeId id) -> const LegacyIntakeProfile * {
+        return find_by_id(core.gas_path.intakes, id,
+                          [](const LegacyIntakeProfile &intake) {
+                              return intake.topology.intake_id;
+                          });
     };
 
     const auto &crank = core.mechanism.crank;
@@ -1308,27 +1387,28 @@ void validate_low_order_core_domains(ValidationReport &report,
             ContractIssueCode::inconsistent_shape, "mechanism.cylinders",
             "mechanism must bind every engine cylinder exactly once");
 
-    const auto &intake_topology = core.gas_path.intake_topology;
-    const auto *plenum = find_volume(engine, intake_topology.plenum_volume_id);
-    require(report,
-            plenum != nullptr && plenum->kind.value == GasVolumeKind::intake_plenum,
-            ContractIssueCode::inconsistent_semantics,
-            "gas_path.intake_topology.plenum_volume_id",
-            "legacy intake plenum must reference an intake-plenum volume");
-    require(report,
-            edge_connects_to_kind(engine, intake_topology.main_throttle_edge_id,
-                                  GasVolumeKind::atmosphere,
-                                  intake_topology.plenum_volume_id) &&
-                edge_connects_to_kind(engine, intake_topology.idle_bypass_edge_id,
+    for (const auto &intake : core.gas_path.intakes) {
+        const auto &topology = intake.topology;
+        const auto path =
+            "gas_path.intakes." + intake_name(engine, topology.intake_id) + ".topology";
+        const auto *plenum = find_volume(engine, topology.plenum_volume_id);
+        require(report,
+                plenum != nullptr && plenum->kind.value == GasVolumeKind::intake_plenum,
+                ContractIssueCode::inconsistent_semantics, path + ".plenum_volume_id",
+                "legacy intake plenum must reference an intake-plenum volume");
+        require(report,
+                edge_connects_to_kind(engine, topology.main_throttle_edge_id,
                                       GasVolumeKind::atmosphere,
-                                      intake_topology.plenum_volume_id),
-            ContractIssueCode::inconsistent_semantics, "gas_path.intake_topology",
-            "main and idle intake edges must be oriented atmosphere-to-plenum");
-    require(report,
-            intake_topology.main_throttle_edge_id !=
-                intake_topology.idle_bypass_edge_id,
-            ContractIssueCode::duplicate_identity, "gas_path.intake_topology",
-            "main throttle and idle bypass must be distinct flow edges");
+                                      topology.plenum_volume_id) &&
+                    edge_connects_to_kind(engine, topology.idle_bypass_edge_id,
+                                          GasVolumeKind::atmosphere,
+                                          topology.plenum_volume_id),
+                ContractIssueCode::inconsistent_semantics, path,
+                "main and idle intake edges must be oriented atmosphere-to-plenum");
+        require(report, topology.main_throttle_edge_id != topology.idle_bypass_edge_id,
+                ContractIssueCode::duplicate_identity, path,
+                "main throttle and idle bypass must be distinct flow edges");
+    }
 
     const auto find_gas_route = [&](RouteId id) -> const LegacyExhaustRouteProfile * {
         return find_by_id(core.gas_path.exhaust_routes, id,
@@ -1339,6 +1419,7 @@ void validate_low_order_core_domains(ValidationReport &report,
     std::unordered_set<std::uint32_t> intake_port_ids;
     std::unordered_set<std::uint32_t> exhaust_port_ids;
     std::unordered_set<std::uint32_t> runner_volume_ids;
+    std::unordered_set<std::uint32_t> plenum_volume_ids;
     std::unordered_set<std::uint32_t> chamber_volume_ids;
     std::unordered_set<std::uint32_t> primary_volume_ids;
     std::unordered_set<std::uint32_t> plenum_runner_edge_ids;
@@ -1346,33 +1427,47 @@ void validate_low_order_core_domains(ValidationReport &report,
     std::unordered_set<std::uint32_t> exhaust_valve_edge_ids;
     std::unordered_set<std::uint32_t> primary_collector_edge_ids;
     std::unordered_set<std::uint32_t> blowby_edge_ids;
+    std::unordered_set<std::uint32_t> intake_boundary_edge_ids;
     std::unordered_set<std::uint32_t> topology_edge_ids;
     std::unordered_set<std::uint32_t> atmosphere_volume_ids;
     std::unordered_set<std::uint32_t> used_exhaust_route_ids;
+    std::unordered_set<std::uint32_t> used_intake_ids;
     double profile_displacement_m3 = 0.0;
     bool has_master_kinematics = false;
 
-    const auto require_unique_resource = [&](auto &ids, const auto id,
-                                             const std::string &path,
-                                             std::string_view role) {
-        if (id.valid() && !ids.insert(id.value).second) {
-            report.add(ContractIssueCode::duplicate_identity, path,
-                       std::string(role) + " must be owned by exactly one cylinder");
-        }
-    };
+    const auto require_unique_resource =
+        [&](auto &ids, const auto id, const std::string &path, std::string_view role) {
+            if (id.valid() && !ids.insert(id.value).second) {
+                report.add(ContractIssueCode::duplicate_identity, path,
+                           std::string(role) +
+                               " must be bound exactly once by the legacy topology");
+            }
+        };
     const auto collect_valid_id = [](auto &ids, const auto id) {
         if (id.valid()) {
             ids.insert(id.value);
         }
     };
-    collect_valid_id(topology_edge_ids, intake_topology.main_throttle_edge_id);
-    collect_valid_id(topology_edge_ids, intake_topology.idle_bypass_edge_id);
-    for (const auto edge_id :
-         {intake_topology.main_throttle_edge_id, intake_topology.idle_bypass_edge_id}) {
-        const auto *edge = find_edge(engine, edge_id);
-        if (edge != nullptr && volume_has_kind(engine, edge->endpoint_0_volume_id,
-                                               GasVolumeKind::atmosphere)) {
-            collect_valid_id(atmosphere_volume_ids, edge->endpoint_0_volume_id);
+    for (const auto &intake : core.gas_path.intakes) {
+        const auto &topology = intake.topology;
+        const auto path =
+            "gas_path.intakes." + intake_name(engine, topology.intake_id) + ".topology";
+        require_unique_resource(plenum_volume_ids, topology.plenum_volume_id,
+                                path + ".plenum_volume_id", "intake plenum");
+        require_unique_resource(intake_boundary_edge_ids,
+                                topology.main_throttle_edge_id,
+                                path + ".main_throttle_edge_id", "main-throttle edge");
+        require_unique_resource(intake_boundary_edge_ids, topology.idle_bypass_edge_id,
+                                path + ".idle_bypass_edge_id", "idle-bypass edge");
+        collect_valid_id(topology_edge_ids, topology.main_throttle_edge_id);
+        collect_valid_id(topology_edge_ids, topology.idle_bypass_edge_id);
+        for (const auto edge_id :
+             {topology.main_throttle_edge_id, topology.idle_bypass_edge_id}) {
+            const auto *edge = find_edge(engine, edge_id);
+            if (edge != nullptr && volume_has_kind(engine, edge->endpoint_0_volume_id,
+                                                   GasVolumeKind::atmosphere)) {
+                collect_valid_id(atmosphere_volume_ids, edge->endpoint_0_volume_id);
+            }
         }
     }
     for (const auto &cylinder : core.mechanism.cylinders) {
@@ -1388,6 +1483,7 @@ void validate_low_order_core_domains(ValidationReport &report,
                 : find_by_id(engine.banks, engine_cylinder->bank_id, &BankSpec::id);
         const auto *head =
             engine_cylinder == nullptr ? nullptr : find_head(engine_cylinder->bank_id);
+        const auto *intake = find_intake(topology.intake_id);
         const auto *intake_port =
             find_by_id(engine.ports, topology.intake_port_id, &PortSpec::id);
         const auto *exhaust_port =
@@ -1398,6 +1494,11 @@ void validate_low_order_core_domains(ValidationReport &report,
         require(report, engine_cylinder != nullptr,
                 ContractIssueCode::dangling_reference, path + ".topology.cylinder_id",
                 "legacy cylinder references an unknown engine cylinder");
+        require(report,
+                intake != nullptr && engine_cylinder != nullptr &&
+                    engine_cylinder->intake_id == topology.intake_id,
+                ContractIssueCode::inconsistent_semantics, path + ".topology.intake_id",
+                "legacy cylinder must bind its EngineSpec intake profile");
         require(report,
                 intake_port != nullptr &&
                     intake_port->cylinder_id == topology.cylinder_id &&
@@ -1422,9 +1523,10 @@ void validate_low_order_core_domains(ValidationReport &report,
                 ContractIssueCode::inconsistent_semantics, path + ".topology",
                 "cylinder volumes must have runner, chamber, and primary roles");
         require(report,
-                edge_connects(engine, topology.plenum_to_runner_edge_id,
-                              intake_topology.plenum_volume_id,
-                              topology.intake_runner_volume_id) &&
+                intake != nullptr &&
+                    edge_connects(engine, topology.plenum_to_runner_edge_id,
+                                  intake->topology.plenum_volume_id,
+                                  topology.intake_runner_volume_id) &&
                     edge_connects(engine, topology.intake_valve_edge_id,
                                   topology.intake_runner_volume_id,
                                   topology.chamber_volume_id) &&
@@ -1504,6 +1606,9 @@ void validate_low_order_core_domains(ValidationReport &report,
         if (topology.exhaust_route_id.valid()) {
             used_exhaust_route_ids.insert(topology.exhaust_route_id.value);
         }
+        if (topology.intake_id.valid()) {
+            used_intake_ids.insert(topology.intake_id.value);
+        }
 
         const bool common_parameters_valid =
             finite_positive(parameters.bore_m.value) &&
@@ -1547,14 +1652,13 @@ void validate_low_order_core_domains(ValidationReport &report,
         }
         if (master != nullptr) {
             has_master_kinematics = true;
-            const auto *master_engine_cylinder =
-                find_by_id(engine.cylinders, master->master_cylinder_id,
-                           &CylinderSpec::id);
-            const auto *master_core_cylinder = find_by_id(
-                core.mechanism.cylinders, master->master_cylinder_id,
-                [](const LegacyCylinderAssembly &candidate) {
-                    return candidate.topology.cylinder_id;
-                });
+            const auto *master_engine_cylinder = find_by_id(
+                engine.cylinders, master->master_cylinder_id, &CylinderSpec::id);
+            const auto *master_core_cylinder =
+                find_by_id(core.mechanism.cylinders, master->master_cylinder_id,
+                           [](const LegacyCylinderAssembly &candidate) {
+                               return candidate.topology.cylinder_id;
+                           });
             require(report,
                     master->master_cylinder_id.valid() &&
                         master->master_cylinder_id != topology.cylinder_id &&
@@ -1581,9 +1685,9 @@ void validate_low_order_core_domains(ValidationReport &report,
                     !engine_cylinder->master_rod_attachment.has_value() &&
                     detail::nearly_equal(direct->stroke_m.value,
                                          engine_cylinder->stroke_m.value) &&
-                    detail::nearly_equal(
-                        direct->journal_angle_rad.value,
-                        engine_cylinder->journal_phase_rad.value - bank_angle_rad);
+                    detail::nearly_equal(direct->journal_angle_rad.value,
+                                         engine_cylinder->journal_phase_rad.value -
+                                             bank_angle_rad);
             } else if (master != nullptr) {
                 const auto &attachment = engine_cylinder->master_rod_attachment;
                 kinematics_match =
@@ -1591,9 +1695,8 @@ void validate_low_order_core_domains(ValidationReport &report,
                     master->master_cylinder_id == attachment->master_cylinder_id &&
                     detail::nearly_equal(master->throw_radius_m.value,
                                          attachment->throw_radius_m.value) &&
-                    detail::nearly_equal(
-                        master->master_local_phase_rad.value,
-                        engine_cylinder->journal_phase_rad.value);
+                    detail::nearly_equal(master->master_local_phase_rad.value,
+                                         engine_cylinder->journal_phase_rad.value);
             }
             require(report,
                     detail::nearly_equal(parameters.bore_m.value,
@@ -1670,24 +1773,26 @@ void validate_low_order_core_domains(ValidationReport &report,
             ContractIssueCode::inconsistent_semantics, "mechanism.cylinders",
             "direct legacy mechanism displacement must agree with EngineSpec");
 
-    const auto &intake = core.gas_path.intake;
-    require(report,
-            finite_positive(intake.plenum_volume_m3.value) &&
-                finite_positive(intake.plenum_cross_section_area_m2.value) &&
-                finite_positive(intake.runner_length_m.value) &&
-                finite_nonnegative(intake.velocity_decay.value) &&
-                detail::unit_interval(intake.idle_throttle_plate_position_01.value),
-            ContractIssueCode::invalid_value, "gas_path.intake",
-            "legacy intake parameters are outside their domain");
-    validate_restriction_domain(report, intake.main_throttle,
-                                "gas_path.intake.main_throttle", profile_root,
-                                &provenance);
-    validate_restriction_domain(report, intake.idle_bypass,
-                                "gas_path.intake.idle_bypass", profile_root,
-                                &provenance);
-    validate_restriction_domain(report, intake.plenum_to_runner,
-                                "gas_path.intake.plenum_to_runner", profile_root,
-                                &provenance);
+    for (const auto &profile : core.gas_path.intakes) {
+        const auto &intake = profile.parameters;
+        const auto path =
+            "gas_path.intakes." + intake_name(engine, profile.topology.intake_id);
+        require(report,
+                finite_positive(intake.plenum_volume_m3.value) &&
+                    finite_positive(intake.plenum_cross_section_area_m2.value) &&
+                    finite_positive(intake.runner_length_m.value) &&
+                    finite_nonnegative(intake.velocity_decay.value) &&
+                    detail::unit_interval(intake.idle_throttle_plate_position_01.value),
+                ContractIssueCode::invalid_value, path,
+                "legacy intake parameters are outside their domain");
+        validate_restriction_domain(report, intake.main_throttle,
+                                    path + ".main_throttle", profile_root, &provenance);
+        validate_restriction_domain(report, intake.idle_bypass, path + ".idle_bypass",
+                                    profile_root, &provenance);
+        validate_restriction_domain(report, intake.plenum_to_runner,
+                                    path + ".plenum_to_runner", profile_root,
+                                    &provenance);
+    }
     validate_restriction_domain(report, core.gas_path.piston_blowby,
                                 "gas_path.piston_blowby", profile_root, &provenance);
 
@@ -1852,10 +1957,9 @@ void validate_low_order_core_domains(ValidationReport &report,
                                 "mechanism.cylinders", "resolved intake ports");
     require_exact_role_coverage(engine.ports, PortKind::exhaust, exhaust_port_ids,
                                 "mechanism.cylinders", "resolved exhaust ports");
-    require_exact_role_coverage(
-        engine.gas_volumes, GasVolumeKind::intake_plenum,
-        std::unordered_set<std::uint32_t>{intake_topology.plenum_volume_id.value},
-        "gas_path.intake_topology.plenum_volume_id", "resolved intake plenums");
+    require_exact_role_coverage(engine.gas_volumes, GasVolumeKind::intake_plenum,
+                                plenum_volume_ids, "gas_path.intakes",
+                                "resolved intake plenums");
     require_exact_role_coverage(engine.gas_volumes, GasVolumeKind::intake_runner,
                                 runner_volume_ids, "mechanism.cylinders",
                                 "resolved intake runners");
@@ -1876,7 +1980,7 @@ void validate_low_order_core_domains(ValidationReport &report,
     for (const auto &edge : engine.flow_edges) {
         collect_valid_id(engine_flow_edge_ids, edge.id);
     }
-    const auto topology_edge_binding_count = std::size_t{2} +
+    const auto topology_edge_binding_count = 2 * core.gas_path.intakes.size() +
                                              5 * core.mechanism.cylinders.size() +
                                              core.gas_path.exhaust_routes.size();
     require(report,
@@ -1893,6 +1997,13 @@ void validate_low_order_core_domains(ValidationReport &report,
     require(report, used_exhaust_route_ids == gas_path_route_ids,
             ContractIssueCode::inconsistent_shape, "mechanism.cylinders",
             "every legacy exhaust route must be used by at least one cylinder");
+    std::unordered_set<std::uint32_t> gas_path_intake_ids;
+    for (const auto &intake : core.gas_path.intakes) {
+        collect_valid_id(gas_path_intake_ids, intake.topology.intake_id);
+    }
+    require(report, used_intake_ids == gas_path_intake_ids,
+            ContractIssueCode::inconsistent_shape, "mechanism.cylinders",
+            "every legacy intake profile must be used by at least one cylinder");
 
     const auto validate_camshaft = [&](const LegacyCamshaftProfile &camshaft,
                                        PortKind expected_kind,
@@ -1959,8 +2070,7 @@ void validate_low_order_core_domains(ValidationReport &report,
             "firing order must contain every cylinder exactly once");
     std::unordered_set<std::string> completed_ignition_wires;
     std::optional<std::string> active_ignition_wire;
-    std::unordered_map<std::string, std::vector<CylinderId>>
-        shared_wire_firing_order;
+    std::unordered_map<std::string, std::vector<CylinderId>> shared_wire_firing_order;
     for (const auto cylinder : core.ignition.firing_order.value) {
         const auto found =
             std::ranges::find(engine.cylinders, cylinder, &CylinderSpec::id);
@@ -1979,8 +2089,7 @@ void validate_low_order_core_domains(ValidationReport &report,
         } else if (!active_ignition_wire.has_value()) {
             shared_wire_firing_order[wire->value].push_back(cylinder);
             require(report, !completed_ignition_wires.contains(wire->value),
-                    ContractIssueCode::inconsistent_semantics,
-                    "ignition.firing_order",
+                    ContractIssueCode::inconsistent_semantics, "ignition.firing_order",
                     "cylinders sharing an ignition wire must form one firing-post "
                     "fan-out group");
             active_ignition_wire = wire->value;
@@ -1988,8 +2097,7 @@ void validate_low_order_core_domains(ValidationReport &report,
             shared_wire_firing_order[wire->value].push_back(cylinder);
             completed_ignition_wires.insert(*active_ignition_wire);
             require(report, !completed_ignition_wires.contains(wire->value),
-                    ContractIssueCode::inconsistent_semantics,
-                    "ignition.firing_order",
+                    ContractIssueCode::inconsistent_semantics, "ignition.firing_order",
                     "cylinders sharing an ignition wire must form one firing-post "
                     "fan-out group");
             active_ignition_wire = wire->value;
@@ -1997,19 +2105,16 @@ void validate_low_order_core_domains(ValidationReport &report,
             shared_wire_firing_order[wire->value].push_back(cylinder);
         }
     }
-    std::unordered_map<std::string, std::vector<CylinderId>>
-        shared_wire_engine_order;
+    std::unordered_map<std::string, std::vector<CylinderId>> shared_wire_engine_order;
     for (const auto &cylinder : engine.cylinders) {
         if (cylinder.shared_ignition_wire_semantic_id.has_value()) {
-            shared_wire_engine_order
-                [cylinder.shared_ignition_wire_semantic_id->value]
-                    .push_back(cylinder.id);
+            shared_wire_engine_order[cylinder.shared_ignition_wire_semantic_id->value]
+                .push_back(cylinder.id);
         }
     }
     for (const auto &[wire, engine_order] : shared_wire_engine_order) {
         require(report, shared_wire_firing_order[wire] == engine_order,
-                ContractIssueCode::inconsistent_semantics,
-                "ignition.firing_order",
+                ContractIssueCode::inconsistent_semantics, "ignition.firing_order",
                 "cylinders sharing ignition wire '" + wire +
                     "' must retain stable engine cylinder order");
     }
@@ -2025,11 +2130,9 @@ void validate_low_order_core_domains(ValidationReport &report,
                     return cylinder.topology.cylinder_id;
                 };
                 const auto left_core = std::ranges::find(
-                    core.mechanism.cylinders, engine.cylinders[left].id,
-                    cylinder_id);
+                    core.mechanism.cylinders, engine.cylinders[left].id, cylinder_id);
                 const auto right_core = std::ranges::find(
-                    core.mechanism.cylinders, engine.cylinders[right].id,
-                    cylinder_id);
+                    core.mechanism.cylinders, engine.cylinders[right].id, cylinder_id);
                 require(report,
                         engine.cylinders[left].firing_tdc_offset_rad.value ==
                             engine.cylinders[right].firing_tdc_offset_rad.value,
@@ -2037,18 +2140,17 @@ void validate_low_order_core_domains(ValidationReport &report,
                         "ignition.firing_order",
                         "cylinders sharing an ignition wire must have one common "
                         "firing angle");
-                require(
-                    report,
-                    left_core != core.mechanism.cylinders.end() &&
-                        right_core != core.mechanism.cylinders.end() &&
-                        left_core->parameters.ignition_wire_angle_rad.value ==
-                            engine.cylinders[left].firing_tdc_offset_rad.value &&
-                        right_core->parameters.ignition_wire_angle_rad.value ==
-                            engine.cylinders[right].firing_tdc_offset_rad.value,
-                    ContractIssueCode::inconsistent_semantics,
-                    "ignition.firing_order",
-                    "cylinders sharing an ignition wire must retain exact "
-                    "public/core firing angles");
+                require(report,
+                        left_core != core.mechanism.cylinders.end() &&
+                            right_core != core.mechanism.cylinders.end() &&
+                            left_core->parameters.ignition_wire_angle_rad.value ==
+                                engine.cylinders[left].firing_tdc_offset_rad.value &&
+                            right_core->parameters.ignition_wire_angle_rad.value ==
+                                engine.cylinders[right].firing_tdc_offset_rad.value,
+                        ContractIssueCode::inconsistent_semantics,
+                        "ignition.firing_order",
+                        "cylinders sharing an ignition wire must retain exact "
+                        "public/core firing angles");
             }
         }
     }
@@ -2470,8 +2572,8 @@ void validate_resolved_profile_specific(ValidationReport &report,
                                           profile.starter);
     validate_resolved_accessory_evidence(report, profile.accessory_configuration,
                                          provenance);
-    const bool has_master_kinematics = std::ranges::any_of(
-        profile.core.mechanism.cylinders, [](const auto &cylinder) {
+    const bool has_master_kinematics =
+        std::ranges::any_of(profile.core.mechanism.cylinders, [](const auto &cylinder) {
             return std::holds_alternative<LegacyMasterRodJournalKinematics>(
                 cylinder.kinematics);
         });
@@ -2516,6 +2618,7 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                 const auto base = std::string(root) + ".mechanism.cylinders[" +
                                   std::to_string(index) + "].topology";
                 validate_topology_field(topology.cylinder_id, base + ".cylinder_id");
+                validate_topology_field(topology.intake_id, base + ".intake_id");
                 validate_topology_field(topology.intake_port_id,
                                         base + ".intake_port_id");
                 validate_topology_field(topology.exhaust_port_id,
@@ -2539,20 +2642,22 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                 validate_topology_field(topology.exhaust_route_id,
                                         base + ".exhaust_route_id");
             }
-            validate_topology_field(core.gas_path.intake_topology.plenum_volume_id,
-                                    std::string(root) +
-                                        ".gas_path.intake_topology.plenum_volume_id");
-            validate_topology_field(
-                core.gas_path.intake_topology.main_throttle_edge_id,
-                std::string(root) + ".gas_path.intake_topology.main_throttle_edge_id");
-            validate_topology_field(
-                core.gas_path.intake_topology.idle_bypass_edge_id,
-                std::string(root) + ".gas_path.intake_topology.idle_bypass_edge_id");
+            for (std::size_t index = 0; index < core.gas_path.intakes.size(); ++index) {
+                const auto &topology = core.gas_path.intakes[index].topology;
+                const auto base = std::string(root) + ".gas_path.intakes[" +
+                                  std::to_string(index) + "].topology";
+                validate_topology_field(topology.intake_id, base + ".intake_id");
+                validate_topology_field(topology.plenum_volume_id,
+                                        base + ".plenum_volume_id");
+                validate_topology_field(topology.main_throttle_edge_id,
+                                        base + ".main_throttle_edge_id");
+                validate_topology_field(topology.idle_bypass_edge_id,
+                                        base + ".idle_bypass_edge_id");
+            }
             for (std::size_t index = 0; index < core.gas_path.heads.size(); ++index) {
-                validate_topology_field(
-                    core.gas_path.heads[index].bank_id,
-                    std::string(root) + ".gas_path.heads[" +
-                        std::to_string(index) + "].bank_id");
+                validate_topology_field(core.gas_path.heads[index].bank_id,
+                                        std::string(root) + ".gas_path.heads[" +
+                                            std::to_string(index) + "].bank_id");
             }
             for (std::size_t index = 0; index < core.gas_path.exhaust_routes.size();
                  ++index) {
@@ -2608,15 +2713,16 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                     return item.route_id.value;
                 }
             };
-            const auto head_name = [](const auto &head) {
-                return head.bank_id.value;
+            const auto head_name = [](const auto &head) { return head.bank_id.value; };
+            const auto intake_name = [](const auto &intake) {
+                return intake.topology.intake_id.value;
             };
             visit_low_order_core_fields(
                 core, root,
                 [&](const auto &value, const std::string &path) {
                     validate_authored(report, value, provenance, path);
                 },
-                cylinder_name, head_name, route_name);
+                cylinder_name, intake_name, head_name, route_name);
             validate_authored_low_order_core_domains(report, core);
             validate_authored_profile_specific(report, typed_profile, provenance, root);
         },
@@ -2662,17 +2768,23 @@ ValidationReport validate(const ExecutablePhysicsProfile &profile,
                 }
             };
             const auto head_namer = [&](const auto &head) {
-                const auto *bank = find_by_id(engine.banks, head.bank_id,
-                                              &BankSpec::id);
+                const auto *bank =
+                    find_by_id(engine.banks, head.bank_id, &BankSpec::id);
                 return bank == nullptr ? std::string{"unknown-bank"}
                                        : bank->semantic_id.value;
+            };
+            const auto intake_namer = [&](const auto &intake) {
+                const auto *resolved = find_by_id(
+                    engine.intakes, intake.topology.intake_id, &IntakeSpec::id);
+                return resolved == nullptr ? std::string{"unknown-intake"}
+                                           : resolved->semantic_id.value;
             };
             visit_low_order_core_fields(
                 core, root,
                 [&](const auto &value, const std::string &path) {
                     validate_resolved(report, value, provenance, path);
                 },
-                cylinder_namer, head_namer, route_namer);
+                cylinder_namer, intake_namer, head_namer, route_namer);
             validate_low_order_core_domains(report, core, engine, provenance, root);
             validate_resolved_profile_specific(report, typed_profile, engine,
                                                provenance, root);

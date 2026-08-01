@@ -116,10 +116,12 @@ class LegacyLowOrderGasSession final {
 
   private:
     struct IntakeLane {
+        contract::IntakeId intake_id;
         std::size_t plenum_volume_index = 0;
         std::size_t main_throttle_edge_index = 0;
         std::size_t idle_bypass_edge_index = 0;
         double plenum_cross_section_area_m2 = 0.0;
+        double idle_throttle_plate_position_01 = 0.0;
         double main_throttle_k = 0.0;
         double idle_bypass_k = 0.0;
         double plenum_to_runner_k = 0.0;
@@ -147,6 +149,7 @@ class LegacyLowOrderGasSession final {
         std::size_t exhaust_valve_edge_index = 0;
         std::size_t primary_to_collector_edge_index = 0;
         std::size_t blowby_edge_index = 0;
+        std::size_t intake_lane_index = 0;
         std::size_t route_lane_index = 0;
         double bore_m = 0.0;
         double piston_area_m2 = 0.0;
@@ -210,7 +213,7 @@ class LegacyLowOrderGasSession final {
     bool previous_limiter_cut_active_ = false;
     LegacyGasMixture inert_mixture_{};
     std::optional<LegacySelectableValvetrain> valvetrain_;
-    IntakeLane intake_;
+    std::vector<IntakeLane> intakes_;
     std::vector<RouteLane> routes_;
     std::vector<CylinderLane> cylinders_;
     std::vector<contract::CylinderId> expected_spark_cylinders_;

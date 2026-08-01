@@ -22,6 +22,7 @@ struct IdNamespace {
 
 struct RuntimeIds {
     IdNamespace banks;
+    IdNamespace intakes;
     IdNamespace cylinders;
     IdNamespace ports;
     IdNamespace gas_volumes;
@@ -61,7 +62,6 @@ struct ModelContext {
     const authoring::CamshaftDefinition *exhaust_camshaft = nullptr;
     const authoring::CamshaftDefinition *alternate_intake_camshaft = nullptr;
     const authoring::CamshaftDefinition *alternate_exhaust_camshaft = nullptr;
-    const authoring::IntakeDefinition *intake = nullptr;
     const authoring::FuelDefinition *fuel = nullptr;
     const authoring::ThrottleControllerDefinition *throttle_controller = nullptr;
     const authoring::AccessoryConfigurationDefinition *accessory_configuration =
@@ -69,6 +69,7 @@ struct ModelContext {
 
     std::unordered_map<std::string, const authoring::CurveDefinition *> curves;
     std::unordered_map<std::string, const authoring::BankDefinition *> banks;
+    std::unordered_map<std::string, const authoring::IntakeDefinition *> intakes;
     std::unordered_map<std::string, const authoring::JournalDefinition *> journals;
     std::unordered_map<std::string, const authoring::ConnectingRodDefinition *> rods;
     std::unordered_map<std::string, const authoring::PistonDefinition *> pistons;
@@ -199,6 +200,8 @@ assemble_rig(const ModelContext &context, ResolutionEmitter &emitter);
 [[nodiscard]] std::string profile_path(std::string_view suffix);
 [[nodiscard]] contract::BankId bank_id(const ModelContext &context,
                                        std::string_view semantic_id);
+[[nodiscard]] contract::IntakeId intake_id(const ModelContext &context,
+                                           std::string_view semantic_id);
 [[nodiscard]] contract::CylinderId cylinder_id(const ModelContext &context,
                                                std::string_view semantic_id);
 [[nodiscard]] contract::PortId port_id(const ModelContext &context,
@@ -213,6 +216,7 @@ assemble_rig(const ModelContext &context, ResolutionEmitter &emitter);
                                            authoring::PortKind kind);
 [[nodiscard]] std::string volume_semantic_id(std::string_view cylinder,
                                              std::string_view role);
+[[nodiscard]] std::string intake_plenum_semantic_id(std::string_view intake);
 [[nodiscard]] std::string collector_semantic_id(std::string_view exhaust);
 [[nodiscard]] std::string flow_semantic_id(std::string_view owner,
                                            std::string_view role);
@@ -225,6 +229,8 @@ resolve_restriction(const authoring::FlowRestriction &source, std::string base_p
 ordered_routes(const ModelContext &context);
 [[nodiscard]] std::vector<const authoring::BankDefinition *>
 ordered_banks(const ModelContext &context);
+[[nodiscard]] std::vector<const authoring::IntakeDefinition *>
+ordered_intakes(const ModelContext &context);
 [[nodiscard]] const authoring::CamLobeDefinition &
 cam_lobe_for_cylinder(const ModelContext &context,
                       const authoring::CamshaftDefinition &camshaft,

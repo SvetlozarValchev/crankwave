@@ -62,9 +62,9 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
         return report;
     }
 
-    auto result = compile_mechanics_with_control(
-        engine, core, scenario, std::move(mechanism_plan),
-        schedule.control_schedule(), true);
+    auto result = compile_mechanics_with_control(engine, core, scenario,
+                                                 std::move(mechanism_plan),
+                                                 schedule.control_schedule(), true);
     if (auto *session = std::get_if<LegacyLowOrderMechanicsSession>(&result)) {
         session->kinematic_cursor_.emplace(schedule.fresh_cursor());
     }
@@ -78,8 +78,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
     SharedMechanismKinematicsPlan mechanism_plan,
     const ScenarioControlSchedule &schedule) {
     return compile_mechanics_with_control(engine, core, scenario,
-                                          std::move(mechanism_plan), schedule,
-                                          false);
+                                          std::move(mechanism_plan), schedule, false);
 }
 
 detail::LowOrderEngineCoreV1RuntimeFactory::MechanicsCompileResult
@@ -89,8 +88,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
     SharedMechanismKinematicsPlan mechanism_plan,
     const ScenarioControlSchedule &schedule, const bool has_kinematic_schedule) {
     ValidationReport report;
-    const auto *direct_plan =
-        direct_mechanism_kinematics_plan(mechanism_plan);
+    const auto *direct_plan = direct_mechanism_kinematics_plan(mechanism_plan);
     const auto *radial_plan =
         one_level_master_rod_mechanism_kinematics_plan(mechanism_plan);
     const bool plan_matches_source =
@@ -193,7 +191,12 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
             ContractIssueCode::invalid_value,
             "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
             "crank TDC reference must be finite");
-    const auto &intake = core.gas_path.intake;
+    require(report, !core.gas_path.intakes.empty(), ContractIssueCode::missing_value,
+            "engine.physics_profile.gas_path.intakes",
+            "at least one intake profile is required");
+    const auto *intake = core.gas_path.intakes.empty()
+                             ? nullptr
+                             : &core.gas_path.intakes.front().parameters;
     std::optional<LegacyThrottleControllerParameters> throttle_controller;
     std::visit(
         [&](const auto &controller) {
@@ -233,20 +236,22 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
                         "engine.physics_profile.throttle_controller.direct.gamma",
                         "direct throttle gamma must be finite and positive");
                 if (valid) {
-                    throttle_controller =
-                        LegacyDirectThrottleControllerParameters{
-                            controller.gamma.value};
+                    throttle_controller = LegacyDirectThrottleControllerParameters{
+                        controller.gamma.value};
                 }
             }
         },
         core.throttle_controller);
-    require(report,
-            std::isfinite(intake.idle_throttle_plate_position_01.value) &&
-                intake.idle_throttle_plate_position_01.value >= 0.0 &&
-                intake.idle_throttle_plate_position_01.value <= 1.0,
-            ContractIssueCode::invalid_value,
-            "engine.physics_profile.gas_path.intake.idle_throttle_plate_position_01",
-            "idle plate position must be finite in [0,1]");
+    if (intake != nullptr) {
+        require(report,
+                std::isfinite(intake->idle_throttle_plate_position_01.value) &&
+                    intake->idle_throttle_plate_position_01.value >= 0.0 &&
+                    intake->idle_throttle_plate_position_01.value <= 1.0,
+                ContractIssueCode::invalid_value,
+                "engine.physics_profile.gas_path.intakes[0].parameters."
+                "idle_throttle_plate_position_01",
+                "idle plate position must be finite in [0,1]");
+    }
     const auto &ignition = core.ignition;
     require(report, finite_positive(ignition.timing_curve_triangle_radius_rad_s.value),
             ContractIssueCode::invalid_value,
@@ -297,7 +302,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
         std::move(timing_curve),
         ignition.timing_curve_triangle_radius_rad_s.value,
         std::move(*throttle_controller),
-        intake.idle_throttle_plate_position_01.value,
+        intake->idle_throttle_plate_position_01.value,
         ignition.limiter_speed_rpm.value,
         ignition.limiter_hold_s.value,
         engine.methods.mechanism.value.id,

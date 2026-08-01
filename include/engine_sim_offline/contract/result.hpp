@@ -301,7 +301,7 @@ struct HeldSpeedOperatingPointConditions {
 };
 
 struct HeldSpeedOperatingPointResult {
-    Sha256Digest simulation_request_identity_v4_sha256;
+    Sha256Digest simulation_request_identity_v5_sha256;
     HeldSpeedOperatingPointConditions conditions;
     std::string applicability_label;
     HeldSpeedFixedHorizonSampleEvidence sampling;
@@ -340,7 +340,7 @@ struct InertialDynoEnergyBalanceEvidence {
 // early-terminal instruction: audio continues through end_frame_index whether or not
 // the target was reached.
 struct InertialDynoResult {
-    Sha256Digest simulation_request_identity_v4_sha256;
+    Sha256Digest simulation_request_identity_v5_sha256;
     // Start is physics frame zero; release is the exact preparation-horizon frame.
     // Extrema cover every represented physics-frame state from start through end.
     double start_engine_speed_rpm = 0.0;
@@ -408,17 +408,17 @@ validate(const HeldSpeedOperatingPointResult &operating_point);
 [[nodiscard]] ValidationReport
 validate(const HeldSpeedOperatingPointResult &operating_point,
          const RenderScenario &requested_scenario, const EngineSpec &engine,
-         const Sha256Digest &expected_simulation_request_identity_v4_sha256);
+         const Sha256Digest &expected_simulation_request_identity_v5_sha256);
 [[nodiscard]] ValidationReport validate(const InertialDynoResult &inertial_dyno);
 [[nodiscard]] ValidationReport
 validate(const InertialDynoResult &inertial_dyno,
          const RenderScenario &requested_scenario,
-         const Sha256Digest &expected_simulation_request_identity_v4_sha256);
+         const Sha256Digest &expected_simulation_request_identity_v5_sha256);
 [[nodiscard]] ValidationReport validate(const UnreachableTarget &unreachable);
 [[nodiscard]] ValidationReport validate(const RenderFailure &failure);
 [[nodiscard]] ValidationReport
 validate(const RenderResult &result, const RenderScenario &requested_scenario,
-         const Sha256Digest &expected_simulation_request_identity_v4_sha256,
+         const Sha256Digest &expected_simulation_request_identity_v5_sha256,
          const ProvenanceLedger &provenance, const SourceMatrixContract &source_matrix);
 
 } // namespace engine_sim_offline::contract

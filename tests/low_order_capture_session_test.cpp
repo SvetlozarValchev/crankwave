@@ -1123,7 +1123,7 @@ void test_operating_capture_rejects_zero_request_identity(
                std::ranges::any_of(report->issues,
                                    [](const ContractIssue &issue) {
                                        return issue.path ==
-                                              "simulation_request_identity_v4_sha256";
+                                              "simulation_request_identity_v5_sha256";
                                    }),
            "operating capture admitted a zero simulation-request identity");
 }

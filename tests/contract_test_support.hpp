@@ -188,29 +188,26 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
     };
     LegacyCylinderAssembly cylinder;
     cylinder.topology = {
-        CylinderId{1},  PortId{1},      PortId{2},     GasVolumeId{2},
-        GasVolumeId{3}, GasVolumeId{4}, FlowEdgeId{3}, FlowEdgeId{4},
-        FlowEdgeId{5},  FlowEdgeId{6},  FlowEdgeId{7}, RouteId{1},
+        CylinderId{1},  IntakeId{1},    PortId{1},     PortId{2},     GasVolumeId{2},
+        GasVolumeId{3}, GasVolumeId{4}, FlowEdgeId{3}, FlowEdgeId{4}, FlowEdgeId{5},
+        FlowEdgeId{6},  FlowEdgeId{7},  RouteId{1},
     };
     const auto cylinder_path = path("mechanism.cylinders.cylinder-1");
     auto bore_m = builder.resolved(0.084, cylinder_path + ".bore_m");
     auto stroke_m = builder.resolved(0.084, cylinder_path + ".stroke_m");
-    auto crank_radius_m =
-        builder.resolved(0.042, cylinder_path + ".crank_radius_m");
+    auto crank_radius_m = builder.resolved(0.042, cylinder_path + ".crank_radius_m");
     auto connecting_rod_length_m =
         builder.resolved(0.135, cylinder_path + ".connecting_rod_length_m");
-    auto deck_height_m =
-        builder.resolved(0.211, cylinder_path + ".deck_height_m");
-    auto piston_compression_height_m = builder.resolved(
-        0.03182, cylinder_path + ".piston_compression_height_m");
-    auto piston_displacement_term_m3 = builder.resolved(
-        0.0, cylinder_path + ".piston_displacement_term_m3");
-    auto piston_mass_kg =
-        builder.resolved(0.28, cylinder_path + ".piston_mass_kg");
+    auto deck_height_m = builder.resolved(0.211, cylinder_path + ".deck_height_m");
+    auto piston_compression_height_m =
+        builder.resolved(0.03182, cylinder_path + ".piston_compression_height_m");
+    auto piston_displacement_term_m3 =
+        builder.resolved(0.0, cylinder_path + ".piston_displacement_term_m3");
+    auto piston_mass_kg = builder.resolved(0.28, cylinder_path + ".piston_mass_kg");
     auto connecting_rod_mass_kg =
         builder.resolved(0.30, cylinder_path + ".connecting_rod_mass_kg");
-    auto connecting_rod_inertia_kg_m2 = builder.resolved(
-        0.0015, cylinder_path + ".connecting_rod_inertia_kg_m2");
+    auto connecting_rod_inertia_kg_m2 =
+        builder.resolved(0.0015, cylinder_path + ".connecting_rod_inertia_kg_m2");
     auto journal_angle_rad =
         builder.resolved(0.0, cylinder_path + ".journal_angle_rad");
     auto ignition_wire_angle_rad =
@@ -240,24 +237,32 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
         builder.resolved(2.0, path("throttle_controller.direct.gamma")),
     };
 
-    core.gas_path.intake_topology = {
-        GasVolumeId{1},
-        FlowEdgeId{1},
-        FlowEdgeId{2},
-    };
-    core.gas_path.intake = {
-        builder.resolved(0.002, path("gas_path.intake.plenum_volume_m3")),
-        builder.resolved(0.01, path("gas_path.intake.plenum_cross_section_area_m2")),
-        builder.resolved(0.15, path("gas_path.intake.runner_length_m")),
-        builder.resolved(1.0, path("gas_path.intake.velocity_decay")),
-        builder.resolved(0.0, path("gas_path.intake.idle_throttle_plate_position_01")),
-        make_restriction(builder, LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
-                         kCarb500, path("gas_path.intake.main_throttle")),
-        make_restriction(builder, LegacyRestrictionCalibration::carb_at_1p5_inhg, 0.1,
-                         kCarbPointOne, path("gas_path.intake.idle_bypass")),
-        make_restriction(builder, LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
-                         kCarb500, path("gas_path.intake.plenum_to_runner")),
-    };
+    core.gas_path.intakes.push_back({
+        {
+            IntakeId{1},
+            GasVolumeId{1},
+            FlowEdgeId{1},
+            FlowEdgeId{2},
+        },
+        {
+            builder.resolved(0.002, path("gas_path.intakes.intake-1.plenum_volume_m3")),
+            builder.resolved(
+                0.01, path("gas_path.intakes.intake-1.plenum_cross_section_area_m2")),
+            builder.resolved(0.15, path("gas_path.intakes.intake-1.runner_length_m")),
+            builder.resolved(1.0, path("gas_path.intakes.intake-1.velocity_decay")),
+            builder.resolved(
+                0.0, path("gas_path.intakes.intake-1.idle_throttle_plate_position_01")),
+            make_restriction(builder, LegacyRestrictionCalibration::carb_at_1p5_inhg,
+                             500.0, kCarb500,
+                             path("gas_path.intakes.intake-1.main_throttle")),
+            make_restriction(builder, LegacyRestrictionCalibration::carb_at_1p5_inhg,
+                             0.1, kCarbPointOne,
+                             path("gas_path.intakes.intake-1.idle_bypass")),
+            make_restriction(builder, LegacyRestrictionCalibration::carb_at_1p5_inhg,
+                             500.0, kCarb500,
+                             path("gas_path.intakes.intake-1.plenum_to_runner")),
+        },
+    });
     LegacyBankHeadProfile head;
     head.bank_id = BankId{1};
     head.chamber_volume_m3 =
@@ -505,11 +510,17 @@ inline EngineSpec make_engine(InputBuilder &builder) {
         builder.resolved(std::string{"bank-1"}, "engine.banks.bank-1.semantic_id"),
         std::nullopt,
     });
+    spec.intakes.push_back({
+        IntakeId{1},
+        builder.resolved(std::string{"intake-1"},
+                         "engine.intakes.intake-1.semantic_id"),
+    });
     spec.cylinders.push_back({
         CylinderId{1},
         builder.resolved(std::string{"cylinder-1"},
                          "engine.cylinders.cylinder-1.semantic_id"),
         BankId{1},
+        IntakeId{1},
         builder.resolved(bore_m, "engine.cylinders.cylinder-1.bore_m"),
         builder.resolved(stroke_m, "engine.cylinders.cylinder-1.stroke_m"),
         builder.resolved(0.135, "engine.cylinders.cylinder-1.connecting_rod_length_m"),
@@ -821,7 +832,7 @@ inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
     const auto source_matrix = make_source_matrix();
 
     RenderManifestContent content;
-    content.schema_version = 7;
+    content.schema_version = 8;
     content.inputs = SimulationManifestInputs{
         ResolvedRenderInputs{engine, presentation, randomness, scenario}};
     content.provenance = builder.provenance.bundle;

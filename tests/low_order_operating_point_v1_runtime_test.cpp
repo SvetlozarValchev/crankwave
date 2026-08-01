@@ -141,9 +141,8 @@ core_runtime(const Fixture &value) {
         simulation::compile_mechanism_kinematics_plan(value.engine, profile.core);
     expect(!std::holds_alternative<contract::ValidationReport>(mechanism_plan_result),
            "canonical operating mechanism plan was rejected");
-    auto mechanism_plan =
-        std::get<simulation::SharedMechanismKinematicsPlan>(
-            std::move(mechanism_plan_result));
+    auto mechanism_plan = std::get<simulation::SharedMechanismKinematicsPlan>(
+        std::move(mechanism_plan_result));
     auto result = simulation::compile_low_order_engine_core_v1_runtime(
         value.engine, value.scenario, profile.core, random_plan,
         std::move(mechanism_plan), finite_extent(value.scenario));
@@ -184,7 +183,7 @@ void test_complete_cycle_evidence_reaches_public_result(
     const auto &point = *operating.operating_point_result();
     const auto &sampling = point.sampling;
     const auto &sample = sampling.trailing_complete_cycles;
-    expect(point.simulation_request_identity_v4_sha256 == value.request_identity &&
+    expect(point.simulation_request_identity_v5_sha256 == value.request_identity &&
                sampling.method ==
                    contract::fixed_horizon_cycle_sampling_method_identity() &&
                sampling.trailing_complete_cycle_count == kTrailingCompleteCycleCount &&
@@ -273,6 +272,27 @@ void test_scenario_mass_afr_is_exactly_bound_to_core_conversion(
                    }),
            "runtime compiler admitted scenario mass AFR that was not bit-exact "
            "with the core pseudo-gas conversion");
+}
+
+void test_runtime_rejects_an_empty_internal_intake_set(
+    const test::AuthoredEngineFixture &authored) {
+    auto value = fixture(authored);
+    const auto plan = capture_plan(value);
+    auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+        value.engine.physics_profile);
+    profile.core.gas_path.intakes.clear();
+
+    const auto result = simulation::compile_low_order_operating_point_v1_runtime(
+        value.engine, value.scenario, plan, value.request_identity);
+    const auto *report = std::get_if<contract::ValidationReport>(&result);
+    expect(report != nullptr &&
+               std::ranges::any_of(
+                   report->issues,
+                   [](const auto &issue) {
+                       return issue.path ==
+                              "engine.physics_profile.core.gas_path.intakes";
+                   }),
+           "runtime compiler admitted an empty internal intake set");
 }
 
 void test_capture_reports_absent_instantaneous_models_truthfully(
@@ -388,6 +408,7 @@ void run_tests(const std::filesystem::path &repository_root) {
     const auto authored = test::load_canonical_authored_engine_fixture(repository_root);
     test_capture_plan_transplants_are_rejected(authored);
     test_scenario_mass_afr_is_exactly_bound_to_core_conversion(authored);
+    test_runtime_rejects_an_empty_internal_intake_set(authored);
     test_capture_reports_absent_instantaneous_models_truthfully(authored);
     test_runtime_rejects_foreign_controls_and_shape(authored);
     test_complete_cycle_evidence_reaches_public_result(authored);

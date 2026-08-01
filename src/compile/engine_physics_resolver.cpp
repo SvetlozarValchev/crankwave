@@ -35,6 +35,11 @@ template <class Id>
     return runtime_id<contract::BankId>(context.ids.banks, semantic_id);
 }
 
+[[nodiscard]] contract::IntakeId intake_id(const ModelContext &context,
+                                           std::string_view semantic_id) {
+    return runtime_id<contract::IntakeId>(context.ids.intakes, semantic_id);
+}
+
 [[nodiscard]] contract::CylinderId cylinder_id(const ModelContext &context,
                                                std::string_view semantic_id) {
     return runtime_id<contract::CylinderId>(context.ids.cylinders, semantic_id);
@@ -69,6 +74,10 @@ template <class Id>
 [[nodiscard]] std::string volume_semantic_id(std::string_view cylinder,
                                              std::string_view role) {
     return "volume." + std::string{cylinder} + "." + std::string{role};
+}
+
+[[nodiscard]] std::string intake_plenum_semantic_id(std::string_view intake) {
+    return "volume.intake." + std::string{intake} + ".plenum";
 }
 
 [[nodiscard]] std::string collector_semantic_id(std::string_view exhaust) {
@@ -149,6 +158,20 @@ ordered_banks(const ModelContext &context) {
     std::ranges::sort(result, [&](const auto *left, const auto *right) {
         return bank_id(context, left->id.value).value <
                bank_id(context, right->id.value).value;
+    });
+    return result;
+}
+
+[[nodiscard]] std::vector<const authoring::IntakeDefinition *>
+ordered_intakes(const ModelContext &context) {
+    std::vector<const authoring::IntakeDefinition *> result;
+    result.reserve(context.document.engine.intakes.size());
+    for (const auto &intake : context.document.engine.intakes) {
+        result.push_back(&intake);
+    }
+    std::ranges::sort(result, [&](const auto *left, const auto *right) {
+        return intake_id(context, left->id.value).value <
+               intake_id(context, right->id.value).value;
     });
     return result;
 }

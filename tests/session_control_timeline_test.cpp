@@ -258,8 +258,7 @@ void test_dyno_and_vehicle_levels_are_sticky() {
         TimestampedControlCommand{19, 8, SetDynoMaximumDrivingTorque{0.0}},
         TimestampedControlCommand{19, 9, SetVehicleSelectedForwardGear{0U}},
         TimestampedControlCommand{19, 10, SetVehicleClutchEngagement{1.0}},
-        TimestampedControlCommand{19, 11,
-                                  SetVehicleServiceBrakeApplication{0.0}},
+        TimestampedControlCommand{19, 11, SetVehicleServiceBrakeApplication{0.0}},
     };
     expect(static_cast<bool>(timeline.enqueue(commands)),
            "valid dyno/drivetrain command batch was rejected");
@@ -301,17 +300,15 @@ void test_dyno_and_vehicle_payload_validation() {
         TimestampedControlCommand{0, 1, SetExternalResistingTorque{-0.0}},
         TimestampedControlCommand{0, 1, SetDynoTargetEngineSpeed{0.0}},
         TimestampedControlCommand{
-            0, 1,
-            SetDynoTargetEngineSpeed{std::numeric_limits<double>::infinity()}},
+            0, 1, SetDynoTargetEngineSpeed{std::numeric_limits<double>::infinity()}},
         TimestampedControlCommand{0, 1, SetDynoMaximumAbsorbingTorque{-0.0}},
         TimestampedControlCommand{0, 1, SetDynoMaximumDrivingTorque{-1.0}},
         TimestampedControlCommand{0, 1, SetVehicleClutchEngagement{-0.0}},
         TimestampedControlCommand{0, 1, SetVehicleClutchEngagement{1.01}},
+        TimestampedControlCommand{0, 1, SetVehicleServiceBrakeApplication{-0.0}},
         TimestampedControlCommand{0, 1,
-                                  SetVehicleServiceBrakeApplication{-0.0}},
-        TimestampedControlCommand{
-            0, 1, SetVehicleServiceBrakeApplication{
-                      std::numeric_limits<double>::quiet_NaN()}},
+                                  SetVehicleServiceBrakeApplication{
+                                      std::numeric_limits<double>::quiet_NaN()}},
     };
 
     for (const auto &command : invalid_commands) {
@@ -457,8 +454,8 @@ struct SimulationControlFixture {
         engine.methods.excitation.value = legacy_method;
         auto &physics_profile =
             std::get<contract::LowOrderOperatingPointV1Profile>(engine.physics_profile);
-        physics_profile.core.gas_path.intake.idle_throttle_plate_position_01.value =
-            0.994;
+        physics_profile.core.gas_path.intakes.front()
+            .parameters.idle_throttle_plate_position_01.value = 0.994;
 
         constexpr std::size_t kStepCount = 8;
         scenario.scenario_id = "session-live-control-eight-step";
@@ -611,8 +608,8 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
         fixture.randomness, fixture.engine, fixture.presentation, fixture.scenario));
     const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
         fixture.engine.physics_profile);
-    auto mechanism_plan_result = simulation::compile_mechanism_kinematics_plan(
-        fixture.engine, profile.core);
+    auto mechanism_plan_result =
+        simulation::compile_mechanism_kinematics_plan(fixture.engine, profile.core);
     if (const auto *report =
             std::get_if<contract::ValidationReport>(&mechanism_plan_result)) {
         std::string message = "valid live-control mechanism plan was rejected";
@@ -622,18 +619,17 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
         }
         throw std::runtime_error{std::move(message)};
     }
-    const auto mechanism_plan =
-        std::get<simulation::SharedMechanismKinematicsPlan>(
-            std::move(mechanism_plan_result));
+    const auto mechanism_plan = std::get<simulation::SharedMechanismKinematicsPlan>(
+        std::move(mechanism_plan_result));
 
     auto old_call_shape =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-            fixture.engine, fixture.scenario, profile.core, random_plan,
-            mechanism_plan, finite_extent(fixture.scenario)));
+            fixture.engine, fixture.scenario, profile.core, random_plan, mechanism_plan,
+            finite_extent(fixture.scenario)));
     auto explicit_empty =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-            fixture.engine, fixture.scenario, profile.core, random_plan,
-            mechanism_plan, finite_extent(fixture.scenario)));
+            fixture.engine, fixture.scenario, profile.core, random_plan, mechanism_plan,
+            finite_extent(fixture.scenario)));
     for (std::uint64_t step_index = 0; step_index < 8; ++step_index) {
         auto old_result = old_call_shape.advance();
         auto empty_result = explicit_empty.advance(LiveControlOverrides{});
@@ -643,12 +639,12 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
 
     auto authored =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-            fixture.engine, fixture.scenario, profile.core, random_plan,
-            mechanism_plan, finite_extent(fixture.scenario)));
+            fixture.engine, fixture.scenario, profile.core, random_plan, mechanism_plan,
+            finite_extent(fixture.scenario)));
     auto controlled =
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-            fixture.engine, fixture.scenario, profile.core, random_plan,
-            mechanism_plan, finite_extent(fixture.scenario)));
+            fixture.engine, fixture.scenario, profile.core, random_plan, mechanism_plan,
+            finite_extent(fixture.scenario)));
     ControlTimeline timeline{3, kPhysicsRate, kDeliveryRate};
     const std::array commands{
         TimestampedControlCommand{97, 1, SetThrottle{0.5}},

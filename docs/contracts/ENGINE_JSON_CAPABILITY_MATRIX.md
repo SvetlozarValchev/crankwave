@@ -256,7 +256,7 @@ the remainder as explicit capability diagnostics:
 
 | Pristine capability | Intended JSON ownership | Current status | Acceptance requirement |
 |---|---|---|---|
-| Multiple, shareable intake objects | `engine.intakes[]` referenced by cylinders | **Partial**; graph supports IDs but executable profiles require exactly one shared intake | Shared and split-intake fixtures retain distinct states. |
+| Multiple, shareable intake objects | `engine.intakes[]` referenced by cylinders | **Partial**; resolved profiles and the gas runtime preserve stable intake identity, independent plenum state, and explicit cylinder bindings, but public compilation still requires exactly one shared intake | Shared and split-intake fixtures retain distinct states before the compiler gate is lifted. |
 | Intake plenum volume/area and runner length | Intake physical fields | **Low-order executed** | BMW resolved-value and held-point regression. |
 | Main, idle-bypass, and runner restrictions | Calibrated intake restrictions | **Low-order executed** | Both flow-bench calibration standards resolve deterministically. |
 | Idle throttle plate position | Intake physical/control field | **Low-order executed** | Closed-command idle flow remains nonzero and bounded. |

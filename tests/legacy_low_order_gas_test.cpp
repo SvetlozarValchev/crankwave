@@ -105,8 +105,7 @@ make_radial_gas_request(const AuthoredEngineFixture &canonical) {
     request.scenario.scenario_id = "internal-radial-gas-prescribed";
     request.scenario.total_duration_s.value =
         static_cast<double>(kRadialGasStepCount) / 10000.0;
-    request.scenario.audible_duration_s.value =
-        request.scenario.total_duration_s.value;
+    request.scenario.audible_duration_s.value = request.scenario.total_duration_s.value;
     request.scenario.operating_state.value = {
         {
             "radial-motored",
@@ -127,8 +126,7 @@ make_radial_gas_request(const AuthoredEngineFixture &canonical) {
     auto throw_radius = public_slave.bore_m;
     throw_radius.value = 0.025;
     public_slave.journal_phase_rad.value = local_phase_rad;
-    public_slave.master_rod_attachment =
-        MasterRodAttachmentSpec{root_id, throw_radius};
+    public_slave.master_rod_attachment = MasterRodAttachmentSpec{root_id, throw_radius};
     auto local_phase = public_slave.journal_phase_rad;
     local_phase.value = local_phase_rad;
     slave_assembly.parameters.deck_height_m.value = 0.25;
@@ -173,19 +171,114 @@ low_order_core(const AuthoredEngineFixture &request) {
     return engine_sim_offline::test::low_order_core(request.engine);
 }
 
+[[nodiscard]] std::uint32_t next_public_id(const auto &items) {
+    std::uint32_t maximum = 0U;
+    for (const auto &item : items) {
+        maximum = std::max(maximum, item.id.value);
+    }
+    return maximum + 1U;
+}
+
+[[nodiscard]] AuthoredEngineFixture
+make_two_intake_request(const AuthoredEngineFixture &canonical) {
+    auto request = make_short_request(canonical);
+    auto &engine = request.engine;
+    auto &core = engine_sim_offline::test::low_order_core(engine);
+    expect(engine.intakes.size() == 1U && core.gas_path.intakes.size() == 1U &&
+               core.gas_path.exhaust_routes.size() >= 2U,
+           "two-intake runtime fixture requires one intake and two exhaust routes");
+    core.valvetrain.alternate.reset();
+
+    const auto first_intake = core.gas_path.intakes.front();
+    const IntakeId second_intake_id{next_public_id(engine.intakes)};
+    const GasVolumeId second_plenum_id{next_public_id(engine.gas_volumes)};
+    const FlowEdgeId second_main_edge_id{next_public_id(engine.flow_edges)};
+    const FlowEdgeId second_idle_edge_id{second_main_edge_id.value + 1U};
+
+    auto public_intake = engine.intakes.front();
+    public_intake.id = second_intake_id;
+    public_intake.semantic_id.value = "intake-2";
+    engine.intakes.push_back(std::move(public_intake));
+
+    const auto first_plenum =
+        std::ranges::find_if(engine.gas_volumes, [&](const auto &volume) {
+            return volume.id == first_intake.topology.plenum_volume_id;
+        });
+    expect(first_plenum != engine.gas_volumes.end(),
+           "two-intake fixture lost its first plenum");
+    auto second_plenum = *first_plenum;
+    second_plenum.id = second_plenum_id;
+    second_plenum.semantic_id.value = "intake-plenum-2";
+    engine.gas_volumes.push_back(std::move(second_plenum));
+
+    const auto clone_boundary_edge = [&](FlowEdgeId source_id, FlowEdgeId target_id,
+                                         std::string semantic_id) {
+        const auto source = std::ranges::find_if(
+            engine.flow_edges, [&](const auto &edge) { return edge.id == source_id; });
+        expect(source != engine.flow_edges.end(),
+               "two-intake fixture lost an intake boundary edge");
+        auto edge = *source;
+        edge.id = target_id;
+        edge.semantic_id.value = std::move(semantic_id);
+        edge.endpoint_1_volume_id = second_plenum_id;
+        engine.flow_edges.push_back(std::move(edge));
+    };
+    clone_boundary_edge(first_intake.topology.main_throttle_edge_id,
+                        second_main_edge_id, "main-throttle-edge-2");
+    clone_boundary_edge(first_intake.topology.idle_bypass_edge_id, second_idle_edge_id,
+                        "idle-bypass-edge-2");
+
+    auto second_intake = first_intake;
+    second_intake.topology = {
+        second_intake_id,
+        second_plenum_id,
+        second_main_edge_id,
+        second_idle_edge_id,
+    };
+    core.gas_path.intakes.push_back(std::move(second_intake));
+
+    const RouteId second_lane_route =
+        core.gas_path.exhaust_routes.back().topology.route_id;
+    std::size_t first_lane_cylinders = 0U;
+    std::size_t second_lane_cylinders = 0U;
+    for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
+        auto &topology = core.mechanism.cylinders[index].topology;
+        if (topology.exhaust_route_id != second_lane_route) {
+            ++first_lane_cylinders;
+            continue;
+        }
+
+        ++second_lane_cylinders;
+        engine.cylinders[index].intake_id = second_intake_id;
+        topology.intake_id = second_intake_id;
+        const auto runner_edge =
+            std::ranges::find_if(engine.flow_edges, [&](const auto &edge) {
+                return edge.id == topology.plenum_to_runner_edge_id;
+            });
+        expect(runner_edge != engine.flow_edges.end() &&
+                   runner_edge->endpoint_0_volume_id ==
+                       first_intake.topology.plenum_volume_id,
+               "two-intake fixture lost a first-plenum runner edge");
+        runner_edge->endpoint_0_volume_id = second_plenum_id;
+    }
+    expect(first_lane_cylinders > 0U && second_lane_cylinders > 0U,
+           "two-intake fixture did not split cylinder ownership");
+    return request;
+}
+
 [[nodiscard]] SharedMechanismKinematicsPlan
 require_mechanism_plan(const AuthoredEngineFixture &request) {
-    auto result = compile_mechanism_kinematics_plan(request.engine,
-                                                    low_order_core(request));
+    auto result =
+        compile_mechanism_kinematics_plan(request.engine, low_order_core(request));
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
         fail_report("short authored mechanism plan failed admission", *report);
     }
     return std::get<SharedMechanismKinematicsPlan>(std::move(result));
 }
 
-[[nodiscard]] LegacyMechanismStep make_radial_mechanism_step(
-    const OneLevelMasterRodMechanismKinematicsPlan &plan,
-    const std::uint64_t sample_index) {
+[[nodiscard]] LegacyMechanismStep
+make_radial_mechanism_step(const OneLevelMasterRodMechanismKinematicsPlan &plan,
+                           const std::uint64_t sample_index) {
     constexpr double step_s = 1.0 / 10000.0;
     const double angular_speed_rad_s = kRadialGasRpm * kLegacyRpmScale;
     const double angular_displacement_rad = angular_speed_rad_s * step_s;
@@ -223,9 +316,9 @@ require_mechanism_plan(const AuthoredEngineFixture &request) {
         expect(evaluated.valid,
                "radial gas mechanics fixture produced invalid analytic geometry");
         const auto &planned = plan.cylinders[index];
-        const auto *geometry = std::visit(
-            [](const auto &kinematics) { return &kinematics.cylinder; },
-            planned.kinematics);
+        const auto *geometry =
+            std::visit([](const auto &kinematics) { return &kinematics.cylinder; },
+                       planned.kinematics);
         step.cylinders[index] = {
             geometry->cylinder_id,
             planned.exhaust_route_id,
@@ -260,6 +353,17 @@ struct CompiledSessions {
         request.engine, low_order_core(request), request.scenario, random_plan,
         schedule.control_schedule(), std::move(mechanism_plan)));
     return {std::move(mechanics), std::move(gas)};
+}
+
+[[nodiscard]] LegacyLowOrderGasSession
+compile_gas_session(const AuthoredEngineFixture &request) {
+    auto schedule =
+        require_schedule(compile_kinematic_scenario_schedule(request.scenario));
+    auto mechanism_plan = require_mechanism_plan(request);
+    const auto random_plan = require_random_plan(request);
+    return require_gas(CoreRuntimeFactory::compile_gas(
+        request.engine, low_order_core(request), request.scenario, random_plan,
+        schedule.control_schedule(), std::move(mechanism_plan)));
 }
 
 [[nodiscard]] const LegacyMechanismStep &
@@ -581,6 +685,58 @@ void accumulate_activity(const LegacyLowOrderGasStep &step,
            left.indicated_gas_torque_nm == right.indicated_gas_torque_nm;
 }
 
+struct IntakeLaneTraceSample {
+    double plenum_pressure_pa_abs = 0.0;
+    double main_boundary_transfer_mol = 0.0;
+    double runner_transfer_sum_mol = 0.0;
+
+    friend bool operator==(const IntakeLaneTraceSample &,
+                           const IntakeLaneTraceSample &) = default;
+};
+
+[[nodiscard]] IntakeLaneTraceSample
+sample_intake_lane(const AuthoredEngineFixture &request,
+                   const LegacyLowOrderGasStep &step, IntakeId intake_id) {
+    const auto &core = low_order_core(request);
+    const auto profile =
+        std::ranges::find_if(core.gas_path.intakes, [&](const auto &candidate) {
+            return candidate.topology.intake_id == intake_id;
+        });
+    expect(profile != core.gas_path.intakes.end(),
+           "two-intake trace requested an unknown intake lane");
+    const auto plenum = std::ranges::find_if(step.gas_volumes, [&](const auto &volume) {
+        return volume.gas_volume_id == profile->topology.plenum_volume_id;
+    });
+    const auto main_edge = std::ranges::find_if(step.flow_edges, [&](const auto &edge) {
+        return edge.flow_edge_id == profile->topology.main_throttle_edge_id;
+    });
+    expect(plenum != step.gas_volumes.end() && main_edge != step.flow_edges.end(),
+           "two-intake trace lost a compiled plenum or throttle edge");
+
+    double runner_transfer_sum_mol = 0.0;
+    std::size_t bound_cylinder_count = 0U;
+    for (const auto &cylinder : core.mechanism.cylinders) {
+        if (cylinder.topology.intake_id != intake_id) {
+            continue;
+        }
+        const auto runner_edge =
+            std::ranges::find_if(step.flow_edges, [&](const auto &edge) {
+                return edge.flow_edge_id == cylinder.topology.plenum_to_runner_edge_id;
+            });
+        expect(runner_edge != step.flow_edges.end(),
+               "two-intake trace lost a cylinder runner edge");
+        runner_transfer_sum_mol += runner_edge->signed_amount_mol;
+        ++bound_cylinder_count;
+    }
+    expect(bound_cylinder_count > 0U,
+           "two-intake trace found an intake without cylinder ownership");
+    return {
+        legacy_gas_pressure_pa(plenum->cell),
+        main_edge->signed_amount_mol,
+        runner_transfer_sum_mol,
+    };
+}
+
 void offset_cam_advance(LegacyCamshaftProfile &camshaft, double offset_rad) {
     std::visit([&](auto &shape) { shape.advance_rad.value += offset_rad; },
                camshaft.shape);
@@ -601,7 +757,7 @@ void configure_vtec_alternate(AuthoredEngineFixture &request, bool distinct_alte
         core.ignition.timing_curve_triangle_radius_rad_s;
     alternate.activation.minimum_engine_speed_rad_s.value = 0.0;
     alternate.activation.minimum_mean_manifold_pressure_pa_abs =
-        core.gas_path.intake.plenum_volume_m3;
+        core.gas_path.intakes.front().parameters.plenum_volume_m3;
     alternate.activation.minimum_mean_manifold_pressure_pa_abs.value = 1.0;
     alternate.activation.minimum_throttle_linkage_opening_01 =
         std::get<DirectThrottleControllerV1>(core.throttle_controller).gamma;
@@ -766,6 +922,77 @@ void test_short_authored_fresh_state_and_deterministic_activity(
            "short authored run did not reach accepted, heat-releasing combustion");
 }
 
+void test_two_intake_direct_runtime_retains_independent_lanes(
+    const AuthoredEngineFixture &canonical) {
+    auto reference = make_two_intake_request(canonical);
+    auto perturbed = reference;
+    auto &perturbed_intakes =
+        engine_sim_offline::test::low_order_core(perturbed.engine).gas_path.intakes;
+    expect(perturbed_intakes.size() == 2U,
+           "two-intake differential fixture lost its ordered lanes");
+    perturbed_intakes[1].parameters.idle_throttle_plate_position_01.value = 0.0;
+
+    const auto &reference_intakes = low_order_core(reference).gas_path.intakes;
+    const IntakeId first_intake_id = reference_intakes[0].topology.intake_id;
+    const IntakeId second_intake_id = reference_intakes[1].topology.intake_id;
+
+    auto reference_sessions = compile_sessions(reference);
+    auto perturbed_gas_a = compile_gas_session(perturbed);
+    auto perturbed_gas_b = compile_gas_session(perturbed);
+
+    constexpr std::uint64_t trace_step_count = 128U;
+    bool observed_second_pressure_difference = false;
+    bool observed_second_main_difference = false;
+    bool observed_second_runner_difference = false;
+    for (std::uint64_t sample_index = 0U; sample_index < trace_step_count;
+         ++sample_index) {
+        const auto &mechanics = advance_mechanics(reference_sessions, sample_index);
+        const auto &reference_step =
+            advance_gas(reference_sessions, mechanics, sample_index);
+        auto perturbed_result_a = perturbed_gas_a.advance(mechanics);
+        auto perturbed_result_b = perturbed_gas_b.advance(mechanics);
+        const auto &perturbed_step_a =
+            require_gas_step(perturbed_result_a, sample_index);
+        const auto &perturbed_step_b =
+            require_gas_step(perturbed_result_b, sample_index);
+        expect(same_gas_step(perturbed_step_a, perturbed_step_b),
+               "identical two-intake runtimes produced a nondeterministic trace");
+
+        const auto reference_first =
+            sample_intake_lane(reference, reference_step, first_intake_id);
+        const auto reference_second =
+            sample_intake_lane(reference, reference_step, second_intake_id);
+        const auto perturbed_first =
+            sample_intake_lane(perturbed, perturbed_step_a, first_intake_id);
+        const auto perturbed_second_a =
+            sample_intake_lane(perturbed, perturbed_step_a, second_intake_id);
+        const auto perturbed_second_b =
+            sample_intake_lane(perturbed, perturbed_step_b, second_intake_id);
+
+        expect(reference_first == perturbed_first,
+               "changing intake lane 2 leaked into isolated intake lane 1");
+        expect(perturbed_second_a == perturbed_second_b,
+               "two equal intake-lane-2 sessions changed their trace");
+        observed_second_pressure_difference =
+            observed_second_pressure_difference ||
+            reference_second.plenum_pressure_pa_abs !=
+                perturbed_second_a.plenum_pressure_pa_abs;
+        observed_second_main_difference =
+            observed_second_main_difference ||
+            reference_second.main_boundary_transfer_mol !=
+                perturbed_second_a.main_boundary_transfer_mol;
+        observed_second_runner_difference =
+            observed_second_runner_difference ||
+            reference_second.runner_transfer_sum_mol !=
+                perturbed_second_a.runner_transfer_sum_mol;
+    }
+
+    expect(observed_second_pressure_difference && observed_second_main_difference &&
+               observed_second_runner_difference,
+           "lane-2 plate perturbation did not reach its plenum and explicitly "
+           "bound cylinder runners");
+}
+
 void test_bank_local_runner_and_primary_geometry_binds_and_advances(
     const AuthoredEngineFixture &canonical) {
     auto request = make_short_request(canonical);
@@ -790,8 +1017,8 @@ void test_bank_local_runner_and_primary_geometry_binds_and_advances(
 
     const auto &bound_head = core.gas_path.heads[1];
     const auto &bound_assembly = core.mechanism.cylinders[1];
-    const auto route = std::ranges::find_if(
-        core.gas_path.exhaust_routes, [&](const auto &candidate) {
+    const auto route =
+        std::ranges::find_if(core.gas_path.exhaust_routes, [&](const auto &candidate) {
             return candidate.topology.route_id ==
                    bound_assembly.topology.exhaust_route_id;
         });
@@ -800,7 +1027,7 @@ void test_bank_local_runner_and_primary_geometry_binds_and_advances(
     const double expected_runner_volume_m3 =
         bound_head.intake_runner_base_volume_m3.value +
         bound_head.intake_runner_cross_section_area_m2.value *
-            core.gas_path.intake.runner_length_m.value;
+            core.gas_path.intakes.front().parameters.runner_length_m.value;
     const double expected_primary_volume_m3 =
         bound_head.exhaust_runner_base_volume_m3.value +
         bound_head.exhaust_runner_cross_section_area_m2.value *
@@ -815,10 +1042,8 @@ void test_bank_local_runner_and_primary_geometry_binds_and_advances(
             return volume.gas_volume_id == id;
         });
     };
-    const auto runner =
-        find_volume(bound_assembly.topology.intake_runner_volume_id);
-    const auto primary =
-        find_volume(bound_assembly.topology.exhaust_primary_volume_id);
+    const auto runner = find_volume(bound_assembly.topology.intake_runner_volume_id);
+    const auto primary = find_volume(bound_assembly.topology.exhaust_primary_volume_id);
     expect(runner != gas.gas_volumes.end() && primary != gas.gas_volumes.end(),
            "bank-local gas lane lost its runner or primary volume");
     expect(runner->cell.volume_m3 == expected_runner_volume_m3 &&
@@ -826,16 +1051,14 @@ void test_bank_local_runner_and_primary_geometry_binds_and_advances(
                    expected_runner_volume_m3 /
                        bound_head.intake_runner_cross_section_area_m2.value &&
                runner->geometry.height_m ==
-                   std::sqrt(
-                       bound_head.intake_runner_cross_section_area_m2.value),
+                   std::sqrt(bound_head.intake_runner_cross_section_area_m2.value),
            "intake runner did not retain its bound bank-head volume and area");
     expect(primary->cell.volume_m3 == expected_primary_volume_m3 &&
                primary->geometry.width_m ==
                    expected_primary_volume_m3 /
                        bound_head.exhaust_runner_cross_section_area_m2.value &&
                primary->geometry.height_m ==
-                   std::sqrt(
-                       bound_head.exhaust_runner_cross_section_area_m2.value),
+                   std::sqrt(bound_head.exhaust_runner_cross_section_area_m2.value),
            "exhaust primary did not retain its bound bank-head volume and area");
     expect(!sessions.gas.faulted() && sessions.gas.produced_sample_count() == 1U,
            "bank-local gas geometry did not advance one complete transaction");
@@ -890,16 +1113,14 @@ void test_certified_radial_gas_uses_common_mechanism_coordinates(
                 });
             expect(chamber != step.gas_volumes.end(),
                    "radial gas cylinder lost its chamber volume");
-            expect(chamber->cell.volume_m3 ==
-                       mechanism_cylinder.chamber_volume_m3,
+            expect(chamber->cell.volume_m3 == mechanism_cylinder.chamber_volume_m3,
                    "radial chamber work did not apply the evaluator volume");
 
-            const auto initial = evaluate_one_level_master_rod_plan(
-                *radial_plan, index, 0.0, 0.0);
+            const auto initial =
+                evaluate_one_level_master_rod_plan(*radial_plan, index, 0.0, 0.0);
             expect(initial.valid,
                    "certified radial plan lost its initial chamber sample");
-            if (initial.chamber_volume_m3 !=
-                mechanism_cylinder.chamber_volume_m3) {
+            if (initial.chamber_volume_m3 != mechanism_cylinder.chamber_volume_m3) {
                 const auto initial_cell = legacy_initialize_gas_cell(
                     request.scenario.ambient.pressure_pa_abs.value,
                     initial.chamber_volume_m3,
@@ -914,8 +1135,7 @@ void test_certified_radial_gas_uses_common_mechanism_coordinates(
                 (legacy_gas_pressure_pa(chamber->cell) -
                  request.scenario.ambient.pressure_pa_abs.value) *
                 mechanism_cylinder.dvolume_dtheta_m3_per_rad;
-            expect(step.cylinders[index].indicated_gas_torque_nm ==
-                       expected_torque_nm,
+            expect(step.cylinders[index].indicated_gas_torque_nm == expected_torque_nm,
                    "radial cylinder torque did not use common dV/dtheta");
             expected_torque_sum_nm += expected_torque_nm;
         }
@@ -931,18 +1151,16 @@ void test_certified_radial_gas_uses_common_mechanism_coordinates(
 
     auto non_prescribed = make_radial_gas_request(canonical);
     const double initial_theta_rad =
-        low_order_core(non_prescribed)
-            .mechanism.crank.crank_tdc_reference_rad.value;
+        low_order_core(non_prescribed).mechanism.crank.crank_tdc_reference_rad.value;
     non_prescribed.scenario.mode =
         HeldSpeed{{kRadialGasRpm, {}}, {initial_theta_rad, {}}, {0.35, {}}};
-    auto held_schedule = require_schedule(
-        compile_kinematic_scenario_schedule(non_prescribed.scenario));
+    auto held_schedule =
+        require_schedule(compile_kinematic_scenario_schedule(non_prescribed.scenario));
     auto held_plan = require_mechanism_plan(non_prescribed);
     const auto held_random_plan = require_random_plan(non_prescribed);
     auto held_result = CoreRuntimeFactory::compile_gas(
-        non_prescribed.engine, low_order_core(non_prescribed),
-        non_prescribed.scenario, held_random_plan, held_schedule.control_schedule(),
-        std::move(held_plan));
+        non_prescribed.engine, low_order_core(non_prescribed), non_prescribed.scenario,
+        held_random_plan, held_schedule.control_schedule(), std::move(held_plan));
     const auto *held_report = std::get_if<ValidationReport>(&held_result);
     expect(held_report != nullptr &&
                std::ranges::any_of(
@@ -1066,6 +1284,7 @@ void test_length_authored_collector_geometry_admission(
 void run_tests(const AuthoredEngineFixture &canonical) {
     test_vtec_selects_one_coherent_immutable_cam_pair(canonical);
     test_short_authored_fresh_state_and_deterministic_activity(canonical);
+    test_two_intake_direct_runtime_retains_independent_lanes(canonical);
     test_bank_local_runner_and_primary_geometry_binds_and_advances(canonical);
     test_certified_radial_gas_uses_common_mechanism_coordinates(canonical);
     test_length_authored_collector_geometry_admission(canonical);

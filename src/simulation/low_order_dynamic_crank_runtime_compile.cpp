@@ -89,7 +89,7 @@ void require_release_or_later_control_boundaries(ValidationReport &report,
 LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
-    const contract::Sha256Digest &simulation_request_identity_v4_sha256,
+    const contract::Sha256Digest &simulation_request_identity_v5_sha256,
     SharedMechanismKinematicsPlan mechanism_plan,
     LowOrderExecutionExtent execution_extent) {
     ValidationReport report;
@@ -120,8 +120,8 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
             "mechanism_plan",
             "dynamic-crank runtime requires one compiled direct mechanism plan");
-    require(report, !simulation_request_identity_v4_sha256.is_zero(),
-            ContractIssueCode::missing_value, "simulation_request_identity_v4_sha256",
+    require(report, !simulation_request_identity_v5_sha256.is_zero(),
+            ContractIssueCode::missing_value, "simulation_request_identity_v5_sha256",
             "dynamic-crank runtime requires the canonical nonzero request identity");
     if (profile == nullptr || dynamic_mode_count != 1U || direct_plan == nullptr) {
         return report;

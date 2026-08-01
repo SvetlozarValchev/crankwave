@@ -272,6 +272,13 @@ void validate_authored_low_order_core_topology(
                 return head.bank_id.value;
             });
     };
+    const auto find_intake_profile = [&](std::string_view intake_id) {
+        return find_authored_by_id(
+            core.gas_path.intakes, intake_id,
+            [](const AuthoredLegacyIntakeProfile &intake) -> const std::string & {
+                return intake.topology.intake_id.value;
+            });
+    };
 
     const auto require_volume_kind = [&](std::string_view id,
                                          GasVolumeKind expected_kind,
@@ -356,8 +363,11 @@ void validate_authored_low_order_core_topology(
         };
 
     std::unordered_set<std::string> cylinder_bindings;
+    std::unordered_set<std::string> intake_bindings;
+    std::unordered_set<std::string> used_intake_bindings;
     std::unordered_set<std::string> intake_port_bindings;
     std::unordered_set<std::string> exhaust_port_bindings;
+    std::unordered_set<std::string> plenum_bindings;
     std::unordered_set<std::string> runner_bindings;
     std::unordered_set<std::string> chamber_bindings;
     std::unordered_set<std::string> primary_bindings;
@@ -378,31 +388,57 @@ void validate_authored_low_order_core_topology(
             exact_ordered_head_coverage && index < expected_head_banks.size() &&
             core.gas_path.heads[index].bank_id.value == expected_head_banks[index];
     }
-    require(report, exact_ordered_head_coverage,
-            ContractIssueCode::inconsistent_shape,
+    require(report, exact_ordered_head_coverage, ContractIssueCode::inconsistent_shape,
             std::string(physics_root) + ".gas_path.heads",
             "legacy bank heads must cover every authored bank exactly once in "
             "semantic BankId order");
 
-    const auto &intake_topology = core.gas_path.intake_topology;
-    const auto intake_path = std::string(physics_root) + ".gas_path.intake_topology";
-    require_volume_kind(intake_topology.plenum_volume_id.value,
-                        GasVolumeKind::intake_plenum, intake_path + ".plenum_volume_id",
-                        "legacy intake plenum");
-    require_unique_binding(expected_edge_bindings,
-                           intake_topology.main_throttle_edge_id.value,
-                           intake_path + ".main_throttle_edge_id", "legacy flow edge");
-    require_unique_binding(expected_edge_bindings,
-                           intake_topology.idle_bypass_edge_id.value,
-                           intake_path + ".idle_bypass_edge_id", "legacy flow edge");
-    require_oriented_boundary_edge(
-        intake_topology.main_throttle_edge_id.value, GasVolumeKind::atmosphere,
-        intake_topology.plenum_volume_id.value, intake_path + ".main_throttle_edge_id",
-        "legacy main-throttle edge");
-    require_oriented_boundary_edge(
-        intake_topology.idle_bypass_edge_id.value, GasVolumeKind::atmosphere,
-        intake_topology.plenum_volume_id.value, intake_path + ".idle_bypass_edge_id",
-        "legacy idle-bypass edge");
+    std::vector<std::string> expected_intakes;
+    expected_intakes.reserve(definition.intakes.size());
+    for (const auto &intake : definition.intakes) {
+        expected_intakes.push_back(intake.value);
+    }
+    std::ranges::sort(expected_intakes);
+    bool exact_ordered_intake_coverage =
+        core.gas_path.intakes.size() == expected_intakes.size();
+    for (std::size_t index = 0; index < core.gas_path.intakes.size(); ++index) {
+        exact_ordered_intake_coverage =
+            exact_ordered_intake_coverage && index < expected_intakes.size() &&
+            core.gas_path.intakes[index].topology.intake_id.value ==
+                expected_intakes[index];
+    }
+    require(report, exact_ordered_intake_coverage,
+            ContractIssueCode::inconsistent_shape,
+            std::string(physics_root) + ".gas_path.intakes",
+            "legacy intake profiles must cover every authored intake exactly once "
+            "in semantic IntakeId order");
+
+    for (std::size_t index = 0; index < core.gas_path.intakes.size(); ++index) {
+        const auto &topology = core.gas_path.intakes[index].topology;
+        const auto path = std::string(physics_root) + ".gas_path.intakes[" +
+                          std::to_string(index) + "].topology";
+        require_unique_binding(intake_bindings, topology.intake_id.value,
+                               path + ".intake_id", "legacy intake profile");
+        require_unique_binding(plenum_bindings, topology.plenum_volume_id.value,
+                               path + ".plenum_volume_id", "legacy intake plenum");
+        require_volume_kind(topology.plenum_volume_id.value,
+                            GasVolumeKind::intake_plenum, path + ".plenum_volume_id",
+                            "legacy intake plenum");
+        require_unique_binding(expected_edge_bindings,
+                               topology.main_throttle_edge_id.value,
+                               path + ".main_throttle_edge_id", "legacy flow edge");
+        require_unique_binding(expected_edge_bindings,
+                               topology.idle_bypass_edge_id.value,
+                               path + ".idle_bypass_edge_id", "legacy flow edge");
+        require_oriented_boundary_edge(
+            topology.main_throttle_edge_id.value, GasVolumeKind::atmosphere,
+            topology.plenum_volume_id.value, path + ".main_throttle_edge_id",
+            "legacy main-throttle edge");
+        require_oriented_boundary_edge(
+            topology.idle_bypass_edge_id.value, GasVolumeKind::atmosphere,
+            topology.plenum_volume_id.value, path + ".idle_bypass_edge_id",
+            "legacy idle-bypass edge");
+    }
 
     for (std::size_t index = 0; index < core.gas_path.exhaust_routes.size(); ++index) {
         const auto &exhaust = core.gas_path.exhaust_routes[index];
@@ -487,9 +523,19 @@ void validate_authored_low_order_core_topology(
         require(report, cylinder != nullptr, ContractIssueCode::dangling_reference,
                 path + ".cylinder_id",
                 "legacy mechanism references an unknown cylinder");
+        const auto *intake = find_intake_profile(topology.intake_id.value);
+        require(report, intake != nullptr, ContractIssueCode::dangling_reference,
+                path + ".intake_id",
+                "legacy mechanism references an unknown intake profile");
+        if (intake != nullptr) {
+            used_intake_bindings.insert(topology.intake_id.value);
+        }
         if (cylinder != nullptr) {
             const auto authored_path =
                 "engine.cylinders." + cylinder->semantic_id.value;
+            require(report, cylinder->intake_id.value == topology.intake_id.value,
+                    ContractIssueCode::inconsistent_semantics, path + ".intake_id",
+                    "legacy cylinder intake must match its authored intake binding");
             const auto *head = find_head_profile(cylinder->bank_id.value);
             require(report, head != nullptr, ContractIssueCode::dangling_reference,
                     authored_path + ".bank_id",
@@ -521,9 +567,8 @@ void validate_authored_low_order_core_topology(
                                    "journal_phase_rad");
 
             if (head != nullptr) {
-                const auto piston_area_m2 =
-                    std::numbers::pi * parameters.bore_m.value *
-                    parameters.bore_m.value / 4.0;
+                const auto piston_area_m2 = std::numbers::pi * parameters.bore_m.value *
+                                            parameters.bore_m.value / 4.0;
                 const auto clearance_volume_m3 =
                     head->chamber_volume_m3.value -
                     parameters.piston_displacement_term_m3.value +
@@ -531,8 +576,7 @@ void validate_authored_low_order_core_topology(
                                       (parameters.crank_radius_m.value +
                                        parameters.connecting_rod_length_m.value) -
                                       parameters.piston_compression_height_m.value);
-                const auto swept_volume_m3 =
-                    piston_area_m2 * parameters.stroke_m.value;
+                const auto swept_volume_m3 = piston_area_m2 * parameters.stroke_m.value;
                 const auto fixed_geometry_volume_m3 =
                     head->chamber_volume_m3.value -
                     parameters.piston_displacement_term_m3.value +
@@ -586,11 +630,13 @@ void validate_authored_low_order_core_topology(
         require(report, exhaust != nullptr, ContractIssueCode::dangling_reference,
                 path + ".exhaust_route_id",
                 "legacy cylinder references an unknown exhaust profile");
-        require_oriented_edge(topology.plenum_to_runner_edge_id.value,
-                              intake_topology.plenum_volume_id.value,
-                              topology.intake_runner_volume_id.value,
-                              path + ".plenum_to_runner_edge_id",
-                              "legacy plenum-to-runner edge");
+        if (intake != nullptr) {
+            require_oriented_edge(topology.plenum_to_runner_edge_id.value,
+                                  intake->topology.plenum_volume_id.value,
+                                  topology.intake_runner_volume_id.value,
+                                  path + ".plenum_to_runner_edge_id",
+                                  "legacy plenum-to-runner edge");
+        }
         require_oriented_edge(
             topology.intake_valve_edge_id.value, topology.intake_runner_volume_id.value,
             topology.chamber_volume_id.value, path + ".intake_valve_edge_id",
@@ -646,13 +692,22 @@ void validate_authored_low_order_core_topology(
                                 GasVolumeKind::exhaust_collector, collector_bindings,
                                 std::string(physics_root) + ".gas_path.exhaust_routes",
                                 "authored exhaust collectors");
-    const auto plenum_count = std::ranges::count_if(
-        definition.gas_volumes, [](const AuthoredGasVolumeDefinition &volume) {
-            return volume.kind.value == GasVolumeKind::intake_plenum;
-        });
-    require(report, plenum_count == 1, ContractIssueCode::inconsistent_shape,
-            intake_path + ".plenum_volume_id",
-            "legacy intake topology requires exactly one authored plenum");
+    require_exact_role_coverage(
+        definition.gas_volumes, GasVolumeKind::intake_plenum, plenum_bindings,
+        std::string(physics_root) + ".gas_path.intakes", "authored intake plenums");
+
+    std::unordered_set<std::string> expected_intake_bindings;
+    for (const auto &intake : definition.intakes) {
+        expected_intake_bindings.insert(intake.value);
+    }
+    require(report, intake_bindings == expected_intake_bindings,
+            ContractIssueCode::inconsistent_shape,
+            std::string(physics_root) + ".gas_path.intakes",
+            "legacy gas path must cover every authored intake exactly once");
+    require(report, used_intake_bindings == expected_intake_bindings,
+            ContractIssueCode::inconsistent_shape,
+            std::string(physics_root) + ".mechanism.cylinders",
+            "every authored intake must be used by at least one cylinder");
 
     std::unordered_set<std::string> expected_cylinders;
     for (const auto &cylinder : definition.cylinders) {
@@ -838,6 +893,8 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
             "cylinder layout is not recognized");
     require(report, !definition.banks.empty(), ContractIssueCode::missing_value,
             "engine.banks", "an engine needs at least one bank");
+    require(report, !definition.intakes.empty(), ContractIssueCode::missing_value,
+            "engine.intakes", "an engine needs at least one intake");
     require(report, !definition.cylinders.empty(), ContractIssueCode::missing_value,
             "engine.cylinders", "an engine needs at least one cylinder");
 
@@ -855,7 +912,22 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
         }
     }
 
+    std::unordered_set<std::string> intake_ids;
+    for (std::size_t index = 0; index < definition.intakes.size(); ++index) {
+        const auto path = "engine.intakes[" + std::to_string(index) + "]";
+        const auto &intake = definition.intakes[index];
+        validate_authored(report, intake, definition.provenance, path);
+        require(report, is_valid_semantic_id(intake.value),
+                ContractIssueCode::invalid_value, path + ".value",
+                "intake ID must be a canonical semantic ID");
+        if (!intake_ids.insert(intake.value).second) {
+            report.add(ContractIssueCode::duplicate_identity, path + ".value",
+                       "intake IDs must be unique");
+        }
+    }
+
     std::unordered_set<std::string> cylinder_ids;
+    std::unordered_set<std::string> used_intake_ids;
     for (std::size_t index = 0; index < definition.cylinders.size(); ++index) {
         const auto path = "engine.cylinders[" + std::to_string(index) + "]";
         const auto &cylinder = definition.cylinders[index];
@@ -863,6 +935,8 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
                           path + ".semantic_id");
         validate_authored(report, cylinder.bank_id, definition.provenance,
                           path + ".bank_id");
+        validate_authored(report, cylinder.intake_id, definition.provenance,
+                          path + ".intake_id");
         require(report, is_valid_semantic_id(cylinder.semantic_id.value),
                 ContractIssueCode::invalid_value, path + ".semantic_id.value",
                 "cylinder ID must be a canonical semantic ID");
@@ -873,6 +947,12 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
         require(report, bank_ids.contains(cylinder.bank_id.value),
                 ContractIssueCode::dangling_reference, path + ".bank_id.value",
                 "cylinder references an unknown bank");
+        require(report, intake_ids.contains(cylinder.intake_id.value),
+                ContractIssueCode::dangling_reference, path + ".intake_id.value",
+                "cylinder references an unknown intake");
+        if (intake_ids.contains(cylinder.intake_id.value)) {
+            used_intake_ids.insert(cylinder.intake_id.value);
+        }
         validate_optional_authored(report, cylinder.bore_m, definition.provenance,
                                    path + ".bore_m");
         validate_optional_authored(report, cylinder.stroke_m, definition.provenance,
@@ -922,6 +1002,9 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
                     "journal phase must be finite");
         }
     }
+    require(report, used_intake_ids == intake_ids,
+            ContractIssueCode::inconsistent_shape, "engine.cylinders",
+            "every authored intake must be used by at least one cylinder");
 
     std::unordered_set<std::string> port_ids;
     for (std::size_t index = 0; index < definition.ports.size(); ++index) {
@@ -1151,12 +1234,17 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
             "total displacement must be finite and positive");
     require(report, !spec.banks.empty(), ContractIssueCode::missing_value,
             "engine.banks", "resolved engine needs at least one bank");
+    require(report, !spec.intakes.empty(), ContractIssueCode::missing_value,
+            "engine.intakes", "resolved engine needs at least one intake");
     require(report, !spec.cylinders.empty(), ContractIssueCode::missing_value,
             "engine.cylinders", "resolved engine needs at least one cylinder");
 
     detail::require_unique_numeric_ids(
         report, spec.banks, [](const BankSpec &bank) { return bank.id; },
         "engine.banks");
+    detail::require_unique_numeric_ids(
+        report, spec.intakes, [](const IntakeSpec &intake) { return intake.id; },
+        "engine.intakes");
     detail::require_unique_numeric_ids(
         report, spec.cylinders,
         [](const CylinderSpec &cylinder) { return cylinder.id; }, "engine.cylinders");
@@ -1193,6 +1281,31 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
                        path + ".semantic_id.value", "bank semantic IDs must be unique");
         }
     }
+
+    std::unordered_set<std::uint32_t> intake_ids;
+    std::unordered_set<std::string> intake_semantic_ids;
+    bool ordered_intake_ids = true;
+    for (std::size_t index = 0; index < spec.intakes.size(); ++index) {
+        const auto &intake = spec.intakes[index];
+        const auto path = resolved_path("intakes", intake.semantic_id.value);
+        intake_ids.insert(intake.id.value);
+        validate_resolved(report, intake.semantic_id, provenance,
+                          path + ".semantic_id");
+        require(report, is_valid_semantic_id(intake.semantic_id.value),
+                ContractIssueCode::invalid_value, path + ".semantic_id.value",
+                "intake semantic ID must be canonical");
+        if (!intake_semantic_ids.insert(intake.semantic_id.value).second) {
+            report.add(ContractIssueCode::duplicate_identity,
+                       path + ".semantic_id.value",
+                       "intake semantic IDs must be unique");
+        }
+        ordered_intake_ids =
+            ordered_intake_ids &&
+            (index == 0 || spec.intakes[index - 1].id.value < intake.id.value);
+    }
+    require(report, ordered_intake_ids, ContractIssueCode::inconsistent_shape,
+            "engine.intakes", "intakes must be ordered by stable IntakeId");
+
     if (spec.cylinder_layout.value == CylinderLayoutKind::inline_engine) {
         require(report,
                 spec.banks.size() == 1U &&
@@ -1238,6 +1351,7 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
     }
 
     std::unordered_set<std::uint32_t> cylinder_ids;
+    std::unordered_set<std::uint32_t> used_intake_ids;
     std::unordered_set<std::string> cylinder_semantic_ids;
     std::unordered_map<std::string, std::size_t> shared_ignition_wire_counts;
     double computed_displacement_m3 = 0.0;
@@ -1258,8 +1372,7 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
                           path + ".journal_phase_rad");
         if (cylinder.shared_ignition_wire_semantic_id.has_value()) {
             validate_resolved(report, *cylinder.shared_ignition_wire_semantic_id,
-                              provenance,
-                              path + ".shared_ignition_wire_semantic_id");
+                              provenance, path + ".shared_ignition_wire_semantic_id");
         }
         if (cylinder.master_rod_attachment.has_value()) {
             const auto &attachment = *cylinder.master_rod_attachment;
@@ -1283,12 +1396,11 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
                        "cylinder semantic IDs must be unique");
         }
         if (cylinder.shared_ignition_wire_semantic_id.has_value()) {
-            ++shared_ignition_wire_counts
-                  [cylinder.shared_ignition_wire_semantic_id->value];
+            ++shared_ignition_wire_counts[cylinder.shared_ignition_wire_semantic_id
+                                              ->value];
             require(
                 report,
-                is_valid_semantic_id(
-                    cylinder.shared_ignition_wire_semantic_id->value),
+                is_valid_semantic_id(cylinder.shared_ignition_wire_semantic_id->value),
                 ContractIssueCode::invalid_value,
                 path + ".shared_ignition_wire_semantic_id.value",
                 "shared ignition wire semantic ID must be canonical");
@@ -1296,6 +1408,12 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
         require(report, bank_ids.contains(cylinder.bank_id.value),
                 ContractIssueCode::dangling_reference, path + ".bank_id",
                 "cylinder references an unknown bank");
+        require(report, intake_ids.contains(cylinder.intake_id.value),
+                ContractIssueCode::dangling_reference, path + ".intake_id",
+                "cylinder references an unknown intake");
+        if (intake_ids.contains(cylinder.intake_id.value)) {
+            used_intake_ids.insert(cylinder.intake_id.value);
+        }
         require(report, finite_positive(cylinder.bore_m.value),
                 ContractIssueCode::invalid_value, path + ".bore_m.value",
                 "bore must be finite and positive");
@@ -1331,6 +1449,9 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
                 "shared ignition wire '" + wire +
                     "' must identify at least two cylinders");
     }
+    require(report, used_intake_ids == intake_ids,
+            ContractIssueCode::inconsistent_shape, "engine.cylinders",
+            "every resolved intake must be used by at least one cylinder");
     for (const auto &cylinder : spec.cylinders) {
         if (!cylinder.master_rod_attachment.has_value()) {
             continue;

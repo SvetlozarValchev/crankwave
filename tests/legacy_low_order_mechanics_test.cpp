@@ -816,7 +816,8 @@ void test_mechanics_uses_authored_direct_throttle_transform() {
         std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile);
     std::get<DirectThrottleControllerV1>(profile.core.throttle_controller)
         .gamma.value = 1.65;
-    profile.core.gas_path.intake.idle_throttle_plate_position_01.value = 0.99715;
+    profile.core.gas_path.intakes.front()
+        .parameters.idle_throttle_plate_position_01.value = 0.99715;
 
     auto session = require_session(compile_fixture(fixture));
     auto result = session.advance();
@@ -865,7 +866,8 @@ void test_mechanics_executes_governor_with_persistent_state() {
         const auto expected = evaluate_legacy_governor_throttle(
             expected_state, parameters, index < 2U ? 0.25 : 0.75,
             1000.0 * kLegacyRpmScale, 1.0 / 10000.0,
-            profile.core.gas_path.intake.idle_throttle_plate_position_01.value);
+            profile.core.gas_path.intakes.front()
+                .parameters.idle_throttle_plate_position_01.value);
         expected_state = expected.controller;
         expect(std::bit_cast<std::uint64_t>(step.resolved_engine_throttle_01) ==
                        std::bit_cast<std::uint64_t>(

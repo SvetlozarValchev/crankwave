@@ -310,16 +310,17 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
         const auto &event = mechanics.events[index];
         bool valid = event.ordinal_within_step == static_cast<std::uint8_t>(index);
         if (const auto *spark = std::get_if<contract::SparkCrossing>(&event.payload)) {
-            valid = valid && !limiter_event_seen &&
-                    spark_event_count < expected_spark_cylinders_.size() &&
-                    spark->cylinder_id == expected_spark_cylinders_[spark_event_count] &&
-                    std::isfinite(spark->raw_saved_angle_rad) &&
-                    std::isfinite(spark->raw_current_angle_rad) &&
-                    std::isfinite(spark->adjusted_current_angle_rad) &&
-                    std::isfinite(spark->adjusted_spark_angle_rad) &&
-                    std::isfinite(spark->timing_advance_rad) &&
-                    spark->raw_current_angle_rad == mechanics.theta_cycle_rad &&
-                    spark->timing_advance_rad == mechanics.timing_advance_rad;
+            valid =
+                valid && !limiter_event_seen &&
+                spark_event_count < expected_spark_cylinders_.size() &&
+                spark->cylinder_id == expected_spark_cylinders_[spark_event_count] &&
+                std::isfinite(spark->raw_saved_angle_rad) &&
+                std::isfinite(spark->raw_current_angle_rad) &&
+                std::isfinite(spark->adjusted_current_angle_rad) &&
+                std::isfinite(spark->adjusted_spark_angle_rad) &&
+                std::isfinite(spark->timing_advance_rad) &&
+                spark->raw_current_angle_rad == mechanics.theta_cycle_rad &&
+                spark->timing_advance_rad == mechanics.timing_advance_rad;
             ++spark_event_count;
         } else if (const auto *limiter =
                        std::get_if<contract::LimiterStateChanged>(&event.payload)) {
@@ -358,8 +359,15 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
     }
     previous_limiter_cut_active_ = mechanics.limiter_cut_active;
 
-    const double left_boundary_manifold_pressure_pa_abs =
-        legacy_gas_pressure_pa(step_.gas_volumes[intake_.plenum_volume_index].cell);
+    double left_boundary_manifold_pressure_pa_abs = legacy_gas_pressure_pa(
+        step_.gas_volumes[intakes_.front().plenum_volume_index].cell);
+    if (intakes_.size() > 1) {
+        for (std::size_t index = 1; index < intakes_.size(); ++index) {
+            left_boundary_manifold_pressure_pa_abs += legacy_gas_pressure_pa(
+                step_.gas_volumes[intakes_[index].plenum_volume_index].cell);
+        }
+        left_boundary_manifold_pressure_pa_abs /= static_cast<double>(intakes_.size());
+    }
     const LegacyVtecSelectorInput valvetrain_selection_input{
         mechanics.omega_legacy_rad_s,
         left_boundary_manifold_pressure_pa_abs,
@@ -494,7 +502,7 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
         };
 
     for (std::uint32_t substep = 0; substep < kLegacyGasSubstepCount; ++substep) {
-        // Exhaust collectors precede the shared intake and every cylinder.
+        // Exhaust collectors precede every intake and every cylinder.
         for (auto &route : routes_) {
             auto &collector = step_.gas_volumes[route.collector_volume_index].cell;
             auto &edge = step_.flow_edges[route.collector_outlet_edge_index];
@@ -539,87 +547,101 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
             }
         }
 
-        auto &plenum = step_.gas_volumes[intake_.plenum_volume_index].cell;
-        auto &main_edge = step_.flow_edges[intake_.main_throttle_edge_index];
-        auto &idle_edge = step_.flow_edges[intake_.idle_bypass_edge_index];
+        for (auto &intake : intakes_) {
+            auto &plenum = step_.gas_volumes[intake.plenum_volume_index].cell;
+            auto &main_edge = step_.flow_edges[intake.main_throttle_edge_index];
+            auto &idle_edge = step_.flow_edges[intake.idle_bypass_edge_index];
 
-        const double ideal_afr = (0.8 * fuel_.molecular_afr) * 4.0;
-        const double main_air_fraction = mechanics.operating_state.fuel_enabled
-                                             ? ideal_afr / (1.0 + ideal_afr)
-                                             : 1.0;
-        LegacyGasMixture main_mixture;
-        main_mixture.fuel_fraction = 1.0 - main_air_fraction;
-        main_mixture.inert_fraction = main_air_fraction * 0.75;
-        main_mixture.oxygen_fraction = main_air_fraction * 0.25;
-        legacy_reset_gas_cell(intake_.atmosphere_work_cell, ambient_pressure_pa_,
-                              ambient_temperature_k_, main_mixture);
-        if (!validate_work_cell(intake_.atmosphere_work_cell, "main-atmosphere-reset",
-                                substep, main_edge.flow_edge_id)) {
-            return *terminal_fault_;
-        }
-        const auto main_flow = legacy_transfer_gas(
-            intake_.atmosphere_work_cell, plenum,
-            LegacyFiniteGasTransferParameters{
-                mechanics.main_flow_multiplier_01 * intake_.main_throttle_k,
-                gas_step_s_,
-                0.0,
-                -1.0,
-                10.0,
-                intake_.plenum_cross_section_area_m2,
-            });
-        main_edge.signed_amount_mol += main_flow.signed_amount_mol;
-        if (!validate_work_cell(intake_.atmosphere_work_cell, "main-throttle-flow",
-                                substep, main_edge.flow_edge_id) ||
-            !validate_cell(intake_.plenum_volume_index, "main-throttle-flow", substep,
-                           std::nullopt, main_edge.flow_edge_id)) {
-            return *terminal_fault_;
-        }
+            const double ideal_afr = (0.8 * fuel_.molecular_afr) * 4.0;
+            const double main_air_fraction = mechanics.operating_state.fuel_enabled
+                                                 ? ideal_afr / (1.0 + ideal_afr)
+                                                 : 1.0;
+            LegacyGasMixture main_mixture;
+            main_mixture.fuel_fraction = 1.0 - main_air_fraction;
+            main_mixture.inert_fraction = main_air_fraction * 0.75;
+            main_mixture.oxygen_fraction = main_air_fraction * 0.25;
+            legacy_reset_gas_cell(intake.atmosphere_work_cell, ambient_pressure_pa_,
+                                  ambient_temperature_k_, main_mixture);
+            if (!validate_work_cell(intake.atmosphere_work_cell,
+                                    "main-atmosphere-reset", substep,
+                                    main_edge.flow_edge_id)) {
+                return *terminal_fault_;
+            }
+            const double intake_plate_position_01 =
+                intake.idle_throttle_plate_position_01 *
+                mechanics.resolved_engine_throttle_01;
+            const double main_flow_multiplier_01 =
+                intakes_.size() == 1
+                    ? mechanics.main_flow_multiplier_01
+                    : std::cos(kLegacyPi * intake_plate_position_01 / 2.0);
+            const auto main_flow = legacy_transfer_gas(
+                intake.atmosphere_work_cell, plenum,
+                LegacyFiniteGasTransferParameters{
+                    main_flow_multiplier_01 * intake.main_throttle_k,
+                    gas_step_s_,
+                    0.0,
+                    -1.0,
+                    10.0,
+                    intake.plenum_cross_section_area_m2,
+                });
+            main_edge.signed_amount_mol += main_flow.signed_amount_mol;
+            if (!validate_work_cell(intake.atmosphere_work_cell, "main-throttle-flow",
+                                    substep, main_edge.flow_edge_id) ||
+                !validate_cell(intake.plenum_volume_index, "main-throttle-flow",
+                               substep, std::nullopt, main_edge.flow_edge_id)) {
+                return *terminal_fault_;
+            }
 
-        const double idle_afr = 2.0;
-        const double idle_air_fraction =
-            mechanics.operating_state.fuel_enabled ? idle_afr / (1.0 + idle_afr) : 1.0;
-        LegacyGasMixture idle_mixture;
-        idle_mixture.fuel_fraction = 1.0 - idle_air_fraction;
-        idle_mixture.inert_fraction = idle_air_fraction * 0.75;
-        idle_mixture.oxygen_fraction = idle_air_fraction * 0.25;
-        legacy_reset_gas_cell(intake_.atmosphere_work_cell, ambient_pressure_pa_,
-                              ambient_temperature_k_, idle_mixture);
-        if (!validate_work_cell(intake_.atmosphere_work_cell, "idle-atmosphere-reset",
-                                substep, idle_edge.flow_edge_id)) {
-            return *terminal_fault_;
-        }
-        const auto idle_flow =
-            legacy_transfer_gas(intake_.atmosphere_work_cell, plenum,
-                                LegacyFiniteGasTransferParameters{
-                                    intake_.idle_bypass_k,
-                                    gas_step_s_,
-                                    0.0,
-                                    -1.0,
-                                    10.0,
-                                    intake_.plenum_cross_section_area_m2,
-                                });
-        idle_edge.signed_amount_mol += idle_flow.signed_amount_mol;
-        if (!validate_work_cell(intake_.atmosphere_work_cell, "idle-bypass-flow",
-                                substep, idle_edge.flow_edge_id) ||
-            !validate_cell(intake_.plenum_volume_index, "idle-bypass-flow", substep,
-                           std::nullopt, idle_edge.flow_edge_id)) {
-            return *terminal_fault_;
-        }
-        legacy_limit_gas_to_sonic_velocity(plenum);
-        if (!validate_cell(intake_.plenum_volume_index, "plenum-sonic-bound",
-                           substep)) {
-            return *terminal_fault_;
-        }
-        legacy_apply_gas_self_impulse(
-            plenum, step_.gas_volumes[intake_.plenum_volume_index].geometry,
-            gas_step_s_, intake_.velocity_decay);
-        if (!validate_cell(intake_.plenum_volume_index, "plenum-self-impulse",
-                           substep)) {
-            return *terminal_fault_;
+            const double idle_afr = 2.0;
+            const double idle_air_fraction = mechanics.operating_state.fuel_enabled
+                                                 ? idle_afr / (1.0 + idle_afr)
+                                                 : 1.0;
+            LegacyGasMixture idle_mixture;
+            idle_mixture.fuel_fraction = 1.0 - idle_air_fraction;
+            idle_mixture.inert_fraction = idle_air_fraction * 0.75;
+            idle_mixture.oxygen_fraction = idle_air_fraction * 0.25;
+            legacy_reset_gas_cell(intake.atmosphere_work_cell, ambient_pressure_pa_,
+                                  ambient_temperature_k_, idle_mixture);
+            if (!validate_work_cell(intake.atmosphere_work_cell,
+                                    "idle-atmosphere-reset", substep,
+                                    idle_edge.flow_edge_id)) {
+                return *terminal_fault_;
+            }
+            const auto idle_flow =
+                legacy_transfer_gas(intake.atmosphere_work_cell, plenum,
+                                    LegacyFiniteGasTransferParameters{
+                                        intake.idle_bypass_k,
+                                        gas_step_s_,
+                                        0.0,
+                                        -1.0,
+                                        10.0,
+                                        intake.plenum_cross_section_area_m2,
+                                    });
+            idle_edge.signed_amount_mol += idle_flow.signed_amount_mol;
+            if (!validate_work_cell(intake.atmosphere_work_cell, "idle-bypass-flow",
+                                    substep, idle_edge.flow_edge_id) ||
+                !validate_cell(intake.plenum_volume_index, "idle-bypass-flow", substep,
+                               std::nullopt, idle_edge.flow_edge_id)) {
+                return *terminal_fault_;
+            }
+            legacy_limit_gas_to_sonic_velocity(plenum);
+            if (!validate_cell(intake.plenum_volume_index, "plenum-sonic-bound",
+                               substep)) {
+                return *terminal_fault_;
+            }
+            legacy_apply_gas_self_impulse(
+                plenum, step_.gas_volumes[intake.plenum_volume_index].geometry,
+                gas_step_s_, intake.velocity_decay);
+            if (!validate_cell(intake.plenum_volume_index, "plenum-self-impulse",
+                               substep)) {
+                return *terminal_fault_;
+            }
         }
 
         for (auto &lane : cylinders_) {
             auto &public_cylinder = step_.cylinders[lane.public_cylinder_index];
+            auto &intake = intakes_[lane.intake_lane_index];
+            auto &plenum = step_.gas_volumes[intake.plenum_volume_index].cell;
             auto &runner = step_.gas_volumes[lane.intake_runner_volume_index].cell;
             auto &chamber = step_.gas_volumes[lane.chamber_volume_index].cell;
             auto &primary = step_.gas_volumes[lane.exhaust_primary_volume_index].cell;
@@ -664,15 +686,15 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
             const auto plenum_runner =
                 legacy_transfer_gas(plenum, runner,
                                     LegacyFiniteGasTransferParameters{
-                                        intake_.plenum_to_runner_k,
+                                        intake.plenum_to_runner_k,
                                         gas_step_s_,
                                         1.0,
                                         0.0,
-                                        intake_.plenum_cross_section_area_m2,
+                                        intake.plenum_cross_section_area_m2,
                                         lane.intake_runner_cross_section_area_m2,
                                     });
             plenum_runner_edge.signed_amount_mol += plenum_runner.signed_amount_mol;
-            if (!validate_cell(intake_.plenum_volume_index, "plenum-to-runner-flow",
+            if (!validate_cell(intake.plenum_volume_index, "plenum-to-runner-flow",
                                substep, public_cylinder.cylinder_id,
                                plenum_runner_edge.flow_edge_id) ||
                 !validate_cell(lane.intake_runner_volume_index, "plenum-to-runner-flow",
@@ -788,7 +810,7 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
 
             legacy_apply_gas_self_impulse(
                 runner, step_.gas_volumes[lane.intake_runner_volume_index].geometry,
-                gas_step_s_, intake_.velocity_decay);
+                gas_step_s_, intake.velocity_decay);
             if (!validate_cell(lane.intake_runner_volume_index, "runner-self-impulse",
                                substep, public_cylinder.cylinder_id)) {
                 return *terminal_fault_;

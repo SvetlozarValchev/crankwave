@@ -122,20 +122,21 @@ void admit_engine_physical_model(ModelContext &resolved,
                 "restriction");
         }
     };
-    if (!std::isfinite(resolved.intake->idle_throttle_position_01) ||
-        resolved.intake->idle_throttle_position_01 < 0.0 ||
-        resolved.intake->idle_throttle_position_01 > 1.0) {
-        add(report, DiagnosticCode::unsupported_capability,
-            "/engine/intakes/0/idle_throttle_position_01",
-            "legacy_low_order_v1 requires a finite idle throttle plate position "
-            "in [0,1]");
+    for (std::size_t index = 0; index < engine.intakes.size(); ++index) {
+        const auto &intake = engine.intakes[index];
+        const auto path = pointer_index("/engine/intakes", index);
+        if (!std::isfinite(intake.idle_throttle_position_01) ||
+            intake.idle_throttle_position_01 < 0.0 ||
+            intake.idle_throttle_position_01 > 1.0) {
+            add(report, DiagnosticCode::unsupported_capability,
+                path + "/idle_throttle_position_01",
+                "legacy_low_order_v1 requires a finite idle throttle plate "
+                "position in [0,1]");
+        }
+        require_carb(intake.main_restriction, path + "/main_restriction");
+        require_carb(intake.idle_bypass_restriction, path + "/idle_bypass_restriction");
+        require_carb(intake.runner_restriction, path + "/runner_restriction");
     }
-    require_carb(resolved.intake->main_restriction,
-                 "/engine/intakes/0/main_restriction");
-    require_carb(resolved.intake->idle_bypass_restriction,
-                 "/engine/intakes/0/idle_bypass_restriction");
-    require_carb(resolved.intake->runner_restriction,
-                 "/engine/intakes/0/runner_restriction");
 
     for (std::size_t index = 0; index < engine.exhausts.size(); ++index) {
         const auto &exhaust = engine.exhausts[index];
@@ -220,6 +221,7 @@ void admit_engine_physical_model(ModelContext &resolved,
     std::unordered_set<std::string> used_journals;
     std::unordered_set<std::string> used_rods;
     std::unordered_set<std::string> used_pistons;
+    std::unordered_set<std::string> used_intakes;
     std::unordered_set<std::string> used_exhausts;
     std::unordered_set<std::string> used_banks;
     for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
@@ -242,17 +244,18 @@ void admit_engine_physical_model(ModelContext &resolved,
         }
         if (bank == resolved.banks.end() || cylinder_intake_port == nullptr ||
             cylinder_exhaust_port == nullptr ||
-            cylinder.intake.value != resolved.intake->id.value ||
+            !resolved.intakes.contains(cylinder.intake.value) ||
             cylinder.intake_port.value != cylinder_intake_port->id.value ||
             cylinder.exhaust_port.value != cylinder_exhaust_port->id.value) {
             add(report, DiagnosticCode::unsupported_capability, path,
-                "every admitted cylinder must use a declared bank, shared intake, "
+                "every admitted cylinder must use a declared bank and intake, "
                 "and its bank head's exact ports");
         }
         used_banks.insert(cylinder.bank.value);
         used_journals.insert(cylinder.journal.value);
         used_rods.insert(cylinder.connecting_rod.value);
         used_pistons.insert(cylinder.piston.value);
+        used_intakes.insert(cylinder.intake.value);
         used_exhausts.insert(cylinder.exhaust.value);
         if (!resolved.journals.contains(cylinder.journal.value) ||
             !resolved.rods.contains(cylinder.connecting_rod.value) ||
@@ -268,9 +271,11 @@ void admit_engine_physical_model(ModelContext &resolved,
         used_journals.size() != engine.journals.size() ||
         used_rods.size() != engine.connecting_rods.size() ||
         used_pistons.size() != engine.pistons.size() ||
+        used_intakes.size() != engine.intakes.size() ||
         used_exhausts.size() != engine.exhausts.size()) {
         add(report, DiagnosticCode::disconnected_object, "/engine/cylinders",
-            "all declared banks, journals, rods, pistons, and exhausts must be "
+            "all declared banks, journals, rods, pistons, intakes, and exhausts must "
+            "be "
             "reachable from the admitted cylinder order");
     }
 

@@ -63,7 +63,7 @@ class LowOrderInertialDynoV1Runtime final {
         contract::RationalRateHz rate, std::uint64_t expected_sample_count,
         std::uint64_t release_frame_index, double initial_engine_speed_rpm,
         double initial_theta_rad, double target_engine_speed_rpm,
-        contract::Sha256Digest simulation_request_identity_v4_sha256,
+        contract::Sha256Digest simulation_request_identity_v5_sha256,
         std::string brake_curve_resolution_id,
         contract::MethodIdentity brake_torque_method,
         contract::MethodIdentity crank_dynamics_method, std::string model_id,
@@ -103,7 +103,7 @@ class LowOrderInertialDynoV1Runtime final {
     double released_net_shaft_work_j_ = 0.0;
     double released_passive_brake_work_j_ = 0.0;
     double release_angular_speed_rad_s_ = 0.0;
-    contract::Sha256Digest simulation_request_identity_v4_sha256_;
+    contract::Sha256Digest simulation_request_identity_v5_sha256_;
     std::string brake_curve_resolution_id_;
     contract::MethodIdentity brake_torque_method_;
     contract::MethodIdentity crank_dynamics_method_;
@@ -128,6 +128,6 @@ using LowOrderInertialDynoV1CompileResult =
 compile_low_order_inertial_dyno_v1_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
-    const contract::Sha256Digest &simulation_request_identity_v4_sha256);
+    const contract::Sha256Digest &simulation_request_identity_v5_sha256);
 
 } // namespace engine_sim_offline::simulation

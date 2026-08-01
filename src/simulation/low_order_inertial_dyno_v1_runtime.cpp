@@ -127,7 +127,7 @@ LowOrderInertialDynoV1Runtime::LowOrderInertialDynoV1Runtime(
     contract::RationalRateHz rate, std::uint64_t expected_sample_count,
     std::uint64_t release_frame_index, double initial_engine_speed_rpm,
     double initial_theta_rad, double target_engine_speed_rpm,
-    contract::Sha256Digest simulation_request_identity_v4_sha256,
+    contract::Sha256Digest simulation_request_identity_v5_sha256,
     std::string brake_curve_resolution_id, contract::MethodIdentity brake_torque_method,
     contract::MethodIdentity crank_dynamics_method, std::string model_id,
     std::string profile_id, std::string scenario_id, contract::EngineId engine_id)
@@ -146,7 +146,7 @@ LowOrderInertialDynoV1Runtime::LowOrderInertialDynoV1Runtime(
       minimum_engine_speed_rpm_(initial_engine_speed_rpm),
       maximum_engine_speed_rpm_(initial_engine_speed_rpm),
       release_angular_speed_rad_s_(crank_state_.angular_speed_rad_s),
-      simulation_request_identity_v4_sha256_(simulation_request_identity_v4_sha256),
+      simulation_request_identity_v5_sha256_(simulation_request_identity_v5_sha256),
       brake_curve_resolution_id_(std::move(brake_curve_resolution_id)),
       brake_torque_method_(std::move(brake_torque_method)),
       crank_dynamics_method_(std::move(crank_dynamics_method)),
@@ -296,7 +296,7 @@ LowOrderInertialDynoV1Runtime::finalize_result(const LegacyMechanismStep &mechan
         (released_net_shaft_work_j_ - released_passive_brake_work_j_) -
         kinetic_energy_change_j;
     contract::InertialDynoResult result{
-        simulation_request_identity_v4_sha256_,
+        simulation_request_identity_v5_sha256_,
         initial_engine_speed_rpm_,
         target_engine_speed_rpm_,
         initial_engine_speed_rpm_,

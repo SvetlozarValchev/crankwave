@@ -8,25 +8,25 @@
 ; from the complete owned binary64 vector using the typed contract's canonical
 ; little-endian grammar.
 
-render-manifest-simulation-v7 = {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v7",
-  "content": render-manifest-content-simulation-v7,
+render-manifest-simulation-v8 = {
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v8",
+  "content": render-manifest-content-simulation-v8,
   "execution": execution-facts
 }
 
 ; Canonical identity for a resolved simulator request before presentation/render
 ; composition. This domain is intentionally distinct from the completed manifest.
-simulation-request-identity-v4 = {
-  "wire_schema": "engine-sim-offline.simulation-request-identity.v4",
+simulation-request-identity-v5 = {
+  "wire_schema": "engine-sim-offline.simulation-request-identity.v5",
   "engine": engine-spec,
   "scenario": render-scenario,
   "random_plan": random-plan,
   "provenance": provenance-bundle-ref
 }
 
-render-manifest-content-simulation-v7 = {
-  "schema_version": 7,
-  "inputs": simulation-manifest-inputs-v6,
+render-manifest-content-simulation-v8 = {
+  "schema_version": 8,
+  "inputs": simulation-manifest-inputs-v7,
   "provenance": provenance-bundle-ref,
   "determinism": determinism-envelope,
   "rates": render-rates,
@@ -37,12 +37,12 @@ render-manifest-content-simulation-v7 = {
   "artifacts": [* artifact-record]
 }
 
-simulation-manifest-inputs-v6 = {
-  "kind": "simulation_v6",
-  "value": simulation-inputs-v6
+simulation-manifest-inputs-v7 = {
+  "kind": "simulation_v7",
+  "value": simulation-inputs-v7
 }
 
-simulation-inputs-v6 = {
+simulation-inputs-v7 = {
   "resolved": resolved-render-inputs
 }
 
@@ -70,6 +70,7 @@ engine-spec = {
   "cylinder_layout": resolved<cylinder-layout-kind>,
   "total_displacement_m3": resolved<f64-bits>,
   "banks": [* bank-spec],
+  "intakes": [* intake-spec],
   "cylinders": [* cylinder-spec],
   "ports": [* port-spec],
   "gas_volumes": [* gas-volume-spec],
@@ -87,10 +88,16 @@ bank-spec = {
   ? "angle_rad": resolved<f64-bits>
 }
 
+intake-spec = {
+  "id": stable-id,
+  "semantic_id": resolved<tstr>
+}
+
 cylinder-spec = {
   "id": stable-id,
   "semantic_id": resolved<tstr>,
   "bank_id": stable-id,
+  "intake_id": stable-id,
   "bore_m": resolved<f64-bits>,
   "stroke_m": resolved<f64-bits>,
   "connecting_rod_length_m": resolved<f64-bits>,
@@ -233,7 +240,8 @@ legacy-crank-assembly = {
   "crank_tdc_reference_rad": resolved<f64-bits>,
   "crankshaft_mass_kg": resolved<f64-bits>,
   "flywheel_mass_kg": resolved<f64-bits>,
-  "authored_crank_inertia_kg_m2": resolved<f64-bits>
+  "authored_crank_inertia_kg_m2": resolved<f64-bits>,
+  "running_friction_torque_magnitude_nm": resolved<f64-bits>
 }
 
 legacy-cylinder-assembly = {
@@ -247,6 +255,7 @@ legacy-cylinder-assembly = {
 
 legacy-cylinder-topology = {
   "cylinder_id": stable-id,
+  "intake_id": stable-id,
   "intake_port_id": stable-id,
   "exhaust_port_id": stable-id,
   "intake_runner_volume_id": stable-id,
@@ -297,14 +306,19 @@ legacy-master-rod-cylinder-kinematics = {
 }
 
 legacy-gas-path-profile = {
-  "intake_topology": legacy-intake-topology,
-  "intake": legacy-intake-parameters,
+  "intakes": [* legacy-intake-profile],
   "heads": [* legacy-bank-head-profile],
   "exhaust_routes": [* legacy-exhaust-route-profile],
   "piston_blowby": legacy-restriction
 }
 
+legacy-intake-profile = {
+  "topology": legacy-intake-topology,
+  "parameters": legacy-intake-parameters
+}
+
 legacy-intake-topology = {
+  "intake_id": stable-id,
   "plenum_volume_id": stable-id,
   "main_throttle_edge_id": stable-id,
   "idle_bypass_edge_id": stable-id

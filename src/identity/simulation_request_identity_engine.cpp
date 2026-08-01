@@ -221,12 +221,21 @@ template <class Id>
     return writer.end_object();
 }
 
+[[nodiscard]] bool write_intake(CanonicalJsonWriter &writer,
+                                const contract::IntakeSpec &intake) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, intake.id) && writer.key("semantic_id") &&
+           write_resolved(writer, intake.semantic_id, write_string) &&
+           writer.end_object();
+}
+
 [[nodiscard]] bool write_cylinder(CanonicalJsonWriter &writer,
                                   const contract::CylinderSpec &cylinder) {
     if (!(writer.begin_object() && writer.key("id") &&
           write_stable_id(writer, cylinder.id) && writer.key("semantic_id") &&
           write_resolved(writer, cylinder.semantic_id, write_string) &&
           writer.key("bank_id") && write_stable_id(writer, cylinder.bank_id) &&
+          writer.key("intake_id") && write_stable_id(writer, cylinder.intake_id) &&
           writer.key("bore_m") && write_resolved(writer, cylinder.bore_m, write_f64) &&
           writer.key("stroke_m") &&
           write_resolved(writer, cylinder.stroke_m, write_f64) &&
@@ -333,7 +342,8 @@ write_model_methods(CanonicalJsonWriter &writer,
 write_legacy_cylinder_topology(CanonicalJsonWriter &writer,
                                const contract::LegacyCylinderTopology &topology) {
     return writer.begin_object() && writer.key("cylinder_id") &&
-           write_stable_id(writer, topology.cylinder_id) &&
+           write_stable_id(writer, topology.cylinder_id) && writer.key("intake_id") &&
+           write_stable_id(writer, topology.intake_id) &&
            writer.key("intake_port_id") &&
            write_stable_id(writer, topology.intake_port_id) &&
            writer.key("exhaust_port_id") &&
@@ -362,11 +372,10 @@ write_legacy_cylinder_topology(CanonicalJsonWriter &writer,
 write_legacy_cylinder_parameters(CanonicalJsonWriter &writer,
                                  const contract::LegacyCylinderAssembly &cylinder) {
     const auto &parameters = cylinder.parameters;
-    const auto *direct = std::get_if<contract::LegacyDirectJournalKinematics>(
-        &cylinder.kinematics);
+    const auto *direct =
+        std::get_if<contract::LegacyDirectJournalKinematics>(&cylinder.kinematics);
     const auto *master =
-        std::get_if<contract::LegacyMasterRodJournalKinematics>(
-            &cylinder.kinematics);
+        std::get_if<contract::LegacyMasterRodJournalKinematics>(&cylinder.kinematics);
     if (direct == nullptr && master == nullptr) {
         return false;
     }
@@ -431,9 +440,8 @@ write_legacy_cylinder_assembly(CanonicalJsonWriter &writer,
           write_legacy_cylinder_parameters(writer, cylinder))) {
         return false;
     }
-    if (const auto *master =
-            std::get_if<contract::LegacyMasterRodJournalKinematics>(
-                &cylinder.kinematics)) {
+    if (const auto *master = std::get_if<contract::LegacyMasterRodJournalKinematics>(
+            &cylinder.kinematics)) {
         if (!(writer.key("kinematics") &&
               write_master_rod_kinematics(writer, *master))) {
             return false;
@@ -487,7 +495,9 @@ write_legacy_restriction(CanonicalJsonWriter &writer,
 [[nodiscard]] bool
 write_legacy_intake_topology(CanonicalJsonWriter &writer,
                              const contract::LegacyIntakeTopology &topology) {
-    return writer.begin_object() && writer.key("plenum_volume_id") &&
+    return writer.begin_object() && writer.key("intake_id") &&
+           write_stable_id(writer, topology.intake_id) &&
+           writer.key("plenum_volume_id") &&
            write_stable_id(writer, topology.plenum_volume_id) &&
            writer.key("main_throttle_edge_id") &&
            write_stable_id(writer, topology.main_throttle_edge_id) &&
@@ -516,9 +526,18 @@ write_legacy_intake_topology(CanonicalJsonWriter &writer,
            writer.end_object();
 }
 
-[[nodiscard]] bool write_throttle_controller(
-    CanonicalJsonWriter &writer,
-    const contract::ThrottleControllerV1 &controller) {
+[[nodiscard]] bool
+write_legacy_intake_profile(CanonicalJsonWriter &writer,
+                            const contract::LegacyIntakeProfile &intake) {
+    return writer.begin_object() && writer.key("topology") &&
+           write_legacy_intake_topology(writer, intake.topology) &&
+           writer.key("parameters") && write_legacy_intake(writer, intake.parameters) &&
+           writer.end_object();
+}
+
+[[nodiscard]] bool
+write_throttle_controller(CanonicalJsonWriter &writer,
+                          const contract::ThrottleControllerV1 &controller) {
     return std::visit(
         [&](const auto &value) {
             if constexpr (requires { value.minimum_engine_speed_rad_s; }) {
@@ -578,8 +597,7 @@ write_legacy_valve_flow_point(CanonicalJsonWriter &writer,
                            });
     };
     return writer.begin_object() && writer.key("bank_id") &&
-           write_stable_id(writer, head.bank_id) &&
-           writer.key("chamber_volume_m3") &&
+           write_stable_id(writer, head.bank_id) && writer.key("chamber_volume_m3") &&
            write_resolved(writer, head.chamber_volume_m3, write_f64) &&
            writer.key("intake_runner_base_volume_m3") &&
            write_resolved(writer, head.intake_runner_base_volume_m3, write_f64) &&
@@ -648,9 +666,12 @@ write_legacy_exhaust_route(CanonicalJsonWriter &writer,
 [[nodiscard]] bool
 write_legacy_gas_path(CanonicalJsonWriter &writer,
                       const contract::LegacyGasPathProfile &gas_path) {
-    return writer.begin_object() && writer.key("intake_topology") &&
-           write_legacy_intake_topology(writer, gas_path.intake_topology) &&
-           writer.key("intake") && write_legacy_intake(writer, gas_path.intake) &&
+    return writer.begin_object() && writer.key("intakes") &&
+           write_array(writer, gas_path.intakes,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacyIntakeProfile &intake) {
+                           return write_legacy_intake_profile(output, intake);
+                       }) &&
            writer.key("heads") &&
            write_array(writer, gas_path.heads,
                        [](CanonicalJsonWriter &output,
@@ -970,8 +991,8 @@ write_low_order_engine_core(CanonicalJsonWriter &writer,
            write_legacy_mechanism(writer, core.mechanism) &&
            writer.key("throttle_controller") &&
            write_throttle_controller(writer, core.throttle_controller) &&
-           writer.key("gas_path") &&
-           write_legacy_gas_path(writer, core.gas_path) && writer.key("valvetrain") &&
+           writer.key("gas_path") && write_legacy_gas_path(writer, core.gas_path) &&
+           writer.key("valvetrain") &&
            write_legacy_valvetrain(writer, core.valvetrain) && writer.key("ignition") &&
            write_legacy_ignition(writer, core.ignition) && writer.key("fuel") &&
            write_legacy_fuel(writer, core.fuel) && writer.key("excitation") &&
@@ -1133,6 +1154,12 @@ bool write_engine_spec(CanonicalJsonWriter &writer,
                        [](CanonicalJsonWriter &output, const contract::BankSpec &bank) {
                            return write_bank(output, bank);
                        }) &&
+           writer.key("intakes") &&
+           write_array(
+               writer, engine.intakes,
+               [](CanonicalJsonWriter &output, const contract::IntakeSpec &intake) {
+                   return write_intake(output, intake);
+               }) &&
            writer.key("cylinders") &&
            write_array(
                writer, engine.cylinders,

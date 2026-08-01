@@ -233,7 +233,6 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     resolved.profile_id = engine.identity.id.value + "-low-order-operating-point-v1";
     resolved.calibration_id = engine.identity.id.value + "-presentation-v1";
     resolved.crankshaft = &engine.crankshafts.front();
-    resolved.intake = &engine.intakes.front();
     resolved.fuel = &engine.fuels.front();
     resolved.accessory_configuration = &engine.accessory_configurations.front();
 
@@ -245,6 +244,8 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     index(resolved.curves, engine.curves,
           [](const auto &value) { return value.id.value; });
     index(resolved.banks, engine.banks,
+          [](const auto &value) { return value.id.value; });
+    index(resolved.intakes, engine.intakes,
           [](const auto &value) { return value.id.value; });
     index(resolved.journals, engine.journals,
           [](const auto &value) { return value.id.value; });

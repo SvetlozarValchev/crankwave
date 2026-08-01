@@ -57,6 +57,7 @@ enum class SourceRouteKind : std::uint8_t {
 struct AuthoredCylinderDefinition {
     AuthoredValue<std::string> semantic_id;
     AuthoredValue<std::string> bank_id;
+    AuthoredValue<std::string> intake_id;
     std::optional<AuthoredValue<double>> bore_m;
     std::optional<AuthoredValue<double>> stroke_m;
     std::optional<AuthoredValue<double>> connecting_rod_length_m;
@@ -129,6 +130,7 @@ struct AuthoredEngineDefinition {
     AuthoredValue<IgnitionKind> ignition;
     AuthoredValue<CylinderLayoutKind> cylinder_layout;
     std::vector<AuthoredValue<std::string>> banks;
+    std::vector<AuthoredValue<std::string>> intakes;
     std::vector<AuthoredCylinderDefinition> cylinders;
     std::vector<AuthoredPortDefinition> ports;
     std::vector<AuthoredGasVolumeDefinition> gas_volumes;
@@ -152,6 +154,13 @@ struct BankSpec {
     friend bool operator==(const BankSpec &, const BankSpec &) = default;
 };
 
+struct IntakeSpec {
+    IntakeId id;
+    ResolvedValue<std::string> semantic_id;
+
+    friend bool operator==(const IntakeSpec &, const IntakeSpec &) = default;
+};
+
 struct MasterRodAttachmentSpec {
     CylinderId master_cylinder_id;
     ResolvedValue<double> throw_radius_m;
@@ -164,6 +173,7 @@ struct CylinderSpec {
     CylinderId id;
     ResolvedValue<std::string> semantic_id;
     BankId bank_id;
+    IntakeId intake_id;
     ResolvedValue<double> bore_m;
     ResolvedValue<double> stroke_m;
     ResolvedValue<double> connecting_rod_length_m;
@@ -230,6 +240,7 @@ struct EngineSpec {
     ResolvedValue<CylinderLayoutKind> cylinder_layout;
     ResolvedValue<double> total_displacement_m3;
     std::vector<BankSpec> banks;
+    std::vector<IntakeSpec> intakes;
     std::vector<CylinderSpec> cylinders;
     std::vector<PortSpec> ports;
     std::vector<GasVolumeSpec> gas_volumes;

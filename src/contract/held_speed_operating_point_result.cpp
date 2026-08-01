@@ -875,8 +875,8 @@ ValidationReport validate(const HeldSpeedOperatingPointResult &operating_point) 
     using detail::require;
 
     ValidationReport report;
-    require(report, !operating_point.simulation_request_identity_v4_sha256.is_zero(),
-            ContractIssueCode::invalid_value, "simulation_request_identity_v4_sha256",
+    require(report, !operating_point.simulation_request_identity_v5_sha256.is_zero(),
+            ContractIssueCode::invalid_value, "simulation_request_identity_v5_sha256",
             "held-speed result requires a nonzero canonical simulation-request "
             "identity");
     append_prefixed(report, validate_operating_conditions(operating_point.conditions),
@@ -937,18 +937,18 @@ ValidationReport validate(const HeldSpeedOperatingPointResult &operating_point) 
 ValidationReport
 validate(const HeldSpeedOperatingPointResult &operating_point,
          const RenderScenario &requested_scenario, const EngineSpec &engine,
-         const Sha256Digest &expected_simulation_request_identity_v4_sha256) {
+         const Sha256Digest &expected_simulation_request_identity_v5_sha256) {
     using detail::require;
 
     auto report = validate(operating_point);
     const auto &conditions = operating_point.conditions;
     require(report,
-            !expected_simulation_request_identity_v4_sha256.is_zero() &&
-                operating_point.simulation_request_identity_v4_sha256 ==
-                    expected_simulation_request_identity_v4_sha256,
+            !expected_simulation_request_identity_v5_sha256.is_zero() &&
+                operating_point.simulation_request_identity_v5_sha256 ==
+                    expected_simulation_request_identity_v5_sha256,
             ContractIssueCode::inconsistent_semantics,
-            "simulation_request_identity_v4_sha256",
-            "held-speed result must retain the caller-supplied canonical v4 "
+            "simulation_request_identity_v5_sha256",
+            "held-speed result must retain the caller-supplied canonical v5 "
             "simulation-request identity");
 
     const auto *requested_mode = std::get_if<HeldSpeed>(&requested_scenario.mode);

@@ -37,7 +37,7 @@ write_simulation_manifest_inputs(CanonicalJsonWriter &writer,
                                  const contract::SimulationManifestInputs &inputs) {
     const auto &resolved = inputs.resolved;
     return writer.begin_object() && writer.key("kind") &&
-           writer.string_value("simulation_v6") && writer.key("value") &&
+           writer.string_value("simulation_v7") && writer.key("value") &&
            writer.begin_object() && writer.key("resolved") && writer.begin_object() &&
            writer.key("engine") &&
            identity::detail::write_engine_spec(writer, resolved.engine) &&
@@ -80,7 +80,7 @@ write_simulation_manifest_inputs(CanonicalJsonWriter &writer,
 } // namespace detail
 
 ManifestEncodingResult
-encode_simulation_manifest_v7(const contract::RenderManifest &manifest) {
+encode_simulation_manifest_v8(const contract::RenderManifest &manifest) {
     if (!manifest.execution.has_value()) {
         return RenderSinkError{
             RenderSinkErrorKind::protocol_violation,
@@ -94,7 +94,7 @@ encode_simulation_manifest_v7(const contract::RenderManifest &manifest) {
         std::vector<std::byte> bytes;
         const bool encoded =
             writer.begin_object() && writer.key("wire_schema") &&
-            writer.string_value(kSimulationManifestWireSchemaV7) &&
+            writer.string_value(kSimulationManifestWireSchemaV8) &&
             writer.key("content") &&
             detail::write_completed_manifest_content(
                 writer, manifest.content, detail::write_simulation_manifest_inputs) &&

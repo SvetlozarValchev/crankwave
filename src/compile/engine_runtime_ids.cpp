@@ -54,12 +54,11 @@ void assign_engine_runtime_ids(ModelContext &resolved,
     const auto &document = resolved.document;
     const auto &engine = document.engine;
     std::vector<std::string> bank_ids;
+    std::vector<std::string> intake_ids;
     std::vector<std::string> cylinder_ids;
     std::vector<std::string> port_ids;
-    std::vector<std::string> gas_volume_ids{"volume.atmosphere",
-                                            "volume.intake.plenum"};
-    std::vector<std::string> flow_edge_ids{"flow.intake.main-throttle",
-                                           "flow.intake.idle-bypass"};
+    std::vector<std::string> gas_volume_ids{"volume.atmosphere"};
+    std::vector<std::string> flow_edge_ids;
     std::vector<std::string> route_ids;
     std::vector<std::string> audio_asset_ids;
     std::vector<std::string> audio_bus_ids;
@@ -82,6 +81,13 @@ void assign_engine_runtime_ids(ModelContext &resolved,
     }
     for (const auto &bank : engine.banks) {
         bank_ids.push_back(bank.id.value);
+    }
+    for (const auto &intake : engine.intakes) {
+        intake_ids.push_back(intake.id.value);
+        gas_volume_ids.push_back(intake_plenum_semantic_id(intake.id.value));
+        const auto owner = "intake." + intake.id.value;
+        flow_edge_ids.push_back(flow_semantic_id(owner, "main-throttle"));
+        flow_edge_ids.push_back(flow_semantic_id(owner, "idle-bypass"));
     }
     for (const auto &cylinder : engine.cylinders) {
         cylinder_ids.push_back(cylinder.id.value);
@@ -129,6 +135,7 @@ void assign_engine_runtime_ids(ModelContext &resolved,
         }
     };
     assign(resolved.ids.banks, "engine.bank", bank_ids, "/engine/banks");
+    assign(resolved.ids.intakes, "engine.intake", intake_ids, "/engine/intakes");
     assign(resolved.ids.cylinders, "engine.cylinder", cylinder_ids,
            "/engine/cylinders");
     assign(resolved.ids.ports, "engine.port", port_ids, "/engine/ports");
@@ -153,6 +160,7 @@ void assign_engine_runtime_ids(ModelContext &resolved,
     }
 
     append_assignments(resolved.ids, resolved.ids.banks);
+    append_assignments(resolved.ids, resolved.ids.intakes);
     append_assignments(resolved.ids, resolved.ids.cylinders);
     append_assignments(resolved.ids, resolved.ids.ports);
     append_assignments(resolved.ids, resolved.ids.gas_volumes);

@@ -16,6 +16,7 @@ struct EngineSpec;
 
 struct AuthoredLegacyCylinderTopology {
     AuthoredValue<std::string> cylinder_id;
+    AuthoredValue<std::string> intake_id;
     AuthoredValue<std::string> intake_port_id;
     AuthoredValue<std::string> exhaust_port_id;
     AuthoredValue<std::string> intake_runner_volume_id;
@@ -34,6 +35,7 @@ struct AuthoredLegacyCylinderTopology {
 
 struct LegacyCylinderTopology {
     CylinderId cylinder_id;
+    IntakeId intake_id;
     PortId intake_port_id;
     PortId exhaust_port_id;
     GasVolumeId intake_runner_volume_id;
@@ -177,6 +179,7 @@ using AuthoredLegacyRestriction = LegacyRestrictionT<AuthoredValue>;
 using LegacyRestriction = LegacyRestrictionT<ResolvedValue>;
 
 struct AuthoredLegacyIntakeTopology {
+    AuthoredValue<std::string> intake_id;
     AuthoredValue<std::string> plenum_volume_id;
     AuthoredValue<std::string> main_throttle_edge_id;
     AuthoredValue<std::string> idle_bypass_edge_id;
@@ -186,6 +189,7 @@ struct AuthoredLegacyIntakeTopology {
 };
 
 struct LegacyIntakeTopology {
+    IntakeId intake_id;
     GasVolumeId plenum_volume_id;
     FlowEdgeId main_throttle_edge_id;
     FlowEdgeId idle_bypass_edge_id;
@@ -210,6 +214,22 @@ template <template <class> class Field> struct LegacyIntakeParametersT {
 
 using AuthoredLegacyIntakeParameters = LegacyIntakeParametersT<AuthoredValue>;
 using LegacyIntakeParameters = LegacyIntakeParametersT<ResolvedValue>;
+
+struct AuthoredLegacyIntakeProfile {
+    AuthoredLegacyIntakeTopology topology;
+    AuthoredLegacyIntakeParameters parameters;
+
+    friend bool operator==(const AuthoredLegacyIntakeProfile &,
+                           const AuthoredLegacyIntakeProfile &) = default;
+};
+
+struct LegacyIntakeProfile {
+    LegacyIntakeTopology topology;
+    LegacyIntakeParameters parameters;
+
+    friend bool operator==(const LegacyIntakeProfile &,
+                           const LegacyIntakeProfile &) = default;
+};
 
 template <template <class> class Field> struct LegacyValveFlowPointT {
     Field<std::string> sample_id;
@@ -299,11 +319,9 @@ struct LegacyExhaustRouteProfile {
                            const LegacyExhaustRouteProfile &) = default;
 };
 
-template <class IntakeTopology, class IntakeParameters, class Head, class ExhaustRoute,
-          class Restriction>
+template <class Intake, class Head, class ExhaustRoute, class Restriction>
 struct LegacyGasPathProfileT {
-    IntakeTopology intake_topology;
-    IntakeParameters intake;
+    std::vector<Intake> intakes;
     std::vector<Head> heads;
     std::vector<ExhaustRoute> exhaust_routes;
     Restriction piston_blowby;
@@ -313,13 +331,11 @@ struct LegacyGasPathProfileT {
 };
 
 using AuthoredLegacyGasPathProfile =
-    LegacyGasPathProfileT<AuthoredLegacyIntakeTopology, AuthoredLegacyIntakeParameters,
-                          AuthoredLegacyBankHeadProfile,
+    LegacyGasPathProfileT<AuthoredLegacyIntakeProfile, AuthoredLegacyBankHeadProfile,
                           AuthoredLegacyExhaustRouteProfile, AuthoredLegacyRestriction>;
 using LegacyGasPathProfile =
-    LegacyGasPathProfileT<LegacyIntakeTopology, LegacyIntakeParameters,
-                          LegacyBankHeadProfile, LegacyExhaustRouteProfile,
-                          LegacyRestriction>;
+    LegacyGasPathProfileT<LegacyIntakeProfile, LegacyBankHeadProfile,
+                          LegacyExhaustRouteProfile, LegacyRestriction>;
 
 template <template <class> class Field> struct LegacyCamShapeT {
     Field<double> maximum_lift_m;

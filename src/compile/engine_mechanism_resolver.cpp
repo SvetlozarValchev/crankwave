@@ -108,6 +108,7 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
         core.mechanism.cylinders.push_back({
             {
                 cylinder_id(context, semantic),
+                intake_id(context, cylinder.intake.value),
                 port_id(context,
                         port_semantic_id(semantic, authoring::PortKind::intake)),
                 port_id(context,

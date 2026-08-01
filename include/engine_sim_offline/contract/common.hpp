@@ -24,6 +24,7 @@ template <class Tag> struct StableId {
 
 using EngineId = StableId<struct EngineIdTag>;
 using BankId = StableId<struct BankIdTag>;
+using IntakeId = StableId<struct IntakeIdTag>;
 using CylinderId = StableId<struct CylinderIdTag>;
 using PortId = StableId<struct PortIdTag>;
 using GasVolumeId = StableId<struct GasVolumeIdTag>;

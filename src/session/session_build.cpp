@@ -135,7 +135,7 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
             "recompilation");
     }
 
-    auto identity_result = identity::encode_simulation_request_identity_v4(
+    auto identity_result = identity::encode_simulation_request_identity_v5(
         engine, scenario, random_plan, scenario_contracts.combined_provenance.bundle);
     if (const auto *error =
             std::get_if<identity::SimulationRequestIdentityError>(&identity_result)) {

@@ -80,11 +80,10 @@ class LowOrderOperatingPointV1Runtime final {
         std::vector<OperatingGasVolumePressureSample> pressure_samples,
         TransactionShape transaction_shape,
         std::uint64_t fixed_preparation_horizon_frame_count,
-        contract::Sha256Digest simulation_request_identity_v4_sha256,
-        contract::HeldSpeedOperatingPointConditions conditions,
-        double throttle_gamma, double idle_throttle_plate_position_01,
-        std::string model_id, std::string profile_id, std::string scenario_id,
-        contract::EngineId engine_id);
+        contract::Sha256Digest simulation_request_identity_v5_sha256,
+        contract::HeldSpeedOperatingPointConditions conditions, double throttle_gamma,
+        double idle_throttle_plate_position_01, std::string model_id,
+        std::string profile_id, std::string scenario_id, contract::EngineId engine_id);
 
     [[nodiscard]] contract::FailureContext
     fault(contract::FailureKind kind, std::string detail_code,
@@ -108,7 +107,7 @@ class LowOrderOperatingPointV1Runtime final {
     TransactionShape transaction_shape_;
     std::uint64_t fixed_preparation_horizon_frame_count_ = 0;
     std::uint64_t accepted_sample_count_ = 0;
-    contract::Sha256Digest simulation_request_identity_v4_sha256_;
+    contract::Sha256Digest simulation_request_identity_v5_sha256_;
     contract::HeldSpeedOperatingPointConditions conditions_;
     double throttle_gamma_ = 0.0;
     double idle_throttle_plate_position_01_ = 0.0;
@@ -130,12 +129,12 @@ using LowOrderOperatingPointV1CompileResult =
     std::variant<LowOrderOperatingPointV1Runtime, contract::ValidationReport>;
 
 // The caller supplies the already compiled shared capture topology and the canonical
-// simulation-request-v4 digest retained by the opaque render job. No request encoder
+// simulation-request-v5 digest retained by the opaque render job. No request encoder
 // or presentation dependency enters the simulation layer.
 [[nodiscard]] LowOrderOperatingPointV1CompileResult
 compile_low_order_operating_point_v1_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
-    const contract::Sha256Digest &simulation_request_identity_v4_sha256);
+    const contract::Sha256Digest &simulation_request_identity_v5_sha256);
 
 } // namespace engine_sim_offline::simulation

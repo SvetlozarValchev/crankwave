@@ -45,8 +45,7 @@ class NumericControlRecovery final {
 }
 
 [[nodiscard]] RenderFailure failure(RenderRequestRecord request, FailureKind kind,
-                                    std::string detail_code,
-                                    std::string state_summary,
+                                    std::string detail_code, std::string state_summary,
                                     std::uint64_t physics_frame = 0) {
     return render_detail::make_job_failure(
         std::move(request), kind, std::move(detail_code), "native-engine-bake-v1",
@@ -54,9 +53,10 @@ class NumericControlRecovery final {
         scenario_time(physics_frame));
 }
 
-[[nodiscard]] RenderFailure preflight_failure(
-    RenderRequestRecord request, FailureKind kind, std::string detail_code,
-    std::string state_summary, contract::ValidationReport validation) {
+[[nodiscard]] RenderFailure preflight_failure(RenderRequestRecord request,
+                                              FailureKind kind, std::string detail_code,
+                                              std::string state_summary,
+                                              contract::ValidationReport validation) {
     auto result = failure(std::move(request), kind, std::move(detail_code),
                           std::move(state_summary));
     result.validation = std::move(validation);
@@ -73,10 +73,9 @@ class NumericControlRecovery final {
             {},
         };
     }
-    const auto kind =
-        error.code == EngineSessionErrorCode::unsupported_configuration
-            ? FailureKind::incomplete_source_route
-            : FailureKind::contract_violation;
+    const auto kind = error.code == EngineSessionErrorCode::unsupported_configuration
+                          ? FailureKind::incomplete_source_route
+                          : FailureKind::contract_violation;
     return failure(std::move(request), kind, error.detail_code, error.message,
                    physics_frame);
 }
@@ -89,64 +88,56 @@ class NumericControlRecovery final {
         std::rethrow_exception(std::move(exception));
     } catch (const render_detail::NativePresentationSinkFailure &error) {
         const auto &sink = error.sink_error();
-        const auto kind =
-            sink.kind == RenderSinkErrorKind::publication_failure
-                ? FailureKind::artifact_publication_failure
-                : FailureKind::contract_violation;
+        const auto kind = sink.kind == RenderSinkErrorKind::publication_failure
+                              ? FailureKind::artifact_publication_failure
+                              : FailureKind::contract_violation;
         const auto detail_code =
             contract::is_valid_semantic_id(sink.detail_code)
                 ? sink.detail_code
-                : std::string{sink.kind ==
-                                      RenderSinkErrorKind::publication_failure
+                : std::string{sink.kind == RenderSinkErrorKind::publication_failure
                                   ? "bake-sink-publication-failed"
                                   : "bake-sink-protocol-violated"};
         return failure(std::move(request), kind, detail_code,
-                       std::string(stage) + " failed: " + sink.message,
-                       physics_frame);
+                       std::string(stage) + " failed: " + sink.message, physics_frame);
     } catch (const std::bad_alloc &) {
         return failure(std::move(request), FailureKind::contract_violation,
                        "bake-resource-exhausted",
-                       std::string(stage) + " exhausted process memory",
-                       physics_frame);
+                       std::string(stage) + " exhausted process memory", physics_frame);
     } catch (const std::domain_error &error) {
         return failure(std::move(request), FailureKind::numerical_failure,
                        "bake-numerical-failure",
-                       std::string(stage) + " failed: " + error.what(),
-                       physics_frame);
+                       std::string(stage) + " failed: " + error.what(), physics_frame);
     } catch (const std::exception &error) {
         return failure(std::move(request), FailureKind::contract_violation,
                        "bake-execution-failed",
-                       std::string(stage) + " failed: " + error.what(),
-                       physics_frame);
+                       std::string(stage) + " failed: " + error.what(), physics_frame);
     } catch (...) {
         return failure(std::move(request), FailureKind::contract_violation,
                        "bake-execution-failed",
-                       std::string(stage) +
-                           " failed with a non-standard exception",
+                       std::string(stage) + " failed with a non-standard exception",
                        physics_frame);
     }
 }
 
-[[nodiscard]] std::optional<RenderFailure> check_numeric_environment(
-    const determinism::RendererNumericEnvironment &expected,
-    const RenderRequestRecord &request, std::string_view boundary,
-    std::uint64_t physics_frame) {
+[[nodiscard]] std::optional<RenderFailure>
+check_numeric_environment(const determinism::RendererNumericEnvironment &expected,
+                          const RenderRequestRecord &request, std::string_view boundary,
+                          std::uint64_t physics_frame) {
     const auto observed = determinism::renderer_numeric_environment();
     const auto *environment =
         std::get_if<determinism::RendererNumericEnvironment>(&observed);
     if (environment != nullptr && *environment == expected) {
         return std::nullopt;
     }
-    return failure(
-        request, FailureKind::contract_violation,
-        "renderer-numeric-environment-changed",
-        "the renderer numeric environment changed at " + std::string(boundary),
-        physics_frame);
+    return failure(request, FailureKind::contract_violation,
+                   "renderer-numeric-environment-changed",
+                   "the renderer numeric environment changed at " +
+                       std::string(boundary),
+                   physics_frame);
 }
 
 void append_prefixed(contract::ValidationReport &destination,
-                     contract::ValidationReport source,
-                     std::string_view prefix) {
+                     contract::ValidationReport source, std::string_view prefix) {
     for (auto &issue : source.issues) {
         issue.path = issue.path.empty() ? std::string(prefix)
                                         : std::string(prefix) + "." + issue.path;
@@ -175,9 +166,9 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
             "compiled scenario failed native bake structural preflight",
             std::move(structural));
     }
-    auto rights = contract::validate_evidence_rights(
-        inputs.scenario.combined_provenance,
-        inputs.scenario.source_matrix.distribution);
+    auto rights =
+        contract::validate_evidence_rights(inputs.scenario.combined_provenance,
+                                           inputs.scenario.source_matrix.distribution);
     if (!rights.ok()) {
         return preflight_failure(
             std::move(request), FailureKind::evidence_rights_failure,
@@ -203,38 +194,32 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
     const auto numeric_identity = *admitted_numeric;
 
     auto random_result = contract::compile_random_plan(
-        inputs.engine.randomness, inputs.engine.engine,
-        inputs.engine.presentation, inputs.scenario.scenario);
-    if (const auto *report =
-            std::get_if<contract::ValidationReport>(&random_result)) {
-        return preflight_failure(
-            std::move(request), FailureKind::contract_violation,
-            "bake-random-plan-disagreed",
-            "compiled scenario random-plan recompilation failed", *report);
+        inputs.engine.randomness, inputs.engine.engine, inputs.engine.presentation,
+        inputs.scenario.scenario);
+    if (const auto *report = std::get_if<contract::ValidationReport>(&random_result)) {
+        return preflight_failure(std::move(request), FailureKind::contract_violation,
+                                 "bake-random-plan-disagreed",
+                                 "compiled scenario random-plan recompilation failed",
+                                 *report);
     }
-    auto random_plan =
-        std::get<contract::RandomPlan>(std::move(random_result));
+    auto random_plan = std::get<contract::RandomPlan>(std::move(random_result));
     if (random_plan != inputs.scenario.random_plan) {
-        return failure(
-            std::move(request), FailureKind::contract_violation,
-            "bake-random-plan-identity-disagreed",
-            "compiled scenario random plan changed before session creation");
+        return failure(std::move(request), FailureKind::contract_violation,
+                       "bake-random-plan-identity-disagreed",
+                       "compiled scenario random plan changed before session creation");
     }
 
     auto calibration_result = presentation::compile_presentation_calibration(
-        inputs.engine.presentation, inputs.engine.engine,
-        inputs.scenario.scenario, inputs.scenario.combined_provenance);
-    if (std::holds_alternative<
-            presentation::PresentationCalibrationCompileError>(
+        inputs.engine.presentation, inputs.engine.engine, inputs.scenario.scenario,
+        inputs.scenario.combined_provenance);
+    if (std::holds_alternative<presentation::PresentationCalibrationCompileError>(
             calibration_result)) {
-        return failure(
-            std::move(request), FailureKind::incomplete_source_route,
-            "bake-presentation-not-admitted",
-            "compiled scenario is unavailable to the presentation method");
+        return failure(std::move(request), FailureKind::incomplete_source_route,
+                       "bake-presentation-not-admitted",
+                       "compiled scenario is unavailable to the presentation method");
     }
-    auto calibration =
-        std::get<presentation::AdmittedPresentationCalibration>(
-            std::move(calibration_result));
+    auto calibration = std::get<presentation::AdmittedPresentationCalibration>(
+        std::move(calibration_result));
 
     auto session_result = create_engine_session(
         compiled_scenario, EngineSessionExecutionKind::finite_scenario);
@@ -243,15 +228,13 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
     }
     auto session = std::get<EngineSession>(std::move(session_result));
 
-    if (const auto numeric_failure =
-            check_numeric_environment(numeric_identity, request,
-                                      "session creation", 0)) {
+    if (const auto numeric_failure = check_numeric_environment(
+            numeric_identity, request, "session creation", 0)) {
         return *numeric_failure;
     }
     auto determinism_result = determinism::renderer_determinism_envelope();
     const auto *determinism_envelope =
-        std::get_if<determinism::RendererDeterminismEnvelope>(
-            &determinism_result);
+        std::get_if<determinism::RendererDeterminismEnvelope>(&determinism_result);
     if (determinism_envelope == nullptr ||
         !determinism_envelope->production_observation() ||
         determinism_envelope->numeric_environment() != numeric_identity) {
@@ -269,8 +252,7 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
         return failure(std::move(request), FailureKind::incomplete_source_route,
                        error->detail_code, error->message);
     }
-    auto plan =
-        std::get<render_detail::NativeBakePlan>(std::move(plan_result));
+    auto plan = std::get<render_detail::NativeBakePlan>(std::move(plan_result));
 
     const auto descriptor = session.descriptor();
     std::uint64_t physics_frame = 0;
@@ -289,23 +271,19 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
             }
 
             auto processed = session.process_block();
-            if (const auto *block =
-                    std::get_if<EngineSessionBlockView>(&processed)) {
+            if (const auto *block = std::get_if<EngineSessionBlockView>(&processed)) {
                 publisher.process(*block);
                 physics_frame =
-                    block->first_physics_frame() +
-                    block->physics_frame_count();
-                if (const auto numeric_failure = check_numeric_environment(
-                        numeric_identity, plan.request, "session block",
-                        physics_frame)) {
+                    block->first_physics_frame() + block->physics_frame_count();
+                if (const auto numeric_failure =
+                        check_numeric_environment(numeric_identity, plan.request,
+                                                  "session block", physics_frame)) {
                     return *numeric_failure;
                 }
                 continue;
             }
-            if (const auto *error =
-                    std::get_if<EngineSessionError>(&processed)) {
-                return session_failure(std::move(plan.request), *error,
-                                       physics_frame);
+            if (const auto *error = std::get_if<EngineSessionError>(&processed)) {
+                return session_failure(std::move(plan.request), *error, physics_frame);
             }
             completion = std::get<EngineSessionCompleted>(std::move(processed));
             break;
@@ -334,17 +312,14 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
             completion.physics_frame_count != expected_physics_frames ||
             completion.delivery_frame_count != expected_delivery_frames ||
             stats.processed_block_count != descriptor.total_block_count ||
-            stats.pre_audible_block_count !=
-                descriptor.preparation_block_count ||
+            stats.pre_audible_block_count != descriptor.preparation_block_count ||
             stats.input_frame_count != expected_physics_frames ||
             stats.processed_source_frame_count != expected_delivery_frames ||
-            stats.pre_audible_source_frame_count !=
-                expected_preparation_frames) {
-            return failure(
-                std::move(plan.request), FailureKind::contract_violation,
-                "bake-completion-count-disagreed",
-                "session and native publisher completed different horizons",
-                physics_frame);
+            stats.pre_audible_source_frame_count != expected_preparation_frames) {
+            return failure(std::move(plan.request), FailureKind::contract_violation,
+                           "bake-completion-count-disagreed",
+                           "session and native publisher completed different horizons",
+                           physics_frame);
         }
 
         plan.manifest_basis.artifacts.assign(evidence.artifacts().begin(),
@@ -361,17 +336,15 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
         }};
 
         if (!validate_bake_result(result, compiled_scenario).ok()) {
-            return failure(
-                std::move(plan.request), FailureKind::contract_violation,
-                "bake-result-validation-failed-before-commit",
-                "complete request-bound bake result failed validation",
-                physics_frame);
+            return failure(std::move(plan.request), FailureKind::contract_violation,
+                           "bake-result-validation-failed-before-commit",
+                           "complete request-bound bake result failed validation",
+                           physics_frame);
         }
 
-        publisher.commit(
-            evidence, std::get<contract::RenderSuccess>(result).manifest,
-            inputs.scenario.combined_provenance,
-            inputs.scenario.source_matrix);
+        publisher.commit(evidence, std::get<contract::RenderSuccess>(result).manifest,
+                         inputs.scenario.combined_provenance,
+                         inputs.scenario.source_matrix);
         return result;
     } catch (...) {
         determinism::detail::restore_admitted_renderer_numeric_controls();
@@ -380,9 +353,9 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
     }
 }
 
-contract::ValidationReport validate_bake_result(
-    const contract::RenderResult &result,
-    const compile::CompiledScenario &compiled_scenario) {
+contract::ValidationReport
+validate_bake_result(const contract::RenderResult &result,
+                     const compile::CompiledScenario &compiled_scenario) {
     const auto inputs =
         compile::detail::CompiledScenarioViewAccess::inputs(compiled_scenario);
     const auto expected_request =
@@ -390,28 +363,26 @@ contract::ValidationReport validate_bake_result(
 
     contract::ValidationReport report;
     contract::Sha256Digest request_identity;
-    auto identity_result = identity::encode_simulation_request_identity_v4(
-        inputs.engine.engine, inputs.scenario.scenario,
-        inputs.scenario.random_plan,
+    auto identity_result = identity::encode_simulation_request_identity_v5(
+        inputs.engine.engine, inputs.scenario.scenario, inputs.scenario.random_plan,
         inputs.scenario.combined_provenance.bundle);
-    if (const auto *encoded =
-            std::get_if<identity::SimulationRequestIdentityEncoding>(
-                &identity_result)) {
+    if (const auto *encoded = std::get_if<identity::SimulationRequestIdentityEncoding>(
+            &identity_result)) {
         request_identity = encoded->sha256;
     } else {
         const auto &error =
             std::get<identity::SimulationRequestIdentityError>(identity_result);
         report.add(contract::ContractIssueCode::inconsistent_semantics,
-                   "simulation_request_identity_v4",
+                   "simulation_request_identity_v5",
                    error.detail_code + ": " + error.message);
     }
 
-    append_prefixed(
-        report,
-        contract::validate(
-            result, inputs.scenario.scenario, request_identity,
-            inputs.scenario.combined_provenance, inputs.scenario.source_matrix),
-        "contract");
+    append_prefixed(report,
+                    contract::validate(result, inputs.scenario.scenario,
+                                       request_identity,
+                                       inputs.scenario.combined_provenance,
+                                       inputs.scenario.source_matrix),
+                    "contract");
 
     std::visit(
         [&](const auto &outcome) {

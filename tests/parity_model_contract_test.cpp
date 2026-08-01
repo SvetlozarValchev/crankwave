@@ -264,6 +264,31 @@ void run_parity_model_contract_tests() {
         });
 
     expect_parity_mutation_rejected(
+        "resolved engine accepted an empty intake identity set",
+        [](EngineSpec &engine, InputBuilder &) { engine.intakes.clear(); });
+
+    expect_parity_mutation_rejected(
+        "resolved intake profile identity drifted from the engine intake",
+        [](EngineSpec &engine, InputBuilder &) {
+            operating_profile(engine).core.gas_path.intakes.front().topology.intake_id =
+                IntakeId{2};
+        });
+
+    expect_parity_mutation_rejected(
+        "resolved cylinder accepted an undeclared intake binding",
+        [](EngineSpec &engine, InputBuilder &) {
+            engine.cylinders.front().intake_id = IntakeId{2};
+        });
+
+    expect_parity_mutation_rejected(
+        "mechanism cylinder intake binding drifted from the resolved engine",
+        [](EngineSpec &engine, InputBuilder &) {
+            operating_profile(engine)
+                .core.mechanism.cylinders.front()
+                .topology.intake_id = IntakeId{2};
+        });
+
+    expect_parity_mutation_rejected(
         "resolved profile accepted missing bank-head coverage",
         [](EngineSpec &engine, InputBuilder &) {
             operating_profile(engine).core.gas_path.heads.clear();
@@ -338,7 +363,8 @@ void run_parity_model_contract_tests() {
         [](EngineSpec &engine, InputBuilder &builder) {
             const auto &resolution_id =
                 operating_profile(engine)
-                    .core.gas_path.intake.main_throttle.resolved_k.resolution_id;
+                    .core.gas_path.intakes.front()
+                    .parameters.main_throttle.resolved_k.resolution_id;
             falsely_mark_authored(builder, resolution_id);
         });
 

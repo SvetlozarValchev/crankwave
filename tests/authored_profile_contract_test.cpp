@@ -41,6 +41,7 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
     core.mechanism.cylinders.push_back({
         {
             authored(std::string{"cylinder-1"}),
+            authored(std::string{"intake-1"}),
             authored(std::string{"intake-port-1"}),
             authored(std::string{"exhaust-port-1"}),
             authored(std::string{"intake-runner-1"}),
@@ -73,24 +74,27 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
         authored(2.0),
     };
 
-    core.gas_path.intake_topology = {
-        authored(std::string{"intake-plenum"}),
-        authored(std::string{"main-throttle-edge"}),
-        authored(std::string{"idle-bypass-edge"}),
-    };
-    core.gas_path.intake = {
-        authored(0.002),
-        authored(0.01),
-        authored(0.15),
-        authored(1.0),
-        authored(0.0),
-        make_restriction(LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
-                         kCarb500),
-        make_restriction(LegacyRestrictionCalibration::carb_at_1p5_inhg, 0.1,
-                         kCarbPointOne),
-        make_restriction(LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
-                         kCarb500),
-    };
+    core.gas_path.intakes.push_back({
+        {
+            authored(std::string{"intake-1"}),
+            authored(std::string{"intake-plenum"}),
+            authored(std::string{"main-throttle-edge"}),
+            authored(std::string{"idle-bypass-edge"}),
+        },
+        {
+            authored(0.002),
+            authored(0.01),
+            authored(0.15),
+            authored(1.0),
+            authored(0.0),
+            make_restriction(LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
+                             kCarb500),
+            make_restriction(LegacyRestrictionCalibration::carb_at_1p5_inhg, 0.1,
+                             kCarbPointOne),
+            make_restriction(LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
+                             kCarb500),
+        },
+    });
     AuthoredLegacyBankHeadProfile head;
     head.bank_id = authored(std::string{"bank-1"});
     head.chamber_volume_m3 = authored(0.000046);
@@ -276,6 +280,7 @@ AuthoredEngineDefinition make_authored_engine() {
     definition.ignition = authored(IgnitionKind::spark_ignition);
     definition.cylinder_layout = authored(CylinderLayoutKind::inline_engine);
     definition.banks = {authored(std::string{"bank-1"})};
+    definition.intakes = {authored(std::string{"intake-1"})};
 
     constexpr double bore_m = 0.084;
     constexpr double stroke_m = 0.084;
@@ -295,6 +300,7 @@ AuthoredEngineDefinition make_authored_engine() {
     definition.cylinders.push_back({
         authored(std::string{"cylinder-1"}),
         authored(std::string{"bank-1"}),
+        authored(std::string{"intake-1"}),
         authored(bore_m),
         authored(stroke_m),
         authored(rod_length_m),
@@ -474,19 +480,20 @@ void run_authored_profile_contract_tests() {
     expect_authored_mutation_rejected(
         "unknown authored restriction calibration was accepted",
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {
-            profile.core.gas_path.intake.main_throttle.calibration.value =
+            profile.core.gas_path.intakes.front()
+                .parameters.main_throttle.calibration.value =
                 LegacyRestrictionCalibration::unspecified;
         });
     expect_authored_mutation_rejected(
         "stale authored restriction coefficient was accepted",
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {
-            profile.core.gas_path.intake.main_throttle.resolved_k.value += 0.001;
+            profile.core.gas_path.intakes.front()
+                .parameters.main_throttle.resolved_k.value += 0.001;
         });
     expect_authored_mutation_rejected(
         "unsorted authored valve-flow table was accepted",
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {
-            profile.core.gas_path.heads.front().intake_flow.back().lift_m.value =
-                0.0;
+            profile.core.gas_path.heads.front().intake_flow.back().lift_m.value = 0.0;
         });
     expect_authored_mutation_rejected(
         "missing authored bank-head coverage was accepted",
@@ -496,8 +503,7 @@ void run_authored_profile_contract_tests() {
     expect_authored_mutation_rejected(
         "duplicate authored bank-head identity was accepted",
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {
-            profile.core.gas_path.heads.push_back(
-                profile.core.gas_path.heads.front());
+            profile.core.gas_path.heads.push_back(profile.core.gas_path.heads.front());
         });
     expect_authored_mutation_rejected(
         "out-of-range authored fuel efficiency was accepted",

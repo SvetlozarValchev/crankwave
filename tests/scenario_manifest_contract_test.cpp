@@ -537,7 +537,7 @@ void run_scenario_manifest_contract_tests() {
 
     ValidationReport report;
     for (const auto schema_version :
-         {UINT32_C(4), UINT32_C(5), UINT32_C(6), UINT32_C(8)}) {
+         {UINT32_C(4), UINT32_C(5), UINT32_C(6), UINT32_C(7), UINT32_C(9)}) {
         auto unsupported_manifest_schema = content;
         unsupported_manifest_schema.schema_version = schema_version;
         report =

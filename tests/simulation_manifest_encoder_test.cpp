@@ -25,13 +25,13 @@ using namespace engine_sim_offline::contract::test;
 using namespace engine_sim_offline::identity;
 
 constexpr std::string_view kExpectedCanonicalManifestSha256 =
-    "5619fff81cbe7e1fb3a4ff8be3b72499787bf64a9e7f8295339a94e099f3e6a7";
+    "1d5d222b742944d565d25fa74923eff9fdf2abc5dd0713135cb53c66b0646e25";
 constexpr std::string_view kExpectedCanonicalRequestIdentitySha256 =
-    "baf979d7ca5f3ad8ee509138d4b69e996092c0bc8e46f0eceb4580d82fdb12a5";
+    "65655d6b8c80d567fb1f4e15cfe011ac155efce5d0c9e8dae1f3313452ad83c9";
 constexpr std::string_view kExpectedCustomizedManifestSha256 =
-    "e9b31dc3b0f5adae018938f44e4b3bf6c186387aa4772420e2dfb6b26b273c38";
+    "192108822720ce0fdc23d25e5769fafbf10fcdbab61400c98435f1df1ab9a1af";
 constexpr std::string_view kExpectedCustomizedRequestIdentitySha256 =
-    "4cd5f7db6b9d26e2192a078a4198e1cda2e7b2cd6277c2e430c61fb962ffba48";
+    "94af69ae8e9a4ab60f748c5bad1c5e4a024117929abdd47a906cbea1fac94f59";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -66,7 +66,7 @@ void require_valid(const ValidationReport &report, std::string_view message) {
 
 [[nodiscard]] ExecutionFacts deterministic_execution() {
     return {
-        "simulation-manifest-encoder-test-v7",
+        "simulation-manifest-encoder-test-v8",
         "2026-07-28T12:34:56Z",
         std::chrono::nanoseconds{UINT64_C(1234567890)},
         "linux",
@@ -138,7 +138,7 @@ make_vtec_alternate(InputBuilder &builder, const LegacyValvetrainProfile &valvet
 
 [[nodiscard]] std::vector<std::byte>
 require_manifest_encoding(const RenderManifest &manifest) {
-    auto result = encode_simulation_manifest_v7(manifest);
+    auto result = encode_simulation_manifest_v8(manifest);
     if (const auto *error = std::get_if<RenderSinkError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
     }
@@ -148,7 +148,7 @@ require_manifest_encoding(const RenderManifest &manifest) {
 [[nodiscard]] SimulationRequestIdentityEncoding require_request_identity_encoding(
     const EngineSpec &engine, const RenderScenario &scenario,
     const RandomPlan &random_plan, const ProvenanceBundleRef &provenance) {
-    auto result = encode_simulation_request_identity_v4(engine, scenario, random_plan,
+    auto result = encode_simulation_request_identity_v5(engine, scenario, random_plan,
                                                         provenance);
     if (const auto *error = std::get_if<SimulationRequestIdentityError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
@@ -158,7 +158,7 @@ require_manifest_encoding(const RenderManifest &manifest) {
 
 void expect_manifest_error(const RenderManifest &manifest,
                            std::string_view detail_code) {
-    const auto result = encode_simulation_manifest_v7(manifest);
+    const auto result = encode_simulation_manifest_v8(manifest);
     const auto *error = std::get_if<RenderSinkError>(&result);
     expect(error != nullptr, "invalid simulation manifest unexpectedly encoded");
     expect(error->kind == RenderSinkErrorKind::protocol_violation,
@@ -172,7 +172,7 @@ void expect_request_identity_error(const EngineSpec &engine,
                                    const RandomPlan &random_plan,
                                    const ProvenanceBundleRef &provenance,
                                    std::string_view detail_code) {
-    const auto result = encode_simulation_request_identity_v4(engine, scenario,
+    const auto result = encode_simulation_request_identity_v5(engine, scenario,
                                                               random_plan, provenance);
     const auto *error = std::get_if<SimulationRequestIdentityError>(&result);
     expect(error != nullptr,
@@ -199,8 +199,8 @@ struct GoldenHashes {
 
     const auto manifest_document = as_string(first_manifest);
     constexpr std::string_view kManifestPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v7\","
-        "\"content\":{\"schema_version\":7,\"inputs\":{\"kind\":\"simulation_v6\","
+        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v8\","
+        "\"content\":{\"schema_version\":8,\"inputs\":{\"kind\":\"simulation_v7\","
         "\"value\":{\"resolved\":{\"engine\":";
     expect(manifest_document.starts_with(kManifestPrefix),
            "simulation manifest root, discriminator, or member order changed");
@@ -221,6 +221,18 @@ struct GoldenHashes {
                presentation_key < randomness_key && randomness_key < scenario_key &&
                scenario_key < execution_key,
            "simulation manifest resolved-input or root member order changed");
+    const auto banks_key = manifest_document.find("\"banks\":", engine_key);
+    const auto intakes_key = manifest_document.find("\"intakes\":", banks_key);
+    const auto cylinders_key = manifest_document.find("\"cylinders\":", intakes_key);
+    const auto public_cylinder_intake_id =
+        manifest_document.find("\"intake_id\":", cylinders_key);
+    expect(banks_key != std::string::npos && intakes_key != std::string::npos &&
+               cylinders_key != std::string::npos &&
+               public_cylinder_intake_id != std::string::npos &&
+               banks_key < intakes_key && intakes_key < cylinders_key &&
+               cylinders_key < public_cylinder_intake_id,
+           "engine intake identities or cylinder intake binding were omitted or "
+           "reordered");
     expect(manifest_document.find(
                "\"seed_namespace_id\":{\"value\":\"baked.loaded_acceleration\","
                "\"resolution_id\":") != std::string::npos,
@@ -229,12 +241,18 @@ struct GoldenHashes {
                std::string::npos,
            "presentation-calibration v2 was not emitted");
     expect(manifest_document.find("\"algorithm_record\":") == std::string::npos,
-           "retired presentation algorithm record leaked into manifest v7");
+           "retired presentation algorithm record leaked into manifest v8");
 
     constexpr std::string_view kProfilePrefix =
         "\"physics_profile\":{\"kind\":\"low_order_operating_point_v1\",\"value\":{"
         "\"core\":{\"mechanism\":{\"crank\":{\"crank_tdc_reference_rad\":";
     const auto profile = manifest_document.find(kProfilePrefix);
+    const auto gas_path = manifest_document.find("\"gas_path\":", profile);
+    const auto gas_intakes = manifest_document.find("\"intakes\":[", gas_path);
+    const auto intake_topology =
+        manifest_document.find("\"topology\":{\"intake_id\":", gas_intakes);
+    const auto intake_parameters = manifest_document.find(
+        "\"parameters\":{\"plenum_volume_m3\":", intake_topology);
     const auto running_crank_friction =
         manifest_document.find("\"running_friction_torque_magnitude_nm\":", profile);
     const auto aggregate_loss = manifest_document.find("\"aggregate_loss\":{", profile);
@@ -246,18 +264,26 @@ struct GoldenHashes {
         manifest_document.find("\"cycle_quadrature\":{", starter);
     const auto torque_capability =
         manifest_document.find("\"torque_capability\":", cycle_quadrature);
-    expect(profile != std::string::npos &&
+    expect(profile != std::string::npos && gas_path != std::string::npos &&
+               gas_intakes != std::string::npos &&
+               intake_topology != std::string::npos &&
+               intake_parameters != std::string::npos &&
                running_crank_friction != std::string::npos &&
                aggregate_loss != std::string::npos &&
                accessory_configuration != std::string::npos &&
                starter != std::string::npos && cycle_quadrature != std::string::npos &&
                torque_capability != std::string::npos &&
-               profile < running_crank_friction &&
+               profile < running_crank_friction && running_crank_friction < gas_path &&
+               gas_path < gas_intakes && gas_intakes < intake_topology &&
+               intake_topology < intake_parameters &&
                running_crank_friction < aggregate_loss &&
                aggregate_loss < accessory_configuration &&
                accessory_configuration < starter && starter < cycle_quadrature &&
                cycle_quadrature < torque_capability,
            "operating-point profile was flattened or its member order changed");
+    expect(manifest_document.find("\"intake_topology\":", gas_path) ==
+               std::string::npos,
+           "retired singular intake topology leaked into manifest v8");
     expect(manifest_document.find("\"instantaneous_net_shaft\":{"
                                   "\"availability\":\"available\","
                                   "\"completeness\":\"complete\","
@@ -275,7 +301,7 @@ struct GoldenHashes {
     expect(manifest_document.find("\"physical_net_complete\":") == std::string::npos &&
                manifest_document.find("\"cycle_integration_available\":") ==
                    std::string::npos,
-           "retired torque projection leaked into manifest v7");
+           "retired torque projection leaked into manifest v8");
 
     const auto &resolved = simulation_inputs(fixture.manifest.content);
     const auto first_identity = require_request_identity_encoding(
@@ -291,7 +317,7 @@ struct GoldenHashes {
 
     const auto identity_document = as_string(first_identity.bytes);
     constexpr std::string_view kIdentityPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v4\","
+        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v5\","
         "\"engine\":";
     expect(identity_document.starts_with(kIdentityPrefix),
            "request identity root or member order changed");
@@ -480,7 +506,7 @@ void test_vtec_request_identity_wire_shape() {
 void test_fail_closed_boundaries() {
     SimulationFixture fixture;
 
-    for (const auto schema_version : {UINT32_C(6), UINT32_C(8)}) {
+    for (const auto schema_version : {UINT32_C(6), UINT32_C(7), UINT32_C(9)}) {
         auto unsupported_schema = fixture.manifest;
         unsupported_schema.content.schema_version = schema_version;
         expect_manifest_error(unsupported_schema,

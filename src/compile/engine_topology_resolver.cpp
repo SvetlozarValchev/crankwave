@@ -29,6 +29,14 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
         engine.banks.push_back(std::move(resolved_bank));
     }
 
+    for (const auto *intake : ordered_intakes(context)) {
+        const auto base = "engine.intakes." + intake->id.value;
+        engine.intakes.push_back({
+            intake_id(context, intake->id.value),
+            emitter.authored(intake->id.value, base + ".semantic_id"),
+        });
+    }
+
     for (const auto &cylinder : source.cylinders) {
         const auto semantic = cylinder.id.value;
         const auto base = "engine.cylinders." + semantic;
@@ -59,6 +67,7 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
             cylinder_id(context, semantic),
             emitter.authored(semantic, base + ".semantic_id"),
             bank_id(context, cylinder.bank.value),
+            intake_id(context, cylinder.intake.value),
             emitter.authored(bore_m, base + ".bore_m"),
             emitter.derived(stroke_m, base + ".stroke_m",
                             derived_method_identity("twice-crank-throw-stroke-v1"),
@@ -94,9 +103,9 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
             };
         }
         if (context.cylinders_for_wire.at(cylinder.ignition_wire.value).size() > 1U) {
-            resolved_cylinder.shared_ignition_wire_semantic_id = emitter.authored(
-                cylinder.ignition_wire.value,
-                base + ".shared_ignition_wire_semantic_id");
+            resolved_cylinder.shared_ignition_wire_semantic_id =
+                emitter.authored(cylinder.ignition_wire.value,
+                                 base + ".shared_ignition_wire_semantic_id");
         }
         engine.cylinders.push_back(std::move(resolved_cylinder));
     }
@@ -169,8 +178,11 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
     };
     add_volume("volume.atmosphere", contract::GasVolumeKind::atmosphere,
                "engine.profile_id");
-    add_volume("volume.intake.plenum", contract::GasVolumeKind::intake_plenum,
-               "engine.profile_id");
+    for (const auto *intake : ordered_intakes(context)) {
+        add_volume(intake_plenum_semantic_id(intake->id.value),
+                   contract::GasVolumeKind::intake_plenum,
+                   "engine.intakes." + intake->id.value + ".semantic_id");
+    }
     for (const auto &cylinder : source.cylinders) {
         const auto dependency =
             "engine.cylinders." + cylinder.id.value + ".semantic_id";
@@ -198,10 +210,15 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
             volume_id(context, endpoint_1),
         });
     };
-    add_edge("flow.intake.main-throttle", "volume.atmosphere", "volume.intake.plenum",
-             "engine.profile_id");
-    add_edge("flow.intake.idle-bypass", "volume.atmosphere", "volume.intake.plenum",
-             "engine.profile_id");
+    for (const auto *intake : ordered_intakes(context)) {
+        const auto owner = "intake." + intake->id.value;
+        const auto plenum = intake_plenum_semantic_id(intake->id.value);
+        const auto dependency = "engine.intakes." + intake->id.value + ".semantic_id";
+        add_edge(flow_semantic_id(owner, "main-throttle"), "volume.atmosphere", plenum,
+                 dependency);
+        add_edge(flow_semantic_id(owner, "idle-bypass"), "volume.atmosphere", plenum,
+                 dependency);
+    }
     for (const auto &cylinder : source.cylinders) {
         const auto semantic = cylinder.id.value;
         const auto dependency = "engine.cylinders." + semantic + ".semantic_id";
@@ -209,8 +226,8 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
         const auto chamber = volume_semantic_id(semantic, "chamber");
         const auto primary = volume_semantic_id(semantic, "exhaust-primary");
         const auto collector = collector_semantic_id(cylinder.exhaust.value);
-        add_edge(flow_semantic_id(semantic, "plenum-to-runner"), "volume.intake.plenum",
-                 runner, dependency);
+        add_edge(flow_semantic_id(semantic, "plenum-to-runner"),
+                 intake_plenum_semantic_id(cylinder.intake.value), runner, dependency);
         add_edge(flow_semantic_id(semantic, "intake-valve"), runner, chamber,
                  dependency);
         add_edge(flow_semantic_id(semantic, "exhaust-valve"), chamber, primary,
