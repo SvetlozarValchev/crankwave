@@ -109,6 +109,13 @@ resolution-only nominal stroke, compression, and displacement fields in `EngineS
 remain non-executable master-rod facts. Nested attachments and coupled reactions are
 not implemented in this sub-slice.
 
+The scenario firewalls are already narrower than that public engine gate. Authored
+master-rod engines reject every mode except `external_speed` at `/mode/type` before
+baseline inertia is queried, and the resolved contract admits only
+`PrescribedKinematicSweep`. These checks do not open public execution; they ensure the
+later cutover cannot accidentally route radial geometry into a held or dynamic-crank
+owner.
+
 ## Removed ambiguity
 
 This is a destructive current-contract cleanup with no aliases or compatibility

@@ -365,6 +365,19 @@ void run_scenario_manifest_contract_tests() {
     expect(validate_for_engine(fixed_rpm_scenario, operating_engine).ok(),
            "operating profile rejected a direct prescribed sweep with fixed "
            "settling");
+    auto master_rod_mode_engine = operating_engine;
+    master_rod_mode_engine.cylinders.front().master_rod_attachment =
+        MasterRodAttachmentSpec{
+            CylinderId{2},
+            master_rod_mode_engine.cylinders.front().bore_m,
+        };
+    const auto master_rod_held_report =
+        validate_for_engine(operating_scenario, master_rod_mode_engine);
+    expect(has_issue(master_rod_held_report, ContractIssueCode::unsupported_value,
+                     "mode"),
+           "programmatic master-rod engine admitted non-prescribed motion");
+    expect(validate_for_engine(fixed_rpm_scenario, master_rod_mode_engine).ok(),
+           "programmatic master-rod mode gate rejected prescribed motion");
     auto sampled_prescribed_scenario = fixed_rpm_scenario;
     sampled_prescribed_scenario.preparation = operating_scenario.preparation;
     expect(!validate_for_engine(sampled_prescribed_scenario, operating_engine).ok(),

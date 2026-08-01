@@ -1321,6 +1321,15 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
         report.add(ContractIssueCode::inconsistent_semantics, "engine_profile_id",
                    "scenario and engine profile IDs must match");
     }
+    const bool contains_master_rod = std::ranges::any_of(
+        spec.cylinders,
+        [](const auto &cylinder) { return cylinder.master_rod_attachment.has_value(); });
+    if (contains_master_rod &&
+        !std::holds_alternative<PrescribedKinematicSweep>(scenario.mode)) {
+        report.add(ContractIssueCode::unsupported_value, "mode",
+                   "one-level master-rod engines currently admit only prescribed "
+                   "kinematic sweep motion");
+    }
     std::visit(
         [&](const auto &profile) {
             if (scenario.fuel.fuel_id.value != profile.core.fuel.fuel_id.value ||

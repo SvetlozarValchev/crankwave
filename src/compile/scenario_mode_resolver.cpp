@@ -48,6 +48,17 @@ void ScenarioResolver::require_executable_initial_crank_angle() {
 }
 
 void ScenarioResolver::compile_mode() {
+    const bool contains_master_rod = std::ranges::any_of(
+        context_.engine.cylinders,
+        [](const auto &cylinder) { return cylinder.master_rod_attachment.has_value(); });
+    if (contains_master_rod &&
+        !std::holds_alternative<authoring::ExternalSpeedMode>(document_.mode)) {
+        add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
+            "one-level master-rod engines currently admit only external_speed "
+            "prescribed motion");
+        return;
+    }
+
     require_executable_initial_crank_angle();
     const auto resolve_engine_baseline_inertia = [&]() -> std::optional<double> {
         const auto *profile =

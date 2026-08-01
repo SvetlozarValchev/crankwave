@@ -684,6 +684,13 @@ before reading phase. Gas and capture continue to consume only the common volume
 volume derivative, and piston-speed fields. This refactor admits no radial execution
 and changes no public JSON, capture, C, or WASM schema.
 
+The authored scenario resolver and resolved scenario contract now install the radial
+mode firewall ahead of execution: a master-rod engine admits only authored
+`external_speed`, resolved as `PrescribedKinematicSweep`. Other authored modes fail at
+`/mode/type` before direct-only baseline inertia is queried, and programmatic callers
+receive the equivalent `mode` rejection. The public master-rod engine gate is still
+closed, so this prerequisite changes no existing engine session.
+
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,
 configuration-inertia, routing, conditioning, IR, and mastering paths. The BMW gate
