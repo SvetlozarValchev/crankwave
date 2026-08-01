@@ -28,9 +28,9 @@
     "limiter_enabled": false
   },
   "preparation": {
-    "type": "fixed_horizon",
-    "preparation_duration": {"value": 3, "unit": "s"},
-    "trailing_complete_cycle_count": 16
+    "type": "fixed_settling",
+    "warm_up_duration": {"value": 0, "unit": "s"},
+    "settling_duration": {"value": 3, "unit": "s"}
   },
   "mode": {
     "type": "external_speed",
