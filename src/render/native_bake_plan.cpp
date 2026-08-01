@@ -15,15 +15,13 @@ NativeBakePlanResult derive_native_bake_plan(
     const determinism::RendererDeterminismEnvelope &determinism) {
     auto request = make_render_request_record(inputs.engine, inputs.scenario);
     auto projection_result = derive_render_job_projection(request, calibration);
-    if (const auto *error =
-            std::get_if<RenderJobDerivationError>(&projection_result)) {
+    if (const auto *error = std::get_if<RenderJobDerivationError>(&projection_result)) {
         return NativeBakePlanError{
             "native-bake-publication-plan-not-admitted",
             error->path + ": " + error->message,
         };
     }
-    auto projection =
-        std::get<RenderJobProjection>(std::move(projection_result));
+    auto projection = std::get<RenderJobProjection>(std::move(projection_result));
 
     std::vector<NativePresentationRoutePublicationPlan> routes;
     routes.reserve(calibration.route_count());
@@ -62,9 +60,8 @@ NativeBakePlanResult derive_native_bake_plan(
     };
 
     contract::RenderManifestContent manifest_basis;
-    manifest_basis.schema_version = 8;
-    manifest_basis.inputs =
-        contract::SimulationManifestInputs{request.resolved_inputs};
+    manifest_basis.schema_version = 9;
+    manifest_basis.inputs = contract::SimulationManifestInputs{request.resolved_inputs};
     manifest_basis.provenance = request.provenance.bundle;
     manifest_basis.determinism = determinism.manifest_identity();
     manifest_basis.rates = inputs.scenario.scenario.rates;

@@ -221,6 +221,14 @@ template <class Id>
     return writer.end_object();
 }
 
+[[nodiscard]] bool write_crankshaft(CanonicalJsonWriter &writer,
+                                    const contract::CrankshaftSpec &crankshaft) {
+    return writer.begin_object() && writer.key("id") &&
+           write_stable_id(writer, crankshaft.id) && writer.key("semantic_id") &&
+           write_resolved(writer, crankshaft.semantic_id, write_string) &&
+           writer.end_object();
+}
+
 [[nodiscard]] bool write_intake(CanonicalJsonWriter &writer,
                                 const contract::IntakeSpec &intake) {
     return writer.begin_object() && writer.key("id") &&
@@ -235,8 +243,10 @@ template <class Id>
           write_stable_id(writer, cylinder.id) && writer.key("semantic_id") &&
           write_resolved(writer, cylinder.semantic_id, write_string) &&
           writer.key("bank_id") && write_stable_id(writer, cylinder.bank_id) &&
-          writer.key("intake_id") && write_stable_id(writer, cylinder.intake_id) &&
-          writer.key("bore_m") && write_resolved(writer, cylinder.bore_m, write_f64) &&
+          writer.key("crankshaft_id") &&
+          write_stable_id(writer, cylinder.crankshaft_id) && writer.key("intake_id") &&
+          write_stable_id(writer, cylinder.intake_id) && writer.key("bore_m") &&
+          write_resolved(writer, cylinder.bore_m, write_f64) &&
           writer.key("stroke_m") &&
           write_resolved(writer, cylinder.stroke_m, write_f64) &&
           writer.key("connecting_rod_length_m") &&
@@ -342,7 +352,9 @@ write_model_methods(CanonicalJsonWriter &writer,
 write_legacy_cylinder_topology(CanonicalJsonWriter &writer,
                                const contract::LegacyCylinderTopology &topology) {
     return writer.begin_object() && writer.key("cylinder_id") &&
-           write_stable_id(writer, topology.cylinder_id) && writer.key("intake_id") &&
+           write_stable_id(writer, topology.cylinder_id) &&
+           writer.key("crankshaft_id") &&
+           write_stable_id(writer, topology.crankshaft_id) && writer.key("intake_id") &&
            write_stable_id(writer, topology.intake_id) &&
            writer.key("intake_port_id") &&
            write_stable_id(writer, topology.intake_port_id) &&
@@ -452,7 +464,9 @@ write_legacy_cylinder_assembly(CanonicalJsonWriter &writer,
 
 [[nodiscard]] bool write_legacy_crank(CanonicalJsonWriter &writer,
                                       const contract::LegacyCrankAssembly &crank) {
-    return writer.begin_object() && writer.key("crank_tdc_reference_rad") &&
+    return writer.begin_object() && writer.key("crankshaft_id") &&
+           write_stable_id(writer, crank.crankshaft_id) &&
+           writer.key("crank_tdc_reference_rad") &&
            write_resolved(writer, crank.crank_tdc_reference_rad, write_f64) &&
            writer.key("crankshaft_mass_kg") &&
            write_resolved(writer, crank.crankshaft_mass_kg, write_f64) &&
@@ -469,8 +483,15 @@ write_legacy_cylinder_assembly(CanonicalJsonWriter &writer,
 [[nodiscard]] bool
 write_legacy_mechanism(CanonicalJsonWriter &writer,
                        const contract::LegacyMechanismProfile &mechanism) {
-    return writer.begin_object() && writer.key("crank") &&
-           write_legacy_crank(writer, mechanism.crank) && writer.key("cylinders") &&
+    return writer.begin_object() && writer.key("output_crankshaft_id") &&
+           write_stable_id(writer, mechanism.output_crankshaft_id) &&
+           writer.key("cranks") &&
+           write_array(writer, mechanism.cranks,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacyCrankAssembly &crank) {
+                           return write_legacy_crank(output, crank);
+                       }) &&
+           writer.key("cylinders") &&
            write_array(writer, mechanism.cylinders,
                        [](CanonicalJsonWriter &output,
                           const contract::LegacyCylinderAssembly &cylinder) {
@@ -1149,6 +1170,14 @@ bool write_engine_spec(CanonicalJsonWriter &writer,
            write_resolved(writer, engine.cylinder_layout, write_cylinder_layout) &&
            writer.key("total_displacement_m3") &&
            write_resolved(writer, engine.total_displacement_m3, write_f64) &&
+           writer.key("crankshafts") &&
+           write_array(writer, engine.crankshafts,
+                       [](CanonicalJsonWriter &output,
+                          const contract::CrankshaftSpec &crankshaft) {
+                           return write_crankshaft(output, crankshaft);
+                       }) &&
+           writer.key("output_crankshaft_id") &&
+           write_stable_id(writer, engine.output_crankshaft_id) &&
            writer.key("banks") &&
            write_array(writer, engine.banks,
                        [](CanonicalJsonWriter &output, const contract::BankSpec &bank) {

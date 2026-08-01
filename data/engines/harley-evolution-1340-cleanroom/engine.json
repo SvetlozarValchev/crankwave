@@ -114,6 +114,7 @@
         "tdc_reference_angle": {"value": 67.5, "unit": "deg"}
       }
     ],
+    "output_crankshaft": "crank",
     "journals": [
       {
         "id": "shared-pin",

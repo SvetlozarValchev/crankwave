@@ -92,7 +92,7 @@ finite_extent(const contract::RenderScenario &scenario) {
     scenario.quality.value.event_journal_capacity_records = 3800U;
     scenario.mode = contract::HeldSpeed{
         resolved(kHeldRpm, "scenario.mode.engine_speed_rpm"),
-        resolved(profile.core.mechanism.crank.crank_tdc_reference_rad.value,
+        resolved(profile.core.mechanism.cranks.front().crank_tdc_reference_rad.value,
                  "scenario.mode.initial_theta_rad"),
         resolved(0.85, "scenario.mode.throttle_01"),
     };
@@ -183,7 +183,7 @@ void test_complete_cycle_evidence_reaches_public_result(
     const auto &point = *operating.operating_point_result();
     const auto &sampling = point.sampling;
     const auto &sample = sampling.trailing_complete_cycles;
-    expect(point.simulation_request_identity_v5_sha256 == value.request_identity &&
+    expect(point.simulation_request_identity_v6_sha256 == value.request_identity &&
                sampling.method ==
                    contract::fixed_horizon_cycle_sampling_method_identity() &&
                sampling.trailing_complete_cycle_count == kTrailingCompleteCycleCount &&

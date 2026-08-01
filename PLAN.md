@@ -173,7 +173,7 @@ resampler is not expected to reproduce a 192 kHz WAV container.
 The current generic identities are:
 
 ```text
-simulation request SHA-256: 97b66006384e9a506582da6c768e50b4a48e446d235e59b19f91dbfa54624689
+simulation request SHA-256: df65b324c78d43c1b651ab69d217483d3b489199fbb1c5a2a4ad9da7e2143efd
 audition WAV byte count:    8640586
 audition WAV SHA-256:       f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552
 ```
@@ -304,7 +304,7 @@ Every audible block quantizes byte-for-byte to the accepted 8,640,000-byte PCM24
 payload with SHA-256
 `176010069c88c99a3cc8262099fa5f02eba3af9517b1c92e148d88ace869756f`.
 The clean native bake retains simulation-request SHA-256
-`e1052791be6dcb8c6e75919393ff3bb2980a0055e019cb8fae824240d38db6e7`
+`df65b324c78d43c1b651ab69d217483d3b489199fbb1c5a2a4ad9da7e2143efd`
 and the 8,640,586-byte audition WAVE SHA-256
 `f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552`.
 
@@ -644,8 +644,16 @@ values. It is a topology/behavior fixture rather than a pristine audio oracle be
 pristine ships no multi-intake WAV and exposes no intake audio source. The
 source authority is frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_SEPARATE_INTAKES.md`](docs/oracles/PRISTINE_ENGINE_SIM_SEPARATE_INTAKES.md).
-The single-intake BMW PCM remains byte-exact. Multiple crankshafts remain an isolated
-follow-up within slice 10. The ignition source
+The single-intake BMW PCM remains byte-exact. The first isolated crankshaft
+checkpoint now carries authored-order crank identities, an explicit output-crank
+selection, and exact direct/master-root cylinder bindings through the public engine,
+resolved mechanism, provenance, request-v6 identity, and manifest-v9 wire. Execution
+deliberately retains the exact-one-crank gate, so this structural cutover cannot alter
+accepted dynamics or audio. Prescribed two-crank execution and rigid-group dynamic
+aggregation remain separate follow-ups within slice 10; their source boundary is
+frozen in
+[`docs/oracles/PRISTINE_ENGINE_SIM_MULTIPLE_CRANKSHAFTS.md`](docs/oracles/PRISTINE_ENGINE_SIM_MULTIPLE_CRANKSHAFTS.md).
+The ignition source
 authority is frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md`](docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md).
 Exhaust-primary cross-section ownership is singular: the referenced bank head's

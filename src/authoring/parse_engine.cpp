@@ -23,8 +23,7 @@ using detail::subject;
 
 template <class Value, class Parse>
 void parse_required_definitions(DocumentReader &reader, JsonValue object,
-                                std::string_view member,
-                                std::string_view object_path,
+                                std::string_view member, std::string_view object_path,
                                 std::vector<Value> &output, Parse parse,
                                 const std::optional<DiagnosticSubject> &owner) {
     detail::read_required_array(
@@ -35,8 +34,8 @@ void parse_required_definitions(DocumentReader &reader, JsonValue object,
         owner);
 }
 
-void parse_engine_cycle(DocumentReader &reader, JsonValue value,
-                        std::string_view path, EngineCycle &output,
+void parse_engine_cycle(DocumentReader &reader, JsonValue value, std::string_view path,
+                        EngineCycle &output,
                         const std::optional<DiagnosticSubject> &owner) {
     std::string token;
     if (!reader.string(value, path, token, owner)) {
@@ -47,8 +46,7 @@ void parse_engine_cycle(DocumentReader &reader, JsonValue value,
         return;
     }
     reader.add(DiagnosticCode::forbidden_cycle, path,
-               "only the four_stroke engine cycle is supported by this schema",
-               owner);
+               "only the four_stroke engine cycle is supported by this schema", owner);
 }
 
 void parse_engine_definition(DocumentReader &reader, JsonValue value,
@@ -56,18 +54,38 @@ void parse_engine_definition(DocumentReader &reader, JsonValue value,
     if (!reader.object(value, path)) {
         return;
     }
-    reader.reject_unknown(
-        value, path,
-        {"identity", "cycle", "layout", "limits", "curves", "crankshafts",
-         "journals", "connecting_rods", "pistons", "banks", "intakes",
-         "exhausts", "ports", "cam_lobes", "camshafts", "valvetrains", "heads",
-         "fuels", "default_fuel", "accessory_configurations", "losses", "ignition",
-         "throttle_controllers", "throttle_controller", "starter", "cylinders",
-         "source_routes"});
+    reader.reject_unknown(value, path,
+                          {"identity",
+                           "cycle",
+                           "layout",
+                           "limits",
+                           "curves",
+                           "crankshafts",
+                           "output_crankshaft",
+                           "journals",
+                           "connecting_rods",
+                           "pistons",
+                           "banks",
+                           "intakes",
+                           "exhausts",
+                           "ports",
+                           "cam_lobes",
+                           "camshafts",
+                           "valvetrains",
+                           "heads",
+                           "fuels",
+                           "default_fuel",
+                           "accessory_configurations",
+                           "losses",
+                           "ignition",
+                           "throttle_controllers",
+                           "throttle_controller",
+                           "starter",
+                           "cylinders",
+                           "source_routes"});
 
-    detail::parse_engine_identity(
-        reader, reader.required(value, "identity", path),
-        pointer_member(path, "identity"), output.identity);
+    detail::parse_engine_identity(reader, reader.required(value, "identity", path),
+                                  pointer_member(path, "identity"), output.identity);
     const auto owner = subject("engine", output.identity.id.value);
 
     parse_engine_cycle(reader, reader.required(value, "cycle", path, owner),
@@ -79,9 +97,8 @@ void parse_engine_definition(DocumentReader &reader, JsonValue value,
                {"opposed", CylinderLayout::opposed},
                {"custom", CylinderLayout::custom}},
               output.layout, owner);
-    detail::parse_engine_limits(
-        reader, reader.required(value, "limits", path, owner),
-        pointer_member(path, "limits"), output.limits, owner);
+    detail::parse_engine_limits(reader, reader.required(value, "limits", path, owner),
+                                pointer_member(path, "limits"), output.limits, owner);
 
     parse_required_definitions(
         reader, value, "curves", path, output.curves,
@@ -97,6 +114,8 @@ void parse_engine_definition(DocumentReader &reader, JsonValue value,
             detail::parse_crankshaft(item_reader, item, item_path, definition);
         },
         owner);
+    read_ref_member(reader, value, "output_crankshaft", path, output.output_crankshaft,
+                    owner);
     parse_required_definitions(
         reader, value, "journals", path, output.journals,
         [](DocumentReader &item_reader, JsonValue item, std::string_view item_path,
@@ -193,20 +212,17 @@ void parse_engine_definition(DocumentReader &reader, JsonValue value,
         owner);
     detail::parse_losses(reader, reader.required(value, "losses", path, owner),
                          pointer_member(path, "losses"), output.losses, owner);
-    detail::parse_ignition(
-        reader, reader.required(value, "ignition", path, owner),
-        pointer_member(path, "ignition"), output.ignition, owner);
+    detail::parse_ignition(reader, reader.required(value, "ignition", path, owner),
+                           pointer_member(path, "ignition"), output.ignition, owner);
 
     const auto controllers = reader.optional(value, "throttle_controllers");
     if (controllers.valid() && !controllers.is_null()) {
         std::vector<ThrottleControllerDefinition> parsed;
         detail::read_array(
-            reader, controllers, pointer_member(path, "throttle_controllers"),
-            parsed,
+            reader, controllers, pointer_member(path, "throttle_controllers"), parsed,
             [&](JsonValue item, std::string_view item_path,
                 ThrottleControllerDefinition &definition) {
-                detail::parse_throttle_controller(reader, item, item_path,
-                                                  definition);
+                detail::parse_throttle_controller(reader, item, item_path, definition);
             },
             owner);
         output.throttle_controllers = std::move(parsed);
@@ -214,8 +230,8 @@ void parse_engine_definition(DocumentReader &reader, JsonValue value,
     const auto selected_controller = reader.optional(value, "throttle_controller");
     if (selected_controller.valid() && !selected_controller.is_null()) {
         ThrottleControllerRef parsed;
-        if (reader.ref(selected_controller,
-                       pointer_member(path, "throttle_controller"), parsed, owner)) {
+        if (reader.ref(selected_controller, pointer_member(path, "throttle_controller"),
+                       parsed, owner)) {
             output.throttle_controller = std::move(parsed);
         }
     }
@@ -250,9 +266,8 @@ void parse_engine_package(DocumentReader &reader, JsonValue value,
     }
     parse_engine_definition(reader, reader.required(value, "engine", ""), "/engine",
                             output.engine);
-    detail::parse_presentation(
-        reader, reader.required(value, "presentation", ""), "/presentation",
-        output.presentation);
+    detail::parse_presentation(reader, reader.required(value, "presentation", ""),
+                               "/presentation", output.presentation);
     const auto rig = reader.optional(value, "rig");
     if (rig.valid() && !rig.is_null()) {
         RigDefinition parsed;
@@ -270,8 +285,8 @@ void parse_engine_package(DocumentReader &reader, JsonValue value,
 
 } // namespace
 
-EngineDocumentParseResult
-parse_engine_document(std::string_view json, AuthoringParseLimits limits) noexcept {
+EngineDocumentParseResult parse_engine_document(std::string_view json,
+                                                AuthoringParseLimits limits) noexcept {
     try {
         auto json_result = parse_json(json, limits.json);
         if (const auto *error = std::get_if<JsonParseError>(&json_result)) {
@@ -292,9 +307,8 @@ parse_engine_document(std::string_view json, AuthoringParseLimits limits) noexce
         return resource_diagnostic(
             "allocation failed while parsing engine package document");
     } catch (const std::exception &exception) {
-        return detail::internal_diagnostic(
-            "unexpected engine parser failure: " +
-            std::string{exception.what()});
+        return detail::internal_diagnostic("unexpected engine parser failure: " +
+                                           std::string{exception.what()});
     } catch (...) {
         return detail::internal_diagnostic(
             "unexpected non-standard engine parser failure");

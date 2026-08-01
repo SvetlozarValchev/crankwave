@@ -186,7 +186,7 @@ Sha256Digest request_identity(const EngineSpec &engine, const RenderScenario &sc
     const auto *random_plan = std::get_if<RandomPlan>(&random_plan_result);
     expect(random_plan != nullptr,
            "canonical simulation-request random plan compilation failed");
-    const auto encoded = identity::encode_simulation_request_identity_v5(
+    const auto encoded = identity::encode_simulation_request_identity_v6(
         engine, scenario, *random_plan, provenance);
     const auto *encoding =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&encoded);
@@ -201,7 +201,7 @@ Fixture fixture(const std::filesystem::path &repository_root) {
     auto engine = canonical.engine;
     const auto &operating_profile = test::operating_profile(engine);
     const double cycle_reference_theta_rad =
-        operating_profile.core.mechanism.crank.crank_tdc_reference_rad.value;
+        operating_profile.core.mechanism.cranks.front().crank_tdc_reference_rad.value;
 
     RenderScenario scenario;
     scenario.schema_version = 1;

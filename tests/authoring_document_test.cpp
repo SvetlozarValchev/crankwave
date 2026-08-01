@@ -194,6 +194,7 @@ void expect(bool condition, std::string_view message) {
         "tdc_reference_angle": {"value": 0, "unit": "deg"}
       }
     ],
+    "output_crankshaft": "crank",
     "journals": [
       {
         "id": "journal",
@@ -516,13 +517,12 @@ void replace_once(std::string &text, std::string_view before, std::string_view a
 
 [[nodiscard]] std::string valid_master_rod_engine_json() {
     std::string json = valid_engine_json();
-    replace_once(
-        json,
-        R"json(        "phase": {"value": 0, "unit": "deg"}
+    replace_once(json,
+                 R"json(        "phase": {"value": 0, "unit": "deg"}
       }
     ],
     "connecting_rods")json",
-        R"json(        "phase": {"value": 0, "unit": "deg"}
+                 R"json(        "phase": {"value": 0, "unit": "deg"}
       },
       {
         "id": "slave-journal",
@@ -1018,6 +1018,11 @@ void test_complete_engine_package() {
            "engine package schema changed");
     expect(package.engine.identity.id.value == "test-engine",
            "engine identity was not retained");
+    expect(package.engine.crankshafts.size() == 1U &&
+               package.engine.crankshafts.front().id.value == "crank" &&
+               package.engine.output_crankshaft.value == "crank",
+           "ordered crankshaft definitions or explicit output reference were not "
+           "retained");
     expect(package.engine.cylinders.size() == 1U &&
                package.engine.source_routes.size() == 1U,
            "engine graph definitions were not retained");
@@ -1038,6 +1043,50 @@ void test_complete_engine_package() {
         "mechanically-disengaged starter discriminator changed");
     expect(!package.engine.throttle_controllers && !package.engine.throttle_controller,
            "omitted future throttle-controller capability became authored");
+}
+
+void test_output_crankshaft_reference_is_explicit_and_ordered() {
+    std::string missing = valid_engine_json();
+    replace_once(missing, R"json(    "output_crankshaft": "crank",
+)json",
+                 "");
+    expect(has_diagnostic(require_engine_report(parse_engine_document(missing)),
+                          DiagnosticCode::missing_value, "/engine/output_crankshaft"),
+           "engine without an explicit output crankshaft was accepted");
+
+    std::string dangling = valid_engine_json();
+    replace_once(dangling, R"json("output_crankshaft": "crank")json",
+                 R"json("output_crankshaft": "missing-crank")json");
+    expect(has_diagnostic(require_engine_report(parse_engine_document(dangling)),
+                          DiagnosticCode::dangling_reference,
+                          "/engine/output_crankshaft"),
+           "dangling output crankshaft reference was accepted");
+
+    std::string multiple = valid_engine_json();
+    replace_once(multiple,
+                 R"json(        "tdc_reference_angle": {"value": 0, "unit": "deg"}
+      }
+    ],
+    "output_crankshaft": "crank")json",
+                 R"json(        "tdc_reference_angle": {"value": 0, "unit": "deg"}
+      },
+      {
+        "id": "crank-secondary",
+        "throw_radius": {"value": 42, "unit": "mm"},
+        "mass": {"value": 12, "unit": "kg"},
+        "flywheel_mass": {"value": 8, "unit": "kg"},
+        "moment_of_inertia": {"value": 0.2, "unit": "kg*m2"},
+        "tdc_reference_angle": {"value": 0, "unit": "deg"}
+      }
+    ],
+    "output_crankshaft": "crank-secondary")json");
+    const auto package = require_engine(multiple);
+    expect(package.engine.crankshafts.size() == 2U &&
+               package.engine.crankshafts[0].id.value == "crank" &&
+               package.engine.crankshafts[1].id.value == "crank-secondary" &&
+               package.engine.output_crankshaft.value == "crank-secondary",
+           "authoring parser collapsed crankshaft identity, order, or output "
+           "selection");
 }
 
 void test_vtec_activation_contract_is_greenfield_and_strict() {
@@ -1179,9 +1228,8 @@ void test_direct_journal_attachment_contract_is_unambiguous() {
     replace_once(missing_type, R"json(        "type": "crankshaft",
 )json",
                  "");
-    expect(has_diagnostic(
-               require_engine_report(parse_engine_document(missing_type)),
-               DiagnosticCode::missing_value, "/engine/journals/0/type"),
+    expect(has_diagnostic(require_engine_report(parse_engine_document(missing_type)),
+                          DiagnosticCode::missing_value, "/engine/journals/0/type"),
            "direct journal without its required type discriminator was accepted");
 
     const auto master_package = require_engine(valid_master_rod_engine_json());
@@ -1197,12 +1245,10 @@ void test_direct_journal_attachment_contract_is_unambiguous() {
     replace_once(wrong_type, R"json("type": "crankshaft")json",
                  R"json("type": "gearbox")json");
     expect(has_diagnostic(require_engine_report(parse_engine_document(wrong_type)),
-                          DiagnosticCode::invalid_value,
-                          "/engine/journals/0/type"),
+                          DiagnosticCode::invalid_value, "/engine/journals/0/type"),
            "unknown journal attachment variant was accepted");
 
-    const auto expect_retired_field = [](std::string json,
-                                         std::string_view before,
+    const auto expect_retired_field = [](std::string json, std::string_view before,
                                          std::string_view after,
                                          std::string_view pointer) {
         replace_once(json, before, after);
@@ -1217,12 +1263,11 @@ void test_direct_journal_attachment_contract_is_unambiguous() {
         R"json("tdc_reference_angle": {"value": 0, "unit": "deg"})json",
         R"json("tdc_reference_angle": {"value": 0, "unit": "deg"}, "journals": ["journal"])json",
         "/engine/crankshafts/0/journals");
-    expect_retired_field(
-        valid_engine_json(), R"json("crankshaft": "crank",
+    expect_retired_field(valid_engine_json(), R"json("crankshaft": "crank",
         "phase")json",
-        R"json("crankshaft": "crank", "master_journal": "journal",
+                         R"json("crankshaft": "crank", "master_journal": "journal",
         "phase")json",
-        "/engine/journals/0/master_journal");
+                         "/engine/journals/0/master_journal");
     expect_retired_field(
         valid_engine_json(), R"json("crankshaft": "crank",
         "phase")json",
@@ -1234,31 +1279,27 @@ void test_direct_journal_attachment_contract_is_unambiguous() {
         R"json("moment_of_inertia": {"value": 0.001, "unit": "kg*m2"})json",
         R"json("moment_of_inertia": {"value": 0.001, "unit": "kg*m2"}, "slave_throw": {"value": 10, "unit": "mm"})json",
         "/engine/connecting_rods/0/slave_throw");
-    expect_retired_field(
-        valid_engine_json(), R"json("bank": "bank",
+    expect_retired_field(valid_engine_json(), R"json("bank": "bank",
         "journal")json",
-        R"json("bank": "bank", "crankshaft": "crank",
+                         R"json("bank": "bank", "crankshaft": "crank",
         "journal")json",
-        "/engine/cylinders/0/crankshaft");
-    expect_retired_field(
-        valid_engine_json(), R"json("journal": "journal",
+                         "/engine/cylinders/0/crankshaft");
+    expect_retired_field(valid_engine_json(), R"json("journal": "journal",
         "connecting_rod")json",
-        R"json("journal": "journal", "slave_journal": "journal",
+                         R"json("journal": "journal", "slave_journal": "journal",
         "connecting_rod")json",
-        "/engine/cylinders/0/slave_journal");
+                         "/engine/cylinders/0/slave_journal");
 }
 
 void test_exhaust_primary_area_has_single_greenfield_owner() {
     std::string duplicate_area = valid_engine_json();
-    replace_once(
-        duplicate_area,
-        R"json("primary_tube_length": {"value": 500, "unit": "mm"},)json",
-        R"json("primary_tube_length": {"value": 500, "unit": "mm"},
+    replace_once(duplicate_area,
+                 R"json("primary_tube_length": {"value": 500, "unit": "mm"},)json",
+                 R"json("primary_tube_length": {"value": 500, "unit": "mm"},
         "primary_cross_section_area": {"value": 8, "unit": "cm2"},)json");
-    expect(has_diagnostic(
-               require_engine_report(parse_engine_document(duplicate_area)),
-               DiagnosticCode::unknown_field,
-               "/engine/exhausts/0/primary_cross_section_area"),
+    expect(has_diagnostic(require_engine_report(parse_engine_document(duplicate_area)),
+                          DiagnosticCode::unknown_field,
+                          "/engine/exhausts/0/primary_cross_section_area"),
            "retired exhaust-system primary area compatibility field was accepted");
 }
 
@@ -1305,6 +1346,7 @@ int main() {
         test_cross_document_reference_validation();
         test_engine_schema_identifier_is_strict();
         test_complete_engine_package();
+        test_output_crankshaft_reference_is_explicit_and_ordered();
         test_vtec_activation_contract_is_greenfield_and_strict();
         test_cranking_starter_contract_is_minimal_and_strict();
         test_direct_journal_attachment_contract_is_unambiguous();

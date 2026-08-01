@@ -1150,8 +1150,9 @@ void test_certified_radial_gas_uses_common_mechanism_coordinates(
            "radial gas session did not reach its finite prescribed horizon");
 
     auto non_prescribed = make_radial_gas_request(canonical);
-    const double initial_theta_rad =
-        low_order_core(non_prescribed).mechanism.crank.crank_tdc_reference_rad.value;
+    const double initial_theta_rad = low_order_core(non_prescribed)
+                                         .mechanism.cranks.front()
+                                         .crank_tdc_reference_rad.value;
     non_prescribed.scenario.mode =
         HeldSpeed{{kRadialGasRpm, {}}, {initial_theta_rad, {}}, {0.35, {}}};
     auto held_schedule =
@@ -1247,8 +1248,9 @@ void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical)
     {
         auto request = make_short_request(canonical);
         auto mechanism_plan = require_mechanism_plan(request);
-        const double initial_theta_rad =
-            low_order_core(request).mechanism.crank.crank_tdc_reference_rad.value;
+        const double initial_theta_rad = low_order_core(request)
+                                             .mechanism.cranks.front()
+                                             .crank_tdc_reference_rad.value;
         request.scenario.mode =
             HeldSpeed{{kShortRunRpm, {}}, {initial_theta_rad, {}}, {0.85, {}}};
         auto schedule =

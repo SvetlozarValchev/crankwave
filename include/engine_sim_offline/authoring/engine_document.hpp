@@ -686,6 +686,7 @@ struct EngineDefinition {
     EngineLimits limits;
     std::vector<CurveDefinition> curves;
     std::vector<CrankshaftDefinition> crankshafts;
+    CrankshaftRef output_crankshaft;
     std::vector<JournalDefinition> journals;
     std::vector<ConnectingRodDefinition> connecting_rods;
     std::vector<PistonDefinition> pistons;

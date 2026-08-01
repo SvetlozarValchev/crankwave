@@ -72,8 +72,13 @@ centered_slider_crank_cycle_mean_inertia_method_identity() {
 CenteredSliderCrankCycleMeanInertiaCalculation
 calculate_centered_slider_crank_cycle_mean_inertia(
     const contract::LegacyMechanismProfile &mechanism) noexcept {
+    const auto *output_crank = contract::find_output_crank(mechanism);
+    if (output_crank == nullptr) {
+        return error(
+            CenteredSliderCrankCycleMeanInertiaIssue::missing_output_crankshaft);
+    }
     const double authored_crank_inertia_kg_m2 =
-        mechanism.crank.authored_crank_inertia_kg_m2.value;
+        output_crank->authored_crank_inertia_kg_m2.value;
     if (!std::isfinite(authored_crank_inertia_kg_m2)) {
         return error(
             CenteredSliderCrankCycleMeanInertiaIssue::nonfinite_authored_crank_inertia);
@@ -95,8 +100,7 @@ calculate_centered_slider_crank_cycle_mean_inertia(
         const auto &cylinder = mechanism.cylinders[cylinder_index];
         const auto &parameters = cylinder.parameters;
         const auto *direct =
-            std::get_if<contract::LegacyDirectJournalKinematics>(
-                &cylinder.kinematics);
+            std::get_if<contract::LegacyDirectJournalKinematics>(&cylinder.kinematics);
         if (direct == nullptr) {
             return error(CenteredSliderCrankCycleMeanInertiaIssue::
                              unsupported_cylinder_kinematics,

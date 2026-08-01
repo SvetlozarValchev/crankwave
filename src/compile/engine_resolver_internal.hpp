@@ -21,6 +21,7 @@ struct IdNamespace {
 };
 
 struct RuntimeIds {
+    IdNamespace crankshafts;
     IdNamespace banks;
     IdNamespace intakes;
     IdNamespace cylinders;
@@ -56,7 +57,7 @@ struct ModelContext {
     std::string profile_id;
     std::string calibration_id;
 
-    const authoring::CrankshaftDefinition *crankshaft = nullptr;
+    const authoring::CrankshaftDefinition *output_crankshaft = nullptr;
     const authoring::ValvetrainDefinition *valvetrain = nullptr;
     const authoring::CamshaftDefinition *intake_camshaft = nullptr;
     const authoring::CamshaftDefinition *exhaust_camshaft = nullptr;
@@ -68,6 +69,8 @@ struct ModelContext {
         nullptr;
 
     std::unordered_map<std::string, const authoring::CurveDefinition *> curves;
+    std::unordered_map<std::string, const authoring::CrankshaftDefinition *>
+        crankshafts;
     std::unordered_map<std::string, const authoring::BankDefinition *> banks;
     std::unordered_map<std::string, const authoring::IntakeDefinition *> intakes;
     std::unordered_map<std::string, const authoring::JournalDefinition *> journals;
@@ -82,6 +85,12 @@ struct ModelContext {
     std::unordered_map<std::string, const authoring::ExhaustDefinition *> exhausts;
     std::unordered_map<std::string, const authoring::SourceRouteDefinition *>
         source_routes;
+
+    // A cylinder's crankshaft is derived through its journal attachment. Direct
+    // journals name the crankshaft; master-rod journals inherit the crankshaft of
+    // their direct-root master cylinder.
+    std::unordered_map<std::string, const authoring::CrankshaftDefinition *>
+        crankshaft_for_cylinder;
 
     std::unordered_map<std::string, std::string> route_for_exhaust;
     // Pristine ignition wires are fan-out connections: one distributor post may
@@ -198,6 +207,8 @@ void attach_asset_evidence(contract::ProvenanceLedger &ledger,
 assemble_rig(const ModelContext &context, ResolutionEmitter &emitter);
 
 [[nodiscard]] std::string profile_path(std::string_view suffix);
+[[nodiscard]] contract::CrankshaftId crankshaft_id(const ModelContext &context,
+                                                   std::string_view semantic_id);
 [[nodiscard]] contract::BankId bank_id(const ModelContext &context,
                                        std::string_view semantic_id);
 [[nodiscard]] contract::IntakeId intake_id(const ModelContext &context,
@@ -231,6 +242,9 @@ ordered_routes(const ModelContext &context);
 ordered_banks(const ModelContext &context);
 [[nodiscard]] std::vector<const authoring::IntakeDefinition *>
 ordered_intakes(const ModelContext &context);
+[[nodiscard]] const authoring::CrankshaftDefinition &
+crankshaft_for_cylinder(const ModelContext &context,
+                        std::string_view cylinder_semantic_id);
 [[nodiscard]] const authoring::CamLobeDefinition &
 cam_lobe_for_cylinder(const ModelContext &context,
                       const authoring::CamshaftDefinition &camshaft,

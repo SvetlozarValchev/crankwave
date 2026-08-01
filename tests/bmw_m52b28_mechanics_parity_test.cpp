@@ -188,9 +188,8 @@ compile_session(const test::AuthoredEngineFixture &request) {
         }
         fail(message.str());
     }
-    auto mechanism_plan =
-        std::get<simulation::SharedMechanismKinematicsPlan>(
-            std::move(mechanism_plan_result));
+    auto mechanism_plan = std::get<simulation::SharedMechanismKinematicsPlan>(
+        std::move(mechanism_plan_result));
     const auto *direct_plan =
         simulation::direct_mechanism_kinematics_plan(mechanism_plan);
     expect(direct_plan != nullptr,
@@ -239,10 +238,12 @@ void verify_shared_direct_plan_bits(
     const auto *plan = simulation::direct_mechanism_kinematics_plan(shared_plan);
     expect(plan != nullptr, "BMW shared mechanism plan lost its direct alternative");
     const auto &mechanism = core.mechanism;
-    expect(same_binary64(plan->crank_tdc_reference_rad,
-                         mechanism.crank.crank_tdc_reference_rad.value) &&
-               same_binary64(plan->authored_crank_inertia_kg_m2,
-                             mechanism.crank.authored_crank_inertia_kg_m2.value) &&
+    expect(plan->output_crankshaft_id == mechanism.output_crankshaft_id &&
+               same_binary64(plan->crank_tdc_reference_rad,
+                             mechanism.cranks.front().crank_tdc_reference_rad.value) &&
+               same_binary64(
+                   plan->authored_crank_inertia_kg_m2,
+                   mechanism.cranks.front().authored_crank_inertia_kg_m2.value) &&
                plan->cylinders.size() == mechanism.cylinders.size(),
            "BMW shared mechanism crank or cylinder inventory changed");
 
@@ -250,29 +251,25 @@ void verify_shared_direct_plan_bits(
         const auto &assembly = mechanism.cylinders[index];
         const auto &parameters = assembly.parameters;
         const auto &direct =
-            std::get<contract::LegacyDirectJournalKinematics>(
-                assembly.kinematics);
+            std::get<contract::LegacyDirectJournalKinematics>(assembly.kinematics);
         const auto geometry = simulation::derive_legacy_cylinder_geometry(
             parameters.bore_m.value, direct.crank_radius_m.value,
-            parameters.connecting_rod_length_m.value,
-            parameters.deck_height_m.value,
+            parameters.connecting_rod_length_m.value, parameters.deck_height_m.value,
             parameters.piston_compression_height_m.value,
             core.gas_path.heads.front().chamber_volume_m3.value,
             parameters.piston_displacement_term_m3.value);
         const double geometric_tdc_rad = simulation::legacy_wrap_2pi(
-            mechanism.crank.crank_tdc_reference_rad.value +
+            mechanism.cranks.front().crank_tdc_reference_rad.value +
             direct.journal_angle_rad.value - simulation::kLegacyPi / 2.0);
         const auto &compiled = plan->cylinders[index];
         const auto &crank = compiled.crank;
-        expect(crank.cylinder_id == assembly.topology.cylinder_id &&
-                   compiled.chamber_volume_id ==
-                       assembly.topology.chamber_volume_id &&
-                   compiled.exhaust_route_id ==
-                       assembly.topology.exhaust_route_id &&
+        expect(compiled.crankshaft_id == assembly.topology.crankshaft_id &&
+                   crank.cylinder_id == assembly.topology.cylinder_id &&
+                   compiled.chamber_volume_id == assembly.topology.chamber_volume_id &&
+                   compiled.exhaust_route_id == assembly.topology.exhaust_route_id &&
                    same_binary64(crank.geometric_tdc_rad, geometric_tdc_rad) &&
                    same_binary64(crank.piston_area_m2, geometry.piston_area_m2) &&
-                   same_binary64(crank.crank_radius_m,
-                                 direct.crank_radius_m.value) &&
+                   same_binary64(crank.crank_radius_m, direct.crank_radius_m.value) &&
                    same_binary64(crank.connecting_rod_length_m,
                                  parameters.connecting_rod_length_m.value) &&
                    same_binary64(crank.clearance_volume_m3,
@@ -300,13 +297,12 @@ void verify_shared_direct_plan_bits(
            "BMW shared mechanism plan changed the frozen cycle-mean inertia bits");
 }
 
-void verify_foreign_plan_is_rejected(
-    const test::AuthoredEngineFixture &request) {
+void verify_foreign_plan_is_rejected(const test::AuthoredEngineFixture &request) {
     auto foreign_engine = request.engine;
     foreign_engine.profile_id.value += "-foreign-plan";
     const auto &foreign_core = test::low_order_core(foreign_engine);
-    auto foreign_plan_result = simulation::compile_mechanism_kinematics_plan(
-        foreign_engine, foreign_core);
+    auto foreign_plan_result =
+        simulation::compile_mechanism_kinematics_plan(foreign_engine, foreign_core);
     expect(!std::holds_alternative<contract::ValidationReport>(foreign_plan_result),
            "foreign-plan fixture could not compile its own mechanism plan");
     auto schedule_result =
@@ -322,10 +318,9 @@ void verify_foreign_plan_is_rejected(
                 std::move(schedule_result)));
     const auto *report = std::get_if<contract::ValidationReport>(&result);
     expect(report != nullptr &&
-               std::any_of(report->issues.begin(), report->issues.end(),
-                           [](const auto &issue) {
-                               return issue.path == "mechanism_plan";
-                           }),
+               std::any_of(
+                   report->issues.begin(), report->issues.end(),
+                   [](const auto &issue) { return issue.path == "mechanism_plan"; }),
            "mechanics admitted a mechanism plan compiled for another profile");
 }
 

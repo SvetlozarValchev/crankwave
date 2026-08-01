@@ -15,6 +15,17 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
                              contract::EngineSpec &engine) {
     const auto &source = context.document.engine;
 
+    engine.crankshafts.reserve(source.crankshafts.size());
+    for (const auto &crankshaft : source.crankshafts) {
+        const auto base = "engine.crankshafts." + crankshaft.id.value;
+        engine.crankshafts.push_back({
+            crankshaft_id(context, crankshaft.id.value),
+            emitter.authored(crankshaft.id.value, base + ".semantic_id"),
+        });
+    }
+    engine.output_crankshaft_id =
+        crankshaft_id(context, context.output_crankshaft->id.value);
+
     for (const auto *bank : ordered_banks(context)) {
         const auto base = "engine.banks." + bank->id.value;
         contract::BankSpec resolved_bank{
@@ -45,8 +56,9 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
         const auto &piston = *context.pistons.at(cylinder.piston.value);
         const auto &bank = *context.banks.at(cylinder.bank.value);
         const auto &head = *context.heads.at(bank.head.value);
+        const auto &crankshaft = crankshaft_for_cylinder(context, semantic);
         const double bore_m = legacy_si_value(bank.bore);
-        const double crank_radius_m = legacy_si_value(context.crankshaft->throw_radius);
+        const double crank_radius_m = legacy_si_value(crankshaft.throw_radius);
         const double stroke_m = 2.0 * crank_radius_m;
         const auto geometry = simulation::derive_legacy_cylinder_geometry(
             bore_m, crank_radius_m, legacy_si_value(rod.length),
@@ -67,6 +79,7 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
             cylinder_id(context, semantic),
             emitter.authored(semantic, base + ".semantic_id"),
             bank_id(context, cylinder.bank.value),
+            crankshaft_id(context, crankshaft.id.value),
             intake_id(context, cylinder.intake.value),
             emitter.authored(bore_m, base + ".bore_m"),
             emitter.derived(stroke_m, base + ".stroke_m",

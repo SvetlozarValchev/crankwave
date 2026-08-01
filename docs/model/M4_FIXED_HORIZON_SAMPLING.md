@@ -104,11 +104,11 @@ after mechanical extraction from this block:
 `PreparationPolicy` becomes exactly
 `variant<FixedSettling, FixedHorizonCycleSampling>`. This incompatible tagged-union
 change is incorporated by the sole current canonical authorities: simulation
-manifest v8, simulation input `simulation_v7`, and request identity v5. Their exact
+manifest v9, simulation input `simulation_v8`, and request identity v6. Their exact
 CDDL, schema hash, roots, paths, and no-compatibility replacement are frozen in
 [`M4_SIMULATION_MANIFEST_WIRE.md`](../contracts/M4_SIMULATION_MANIFEST_WIRE.md) and
-[`render_manifest_simulation_v8.cddl`](../../schemas/render_manifest_simulation_v8.cddl).
-The request-v5 root keeps member order `wire_schema`, `engine`, `scenario`,
+[`render_manifest_simulation_v9.cddl`](../../schemas/render_manifest_simulation_v9.cddl).
+The request-v6 root keeps member order `wire_schema`, `engine`, `scenario`,
 `random_plan`, `provenance`. The outer `scenario.preparation` tagged union writes
 members in this order:
 
@@ -122,7 +122,7 @@ written in this order:
 2. `fixed_preparation_horizon_s`; and
 3. `trailing_complete_cycle_count`.
 
-No old preparation tag, request-v4 encoder, simulation-manifest-v7 encoder, v7 path,
+No old preparation tag, request-v5 encoder, simulation-manifest-v8 encoder, v8 path,
 or forwarding alias remains encodable after the cutover.
 
 Validation requires:
@@ -213,7 +213,7 @@ last-eligible attestation fields bit-for-bit.
 
 ```text
 HeldSpeedOperatingPointResult {
-    Sha256Digest simulation_request_identity_v5_sha256
+    Sha256Digest simulation_request_identity_v6_sha256
     HeldSpeedOperatingPointConditions conditions
     string applicability_label
     HeldSpeedFixedHorizonSampleEvidence sampling
@@ -223,9 +223,9 @@ HeldSpeedOperatingPointResult {
 `reported_block()` returns `sampling.trailing_complete_cycles`. Request-bound
 validation independently recomputes every written work and pressure reduction, proves
 the sample contains exactly `M` contiguous cycles, proves its final cycle is the last
-eligible cycle at the fixed horizon, and binds the exact request-v5 digest. The
+eligible cycle at the fixed horizon, and binds the exact request-v6 digest. The
 inertial-dyno result and runtime request binding rename the same field to
-`simulation_request_identity_v5_sha256`; no v3-named member remains.
+`simulation_request_identity_v6_sha256`; no v5-named member remains.
 
 The result and failure vocabulary must not use “converged,” “settled,” or
 “nonconverged” for this policy. A fixed sample is sufficient evidence for the bounded
@@ -266,7 +266,7 @@ commit.
 
 This frozen evidence-v2 grammar is historical artifact identity. Its
 `simulation_request_v3_sha256` member remains unchanged; it is not a request-v3
-encoder alias and cannot admit a request through the sole current request-v5 API.
+encoder alias and cannot admit a request through the sole current request-v6 API.
 
 The compact UTF-8 JSON has no BOM, insignificant whitespace, or final LF. Its exact
 object-member order is:

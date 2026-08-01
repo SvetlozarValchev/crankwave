@@ -116,6 +116,7 @@
         "tdc_reference_angle": {"value": 45, "unit": "deg"}
       }
     ],
+    "output_crankshaft": "crank",
     "journals": [
       {"id": "journal-12", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 0, "unit": "deg"}},
       {"id": "journal-34", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 270, "unit": "deg"}},

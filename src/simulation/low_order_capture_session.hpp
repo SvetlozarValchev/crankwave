@@ -185,7 +185,7 @@ using LowOrderCaptureCompileResult =
 [[nodiscard]] LowOrderCaptureCompileResult compile_low_order_capture_session(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const contract::RandomPlan &random_plan,
-    const contract::Sha256Digest &simulation_request_identity_v5_sha256,
+    const contract::Sha256Digest &simulation_request_identity_v6_sha256,
     LowOrderExecutionExtent execution_extent);
 
 } // namespace engine_sim_offline::simulation

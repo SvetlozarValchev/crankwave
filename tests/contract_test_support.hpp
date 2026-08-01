@@ -178,19 +178,22 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
 
     LowOrderOperatingPointV1Profile profile;
     auto &core = profile.core;
-    core.mechanism.crank = {
-        builder.resolved(0.0, path("mechanism.crank.crank_tdc_reference_rad")),
-        builder.resolved(5.0, path("mechanism.crank.crankshaft_mass_kg")),
-        builder.resolved(5.9, path("mechanism.crank.flywheel_mass_kg")),
-        builder.resolved(0.2, path("mechanism.crank.authored_crank_inertia_kg_m2")),
-        builder.resolved(10.0,
-                         path("mechanism.crank.running_friction_torque_magnitude_nm")),
-    };
+    core.mechanism.output_crankshaft_id = CrankshaftId{1};
+    core.mechanism.cranks.push_back({
+        CrankshaftId{1},
+        builder.resolved(0.0, path("mechanism.cranks.crank.crank_tdc_reference_rad")),
+        builder.resolved(5.0, path("mechanism.cranks.crank.crankshaft_mass_kg")),
+        builder.resolved(5.9, path("mechanism.cranks.crank.flywheel_mass_kg")),
+        builder.resolved(0.2,
+                         path("mechanism.cranks.crank.authored_crank_inertia_kg_m2")),
+        builder.resolved(
+            10.0, path("mechanism.cranks.crank.running_friction_torque_magnitude_nm")),
+    });
     LegacyCylinderAssembly cylinder;
     cylinder.topology = {
-        CylinderId{1},  IntakeId{1},    PortId{1},     PortId{2},     GasVolumeId{2},
-        GasVolumeId{3}, GasVolumeId{4}, FlowEdgeId{3}, FlowEdgeId{4}, FlowEdgeId{5},
-        FlowEdgeId{6},  FlowEdgeId{7},  RouteId{1},
+        CylinderId{1},  CrankshaftId{1}, IntakeId{1},    PortId{1},     PortId{2},
+        GasVolumeId{2}, GasVolumeId{3},  GasVolumeId{4}, FlowEdgeId{3}, FlowEdgeId{4},
+        FlowEdgeId{5},  FlowEdgeId{6},   FlowEdgeId{7},  RouteId{1},
     };
     const auto cylinder_path = path("mechanism.cylinders.cylinder-1");
     auto bore_m = builder.resolved(0.084, cylinder_path + ".bore_m");
@@ -505,6 +508,11 @@ inline EngineSpec make_engine(InputBuilder &builder) {
         0.000046 + piston_area_m2 * (0.211 - (0.5 * stroke_m + 0.135) - 0.03182);
     spec.total_displacement_m3 =
         builder.resolved(displacement_m3, "engine.total_displacement_m3");
+    spec.crankshafts.push_back({
+        CrankshaftId{1},
+        builder.resolved(std::string{"crank"}, "engine.crankshafts.crank.semantic_id"),
+    });
+    spec.output_crankshaft_id = CrankshaftId{1};
     spec.banks.push_back({
         BankId{1},
         builder.resolved(std::string{"bank-1"}, "engine.banks.bank-1.semantic_id"),
@@ -520,6 +528,7 @@ inline EngineSpec make_engine(InputBuilder &builder) {
         builder.resolved(std::string{"cylinder-1"},
                          "engine.cylinders.cylinder-1.semantic_id"),
         BankId{1},
+        CrankshaftId{1},
         IntakeId{1},
         builder.resolved(bore_m, "engine.cylinders.cylinder-1.bore_m"),
         builder.resolved(stroke_m, "engine.cylinders.cylinder-1.stroke_m"),
@@ -832,7 +841,7 @@ inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
     const auto source_matrix = make_source_matrix();
 
     RenderManifestContent content;
-    content.schema_version = 8;
+    content.schema_version = 9;
     content.inputs = SimulationManifestInputs{
         ResolvedRenderInputs{engine, presentation, randomness, scenario}};
     content.provenance = builder.provenance.bundle;

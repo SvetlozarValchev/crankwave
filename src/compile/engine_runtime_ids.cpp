@@ -53,6 +53,7 @@ void assign_engine_runtime_ids(ModelContext &resolved,
                                authoring::DiagnosticReport &report) {
     const auto &document = resolved.document;
     const auto &engine = document.engine;
+    std::vector<std::string> crankshaft_ids;
     std::vector<std::string> bank_ids;
     std::vector<std::string> intake_ids;
     std::vector<std::string> cylinder_ids;
@@ -78,6 +79,9 @@ void assign_engine_runtime_ids(ModelContext &resolved,
                 gear_ids.push_back(gear.id.value);
             }
         }
+    }
+    for (const auto &crankshaft : engine.crankshafts) {
+        crankshaft_ids.push_back(crankshaft.id.value);
     }
     for (const auto &bank : engine.banks) {
         bank_ids.push_back(bank.id.value);
@@ -134,6 +138,8 @@ void assign_engine_runtime_ids(ModelContext &resolved,
             destination = std::get<IdNamespace>(std::move(result));
         }
     };
+    assign(resolved.ids.crankshafts, "engine.crankshaft", crankshaft_ids,
+           "/engine/crankshafts");
     assign(resolved.ids.banks, "engine.bank", bank_ids, "/engine/banks");
     assign(resolved.ids.intakes, "engine.intake", intake_ids, "/engine/intakes");
     assign(resolved.ids.cylinders, "engine.cylinder", cylinder_ids,
@@ -159,6 +165,7 @@ void assign_engine_runtime_ids(ModelContext &resolved,
         return;
     }
 
+    append_assignments(resolved.ids, resolved.ids.crankshafts);
     append_assignments(resolved.ids, resolved.ids.banks);
     append_assignments(resolved.ids, resolved.ids.intakes);
     append_assignments(resolved.ids, resolved.ids.cylinders);

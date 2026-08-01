@@ -263,7 +263,7 @@ because its metadata carries generic compiler identities rather than obsolete
 BMW-specific ones:
 
 ```text
-simulation request SHA-256: e1052791be6dcb8c6e75919393ff3bb2980a0055e019cb8fae824240d38db6e7
+simulation request SHA-256: df65b324c78d43c1b651ab69d217483d3b489199fbb1c5a2a4ad9da7e2143efd
 audition WAV byte count:    8640586
 audition WAV SHA-256:       f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552
 ```

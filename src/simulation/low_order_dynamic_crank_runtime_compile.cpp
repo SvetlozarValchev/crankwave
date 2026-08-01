@@ -89,7 +89,7 @@ void require_release_or_later_control_boundaries(ValidationReport &report,
 LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
-    const contract::Sha256Digest &simulation_request_identity_v5_sha256,
+    const contract::Sha256Digest &simulation_request_identity_v6_sha256,
     SharedMechanismKinematicsPlan mechanism_plan,
     LowOrderExecutionExtent execution_extent) {
     ValidationReport report;
@@ -104,8 +104,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         std::get_if<contract::FixedHorizonCycleSampling>(&scenario.preparation);
     const auto *fixed_settling =
         std::get_if<contract::FixedSettling>(&scenario.preparation);
-    const auto *direct_plan =
-        direct_mechanism_kinematics_plan(mechanism_plan);
+    const auto *direct_plan = direct_mechanism_kinematics_plan(mechanism_plan);
     require(report, profile != nullptr, ContractIssueCode::unsupported_value,
             "engine.physics_profile",
             "dynamic-crank runtime requires low_order_operating_point_v1");
@@ -120,16 +119,23 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
             "mechanism_plan",
             "dynamic-crank runtime requires one compiled direct mechanism plan");
-    require(report, !simulation_request_identity_v5_sha256.is_zero(),
-            ContractIssueCode::missing_value, "simulation_request_identity_v5_sha256",
+    require(report, !simulation_request_identity_v6_sha256.is_zero(),
+            ContractIssueCode::missing_value, "simulation_request_identity_v6_sha256",
             "dynamic-crank runtime requires the canonical nonzero request identity");
     if (profile == nullptr || dynamic_mode_count != 1U || direct_plan == nullptr) {
         return report;
     }
-    const bool plan_matches_source = mechanism_kinematics_plan_matches_source(
-        mechanism_plan, engine, profile->core);
-    require(report, plan_matches_source,
-            ContractIssueCode::inconsistent_semantics, "mechanism_plan",
+    const auto *output_crank = contract::find_output_crank(profile->core.mechanism);
+    require(report, output_crank != nullptr, ContractIssueCode::dangling_reference,
+            "engine.physics_profile.mechanism.output_crankshaft_id",
+            "dynamic-crank runtime requires one resolved output crankshaft");
+    if (output_crank == nullptr) {
+        return report;
+    }
+    const bool plan_matches_source =
+        mechanism_kinematics_plan_matches_source(mechanism_plan, engine, profile->core);
+    require(report, plan_matches_source, ContractIssueCode::inconsistent_semantics,
+            "mechanism_plan",
             "compiled direct mechanism plan does not exactly match its resolved "
             "engine source");
     if (!plan_matches_source) {
@@ -167,11 +173,11 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
 
     const auto crank_friction_calculation =
         calculate_engine_sim_v1_positive_speed_crank_friction(
-            {profile->core.mechanism.crank.running_friction_torque_magnitude_nm.value});
+            {output_crank->running_friction_torque_magnitude_nm.value});
     const auto *crank_friction =
         std::get_if<EngineSimV1PositiveSpeedCrankFriction>(&crank_friction_calculation);
     require(report, crank_friction != nullptr, ContractIssueCode::invalid_value,
-            "engine.physics_profile.mechanism.crank."
+            "engine.physics_profile.mechanism.output_crankshaft."
             "running_friction_torque_magnitude_nm.value",
             "dynamic-crank runtime requires finite nonnegative pristine crank "
             "friction");
@@ -399,11 +405,10 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     for (std::size_t index = 0; index < direct_plan->cylinders.size(); ++index) {
         const auto &planned = direct_plan->cylinders[index];
         const auto &model = planned.crank;
-        const auto chamber_gas_index = find_capture_volume_index(
-            capture_plan, planned.chamber_volume_id);
+        const auto chamber_gas_index =
+            find_capture_volume_index(capture_plan, planned.chamber_volume_id);
         const auto initial_mechanism = evaluate_centered_slider_crank(
-            model,
-            initial_theta_rad, initial_engine_speed_rpm * kLegacyRpmScale);
+            model, initial_theta_rad, initial_engine_speed_rpm * kLegacyRpmScale);
         const double initial_chamber_pressure_pa_abs =
             initial_mechanism.valid
                 ? legacy_gas_pressure_pa(legacy_initialize_gas_cell(
@@ -498,7 +503,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     if (!cold_bootstrap) {
         auto accountant_result = compile_operating_cycle_accountant({
             {
-                profile->core.mechanism.crank.crank_tdc_reference_rad.value,
+                output_crank->crank_tdc_reference_rad.value,
                 engine.total_displacement_m3.value,
             },
             {
@@ -548,8 +553,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
 
     std::optional<HeldDynoMotionPlan> held_dyno_motion;
     if (held_dyno != nullptr) {
-        auto target_engine_speed_rpm =
-            held_dyno->target_engine_speed_rpm.post_step_rpm;
+        auto target_engine_speed_rpm = held_dyno->target_engine_speed_rpm.post_step_rpm;
         if (execution_extent.is_open_ended()) {
             const auto retained_sample_count = *audible_start_frame + 1U;
             require(report, retained_sample_count <= target_engine_speed_rpm.size(),
@@ -670,13 +674,13 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
                             "scenario.mode.service_brake_application_01",
                             plan.service_brake_application_01);
         if (execution_extent.is_open_ended()) {
-            const auto after_audible_handoff = [audible_start_frame](const auto &point) {
-                return point.step_index > *audible_start_frame;
-            };
+            const auto after_audible_handoff =
+                [audible_start_frame](const auto &point) {
+                    return point.step_index > *audible_start_frame;
+                };
             std::erase_if(plan.selected_gear, after_audible_handoff);
             std::erase_if(plan.clutch_engagement_01, after_audible_handoff);
-            std::erase_if(plan.service_brake_application_01,
-                          after_audible_handoff);
+            std::erase_if(plan.service_brake_application_01, after_audible_handoff);
         }
         require(report,
                 !plan.selected_gear.empty() && !plan.clutch_engagement_01.empty() &&

@@ -113,6 +113,7 @@
         "tdc_reference_angle": {"value": 67.5, "unit": "deg"}
       }
     ],
+    "output_crankshaft": "crank",
     "journals": [
       {"id": "rj0", "type": "crankshaft", "crankshaft": "crank", "phase": {"value": 0, "unit": "deg"}},
       {"id": "sj1", "type": "master_rod", "master_cylinder": "cylinder-0", "throw_radius": {"value": 2.9, "unit": "in"}, "phase": {"value": 72, "unit": "deg"}},

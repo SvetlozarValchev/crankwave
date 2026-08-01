@@ -57,6 +57,7 @@ enum class SourceRouteKind : std::uint8_t {
 struct AuthoredCylinderDefinition {
     AuthoredValue<std::string> semantic_id;
     AuthoredValue<std::string> bank_id;
+    AuthoredValue<std::string> crankshaft_id;
     AuthoredValue<std::string> intake_id;
     std::optional<AuthoredValue<double>> bore_m;
     std::optional<AuthoredValue<double>> stroke_m;
@@ -129,6 +130,8 @@ struct AuthoredEngineDefinition {
     AuthoredValue<EngineCycle> cycle;
     AuthoredValue<IgnitionKind> ignition;
     AuthoredValue<CylinderLayoutKind> cylinder_layout;
+    std::vector<AuthoredValue<std::string>> crankshafts;
+    AuthoredValue<std::string> output_crankshaft_id;
     std::vector<AuthoredValue<std::string>> banks;
     std::vector<AuthoredValue<std::string>> intakes;
     std::vector<AuthoredCylinderDefinition> cylinders;
@@ -154,6 +157,13 @@ struct BankSpec {
     friend bool operator==(const BankSpec &, const BankSpec &) = default;
 };
 
+struct CrankshaftSpec {
+    CrankshaftId id;
+    ResolvedValue<std::string> semantic_id;
+
+    friend bool operator==(const CrankshaftSpec &, const CrankshaftSpec &) = default;
+};
+
 struct IntakeSpec {
     IntakeId id;
     ResolvedValue<std::string> semantic_id;
@@ -173,6 +183,7 @@ struct CylinderSpec {
     CylinderId id;
     ResolvedValue<std::string> semantic_id;
     BankId bank_id;
+    CrankshaftId crankshaft_id;
     IntakeId intake_id;
     ResolvedValue<double> bore_m;
     ResolvedValue<double> stroke_m;
@@ -239,6 +250,8 @@ struct EngineSpec {
     ResolvedValue<IgnitionKind> ignition;
     ResolvedValue<CylinderLayoutKind> cylinder_layout;
     ResolvedValue<double> total_displacement_m3;
+    std::vector<CrankshaftSpec> crankshafts;
+    CrankshaftId output_crankshaft_id;
     std::vector<BankSpec> banks;
     std::vector<IntakeSpec> intakes;
     std::vector<CylinderSpec> cylinders;

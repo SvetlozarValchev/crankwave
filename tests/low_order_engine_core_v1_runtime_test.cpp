@@ -106,9 +106,9 @@ finite_extent(const contract::RenderScenario &scenario) {
     return simulation::LowOrderExecutionExtent::finite_scenario(*frame_count);
 }
 
-[[nodiscard]] simulation::SharedMechanismKinematicsPlan require_mechanism_plan(
-    const contract::EngineSpec &engine,
-    const contract::LowOrderEngineCoreV1 &core) {
+[[nodiscard]] simulation::SharedMechanismKinematicsPlan
+require_mechanism_plan(const contract::EngineSpec &engine,
+                       const contract::LowOrderEngineCoreV1 &core) {
     auto result = simulation::compile_mechanism_kinematics_plan(engine, core);
     if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
         fail_report("valid mechanism plan was rejected", *report);
@@ -122,8 +122,8 @@ void test_prescribed_transaction_and_stable_completion(
     const auto &core = test::low_order_core(request.engine);
     const auto mechanism_plan = require_mechanism_plan(request.engine, core);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core, random_plan(request),
-        mechanism_plan, finite_extent(request.scenario)));
+        request.engine, request.scenario, core, random_plan(request), mechanism_plan,
+        finite_extent(request.scenario)));
     expect(runtime.execution_extent().finite_physics_frame_count() == kStepCount &&
                runtime.produced_sample_count() == 0U && !runtime.completed() &&
                !runtime.faulted(),
@@ -171,7 +171,8 @@ void test_held_speed_reuses_core_without_aggregate_loss_policy(
     request.engine.methods.losses.value.id = "not-consumed-by-core";
     request.scenario.mode = contract::HeldSpeed{
         {kRpm, "held-rpm"},
-        {profile.core.mechanism.crank.crank_tdc_reference_rad.value, "held-angle"},
+        {profile.core.mechanism.cranks.front().crank_tdc_reference_rad.value,
+         "held-angle"},
         {0.85, "held-throttle"},
     };
 
@@ -197,8 +198,8 @@ void test_core_ignores_capture_transport_policy(
 
     const auto mechanism_plan = require_mechanism_plan(request.engine, core);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core, random_plan(request),
-        mechanism_plan, finite_extent(request.scenario)));
+        request.engine, request.scenario, core, random_plan(request), mechanism_plan,
+        finite_extent(request.scenario)));
     const auto result = runtime.advance();
     expect(std::holds_alternative<simulation::LowOrderEngineCoreV1StepView>(result),
            "capture transport policy leaked into the shared physics core");
@@ -210,8 +211,8 @@ void test_core_pairs_external_post_step_motion_with_the_same_gas_transaction(
     const auto &core = test::low_order_core(request.engine);
     const auto mechanism_plan = require_mechanism_plan(request.engine, core);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
-        request.engine, request.scenario, core, random_plan(request),
-        mechanism_plan, finite_extent(request.scenario)));
+        request.engine, request.scenario, core, random_plan(request), mechanism_plan,
+        finite_extent(request.scenario)));
 
     constexpr double kExternalRpm = 1800.0;
     auto result = runtime.advance(simulation::PostStepCrankMotion{kExternalRpm, 0.017});
@@ -271,8 +272,8 @@ void test_canonical_authored_operating_profile_uses_limiter_disabled_core(
     const auto mechanism_plan = require_mechanism_plan(engine, operating.core);
     auto runtime = require_runtime(simulation::compile_low_order_engine_core_v1_runtime(
         engine, scenario, operating.core,
-        test::compile_fixture_random_plan(canonical, engine, scenario),
-        mechanism_plan, finite_extent(scenario)));
+        test::compile_fixture_random_plan(canonical, engine, scenario), mechanism_plan,
+        finite_extent(scenario)));
     auto result = runtime.advance();
     const auto *step = std::get_if<simulation::LowOrderEngineCoreV1StepView>(&result);
     expect(step != nullptr, "canonical authored operating core produced no first step");

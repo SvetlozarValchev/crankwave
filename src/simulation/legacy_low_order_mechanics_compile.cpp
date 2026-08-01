@@ -136,7 +136,13 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
             ContractIssueCode::unsupported_value, "engine.ignition.value",
             "legacy event scheduling requires spark ignition");
 
-    const auto &crank = core.mechanism.crank;
+    const auto *crank = contract::find_output_crank(core.mechanism);
+    require(report, crank != nullptr, ContractIssueCode::dangling_reference,
+            "engine.physics_profile.mechanism.output_crankshaft_id",
+            "mechanics session requires one resolved output crankshaft");
+    if (crank == nullptr) {
+        return report;
+    }
     require(report, schedule.rate() == scenario.rates.physics,
             ContractIssueCode::inconsistent_semantics, "schedule.rate",
             "compiled control schedule rate must equal the scenario physics rate");
@@ -167,7 +173,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
     require(report, scenario.rates.physics == contract::RationalRateHz{10000, 1},
             ContractIssueCode::unsupported_value, "scenario.rates.physics",
             "legacy_low_order_v1 mechanics requires exactly 10000 Hz");
-    require(report, schedule.initial_theta_rad() == crank.crank_tdc_reference_rad.value,
+    require(report,
+            schedule.initial_theta_rad() == crank->crank_tdc_reference_rad.value,
             ContractIssueCode::unsupported_value, "schedule.initial_theta_rad",
             "legacy fresh state requires initial cycle angle equal to the crank TDC "
             "reference");
@@ -187,9 +194,10 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
                 "within-scenario limiter-policy transitions are not admitted");
     }
 
-    require(report, std::isfinite(crank.crank_tdc_reference_rad.value),
+    require(report, std::isfinite(crank->crank_tdc_reference_rad.value),
             ContractIssueCode::invalid_value,
-            "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
+            "engine.physics_profile.mechanism.output_crankshaft.crank_tdc_reference_"
+            "rad.value",
             "crank TDC reference must be finite");
     require(report, !core.gas_path.intakes.empty(), ContractIssueCode::missing_value,
             "engine.physics_profile.gas_path.intakes",

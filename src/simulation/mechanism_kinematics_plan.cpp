@@ -38,24 +38,23 @@ find_bank(const contract::EngineSpec &engine, const contract::BankId bank_id) no
     return found == engine.banks.end() ? nullptr : &*found;
 }
 
-[[nodiscard]] const contract::LegacyBankHeadProfile *find_head_profile(
-    const contract::LegacyGasPathProfile &gas_path,
-    const contract::BankId bank_id) noexcept {
+[[nodiscard]] const contract::LegacyBankHeadProfile *
+find_head_profile(const contract::LegacyGasPathProfile &gas_path,
+                  const contract::BankId bank_id) noexcept {
     const auto found =
         std::find_if(gas_path.heads.begin(), gas_path.heads.end(),
                      [&](const auto &head) { return head.bank_id == bank_id; });
     return found == gas_path.heads.end() ? nullptr : &*found;
 }
 
-[[nodiscard]] bool bank_head_topology_matches(
-    const contract::EngineSpec &engine,
-    const contract::LegacyGasPathProfile &gas_path) noexcept {
+[[nodiscard]] bool
+bank_head_topology_matches(const contract::EngineSpec &engine,
+                           const contract::LegacyGasPathProfile &gas_path) noexcept {
     if (engine.banks.empty() || gas_path.heads.size() != engine.banks.size()) {
         return false;
     }
     for (std::size_t index = 0; index < engine.banks.size(); ++index) {
-        if (!engine.banks[index].id.valid() ||
-            !gas_path.heads[index].bank_id.valid() ||
+        if (!engine.banks[index].id.valid() || !gas_path.heads[index].bank_id.valid() ||
             gas_path.heads[index].bank_id != engine.banks[index].id ||
             (index != 0U &&
              engine.banks[index - 1U].id.value >= engine.banks[index].id.value)) {
@@ -65,23 +64,37 @@ find_bank(const contract::EngineSpec &engine, const contract::BankId bank_id) no
     return true;
 }
 
-[[nodiscard]] ValidationReport validate_bank_head_topology(
+[[nodiscard]] bool single_crank_topology_matches(
     const contract::EngineSpec &engine,
-    const contract::LegacyGasPathProfile &gas_path) {
+    const contract::LegacyMechanismProfile &mechanism) noexcept {
+    if (engine.crankshafts.size() != 1U || mechanism.cranks.size() != 1U ||
+        !engine.output_crankshaft_id.valid() ||
+        engine.output_crankshaft_id != mechanism.output_crankshaft_id) {
+        return false;
+    }
+    const auto &public_crank = engine.crankshafts.front();
+    const auto &resolved_crank = mechanism.cranks.front();
+    return public_crank.id.valid() && resolved_crank.crankshaft_id.valid() &&
+           public_crank.id == engine.output_crankshaft_id &&
+           resolved_crank.crankshaft_id == mechanism.output_crankshaft_id &&
+           public_crank.id == resolved_crank.crankshaft_id;
+}
+
+[[nodiscard]] ValidationReport
+validate_bank_head_topology(const contract::EngineSpec &engine,
+                            const contract::LegacyGasPathProfile &gas_path) {
     ValidationReport report;
     bool ordered_engine_banks = !engine.banks.empty();
     for (std::size_t index = 0; index < engine.banks.size(); ++index) {
-        ordered_engine_banks =
-            ordered_engine_banks && engine.banks[index].id.valid() &&
-            (index == 0U ||
-             engine.banks[index - 1U].id.value < engine.banks[index].id.value);
+        ordered_engine_banks = ordered_engine_banks && engine.banks[index].id.valid() &&
+                               (index == 0U || engine.banks[index - 1U].id.value <
+                                                   engine.banks[index].id.value);
     }
     require(report, ordered_engine_banks, ContractIssueCode::inconsistent_shape,
             "engine.banks",
             "mechanism plan requires nonempty engine banks in unique BankId order");
 
-    const bool exact_head_coverage =
-        bank_head_topology_matches(engine, gas_path);
+    const bool exact_head_coverage = bank_head_topology_matches(engine, gas_path);
     require(report, exact_head_coverage, ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.gas_path.heads",
             "mechanism plan requires exactly one head profile per engine bank in "
@@ -133,6 +146,12 @@ compile_one_level_master_rod_kinematics_plan(
     const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core) {
     ValidationReport report;
     const auto &mechanism = core.mechanism;
+    const auto *output_crank = contract::find_output_crank(mechanism);
+    require(report, single_crank_topology_matches(engine, mechanism),
+            ContractIssueCode::unsupported_value,
+            "engine.physics_profile.mechanism.cranks",
+            "one-level master-rod execution currently requires one output "
+            "crankshaft with matching public and resolved identity");
     require(report,
             mechanism.cylinders.size() == engine.cylinders.size() &&
                 !mechanism.cylinders.empty(),
@@ -144,9 +163,12 @@ compile_one_level_master_rod_kinematics_plan(
             ContractIssueCode::unsupported_value,
             "engine.physics_profile.mechanism.cylinders",
             "event ordinals support at most 255 cylinders per mechanics session");
-    require(report, std::isfinite(mechanism.crank.crank_tdc_reference_rad.value),
+    require(report,
+            output_crank != nullptr &&
+                std::isfinite(output_crank->crank_tdc_reference_rad.value),
             ContractIssueCode::invalid_value,
-            "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
+            "engine.physics_profile.mechanism.output_crankshaft.crank_tdc_reference_"
+            "rad.value",
             "crank TDC reference must be finite");
     if (!report.ok()) {
         return report;
@@ -162,6 +184,8 @@ compile_one_level_master_rod_kinematics_plan(
         const bool identity_valid =
             engine_cylinder.id.valid() &&
             assembly.topology.cylinder_id == engine_cylinder.id &&
+            engine_cylinder.crankshaft_id == mechanism.output_crankshaft_id &&
+            assembly.topology.crankshaft_id == engine_cylinder.crankshaft_id &&
             cylinder_indices.emplace(engine_cylinder.id.value, index).second;
         require(report, identity_valid, ContractIssueCode::inconsistent_semantics,
                 path + ".topology.cylinder_id",
@@ -175,7 +199,8 @@ compile_one_level_master_rod_kinematics_plan(
     OneLevelMasterRodMechanismKinematicsPlan plan;
     plan.engine_id = engine.id;
     plan.engine_profile_id = engine.profile_id.value;
-    plan.crank_tdc_reference_rad = mechanism.crank.crank_tdc_reference_rad.value;
+    plan.output_crankshaft_id = mechanism.output_crankshaft_id;
+    plan.crank_tdc_reference_rad = output_crank->crank_tdc_reference_rad.value;
     plan.cylinders.reserve(mechanism.cylinders.size());
 
     bool compiled_slave = false;
@@ -216,9 +241,9 @@ compile_one_level_master_rod_kinematics_plan(
         const double deck_height_m = parameters.deck_height_m.value;
         const double compression_height_m =
             parameters.piston_compression_height_m.value;
-        const double head_volume_m3 =
-            head == nullptr ? std::numeric_limits<double>::quiet_NaN()
-                            : head->chamber_volume_m3.value;
+        const double head_volume_m3 = head == nullptr
+                                          ? std::numeric_limits<double>::quiet_NaN()
+                                          : head->chamber_volume_m3.value;
         const double piston_displacement_m3 =
             parameters.piston_displacement_term_m3.value;
         const double ignition_wire_angle_rad = parameters.ignition_wire_angle_rad.value;
@@ -246,6 +271,7 @@ compile_one_level_master_rod_kinematics_plan(
                 "attachment");
 
         OneLevelMasterRodMechanismCylinderPlan planned;
+        planned.crankshaft_id = assembly.topology.crankshaft_id;
         planned.bank_id = engine_cylinder.bank_id;
         planned.chamber_volume_id = assembly.topology.chamber_volume_id;
         planned.exhaust_route_id = assembly.topology.exhaust_route_id;
@@ -447,7 +473,12 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
 
     ValidationReport report;
     const auto &mechanism = core.mechanism;
-    const auto &crank = mechanism.crank;
+    const auto *output_crank = contract::find_output_crank(mechanism);
+    require(report, single_crank_topology_matches(engine, mechanism),
+            ContractIssueCode::unsupported_value,
+            "engine.physics_profile.mechanism.cranks",
+            "direct mechanism execution currently requires one output crankshaft "
+            "with matching public and resolved identity");
 
     for (std::size_t index = 0; index < mechanism.cylinders.size(); ++index) {
         const auto &kinematics = mechanism.cylinders[index].kinematics;
@@ -462,9 +493,12 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
         return report;
     }
 
-    require(report, std::isfinite(crank.crank_tdc_reference_rad.value),
+    require(report,
+            output_crank != nullptr &&
+                std::isfinite(output_crank->crank_tdc_reference_rad.value),
             ContractIssueCode::invalid_value,
-            "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
+            "engine.physics_profile.mechanism.output_crankshaft.crank_tdc_reference_"
+            "rad.value",
             "crank TDC reference must be finite");
     require(report,
             mechanism.cylinders.size() == engine.cylinders.size() &&
@@ -477,13 +511,17 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
             ContractIssueCode::unsupported_value,
             "engine.physics_profile.mechanism.cylinders",
             "event ordinals support at most 255 cylinders per mechanics session");
+    if (!report.ok()) {
+        return report;
+    }
 
     DirectMechanismKinematicsPlan plan;
     plan.engine_id = engine.id;
     plan.engine_profile_id = engine.profile_id.value;
-    plan.crank_tdc_reference_rad = crank.crank_tdc_reference_rad.value;
+    plan.output_crankshaft_id = mechanism.output_crankshaft_id;
+    plan.crank_tdc_reference_rad = output_crank->crank_tdc_reference_rad.value;
     plan.authored_crank_inertia_kg_m2 =
-        crank.authored_crank_inertia_kg_m2.value;
+        output_crank->authored_crank_inertia_kg_m2.value;
     plan.cylinders.reserve(mechanism.cylinders.size());
 
     std::unordered_set<std::uint32_t> cylinder_ids;
@@ -495,14 +533,14 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
                 : nullptr;
         const auto &parameters = assembly.parameters;
         const auto *direct =
-            std::get_if<contract::LegacyDirectJournalKinematics>(
-                &assembly.kinematics);
+            std::get_if<contract::LegacyDirectJournalKinematics>(&assembly.kinematics);
         const auto path =
-            "engine.physics_profile.mechanism.cylinders[" +
-            std::to_string(index) + "]";
+            "engine.physics_profile.mechanism.cylinders[" + std::to_string(index) + "]";
         const bool identity_valid =
             assembly.topology.cylinder_id.valid() && index < engine.cylinders.size() &&
             assembly.topology.cylinder_id == engine.cylinders[index].id &&
+            assembly.topology.crankshaft_id == engine.cylinders[index].crankshaft_id &&
+            assembly.topology.crankshaft_id == mechanism.output_crankshaft_id &&
             cylinder_ids.insert(assembly.topology.cylinder_id.value).second;
         require(report, identity_valid, ContractIssueCode::inconsistent_semantics,
                 path + ".topology.cylinder_id",
@@ -537,14 +575,13 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
         const double deck_height_m = parameters.deck_height_m.value;
         const double compression_height_m =
             parameters.piston_compression_height_m.value;
-        const double head_volume_m3 =
-            head == nullptr ? std::numeric_limits<double>::quiet_NaN()
-                            : head->chamber_volume_m3.value;
+        const double head_volume_m3 = head == nullptr
+                                          ? std::numeric_limits<double>::quiet_NaN()
+                                          : head->chamber_volume_m3.value;
         const double piston_displacement_m3 =
             parameters.piston_displacement_term_m3.value;
         const double journal_angle_rad = direct->journal_angle_rad.value;
-        const double ignition_wire_angle_rad =
-            parameters.ignition_wire_angle_rad.value;
+        const double ignition_wire_angle_rad = parameters.ignition_wire_angle_rad.value;
 
         const bool numeric_inputs_valid =
             finite_positive(bore_m) && finite_positive(stroke_m) &&
@@ -552,28 +589,25 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
             same_binary64(stroke_m, 2.0 * crank_radius_m) &&
             finite_positive(rod_length_m) && crank_radius_m < rod_length_m &&
             finite_positive(deck_height_m) && finite_positive(compression_height_m) &&
-            finite_positive(head_volume_m3) &&
-            std::isfinite(piston_displacement_m3) &&
-            std::isfinite(journal_angle_rad) &&
-            std::isfinite(ignition_wire_angle_rad);
+            finite_positive(head_volume_m3) && std::isfinite(piston_displacement_m3) &&
+            std::isfinite(journal_angle_rad) && std::isfinite(ignition_wire_angle_rad);
         require(report, numeric_inputs_valid, ContractIssueCode::invalid_value,
                 path + ".parameters",
                 "centered slider-crank inputs must be finite, positive where "
                 "required, and have crank radius below rod length");
         if (!numeric_inputs_valid || !identity_valid || !exhaust_route_valid ||
-            head == nullptr ||
-            !std::isfinite(crank.crank_tdc_reference_rad.value)) {
+            head == nullptr) {
             continue;
         }
 
         // Keep this direct-path calculation sequence byte-for-byte aligned with
         // the former mechanics compiler: derive first, then form/wrap TDC.
         const auto geometry = derive_legacy_cylinder_geometry(
-            bore_m, crank_radius_m, rod_length_m, deck_height_m,
-            compression_height_m, head_volume_m3, piston_displacement_m3);
-        const double geometric_tdc_rad = legacy_wrap_2pi(
-            crank.crank_tdc_reference_rad.value + journal_angle_rad -
-            kLegacyPi / 2.0);
+            bore_m, crank_radius_m, rod_length_m, deck_height_m, compression_height_m,
+            head_volume_m3, piston_displacement_m3);
+        const double geometric_tdc_rad =
+            legacy_wrap_2pi(output_crank->crank_tdc_reference_rad.value +
+                            journal_angle_rad - kLegacyPi / 2.0);
         const bool derived_valid = finite_positive(geometry.piston_area_m2) &&
                                    finite_positive(geometry.clearance_volume_m3) &&
                                    finite_positive(geometry.fixed_geometry_volume_m3) &&
@@ -585,6 +619,7 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
         }
 
         plan.cylinders.push_back({
+            assembly.topology.crankshaft_id,
             {
                 assembly.topology.cylinder_id,
                 geometric_tdc_rad,
@@ -632,11 +667,10 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
         std::in_place_type<DirectMechanismKinematicsPlan>, std::move(plan));
 }
 
-const DirectMechanismKinematicsPlan *direct_mechanism_kinematics_plan(
-    const SharedMechanismKinematicsPlan &plan) noexcept {
-    return plan == nullptr
-               ? nullptr
-               : std::get_if<DirectMechanismKinematicsPlan>(plan.get());
+const DirectMechanismKinematicsPlan *
+direct_mechanism_kinematics_plan(const SharedMechanismKinematicsPlan &plan) noexcept {
+    return plan == nullptr ? nullptr
+                           : std::get_if<DirectMechanismKinematicsPlan>(plan.get());
 }
 
 const OneLevelMasterRodMechanismKinematicsPlan *
@@ -674,22 +708,24 @@ evaluate_one_level_master_rod_plan(const OneLevelMasterRodMechanismKinematicsPla
 }
 
 bool mechanism_kinematics_plan_matches_source(
-    const SharedMechanismKinematicsPlan &plan,
-    const contract::EngineSpec &engine,
+    const SharedMechanismKinematicsPlan &plan, const contract::EngineSpec &engine,
     const contract::LowOrderEngineCoreV1 &core) noexcept {
-    if (!bank_head_topology_matches(engine, core.gas_path)) {
+    const auto &mechanism = core.mechanism;
+    const auto *output_crank = contract::find_output_crank(mechanism);
+    if (!bank_head_topology_matches(engine, core.gas_path) ||
+        !single_crank_topology_matches(engine, mechanism) || output_crank == nullptr) {
         return false;
     }
     const auto *radial = one_level_master_rod_mechanism_kinematics_plan(plan);
     if (radial != nullptr) {
-        const auto &mechanism = core.mechanism;
         if (radial->engine_id != engine.id ||
             radial->engine_profile_id != engine.profile_id.value ||
+            radial->output_crankshaft_id != mechanism.output_crankshaft_id ||
             radial->cylinders.empty() ||
             radial->cylinders.size() != engine.cylinders.size() ||
             radial->cylinders.size() != mechanism.cylinders.size() ||
             !same_binary64(radial->crank_tdc_reference_rad,
-                           mechanism.crank.crank_tdc_reference_rad.value)) {
+                           output_crank->crank_tdc_reference_rad.value)) {
             return false;
         }
 
@@ -722,6 +758,8 @@ bool mechanism_kinematics_plan_matches_source(
             if (geometry == nullptr || bank == nullptr || head == nullptr ||
                 route == engine.routes.end() ||
                 route->kind.value != contract::SourceRouteKind::exhaust_outlet ||
+                planned.crankshaft_id != engine_cylinder.crankshaft_id ||
+                planned.crankshaft_id != assembly.topology.crankshaft_id ||
                 planned.bank_id != engine_cylinder.bank_id ||
                 geometry->cylinder_id != engine_cylinder.id ||
                 geometry->cylinder_id != assembly.topology.cylinder_id ||
@@ -821,18 +859,18 @@ bool mechanism_kinematics_plan_matches_source(
     }
 
     const auto *direct = direct_mechanism_kinematics_plan(plan);
-    const auto &mechanism = core.mechanism;
     if (direct == nullptr || direct->engine_id != engine.id ||
         direct->engine_profile_id != engine.profile_id.value ||
+        direct->output_crankshaft_id != mechanism.output_crankshaft_id ||
         direct->cylinders.empty() ||
         direct->cylinders.size() != engine.cylinders.size() ||
         direct->cylinders.size() != mechanism.cylinders.size() ||
         !same_binary64(direct->crank_tdc_reference_rad,
-                       mechanism.crank.crank_tdc_reference_rad.value) ||
+                       output_crank->crank_tdc_reference_rad.value) ||
         !same_binary64(direct->authored_crank_inertia_kg_m2,
-                       mechanism.crank.authored_crank_inertia_kg_m2.value) ||
+                       output_crank->authored_crank_inertia_kg_m2.value) ||
         !same_binary64(direct->cycle_mean_inertia.authored_crank_inertia_kg_m2,
-                       mechanism.crank.authored_crank_inertia_kg_m2.value)) {
+                       output_crank->authored_crank_inertia_kg_m2.value)) {
         return false;
     }
 
@@ -843,14 +881,15 @@ bool mechanism_kinematics_plan_matches_source(
         const auto *head =
             find_head_profile(core.gas_path, engine.cylinders[index].bank_id);
         const auto *kinematics =
-            std::get_if<contract::LegacyDirectJournalKinematics>(
-                &assembly.kinematics);
+            std::get_if<contract::LegacyDirectJournalKinematics>(&assembly.kinematics);
         const auto route = std::find_if(
             engine.routes.begin(), engine.routes.end(), [&](const auto &candidate) {
                 return candidate.id == planned.exhaust_route_id;
             });
         if (kinematics == nullptr || head == nullptr ||
             engine.cylinders[index].master_rod_attachment.has_value() ||
+            planned.crankshaft_id != engine.cylinders[index].crankshaft_id ||
+            planned.crankshaft_id != assembly.topology.crankshaft_id ||
             planned.crank.cylinder_id != engine.cylinders[index].id ||
             planned.crank.cylinder_id != assembly.topology.cylinder_id ||
             planned.chamber_volume_id != assembly.topology.chamber_volume_id ||
@@ -863,8 +902,7 @@ bool mechanism_kinematics_plan_matches_source(
                            kinematics->crank_radius_m.value) ||
             !same_binary64(planned.crank.connecting_rod_length_m,
                            parameters.connecting_rod_length_m.value) ||
-            !same_binary64(planned.deck_height_m,
-                           parameters.deck_height_m.value) ||
+            !same_binary64(planned.deck_height_m, parameters.deck_height_m.value) ||
             !same_binary64(planned.piston_compression_height_m,
                            parameters.piston_compression_height_m.value) ||
             !same_binary64(planned.head_chamber_volume_m3,
@@ -875,8 +913,7 @@ bool mechanism_kinematics_plan_matches_source(
                            kinematics->journal_angle_rad.value) ||
             !same_binary64(planned.crank.ignition_wire_angle_rad,
                            parameters.ignition_wire_angle_rad.value) ||
-            !same_binary64(planned.piston_mass_kg,
-                           parameters.piston_mass_kg.value) ||
+            !same_binary64(planned.piston_mass_kg, parameters.piston_mass_kg.value) ||
             !same_binary64(planned.connecting_rod_mass_kg,
                            parameters.connecting_rod_mass_kg.value) ||
             !same_binary64(planned.connecting_rod_inertia_kg_m2,

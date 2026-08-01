@@ -107,6 +107,21 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     };
     require_count(engine.crankshafts.size(), 1U, "/engine/crankshafts",
                   "engine crankshaft collection");
+    if (engine.output_crankshaft.value.empty()) {
+        add(report, DiagnosticCode::missing_value, "/engine/output_crankshaft",
+            "the executable engine requires an explicit output crankshaft reference");
+    } else {
+        const auto output = std::find_if(
+            engine.crankshafts.begin(), engine.crankshafts.end(),
+            [&](const auto &crankshaft) {
+                return crankshaft.id.value == engine.output_crankshaft.value;
+            });
+        if (output == engine.crankshafts.end()) {
+            add(report, DiagnosticCode::dangling_reference, "/engine/output_crankshaft",
+                "output crankshaft reference '" + engine.output_crankshaft.value +
+                    "' does not resolve");
+        }
+    }
     if (engine.layout == authoring::CylinderLayout::inline_engine) {
         require_count(engine.banks.size(), 1U, "/engine/banks",
                       "inline engine bank collection");
@@ -234,7 +249,6 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     ModelContext resolved{document};
     resolved.profile_id = engine.identity.id.value + "-low-order-operating-point-v1";
     resolved.calibration_id = engine.identity.id.value + "-presentation-v1";
-    resolved.crankshaft = &engine.crankshafts.front();
     resolved.fuel = &engine.fuels.front();
     resolved.accessory_configuration = &engine.accessory_configurations.front();
 
@@ -244,6 +258,8 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         }
     };
     index(resolved.curves, engine.curves,
+          [](const auto &value) { return value.id.value; });
+    index(resolved.crankshafts, engine.crankshafts,
           [](const auto &value) { return value.id.value; });
     index(resolved.banks, engine.banks,
           [](const auto &value) { return value.id.value; });
@@ -269,6 +285,31 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
           [](const auto &value) { return value.id.value; });
     index(resolved.source_routes, engine.source_routes,
           [](const auto &value) { return value.id.value; });
+
+    resolved.output_crankshaft =
+        resolved.crankshafts.at(engine.output_crankshaft.value);
+
+    std::unordered_map<std::string, const authoring::CylinderDefinition *>
+        cylinder_definitions;
+    index(cylinder_definitions, engine.cylinders,
+          [](const auto &value) { return value.id.value; });
+    for (const auto &cylinder : engine.cylinders) {
+        const auto &journal = *resolved.journals.at(cylinder.journal.value);
+        const authoring::CrankshaftJournalAttachment *direct =
+            std::get_if<authoring::CrankshaftJournalAttachment>(&journal.attachment);
+        if (direct == nullptr) {
+            const auto &master =
+                std::get<authoring::MasterRodJournalAttachment>(journal.attachment);
+            const auto &master_cylinder =
+                *cylinder_definitions.at(master.master_cylinder.value);
+            const auto &master_journal =
+                *resolved.journals.at(master_cylinder.journal.value);
+            direct = std::get_if<authoring::CrankshaftJournalAttachment>(
+                &master_journal.attachment);
+        }
+        resolved.crankshaft_for_cylinder.emplace(
+            cylinder.id.value, resolved.crankshafts.at(direct->crankshaft.value));
+    }
 
     std::unordered_set<std::string> used_heads;
     for (std::size_t index = 0; index < engine.banks.size(); ++index) {

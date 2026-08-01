@@ -357,9 +357,12 @@ void visit_pressure_gains(const Gains &gains, const std::string &base,
 template <class Core, class Function>
 void visit_low_order_core_fields(const Core &core, std::string_view root,
                                  Function function, const auto &cylinder_name,
-                                 const auto &intake_name, const auto &head_name,
-                                 const auto &route_name) {
-    visit_crank(core.mechanism.crank, std::string(root) + ".mechanism.crank", function);
+                                 const auto &crank_name, const auto &intake_name,
+                                 const auto &head_name, const auto &route_name) {
+    for (const auto &crank : core.mechanism.cranks) {
+        visit_crank(crank, std::string(root) + ".mechanism.cranks." + crank_name(crank),
+                    function);
+    }
     for (const auto &cylinder : core.mechanism.cylinders) {
         visit_cylinder_parameters(cylinder,
                                   std::string(root) + ".mechanism.cylinders." +
@@ -783,15 +786,35 @@ void validate_authored_low_order_core_domains(
     using detail::finite_positive;
     using detail::require;
 
-    const auto &crank = core.mechanism.crank;
-    require(report,
+    require(report, !core.mechanism.cranks.empty(), ContractIssueCode::missing_value,
+            "mechanism.cranks", "legacy mechanism requires at least one crankshaft");
+    std::unordered_set<std::string> crankshaft_ids;
+    for (std::size_t index = 0; index < core.mechanism.cranks.size(); ++index) {
+        const auto &crank = core.mechanism.cranks[index];
+        const auto path = "mechanism.cranks[" + std::to_string(index) + "]";
+        require(report, is_valid_semantic_id(crank.crankshaft_id.value),
+                ContractIssueCode::invalid_value, path + ".crankshaft_id.value",
+                "crankshaft ID must be canonical");
+        require(report, crankshaft_ids.insert(crank.crankshaft_id.value).second,
+                ContractIssueCode::duplicate_identity, path + ".crankshaft_id.value",
+                "legacy crank assemblies must have unique crankshaft IDs");
+        require(
+            report,
             finite(crank.crank_tdc_reference_rad.value) &&
                 finite_positive(crank.crankshaft_mass_kg.value) &&
                 finite_positive(crank.flywheel_mass_kg.value) &&
                 finite_positive(crank.authored_crank_inertia_kg_m2.value) &&
                 finite_nonnegative(crank.running_friction_torque_magnitude_nm.value),
-            ContractIssueCode::invalid_value, "mechanism.crank",
+            ContractIssueCode::invalid_value, path,
             "crank assembly values are outside their physical domain");
+    }
+    require(report, is_valid_semantic_id(core.mechanism.output_crankshaft_id.value),
+            ContractIssueCode::invalid_value, "mechanism.output_crankshaft_id.value",
+            "output crankshaft ID must be canonical");
+    require(report, crankshaft_ids.contains(core.mechanism.output_crankshaft_id.value),
+            ContractIssueCode::dangling_reference,
+            "mechanism.output_crankshaft_id.value",
+            "output crankshaft must reference a declared crank assembly");
     require(report, !core.mechanism.cylinders.empty(), ContractIssueCode::missing_value,
             "mechanism.cylinders", "legacy mechanism requires at least one cylinder");
     validate_throttle_controller_domains(report, core.throttle_controller,
@@ -801,6 +824,10 @@ void validate_authored_low_order_core_domains(
         const auto &cylinder = core.mechanism.cylinders[index];
         const auto &parameters = cylinder.parameters;
         const auto path = "mechanism.cylinders[" + std::to_string(index) + "]";
+        require(report, crankshaft_ids.contains(cylinder.topology.crankshaft_id.value),
+                ContractIssueCode::dangling_reference,
+                path + ".topology.crankshaft_id.value",
+                "legacy cylinder references an unknown crankshaft");
         require(report,
                 finite_positive(parameters.bore_m.value) &&
                     finite_positive(parameters.stroke_m.value) &&
@@ -1330,6 +1357,40 @@ void validate_low_order_core_domains(ValidationReport &report,
             engine_cylinder_ids.insert(cylinder.id.value);
         }
     }
+    bool cranks_match_engine =
+        !core.mechanism.cranks.empty() &&
+        core.mechanism.cranks.size() == engine.crankshafts.size();
+    std::unordered_set<std::uint32_t> mechanism_crankshaft_ids;
+    for (std::size_t index = 0; index < core.mechanism.cranks.size(); ++index) {
+        const auto &crank = core.mechanism.cranks[index];
+        const auto path = "mechanism.cranks[" + std::to_string(index) + "]";
+        const bool unique_valid_id =
+            crank.crankshaft_id.valid() &&
+            mechanism_crankshaft_ids.insert(crank.crankshaft_id.value).second;
+        cranks_match_engine = cranks_match_engine && unique_valid_id &&
+                              index < engine.crankshafts.size() &&
+                              crank.crankshaft_id == engine.crankshafts[index].id;
+        require(
+            report,
+            finite(crank.crank_tdc_reference_rad.value) &&
+                finite_positive(crank.crankshaft_mass_kg.value) &&
+                finite_positive(crank.flywheel_mass_kg.value) &&
+                finite_positive(crank.authored_crank_inertia_kg_m2.value) &&
+                finite_nonnegative(crank.running_friction_torque_magnitude_nm.value),
+            ContractIssueCode::invalid_value, path,
+            "crank assembly values are outside their physical domain");
+    }
+    require(report, cranks_match_engine, ContractIssueCode::inconsistent_shape,
+            "mechanism.cranks",
+            "mechanism cranks must cover EngineSpec crankshafts exactly once in "
+            "EngineSpec order");
+    require(report,
+            core.mechanism.output_crankshaft_id.valid() &&
+                core.mechanism.output_crankshaft_id == engine.output_crankshaft_id &&
+                find_output_crank(core.mechanism) != nullptr,
+            ContractIssueCode::inconsistent_semantics, "mechanism.output_crankshaft_id",
+            "mechanism output crankshaft must match the valid EngineSpec output "
+            "crankshaft");
     bool heads_match_engine_banks = core.gas_path.heads.size() == engine.banks.size();
     for (std::size_t index = 0; index < core.gas_path.heads.size(); ++index) {
         const auto &head = core.gas_path.heads[index];
@@ -1367,15 +1428,6 @@ void validate_low_order_core_domains(ValidationReport &report,
                           });
     };
 
-    const auto &crank = core.mechanism.crank;
-    require(report,
-            finite(crank.crank_tdc_reference_rad.value) &&
-                finite_positive(crank.crankshaft_mass_kg.value) &&
-                finite_positive(crank.flywheel_mass_kg.value) &&
-                finite_positive(crank.authored_crank_inertia_kg_m2.value) &&
-                finite_nonnegative(crank.running_friction_torque_magnitude_nm.value),
-            ContractIssueCode::invalid_value, "mechanism.crank",
-            "crank assembly values are outside their physical domain");
     validate_throttle_controller_domains(report, core.throttle_controller,
                                          "throttle_controller");
     require(report,
@@ -1494,6 +1546,13 @@ void validate_low_order_core_domains(ValidationReport &report,
         require(report, engine_cylinder != nullptr,
                 ContractIssueCode::dangling_reference, path + ".topology.cylinder_id",
                 "legacy cylinder references an unknown engine cylinder");
+        require(report,
+                engine_cylinder != nullptr && topology.crankshaft_id.valid() &&
+                    mechanism_crankshaft_ids.contains(topology.crankshaft_id.value) &&
+                    topology.crankshaft_id == engine_cylinder->crankshaft_id,
+                ContractIssueCode::inconsistent_semantics,
+                path + ".topology.crankshaft_id",
+                "legacy cylinder crankshaft must match its EngineSpec binding");
         require(report,
                 intake != nullptr && engine_cylinder != nullptr &&
                     engine_cylinder->intake_id == topology.intake_id,
@@ -1665,6 +1724,10 @@ void validate_low_order_core_domains(ValidationReport &report,
                         master_engine_cylinder != nullptr &&
                         !master_engine_cylinder->master_rod_attachment.has_value() &&
                         master_core_cylinder != nullptr &&
+                        topology.crankshaft_id ==
+                            master_engine_cylinder->crankshaft_id &&
+                        topology.crankshaft_id ==
+                            master_core_cylinder->topology.crankshaft_id &&
                         std::holds_alternative<LegacyDirectJournalKinematics>(
                             master_core_cylinder->kinematics) &&
                         finite_positive(master->throw_radius_m.value) &&
@@ -2595,6 +2658,35 @@ void validate_resolved_profile_specific(ValidationReport &report,
 
 } // namespace
 
+const LegacyCrankAssembly *find_crank(const LegacyMechanismProfile &mechanism,
+                                      CrankshaftId id) noexcept {
+    if (!id.valid()) {
+        return nullptr;
+    }
+
+    const LegacyCrankAssembly *match = nullptr;
+    for (std::size_t index = 0; index < mechanism.cranks.size(); ++index) {
+        const auto &candidate = mechanism.cranks[index];
+        if (!candidate.crankshaft_id.valid()) {
+            return nullptr;
+        }
+        for (std::size_t prior = 0; prior < index; ++prior) {
+            if (mechanism.cranks[prior].crankshaft_id == candidate.crankshaft_id) {
+                return nullptr;
+            }
+        }
+        if (candidate.crankshaft_id == id) {
+            match = &candidate;
+        }
+    }
+    return match;
+}
+
+const LegacyCrankAssembly *
+find_output_crank(const LegacyMechanismProfile &mechanism) noexcept {
+    return find_crank(mechanism, mechanism.output_crankshaft_id);
+}
+
 ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                           const ProvenanceLedger &provenance) {
     ValidationReport report;
@@ -2612,12 +2704,22 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                                     "authored topology reference must be canonical");
                 }
             };
+            validate_topology_field(core.mechanism.output_crankshaft_id,
+                                    std::string(root) +
+                                        ".mechanism.output_crankshaft_id");
+            for (std::size_t index = 0; index < core.mechanism.cranks.size(); ++index) {
+                validate_topology_field(core.mechanism.cranks[index].crankshaft_id,
+                                        std::string(root) + ".mechanism.cranks[" +
+                                            std::to_string(index) + "].crankshaft_id");
+            }
             for (std::size_t index = 0; index < core.mechanism.cylinders.size();
                  ++index) {
                 const auto &topology = core.mechanism.cylinders[index].topology;
                 const auto base = std::string(root) + ".mechanism.cylinders[" +
                                   std::to_string(index) + "].topology";
                 validate_topology_field(topology.cylinder_id, base + ".cylinder_id");
+                validate_topology_field(topology.crankshaft_id,
+                                        base + ".crankshaft_id");
                 validate_topology_field(topology.intake_id, base + ".intake_id");
                 validate_topology_field(topology.intake_port_id,
                                         base + ".intake_port_id");
@@ -2713,6 +2815,9 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                     return item.route_id.value;
                 }
             };
+            const auto crank_name = [](const auto &crank) {
+                return crank.crankshaft_id.value;
+            };
             const auto head_name = [](const auto &head) { return head.bank_id.value; };
             const auto intake_name = [](const auto &intake) {
                 return intake.topology.intake_id.value;
@@ -2722,7 +2827,7 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                 [&](const auto &value, const std::string &path) {
                     validate_authored(report, value, provenance, path);
                 },
-                cylinder_name, intake_name, head_name, route_name);
+                cylinder_name, crank_name, intake_name, head_name, route_name);
             validate_authored_low_order_core_domains(report, core);
             validate_authored_profile_specific(report, typed_profile, provenance, root);
         },
@@ -2767,6 +2872,12 @@ ValidationReport validate(const ExecutablePhysicsProfile &profile,
                     return route_name(engine, item.route_id);
                 }
             };
+            const auto crank_namer = [&](const auto &crank) {
+                const auto *resolved = find_by_id(
+                    engine.crankshafts, crank.crankshaft_id, &CrankshaftSpec::id);
+                return resolved == nullptr ? std::string{"unknown-crankshaft"}
+                                           : resolved->semantic_id.value;
+            };
             const auto head_namer = [&](const auto &head) {
                 const auto *bank =
                     find_by_id(engine.banks, head.bank_id, &BankSpec::id);
@@ -2784,7 +2895,7 @@ ValidationReport validate(const ExecutablePhysicsProfile &profile,
                 [&](const auto &value, const std::string &path) {
                     validate_resolved(report, value, provenance, path);
                 },
-                cylinder_namer, intake_namer, head_namer, route_namer);
+                cylinder_namer, crank_namer, intake_namer, head_namer, route_namer);
             validate_low_order_core_domains(report, core, engine, provenance, root);
             validate_resolved_profile_specific(report, typed_profile, engine,
                                                provenance, root);

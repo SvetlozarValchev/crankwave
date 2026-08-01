@@ -373,9 +373,9 @@ void run_scenario_manifest_contract_tests() {
         };
     const auto master_rod_held_report =
         validate_for_engine(operating_scenario, master_rod_mode_engine);
-    expect(has_issue(master_rod_held_report, ContractIssueCode::unsupported_value,
-                     "mode"),
-           "programmatic master-rod engine admitted non-prescribed motion");
+    expect(
+        has_issue(master_rod_held_report, ContractIssueCode::unsupported_value, "mode"),
+        "programmatic master-rod engine admitted non-prescribed motion");
     expect(validate_for_engine(fixed_rpm_scenario, master_rod_mode_engine).ok(),
            "programmatic master-rod mode gate rejected prescribed motion");
     auto sampled_prescribed_scenario = fixed_rpm_scenario;
@@ -537,7 +537,7 @@ void run_scenario_manifest_contract_tests() {
 
     ValidationReport report;
     for (const auto schema_version :
-         {UINT32_C(4), UINT32_C(5), UINT32_C(6), UINT32_C(7), UINT32_C(9)}) {
+         {UINT32_C(4), UINT32_C(5), UINT32_C(6), UINT32_C(7), UINT32_C(8)}) {
         auto unsupported_manifest_schema = content;
         unsupported_manifest_schema.schema_version = schema_version;
         report =

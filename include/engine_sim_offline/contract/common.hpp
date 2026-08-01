@@ -23,6 +23,7 @@ template <class Tag> struct StableId {
 };
 
 using EngineId = StableId<struct EngineIdTag>;
+using CrankshaftId = StableId<struct CrankshaftIdTag>;
 using BankId = StableId<struct BankIdTag>;
 using IntakeId = StableId<struct IntakeIdTag>;
 using CylinderId = StableId<struct CylinderIdTag>;

@@ -350,6 +350,7 @@
         "tdc_reference_angle": {"value": 120, "unit": "deg"}
       }
     ],
+    "output_crankshaft": "crank",
     "journals": [
       {
         "id": "journal-1",

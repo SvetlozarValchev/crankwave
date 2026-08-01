@@ -875,8 +875,8 @@ ValidationReport validate(const HeldSpeedOperatingPointResult &operating_point) 
     using detail::require;
 
     ValidationReport report;
-    require(report, !operating_point.simulation_request_identity_v5_sha256.is_zero(),
-            ContractIssueCode::invalid_value, "simulation_request_identity_v5_sha256",
+    require(report, !operating_point.simulation_request_identity_v6_sha256.is_zero(),
+            ContractIssueCode::invalid_value, "simulation_request_identity_v6_sha256",
             "held-speed result requires a nonzero canonical simulation-request "
             "identity");
     append_prefixed(report, validate_operating_conditions(operating_point.conditions),
@@ -937,18 +937,18 @@ ValidationReport validate(const HeldSpeedOperatingPointResult &operating_point) 
 ValidationReport
 validate(const HeldSpeedOperatingPointResult &operating_point,
          const RenderScenario &requested_scenario, const EngineSpec &engine,
-         const Sha256Digest &expected_simulation_request_identity_v5_sha256) {
+         const Sha256Digest &expected_simulation_request_identity_v6_sha256) {
     using detail::require;
 
     auto report = validate(operating_point);
     const auto &conditions = operating_point.conditions;
     require(report,
-            !expected_simulation_request_identity_v5_sha256.is_zero() &&
-                operating_point.simulation_request_identity_v5_sha256 ==
-                    expected_simulation_request_identity_v5_sha256,
+            !expected_simulation_request_identity_v6_sha256.is_zero() &&
+                operating_point.simulation_request_identity_v6_sha256 ==
+                    expected_simulation_request_identity_v6_sha256,
             ContractIssueCode::inconsistent_semantics,
-            "simulation_request_identity_v5_sha256",
-            "held-speed result must retain the caller-supplied canonical v5 "
+            "simulation_request_identity_v6_sha256",
+            "held-speed result must retain the caller-supplied canonical v6 "
             "simulation-request identity");
 
     const auto *requested_mode = std::get_if<HeldSpeed>(&requested_scenario.mode);
@@ -1038,10 +1038,15 @@ validate(const HeldSpeedOperatingPointResult &operating_point,
             "operating-point profile and displacement must exactly match the "
             "executed engine");
     if (profile != nullptr) {
+        const auto *output_crank = find_output_crank(profile->core.mechanism);
+        require(report, output_crank != nullptr,
+                ContractIssueCode::inconsistent_semantics,
+                "engine.physics_profile.mechanism.output_crankshaft_id",
+                "operating-point evidence requires one resolved output crankshaft");
         require(report,
-                same_binary64(
-                    conditions.cycle_reference_theta_rad,
-                    profile->core.mechanism.crank.crank_tdc_reference_rad.value) &&
+                output_crank != nullptr &&
+                    same_binary64(conditions.cycle_reference_theta_rad,
+                                  output_crank->crank_tdc_reference_rad.value) &&
                     conditions.accessory_configuration.configuration_id ==
                         profile->accessory_configuration.configuration_id.value &&
                     conditions.accessory_configuration.content_sha256 ==

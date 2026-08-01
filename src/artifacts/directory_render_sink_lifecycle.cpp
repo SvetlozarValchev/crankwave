@@ -25,7 +25,7 @@ DirectoryRenderSink::Implementation::Implementation(
     std::filesystem::path publication_root, std::string publication_name)
     : publication_root_(std::move(publication_root)),
       publication_name_(std::move(publication_name)),
-      manifest_relative_path_(kSimulationManifestRelativePathV8),
+      manifest_relative_path_(kSimulationManifestRelativePathV9),
       manifest_digest_relative_path_(manifest_relative_path_ + ".sha256") {}
 
 DirectoryRenderSink::Implementation::~Implementation() {

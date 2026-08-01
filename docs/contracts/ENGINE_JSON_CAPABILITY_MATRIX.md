@@ -156,7 +156,9 @@ never silently looped.
 - References must resolve, forbidden cycles are rejected, and every connected physical
   object must be reachable from the engine root.
 - The authoring graph can represent broader sharing than the current executor admits.
-  Current execution accepts one crankshaft, one or more reachable shared or distinct
+  Current compilation carries authored-order crankshaft identities, an explicit
+  output-crankshaft selection, and exact cylinder bindings, while execution still
+  accepts exactly one crankshaft. It accepts one or more reachable shared or distinct
   intakes, one identical shared piston blowby restriction, and direct centered rods on
   one zero-angle inline bank, exactly two finite distinct-angle V banks, exactly two
   antipodal opposed banks, or one or more custom banks with explicit finite axes. Banks
@@ -243,7 +245,7 @@ the remainder as explicit capability diagnostics:
 
 | Pristine capability | Intended JSON ownership | Current status | Acceptance requirement |
 |---|---|---|---|
-| Multiple crankshafts attached to one engine | `engine.crankshafts[]` plus references | **Missing**; executable profile has one crank assembly | Two-crank structural fixture compiles and steps without identity collapse. |
+| Multiple crankshafts attached to one engine | Authored-order `engine.crankshafts[]`, required `engine.output_crankshaft`, and journal-owned references | **Typed foundation/Not yet executed**; public and resolved contracts preserve stable crank identities, explicit output selection, and direct/master-root cylinder bindings, while the compiler still rejects any count other than one | Two-crank prescribed structural fixture compiles and steps without identity collapse, followed separately by rigid-group dynamic aggregation. |
 | Crank throw, crank/flywheel mass, inertia, friction torque, TDC reference | Crankshaft physical fields | **Low-order executed/Partial**; positive-speed FreeEngine applies the authored crank-friction magnitude as the pristine saturated rotation constraint and the source one-step-lagged piston-wall law through centered inverse dynamics | BMW resolved-value comparison, direct pristine wall-reaction trace comparison, and WOT/coast response check. |
 | Rod journals with arbitrary phase | `engine.journals[]` tagged union; the direct variant requires `type: "crankshaft"`, `crankshaft`, and `phase` | **Low-order executed/Partial**; a dynamic cylinder set may reference and share direct journals with arbitrary finite phase | V8 and direct shared-journal fixtures preserve phases and reference identity. |
 | Master/slave rod attachment | `engine.journals[]` `type: "master_rod"` variant with `master_cylinder`, positive `throw_radius`, and finite local `phase`; retired `master_journal`, `slave_throw`, and `slave_journal` fields remain forbidden | **Low-order executed for finite prescribed motion**; references, exact-one consumer, connectivity, one-level direct master, and cycle rules validate. The immutable plan distinguishes roots from slave attachments, publishes no master-rod torque or inertia capability, and reproduces pristine one-level geometry without nominal slave stroke or displacement. Full-cycle certification precedes admission. Public mechanics, gas, capture, excitation, and audio consume the plan only for a finite `PrescribedKinematicSweep`; every torque-owning/dynamic mode remains closed | Canonical pristine-derived radial-five JSON preserves five banks, four slave pins, firing/cam/route associations, doubled head-flow tables, and exact IR identity. Its 800-frame public capture has active sources and its four-block `EngineSession` produces finite nonzero PCM. Malformed graphs, failed certificates, stale plans, and non-prescribed modes remain rejected. |

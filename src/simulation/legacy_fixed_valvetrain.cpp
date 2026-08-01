@@ -469,9 +469,13 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
     const auto &mechanism = core.mechanism;
     const auto &valvetrain = core.valvetrain;
     const auto &gas_path = core.gas_path;
-    require(report, std::isfinite(mechanism.crank.crank_tdc_reference_rad.value),
+    const auto *output_crank = contract::find_output_crank(mechanism);
+    require(report,
+            output_crank != nullptr &&
+                std::isfinite(output_crank->crank_tdc_reference_rad.value),
             ContractIssueCode::invalid_value,
-            "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
+            "engine.physics_profile.mechanism.output_crankshaft.crank_tdc_reference_"
+            "rad.value",
             "crank TDC reference must be finite");
     require(report,
             !engine.cylinders.empty() &&
@@ -484,8 +488,8 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
         valvetrain.intake.shape, report, "engine.physics_profile.valvetrain.intake");
     const auto exhaust_shape = admit_cam_shape(
         valvetrain.exhaust.shape, report, "engine.physics_profile.valvetrain.exhaust");
-    bool exact_ordered_head_coverage = !engine.banks.empty() &&
-                                       gas_path.heads.size() == engine.banks.size();
+    bool exact_ordered_head_coverage =
+        !engine.banks.empty() && gas_path.heads.size() == engine.banks.size();
     for (std::size_t index = 0; index < engine.banks.size(); ++index) {
         exact_ordered_head_coverage =
             exact_ordered_head_coverage && engine.banks[index].id.valid() &&
@@ -494,8 +498,7 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
             index < gas_path.heads.size() && gas_path.heads[index].bank_id.valid() &&
             gas_path.heads[index].bank_id == engine.banks[index].id;
     }
-    require(report, exact_ordered_head_coverage,
-            ContractIssueCode::inconsistent_shape,
+    require(report, exact_ordered_head_coverage, ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.gas_path.heads",
             "valvetrain requires one flow profile per engine bank in exact BankId "
             "order");
@@ -503,8 +506,9 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
         const auto &head = gas_path.heads[index];
         const std::string path =
             "engine.physics_profile.gas_path.heads[" + std::to_string(index) + "]";
-        require(report, index < engine.banks.size() && head.bank_id.valid() &&
-                            head.bank_id == engine.banks[index].id,
+        require(report,
+                index < engine.banks.size() && head.bank_id.valid() &&
+                    head.bank_id == engine.banks[index].id,
                 ContractIssueCode::inconsistent_semantics, path + ".bank_id",
                 "valvetrain flow profile identity/order must match the engine bank "
                 "order");
@@ -608,7 +612,8 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
         }
     }
 
-    if (!report.ok() || !intake_shape.has_value() || !exhaust_shape.has_value()) {
+    if (!report.ok() || output_crank == nullptr || !intake_shape.has_value() ||
+        !exhaust_shape.has_value()) {
         return report;
     }
 
@@ -626,7 +631,7 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
     }
 
     return LegacyFixedValvetrain{
-        mechanism.crank.crank_tdc_reference_rad.value,
+        output_crank->crank_tdc_reference_rad.value,
         std::move(bindings),
         construct_lobe_table(valvetrain.intake.shape, intake_shape->radius_rad),
         construct_lobe_table(valvetrain.exhaust.shape, exhaust_shape->radius_rad),

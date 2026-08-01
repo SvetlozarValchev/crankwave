@@ -408,6 +408,7 @@ make_engine_document(const SyntheticAssets &assets) {
         });
     }
     engine.crankshafts.push_back(std::move(crankshaft));
+    engine.output_crankshaft = {"fixture-crank"};
 
     engine.banks.push_back({
         {"fixture-bank"},
@@ -1274,12 +1275,13 @@ void test_complete_generic_compile_and_determinism() {
            "harmless document collection reordering changed compiled identity");
     expect(!first.stable_id_assignments().empty(),
            "complete engine compile emitted no stable runtime IDs");
-    expect(require_runtime_id(first, "engine.cylinder", "fixture-cylinder-1") == 1U &&
-               require_runtime_id(first, "engine.cylinder", "fixture-cylinder-6") ==
-                   6U &&
-               require_runtime_id(first, "engine.route", "fixture-route-front") == 1U &&
-               require_runtime_id(first, "engine.route", "fixture-route-rear") == 2U,
-           "canonical dense runtime IDs changed");
+    expect(
+        require_runtime_id(first, "engine.crankshaft", "fixture-crank") == 1U &&
+            require_runtime_id(first, "engine.cylinder", "fixture-cylinder-1") == 1U &&
+            require_runtime_id(first, "engine.cylinder", "fixture-cylinder-6") == 6U &&
+            require_runtime_id(first, "engine.route", "fixture-route-front") == 1U &&
+            require_runtime_id(first, "engine.route", "fixture-route-rear") == 2U,
+        "canonical dense runtime IDs changed");
     expect_same_assets(first, reordered);
 
     const auto scenario_document = make_scenario_document();
@@ -1325,6 +1327,55 @@ void test_complete_generic_compile_and_determinism() {
                                       .bytes,
                                   retained_rear.bytes),
            "immutable compiled assets changed under harmless document reordering");
+}
+
+void test_crankshaft_identity_output_and_cylinder_bindings_resolve() {
+    const SyntheticAssets assets = make_assets();
+    const auto document = make_engine_document(assets);
+    auto views = assets.views();
+    auto resolved =
+        require_value(compile_detail::resolve_engine_package(document, views),
+                      "explicit crankshaft identity resolution failed");
+
+    const auto &engine = resolved.engine;
+    const auto &mechanism =
+        std::get<contract::LowOrderOperatingPointV1Profile>(engine.physics_profile)
+            .core.mechanism;
+    const auto *output_crank = contract::find_output_crank(mechanism);
+    expect(engine.crankshafts.size() == 1U &&
+               engine.crankshafts.front().semantic_id.value == "fixture-crank" &&
+               engine.output_crankshaft_id == engine.crankshafts.front().id &&
+               mechanism.cranks.size() == 1U && output_crank != nullptr &&
+               mechanism.output_crankshaft_id == engine.output_crankshaft_id &&
+               output_crank->crankshaft_id == engine.output_crankshaft_id,
+           "resolved engine or low-order core lost explicit crankshaft identity");
+    expect(std::ranges::all_of(engine.cylinders,
+                               [&](const auto &cylinder) {
+                                   return cylinder.crankshaft_id ==
+                                          engine.output_crankshaft_id;
+                               }) &&
+               std::ranges::all_of(mechanism.cylinders,
+                                   [&](const auto &cylinder) {
+                                       return cylinder.topology.crankshaft_id ==
+                                              engine.output_crankshaft_id;
+                                   }),
+           "direct cylinders lost their resolved crankshaft binding");
+    const auto assignment =
+        std::ranges::find_if(resolved.stable_id_assignments, [](const auto &value) {
+            return value.object_namespace == "engine.crankshaft" &&
+                   value.authored_id == "fixture-crank";
+        });
+    expect(assignment != resolved.stable_id_assignments.end() &&
+               assignment->runtime_id == engine.output_crankshaft_id.value,
+           "crankshaft identity omitted its canonical stable runtime ID");
+    expect(std::ranges::any_of(resolved.provenance.resolutions,
+                               [](const auto &resolution) {
+                                   return resolution.parameter_path ==
+                                          "engine.physics.low-order-operating-point-v1."
+                                          "mechanism.cranks.fixture-crank."
+                                          "running_friction_torque_magnitude_nm";
+                               }),
+           "crankshaft field provenance omitted its semantic-ID-qualified path");
 }
 
 void test_inline_twin_one_route_reaches_executable_boundary() {
@@ -1882,8 +1933,10 @@ void test_rig_compiles_to_immutable_si_descriptors() {
     const auto &rig = *resolved.rig;
     const auto &physics = std::get<contract::LowOrderOperatingPointV1Profile>(
         resolved.engine.physics_profile);
-    expect(physics.core.mechanism.crank.running_friction_torque_magnitude_nm.value ==
-               10.0 * (4.44822 * ((1.0 / 100.0) * 2.54 * 12.0)),
+    const auto *output_crank = contract::find_output_crank(physics.core.mechanism);
+    expect(output_crank != nullptr &&
+               output_crank->running_friction_torque_magnitude_nm.value ==
+                   10.0 * (4.44822 * ((1.0 / 100.0) * 2.54 * 12.0)),
            "running crank friction lost the legacy lb-ft operation order");
     expect(rig.semantic_id.value == "fixture-bench" && rig.runtime_id == 1U &&
                rig.vehicle.has_value() && rig.transmission.has_value() &&
@@ -1918,13 +1971,13 @@ void test_rig_compiles_to_immutable_si_descriptors() {
                           "rig.transmission.gears.gear-low.authored_ordinal";
                }),
            "authored gear order is absent from resolved provenance");
-    expect(std::ranges::any_of(
-               resolved.provenance.resolutions,
-               [](const auto &resolution) {
-                   return resolution.parameter_path ==
-                          "engine.physics.low-order-operating-point-v1."
-                          "mechanism.crank.running_friction_torque_magnitude_nm";
-               }),
+    expect(std::ranges::any_of(resolved.provenance.resolutions,
+                               [](const auto &resolution) {
+                                   return resolution.parameter_path ==
+                                          "engine.physics.low-order-operating-point-v1."
+                                          "mechanism.cranks.fixture-crank."
+                                          "running_friction_torque_magnitude_nm";
+                               }),
            "running crank friction is absent from resolved provenance");
     expect(rig.dyno_defaults->minimum_engine_speed_rad_s.value == 100.0 &&
                rig.dyno_defaults->maximum_engine_speed_rad_s.value ==
@@ -2348,8 +2401,16 @@ void test_master_rod_graph_contract_and_public_admission() {
 
         const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
             resolved.engine.physics_profile);
-        expect(profile.core.mechanism.cylinders.size() == 2U,
-               "resolved master-rod core lost a cylinder");
+        const auto *output_crank = contract::find_output_crank(profile.core.mechanism);
+        expect(profile.core.mechanism.cylinders.size() == 2U &&
+                   output_crank != nullptr &&
+                   master.crankshaft_id == resolved.engine.output_crankshaft_id &&
+                   slave.crankshaft_id == resolved.engine.output_crankshaft_id &&
+                   profile.core.mechanism.cylinders[0].topology.crankshaft_id ==
+                       resolved.engine.output_crankshaft_id &&
+                   profile.core.mechanism.cylinders[1].topology.crankshaft_id ==
+                       resolved.engine.output_crankshaft_id,
+               "master-root crankshaft binding did not propagate to its slave");
         const auto *direct_core = std::get_if<contract::LegacyDirectJournalKinematics>(
             &profile.core.mechanism.cylinders[0].kinematics);
         const auto *master_core =
@@ -2394,7 +2455,7 @@ void test_master_rod_graph_contract_and_public_admission() {
                    simulation::direct_mechanism_kinematics_plan(*shared_plan) ==
                        nullptr &&
                    radial_plan->crank_tdc_reference_rad ==
-                       profile.core.mechanism.crank.crank_tdc_reference_rad.value,
+                       output_crank->crank_tdc_reference_rad.value,
                "master-rod graph did not select its separate geometry plan");
         const auto *root_plan =
             radial_plan == nullptr
@@ -2787,6 +2848,32 @@ void test_direct_engine_dto_identity_and_enum_admission_fails_closed() {
 
     {
         auto document = make_engine_document(assets);
+        document.engine.output_crankshaft.value.clear();
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::missing_value,
+                           "/engine/output_crankshaft",
+                           "missing direct-DTO output crankshaft");
+    }
+    {
+        auto document = make_engine_document(assets);
+        document.engine.output_crankshaft.value = "fixture-missing-crank";
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::dangling_reference,
+                           "/engine/output_crankshaft",
+                           "dangling direct-DTO output crankshaft");
+    }
+    {
+        auto document = make_engine_document(assets);
+        auto second_crankshaft = document.engine.crankshafts.front();
+        second_crankshaft.id.value = "fixture-second-crank";
+        document.engine.crankshafts.push_back(std::move(second_crankshaft));
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/crankshafts",
+                           "multiple crankshafts crossed the current execution gate");
+    }
+    {
+        auto document = make_engine_document(assets);
         document.engine.intakes.clear();
         const auto result = compile::compile_engine(document, views);
         require_diagnostic(result, authoring::DiagnosticCode::missing_value,
@@ -2852,6 +2939,7 @@ void test_direct_scenario_dto_admission_fails_closed() {
 int main() {
     try {
         test_complete_generic_compile_and_determinism();
+        test_crankshaft_identity_output_and_cylinder_bindings_resolve();
         test_inline_twin_one_route_reaches_executable_boundary();
         test_shared_ignition_wire_fans_out_without_topology_collapse();
         test_v_engine_resolves_bank_geometry_and_axis_relative_journals();

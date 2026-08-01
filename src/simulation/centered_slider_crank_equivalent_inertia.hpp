@@ -22,6 +22,7 @@ inline constexpr std::size_t kNoCenteredSliderCrankInertiaCylinder =
     std::numeric_limits<std::size_t>::max();
 
 enum class CenteredSliderCrankCycleMeanInertiaIssue : std::uint8_t {
+    missing_output_crankshaft,
     nonfinite_authored_crank_inertia,
     nonpositive_authored_crank_inertia,
     unsupported_cylinder_kinematics,

@@ -190,8 +190,9 @@ void ScenarioResolver::register_provenance() {
                     }
                     inertia_dependency_storage.push_back(record->parameter_path);
                 };
-                append_dependency(
-                    profile.core.mechanism.crank.authored_crank_inertia_kg_m2);
+                for (const auto &crank : profile.core.mechanism.cranks) {
+                    append_dependency(crank.authored_crank_inertia_kg_m2);
+                }
                 for (const auto &cylinder : profile.core.mechanism.cylinders) {
                     const auto *direct =
                         std::get_if<contract::LegacyDirectJournalKinematics>(
@@ -260,8 +261,9 @@ void ScenarioResolver::register_provenance() {
                     }
                     inertia_dependency_storage.push_back(record->parameter_path);
                 };
-                append_dependency(
-                    profile.core.mechanism.crank.authored_crank_inertia_kg_m2);
+                for (const auto &crank : profile.core.mechanism.cranks) {
+                    append_dependency(crank.authored_crank_inertia_kg_m2);
+                }
                 for (const auto &cylinder : profile.core.mechanism.cylinders) {
                     const auto *direct =
                         std::get_if<contract::LegacyDirectJournalKinematics>(

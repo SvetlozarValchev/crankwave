@@ -377,20 +377,27 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
 
     const auto &mechanism = core.mechanism;
     const auto &gas_path = core.gas_path;
+    const auto *output_crank = contract::find_output_crank(mechanism);
+    require(report, output_crank != nullptr, ContractIssueCode::dangling_reference,
+            "engine.physics_profile.mechanism.output_crankshaft_id",
+            "gas session requires one resolved output crankshaft");
     require(report,
             !engine.cylinders.empty() &&
                 mechanism.cylinders.size() == engine.cylinders.size(),
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.mechanism.cylinders",
             "engine and mechanism cylinder orders must be equal and nonempty");
-    require(report, std::isfinite(mechanism.crank.crank_tdc_reference_rad.value),
+    require(report,
+            output_crank != nullptr &&
+                std::isfinite(output_crank->crank_tdc_reference_rad.value),
             ContractIssueCode::invalid_value,
-            "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
+            "engine.physics_profile.mechanism.output_crankshaft.crank_tdc_reference_"
+            "rad.value",
             "crank TDC reference must be finite");
     require(report,
-            std::isfinite(schedule.initial_theta_rad()) &&
+            output_crank != nullptr && std::isfinite(schedule.initial_theta_rad()) &&
                 same_binary64(schedule.initial_theta_rad(),
-                              mechanism.crank.crank_tdc_reference_rad.value),
+                              output_crank->crank_tdc_reference_rad.value),
             ContractIssueCode::unsupported_value, "schedule.initial_theta_rad",
             "fresh gas state requires the admitted initial angle to equal the "
             "crank TDC reference");

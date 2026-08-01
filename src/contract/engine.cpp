@@ -375,6 +375,25 @@ void validate_authored_low_order_core_topology(
     std::unordered_set<std::string> collector_bindings;
     std::unordered_set<std::string> expected_edge_bindings;
 
+    bool exact_ordered_crank_coverage =
+        core.mechanism.cranks.size() == definition.crankshafts.size();
+    for (std::size_t index = 0; index < core.mechanism.cranks.size(); ++index) {
+        exact_ordered_crank_coverage =
+            exact_ordered_crank_coverage && index < definition.crankshafts.size() &&
+            core.mechanism.cranks[index].crankshaft_id.value ==
+                definition.crankshafts[index].value;
+    }
+    require(report, exact_ordered_crank_coverage, ContractIssueCode::inconsistent_shape,
+            std::string(physics_root) + ".mechanism.cranks",
+            "legacy mechanism cranks must cover every authored crankshaft exactly "
+            "once in authored order");
+    require(report,
+            core.mechanism.output_crankshaft_id.value ==
+                definition.output_crankshaft_id.value,
+            ContractIssueCode::inconsistent_semantics,
+            std::string(physics_root) + ".mechanism.output_crankshaft_id.value",
+            "legacy mechanism output crankshaft must match the authored engine");
+
     std::vector<std::string> expected_head_banks;
     expected_head_banks.reserve(definition.banks.size());
     for (const auto &bank : definition.banks) {
@@ -533,6 +552,10 @@ void validate_authored_low_order_core_topology(
         if (cylinder != nullptr) {
             const auto authored_path =
                 "engine.cylinders." + cylinder->semantic_id.value;
+            require(report,
+                    cylinder->crankshaft_id.value == topology.crankshaft_id.value,
+                    ContractIssueCode::inconsistent_semantics, path + ".crankshaft_id",
+                    "legacy cylinder crankshaft must match its authored binding");
             require(report, cylinder->intake_id.value == topology.intake_id.value,
                     ContractIssueCode::inconsistent_semantics, path + ".intake_id",
                     "legacy cylinder intake must match its authored intake binding");
@@ -874,6 +897,8 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
                       "engine.ignition");
     validate_authored(report, definition.cylinder_layout, definition.provenance,
                       "engine.cylinder_layout");
+    validate_authored(report, definition.output_crankshaft_id, definition.provenance,
+                      "engine.output_crankshaft_id");
     require(report, is_valid_semantic_id(definition.engine_id.value),
             ContractIssueCode::invalid_value, "engine.engine_id.value",
             "engine ID must be a canonical semantic ID");
@@ -891,12 +916,34 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
     require(report, known(definition.cylinder_layout.value),
             ContractIssueCode::unsupported_value, "engine.cylinder_layout.value",
             "cylinder layout is not recognized");
+    require(report, !definition.crankshafts.empty(), ContractIssueCode::missing_value,
+            "engine.crankshafts", "an engine needs at least one crankshaft");
     require(report, !definition.banks.empty(), ContractIssueCode::missing_value,
             "engine.banks", "an engine needs at least one bank");
     require(report, !definition.intakes.empty(), ContractIssueCode::missing_value,
             "engine.intakes", "an engine needs at least one intake");
     require(report, !definition.cylinders.empty(), ContractIssueCode::missing_value,
             "engine.cylinders", "an engine needs at least one cylinder");
+
+    std::unordered_set<std::string> crankshaft_ids;
+    for (std::size_t index = 0; index < definition.crankshafts.size(); ++index) {
+        const auto path = "engine.crankshafts[" + std::to_string(index) + "]";
+        const auto &crankshaft = definition.crankshafts[index];
+        validate_authored(report, crankshaft, definition.provenance, path);
+        require(report, is_valid_semantic_id(crankshaft.value),
+                ContractIssueCode::invalid_value, path + ".value",
+                "crankshaft ID must be a canonical semantic ID");
+        if (!crankshaft_ids.insert(crankshaft.value).second) {
+            report.add(ContractIssueCode::duplicate_identity, path + ".value",
+                       "crankshaft IDs must be unique");
+        }
+    }
+    require(report, is_valid_semantic_id(definition.output_crankshaft_id.value),
+            ContractIssueCode::invalid_value, "engine.output_crankshaft_id.value",
+            "output crankshaft ID must be canonical");
+    require(report, crankshaft_ids.contains(definition.output_crankshaft_id.value),
+            ContractIssueCode::dangling_reference, "engine.output_crankshaft_id.value",
+            "output crankshaft must reference a declared crankshaft");
 
     std::unordered_set<std::string> bank_ids;
     for (std::size_t index = 0; index < definition.banks.size(); ++index) {
@@ -935,6 +982,8 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
                           path + ".semantic_id");
         validate_authored(report, cylinder.bank_id, definition.provenance,
                           path + ".bank_id");
+        validate_authored(report, cylinder.crankshaft_id, definition.provenance,
+                          path + ".crankshaft_id");
         validate_authored(report, cylinder.intake_id, definition.provenance,
                           path + ".intake_id");
         require(report, is_valid_semantic_id(cylinder.semantic_id.value),
@@ -947,6 +996,9 @@ ValidationReport validate(const AuthoredEngineDefinition &definition) {
         require(report, bank_ids.contains(cylinder.bank_id.value),
                 ContractIssueCode::dangling_reference, path + ".bank_id.value",
                 "cylinder references an unknown bank");
+        require(report, crankshaft_ids.contains(cylinder.crankshaft_id.value),
+                ContractIssueCode::dangling_reference, path + ".crankshaft_id.value",
+                "cylinder references an unknown crankshaft");
         require(report, intake_ids.contains(cylinder.intake_id.value),
                 ContractIssueCode::dangling_reference, path + ".intake_id.value",
                 "cylinder references an unknown intake");
@@ -1232,6 +1284,8 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
     require(report, finite_positive(spec.total_displacement_m3.value),
             ContractIssueCode::invalid_value, "engine.total_displacement_m3.value",
             "total displacement must be finite and positive");
+    require(report, !spec.crankshafts.empty(), ContractIssueCode::missing_value,
+            "engine.crankshafts", "resolved engine needs at least one crankshaft");
     require(report, !spec.banks.empty(), ContractIssueCode::missing_value,
             "engine.banks", "resolved engine needs at least one bank");
     require(report, !spec.intakes.empty(), ContractIssueCode::missing_value,
@@ -1239,6 +1293,10 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
     require(report, !spec.cylinders.empty(), ContractIssueCode::missing_value,
             "engine.cylinders", "resolved engine needs at least one cylinder");
 
+    detail::require_unique_numeric_ids(
+        report, spec.crankshafts,
+        [](const CrankshaftSpec &crankshaft) { return crankshaft.id; },
+        "engine.crankshafts");
     detail::require_unique_numeric_ids(
         report, spec.banks, [](const BankSpec &bank) { return bank.id; },
         "engine.banks");
@@ -1260,6 +1318,32 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
     detail::require_unique_numeric_ids(
         report, spec.routes, [](const RouteSpec &route) { return route.id; },
         "engine.routes");
+
+    std::unordered_set<std::uint32_t> crankshaft_ids;
+    std::unordered_set<std::string> crankshaft_semantic_ids;
+    for (const auto &crankshaft : spec.crankshafts) {
+        const auto path = resolved_path("crankshafts", crankshaft.semantic_id.value);
+        if (crankshaft.id.valid()) {
+            crankshaft_ids.insert(crankshaft.id.value);
+        }
+        validate_resolved(report, crankshaft.semantic_id, provenance,
+                          path + ".semantic_id");
+        require(report, is_valid_semantic_id(crankshaft.semantic_id.value),
+                ContractIssueCode::invalid_value, path + ".semantic_id.value",
+                "crankshaft semantic ID must be canonical");
+        if (!crankshaft_semantic_ids.insert(crankshaft.semantic_id.value).second) {
+            report.add(ContractIssueCode::duplicate_identity,
+                       path + ".semantic_id.value",
+                       "crankshaft semantic IDs must be unique");
+        }
+    }
+    require(report, spec.output_crankshaft_id.valid(), ContractIssueCode::invalid_value,
+            "engine.output_crankshaft_id", "output crankshaft ID must be valid");
+    require(report,
+            spec.output_crankshaft_id.valid() &&
+                crankshaft_ids.contains(spec.output_crankshaft_id.value),
+            ContractIssueCode::dangling_reference, "engine.output_crankshaft_id",
+            "output crankshaft must reference a declared crankshaft");
 
     std::unordered_set<std::uint32_t> bank_ids;
     std::unordered_set<std::string> bank_semantic_ids;
@@ -1408,6 +1492,11 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
         require(report, bank_ids.contains(cylinder.bank_id.value),
                 ContractIssueCode::dangling_reference, path + ".bank_id",
                 "cylinder references an unknown bank");
+        require(report,
+                cylinder.crankshaft_id.valid() &&
+                    crankshaft_ids.contains(cylinder.crankshaft_id.value),
+                ContractIssueCode::dangling_reference, path + ".crankshaft_id",
+                "cylinder references an unknown crankshaft");
         require(report, intake_ids.contains(cylinder.intake_id.value),
                 ContractIssueCode::dangling_reference, path + ".intake_id",
                 "cylinder references an unknown intake");
@@ -1471,6 +1560,10 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
             require(report, !master->master_rod_attachment.has_value(),
                     ContractIssueCode::inconsistent_semantics, path,
                     "master cylinder must use a direct crankshaft journal");
+            require(report, master->crankshaft_id == cylinder.crankshaft_id,
+                    ContractIssueCode::inconsistent_semantics, path,
+                    "master-rod attachment must remain on its master cylinder's "
+                    "crankshaft");
         }
     }
     const auto displacement_scale = std::max(std::abs(spec.total_displacement_m3.value),

@@ -25,13 +25,13 @@ using namespace engine_sim_offline::contract::test;
 using namespace engine_sim_offline::identity;
 
 constexpr std::string_view kExpectedCanonicalManifestSha256 =
-    "1d5d222b742944d565d25fa74923eff9fdf2abc5dd0713135cb53c66b0646e25";
+    "c07b429eb2e844d9ace23eacde1d479ebb6b671834d16ca4ea6e8c25081cd430";
 constexpr std::string_view kExpectedCanonicalRequestIdentitySha256 =
-    "65655d6b8c80d567fb1f4e15cfe011ac155efce5d0c9e8dae1f3313452ad83c9";
+    "6019a719d67897c6ae0180323d299253c3edf14556e873e96134edee24b4edac";
 constexpr std::string_view kExpectedCustomizedManifestSha256 =
-    "192108822720ce0fdc23d25e5769fafbf10fcdbab61400c98435f1df1ab9a1af";
+    "ba58627be6cf75c49cde1c21e34df06b5fb7f6f612f88e468ac5acb053a1f76a";
 constexpr std::string_view kExpectedCustomizedRequestIdentitySha256 =
-    "94af69ae8e9a4ab60f748c5bad1c5e4a024117929abdd47a906cbea1fac94f59";
+    "ded56a01243c0e115b75f642d560efd91c3cfd430c89a4898a70e4b147aa5c30";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -66,7 +66,7 @@ void require_valid(const ValidationReport &report, std::string_view message) {
 
 [[nodiscard]] ExecutionFacts deterministic_execution() {
     return {
-        "simulation-manifest-encoder-test-v8",
+        "simulation-manifest-encoder-test-v9",
         "2026-07-28T12:34:56Z",
         std::chrono::nanoseconds{UINT64_C(1234567890)},
         "linux",
@@ -138,7 +138,7 @@ make_vtec_alternate(InputBuilder &builder, const LegacyValvetrainProfile &valvet
 
 [[nodiscard]] std::vector<std::byte>
 require_manifest_encoding(const RenderManifest &manifest) {
-    auto result = encode_simulation_manifest_v8(manifest);
+    auto result = encode_simulation_manifest_v9(manifest);
     if (const auto *error = std::get_if<RenderSinkError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
     }
@@ -148,7 +148,7 @@ require_manifest_encoding(const RenderManifest &manifest) {
 [[nodiscard]] SimulationRequestIdentityEncoding require_request_identity_encoding(
     const EngineSpec &engine, const RenderScenario &scenario,
     const RandomPlan &random_plan, const ProvenanceBundleRef &provenance) {
-    auto result = encode_simulation_request_identity_v5(engine, scenario, random_plan,
+    auto result = encode_simulation_request_identity_v6(engine, scenario, random_plan,
                                                         provenance);
     if (const auto *error = std::get_if<SimulationRequestIdentityError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
@@ -158,7 +158,7 @@ require_manifest_encoding(const RenderManifest &manifest) {
 
 void expect_manifest_error(const RenderManifest &manifest,
                            std::string_view detail_code) {
-    const auto result = encode_simulation_manifest_v8(manifest);
+    const auto result = encode_simulation_manifest_v9(manifest);
     const auto *error = std::get_if<RenderSinkError>(&result);
     expect(error != nullptr, "invalid simulation manifest unexpectedly encoded");
     expect(error->kind == RenderSinkErrorKind::protocol_violation,
@@ -172,7 +172,7 @@ void expect_request_identity_error(const EngineSpec &engine,
                                    const RandomPlan &random_plan,
                                    const ProvenanceBundleRef &provenance,
                                    std::string_view detail_code) {
-    const auto result = encode_simulation_request_identity_v5(engine, scenario,
+    const auto result = encode_simulation_request_identity_v6(engine, scenario,
                                                               random_plan, provenance);
     const auto *error = std::get_if<SimulationRequestIdentityError>(&result);
     expect(error != nullptr,
@@ -199,8 +199,8 @@ struct GoldenHashes {
 
     const auto manifest_document = as_string(first_manifest);
     constexpr std::string_view kManifestPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v8\","
-        "\"content\":{\"schema_version\":8,\"inputs\":{\"kind\":\"simulation_v7\","
+        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v9\","
+        "\"content\":{\"schema_version\":9,\"inputs\":{\"kind\":\"simulation_v8\","
         "\"value\":{\"resolved\":{\"engine\":";
     expect(manifest_document.starts_with(kManifestPrefix),
            "simulation manifest root, discriminator, or member order changed");
@@ -221,17 +221,28 @@ struct GoldenHashes {
                presentation_key < randomness_key && randomness_key < scenario_key &&
                scenario_key < execution_key,
            "simulation manifest resolved-input or root member order changed");
-    const auto banks_key = manifest_document.find("\"banks\":", engine_key);
+    const auto crankshafts_key = manifest_document.find("\"crankshafts\":", engine_key);
+    const auto output_crankshaft_key =
+        manifest_document.find("\"output_crankshaft_id\":", crankshafts_key);
+    const auto banks_key = manifest_document.find("\"banks\":", output_crankshaft_key);
     const auto intakes_key = manifest_document.find("\"intakes\":", banks_key);
     const auto cylinders_key = manifest_document.find("\"cylinders\":", intakes_key);
+    const auto public_cylinder_crankshaft_id =
+        manifest_document.find("\"crankshaft_id\":", cylinders_key);
     const auto public_cylinder_intake_id =
-        manifest_document.find("\"intake_id\":", cylinders_key);
-    expect(banks_key != std::string::npos && intakes_key != std::string::npos &&
+        manifest_document.find("\"intake_id\":", public_cylinder_crankshaft_id);
+    expect(crankshafts_key != std::string::npos &&
+               output_crankshaft_key != std::string::npos &&
+               banks_key != std::string::npos && intakes_key != std::string::npos &&
                cylinders_key != std::string::npos &&
+               public_cylinder_crankshaft_id != std::string::npos &&
                public_cylinder_intake_id != std::string::npos &&
-               banks_key < intakes_key && intakes_key < cylinders_key &&
-               cylinders_key < public_cylinder_intake_id,
-           "engine intake identities or cylinder intake binding were omitted or "
+               crankshafts_key < output_crankshaft_key &&
+               output_crankshaft_key < banks_key && banks_key < intakes_key &&
+               intakes_key < cylinders_key &&
+               cylinders_key < public_cylinder_crankshaft_id &&
+               public_cylinder_crankshaft_id < public_cylinder_intake_id,
+           "engine crank/intake identities or cylinder bindings were omitted or "
            "reordered");
     expect(manifest_document.find(
                "\"seed_namespace_id\":{\"value\":\"baked.loaded_acceleration\","
@@ -241,12 +252,21 @@ struct GoldenHashes {
                std::string::npos,
            "presentation-calibration v2 was not emitted");
     expect(manifest_document.find("\"algorithm_record\":") == std::string::npos,
-           "retired presentation algorithm record leaked into manifest v8");
+           "retired presentation algorithm record leaked into manifest v9");
 
     constexpr std::string_view kProfilePrefix =
         "\"physics_profile\":{\"kind\":\"low_order_operating_point_v1\",\"value\":{"
-        "\"core\":{\"mechanism\":{\"crank\":{\"crank_tdc_reference_rad\":";
+        "\"core\":{\"mechanism\":{\"output_crankshaft_id\":";
     const auto profile = manifest_document.find(kProfilePrefix);
+    const auto core_cranks = manifest_document.find("\"cranks\":[", profile);
+    const auto core_crankshaft_id =
+        manifest_document.find("\"crankshaft_id\":", core_cranks);
+    const auto crank_tdc_reference =
+        manifest_document.find("\"crank_tdc_reference_rad\":", core_crankshaft_id);
+    const auto core_cylinders =
+        manifest_document.find("\"cylinders\":[", crank_tdc_reference);
+    const auto topology_crankshaft_id =
+        manifest_document.find("\"crankshaft_id\":", core_cylinders);
     const auto gas_path = manifest_document.find("\"gas_path\":", profile);
     const auto gas_intakes = manifest_document.find("\"intakes\":[", gas_path);
     const auto intake_topology =
@@ -264,26 +284,37 @@ struct GoldenHashes {
         manifest_document.find("\"cycle_quadrature\":{", starter);
     const auto torque_capability =
         manifest_document.find("\"torque_capability\":", cycle_quadrature);
-    expect(profile != std::string::npos && gas_path != std::string::npos &&
-               gas_intakes != std::string::npos &&
+    expect(profile != std::string::npos && core_cranks != std::string::npos &&
+               core_crankshaft_id != std::string::npos &&
+               crank_tdc_reference != std::string::npos &&
+               core_cylinders != std::string::npos &&
+               topology_crankshaft_id != std::string::npos &&
+               gas_path != std::string::npos && gas_intakes != std::string::npos &&
                intake_topology != std::string::npos &&
                intake_parameters != std::string::npos &&
                running_crank_friction != std::string::npos &&
                aggregate_loss != std::string::npos &&
                accessory_configuration != std::string::npos &&
                starter != std::string::npos && cycle_quadrature != std::string::npos &&
-               torque_capability != std::string::npos &&
-               profile < running_crank_friction && running_crank_friction < gas_path &&
-               gas_path < gas_intakes && gas_intakes < intake_topology &&
-               intake_topology < intake_parameters &&
+               torque_capability != std::string::npos && profile < core_cranks &&
+               core_cranks < core_crankshaft_id &&
+               core_crankshaft_id < crank_tdc_reference &&
+               crank_tdc_reference < running_crank_friction &&
+               running_crank_friction < core_cylinders &&
+               core_cylinders < topology_crankshaft_id &&
+               topology_crankshaft_id < gas_path && gas_path < gas_intakes &&
+               gas_intakes < intake_topology && intake_topology < intake_parameters &&
                running_crank_friction < aggregate_loss &&
                aggregate_loss < accessory_configuration &&
                accessory_configuration < starter && starter < cycle_quadrature &&
                cycle_quadrature < torque_capability,
            "operating-point profile was flattened or its member order changed");
+    expect(manifest_document.find("\"mechanism\":{\"crank\":", profile) ==
+               std::string::npos,
+           "retired singular crank assembly leaked into manifest v9");
     expect(manifest_document.find("\"intake_topology\":", gas_path) ==
                std::string::npos,
-           "retired singular intake topology leaked into manifest v8");
+           "retired singular intake topology leaked into manifest v9");
     expect(manifest_document.find("\"instantaneous_net_shaft\":{"
                                   "\"availability\":\"available\","
                                   "\"completeness\":\"complete\","
@@ -301,7 +332,7 @@ struct GoldenHashes {
     expect(manifest_document.find("\"physical_net_complete\":") == std::string::npos &&
                manifest_document.find("\"cycle_integration_available\":") ==
                    std::string::npos,
-           "retired torque projection leaked into manifest v8");
+           "retired torque projection leaked into manifest v9");
 
     const auto &resolved = simulation_inputs(fixture.manifest.content);
     const auto first_identity = require_request_identity_encoding(
@@ -317,7 +348,7 @@ struct GoldenHashes {
 
     const auto identity_document = as_string(first_identity.bytes);
     constexpr std::string_view kIdentityPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v5\","
+        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v6\","
         "\"engine\":";
     expect(identity_document.starts_with(kIdentityPrefix),
            "request identity root or member order changed");
@@ -334,6 +365,30 @@ struct GoldenHashes {
                identity_random_plan_key < identity_provenance_key &&
                identity_document.find("\"presentation\":") == std::string::npos,
            "request identity member order or excluded presentation changed");
+    const auto identity_crankshafts =
+        identity_document.find("\"crankshafts\":", identity_engine_key);
+    const auto identity_output_crankshaft =
+        identity_document.find("\"output_crankshaft_id\":", identity_crankshafts);
+    const auto identity_cylinder =
+        identity_document.find("\"cylinders\":", identity_output_crankshaft);
+    const auto identity_cylinder_crankshaft =
+        identity_document.find("\"crankshaft_id\":", identity_cylinder);
+    const auto identity_core_output_crankshaft = identity_document.find(
+        "\"mechanism\":{\"output_crankshaft_id\":", identity_cylinder_crankshaft);
+    const auto identity_core_cranks =
+        identity_document.find("\"cranks\":[", identity_core_output_crankshaft);
+    expect(identity_crankshafts != std::string::npos &&
+               identity_output_crankshaft != std::string::npos &&
+               identity_cylinder != std::string::npos &&
+               identity_cylinder_crankshaft != std::string::npos &&
+               identity_core_output_crankshaft != std::string::npos &&
+               identity_core_cranks != std::string::npos &&
+               identity_crankshafts < identity_output_crankshaft &&
+               identity_output_crankshaft < identity_cylinder &&
+               identity_cylinder < identity_cylinder_crankshaft &&
+               identity_cylinder_crankshaft < identity_core_output_crankshaft &&
+               identity_core_output_crankshaft < identity_core_cranks,
+           "request identity omitted or reordered crankshaft ownership");
 
     auto mutated_plan = fixture.manifest.content.randomness;
     ++mutated_plan.component_seeds.front().initial_state;
@@ -356,6 +411,26 @@ struct GoldenHashes {
         fixture.manifest.content.provenance);
     expect(changed_namespace_identity.sha256 != first_identity.sha256,
            "seed-namespace-derived plan change did not change request identity");
+
+    auto changed_engine_crank_identity = resolved.engine;
+    changed_engine_crank_identity.crankshafts.front().semantic_id.value += ".variant";
+    const auto changed_engine_crank_identity_encoding =
+        require_request_identity_encoding(
+            changed_engine_crank_identity, resolved.scenario,
+            fixture.manifest.content.randomness, fixture.manifest.content.provenance);
+    expect(changed_engine_crank_identity_encoding.sha256 != first_identity.sha256,
+           "public crankshaft identity mutation did not change request identity");
+
+    auto changed_core_crank_binding = resolved.engine;
+    auto &changed_core = std::get<LowOrderOperatingPointV1Profile>(
+                             changed_core_crank_binding.physics_profile)
+                             .core;
+    changed_core.mechanism.cranks.front().crankshaft_id = CrankshaftId{2};
+    const auto changed_core_crank_binding_encoding = require_request_identity_encoding(
+        changed_core_crank_binding, resolved.scenario,
+        fixture.manifest.content.randomness, fixture.manifest.content.provenance);
+    expect(changed_core_crank_binding_encoding.sha256 != first_identity.sha256,
+           "executable crankshaft binding mutation did not change request identity");
 
     return {
         digest_hex(sha256(first_manifest)),
@@ -506,7 +581,7 @@ void test_vtec_request_identity_wire_shape() {
 void test_fail_closed_boundaries() {
     SimulationFixture fixture;
 
-    for (const auto schema_version : {UINT32_C(6), UINT32_C(7), UINT32_C(9)}) {
+    for (const auto schema_version : {UINT32_C(6), UINT32_C(7), UINT32_C(8)}) {
         auto unsupported_schema = fixture.manifest;
         unsupported_schema.content.schema_version = schema_version;
         expect_manifest_error(unsupported_schema,

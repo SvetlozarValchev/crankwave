@@ -32,6 +32,10 @@ LowOrderOperatingPointV1Profile &operating_profile(EngineSpec &engine) {
     return std::get<LowOrderOperatingPointV1Profile>(engine.physics_profile);
 }
 
+const LowOrderOperatingPointV1Profile &operating_profile(const EngineSpec &engine) {
+    return std::get<LowOrderOperatingPointV1Profile>(engine.physics_profile);
+}
+
 LegacySampledCamShape make_sampled_cam_shape(InputBuilder &builder,
                                              const LegacyHarmonicCamShape &harmonic,
                                              std::string_view role) {
@@ -114,6 +118,101 @@ void run_parity_model_contract_tests() {
     const auto valid_engine = make_engine(valid_builder);
     expect(validate(valid_engine, valid_builder.provenance).ok(),
            "valid low-order operating-point engine was rejected");
+    const auto &valid_mechanism = operating_profile(valid_engine).core.mechanism;
+    expect(find_crank(valid_mechanism, CrankshaftId{1}) ==
+               &valid_mechanism.cranks.front(),
+           "crankshaft lookup did not return the requested crank");
+    expect(find_output_crank(valid_mechanism) == &valid_mechanism.cranks.front(),
+           "output crankshaft lookup did not return the explicit output crank");
+    expect(find_crank(valid_mechanism, CrankshaftId{}) == nullptr &&
+               find_crank(valid_mechanism, CrankshaftId{2}) == nullptr,
+           "crankshaft lookup accepted an invalid or absent ID");
+    auto malformed_lookup_mechanism = valid_mechanism;
+    malformed_lookup_mechanism.cranks.push_back(
+        malformed_lookup_mechanism.cranks.front());
+    expect(find_crank(malformed_lookup_mechanism, CrankshaftId{1}) == nullptr &&
+               find_output_crank(malformed_lookup_mechanism) == nullptr,
+           "crankshaft lookup accepted duplicate mechanism identities");
+
+    expect_parity_mutation_rejected(
+        "resolved engine accepted an empty crankshaft set",
+        [](EngineSpec &engine, InputBuilder &) { engine.crankshafts.clear(); });
+    expect_parity_mutation_rejected(
+        "resolved engine accepted an invalid output crankshaft",
+        [](EngineSpec &engine, InputBuilder &) {
+            engine.output_crankshaft_id = CrankshaftId{};
+        });
+    expect_parity_mutation_rejected(
+        "resolved profile accepted an empty crankshaft set",
+        [](EngineSpec &engine, InputBuilder &) {
+            operating_profile(engine).core.mechanism.cranks.clear();
+        });
+    expect_parity_mutation_rejected(
+        "resolved profile accepted duplicate crankshaft identities",
+        [](EngineSpec &engine, InputBuilder &) {
+            auto &cranks = operating_profile(engine).core.mechanism.cranks;
+            cranks.push_back(cranks.front());
+        });
+    expect_parity_mutation_rejected(
+        "resolved profile output crankshaft drifted from EngineSpec",
+        [](EngineSpec &engine, InputBuilder &) {
+            operating_profile(engine).core.mechanism.output_crankshaft_id =
+                CrankshaftId{2};
+        });
+    expect_parity_mutation_rejected(
+        "resolved cylinder accepted an undeclared crankshaft",
+        [](EngineSpec &engine, InputBuilder &) {
+            engine.cylinders.front().crankshaft_id = CrankshaftId{2};
+        });
+    expect_parity_mutation_rejected(
+        "mechanism cylinder crankshaft drifted from EngineSpec",
+        [](EngineSpec &engine, InputBuilder &) {
+            operating_profile(engine)
+                .core.mechanism.cylinders.front()
+                .topology.crankshaft_id = CrankshaftId{2};
+        });
+
+    InputBuilder ordered_crank_builder;
+    auto ordered_crank_engine = make_engine(ordered_crank_builder);
+    ordered_crank_engine.crankshafts.push_back({
+        CrankshaftId{2},
+        ordered_crank_builder.resolved(
+            std::string{"secondary-crank"},
+            "engine.crankshafts.secondary-crank.semantic_id"),
+    });
+    const auto &source_crank =
+        operating_profile(ordered_crank_engine).core.mechanism.cranks.front();
+    constexpr std::string_view kSecondaryCrankBase =
+        "engine.physics.low-order-operating-point-v1.mechanism.cranks."
+        "secondary-crank";
+    const auto secondary_crank_path = [=](std::string_view field) {
+        return std::string{kSecondaryCrankBase} + "." + std::string{field};
+    };
+    operating_profile(ordered_crank_engine)
+        .core.mechanism.cranks.push_back({
+            CrankshaftId{2},
+            ordered_crank_builder.resolved(
+                source_crank.crank_tdc_reference_rad.value,
+                secondary_crank_path("crank_tdc_reference_rad")),
+            ordered_crank_builder.resolved(source_crank.crankshaft_mass_kg.value,
+                                           secondary_crank_path("crankshaft_mass_kg")),
+            ordered_crank_builder.resolved(source_crank.flywheel_mass_kg.value,
+                                           secondary_crank_path("flywheel_mass_kg")),
+            ordered_crank_builder.resolved(
+                source_crank.authored_crank_inertia_kg_m2.value,
+                secondary_crank_path("authored_crank_inertia_kg_m2")),
+            ordered_crank_builder.resolved(
+                source_crank.running_friction_torque_magnitude_nm.value,
+                secondary_crank_path("running_friction_torque_magnitude_nm")),
+        });
+    expect(validate(ordered_crank_engine, ordered_crank_builder.provenance).ok(),
+           "matching resolved multi-crank coverage was rejected");
+    auto &ordered_mechanism_cranks =
+        operating_profile(ordered_crank_engine).core.mechanism.cranks;
+    std::ranges::swap(ordered_mechanism_cranks.front(),
+                      ordered_mechanism_cranks.back());
+    expect(!validate(ordered_crank_engine, ordered_crank_builder.provenance).ok(),
+           "resolved profile accepted reordered crankshaft coverage");
 
     InputBuilder deterministic_builder;
     auto deterministic_engine = make_engine(deterministic_builder);

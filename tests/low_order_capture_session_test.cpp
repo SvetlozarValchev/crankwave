@@ -294,7 +294,7 @@ configuration_inertia_plan(const EngineSpec &engine, double attached_inertia_kg_
     const auto &mechanism =
         engine_sim_offline::test::operating_profile(engine).core.mechanism;
     CenteredSliderCrankConfigurationInertiaPlan plan{
-        mechanism.crank.authored_crank_inertia_kg_m2.value,
+        mechanism.cranks.front().authored_crank_inertia_kg_m2.value,
         attached_inertia_kg_m2,
         {},
     };
@@ -304,7 +304,7 @@ configuration_inertia_plan(const EngineSpec &engine, double attached_inertia_kg_
         const auto &direct =
             std::get<LegacyDirectJournalKinematics>(assembly.kinematics);
         plan.cylinders.push_back({
-            legacy_wrap_2pi(mechanism.crank.crank_tdc_reference_rad.value +
+            legacy_wrap_2pi(mechanism.cranks.front().crank_tdc_reference_rad.value +
                             direct.journal_angle_rad.value - kLegacyPi / 2.0),
             direct.crank_radius_m.value,
             parameters.connecting_rod_length_m.value,
@@ -915,12 +915,11 @@ void test_authored_capture_mapping_and_completion(
     const auto &core = engine_sim_offline::test::low_order_core(request.engine);
     auto mechanism_plan_result =
         compile_mechanism_kinematics_plan(request.engine, core);
-    if (const auto *report =
-            std::get_if<ValidationReport>(&mechanism_plan_result)) {
+    if (const auto *report = std::get_if<ValidationReport>(&mechanism_plan_result)) {
         fail_report("authored mechanism plan failed admission", *report);
     }
-    auto mechanism_plan = std::get<SharedMechanismKinematicsPlan>(
-        std::move(mechanism_plan_result));
+    auto mechanism_plan =
+        std::get<SharedMechanismKinematicsPlan>(std::move(mechanism_plan_result));
     auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
         request.engine, core, request.scenario, mechanism_plan, schedule));
     auto gas = require_gas(CoreRuntimeFactory::compile_gas(
@@ -1123,7 +1122,7 @@ void test_operating_capture_rejects_zero_request_identity(
                std::ranges::any_of(report->issues,
                                    [](const ContractIssue &issue) {
                                        return issue.path ==
-                                              "simulation_request_identity_v5_sha256";
+                                              "simulation_request_identity_v6_sha256";
                                    }),
            "operating capture admitted a zero simulation-request identity");
 }
@@ -1176,7 +1175,8 @@ void test_free_engine_capture_holds_preparation_and_executes_authored_controls(
     const auto &released_reaction = released.torque.dyno_reaction;
     const double expected_crank_friction_nm =
         -engine_sim_offline::test::operating_profile(high_throttle_request.engine)
-             .core.mechanism.crank.running_friction_torque_magnitude_nm.value;
+             .core.mechanism.cranks.front()
+             .running_friction_torque_magnitude_nm.value;
     const auto expected_source_friction_terms =
         torque_term_mask(TorqueTerm::crank_friction) |
         torque_term_mask(TorqueTerm::piston_ring_friction);

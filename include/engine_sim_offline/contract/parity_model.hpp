@@ -16,6 +16,7 @@ struct EngineSpec;
 
 struct AuthoredLegacyCylinderTopology {
     AuthoredValue<std::string> cylinder_id;
+    AuthoredValue<std::string> crankshaft_id;
     AuthoredValue<std::string> intake_id;
     AuthoredValue<std::string> intake_port_id;
     AuthoredValue<std::string> exhaust_port_id;
@@ -35,6 +36,7 @@ struct AuthoredLegacyCylinderTopology {
 
 struct LegacyCylinderTopology {
     CylinderId cylinder_id;
+    CrankshaftId crankshaft_id;
     IntakeId intake_id;
     PortId intake_port_id;
     PortId exhaust_port_id;
@@ -132,33 +134,52 @@ struct LegacyCylinderAssembly {
                            const LegacyCylinderAssembly &) = default;
 };
 
-template <template <class> class Field> struct LegacyCrankAssemblyT {
-    Field<double> crank_tdc_reference_rad;
-    Field<double> crankshaft_mass_kg;
-    Field<double> flywheel_mass_kg;
-    Field<double> authored_crank_inertia_kg_m2;
-    Field<double> running_friction_torque_magnitude_nm;
+struct AuthoredLegacyCrankAssembly {
+    AuthoredValue<std::string> crankshaft_id;
+    AuthoredValue<double> crank_tdc_reference_rad;
+    AuthoredValue<double> crankshaft_mass_kg;
+    AuthoredValue<double> flywheel_mass_kg;
+    AuthoredValue<double> authored_crank_inertia_kg_m2;
+    AuthoredValue<double> running_friction_torque_magnitude_nm;
 
-    friend bool operator==(const LegacyCrankAssemblyT &,
-                           const LegacyCrankAssemblyT &) = default;
+    friend bool operator==(const AuthoredLegacyCrankAssembly &,
+                           const AuthoredLegacyCrankAssembly &) = default;
 };
 
-using AuthoredLegacyCrankAssembly = LegacyCrankAssemblyT<AuthoredValue>;
-using LegacyCrankAssembly = LegacyCrankAssemblyT<ResolvedValue>;
+struct LegacyCrankAssembly {
+    CrankshaftId crankshaft_id;
+    ResolvedValue<double> crank_tdc_reference_rad;
+    ResolvedValue<double> crankshaft_mass_kg;
+    ResolvedValue<double> flywheel_mass_kg;
+    ResolvedValue<double> authored_crank_inertia_kg_m2;
+    ResolvedValue<double> running_friction_torque_magnitude_nm;
 
-template <class Crank, class Cylinder> struct LegacyMechanismProfileT {
-    Crank crank;
-    std::vector<Cylinder> cylinders;
-
-    friend bool operator==(const LegacyMechanismProfileT &,
-                           const LegacyMechanismProfileT &) = default;
+    friend bool operator==(const LegacyCrankAssembly &,
+                           const LegacyCrankAssembly &) = default;
 };
 
-using AuthoredLegacyMechanismProfile =
-    LegacyMechanismProfileT<AuthoredLegacyCrankAssembly,
-                            AuthoredLegacyCylinderAssembly>;
-using LegacyMechanismProfile =
-    LegacyMechanismProfileT<LegacyCrankAssembly, LegacyCylinderAssembly>;
+struct AuthoredLegacyMechanismProfile {
+    AuthoredValue<std::string> output_crankshaft_id;
+    std::vector<AuthoredLegacyCrankAssembly> cranks;
+    std::vector<AuthoredLegacyCylinderAssembly> cylinders;
+
+    friend bool operator==(const AuthoredLegacyMechanismProfile &,
+                           const AuthoredLegacyMechanismProfile &) = default;
+};
+
+struct LegacyMechanismProfile {
+    CrankshaftId output_crankshaft_id;
+    std::vector<LegacyCrankAssembly> cranks;
+    std::vector<LegacyCylinderAssembly> cylinders;
+
+    friend bool operator==(const LegacyMechanismProfile &,
+                           const LegacyMechanismProfile &) = default;
+};
+
+[[nodiscard]] const LegacyCrankAssembly *
+find_crank(const LegacyMechanismProfile &mechanism, CrankshaftId id) noexcept;
+[[nodiscard]] const LegacyCrankAssembly *
+find_output_crank(const LegacyMechanismProfile &mechanism) noexcept;
 
 enum class LegacyRestrictionCalibration : std::uint8_t {
     unspecified,
@@ -609,16 +630,13 @@ template <template <class> class Field> struct GovernorThrottleControllerV1T {
                            const GovernorThrottleControllerV1T &) = default;
 };
 
-using AuthoredDirectThrottleControllerV1 =
-    DirectThrottleControllerV1T<AuthoredValue>;
+using AuthoredDirectThrottleControllerV1 = DirectThrottleControllerV1T<AuthoredValue>;
 using DirectThrottleControllerV1 = DirectThrottleControllerV1T<ResolvedValue>;
 using AuthoredGovernorThrottleControllerV1 =
     GovernorThrottleControllerV1T<AuthoredValue>;
-using GovernorThrottleControllerV1 =
-    GovernorThrottleControllerV1T<ResolvedValue>;
-using AuthoredThrottleControllerV1 =
-    std::variant<AuthoredDirectThrottleControllerV1,
-                 AuthoredGovernorThrottleControllerV1>;
+using GovernorThrottleControllerV1 = GovernorThrottleControllerV1T<ResolvedValue>;
+using AuthoredThrottleControllerV1 = std::variant<AuthoredDirectThrottleControllerV1,
+                                                  AuthoredGovernorThrottleControllerV1>;
 using ThrottleControllerV1 =
     std::variant<DirectThrottleControllerV1, GovernorThrottleControllerV1>;
 

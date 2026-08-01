@@ -46,7 +46,10 @@ void expect_near(double actual, double expected, double tolerance,
 
 [[nodiscard]] contract::LegacyMechanismProfile bmw_mechanism() {
     contract::LegacyMechanismProfile mechanism;
-    mechanism.crank.authored_crank_inertia_kg_m2.value = 0.206881602991773;
+    mechanism.output_crankshaft_id = contract::CrankshaftId{1};
+    mechanism.cranks.push_back({});
+    mechanism.cranks.front().crankshaft_id = contract::CrankshaftId{1};
+    mechanism.cranks.front().authored_crank_inertia_kg_m2.value = 0.206881602991773;
     mechanism.cylinders = {
         bmw_cylinder(0.0), bmw_cylinder(2.0), bmw_cylinder(4.0),
         bmw_cylinder(4.0), bmw_cylinder(2.0), bmw_cylinder(0.0),
@@ -115,7 +118,10 @@ void test_method_identity_is_bound_to_the_fixed_quadrature() {
 
 void test_crank_only_mechanism_preserves_authored_inertia() {
     contract::LegacyMechanismProfile mechanism;
-    mechanism.crank.authored_crank_inertia_kg_m2.value = 0.2;
+    mechanism.output_crankshaft_id = contract::CrankshaftId{1};
+    mechanism.cranks.push_back({});
+    mechanism.cranks.front().crankshaft_id = contract::CrankshaftId{1};
+    mechanism.cranks.front().authored_crank_inertia_kg_m2.value = 0.2;
     const auto result = require_result(
         simulation::calculate_centered_slider_crank_cycle_mean_inertia(mechanism));
     expect(result.authored_crank_inertia_kg_m2 == 0.2 &&
@@ -142,8 +148,7 @@ void test_bmw_m52_cycle_mean_components_and_phase_invariance() {
     for (std::size_t index = 0; index < mechanism.cylinders.size(); ++index) {
         std::get<contract::LegacyDirectJournalKinematics>(
             mechanism.cylinders[index].kinematics)
-            .journal_angle_rad.value =
-                0.123456789 * static_cast<double>(index + 1U);
+            .journal_angle_rad.value = 0.123456789 * static_cast<double>(index + 1U);
     }
     const auto shifted = require_result(
         simulation::calculate_centered_slider_crank_cycle_mean_inertia(mechanism));
@@ -152,7 +157,7 @@ void test_bmw_m52_cycle_mean_components_and_phase_invariance() {
 
 void test_invalid_inputs_return_typed_cylinder_evidence() {
     auto invalid_crank = bmw_mechanism();
-    invalid_crank.crank.authored_crank_inertia_kg_m2.value =
+    invalid_crank.cranks.front().authored_crank_inertia_kg_m2.value =
         std::numeric_limits<double>::quiet_NaN();
     const auto crank_calculation =
         simulation::calculate_centered_slider_crank_cycle_mean_inertia(invalid_crank);

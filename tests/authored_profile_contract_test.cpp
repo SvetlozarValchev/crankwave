@@ -35,12 +35,19 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
 
     AuthoredLowOrderOperatingPointV1Profile profile;
     auto &core = profile.core;
-    core.mechanism.crank = {
-        authored(0.0), authored(5.0), authored(5.9), authored(0.2), authored(10.0),
-    };
+    core.mechanism.output_crankshaft_id = authored(std::string{"crank"});
+    core.mechanism.cranks.push_back({
+        authored(std::string{"crank"}),
+        authored(0.0),
+        authored(5.0),
+        authored(5.9),
+        authored(0.2),
+        authored(10.0),
+    });
     core.mechanism.cylinders.push_back({
         {
             authored(std::string{"cylinder-1"}),
+            authored(std::string{"crank"}),
             authored(std::string{"intake-1"}),
             authored(std::string{"intake-port-1"}),
             authored(std::string{"exhaust-port-1"}),
@@ -279,6 +286,8 @@ AuthoredEngineDefinition make_authored_engine() {
     definition.cycle = authored(EngineCycle::four_stroke);
     definition.ignition = authored(IgnitionKind::spark_ignition);
     definition.cylinder_layout = authored(CylinderLayoutKind::inline_engine);
+    definition.crankshafts = {authored(std::string{"crank"})};
+    definition.output_crankshaft_id = authored(std::string{"crank"});
     definition.banks = {authored(std::string{"bank-1"})};
     definition.intakes = {authored(std::string{"intake-1"})};
 
@@ -300,6 +309,7 @@ AuthoredEngineDefinition make_authored_engine() {
     definition.cylinders.push_back({
         authored(std::string{"cylinder-1"}),
         authored(std::string{"bank-1"}),
+        authored(std::string{"crank"}),
         authored(std::string{"intake-1"}),
         authored(bore_m),
         authored(stroke_m),
@@ -407,6 +417,29 @@ void run_authored_profile_contract_tests() {
     expect(valid_report.ok(), "valid authored executable profile was rejected");
 
     expect_authored_mutation_rejected(
+        "authored profile accepted an empty crankshaft set",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.core.mechanism.cranks.clear();
+        });
+    expect_authored_mutation_rejected(
+        "authored profile accepted duplicate crankshaft identities",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.core.mechanism.cranks.push_back(
+                profile.core.mechanism.cranks.front());
+        });
+    expect_authored_mutation_rejected(
+        "authored profile accepted an undeclared output crankshaft",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.core.mechanism.output_crankshaft_id.value = "missing-crank";
+        });
+    expect_authored_mutation_rejected(
+        "authored profile accepted an undeclared cylinder crankshaft",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.core.mechanism.cylinders.front().topology.crankshaft_id.value =
+                "missing-crank";
+        });
+
+    expect_authored_mutation_rejected(
         "negative-zero operating loss coefficient was accepted",
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {
             profile.aggregate_loss.constant_fmep_bar.value = -0.0;
@@ -468,14 +501,14 @@ void run_authored_profile_contract_tests() {
     expect_authored_mutation_rejected(
         "NaN authored crankshaft mass was accepted",
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {
-            profile.core.mechanism.crank.crankshaft_mass_kg.value =
+            profile.core.mechanism.cranks.front().crankshaft_mass_kg.value =
                 std::numeric_limits<double>::quiet_NaN();
         });
     expect_authored_mutation_rejected(
         "negative authored running crank friction was accepted",
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {
-            profile.core.mechanism.crank.running_friction_torque_magnitude_nm.value =
-                -0.1;
+            profile.core.mechanism.cranks.front()
+                .running_friction_torque_magnitude_nm.value = -0.1;
         });
     expect_authored_mutation_rejected(
         "unknown authored restriction calibration was accepted",
@@ -541,6 +574,39 @@ void run_authored_profile_contract_tests() {
 
     expect(validate(make_authored_engine()).ok(),
            "valid authored engine and executable profile were rejected");
+    auto missing_authored_cranks = make_authored_engine();
+    missing_authored_cranks.crankshafts.clear();
+    expect(!validate(missing_authored_cranks).ok(),
+           "authored engine accepted an empty crankshaft set");
+    auto bad_authored_output = make_authored_engine();
+    bad_authored_output.output_crankshaft_id.value = "missing-crank";
+    expect(!validate(bad_authored_output).ok(),
+           "authored engine accepted an undeclared output crankshaft");
+    auto bad_authored_cylinder_crank = make_authored_engine();
+    bad_authored_cylinder_crank.cylinders.front().crankshaft_id.value = "missing-crank";
+    expect(!validate(bad_authored_cylinder_crank).ok(),
+           "authored engine accepted an undeclared cylinder crankshaft");
+    auto mismatched_core_cylinder_crank = make_authored_engine();
+    std::get<AuthoredLowOrderOperatingPointV1Profile>(
+        mismatched_core_cylinder_crank.physics_profile)
+        .core.mechanism.cylinders.front()
+        .topology.crankshaft_id.value = "other-crank";
+    expect(!validate(mismatched_core_cylinder_crank).ok(),
+           "authored profile cylinder crankshaft drifted from the public engine");
+    auto ordered_authored_cranks = make_authored_engine();
+    ordered_authored_cranks.crankshafts.push_back(
+        authored(std::string{"secondary-crank"}));
+    auto &ordered_core = std::get<AuthoredLowOrderOperatingPointV1Profile>(
+                             ordered_authored_cranks.physics_profile)
+                             .core;
+    ordered_core.mechanism.cranks.push_back(ordered_core.mechanism.cranks.front());
+    ordered_core.mechanism.cranks.back().crankshaft_id.value = "secondary-crank";
+    expect(validate(ordered_authored_cranks).ok(),
+           "matching authored multi-crank coverage was rejected");
+    std::ranges::swap(ordered_core.mechanism.cranks.front(),
+                      ordered_core.mechanism.cranks.back());
+    expect(!validate(ordered_authored_cranks).ok(),
+           "authored engine accepted reordered mechanism crank coverage");
     auto incomplete_head_coverage = make_authored_engine();
     incomplete_head_coverage.banks.push_back(authored(std::string{"bank-2"}));
     expect(!validate(incomplete_head_coverage).ok(),
@@ -581,7 +647,8 @@ void run_authored_profile_contract_tests() {
     auto shallow_relabelled = resolved_operating_engine;
     const auto &core_field =
         std::get<LowOrderOperatingPointV1Profile>(shallow_relabelled.physics_profile)
-            .core.mechanism.crank.crankshaft_mass_kg;
+            .core.mechanism.cranks.front()
+            .crankshaft_mass_kg;
     auto shallow_provenance = resolved_builder.provenance;
     const auto shallow_resolution =
         std::ranges::find(shallow_provenance.resolutions, core_field.resolution_id,
@@ -589,7 +656,8 @@ void run_authored_profile_contract_tests() {
     expect(shallow_resolution != shallow_provenance.resolutions.end(),
            "operating core test resolution disappeared");
     shallow_resolution->parameter_path =
-        "engine.physics.legacy-low-order-v1.mechanism.crank.crankshaft_mass_kg";
+        "engine.physics.legacy-low-order-v1.mechanism.cranks.crank."
+        "crankshaft_mass_kg";
     expect(!validate(shallow_relabelled, shallow_provenance).ok(),
            "obsolete profile resolution was shallow-relabelled as operating-point");
 

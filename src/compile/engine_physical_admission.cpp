@@ -63,20 +63,22 @@ void admit_engine_physical_model(ModelContext &resolved,
     const auto &engine = resolved.document.engine;
     using authoring::DiagnosticCode;
 
-    if (!resolved.crankshaft->friction_torque.has_value()) {
-        add(report, DiagnosticCode::missing_value,
-            "/engine/crankshafts/0/friction_torque",
-            "the positive-speed crank friction magnitude must be explicit");
+    for (std::size_t index = 0; index < engine.crankshafts.size(); ++index) {
+        if (!engine.crankshafts[index].friction_torque.has_value()) {
+            add(report, DiagnosticCode::missing_value,
+                pointer_index("/engine/crankshafts", index) + "/friction_torque",
+                "the positive-speed crank friction magnitude must be explicit");
+        }
     }
     for (std::size_t index = 0; index < engine.journals.size(); ++index) {
         const auto &journal = engine.journals[index];
         const auto *attachment =
             std::get_if<authoring::CrankshaftJournalAttachment>(&journal.attachment);
         if (attachment != nullptr &&
-            attachment->crankshaft.value != resolved.crankshaft->id.value) {
-            add(report, DiagnosticCode::unsupported_capability,
-                pointer_index("/engine/journals", index),
-                "each direct journal must attach to the sole admitted crankshaft");
+            !resolved.crankshafts.contains(attachment->crankshaft.value)) {
+            add(report, DiagnosticCode::dangling_reference,
+                pointer_index("/engine/journals", index) + "/crankshaft",
+                "direct journal crankshaft reference did not resolve");
         }
     }
     for (std::size_t index = 0; index < engine.connecting_rods.size(); ++index) {

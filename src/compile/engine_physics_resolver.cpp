@@ -30,6 +30,11 @@ template <class Id>
     return Id{ids.by_semantic_id.at(std::string{semantic_id})};
 }
 
+[[nodiscard]] contract::CrankshaftId crankshaft_id(const ModelContext &context,
+                                                   std::string_view semantic_id) {
+    return runtime_id<contract::CrankshaftId>(context.ids.crankshafts, semantic_id);
+}
+
 [[nodiscard]] contract::BankId bank_id(const ModelContext &context,
                                        std::string_view semantic_id) {
     return runtime_id<contract::BankId>(context.ids.banks, semantic_id);
@@ -174,6 +179,12 @@ ordered_intakes(const ModelContext &context) {
                intake_id(context, right->id.value).value;
     });
     return result;
+}
+
+[[nodiscard]] const authoring::CrankshaftDefinition &
+crankshaft_for_cylinder(const ModelContext &context,
+                        std::string_view cylinder_semantic_id) {
+    return *context.crankshaft_for_cylinder.at(std::string{cylinder_semantic_id});
 }
 
 [[nodiscard]] const authoring::CamLobeDefinition &
@@ -375,10 +386,10 @@ contract::EngineSpec assemble_engine(const ModelContext &context,
     resolve_ignition_and_fuel(context, emitter, profile.core);
     resolve_excitation(context, emitter, profile.core);
     resolve_operating_accounting(context, emitter, profile);
-    const bool has_master_kinematics = std::ranges::any_of(
-        profile.core.mechanism.cylinders, [](const auto &cylinder) {
-            return std::holds_alternative<
-                contract::LegacyMasterRodJournalKinematics>(cylinder.kinematics);
+    const bool has_master_kinematics =
+        std::ranges::any_of(profile.core.mechanism.cylinders, [](const auto &cylinder) {
+            return std::holds_alternative<contract::LegacyMasterRodJournalKinematics>(
+                cylinder.kinematics);
         });
     engine.physics_profile = std::move(profile);
     if (has_master_kinematics) {

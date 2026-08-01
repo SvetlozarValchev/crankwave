@@ -18,6 +18,7 @@ namespace engine_sim_offline::simulation {
 // cylinder. All low-order consumers use these exact binary64 fields instead of
 // reconstructing their own centered slider-crank view from the resolved profile.
 struct DirectMechanismCylinderPlan {
+    contract::CrankshaftId crankshaft_id;
     CenteredSliderCrankCylinder crank;
     contract::GasVolumeId chamber_volume_id;
     contract::RouteId exhaust_route_id;
@@ -40,6 +41,7 @@ struct DirectMechanismCylinderPlan {
 struct DirectMechanismKinematicsPlan {
     contract::EngineId engine_id;
     std::string engine_profile_id;
+    contract::CrankshaftId output_crankshaft_id;
     double crank_tdc_reference_rad = 0.0;
     double authored_crank_inertia_kg_m2 = 0.0;
     CenteredSliderCrankCycleMeanInertia cycle_mean_inertia;
@@ -77,6 +79,7 @@ using OneLevelMasterRodCylinderKinematicsPlan =
 // stroke, displacement, clearance volume, equivalent inertia, wall reaction, or
 // torque authority.
 struct OneLevelMasterRodMechanismCylinderPlan {
+    contract::CrankshaftId crankshaft_id;
     contract::BankId bank_id;
     contract::GasVolumeId chamber_volume_id;
     contract::RouteId exhaust_route_id;
@@ -93,6 +96,7 @@ struct OneLevelMasterRodMechanismCylinderPlan {
 struct OneLevelMasterRodMechanismKinematicsPlan {
     contract::EngineId engine_id;
     std::string engine_profile_id;
+    contract::CrankshaftId output_crankshaft_id;
     double crank_tdc_reference_rad = 0.0;
     std::vector<OneLevelMasterRodMechanismCylinderPlan> cylinders;
 
@@ -105,8 +109,7 @@ struct OneLevelMasterRodMechanismKinematicsPlan {
 // compiler inputs to mechanics, gas, or crank dynamics.
 using MechanismKinematicsPlan = std::variant<DirectMechanismKinematicsPlan,
                                              OneLevelMasterRodMechanismKinematicsPlan>;
-using SharedMechanismKinematicsPlan =
-    std::shared_ptr<const MechanismKinematicsPlan>;
+using SharedMechanismKinematicsPlan = std::shared_ptr<const MechanismKinematicsPlan>;
 using MechanismKinematicsPlanCompileResult =
     std::variant<SharedMechanismKinematicsPlan, contract::ValidationReport>;
 
@@ -115,8 +118,7 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
                                   const contract::LowOrderEngineCoreV1 &core);
 
 [[nodiscard]] const DirectMechanismKinematicsPlan *
-direct_mechanism_kinematics_plan(
-    const SharedMechanismKinematicsPlan &plan) noexcept;
+direct_mechanism_kinematics_plan(const SharedMechanismKinematicsPlan &plan) noexcept;
 
 [[nodiscard]] const OneLevelMasterRodMechanismKinematicsPlan *
 one_level_master_rod_mechanism_kinematics_plan(
@@ -133,8 +135,7 @@ one_level_master_rod_mechanism_kinematics_plan(
 // Exact source binding for an already-compiled plan. This compares every authored
 // or resolved source field consumed by its selected plan alternative.
 [[nodiscard]] bool mechanism_kinematics_plan_matches_source(
-    const SharedMechanismKinematicsPlan &plan,
-    const contract::EngineSpec &engine,
+    const SharedMechanismKinematicsPlan &plan, const contract::EngineSpec &engine,
     const contract::LowOrderEngineCoreV1 &core) noexcept;
 
 } // namespace engine_sim_offline::simulation

@@ -33,13 +33,21 @@ void ScenarioResolver::require_initial_speed(double mode_speed_rpm,
 }
 
 void ScenarioResolver::require_executable_initial_crank_angle() {
-    const double required = std::visit(
+    const auto required = std::visit(
         [](const auto &profile) {
-            return profile.core.mechanism.crank.crank_tdc_reference_rad.value;
+            const auto *crank = contract::find_output_crank(profile.core.mechanism);
+            return crank == nullptr
+                       ? std::optional<double>{}
+                       : std::optional<double>{crank->crank_tdc_reference_rad.value};
         },
         context_.engine.physics_profile);
+    if (!required.has_value()) {
+        add(authoring::DiagnosticCode::internal_failure, "",
+            "admitted engine has no unique resolved output crankshaft");
+        return;
+    }
     if (std::bit_cast<std::uint64_t>(initial_theta_rad_) !=
-        std::bit_cast<std::uint64_t>(required)) {
+        std::bit_cast<std::uint64_t>(*required)) {
         add(authoring::DiagnosticCode::unsupported_capability,
             "/initial_state/crank_angle",
             "the current low-order executor requires the initial crank angle "
@@ -48,9 +56,10 @@ void ScenarioResolver::require_executable_initial_crank_angle() {
 }
 
 void ScenarioResolver::compile_mode() {
-    const bool contains_master_rod = std::ranges::any_of(
-        context_.engine.cylinders,
-        [](const auto &cylinder) { return cylinder.master_rod_attachment.has_value(); });
+    const bool contains_master_rod =
+        std::ranges::any_of(context_.engine.cylinders, [](const auto &cylinder) {
+            return cylinder.master_rod_attachment.has_value();
+        });
     if (contains_master_rod &&
         !std::holds_alternative<authoring::ExternalSpeedMode>(document_.mode)) {
         add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
@@ -61,19 +70,17 @@ void ScenarioResolver::compile_mode() {
 
     require_executable_initial_crank_angle();
     const auto resolve_engine_baseline_inertia = [&]() -> std::optional<double> {
-        const auto *profile =
-            std::get_if<contract::LowOrderOperatingPointV1Profile>(
-                &context_.engine.physics_profile);
+        const auto *profile = std::get_if<contract::LowOrderOperatingPointV1Profile>(
+            &context_.engine.physics_profile);
         if (profile == nullptr) {
             add(authoring::DiagnosticCode::internal_failure, "",
                 "admitted engine has no low-order profile for mechanism-plan "
                 "compilation");
             return std::nullopt;
         }
-        auto result = simulation::compile_mechanism_kinematics_plan(
-            context_.engine, profile->core);
-        if (const auto *nested =
-                std::get_if<contract::ValidationReport>(&result)) {
+        auto result = simulation::compile_mechanism_kinematics_plan(context_.engine,
+                                                                    profile->core);
+        if (const auto *nested = std::get_if<contract::ValidationReport>(&result)) {
             add(authoring::DiagnosticCode::internal_failure, "",
                 "admitted engine mechanism could not produce its shared direct "
                 "kinematics plan; issue_count=" +
@@ -82,8 +89,7 @@ void ScenarioResolver::compile_mode() {
         }
         const auto &shared =
             std::get<simulation::SharedMechanismKinematicsPlan>(result);
-        const auto *direct =
-            simulation::direct_mechanism_kinematics_plan(shared);
+        const auto *direct = simulation::direct_mechanism_kinematics_plan(shared);
         if (direct == nullptr) {
             add(authoring::DiagnosticCode::internal_failure, "",
                 "admitted engine mechanism did not compile a direct kinematics "
@@ -120,8 +126,7 @@ void ScenarioResolver::compile_mode() {
                 free_engine.initial_theta_rad.value = initial_theta_rad_;
                 if (const auto inertia = resolve_engine_baseline_inertia();
                     inertia.has_value()) {
-                    free_engine.engine_baseline_inertia_kg_m2.value =
-                        *inertia;
+                    free_engine.engine_baseline_inertia_kg_m2.value = *inertia;
                 }
                 if (mode.attached_inertia.has_value()) {
                     free_engine.attached_inertia_kg_m2.value =
@@ -237,8 +242,7 @@ void ScenarioResolver::compile_mode() {
 
                 if (const auto inertia = resolve_engine_baseline_inertia();
                     inertia.has_value()) {
-                    free_vehicle.engine_baseline_inertia_kg_m2.value =
-                        *inertia;
+                    free_vehicle.engine_baseline_inertia_kg_m2.value = *inertia;
                 }
 
                 const auto &source_rig = *context_.rig;

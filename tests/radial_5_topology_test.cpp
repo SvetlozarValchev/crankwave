@@ -120,9 +120,8 @@ load_assets(const authoring::EnginePackageDocument &document,
                           read_bytes(engine_path.parent_path() / asset.uri)});
     }
     for (const auto &asset : document.engine.accessory_configurations) {
-        result.push_back(
-            {compile::AssetKind::accessory_configuration, asset.id.value,
-             read_bytes(engine_path.parent_path() / asset.uri)});
+        result.push_back({compile::AssetKind::accessory_configuration, asset.id.value,
+                          read_bytes(engine_path.parent_path() / asset.uri)});
     }
     return result;
 }
@@ -149,12 +148,12 @@ struct RadialSource {
     const auto scenario_path = repository_root /
                                "data/engines/radial-5-cleanroom/scenarios/"
                                "prescribed-1500rpm.json";
-    auto engine_document = require(
-        authoring::parse_engine_document(read_text(engine_path)),
-        "radial-5 authored engine parse failed");
-    auto scenario_document = require(
-        authoring::parse_scenario_document(read_text(scenario_path)),
-        "radial-5 authored scenario parse failed");
+    auto engine_document =
+        require(authoring::parse_engine_document(read_text(engine_path)),
+                "radial-5 authored engine parse failed");
+    auto scenario_document =
+        require(authoring::parse_scenario_document(read_text(scenario_path)),
+                "radial-5 authored scenario parse failed");
     const auto references =
         authoring::validate_scenario_references(scenario_document, engine_document);
     if (!references.ok()) {
@@ -164,9 +163,9 @@ struct RadialSource {
 
     const auto assets = load_assets(engine_document, engine_path);
     const auto views = asset_views(assets);
-    auto resolved = require(
-        compile_detail::resolve_engine_package(engine_document, views),
-        "radial-5 engine resolution failed");
+    auto resolved =
+        require(compile_detail::resolve_engine_package(engine_document, views),
+                "radial-5 engine resolution failed");
     return {std::move(engine_document), std::move(scenario_document),
             std::move(resolved)};
 }
@@ -185,16 +184,16 @@ struct ExpectedCylinder {
 };
 
 constexpr std::array kExpectedCylinders{
-    ExpectedCylinder{"cylinder-0", "bank-0", "rj0", "wire-1", "exhaust-0",
-                     0.0, 0.0, 0.0, 474.0, 246.0},
-    ExpectedCylinder{"cylinder-1", "bank-1", "sj1", "wire-5", "exhaust-0",
-                     72.0, 72.0, 288.0, 762.0, 534.0},
-    ExpectedCylinder{"cylinder-2", "bank-2", "sj2", "wire-4", "exhaust-1",
-                     144.0, 144.0, 576.0, 1050.0, 822.0},
-    ExpectedCylinder{"cylinder-3", "bank-3", "sj3", "wire-3", "exhaust-1",
-                     216.0, 216.0, 144.0, 618.0, 390.0},
-    ExpectedCylinder{"cylinder-4", "bank-4", "sj4", "wire-2", "exhaust-1",
-                     288.0, 288.0, 432.0, 906.0, 678.0},
+    ExpectedCylinder{"cylinder-0", "bank-0", "rj0", "wire-1", "exhaust-0", 0.0, 0.0,
+                     0.0, 474.0, 246.0},
+    ExpectedCylinder{"cylinder-1", "bank-1", "sj1", "wire-5", "exhaust-0", 72.0, 72.0,
+                     288.0, 762.0, 534.0},
+    ExpectedCylinder{"cylinder-2", "bank-2", "sj2", "wire-4", "exhaust-1", 144.0, 144.0,
+                     576.0, 1050.0, 822.0},
+    ExpectedCylinder{"cylinder-3", "bank-3", "sj3", "wire-3", "exhaust-1", 216.0, 216.0,
+                     144.0, 618.0, 390.0},
+    ExpectedCylinder{"cylinder-4", "bank-4", "sj4", "wire-2", "exhaust-1", 288.0, 288.0,
+                     432.0, 906.0, 678.0},
 };
 
 [[nodiscard]] const authoring::CamLobeDefinition &
@@ -211,18 +210,17 @@ find_lobe(const authoring::EngineDefinition &engine, std::string_view cylinder,
 
 [[nodiscard]] const authoring::CurveDefinition &
 find_curve(const authoring::EngineDefinition &engine, std::string_view id) {
-    const auto found =
-        std::ranges::find(engine.curves, id, [](const auto &curve) {
-            return std::string_view{curve.id.value};
-        });
+    const auto found = std::ranges::find(engine.curves, id, [](const auto &curve) {
+        return std::string_view{curve.id.value};
+    });
     if (found == engine.curves.end()) {
         throw std::runtime_error{"missing authored radial-5 curve"};
     }
     return *found;
 }
 
-[[nodiscard]] const contract::BankSpec &
-find_bank(const contract::EngineSpec &engine, std::string_view semantic_id) {
+[[nodiscard]] const contract::BankSpec &find_bank(const contract::EngineSpec &engine,
+                                                  std::string_view semantic_id) {
     const auto found =
         std::ranges::find(engine.banks, semantic_id, [](const auto &bank) {
             return std::string_view{bank.semantic_id.value};
@@ -245,8 +243,8 @@ find_cylinder(const contract::EngineSpec &engine, std::string_view semantic_id) 
     return *found;
 }
 
-[[nodiscard]] const contract::RouteSpec &
-find_route(const contract::EngineSpec &engine, std::string_view semantic_id) {
+[[nodiscard]] const contract::RouteSpec &find_route(const contract::EngineSpec &engine,
+                                                    std::string_view semantic_id) {
     const auto found =
         std::ranges::find(engine.routes, semantic_id, [](const auto &route) {
             return std::string_view{route.semantic_id.value};
@@ -307,8 +305,7 @@ void verify_authored_associations(const authoring::EnginePackageDocument &packag
                    "radial-5 root journal stopped being crankshaft-direct");
         } else {
             const auto *attachment =
-                std::get_if<authoring::MasterRodJournalAttachment>(
-                    &journal.attachment);
+                std::get_if<authoring::MasterRodJournalAttachment>(&journal.attachment);
             expect(attachment != nullptr &&
                        attachment->master_cylinder.value == "cylinder-0" &&
                        near(attachment->throw_radius.value, 2.9),
@@ -320,15 +317,13 @@ void verify_authored_associations(const authoring::EnginePackageDocument &packag
         const auto &exhaust =
             find_lobe(engine, expected.cylinder, authoring::PortKind::exhaust);
         expect(near(intake.centerline.value, expected.intake_centerline_degrees) &&
-                   near(exhaust.centerline.value,
-                        expected.exhaust_centerline_degrees),
+                   near(exhaust.centerline.value, expected.exhaust_centerline_degrees),
                "radial-5 authored cylinder-to-cam association changed");
     }
 
     constexpr std::array<std::string_view, 5U> expected_wires{
         "wire-1", "wire-3", "wire-5", "wire-2", "wire-4"};
-    constexpr std::array<double, 5U> expected_angles{0.0, 144.0, 288.0, 432.0,
-                                                     576.0};
+    constexpr std::array<double, 5U> expected_angles{0.0, 144.0, 288.0, 432.0, 576.0};
     expect(engine.ignition.firing_order.size() == expected_wires.size(),
            "radial-5 authored firing-order cardinality changed");
     for (std::size_t index = 0; index < expected_wires.size(); ++index) {
@@ -348,8 +343,7 @@ void verify_authored_associations(const authoring::EnginePackageDocument &packag
 
     const auto &intake_flow = find_curve(engine, "intake-valve-flow");
     const auto &exhaust_flow = find_curve(engine, "exhaust-valve-flow");
-    expect(intake_flow.samples.size() == 15U &&
-               exhaust_flow.samples.size() == 15U &&
+    expect(intake_flow.samples.size() == 15U && exhaust_flow.samples.size() == 15U &&
                intake_flow.samples[1].output.value == 50.0 &&
                intake_flow.samples.back().output.value == 500.0 &&
                exhaust_flow.samples[1].output.value == 50.0 &&
@@ -389,8 +383,7 @@ void verify_resolved_topology(const compile_detail::ResolvedEnginePackage &packa
 
         if (index == 0U) {
             expect(!cylinder.master_rod_attachment.has_value() &&
-                       std::holds_alternative<
-                           contract::LegacyDirectJournalKinematics>(
+                       std::holds_alternative<contract::LegacyDirectJournalKinematics>(
                            assembly.kinematics),
                    "radial-5 root stopped resolving as a direct journal");
         } else {
@@ -427,7 +420,9 @@ void verify_resolved_topology(const compile_detail::ResolvedEnginePackage &packa
         shared == nullptr
             ? nullptr
             : simulation::one_level_master_rod_mechanism_kinematics_plan(*shared);
-    expect(plan != nullptr && plan->cylinders.size() == kExpectedCylinders.size() &&
+    expect(plan != nullptr &&
+               plan->output_crankshaft_id == core.mechanism.output_crankshaft_id &&
+               plan->cylinders.size() == kExpectedCylinders.size() &&
                simulation::direct_mechanism_kinematics_plan(*shared) == nullptr,
            "radial-5 did not select the one-level master-rod plan");
 
@@ -435,7 +430,9 @@ void verify_resolved_topology(const compile_detail::ResolvedEnginePackage &packa
     for (std::size_t index = 0; index < kExpectedCylinders.size(); ++index) {
         const auto &expected = kExpectedCylinders[index];
         const auto &planned = plan->cylinders[index];
-        expect(planned.bank_id == engine.cylinders[index].bank_id &&
+        expect(planned.crankshaft_id ==
+                       core.mechanism.cylinders[index].topology.crankshaft_id &&
+                   planned.bank_id == engine.cylinders[index].bank_id &&
                    near(planned.ignition_wire_angle_rad,
                         expected.firing_degrees * kDegreesToRadians),
                "radial-5 plan lost stable bank or ignition binding");
@@ -450,14 +447,12 @@ void verify_resolved_topology(const compile_detail::ResolvedEnginePackage &packa
                             12.0 * kInchesToMetres),
                    "radial-5 plan lost its direct master geometry");
         } else {
-            slave =
-                std::get_if<simulation::OneLevelMasterRodSlaveAttachmentPlan>(
-                    &planned.kinematics);
-            const auto *pin =
-                slave == nullptr
-                    ? nullptr
-                    : std::get_if<simulation::OneLevelMasterRodSlavePin>(
-                          &slave->cylinder.journal);
+            slave = std::get_if<simulation::OneLevelMasterRodSlaveAttachmentPlan>(
+                &planned.kinematics);
+            const auto *pin = slave == nullptr
+                                  ? nullptr
+                                  : std::get_if<simulation::OneLevelMasterRodSlavePin>(
+                                        &slave->cylinder.journal);
             expect(slave != nullptr && slave->master_cylinder_index == 0U &&
                        pin != nullptr &&
                        near(pin->throw_radius_m, 2.9 * kInchesToMetres) &&
@@ -468,11 +463,9 @@ void verify_resolved_topology(const compile_detail::ResolvedEnginePackage &packa
                    "radial-5 plan lost a slave pin or stable master index");
         }
 
-        const auto &root_plan =
-            std::get<simulation::OneLevelMasterRodDirectRootPlan>(
-                plan->cylinders.front().kinematics);
-        const auto &cylinder_plan =
-            root != nullptr ? root->cylinder : slave->cylinder;
+        const auto &root_plan = std::get<simulation::OneLevelMasterRodDirectRootPlan>(
+            plan->cylinders.front().kinematics);
+        const auto &cylinder_plan = root != nullptr ? root->cylinder : slave->cylinder;
         const auto certificate = simulation::certify_one_level_master_rod_full_cycle(
             root_plan.driver, cylinder_plan);
         const auto sample = simulation::evaluate_one_level_master_rod_plan(
@@ -516,11 +509,10 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
         std::get_if<contract::PrescribedKinematicSweep>(&resolved.scenario.mode);
     const auto *settling =
         std::get_if<contract::FixedSettling>(&resolved.scenario.preparation);
-    const auto *lane =
-        prescribed == nullptr
-            ? nullptr
-            : std::get_if<contract::FixedRateRpmTrajectory>(
-                  &prescribed->trajectory.rpm);
+    const auto *lane = prescribed == nullptr
+                           ? nullptr
+                           : std::get_if<contract::FixedRateRpmTrajectory>(
+                                 &prescribed->trajectory.rpm);
     expect(prescribed != nullptr && settling != nullptr && lane != nullptr &&
                settling->warm_up_duration_s.value == 0.0 &&
                settling->settling_duration_s.value == 0.0 &&
@@ -530,13 +522,12 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
                                    [](double rpm) { return rpm == 1500.0; }) &&
                resolved.request_input.total_physics_frames == 800U,
            "radial-5 external-speed scenario lost its exact 800-sample lane");
-    expect(contract::validate_for_engine(resolved.scenario, source.resolved.engine)
-               .ok(),
-           "radial-5 prescribed scenario failed the resolved engine mode contract");
+    expect(
+        contract::validate_for_engine(resolved.scenario, source.resolved.engine).ok(),
+        "radial-5 prescribed scenario failed the resolved engine mode contract");
 
     auto rejected = source.scenario_document;
-    const auto &external =
-        std::get<authoring::ExternalSpeedMode>(rejected.mode);
+    const auto &external = std::get<authoring::ExternalSpeedMode>(rejected.mode);
     rejected.mode = authoring::HeldSpeedMode{
         external.engine_speed.points.front().value,
         external.throttle_01,
@@ -544,7 +535,8 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
     const auto gate = compile_detail::resolve_scenario_document(rejected, context);
     const auto *report = std::get_if<authoring::DiagnosticReport>(&gate);
     expect(report != nullptr &&
-               has_diagnostic(*report, authoring::DiagnosticCode::unsupported_capability,
+               has_diagnostic(*report,
+                              authoring::DiagnosticCode::unsupported_capability,
                               "/mode/type"),
            "radial-5 non-external-speed mode gate was removed or lost its path");
 }
@@ -593,8 +585,7 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
                        "radial-5 public capture layout changed");
                 for (std::size_t frame = 0U; frame < block.frame_count(); ++frame) {
                     const auto *engine = block.engine_sample(frame);
-                    expect(engine != nullptr &&
-                               std::isfinite(engine->theta_rad) &&
+                    expect(engine != nullptr && std::isfinite(engine->theta_rad) &&
                                std::isfinite(engine->angular_speed_rad_s) &&
                                engine->engine_speed_rpm == 1500.0,
                            "radial-5 public capture lost prescribed engine motion");
@@ -639,11 +630,10 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
                 observed_frames += block.frame_count();
                 return true;
             });
-        if (const auto *failure =
-                std::get_if<contract::FailureContext>(&published)) {
+        if (const auto *failure = std::get_if<contract::FailureContext>(&published)) {
             throw std::runtime_error{"radial-5 capture faulted (" +
-                                     failure->detail_code + "): " +
-                                     failure->state_summary};
+                                     failure->detail_code +
+                                     "): " + failure->state_summary};
         }
     }
     expect(observed_frame && observed_active_source && observed_frames == *horizon &&
@@ -658,12 +648,10 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
         repository_root / "data/engines/radial-5-cleanroom/engine.json";
     const auto assets = load_assets(source.engine_document, engine_path);
     const auto views = asset_views(assets);
-    auto engine = require(
-        compile::compile_engine(source.engine_document, views),
-        "radial-5 public engine compilation failed");
-    auto scenario = require(
-        compile::compile_scenario(engine, source.scenario_document),
-        "radial-5 public scenario compilation failed");
+    auto engine = require(compile::compile_engine(source.engine_document, views),
+                          "radial-5 public engine compilation failed");
+    auto scenario = require(compile::compile_scenario(engine, source.scenario_document),
+                            "radial-5 public scenario compilation failed");
     auto created = engine_sim_offline::create_engine_session(
         scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
     if (const auto *error =
@@ -671,8 +659,7 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
         throw std::runtime_error{"radial-5 public session creation failed: " +
                                  error->detail_code + ": " + error->message};
     }
-    auto session =
-        std::get<engine_sim_offline::EngineSession>(std::move(created));
+    auto session = std::get<engine_sim_offline::EngineSession>(std::move(created));
     const auto descriptor = session.descriptor();
     expect(descriptor.engine_id == "radial-5-cleanroom" &&
                descriptor.motion_mode ==
@@ -697,9 +684,9 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
                    "radial-5 public audio block changed shape");
             for (const auto &bus : block->audio_buses()) {
                 expect(bus.samples.size() == 3840U &&
-                           std::ranges::all_of(bus.samples, [](float sample) {
-                               return std::isfinite(sample);
-                           }),
+                           std::ranges::all_of(
+                               bus.samples,
+                               [](float sample) { return std::isfinite(sample); }),
                        "radial-5 public audio bus emitted a nonfinite or short block");
                 observed_nonzero_audio =
                     observed_nonzero_audio ||
