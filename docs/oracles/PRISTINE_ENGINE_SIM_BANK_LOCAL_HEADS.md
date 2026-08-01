@@ -161,9 +161,10 @@ engine-data change is `piston.front` blowby from 0.1 to the source-authored 0.2 
 
 Status on 2026-08-02: candidate rendered; auditory acceptance pending. Do not begin
 rod center-of-mass or wrist-pin work until this pair is accepted.
-The Web workbench exposes the candidate as the finite
-`harley-shovelhead-source-pull` preset; it runs the same 3-second settling and
-6-second 1000--5000 RPM sweep and intentionally admits no live controls.
+The Web workbench exposes the candidate through two presets. The open-ended
+`harley-shovelhead-free-rev` bench admits live FreeEngine controls; the finite
+`harley-shovelhead-source-pull` runs the same 3-second settling and 6-second
+1000--5000 RPM sweep as this controlled comparison.
 
 ## A/B acceptance invariant
 

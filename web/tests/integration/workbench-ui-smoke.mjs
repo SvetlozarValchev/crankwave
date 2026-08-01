@@ -53,6 +53,12 @@ const NEW_REPOSITORY_PACKAGES = Object.freeze([
     "800-5000",
   ),
   {
+    packageId: "harley-shovelhead-free-rev",
+    engineId: "shovelhead-bank-local-heads",
+    scenarioId: "shovelhead-bank-local-heads-warm-running-free-rev-1000rpm",
+    executionKind: OPEN_ENDED_EXECUTION_KIND,
+  },
+  {
     packageId: "harley-shovelhead-source-pull",
     engineId: "shovelhead-bank-local-heads",
     scenarioId: "shovelhead-bank-local-heads-source-pull-1000-5000rpm",
@@ -476,6 +482,50 @@ async function verifyFiniteProcedure(cdp) {
     30_000,
   );
   assert.equal(completed.executionKindInput, FINITE_EXECUTION_KIND);
+}
+
+async function verifyInteractiveFreeEngine(cdp) {
+  const ready = await pageState(cdp);
+  assert.equal(ready.executionKindInput, OPEN_ENDED_EXECUTION_KIND);
+  assert.equal(ready.motionMode, "Free Engine");
+  assert.equal(ready.startLabel, "Start");
+
+  await cdp.evaluate(
+    `document.querySelector("#start-button").click(); true`,
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.session === "Running" &&
+      state.rpm !== "—" &&
+      !state.starterDisabled,
+    "the interactive Shovelhead FreeEngine bench",
+    20_000,
+  );
+  await cdp.evaluate(`(() => {
+    const throttle = document.querySelector("#throttle-input");
+    throttle.value = "50";
+    throttle.dispatchEvent(new Event("input", { bubbles: true }));
+    return true;
+  })()`);
+  const controlled = await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.session === "Running" &&
+      state.throttle === "50%" &&
+      state.rpm !== "—",
+    "the interactive Shovelhead throttle command",
+  );
+  assert.match(controlled.diagnostics, /No diagnostics reported/u);
+
+  await cdp.evaluate(
+    `document.querySelector("#stop-button").click(); true`,
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) => state.session === "Paused",
+    "the paused interactive Shovelhead bench",
+  );
 }
 
 async function verifyHeldDynoBench(cdp) {
@@ -950,6 +1000,9 @@ async function main() {
       }
       if (expectation.packageId === "harley-shovelhead-source-pull") {
         await verifyFiniteProcedure(cdp);
+      }
+      if (expectation.packageId === "harley-shovelhead-free-rev") {
+        await verifyInteractiveFreeEngine(cdp);
       }
       if (expectation.packageId === "bmw-m52tub28-launch-first-second") {
         await selectExecutionKindAndRebuild(
