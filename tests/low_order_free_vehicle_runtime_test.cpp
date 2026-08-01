@@ -326,6 +326,113 @@ void test_bmw_launch_shift_and_internal_state(const AuthoredEngineFixture &canon
            "FreeVehicle completion was not terminal and stable");
 }
 
+void test_locked_first_gear_ignition_off_remains_admitted_through_rest(
+    const AuthoredEngineFixture &canonical) {
+    constexpr double kShutdownPreparationEndS = 0.90;
+    constexpr std::uint64_t kShutdownPreparationEndFrame = 9000U;
+    constexpr double kShutdownDurationS = 1.30;
+    constexpr std::uint64_t kShutdownFrameCount = 13000U;
+    const auto compiled_request = make_free_vehicle_request(canonical);
+    auto request = compiled_request.authored;
+    const auto &mechanism_plan = compiled_request.mechanism_plan;
+    auto &scenario = request.scenario;
+    auto &vehicle = std::get<FreeVehicle>(scenario.mode);
+    vehicle.initial_engine_speed_rpm.value = 700.0;
+    vehicle.selected_gear.value = {
+        {"initial-neutral", 0.0, std::nullopt},
+    };
+    vehicle.clutch_engagement_01.value = {
+        {"initial-clutch-open", 0.0, 0.0},
+    };
+    vehicle.service_brake_application_01.value = {
+        {"service-brake-held", 0.0, 1.0},
+    };
+    scenario.operating_state.value = {
+        {"warm-running", 0.0, {true, true, false, false, true}},
+    };
+    auto &preparation = std::get<FixedHorizonCycleSampling>(scenario.preparation);
+    preparation.fixed_preparation_horizon_s.value = kShutdownPreparationEndS;
+    preparation.trailing_complete_cycle_count.value = 4U;
+    scenario.total_duration_s.value = kShutdownDurationS;
+    scenario.audible_start_s.value = kShutdownPreparationEndS;
+    scenario.audible_duration_s.value = kShutdownDurationS - kShutdownPreparationEndS;
+
+    const auto extent = LowOrderExecutionExtent::finite_scenario(kShutdownFrameCount);
+    auto capture_plan = require_capture_plan(
+        compile_low_order_capture_plan(request.engine, scenario, extent));
+    const auto random_plan = engine_sim_offline::test::compile_fixture_random_plan(
+        request, request.engine, scenario);
+    auto runtime = require_dynamic_runtime(compile_low_order_dynamic_crank_runtime(
+        request.engine, scenario, capture_plan, nonzero_request_identity(),
+        mechanism_plan, extent));
+    auto core = require_core_runtime(compile_low_order_engine_core_v1_runtime(
+        request.engine, scenario,
+        engine_sim_offline::test::operating_profile(request.engine).core, random_plan,
+        mechanism_plan, extent));
+
+    bool observed_stall = false;
+    bool observed_positive_speed_without_represented_rotation = false;
+    std::uint64_t stopped_frame_count = 0U;
+    std::optional<double> previous_theta_rad;
+    for (std::uint64_t frame = 0U; frame < kShutdownFrameCount; ++frame) {
+        LiveControlOverrides overrides;
+        if (frame >= kShutdownPreparationEndFrame) {
+            overrides.has_ignition_enabled = true;
+            overrides.ignition_enabled = false;
+            overrides.has_vehicle_selected_forward_gear = true;
+            overrides.vehicle_selected_forward_gear_ordinal = 1U;
+            overrides.has_vehicle_clutch_engagement = true;
+            overrides.vehicle_clutch_engagement_01 = 1.0;
+            overrides.has_vehicle_service_brake_application = true;
+            overrides.vehicle_service_brake_application_01 = 1.0;
+        }
+        auto result = runtime.advance(core, overrides);
+        if (const auto *failure = std::get_if<FailureContext>(&result)) {
+            throw std::runtime_error{
+                "locked first-gear shutdown faulted: " + failure->detail_code + "; " +
+                failure->state_summary};
+        }
+        const auto *step = std::get_if<LowOrderDynamicCrankStepView>(&result);
+        expect(step != nullptr,
+               "locked first-gear shutdown completed before its horizon");
+        const auto &mechanics = step->mechanics.get();
+        if (runtime.accepted_sample_count() > kShutdownPreparationEndFrame &&
+            previous_theta_rad.has_value() && mechanics.engine_speed_rpm > 0.0 &&
+            mechanics.theta_unwrapped_rad == *previous_theta_rad) {
+            observed_positive_speed_without_represented_rotation = true;
+        }
+        previous_theta_rad = mechanics.theta_unwrapped_rad;
+        if (runtime.accepted_sample_count() <= kShutdownPreparationEndFrame) {
+            continue;
+        }
+        const auto state = runtime.free_vehicle_state();
+        expect(state.has_value() && state->selected_forward_gear_ordinal == 1U &&
+                   state->clutch_engagement_01 == 1.0 &&
+                   state->service_brake_application_01 == 1.0 &&
+                   !mechanics.operating_state.ignition_enabled &&
+                   mechanics.operating_state.fuel_enabled,
+               "locked first-gear shutdown lost its commanded operating state");
+        if (state->engine_speed_rpm == 0.0) {
+            expect(!std::signbit(state->engine_speed_rpm) &&
+                       state->vehicle_speed_m_s == 0.0 &&
+                       !std::signbit(state->vehicle_speed_m_s),
+                   "locked shutdown did not publish canonical stationary state");
+            observed_stall = true;
+            ++stopped_frame_count;
+        }
+    }
+    expect(observed_positive_speed_without_represented_rotation,
+           "shutdown regression did not exercise the rounded near-stall angle");
+    expect(observed_stall && stopped_frame_count >= 200U,
+           "locked first-gear shutdown did not retain admitted rest frames");
+    expect(runtime.finalized() && core.completed(),
+           "locked first-gear shutdown did not complete its finite horizon");
+    const auto completion = runtime.advance(core);
+    const auto *completed = std::get_if<LowOrderEngineCoreV1Completed>(&completion);
+    expect(completed != nullptr && completed->sample_count == kShutdownFrameCount,
+           "locked first-gear shutdown completion was not terminal and stable");
+}
+
 void test_capture_session_selects_free_vehicle(const AuthoredEngineFixture &canonical) {
     const auto compiled_request = make_free_vehicle_request(canonical);
     const auto &request = compiled_request.authored;
@@ -382,6 +489,7 @@ int main(int argc, char **argv) {
             engine_sim_offline::test::load_canonical_authored_engine_fixture(
                 std::filesystem::path{argv[1]});
         test_bmw_launch_shift_and_internal_state(canonical);
+        test_locked_first_gear_ignition_off_remains_admitted_through_rest(canonical);
         test_capture_session_selects_free_vehicle(canonical);
     } catch (const std::exception &error) {
         std::cerr << "low_order_free_vehicle_runtime_test: " << error.what() << '\n';

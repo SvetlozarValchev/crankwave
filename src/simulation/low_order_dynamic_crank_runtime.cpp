@@ -600,8 +600,8 @@ LowOrderDynamicCrankRuntime::observe_preparation_cycle(
 }
 
 std::optional<contract::FailureContext>
-LowOrderDynamicCrankRuntime::update_accounting(const LegacyMechanismStep &mechanics,
-                                               const LegacyLowOrderGasStep &gas) {
+LowOrderDynamicCrankRuntime::update_preparation_accounting(
+    const LegacyMechanismStep &mechanics, const LegacyLowOrderGasStep &gas) {
     if (mechanics.sample_index != accepted_sample_count_ ||
         mechanics.step_end_index != accepted_sample_count_ + 1U ||
         mechanics.timestamp_tick != mechanics.step_end_index ||
@@ -668,11 +668,9 @@ LowOrderDynamicCrankRuntime::update_accounting(const LegacyMechanismStep &mechan
     if (crossing == nullptr || !crossing->completed_cycle.has_value()) {
         return std::nullopt;
     }
-    if (!preparation_finalized_) {
-        if (auto failure = observe_preparation_cycle(*crossing, mechanics);
-            failure.has_value()) {
-            return failure;
-        }
+    if (auto failure = observe_preparation_cycle(*crossing, mechanics);
+        failure.has_value()) {
+        return failure;
     }
 
     latest_completed_cycle_ = *crossing->completed_cycle;
@@ -707,6 +705,13 @@ LowOrderDynamicCrankRuntime::finalize_preparation(
             &mechanics);
     }
     preparation_finalized_ = true;
+    // The accountant and sampler certify only the held warm-preparation state.
+    // Released motion uses the pristine instantaneous friction path and reports
+    // cycle integration as unavailable, so no preparation observer may terminate
+    // stopped, starter-driven, dyno, or drivetrain motion after this boundary.
+    accountant_.reset();
+    sampler_.reset();
+    latest_completed_cycle_.reset();
     return std::nullopt;
 }
 
@@ -814,7 +819,8 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
                 "or starter-off motion-owner state",
                 &mechanics));
         }
-        if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
+        if (auto failure = update_preparation_accounting(mechanics, gas);
+            failure.has_value()) {
             return fail(std::move(*failure));
         }
         if (auto failure = commit_next_piston_wall_boundary(mechanics, gas);
@@ -994,9 +1000,6 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
             held_dyno_capture_torque(applied_indicated, applied_source_friction,
                                      motion.applied_actuator_torque_nm,
                                      motion.input.initial_state.angular_speed_rad_s);
-        if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
-            return fail(std::move(*failure));
-        }
         if (auto failure = commit_next_piston_wall_boundary(mechanics, gas);
             failure.has_value()) {
             return fail(std::move(*failure));
@@ -1230,11 +1233,6 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
             motion.input.held_upstream_engine_torque_nm,
             motion.input.initial_state.angular_speed_rad_s, applied_indicated,
             applied_source_friction, applied_starter_torque_nm);
-        if (mechanics.engine_speed_rpm > 0.0) {
-            if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
-                return fail(std::move(*failure));
-            }
-        }
         if (auto failure = commit_next_piston_wall_boundary(mechanics, gas);
             failure.has_value()) {
             return fail(std::move(*failure));
@@ -1300,11 +1298,6 @@ LowOrderDynamicCrankRuntime::advance(LowOrderEngineCoreV1Runtime &core,
         motion.input.held_resisting_torque_nm,
         motion.input.initial_state.angular_speed_rad_s, applied_indicated,
         applied_source_friction, applied_starter_torque_nm);
-    if (mechanics.engine_speed_rpm > 0.0) {
-        if (auto failure = update_accounting(mechanics, gas); failure.has_value()) {
-            return fail(std::move(*failure));
-        }
-    }
     if (auto failure = commit_next_piston_wall_boundary(mechanics, gas);
         failure.has_value()) {
         return fail(std::move(*failure));

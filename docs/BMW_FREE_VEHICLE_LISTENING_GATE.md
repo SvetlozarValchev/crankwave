@@ -63,6 +63,18 @@ capacity with the engine's remaining nonnegative angular impulse and commits can
 positive zero when that exact boundary is active. The authored finite launch remains
 successful, and its audition and raw WAV hashes below are unchanged.
 
+A second interactive regression exposed a separate obsolete observer after that
+stall boundary was admitted. At minute positive RPM, the represented `omega * dt`
+was smaller than one ULP of the accumulated crank angle. The committed drivetrain,
+gas, and audio transaction was valid, but the strict cycle quadrature rejected its
+unchanged binary64 angle. Released cycle accounting had no consumer after pristine
+crank and piston-wall friction replaced the former Chen--Flynn motion authority, and
+released telemetry already declared cycle integration unavailable. The accountant
+and fixed-horizon sampler now end at warm-preparation release. A focused live-control
+regression selects first gear, locks the clutch, retains the full service brake,
+switches ignition off, exercises the positive-RPM/equal-angle edge, reaches
+canonical rest frames, and completes without a terminal diagnostic.
+
 ## Listening set
 
 Both production renders identify clean commit

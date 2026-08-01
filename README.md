@@ -76,8 +76,9 @@ motion now applies pristine engine-sim's authored crank friction plus its execut
 one-step-lagged piston-wall law; the wall reaction is resolved by the admitted
 centered-slider inverse dynamics instead of importing the legacy constraint solver.
 Direct held and coast traces put that replacement within `1.44%` aggregate wall-force
-error and below `0.4%` one-step friction-force error. Chen--Flynn remains observed
-cycle evidence only and does not advance FreeEngine RPM. Configuration-dependent
+error and below `0.4%` one-step friction-force error. Chen--Flynn is retained only as
+fixed warm-preparation evidence; its accountant is discarded at dynamic release, and
+released cycle integration remains unavailable. Configuration-dependent
 mechanism inertia now follows the pristine one-degree-of-freedom equation
 `Q = M(theta)*alpha + 0.5*dM/dtheta*omega^2`; an audited 6,000-rpm coast tick predicts
 pristine acceleration within `0.054%`. The controlled response gate passes: WOT

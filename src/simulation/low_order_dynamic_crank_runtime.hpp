@@ -214,8 +214,8 @@ class LowOrderDynamicCrankRuntime final {
     [[nodiscard]] LowOrderDynamicCrankAdvanceResult
     fail(contract::FailureContext failure);
     [[nodiscard]] std::optional<contract::FailureContext>
-    update_accounting(const LegacyMechanismStep &mechanics,
-                      const LegacyLowOrderGasStep &gas);
+    update_preparation_accounting(const LegacyMechanismStep &mechanics,
+                                  const LegacyLowOrderGasStep &gas);
     [[nodiscard]] std::optional<contract::FailureContext>
     observe_preparation_cycle(const OperatingCycleBoundaryCrossing &crossing,
                               const LegacyMechanismStep &mechanics);

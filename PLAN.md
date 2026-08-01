@@ -760,6 +760,10 @@ ordered forward gears, bounded clutch slip, passive rolling/aerodynamic road loa
 and an explicitly authored one-sided service brake. Its self-contained resolved
 request has no hidden rig pointer, and the exact clutch-then-road projection is method
 identity bound. The accepted held-dyno raw and audition WAVs remain byte-identical.
+Warm-preparation cycle accounting now ends at dynamic release, matching the published
+unavailable released-cycle telemetry and preventing an obsolete observer from
+terminally rejecting a valid brake-held, first-gear engine shutdown at the
+positive-RPM/equal-binary64-angle stall edge.
 The user accepted the clean BMW neutral/launch/first-to-second and already-moving
 fifth-gear pull/lift recordings in
 [`docs/BMW_FREE_VEHICLE_LISTENING_GATE.md`](docs/BMW_FREE_VEHICLE_LISTENING_GATE.md).

@@ -440,8 +440,9 @@ pristine crank-friction magnitude and the pristine C++ piston-wall law with its
 previous-step wall-reaction dependency. A full midpoint-rod centered-slider inverse
 dynamics replaces the legacy constraint solver for that reaction; direct held and
 coast traces keep its resulting one-step friction-force difference below `0.4%` L1.
-The generic one-cycle-lagged Chen--Flynn result is retained as cycle evidence only and
-does not advance FreeEngine RPM. Free-running mechanics evaluates pristine's
+The generic Chen--Flynn accountant certifies only fixed warm preparation and is
+discarded at dynamic release. It does not advance FreeEngine RPM, and released cycle
+integration remains explicitly unavailable. Free-running mechanics evaluates pristine's
 configuration-dependent centered-slider inertia equation at each left boundary. The
 controlled response gate passes: WOT differs from pristine by `0.0134 s`, every coast
 crossing by at most `0.0049 s`, and the long natural-balance mean by `1.079 RPM`. The
