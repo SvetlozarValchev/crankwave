@@ -94,6 +94,8 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
         auto header_primary_length_m =
             emitter.authored(legacy_si_value(cylinder.exhaust_header_primary_length),
                              base + ".header_primary_length_m");
+        auto piston_blowby =
+            resolve_restriction(*piston.blowby, base + ".piston_blowby", emitter);
 
         contract::LegacyCylinderKinematics kinematics;
         if (master_attachment != nullptr) {
@@ -140,6 +142,7 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
                 std::move(connecting_rod_inertia_kg_m2),
                 std::move(ignition_wire_angle_rad),
                 std::move(header_primary_length_m),
+                std::move(piston_blowby),
             },
             std::move(kinematics),
         });

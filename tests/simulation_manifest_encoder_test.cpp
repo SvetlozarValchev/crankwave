@@ -25,13 +25,13 @@ using namespace engine_sim_offline::contract::test;
 using namespace engine_sim_offline::identity;
 
 constexpr std::string_view kExpectedCanonicalManifestSha256 =
-    "02e12c54cda7aea3c76ac03c0a83dceb01f6aa3aaa5cff4fc5ddeca5b2fbe074";
+    "31ff024cad60b00237c3a6e611c9ed720eb28f2740ce0408048e867c4051c44a";
 constexpr std::string_view kExpectedCanonicalRequestIdentitySha256 =
-    "31ec9d39c3ab2529e0d4f042965536d4becb23cb18f5643b0294eedb53369f94";
+    "edb2d3c0c993bf6d1bd1a083df50230713a9b463e9bc55899be963f3787aa0b2";
 constexpr std::string_view kExpectedCustomizedManifestSha256 =
-    "df06c59fc3de14232e4b538e04d894d40faa529f8116a3bea5fc8f6284322eba";
+    "c97dfd75e2fcb8b2311f465c08bbc8ee9aa4d8164eb86a965e9d388f13c12c2e";
 constexpr std::string_view kExpectedCustomizedRequestIdentitySha256 =
-    "e8e6d29bcba2989fb7260458791944d5ab59c3ae77e02b527ab07d55f46145a6";
+    "258e0afa053ab08b77cbac953298cf3758dc65f719290bb81e96547d5ce64a2d";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -282,6 +282,8 @@ struct GoldenHashes {
         manifest_document.find("\"cylinders\":[", crank_tdc_reference);
     const auto topology_crankshaft_id =
         manifest_document.find("\"crankshaft_id\":", core_cylinders);
+    const auto cylinder_blowby =
+        manifest_document.find("\"piston_blowby\":", topology_crankshaft_id);
     const auto gas_path = manifest_document.find("\"gas_path\":", profile);
     const auto gas_intakes = manifest_document.find("\"intakes\":[", gas_path);
     const auto intake_topology =
@@ -304,7 +306,8 @@ struct GoldenHashes {
                crank_tdc_reference != std::string::npos &&
                core_cylinders != std::string::npos &&
                topology_crankshaft_id != std::string::npos &&
-               gas_path != std::string::npos && gas_intakes != std::string::npos &&
+               cylinder_blowby != std::string::npos && gas_path != std::string::npos &&
+               gas_intakes != std::string::npos &&
                intake_topology != std::string::npos &&
                intake_parameters != std::string::npos &&
                running_crank_friction != std::string::npos &&
@@ -317,13 +320,16 @@ struct GoldenHashes {
                crank_tdc_reference < running_crank_friction &&
                running_crank_friction < core_cylinders &&
                core_cylinders < topology_crankshaft_id &&
-               topology_crankshaft_id < gas_path && gas_path < gas_intakes &&
-               gas_intakes < intake_topology && intake_topology < intake_parameters &&
+               topology_crankshaft_id < cylinder_blowby && cylinder_blowby < gas_path &&
+               gas_path < gas_intakes && gas_intakes < intake_topology &&
+               intake_topology < intake_parameters &&
                running_crank_friction < aggregate_loss &&
                aggregate_loss < accessory_configuration &&
                accessory_configuration < starter && starter < cycle_quadrature &&
                cycle_quadrature < torque_capability,
            "operating-point profile was flattened or its member order changed");
+    expect(manifest_document.find("\"piston_blowby\":", gas_path) == std::string::npos,
+           "per-cylinder blowby collapsed back into the shared gas path");
     expect(manifest_document.find("\"mechanism\":{\"crank\":", profile) ==
                std::string::npos,
            "retired singular crank assembly leaked into manifest v10");
@@ -392,18 +398,32 @@ struct GoldenHashes {
         "\"mechanism\":{\"output_crankshaft_id\":", identity_cylinder_crankshaft);
     const auto identity_core_cranks =
         identity_document.find("\"cranks\":[", identity_core_output_crankshaft);
+    const auto identity_core_cylinders =
+        identity_document.find("\"cylinders\":[", identity_core_cranks);
+    const auto identity_cylinder_blowby =
+        identity_document.find("\"piston_blowby\":", identity_core_cylinders);
+    const auto identity_gas_path =
+        identity_document.find("\"gas_path\":", identity_cylinder_blowby);
     expect(identity_crankshafts != std::string::npos &&
                identity_output_crankshaft != std::string::npos &&
                identity_cylinder != std::string::npos &&
                identity_cylinder_crankshaft != std::string::npos &&
                identity_core_output_crankshaft != std::string::npos &&
                identity_core_cranks != std::string::npos &&
+               identity_core_cylinders != std::string::npos &&
+               identity_cylinder_blowby != std::string::npos &&
+               identity_gas_path != std::string::npos &&
                identity_crankshafts < identity_output_crankshaft &&
                identity_output_crankshaft < identity_cylinder &&
                identity_cylinder < identity_cylinder_crankshaft &&
                identity_cylinder_crankshaft < identity_core_output_crankshaft &&
-               identity_core_output_crankshaft < identity_core_cranks,
-           "request identity omitted or reordered crankshaft ownership");
+               identity_core_output_crankshaft < identity_core_cranks &&
+               identity_core_cranks < identity_core_cylinders &&
+               identity_core_cylinders < identity_cylinder_blowby &&
+               identity_cylinder_blowby < identity_gas_path &&
+               identity_document.find("\"piston_blowby\":", identity_gas_path) ==
+                   std::string::npos,
+           "request identity omitted or reordered mechanism ownership");
 
     auto mutated_plan = fixture.manifest.content.randomness;
     ++mutated_plan.component_seeds.front().initial_state;

@@ -995,6 +995,68 @@ void test_two_intake_direct_runtime_retains_independent_lanes(
            "bound cylinder runners");
 }
 
+[[nodiscard]] double blowby_transfer_mol(const LegacyLowOrderGasStep &step,
+                                         FlowEdgeId edge_id) {
+    const auto edge = std::ranges::find_if(step.flow_edges, [&](const auto &candidate) {
+        return candidate.flow_edge_id == edge_id;
+    });
+    expect(edge != step.flow_edges.end(),
+           "per-cylinder blowby trace lost its bound flow edge");
+    return edge->signed_amount_mol;
+}
+
+void test_per_cylinder_blowby_executes_bound_restriction(
+    const AuthoredEngineFixture &canonical) {
+    auto reference = make_short_request(canonical);
+    auto disabled = reference;
+    auto &cylinders =
+        engine_sim_offline::test::low_order_core(disabled.engine).mechanism.cylinders;
+    expect(cylinders.size() >= 2U,
+           "per-cylinder blowby fixture requires at least two cylinders");
+
+    auto &changed = cylinders[1].parameters.piston_blowby;
+    changed.source_rating.value = 0.0;
+    changed.resolved_k.value = 0.0;
+
+    const FlowEdgeId changed_edge_id = cylinders[1].topology.blowby_edge_id;
+    const FlowEdgeId witness_edge_id = cylinders[0].topology.blowby_edge_id;
+    auto reference_sessions = compile_sessions(reference);
+    auto disabled_gas_a = compile_gas_session(disabled);
+    auto disabled_gas_b = compile_gas_session(disabled);
+
+    bool observed_reference_target_transfer = false;
+    bool observed_disabled_witness_transfer = false;
+    constexpr std::uint64_t kProofFrameCount = 512U;
+    for (std::uint64_t sample_index = 0U; sample_index < kProofFrameCount;
+         ++sample_index) {
+        const auto &reference_mechanics =
+            advance_mechanics(reference_sessions, sample_index);
+        const auto &reference_gas =
+            advance_gas(reference_sessions, reference_mechanics, sample_index);
+        auto disabled_result_a = disabled_gas_a.advance(reference_mechanics);
+        auto disabled_result_b = disabled_gas_b.advance(reference_mechanics);
+        const auto &disabled_step_a = require_gas_step(disabled_result_a, sample_index);
+        const auto &disabled_step_b = require_gas_step(disabled_result_b, sample_index);
+        expect(same_gas_step(disabled_step_a, disabled_step_b),
+               "per-cylinder blowby perturbation is not deterministic");
+        expect(blowby_transfer_mol(disabled_step_a, changed_edge_id) == 0.0,
+               "disabled piston blowby leaked through another cylinder's "
+               "restriction");
+
+        observed_reference_target_transfer =
+            observed_reference_target_transfer ||
+            blowby_transfer_mol(reference_gas, changed_edge_id) != 0.0;
+        observed_disabled_witness_transfer =
+            observed_disabled_witness_transfer ||
+            blowby_transfer_mol(disabled_step_a, witness_edge_id) != 0.0;
+    }
+
+    expect(observed_reference_target_transfer,
+           "reference piston never exercised its blowby restriction");
+    expect(observed_disabled_witness_transfer,
+           "disabling one piston unexpectedly disabled every blowby lane");
+}
+
 void test_bank_local_runner_and_primary_geometry_binds_and_advances(
     const AuthoredEngineFixture &canonical) {
     auto request = make_short_request(canonical);
@@ -1232,6 +1294,16 @@ void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical)
     }
 
     {
+        auto request = make_short_request(canonical);
+        engine_sim_offline::test::low_order_core(request.engine)
+            .mechanism.cylinders[1]
+            .parameters.piston_blowby.resolved_k.value *= 2.0;
+        expect_gas_compile_rejected(
+            request, "mechanism.cylinders[1].parameters.piston_blowby.resolved_k",
+            "stale per-cylinder blowby coefficient");
+    }
+
+    {
         const auto request = make_short_request(canonical);
         auto random_plan = require_random_plan(request);
         ++random_plan.public_seed;
@@ -1289,6 +1361,7 @@ void run_tests(const AuthoredEngineFixture &canonical) {
     test_vtec_selects_one_coherent_immutable_cam_pair(canonical);
     test_short_authored_fresh_state_and_deterministic_activity(canonical);
     test_two_intake_direct_runtime_retains_independent_lanes(canonical);
+    test_per_cylinder_blowby_executes_bound_restriction(canonical);
     test_bank_local_runner_and_primary_geometry_binds_and_advances(canonical);
     test_certified_radial_gas_uses_common_mechanism_coordinates(canonical);
     test_length_authored_collector_geometry_admission(canonical);

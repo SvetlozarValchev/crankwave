@@ -174,7 +174,14 @@
     ],
     "pistons": [
       {
-        "id": "piston",
+        "id": "piston.front",
+        "mass": {"value": 500, "unit": "g"},
+        "compression_height": {"value": 1, "unit": "in"},
+        "displacement_volume": {"value": 0, "unit": "cm3"},
+        "blowby": {"type": "flow_bench", "rated_flow": {"value": 0.1, "unit": "cfm", "standard": "port_28_inh2o"}, "pressure_drop": {"value": 28, "unit": "inH2O"}}
+      },
+      {
+        "id": "piston.rear",
         "mass": {"value": 500, "unit": "g"},
         "compression_height": {"value": 1, "unit": "in"},
         "displacement_volume": {"value": 0, "unit": "cm3"},
@@ -283,8 +290,8 @@
     "throttle_controller": "direct-throttle",
     "starter": {"type": "cranking", "torque": {"value": 70, "unit": "lb*ft"}, "target_speed": {"value": 500, "unit": "rpm"}},
     "cylinders": [
-      {"id": "cylinder.front", "bank": "bank.front", "journal": "shared-pin", "connecting_rod": "rod", "piston": "piston", "intake": "intake", "exhaust": "exhaust.front", "ignition_wire": "wire.front", "intake_port": "intake-port.front", "exhaust_port": "exhaust-port.front", "exhaust_header_primary_length": {"value": 0, "unit": "m"}},
-      {"id": "cylinder.rear", "bank": "bank.rear", "journal": "shared-pin", "connecting_rod": "rod", "piston": "piston", "intake": "intake", "exhaust": "exhaust.rear", "ignition_wire": "wire.rear", "intake_port": "intake-port.rear", "exhaust_port": "exhaust-port.rear", "exhaust_header_primary_length": {"value": 0, "unit": "m"}}
+      {"id": "cylinder.front", "bank": "bank.front", "journal": "shared-pin", "connecting_rod": "rod", "piston": "piston.front", "intake": "intake", "exhaust": "exhaust.front", "ignition_wire": "wire.front", "intake_port": "intake-port.front", "exhaust_port": "exhaust-port.front", "exhaust_header_primary_length": {"value": 0, "unit": "m"}},
+      {"id": "cylinder.rear", "bank": "bank.rear", "journal": "shared-pin", "connecting_rod": "rod", "piston": "piston.rear", "intake": "intake", "exhaust": "exhaust.rear", "ignition_wire": "wire.rear", "intake_port": "intake-port.rear", "exhaust_port": "exhaust-port.rear", "exhaust_header_primary_length": {"value": 0, "unit": "m"}}
     ],
     "source_routes": [
       {"id": "exhaust.front", "type": "exhaust", "exhaust": "exhaust.front"},

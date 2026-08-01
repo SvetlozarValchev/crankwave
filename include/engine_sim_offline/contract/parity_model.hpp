@@ -14,6 +14,24 @@ namespace engine_sim_offline::contract {
 
 struct EngineSpec;
 
+enum class LegacyRestrictionCalibration : std::uint8_t {
+    unspecified,
+    carb_at_1p5_inhg,
+    cfm_at_28_inh2o,
+};
+
+template <template <class> class Field> struct LegacyRestrictionT {
+    Field<LegacyRestrictionCalibration> calibration;
+    Field<double> source_rating;
+    Field<double> resolved_k;
+
+    friend bool operator==(const LegacyRestrictionT &,
+                           const LegacyRestrictionT &) = default;
+};
+
+using AuthoredLegacyRestriction = LegacyRestrictionT<AuthoredValue>;
+using LegacyRestriction = LegacyRestrictionT<ResolvedValue>;
+
 struct AuthoredLegacyCylinderTopology {
     AuthoredValue<std::string> cylinder_id;
     AuthoredValue<std::string> crankshaft_id;
@@ -68,6 +86,7 @@ template <template <class> class Field> struct LegacyCylinderParametersT {
     Field<double> journal_angle_rad;
     Field<double> ignition_wire_angle_rad;
     Field<double> header_primary_length_m;
+    LegacyRestrictionT<Field> piston_blowby;
 
     friend bool operator==(const LegacyCylinderParametersT &,
                            const LegacyCylinderParametersT &) = default;
@@ -86,6 +105,7 @@ struct LegacyCylinderParameters {
     ResolvedValue<double> connecting_rod_inertia_kg_m2;
     ResolvedValue<double> ignition_wire_angle_rad;
     ResolvedValue<double> header_primary_length_m;
+    LegacyRestriction piston_blowby;
 
     friend bool operator==(const LegacyCylinderParameters &,
                            const LegacyCylinderParameters &) = default;
@@ -180,24 +200,6 @@ struct LegacyMechanismProfile {
 find_crank(const LegacyMechanismProfile &mechanism, CrankshaftId id) noexcept;
 [[nodiscard]] const LegacyCrankAssembly *
 find_output_crank(const LegacyMechanismProfile &mechanism) noexcept;
-
-enum class LegacyRestrictionCalibration : std::uint8_t {
-    unspecified,
-    carb_at_1p5_inhg,
-    cfm_at_28_inh2o,
-};
-
-template <template <class> class Field> struct LegacyRestrictionT {
-    Field<LegacyRestrictionCalibration> calibration;
-    Field<double> source_rating;
-    Field<double> resolved_k;
-
-    friend bool operator==(const LegacyRestrictionT &,
-                           const LegacyRestrictionT &) = default;
-};
-
-using AuthoredLegacyRestriction = LegacyRestrictionT<AuthoredValue>;
-using LegacyRestriction = LegacyRestrictionT<ResolvedValue>;
 
 struct AuthoredLegacyIntakeTopology {
     AuthoredValue<std::string> intake_id;
@@ -340,12 +342,10 @@ struct LegacyExhaustRouteProfile {
                            const LegacyExhaustRouteProfile &) = default;
 };
 
-template <class Intake, class Head, class ExhaustRoute, class Restriction>
-struct LegacyGasPathProfileT {
+template <class Intake, class Head, class ExhaustRoute> struct LegacyGasPathProfileT {
     std::vector<Intake> intakes;
     std::vector<Head> heads;
     std::vector<ExhaustRoute> exhaust_routes;
-    Restriction piston_blowby;
 
     friend bool operator==(const LegacyGasPathProfileT &,
                            const LegacyGasPathProfileT &) = default;
@@ -353,10 +353,10 @@ struct LegacyGasPathProfileT {
 
 using AuthoredLegacyGasPathProfile =
     LegacyGasPathProfileT<AuthoredLegacyIntakeProfile, AuthoredLegacyBankHeadProfile,
-                          AuthoredLegacyExhaustRouteProfile, AuthoredLegacyRestriction>;
+                          AuthoredLegacyExhaustRouteProfile>;
 using LegacyGasPathProfile =
     LegacyGasPathProfileT<LegacyIntakeProfile, LegacyBankHeadProfile,
-                          LegacyExhaustRouteProfile, LegacyRestriction>;
+                          LegacyExhaustRouteProfile>;
 
 template <template <class> class Field> struct LegacyCamShapeT {
     Field<double> maximum_lift_m;

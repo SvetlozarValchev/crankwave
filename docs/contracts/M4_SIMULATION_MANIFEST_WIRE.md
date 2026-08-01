@@ -13,7 +13,7 @@ Machine schema:
 [`schemas/render_manifest_simulation_v10.cddl`](../../schemas/render_manifest_simulation_v10.cddl)
 
 Schema SHA-256:
-`dabc1d62d53ec9cc5974efe710e40e0316245684ef3423b4afaa87a523bbdb98`
+`57d42cf2ebce64ec2baaba39f3e9e823665ed20b11b1bfe7dccec1f4bf62b22e`
 
 The v10/v7 cutover replaces the resolved valvetrain's one-shape-per-role projection
 with ordered bank-local cam-profile pools and an explicit profile index on every
@@ -22,6 +22,9 @@ lobes on one physical cam bind the same profile. General multi-head VTEC remains
 closed. The existing crankshaft-, bank-, intake-, head-, wire-, and route-keyed
 topology remains unchanged. This is an incompatible current grammar, so the project
 retains only the v10 CDDL and exposes no v9/v6 alias.
+
+Each resolved cylinder now owns the calibrated blowby restriction of its referenced
+piston. The gas-path record no longer carries a shared representative restriction.
 
 ## 1. Scope and admission
 
@@ -608,7 +611,7 @@ selects spark ignition, and another combustion mode requires its own admitted mo
 The mechanically generated canonical digest is:
 
 ```text
-72075541dbfce6af00628478965eacb5c1063f924b967be693731c36b36b91dd
+09889ae528625586cef5e48fb878b896895aa3717f4d37d0a5c47a610ec0ba9b
 ```
 
 The independent BMW parity-request factory test pins the same digest. It is not

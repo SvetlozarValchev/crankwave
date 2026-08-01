@@ -25,8 +25,8 @@ profiles, with cylinders bound by BankId. Their chamber volume, runner geometry,
 curves, and intake/exhaust flow radii may differ. Standard bank-local camshafts may
 likewise retain distinct same-role profiles, advance, and base radius; each physical
 camshaft still requires one exact shared profile, advance, and base radius across its
-own lobes. All referenced pistons retain
-one identical shared blowby restriction. Vehicle and transmission rig
+own lobes. Each referenced piston retains an independently resolved and executed
+28-inH2O calibrated CFM blowby restriction. Vehicle and transmission rig
 objects parse, resolve, and execute through the finite forward-only FreeVehicle
 drivetrain; its operating state is published through the same native/C/WASM/Worker
 boundary.
@@ -163,8 +163,8 @@ never silently looped.
   HeldDyno, and FreeVehicle additionally execute that co-centered, co-phased group as
   one rigid dynamic degree of freedom; HeldSpeed, LoadTargetHeld, and InertialDyno
   still require exactly one crankshaft. Execution accepts one or
-  more reachable shared or distinct intakes, one identical shared piston blowby
-  restriction, and direct centered rods on one zero-angle inline bank, exactly two
+  more reachable shared or distinct intakes, an independent calibrated blowby
+  restriction for each referenced piston, and direct centered rods on one zero-angle inline bank, exactly two
   finite distinct-angle V banks, exactly two antipodal opposed banks, or one or more
   custom banks with explicit finite axes. Banks
   may share one head/valvetrain or use physically distinct bank-local heads and
@@ -255,7 +255,7 @@ the remainder as explicit capability diagnostics:
 | Rod journals with arbitrary phase | `engine.journals[]` tagged union; the direct variant requires `type: "crankshaft"`, `crankshaft`, and `phase` | **Low-order executed/Partial**; a dynamic cylinder set may reference and share direct journals with arbitrary finite phase | V8 and direct shared-journal fixtures preserve phases and reference identity. |
 | Master/slave rod attachment | `engine.journals[]` `type: "master_rod"` variant with `master_cylinder`, positive `throw_radius`, and finite local `phase`; retired `master_journal`, `slave_throw`, and `slave_journal` fields remain forbidden | **Low-order executed for finite prescribed motion**; references, exact-one consumer, connectivity, one-level direct master, and cycle rules validate. The immutable plan distinguishes roots from slave attachments, publishes no master-rod torque or inertia capability, and reproduces pristine one-level geometry without nominal slave stroke or displacement. Full-cycle certification precedes admission. Public mechanics, gas, capture, excitation, and audio consume the plan only for a finite `PrescribedKinematicSweep`; every torque-owning/dynamic mode remains closed | Canonical pristine-derived radial-five JSON preserves five banks, four slave pins, firing/cam/route associations, doubled head-flow tables, and exact IR identity. Its 800-frame public capture has active sources and its four-block `EngineSession` produces finite nonzero PCM. Malformed graphs, failed certificates, stale plans, and non-prescribed modes remain rejected. |
 | Connecting-rod mass, inertia, center of mass, length | `engine.connecting_rods[]` | **Partial**; mass/inertia/length exist in BMW profile, center of mass is absent | Resolved mechanism quantities and inertial torque are verified. |
-| Piston mass, blowby, compression height, wrist-pin position, displacement term | `engine.pistons[]` and gas-path blowby restriction | **Partial**; mass, compression height, and displacement execute, but every referenced piston must currently use one identical blowby restriction and wrist-pin position is absent | BMW geometry/clearance comparison, blowby flow check, and Shovelhead normalization boundary. |
+| Piston mass, blowby, compression height, wrist-pin position, displacement term | `engine.pistons[]`; blowby resolves into each bound cylinder's mechanism parameters and runtime gas lane | **Partial**; mass, compression height, displacement, and independent per-piston 28-inH2O CFM blowby execute; wrist-pin position is absent | BMW geometry/clearance comparison, exact flow-calibration admission, unequal synthetic resolution, lane-local runtime differential, and Shovelhead equal-value split before its source-value audition. |
 | Banks with angle, bore, and deck height | `engine.banks[]` | **Low-order executed/Partial**; execution admits one zero-angle inline bank, exactly two finite distinct-angle V banks, exactly two antipodal opposed banks, or custom explicit finite axes, including authored bank bore/deck geometry; all use direct centered rods | Inline, Toyota V8, Subaru EJ25 opposed, and synthetic three-axis custom fixtures preserve bank geometry and axis-relative mechanics. |
 | Arbitrary cylinder-to-bank/journal/intake/exhaust/wire connections | Explicit cylinder references; crank ownership derives through the referenced journal | **Partial**; dynamic cylinders, direct bank-axis and bank-local-head/cam bindings, direct shared journals, prescribed and rigid-dynamic co-phased multi-crank bindings, shared or distinct intakes and ignition wires, firing order, and exhaust sharing execute. Multi-crank master/slave and general multi-head VTEC remain closed | Toyota V8, Subaru EJ25, Shovelhead V-twin, synthetic three-axis custom, shared-wire inline-twin, separate-intake, and split-crank fixtures prove the admitted connection patterns. |
 | Per-cylinder primary length | Physical exhaust path in `engine`, compiled to propagation delay | **Low-order executed** | Resolved length/delay comparison at each supported sample rate. |

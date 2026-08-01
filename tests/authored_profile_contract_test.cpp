@@ -75,6 +75,8 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
             authored(0.0),
             authored(0.0),
             authored(0.0),
+            make_restriction(LegacyRestrictionCalibration::cfm_at_28_inh2o, 0.1,
+                             kCfmPointOne),
         },
     });
     core.throttle_controller = AuthoredDirectThrottleControllerV1{
@@ -147,9 +149,6 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
                              kCarb1000),
         },
     });
-    core.gas_path.piston_blowby = make_restriction(
-        LegacyRestrictionCalibration::cfm_at_28_inh2o, 0.1, kCfmPointOne);
-
     const auto camshaft = [](std::string port_id) {
         AuthoredLegacyCamshaftProfile cam;
         cam.shape = {

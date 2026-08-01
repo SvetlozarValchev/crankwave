@@ -148,6 +148,10 @@ void visit_cylinder_parameters(const Cylinder &cylinder, const std::string &base
     }
     function(parameters.ignition_wire_angle_rad, base + ".ignition_wire_angle_rad");
     function(parameters.header_primary_length_m, base + ".header_primary_length_m");
+    function(parameters.piston_blowby.calibration, base + ".piston_blowby.calibration");
+    function(parameters.piston_blowby.source_rating,
+             base + ".piston_blowby.source_rating");
+    function(parameters.piston_blowby.resolved_k, base + ".piston_blowby.resolved_k");
     if constexpr (requires { cylinder.kinematics; }) {
         if (const auto *master =
                 std::get_if<LegacyMasterRodJournalKinematics>(&cylinder.kinematics)) {
@@ -388,9 +392,6 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
                                      route_name(route),
                                  function);
     }
-    visit_restriction(core.gas_path.piston_blowby,
-                      std::string(root) + ".gas_path.piston_blowby", function);
-
     const auto visit_camshaft = [&](const auto &camshaft, const std::string &base) {
         if constexpr (requires { camshaft.shape; }) {
             visit_cam_shape(camshaft.shape, base + ".shape", function);
@@ -861,6 +862,8 @@ void validate_authored_low_order_core_domains(
                 ContractIssueCode::inconsistent_semantics,
                 path + ".parameters.crank_radius_m.value",
                 "twice crank radius must equal stroke");
+        validate_restriction_domain(report, parameters.piston_blowby,
+                                    path + ".piston_blowby");
     }
 
     require(report, !core.gas_path.intakes.empty(), ContractIssueCode::missing_value,
@@ -934,9 +937,6 @@ void validate_authored_low_order_core_domains(
     require(report, used_intake_ids == intake_ids,
             ContractIssueCode::inconsistent_shape, "mechanism.cylinders",
             "every legacy intake profile must be used by at least one cylinder");
-    validate_restriction_domain(report, core.gas_path.piston_blowby,
-                                "gas_path.piston_blowby");
-
     require(report, !core.gas_path.heads.empty(), ContractIssueCode::missing_value,
             "gas_path.heads", "legacy gas path requires at least one bank head");
     const auto validate_flow = [&](const auto &points, const std::string &path) {
@@ -1692,6 +1692,8 @@ void validate_low_order_core_domains(ValidationReport &report,
         require(report, common_parameters_valid, ContractIssueCode::invalid_value,
                 path + ".parameters",
                 "legacy cylinder parameters are outside their physical domain");
+        validate_restriction_domain(report, parameters.piston_blowby,
+                                    path + ".piston_blowby", profile_root, &provenance);
 
         const auto *direct =
             std::get_if<LegacyDirectJournalKinematics>(&cylinder.kinematics);
@@ -1865,9 +1867,6 @@ void validate_low_order_core_domains(ValidationReport &report,
                                     path + ".plenum_to_runner", profile_root,
                                     &provenance);
     }
-    validate_restriction_domain(report, core.gas_path.piston_blowby,
-                                "gas_path.piston_blowby", profile_root, &provenance);
-
     const auto validate_flow = [&](const auto &points, const std::string &path) {
         for (std::size_t index = 0; index < points.size(); ++index) {
             const auto &point = points[index];

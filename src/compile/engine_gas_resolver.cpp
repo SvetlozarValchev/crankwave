@@ -6,7 +6,6 @@ namespace engine_sim_offline::compile::detail::engine_resolution {
 
 void resolve_gas_path(const ModelContext &context, ResolutionEmitter &emitter,
                       contract::LowOrderEngineCoreV1 &core) {
-    const auto &source = context.document.engine;
     for (const auto *intake : ordered_intakes(context)) {
         const auto intake_base = profile_path("gas_path.intakes." + intake->id.value);
         const auto flow_owner = "intake." + intake->id.value;
@@ -142,11 +141,6 @@ void resolve_gas_path(const ModelContext &context, ResolutionEmitter &emitter,
             },
         });
     }
-
-    const auto &first_piston =
-        *context.pistons.at(source.cylinders.front().piston.value);
-    core.gas_path.piston_blowby = resolve_restriction(
-        *first_piston.blowby, profile_path("gas_path.piston_blowby"), emitter);
 }
 
 } // namespace engine_sim_offline::compile::detail::engine_resolution

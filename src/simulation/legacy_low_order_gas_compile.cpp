@@ -58,6 +58,7 @@ struct AdmittedCylinder {
     std::size_t blowby_edge_index = 0;
     std::size_t intake_lane_index = 0;
     std::size_t route_lane_index = 0;
+    double blowby_k = 0.0;
     double bore_m = 0.0;
     double piston_area_m2 = 0.0;
     double fixed_geometry_volume_m3 = 0.0;
@@ -453,10 +454,6 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         static_cast<void>(admit_restriction(intake.plenum_to_runner, report,
                                             path + ".parameters.plenum_to_runner"));
     }
-    static_cast<void>(
-        admit_restriction(gas_path.piston_blowby, report,
-                          "engine.physics_profile.gas_path.piston_blowby"));
-
     require(
         report, gas_path.heads.size() == engine.banks.size() && !gas_path.heads.empty(),
         ContractIssueCode::inconsistent_shape, "engine.physics_profile.gas_path.heads",
@@ -819,6 +816,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                                  : nullptr;
         const std::string path = "engine.physics_profile.mechanism.cylinders[" +
                                  std::to_string(cylinder_index) + "]";
+        const bool blowby_valid = admit_restriction(parameters.piston_blowby, report,
+                                                    path + ".parameters.piston_blowby");
 
         const bool cylinder_order_matches =
             topology.cylinder_id.valid() &&
@@ -1041,7 +1040,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             primary_collector_edge_index.has_value() && blowby_edge_index.has_value() &&
             intake_lane_index.has_value() && route_lane_index.has_value() &&
             stream_index.has_value() && mechanism_geometry.has_value() &&
-            head != nullptr && finite_positive(runner_volume_m3) &&
+            blowby_valid && head != nullptr && finite_positive(runner_volume_m3) &&
             finite_positive(primary_volume_m3);
         if (all_bindings_valid) {
             const auto &stream = random_plan.component_seeds[*stream_index];
@@ -1056,6 +1055,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 *blowby_edge_index,
                 *intake_lane_index,
                 *route_lane_index,
+                parameters.piston_blowby.resolved_k.value,
                 mechanism_geometry->bore_m,
                 mechanism_geometry->piston_area_m2,
                 mechanism_geometry->fixed_geometry_volume_m3,
@@ -1159,7 +1159,6 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         scenario.initial_thermal_state.wall_temperature_k.value;
     session.crankcase_pressure_pa_ = scenario.crankcase.pressure_pa_abs.value;
     session.crankcase_temperature_k_ = scenario.crankcase.temperature_k.value;
-    session.blowby_k_ = gas_path.piston_blowby.resolved_k.value;
     session.inert_mixture_ = {0.0, 1.0, 0.0};
     session.valvetrain_.emplace(std::move(valvetrain));
     session.model_id_ = engine.methods.gas_exchange.value.id;
@@ -1282,6 +1281,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         lane.blowby_edge_index = admitted.blowby_edge_index;
         lane.intake_lane_index = admitted.intake_lane_index;
         lane.route_lane_index = admitted.route_lane_index;
+        lane.blowby_k = admitted.blowby_k;
         lane.bore_m = admitted.bore_m;
         lane.piston_area_m2 = admitted.piston_area_m2;
         lane.intake_runner_cross_section_area_m2 =

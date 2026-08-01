@@ -616,12 +616,14 @@ clip-relative fades differ. Slice 10 now admits source-faithful bank-local heads
 ports, standard valvetrains, and cams. The executable contract/runtime retain one
 ordered chamber/runner/flow profile per bank, use separate intake/exhaust flow radii,
 and bind each cylinder by BankId. Bank-local chamber volume, runner geometry, and flow
-tables, and standard same-role cam profiles may differ while piston blowby remains one
-identical shared restriction and the multi-head VTEC gate remains closed. Standard
+tables, standard same-role cam profiles, and each referenced piston's calibrated
+blowby restriction may differ, while the multi-head VTEC gate remains closed. Standard
 cams resolve into deterministic first-use profile pools with explicit cylinder/lobe
 bindings, while each physical cam still requires one exact shared profile across its
-own lobes. The
-pristine-derived Shovelhead A/B fixture swaps only its four
+own lobes. The Shovelhead now binds equal-valued front/rear piston objects through
+independent runtime blowby lanes; restoring its source-authored 0.2/0.1 CFM split is
+the pending sound-bearing audition for this parity bullet. The pristine-derived
+Shovelhead A/B fixture swaps only its four
 bank-local port-flow references; repeat A renders are byte-identical and A differs
 from B. Two generated controls additionally leave the front or rear profile unchanged
 while changing only the other bank; both differ from A, excluding collapse to either
@@ -817,7 +819,8 @@ do not stack later slices to excuse a bad result.
 The architecture cutover and operating-bench slices are complete. Finish the remaining
 engine-definition parity in this order, with one coherent commit per bullet:
 
-1. execute each referenced piston's authored blowby restriction independently;
+1. execute each referenced piston's authored blowby restriction independently
+   (**executor complete; source-value A/B audition pending**);
 2. execute connecting-rod center of mass and piston wrist-pin geometry where pristine
    physics consumes them;
 3. complete intake-local molecular-AFR ownership without duplicating fuel authority;

@@ -54,9 +54,10 @@ exact opposed-motion pairs during dynamic capture.
 
 The fixture does not claim byte-for-byte source serialization:
 
-- The source alternates `0.001/0.002 CFM` blowby. The fixture uses `0.001 CFM` for all
-  four pistons because the current shared low-order gas profile admits one exactly
-  equivalent blowby restriction.
+- The source alternates `0.001/0.002 CFM` blowby. This checkpoint fixture still uses
+  `0.001 CFM` for all four pistons so its accepted audio remains unchanged. The core
+  now executes per-piston blowby; restoring these source values is intentionally a
+  separate sound-bearing fixture change.
 - Source zero-valued connecting-rod center-of-mass and piston wrist-pin fields are not
   authored because the current core does not execute them.
 - Chen--Flynn coefficients, the accessory descriptor, head exhaust-runner

@@ -349,6 +349,10 @@ write_model_methods(CanonicalJsonWriter &writer,
 }
 
 [[nodiscard]] bool
+write_legacy_restriction(CanonicalJsonWriter &writer,
+                         const contract::LegacyRestriction &restriction);
+
+[[nodiscard]] bool
 write_legacy_cylinder_topology(CanonicalJsonWriter &writer,
                                const contract::LegacyCylinderTopology &topology) {
     return writer.begin_object() && writer.key("cylinder_id") &&
@@ -427,6 +431,8 @@ write_legacy_cylinder_parameters(CanonicalJsonWriter &writer,
            write_resolved(writer, parameters.ignition_wire_angle_rad, write_f64) &&
            writer.key("header_primary_length_m") &&
            write_resolved(writer, parameters.header_primary_length_m, write_f64) &&
+           writer.key("piston_blowby") &&
+           write_legacy_restriction(writer, parameters.piston_blowby) &&
            writer.end_object();
 }
 
@@ -705,8 +711,6 @@ write_legacy_gas_path(CanonicalJsonWriter &writer,
                           const contract::LegacyExhaustRouteProfile &route) {
                            return write_legacy_exhaust_route(output, route);
                        }) &&
-           writer.key("piston_blowby") &&
-           write_legacy_restriction(writer, gas_path.piston_blowby) &&
            writer.end_object();
 }
 

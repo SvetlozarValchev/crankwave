@@ -96,24 +96,15 @@ void admit_engine_physical_model(ModelContext &resolved,
                 pointer_index("/engine/pistons", index) + "/wrist_pin_position",
                 "wrist-pin position is not executed by the centered low-order core");
         }
-        if (!piston.blowby.has_value() || !supported_flow_bench(*piston.blowby)) {
+        if (!piston.blowby.has_value() ||
+            !supported_flow_bench(
+                *piston.blowby,
+                contract::LegacyRestrictionCalibration::cfm_at_28_inh2o)) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/engine/pistons", index) + "/blowby",
-                "the current gas path requires a supported calibrated CFM blowby "
-                "restriction");
+                "each piston requires a 28-inH2O calibrated CFM blowby restriction");
         }
     }
-    if (!engine.pistons.empty()) {
-        const auto &first = engine.pistons.front().blowby;
-        if (!std::ranges::all_of(engine.pistons, [&](const auto &piston) {
-                return piston.blowby == first;
-            })) {
-            add(report, DiagnosticCode::unsupported_capability, "/engine/pistons",
-                "the current shared gas path requires one identical blowby "
-                "restriction across all referenced pistons");
-        }
-    }
-
     const auto require_carb = [&](const authoring::FlowRestriction &restriction,
                                   std::string_view path) {
         if (!supported_flow_bench(

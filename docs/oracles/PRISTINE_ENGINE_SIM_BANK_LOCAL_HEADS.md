@@ -108,10 +108,10 @@ remain independent inputs.
 ## Intentional fixture normalizations
 
 - The source front and rear piston blowby values are respectively
-  `k_28inH2O(0.2)` and `k_28inH2O(0.1)`. H1 uses the real source rear value,
-  0.1 CFM at 28 inH2O, for both pistons because the still-shared low-order
-  blowby profile requires exact equivalence. This is not evidence that unequal
-  blowby has been implemented.
+  `k_28inH2O(0.2)` and `k_28inH2O(0.1)`. The accepted H1 audio used the real source
+  rear value, 0.1 CFM at 28 inH2O, for both pistons. The current core now binds two
+  equal-valued piston objects to independent blowby lanes; changing only the front
+  value to the source 0.2 CFM remains the dedicated sound-bearing A/B audition.
 - `display_depth: 0.55` and rear `flip_display: true` affect pristine's GUI only
   and are omitted. The physical bank axes are retained.
 - The source's 35 kHz simulation setting is not copied into engine identity.
@@ -132,8 +132,9 @@ intake-versus-exhaust triangle-radius equivalence gates needed by this fixture.
 At the H1 checkpoint it did not admit unequal blowby, multiple intakes or
 crankshafts, distinct same-role standard cam shapes, or multiple-head VTEC. Distinct
 standard bank-local cams were admitted later under
-`PRISTINE_ENGINE_SIM_BANK_LOCAL_CAMSHAFTS.md`; multi-head VTEC and unequal blowby
-remain closed.
+`PRISTINE_ENGINE_SIM_BANK_LOCAL_CAMSHAFTS.md`; multiple intakes, co-phased rigid
+multiple crankshafts, and unequal per-piston blowby were admitted later. Multi-head
+VTEC remains closed.
 There is one current contract only; no singular-head alias or legacy decoder is
 added.
 

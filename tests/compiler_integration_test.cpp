@@ -8,6 +8,7 @@
 #include "compile/engine_resolver.hpp"
 #include "identity/simulation_request_identity_writer.hpp"
 #include "simulation/legacy_fixed_valvetrain.hpp"
+#include "simulation/legacy_flow_calibration.hpp"
 #include "simulation/mechanism_kinematics_plan.hpp"
 
 #include <algorithm>
@@ -1383,6 +1384,45 @@ void test_crankshaft_identity_output_and_cylinder_bindings_resolve() {
                                           "running_friction_torque_magnitude_nm";
                                }),
            "crankshaft field provenance omitted its semantic-ID-qualified path");
+}
+
+void test_per_piston_blowby_resolves_to_bound_cylinder() {
+    const SyntheticAssets assets = make_assets();
+    auto document = make_engine_document(assets);
+    auto &changed =
+        std::get<authoring::FlowBenchRestriction>(*document.engine.pistons[1].blowby);
+    changed.rated_flow.value = 0.24;
+    auto views = assets.views();
+
+    auto resolved =
+        require_value(compile_detail::resolve_engine_package(document, views),
+                      "unequal per-piston blowby resolution failed");
+    const auto &cylinders = std::get<contract::LowOrderOperatingPointV1Profile>(
+                                resolved.engine.physics_profile)
+                                .core.mechanism.cylinders;
+    const auto expected_k = [](const double source_cfm) {
+        return simulation::legacy_flow_bench_restriction_coefficient(
+            contract::LegacyRestrictionCalibration::cfm_at_28_inh2o, source_cfm);
+    };
+    expect(cylinders.size() == kCylinderCount &&
+               cylinders[0].parameters.piston_blowby.source_rating.value == 0.12 &&
+               cylinders[0].parameters.piston_blowby.resolved_k.value ==
+                   expected_k(0.12) &&
+               cylinders[1].parameters.piston_blowby.source_rating.value == 0.24 &&
+               cylinders[1].parameters.piston_blowby.resolved_k.value ==
+                   expected_k(0.24) &&
+               cylinders[2].parameters.piston_blowby.source_rating.value == 0.12,
+           "per-piston blowby collapsed to a shared restriction");
+    expect(std::ranges::any_of(
+               resolved.provenance.resolutions,
+               [](const auto &resolution) {
+                   return resolution.parameter_path ==
+                          "engine.physics.low-order-operating-point-v1.mechanism."
+                          "cylinders.fixture-cylinder-2.piston_blowby.resolved_k";
+               }),
+           "per-piston blowby omitted its bound-cylinder provenance");
+    (void)require_value(compile::compile_engine(document, views),
+                        "public compiler rejected unequal per-piston blowby");
 }
 
 void test_inline_twin_one_route_reaches_executable_boundary() {
@@ -3007,6 +3047,17 @@ void test_direct_engine_dto_identity_and_enum_admission_fails_closed() {
         require_diagnostic(result, authoring::DiagnosticCode::invalid_value,
                            "/engine/ports/1/kind", "invalid direct-DTO port kind");
     }
+    {
+        auto document = make_engine_document(assets);
+        auto &blowby = std::get<authoring::FlowBenchRestriction>(
+            *document.engine.pistons[1].blowby);
+        blowby.rated_flow.standard = "carburetor_1p5_inhg";
+        blowby.pressure_drop = quantity(1.5, "inHg");
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
+                           "/engine/pistons/1/blowby",
+                           "non-28-inH2O piston blowby calibration");
+    }
 }
 
 void test_direct_scenario_dto_admission_fails_closed() {
@@ -3036,6 +3087,7 @@ int main() {
     try {
         test_complete_generic_compile_and_determinism();
         test_crankshaft_identity_output_and_cylinder_bindings_resolve();
+        test_per_piston_blowby_resolves_to_bound_cylinder();
         test_inline_twin_one_route_reaches_executable_boundary();
         test_shared_ignition_wire_fans_out_without_topology_collapse();
         test_v_engine_resolves_bank_geometry_and_axis_relative_journals();

@@ -293,7 +293,8 @@ legacy-cylinder-parameters = {
   "connecting_rod_inertia_kg_m2": resolved<f64-bits>,
   "journal_angle_rad": resolved<f64-bits>,
   "ignition_wire_angle_rad": resolved<f64-bits>,
-  "header_primary_length_m": resolved<f64-bits>
+  "header_primary_length_m": resolved<f64-bits>,
+  "piston_blowby": legacy-restriction
 }
 
 legacy-common-cylinder-parameters = {
@@ -306,7 +307,8 @@ legacy-common-cylinder-parameters = {
   "connecting_rod_mass_kg": resolved<f64-bits>,
   "connecting_rod_inertia_kg_m2": resolved<f64-bits>,
   "ignition_wire_angle_rad": resolved<f64-bits>,
-  "header_primary_length_m": resolved<f64-bits>
+  "header_primary_length_m": resolved<f64-bits>,
+  "piston_blowby": legacy-restriction
 }
 
 legacy-master-rod-cylinder-kinematics = {
@@ -319,8 +321,7 @@ legacy-master-rod-cylinder-kinematics = {
 legacy-gas-path-profile = {
   "intakes": [* legacy-intake-profile],
   "heads": [* legacy-bank-head-profile],
-  "exhaust_routes": [* legacy-exhaust-route-profile],
-  "piston_blowby": legacy-restriction
+  "exhaust_routes": [* legacy-exhaust-route-profile]
 }
 
 legacy-intake-profile = {

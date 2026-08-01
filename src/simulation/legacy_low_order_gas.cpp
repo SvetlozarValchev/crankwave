@@ -670,7 +670,7 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
             const auto blowby = legacy_transfer_gas_environment(
                 chamber,
                 LegacyEnvironmentGasTransferParameters{
-                    blowby_k_,
+                    lane.blowby_k,
                     gas_step_s_,
                     LegacyGasEnvironment{crankcase_pressure_pa_,
                                          crankcase_temperature_k_, inert_mixture_},

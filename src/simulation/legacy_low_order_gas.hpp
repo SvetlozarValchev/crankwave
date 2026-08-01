@@ -151,6 +151,7 @@ class LegacyLowOrderGasSession final {
         std::size_t blowby_edge_index = 0;
         std::size_t intake_lane_index = 0;
         std::size_t route_lane_index = 0;
+        double blowby_k = 0.0;
         double bore_m = 0.0;
         double piston_area_m2 = 0.0;
         double intake_runner_cross_section_area_m2 = 0.0;
@@ -208,7 +209,6 @@ class LegacyLowOrderGasSession final {
     double wall_temperature_k_ = 0.0;
     double crankcase_pressure_pa_ = 0.0;
     double crankcase_temperature_k_ = 0.0;
-    double blowby_k_ = 0.0;
     double current_theta_unwrapped_rad_ = 0.0;
     bool previous_limiter_cut_active_ = false;
     LegacyGasMixture inert_mixture_{};

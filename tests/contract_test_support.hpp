@@ -217,6 +217,9 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
         builder.resolved(0.0, cylinder_path + ".ignition_wire_angle_rad");
     auto header_primary_length_m =
         builder.resolved(0.0, cylinder_path + ".header_primary_length_m");
+    auto piston_blowby =
+        make_restriction(builder, LegacyRestrictionCalibration::cfm_at_28_inh2o, 0.1,
+                         kCfmPointOne, cylinder_path + ".piston_blowby");
     cylinder.parameters = {
         std::move(bore_m),
         std::move(connecting_rod_length_m),
@@ -228,6 +231,7 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
         std::move(connecting_rod_inertia_kg_m2),
         std::move(ignition_wire_angle_rad),
         std::move(header_primary_length_m),
+        std::move(piston_blowby),
     };
     cylinder.kinematics = LegacyDirectJournalKinematics{
         std::move(stroke_m),
@@ -322,10 +326,6 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
                          1000.0, kCarb1000, exhaust_path + ".collector_outlet"),
     };
     core.gas_path.exhaust_routes.push_back(std::move(exhaust));
-    core.gas_path.piston_blowby =
-        make_restriction(builder, LegacyRestrictionCalibration::cfm_at_28_inh2o, 0.1,
-                         kCfmPointOne, path("gas_path.piston_blowby"));
-
     const auto make_cam = [&](std::string name, PortId port_id) {
         const auto base = path("valvetrain." + name);
         const auto profile_base = base + ".profiles.profile-0";
