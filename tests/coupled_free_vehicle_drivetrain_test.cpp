@@ -111,6 +111,54 @@ void test_locked_gear_shares_road_load_between_inertias() {
                 "road load broke the locked gear-speed relationship");
 }
 
+void test_locked_clutch_and_brake_commit_exact_stall_boundary() {
+    constexpr double kEngineInertiaKgM2 = 0.5;
+    constexpr double kPredictedEngineSpeedRadS = 0.001;
+    constexpr double kVehicleMassKg = 1000.0;
+    constexpr double kPredictedVehicleSpeedMS = 0.0001;
+    const auto reduction = simple_reduction();
+    const auto calculation = detail::advance_coupled_free_vehicle_drivetrain({
+        kEngineInertiaKgM2,
+        kPredictedEngineSpeedRadS,
+        kVehicleMassKg,
+        kPredictedVehicleSpeedMS,
+        reduction,
+        100.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        5000.0,
+        1.0,
+        0.0001,
+    });
+    const auto &step =
+        require_step(calculation, "locked-clutch near-rest stall was rejected");
+    const double expected_clutch_impulse_nm_s =
+        -kEngineInertiaKgM2 * kPredictedEngineSpeedRadS;
+    const double expected_road_load_impulse_n_s =
+        kVehicleMassKg * kPredictedVehicleSpeedMS -
+        expected_clutch_impulse_nm_s *
+            reduction.crank_speed_per_vehicle_speed_rad_per_m;
+
+    expect(step.applied_clutch_impulse_on_engine_nm_s == expected_clutch_impulse_nm_s,
+           "stall boundary changed the exact engine-stopping clutch impulse");
+    expect(step.applied_road_load_impulse_n_s == expected_road_load_impulse_n_s,
+           "stall boundary changed the exact vehicle-stopping road impulse");
+    expect(step.final_engine_speed_rad_s == 0.0 &&
+               !std::signbit(step.final_engine_speed_rad_s) &&
+               step.final_vehicle_speed_m_s == 0.0 &&
+               !std::signbit(step.final_vehicle_speed_m_s) &&
+               step.final_clutch_slip_rad_s.has_value() &&
+               *step.final_clutch_slip_rad_s == 0.0 &&
+               !std::signbit(*step.final_clutch_slip_rad_s),
+           "locked clutch and brake did not commit canonical positive-zero engine, "
+           "vehicle, and slip state");
+    expect(step.road_load_disposition ==
+               detail::ForwardVehicleRoadLoadDisposition::stopped_within_step,
+           "near-rest vehicle did not report a within-step stop");
+}
+
 void test_neutral_retains_isolated_road_load_behavior() {
     const auto calculation = detail::advance_coupled_free_vehicle_drivetrain({
         0.5,
@@ -140,6 +188,7 @@ void test_neutral_retains_isolated_road_load_behavior() {
 void run_tests() {
     test_service_brake_holds_rest_against_clutch();
     test_locked_gear_shares_road_load_between_inertias();
+    test_locked_clutch_and_brake_commit_exact_stall_boundary();
     test_neutral_retains_isolated_road_load_behavior();
 }
 

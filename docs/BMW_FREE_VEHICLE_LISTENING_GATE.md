@@ -55,6 +55,14 @@ both before and after the BMW rig gained its service-brake capacity:
 | Held-dyno audition WAV | `487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496` |
 | Held-dyno raw WAV | `8c08586d90d0f541388d4576bf8d47c2e58147224c0d9f8c9b7ccda71e043742` |
 
+An open-ended operating-bench regression found one later boundary defect: a locked
+clutch and full service brake could bring both bodies to rest, but binary64
+cancellation reconstructed engine speed as a minute negative value and terminally
+rejected the otherwise valid stall. The coupled solve now intersects the clutch
+capacity with the engine's remaining nonnegative angular impulse and commits canonical
+positive zero when that exact boundary is active. The authored finite launch remains
+successful, and its audition and raw WAV hashes below are unchanged.
+
 ## Listening set
 
 Both production renders identify clean commit

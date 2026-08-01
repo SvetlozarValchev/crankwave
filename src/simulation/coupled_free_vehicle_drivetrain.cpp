@@ -108,6 +108,24 @@ CoupledFreeVehicleDrivetrainCalculation advance_coupled_free_vehicle_drivetrain(
         }
         predicted_clutch_slip_rad_s = predicted_slip;
 
+        const double predicted_engine_angular_momentum_nm_s =
+            input.engine_inertia_kg_m2 * input.predicted_engine_speed_rad_s;
+        const double engine_stop_clutch_impulse_nm_s =
+            predicted_engine_angular_momentum_nm_s == 0.0
+                ? 0.0
+                : -predicted_engine_angular_momentum_nm_s;
+        const double clutch_impulse_lower_bound_nm_s =
+            clutch_impulse_capacity_nm_s == 0.0
+                ? 0.0
+                : std::max(-clutch_impulse_capacity_nm_s,
+                           engine_stop_clutch_impulse_nm_s);
+        if (!std::isfinite(predicted_engine_angular_momentum_nm_s) ||
+            !std::isfinite(engine_stop_clutch_impulse_nm_s) ||
+            !std::isfinite(clutch_impulse_lower_bound_nm_s)) {
+            return derived_error(
+                CoupledFreeVehicleDrivetrainInputIssue::nonfinite_derived_value);
+        }
+
         for (std::uint32_t pass = 0U; pass < kProjectionPassCount; ++pass) {
             const double unconstrained_clutch_impulse =
                 -(predicted_slip +
@@ -117,7 +135,7 @@ CoupledFreeVehicleDrivetrainCalculation advance_coupled_free_vehicle_drivetrain(
                 clutch_impulse_capacity_nm_s == 0.0
                     ? 0.0
                     : std::clamp(unconstrained_clutch_impulse,
-                                 -clutch_impulse_capacity_nm_s,
+                                 clutch_impulse_lower_bound_nm_s,
                                  clutch_impulse_capacity_nm_s);
 
             const double forward_momentum_after_clutch_n_s =
@@ -128,12 +146,18 @@ CoupledFreeVehicleDrivetrainCalculation advance_coupled_free_vehicle_drivetrain(
         }
 
         final_engine_speed_rad_s =
-            input.predicted_engine_speed_rad_s +
-            clutch_impulse_on_engine_nm_s / input.engine_inertia_kg_m2;
-        const double final_vehicle_momentum_n_s =
+            clutch_impulse_on_engine_nm_s == engine_stop_clutch_impulse_nm_s
+                ? 0.0
+                : input.predicted_engine_speed_rad_s +
+                      clutch_impulse_on_engine_nm_s / input.engine_inertia_kg_m2;
+        const double forward_momentum_after_clutch_n_s =
             input.vehicle_mass_kg * input.predicted_vehicle_speed_m_s -
-            clutch_impulse_on_engine_nm_s * reduction - road_load_impulse_n_s;
-        final_vehicle_speed_m_s = final_vehicle_momentum_n_s / input.vehicle_mass_kg;
+            clutch_impulse_on_engine_nm_s * reduction;
+        final_vehicle_speed_m_s =
+            road_load_impulse_n_s == forward_momentum_after_clutch_n_s
+                ? 0.0
+                : (forward_momentum_after_clutch_n_s - road_load_impulse_n_s) /
+                      input.vehicle_mass_kg;
         final_clutch_slip_rad_s =
             final_engine_speed_rad_s - reduction * final_vehicle_speed_m_s;
     } else {

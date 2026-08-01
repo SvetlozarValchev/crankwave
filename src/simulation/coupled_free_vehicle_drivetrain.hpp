@@ -73,9 +73,11 @@ using CoupledFreeVehicleDrivetrainCalculation =
                  CoupledFreeVehicleDrivetrainInputError>;
 
 // Solves pristine engine-sim's transmission-clutch row and forward road-load row
-// as one bounded system. Each step uses 128 projected Gauss-Seidel passes in the
-// source row order (clutch, then road load), so a brake can hold a clutch-coupled
-// vehicle at rest instead of being bypassed by sequential subsystem updates.
+// as one bounded system. The clutch impulse also respects the runtime's canonical
+// nonnegative engine-speed boundary. Each step uses 128 projected Gauss-Seidel
+// passes in the source row order (clutch, then road load), so a brake can hold a
+// clutch-coupled vehicle and engine at rest instead of being bypassed by sequential
+// subsystem updates.
 [[nodiscard]] CoupledFreeVehicleDrivetrainCalculation
 advance_coupled_free_vehicle_drivetrain(
     const CoupledFreeVehicleDrivetrainInput &input) noexcept;
