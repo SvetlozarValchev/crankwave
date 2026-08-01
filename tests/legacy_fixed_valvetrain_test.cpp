@@ -531,6 +531,69 @@ void test_sampled_lobe_copy_endpoints_wrap_advance_and_multiple_lobes() {
            "sampled cam profile was not shared across independently phased lobes");
 }
 
+void test_bank_local_cam_profiles_sample_by_cylinder_binding() {
+    ValvetrainFixture fixture;
+    auto &profile = operating_profile(fixture.engine);
+    auto &intake = profile.core.valvetrain.intake;
+    auto &exhaust = profile.core.valvetrain.exhaust;
+    intake.profiles.push_back(intake.profiles.front());
+    exhaust.profiles.push_back(exhaust.profiles.front());
+    harmonic_shape(intake.profiles[1]).maximum_lift_m.value = 0.012;
+    harmonic_shape(intake.profiles[1]).advance_rad.value = 0.31;
+    harmonic_shape(exhaust.profiles[1]).maximum_lift_m.value = 0.011;
+    harmonic_shape(exhaust.profiles[1]).advance_rad.value = -0.23;
+    for (auto &lobe : intake.lobes) {
+        lobe.profile_index = lobe.cylinder_id == CylinderId{2} ? 1U : 0U;
+    }
+    for (auto &lobe : exhaust.lobes) {
+        lobe.profile_index = lobe.cylinder_id == CylinderId{2} ? 1U : 0U;
+    }
+
+    const auto valvetrain =
+        require_valvetrain(compile_fixture_valvetrain(fixture.engine));
+    expect(valvetrain.intake_cam_profiles().size() == 2U &&
+               valvetrain.exhaust_cam_profiles().size() == 2U,
+           "bank-local cam fixture did not compile both profile pools");
+    const auto binding_for = [&](const CylinderId cylinder_id) {
+        const auto binding =
+            std::ranges::find(valvetrain.cylinder_bindings(), cylinder_id,
+                              &LegacyValvetrainCylinderBinding::cylinder_id);
+        expect(binding != valvetrain.cylinder_bindings().end(),
+               "bank-local cam fixture lost a cylinder binding");
+        return *binding;
+    };
+    const auto first_binding = binding_for(CylinderId{1});
+    const auto second_binding = binding_for(CylinderId{2});
+    expect(first_binding.intake_cam_profile_index == 0U &&
+               first_binding.exhaust_cam_profile_index == 0U &&
+               second_binding.intake_cam_profile_index == 1U &&
+               second_binding.exhaust_cam_profile_index == 1U,
+           "bank-local cam profile indices collapsed during compilation");
+
+    const auto *output_crank = find_output_crank(profile.core.mechanism);
+    expect(output_crank != nullptr, "bank-local cam fixture lost its output crank");
+    const auto peak_lift = [&](const LegacyValvetrainCylinderBinding &binding,
+                               const bool intake_role) {
+        const auto &cam =
+            intake_role
+                ? valvetrain.intake_cam_profiles()[binding.intake_cam_profile_index]
+                : valvetrain.exhaust_cam_profiles()[binding.exhaust_cam_profile_index];
+        const double stored_angle = intake_role ? binding.intake_stored_lobe_angle_rad
+                                                : binding.exhaust_stored_lobe_angle_rad;
+        const double body_angle = output_crank->crank_tdc_reference_rad.value -
+                                  cam.advance_rad - 2.0 * stored_angle;
+        const auto sample = valvetrain.sample_cylinder(binding.cylinder_id, body_angle);
+        expect(sample.has_value(),
+               "bank-local cam fixture rejected a finite peak sample");
+        return intake_role ? sample->intake_lift_m : sample->exhaust_lift_m;
+    };
+    expect(same_binary64(peak_lift(first_binding, true), kMaximumLiftM) &&
+               same_binary64(peak_lift(first_binding, false), kMaximumLiftM) &&
+               same_binary64(peak_lift(second_binding, true), 0.012) &&
+               same_binary64(peak_lift(second_binding, false), 0.011),
+           "cylinder sampling did not use its bound bank-local cam profile");
+}
+
 void test_bank_local_flow_profiles_bind_by_stable_bank_identity() {
     ValvetrainFixture fixture;
     auto &profile = operating_profile(fixture.engine);
@@ -773,6 +836,7 @@ void run_tests() {
     test_exact_lobe_construction_and_bindings();
     test_sampling_goldens_wrap_and_span_contract();
     test_sampled_lobe_copy_endpoints_wrap_advance_and_multiple_lobes();
+    test_bank_local_cam_profiles_sample_by_cylinder_binding();
     test_bank_local_flow_profiles_bind_by_stable_bank_identity();
     test_focused_admission_failures();
 }

@@ -2,9 +2,12 @@
 
 #include "simulation/cycle_accounting_method_registry.hpp"
 
+#include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -17,25 +20,112 @@ namespace {
 using CamshaftByCylinder =
     std::unordered_map<std::string, const authoring::CamshaftDefinition *>;
 
-[[nodiscard]] contract::LegacyCamshaftProfile
-resolve_camshaft(const ModelContext &context,
-                 const authoring::CamshaftDefinition &representative_camshaft,
-                 const CamshaftByCylinder &camshaft_by_cylinder,
-                 const authoring::PortKind port_kind, std::string role,
-                 ResolutionEmitter &emitter) {
+[[nodiscard]] bool same_binary64(const double left, const double right) noexcept {
+    return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
+}
+
+[[nodiscard]] const authoring::CamLobeDefinition &
+profile_lobe(const ModelContext &context, const authoring::CamshaftDefinition &camshaft,
+             const authoring::PortKind port_kind) {
+    for (const auto &reference : camshaft.lobes) {
+        const auto &lobe = *context.cam_lobes.at(reference.value);
+        if (lobe.port_kind == port_kind) {
+            return lobe;
+        }
+    }
+    throw std::logic_error{"resolved camshaft has no lobe for its requested role"};
+}
+
+[[nodiscard]] bool
+equivalent_harmonic_shape(const authoring::HarmonicCamLobe &left,
+                          const authoring::HarmonicCamLobe &right) noexcept {
+    return same_binary64(legacy_si_value(left.maximum_lift),
+                         legacy_si_value(right.maximum_lift)) &&
+           same_binary64(legacy_si_value(left.duration_at_reference_lift),
+                         legacy_si_value(right.duration_at_reference_lift)) &&
+           same_binary64(left.gamma, right.gamma) &&
+           left.sample_count == right.sample_count;
+}
+
+[[nodiscard]] bool equivalent_sampled_shape(const ModelContext &context,
+                                            const authoring::SampledCamLobe &left,
+                                            const authoring::SampledCamLobe &right) {
+    const auto &left_curve = *context.curves.at(left.lift_curve.value);
+    const auto &right_curve = *context.curves.at(right.lift_curve.value);
+    if (!left_curve.triangle_filter_radius.has_value() ||
+        !right_curve.triangle_filter_radius.has_value() ||
+        !same_binary64(legacy_si_value(*left_curve.triangle_filter_radius),
+                       legacy_si_value(*right_curve.triangle_filter_radius)) ||
+        left_curve.samples.size() != right_curve.samples.size()) {
+        return false;
+    }
+    for (std::size_t index = 0; index < left_curve.samples.size(); ++index) {
+        if (!same_binary64(legacy_si_value(left_curve.samples[index].input),
+                           legacy_si_value(right_curve.samples[index].input)) ||
+            !same_binary64(legacy_si_value(left_curve.samples[index].output),
+                           legacy_si_value(right_curve.samples[index].output))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+[[nodiscard]] bool equivalent_cam_shape(const ModelContext &context,
+                                        const authoring::CamLobeShape &left,
+                                        const authoring::CamLobeShape &right) {
+    if (const auto *left_harmonic = std::get_if<authoring::HarmonicCamLobe>(&left)) {
+        const auto *right_harmonic = std::get_if<authoring::HarmonicCamLobe>(&right);
+        return right_harmonic != nullptr &&
+               equivalent_harmonic_shape(*left_harmonic, *right_harmonic);
+    }
+    const auto *left_sampled = std::get_if<authoring::SampledCamLobe>(&left);
+    const auto *right_sampled = std::get_if<authoring::SampledCamLobe>(&right);
+    return left_sampled != nullptr && right_sampled != nullptr &&
+           equivalent_sampled_shape(context, *left_sampled, *right_sampled);
+}
+
+[[nodiscard]] bool equivalent_cam_profile(const ModelContext &context,
+                                          const authoring::CamshaftDefinition &left,
+                                          const authoring::CamshaftDefinition &right,
+                                          const authoring::PortKind port_kind) {
+    return same_binary64(legacy_si_value(left.advance),
+                         legacy_si_value(right.advance)) &&
+           same_binary64(legacy_si_value(left.base_radius),
+                         legacy_si_value(right.base_radius)) &&
+           equivalent_cam_shape(context, profile_lobe(context, left, port_kind).shape,
+                                profile_lobe(context, right, port_kind).shape);
+}
+
+[[nodiscard]] contract::LegacyCamshaftProfile resolve_camshaft(
+    const ModelContext &context, const CamshaftByCylinder &camshaft_by_cylinder,
+    const authoring::PortKind port_kind, std::string role, ResolutionEmitter &emitter) {
     contract::LegacyCamshaftProfile resolved;
-    resolved.profiles.push_back(
-        resolve_cam_shape(context, representative_camshaft, port_kind,
-                          role + ".profiles.profile-0", emitter));
+    std::vector<const authoring::CamshaftDefinition *> profile_camshafts;
     for (const auto &cylinder : context.document.engine.cylinders) {
         const auto semantic = cylinder.id.value;
         const auto &camshaft = *camshaft_by_cylinder.at(semantic);
+        const auto profile = std::find_if(
+            profile_camshafts.begin(), profile_camshafts.end(),
+            [&](const auto *candidate) {
+                return equivalent_cam_profile(context, *candidate, camshaft, port_kind);
+            });
+        std::size_t profile_index = 0U;
+        if (profile == profile_camshafts.end()) {
+            profile_index = profile_camshafts.size();
+            profile_camshafts.push_back(&camshaft);
+            resolved.profiles.push_back(resolve_cam_shape(
+                context, camshaft, port_kind,
+                role + ".profiles.profile-" + std::to_string(profile_index), emitter));
+        } else {
+            profile_index =
+                static_cast<std::size_t>(profile - profile_camshafts.begin());
+        }
         const auto &lobe =
             cam_lobe_for_cylinder(context, camshaft, semantic, port_kind);
         resolved.lobes.push_back({
             cylinder_id(context, semantic),
             port_id(context, port_semantic_id(semantic, port_kind)),
-            0U,
+            static_cast<std::uint32_t>(profile_index),
             emitter.authored(legacy_si_value(lobe.centerline),
                              profile_path("valvetrain." + role + ".lobes." + semantic +
                                           ".crank_center_rad")),
@@ -48,27 +138,25 @@ resolve_camshaft(const ModelContext &context,
 
 void resolve_valvetrain(const ModelContext &context, ResolutionEmitter &emitter,
                         contract::LowOrderEngineCoreV1 &core) {
-    core.valvetrain.intake = resolve_camshaft(
-        context, *context.intake_camshaft, context.intake_camshaft_for_cylinder,
-        authoring::PortKind::intake, "intake", emitter);
-    core.valvetrain.exhaust = resolve_camshaft(
-        context, *context.exhaust_camshaft, context.exhaust_camshaft_for_cylinder,
-        authoring::PortKind::exhaust, "exhaust", emitter);
+    core.valvetrain.intake =
+        resolve_camshaft(context, context.intake_camshaft_for_cylinder,
+                         authoring::PortKind::intake, "intake", emitter);
+    core.valvetrain.exhaust =
+        resolve_camshaft(context, context.exhaust_camshaft_for_cylinder,
+                         authoring::PortKind::exhaust, "exhaust", emitter);
 
-    if (context.alternate_intake_camshaft == nullptr ||
-        context.alternate_exhaust_camshaft == nullptr) {
+    if (context.alternate_intake_camshaft_for_cylinder.empty() ||
+        context.alternate_exhaust_camshaft_for_cylinder.empty()) {
         return;
     }
 
     const auto &vtec = std::get<authoring::VtecValvetrain>(context.valvetrain->kind);
     contract::LegacyVtecAlternateCamProfile alternate;
     alternate.intake =
-        resolve_camshaft(context, *context.alternate_intake_camshaft,
-                         context.alternate_intake_camshaft_for_cylinder,
+        resolve_camshaft(context, context.alternate_intake_camshaft_for_cylinder,
                          authoring::PortKind::intake, "alternate.intake", emitter);
     alternate.exhaust =
-        resolve_camshaft(context, *context.alternate_exhaust_camshaft,
-                         context.alternate_exhaust_camshaft_for_cylinder,
+        resolve_camshaft(context, context.alternate_exhaust_camshaft_for_cylinder,
                          authoring::PortKind::exhaust, "alternate.exhaust", emitter);
     const auto activation_base = profile_path("valvetrain.alternate.activation");
     alternate.activation.minimum_engine_speed_rad_s =

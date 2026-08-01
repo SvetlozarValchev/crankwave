@@ -103,8 +103,9 @@ bank-local heads, ports, standard valvetrains, and cams. The executable core now
 materializes one chamber/runner/flow profile per bank and binds each cylinder through
 its bank identity. Chamber volume, intake/exhaust runner geometry, flow curves, and
 the two flow-sampling radii may differ by bank. Piston blowby remains one identical
-shared restriction, and fixed-cam shapes retain their existing common-shape admission
-boundary. Standard fixed valvetrains accept either
+shared restriction. Standard fixed valvetrains compile distinct physical same-role
+cams into deterministic first-use profile pools with explicit per-cylinder bindings;
+each physical cam still shares one exact profile across its own lobes. They accept either
 harmonic lobe generators or explicit sampled angle-to-lift profiles through the same
 runtime sampler.
 Finite JSON `held_dyno` scenarios now drive that same crank through a bounded signed

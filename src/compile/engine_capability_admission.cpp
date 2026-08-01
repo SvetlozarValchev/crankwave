@@ -463,16 +463,6 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
     if (report.has_errors()) {
         return report;
     }
-    const auto &first_cylinder = engine.cylinders.front().id.value;
-    resolved.intake_camshaft = resolved.intake_camshaft_for_cylinder.at(first_cylinder);
-    resolved.exhaust_camshaft =
-        resolved.exhaust_camshaft_for_cylinder.at(first_cylinder);
-    if (!resolved.alternate_intake_camshaft_for_cylinder.empty()) {
-        resolved.alternate_intake_camshaft =
-            resolved.alternate_intake_camshaft_for_cylinder.at(first_cylinder);
-        resolved.alternate_exhaust_camshaft =
-            resolved.alternate_exhaust_camshaft_for_cylinder.at(first_cylinder);
-    }
 
     admit_engine_physical_model(resolved, report);
 

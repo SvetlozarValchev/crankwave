@@ -615,13 +615,19 @@ clip-relative fades differ. Slice 10 now admits source-faithful bank-local heads
 ports, standard valvetrains, and cams. The executable contract/runtime retain one
 ordered chamber/runner/flow profile per bank, use separate intake/exhaust flow radii,
 and bind each cylinder by BankId. Bank-local chamber volume, runner geometry, and flow
-tables may differ while piston blowby remains one identical shared restriction and the
-existing common fixed-cam-shape and multi-head VTEC gates remain closed. The
+tables, and standard same-role cam profiles may differ while piston blowby remains one
+identical shared restriction and the multi-head VTEC gate remains closed. Standard
+cams resolve into deterministic first-use profile pools with explicit cylinder/lobe
+bindings, while each physical cam still requires one exact shared profile across its
+own lobes. The
 pristine-derived Shovelhead A/B fixture swaps only its four
 bank-local port-flow references; repeat A renders are byte-identical and A differs
 from B. Two generated controls additionally leave the front or rear profile unchanged
 while changing only the other bank; both differ from A, excluding collapse to either
-the first or last representative profile. The Kohler fixture has been
+the first or last representative profile. Counterfactual front-only and rear-only
+intake-cam probes likewise produce distinct full-pipeline PCM, while changing only the
+GUI base radius preserves exact PCM. The accepted BMW PCM remains the unchanged
+authoring check for this cutover. The Kohler fixture has been
 restored to two heads, four ports, two valvetrains, and four one-cylinder cams. Its
 complete resolved request and all five published WAV files are byte-identical to the
 accepted shared-head checkpoint. Direct

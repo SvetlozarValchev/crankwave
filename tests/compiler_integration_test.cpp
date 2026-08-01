@@ -1879,17 +1879,90 @@ void test_heterogeneous_split_bank_heads_resolve_bank_locally() {
         expect(right_intake_cam != document.engine.camshafts.end() &&
                    !right_intake_cam->lobes.empty(),
                "heterogeneous cam fixture omitted its right intake cam");
-        const auto right_intake_lobe = std::ranges::find(
-            document.engine.cam_lobes, right_intake_cam->lobes.front().value,
-            [](const auto &lobe) -> std::string_view { return lobe.id.value; });
-        expect(right_intake_lobe != document.engine.cam_lobes.end(),
-               "heterogeneous cam fixture omitted its right intake lobe");
-        auto &shape = std::get<authoring::HarmonicCamLobe>(right_intake_lobe->shape);
-        shape.maximum_lift = quantity(12.0, "mm");
+        for (const auto &reference : right_intake_cam->lobes) {
+            const auto right_intake_lobe = std::ranges::find(
+                document.engine.cam_lobes, reference.value,
+                [](const auto &lobe) -> std::string_view { return lobe.id.value; });
+            expect(right_intake_lobe != document.engine.cam_lobes.end(),
+                   "heterogeneous cam fixture omitted a right intake lobe");
+            auto &shape =
+                std::get<authoring::HarmonicCamLobe>(right_intake_lobe->shape);
+            shape.maximum_lift = quantity(12.0, "mm");
+        }
 
-        const auto result = compile::compile_engine(document, views);
-        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
-                           "/engine/cam_lobes", "heterogeneous split-bank cam shape");
+        const auto resolved =
+            require_value(compile_detail::resolve_engine_package(document, views),
+                          "heterogeneous split-bank cam shape failed resolution");
+        const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+            resolved.engine.physics_profile);
+        const auto &valvetrain = profile.core.valvetrain;
+        expect(valvetrain.intake.profiles.size() == 2U &&
+                   valvetrain.exhaust.profiles.size() == 1U,
+               "heterogeneous intake cam did not produce exactly two bank-local "
+               "profiles while the equivalent exhaust stayed shared");
+
+        const auto left_bank =
+            std::ranges::find(resolved.engine.banks, "fixture-bank-left",
+                              [](const auto &bank) -> std::string_view {
+                                  return bank.semantic_id.value;
+                              });
+        const auto right_bank =
+            std::ranges::find(resolved.engine.banks, "fixture-bank-right",
+                              [](const auto &bank) -> std::string_view {
+                                  return bank.semantic_id.value;
+                              });
+        expect(left_bank != resolved.engine.banks.end() &&
+                   right_bank != resolved.engine.banks.end(),
+               "heterogeneous cam fixture lost its stable banks");
+        const auto cylinder_for_bank = [&](const contract::BankId bank_id) {
+            const auto cylinder = std::ranges::find(resolved.engine.cylinders, bank_id,
+                                                    &contract::CylinderSpec::bank_id);
+            expect(cylinder != resolved.engine.cylinders.end(),
+                   "heterogeneous cam fixture bank had no resolved cylinder");
+            return cylinder->id;
+        };
+        const auto left_cylinder = cylinder_for_bank(left_bank->id);
+        const auto right_cylinder = cylinder_for_bank(right_bank->id);
+        const auto lobe_for_cylinder = [&](const contract::CylinderId cylinder_id) {
+            const auto lobe = std::ranges::find(valvetrain.intake.lobes, cylinder_id,
+                                                &contract::LegacyCamLobe::cylinder_id);
+            expect(lobe != valvetrain.intake.lobes.end(),
+                   "heterogeneous cam fixture lost an intake lobe binding");
+            return *lobe;
+        };
+        expect(lobe_for_cylinder(left_cylinder).profile_index == 0U &&
+                   lobe_for_cylinder(right_cylinder).profile_index == 1U,
+               "bank-local intake cams did not retain canonical first-use profile "
+               "bindings");
+
+        const auto compiled = require_fixed_valvetrain(
+            resolved.engine, profile,
+            "heterogeneous split-bank valvetrain failed runtime compilation");
+        const auto *output_crank = contract::find_output_crank(profile.core.mechanism);
+        expect(output_crank != nullptr,
+               "heterogeneous cam fixture lost its output crank");
+        const auto peak_lift = [&](const contract::CylinderId cylinder_id) {
+            const auto binding = std::ranges::find(
+                compiled.cylinder_bindings(), cylinder_id,
+                &simulation::LegacyValvetrainCylinderBinding::cylinder_id);
+            expect(binding != compiled.cylinder_bindings().end(),
+                   "heterogeneous cam fixture lost a runtime cylinder binding");
+            const auto &cam =
+                compiled.intake_cam_profiles()[binding->intake_cam_profile_index];
+            const double body_angle = output_crank->crank_tdc_reference_rad.value -
+                                      cam.advance_rad -
+                                      2.0 * binding->intake_stored_lobe_angle_rad;
+            const auto sample = compiled.sample_cylinder(cylinder_id, body_angle);
+            expect(sample.has_value(),
+                   "heterogeneous cam fixture rejected a finite peak sample");
+            return sample->intake_lift_m;
+        };
+        expect(std::abs(peak_lift(left_cylinder) - 0.0098) <= 1.0e-15 &&
+                   std::abs(peak_lift(right_cylinder) - 0.012) <= 1.0e-15,
+               "bank-local sampler collapsed the distinct intake cam profiles");
+
+        (void)require_value(compile::compile_engine(document, views),
+                            "public compiler rejected heterogeneous bank-local cams");
     }
 }
 

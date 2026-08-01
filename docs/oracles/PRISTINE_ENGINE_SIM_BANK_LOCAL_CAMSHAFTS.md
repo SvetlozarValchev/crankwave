@@ -76,18 +76,20 @@ asset with different same-role shapes across banks. Multi-bank builders such as 
 Subaru, V-engine, Kohler, Shovelhead, and radial examples pass a common intake profile
 to each intake cam and a common exhaust profile to each exhaust cam.
 
-The clean-room acceptance fixture is therefore a deliberately counterfactual Subaru
-EJ25 pair:
+The full-pipeline clean-room acceptance probes are therefore deliberately
+counterfactual variants of the pristine-derived Shovelhead bank-local-head fixture:
 
-- A retains the pristine-derived equal bank-local cams;
-- B changes only the negative-bank intake cam shape;
+- A retains the pristine-derived equal front/rear bank-local cams;
+- one variant changes only the front intake-cam shape and another changes only the
+  rear intake-cam shape;
 - both retain the same cylinders, bank axes, centerlines, gas path, firing order,
   routes, controls, and presentation; and
-- focused left-only and right-only mutations prove that profile selection follows the
-  cylinder's actual camshaft binding rather than the first or last profile in a list.
+- their distinct PCM proves that profile selection follows the cylinder's actual
+  camshaft binding rather than the first or last profile in a list. A separate
+  base-radius-only mutation must retain exact PCM because that field is GUI-only.
 
 This fixture proves a source-executable topology and deterministic ownership. It is not
-a real Subaru cam calibration and is not a pristine audio oracle. Existing accepted
+a real Harley cam calibration and is not a pristine audio oracle. Existing accepted
 engines must retain byte-identical PCM throughout the checkpoint.
 
 ## Deliberate boundary

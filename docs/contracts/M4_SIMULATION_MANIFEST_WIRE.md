@@ -17,7 +17,9 @@ Schema SHA-256:
 
 The v10/v7 cutover replaces the resolved valvetrain's one-shape-per-role projection
 with ordered bank-local cam-profile pools and an explicit profile index on every
-lobe. The existing crankshaft-, bank-, intake-, head-, wire-, and route-keyed
+lobe. Profiles enter each pool in canonical engine-cylinder first-use order, and all
+lobes on one physical cam bind the same profile. General multi-head VTEC remains
+closed. The existing crankshaft-, bank-, intake-, head-, wire-, and route-keyed
 topology remains unchanged. This is an incompatible current grammar, so the project
 retains only the v10 CDDL and exposes no v9/v6 alias.
 

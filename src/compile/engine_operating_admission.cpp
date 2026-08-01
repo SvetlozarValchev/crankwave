@@ -1,9 +1,7 @@
 #include "compile/engine_resolver_internal.hpp"
 
-#include <bit>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <limits>
 #include <optional>
 #include <string>
@@ -22,10 +20,6 @@ void add(authoring::DiagnosticReport &report, authoring::DiagnosticCode code,
     value.json_pointer = std::move(path);
     value.message = std::move(message);
     report.diagnostics.push_back(std::move(value));
-}
-
-[[nodiscard]] bool same_binary64(double left, double right) noexcept {
-    return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
 
 [[nodiscard]] bool supported_curve_shape(const authoring::CurveDefinition &curve,
@@ -155,20 +149,6 @@ void admit_fixed_cam_lobes(const authoring::CamshaftDefinition &camshaft,
     return first != nullptr;
 }
 
-[[nodiscard]] const authoring::CamLobeShape *
-representative_cam_shape(const authoring::CamshaftDefinition &camshaft,
-                         const ModelContext &context,
-                         authoring::PortKind expected_kind) {
-    for (const auto &reference : camshaft.lobes) {
-        const auto found = context.cam_lobes.find(reference.value);
-        if (found != context.cam_lobes.end() &&
-            found->second->port_kind == expected_kind) {
-            return &found->second->shape;
-        }
-    }
-    return nullptr;
-}
-
 } // namespace
 
 void admit_engine_operating_systems(ModelContext &resolved,
@@ -207,8 +187,7 @@ void admit_engine_operating_systems(ModelContext &resolved,
                         controller.minimum_velocity > controller.maximum_velocity ||
                         !std::isfinite(controller.k_s) || controller.k_s < 0.0 ||
                         !std::isfinite(controller.k_d) || controller.k_d < 0.0 ||
-                        !std::isfinite(controller.gamma) ||
-                        controller.gamma <= 0.0) {
+                        !std::isfinite(controller.gamma) || controller.gamma <= 0.0) {
                         add(report, DiagnosticCode::invalid_value,
                             "/engine/throttle_controller",
                             "governor parameters are outside their admitted domain");
@@ -362,8 +341,6 @@ void admit_engine_operating_systems(ModelContext &resolved,
                 "camshaft role contains an unexpected per-cylinder binding");
         }
 
-        const authoring::CamshaftDefinition *representative = nullptr;
-        const authoring::CamLobeShape *representative_shape = nullptr;
         for (const auto &camshaft : engine.camshafts) {
             const auto expected =
                 expected_cylinders_by_camshaft.find(camshaft.id.value);
@@ -372,29 +349,10 @@ void admit_engine_operating_systems(ModelContext &resolved,
             }
             admit_fixed_cam_lobes(camshaft, resolved, port_kind, expected->second,
                                   report, used_lobes, used_curves);
-            const auto *shape = representative_cam_shape(camshaft, resolved, port_kind);
             if (!equivalent_cam_shapes(camshaft, resolved, port_kind)) {
                 add(report, DiagnosticCode::unsupported_capability, "/engine/cam_lobes",
                     "each selected camshaft requires one exact shared authored "
                     "lobe shape");
-            }
-            if (representative == nullptr) {
-                representative = &camshaft;
-                representative_shape = shape;
-            } else if (!same_binary64(legacy_si_value(camshaft.advance),
-                                      legacy_si_value(representative->advance)) ||
-                       !same_binary64(legacy_si_value(camshaft.base_radius),
-                                      legacy_si_value(representative->base_radius))) {
-                add(report, DiagnosticCode::unsupported_capability, "/engine/camshafts",
-                    "all camshafts selected for one role require bit-identical "
-                    "advance and base radius; lobe centerlines may differ");
-            }
-            if (representative != &camshaft &&
-                (shape == nullptr || representative_shape == nullptr ||
-                 *shape != *representative_shape)) {
-                add(report, DiagnosticCode::unsupported_capability, "/engine/cam_lobes",
-                    "all camshafts selected for one role require an exact common "
-                    "lobe shape; lobe centerlines may differ");
             }
             used_camshafts.insert(camshaft.id.value);
         }
@@ -403,8 +361,8 @@ void admit_engine_operating_systems(ModelContext &resolved,
                         authoring::PortKind::intake);
     admit_camshaft_role(resolved.exhaust_camshaft_for_cylinder,
                         authoring::PortKind::exhaust);
-    if (resolved.alternate_intake_camshaft != nullptr &&
-        resolved.alternate_exhaust_camshaft != nullptr) {
+    if (!resolved.alternate_intake_camshaft_for_cylinder.empty() &&
+        !resolved.alternate_exhaust_camshaft_for_cylinder.empty()) {
         admit_camshaft_role(resolved.alternate_intake_camshaft_for_cylinder,
                             authoring::PortKind::intake);
         admit_camshaft_role(resolved.alternate_exhaust_camshaft_for_cylinder,

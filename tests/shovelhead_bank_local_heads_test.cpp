@@ -200,6 +200,57 @@ find_cylinder(authoring::EnginePackageDocument &document,
     return *found;
 }
 
+[[nodiscard]] authoring::CamLobeDefinition &
+find_cam_lobe(authoring::EnginePackageDocument &document,
+              const std::string_view lobe_id) {
+    const auto found = std::ranges::find(
+        document.engine.cam_lobes, lobe_id,
+        [](const auto &lobe) -> std::string_view { return lobe.id.value; });
+    expect(found != document.engine.cam_lobes.end(),
+           "Shovelhead fixture could not find its selected cam lobe");
+    return *found;
+}
+
+[[nodiscard]] authoring::CamshaftDefinition &
+find_camshaft(authoring::EnginePackageDocument &document,
+              const std::string_view camshaft_id) {
+    const auto found = std::ranges::find(
+        document.engine.camshafts, camshaft_id,
+        [](const auto &camshaft) -> std::string_view { return camshaft.id.value; });
+    expect(found != document.engine.camshafts.end(),
+           "Shovelhead fixture could not find its selected camshaft");
+    return *found;
+}
+
+[[nodiscard]] ShovelheadSource
+make_bank_local_intake_cam_probe(const std::filesystem::path &repository_root,
+                                 const ShovelheadSource &source,
+                                 const std::string_view lobe_id) {
+    auto document = source.engine_document;
+    auto &lobe = find_cam_lobe(document, lobe_id);
+    auto *harmonic = std::get_if<authoring::HarmonicCamLobe>(&lobe.shape);
+    expect(harmonic != nullptr && harmonic->maximum_lift.unit == "in" &&
+               harmonic->maximum_lift.value == 0.4,
+           "Shovelhead counterfactual cam probe lost its source harmonic lobe");
+    harmonic->maximum_lift.value = 0.45;
+    return compile_source(std::move(document), source.scenario_document,
+                          repository_root /
+                              "data/engines/shovelhead-bank-local-heads/engine.json");
+}
+
+[[nodiscard]] ShovelheadSource
+make_base_radius_only_cam_probe(const std::filesystem::path &repository_root,
+                                const ShovelheadSource &source) {
+    auto document = source.engine_document;
+    auto &camshaft = find_camshaft(document, "intake-cam.front");
+    expect(camshaft.base_radius.unit == "in" && camshaft.base_radius.value == 0.5,
+           "Shovelhead counterfactual base-radius probe lost its source value");
+    camshaft.base_radius.value = 0.625;
+    return compile_source(std::move(document), source.scenario_document,
+                          repository_root /
+                              "data/engines/shovelhead-bank-local-heads/engine.json");
+}
+
 [[nodiscard]] ShovelheadSource
 make_uniform_flow_control(const std::filesystem::path &repository_root,
                           const ShovelheadSource &source, const bool one_times) {
@@ -614,6 +665,15 @@ void run(const std::filesystem::path &repository_root) {
         "data/engines/shovelhead-bank-local-heads/engine-separate-intakes.json");
     const auto equal_split_intakes =
         make_equal_split_intake_control(repository_root, differentiated_intakes);
+    // These are deliberately counterfactual topology probes, not Harley cam
+    // calibrations. The same lift change is applied to one physical intake cam at
+    // a time so the full executor must preserve bank-local profile ownership.
+    const auto front_intake_cam_probe = make_bank_local_intake_cam_probe(
+        repository_root, source_assignment, "intake-lobe.front");
+    const auto rear_intake_cam_probe = make_bank_local_intake_cam_probe(
+        repository_root, source_assignment, "intake-lobe.rear");
+    const auto base_radius_only_cam_probe =
+        make_base_radius_only_cam_probe(repository_root, source_assignment);
     verify_only_four_flow_curve_references_differ(source_assignment.engine_document,
                                                   swapped_assignment.engine_document);
     verify_uniform_control_delta(source_assignment.engine_document,
@@ -641,6 +701,12 @@ void run(const std::filesystem::path &repository_root) {
         render_audition_pcm(equal_split_intakes.compiled_scenario);
     const auto differentiated_intakes_pcm =
         render_audition_pcm(differentiated_intakes.compiled_scenario);
+    const auto front_intake_cam_pcm =
+        render_audition_pcm(front_intake_cam_probe.compiled_scenario);
+    const auto rear_intake_cam_pcm =
+        render_audition_pcm(rear_intake_cam_probe.compiled_scenario);
+    const auto base_radius_only_cam_pcm =
+        render_audition_pcm(base_radius_only_cam_probe.compiled_scenario);
     expect(first_source_pcm == second_source_pcm,
            "repeated Shovelhead A renders were not byte-identical");
     expect(first_source_pcm.size() == swapped_pcm.size() &&
@@ -662,6 +728,16 @@ void run(const std::filesystem::path &repository_root) {
     expect(first_equal_split_pcm.size() == differentiated_intakes_pcm.size() &&
                first_equal_split_pcm != differentiated_intakes_pcm,
            "TRX520 rear intake controls did not change Shovelhead audition PCM");
+    expect(first_source_pcm.size() == front_intake_cam_pcm.size() &&
+               first_source_pcm != front_intake_cam_pcm,
+           "changing only the front intake-cam lift did not change audition PCM");
+    expect(first_source_pcm.size() == rear_intake_cam_pcm.size() &&
+               first_source_pcm != rear_intake_cam_pcm,
+           "changing only the rear intake-cam lift did not change audition PCM");
+    expect(front_intake_cam_pcm != rear_intake_cam_pcm,
+           "front-only and rear-only intake-cam changes collapsed to one profile");
+    expect(first_source_pcm == base_radius_only_cam_pcm,
+           "GUI-only cam base radius changed full-pipeline audition PCM");
 }
 
 } // namespace

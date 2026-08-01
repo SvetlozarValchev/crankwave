@@ -129,8 +129,11 @@ change alone did not alter execution.
 
 H1b removes only the cross-bank chamber, same-kind port geometry/curve, and
 intake-versus-exhaust triangle-radius equivalence gates needed by this fixture.
-It does not admit unequal blowby, multiple intakes or crankshafts, generalized
-cam shapes, or multiple-head VTEC. Those capabilities continue to fail closed.
+At the H1 checkpoint it did not admit unequal blowby, multiple intakes or
+crankshafts, distinct same-role standard cam shapes, or multiple-head VTEC. Distinct
+standard bank-local cams were admitted later under
+`PRISTINE_ENGINE_SIM_BANK_LOCAL_CAMSHAFTS.md`; multi-head VTEC and unequal blowby
+remain closed.
 There is one current contract only; no singular-head alias or legacy decoder is
 added.
 
