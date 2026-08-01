@@ -1,0 +1,153 @@
+# Pristine engine-sim bank-local-head oracle
+
+Status: source-audited parity authority for headless slice 10 H1
+
+Authority: Ange Yaghi `engine-sim` commit
+`85f7c3b959a908ed5232ede4f1a4ac7eafe6b630`, read from the repository-local
+object database at `../engine-sim`. The fixture source is
+`assets/engines/atg-video-1/03_harley_davidson_shovelhead.mr`; it must be read
+with `git -C ../engine-sim show <authority>:<path>`, not from the neighboring
+worktree's current branch or uncommitted files.
+
+## Executed bank-local ownership
+
+Pristine allocates one `CylinderHead` for every cylinder bank. During engine
+generation, `scripting/include/engine_node.h` maps each authored bank head to
+one runtime head. `scripting/include/cylinder_bank_node.h` then generates that
+head with its bank-local ports and valvetrain and binds each bank-local cylinder
+to its authored intake, exhaust, sound attenuation, and added primary length.
+Each `CombustionChamber` selects the head by its piston's bank index.
+
+The head is physical execution state, not only authoring or display metadata:
+
+- chamber volume participates in instantaneous cylinder volume;
+- runner volumes and cross-section areas construct that cylinder's intake and
+  exhaust gas volumes and flow-edge geometry;
+- the head-local valvetrain supplies valve lift, and the head-local intake and
+  exhaust curves are triangle-sampled at that lift;
+- the cylinder's head-local intake and exhaust bindings select the gas systems;
+  and
+- the head-local exhaust binding, per-cylinder sound attenuation, and primary
+  length select and scale the exhaust source sent to the synthesizer.
+
+The executable evidence is in `include/cylinder_head.h`,
+`src/cylinder_head.cpp`, `src/combustion_chamber.cpp`, and
+`src/piston_engine_simulator.cpp` at the pinned commit. A clean-room compiler
+must therefore preserve one ordered, bank-keyed head profile and bind every
+cylinder through its `bank_id`; collapsing unequal heads to a representative
+profile is not source-faithful.
+
+## Exact Shovelhead head data
+
+The fixture names source `b0` as `front` and source `b1` as `rear`:
+
+| Property | Front / `b0` | Rear / `b1` |
+|---|---:|---:|
+| Bank axis | -22.5 deg | +22.5 deg |
+| Chamber volume | 100 cc | 100 cc |
+| Intake runner volume | 100 cc | 100 cc |
+| Intake runner cross-section | 20 cm2 | 20 cm2 |
+| Exhaust runner volume | 100 cc | 100 cc |
+| Exhaust runner cross-section | 20 cm2 | 20 cm2 |
+| Port-flow multiplier | 2.0 | 1.0 |
+| Intake cam center | 470 deg | 785 deg (65 deg modulo 720) |
+| Exhaust cam center | 250 deg | 565 deg |
+
+Both banks use the same harmonic lobe: 210 deg duration at 0.050 in, gamma
+`0.9`, 0.400 in maximum lift, and 100 generated steps. The V-twin cam builder
+uses 110 deg lobe separation, a 0.500 in base radius, and a 315 deg bank-to-bank
+cam offset. H1 does not generalize cam profile execution; the already-admitted
+per-cylinder cam association remains unchanged.
+
+`es/part-library/parts/heads.mr::generic_small_engine_head` defines a 0.050 in
+triangle radius and the following base samples. Lift is inches-thousandths and
+flow is CFM calibrated at 28 inH2O through `k_28inH2O`:
+
+| Lift (thou) | Intake 1x | Exhaust 1x |
+|---:|---:|---:|
+| 0 | 0 | 0 |
+| 50 | 25 | 25 |
+| 100 | 75 | 50 |
+| 150 | 100 | 75 |
+| 200 | 130 | 100 |
+| 250 | 180 | 125 |
+| 300 | 190 | 160 |
+| 350 | 220 | 175 |
+| 400 | 240 | 180 |
+| 450 | 250 | 190 |
+| 500 | 260 | 200 |
+| 550 | 260 | 205 |
+| 600 | 260 | 210 |
+| 650 | 255 | 210 |
+| 700 | 250 | 210 |
+
+The rear head uses those values exactly. The front head multiplies every intake
+and exhaust output by exactly two; lift coordinates and triangle radii do not
+change. `flow_attenuation` is thus a source-name misnomer here: `2.0` increases
+the physical port restriction coefficients. It is unrelated to audible route
+gain.
+
+## Exact route mapping
+
+Both cylinders share the source intake: 1.5 L plenum, 10 cm2 plenum area,
+`k_carb(100)` inlet, zero idle bypass, 0.991 closed-plate position, gamma `1`,
+velocity decay `1`, and the pristine default 4 in / `k_carb(200)` runner.
+
+| Bank | Cylinder bindings | Ignition post | Exhaust | Audible source values |
+|---|---|---:|---|---|
+| Front / `b0` | shared intake, front head | 0 deg | `exhaust0` | sound attenuation 1.0; audio volume 0.1 |
+| Rear / `b1` | shared intake, rear head | 315 deg | `exhaust1` | sound attenuation 1.0; audio volume 0.2 |
+
+Both exhausts use the same 10 L collector volume, `circle_area(2 in)` collector
+area, `k_carb(100)` outlet and primary restrictions, 70 in physical primary,
+velocity decay `0.75`, zero added per-cylinder primary length, and
+`minimal_muffling_01`. Pristine applies audible source scaling after gas
+execution; the 2x/1x physical port curves and 0.1/0.2 exhaust audio volumes must
+remain independent inputs.
+
+## Intentional fixture normalizations
+
+- The source front and rear piston blowby values are respectively
+  `k_28inH2O(0.2)` and `k_28inH2O(0.1)`. H1 uses the real source rear value,
+  0.1 CFM at 28 inH2O, for both pistons because the still-shared low-order
+  blowby profile requires exact equivalence. This is not evidence that unequal
+  blowby has been implemented.
+- `display_depth: 0.55` and rear `flip_display: true` affect pristine's GUI only
+  and are omitted. The physical bank axes are retained.
+- The source's 35 kHz simulation setting is not copied into engine identity.
+  The fixture uses the current executor policy: 10 kHz physics/capture and
+  192 kHz source/acoustic/delivery. H1 is a topology/profile-binding comparison,
+  not a cross-rate numerical-parity claim.
+- The source motorcycle and transmission are outside this head-only fixture.
+
+## H1 gates
+
+H1a changes singular resolved/runtime head storage into bank-keyed storage while
+retaining the existing exact-equivalence admission gates. Every previously
+accepted engine must keep byte-identical PCM; this proves the architectural
+change alone did not alter execution.
+
+H1b removes only the cross-bank chamber, same-kind port geometry/curve, and
+intake-versus-exhaust triangle-radius equivalence gates needed by this fixture.
+It does not admit unequal blowby, multiple intakes or crankshafts, generalized
+cam shapes, or multiple-head VTEC. Those capabilities continue to fail closed.
+There is one current contract only; no singular-head alias or legacy decoder is
+added.
+
+## A/B acceptance invariant
+
+Variant A is the exact source head assignment: front intake/exhaust use the 2x
+curves and rear intake/exhaust use the 1x curves. Variant B swaps only those four
+port `flow_curve` references, making front 1x and rear 2x. Head geometry, cams,
+mechanism, ignition, intake/exhaust routing, presentation, scenario, rates, and
+seed remain byte-identical between the authored variants.
+
+Both variants must compile, retain the expected bank-to-profile bindings, and
+render deterministically. Repeated renders of one variant must be byte-identical;
+A and B must not be byte-identical. That difference proves the executor consumes
+bank-local profiles instead of silently selecting one representative head.
+
+There is no pristine upstream WAV oracle for this gate. The pinned source graph
+and C++ consumption paths are the structural/numerical authority; the A/B result
+is a clean-room execution invariant, not a claim of byte-for-byte audio identity
+with pristine `engine-sim`.

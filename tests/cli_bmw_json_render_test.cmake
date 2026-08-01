@@ -26,7 +26,7 @@ set(publication_directory "${output_root}/cli-bmw-json-render")
 set(audition_wave
     "${publication_directory}/audio/master.engine.audition.wav")
 set(manifest
-    "${publication_directory}/manifest/render-manifest.v6.json")
+    "${publication_directory}/manifest/render-manifest.v7.json")
 set(manifest_sidecar "${manifest}.sha256")
 
 if(NOT EXISTS "${CLI_EXECUTABLE}" OR
@@ -92,8 +92,8 @@ endif()
 
 file(READ "${manifest}" manifest_text)
 foreach(required_manifest_fragment
-        "\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v6\""
-        "\"schema_version\":6"
+        "\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v7\""
+        "\"schema_version\":7"
         "\"engine_id\":{\"value\":\"bmw-m52b28\""
         "\"scenario_id\":\"bmw-m52b28-inertial-dyno-1500-6500rpm\""
         "\"source_matrix_id\":\"scenario-source-matrix.bmw-m52b28-inertial-dyno-1500-6500rpm\"")

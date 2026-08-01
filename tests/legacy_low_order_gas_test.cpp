@@ -766,6 +766,81 @@ void test_short_authored_fresh_state_and_deterministic_activity(
            "short authored run did not reach accepted, heat-releasing combustion");
 }
 
+void test_bank_local_runner_and_primary_geometry_binds_and_advances(
+    const AuthoredEngineFixture &canonical) {
+    auto request = make_short_request(canonical);
+    auto &core = engine_sim_offline::test::low_order_core(request.engine);
+    expect(request.engine.banks.size() == 1U && core.gas_path.heads.size() == 1U &&
+               request.engine.cylinders.size() >= 2U,
+           "bank-local gas fixture requires the canonical one-bank topology");
+
+    auto second_bank = request.engine.banks.front();
+    second_bank.id = BankId{2};
+    second_bank.semantic_id.value = "bank-2";
+    request.engine.banks.push_back(std::move(second_bank));
+
+    auto second_head = core.gas_path.heads.front();
+    second_head.bank_id = BankId{2};
+    second_head.intake_runner_base_volume_m3.value *= 1.1;
+    second_head.intake_runner_cross_section_area_m2.value *= 0.75;
+    second_head.exhaust_runner_base_volume_m3.value *= 1.2;
+    second_head.exhaust_runner_cross_section_area_m2.value *= 1.25;
+    core.gas_path.heads.push_back(std::move(second_head));
+    request.engine.cylinders[1].bank_id = BankId{2};
+
+    const auto &bound_head = core.gas_path.heads[1];
+    const auto &bound_assembly = core.mechanism.cylinders[1];
+    const auto route = std::ranges::find_if(
+        core.gas_path.exhaust_routes, [&](const auto &candidate) {
+            return candidate.topology.route_id ==
+                   bound_assembly.topology.exhaust_route_id;
+        });
+    expect(route != core.gas_path.exhaust_routes.end(),
+           "bank-local gas fixture lost its bound exhaust route");
+    const double expected_runner_volume_m3 =
+        bound_head.intake_runner_base_volume_m3.value +
+        bound_head.intake_runner_cross_section_area_m2.value *
+            core.gas_path.intake.runner_length_m.value;
+    const double expected_primary_volume_m3 =
+        bound_head.exhaust_runner_base_volume_m3.value +
+        bound_head.exhaust_runner_cross_section_area_m2.value *
+            (route->parameters.primary_tube_length_m.value +
+             bound_assembly.parameters.header_primary_length_m.value);
+
+    auto sessions = compile_sessions(request);
+    const auto &mechanics = advance_mechanics(sessions, 0U);
+    const auto &gas = advance_gas(sessions, mechanics, 0U);
+    const auto find_volume = [&](GasVolumeId id) {
+        return std::ranges::find_if(gas.gas_volumes, [&](const auto &volume) {
+            return volume.gas_volume_id == id;
+        });
+    };
+    const auto runner =
+        find_volume(bound_assembly.topology.intake_runner_volume_id);
+    const auto primary =
+        find_volume(bound_assembly.topology.exhaust_primary_volume_id);
+    expect(runner != gas.gas_volumes.end() && primary != gas.gas_volumes.end(),
+           "bank-local gas lane lost its runner or primary volume");
+    expect(runner->cell.volume_m3 == expected_runner_volume_m3 &&
+               runner->geometry.width_m ==
+                   expected_runner_volume_m3 /
+                       bound_head.intake_runner_cross_section_area_m2.value &&
+               runner->geometry.height_m ==
+                   std::sqrt(
+                       bound_head.intake_runner_cross_section_area_m2.value),
+           "intake runner did not retain its bound bank-head volume and area");
+    expect(primary->cell.volume_m3 == expected_primary_volume_m3 &&
+               primary->geometry.width_m ==
+                   expected_primary_volume_m3 /
+                       bound_head.exhaust_runner_cross_section_area_m2.value &&
+               primary->geometry.height_m ==
+                   std::sqrt(
+                       bound_head.exhaust_runner_cross_section_area_m2.value),
+           "exhaust primary did not retain its bound bank-head volume and area");
+    expect(!sessions.gas.faulted() && sessions.gas.produced_sample_count() == 1U,
+           "bank-local gas geometry did not advance one complete transaction");
+}
+
 void test_certified_radial_gas_uses_common_mechanism_coordinates(
     const AuthoredEngineFixture &canonical) {
     auto request = make_radial_gas_request(canonical);
@@ -991,6 +1066,7 @@ void test_length_authored_collector_geometry_admission(
 void run_tests(const AuthoredEngineFixture &canonical) {
     test_vtec_selects_one_coherent_immutable_cam_pair(canonical);
     test_short_authored_fresh_state_and_deterministic_activity(canonical);
+    test_bank_local_runner_and_primary_geometry_binds_and_advances(canonical);
     test_certified_radial_gas_uses_common_mechanism_coordinates(canonical);
     test_length_authored_collector_geometry_admission(canonical);
     test_gas_method_admission_rejection(canonical);

@@ -301,8 +301,8 @@ ValidationReport validate(const InertialDynoResult &inertial_dyno) {
     using detail::require;
 
     ValidationReport report;
-    require(report, !inertial_dyno.simulation_request_identity_v3_sha256.is_zero(),
-            ContractIssueCode::invalid_value, "simulation_request_identity_v3_sha256",
+    require(report, !inertial_dyno.simulation_request_identity_v4_sha256.is_zero(),
+            ContractIssueCode::invalid_value, "simulation_request_identity_v4_sha256",
             "inertial-dyno result requires a nonzero canonical simulation-request "
             "identity");
     require(report,
@@ -408,17 +408,17 @@ ValidationReport validate(const InertialDynoResult &inertial_dyno) {
 ValidationReport
 validate(const InertialDynoResult &inertial_dyno,
          const RenderScenario &requested_scenario,
-         const Sha256Digest &expected_simulation_request_identity_v3_sha256) {
+         const Sha256Digest &expected_simulation_request_identity_v4_sha256) {
     using detail::require;
 
     auto report = validate(inertial_dyno);
     require(report,
-            !expected_simulation_request_identity_v3_sha256.is_zero() &&
-                inertial_dyno.simulation_request_identity_v3_sha256 ==
-                    expected_simulation_request_identity_v3_sha256,
+            !expected_simulation_request_identity_v4_sha256.is_zero() &&
+                inertial_dyno.simulation_request_identity_v4_sha256 ==
+                    expected_simulation_request_identity_v4_sha256,
             ContractIssueCode::inconsistent_semantics,
-            "simulation_request_identity_v3_sha256",
-            "inertial-dyno result must retain the caller-supplied canonical v3 "
+            "simulation_request_identity_v4_sha256",
+            "inertial-dyno result must retain the caller-supplied canonical v4 "
             "simulation-request identity");
 
     const auto *requested_mode = std::get_if<InertialDyno>(&requested_scenario.mode);
@@ -595,7 +595,7 @@ ValidationReport validate(const RenderFailure &failure) {
 
 ValidationReport
 validate(const RenderResult &result, const RenderScenario &requested_scenario,
-         const Sha256Digest &expected_simulation_request_identity_v3_sha256,
+         const Sha256Digest &expected_simulation_request_identity_v4_sha256,
          const ProvenanceLedger &provenance,
          const SourceMatrixContract &source_matrix) {
     using detail::append_prefixed;
@@ -661,7 +661,7 @@ validate(const RenderResult &result, const RenderScenario &requested_scenario,
                         report,
                         validate(*outcome.held_speed_operating_point,
                                  requested_scenario, simulation_inputs.resolved.engine,
-                                 expected_simulation_request_identity_v3_sha256),
+                                 expected_simulation_request_identity_v4_sha256),
                         "success.held_speed_operating_point");
                 }
                 const auto is_inertial_dyno =
@@ -675,7 +675,7 @@ validate(const RenderResult &result, const RenderScenario &requested_scenario,
                     append_prefixed(
                         report,
                         validate(*outcome.inertial_dyno, requested_scenario,
-                                 expected_simulation_request_identity_v3_sha256),
+                                 expected_simulation_request_identity_v4_sha256),
                         "success.inertial_dyno");
                 }
             } else if constexpr (std::is_same_v<T, UnreachableTarget>) {

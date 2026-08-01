@@ -60,7 +60,6 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
             authored(0.135),
             authored(0.211),
             authored(0.03182),
-            authored(0.000046),
             authored(0.0),
             authored(0.28),
             authored(0.30),
@@ -92,11 +91,15 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
         make_restriction(LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
                          kCarb500),
     };
-    core.gas_path.head.intake_runner_base_volume_m3 = authored(0.0001);
-    core.gas_path.head.intake_runner_cross_section_area_m2 = authored(0.002);
-    core.gas_path.head.exhaust_runner_base_volume_m3 = authored(0.0003);
-    core.gas_path.head.exhaust_runner_cross_section_area_m2 = authored(0.0014);
-    core.gas_path.head.flow_table_triangle_radius_m = authored(0.001);
+    AuthoredLegacyBankHeadProfile head;
+    head.bank_id = authored(std::string{"bank-1"});
+    head.chamber_volume_m3 = authored(0.000046);
+    head.intake_runner_base_volume_m3 = authored(0.0001);
+    head.intake_runner_cross_section_area_m2 = authored(0.002);
+    head.exhaust_runner_base_volume_m3 = authored(0.0003);
+    head.exhaust_runner_cross_section_area_m2 = authored(0.0014);
+    head.intake_flow_triangle_radius_m = authored(0.001);
+    head.exhaust_flow_triangle_radius_m = authored(0.001);
     const auto flow_point = [](std::string id, double lift, double cfm, double k) {
         return AuthoredLegacyValveFlowPoint{
             authored(std::move(id)),
@@ -105,14 +108,15 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
             authored(k),
         };
     };
-    core.gas_path.head.intake_flow = {
+    head.intake_flow = {
         flow_point("lift-0", 0.0, 0.0, 0.0),
         flow_point("lift-1", 0.001, 1.0, kCfmOne),
     };
-    core.gas_path.head.exhaust_flow = {
+    head.exhaust_flow = {
         flow_point("lift-0", 0.0, 0.0, 0.0),
         flow_point("lift-1", 0.001, 1.0, kCfmOne),
     };
+    core.gas_path.heads.push_back(std::move(head));
     core.gas_path.exhaust_routes.push_back({
         {
             authored(std::string{"exhaust.outlet-1"}),
@@ -481,7 +485,19 @@ void run_authored_profile_contract_tests() {
     expect_authored_mutation_rejected(
         "unsorted authored valve-flow table was accepted",
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {
-            profile.core.gas_path.head.intake_flow.back().lift_m.value = 0.0;
+            profile.core.gas_path.heads.front().intake_flow.back().lift_m.value =
+                0.0;
+        });
+    expect_authored_mutation_rejected(
+        "missing authored bank-head coverage was accepted",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.core.gas_path.heads.clear();
+        });
+    expect_authored_mutation_rejected(
+        "duplicate authored bank-head identity was accepted",
+        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
+            profile.core.gas_path.heads.push_back(
+                profile.core.gas_path.heads.front());
         });
     expect_authored_mutation_rejected(
         "out-of-range authored fuel efficiency was accepted",
@@ -519,6 +535,10 @@ void run_authored_profile_contract_tests() {
 
     expect(validate(make_authored_engine()).ok(),
            "valid authored engine and executable profile were rejected");
+    auto incomplete_head_coverage = make_authored_engine();
+    incomplete_head_coverage.banks.push_back(authored(std::string{"bank-2"}));
+    expect(!validate(incomplete_head_coverage).ok(),
+           "authored executable profile accepted a bank without a head profile");
     auto operating_engine = make_authored_engine();
     operating_engine.methods.losses.value = {"legacy_low_order_v1", 1};
     expect(!validate(operating_engine).ok(),

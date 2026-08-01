@@ -151,7 +151,7 @@ contract::RenderManifest manifest_for(const contract::OutputContract &contract,
                                       std::vector<contract::ArtifactRecord> records) {
     contract::test::InputBuilder builder;
     auto content = contract::test::make_manifest_content(builder);
-    content.schema_version = 6;
+    content.schema_version = 7;
     content.output_contract = contract;
     content.artifacts = std::move(records);
     return {
@@ -172,7 +172,7 @@ contract::RenderManifest manifest_for(const contract::OutputContract &contract,
 
 std::vector<std::byte>
 encoded_manifest(const contract::RenderManifest &manifest) {
-    auto result = encode_simulation_manifest_v6(manifest);
+    auto result = encode_simulation_manifest_v7(manifest);
     const auto *encoding = std::get_if<ManifestEncoding>(&result);
     expect(encoding != nullptr, "test manifest was not wire-representable");
     return encoding->bytes;
@@ -269,13 +269,13 @@ void run_success_case() {
                            telemetry_payload.size()),
            "published telemetry bytes differ from streamed bytes");
     expect(read_file(sink.publication_path() /
-                     std::string{kSimulationManifestRelativePathV6}) ==
+                     std::string{kSimulationManifestRelativePathV7}) ==
                std::string(reinterpret_cast<const char *>(manifest_document.data()),
                            manifest_document.size()),
-           "published manifest differs from the sole simulation-v6 encoder output");
+           "published manifest differs from the sole simulation-v7 encoder output");
     const auto manifest_digest = contract::sha256(manifest_document);
     expect(read_file(sink.publication_path() /
-                     (std::string{kSimulationManifestRelativePathV6} + ".sha256")) ==
+                     (std::string{kSimulationManifestRelativePathV7} + ".sha256")) ==
                digest_hex(manifest_digest) + "\n",
            "published manifest digest sidecar is incorrect");
     expect(sink.manifest_payload_sha256() == std::optional{manifest_digest},
@@ -462,7 +462,7 @@ void run_portable_path_identity_cases() {
         const PendingArtifact collision{
             "audio.master",
             contract::ArtifactKind::audio,
-            std::string{kSimulationManifestRelativePathV6},
+            std::string{kSimulationManifestRelativePathV7},
             audio_contract(),
             false,
         };
@@ -618,7 +618,7 @@ void run_seal_and_completeness_cases() {
         manifest.content.schema_version = 4;
         expect_error(sink.commit(manifest), RenderSinkErrorKind::protocol_violation,
                      "simulation-manifest-wire-unrepresentable",
-                     "directory sink accepted a non-v6 manifest");
+                     "directory sink accepted a non-v7 manifest");
         expect(sink.state() == DirectoryRenderSinkState::aborted &&
                    std::filesystem::is_empty(isolated.path()),
                "manifest-version failure retained staging or final output");

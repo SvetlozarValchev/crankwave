@@ -56,7 +56,6 @@ struct ModelContext {
     std::string calibration_id;
 
     const authoring::CrankshaftDefinition *crankshaft = nullptr;
-    const authoring::HeadDefinition *head = nullptr;
     const authoring::ValvetrainDefinition *valvetrain = nullptr;
     const authoring::CamshaftDefinition *intake_camshaft = nullptr;
     const authoring::CamshaftDefinition *exhaust_camshaft = nullptr;
@@ -224,8 +223,8 @@ resolve_restriction(const authoring::FlowRestriction &source, std::string base_p
 [[nodiscard]] std::string sample_id(std::size_t index);
 [[nodiscard]] std::vector<ResolvedRouteSource>
 ordered_routes(const ModelContext &context);
-[[nodiscard]] const authoring::PortDefinition &
-authored_port(const ModelContext &context, authoring::PortKind kind);
+[[nodiscard]] std::vector<const authoring::BankDefinition *>
+ordered_banks(const ModelContext &context);
 [[nodiscard]] const authoring::CamLobeDefinition &
 cam_lobe_for_cylinder(const ModelContext &context,
                       const authoring::CamshaftDefinition &camshaft,

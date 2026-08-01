@@ -99,9 +99,11 @@ fixture's six cylinders and two routes. A separate inline-twin/one-route fixture
 the same session boundary. Direct centered rods execute on inline, V, opposed, and
 custom explicit bank axes; a pristine-derived Subaru EJ25 fixture proves the opposed
 bank/journal mapping across a bounded dynamic capture. Banks may retain distinct
-bank-local heads, ports, standard valvetrains, and cams when their shared low-order
-runner, chamber, and cam-shape parameters are exactly execution-equivalent;
-heterogeneous definitions fail closed. Standard fixed valvetrains accept either
+bank-local heads, ports, standard valvetrains, and cams. The executable core now
+materializes one chamber/runner/flow profile per bank and binds each cylinder through
+its bank identity, while admission still requires those physical values and fixed-cam
+shapes to be exactly execution-equivalent. Heterogeneous definitions therefore still
+fail closed. Standard fixed valvetrains accept either
 harmonic lobe generators or explicit sampled angle-to-lift profiles through the same
 runtime sampler.
 Finite JSON `held_dyno` scenarios now drive that same crank through a bounded signed
@@ -260,7 +262,7 @@ because its metadata carries generic compiler identities rather than obsolete
 BMW-specific ones:
 
 ```text
-simulation request SHA-256: 8cb2a5a7584b3f8e53a57b453b5e39986cb45e32723e76affea12cba31b5a816
+simulation request SHA-256: e1052791be6dcb8c6e75919393ff3bb2980a0055e019cb8fae824240d38db6e7
 audition WAV byte count:    8640586
 audition WAV SHA-256:       f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552
 ```

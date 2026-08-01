@@ -197,23 +197,27 @@ void admit_engine_physical_model(ModelContext &resolved,
 
     const authoring::PortDefinition *intake_port = nullptr;
     const authoring::PortDefinition *exhaust_port = nullptr;
-    if (resolved.head != nullptr) {
-        const auto intake = resolved.intake_port_for_head.find(resolved.head->id.value);
+    const authoring::HeadDefinition *representative_head =
+        engine.heads.empty() ? nullptr : &engine.heads.front();
+    if (representative_head != nullptr) {
+        const auto intake =
+            resolved.intake_port_for_head.find(representative_head->id.value);
         const auto exhaust =
-            resolved.exhaust_port_for_head.find(resolved.head->id.value);
+            resolved.exhaust_port_for_head.find(representative_head->id.value);
         if (intake != resolved.intake_port_for_head.end() &&
             exhaust != resolved.exhaust_port_for_head.end()) {
             intake_port = intake->second;
             exhaust_port = exhaust->second;
         }
     }
-    if (resolved.head == nullptr || intake_port == nullptr || exhaust_port == nullptr) {
+    if (representative_head == nullptr || intake_port == nullptr ||
+        exhaust_port == nullptr) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/heads",
             "the admitted head topology requires a representative intake and "
             "exhaust port pair");
     } else {
         const double representative_chamber_volume_m3 =
-            legacy_si_value(resolved.head->chamber_volume);
+            legacy_si_value(representative_head->chamber_volume);
         for (std::size_t index = 0; index < engine.heads.size(); ++index) {
             if (!same_binary64(legacy_si_value(engine.heads[index].chamber_volume),
                                representative_chamber_volume_m3)) {

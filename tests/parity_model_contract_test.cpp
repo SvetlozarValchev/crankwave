@@ -264,6 +264,18 @@ void run_parity_model_contract_tests() {
         });
 
     expect_parity_mutation_rejected(
+        "resolved profile accepted missing bank-head coverage",
+        [](EngineSpec &engine, InputBuilder &) {
+            operating_profile(engine).core.gas_path.heads.clear();
+        });
+
+    expect_parity_mutation_rejected(
+        "resolved profile accepted a bank-head identity mismatch",
+        [](EngineSpec &engine, InputBuilder &) {
+            operating_profile(engine).core.gas_path.heads.front().bank_id = BankId{2};
+        });
+
+    expect_parity_mutation_rejected(
         "resolved engine accepted an unbound extra intake port",
         [](EngineSpec &engine, InputBuilder &builder) {
             engine.ports.push_back({

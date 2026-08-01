@@ -1,26 +1,28 @@
 # M4 simulation-manifest wire contract
 
-Status: implemented as the sole current canonical v6 manifest and v3 request-identity
+Status: implemented as the sole current canonical v7 manifest and v4 request-identity
 encoding; execution and listening gates remain separate
 
 Manifest wire schema ID:
-`engine-sim-offline.render-manifest.simulation.v6`
+`engine-sim-offline.render-manifest.simulation.v7`
 
 Request-identity wire schema ID:
-`engine-sim-offline.simulation-request-identity.v3`
+`engine-sim-offline.simulation-request-identity.v4`
 
 Machine schema:
-[`schemas/render_manifest_simulation_v6.cddl`](../../schemas/render_manifest_simulation_v6.cddl)
+[`schemas/render_manifest_simulation_v7.cddl`](../../schemas/render_manifest_simulation_v7.cddl)
 
 Schema SHA-256:
-`8c0fe18ef3c84cac501be1993e787a89c5e38ca81492296ac9d2b9b15b649c31`
+`bd1bdbc6105adc5a1b16a119fc47d5cbd4aeac4bab8204a9c59b06498b2fc327`
 
-`CylinderSpec.shared_ignition_wire_semantic_id` is present only for cylinders in
-a multi-cylinder ignition-wire fan-out group. One-cylinder wires are stateless in
+`CylinderSpec.shared_ignition_wire_semantic_id` is present only for cylinders in a
+multi-cylinder ignition-wire fan-out group. One-cylinder wires are stateless in
 pristine engine-sim and normalize to the already represented per-cylinder firing
-angle. This additive topology admission leaves every previously admitted request-v3
-and manifest-v6 byte sequence unchanged; the project retains only the current schema
-source and does not ship the preceding CDDL as a compatibility alternative.
+angle. The v7/v4 cutover additionally replaces the single collapsed gas-path head
+with an ordered, bank-keyed `heads` collection. Each bank-head record owns its
+chamber volume, runner geometry, separate intake/exhaust flow radii, and flow tables;
+the duplicated per-cylinder chamber-volume leaf is absent. This is an incompatible
+current grammar, so the project retains only the v7 CDDL and exposes no v6/v3 alias.
 
 ## 1. Scope and admission
 
@@ -29,7 +31,7 @@ manifest input discriminator is exactly:
 
 ```text
 {
-  "kind": "simulation_v5",
+  "kind": "simulation_v6",
   "value": {
     "resolved": {
       "engine": <EngineSpec>,
@@ -45,7 +47,7 @@ The completed-manifest root is exactly:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.render-manifest.simulation.v6",
+  "wire_schema": "engine-sim-offline.render-manifest.simulation.v7",
   "content": <RenderManifestContent>,
   "execution": <ExecutionFacts>
 }
@@ -56,16 +58,18 @@ request before presentation and render composition:
 
 ```text
 {
-  "wire_schema": "engine-sim-offline.simulation-request-identity.v3",
+  "wire_schema": "engine-sim-offline.simulation-request-identity.v4",
   "engine": <EngineSpec>,
   "scenario": <RenderScenario>,
+  "random_plan": <RandomPlan>,
   "provenance": <ProvenanceBundleRef>
 }
 ```
 
 The request identity deliberately excludes `PresentationCalibration`, determinism,
-render outputs, and execution facts. It is the independent golden/cache identity for
-the sealed BMW engine/scenario factory result. Its distinct `wire_schema` value
+render outputs, and execution facts. It includes the exact provisioned `RandomPlan`
+consumed by execution and is the independent golden/cache identity for the sealed BMW
+engine/scenario factory result. Its distinct `wire_schema` value
 domain-separates its bytes and hash from a completed simulation manifest even when
 both contain the same engine and scenario productions. Implementations must use the
 same engine, scenario, primitive, ordering, and fixed-RPM encoding rules for both
@@ -85,29 +89,28 @@ forms and serializes both directly. The typed M3 profile composes a reusable
 composes the same core with its own aggregate-loss, accessory, starter, and
 cycle-quadrature contract. Neither form is flattened or projected.
 
-### 1.1 Direct v6 profile and capability forms
+### 1.1 Direct v7 profile and capability forms
 
 The sole frozen identities are:
 
 | Role | Final identity |
 |---|---|
-| Completed-manifest wire | `engine-sim-offline.render-manifest.simulation.v6` |
-| Manifest content schema version | `6` |
-| Manifest input kind | `simulation_v5` |
-| Request-identity wire | `engine-sim-offline.simulation-request-identity.v3` |
-| Manifest path | `manifest/render-manifest.v6.json` |
-| Sidecar path | `manifest/render-manifest.v6.json.sha256` |
+| Completed-manifest wire | `engine-sim-offline.render-manifest.simulation.v7` |
+| Manifest content schema version | `7` |
+| Manifest input kind | `simulation_v6` |
+| Request-identity wire | `engine-sim-offline.simulation-request-identity.v4` |
+| Manifest path | `manifest/render-manifest.v7.json` |
+| Sidecar path | `manifest/render-manifest.v7.json.sha256` |
 
-`simulation_v5` versions the fifth resolved simulation-input grammar; it is not a
+`simulation_v6` versions the sixth resolved simulation-input grammar; it is not a
 milestone label. The manifest envelope has changed one additional time and is
-therefore v6. The superseded `simulation_v4` discriminator is not retained.
+therefore v7. The superseded `simulation_v5` discriminator is not retained.
 
-The request-v3 root retains the exact member order `wire_schema`, `engine`, `scenario`,
-`provenance`. It continues to call the same engine and scenario writers as the
-completed manifest. It changes version because the scenario preparation union
-replaces `convergence_settling` with the incompatible
-`fixed_horizon_cycle_sampling` record. The request-v2 root is deleted rather than
-accepted as an alias.
+The request-v4 root has the exact member order `wire_schema`, `engine`, `scenario`,
+`random_plan`, `provenance`. It calls the same engine, scenario, and random-plan
+writers as the completed manifest. Its version advances because the engine grammar
+now carries bank-local head execution records and no per-cylinder duplicate of head
+chamber volume. The request-v3 root is deleted rather than accepted as an alias.
 
 The final executable-profile union is exactly:
 
@@ -171,7 +174,7 @@ The cycle reference angle has one authority and is not serialized again:
 `fixed_preparation_horizon_s`, and `trailing_complete_cycle_count`, all as resolved
 values. The rejected convergence durations, block count, and tolerances are absent.
 
-The v6 wire serializes the typed temporal torque capability without projection:
+The v7 wire serializes the typed temporal torque capability without projection:
 
 ```text
 torque-capability = {
@@ -194,23 +197,23 @@ equivalent-inertia claims. There is no superseded projection or equality restric
 between temporal forms.
 
 Variant membership, profile root mapping, authored/resolved validators, method
-admission, randomness access, v6 encoding, request-v3 encoding, schema replacement,
-and deletion of v5/v2 APIs and paths land in one commit. Writers use exhaustive
+admission, randomness access, v7 encoding, request-v4 encoding, schema replacement,
+and deletion of v6/v3 APIs and paths land in one commit. Writers use exhaustive
 profile overloads with no generic fallback, so another alternative fails compilation
 until explicitly represented. The presentation compiler admits both current profile
 alternatives through their exact capture producers and has no projection or fallback.
 
-The v6 CDDL SHA-256 is pinned above. The canonical BMW M3 request-v3 digest is pinned
+The v7 CDDL SHA-256 is pinned above. The canonical BMW M3 request-v4 digest is pinned
 in section 6 and in its independent factory test. Implementation-owned method
 configuration hashes remain governed by the operating-point model: each is pinned
-from its reviewed descriptor when that implementation is admitted. The old CDDL, v5
-manifest path, v5 encoder, request-v2 encoder, constants, overloads, and forwarding
+from its reviewed descriptor when that implementation is admitted. The old CDDL, v6
+manifest path, v6 encoder, request-v3 encoder, constants, overloads, and forwarding
 aliases are deleted.
 
 The `reference_presentation_v1` input belongs exclusively to
 `engine-sim-offline.render-manifest.reference-presentation.v2`. It has no alias,
 fallback, numeric variant index, or compatibility interpretation in this schema.
-Conversely, `simulation_v5` is not encodable under the reference-presentation schema.
+Conversely, `simulation_v6` is not encodable under the reference-presentation schema.
 The superseded simulation inputs and wire APIs are not retained, accepted, or aliased;
 there is no backward-compatibility path.
 
@@ -290,6 +293,12 @@ ownership fields remain present as a stable ID/resolved value or `null`. All phy
 scalars, table abscissae/ordinates, trajectory points, angles, times, gains, and
 tolerances retain exact binary64 identity. All resolved leaves retain their
 `resolution_id`; the wire must not flatten provenance out of the request.
+
+`core.gas_path.heads` is ordered by stable bank ID and has exact one-to-one coverage
+of `EngineSpec::banks`. Cylinders select the matching record through their `bank_id`;
+there is no representative global head, positional cylinder-to-head inference, or
+fallback profile. Intake and exhaust flow-table triangle radii remain independent
+wire leaves even when an admitted profile resolves them to equal values.
 
 The six presentation method identities jointly own reconstruction, conditioning,
 strict IR decoding/conversion, convolution, stem publication, audition reduction,
@@ -461,7 +470,7 @@ simulator continues to own and consume all 170,000 binary64 samples.
 
 ## 5. Common manifest content and execution
 
-Outside `content.inputs`, the simulation v6 content shape and canonical rules are the
+Outside `content.inputs`, the simulation v7 content shape and canonical rules are the
 same as the reference-presentation v2 content shape:
 
 ```text
@@ -539,8 +548,8 @@ artifact role with every `/` byte replaced by lowercase `%2f`, followed by `.wav
 All other valid semantic-ID bytes (`a-z`, `0-9`, `.`, `_`, and `-`) are copied
 unchanged. `%` is not a valid input byte, so this projection is injective. The
 manifest path remains the schema-owned
-`manifest/render-manifest.v6.json`. The shipped directory sink binds that path and
-`encode_simulation_manifest_v6()` internally; callers configure only its publication
+`manifest/render-manifest.v7.json`. The shipped directory sink binds that path and
+`encode_simulation_manifest_v7()` internally; callers configure only its publication
 destination.
 
 The audition WAVE INFO values are derived exactly as these ASCII concatenations:
@@ -559,8 +568,8 @@ plus the admitted audition method completely determines the WAVE metadata bytes.
 ## 6. File identity and non-claims
 
 When published through `DirectoryRenderSink`, the canonical completed document is
-`manifest/render-manifest.v6.json`. Its sidecar is
-`manifest/render-manifest.v6.json.sha256`, containing the SHA-256 of the complete
+`manifest/render-manifest.v7.json`. Its sidecar is
+`manifest/render-manifest.v7.json.sha256`, containing the SHA-256 of the complete
 encoded manifest—including the final LF—as 64 lowercase hexadecimal digits followed
 by one LF. The manifest and sidecar are transaction metadata, not artifact records,
 and the manifest does not embed its own whole-file digest.
@@ -570,13 +579,14 @@ unless an owning transaction explicitly assigns it a path. This contract does no
 invent a second manifest path, artifact role, or sidecar convention for it.
 
 The complete sealed BMW M52B28 M3 request—including its engine, scenario, compact RPM
-descriptor, and provenance bundle—uses the sole current request-v3 grammar. The fuel
+descriptor, random plan, and provenance bundle—uses the sole current request-v4
+grammar. The fuel
 record has no disabled compression-ignition member: `EngineSpec::ignition` already
 selects spark ignition, and another combustion mode requires its own admitted model.
 The mechanically generated canonical digest is:
 
 ```text
-539a027ade538f9b3ea4840fdcf08d58247d67ce6e00a8e1d30886a599f4f909
+e1052791be6dcb8c6e75919393ff3bb2980a0055e019cb8fae824240d38db6e7
 ```
 
 The independent BMW parity-request factory test pins the same digest. It is not

@@ -186,7 +186,7 @@ Sha256Digest request_identity(const EngineSpec &engine, const RenderScenario &sc
     const auto *random_plan = std::get_if<RandomPlan>(&random_plan_result);
     expect(random_plan != nullptr,
            "canonical simulation-request random plan compilation failed");
-    const auto encoded = identity::encode_simulation_request_identity_v3(
+    const auto encoded = identity::encode_simulation_request_identity_v4(
         engine, scenario, *random_plan, provenance);
     const auto *encoding =
         std::get_if<identity::SimulationRequestIdentityEncoding>(&encoded);

@@ -57,7 +57,6 @@ template <template <class> class Field> struct LegacyCylinderParametersT {
     Field<double> connecting_rod_length_m;
     Field<double> deck_height_m;
     Field<double> piston_compression_height_m;
-    Field<double> head_chamber_volume_m3;
     Field<double> piston_displacement_term_m3;
     Field<double> piston_mass_kg;
     Field<double> connecting_rod_mass_kg;
@@ -77,7 +76,6 @@ struct LegacyCylinderParameters {
     ResolvedValue<double> connecting_rod_length_m;
     ResolvedValue<double> deck_height_m;
     ResolvedValue<double> piston_compression_height_m;
-    ResolvedValue<double> head_chamber_volume_m3;
     ResolvedValue<double> piston_displacement_term_m3;
     ResolvedValue<double> piston_mass_kg;
     ResolvedValue<double> connecting_rod_mass_kg;
@@ -226,24 +224,28 @@ template <template <class> class Field> struct LegacyValveFlowPointT {
 using AuthoredLegacyValveFlowPoint = LegacyValveFlowPointT<AuthoredValue>;
 using LegacyValveFlowPoint = LegacyValveFlowPointT<ResolvedValue>;
 
-template <template <class> class Field, class FlowPoint>
-struct LegacyCylinderHeadProfileT {
+template <class Bank, template <class> class Field, class FlowPoint>
+struct LegacyBankHeadProfileT {
+    Bank bank_id;
+    Field<double> chamber_volume_m3;
     Field<double> intake_runner_base_volume_m3;
     Field<double> intake_runner_cross_section_area_m2;
     Field<double> exhaust_runner_base_volume_m3;
     Field<double> exhaust_runner_cross_section_area_m2;
-    Field<double> flow_table_triangle_radius_m;
+    Field<double> intake_flow_triangle_radius_m;
+    Field<double> exhaust_flow_triangle_radius_m;
     std::vector<FlowPoint> intake_flow;
     std::vector<FlowPoint> exhaust_flow;
 
-    friend bool operator==(const LegacyCylinderHeadProfileT &,
-                           const LegacyCylinderHeadProfileT &) = default;
+    friend bool operator==(const LegacyBankHeadProfileT &,
+                           const LegacyBankHeadProfileT &) = default;
 };
 
-using AuthoredLegacyCylinderHeadProfile =
-    LegacyCylinderHeadProfileT<AuthoredValue, AuthoredLegacyValveFlowPoint>;
-using LegacyCylinderHeadProfile =
-    LegacyCylinderHeadProfileT<ResolvedValue, LegacyValveFlowPoint>;
+using AuthoredLegacyBankHeadProfile =
+    LegacyBankHeadProfileT<AuthoredValue<std::string>, AuthoredValue,
+                           AuthoredLegacyValveFlowPoint>;
+using LegacyBankHeadProfile =
+    LegacyBankHeadProfileT<BankId, ResolvedValue, LegacyValveFlowPoint>;
 
 struct AuthoredLegacyExhaustRouteTopology {
     AuthoredValue<std::string> route_id;
@@ -302,7 +304,7 @@ template <class IntakeTopology, class IntakeParameters, class Head, class Exhaus
 struct LegacyGasPathProfileT {
     IntakeTopology intake_topology;
     IntakeParameters intake;
-    Head head;
+    std::vector<Head> heads;
     std::vector<ExhaustRoute> exhaust_routes;
     Restriction piston_blowby;
 
@@ -312,11 +314,11 @@ struct LegacyGasPathProfileT {
 
 using AuthoredLegacyGasPathProfile =
     LegacyGasPathProfileT<AuthoredLegacyIntakeTopology, AuthoredLegacyIntakeParameters,
-                          AuthoredLegacyCylinderHeadProfile,
+                          AuthoredLegacyBankHeadProfile,
                           AuthoredLegacyExhaustRouteProfile, AuthoredLegacyRestriction>;
 using LegacyGasPathProfile =
     LegacyGasPathProfileT<LegacyIntakeTopology, LegacyIntakeParameters,
-                          LegacyCylinderHeadProfile, LegacyExhaustRouteProfile,
+                          LegacyBankHeadProfile, LegacyExhaustRouteProfile,
                           LegacyRestriction>;
 
 template <template <class> class Field> struct LegacyCamShapeT {

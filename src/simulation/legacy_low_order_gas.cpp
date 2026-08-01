@@ -669,7 +669,7 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
                                         1.0,
                                         0.0,
                                         intake_.plenum_cross_section_area_m2,
-                                        intake_.runner_cross_section_area_m2,
+                                        lane.intake_runner_cross_section_area_m2,
                                     });
             plenum_runner_edge.signed_amount_mol += plenum_runner.signed_amount_mol;
             if (!validate_cell(intake_.plenum_volume_index, "plenum-to-runner-flow",
@@ -697,7 +697,7 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
                                         gas_step_s_,
                                         1.0,
                                         0.0,
-                                        intake_.runner_cross_section_area_m2,
+                                        lane.intake_runner_cross_section_area_m2,
                                         cylinder_cross_section_area_m2,
                                     });
             intake_edge.signed_amount_mol += intake_flow.signed_amount_mol;

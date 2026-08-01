@@ -91,9 +91,9 @@ write_floating_point(CanonicalJsonWriter &writer,
 bool write_completed_manifest_content(CanonicalJsonWriter &writer,
                                       const contract::RenderManifestContent &content,
                                       ManifestInputsWriter write_inputs) {
-    if (content.schema_version != 6U) {
+    if (content.schema_version != 7U) {
         return writer.fail(CanonicalJsonWriter::Error::unsupported_value,
-                           "manifest content schema version is not v6");
+                           "manifest content schema version is not v7");
     }
     if (write_inputs == nullptr) {
         return writer.fail(CanonicalJsonWriter::Error::invalid_state,

@@ -103,14 +103,14 @@ after mechanical extraction from this block:
 
 `PreparationPolicy` becomes exactly
 `variant<FixedSettling, FixedHorizonCycleSampling>`. This incompatible tagged-union
-change advances the shared canonical authorities to simulation manifest v6,
-simulation input `simulation_v5`, and request identity v3. Their exact CDDL, schema
-hash, roots, paths, and no-compatibility replacement are frozen in
+change is incorporated by the sole current canonical authorities: simulation
+manifest v7, simulation input `simulation_v6`, and request identity v4. Their exact
+CDDL, schema hash, roots, paths, and no-compatibility replacement are frozen in
 [`M4_SIMULATION_MANIFEST_WIRE.md`](../contracts/M4_SIMULATION_MANIFEST_WIRE.md) and
-[`render_manifest_simulation_v6.cddl`](../../schemas/render_manifest_simulation_v6.cddl).
-The request-v3 root keeps member order `wire_schema`, `engine`, `scenario`,
-`provenance`. The outer `scenario.preparation` tagged union writes members in this
-order:
+[`render_manifest_simulation_v7.cddl`](../../schemas/render_manifest_simulation_v7.cddl).
+The request-v4 root keeps member order `wire_schema`, `engine`, `scenario`,
+`random_plan`, `provenance`. The outer `scenario.preparation` tagged union writes
+members in this order:
 
 1. `kind`;
 2. `value`.
@@ -122,7 +122,7 @@ written in this order:
 2. `fixed_preparation_horizon_s`; and
 3. `trailing_complete_cycle_count`.
 
-No old preparation tag, request-v2 encoder, simulation-manifest-v5 encoder, v5 path,
+No old preparation tag, request-v3 encoder, simulation-manifest-v6 encoder, v6 path,
 or forwarding alias remains encodable after the cutover.
 
 Validation requires:
@@ -213,7 +213,7 @@ last-eligible attestation fields bit-for-bit.
 
 ```text
 HeldSpeedOperatingPointResult {
-    Sha256Digest simulation_request_identity_v3_sha256
+    Sha256Digest simulation_request_identity_v4_sha256
     HeldSpeedOperatingPointConditions conditions
     string applicability_label
     HeldSpeedFixedHorizonSampleEvidence sampling
@@ -223,9 +223,9 @@ HeldSpeedOperatingPointResult {
 `reported_block()` returns `sampling.trailing_complete_cycles`. Request-bound
 validation independently recomputes every written work and pressure reduction, proves
 the sample contains exactly `M` contiguous cycles, proves its final cycle is the last
-eligible cycle at the fixed horizon, and binds the exact request-v3 digest. The
+eligible cycle at the fixed horizon, and binds the exact request-v4 digest. The
 inertial-dyno result and runtime request binding rename the same field to
-`simulation_request_identity_v3_sha256`; no v2-named member remains.
+`simulation_request_identity_v4_sha256`; no v3-named member remains.
 
 The result and failure vocabulary must not use “converged,” “settled,” or
 “nonconverged” for this policy. A fixed sample is sufficient evidence for the bounded
@@ -263,6 +263,10 @@ publication becomes `bmw-m52b28-m4-torque-sweep-v2.json` plus the same-name
 ranges, residuals, tolerances, and limiting-volume claims. The runner remains
 all-or-nothing and publishes only the complete nine-point set from a clean source
 commit.
+
+This frozen evidence-v2 grammar is historical artifact identity. Its
+`simulation_request_v3_sha256` member remains unchanged; it is not a request-v3
+encoder alias and cannot admit a request through the sole current request-v4 API.
 
 The compact UTF-8 JSON has no BOM, insignificant whitespace, or final LF. Its exact
 object-member order is:

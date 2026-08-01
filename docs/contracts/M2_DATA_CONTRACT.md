@@ -62,7 +62,7 @@ The current contract supplies:
   `M2_RENDER_API.md`;
 - the profile-specific resolved BMW request, M3 low-order simulator and excitation,
   internal presentation session, live execution-facts observation, and canonical
-  completed simulation-manifest v6 encoder.
+  completed simulation-manifest v7 encoder.
 
 The current contract does not supply:
 
@@ -594,16 +594,16 @@ composes a resolved, provenance-bound `LowOrderEngineCoreV1` with a
 `LegacyFixedCrankLossV1`. Together they carry M3 data for:
 
 - analytic mechanism and per-cylinder topology/parameters;
-- restrictions, intake/head/exhaust gas paths;
+- restrictions, intake/bank-local-head/exhaust gas paths;
 - cam shapes and stable lobe bindings;
 - firing order, timing, limiter, fuel, and flame-speed data;
 - the M3 fixed crank-friction magnitude and exhaustive torque-loss classification;
 - frozen reference excitation paths, ordering, gains, and delays.
 
 Both authored and resolved profile validation check finite physical domains, stable
-references, topology coverage, role-correct graph connectivity, duplicated-value
-consistency, derived geometry and delay identities, restriction calibration and
-coefficient identity, ordered tables, fuel/loss/excitation domains,
+references, topology and exact bank-head coverage, role-correct graph connectivity,
+duplicated-value consistency, derived geometry and delay identities, restriction
+calibration and coefficient identity, ordered tables, fuel/loss/excitation domains,
 loss/capability agreement, method/profile identity, and provenance binding. The
 exhaustive BMW M52 literal asset validator is intentionally deferred until the
 canonical resolved BMW asset is implemented in M3; the normative values already live

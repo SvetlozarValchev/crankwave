@@ -139,21 +139,18 @@ ordered_routes(const ModelContext &context) {
     return result;
 }
 
-[[nodiscard]] const authoring::PortDefinition &
-authored_port(const ModelContext &context, authoring::PortKind kind) {
-    if (context.head == nullptr) {
-        throw std::logic_error{"resolved head topology has no representative head"};
+[[nodiscard]] std::vector<const authoring::BankDefinition *>
+ordered_banks(const ModelContext &context) {
+    std::vector<const authoring::BankDefinition *> result;
+    result.reserve(context.document.engine.banks.size());
+    for (const auto &bank : context.document.engine.banks) {
+        result.push_back(&bank);
     }
-    const auto &ports = kind == authoring::PortKind::intake
-                            ? context.intake_port_for_head
-                            : context.exhaust_port_for_head;
-    const auto found = ports.find(context.head->id.value);
-    if (found == ports.end() || found->second == nullptr) {
-        throw std::logic_error{
-            "resolved head topology has no representative port for the requested "
-            "kind"};
-    }
-    return *found->second;
+    std::ranges::sort(result, [&](const auto *left, const auto *right) {
+        return bank_id(context, left->id.value).value <
+               bank_id(context, right->id.value).value;
+    });
+    return result;
 }
 
 [[nodiscard]] const authoring::CamLobeDefinition &

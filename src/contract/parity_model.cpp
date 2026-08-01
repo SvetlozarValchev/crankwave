@@ -135,7 +135,6 @@ void visit_cylinder_parameters(const Cylinder &cylinder, const std::string &base
     function(parameters.deck_height_m, base + ".deck_height_m");
     function(parameters.piston_compression_height_m,
              base + ".piston_compression_height_m");
-    function(parameters.head_chamber_volume_m3, base + ".head_chamber_volume_m3");
     function(parameters.piston_displacement_term_m3,
              base + ".piston_displacement_term_m3");
     function(parameters.piston_mass_kg, base + ".piston_mass_kg");
@@ -231,6 +230,7 @@ void visit_valve_point(const Point &point, const std::string &base, Function fun
 
 template <class Head, class Function>
 void visit_head(const Head &head, const std::string &base, Function function) {
+    function(head.chamber_volume_m3, base + ".chamber_volume_m3");
     function(head.intake_runner_base_volume_m3, base + ".intake_runner_base_volume_m3");
     function(head.intake_runner_cross_section_area_m2,
              base + ".intake_runner_cross_section_area_m2");
@@ -238,7 +238,10 @@ void visit_head(const Head &head, const std::string &base, Function function) {
              base + ".exhaust_runner_base_volume_m3");
     function(head.exhaust_runner_cross_section_area_m2,
              base + ".exhaust_runner_cross_section_area_m2");
-    function(head.flow_table_triangle_radius_m, base + ".flow_table_triangle_radius_m");
+    function(head.intake_flow_triangle_radius_m,
+             base + ".intake_flow_triangle_radius_m");
+    function(head.exhaust_flow_triangle_radius_m,
+             base + ".exhaust_flow_triangle_radius_m");
     for (const auto &point : head.intake_flow) {
         const auto point_base = base + ".intake_flow." + point.sample_id.value;
         visit_valve_point(point, point_base, function);
@@ -358,7 +361,7 @@ void visit_pressure_gains(const Gains &gains, const std::string &base,
 template <class Core, class Function>
 void visit_low_order_core_fields(const Core &core, std::string_view root,
                                  Function function, const auto &cylinder_name,
-                                 const auto &route_name) {
+                                 const auto &head_name, const auto &route_name) {
     visit_crank(core.mechanism.crank, std::string(root) + ".mechanism.crank", function);
     for (const auto &cylinder : core.mechanism.cylinders) {
         visit_cylinder_parameters(cylinder,
@@ -372,7 +375,11 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
 
     visit_intake(core.gas_path.intake, std::string(root) + ".gas_path.intake",
                  function);
-    visit_head(core.gas_path.head, std::string(root) + ".gas_path.head", function);
+    for (const auto &head : core.gas_path.heads) {
+        visit_head(head,
+                   std::string(root) + ".gas_path.heads." + head_name(head),
+                   function);
+    }
     for (const auto &route : core.gas_path.exhaust_routes) {
         visit_exhaust_parameters(route.parameters,
                                  std::string(root) + ".gas_path.exhaust_routes." +
@@ -511,6 +518,12 @@ std::string cylinder_name(const EngineSpec &engine, CylinderId id) {
     return semantic_id_for(
         engine.cylinders, id, &CylinderSpec::id,
         [](const CylinderSpec &cylinder) { return cylinder.semantic_id.value; });
+}
+
+std::string bank_name(const EngineSpec &engine, BankId id) {
+    return semantic_id_for(
+        engine.banks, id, &BankSpec::id,
+        [](const BankSpec &bank) { return bank.semantic_id.value; });
 }
 
 std::string route_name(const EngineSpec &engine, RouteId id) {
@@ -793,7 +806,6 @@ void validate_authored_low_order_core_domains(
                         parameters.crank_radius_m.value &&
                     finite_positive(parameters.deck_height_m.value) &&
                     finite_positive(parameters.piston_compression_height_m.value) &&
-                    finite_positive(parameters.head_chamber_volume_m3.value) &&
                     finite(parameters.piston_displacement_term_m3.value) &&
                     finite_positive(parameters.piston_mass_kg.value) &&
                     finite_positive(parameters.connecting_rod_mass_kg.value) &&
@@ -810,40 +822,6 @@ void validate_authored_low_order_core_domains(
                 path + ".parameters.crank_radius_m.value",
                 "twice crank radius must equal stroke");
 
-        if (finite_positive(parameters.bore_m.value) &&
-            finite_positive(parameters.crank_radius_m.value) &&
-            finite_positive(parameters.connecting_rod_length_m.value) &&
-            finite_positive(parameters.deck_height_m.value) &&
-            finite_positive(parameters.piston_compression_height_m.value) &&
-            finite_positive(parameters.head_chamber_volume_m3.value) &&
-            finite(parameters.piston_displacement_term_m3.value)) {
-            const auto piston_area_m2 =
-                kLegacyPi * parameters.bore_m.value * parameters.bore_m.value / 4.0;
-            const auto tdc_mechanism_height_m =
-                parameters.crank_radius_m.value +
-                parameters.connecting_rod_length_m.value;
-            const auto clearance_volume_m3 =
-                parameters.head_chamber_volume_m3.value -
-                parameters.piston_displacement_term_m3.value +
-                piston_area_m2 *
-                    (parameters.deck_height_m.value - tdc_mechanism_height_m -
-                     parameters.piston_compression_height_m.value);
-            const auto swept_volume_m3 =
-                piston_area_m2 * (2.0 * parameters.crank_radius_m.value);
-            const auto fixed_geometry_volume_m3 =
-                parameters.head_chamber_volume_m3.value -
-                parameters.piston_displacement_term_m3.value +
-                piston_area_m2 * (parameters.deck_height_m.value -
-                                  parameters.piston_compression_height_m.value);
-            require(report,
-                    finite_positive(piston_area_m2) &&
-                        finite_positive(clearance_volume_m3) &&
-                        finite_positive(swept_volume_m3) &&
-                        finite_positive(fixed_geometry_volume_m3),
-                    ContractIssueCode::inconsistent_semantics, path + ".parameters",
-                    "derived piston area, clearance, swept volume, and fixed "
-                    "cylinder geometry must be positive");
-        }
     }
 
     const auto &intake = core.gas_path.intake;
@@ -864,18 +842,8 @@ void validate_authored_low_order_core_domains(
     validate_restriction_domain(report, core.gas_path.piston_blowby,
                                 "gas_path.piston_blowby");
 
-    const auto &head = core.gas_path.head;
-    require(report,
-            finite_nonnegative(head.intake_runner_base_volume_m3.value) &&
-                finite_positive(head.intake_runner_cross_section_area_m2.value) &&
-                finite_nonnegative(head.exhaust_runner_base_volume_m3.value) &&
-                finite_positive(head.exhaust_runner_cross_section_area_m2.value) &&
-                finite_positive(head.flow_table_triangle_radius_m.value) &&
-                head.intake_flow.size() >= 2 && head.exhaust_flow.size() >= 2,
-            ContractIssueCode::invalid_value, "gas_path.head",
-            "cylinder-head geometry and flow tables are invalid");
-    validate_sample_ids(report, head.intake_flow, "gas_path.head.intake_flow");
-    validate_sample_ids(report, head.exhaust_flow, "gas_path.head.exhaust_flow");
+    require(report, !core.gas_path.heads.empty(), ContractIssueCode::missing_value,
+            "gas_path.heads", "legacy gas path requires at least one bank head");
     const auto validate_flow = [&](const auto &points, const std::string &path) {
         for (std::size_t index = 0; index < points.size(); ++index) {
             const auto &point = points[index];
@@ -905,8 +873,30 @@ void validate_authored_low_order_core_domains(
                 point_path);
         }
     };
-    validate_flow(head.intake_flow, "gas_path.head.intake_flow");
-    validate_flow(head.exhaust_flow, "gas_path.head.exhaust_flow");
+    std::string previous_bank_id;
+    for (const auto &head : core.gas_path.heads) {
+        const auto path = "gas_path.heads." + head.bank_id.value;
+        require(report,
+                previous_bank_id.empty() || previous_bank_id < head.bank_id.value,
+                ContractIssueCode::inconsistent_shape, "gas_path.heads",
+                "bank heads must be uniquely identified and ordered by bank ID");
+        previous_bank_id = head.bank_id.value;
+        require(report,
+                finite_positive(head.chamber_volume_m3.value) &&
+                    finite_nonnegative(head.intake_runner_base_volume_m3.value) &&
+                    finite_positive(head.intake_runner_cross_section_area_m2.value) &&
+                    finite_nonnegative(head.exhaust_runner_base_volume_m3.value) &&
+                    finite_positive(head.exhaust_runner_cross_section_area_m2.value) &&
+                    finite_positive(head.intake_flow_triangle_radius_m.value) &&
+                    finite_positive(head.exhaust_flow_triangle_radius_m.value) &&
+                    head.intake_flow.size() >= 2 && head.exhaust_flow.size() >= 2,
+                ContractIssueCode::invalid_value, path,
+                "cylinder-head geometry and flow tables are invalid");
+        validate_sample_ids(report, head.intake_flow, path + ".intake_flow");
+        validate_sample_ids(report, head.exhaust_flow, path + ".exhaust_flow");
+        validate_flow(head.intake_flow, path + ".intake_flow");
+        validate_flow(head.exhaust_flow, path + ".exhaust_flow");
+    }
 
     require(report, !core.gas_path.exhaust_routes.empty(),
             ContractIssueCode::missing_value, "gas_path.exhaust_routes",
@@ -1281,6 +1271,22 @@ void validate_low_order_core_domains(ValidationReport &report,
             engine_cylinder_ids.insert(cylinder.id.value);
         }
     }
+    bool heads_match_engine_banks = core.gas_path.heads.size() == engine.banks.size();
+    for (std::size_t index = 0; index < core.gas_path.heads.size(); ++index) {
+        const auto &head = core.gas_path.heads[index];
+        heads_match_engine_banks =
+            heads_match_engine_banks && head.bank_id.valid() &&
+            (index == 0 || core.gas_path.heads[index - 1].bank_id.value <
+                               head.bank_id.value) &&
+            index < engine.banks.size() && head.bank_id == engine.banks[index].id;
+    }
+    require(report, heads_match_engine_banks, ContractIssueCode::inconsistent_shape,
+            "gas_path.heads",
+            "bank heads must cover EngineSpec banks exactly once in BankId order");
+    const auto find_head = [&](BankId bank_id) -> const LegacyBankHeadProfile * {
+        return find_by_id(core.gas_path.heads, bank_id,
+                          &LegacyBankHeadProfile::bank_id);
+    };
 
     const auto &crank = core.mechanism.crank;
     require(report,
@@ -1380,6 +1386,8 @@ void validate_low_order_core_domains(ValidationReport &report,
             engine_cylinder == nullptr
                 ? nullptr
                 : find_by_id(engine.banks, engine_cylinder->bank_id, &BankSpec::id);
+        const auto *head =
+            engine_cylinder == nullptr ? nullptr : find_head(engine_cylinder->bank_id);
         const auto *intake_port =
             find_by_id(engine.ports, topology.intake_port_id, &PortSpec::id);
         const auto *exhaust_port =
@@ -1502,7 +1510,6 @@ void validate_low_order_core_domains(ValidationReport &report,
             finite_positive(parameters.connecting_rod_length_m.value) &&
             finite_positive(parameters.deck_height_m.value) &&
             finite_positive(parameters.piston_compression_height_m.value) &&
-            finite_positive(parameters.head_chamber_volume_m3.value) &&
             finite(parameters.piston_displacement_term_m3.value) &&
             finite_positive(parameters.piston_mass_kg.value) &&
             finite_positive(parameters.connecting_rod_mass_kg.value) &&
@@ -1608,7 +1615,7 @@ void validate_low_order_core_domains(ValidationReport &report,
             finite_positive(parameters.connecting_rod_length_m.value) &&
             finite_positive(parameters.deck_height_m.value) &&
             finite_positive(parameters.piston_compression_height_m.value) &&
-            finite_positive(parameters.head_chamber_volume_m3.value) &&
+            head != nullptr && finite_positive(head->chamber_volume_m3.value) &&
             finite(parameters.piston_displacement_term_m3.value)) {
             const auto piston_area_m2 =
                 kLegacyPi * parameters.bore_m.value * parameters.bore_m.value / 4.0;
@@ -1617,7 +1624,7 @@ void validate_low_order_core_domains(ValidationReport &report,
                 std::sqrt(parameters.connecting_rod_length_m.value *
                           parameters.connecting_rod_length_m.value);
             const auto clearance_volume_m3 =
-                parameters.head_chamber_volume_m3.value -
+                head->chamber_volume_m3.value -
                 parameters.piston_displacement_term_m3.value +
                 piston_area_m2 *
                     (parameters.deck_height_m.value - tdc_mechanism_height_m -
@@ -1625,7 +1632,7 @@ void validate_low_order_core_domains(ValidationReport &report,
             const auto swept_volume_m3 =
                 piston_area_m2 * (2.0 * direct->crank_radius_m.value);
             const auto fixed_geometry_volume_m3 =
-                parameters.head_chamber_volume_m3.value -
+                head->chamber_volume_m3.value -
                 parameters.piston_displacement_term_m3.value +
                 piston_area_m2 * (parameters.deck_height_m.value -
                                   parameters.piston_compression_height_m.value);
@@ -1647,7 +1654,9 @@ void validate_low_order_core_domains(ValidationReport &report,
                         detail::nearly_equal(compression_ratio,
                                              engine_cylinder->compression_ratio.value),
                         ContractIssueCode::inconsistent_semantics,
-                        path + ".parameters.head_chamber_volume_m3.value",
+                        "gas_path.heads." +
+                            bank_name(engine, engine_cylinder->bank_id) +
+                            ".chamber_volume_m3.value",
                         "derived compression ratio must agree with EngineSpec");
                 }
                 profile_displacement_m3 += swept_volume_m3;
@@ -1682,18 +1691,6 @@ void validate_low_order_core_domains(ValidationReport &report,
     validate_restriction_domain(report, core.gas_path.piston_blowby,
                                 "gas_path.piston_blowby", profile_root, &provenance);
 
-    const auto &head = core.gas_path.head;
-    require(report,
-            finite_nonnegative(head.intake_runner_base_volume_m3.value) &&
-                finite_positive(head.intake_runner_cross_section_area_m2.value) &&
-                finite_nonnegative(head.exhaust_runner_base_volume_m3.value) &&
-                finite_positive(head.exhaust_runner_cross_section_area_m2.value) &&
-                finite_positive(head.flow_table_triangle_radius_m.value) &&
-                head.intake_flow.size() >= 2 && head.exhaust_flow.size() >= 2,
-            ContractIssueCode::invalid_value, "gas_path.head",
-            "cylinder-head geometry and flow tables are invalid");
-    validate_sample_ids(report, head.intake_flow, "gas_path.head.intake_flow");
-    validate_sample_ids(report, head.exhaust_flow, "gas_path.head.exhaust_flow");
     const auto validate_flow = [&](const auto &points, const std::string &path) {
         for (std::size_t index = 0; index < points.size(); ++index) {
             const auto &point = points[index];
@@ -1725,8 +1722,24 @@ void validate_low_order_core_domains(ValidationReport &report,
                                         {point_path + ".source_cfm_at_28_inh2o"});
         }
     };
-    validate_flow(head.intake_flow, "gas_path.head.intake_flow");
-    validate_flow(head.exhaust_flow, "gas_path.head.exhaust_flow");
+    for (const auto &head : core.gas_path.heads) {
+        const auto path = "gas_path.heads." + bank_name(engine, head.bank_id);
+        require(report,
+                finite_positive(head.chamber_volume_m3.value) &&
+                    finite_nonnegative(head.intake_runner_base_volume_m3.value) &&
+                    finite_positive(head.intake_runner_cross_section_area_m2.value) &&
+                    finite_nonnegative(head.exhaust_runner_base_volume_m3.value) &&
+                    finite_positive(head.exhaust_runner_cross_section_area_m2.value) &&
+                    finite_positive(head.intake_flow_triangle_radius_m.value) &&
+                    finite_positive(head.exhaust_flow_triangle_radius_m.value) &&
+                    head.intake_flow.size() >= 2 && head.exhaust_flow.size() >= 2,
+                ContractIssueCode::invalid_value, path,
+                "cylinder-head geometry and flow tables are invalid");
+        validate_sample_ids(report, head.intake_flow, path + ".intake_flow");
+        validate_sample_ids(report, head.exhaust_flow, path + ".exhaust_flow");
+        validate_flow(head.intake_flow, path + ".intake_flow");
+        validate_flow(head.exhaust_flow, path + ".exhaust_flow");
+    }
 
     require(report,
             !core.gas_path.exhaust_routes.empty() &&
@@ -2535,6 +2548,12 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
             validate_topology_field(
                 core.gas_path.intake_topology.idle_bypass_edge_id,
                 std::string(root) + ".gas_path.intake_topology.idle_bypass_edge_id");
+            for (std::size_t index = 0; index < core.gas_path.heads.size(); ++index) {
+                validate_topology_field(
+                    core.gas_path.heads[index].bank_id,
+                    std::string(root) + ".gas_path.heads[" +
+                        std::to_string(index) + "].bank_id");
+            }
             for (std::size_t index = 0; index < core.gas_path.exhaust_routes.size();
                  ++index) {
                 const auto &topology = core.gas_path.exhaust_routes[index].topology;
@@ -2589,12 +2608,15 @@ ValidationReport validate(const AuthoredExecutablePhysicsProfile &profile,
                     return item.route_id.value;
                 }
             };
+            const auto head_name = [](const auto &head) {
+                return head.bank_id.value;
+            };
             visit_low_order_core_fields(
                 core, root,
                 [&](const auto &value, const std::string &path) {
                     validate_authored(report, value, provenance, path);
                 },
-                cylinder_name, route_name);
+                cylinder_name, head_name, route_name);
             validate_authored_low_order_core_domains(report, core);
             validate_authored_profile_specific(report, typed_profile, provenance, root);
         },
@@ -2639,12 +2661,18 @@ ValidationReport validate(const ExecutablePhysicsProfile &profile,
                     return route_name(engine, item.route_id);
                 }
             };
+            const auto head_namer = [&](const auto &head) {
+                const auto *bank = find_by_id(engine.banks, head.bank_id,
+                                              &BankSpec::id);
+                return bank == nullptr ? std::string{"unknown-bank"}
+                                       : bank->semantic_id.value;
+            };
             visit_low_order_core_fields(
                 core, root,
                 [&](const auto &value, const std::string &path) {
                     validate_resolved(report, value, provenance, path);
                 },
-                cylinder_namer, route_namer);
+                cylinder_namer, head_namer, route_namer);
             validate_low_order_core_domains(report, core, engine, provenance, root);
             validate_resolved_profile_specific(report, typed_profile, engine,
                                                provenance, root);

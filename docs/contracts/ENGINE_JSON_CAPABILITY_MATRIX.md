@@ -21,8 +21,10 @@ heads, separate intakes, master/slave journals, and general multi-head/VTEC topo
 remain unexecuted. Master/slave journals now have a strict validated graph contract but
 resolve only into an internal typed attachment and fail closed at the shared
 mechanism-plan compiler before a public compiled engine exists.
-Execution-equivalent bank-local heads, ports, standard valvetrains, and cams now
-normalize to the unchanged shared low-order profile. Vehicle and transmission rig
+Execution-equivalent bank-local heads and ports now resolve into explicit ordered
+per-bank chamber/runner/flow profiles, with cylinders bound by BankId; admission still
+holds heterogeneous values closed. Standard valvetrains and cams retain their exact-
+equivalence gate. Vehicle and transmission rig
 objects parse, resolve, and execute through the finite forward-only FreeVehicle
 drivetrain; its operating state is published through the same native/C/WASM/Worker
 boundary.
@@ -138,9 +140,9 @@ never silently looped.
   unique stable string ID within its namespace.
 - References preserve authored object sharing. Six cylinders referencing one intake
   mean one shared manifold; copied intake objects remain distinct and are not currently
-  executable. The shared low-order head profile is the one explicit exception: separate
-  bank-local heads may normalize only after exact execution-equivalence admission;
-  differing definitions fail closed instead of being silently merged.
+  executable. Separate bank-local heads materialize as separate executable profiles,
+  but admission still requires exact physical equivalence; differing definitions fail
+  closed rather than being silently merged.
 - Ordered lists remain ordered where order affects behavior: crankshafts, cylinders,
   lobes, firing order, exhaust accumulation, and transmission gears.
 - A cylinder explicitly references its bank, one journal, piston, rod, intake, exhaust
@@ -258,7 +260,7 @@ the remainder as explicit capability diagnostics:
 | Intake molecular AFR | Fuel/mixture ownership, referenced by intake if model requires it | **Partial**; scenario/fuel owns stoichiometric AFR | Compiler rejects conflicting duplicated AFR authority. |
 | Intake runner velocity decay | Intake gas-exchange method parameter | **Low-order executed** | BMW gas-state regression. |
 | Shareable heads per bank | `engine.heads[]` and bank references | **Partial/Low-order executed** for one shared head or execution-equivalent bank-local heads with standard valvetrains; heterogeneous heads and multi-head VTEC fail closed | Shared-head and split-head V fixtures resolve to the exact same executable contract and PCM; Kohler retains its two source heads. |
-| Chamber and intake/exhaust runner volume/area | Head/port physical fields; the exhaust port exclusively owns exhaust-primary area | **Low-order executed**; bank-local values must be bit-identical while the runtime retains one shared coefficient profile. The deleted exhaust-system area duplicate has no compatibility alias | BMW clearance/gas-volume comparison and split-head rejection fixtures. |
+| Chamber and intake/exhaust runner volume/area | Bank-keyed executable head profiles derived from head/port physical fields; the exhaust port exclusively owns exhaust-primary area | **Low-order executed/Partial**; the runtime owns and binds one profile per bank, but admission still requires bank-local values to be bit-identical. The deleted cylinder-chamber and exhaust-system-area duplicates have no compatibility aliases | BMW clearance/gas-volume comparison, shared/split exact-PCM comparison, and split-head rejection fixtures. |
 | Arbitrary intake/exhaust port-flow curves | Head curve references | **Typed core/Low-order executed** | Curves preserve units, radius, clamping, and sampled values. |
 | Multiple, shareable exhaust systems | `engine.exhausts[]` and cylinder route references | **Low-order executed** for a dynamic nonempty exhaust set; cylinders may share routes and copied exhaust objects remain independent | Inline-six, V8, and V-twin grouping fixtures prove sharing and independent collectors. |
 | Collector length/area, outlet restriction, primary length/restriction, velocity decay | Exhaust physical fields | **Low-order executed** | BMW resolved graph and gas-state regression. |

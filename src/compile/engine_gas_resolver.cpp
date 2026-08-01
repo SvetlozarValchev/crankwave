@@ -33,41 +33,49 @@ void resolve_gas_path(const ModelContext &context, ResolutionEmitter &emitter,
                             intake_base + ".plenum_to_runner", emitter),
     };
 
-    const auto &intake_port =
-        authored_port(context, authoring::PortKind::intake);
-    const auto &exhaust_port =
-        authored_port(context, authoring::PortKind::exhaust);
-    const auto head_base = profile_path("gas_path.head");
-    core.gas_path.head.intake_runner_base_volume_m3 =
-        emitter.authored(legacy_si_value(intake_port.runner_volume),
-                         head_base + ".intake_runner_base_volume_m3");
-    core.gas_path.head.intake_runner_cross_section_area_m2 =
-        emitter.authored(legacy_si_value(intake_port.runner_cross_section_area),
-                         head_base +
-                             ".intake_runner_cross_section_area_m2");
-    core.gas_path.head.exhaust_runner_base_volume_m3 =
-        emitter.authored(legacy_si_value(exhaust_port.runner_volume),
-                         head_base + ".exhaust_runner_base_volume_m3");
-    core.gas_path.head.exhaust_runner_cross_section_area_m2 =
-        emitter.authored(legacy_si_value(exhaust_port.runner_cross_section_area),
-                         head_base +
-                             ".exhaust_runner_cross_section_area_m2");
-    const auto &intake_curve =
-        *context.curves.at(intake_port.flow_curve.value);
-    const auto &exhaust_curve =
-        *context.curves.at(exhaust_port.flow_curve.value);
-    core.gas_path.head.flow_table_triangle_radius_m =
-        emitter.authored(legacy_si_value(*intake_curve.triangle_filter_radius),
-                         head_base + ".flow_table_triangle_radius_m");
-    for (std::size_t index = 0; index < intake_curve.samples.size(); ++index) {
-        core.gas_path.head.intake_flow.push_back(resolve_valve_flow_point(
-            intake_curve.samples[index], index, head_base + ".intake_flow",
-            emitter));
-    }
-    for (std::size_t index = 0; index < exhaust_curve.samples.size(); ++index) {
-        core.gas_path.head.exhaust_flow.push_back(resolve_valve_flow_point(
-            exhaust_curve.samples[index], index, head_base + ".exhaust_flow",
-            emitter));
+    for (const auto *bank : ordered_banks(context)) {
+        const auto &head = *context.heads.at(bank->head.value);
+        const auto &intake_port =
+            *context.intake_port_for_head.at(head.id.value);
+        const auto &exhaust_port =
+            *context.exhaust_port_for_head.at(head.id.value);
+        const auto &intake_curve = *context.curves.at(intake_port.flow_curve.value);
+        const auto &exhaust_curve = *context.curves.at(exhaust_port.flow_curve.value);
+        const auto head_base = profile_path("gas_path.heads." + bank->id.value);
+
+        contract::LegacyBankHeadProfile resolved_head;
+        resolved_head.bank_id = bank_id(context, bank->id.value);
+        resolved_head.chamber_volume_m3 = emitter.authored(
+            legacy_si_value(head.chamber_volume), head_base + ".chamber_volume_m3");
+        resolved_head.intake_runner_base_volume_m3 = emitter.authored(
+            legacy_si_value(intake_port.runner_volume),
+            head_base + ".intake_runner_base_volume_m3");
+        resolved_head.intake_runner_cross_section_area_m2 = emitter.authored(
+            legacy_si_value(intake_port.runner_cross_section_area),
+            head_base + ".intake_runner_cross_section_area_m2");
+        resolved_head.exhaust_runner_base_volume_m3 = emitter.authored(
+            legacy_si_value(exhaust_port.runner_volume),
+            head_base + ".exhaust_runner_base_volume_m3");
+        resolved_head.exhaust_runner_cross_section_area_m2 = emitter.authored(
+            legacy_si_value(exhaust_port.runner_cross_section_area),
+            head_base + ".exhaust_runner_cross_section_area_m2");
+        resolved_head.intake_flow_triangle_radius_m = emitter.authored(
+            legacy_si_value(*intake_curve.triangle_filter_radius),
+            head_base + ".intake_flow_triangle_radius_m");
+        resolved_head.exhaust_flow_triangle_radius_m = emitter.authored(
+            legacy_si_value(*exhaust_curve.triangle_filter_radius),
+            head_base + ".exhaust_flow_triangle_radius_m");
+        for (std::size_t index = 0; index < intake_curve.samples.size(); ++index) {
+            resolved_head.intake_flow.push_back(resolve_valve_flow_point(
+                intake_curve.samples[index], index, head_base + ".intake_flow",
+                emitter));
+        }
+        for (std::size_t index = 0; index < exhaust_curve.samples.size(); ++index) {
+            resolved_head.exhaust_flow.push_back(resolve_valve_flow_point(
+                exhaust_curve.samples[index], index, head_base + ".exhaust_flow",
+                emitter));
+        }
+        core.gas_path.heads.push_back(std::move(resolved_head));
     }
 
     for (const auto &resolved : ordered_routes(context)) {

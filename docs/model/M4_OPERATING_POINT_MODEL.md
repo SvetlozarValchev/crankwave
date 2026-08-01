@@ -229,7 +229,7 @@ or released inertial capture from the scenario. Both consume the same transactio
 core step inside the same block loop; neither policy can instantiate, evaluate, or
 fall back to the other. Malformed cycle evidence or an insufficient trailing window at
 the exact fixed horizon terminalizes the session before the containing capture block
-reaches its consumer. Successful M4 completion alone retains the request-v3-bound
+reaches its consumer. Successful M4 completion alone retains the request-v4-bound
 typed operating result.
 
 The canonical BMW profile factory constructs this profile directly from the reusable
@@ -262,7 +262,7 @@ frames, plus `2880000` audible and `4116480` total 192 kHz frames.
 The three `0.85` points isolate RPM; the two `3000 rpm` points isolate throttle. The
 `0.25` value is a normalized throttle command, not a target or percentage load. Each
 request returns its achieved net shaft torque, power, and net BMEP from one
-request-v3-bound fixed sample; it neither compares adjacent windows nor claims
+request-v4-bound fixed sample; it neither compares adjacent windows nor claims
 stationarity. Exact point keys, conditions, CLI selectors, source-route non-claims,
 and listening gate are frozen separately in
 [`M4_BMW_HELD_REGRESSION_MATRIX.md`](../M4_BMW_HELD_REGRESSION_MATRIX.md).
@@ -581,7 +581,7 @@ mean_boundary_pressure(volume_i) =
 `HeldSpeedFixedHorizonSampleEvidence` owns the exact sampling method identity, `M`,
 `H`, one chronological `HeldSpeedCycleBlockEvidence`, and an attestation of the last
 eligible cycle ordinal and end boundary at `H`. `HeldSpeedOperatingPointResult` owns,
-in order, the `simulation_request_identity_v3_sha256`, operating conditions,
+in order, the `simulation_request_identity_v4_sha256`, operating conditions,
 generic-prior applicability label, and that sampling evidence. Its
 `reported_block()` is the one trailing sample.
 
@@ -638,6 +638,10 @@ energy-identity failure, or comparison against the M52TU landmarks fails the
 operating-point evaluation.
 
 ### 6.1 Canonical full-throttle torque sweep
+
+This subsection freezes the historical torque-sweep evidence-v2 artifact grammar.
+Its request-v3 names remain artifact identity; they are not aliases accepted by the
+sole current request-v4 encoder.
 
 The first modeled sweep is frozen before any point is executed. It consists of nine
 independent held-speed sessions in ascending order:

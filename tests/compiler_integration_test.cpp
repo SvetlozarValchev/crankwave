@@ -2490,8 +2490,10 @@ void test_master_rod_graph_contract_and_public_admission() {
              {&root_assembly.parameters, &slave_assembly.parameters}) {
             parameters->deck_height_m.value = 1.0;
             parameters->piston_compression_height_m.value = 0.01;
-            parameters->head_chamber_volume_m3.value = 0.001;
             parameters->piston_displacement_term_m3.value = 0.0;
+        }
+        for (auto &head : profile.core.gas_path.heads) {
+            head.chamber_volume_m3.value = 0.001;
         }
         slave.throw_radius_m.value = 0.08;
         slave.master_local_phase_rad.value = simulation::kLegacyPi / 2.0;
@@ -2520,7 +2522,7 @@ void test_master_rod_graph_contract_and_public_admission() {
             simulation::kLegacyPi * bore_m * bore_m / 4.0,
             slave_assembly.parameters.deck_height_m.value,
             slave_assembly.parameters.piston_compression_height_m.value,
-            slave_assembly.parameters.head_chamber_volume_m3.value,
+            profile.core.gas_path.heads.front().chamber_volume_m3.value,
             slave_assembly.parameters.piston_displacement_term_m3.value,
             simulation::OneLevelMasterRodSlavePin{
                 slave.throw_radius_m.value,
@@ -2560,7 +2562,7 @@ void test_master_rod_graph_contract_and_public_admission() {
         root_assembly.parameters.connecting_rod_length_m.value = 0.2;
         root_assembly.parameters.deck_height_m.value = 0.22;
         root_assembly.parameters.piston_compression_height_m.value = 0.01;
-        root_assembly.parameters.head_chamber_volume_m3.value = 0.0003;
+        profile.core.gas_path.heads.front().chamber_volume_m3.value = 0.0003;
         root_assembly.parameters.piston_displacement_term_m3.value = 0.0;
         resolved.engine.cylinders[0].bore_m.value = bore_m;
         resolved.engine.cylinders[0].stroke_m.value = 0.1;
@@ -2582,7 +2584,7 @@ void test_master_rod_graph_contract_and_public_admission() {
             simulation::kLegacyPi * bore_m * bore_m / 4.0,
             root_assembly.parameters.deck_height_m.value,
             root_assembly.parameters.piston_compression_height_m.value,
-            root_assembly.parameters.head_chamber_volume_m3.value,
+            profile.core.gas_path.heads.front().chamber_volume_m3.value,
             root_assembly.parameters.piston_displacement_term_m3.value,
             simulation::OneLevelMasterRodRootJournal{},
         };

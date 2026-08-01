@@ -25,8 +25,8 @@ enum class DirectoryRenderSinkState {
 // no-replace primitive fail closed at begin_transaction.
 //
 // This shipped sink has one schema-owned metadata route: it encodes the exact typed
-// manifest with encode_simulation_manifest_v6() at
-// kSimulationManifestRelativePathV6 and writes the corresponding ".sha256" sidecar.
+// manifest with encode_simulation_manifest_v7() at
+// kSimulationManifestRelativePathV7 and writes the corresponding ".sha256" sidecar.
 // Neither path nor encoder is caller-selectable. Both metadata paths are reserved and
 // cannot be used by artifacts.
 class DirectoryRenderSink final : public RenderSink {

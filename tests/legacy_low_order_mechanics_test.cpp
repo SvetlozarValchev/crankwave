@@ -370,6 +370,21 @@ void configure_radial_master_rod_twin(MechanicsFixture &fixture) {
     fixture.scenario.scenario_id = "radial-mechanics-four-step";
 }
 
+void append_second_bank_head(MechanicsFixture &fixture,
+                             double chamber_volume_m3) {
+    auto second_bank = fixture.engine.banks.front();
+    second_bank.id = BankId{2};
+    second_bank.semantic_id.value = "bank-2";
+    fixture.engine.banks.push_back(std::move(second_bank));
+
+    auto &core =
+        std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile).core;
+    auto second_head = core.gas_path.heads.front();
+    second_head.bank_id = BankId{2};
+    second_head.chamber_volume_m3.value = chamber_volume_m3;
+    core.gas_path.heads.push_back(std::move(second_head));
+}
+
 LegacyLowOrderMechanicsSession
 require_session(CoreRuntimeFactory::MechanicsCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
@@ -650,6 +665,68 @@ void test_radial_prescribed_mechanics_matches_pure_geometry_and_completes() {
     completed = std::get_if<LegacyMechanicsCompleted>(&terminal_with_motion);
     expect(completed != nullptr && completed->sample_count == 4U,
            "radial mechanics completion changed across advance overloads");
+}
+
+void test_mechanism_plan_requires_exact_bank_head_topology() {
+    {
+        MechanicsFixture fixture;
+        auto &core = std::get<LowOrderOperatingPointV1Profile>(
+                         fixture.engine.physics_profile)
+                         .core;
+        core.gas_path.heads.push_back(core.gas_path.heads.front());
+        const auto result =
+            compile_mechanism_kinematics_plan(fixture.engine, core);
+        const auto *report = std::get_if<ValidationReport>(&result);
+        expect(report != nullptr &&
+                   std::ranges::any_of(report->issues, [](const auto &issue) {
+                       return issue.path ==
+                              "engine.physics_profile.gas_path.heads";
+                   }),
+               "direct mechanism plan admitted duplicate bank-head coverage");
+    }
+
+    {
+        MechanicsFixture fixture;
+        configure_radial_master_rod_twin(fixture);
+        constexpr double second_head_chamber_volume_m3 = 0.000052;
+        append_second_bank_head(fixture, second_head_chamber_volume_m3);
+        fixture.engine.cylinders[1].bank_id = BankId{2};
+        auto &core = std::get<LowOrderOperatingPointV1Profile>(
+                         fixture.engine.physics_profile)
+                         .core;
+
+        const auto result =
+            compile_mechanism_kinematics_plan(fixture.engine, core);
+        const auto *plan = std::get_if<SharedMechanismKinematicsPlan>(&result);
+        const auto *radial =
+            plan == nullptr ? nullptr
+                            : one_level_master_rod_mechanism_kinematics_plan(*plan);
+        expect(radial != nullptr && radial->cylinders.size() == 2U,
+               "two-bank radial mechanism plan was rejected");
+        const double compiled_slave_head_volume = std::visit(
+            [](const auto &kinematics) {
+                return kinematics.cylinder.head_chamber_volume_m3;
+            },
+            radial->cylinders[1].kinematics);
+        expect(same_binary64(compiled_slave_head_volume,
+                             second_head_chamber_volume_m3),
+               "radial slave did not bind its bank-local chamber volume");
+        expect(mechanism_kinematics_plan_matches_source(*plan, fixture.engine, core),
+               "fresh two-bank radial plan did not match its source topology");
+
+        std::reverse(core.gas_path.heads.begin(), core.gas_path.heads.end());
+        expect(!mechanism_kinematics_plan_matches_source(*plan, fixture.engine, core),
+               "compiled radial plan accepted reordered bank-head source topology");
+        const auto reordered =
+            compile_mechanism_kinematics_plan(fixture.engine, core);
+        const auto *report = std::get_if<ValidationReport>(&reordered);
+        expect(report != nullptr &&
+                   std::ranges::any_of(report->issues, [](const auto &issue) {
+                       return issue.path ==
+                              "engine.physics_profile.gas_path.heads";
+                   }),
+               "radial mechanism plan admitted reordered bank-head coverage");
+    }
 }
 
 void test_radial_mechanics_requires_kinematic_schedule_and_rejects_external_motion() {
@@ -1109,6 +1186,7 @@ void run_tests() {
     test_limiter_strict_threshold_and_timer_edges();
     test_mechanics_session_step_order_and_completion();
     test_radial_prescribed_mechanics_matches_pure_geometry_and_completes();
+    test_mechanism_plan_requires_exact_bank_head_topology();
     test_radial_mechanics_requires_kinematic_schedule_and_rejects_external_motion();
     test_moved_from_mechanics_session_fails_stably();
     test_mechanics_accepts_compiled_held_speed_schedule();

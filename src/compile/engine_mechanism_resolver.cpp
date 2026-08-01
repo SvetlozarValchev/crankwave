@@ -72,9 +72,6 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
         auto piston_compression_height_m = emitter.authored(
             legacy_si_value(piston.compression_height),
             base + ".piston_compression_height_m");
-        auto head_chamber_volume_m3 = emitter.authored(
-            legacy_si_value(context.head->chamber_volume),
-            base + ".head_chamber_volume_m3");
         auto piston_displacement_term_m3 = emitter.authored(
             legacy_si_value(piston.displacement_volume),
             base + ".piston_displacement_term_m3");
@@ -130,7 +127,6 @@ void resolve_mechanism(const ModelContext &context, ResolutionEmitter &emitter,
                 std::move(connecting_rod_length_m),
                 std::move(deck_height_m),
                 std::move(piston_compression_height_m),
-                std::move(head_chamber_volume_m3),
                 std::move(piston_displacement_term_m3),
                 std::move(piston_mass_kg),
                 std::move(connecting_rod_mass_kg),

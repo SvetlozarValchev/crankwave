@@ -118,11 +118,11 @@ struct ValvetrainFixture {
             0.0,   35.0,  55.0,  85.0,  105.0, 120.0, 140.0,
             150.0, 155.0, 160.0, 165.0, 165.0, 165.0,
         };
-        profile.core.gas_path.head.intake_flow =
-            make_flow_table(profile.core.gas_path.head.intake_flow.front(), intake_cfm);
-        profile.core.gas_path.head.exhaust_flow = make_flow_table(
-            profile.core.gas_path.head.exhaust_flow.front(), exhaust_cfm);
-        profile.core.gas_path.head.flow_table_triangle_radius_m.value = 0.001;
+        auto &head = profile.core.gas_path.heads.front();
+        head.intake_flow = make_flow_table(head.intake_flow.front(), intake_cfm);
+        head.exhaust_flow = make_flow_table(head.exhaust_flow.front(), exhaust_cfm);
+        head.intake_flow_triangle_radius_m.value = 0.001;
+        head.exhaust_flow_triangle_radius_m.value = 0.001;
 
         auto second_cylinder = engine.cylinders.front();
         second_cylinder.id = CylinderId{2};
@@ -324,9 +324,11 @@ void test_exact_lobe_construction_and_bindings() {
     expect(bindings.size() == 2 && bindings[0].cylinder_id == CylinderId{1} &&
                bindings[0].intake_port_id == PortId{1} &&
                bindings[0].exhaust_port_id == PortId{2} &&
+               bindings[0].flow_profile_index == 0U &&
                bindings[1].cylinder_id == CylinderId{2} &&
                bindings[1].intake_port_id == PortId{3} &&
-               bindings[1].exhaust_port_id == PortId{4},
+               bindings[1].exhaust_port_id == PortId{4} &&
+               bindings[1].flow_profile_index == 0U,
            "lobe-vector reordering changed admitted cylinder/port order");
     const auto intake_lobe_2 =
         std::find_if(profile.core.valvetrain.intake.lobes.begin(),
@@ -508,6 +510,77 @@ void test_sampled_lobe_copy_endpoints_wrap_advance_and_multiple_lobes() {
            "sampled cam profile was not shared across independently phased lobes");
 }
 
+void test_bank_local_flow_profiles_bind_by_stable_bank_identity() {
+    ValvetrainFixture fixture;
+    auto &profile = operating_profile(fixture.engine);
+
+    auto second_bank = fixture.engine.banks.front();
+    second_bank.id = BankId{2};
+    second_bank.semantic_id.value = "bank-2";
+    fixture.engine.banks.push_back(std::move(second_bank));
+    fixture.engine.cylinders[0].bank_id = BankId{2};
+    fixture.engine.cylinders[1].bank_id = BankId{1};
+
+    auto second_head = profile.core.gas_path.heads.front();
+    second_head.bank_id = BankId{2};
+    second_head.intake_flow_triangle_radius_m.value = 0.0005;
+    second_head.exhaust_flow_triangle_radius_m.value = 0.0015;
+    for (auto &point : second_head.intake_flow) {
+        point.resolved_k.value *= 0.5;
+    }
+    for (auto &point : second_head.exhaust_flow) {
+        point.resolved_k.value *= 0.25;
+    }
+    profile.core.gas_path.heads.push_back(std::move(second_head));
+
+    for (auto &lobe : profile.core.valvetrain.intake.lobes) {
+        lobe.crank_center_rad.value = 0.0;
+    }
+    for (auto &lobe : profile.core.valvetrain.exhaust.lobes) {
+        lobe.crank_center_rad.value = 0.0;
+    }
+
+    auto valvetrain = require_valvetrain(compile_fixture_valvetrain(fixture.engine));
+    const auto flows = valvetrain.flow_profiles();
+    const auto bindings = valvetrain.cylinder_bindings();
+    expect(flows.size() == 2U && flows[0].bank_id == BankId{1} &&
+               flows[1].bank_id == BankId{2} && bindings.size() == 2U &&
+               bindings[0].flow_profile_index == 1U &&
+               bindings[1].flow_profile_index == 0U,
+           "crossed cylinder bank assignments changed stable flow-profile binding");
+    expect(same_binary64(flows[0].intake_flow_triangle_radius_m, 0.001) &&
+               same_binary64(flows[0].exhaust_flow_triangle_radius_m, 0.001) &&
+               same_binary64(flows[1].intake_flow_triangle_radius_m, 0.0005) &&
+               same_binary64(flows[1].exhaust_flow_triangle_radius_m, 0.0015),
+           "bank-local intake/exhaust flow radii changed during compilation");
+
+    const double crank105 = 105.0 * kDegreeSource;
+    const auto first = valvetrain.sample_cylinder(CylinderId{1}, crank105);
+    const auto second = valvetrain.sample_cylinder(CylinderId{2}, crank105);
+    expect(first.has_value() && second.has_value() &&
+               same_binary64(first->intake_valve_k,
+                             legacy_triangle_sample(
+                                 flows[1].intake_flow_table, first->intake_lift_m,
+                                 flows[1].intake_flow_triangle_radius_m)) &&
+               same_binary64(first->exhaust_valve_k,
+                             legacy_triangle_sample(
+                                 flows[1].exhaust_flow_table, first->exhaust_lift_m,
+                                 flows[1].exhaust_flow_triangle_radius_m)) &&
+               second->intake_valve_k != first->intake_valve_k &&
+               second->exhaust_valve_k != first->exhaust_valve_k,
+           "cylinder sampling did not use its explicitly bound bank-local flow "
+           "profile");
+    expect(!same_binary64(
+               first->intake_valve_k,
+               legacy_triangle_sample(flows[1].intake_flow_table, first->intake_lift_m,
+                                      flows[1].exhaust_flow_triangle_radius_m)) &&
+               !same_binary64(first->exhaust_valve_k,
+                              legacy_triangle_sample(
+                                  flows[1].exhaust_flow_table, first->exhaust_lift_m,
+                                  flows[1].intake_flow_triangle_radius_m)),
+           "bank-local intake/exhaust flow radii collapsed back to one radius");
+}
+
 void test_focused_admission_failures() {
     expect_compile_rejected(
         [](EngineSpec &engine, LowOrderOperatingPointV1Profile &) {
@@ -536,15 +609,39 @@ void test_focused_admission_failures() {
         "valvetrain.intake.lobes");
     expect_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            profile.core.gas_path.head.intake_flow[1].lift_m.value =
-                profile.core.gas_path.head.intake_flow[0].lift_m.value;
+            profile.core.gas_path.heads.front().intake_flow[1].lift_m.value =
+                profile.core.gas_path.heads.front().intake_flow[0].lift_m.value;
         },
-        "gas_path.head.intake_flow");
+        "gas_path.heads[0].intake_flow");
     expect_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
-            profile.core.gas_path.head.exhaust_flow.resize(1);
+            profile.core.gas_path.heads.front().exhaust_flow.resize(1);
         },
-        "gas_path.head.exhaust_flow");
+        "gas_path.heads[0].exhaust_flow");
+    expect_compile_rejected(
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
+            profile.core.gas_path.heads.front().intake_flow_triangle_radius_m.value =
+                0.0;
+        },
+        "gas_path.heads[0].intake_flow_triangle_radius_m");
+    expect_compile_rejected(
+        [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
+            profile.core.gas_path.heads.clear();
+        },
+        "gas_path.heads");
+    expect_compile_rejected(
+        [](EngineSpec &engine, LowOrderOperatingPointV1Profile &profile) {
+            auto second_bank = engine.banks.front();
+            second_bank.id = BankId{2};
+            second_bank.semantic_id.value = "bank-2";
+            engine.banks.push_back(std::move(second_bank));
+            auto second_head = profile.core.gas_path.heads.front();
+            second_head.bank_id = BankId{2};
+            profile.core.gas_path.heads.push_back(std::move(second_head));
+            std::reverse(profile.core.gas_path.heads.begin(),
+                         profile.core.gas_path.heads.end());
+        },
+        "gas_path.heads");
     expect_compile_rejected(
         [](EngineSpec &, LowOrderOperatingPointV1Profile &profile) {
             harmonic_shape(profile.core.valvetrain.intake.shape).advance_rad.value =
@@ -627,6 +724,7 @@ void run_tests() {
     test_exact_lobe_construction_and_bindings();
     test_sampling_goldens_wrap_and_span_contract();
     test_sampled_lobe_copy_endpoints_wrap_advance_and_multiple_lobes();
+    test_bank_local_flow_profiles_bind_by_stable_bank_identity();
     test_focused_admission_failures();
 }
 

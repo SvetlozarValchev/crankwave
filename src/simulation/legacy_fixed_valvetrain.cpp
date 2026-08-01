@@ -275,6 +275,26 @@ find_lobe(const contract::LegacyCamshaftProfile &camshaft,
     return found == engine.ports.end() ? nullptr : &*found;
 }
 
+[[nodiscard]] const contract::LegacyBankHeadProfile *
+find_head(const contract::LegacyGasPathProfile &gas_path,
+          contract::BankId bank_id) noexcept {
+    const auto found =
+        std::find_if(gas_path.heads.begin(), gas_path.heads.end(),
+                     [&](const auto &head) { return head.bank_id == bank_id; });
+    return found == gas_path.heads.end() ? nullptr : &*found;
+}
+
+[[nodiscard]] std::optional<std::size_t>
+find_bank_index(const contract::EngineSpec &engine, contract::BankId bank_id) noexcept {
+    const auto found =
+        std::find_if(engine.banks.begin(), engine.banks.end(),
+                     [&](const auto &bank) { return bank.id == bank_id; });
+    if (found == engine.banks.end()) {
+        return std::nullopt;
+    }
+    return static_cast<std::size_t>(found - engine.banks.begin());
+}
+
 [[nodiscard]] double wrap_to_minus_pi_inclusive(double value) noexcept {
     double wrapped = std::fmod(value, 2.0 * kLegacyPi);
     if (wrapped < 0.0) {
@@ -303,21 +323,17 @@ LegacyFixedValvetrain::LegacyFixedValvetrain(
     std::vector<LegacyValvetrainCylinderBinding> cylinder_bindings,
     std::vector<LegacyTrianglePoint> intake_lobe_table,
     std::vector<LegacyTrianglePoint> exhaust_lobe_table,
-    std::vector<LegacyTrianglePoint> intake_flow_table,
-    std::vector<LegacyTrianglePoint> exhaust_flow_table,
+    std::vector<LegacyValvetrainFlowProfile> flow_profiles,
     double intake_lobe_triangle_radius_rad, double exhaust_lobe_triangle_radius_rad,
-    double flow_triangle_radius_m, double intake_advance_rad,
-    double exhaust_advance_rad, double intake_base_radius_m,
+    double intake_advance_rad, double exhaust_advance_rad, double intake_base_radius_m,
     double exhaust_base_radius_m)
     : crank_tdc_reference_rad_(crank_tdc_reference_rad),
       cylinder_bindings_(std::move(cylinder_bindings)),
       intake_lobe_table_(std::move(intake_lobe_table)),
       exhaust_lobe_table_(std::move(exhaust_lobe_table)),
-      intake_flow_table_(std::move(intake_flow_table)),
-      exhaust_flow_table_(std::move(exhaust_flow_table)),
+      flow_profiles_(std::move(flow_profiles)),
       intake_lobe_triangle_radius_rad_(intake_lobe_triangle_radius_rad),
       exhaust_lobe_triangle_radius_rad_(exhaust_lobe_triangle_radius_rad),
-      flow_triangle_radius_m_(flow_triangle_radius_m),
       intake_advance_rad_(intake_advance_rad),
       exhaust_advance_rad_(exhaust_advance_rad),
       intake_base_radius_m_(intake_base_radius_m),
@@ -338,14 +354,9 @@ LegacyFixedValvetrain::exhaust_lobe_table() const noexcept {
     return exhaust_lobe_table_;
 }
 
-std::span<const LegacyTrianglePoint>
-LegacyFixedValvetrain::intake_flow_table() const noexcept {
-    return intake_flow_table_;
-}
-
-std::span<const LegacyTrianglePoint>
-LegacyFixedValvetrain::exhaust_flow_table() const noexcept {
-    return exhaust_flow_table_;
+std::span<const LegacyValvetrainFlowProfile>
+LegacyFixedValvetrain::flow_profiles() const noexcept {
+    return flow_profiles_;
 }
 
 double LegacyFixedValvetrain::intake_lobe_triangle_radius_rad() const noexcept {
@@ -354,10 +365,6 @@ double LegacyFixedValvetrain::intake_lobe_triangle_radius_rad() const noexcept {
 
 double LegacyFixedValvetrain::exhaust_lobe_triangle_radius_rad() const noexcept {
     return exhaust_lobe_triangle_radius_rad_;
-}
-
-double LegacyFixedValvetrain::flow_triangle_radius_m() const noexcept {
-    return flow_triangle_radius_m_;
 }
 
 double LegacyFixedValvetrain::intake_advance_rad() const noexcept {
@@ -379,6 +386,7 @@ double LegacyFixedValvetrain::exhaust_base_radius_m() const noexcept {
 LegacyCylinderValveSample LegacyFixedValvetrain::sample_admitted_cylinder(
     std::size_t cylinder_index, double body_angle_psi_rad) const noexcept {
     const auto &binding = cylinder_bindings_[cylinder_index];
+    const auto &flow_profile = flow_profiles_[binding.flow_profile_index];
     const double intake_base =
         cam_base(body_angle_psi_rad, crank_tdc_reference_rad_, intake_advance_rad_);
     const double exhaust_base =
@@ -400,10 +408,10 @@ LegacyCylinderValveSample LegacyFixedValvetrain::sample_admitted_cylinder(
         exhaust_argument,
         intake_lift,
         exhaust_lift,
-        legacy_triangle_sample(intake_flow_table_, intake_lift,
-                               flow_triangle_radius_m_),
-        legacy_triangle_sample(exhaust_flow_table_, exhaust_lift,
-                               flow_triangle_radius_m_),
+        legacy_triangle_sample(flow_profile.intake_flow_table, intake_lift,
+                               flow_profile.intake_flow_triangle_radius_m),
+        legacy_triangle_sample(flow_profile.exhaust_flow_table, exhaust_lift,
+                               flow_profile.exhaust_flow_triangle_radius_m),
     };
 }
 
@@ -460,7 +468,7 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
 
     const auto &mechanism = core.mechanism;
     const auto &valvetrain = core.valvetrain;
-    const auto &head = core.gas_path.head;
+    const auto &gas_path = core.gas_path;
     require(report, std::isfinite(mechanism.crank.crank_tdc_reference_rad.value),
             ContractIssueCode::invalid_value,
             "engine.physics_profile.mechanism.crank.crank_tdc_reference_rad.value",
@@ -476,15 +484,41 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
         valvetrain.intake.shape, report, "engine.physics_profile.valvetrain.intake");
     const auto exhaust_shape = admit_cam_shape(
         valvetrain.exhaust.shape, report, "engine.physics_profile.valvetrain.exhaust");
-    require(report, finite_positive(head.flow_table_triangle_radius_m.value),
-            ContractIssueCode::invalid_value,
-            "engine.physics_profile.gas_path.head.flow_table_triangle_radius_m.value",
-            "valve-flow triangle radius must be finite and positive");
-    admit_flow_table(head.intake_flow, report,
-                     "engine.physics_profile.gas_path.head.intake_flow");
-    admit_flow_table(head.exhaust_flow, report,
-                     "engine.physics_profile.gas_path.head.exhaust_flow");
-
+    bool exact_ordered_head_coverage = !engine.banks.empty() &&
+                                       gas_path.heads.size() == engine.banks.size();
+    for (std::size_t index = 0; index < engine.banks.size(); ++index) {
+        exact_ordered_head_coverage =
+            exact_ordered_head_coverage && engine.banks[index].id.valid() &&
+            (index == 0 ||
+             engine.banks[index - 1].id.value < engine.banks[index].id.value) &&
+            index < gas_path.heads.size() && gas_path.heads[index].bank_id.valid() &&
+            gas_path.heads[index].bank_id == engine.banks[index].id;
+    }
+    require(report, exact_ordered_head_coverage,
+            ContractIssueCode::inconsistent_shape,
+            "engine.physics_profile.gas_path.heads",
+            "valvetrain requires one flow profile per engine bank in exact BankId "
+            "order");
+    for (std::size_t index = 0; index < gas_path.heads.size(); ++index) {
+        const auto &head = gas_path.heads[index];
+        const std::string path =
+            "engine.physics_profile.gas_path.heads[" + std::to_string(index) + "]";
+        require(report, index < engine.banks.size() && head.bank_id.valid() &&
+                            head.bank_id == engine.banks[index].id,
+                ContractIssueCode::inconsistent_semantics, path + ".bank_id",
+                "valvetrain flow profile identity/order must match the engine bank "
+                "order");
+        require(report, finite_positive(head.intake_flow_triangle_radius_m.value),
+                ContractIssueCode::invalid_value,
+                path + ".intake_flow_triangle_radius_m.value",
+                "intake valve-flow triangle radius must be finite and positive");
+        require(report, finite_positive(head.exhaust_flow_triangle_radius_m.value),
+                ContractIssueCode::invalid_value,
+                path + ".exhaust_flow_triangle_radius_m.value",
+                "exhaust valve-flow triangle radius must be finite and positive");
+        admit_flow_table(head.intake_flow, report, path + ".intake_flow");
+        admit_flow_table(head.exhaust_flow, report, path + ".exhaust_flow");
+    }
     const auto admit_cam_lobes = [&](const contract::LegacyCamshaftProfile &camshaft,
                                      contract::PortKind expected_kind,
                                      const std::string &path) {
@@ -530,6 +564,10 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
         const auto cylinder_id = assembly.topology.cylinder_id;
         const auto *intake_lobe = find_lobe(valvetrain.intake, cylinder_id);
         const auto *exhaust_lobe = find_lobe(valvetrain.exhaust, cylinder_id);
+        const auto flow_profile_index =
+            index < engine.cylinders.size()
+                ? find_bank_index(engine, engine.cylinders[index].bank_id)
+                : std::nullopt;
         const bool order_and_identity_valid =
             index < engine.cylinders.size() && cylinder_id.valid() &&
             cylinder_id == engine.cylinders[index].id &&
@@ -540,6 +578,13 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
                     "].topology.cylinder_id",
                 "mechanism cylinder identity/order must be unique and match the "
                 "engine cylinder order");
+        const bool flow_binding_valid =
+            index < engine.cylinders.size() && flow_profile_index.has_value() &&
+            find_head(gas_path, engine.cylinders[index].bank_id) != nullptr;
+        require(report, flow_binding_valid, ContractIssueCode::inconsistent_semantics,
+                "engine.cylinders[" + std::to_string(index) + "].bank_id",
+                "engine cylinder bank must bind one compiled valvetrain flow "
+                "profile");
         const bool lobe_bindings_valid =
             intake_lobe != nullptr && exhaust_lobe != nullptr &&
             assembly.topology.intake_port_id.valid() &&
@@ -551,11 +596,12 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
                     "].topology",
                 "intake and exhaust lobes must bind the mechanism cylinder's exact "
                 "port IDs");
-        if (order_and_identity_valid && lobe_bindings_valid) {
+        if (order_and_identity_valid && flow_binding_valid && lobe_bindings_valid) {
             bindings.push_back({
                 cylinder_id,
                 intake_lobe->port_id,
                 exhaust_lobe->port_id,
+                *flow_profile_index,
                 intake_lobe->crank_center_rad.value / 2.0,
                 exhaust_lobe->crank_center_rad.value / 2.0,
             });
@@ -566,16 +612,27 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
         return report;
     }
 
+    std::vector<LegacyValvetrainFlowProfile> flow_profiles;
+    flow_profiles.reserve(engine.banks.size());
+    for (const auto &bank : engine.banks) {
+        const auto *head = find_head(gas_path, bank.id);
+        flow_profiles.push_back({
+            bank.id,
+            compile_flow_table(head->intake_flow),
+            compile_flow_table(head->exhaust_flow),
+            head->intake_flow_triangle_radius_m.value,
+            head->exhaust_flow_triangle_radius_m.value,
+        });
+    }
+
     return LegacyFixedValvetrain{
         mechanism.crank.crank_tdc_reference_rad.value,
         std::move(bindings),
         construct_lobe_table(valvetrain.intake.shape, intake_shape->radius_rad),
         construct_lobe_table(valvetrain.exhaust.shape, exhaust_shape->radius_rad),
-        compile_flow_table(head.intake_flow),
-        compile_flow_table(head.exhaust_flow),
+        std::move(flow_profiles),
         intake_shape->radius_rad,
         exhaust_shape->radius_rad,
-        head.flow_table_triangle_radius_m.value,
         cam_advance_rad(valvetrain.intake.shape),
         cam_advance_rad(valvetrain.exhaust.shape),
         cam_base_radius_m(valvetrain.intake.shape),

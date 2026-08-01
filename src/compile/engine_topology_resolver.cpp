@@ -15,16 +15,7 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
                              contract::EngineSpec &engine) {
     const auto &source = context.document.engine;
 
-    std::vector<const authoring::BankDefinition *> ordered_banks;
-    ordered_banks.reserve(source.banks.size());
-    for (const auto &bank : source.banks) {
-        ordered_banks.push_back(&bank);
-    }
-    std::ranges::sort(ordered_banks, [&](const auto *left, const auto *right) {
-        return bank_id(context, left->id.value).value <
-               bank_id(context, right->id.value).value;
-    });
-    for (const auto *bank : ordered_banks) {
+    for (const auto *bank : ordered_banks(context)) {
         const auto base = "engine.banks." + bank->id.value;
         contract::BankSpec resolved_bank{
             bank_id(context, bank->id.value),
@@ -45,6 +36,7 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
         const auto &rod = *context.rods.at(cylinder.connecting_rod.value);
         const auto &piston = *context.pistons.at(cylinder.piston.value);
         const auto &bank = *context.banks.at(cylinder.bank.value);
+        const auto &head = *context.heads.at(bank.head.value);
         const double bore_m = legacy_si_value(bank.bore);
         const double crank_radius_m = legacy_si_value(context.crankshaft->throw_radius);
         const double stroke_m = 2.0 * crank_radius_m;
@@ -52,7 +44,7 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
             bore_m, crank_radius_m, legacy_si_value(rod.length),
             legacy_si_value(bank.deck_height),
             legacy_si_value(piston.compression_height),
-            legacy_si_value(context.head->chamber_volume),
+            legacy_si_value(head.chamber_volume),
             legacy_si_value(piston.displacement_volume));
         const auto profile_base = profile_path("mechanism.cylinders." + semantic);
         const auto *master_attachment =
@@ -82,7 +74,8 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
                     profile_base + ".connecting_rod_length_m",
                     profile_base + ".deck_height_m",
                     profile_base + ".piston_compression_height_m",
-                    profile_base + ".head_chamber_volume_m3",
+                    profile_path("gas_path.heads." + bank.id.value +
+                                 ".chamber_volume_m3"),
                     profile_base + ".piston_displacement_term_m3",
                 }),
             emitter.authored(

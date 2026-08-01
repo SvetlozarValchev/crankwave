@@ -203,8 +203,6 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
         builder.resolved(0.211, cylinder_path + ".deck_height_m");
     auto piston_compression_height_m = builder.resolved(
         0.03182, cylinder_path + ".piston_compression_height_m");
-    auto head_chamber_volume_m3 =
-        builder.resolved(0.000046, cylinder_path + ".head_chamber_volume_m3");
     auto piston_displacement_term_m3 = builder.resolved(
         0.0, cylinder_path + ".piston_displacement_term_m3");
     auto piston_mass_kg =
@@ -224,7 +222,6 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
         std::move(connecting_rod_length_m),
         std::move(deck_height_m),
         std::move(piston_compression_height_m),
-        std::move(head_chamber_volume_m3),
         std::move(piston_displacement_term_m3),
         std::move(piston_mass_kg),
         std::move(connecting_rod_mass_kg),
@@ -261,19 +258,25 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
         make_restriction(builder, LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
                          kCarb500, path("gas_path.intake.plenum_to_runner")),
     };
-    core.gas_path.head.intake_runner_base_volume_m3 =
-        builder.resolved(0.0001, path("gas_path.head.intake_runner_base_volume_m3"));
-    core.gas_path.head.intake_runner_cross_section_area_m2 = builder.resolved(
-        0.002, path("gas_path.head.intake_runner_cross_section_area_m2"));
-    core.gas_path.head.exhaust_runner_base_volume_m3 =
-        builder.resolved(0.0003, path("gas_path.head.exhaust_runner_base_volume_m3"));
-    core.gas_path.head.exhaust_runner_cross_section_area_m2 = builder.resolved(
-        0.0014, path("gas_path.head.exhaust_runner_cross_section_area_m2"));
-    core.gas_path.head.flow_table_triangle_radius_m =
-        builder.resolved(0.001, path("gas_path.head.flow_table_triangle_radius_m"));
+    LegacyBankHeadProfile head;
+    head.bank_id = BankId{1};
+    head.chamber_volume_m3 =
+        builder.resolved(0.000046, path("gas_path.heads.bank-1.chamber_volume_m3"));
+    head.intake_runner_base_volume_m3 = builder.resolved(
+        0.0001, path("gas_path.heads.bank-1.intake_runner_base_volume_m3"));
+    head.intake_runner_cross_section_area_m2 = builder.resolved(
+        0.002, path("gas_path.heads.bank-1.intake_runner_cross_section_area_m2"));
+    head.exhaust_runner_base_volume_m3 = builder.resolved(
+        0.0003, path("gas_path.heads.bank-1.exhaust_runner_base_volume_m3"));
+    head.exhaust_runner_cross_section_area_m2 = builder.resolved(
+        0.0014, path("gas_path.heads.bank-1.exhaust_runner_cross_section_area_m2"));
+    head.intake_flow_triangle_radius_m = builder.resolved(
+        0.001, path("gas_path.heads.bank-1.intake_flow_triangle_radius_m"));
+    head.exhaust_flow_triangle_radius_m = builder.resolved(
+        0.001, path("gas_path.heads.bank-1.exhaust_flow_triangle_radius_m"));
     const auto make_flow_point = [&](std::string table, std::string id, double lift,
                                      double cfm, double k) {
-        const auto base = path("gas_path.head." + table + "." + id);
+        const auto base = path("gas_path.heads.bank-1." + table + "." + id);
         auto sample_id = builder.resolved(id, base + ".sample_id");
         auto resolved_lift = builder.resolved(lift, base + ".lift_m");
         auto resolved_source = builder.resolved(cfm, base + ".source_cfm_at_28_inh2o");
@@ -285,14 +288,15 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
                             {base + ".source_cfm_at_28_inh2o"}),
         };
     };
-    core.gas_path.head.intake_flow = {
+    head.intake_flow = {
         make_flow_point("intake_flow", "lift-0", 0.0, 0.0, 0.0),
         make_flow_point("intake_flow", "lift-1", 0.001, 1.0, kCfmOne),
     };
-    core.gas_path.head.exhaust_flow = {
+    head.exhaust_flow = {
         make_flow_point("exhaust_flow", "lift-0", 0.0, 0.0, 0.0),
         make_flow_point("exhaust_flow", "lift-1", 0.001, 1.0, kCfmOne),
     };
+    core.gas_path.heads.push_back(std::move(head));
 
     LegacyExhaustRouteProfile exhaust;
     exhaust.topology = {RouteId{1}, GasVolumeId{5}, FlowEdgeId{8}};
@@ -817,7 +821,7 @@ inline RenderManifestContent make_manifest_content(InputBuilder &builder) {
     const auto source_matrix = make_source_matrix();
 
     RenderManifestContent content;
-    content.schema_version = 6;
+    content.schema_version = 7;
     content.inputs = SimulationManifestInputs{
         ResolvedRenderInputs{engine, presentation, randomness, scenario}};
     content.provenance = builder.provenance.bundle;

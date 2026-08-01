@@ -50,6 +50,8 @@ struct AdmittedCylinder {
     double initial_chamber_volume_m3 = 0.0;
     double intake_runner_volume_m3 = 0.0;
     double exhaust_primary_volume_m3 = 0.0;
+    double intake_runner_cross_section_area_m2 = 0.0;
+    double exhaust_runner_cross_section_area_m2 = 0.0;
     std::uint64_t pcg32_initial_state = 0;
     std::uint64_t pcg32_stream = 0;
 };
@@ -200,6 +202,18 @@ find_profile_route_index(const contract::LegacyGasPathProfile &gas_path,
 }
 
 [[nodiscard]] std::optional<std::size_t>
+find_profile_head_index(const contract::LegacyGasPathProfile &gas_path,
+                        contract::BankId bank_id) noexcept {
+    const auto found = std::find_if(
+        gas_path.heads.begin(), gas_path.heads.end(),
+        [&](const auto &head) { return head.bank_id == bank_id; });
+    if (found == gas_path.heads.end()) {
+        return std::nullopt;
+    }
+    return static_cast<std::size_t>(found - gas_path.heads.begin());
+}
+
+[[nodiscard]] std::optional<std::size_t>
 find_combustion_seed_index(const contract::RandomPlan &random_plan,
                            contract::CylinderId cylinder_id) noexcept {
     const auto found = std::find_if(
@@ -327,6 +341,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         append_prefixed(report, *nested, "valvetrain");
     }
 
+    admit_public_identities(engine.banks, report, "engine.banks");
     admit_public_identities(engine.cylinders, report, "engine.cylinders");
     admit_public_identities(engine.ports, report, "engine.ports");
     admit_public_identities(engine.gas_volumes, report, "engine.gas_volumes");
@@ -335,7 +350,6 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
 
     const auto &mechanism = core.mechanism;
     const auto &gas_path = core.gas_path;
-    const auto &head = gas_path.head;
     require(report,
             !engine.cylinders.empty() &&
                 mechanism.cylinders.size() == engine.cylinders.size(),
@@ -394,17 +408,38 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                           "engine.physics_profile.gas_path.piston_blowby"));
 
     require(report,
-            finite_nonnegative(head.intake_runner_base_volume_m3.value) &&
-                finite_positive(head.intake_runner_cross_section_area_m2.value) &&
-                finite_nonnegative(head.exhaust_runner_base_volume_m3.value) &&
-                finite_positive(head.exhaust_runner_cross_section_area_m2.value) &&
-                finite_positive(head.flow_table_triangle_radius_m.value),
-            ContractIssueCode::invalid_value, "engine.physics_profile.gas_path.head",
-            "cylinder-head gas geometry is outside the admitted domain");
-    admit_valve_flow_k(head.intake_flow, report,
-                       "engine.physics_profile.gas_path.head.intake_flow");
-    admit_valve_flow_k(head.exhaust_flow, report,
-                       "engine.physics_profile.gas_path.head.exhaust_flow");
+            gas_path.heads.size() == engine.banks.size() &&
+                !gas_path.heads.empty(),
+            ContractIssueCode::inconsistent_shape,
+            "engine.physics_profile.gas_path.heads",
+            "bank-local head profiles must exactly cover the nonempty engine bank "
+            "order");
+    for (std::size_t index = 0; index < gas_path.heads.size(); ++index) {
+        const auto &head = gas_path.heads[index];
+        const auto path = "engine.physics_profile.gas_path.heads[" +
+                          std::to_string(index) + "]";
+        const bool ordered_binding = index < engine.banks.size() &&
+                                     head.bank_id.valid() &&
+                                     head.bank_id == engine.banks[index].id;
+        require(report, ordered_binding, ContractIssueCode::inconsistent_semantics,
+                path + ".bank_id",
+                "head profile identity/order must match the engine bank order");
+        require(report,
+                finite_positive(head.chamber_volume_m3.value) &&
+                    finite_nonnegative(head.intake_runner_base_volume_m3.value) &&
+                    finite_positive(
+                        head.intake_runner_cross_section_area_m2.value) &&
+                    finite_nonnegative(head.exhaust_runner_base_volume_m3.value) &&
+                    finite_positive(
+                        head.exhaust_runner_cross_section_area_m2.value) &&
+                    finite_positive(head.intake_flow_triangle_radius_m.value) &&
+                    finite_positive(head.exhaust_flow_triangle_radius_m.value),
+                ContractIssueCode::invalid_value, path,
+                "bank-local cylinder-head gas geometry is outside the admitted "
+                "domain");
+        admit_valve_flow_k(head.intake_flow, report, path + ".intake_flow");
+        admit_valve_flow_k(head.exhaust_flow, report, path + ".exhaust_flow");
+    }
 
     const auto &fuel = core.fuel;
     require(report,
@@ -701,6 +736,11 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             break;
         }
         const auto &engine_cylinder = engine.cylinders[cylinder_index];
+        const auto head_profile_index =
+            find_profile_head_index(gas_path, engine_cylinder.bank_id);
+        const auto *head = head_profile_index.has_value()
+                               ? &gas_path.heads[*head_profile_index]
+                               : nullptr;
         const auto &assembly = mechanism.cylinders[cylinder_index];
         const auto &topology = assembly.topology;
         const auto &parameters = assembly.parameters;
@@ -716,6 +756,9 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 path + ".topology.cylinder_id",
                 "engine, mechanism, and admitted mechanics cylinder identity/order "
                 "must match exactly");
+        require(report, head != nullptr, ContractIssueCode::dangling_reference,
+                "engine.cylinders[" + std::to_string(cylinder_index) + "].bank_id",
+                "gas cylinder requires one bank-local head profile");
 
         static_cast<void>(bind_port(topology.intake_port_id, topology.cylinder_id,
                                     contract::PortKind::intake,
@@ -804,7 +847,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                     parameters.connecting_rod_length_m.value &&
                 finite_positive(parameters.deck_height_m.value) &&
                 finite_positive(parameters.piston_compression_height_m.value) &&
-                finite_positive(parameters.head_chamber_volume_m3.value) &&
+                head != nullptr &&
+                finite_positive(head->chamber_volume_m3.value) &&
                 std::isfinite(parameters.piston_displacement_term_m3.value) &&
                 std::isfinite(direct->journal_angle_rad.value) &&
                 std::isfinite(parameters.ignition_wire_angle_rad.value) &&
@@ -878,20 +922,21 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
 
         double runner_volume_m3 = 0.0;
         double primary_volume_m3 = 0.0;
-        if (finite_nonnegative(head.intake_runner_base_volume_m3.value) &&
-            finite_positive(head.intake_runner_cross_section_area_m2.value) &&
+        if (head != nullptr &&
+            finite_nonnegative(head->intake_runner_base_volume_m3.value) &&
+            finite_positive(head->intake_runner_cross_section_area_m2.value) &&
             finite_positive(intake.runner_length_m.value)) {
-            runner_volume_m3 = head.intake_runner_base_volume_m3.value +
-                               head.intake_runner_cross_section_area_m2.value *
+            runner_volume_m3 = head->intake_runner_base_volume_m3.value +
+                               head->intake_runner_cross_section_area_m2.value *
                                    intake.runner_length_m.value;
         }
-        if (route_lane_index.has_value() &&
-            finite_nonnegative(head.exhaust_runner_base_volume_m3.value) &&
-            finite_positive(head.exhaust_runner_cross_section_area_m2.value) &&
+        if (head != nullptr && route_lane_index.has_value() &&
+            finite_nonnegative(head->exhaust_runner_base_volume_m3.value) &&
+            finite_positive(head->exhaust_runner_cross_section_area_m2.value) &&
             finite_nonnegative(parameters.header_primary_length_m.value)) {
             primary_volume_m3 =
-                head.exhaust_runner_base_volume_m3.value +
-                head.exhaust_runner_cross_section_area_m2.value *
+                head->exhaust_runner_base_volume_m3.value +
+                head->exhaust_runner_cross_section_area_m2.value *
                     (admitted_routes[*route_lane_index].primary_tube_length_m +
                      parameters.header_primary_length_m.value);
         }
@@ -915,7 +960,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             exhaust_valve_edge_index.has_value() &&
             primary_collector_edge_index.has_value() && blowby_edge_index.has_value() &&
             route_lane_index.has_value() && stream_index.has_value() &&
-            mechanism_geometry.has_value() &&
+            mechanism_geometry.has_value() && head != nullptr &&
             finite_positive(runner_volume_m3) &&
             finite_positive(primary_volume_m3);
         if (all_bindings_valid) {
@@ -936,6 +981,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 mechanism_geometry->initial_chamber_volume_m3,
                 runner_volume_m3,
                 primary_volume_m3,
+                head->intake_runner_cross_section_area_m2.value,
+                head->exhaust_runner_cross_section_area_m2.value,
                 stream.initial_state,
                 stream.stream,
             };
@@ -1072,8 +1119,6 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     session.intake_.idle_bypass_edge_index = *idle_bypass_edge_index;
     session.intake_.plenum_cross_section_area_m2 =
         intake.plenum_cross_section_area_m2.value;
-    session.intake_.runner_cross_section_area_m2 =
-        head.intake_runner_cross_section_area_m2.value;
     session.intake_.main_throttle_k = intake.main_throttle.resolved_k.value;
     session.intake_.idle_bypass_k = intake.idle_bypass.resolved_k.value;
     session.intake_.plenum_to_runner_k = intake.plenum_to_runner.resolved_k.value;
@@ -1143,8 +1188,10 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         lane.route_lane_index = admitted.route_lane_index;
         lane.bore_m = admitted.bore_m;
         lane.piston_area_m2 = admitted.piston_area_m2;
+        lane.intake_runner_cross_section_area_m2 =
+            admitted.intake_runner_cross_section_area_m2;
         lane.exhaust_primary_cross_section_area_m2 =
-            head.exhaust_runner_cross_section_area_m2.value;
+            admitted.exhaust_runner_cross_section_area_m2;
         const bool seeded =
             lane.random.seed(admitted.pcg32_initial_state, admitted.pcg32_stream);
         if (!seeded) {
@@ -1153,7 +1200,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             return report;
         }
 
-        const double runner_area_m2 = head.intake_runner_cross_section_area_m2.value;
+        const double runner_area_m2 =
+            admitted.intake_runner_cross_section_area_m2;
         initialize_finite_volume(admitted.intake_runner_volume_index,
                                  admitted.intake_runner_volume_m3,
                                  {
@@ -1170,7 +1218,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 1.0,
                 0.0,
             });
-        const double primary_area_m2 = head.exhaust_runner_cross_section_area_m2.value;
+        const double primary_area_m2 =
+            admitted.exhaust_runner_cross_section_area_m2;
         initialize_finite_volume(
             admitted.exhaust_primary_volume_index, admitted.exhaust_primary_volume_m3,
             {

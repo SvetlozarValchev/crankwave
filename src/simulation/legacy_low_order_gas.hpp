@@ -120,7 +120,6 @@ class LegacyLowOrderGasSession final {
         std::size_t main_throttle_edge_index = 0;
         std::size_t idle_bypass_edge_index = 0;
         double plenum_cross_section_area_m2 = 0.0;
-        double runner_cross_section_area_m2 = 0.0;
         double main_throttle_k = 0.0;
         double idle_bypass_k = 0.0;
         double plenum_to_runner_k = 0.0;
@@ -151,6 +150,7 @@ class LegacyLowOrderGasSession final {
         std::size_t route_lane_index = 0;
         double bore_m = 0.0;
         double piston_area_m2 = 0.0;
+        double intake_runner_cross_section_area_m2 = 0.0;
         double exhaust_primary_cross_section_area_m2 = 0.0;
         std::array<double, kLegacyCombustionHistorySampleCount>
             piston_speed_history_m_s{};

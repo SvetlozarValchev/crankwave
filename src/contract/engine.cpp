@@ -265,6 +265,13 @@ void validate_authored_low_order_core_topology(
                 return cylinder.topology.cylinder_id.value;
             });
     };
+    const auto find_head_profile = [&](std::string_view bank_id) {
+        return find_authored_by_id(
+            core.gas_path.heads, bank_id,
+            [](const AuthoredLegacyBankHeadProfile &head) -> const std::string & {
+                return head.bank_id.value;
+            });
+    };
 
     const auto require_volume_kind = [&](std::string_view id,
                                          GasVolumeKind expected_kind,
@@ -357,6 +364,25 @@ void validate_authored_low_order_core_topology(
     std::unordered_set<std::string> exhaust_route_bindings;
     std::unordered_set<std::string> collector_bindings;
     std::unordered_set<std::string> expected_edge_bindings;
+
+    std::vector<std::string> expected_head_banks;
+    expected_head_banks.reserve(definition.banks.size());
+    for (const auto &bank : definition.banks) {
+        expected_head_banks.push_back(bank.value);
+    }
+    std::ranges::sort(expected_head_banks);
+    bool exact_ordered_head_coverage =
+        core.gas_path.heads.size() == expected_head_banks.size();
+    for (std::size_t index = 0; index < core.gas_path.heads.size(); ++index) {
+        exact_ordered_head_coverage =
+            exact_ordered_head_coverage && index < expected_head_banks.size() &&
+            core.gas_path.heads[index].bank_id.value == expected_head_banks[index];
+    }
+    require(report, exact_ordered_head_coverage,
+            ContractIssueCode::inconsistent_shape,
+            std::string(physics_root) + ".gas_path.heads",
+            "legacy bank heads must cover every authored bank exactly once in "
+            "semantic BankId order");
 
     const auto &intake_topology = core.gas_path.intake_topology;
     const auto intake_path = std::string(physics_root) + ".gas_path.intake_topology";
@@ -464,6 +490,10 @@ void validate_authored_low_order_core_topology(
         if (cylinder != nullptr) {
             const auto authored_path =
                 "engine.cylinders." + cylinder->semantic_id.value;
+            const auto *head = find_head_profile(cylinder->bank_id.value);
+            require(report, head != nullptr, ContractIssueCode::dangling_reference,
+                    authored_path + ".bank_id",
+                    "legacy cylinder bank has no matching cylinder-head profile");
             const auto require_optional_match =
                 [&](const std::optional<AuthoredValue<double>> &authored_value,
                     double profile_value, std::string_view field) {
@@ -490,22 +520,41 @@ void validate_authored_low_order_core_topology(
                                    parameters.journal_angle_rad.value,
                                    "journal_phase_rad");
 
-            const auto piston_area_m2 = std::numbers::pi * parameters.bore_m.value *
-                                        parameters.bore_m.value / 4.0;
-            const auto clearance_volume_m3 =
-                parameters.head_chamber_volume_m3.value -
-                parameters.piston_displacement_term_m3.value +
-                piston_area_m2 * (parameters.deck_height_m.value -
-                                  (parameters.crank_radius_m.value +
-                                   parameters.connecting_rod_length_m.value) -
-                                  parameters.piston_compression_height_m.value);
-            const auto swept_volume_m3 = piston_area_m2 * parameters.stroke_m.value;
-            if (detail::finite_positive(clearance_volume_m3) &&
-                detail::finite_positive(swept_volume_m3)) {
-                require_optional_match(cylinder->compression_ratio,
-                                       (clearance_volume_m3 + swept_volume_m3) /
-                                           clearance_volume_m3,
-                                       "compression_ratio");
+            if (head != nullptr) {
+                const auto piston_area_m2 =
+                    std::numbers::pi * parameters.bore_m.value *
+                    parameters.bore_m.value / 4.0;
+                const auto clearance_volume_m3 =
+                    head->chamber_volume_m3.value -
+                    parameters.piston_displacement_term_m3.value +
+                    piston_area_m2 * (parameters.deck_height_m.value -
+                                      (parameters.crank_radius_m.value +
+                                       parameters.connecting_rod_length_m.value) -
+                                      parameters.piston_compression_height_m.value);
+                const auto swept_volume_m3 =
+                    piston_area_m2 * parameters.stroke_m.value;
+                const auto fixed_geometry_volume_m3 =
+                    head->chamber_volume_m3.value -
+                    parameters.piston_displacement_term_m3.value +
+                    piston_area_m2 * (parameters.deck_height_m.value -
+                                      parameters.piston_compression_height_m.value);
+                require(report,
+                        detail::finite_positive(piston_area_m2) &&
+                            detail::finite_positive(clearance_volume_m3) &&
+                            detail::finite_positive(swept_volume_m3) &&
+                            detail::finite_positive(fixed_geometry_volume_m3),
+                        ContractIssueCode::inconsistent_semantics,
+                        std::string(physics_root) + ".gas_path.heads." +
+                            cylinder->bank_id.value + ".chamber_volume_m3",
+                        "bank-head chamber and cylinder geometry must derive "
+                        "positive clearance, swept, and fixed volumes");
+                if (detail::finite_positive(clearance_volume_m3) &&
+                    detail::finite_positive(swept_volume_m3)) {
+                    require_optional_match(cylinder->compression_ratio,
+                                           (clearance_volume_m3 + swept_volume_m3) /
+                                               clearance_volume_m3,
+                                           "compression_ratio");
+                }
             }
         }
         const auto *intake_port = find_port(topology.intake_port_id.value);

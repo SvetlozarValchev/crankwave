@@ -277,7 +277,7 @@ render_failure_exit_code(const contract::FailureContext &context) noexcept {
     standard_out
         << "output_directory=" << publication_path.string() << '\n'
         << "manifest="
-        << (publication_path / artifacts::kSimulationManifestRelativePathV6).string()
+        << (publication_path / artifacts::kSimulationManifestRelativePathV7).string()
         << '\n';
     return kExitSuccess;
 }

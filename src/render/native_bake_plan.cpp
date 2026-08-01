@@ -62,7 +62,7 @@ NativeBakePlanResult derive_native_bake_plan(
     };
 
     contract::RenderManifestContent manifest_basis;
-    manifest_basis.schema_version = 6;
+    manifest_basis.schema_version = 7;
     manifest_basis.inputs =
         contract::SimulationManifestInputs{request.resolved_inputs};
     manifest_basis.provenance = request.provenance.bundle;

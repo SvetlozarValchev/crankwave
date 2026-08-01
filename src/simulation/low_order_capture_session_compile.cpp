@@ -26,7 +26,7 @@ void require(ValidationReport &report, bool condition, ContractIssueCode code,
 LowOrderCaptureCompileResult compile_low_order_capture_session(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const contract::RandomPlan &random_plan,
-    const contract::Sha256Digest &simulation_request_identity_v3_sha256,
+    const contract::Sha256Digest &simulation_request_identity_v4_sha256,
     LowOrderExecutionExtent execution_extent) {
     ValidationReport report;
     const auto *operating_profile =
@@ -94,7 +94,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
                     std::move(prescribed_result)));
         } else if (inertial != nullptr) {
             auto inertial_result = compile_low_order_inertial_dyno_v1_runtime(
-                engine, scenario, capture_plan, simulation_request_identity_v3_sha256);
+                engine, scenario, capture_plan, simulation_request_identity_v4_sha256);
             if (auto *inertial_report =
                     std::get_if<ValidationReport>(&inertial_result)) {
                 return std::move(*inertial_report);
@@ -105,7 +105,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
         } else if (free_engine != nullptr || held_dyno != nullptr ||
                    free_vehicle != nullptr) {
             auto dynamic_crank_result = compile_low_order_dynamic_crank_runtime(
-                engine, scenario, capture_plan, simulation_request_identity_v3_sha256,
+                engine, scenario, capture_plan, simulation_request_identity_v4_sha256,
                 mechanism_plan, execution_extent);
             if (auto *dynamic_crank_report =
                     std::get_if<ValidationReport>(&dynamic_crank_result)) {
@@ -116,7 +116,7 @@ LowOrderCaptureCompileResult compile_low_order_capture_session(
                 std::get<LowOrderDynamicCrankRuntime>(std::move(dynamic_crank_result)));
         } else {
             auto operating_result = compile_low_order_operating_point_v1_runtime(
-                engine, scenario, capture_plan, simulation_request_identity_v3_sha256);
+                engine, scenario, capture_plan, simulation_request_identity_v4_sha256);
             if (auto *operating_report =
                     std::get_if<ValidationReport>(&operating_result)) {
                 return std::move(*operating_report);

@@ -324,8 +324,8 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         return report;
     }
 
-    resolved.head = &engine.heads.front();
-    resolved.valvetrain = resolved.valvetrains.at(resolved.head->valvetrain.value);
+    resolved.valvetrain =
+        resolved.valvetrains.at(engine.heads.front().valvetrain.value);
 
     struct ValvetrainCams {
         const authoring::CamshaftDefinition *intake = nullptr;

@@ -173,7 +173,7 @@ resampler is not expected to reproduce a 192 kHz WAV container.
 The current generic identities are:
 
 ```text
-simulation request SHA-256: 8cb2a5a7584b3f8e53a57b453b5e39986cb45e32723e76affea12cba31b5a816
+simulation request SHA-256: e1052791be6dcb8c6e75919393ff3bb2980a0055e019cb8fae824240d38db6e7
 audition WAV byte count:    8640586
 audition WAV SHA-256:       f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552
 ```
@@ -304,7 +304,7 @@ Every audible block quantizes byte-for-byte to the accepted 8,640,000-byte PCM24
 payload with SHA-256
 `176010069c88c99a3cc8262099fa5f02eba3af9517b1c92e148d88ace869756f`.
 The clean native bake retains simulation-request SHA-256
-`8cb2a5a7584b3f8e53a57b453b5e39986cb45e32723e76affea12cba31b5a816`
+`e1052791be6dcb8c6e75919393ff3bb2980a0055e019cb8fae824240d38db6e7`
 and the 8,640,586-byte audition WAVE SHA-256
 `f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552`.
 
@@ -612,8 +612,11 @@ releases at `1.5 s`, settles before a `12 N m` load at `15 s`, unloads at `20 s`
 publishes only the `14--30 s` listening interval. Its source buses are byte-identical
 to that interval from a full-acquisition render; only the audition file's intentional
 clip-relative fades differ. Slice 10 now admits source-faithful bank-local heads,
-ports, standard valvetrains, and cams when their shared low-order physical profiles are
-execution-equivalent. The Kohler fixture has been restored to two heads, four ports,
+ports, standard valvetrains, and cams when their low-order physical profiles are
+execution-equivalent. The executable contract/runtime now retain one ordered
+chamber/runner/flow profile per bank, use separate intake/exhaust flow radii, and bind
+each cylinder by BankId; the equivalence gate remains closed until the isolated
+heterogeneous-head checkpoint. The Kohler fixture has been restored to two heads, four ports,
 two valvetrains, and four one-cylinder cams. Its complete resolved request and all five
 published WAV files are byte-identical to the accepted shared-head checkpoint. Direct
 centered rods now execute on inline, V, opposed, and custom explicit bank axes. A

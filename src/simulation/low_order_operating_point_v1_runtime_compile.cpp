@@ -113,7 +113,7 @@ find_core_route(const contract::LowOrderEngineCoreV1 &core,
 LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runtime(
     const contract::EngineSpec &engine, const contract::RenderScenario &scenario,
     const LowOrderCapturePlan &capture_plan,
-    const contract::Sha256Digest &simulation_request_identity_v3_sha256) {
+    const contract::Sha256Digest &simulation_request_identity_v4_sha256) {
     ValidationReport report;
     report.append(contract::validate_for_engine(scenario, engine));
 
@@ -130,8 +130,8 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
     require(report, preparation != nullptr, ContractIssueCode::unsupported_value,
             "scenario.preparation",
             "operating runtime requires fixed-horizon cycle sampling");
-    require(report, !simulation_request_identity_v3_sha256.is_zero(),
-            ContractIssueCode::missing_value, "simulation_request_identity_v3_sha256",
+    require(report, !simulation_request_identity_v4_sha256.is_zero(),
+            ContractIssueCode::missing_value, "simulation_request_identity_v4_sha256",
             "operating runtime requires the canonical nonzero request identity");
     if (profile == nullptr || held == nullptr || preparation == nullptr) {
         return report;
@@ -420,7 +420,7 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
         std::move(pressure_samples),
         std::move(transaction_shape),
         *fixed_horizon_frame,
-        simulation_request_identity_v3_sha256,
+        simulation_request_identity_v4_sha256,
         std::move(conditions),
         direct->gamma.value,
         profile->core.gas_path.intake.idle_throttle_plate_position_01.value,

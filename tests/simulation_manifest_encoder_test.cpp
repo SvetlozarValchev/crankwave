@@ -25,13 +25,13 @@ using namespace engine_sim_offline::contract::test;
 using namespace engine_sim_offline::identity;
 
 constexpr std::string_view kExpectedCanonicalManifestSha256 =
-    "cbf8f9b27148f3c113f130a075a87ba57c9b118c97078b58413b59419cd00eb5";
+    "5619fff81cbe7e1fb3a4ff8be3b72499787bf64a9e7f8295339a94e099f3e6a7";
 constexpr std::string_view kExpectedCanonicalRequestIdentitySha256 =
-    "8c96117afe55fff2f1c02a321f557c549faeb78c1a24ee863ea8919abba2f39b";
+    "baf979d7ca5f3ad8ee509138d4b69e996092c0bc8e46f0eceb4580d82fdb12a5";
 constexpr std::string_view kExpectedCustomizedManifestSha256 =
-    "333574b7e0d697002415910acf32cd71e64828f454b4b50c3bacf3e7b767d95d";
+    "e9b31dc3b0f5adae018938f44e4b3bf6c186387aa4772420e2dfb6b26b273c38";
 constexpr std::string_view kExpectedCustomizedRequestIdentitySha256 =
-    "3489255087c133fe827c7b1af800466cae399c1a538cc427a6fbea066119e8c9";
+    "4cd5f7db6b9d26e2192a078a4198e1cda2e7b2cd6277c2e430c61fb962ffba48";
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -66,7 +66,7 @@ void require_valid(const ValidationReport &report, std::string_view message) {
 
 [[nodiscard]] ExecutionFacts deterministic_execution() {
     return {
-        "simulation-manifest-encoder-test-v6",
+        "simulation-manifest-encoder-test-v7",
         "2026-07-28T12:34:56Z",
         std::chrono::nanoseconds{UINT64_C(1234567890)},
         "linux",
@@ -138,7 +138,7 @@ make_vtec_alternate(InputBuilder &builder, const LegacyValvetrainProfile &valvet
 
 [[nodiscard]] std::vector<std::byte>
 require_manifest_encoding(const RenderManifest &manifest) {
-    auto result = encode_simulation_manifest_v6(manifest);
+    auto result = encode_simulation_manifest_v7(manifest);
     if (const auto *error = std::get_if<RenderSinkError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
     }
@@ -148,7 +148,7 @@ require_manifest_encoding(const RenderManifest &manifest) {
 [[nodiscard]] SimulationRequestIdentityEncoding require_request_identity_encoding(
     const EngineSpec &engine, const RenderScenario &scenario,
     const RandomPlan &random_plan, const ProvenanceBundleRef &provenance) {
-    auto result = encode_simulation_request_identity_v3(engine, scenario, random_plan,
+    auto result = encode_simulation_request_identity_v4(engine, scenario, random_plan,
                                                         provenance);
     if (const auto *error = std::get_if<SimulationRequestIdentityError>(&result)) {
         throw std::runtime_error{error->detail_code + ": " + error->message};
@@ -158,7 +158,7 @@ require_manifest_encoding(const RenderManifest &manifest) {
 
 void expect_manifest_error(const RenderManifest &manifest,
                            std::string_view detail_code) {
-    const auto result = encode_simulation_manifest_v6(manifest);
+    const auto result = encode_simulation_manifest_v7(manifest);
     const auto *error = std::get_if<RenderSinkError>(&result);
     expect(error != nullptr, "invalid simulation manifest unexpectedly encoded");
     expect(error->kind == RenderSinkErrorKind::protocol_violation,
@@ -172,7 +172,7 @@ void expect_request_identity_error(const EngineSpec &engine,
                                    const RandomPlan &random_plan,
                                    const ProvenanceBundleRef &provenance,
                                    std::string_view detail_code) {
-    const auto result = encode_simulation_request_identity_v3(engine, scenario,
+    const auto result = encode_simulation_request_identity_v4(engine, scenario,
                                                               random_plan, provenance);
     const auto *error = std::get_if<SimulationRequestIdentityError>(&result);
     expect(error != nullptr,
@@ -199,8 +199,8 @@ struct GoldenHashes {
 
     const auto manifest_document = as_string(first_manifest);
     constexpr std::string_view kManifestPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v6\","
-        "\"content\":{\"schema_version\":6,\"inputs\":{\"kind\":\"simulation_v5\","
+        "{\"wire_schema\":\"engine-sim-offline.render-manifest.simulation.v7\","
+        "\"content\":{\"schema_version\":7,\"inputs\":{\"kind\":\"simulation_v6\","
         "\"value\":{\"resolved\":{\"engine\":";
     expect(manifest_document.starts_with(kManifestPrefix),
            "simulation manifest root, discriminator, or member order changed");
@@ -229,7 +229,7 @@ struct GoldenHashes {
                std::string::npos,
            "presentation-calibration v2 was not emitted");
     expect(manifest_document.find("\"algorithm_record\":") == std::string::npos,
-           "retired presentation algorithm record leaked into manifest v6");
+           "retired presentation algorithm record leaked into manifest v7");
 
     constexpr std::string_view kProfilePrefix =
         "\"physics_profile\":{\"kind\":\"low_order_operating_point_v1\",\"value\":{"
@@ -275,7 +275,7 @@ struct GoldenHashes {
     expect(manifest_document.find("\"physical_net_complete\":") == std::string::npos &&
                manifest_document.find("\"cycle_integration_available\":") ==
                    std::string::npos,
-           "retired torque projection leaked into manifest v6");
+           "retired torque projection leaked into manifest v7");
 
     const auto &resolved = simulation_inputs(fixture.manifest.content);
     const auto first_identity = require_request_identity_encoding(
@@ -291,7 +291,7 @@ struct GoldenHashes {
 
     const auto identity_document = as_string(first_identity.bytes);
     constexpr std::string_view kIdentityPrefix =
-        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v3\","
+        "{\"wire_schema\":\"engine-sim-offline.simulation-request-identity.v4\","
         "\"engine\":";
     expect(identity_document.starts_with(kIdentityPrefix),
            "request identity root or member order changed");
@@ -480,7 +480,7 @@ void test_vtec_request_identity_wire_shape() {
 void test_fail_closed_boundaries() {
     SimulationFixture fixture;
 
-    for (const auto schema_version : {UINT32_C(5), UINT32_C(7)}) {
+    for (const auto schema_version : {UINT32_C(6), UINT32_C(8)}) {
         auto unsupported_schema = fixture.manifest;
         unsupported_schema.content.schema_version = schema_version;
         expect_manifest_error(unsupported_schema,

@@ -177,7 +177,7 @@ void expect_exact_manifest(const contract::RenderSuccess &success,
                            const VerifyingMemorySink &sink) {
     const auto &manifest = success.manifest;
     const auto &content = manifest.content;
-    expect(content.schema_version == 6U,
+    expect(content.schema_version == 7U,
            "generic render manifest schema changed");
     expect(sink.output_contract == content.output_contract &&
                content.output_contract.source_matrix_id ==
@@ -303,7 +303,7 @@ RenderIdentityObservation verify_render_success(
     expect_exact_info(success.manifest.content, audition);
 
     return {
-        digest_hex(inertial.simulation_request_identity_v3_sha256),
+        digest_hex(inertial.simulation_request_identity_v4_sha256),
         static_cast<std::uint64_t>(audition_artifact.bytes.size()),
         digest_hex(contract::sha256(audition_artifact.bytes)),
     };

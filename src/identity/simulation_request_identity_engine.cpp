@@ -387,8 +387,6 @@ write_legacy_cylinder_parameters(CanonicalJsonWriter &writer,
           write_resolved(writer, parameters.deck_height_m, write_f64) &&
           writer.key("piston_compression_height_m") &&
           write_resolved(writer, parameters.piston_compression_height_m, write_f64) &&
-          writer.key("head_chamber_volume_m3") &&
-          write_resolved(writer, parameters.head_chamber_volume_m3, write_f64) &&
           writer.key("piston_displacement_term_m3") &&
           write_resolved(writer, parameters.piston_displacement_term_m3, write_f64) &&
           writer.key("piston_mass_kg") &&
@@ -570,7 +568,7 @@ write_legacy_valve_flow_point(CanonicalJsonWriter &writer,
 }
 
 [[nodiscard]] bool write_legacy_head(CanonicalJsonWriter &writer,
-                                     const contract::LegacyCylinderHeadProfile &head) {
+                                     const contract::LegacyBankHeadProfile &head) {
     const auto write_flow_points = [](CanonicalJsonWriter &output, const auto &points) {
         return write_array(output, points,
                            [](CanonicalJsonWriter &array_writer,
@@ -579,7 +577,11 @@ write_legacy_valve_flow_point(CanonicalJsonWriter &writer,
                                                                     point);
                            });
     };
-    return writer.begin_object() && writer.key("intake_runner_base_volume_m3") &&
+    return writer.begin_object() && writer.key("bank_id") &&
+           write_stable_id(writer, head.bank_id) &&
+           writer.key("chamber_volume_m3") &&
+           write_resolved(writer, head.chamber_volume_m3, write_f64) &&
+           writer.key("intake_runner_base_volume_m3") &&
            write_resolved(writer, head.intake_runner_base_volume_m3, write_f64) &&
            writer.key("intake_runner_cross_section_area_m2") &&
            write_resolved(writer, head.intake_runner_cross_section_area_m2,
@@ -589,8 +591,10 @@ write_legacy_valve_flow_point(CanonicalJsonWriter &writer,
            writer.key("exhaust_runner_cross_section_area_m2") &&
            write_resolved(writer, head.exhaust_runner_cross_section_area_m2,
                           write_f64) &&
-           writer.key("flow_table_triangle_radius_m") &&
-           write_resolved(writer, head.flow_table_triangle_radius_m, write_f64) &&
+           writer.key("intake_flow_triangle_radius_m") &&
+           write_resolved(writer, head.intake_flow_triangle_radius_m, write_f64) &&
+           writer.key("exhaust_flow_triangle_radius_m") &&
+           write_resolved(writer, head.exhaust_flow_triangle_radius_m, write_f64) &&
            writer.key("intake_flow") && write_flow_points(writer, head.intake_flow) &&
            writer.key("exhaust_flow") && write_flow_points(writer, head.exhaust_flow) &&
            writer.end_object();
@@ -647,7 +651,12 @@ write_legacy_gas_path(CanonicalJsonWriter &writer,
     return writer.begin_object() && writer.key("intake_topology") &&
            write_legacy_intake_topology(writer, gas_path.intake_topology) &&
            writer.key("intake") && write_legacy_intake(writer, gas_path.intake) &&
-           writer.key("head") && write_legacy_head(writer, gas_path.head) &&
+           writer.key("heads") &&
+           write_array(writer, gas_path.heads,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacyBankHeadProfile &head) {
+                           return write_legacy_head(output, head);
+                       }) &&
            writer.key("exhaust_routes") &&
            write_array(writer, gas_path.exhaust_routes,
                        [](CanonicalJsonWriter &output,
