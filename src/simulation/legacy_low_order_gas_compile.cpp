@@ -54,6 +54,13 @@ struct AdmittedCylinder {
     std::uint64_t pcg32_stream = 0;
 };
 
+struct AdmittedCylinderMechanismGeometry {
+    double bore_m = 0.0;
+    double piston_area_m2 = 0.0;
+    double fixed_geometry_volume_m3 = 0.0;
+    double initial_chamber_volume_m3 = 0.0;
+};
+
 void require(ValidationReport &report, bool condition, ContractIssueCode code,
              std::string path, std::string message) {
     if (!condition) {
@@ -220,18 +227,32 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     const ScenarioControlSchedule &schedule,
     SharedMechanismKinematicsPlan mechanism_plan) {
     ValidationReport report;
-    const auto *direct_plan =
-        direct_mechanism_kinematics_plan(mechanism_plan);
+    const auto *direct_plan = direct_mechanism_kinematics_plan(mechanism_plan);
+    const auto *radial_plan =
+        one_level_master_rod_mechanism_kinematics_plan(mechanism_plan);
     const bool plan_matches_source =
         mechanism_kinematics_plan_matches_source(mechanism_plan, engine, core);
-    require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
-            "mechanism_plan",
-            "legacy gas requires one compiled direct mechanism plan");
+    require(report, direct_plan != nullptr || radial_plan != nullptr,
+            ContractIssueCode::unsupported_value, "mechanism_plan",
+            "legacy gas requires one compiled direct or one-level master-rod "
+            "mechanism plan");
     require(report, plan_matches_source, ContractIssueCode::inconsistent_semantics,
             "mechanism_plan",
-            "compiled direct mechanism plan does not exactly match its resolved "
+            "compiled mechanism plan does not exactly match its resolved "
             "engine source");
-    if (direct_plan == nullptr || !plan_matches_source) {
+    if (radial_plan != nullptr) {
+        require(report,
+                std::holds_alternative<contract::PrescribedKinematicSweep>(
+                    scenario.mode),
+                ContractIssueCode::unsupported_value, "scenario.mode",
+                "one-level master-rod gas is admitted only for prescribed "
+                "kinematic sweeps");
+        require(report,
+                schedule.execution_extent().finite_physics_frame_count().has_value(),
+                ContractIssueCode::unsupported_value, "schedule.execution_extent",
+                "one-level master-rod gas requires a finite prescribed horizon");
+    }
+    if (!report.ok()) {
         return report;
     }
 
@@ -670,21 +691,19 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
 
     std::vector<AdmittedCylinder> admitted_cylinders(engine.cylinders.size());
     std::unordered_set<std::uint32_t> mechanism_cylinder_ids;
+    const std::size_t mechanism_plan_cylinder_count =
+        direct_plan != nullptr ? direct_plan->cylinders.size()
+                               : radial_plan->cylinders.size();
     for (std::size_t cylinder_index = 0; cylinder_index < engine.cylinders.size();
          ++cylinder_index) {
         if (cylinder_index >= mechanism.cylinders.size() ||
-            cylinder_index >= direct_plan->cylinders.size()) {
+            cylinder_index >= mechanism_plan_cylinder_count) {
             break;
         }
         const auto &engine_cylinder = engine.cylinders[cylinder_index];
         const auto &assembly = mechanism.cylinders[cylinder_index];
         const auto &topology = assembly.topology;
         const auto &parameters = assembly.parameters;
-        const auto *direct =
-            std::get_if<contract::LegacyDirectJournalKinematics>(
-                &assembly.kinematics);
-        const auto &planned = direct_plan->cylinders[cylinder_index];
-        const auto &model = planned.crank;
         const std::string path = "engine.physics_profile.mechanism.cylinders[" +
                                  std::to_string(cylinder_index) + "]";
 
@@ -769,44 +788,93 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 path + ".topology.blowby_edge_id");
         }
 
-        const bool numeric_values_valid =
-            direct != nullptr && finite_positive(parameters.bore_m.value) &&
-            finite_positive(direct->crank_radius_m.value) &&
-            finite_positive(parameters.connecting_rod_length_m.value) &&
-            direct->crank_radius_m.value <
-                parameters.connecting_rod_length_m.value &&
-            finite_positive(parameters.deck_height_m.value) &&
-            finite_positive(parameters.piston_compression_height_m.value) &&
-            finite_positive(parameters.head_chamber_volume_m3.value) &&
-            std::isfinite(parameters.piston_displacement_term_m3.value) &&
-            std::isfinite(direct->journal_angle_rad.value) &&
-            std::isfinite(parameters.ignition_wire_angle_rad.value) &&
-            finite_nonnegative(parameters.header_primary_length_m.value);
-        require(report, numeric_values_valid, ContractIssueCode::invalid_value,
-                path + ".parameters",
-                "cylinder gas geometry inputs are outside the admitted domain");
+        std::optional<AdmittedCylinderMechanismGeometry> mechanism_geometry;
+        if (direct_plan != nullptr) {
+            const auto *direct =
+                std::get_if<contract::LegacyDirectJournalKinematics>(
+                    &assembly.kinematics);
+            const auto &planned = direct_plan->cylinders[cylinder_index];
+            const auto &model = planned.crank;
 
-        const double piston_area_m2 = model.piston_area_m2;
-        const double fixed_geometry_volume_m3 =
-            planned.fixed_geometry_volume_m3;
-        const bool direct_model_valid =
-            numeric_values_valid &&
-            std::isfinite(model.geometric_tdc_rad) &&
-            finite_positive(model.piston_area_m2) &&
-            finite_positive(model.clearance_volume_m3) &&
-            finite_positive(planned.fixed_geometry_volume_m3);
-        require(report, direct_model_valid, ContractIssueCode::invalid_value,
-                path + ".mechanism_plan",
-                "compiled direct mechanism plan contains invalid derived cylinder "
-                "geometry");
+            const bool numeric_values_valid =
+                direct != nullptr && finite_positive(parameters.bore_m.value) &&
+                finite_positive(direct->crank_radius_m.value) &&
+                finite_positive(parameters.connecting_rod_length_m.value) &&
+                direct->crank_radius_m.value <
+                    parameters.connecting_rod_length_m.value &&
+                finite_positive(parameters.deck_height_m.value) &&
+                finite_positive(parameters.piston_compression_height_m.value) &&
+                finite_positive(parameters.head_chamber_volume_m3.value) &&
+                std::isfinite(parameters.piston_displacement_term_m3.value) &&
+                std::isfinite(direct->journal_angle_rad.value) &&
+                std::isfinite(parameters.ignition_wire_angle_rad.value) &&
+                finite_nonnegative(parameters.header_primary_length_m.value);
+            require(report, numeric_values_valid, ContractIssueCode::invalid_value,
+                    path + ".parameters",
+                    "cylinder gas geometry inputs are outside the admitted domain");
 
-        const auto initial_sample =
-            evaluate_centered_slider_crank(model, schedule.initial_theta_rad(), 0.0);
-        require(report,
-                direct_model_valid && initial_sample.valid &&
-                    finite_positive(initial_sample.chamber_volume_m3),
-                ContractIssueCode::invalid_value, path + ".initial_chamber_volume",
-                "fresh analytic chamber state must have a finite positive volume");
+            const double piston_area_m2 = model.piston_area_m2;
+            const double fixed_geometry_volume_m3 =
+                planned.fixed_geometry_volume_m3;
+            const bool direct_model_valid =
+                numeric_values_valid &&
+                std::isfinite(model.geometric_tdc_rad) &&
+                finite_positive(model.piston_area_m2) &&
+                finite_positive(model.clearance_volume_m3) &&
+                finite_positive(planned.fixed_geometry_volume_m3);
+            require(report, direct_model_valid, ContractIssueCode::invalid_value,
+                    path + ".mechanism_plan",
+                    "compiled direct mechanism plan contains invalid derived cylinder "
+                    "geometry");
+
+            const auto initial_sample = evaluate_centered_slider_crank(
+                model, schedule.initial_theta_rad(), 0.0);
+            require(report,
+                    direct_model_valid && initial_sample.valid &&
+                        finite_positive(initial_sample.chamber_volume_m3),
+                    ContractIssueCode::invalid_value,
+                    path + ".initial_chamber_volume",
+                    "fresh analytic chamber state must have a finite positive volume");
+            if (direct_model_valid && initial_sample.valid &&
+                finite_positive(initial_sample.chamber_volume_m3)) {
+                mechanism_geometry = {
+                    parameters.bore_m.value,
+                    piston_area_m2,
+                    fixed_geometry_volume_m3,
+                    initial_sample.chamber_volume_m3,
+                };
+            }
+        } else {
+            const auto &planned = radial_plan->cylinders[cylinder_index];
+            const bool radial_model_valid =
+                finite_positive(planned.bore_m) &&
+                finite_positive(planned.piston_area_m2) &&
+                finite_positive(planned.fixed_geometry_volume_m3) &&
+                std::isfinite(planned.ignition_wire_angle_rad) &&
+                finite_nonnegative(parameters.header_primary_length_m.value);
+            require(report, radial_model_valid, ContractIssueCode::invalid_value,
+                    path + ".mechanism_plan",
+                    "compiled one-level master-rod plan contains invalid gas "
+                    "geometry");
+
+            const auto initial_sample = evaluate_one_level_master_rod_plan(
+                *radial_plan, cylinder_index, 0.0, 0.0);
+            require(report,
+                    radial_model_valid && initial_sample.valid &&
+                        finite_positive(initial_sample.chamber_volume_m3),
+                    ContractIssueCode::invalid_value,
+                    path + ".initial_chamber_volume",
+                    "fresh analytic chamber state must have a finite positive volume");
+            if (radial_model_valid && initial_sample.valid &&
+                finite_positive(initial_sample.chamber_volume_m3)) {
+                mechanism_geometry = {
+                    planned.bore_m,
+                    planned.piston_area_m2,
+                    planned.fixed_geometry_volume_m3,
+                    initial_sample.chamber_volume_m3,
+                };
+            }
+        }
 
         double runner_volume_m3 = 0.0;
         double primary_volume_m3 = 0.0;
@@ -847,7 +915,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             exhaust_valve_edge_index.has_value() &&
             primary_collector_edge_index.has_value() && blowby_edge_index.has_value() &&
             route_lane_index.has_value() && stream_index.has_value() &&
-            direct_model_valid && initial_sample.valid &&
+            mechanism_geometry.has_value() &&
             finite_positive(runner_volume_m3) &&
             finite_positive(primary_volume_m3);
         if (all_bindings_valid) {
@@ -862,10 +930,10 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 *primary_collector_edge_index,
                 *blowby_edge_index,
                 *route_lane_index,
-                parameters.bore_m.value,
-                piston_area_m2,
-                fixed_geometry_volume_m3,
-                initial_sample.chamber_volume_m3,
+                mechanism_geometry->bore_m,
+                mechanism_geometry->piston_area_m2,
+                mechanism_geometry->fixed_geometry_volume_m3,
+                mechanism_geometry->initial_chamber_volume_m3,
                 runner_volume_m3,
                 primary_volume_m3,
                 stream.initial_state,

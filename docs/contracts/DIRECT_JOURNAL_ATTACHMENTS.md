@@ -1,8 +1,8 @@
 # Journal attachment graph
 
-Status: topology sub-slice 10C2b6; graph, typed core, pure geometry, certified
+Status: topology sub-slice 10C2b7; graph, typed core, pure geometry, certified
 immutable mechanism plan, tagged mechanics coordinates, and internal prescribed
-mechanics implemented; master-rod gas, capture, and public execution closed
+mechanics/gas implemented; master-rod capture and public execution closed
 
 ## One ownership path
 
@@ -107,8 +107,16 @@ angle, preserves stable cylinder and spark order, and rejects externally supplie
 post-step crank motion. Completion remains terminal and stable across every advance
 overload.
 
+The internal gas compiler admits the same source-bound plan only for a finite
+`PrescribedKinematicSweep`. Bore, piston area, fixed chamber geometry, and the fresh
+body-angle-zero chamber sample come from that plan and its evaluator. Subsequent
+chamber work and indicated torque consume the common mechanics volume and
+`dV/dtheta`; the gas path never reconstructs a slave stroke, displacement, or
+clearance shortcut. Cylinder and torque reductions retain authored order. This does
+not grant crank-motion ownership.
+
 The public engine compiler still rejects this plan at one explicit execution gate, so
-it cannot silently enter gas, crank, capture, or an unsupported mechanics owner. The
+it cannot silently enter crank, capture, or an unsupported mechanics/gas owner. The
 resolution-only nominal stroke, compression, and displacement fields in `EngineSpec`
 remain non-executable master-rod facts. Nested attachments and coupled reactions are
 not implemented in this sub-slice.
@@ -140,7 +148,7 @@ Direct journal IDs, crankshaft ownership, phases, cylinder bindings, ordering, a
 resolved provenance remain unchanged. Existing direct engines continue through the
 same resolver/runtime path and canonical request shape. Master-rod public execution
 remains closed even though its immutable chamber-geometry plan is source-bound and
-internal prescribed mechanics is executable. The first runtime gate is limited to
+internal prescribed mechanics/gas are executable. The first runtime gate is limited to
 prescribed external-speed motion;
 articulated inertia, coupled wall reactions, torque-owning operation, and dynamic
 operating modes remain later, separately gated work.

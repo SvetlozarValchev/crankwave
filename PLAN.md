@@ -626,8 +626,10 @@ The certified one-level master-rod plan now has an internal mechanics consumer f
 finite prescribed kinematic sweeps. It emits stable root/slave cylinder order, tagged
 axis coordinates, common chamber volume derivatives, and ordered ignition crossings
 directly from the immutable evaluator. It has no dynamic-crank, inertia, or torque
-authority, and the public engine compiler remains closed until gas and capture consume
-the same plan.
+authority. Internal gas now initializes and advances the same certified geometry under
+finite prescribed motion, consuming common chamber volume and `dV/dtheta` without
+nominal slave-cylinder shortcuts. The public engine compiler remains closed until
+capture consumes this path.
 
 The direct journal contract is now a single tagged attachment path:
 `cylinder.journal -> journal.crankshaft`. Every current engine uses required
