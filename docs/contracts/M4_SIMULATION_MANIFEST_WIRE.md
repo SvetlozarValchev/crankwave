@@ -606,7 +606,7 @@ selects spark ignition, and another combustion mode requires its own admitted mo
 The mechanically generated canonical digest is:
 
 ```text
-df65b324c78d43c1b651ab69d217483d3b489199fbb1c5a2a4ad9da7e2143efd
+72075541dbfce6af00628478965eacb5c1063f924b967be693731c36b36b91dd
 ```
 
 The independent BMW parity-request factory test pins the same digest. It is not
