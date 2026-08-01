@@ -106,6 +106,14 @@ const WORKBENCH_PACKAGES = Object.freeze([
       "/data/engines/harley-evolution-1340-cleanroom/scenarios/inertial-dyno-800-5000rpm.json",
   }),
   Object.freeze({
+    id: "harley-shovelhead-source-pull",
+    label: "Harley-Davidson Shovelhead · Source pull 1000–5000 rpm",
+    executionKind: SessionExecutionKind.finiteScenario,
+    engineUrl: "/data/engines/shovelhead-bank-local-heads/engine.json",
+    scenarioUrl:
+      "/data/engines/shovelhead-bank-local-heads/scenarios/source-pull-1000-5000rpm.json",
+  }),
+  Object.freeze({
     id: "bmw-m52tub28-free-rev",
     label: "BMW M52TUB28 · Interactive free rev",
     executionKind: SessionExecutionKind.openEnded,

@@ -52,6 +52,12 @@ const NEW_REPOSITORY_PACKAGES = Object.freeze([
     800,
     "800-5000",
   ),
+  {
+    packageId: "harley-shovelhead-source-pull",
+    engineId: "shovelhead-bank-local-heads",
+    scenarioId: "shovelhead-bank-local-heads-source-pull-1000-5000rpm",
+    executionKind: FINITE_EXECUTION_KIND,
+  },
   ...repositoryPackageExpectations(
     "bmw-m52tub28",
     "bmw-m52tub28-cleanroom",
@@ -940,6 +946,9 @@ async function main() {
         await verifyHeldDynoBench(cdp);
       }
       if (expectation.packageId === "bmw-m52tub28-canonical-shutdown") {
+        await verifyFiniteProcedure(cdp);
+      }
+      if (expectation.packageId === "harley-shovelhead-source-pull") {
         await verifyFiniteProcedure(cdp);
       }
       if (expectation.packageId === "bmw-m52tub28-launch-first-second") {
