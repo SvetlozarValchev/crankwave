@@ -3,7 +3,7 @@
 Status: design and implementation inventory  
 Pristine reference: Ange Yaghi `engine-sim` commit
 `85f7c3b959a908ed5232ede4f1a4ac7eafe6b630`  
-Clean-room inventory date: 2026-08-01
+Clean-room inventory date: 2026-08-02
 
 ## Answer
 
@@ -244,7 +244,7 @@ the remainder as explicit capability diagnostics:
 | Chen--Flynn cycle-mean loss coefficients and required oil temperature (clean-room extension, not a pristine capability) | `engine.losses` with `type: "chen_flynn_cycle_mean"` | **Low-order executed** in operating-point accounting and as one-cycle-lagged inertial-dyno resistance; dynamic FreeEngine/HeldDyno/FreeVehicle use it only to certify fixed warm preparation, discard the accountant at release, and publish released cycle integration as unavailable | Generic compilation selects the registered method and derives torque-term accounting without an engine-name branch; do not call it pristine parity. |
 | Accessory-configuration URI and content hash | `engine.accessory_configurations[]` referenced by the selected loss model | **Metadata/evidence only**; current execution records identity and digest but does not interpret payload bytes | Do not expose it as a power/audio tuning surface until a typed accessory-load schema is executed. |
 | Dyno min/max/hold step defaults | `rig.dyno_defaults`, not engine physics | **Partial**; package JSON parses and resolves the defaults with provenance, but they do not schedule a run or drive a UI sequence | Native and browser UI generate the same held-point sequence. |
-| Simulation frequency | Session/render quality | **Typed core** through render rates | Identical resolved rates reach native offline and WASM sessions. |
+| Simulation frequency | Session/render quality | **Partial**; native and WASM receive the same resolved clocks, but the low-order physics, capture, exhaust excitation, and propagation-delay path currently require exactly 10 kHz. Canonical source and delivery remain 192 kHz | Generalize the executable clocks without changing any existing 10 kHz fixture, then prove one non-10-kHz physical/capture request and derive propagation delay from that actual rate. |
 
 ### Cranktrain, banks, and cylinders
 

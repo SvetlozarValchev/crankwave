@@ -4,9 +4,9 @@ Status: active — headless parity completion
 
 Branch: `clean-room/bmw-baseline`
 
-Date: 2026-08-01
+Date: 2026-08-02
 
-Current checkpoint: **slice 10 topology closure — co-centered rigid multiple-crankshaft dynamics**
+Current checkpoint: **post-slice-15 parity closure — per-cylinder blowby**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -592,10 +592,11 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--9 and 11--14 are executable and accepted for the currently
+Current progress: slices 1--9 and 11--15 are executable and accepted for the currently
 admitted topology. Slice 10 remains open for the isolated general-topology commits
-listed below. Slice 14's capability-driven UI and continuous FreeEngine, HeldDyno, and
-FreeVehicle lifetimes are accepted. Slice 15 is accepted. Slice 12's pristine
+listed below, and Slice 16 remains the final curated parity recording gate. Slice 14's
+capability-driven UI and continuous FreeEngine, HeldDyno, and FreeVehicle lifetimes
+are accepted. Slice 15 is accepted. Slice 12's pristine
 vehicle/transmission equations and explicit non-parity service-brake boundary are
 frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md`](docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md).
@@ -810,3 +811,55 @@ local proof hashes are in
 Every sound-bearing slice keeps the existing BMW renderer, routing, conditioning, IR,
 and mastering unchanged. Listen immediately after the one intended behavior changes;
 do not stack later slices to excuse a bad result.
+
+### 9.4 Parity-closure queue
+
+The architecture cutover and operating-bench slices are complete. Finish the remaining
+engine-definition parity in this order, with one coherent commit per bullet:
+
+1. execute each referenced piston's authored blowby restriction independently;
+2. execute connecting-rod center of mass and piston wrist-pin geometry where pristine
+   physics consumes them;
+3. complete intake-local molecular-AFR ownership without duplicating fuel authority;
+4. generalize physics, capture, excitation, and propagation-delay rate ownership while
+   retaining exact output for every existing 10 kHz fixture;
+5. execute bank-local VTEC selectors through the already admitted bank-local head and
+   cam-profile topology;
+6. execute dynamic one-level master/slave mechanisms and only the remaining meaningful
+   multiple-crankshaft cases supported by pristine;
+7. make native audition saturation explicit, then render, listen to, and freeze Slice
+   16's representative fixed-cam inline/V, VTEC, governed, master/slave, and drivetrain
+   procedures;
+8. declare headless executable parity complete only after the Slice 16 listening gate
+   is accepted.
+
+An implementation that leaves PCM unchanged is proved headlessly. Any intentional or
+unexpected PCM change stops the queue: render the unchanged baseline and the candidate
+from the same authored procedure, publish both paths and hashes, and audition them
+before beginning the next sound-bearing bullet. A later milestone may not be used to
+explain or conceal a rejected intermediate sound.
+
+### 9.5 Verified post-parity fidelity queue
+
+The production-fidelity work begins only after parity closure. Each item is an isolated
+candidate with the accepted parity renderer as its control:
+
+1. audition a higher physical source rate with propagation delays derived from the
+   actual capture clock; retain the existing windowed-sinc reconstruction;
+2. preserve per-cylinder lanes through primary transfer and merge them only at the
+   physical collector, beginning with a byte-identical architectural refactor;
+3. add a separately published intake source bus;
+4. add mechanical/valvetrain/block and starter buses independently;
+5. couple combustion variation and flow noise to combustion work, valve flow, and
+   pressure ratio rather than granting static generic jitter/noise sole authority;
+6. add measured or explicit catalyst, resonator, muffler, and outlet transfer with
+   temperature/load state, retaining the accepted static IR as the control until a
+   candidate is accepted;
+7. preserve simultaneous mono source/route stems for host-owned 3D emitters, adding
+   stereo, cabin, or microphone-array delivery only for products that require it.
+
+This queue does not include a resampler rewrite, removal of an 8 kHz master filter,
+removal of adaptive leveling/soft clipping, or an upgrade from 44.1 kHz PCM16 output:
+the current renderer already uses windowed-sinc reconstruction, has no such master
+filter or dynamics processor, and publishes 192 kHz Float32/PCM24 audio. Mono 44.1 kHz
+PCM16 is currently an input-IR restriction, not the engine output format.
