@@ -358,8 +358,8 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
                        std::get_if<authoring::VtecValvetrain>(&valvetrain.kind)) {
             if (engine.heads.size() != 1U) {
                 add(report, DiagnosticCode::unsupported_capability, path + "/type",
-                    "multiple execution-equivalent heads currently admit standard "
-                    "valvetrains only");
+                    "multiple bank-local heads currently admit standard valvetrains "
+                    "only");
             }
             cams.intake = find_camshaft(vtec->base_intake_camshaft,
                                         path + "/base_intake_camshaft");

@@ -215,47 +215,6 @@ void admit_engine_physical_model(ModelContext &resolved,
         add(report, DiagnosticCode::unsupported_capability, "/engine/heads",
             "the admitted head topology requires a representative intake and "
             "exhaust port pair");
-    } else {
-        const double representative_chamber_volume_m3 =
-            legacy_si_value(representative_head->chamber_volume);
-        for (std::size_t index = 0; index < engine.heads.size(); ++index) {
-            if (!same_binary64(legacy_si_value(engine.heads[index].chamber_volume),
-                               representative_chamber_volume_m3)) {
-                add(report, DiagnosticCode::unsupported_capability,
-                    pointer_index("/engine/heads", index) + "/chamber_volume",
-                    "the shared low-order runtime requires bit-identical chamber "
-                    "volume across execution-equivalent heads");
-            }
-        }
-        for (std::size_t index = 0; index < engine.ports.size(); ++index) {
-            const auto &port = engine.ports[index];
-            const auto &representative =
-                port.kind == authoring::PortKind::intake ? *intake_port : *exhaust_port;
-            if (!same_binary64(legacy_si_value(port.runner_volume),
-                               legacy_si_value(representative.runner_volume)) ||
-                !same_binary64(
-                    legacy_si_value(port.runner_cross_section_area),
-                    legacy_si_value(representative.runner_cross_section_area)) ||
-                port.flow_curve.value != representative.flow_curve.value) {
-                add(report, DiagnosticCode::unsupported_capability,
-                    pointer_index("/engine/ports", index),
-                    "the shared low-order runtime requires same-kind ports to have "
-                    "bit-identical runner geometry and the same flow curve");
-            }
-        }
-        const auto intake_curve = resolved.curves.find(intake_port->flow_curve.value);
-        const auto exhaust_curve = resolved.curves.find(exhaust_port->flow_curve.value);
-        if (intake_curve != resolved.curves.end() &&
-            exhaust_curve != resolved.curves.end() &&
-            (!intake_curve->second->triangle_filter_radius.has_value() ||
-             !exhaust_curve->second->triangle_filter_radius.has_value() ||
-             !same_binary64(
-                 legacy_si_value(*intake_curve->second->triangle_filter_radius),
-                 legacy_si_value(*exhaust_curve->second->triangle_filter_radius)))) {
-            add(report, DiagnosticCode::unsupported_capability, "/engine/ports",
-                "the current shared-head runtime requires bit-identical intake "
-                "and exhaust flow-table triangle radii");
-        }
     }
 
     std::unordered_set<std::string> used_journals;

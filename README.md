@@ -101,9 +101,10 @@ custom explicit bank axes; a pristine-derived Subaru EJ25 fixture proves the opp
 bank/journal mapping across a bounded dynamic capture. Banks may retain distinct
 bank-local heads, ports, standard valvetrains, and cams. The executable core now
 materializes one chamber/runner/flow profile per bank and binds each cylinder through
-its bank identity, while admission still requires those physical values and fixed-cam
-shapes to be exactly execution-equivalent. Heterogeneous definitions therefore still
-fail closed. Standard fixed valvetrains accept either
+its bank identity. Chamber volume, intake/exhaust runner geometry, flow curves, and
+the two flow-sampling radii may differ by bank. Piston blowby remains one identical
+shared restriction, and fixed-cam shapes retain their existing common-shape admission
+boundary. Standard fixed valvetrains accept either
 harmonic lobe generators or explicit sampled angle-to-lift profiles through the same
 runtime sampler.
 Finite JSON `held_dyno` scenarios now drive that same crank through a bounded signed

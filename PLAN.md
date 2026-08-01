@@ -612,25 +612,31 @@ releases at `1.5 s`, settles before a `12 N m` load at `15 s`, unloads at `20 s`
 publishes only the `14--30 s` listening interval. Its source buses are byte-identical
 to that interval from a full-acquisition render; only the audition file's intentional
 clip-relative fades differ. Slice 10 now admits source-faithful bank-local heads,
-ports, standard valvetrains, and cams when their low-order physical profiles are
-execution-equivalent. The executable contract/runtime now retain one ordered
-chamber/runner/flow profile per bank, use separate intake/exhaust flow radii, and bind
-each cylinder by BankId; the equivalence gate remains closed until the isolated
-heterogeneous-head checkpoint. The Kohler fixture has been restored to two heads, four ports,
-two valvetrains, and four one-cylinder cams. Its complete resolved request and all five
-published WAV files are byte-identical to the accepted shared-head checkpoint. Direct
+ports, standard valvetrains, and cams. The executable contract/runtime retain one
+ordered chamber/runner/flow profile per bank, use separate intake/exhaust flow radii,
+and bind each cylinder by BankId. Bank-local chamber volume, runner geometry, and flow
+tables may differ while piston blowby remains one identical shared restriction and the
+existing common fixed-cam-shape and multi-head VTEC gates remain closed. The
+pristine-derived Shovelhead A/B fixture swaps only its four
+bank-local port-flow references; repeat A renders are byte-identical and A differs
+from B. Two generated controls additionally leave the front or rear profile unchanged
+while changing only the other bank; both differ from A, excluding collapse to either
+the first or last representative profile. The Kohler fixture has been
+restored to two heads, four ports, two valvetrains, and four one-cylinder cams. Its
+complete resolved request and all five published WAV files are byte-identical to the
+accepted shared-head checkpoint. Direct
 centered rods now execute on inline, V, opposed, and custom explicit bank axes. A
 pristine-derived Subaru EJ25 fixture preserves its antipodal banks, direct journal
 bindings, and opposed mechanism pairs across a bounded runtime capture. More general
 ignition wires now preserve their public sharing identity and execute pristine's
 stateless one-post-to-many-cylinder fan-out. A shared-wire inline twin and an
 equal-angle split-wire twin retain different canonical engine identities while
-producing byte-identical PCM. Heterogeneous heads, separate intakes, and multiple
-crankshafts remain isolated follow-up commits within slice 10. The ignition source
+producing byte-identical PCM. Separate intakes and multiple crankshafts remain isolated
+follow-up commits within slice 10. The ignition source
 authority is frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md`](docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md).
-Before heterogeneous-head execution, exhaust-primary cross-section ownership is
-singular: the referenced head exhaust port owns runner/primary area. The former
+Exhaust-primary cross-section ownership is singular: the referenced bank head's
+exhaust port owns runner/primary area. The former
 execution-inert duplicate on each exhaust system was deleted from the greenfield JSON
 contract without an alias.
 

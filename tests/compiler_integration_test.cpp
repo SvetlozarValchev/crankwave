@@ -1714,7 +1714,7 @@ void test_equivalent_split_bank_heads_normalize_to_exact_execution() {
                                "equivalent split-head V-six");
 }
 
-void test_heterogeneous_split_bank_heads_fail_closed() {
+void test_heterogeneous_split_bank_heads_resolve_bank_locally() {
     const SyntheticAssets assets = make_assets();
     auto views = assets.views();
 
@@ -1722,24 +1722,84 @@ void test_heterogeneous_split_bank_heads_fail_closed() {
         auto document = make_v_six_document(assets);
         use_equivalent_split_bank_heads_and_standard_valvetrains(document);
         document.engine.heads[1].chamber_volume = quantity(45.0, "cm3");
-        const auto result = compile::compile_engine(document, views);
-        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
-                           "/engine/heads", "heterogeneous split-head chamber volume");
-    }
-    {
-        auto document = make_v_six_document(assets);
-        use_equivalent_split_bank_heads_and_standard_valvetrains(document);
-        const auto right_intake_port = std::ranges::find(
+
+        auto right_intake_port = std::ranges::find(
             document.engine.ports, "fixture-intake-port-right",
             [](const auto &port) -> std::string_view { return port.id.value; });
-        expect(right_intake_port != document.engine.ports.end(),
-               "heterogeneous port fixture omitted its right intake port");
+        auto right_exhaust_port = std::ranges::find(
+            document.engine.ports, "fixture-exhaust-port-right",
+            [](const auto &port) -> std::string_view { return port.id.value; });
+        expect(right_intake_port != document.engine.ports.end() &&
+                   right_exhaust_port != document.engine.ports.end(),
+               "heterogeneous port fixture omitted a right-bank port");
         right_intake_port->runner_volume = quantity(93.0, "cm3");
+        right_intake_port->runner_cross_section_area = quantity(4.8, "cm2");
+        right_exhaust_port->runner_volume = quantity(81.0, "cm3");
+        right_exhaust_port->runner_cross_section_area = quantity(4.1, "cm2");
 
-        const auto result = compile::compile_engine(document, views);
-        require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
-                           "/engine/ports",
-                           "heterogeneous split-head intake runner volume");
+        auto right_intake_curve = make_port_flow_curve();
+        right_intake_curve.id.value = "fixture-port-flow-right";
+        right_intake_curve.triangle_filter_radius = quantity(0.83, "mm");
+        right_intake_curve.samples[1].output.value = 97.0;
+        auto right_exhaust_curve = make_exhaust_port_flow_curve();
+        right_exhaust_curve.id.value = "fixture-exhaust-port-flow-right";
+        right_exhaust_curve.triangle_filter_radius = quantity(1.73, "mm");
+        right_exhaust_curve.samples[1].output.value = 79.0;
+        right_intake_port->flow_curve.value = right_intake_curve.id.value;
+        right_exhaust_port->flow_curve.value = right_exhaust_curve.id.value;
+        document.engine.curves.push_back(std::move(right_intake_curve));
+        document.engine.curves.push_back(std::move(right_exhaust_curve));
+
+        const auto resolved = require_value(
+            compile_detail::resolve_engine_package(document, views),
+            "heterogeneous split-head V-six engine resolution failed");
+        const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+            resolved.engine.physics_profile);
+        expect(resolved.engine.banks.size() == 2U &&
+                   profile.core.gas_path.heads.size() == 2U,
+               "heterogeneous split-head resolution lost a bank-local head");
+
+        const auto &right_bank = resolved.engine.banks[1];
+        expect(right_bank.semantic_id.value == "fixture-bank-right",
+               "heterogeneous split-head fixture changed stable bank order");
+        const auto right_head = std::ranges::find(
+            profile.core.gas_path.heads, right_bank.id,
+            &contract::LegacyBankHeadProfile::bank_id);
+        expect(right_head != profile.core.gas_path.heads.end(),
+               "heterogeneous split-head resolution lost the right-bank profile");
+        const auto near = [](const double left, const double right) {
+            return std::abs(left - right) <= 1.0e-15;
+        };
+        expect(
+            near(right_head->chamber_volume_m3.value, 45.0e-6) &&
+                near(right_head->intake_runner_base_volume_m3.value, 93.0e-6) &&
+                near(right_head->intake_runner_cross_section_area_m2.value,
+                     4.8e-4) &&
+                near(right_head->exhaust_runner_base_volume_m3.value, 81.0e-6) &&
+                near(right_head->exhaust_runner_cross_section_area_m2.value,
+                     4.1e-4) &&
+                near(right_head->intake_flow_triangle_radius_m.value, 0.83e-3) &&
+                near(right_head->exhaust_flow_triangle_radius_m.value, 1.73e-3) &&
+                right_head->intake_flow.size() == 3U &&
+                right_head->exhaust_flow.size() == 3U &&
+                right_head->intake_flow[1].source_cfm_at_28_inh2o.value == 97.0 &&
+                right_head->exhaust_flow[1].source_cfm_at_28_inh2o.value == 79.0,
+            "heterogeneous split-head data did not resolve into its bank-local "
+            "execution profile");
+
+        const auto &left_head = profile.core.gas_path.heads.front();
+        expect(left_head.bank_id == resolved.engine.banks.front().id &&
+                   near(left_head.chamber_volume_m3.value, 44.0e-6) &&
+                   near(left_head.intake_runner_base_volume_m3.value, 92.0e-6) &&
+                   near(left_head.exhaust_runner_base_volume_m3.value, 78.0e-6) &&
+                   near(left_head.intake_flow_triangle_radius_m.value, 1.27e-3) &&
+                   near(left_head.exhaust_flow_triangle_radius_m.value, 1.27e-3) &&
+                   left_head.intake_flow[1].source_cfm_at_28_inh2o.value == 92.0 &&
+                   left_head.exhaust_flow[1].source_cfm_at_28_inh2o.value == 86.0,
+               "heterogeneous right head contaminated the left-bank profile");
+
+        (void)require_value(compile::compile_engine(document, views),
+                            "public compiler rejected heterogeneous split heads");
     }
     {
         auto document = make_v_six_document(assets);
@@ -2788,7 +2848,7 @@ int main() {
         test_v_engine_resolves_bank_geometry_and_axis_relative_journals();
         test_custom_engine_resolves_arbitrary_bank_axes_for_direct_rods();
         test_equivalent_split_bank_heads_normalize_to_exact_execution();
-        test_heterogeneous_split_bank_heads_fail_closed();
+        test_heterogeneous_split_bank_heads_resolve_bank_locally();
         test_asset_admission_is_exact_and_closed();
         test_rig_compiles_to_immutable_si_descriptors();
         test_cranking_starter_resolves_to_si_capability();

@@ -144,10 +144,14 @@ seed remain byte-identical between the authored variants.
 
 Both variants must compile, retain the expected bank-to-profile bindings, and
 render deterministically. Repeated renders of one variant must be byte-identical;
-A and B must not be byte-identical. That difference proves the executor consumes
-bank-local profiles instead of silently selecting one representative head.
+A and B must not be byte-identical. The test also derives two diagnostic controls
+without adding authored fixtures: one changes only the front profile so both banks
+use 1x flow, and one changes only the rear profile so both banks use 2x flow. Each
+must differ from A. Leaving the rear profile unchanged in the first control and the
+front profile unchanged in the second excludes an executor that silently applies
+only the last or first representative head, respectively.
 
 There is no pristine upstream WAV oracle for this gate. The pinned source graph
-and C++ consumption paths are the structural/numerical authority; the A/B result
-is a clean-room execution invariant, not a claim of byte-for-byte audio identity
-with pristine `engine-sim`.
+and C++ consumption paths are the structural/numerical authority; these differential
+results are clean-room execution invariants, not a claim of byte-for-byte audio
+identity with pristine `engine-sim`.

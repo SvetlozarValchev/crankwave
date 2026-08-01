@@ -16,15 +16,16 @@ sampled/VTEC valvetrains, direct and governed throttle control, ignition, fuel, 
 nonempty cylinder and exhaust-route sets, and direct centered rods on inline, V,
 opposed, or custom explicit bank axes, plus presentation, scenarios, deterministic
 assets, and randomness. Compilation is data-driven and has no engine-name branch.
-Important original capabilities such as multiple crankshafts, heterogeneous physical
-heads, separate intakes, master/slave journals, and general multi-head/VTEC topology
-remain unexecuted. Master/slave journals now have a strict validated graph contract but
+Important original capabilities such as multiple crankshafts, separate intakes, and
+general multi-head/VTEC topology remain unexecuted. Master/slave journals now have a
+strict validated graph contract but
 resolve only into an internal typed attachment and fail closed at the shared
 mechanism-plan compiler before a public compiled engine exists.
-Execution-equivalent bank-local heads and ports now resolve into explicit ordered
-per-bank chamber/runner/flow profiles, with cylinders bound by BankId; admission still
-holds heterogeneous values closed. Standard valvetrains and cams retain their exact-
-equivalence gate. Vehicle and transmission rig
+Bank-local heads and ports resolve into explicit ordered per-bank chamber/runner/flow
+profiles, with cylinders bound by BankId. Their chamber volume, runner geometry, flow
+curves, and intake/exhaust flow radii may differ. Standard valvetrains and cams retain
+their common-shape gate, and all referenced pistons retain one identical shared
+blowby restriction. Vehicle and transmission rig
 objects parse, resolve, and execute through the finite forward-only FreeVehicle
 drivetrain; its operating state is published through the same native/C/WASM/Worker
 boundary.
@@ -140,9 +141,9 @@ never silently looped.
   unique stable string ID within its namespace.
 - References preserve authored object sharing. Six cylinders referencing one intake
   mean one shared manifold; copied intake objects remain distinct and are not currently
-  executable. Separate bank-local heads materialize as separate executable profiles,
-  but admission still requires exact physical equivalence; differing definitions fail
-  closed rather than being silently merged.
+  executable. Separate bank-local heads materialize as separate executable profiles;
+  their chamber, runner, and flow values remain distinct and each cylinder selects one
+  through its BankId.
 - Ordered lists remain ordered where order affects behavior: crankshafts, cylinders,
   lobes, firing order, exhaust accumulation, and transmission gears.
 - A cylinder explicitly references its bank, one journal, piston, rod, intake, exhaust
@@ -154,11 +155,13 @@ never silently looped.
 - References must resolve, forbidden cycles are rejected, and every connected physical
   object must be reachable from the engine root.
 - The authoring graph can represent broader sharing than the current executor admits.
-  Current execution accepts one crankshaft, one shared intake, and direct centered rods
-  on one zero-angle inline bank, exactly two finite distinct-angle V banks, exactly two
-  antipodal opposed banks, or one or more custom banks with explicit finite axes. Banks
-  may share one head/valvetrain or use execution-equivalent bank-local heads and
-  standard valvetrains; single-head VTEC remains admitted. Direct journals and exhaust
+  Current execution accepts one crankshaft, one shared intake, one identical shared
+  piston blowby restriction, and direct centered rods on one zero-angle inline bank,
+  exactly two finite distinct-angle V banks, exactly two antipodal opposed banks, or
+  one or more custom banks with explicit finite axes. Banks
+  may share one head/valvetrain or use physically distinct bank-local heads and
+  standard valvetrains with common same-role cam shapes; single-head VTEC remains
+  admitted. Direct journals and exhaust
   routes may be shared. A master-rod journal must have exactly one cylinder consumer,
   attach to a cylinder on a direct journal, and remain one level deep; its runtime
   execution is not yet admitted. Identity is never inferred from array position. Other
@@ -244,9 +247,9 @@ the remainder as explicit capability diagnostics:
 | Rod journals with arbitrary phase | `engine.journals[]` tagged union; the direct variant requires `type: "crankshaft"`, `crankshaft`, and `phase` | **Low-order executed/Partial**; a dynamic cylinder set may reference and share direct journals with arbitrary finite phase | V8 and direct shared-journal fixtures preserve phases and reference identity. |
 | Master/slave rod attachment | `engine.journals[]` `type: "master_rod"` variant with `master_cylinder`, positive `throw_radius`, and finite local `phase`; retired `master_journal`, `slave_throw`, and `slave_journal` fields remain forbidden | **Low-order executed for finite prescribed motion**; references, exact-one consumer, connectivity, one-level direct master, and cycle rules validate. The immutable plan distinguishes roots from slave attachments, publishes no master-rod torque or inertia capability, and reproduces pristine one-level geometry without nominal slave stroke or displacement. Full-cycle certification precedes admission. Public mechanics, gas, capture, excitation, and audio consume the plan only for a finite `PrescribedKinematicSweep`; every torque-owning/dynamic mode remains closed | Canonical pristine-derived radial-five JSON preserves five banks, four slave pins, firing/cam/route associations, doubled head-flow tables, and exact IR identity. Its 800-frame public capture has active sources and its four-block `EngineSession` produces finite nonzero PCM. Malformed graphs, failed certificates, stale plans, and non-prescribed modes remain rejected. |
 | Connecting-rod mass, inertia, center of mass, length | `engine.connecting_rods[]` | **Partial**; mass/inertia/length exist in BMW profile, center of mass is absent | Resolved mechanism quantities and inertial torque are verified. |
-| Piston mass, blowby, compression height, wrist-pin position, displacement term | `engine.pistons[]` and gas-path blowby restriction | **Partial**; BMW has mass, blowby, compression height, displacement term; wrist-pin position is absent | BMW geometry/clearance comparison and blowby flow check. |
+| Piston mass, blowby, compression height, wrist-pin position, displacement term | `engine.pistons[]` and gas-path blowby restriction | **Partial**; mass, compression height, and displacement execute, but every referenced piston must currently use one identical blowby restriction and wrist-pin position is absent | BMW geometry/clearance comparison, blowby flow check, and Shovelhead normalization boundary. |
 | Banks with angle, bore, and deck height | `engine.banks[]` | **Low-order executed/Partial**; execution admits one zero-angle inline bank, exactly two finite distinct-angle V banks, exactly two antipodal opposed banks, or custom explicit finite axes, including authored bank bore/deck geometry; all use direct centered rods | Inline, Toyota V8, Subaru EJ25 opposed, and synthetic three-axis custom fixtures preserve bank geometry and axis-relative mechanics. |
-| Arbitrary cylinder-to-bank/journal/intake/exhaust/wire connections | Explicit cylinder references; crank ownership derives through the referenced journal | **Partial**; dynamic cylinders, direct bank-axis bindings, direct shared journals, shared or distinct ignition wires, firing order, and exhaust sharing execute, while the profile still requires one crankshaft and one shared intake; bank-local heads/standard valvetrains must be execution-equivalent | Toyota V8, Subaru EJ25, synthetic three-axis custom, and shared-wire inline-twin fixtures prove the admitted connection patterns. |
+| Arbitrary cylinder-to-bank/journal/intake/exhaust/wire connections | Explicit cylinder references; crank ownership derives through the referenced journal | **Partial**; dynamic cylinders, direct bank-axis and bank-local-head bindings, direct shared journals, shared or distinct ignition wires, firing order, and exhaust sharing execute, while the profile still requires one crankshaft, one shared intake, and common same-role cam shapes | Toyota V8, Subaru EJ25, Shovelhead V-twin, synthetic three-axis custom, and shared-wire inline-twin fixtures prove the admitted connection patterns. |
 | Per-cylinder primary length | Physical exhaust path in `engine`, compiled to propagation delay | **Low-order executed** | Resolved length/delay comparison at each supported sample rate. |
 
 ### Gas exchange, manifolds, heads, and exhaust
@@ -259,13 +262,13 @@ the remainder as explicit capability diagnostics:
 | Idle throttle plate position | Intake physical/control field | **Low-order executed** | Closed-command idle flow remains nonzero and bounded. |
 | Intake molecular AFR | Fuel/mixture ownership, referenced by intake if model requires it | **Partial**; scenario/fuel owns stoichiometric AFR | Compiler rejects conflicting duplicated AFR authority. |
 | Intake runner velocity decay | Intake gas-exchange method parameter | **Low-order executed** | BMW gas-state regression. |
-| Shareable heads per bank | `engine.heads[]` and bank references | **Partial/Low-order executed** for one shared head or execution-equivalent bank-local heads with standard valvetrains; heterogeneous heads and multi-head VTEC fail closed | Shared-head and split-head V fixtures resolve to the exact same executable contract and PCM; Kohler retains its two source heads. |
-| Chamber and intake/exhaust runner volume/area | Bank-keyed executable head profiles derived from head/port physical fields; the exhaust port exclusively owns exhaust-primary area | **Low-order executed/Partial**; the runtime owns and binds one profile per bank, but admission still requires bank-local values to be bit-identical. The deleted cylinder-chamber and exhaust-system-area duplicates have no compatibility aliases | BMW clearance/gas-volume comparison, shared/split exact-PCM comparison, and split-head rejection fixtures. |
-| Arbitrary intake/exhaust port-flow curves | Head curve references | **Typed core/Low-order executed** | Curves preserve units, radius, clamping, and sampled values. |
+| Shareable heads per bank | `engine.heads[]` and bank references | **Partial/Low-order executed** for shared or physically distinct bank-local heads with standard common-shape valvetrains; multi-head VTEC still fails closed | Shared/split exact-PCM comparison, Kohler source topology, and the pristine-derived Shovelhead A/B bank-flow fixture. |
+| Chamber and intake/exhaust runner volume/area | Bank-keyed executable head profiles derived from head/port physical fields; the exhaust port exclusively owns exhaust-primary area | **Low-order executed** per bank. The deleted cylinder-chamber and exhaust-system-area duplicates have no compatibility aliases | BMW clearance/gas-volume comparison, shared/split exact-PCM comparison, and focused two-bank runner/primary runtime regression. |
+| Arbitrary intake/exhaust port-flow curves | Bank-head port curve references | **Typed core/Low-order executed** per bank | Curves preserve units, independent intake/exhaust radii, clamping, sampled values, and cylinder BankId bindings. |
 | Multiple, shareable exhaust systems | `engine.exhausts[]` and cylinder route references | **Low-order executed** for a dynamic nonempty exhaust set; cylinders may share routes and copied exhaust objects remain independent | Inline-six, V8, and V-twin grouping fixtures prove sharing and independent collectors. |
 | Collector length/area, outlet restriction, primary length/restriction, velocity decay | Exhaust physical fields | **Low-order executed** | BMW resolved graph and gas-state regression. |
 | `exhaust.collector_volume` convenience | Compiler authoring convenience deriving `collector_length = collector_volume / collector_area` | **Low-order executed**; exactly one of explicit collector length or collector volume is required | Explicit length and derived length compile to the same resolved model. |
-| Executable gas volumes and flow edges | Compiler-derived from authored intakes, heads/ports, cylinders, exhausts, and their stable references | **Low-order executed/Partial** within the admitted one-crank, one-intake, shared-or-equivalent-head, inline/two-bank-V slice | Authors state each physical fact once; the compiler deterministically constructs and validates the supported internal graph. |
+| Executable gas volumes and flow edges | Compiler-derived from authored intakes, heads/ports, cylinders, exhausts, and their stable references | **Low-order executed/Partial** within the admitted one-crank, one-intake, bank-local-head topology | Authors state each physical fact once; the compiler deterministically constructs and validates the supported internal graph. |
 
 ### Camshafts and valvetrain
 
