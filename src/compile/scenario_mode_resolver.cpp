@@ -60,8 +60,22 @@ void ScenarioResolver::compile_mode() {
         std::ranges::any_of(context_.engine.cylinders, [](const auto &cylinder) {
             return cylinder.master_rod_attachment.has_value();
         });
-    if (contains_master_rod &&
-        !std::holds_alternative<authoring::ExternalSpeedMode>(document_.mode)) {
+    const bool multiple_crankshafts = context_.engine.crankshafts.size() > 1U;
+    const bool prescribed_motion =
+        std::holds_alternative<authoring::ExternalSpeedMode>(document_.mode);
+    if (multiple_crankshafts && !prescribed_motion) {
+        add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
+            "multiple-crankshaft engines currently admit external_speed prescribed "
+            "motion only; torque-owning modes require exactly one crankshaft");
+        return;
+    }
+    if (multiple_crankshafts && contains_master_rod) {
+        add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
+            "multiple-crankshaft prescribed execution currently admits direct-journal "
+            "cylinders only");
+        return;
+    }
+    if (contains_master_rod && !prescribed_motion) {
         add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
             "one-level master-rod engines currently admit only external_speed "
             "prescribed motion");

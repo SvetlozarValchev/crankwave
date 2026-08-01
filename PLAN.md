@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-01
 
-Current checkpoint: **slice 10 topology closure — separate intake execution**
+Current checkpoint: **slice 10 topology closure — prescribed multiple-crankshaft execution**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -645,13 +645,17 @@ pristine ships no multi-intake WAV and exposes no intake audio source. The
 source authority is frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_SEPARATE_INTAKES.md`](docs/oracles/PRISTINE_ENGINE_SIM_SEPARATE_INTAKES.md).
 The single-intake BMW PCM remains byte-exact. The first isolated crankshaft
-checkpoint now carries authored-order crank identities, an explicit output-crank
+checkpoint carries authored-order crank identities, an explicit output-crank
 selection, and exact direct/master-root cylinder bindings through the public engine,
-resolved mechanism, provenance, request-v6 identity, and manifest-v9 wire. Execution
-deliberately retains the exact-one-crank gate, so this structural cutover cannot alter
-accepted dynamics or audio. Prescribed two-crank execution and rigid-group dynamic
-aggregation remain separate follow-ups within slice 10; their source boundary is
-frozen in
+resolved mechanism, provenance, request-v6 identity, and manifest-v9 wire. The second
+checkpoint admits co-phased multiple-crank direct journals only under finite prescribed
+kinematics. A semantically named V-twin A/B fixture decomposes one crank into two while
+preserving aggregate authored values, cylinder geometry, journal phase, and exact PCM;
+its request identity changes and its rear cylinder retains the secondary-crank binding.
+Changing only the explicit output selection also changes identity. Unequal TDC
+references, cross-crank master/slave declarations, and every torque-owning mode remain
+closed. Rigid-group dynamic aggregation remains a separate follow-up within slice 10;
+the source boundary is frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_MULTIPLE_CRANKSHAFTS.md`](docs/oracles/PRISTINE_ENGINE_SIM_MULTIPLE_CRANKSHAFTS.md).
 The ignition source
 authority is frozen in

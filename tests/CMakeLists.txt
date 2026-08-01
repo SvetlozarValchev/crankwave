@@ -1470,6 +1470,36 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_multiple_crankshaft_prescribed_tests
+    multiple_crankshaft_prescribed_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_multiple_crankshaft_prescribed_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_multiple_crankshaft_prescribed_tests
+    PRIVATE
+        engine_sim_offline::compile
+        engine_sim_offline::request_identity
+        engine_sim_offline::session
+)
+
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_multiple_crankshaft_prescribed_tests
+)
+
+add_test(
+    NAME simulation.multiple_crankshaft_prescribed
+    COMMAND
+        engine_sim_offline_multiple_crankshaft_prescribed_tests
+        ${PROJECT_SOURCE_DIR}
+)
+
+add_executable(
     engine_sim_offline_engine_sim_v1_transient_friction_tests
     engine_sim_v1_transient_friction_test.cpp
 )

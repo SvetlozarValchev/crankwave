@@ -1321,11 +1321,25 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
         report.add(ContractIssueCode::inconsistent_semantics, "engine_profile_id",
                    "scenario and engine profile IDs must match");
     }
-    const bool contains_master_rod = std::ranges::any_of(
-        spec.cylinders,
-        [](const auto &cylinder) { return cylinder.master_rod_attachment.has_value(); });
-    if (contains_master_rod &&
-        !std::holds_alternative<PrescribedKinematicSweep>(scenario.mode)) {
+    const bool contains_master_rod =
+        std::ranges::any_of(spec.cylinders, [](const auto &cylinder) {
+            return cylinder.master_rod_attachment.has_value();
+        });
+    const bool multiple_crankshafts = spec.crankshafts.size() > 1U;
+    const bool prescribed_motion =
+        std::holds_alternative<PrescribedKinematicSweep>(scenario.mode);
+    if (multiple_crankshafts && !prescribed_motion) {
+        report.add(ContractIssueCode::unsupported_value, "mode",
+                   "multiple-crankshaft engines currently admit only prescribed "
+                   "kinematic sweep motion; torque-owning modes require exactly one "
+                   "crankshaft");
+    }
+    if (multiple_crankshafts && contains_master_rod) {
+        report.add(ContractIssueCode::unsupported_value, "mode",
+                   "prescribed multiple-crankshaft execution currently admits "
+                   "direct-journal cylinders only");
+    }
+    if (contains_master_rod && !prescribed_motion) {
         report.add(ContractIssueCode::unsupported_value, "mode",
                    "one-level master-rod engines currently admit only prescribed "
                    "kinematic sweep motion");
@@ -1354,8 +1368,6 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                                "kinematic-sweep, held-dyno, inertial-dyno, free-"
                                "engine, and free-vehicle modes");
                 }
-                const bool prescribed_motion =
-                    std::holds_alternative<PrescribedKinematicSweep>(scenario.mode);
                 const bool free_motion =
                     std::holds_alternative<FreeEngine>(scenario.mode) ||
                     std::holds_alternative<FreeVehicle>(scenario.mode);

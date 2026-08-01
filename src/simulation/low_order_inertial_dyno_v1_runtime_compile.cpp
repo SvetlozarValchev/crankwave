@@ -78,10 +78,18 @@ LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
     require(report, preparation != nullptr, ContractIssueCode::unsupported_value,
             "scenario.preparation",
             "inertial runtime requires fixed-horizon cycle sampling");
+    const bool exactly_one_crankshaft = profile != nullptr &&
+                                        engine.crankshafts.size() == 1U &&
+                                        profile->core.mechanism.cranks.size() == 1U;
+    require(report, exactly_one_crankshaft, ContractIssueCode::unsupported_value,
+            "engine.crankshafts",
+            "inertial-dyno runtime requires exactly one crankshaft; prescribed "
+            "kinematics is the only current multiple-crankshaft execution mode");
     require(report, !simulation_request_identity_v6_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v6_sha256",
             "inertial runtime requires the canonical nonzero request identity");
-    if (profile == nullptr || dyno == nullptr || preparation == nullptr) {
+    if (profile == nullptr || dyno == nullptr || preparation == nullptr ||
+        !exactly_one_crankshaft) {
         return report;
     }
     const auto *output_crank = contract::find_output_crank(profile->core.mechanism);

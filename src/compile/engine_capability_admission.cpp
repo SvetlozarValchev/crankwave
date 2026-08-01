@@ -105,8 +105,10 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
                     std::to_string(expected) + " item(s) in the current topology");
         }
     };
-    require_count(engine.crankshafts.size(), 1U, "/engine/crankshafts",
-                  "engine crankshaft collection");
+    if (engine.crankshafts.empty()) {
+        add(report, DiagnosticCode::missing_value, "/engine/crankshafts",
+            "the executable engine requires at least one crankshaft");
+    }
     if (engine.output_crankshaft.value.empty()) {
         add(report, DiagnosticCode::missing_value, "/engine/output_crankshaft",
             "the executable engine requires an explicit output crankshaft reference");
@@ -120,6 +122,24 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
             add(report, DiagnosticCode::dangling_reference, "/engine/output_crankshaft",
                 "output crankshaft reference '" + engine.output_crankshaft.value +
                     "' does not resolve");
+        } else {
+            const double output_tdc_reference_rad =
+                legacy_si_value(output->tdc_reference_angle);
+            for (std::size_t index = 0; index < engine.crankshafts.size(); ++index) {
+                const double tdc_reference_rad =
+                    legacy_si_value(engine.crankshafts[index].tdc_reference_angle);
+                if (!std::isfinite(output_tdc_reference_rad) ||
+                    !std::isfinite(tdc_reference_rad) ||
+                    !same_binary64(tdc_reference_rad, output_tdc_reference_rad)) {
+                    add(report, DiagnosticCode::unsupported_capability,
+                        pointer_index("/engine/crankshafts", index) +
+                            "/tdc_reference_angle",
+                        "prescribed multiple-crankshaft execution requires every "
+                        "currently representable crankshaft to share the output "
+                        "crankshaft's exact finite TDC reference for a co-phased 1:1 "
+                        "rigid group");
+                }
+            }
         }
     }
     if (engine.layout == authoring::CylinderLayout::inline_engine) {

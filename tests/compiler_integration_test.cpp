@@ -2866,11 +2866,18 @@ void test_direct_engine_dto_identity_and_enum_admission_fails_closed() {
         auto document = make_engine_document(assets);
         auto second_crankshaft = document.engine.crankshafts.front();
         second_crankshaft.id.value = "fixture-second-crank";
+        second_crankshaft.tdc_reference_angle = quantity(1.0, "deg");
         document.engine.crankshafts.push_back(std::move(second_crankshaft));
+        auto *attachment = std::get_if<authoring::CrankshaftJournalAttachment>(
+            &document.engine.journals.back().attachment);
+        expect(attachment != nullptr,
+               "direct-DTO fixture lost its direct rear journal");
+        attachment->crankshaft.value = "fixture-second-crank";
         const auto result = compile::compile_engine(document, views);
         require_diagnostic(result, authoring::DiagnosticCode::unsupported_capability,
-                           "/engine/crankshafts",
-                           "multiple crankshafts crossed the current execution gate");
+                           "/engine/crankshafts/1/tdc_reference_angle",
+                           "unequal-phase crank group crossed the co-phased execution "
+                           "gate");
     }
     {
         auto document = make_engine_document(assets);

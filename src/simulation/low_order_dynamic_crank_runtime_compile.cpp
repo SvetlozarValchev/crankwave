@@ -119,10 +119,18 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
             "mechanism_plan",
             "dynamic-crank runtime requires one compiled direct mechanism plan");
+    const bool exactly_one_crankshaft = profile != nullptr &&
+                                        engine.crankshafts.size() == 1U &&
+                                        profile->core.mechanism.cranks.size() == 1U;
+    require(report, exactly_one_crankshaft, ContractIssueCode::unsupported_value,
+            "engine.crankshafts",
+            "dynamic-crank runtime requires exactly one crankshaft; prescribed "
+            "kinematics is the only current multiple-crankshaft execution mode");
     require(report, !simulation_request_identity_v6_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v6_sha256",
             "dynamic-crank runtime requires the canonical nonzero request identity");
-    if (profile == nullptr || dynamic_mode_count != 1U || direct_plan == nullptr) {
+    if (profile == nullptr || dynamic_mode_count != 1U || direct_plan == nullptr ||
+        !exactly_one_crankshaft) {
         return report;
     }
     const auto *output_crank = contract::find_output_crank(profile->core.mechanism);

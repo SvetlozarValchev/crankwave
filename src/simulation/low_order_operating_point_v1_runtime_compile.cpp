@@ -130,10 +130,19 @@ LowOrderOperatingPointV1CompileResult compile_low_order_operating_point_v1_runti
     require(report, preparation != nullptr, ContractIssueCode::unsupported_value,
             "scenario.preparation",
             "operating runtime requires fixed-horizon cycle sampling");
+    const bool exactly_one_crankshaft = profile != nullptr &&
+                                        engine.crankshafts.size() == 1U &&
+                                        profile->core.mechanism.cranks.size() == 1U;
+    require(report, exactly_one_crankshaft, ContractIssueCode::unsupported_value,
+            "engine.crankshafts",
+            "torque-owning operating runtime requires exactly one crankshaft; "
+            "prescribed kinematics is the only current multiple-crankshaft execution "
+            "mode");
     require(report, !simulation_request_identity_v6_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v6_sha256",
             "operating runtime requires the canonical nonzero request identity");
-    if (profile == nullptr || held == nullptr || preparation == nullptr) {
+    if (profile == nullptr || held == nullptr || preparation == nullptr ||
+        !exactly_one_crankshaft) {
         return report;
     }
     const auto *output_crank = contract::find_output_crank(profile->core.mechanism);
