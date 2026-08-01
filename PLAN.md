@@ -663,16 +663,18 @@ policy publishes only complete instantaneous indicated-gas torque; shaft/reactio
 torque, power, work, and cycle evidence remain explicitly unavailable, and live
 overrides are rejected. This closes a previously documented-but-unreachable direct
 mode without changing held-speed or dynamic-crank behavior. The master-rod public
-engine gate remains closed until the full-cycle certificate and radial mechanics/gas
-integration land together.
+engine gate remains closed until prescribed radial mechanics/gas integration lands.
 
 The isolated full-cycle certificate primitive is now implemented. It analytically
 proves exact root reach and minimum volume and uses conservative one-level slave bounds
 without an angular sample grid. Canonical radial-five margins and three geometries that
 are valid at one point but fail later in the revolution are regression fixtures. This
-checkpoint grants no execution authority: the immutable master-rod plan does not yet
-invoke the certificate, and the public engine gate remains closed until prescribed
-radial mechanics and gas are wired in the same admitted path.
+The mechanism-plan compiler now applies that certificate to every assembled root and
+slave, resolving each slave through its stable direct-root index. Point-valid geometry
+that becomes unreachable or nonpositive-volume later in the revolution is rejected at
+its bounded cylinder path before an immutable plan is released. This checkpoint grants
+no execution authority; the public engine gate remains closed until prescribed radial
+mechanics and gas are wired in the same admitted path.
 
 The internal mechanics-cylinder sample now separates direct centered-slider
 coordinates from one-level master-rod axis coordinates with an explicit tagged union

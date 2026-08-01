@@ -71,11 +71,11 @@ struct OneLevelMasterRodSlaveAttachmentPlan {
 using OneLevelMasterRodCylinderKinematicsPlan =
     std::variant<OneLevelMasterRodDirectRootPlan, OneLevelMasterRodSlaveAttachmentPlan>;
 
-// Geometry-only one-level master/slave plan. It is point-evaluable, but is not an
-// executable mechanism and does not certify full-cycle reachability; prescribed
-// runtime admission must add that gate atomically. In particular, this type carries
-// no nominal stroke, displacement, clearance volume, equivalent inertia, wall
-// reaction, or torque authority.
+// Geometry-only one-level master/slave plan. The compiler releases it only after
+// every root and slave passes the analytic full-cycle geometry certificate, but it
+// is not yet an executable mechanism. In particular, this type carries no nominal
+// stroke, displacement, clearance volume, equivalent inertia, wall reaction, or
+// torque authority.
 struct OneLevelMasterRodMechanismCylinderPlan {
     contract::BankId bank_id;
     contract::GasVolumeId chamber_volume_id;
@@ -123,8 +123,9 @@ one_level_master_rod_mechanism_kinematics_plan(
     const SharedMechanismKinematicsPlan &plan) noexcept;
 
 // Point-evaluation helper. It resolves the stable slave-to-root index and delegates
-// to the pure one-level master-rod primitive. It neither certifies full-cycle
-// solvability nor enters any mechanics, gas, crank, or capture runtime.
+// to the pure one-level master-rod primitive. Plan compilation already certified
+// full-cycle geometry; evaluation grants no mechanics, gas, crank, or capture
+// runtime authority.
 [[nodiscard]] OneLevelMasterRodSample evaluate_one_level_master_rod_plan(
     const OneLevelMasterRodMechanismKinematicsPlan &plan, std::size_t cylinder_index,
     double body_angle_psi_rad, double angular_speed_rad_s) noexcept;

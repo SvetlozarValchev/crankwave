@@ -778,6 +778,10 @@ make_master_rod_twin_document(const SyntheticAssets &assets) {
     auto &engine = package.engine;
     engine.identity.id.value = "fixture-master-rod-twin";
     engine.identity.display_name = "Synthetic compiler integration master-rod twin";
+    // Leave enough axial clearance for the slave pin's conservative full-cycle
+    // position bound. The generic inline fixture's deck is intentionally much
+    // tighter and is not a valid master/slave geometry fixture.
+    engine.banks[0].deck_height = quantity(250.0, "mm");
     engine.journals[1].attachment = authoring::MasterRodJournalAttachment{
         {"fixture-cylinder-1"},
         quantity(29.0, "mm"),
@@ -2057,6 +2061,20 @@ void test_master_rod_graph_contract_and_execution_gate() {
         expect(found != report.diagnostics.end(),
                std::string{context} + ": graph diagnostic changed");
     };
+    const auto require_plan_issue =
+        [](const simulation::MechanismKinematicsPlanCompileResult &result,
+           const std::string_view path, const std::string_view reason,
+           const std::string_view context) {
+            const auto *report = std::get_if<contract::ValidationReport>(&result);
+            expect(report != nullptr && report->issues.size() == 1U,
+                   std::string{context} +
+                       ": expected one bounded full-cycle certificate issue");
+            const auto &issue = report->issues.front();
+            expect(issue.code == contract::ContractIssueCode::unsupported_value &&
+                       issue.path == path && issue.message.ends_with(reason),
+                   std::string{context} +
+                       ": full-cycle certificate path or reason changed");
+        };
 
     {
         const auto document = make_master_rod_twin_document(assets);
@@ -2158,6 +2176,18 @@ void test_master_rod_graph_contract_and_execution_gate() {
                        profile.core.mechanism.cylinders[1].topology.exhaust_route_id,
                "compiled master-rod plan lost root/slave identity, global/local "
                "phase, stable master index, or chamber/route binding");
+        const auto root_certificate =
+            root_plan == nullptr ? simulation::OneLevelMasterRodFullCycleCheck{}
+                                 : simulation::certify_one_level_master_rod_full_cycle(
+                                       root_plan->driver, root_plan->cylinder);
+        const auto slave_certificate =
+            root_plan == nullptr || slave_plan == nullptr
+                ? simulation::OneLevelMasterRodFullCycleCheck{}
+                : simulation::certify_one_level_master_rod_full_cycle(
+                      root_plan->driver, slave_plan->cylinder);
+        expect(root_certificate.admitted() && slave_certificate.admitted(),
+               "compiled canonical-like master-rod plan lacked a full-cycle "
+               "certificate");
         const auto root_sample = radial_plan == nullptr
                                      ? simulation::OneLevelMasterRodSample{}
                                      : simulation::evaluate_one_level_master_rod_plan(
@@ -2242,6 +2272,139 @@ void test_master_rod_graph_contract_and_execution_gate() {
                            authoring::DiagnosticCode::unsupported_capability,
                            "/engine/cylinders/1/master_rod_attachment",
                            "public master-rod execution gate");
+    }
+    {
+        const auto document = make_master_rod_twin_document(assets);
+        const auto twin_views = assets.twin_views();
+        auto resolved =
+            require_value(compile_detail::resolve_engine_package(document, twin_views),
+                          "reachability certificate fixture failed to resolve");
+        auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+            resolved.engine.physics_profile);
+        auto &root_assembly = profile.core.mechanism.cylinders[0];
+        auto &slave_assembly = profile.core.mechanism.cylinders[1];
+        auto &root =
+            std::get<contract::LegacyDirectJournalKinematics>(root_assembly.kinematics);
+        auto &slave = std::get<contract::LegacyMasterRodJournalKinematics>(
+            slave_assembly.kinematics);
+
+        root.stroke_m.value = 0.1;
+        root.crank_radius_m.value = 0.05;
+        root_assembly.parameters.connecting_rod_length_m.value = 0.2;
+        slave_assembly.parameters.connecting_rod_length_m.value = 0.05;
+        for (auto *parameters :
+             {&root_assembly.parameters, &slave_assembly.parameters}) {
+            parameters->deck_height_m.value = 1.0;
+            parameters->piston_compression_height_m.value = 0.01;
+            parameters->head_chamber_volume_m3.value = 0.001;
+            parameters->piston_displacement_term_m3.value = 0.0;
+        }
+        slave.throw_radius_m.value = 0.08;
+        slave.master_local_phase_rad.value = simulation::kLegacyPi / 2.0;
+        resolved.engine.cylinders[0].stroke_m.value = 0.1;
+        resolved.engine.cylinders[1].stroke_m.value = 0.1;
+        resolved.engine.cylinders[0].connecting_rod_length_m.value = 0.2;
+        resolved.engine.cylinders[1].connecting_rod_length_m.value = 0.05;
+        resolved.engine.cylinders[1].journal_phase_rad.value =
+            simulation::kLegacyPi / 2.0;
+        resolved.engine.cylinders[1].master_rod_attachment->throw_radius_m.value = 0.08;
+
+        const double bank_angle_rad = resolved.engine.banks[0].angle_rad.has_value()
+                                          ? resolved.engine.banks[0].angle_rad->value
+                                          : 0.0;
+        const simulation::OneLevelMasterRodDriver driver{
+            root.crank_radius_m.value,
+            resolved.engine.cylinders[0].journal_phase_rad.value,
+            bank_angle_rad,
+            root_assembly.parameters.connecting_rod_length_m.value,
+        };
+        const auto bore_m = slave_assembly.parameters.bore_m.value;
+        const simulation::OneLevelMasterRodCylinder cylinder{
+            resolved.engine.cylinders[1].id,
+            bank_angle_rad,
+            slave_assembly.parameters.connecting_rod_length_m.value,
+            simulation::kLegacyPi * bore_m * bore_m / 4.0,
+            slave_assembly.parameters.deck_height_m.value,
+            slave_assembly.parameters.piston_compression_height_m.value,
+            slave_assembly.parameters.head_chamber_volume_m3.value,
+            slave_assembly.parameters.piston_displacement_term_m3.value,
+            simulation::OneLevelMasterRodSlavePin{
+                slave.throw_radius_m.value,
+                slave.master_local_phase_rad.value,
+            },
+        };
+        expect(
+            simulation::evaluate_one_level_master_rod(driver, cylinder, 0.0, 1.0).valid,
+            "reachability certificate fixture is not initially point-valid");
+        expect(!simulation::evaluate_one_level_master_rod(
+                    driver, cylinder, simulation::kLegacyPi / 2.0, 1.0)
+                    .valid,
+               "reachability certificate fixture did not become invalid later");
+
+        const auto result = simulation::compile_mechanism_kinematics_plan(
+            resolved.engine, profile.core);
+        require_plan_issue(
+            result, "engine.physics_profile.mechanism.cylinders[1].kinematics",
+            "reachability_not_certified", "later-unreachable slave geometry");
+    }
+    {
+        const auto document = make_master_rod_twin_document(assets);
+        const auto twin_views = assets.twin_views();
+        auto resolved =
+            require_value(compile_detail::resolve_engine_package(document, twin_views),
+                          "chamber-volume certificate fixture failed to resolve");
+        auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+            resolved.engine.physics_profile);
+        auto &root_assembly = profile.core.mechanism.cylinders[0];
+        auto &root =
+            std::get<contract::LegacyDirectJournalKinematics>(root_assembly.kinematics);
+        const double bore_m = std::sqrt(0.04 / simulation::kLegacyPi);
+
+        root.stroke_m.value = 0.1;
+        root.crank_radius_m.value = 0.05;
+        root_assembly.parameters.bore_m.value = bore_m;
+        root_assembly.parameters.connecting_rod_length_m.value = 0.2;
+        root_assembly.parameters.deck_height_m.value = 0.22;
+        root_assembly.parameters.piston_compression_height_m.value = 0.01;
+        root_assembly.parameters.head_chamber_volume_m3.value = 0.0003;
+        root_assembly.parameters.piston_displacement_term_m3.value = 0.0;
+        resolved.engine.cylinders[0].bore_m.value = bore_m;
+        resolved.engine.cylinders[0].stroke_m.value = 0.1;
+        resolved.engine.cylinders[0].connecting_rod_length_m.value = 0.2;
+
+        const double bank_angle_rad = resolved.engine.banks[0].angle_rad.has_value()
+                                          ? resolved.engine.banks[0].angle_rad->value
+                                          : 0.0;
+        const simulation::OneLevelMasterRodDriver driver{
+            root.crank_radius_m.value,
+            resolved.engine.cylinders[0].journal_phase_rad.value,
+            bank_angle_rad,
+            root_assembly.parameters.connecting_rod_length_m.value,
+        };
+        const simulation::OneLevelMasterRodCylinder cylinder{
+            resolved.engine.cylinders[0].id,
+            bank_angle_rad,
+            root_assembly.parameters.connecting_rod_length_m.value,
+            simulation::kLegacyPi * bore_m * bore_m / 4.0,
+            root_assembly.parameters.deck_height_m.value,
+            root_assembly.parameters.piston_compression_height_m.value,
+            root_assembly.parameters.head_chamber_volume_m3.value,
+            root_assembly.parameters.piston_displacement_term_m3.value,
+            simulation::OneLevelMasterRodRootJournal{},
+        };
+        expect(
+            simulation::evaluate_one_level_master_rod(driver, cylinder, 0.0, 1.0).valid,
+            "chamber-volume certificate fixture is not initially point-valid");
+        expect(!simulation::evaluate_one_level_master_rod(
+                    driver, cylinder, simulation::kLegacyPi / 2.0, 1.0)
+                    .valid,
+               "chamber-volume certificate fixture did not become invalid later");
+
+        const auto result = simulation::compile_mechanism_kinematics_plan(
+            resolved.engine, profile.core);
+        require_plan_issue(
+            result, "engine.physics_profile.mechanism.cylinders[0].kinematics",
+            "chamber_volume_not_certified", "later-nonpositive root chamber volume");
     }
     {
         auto document = make_master_rod_twin_document(assets);

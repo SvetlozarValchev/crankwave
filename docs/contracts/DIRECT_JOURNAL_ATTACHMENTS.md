@@ -1,8 +1,8 @@
 # Journal attachment graph
 
-Status: topology sub-slice 10C2b4; graph, typed core, pure geometry, immutable
-mechanism plan, and analytic full-cycle certificate implemented; master-rod runtime
-execution closed
+Status: topology sub-slice 10C2b5; graph, typed core, pure geometry, certified
+immutable mechanism plan, and tagged mechanics coordinates implemented; master-rod
+runtime execution closed
 
 ## One ownership path
 
@@ -88,10 +88,12 @@ or volume clearances instead of promising that numerically ambiguous geometry wi
 execute. A failed sufficient slave proof is reported as `not_certified`; it is not
 mislabeled as proof that the authored linkage is impossible.
 
-The immutable plan does not invoke this certificate yet. Wiring the certificate to
-engine admission belongs atomically with the prescribed-motion mechanics/gas runtime
-gate, so a geometry-only plan cannot accidentally become a partially executable
-engine.
+The mechanism-plan compiler invokes this certificate for every root and slave after
+the complete one-level graph has been assembled. A slave is checked against the exact
+direct-root driver selected by its stable master index. A failed proof returns one
+bounded per-cylinder `unsupported_value` with the `not_certified` reason; no
+uncertified immutable plan is released. This still grants no mechanics, gas, crank,
+capture, or public engine execution authority.
 
 The mutable mechanics sample also has one tagged coordinate payload. Direct cylinders
 own geometric TDC, wrapped centered-slider phase, TDC-relative piston travel, and its

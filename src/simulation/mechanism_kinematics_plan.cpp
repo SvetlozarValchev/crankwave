@@ -51,6 +51,21 @@ radial_cylinder(const OneLevelMasterRodMechanismCylinderPlan &planned) noexcept 
         planned.kinematics);
 }
 
+[[nodiscard]] const char *
+full_cycle_reason_name(const OneLevelMasterRodFullCycleReason reason) noexcept {
+    switch (reason) {
+    case OneLevelMasterRodFullCycleReason::admitted:
+        return "admitted";
+    case OneLevelMasterRodFullCycleReason::invalid_geometry:
+        return "invalid_geometry";
+    case OneLevelMasterRodFullCycleReason::reachability_not_certified:
+        return "reachability_not_certified";
+    case OneLevelMasterRodFullCycleReason::chamber_volume_not_certified:
+        return "chamber_volume_not_certified";
+    }
+    return "invalid_geometry";
+}
+
 [[nodiscard]] MechanismKinematicsPlanCompileResult
 compile_one_level_master_rod_kinematics_plan(
     const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core) {
@@ -291,6 +306,42 @@ compile_one_level_master_rod_kinematics_plan(
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.mechanism.cylinders",
             "one-level master-rod plan must cover every cylinder exactly once");
+    if (!report.ok()) {
+        return report;
+    }
+
+    for (std::size_t index = 0; index < plan.cylinders.size(); ++index) {
+        const auto &kinematics = plan.cylinders[index].kinematics;
+        const OneLevelMasterRodDriver *driver = nullptr;
+        const OneLevelMasterRodCylinder *cylinder = nullptr;
+        if (const auto *root =
+                std::get_if<OneLevelMasterRodDirectRootPlan>(&kinematics)) {
+            driver = &root->driver;
+            cylinder = &root->cylinder;
+        } else if (const auto *slave =
+                       std::get_if<OneLevelMasterRodSlaveAttachmentPlan>(&kinematics);
+                   slave != nullptr &&
+                   slave->master_cylinder_index < plan.cylinders.size()) {
+            const auto *root = std::get_if<OneLevelMasterRodDirectRootPlan>(
+                &plan.cylinders[slave->master_cylinder_index].kinematics);
+            if (root != nullptr) {
+                driver = &root->driver;
+                cylinder = &slave->cylinder;
+            }
+        }
+
+        OneLevelMasterRodFullCycleCheck certificate;
+        if (driver != nullptr && cylinder != nullptr) {
+            certificate = certify_one_level_master_rod_full_cycle(*driver, *cylinder);
+        }
+        if (!certificate.admitted()) {
+            report.add(ContractIssueCode::unsupported_value,
+                       "engine.physics_profile.mechanism.cylinders[" +
+                           std::to_string(index) + "].kinematics",
+                       "one-level master-rod full cycle is not certified: " +
+                           std::string{full_cycle_reason_name(certificate.reason)});
+        }
+    }
     if (!report.ok()) {
         return report;
     }
