@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-02
 
-Current checkpoint: **post-slice-15 parity closure — per-cylinder blowby**
+Current checkpoint: **post-slice-15 parity closure — per-cylinder blowby audition**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -620,9 +620,10 @@ tables, standard same-role cam profiles, and each referenced piston's calibrated
 blowby restriction may differ, while the multi-head VTEC gate remains closed. Standard
 cams resolve into deterministic first-use profile pools with explicit cylinder/lobe
 bindings, while each physical cam still requires one exact shared profile across its
-own lobes. The Shovelhead now binds equal-valued front/rear piston objects through
-independent runtime blowby lanes; restoring its source-authored 0.2/0.1 CFM split is
-the pending sound-bearing audition for this parity bullet. The pristine-derived
+own lobes. The Shovelhead now binds source-authored 0.2/0.1 CFM front/rear piston
+restrictions through independent runtime blowby lanes. Its equal-value control and
+source-value candidate are rendered; auditory acceptance is pending before the next
+parity bullet. The pristine-derived
 Shovelhead A/B fixture swaps only its four
 bank-local port-flow references; repeat A renders are byte-identical and A differs
 from B. Two generated controls additionally leave the front or rear profile unchanged
@@ -820,7 +821,7 @@ The architecture cutover and operating-bench slices are complete. Finish the rem
 engine-definition parity in this order, with one coherent commit per bullet:
 
 1. execute each referenced piston's authored blowby restriction independently
-   (**executor complete; source-value A/B audition pending**);
+   (**executor and source-value candidate complete; A/B audition pending**);
 2. execute connecting-rod center of mass and piston wrist-pin geometry where pristine
    physics consumes them;
 3. complete intake-local molecular-AFR ownership without duplicating fuel authority;

@@ -105,13 +105,13 @@ velocity decay `0.75`, zero added per-cylinder primary length, and
 execution; the 2x/1x physical port curves and 0.1/0.2 exhaust audio volumes must
 remain independent inputs.
 
-## Intentional fixture normalizations
+## Source fidelity and intentional fixture normalizations
 
 - The source front and rear piston blowby values are respectively
   `k_28inH2O(0.2)` and `k_28inH2O(0.1)`. The accepted H1 audio used the real source
-  rear value, 0.1 CFM at 28 inH2O, for both pistons. The current core now binds two
-  equal-valued piston objects to independent blowby lanes; changing only the front
-  value to the source 0.2 CFM remains the dedicated sound-bearing A/B audition.
+  rear value, 0.1 CFM at 28 inH2O, for both pistons. The current candidate restores
+  the source split through two independently bound piston blowby lanes. Its dedicated
+  equal-value/source-value listening comparison remains pending acceptance.
 - `display_depth: 0.55` and rear `flip_display: true` affect pristine's GUI only
   and are omitted. The physical bank axes are retained.
 - The source's 35 kHz simulation setting is not copied into engine identity.
@@ -137,6 +137,30 @@ multiple crankshafts, and unequal per-piston blowby were admitted later. Multi-h
 VTEC remains closed.
 There is one current contract only; no singular-head alias or legacy decoder is
 added.
+
+## Per-piston blowby source-restoration audition
+
+This listening pair is separate from the H1 bank-head swap below. Both recordings use
+the same six-second prescribed 1000--5000 RPM procedure and presentation. The only
+engine-data change is `piston.front` blowby from 0.1 to the source-authored 0.2 CFM at
+28 inH2O; `piston.rear` remains 0.1 CFM.
+
+- equal-value control:
+  `artifacts/listening/shovelhead-blowby-A-equal-0p1-0p1-1000-5000rpm-6s`
+- source-value candidate:
+  `artifacts/listening/shovelhead-blowby-B-source-0p2-0p1-1000-5000rpm-6s`
+- control/candidate decoded PCM SHA-256:
+  - master PCM24: `1a14b0b2bb211e194361d83505e3367b21c154909970c1b16590c71db40ff428` /
+    `c5aa5b66e67748eaa33ffa2f88b4196ee08d38df0c7f2fc8c8c01ac744478da4`
+  - front selected Float32:
+    `c7ab66a77f6c6732bd40286bb38c8faf2c5b8c59bb17ed4de078d03700a908c3` /
+    `a8c64ddd1e29dd8e75d38c8cab958b16d9c930fa08deff24ab8f2a27317d8ca2`
+  - rear selected Float32:
+    `58e0193182c2e748802b2edd0ba89d51c1c7c19bc9d39b27bf4c3caae1c310dd` /
+    `0cf90124648b5c7a925e3256b7e861abd0c01598b22a879852cc1643f483d83f`
+
+Status on 2026-08-02: candidate rendered; auditory acceptance pending. Do not begin
+rod center-of-mass or wrist-pin work until this pair is accepted.
 
 ## A/B acceptance invariant
 

@@ -178,7 +178,7 @@
         "mass": {"value": 500, "unit": "g"},
         "compression_height": {"value": 1, "unit": "in"},
         "displacement_volume": {"value": 0, "unit": "cm3"},
-        "blowby": {"type": "flow_bench", "rated_flow": {"value": 0.1, "unit": "cfm", "standard": "port_28_inh2o"}, "pressure_drop": {"value": 28, "unit": "inH2O"}}
+        "blowby": {"type": "flow_bench", "rated_flow": {"value": 0.2, "unit": "cfm", "standard": "port_28_inh2o"}, "pressure_drop": {"value": 28, "unit": "inH2O"}}
       },
       {
         "id": "piston.rear",
