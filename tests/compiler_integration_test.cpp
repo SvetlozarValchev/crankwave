@@ -6,6 +6,7 @@
 
 #include "authoring/parse_engine_references.hpp"
 #include "compile/engine_resolver.hpp"
+#include "identity/simulation_request_identity_writer.hpp"
 #include "simulation/legacy_fixed_valvetrain.hpp"
 #include "simulation/mechanism_kinematics_plan.hpp"
 
@@ -35,6 +36,7 @@ namespace authoring = engine_sim_offline::authoring;
 namespace compile = engine_sim_offline::compile;
 namespace contract = engine_sim_offline::contract;
 namespace compile_detail = engine_sim_offline::compile::detail;
+namespace identity_detail = engine_sim_offline::identity::detail;
 namespace simulation = engine_sim_offline::simulation;
 
 constexpr std::size_t kCylinderCount = 6U;
@@ -773,6 +775,20 @@ make_inline_twin_document(const SyntheticAssets &assets) {
 }
 
 [[nodiscard]] authoring::EnginePackageDocument
+make_shared_ignition_inline_twin_document(const SyntheticAssets &assets) {
+    auto package = make_inline_twin_document(assets);
+    auto &engine = package.engine;
+    engine.ignition.wires.resize(1U);
+    engine.ignition.firing_order = {
+        {{"fixture-wire-1"}, quantity(0.0, "deg")},
+    };
+    for (auto &cylinder : engine.cylinders) {
+        cylinder.ignition_wire.value = "fixture-wire-1";
+    }
+    return package;
+}
+
+[[nodiscard]] authoring::EnginePackageDocument
 make_master_rod_twin_document(const SyntheticAssets &assets) {
     auto package = make_inline_twin_document(assets);
     auto &engine = package.engine;
@@ -1115,6 +1131,15 @@ void expect_session_audio_exact(const compile::CompiledScenario &left_scenario,
     }
 }
 
+[[nodiscard]] std::vector<std::byte>
+encode_engine_identity(const contract::EngineSpec &engine) {
+    identity_detail::CanonicalJsonWriter writer;
+    std::vector<std::byte> bytes;
+    expect(identity_detail::write_engine_spec(writer, engine) && writer.finish(bytes),
+           "resolved engine identity could not be encoded");
+    return bytes;
+}
+
 void attach_mixed_unit_rig(authoring::EnginePackageDocument &package) {
     authoring::RigDefinition rig;
     rig.id = {"fixture-bench"};
@@ -1350,6 +1375,179 @@ void test_inline_twin_one_route_reaches_executable_boundary() {
                "inline-twin session did not execute its complete one-route horizon");
         break;
     }
+}
+
+void test_shared_ignition_wire_fans_out_without_topology_collapse() {
+    const SyntheticAssets assets = make_assets();
+    auto views = assets.twin_views();
+
+    const auto shared_document = make_shared_ignition_inline_twin_document(assets);
+    auto split_document = make_inline_twin_document(assets);
+    split_document.engine.ignition.firing_order[1].crank_angle =
+        quantity(0.0, "deg");
+
+    auto shared_resolved = require_value(
+        compile_detail::resolve_engine_package(shared_document, views),
+        "shared-wire inline twin resolution failed");
+    auto split_resolved = require_value(
+        compile_detail::resolve_engine_package(split_document, views),
+        "equal-angle split-wire inline twin resolution failed");
+
+    const auto &shared_engine = shared_resolved.engine;
+    const auto &split_engine = split_resolved.engine;
+    const auto &shared_core = std::get<contract::LowOrderOperatingPointV1Profile>(
+                                  shared_engine.physics_profile)
+                                  .core;
+    const auto &split_core = std::get<contract::LowOrderOperatingPointV1Profile>(
+                                 split_engine.physics_profile)
+                                 .core;
+    expect(shared_engine.cylinders.size() == 2U &&
+               shared_engine.cylinders[0]
+                       .shared_ignition_wire_semantic_id.has_value() &&
+               shared_engine.cylinders[0]
+                       .shared_ignition_wire_semantic_id->value ==
+                   "fixture-wire-1" &&
+               shared_engine.cylinders[1]
+                       .shared_ignition_wire_semantic_id.has_value() &&
+               shared_engine.cylinders[1]
+                       .shared_ignition_wire_semantic_id->value ==
+                   "fixture-wire-1" &&
+               !split_engine.cylinders[0]
+                    .shared_ignition_wire_semantic_id.has_value() &&
+               !split_engine.cylinders[1]
+                    .shared_ignition_wire_semantic_id.has_value(),
+           "resolved public topology collapsed shared and split ignition wires");
+    expect(shared_core.ignition.firing_order.value ==
+                   std::vector<contract::CylinderId>{contract::CylinderId{1},
+                                                     contract::CylinderId{2}} &&
+               split_core.ignition.firing_order.value ==
+                   shared_core.ignition.firing_order.value &&
+               shared_core.mechanism.cylinders[0]
+                       .parameters.ignition_wire_angle_rad.value == 0.0 &&
+               shared_core.mechanism.cylinders[1]
+                       .parameters.ignition_wire_angle_rad.value == 0.0,
+           "one ignition post did not expand to both cylinders in stable order");
+    expect(encode_engine_identity(shared_engine) !=
+               encode_engine_identity(split_engine),
+           "canonical engine identity collapsed shared and split equal-angle wires");
+
+    auto inconsistent_angle = shared_engine;
+    inconsistent_angle.cylinders[1].firing_tdc_offset_rad.value = 1.0e-13;
+    std::get<contract::LowOrderOperatingPointV1Profile>(
+        inconsistent_angle.physics_profile)
+        .core.mechanism.cylinders[1]
+        .parameters.ignition_wire_angle_rad.value = 1.0e-13;
+    const auto inconsistent_angle_report =
+        contract::validate(inconsistent_angle, shared_resolved.provenance);
+    expect(std::ranges::any_of(
+               inconsistent_angle_report.issues, [](const auto &issue) {
+                   return issue.message.find("one common firing angle") !=
+                          std::string::npos;
+               }),
+           "resolved contract accepted two angles on one shared ignition wire");
+
+    auto inconsistent_core_angle = shared_engine;
+    std::get<contract::LowOrderOperatingPointV1Profile>(
+        inconsistent_core_angle.physics_profile)
+        .core.mechanism.cylinders[1]
+        .parameters.ignition_wire_angle_rad.value = 1.0e-13;
+    const auto inconsistent_core_angle_report =
+        contract::validate(inconsistent_core_angle, shared_resolved.provenance);
+    expect(std::ranges::any_of(
+               inconsistent_core_angle_report.issues, [](const auto &issue) {
+                   return issue.message.find("exact public/core firing angles") !=
+                          std::string::npos;
+               }),
+           "resolved contract accepted a shared wire with divergent core angles");
+
+    auto singleton_shared_tag = shared_engine;
+    singleton_shared_tag.cylinders[1].shared_ignition_wire_semantic_id.reset();
+    const auto singleton_shared_tag_report =
+        contract::validate(singleton_shared_tag, shared_resolved.provenance);
+    expect(std::ranges::any_of(
+               singleton_shared_tag_report.issues, [](const auto &issue) {
+                   return issue.message.find("must identify at least two cylinders") !=
+                          std::string::npos;
+               }),
+           "resolved contract accepted a singleton shared-wire identity tag");
+
+    auto reversed_fan_out = shared_engine;
+    std::ranges::reverse(
+        std::get<contract::LowOrderOperatingPointV1Profile>(
+            reversed_fan_out.physics_profile)
+            .core.ignition.firing_order.value);
+    const auto reversed_fan_out_report =
+        contract::validate(reversed_fan_out, shared_resolved.provenance);
+    expect(std::ranges::any_of(
+               reversed_fan_out_report.issues, [](const auto &issue) {
+                   return issue.message.find("stable engine cylinder order") !=
+                          std::string::npos;
+               }),
+           "resolved contract accepted a reversed shared-wire fan-out group");
+
+    auto interleaved_document = make_engine_document(assets);
+    interleaved_document.engine.cylinders[2].ignition_wire.value =
+        "fixture-wire-1";
+    std::erase_if(interleaved_document.engine.ignition.wires,
+                  [](const auto &wire) {
+                      return wire.id.value == "fixture-wire-3";
+                  });
+    std::erase_if(interleaved_document.engine.ignition.firing_order,
+                  [](const auto &event) {
+                      return event.wire.value == "fixture-wire-3";
+                  });
+    auto all_views = assets.views();
+    auto interleaved_resolved = require_value(
+        compile_detail::resolve_engine_package(interleaved_document, all_views),
+        "nonadjacent shared-wire six resolution failed");
+    auto interleaved_engine = interleaved_resolved.engine;
+    std::get<contract::LowOrderOperatingPointV1Profile>(
+        interleaved_engine.physics_profile)
+        .core.ignition.firing_order.value = {
+        contract::CylinderId{1}, contract::CylinderId{2},
+        contract::CylinderId{3}, contract::CylinderId{4},
+        contract::CylinderId{5}, contract::CylinderId{6},
+    };
+    const auto interleaved_report =
+        contract::validate(interleaved_engine, interleaved_resolved.provenance);
+    expect(std::ranges::any_of(interleaved_report.issues, [](const auto &issue) {
+               return issue.message.find("one firing-post fan-out group") !=
+                      std::string::npos;
+           }),
+           "resolved contract accepted a noncontiguous shared-wire firing group");
+
+    auto shared_compiled = require_value(
+        compile::compile_engine(shared_document, views),
+        "shared-wire inline twin public compile failed");
+    auto split_compiled = require_value(
+        compile::compile_engine(split_document, views),
+        "equal-angle split-wire inline twin public compile failed");
+    auto scenario_document = make_scenario_document();
+    scenario_document.id.value = "fixture-inline-twin-shared-wire-held";
+    scenario_document.engine.value = "fixture-inline-twin";
+    auto shared_scenario = require_value(
+        compile::compile_scenario(shared_compiled, scenario_document),
+        "shared-wire inline twin scenario compile failed");
+    auto split_scenario = require_value(
+        compile::compile_scenario(split_compiled, scenario_document),
+        "equal-angle split-wire inline twin scenario compile failed");
+    expect_session_audio_exact(shared_scenario, split_scenario,
+                               "shared ignition fan-out");
+
+    auto unused_wire = shared_document;
+    unused_wire.engine.ignition.wires.push_back({{"fixture-wire-2"}});
+    require_diagnostic(
+        compile::compile_engine(unused_wire, views),
+        authoring::DiagnosticCode::unsupported_capability,
+        "/engine/ignition/wires", "unused shared-ignition wire");
+
+    auto duplicate_post = shared_document;
+    duplicate_post.engine.ignition.firing_order.push_back(
+        {{"fixture-wire-1"}, quantity(360.0, "deg")});
+    require_diagnostic(
+        compile::compile_engine(duplicate_post, views),
+        authoring::DiagnosticCode::unsupported_capability,
+        "/engine/ignition/firing_order/1", "duplicate shared-ignition post");
 }
 
 void test_v_engine_resolves_bank_geometry_and_axis_relative_journals() {
@@ -2585,6 +2783,7 @@ int main() {
     try {
         test_complete_generic_compile_and_determinism();
         test_inline_twin_one_route_reaches_executable_boundary();
+        test_shared_ignition_wire_fans_out_without_topology_collapse();
         test_v_engine_resolves_bank_geometry_and_axis_relative_journals();
         test_custom_engine_resolves_arbitrary_bank_axes_for_direct_rods();
         test_equivalent_split_bank_heads_normalize_to_exact_execution();

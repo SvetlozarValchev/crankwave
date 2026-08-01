@@ -13,7 +13,14 @@ Machine schema:
 [`schemas/render_manifest_simulation_v6.cddl`](../../schemas/render_manifest_simulation_v6.cddl)
 
 Schema SHA-256:
-`2a6d57bb8bfc11f636a0e3e2db5a6f4971ec7e73519ffda5069f9ade502add18`
+`8c0fe18ef3c84cac501be1993e787a89c5e38ca81492296ac9d2b9b15b649c31`
+
+`CylinderSpec.shared_ignition_wire_semantic_id` is present only for cylinders in
+a multi-cylinder ignition-wire fan-out group. One-cylinder wires are stateless in
+pristine engine-sim and normalize to the already represented per-cylinder firing
+angle. This additive topology admission leaves every previously admitted request-v3
+and manifest-v6 byte sequence unchanged; the project retains only the current schema
+source and does not ship the preceding CDDL as a compatibility alternative.
 
 ## 1. Scope and admission
 

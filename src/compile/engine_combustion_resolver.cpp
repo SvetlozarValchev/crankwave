@@ -85,10 +85,12 @@ void resolve_ignition_and_fuel(const ModelContext &context, ResolutionEmitter &e
                                contract::LowOrderEngineCoreV1 &core) {
     const auto &engine = context.document.engine;
     std::vector<contract::CylinderId> firing_order;
-    firing_order.reserve(engine.ignition.firing_order.size());
+    firing_order.reserve(engine.cylinders.size());
     for (const auto &event : engine.ignition.firing_order) {
-        firing_order.push_back(
-            cylinder_id(context, context.cylinder_for_wire.at(event.wire.value)));
+        for (const auto &cylinder :
+             context.cylinders_for_wire.at(event.wire.value)) {
+            firing_order.push_back(cylinder_id(context, cylinder));
+        }
     }
     const auto ignition_base = profile_path("ignition");
     core.ignition.firing_order =

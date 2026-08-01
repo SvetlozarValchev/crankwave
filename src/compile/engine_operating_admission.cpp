@@ -250,8 +250,8 @@ void admit_engine_operating_systems(ModelContext &resolved,
         }
     }
     std::unordered_set<std::string> cylinder_wires;
-    for (const auto &[wire, cylinder] : resolved.cylinder_for_wire) {
-        static_cast<void>(cylinder);
+    for (const auto &[wire, cylinders] : resolved.cylinders_for_wire) {
+        static_cast<void>(cylinders);
         cylinder_wires.insert(wire);
     }
     if (declared_wires != cylinder_wires) {
@@ -264,18 +264,20 @@ void admit_engine_operating_systems(ModelContext &resolved,
     for (std::size_t index = 0; index < engine.ignition.firing_order.size(); ++index) {
         const auto &event = engine.ignition.firing_order[index];
         if (!firing_wires.insert(event.wire.value).second ||
-            !resolved.cylinder_for_wire.contains(event.wire.value)) {
+            !resolved.cylinders_for_wire.contains(event.wire.value)) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/engine/ignition/firing_order", index),
-                "firing order must cover each cylinder-owned ignition wire once");
+                "firing order must cover each cylinder-connected ignition wire "
+                "once");
         }
         resolved.firing_angle_for_wire_rad.emplace(event.wire.value,
                                                    legacy_si_value(event.crank_angle));
     }
-    if (firing_wires.size() != engine.cylinders.size()) {
+    if (firing_wires.size() != declared_wires.size()) {
         add(report, DiagnosticCode::unsupported_capability,
             "/engine/ignition/firing_order",
-            "firing order must exactly cover the admitted cylinders");
+            "firing order must contain exactly one event per declared ignition "
+            "wire");
     }
     if (firing_wires != declared_wires) {
         add(report, DiagnosticCode::unsupported_capability,

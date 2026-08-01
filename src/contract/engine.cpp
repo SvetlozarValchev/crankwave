@@ -1190,6 +1190,7 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
 
     std::unordered_set<std::uint32_t> cylinder_ids;
     std::unordered_set<std::string> cylinder_semantic_ids;
+    std::unordered_map<std::string, std::size_t> shared_ignition_wire_counts;
     double computed_displacement_m3 = 0.0;
     for (const auto &cylinder : spec.cylinders) {
         const auto path = resolved_path("cylinders", cylinder.semantic_id.value);
@@ -1206,6 +1207,11 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
                           path + ".firing_tdc_offset_rad");
         validate_resolved(report, cylinder.journal_phase_rad, provenance,
                           path + ".journal_phase_rad");
+        if (cylinder.shared_ignition_wire_semantic_id.has_value()) {
+            validate_resolved(report, *cylinder.shared_ignition_wire_semantic_id,
+                              provenance,
+                              path + ".shared_ignition_wire_semantic_id");
+        }
         if (cylinder.master_rod_attachment.has_value()) {
             const auto &attachment = *cylinder.master_rod_attachment;
             validate_resolved(report, attachment.throw_radius_m, provenance,
@@ -1226,6 +1232,17 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
             report.add(ContractIssueCode::duplicate_identity,
                        path + ".semantic_id.value",
                        "cylinder semantic IDs must be unique");
+        }
+        if (cylinder.shared_ignition_wire_semantic_id.has_value()) {
+            ++shared_ignition_wire_counts
+                  [cylinder.shared_ignition_wire_semantic_id->value];
+            require(
+                report,
+                is_valid_semantic_id(
+                    cylinder.shared_ignition_wire_semantic_id->value),
+                ContractIssueCode::invalid_value,
+                path + ".shared_ignition_wire_semantic_id.value",
+                "shared ignition wire semantic ID must be canonical");
         }
         require(report, bank_ids.contains(cylinder.bank_id.value),
                 ContractIssueCode::dangling_reference, path + ".bank_id",
@@ -1258,6 +1275,12 @@ ValidationReport validate(const EngineSpec &spec, const ProvenanceLedger &proven
                                         cylinder.bore_m.value *
                                         cylinder.stroke_m.value / 4.0;
         }
+    }
+    for (const auto &[wire, count] : shared_ignition_wire_counts) {
+        require(report, count >= 2U, ContractIssueCode::inconsistent_shape,
+                "engine.cylinders",
+                "shared ignition wire '" + wire +
+                    "' must identify at least two cylinders");
     }
     for (const auto &cylinder : spec.cylinders) {
         if (!cylinder.master_rod_attachment.has_value()) {

@@ -256,6 +256,7 @@ target_link_libraries(
     engine_sim_offline_compiler_integration_tests
     PRIVATE
         engine_sim_offline::compile
+        engine_sim_offline::request_identity
         engine_sim_offline::session
 )
 engine_sim_offline_enable_renderer_numeric_policy(

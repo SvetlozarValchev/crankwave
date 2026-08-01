@@ -309,12 +309,8 @@ void admit_engine_physical_model(ModelContext &resolved,
             add(report, DiagnosticCode::dangling_reference, path,
                 "cylinder mechanism or exhaust reference did not resolve");
         }
-        const auto [wire, inserted] = resolved.cylinder_for_wire.emplace(
-            cylinder.ignition_wire.value, cylinder.id.value);
-        if (!inserted) {
-            add(report, DiagnosticCode::unsupported_capability, path + "/ignition_wire",
-                "each admitted cylinder requires a distinct ignition wire");
-        }
+        resolved.cylinders_for_wire[cylinder.ignition_wire.value].push_back(
+            cylinder.id.value);
     }
     if (used_banks.size() != engine.banks.size() ||
         used_journals.size() != engine.journals.size() ||

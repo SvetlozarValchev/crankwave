@@ -251,6 +251,12 @@ template <class Id>
             return false;
         }
     }
+    if (cylinder.shared_ignition_wire_semantic_id.has_value() &&
+        !(writer.key("shared_ignition_wire_semantic_id") &&
+          write_resolved(writer, *cylinder.shared_ignition_wire_semantic_id,
+                         write_string))) {
+        return false;
+    }
     return writer.end_object();
 }
 

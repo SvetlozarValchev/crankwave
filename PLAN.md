@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-01
 
-Current checkpoint: **slice 10 topology closure — prescribed radial path admitted**
+Current checkpoint: **slice 10 topology closure — shared ignition fan-out**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -619,8 +619,13 @@ published WAV files are byte-identical to the accepted shared-head checkpoint. D
 centered rods now execute on inline, V, opposed, and custom explicit bank axes. A
 pristine-derived Subaru EJ25 fixture preserves its antipodal banks, direct journal
 bindings, and opposed mechanism pairs across a bounded runtime capture. More general
-heterogeneous heads, separate intakes, multiple crankshafts, and broader ignition
-sharing remain isolated follow-up commits within slice 10.
+ignition wires now preserve their public sharing identity and execute pristine's
+stateless one-post-to-many-cylinder fan-out. A shared-wire inline twin and an
+equal-angle split-wire twin retain different canonical engine identities while
+producing byte-identical PCM. Heterogeneous heads, separate intakes, and multiple
+crankshafts remain isolated follow-up commits within slice 10. The ignition source
+authority is frozen in
+[`docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md`](docs/oracles/PRISTINE_ENGINE_SIM_IGNITION_WIRES.md).
 
 The direct journal contract is now a single tagged attachment path:
 `cylinder.journal -> journal.crankshaft`. Every current engine uses required

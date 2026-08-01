@@ -18,8 +18,10 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <unordered_set>
 #include <variant>
+#include <vector>
 
 namespace engine_sim_offline::contract {
 namespace {
@@ -1942,10 +1944,100 @@ void validate_low_order_core_domains(ValidationReport &report,
                 unique_valid(core.ignition.firing_order.value),
             ContractIssueCode::inconsistent_shape, "ignition.firing_order",
             "firing order must contain every cylinder exactly once");
+    std::unordered_set<std::string> completed_ignition_wires;
+    std::optional<std::string> active_ignition_wire;
+    std::unordered_map<std::string, std::vector<CylinderId>>
+        shared_wire_firing_order;
     for (const auto cylinder : core.ignition.firing_order.value) {
-        require(report, contains_id(engine.cylinders, cylinder, &CylinderSpec::id),
+        const auto found =
+            std::ranges::find(engine.cylinders, cylinder, &CylinderSpec::id);
+        require(report, found != engine.cylinders.end(),
                 ContractIssueCode::dangling_reference, "ignition.firing_order",
                 "firing order references an unknown cylinder");
+        if (found == engine.cylinders.end()) {
+            continue;
+        }
+        const auto &wire = found->shared_ignition_wire_semantic_id;
+        if (!wire.has_value()) {
+            if (active_ignition_wire.has_value()) {
+                completed_ignition_wires.insert(*active_ignition_wire);
+                active_ignition_wire.reset();
+            }
+        } else if (!active_ignition_wire.has_value()) {
+            shared_wire_firing_order[wire->value].push_back(cylinder);
+            require(report, !completed_ignition_wires.contains(wire->value),
+                    ContractIssueCode::inconsistent_semantics,
+                    "ignition.firing_order",
+                    "cylinders sharing an ignition wire must form one firing-post "
+                    "fan-out group");
+            active_ignition_wire = wire->value;
+        } else if (wire->value != *active_ignition_wire) {
+            shared_wire_firing_order[wire->value].push_back(cylinder);
+            completed_ignition_wires.insert(*active_ignition_wire);
+            require(report, !completed_ignition_wires.contains(wire->value),
+                    ContractIssueCode::inconsistent_semantics,
+                    "ignition.firing_order",
+                    "cylinders sharing an ignition wire must form one firing-post "
+                    "fan-out group");
+            active_ignition_wire = wire->value;
+        } else {
+            shared_wire_firing_order[wire->value].push_back(cylinder);
+        }
+    }
+    std::unordered_map<std::string, std::vector<CylinderId>>
+        shared_wire_engine_order;
+    for (const auto &cylinder : engine.cylinders) {
+        if (cylinder.shared_ignition_wire_semantic_id.has_value()) {
+            shared_wire_engine_order
+                [cylinder.shared_ignition_wire_semantic_id->value]
+                    .push_back(cylinder.id);
+        }
+    }
+    for (const auto &[wire, engine_order] : shared_wire_engine_order) {
+        require(report, shared_wire_firing_order[wire] == engine_order,
+                ContractIssueCode::inconsistent_semantics,
+                "ignition.firing_order",
+                "cylinders sharing ignition wire '" + wire +
+                    "' must retain stable engine cylinder order");
+    }
+    for (std::size_t left = 0; left < engine.cylinders.size(); ++left) {
+        for (std::size_t right = left + 1U; right < engine.cylinders.size(); ++right) {
+            const auto &left_wire =
+                engine.cylinders[left].shared_ignition_wire_semantic_id;
+            const auto &right_wire =
+                engine.cylinders[right].shared_ignition_wire_semantic_id;
+            if (left_wire.has_value() && right_wire.has_value() &&
+                left_wire->value == right_wire->value) {
+                const auto cylinder_id = [](const LegacyCylinderAssembly &cylinder) {
+                    return cylinder.topology.cylinder_id;
+                };
+                const auto left_core = std::ranges::find(
+                    core.mechanism.cylinders, engine.cylinders[left].id,
+                    cylinder_id);
+                const auto right_core = std::ranges::find(
+                    core.mechanism.cylinders, engine.cylinders[right].id,
+                    cylinder_id);
+                require(report,
+                        engine.cylinders[left].firing_tdc_offset_rad.value ==
+                            engine.cylinders[right].firing_tdc_offset_rad.value,
+                        ContractIssueCode::inconsistent_semantics,
+                        "ignition.firing_order",
+                        "cylinders sharing an ignition wire must have one common "
+                        "firing angle");
+                require(
+                    report,
+                    left_core != core.mechanism.cylinders.end() &&
+                        right_core != core.mechanism.cylinders.end() &&
+                        left_core->parameters.ignition_wire_angle_rad.value ==
+                            engine.cylinders[left].firing_tdc_offset_rad.value &&
+                        right_core->parameters.ignition_wire_angle_rad.value ==
+                            engine.cylinders[right].firing_tdc_offset_rad.value,
+                    ContractIssueCode::inconsistent_semantics,
+                    "ignition.firing_order",
+                    "cylinders sharing an ignition wire must retain exact "
+                    "public/core firing angles");
+            }
+        }
     }
     require(report,
             finite_positive(core.ignition.timing_curve_triangle_radius_rad_s.value) &&

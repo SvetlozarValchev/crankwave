@@ -174,6 +174,10 @@ struct CylinderSpec {
     // journal_phase_rad is the slave pin's authored local phase on this master
     // cylinder's connecting rod.
     std::optional<MasterRodAttachmentSpec> master_rod_attachment = std::nullopt;
+    // Present only when two or more cylinders share one stateless pristine
+    // ignition wire. Distinct one-cylinder wires are execution-equivalent after
+    // their firing angles resolve and therefore do not survive as runtime objects.
+    std::optional<ResolvedValue<std::string>> shared_ignition_wire_semantic_id;
 
     friend bool operator==(const CylinderSpec &, const CylinderSpec &) = default;
 };

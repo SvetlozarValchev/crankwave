@@ -96,7 +96,8 @@ cylinder-spec = {
   "compression_ratio": resolved<f64-bits>,
   "firing_tdc_offset_rad": resolved<f64-bits>,
   "journal_phase_rad": resolved<f64-bits>,
-  ? "master_rod_attachment": master-rod-attachment-spec
+  ? "master_rod_attachment": master-rod-attachment-spec,
+  ? "shared_ignition_wire_semantic_id": resolved<tstr>
 }
 
 master-rod-attachment-spec = {

@@ -143,13 +143,12 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         add(report, DiagnosticCode::unsupported_capability, "/engine/ports",
             "each admitted head requires exactly one intake and one exhaust port");
     }
-    if (engine.cylinders.empty() ||
-        engine.ignition.wires.size() != engine.cylinders.size() ||
-        engine.ignition.firing_order.size() != engine.cylinders.size() ||
+    if (engine.cylinders.empty() || engine.ignition.wires.empty() ||
+        engine.ignition.firing_order.empty() ||
         document.presentation.cylinder_routes.size() != engine.cylinders.size()) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/cylinders",
-            "the admitted engine requires nonempty, equally sized cylinder, "
-            "wire, firing-event, and cylinder-presentation collections");
+            "the admitted engine requires nonempty cylinder, ignition-wire, and "
+            "firing-event collections plus one presentation route per cylinder");
     }
     if (document.presentation.routes.size() != engine.source_routes.size()) {
         add(report, DiagnosticCode::unsupported_capability, "/presentation/routes",

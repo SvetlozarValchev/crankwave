@@ -84,7 +84,10 @@ struct ModelContext {
         source_routes;
 
     std::unordered_map<std::string, std::string> route_for_exhaust;
-    std::unordered_map<std::string, std::string> cylinder_for_wire;
+    // Pristine ignition wires are fan-out connections: one distributor post may
+    // drive more than one cylinder.  Preserve authored cylinder order inside each
+    // wire so expansion into the executable cylinder firing order is deterministic.
+    std::unordered_map<std::string, std::vector<std::string>> cylinders_for_wire;
     std::unordered_map<std::string, double> firing_angle_for_wire_rad;
     std::unordered_map<std::string, const authoring::CylinderRoutePresentation *>
         cylinder_presentations;

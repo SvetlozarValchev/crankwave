@@ -513,6 +513,8 @@ inline EngineSpec make_engine(InputBuilder &builder) {
                          "engine.cylinders.cylinder-1.compression_ratio"),
         builder.resolved(0.0, "engine.cylinders.cylinder-1.firing_tdc_offset_rad"),
         builder.resolved(0.0, "engine.cylinders.cylinder-1.journal_phase_rad"),
+        std::nullopt,
+        std::nullopt,
     });
     spec.ports = {
         {

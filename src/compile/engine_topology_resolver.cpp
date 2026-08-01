@@ -90,6 +90,8 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
                 base + ".firing_tdc_offset_rad"),
             emitter.authored(legacy_si_value(journal.phase),
                              base + ".journal_phase_rad"),
+            std::nullopt,
+            std::nullopt,
         };
         if (master_attachment != nullptr) {
             resolved_cylinder.master_rod_attachment = contract::MasterRodAttachmentSpec{
@@ -97,6 +99,11 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
                 emitter.authored(legacy_si_value(master_attachment->throw_radius),
                                  base + ".master_rod_attachment.throw_radius_m"),
             };
+        }
+        if (context.cylinders_for_wire.at(cylinder.ignition_wire.value).size() > 1U) {
+            resolved_cylinder.shared_ignition_wire_semantic_id = emitter.authored(
+                cylinder.ignition_wire.value,
+                base + ".shared_ignition_wire_semantic_id");
         }
         engine.cylinders.push_back(std::move(resolved_cylinder));
     }
