@@ -31,6 +31,37 @@ bool finite_canonical_nonnegative(double value) noexcept {
     return std::isfinite(value) && value >= 0.0 && !std::signbit(value);
 }
 
+double mechanism_crank_tdc_reference_rad(
+    const SharedMechanismKinematicsPlan &plan) noexcept {
+    if (const auto *direct = direct_mechanism_kinematics_plan(plan)) {
+        return direct->crank_tdc_reference_rad;
+    }
+    if (const auto *radial = one_level_master_rod_mechanism_kinematics_plan(plan)) {
+        return radial->crank_tdc_reference_rad;
+    }
+    return 0.0;
+}
+
+std::size_t mechanism_cylinder_count(
+    const SharedMechanismKinematicsPlan &plan) noexcept {
+    if (const auto *direct = direct_mechanism_kinematics_plan(plan)) {
+        return direct->cylinders.size();
+    }
+    if (const auto *radial = one_level_master_rod_mechanism_kinematics_plan(plan)) {
+        return radial->cylinders.size();
+    }
+    return 0U;
+}
+
+const OneLevelMasterRodCylinder &radial_cylinder_geometry(
+    const OneLevelMasterRodMechanismCylinderPlan &cylinder) noexcept {
+    return std::visit(
+        [](const auto &kinematics) -> const OneLevelMasterRodCylinder & {
+            return kinematics.cylinder;
+        },
+        cylinder.kinematics);
+}
+
 } // namespace
 
 LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
@@ -47,12 +78,9 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
     : control_cursor_(std::move(control_cursor)),
       kinematic_cursor_(std::move(kinematic_cursor)), rate_(rate),
       mechanism_plan_(std::move(mechanism_plan)),
-      crank_tdc_reference_rad_(
-          direct_mechanism_kinematics_plan(mechanism_plan_)
-              ->crank_tdc_reference_rad),
+      crank_tdc_reference_rad_(mechanism_crank_tdc_reference_rad(mechanism_plan_)),
       step_s_(1.0 / 10000.0), filter_alpha_(step_s_ / (100.0 + step_s_)),
-      maximum_event_count_(
-          direct_mechanism_kinematics_plan(mechanism_plan_)->cylinders.size() + 1U),
+      maximum_event_count_(mechanism_cylinder_count(mechanism_plan_) + 1U),
       timing_curve_(std::move(timing_curve)),
       timing_curve_radius_rad_s_(timing_curve_radius_rad_s),
       throttle_controller_(std::move(throttle_controller)),
@@ -63,8 +91,7 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
       theta_cycle_rad_(initial_theta_cycle_rad),
       theta_unwrapped_rad_(initial_theta_cycle_rad),
       ignition_saved_angle_rad_(initial_theta_cycle_rad) {
-    step_.cylinders.resize(
-        direct_mechanism_kinematics_plan(mechanism_plan_)->cylinders.size());
+    step_.cylinders.resize(mechanism_cylinder_count(mechanism_plan_));
     step_.events.reserve(maximum_event_count_);
 }
 
@@ -122,11 +149,21 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
     }
     const auto *direct_plan =
         direct_mechanism_kinematics_plan(mechanism_plan_);
-    if (direct_plan == nullptr) {
+    const auto *radial_plan =
+        one_level_master_rod_mechanism_kinematics_plan(mechanism_plan_);
+    if (direct_plan == nullptr && radial_plan == nullptr) {
         terminal_fault_ =
             fault(contract::FailureKind::contract_violation,
                   "legacy-mechanics-mechanism-plan-unavailable",
                   "mechanics session has no retained direct mechanism plan");
+        return *terminal_fault_;
+    }
+    if (radial_plan != nullptr && !kinematic_cursor_.has_value()) {
+        terminal_fault_ = fault(
+            contract::FailureKind::contract_violation,
+            "legacy-mechanics-radial-kinematic-cursor-required",
+            "one-level master-rod mechanics requires its prescribed kinematic "
+            "cursor");
         return *terminal_fault_;
     }
     if (control_cursor_.completed()) {
@@ -138,6 +175,14 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
             return *terminal_fault_;
         }
         return LegacyMechanicsCompleted{produced_sample_count_};
+    }
+    if (radial_plan != nullptr && motion.has_value()) {
+        terminal_fault_ = fault(
+            contract::FailureKind::contract_violation,
+            "legacy-mechanics-radial-external-motion-not-admitted",
+            "one-level master-rod mechanics does not admit external post-step "
+            "crank motion");
+        return *terminal_fault_;
     }
     if (!motion.has_value() && !kinematic_cursor_.has_value()) {
         terminal_fault_ =
@@ -281,38 +326,75 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
         cylinder.spark_crossed = false;
     }
     if (step_.operating_state.ignition_enabled && limiter_timer_s_ == 0.0) {
-        const auto &cylinders = direct_plan->cylinders;
-        for (std::size_t index = 0; index < cylinders.size(); ++index) {
-            const auto &model = cylinders[index];
-            const double spark_angle_rad = legacy_wrap_4pi(
-                model.crank.ignition_wire_angle_rad - step_.timing_advance_rad);
-            const auto crossing = evaluate_legacy_ignition_crossing(
-                ignition_saved_angle_rad_, theta_cycle_rad_, spark_angle_rad,
-                step_.omega_legacy_rad_s);
-            if (!crossing.crossed) {
-                continue;
+        if (direct_plan != nullptr) {
+            const auto &cylinders = direct_plan->cylinders;
+            for (std::size_t index = 0; index < cylinders.size(); ++index) {
+                const auto &model = cylinders[index];
+                const double spark_angle_rad = legacy_wrap_4pi(
+                    model.crank.ignition_wire_angle_rad - step_.timing_advance_rad);
+                const auto crossing = evaluate_legacy_ignition_crossing(
+                    ignition_saved_angle_rad_, theta_cycle_rad_, spark_angle_rad,
+                    step_.omega_legacy_rad_s);
+                if (!crossing.crossed) {
+                    continue;
+                }
+                if (step_.events.size() == maximum_event_count_) {
+                    terminal_fault_ =
+                        fault(contract::FailureKind::event_schedule_violation,
+                              "legacy-mechanics-event-capacity-exceeded",
+                              "spark crossing exceeded the compiled per-step event "
+                              "capacity",
+                              model.crank.cylinder_id, model.exhaust_route_id);
+                    return *terminal_fault_;
+                }
+                step_.cylinders[index].spark_crossed = true;
+                step_.events.push_back({
+                    static_cast<std::uint8_t>(step_.events.size()),
+                    contract::SparkCrossing{
+                        model.crank.cylinder_id,
+                        ignition_saved_angle_rad_,
+                        theta_cycle_rad_,
+                        crossing.adjusted_current_angle_rad,
+                        crossing.adjusted_spark_angle_rad,
+                        step_.timing_advance_rad,
+                    },
+                });
             }
-            if (step_.events.size() == maximum_event_count_) {
-                terminal_fault_ =
-                    fault(contract::FailureKind::event_schedule_violation,
-                          "legacy-mechanics-event-capacity-exceeded",
-                          "spark crossing exceeded the compiled per-step event "
-                          "capacity",
-                          model.crank.cylinder_id, model.exhaust_route_id);
-                return *terminal_fault_;
+        } else {
+            const auto &cylinders = radial_plan->cylinders;
+            for (std::size_t index = 0; index < cylinders.size(); ++index) {
+                const auto &model = cylinders[index];
+                const auto &geometry = radial_cylinder_geometry(model);
+                const double spark_angle_rad = legacy_wrap_4pi(
+                    model.ignition_wire_angle_rad - step_.timing_advance_rad);
+                const auto crossing = evaluate_legacy_ignition_crossing(
+                    ignition_saved_angle_rad_, theta_cycle_rad_, spark_angle_rad,
+                    step_.omega_legacy_rad_s);
+                if (!crossing.crossed) {
+                    continue;
+                }
+                if (step_.events.size() == maximum_event_count_) {
+                    terminal_fault_ =
+                        fault(contract::FailureKind::event_schedule_violation,
+                              "legacy-mechanics-event-capacity-exceeded",
+                              "spark crossing exceeded the compiled per-step event "
+                              "capacity",
+                              geometry.cylinder_id, model.exhaust_route_id);
+                    return *terminal_fault_;
+                }
+                step_.cylinders[index].spark_crossed = true;
+                step_.events.push_back({
+                    static_cast<std::uint8_t>(step_.events.size()),
+                    contract::SparkCrossing{
+                        geometry.cylinder_id,
+                        ignition_saved_angle_rad_,
+                        theta_cycle_rad_,
+                        crossing.adjusted_current_angle_rad,
+                        crossing.adjusted_spark_angle_rad,
+                        step_.timing_advance_rad,
+                    },
+                });
             }
-            step_.cylinders[index].spark_crossed = true;
-            step_.events.push_back({
-                static_cast<std::uint8_t>(step_.events.size()),
-                contract::SparkCrossing{
-                    model.crank.cylinder_id,
-                    ignition_saved_angle_rad_,
-                    theta_cycle_rad_,
-                    crossing.adjusted_current_angle_rad,
-                    crossing.adjusted_spark_angle_rad,
-                    step_.timing_advance_rad,
-                },
-            });
         }
     }
 
@@ -369,32 +451,64 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
     }
     ignition_saved_angle_rad_ = theta_cycle_rad_;
 
-    const auto &cylinders = direct_plan->cylinders;
-    for (std::size_t index = 0; index < cylinders.size(); ++index) {
-        const auto &model = cylinders[index];
-        const auto evaluated = evaluate_centered_slider_crank(
-            model.crank, theta_cycle_rad_, step_.angular_speed_rad_s);
-        if (!evaluated.valid) {
-            terminal_fault_ =
-                fault(contract::FailureKind::nonphysical_state,
-                      "legacy-slider-crank-state-invalid",
-                      "analytic centered slider-crank produced an invalid state",
-                      model.crank.cylinder_id, model.exhaust_route_id);
-            return *terminal_fault_;
+    if (direct_plan != nullptr) {
+        const auto &cylinders = direct_plan->cylinders;
+        for (std::size_t index = 0; index < cylinders.size(); ++index) {
+            const auto &model = cylinders[index];
+            const auto evaluated = evaluate_centered_slider_crank(
+                model.crank, theta_cycle_rad_, step_.angular_speed_rad_s);
+            if (!evaluated.valid) {
+                terminal_fault_ =
+                    fault(contract::FailureKind::nonphysical_state,
+                          "legacy-slider-crank-state-invalid",
+                          "analytic centered slider-crank produced an invalid state",
+                          model.crank.cylinder_id, model.exhaust_route_id);
+                return *terminal_fault_;
+            }
+            auto &output = step_.cylinders[index];
+            output.cylinder_id = model.crank.cylinder_id;
+            output.exhaust_route_id = model.exhaust_route_id;
+            output.coordinates = DirectCylinderCoordinates{
+                model.crank.geometric_tdc_rad,
+                evaluated.phase_rad,
+                evaluated.piston_travel_m,
+                evaluated.dx_dtheta_m_per_rad,
+            };
+            output.ignition_wire_angle_rad = model.crank.ignition_wire_angle_rad;
+            output.chamber_volume_m3 = evaluated.chamber_volume_m3;
+            output.dvolume_dtheta_m3_per_rad = evaluated.dvolume_dtheta_m3_per_rad;
+            output.piston_speed_abs_m_s = evaluated.piston_speed_abs_m_s;
         }
-        auto &output = step_.cylinders[index];
-        output.cylinder_id = model.crank.cylinder_id;
-        output.exhaust_route_id = model.exhaust_route_id;
-        output.coordinates = DirectCylinderCoordinates{
-            model.crank.geometric_tdc_rad,
-            evaluated.phase_rad,
-            evaluated.piston_travel_m,
-            evaluated.dx_dtheta_m_per_rad,
-        };
-        output.ignition_wire_angle_rad = model.crank.ignition_wire_angle_rad;
-        output.chamber_volume_m3 = evaluated.chamber_volume_m3;
-        output.dvolume_dtheta_m3_per_rad = evaluated.dvolume_dtheta_m3_per_rad;
-        output.piston_speed_abs_m_s = evaluated.piston_speed_abs_m_s;
+    } else {
+        const auto &cylinders = radial_plan->cylinders;
+        for (std::size_t index = 0; index < cylinders.size(); ++index) {
+            const auto &model = cylinders[index];
+            const auto &geometry = radial_cylinder_geometry(model);
+            const auto evaluated = evaluate_one_level_master_rod_plan(
+                *radial_plan, index, step_.body_angle_psi_rad,
+                step_.angular_speed_rad_s);
+            if (!evaluated.valid) {
+                terminal_fault_ = fault(
+                    contract::FailureKind::nonphysical_state,
+                    "legacy-master-rod-state-invalid",
+                    "analytic one-level master-rod geometry produced an invalid "
+                    "state",
+                    geometry.cylinder_id, model.exhaust_route_id);
+                return *terminal_fault_;
+            }
+            auto &output = step_.cylinders[index];
+            output.cylinder_id = geometry.cylinder_id;
+            output.exhaust_route_id = model.exhaust_route_id;
+            output.coordinates = OneLevelMasterRodCoordinates{
+                evaluated.piston_axis_position_m,
+                evaluated.piston_axis_derivative_m_per_rad,
+            };
+            output.ignition_wire_angle_rad = model.ignition_wire_angle_rad;
+            output.chamber_volume_m3 = evaluated.chamber_volume_m3;
+            output.dvolume_dtheta_m3_per_rad =
+                evaluated.dvolume_dtheta_m3_per_rad;
+            output.piston_speed_abs_m_s = evaluated.piston_speed_abs_m_s;
+        }
     }
 
     if (!finite_step_scalars(step_)) {

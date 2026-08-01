@@ -38,6 +38,15 @@ struct LowOrderEngineCoreV1RuntimeFactory {
                 const contract::RandomPlan &random_plan,
                 const ScenarioControlSchedule &schedule,
                 SharedMechanismKinematicsPlan mechanism_plan);
+
+  private:
+    [[nodiscard]] static MechanicsCompileResult compile_mechanics_with_control(
+        const contract::EngineSpec &engine,
+        const contract::LowOrderEngineCoreV1 &core,
+        const contract::RenderScenario &scenario,
+        SharedMechanismKinematicsPlan mechanism_plan,
+        const ScenarioControlSchedule &schedule,
+        bool has_kinematic_schedule);
 };
 
 } // namespace engine_sim_offline::simulation::detail

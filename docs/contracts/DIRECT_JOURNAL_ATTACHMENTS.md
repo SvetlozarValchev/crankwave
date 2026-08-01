@@ -1,8 +1,8 @@
 # Journal attachment graph
 
-Status: topology sub-slice 10C2b5; graph, typed core, pure geometry, certified
-immutable mechanism plan, and tagged mechanics coordinates implemented; master-rod
-runtime execution closed
+Status: topology sub-slice 10C2b6; graph, typed core, pure geometry, certified
+immutable mechanism plan, tagged mechanics coordinates, and internal prescribed
+mechanics implemented; master-rod gas, capture, and public execution closed
 
 ## One ownership path
 
@@ -77,9 +77,9 @@ one-level master/slave position and volume construction. The plan contains no sl
 stroke, nominal displacement, clearance-volume shortcut, equivalent inertia, wall
 reaction, or torque authority.
 
-This plan is point-evaluable, not yet executable. A separate analytic primitive now
-certifies each resolved root or slave cylinder over a complete revolution without an
-angular sample grid. For a root it uses the exact `L + r` maximum piston-axis position.
+Before mechanics admission, a separate analytic primitive certifies each resolved root
+or slave cylinder over a complete revolution without an angular sample grid. For a
+root it uses the exact `L + r` maximum piston-axis position.
 For a slave it uses the deliberately sufficient bounds `L_slave > r + throw` for
 forward reach and `s <= L_slave + r + throw` for maximum piston-axis position. Both
 paths evaluate the resulting minimum chamber volume in the pristine written order and
@@ -92,19 +92,23 @@ The mechanism-plan compiler invokes this certificate for every root and slave af
 the complete one-level graph has been assembled. A slave is checked against the exact
 direct-root driver selected by its stable master index. A failed proof returns one
 bounded per-cylinder `unsupported_value` with the `not_certified` reason; no
-uncertified immutable plan is released. This still grants no mechanics, gas, crank,
-capture, or public engine execution authority.
+uncertified immutable plan is released. Certification alone grants no execution
+authority.
 
 The mutable mechanics sample also has one tagged coordinate payload. Direct cylinders
 own geometric TDC, wrapped centered-slider phase, TDC-relative piston travel, and its
 angle derivative. A one-level master-rod alternative owns absolute bank-axis position
 and its angle derivative instead. An unpopulated sample is explicitly empty. The
 shared chamber volume, volume derivative, and absolute piston speed remain outside
-that tag because gas and capture consume them for either geometry. No radial runtime
-emits the new alternative yet.
+that tag because gas and capture consume them for either geometry. The internal
+mechanics session now emits the master-rod alternative only when it owns a finite
+prescribed kinematic cursor. It evaluates the certified plan at the post-step body
+angle, preserves stable cylinder and spark order, and rejects externally supplied
+post-step crank motion. Completion remains terminal and stable across every advance
+overload.
 
 The public engine compiler still rejects this plan at one explicit execution gate, so
-it cannot silently enter the direct mechanics, gas, crank, or capture runtimes. The
+it cannot silently enter gas, crank, capture, or an unsupported mechanics owner. The
 resolution-only nominal stroke, compression, and displacement fields in `EngineSpec`
 remain non-executable master-rod facts. Nested attachments and coupled reactions are
 not implemented in this sub-slice.
@@ -134,8 +138,9 @@ variant does not revive or alias any of them.
 
 Direct journal IDs, crankshaft ownership, phases, cylinder bindings, ordering, and
 resolved provenance remain unchanged. Existing direct engines continue through the
-same resolver/runtime path and canonical request shape. Master-rod execution remains
-closed even though its immutable chamber-geometry plan is now compilable and
-source-bound. The first runtime gate is limited to prescribed external-speed motion;
+same resolver/runtime path and canonical request shape. Master-rod public execution
+remains closed even though its immutable chamber-geometry plan is source-bound and
+internal prescribed mechanics is executable. The first runtime gate is limited to
+prescribed external-speed motion;
 articulated inertia, coupled wall reactions, torque-owning operation, and dynamic
 operating modes remain later, separately gated work.

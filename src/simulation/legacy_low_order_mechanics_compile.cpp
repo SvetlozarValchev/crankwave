@@ -62,9 +62,9 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
         return report;
     }
 
-    auto result =
-        compile_mechanics(engine, core, scenario, std::move(mechanism_plan),
-                          schedule.control_schedule());
+    auto result = compile_mechanics_with_control(
+        engine, core, scenario, std::move(mechanism_plan),
+        schedule.control_schedule(), true);
     if (auto *session = std::get_if<LegacyLowOrderMechanicsSession>(&result)) {
         session->kinematic_cursor_.emplace(schedule.fresh_cursor());
     }
@@ -77,19 +77,49 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
     const contract::RenderScenario &scenario,
     SharedMechanismKinematicsPlan mechanism_plan,
     const ScenarioControlSchedule &schedule) {
+    return compile_mechanics_with_control(engine, core, scenario,
+                                          std::move(mechanism_plan), schedule,
+                                          false);
+}
+
+detail::LowOrderEngineCoreV1RuntimeFactory::MechanicsCompileResult
+detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
+    const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core,
+    const contract::RenderScenario &scenario,
+    SharedMechanismKinematicsPlan mechanism_plan,
+    const ScenarioControlSchedule &schedule, const bool has_kinematic_schedule) {
     ValidationReport report;
     const auto *direct_plan =
         direct_mechanism_kinematics_plan(mechanism_plan);
+    const auto *radial_plan =
+        one_level_master_rod_mechanism_kinematics_plan(mechanism_plan);
     const bool plan_matches_source =
         mechanism_kinematics_plan_matches_source(mechanism_plan, engine, core);
-    require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
-            "mechanism_plan",
-            "legacy mechanics requires one compiled direct mechanism plan");
+    if (radial_plan != nullptr) {
+        require(report,
+                has_kinematic_schedule &&
+                    std::holds_alternative<contract::PrescribedKinematicSweep>(
+                        scenario.mode),
+                ContractIssueCode::unsupported_value, "mechanism_plan",
+                "one-level master-rod mechanics requires a finite prescribed "
+                "kinematic schedule");
+    } else {
+        require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
+                "mechanism_plan",
+                "legacy mechanics requires one compiled direct mechanism plan");
+    }
     require(report, plan_matches_source, ContractIssueCode::inconsistent_semantics,
             "mechanism_plan",
-            "compiled direct mechanism plan does not exactly match its resolved "
-            "engine source");
-    if (direct_plan == nullptr || !plan_matches_source) {
+            direct_plan != nullptr
+                ? "compiled direct mechanism plan does not exactly match its "
+                  "resolved engine source"
+                : "compiled one-level master-rod mechanism plan does not exactly "
+                  "match its resolved engine source");
+    if ((direct_plan == nullptr && radial_plan == nullptr) || !plan_matches_source ||
+        (radial_plan != nullptr &&
+         (!has_kinematic_schedule ||
+          !std::holds_alternative<contract::PrescribedKinematicSweep>(
+              scenario.mode)))) {
         return report;
     }
     require(report, scenario.engine_profile_id == engine.profile_id.value,

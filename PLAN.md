@@ -622,6 +622,13 @@ bindings, and opposed mechanism pairs across a bounded runtime capture. More gen
 heterogeneous heads, separate intakes, crankshafts, ignition sharing, and master/slave
 journals remain isolated follow-up commits within slice 10.
 
+The certified one-level master-rod plan now has an internal mechanics consumer for
+finite prescribed kinematic sweeps. It emits stable root/slave cylinder order, tagged
+axis coordinates, common chamber volume derivatives, and ordered ignition crossings
+directly from the immutable evaluator. It has no dynamic-crank, inertia, or torque
+authority, and the public engine compiler remains closed until gas and capture consume
+the same plan.
+
 The direct journal contract is now a single tagged attachment path:
 `cylinder.journal -> journal.crankshaft`. Every current engine uses required
 `type: "crankshaft"`; reciprocal crankshaft journal lists, repeated cylinder crank

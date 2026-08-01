@@ -36,6 +36,11 @@ void expect_near(double actual, double expected, double tolerance,
     }
 }
 
+bool same_binary64(double left, double right) {
+    return std::bit_cast<std::uint64_t>(left) ==
+           std::bit_cast<std::uint64_t>(right);
+}
+
 void test_legacy_angle_wrapping() {
     const double two_pi = 2.0 * kLegacyPi;
     const double four_pi = 4.0 * kLegacyPi;
@@ -327,6 +332,44 @@ struct MechanicsFixture {
     }
 };
 
+void configure_radial_master_rod_twin(MechanicsFixture &fixture) {
+    constexpr double slave_phase_rad = 72.0 * (kLegacyPi / 180.0);
+    auto &profile =
+        std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile);
+    auto &root = profile.core.mechanism.cylinders.front();
+    root.parameters.deck_height_m.value = 0.25;
+
+    auto slave_public = fixture.engine.cylinders.front();
+    slave_public.id = CylinderId{2};
+    slave_public.semantic_id.value = "cylinder-2";
+    slave_public.journal_phase_rad.value = slave_phase_rad;
+    slave_public.master_rod_attachment = MasterRodAttachmentSpec{
+        CylinderId{1},
+        fixture.builder.resolved(
+            0.029,
+            "engine.cylinders.cylinder-2.master_rod_attachment.throw_radius_m"),
+    };
+    fixture.engine.cylinders.push_back(std::move(slave_public));
+
+    auto slave = root;
+    slave.topology.cylinder_id = CylinderId{2};
+    slave.parameters.ignition_wire_angle_rad.value = 3.0;
+    slave.kinematics = LegacyMasterRodJournalKinematics{
+        CylinderId{1},
+        fixture.builder.resolved(
+            0.029,
+            "engine.physics.low-order-operating-point-v1.mechanism.cylinders."
+            "cylinder-2.kinematics.throw_radius_m"),
+        fixture.builder.resolved(
+            slave_phase_rad,
+            "engine.physics.low-order-operating-point-v1.mechanism.cylinders."
+            "cylinder-2.kinematics.master_local_phase_rad"),
+    };
+    profile.core.mechanism.cylinders.push_back(std::move(slave));
+    profile.core.ignition.firing_order.value = {CylinderId{1}, CylinderId{2}};
+    fixture.scenario.scenario_id = "radial-mechanics-four-step";
+}
+
 LegacyLowOrderMechanicsSession
 require_session(CoreRuntimeFactory::MechanicsCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
@@ -360,6 +403,34 @@ CoreRuntimeFactory::MechanicsCompileResult compile_fixture(MechanicsFixture &fix
         fixture.engine, core, fixture.scenario,
         std::get<SharedMechanismKinematicsPlan>(std::move(mechanism_plan)),
         std::get<KinematicScenarioSchedule>(schedule_result));
+}
+
+struct CompiledRadialMechanics {
+    SharedMechanismKinematicsPlan mechanism_plan;
+    LegacyLowOrderMechanicsSession session;
+};
+
+CompiledRadialMechanics compile_radial_mechanics(MechanicsFixture &fixture) {
+    auto schedule_result = compile_kinematic_scenario_schedule(fixture.scenario);
+    expect(std::holds_alternative<KinematicScenarioSchedule>(schedule_result),
+           "valid radial fixture did not compile its kinematic schedule");
+    auto schedule =
+        std::get<KinematicScenarioSchedule>(std::move(schedule_result));
+    const auto &core =
+        std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile).core;
+    auto mechanism_plan_result =
+        compile_mechanism_kinematics_plan(fixture.engine, core);
+    expect(std::holds_alternative<SharedMechanismKinematicsPlan>(
+               mechanism_plan_result),
+           "valid radial fixture did not compile its certified mechanism plan");
+    auto mechanism_plan = std::get<SharedMechanismKinematicsPlan>(
+        std::move(mechanism_plan_result));
+    auto session_result = CoreRuntimeFactory::compile_mechanics(
+        fixture.engine, core, fixture.scenario, mechanism_plan, schedule);
+    return {
+        std::move(mechanism_plan),
+        require_session(std::move(session_result)),
+    };
 }
 
 void configure_inertial_controls(MechanicsFixture &fixture) {
@@ -504,6 +575,127 @@ void test_mechanics_session_step_order_and_completion() {
         std::get_if<LegacyMechanicsCompleted>(&stable_terminal);
     expect(stable_completed != nullptr && *stable_completed == *completed,
            "mechanics session completion is not terminal and stable");
+}
+
+void test_radial_prescribed_mechanics_matches_pure_geometry_and_completes() {
+    MechanicsFixture fixture;
+    configure_radial_master_rod_twin(fixture);
+    auto compiled = compile_radial_mechanics(fixture);
+    const auto *radial_plan =
+        one_level_master_rod_mechanism_kinematics_plan(compiled.mechanism_plan);
+    expect(radial_plan != nullptr && radial_plan->cylinders.size() == 2U,
+           "radial mechanics test lost its certified two-cylinder plan");
+
+    for (std::uint64_t sample_index = 0; sample_index < 4U; ++sample_index) {
+        auto result = compiled.session.advance();
+        const auto &step = require_step(result);
+        expect(step.sample_index == sample_index &&
+                   step.step_end_index == sample_index + 1U &&
+                   step.cylinders.size() == radial_plan->cylinders.size(),
+               "radial mechanics changed its clock or cylinder shape");
+
+        for (std::size_t index = 0; index < step.cylinders.size(); ++index) {
+            const auto &actual = step.cylinders[index];
+            const auto &planned = radial_plan->cylinders[index];
+            const auto expected = evaluate_one_level_master_rod_plan(
+                *radial_plan, index, step.body_angle_psi_rad,
+                step.angular_speed_rad_s);
+            const auto *coordinates =
+                std::get_if<OneLevelMasterRodCoordinates>(&actual.coordinates);
+            expect(expected.valid && coordinates != nullptr &&
+                       actual.cylinder_id == CylinderId{
+                                                 static_cast<std::uint32_t>(index + 1U)} &&
+                       actual.exhaust_route_id == planned.exhaust_route_id &&
+                       same_binary64(coordinates->piston_axis_position_m,
+                                     expected.piston_axis_position_m) &&
+                       same_binary64(
+                           coordinates->piston_axis_derivative_m_per_rad,
+                           expected.piston_axis_derivative_m_per_rad) &&
+                       same_binary64(actual.chamber_volume_m3,
+                                     expected.chamber_volume_m3) &&
+                       same_binary64(actual.dvolume_dtheta_m3_per_rad,
+                                     expected.dvolume_dtheta_m3_per_rad) &&
+                       same_binary64(actual.piston_speed_abs_m_s,
+                                     expected.piston_speed_abs_m_s),
+                   "radial mechanics diverged from its pure evaluator or order");
+        }
+
+        if (sample_index == 0U) {
+            expect(step.events.size() == 3U &&
+                       std::holds_alternative<SparkCrossing>(
+                           step.events[0].payload) &&
+                       std::holds_alternative<SparkCrossing>(
+                           step.events[1].payload) &&
+                       std::get<SparkCrossing>(step.events[0].payload).cylinder_id ==
+                           CylinderId{1} &&
+                       std::get<SparkCrossing>(step.events[1].payload).cylinder_id ==
+                           CylinderId{2} &&
+                       std::holds_alternative<LimiterStateChanged>(
+                           step.events[2].payload) &&
+                       step.cylinders[0].spark_crossed &&
+                       step.cylinders[1].spark_crossed,
+                   "radial spark events lost cylinder order before the limiter");
+        }
+    }
+
+    expect(compiled.session.completed(),
+           "radial mechanics did not complete with its prescribed cursor");
+    auto terminal = compiled.session.advance();
+    const auto *completed = std::get_if<LegacyMechanicsCompleted>(&terminal);
+    expect(completed != nullptr && completed->sample_count == 4U,
+           "radial mechanics completed with the wrong exact sample count");
+
+    auto terminal_with_motion =
+        compiled.session.advance(PostStepCrankMotion{1000.0, 0.01});
+    completed = std::get_if<LegacyMechanicsCompleted>(&terminal_with_motion);
+    expect(completed != nullptr && completed->sample_count == 4U,
+           "radial mechanics completion changed across advance overloads");
+}
+
+void test_radial_mechanics_requires_kinematic_schedule_and_rejects_external_motion() {
+    MechanicsFixture missing_cursor_fixture;
+    configure_radial_master_rod_twin(missing_cursor_fixture);
+    auto schedule_result =
+        compile_kinematic_scenario_schedule(missing_cursor_fixture.scenario);
+    expect(std::holds_alternative<KinematicScenarioSchedule>(schedule_result),
+           "radial missing-cursor fixture lost its source schedule");
+    auto schedule =
+        std::get<KinematicScenarioSchedule>(std::move(schedule_result));
+    const auto &core = std::get<LowOrderOperatingPointV1Profile>(
+                           missing_cursor_fixture.engine.physics_profile)
+                           .core;
+    auto mechanism_plan_result = compile_mechanism_kinematics_plan(
+        missing_cursor_fixture.engine, core);
+    expect(std::holds_alternative<SharedMechanismKinematicsPlan>(
+               mechanism_plan_result),
+           "radial missing-cursor fixture lost its certified plan");
+    auto mechanism_plan = std::get<SharedMechanismKinematicsPlan>(
+        std::move(mechanism_plan_result));
+    auto missing_cursor_result = CoreRuntimeFactory::compile_mechanics(
+        missing_cursor_fixture.engine, core, missing_cursor_fixture.scenario,
+        mechanism_plan, schedule.control_schedule());
+    const auto *missing_cursor_report =
+        std::get_if<ValidationReport>(&missing_cursor_result);
+    expect(missing_cursor_report != nullptr &&
+               std::ranges::any_of(missing_cursor_report->issues,
+                                   [](const auto &issue) {
+                                       return issue.path == "mechanism_plan" &&
+                                              issue.message.find(
+                                                  "prescribed kinematic schedule") !=
+                                                  std::string::npos;
+                                   }),
+           "radial mechanics admitted a control schedule without a kinematic "
+           "cursor");
+
+    MechanicsFixture external_motion_fixture;
+    configure_radial_master_rod_twin(external_motion_fixture);
+    auto compiled = compile_radial_mechanics(external_motion_fixture);
+    auto result = compiled.session.advance(PostStepCrankMotion{1000.0, 0.01});
+    const auto *failure = std::get_if<FailureContext>(&result);
+    expect(failure != nullptr && failure->kind == FailureKind::contract_violation &&
+               failure->detail_code ==
+                   "legacy-mechanics-radial-external-motion-not-admitted",
+           "radial mechanics admitted external post-step crank motion");
 }
 
 void test_moved_from_mechanics_session_fails_stably() {
@@ -916,6 +1108,8 @@ void run_tests() {
     test_ignition_crossing_half_open_intervals();
     test_limiter_strict_threshold_and_timer_edges();
     test_mechanics_session_step_order_and_completion();
+    test_radial_prescribed_mechanics_matches_pure_geometry_and_completes();
+    test_radial_mechanics_requires_kinematic_schedule_and_rejects_external_motion();
     test_moved_from_mechanics_session_fails_stably();
     test_mechanics_accepts_compiled_held_speed_schedule();
     test_mechanics_uses_authored_direct_throttle_transform();
