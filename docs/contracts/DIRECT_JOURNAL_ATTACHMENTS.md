@@ -1,7 +1,7 @@
 # Journal attachment graph
 
-Status: topology sub-slice 10C2b1; graph and typed resolved core implemented,
-master-rod execution closed
+Status: topology sub-slice 10C2b3; graph, typed core, pure geometry, and immutable
+mechanism plan implemented; master-rod runtime execution closed
 
 ## One ownership path
 
@@ -68,12 +68,24 @@ master-rod graph resolves its stable master-cylinder ID, throw radius, and raw l
 phase into a distinct core alternative. It has no direct-only stroke, crank radius,
 or axis-relative journal phase to consume accidentally. The engine publishes
 geometry-only capability: both net-torque forms and equivalent inertia are unavailable.
-The shared mechanism-plan compiler then rejects execution explicitly. Nested
-kinematics and reactions are not implemented in this sub-slice. It cannot become a
-public compiled engine or silently execute direct slider-crank geometry. The
+The shared mechanism-plan compiler selects a separate one-level master-rod geometry
+alternative. It retains exact root and slave identities, root global phase, slave
+local phase and throw, bank axes, stable slave-to-root indices, chamber geometry,
+route bindings, and ignition angles. Its pure evaluator reproduces the pristine
+one-level master/slave position and volume construction. The plan contains no slave
+stroke, nominal displacement, clearance-volume shortcut, equivalent inertia, wall
+reaction, or torque authority.
+
+This plan is point-evaluable, not yet executable. It does not certify that every
+cylinder remains reachable with positive chamber volume across a complete revolution;
+that full-cycle admission check belongs atomically to the prescribed-motion runtime
+gate.
+
+The public engine compiler still rejects this plan at one explicit execution gate, so
+it cannot silently enter the direct mechanics, gas, crank, or capture runtimes. The
 resolution-only nominal stroke, compression, and displacement fields in `EngineSpec`
-are not executable master-rod facts; the geometry sub-slice must avoid using them for
-accounting when its narrow prescribed-motion gate opens.
+remain non-executable master-rod facts. Nested attachments and coupled reactions are
+not implemented in this sub-slice.
 
 ## Removed ambiguity
 
@@ -94,7 +106,7 @@ variant does not revive or alias any of them.
 Direct journal IDs, crankshaft ownership, phases, cylinder bindings, ordering, and
 resolved provenance remain unchanged. Existing direct engines continue through the
 same resolver/runtime path and canonical request shape. Master-rod execution remains
-closed until the next topology slice supplies authoritative nested chamber geometry.
-That first gate is limited to prescribed external-speed motion; articulated inertia,
-coupled wall reactions, and dynamic operating modes remain later, separately gated
-work.
+closed even though its immutable chamber-geometry plan is now compilable and
+source-bound. The first runtime gate is limited to prescribed external-speed motion;
+articulated inertia, coupled wall reactions, torque-owning operation, and dynamic
+operating modes remain later, separately gated work.

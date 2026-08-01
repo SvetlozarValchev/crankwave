@@ -4,7 +4,9 @@
 #include "engine_sim_offline/contract/parity_model.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
+#include "simulation/one_level_master_rod_kinematics.hpp"
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <variant>
@@ -47,10 +49,62 @@ struct DirectMechanismKinematicsPlan {
                            const DirectMechanismKinematicsPlan &) = default;
 };
 
+struct OneLevelMasterRodDirectRootPlan {
+    OneLevelMasterRodDriver driver;
+    OneLevelMasterRodCylinder cylinder;
+
+    friend bool operator==(const OneLevelMasterRodDirectRootPlan &,
+                           const OneLevelMasterRodDirectRootPlan &) = default;
+};
+
+struct OneLevelMasterRodSlaveAttachmentPlan {
+    // Stable index into OneLevelMasterRodMechanismKinematicsPlan::cylinders.
+    // The referenced entry is always a direct root and supplies the driver used
+    // by the pure one-level master-rod evaluator.
+    std::size_t master_cylinder_index = 0;
+    OneLevelMasterRodCylinder cylinder;
+
+    friend bool operator==(const OneLevelMasterRodSlaveAttachmentPlan &,
+                           const OneLevelMasterRodSlaveAttachmentPlan &) = default;
+};
+
+using OneLevelMasterRodCylinderKinematicsPlan =
+    std::variant<OneLevelMasterRodDirectRootPlan, OneLevelMasterRodSlaveAttachmentPlan>;
+
+// Geometry-only one-level master/slave plan. It is point-evaluable, but is not an
+// executable mechanism and does not certify full-cycle reachability; prescribed
+// runtime admission must add that gate atomically. In particular, this type carries
+// no nominal stroke, displacement, clearance volume, equivalent inertia, wall
+// reaction, or torque authority.
+struct OneLevelMasterRodMechanismCylinderPlan {
+    contract::BankId bank_id;
+    contract::GasVolumeId chamber_volume_id;
+    contract::RouteId exhaust_route_id;
+    double bore_m = 0.0;
+    double piston_area_m2 = 0.0;
+    double fixed_geometry_volume_m3 = 0.0;
+    double ignition_wire_angle_rad = 0.0;
+    OneLevelMasterRodCylinderKinematicsPlan kinematics;
+
+    friend bool operator==(const OneLevelMasterRodMechanismCylinderPlan &,
+                           const OneLevelMasterRodMechanismCylinderPlan &) = default;
+};
+
+struct OneLevelMasterRodMechanismKinematicsPlan {
+    contract::EngineId engine_id;
+    std::string engine_profile_id;
+    double crank_tdc_reference_rad = 0.0;
+    std::vector<OneLevelMasterRodMechanismCylinderPlan> cylinders;
+
+    friend bool operator==(const OneLevelMasterRodMechanismKinematicsPlan &,
+                           const OneLevelMasterRodMechanismKinematicsPlan &) = default;
+};
+
 // This variant is deliberately the sole mechanism-plan type. Later mechanism
 // families extend this closed execution choice rather than adding parallel
 // compiler inputs to mechanics, gas, or crank dynamics.
-using MechanismKinematicsPlan = std::variant<DirectMechanismKinematicsPlan>;
+using MechanismKinematicsPlan = std::variant<DirectMechanismKinematicsPlan,
+                                             OneLevelMasterRodMechanismKinematicsPlan>;
 using SharedMechanismKinematicsPlan =
     std::shared_ptr<const MechanismKinematicsPlan>;
 using MechanismKinematicsPlanCompileResult =
@@ -64,9 +118,19 @@ compile_mechanism_kinematics_plan(const contract::EngineSpec &engine,
 direct_mechanism_kinematics_plan(
     const SharedMechanismKinematicsPlan &plan) noexcept;
 
+[[nodiscard]] const OneLevelMasterRodMechanismKinematicsPlan *
+one_level_master_rod_mechanism_kinematics_plan(
+    const SharedMechanismKinematicsPlan &plan) noexcept;
+
+// Point-evaluation helper. It resolves the stable slave-to-root index and delegates
+// to the pure one-level master-rod primitive. It neither certifies full-cycle
+// solvability nor enters any mechanics, gas, crank, or capture runtime.
+[[nodiscard]] OneLevelMasterRodSample evaluate_one_level_master_rod_plan(
+    const OneLevelMasterRodMechanismKinematicsPlan &plan, std::size_t cylinder_index,
+    double body_angle_psi_rad, double angular_speed_rad_s) noexcept;
+
 // Exact source binding for an already-compiled plan. This compares every authored
-// or resolved source field consumed by the direct plan without re-deriving any
-// geometry or inertia.
+// or resolved source field consumed by its selected plan alternative.
 [[nodiscard]] bool mechanism_kinematics_plan_matches_source(
     const SharedMechanismKinematicsPlan &plan,
     const contract::EngineSpec &engine,

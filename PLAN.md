@@ -4,9 +4,9 @@ Status: active — headless parity completion
 
 Branch: `clean-room/bmw-baseline`
 
-Date: 2026-07-31
+Date: 2026-08-01
 
-Current checkpoint: **slice 10 topology closure — one-level master-rod geometry**
+Current checkpoint: **slice 10 topology closure — prescribed one-level master-rod capture**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -635,9 +635,10 @@ fail-closed tagged union: a direct cylinder alone owns stroke, crank radius, and
 axis-relative journal phase, while a master-rod cylinder owns only its master ID,
 throw, and local phase. Direct canonical request bytes and provenance order remain
 unchanged. A mechanism containing a master rod truthfully publishes no net-torque or
-equivalent-inertia capability and still fails at the mechanism-plan compiler's one
-explicit runtime capability gate; nested chamber geometry, inertia, and coupled
-reactions are not partially approximated.
+equivalent-inertia capability. Its pure one-level root/slave evaluator now matches the
+pristine position, derivative, chamber-volume, and volume-derivative construction,
+including the source bank-axis and phase conventions. Negative slider solutions fail
+closed.
 
 Capture construction now compiles one immutable, source-bound mechanism-kinematics
 plan and shares that exact object with mechanics, gas, and dynamic-crank execution.
@@ -647,10 +648,13 @@ compiler. Exact source-field binding rejects a stale same-ID plan, and a moved-f
 mechanics session fails terminally rather than dereferencing an empty plan. Existing
 direct slider-crank formulas, floating-point evaluation order, torque-accounting
 displacement, resolved request identity, and accepted audio remain the unchanged
-authority. The next isolated sub-slice adds one-level master-rod chamber geometry to
-this shared plan for prescribed external-speed execution only; it does not combine
-geometry with nominal displacement accounting, inertia, reactions, or audio-model
-changes.
+authority. A separate immutable one-level master-rod plan now retains each direct
+root, slave pin, stable master index, bank axis, chamber/route binding, and ignition
+angle without publishing slave stroke, displacement accounting, inertia, reactions,
+or torque. It is exact-source-bound and evaluable, while the public compiler still
+holds it behind one explicit runtime gate. The next isolated sub-slice opens that plan
+only for prescribed external-speed mechanics, gas, and capture execution, and owns
+the required full-cycle reachability and positive-volume admission check.
 
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,

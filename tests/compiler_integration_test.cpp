@@ -2114,15 +2114,128 @@ void test_master_rod_graph_contract_and_execution_gate() {
                "geometry-only master core falsely advertised torque or inertia");
         const auto plan_result = simulation::compile_mechanism_kinematics_plan(
             resolved.engine, profile.core);
-        const auto *runtime_rejection =
-            std::get_if<contract::ValidationReport>(&plan_result);
-        expect(runtime_rejection != nullptr && !runtime_rejection->issues.empty() &&
-                   runtime_rejection->issues.front().code ==
-                       contract::ContractIssueCode::unsupported_value &&
-                   runtime_rejection->issues.front().path ==
-                       "engine.cylinders[1].master_rod_attachment",
-               "resolved master-rod graph lost its explicit runtime execution "
-               "boundary");
+        const auto *shared_plan =
+            std::get_if<simulation::SharedMechanismKinematicsPlan>(&plan_result);
+        expect(shared_plan != nullptr,
+               "resolved master-rod graph failed geometry-plan compilation");
+        const auto *radial_plan =
+            shared_plan == nullptr
+                ? nullptr
+                : simulation::one_level_master_rod_mechanism_kinematics_plan(
+                      *shared_plan);
+        expect(radial_plan != nullptr && radial_plan->cylinders.size() == 2U &&
+                   simulation::direct_mechanism_kinematics_plan(*shared_plan) ==
+                       nullptr &&
+                   radial_plan->crank_tdc_reference_rad ==
+                       profile.core.mechanism.crank.crank_tdc_reference_rad.value,
+               "master-rod graph did not select its separate geometry plan");
+        const auto *root_plan =
+            radial_plan == nullptr
+                ? nullptr
+                : std::get_if<simulation::OneLevelMasterRodDirectRootPlan>(
+                      &radial_plan->cylinders[0].kinematics);
+        const auto *slave_plan =
+            radial_plan == nullptr
+                ? nullptr
+                : std::get_if<simulation::OneLevelMasterRodSlaveAttachmentPlan>(
+                      &radial_plan->cylinders[1].kinematics);
+        const auto *slave_pin =
+            slave_plan == nullptr ? nullptr
+                                  : std::get_if<simulation::OneLevelMasterRodSlavePin>(
+                                        &slave_plan->cylinder.journal);
+        expect(root_plan != nullptr && slave_plan != nullptr && slave_pin != nullptr &&
+                   root_plan->cylinder.cylinder_id == master.id &&
+                   root_plan->driver.crank_journal_global_phase_rad ==
+                       master.journal_phase_rad.value &&
+                   slave_plan->cylinder.cylinder_id == slave.id &&
+                   slave_plan->master_cylinder_index == 0U &&
+                   slave_pin->throw_radius_m ==
+                       slave.master_rod_attachment->throw_radius_m.value &&
+                   slave_pin->local_phase_rad == slave.journal_phase_rad.value &&
+                   radial_plan->cylinders[0].chamber_volume_id ==
+                       profile.core.mechanism.cylinders[0].topology.chamber_volume_id &&
+                   radial_plan->cylinders[1].exhaust_route_id ==
+                       profile.core.mechanism.cylinders[1].topology.exhaust_route_id,
+               "compiled master-rod plan lost root/slave identity, global/local "
+               "phase, stable master index, or chamber/route binding");
+        const auto root_sample = radial_plan == nullptr
+                                     ? simulation::OneLevelMasterRodSample{}
+                                     : simulation::evaluate_one_level_master_rod_plan(
+                                           *radial_plan, 0U, 0.0, 100.0);
+        const auto slave_sample = radial_plan == nullptr
+                                      ? simulation::OneLevelMasterRodSample{}
+                                      : simulation::evaluate_one_level_master_rod_plan(
+                                            *radial_plan, 1U, 0.0, 100.0);
+        expect(root_sample.valid && slave_sample.valid &&
+                   root_sample.chamber_volume_m3 > 0.0 &&
+                   slave_sample.chamber_volume_m3 > 0.0,
+               "compiled master-rod geometry failed pure evaluator dispatch");
+        expect(shared_plan != nullptr &&
+                   simulation::mechanism_kinematics_plan_matches_source(
+                       *shared_plan, resolved.engine, profile.core),
+               "fresh master-rod geometry plan did not match its source");
+        auto stale_engine = resolved.engine;
+        stale_engine.cylinders[0].journal_phase_rad.value += 0.01;
+        expect(shared_plan != nullptr &&
+                   !simulation::mechanism_kinematics_plan_matches_source(
+                       *shared_plan, stale_engine, profile.core),
+               "master-rod plan accepted a stale public root phase");
+        auto stale_bank_engine = resolved.engine;
+        auto same_angle_bank = stale_bank_engine.banks[0];
+        same_angle_bank.id.value += 1000U;
+        stale_bank_engine.banks.push_back(same_angle_bank);
+        stale_bank_engine.cylinders[0].bank_id = same_angle_bank.id;
+        expect(shared_plan != nullptr &&
+                   !simulation::mechanism_kinematics_plan_matches_source(
+                       *shared_plan, stale_bank_engine, profile.core),
+               "master-rod plan accepted a stale same-angle bank reassignment");
+        auto stale_core = profile.core;
+        std::get<contract::LegacyMasterRodJournalKinematics>(
+            stale_core.mechanism.cylinders[1].kinematics)
+            .throw_radius_m.value += 0.001;
+        expect(shared_plan != nullptr &&
+                   !simulation::mechanism_kinematics_plan_matches_source(
+                       *shared_plan, resolved.engine, stale_core),
+               "master-rod plan accepted a stale resolved slave throw");
+
+        auto phase_probe_document = make_master_rod_twin_document(assets);
+        phase_probe_document.engine.layout = authoring::CylinderLayout::custom;
+        phase_probe_document.engine.banks[0].angle = quantity(15.0, "deg");
+        phase_probe_document.engine.journals[0].phase = quantity(40.0, "deg");
+        auto phase_probe_resolved = require_value(
+            compile_detail::resolve_engine_package(phase_probe_document, twin_views),
+            "nonzero-bank master-rod phase probe failed to resolve");
+        const auto &phase_probe_core =
+            std::get<contract::LowOrderOperatingPointV1Profile>(
+                phase_probe_resolved.engine.physics_profile)
+                .core;
+        const auto phase_probe_result = simulation::compile_mechanism_kinematics_plan(
+            phase_probe_resolved.engine, phase_probe_core);
+        const auto *phase_probe_shared =
+            std::get_if<simulation::SharedMechanismKinematicsPlan>(&phase_probe_result);
+        const auto *phase_probe_plan =
+            phase_probe_shared == nullptr
+                ? nullptr
+                : simulation::one_level_master_rod_mechanism_kinematics_plan(
+                      *phase_probe_shared);
+        const auto *phase_probe_root =
+            phase_probe_plan == nullptr
+                ? nullptr
+                : std::get_if<simulation::OneLevelMasterRodDirectRootPlan>(
+                      &phase_probe_plan->cylinders[0].kinematics);
+        const auto *phase_probe_direct =
+            std::get_if<contract::LegacyDirectJournalKinematics>(
+                &phase_probe_core.mechanism.cylinders[0].kinematics);
+        expect(
+            phase_probe_root != nullptr && phase_probe_direct != nullptr &&
+                phase_probe_root->driver.crank_journal_global_phase_rad ==
+                    phase_probe_resolved.engine.cylinders[0].journal_phase_rad.value &&
+                phase_probe_root->driver.master_bank_angle_rad ==
+                    phase_probe_resolved.engine.banks[0].angle_rad->value &&
+                phase_probe_root->driver.crank_journal_global_phase_rad !=
+                    phase_probe_direct->journal_angle_rad.value,
+            "master-rod root phase was reconstructed from its bank-relative "
+            "core phase instead of preserving the public global phase");
 
         const auto public_result = compile::compile_engine(document, twin_views);
         require_diagnostic(public_result,
