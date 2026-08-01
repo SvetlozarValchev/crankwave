@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-01
 
-Current checkpoint: **slice 10 topology closure — prescribed one-level master-rod capture**
+Current checkpoint: **slice 10 topology closure — prescribed radial path admitted**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -619,17 +619,8 @@ published WAV files are byte-identical to the accepted shared-head checkpoint. D
 centered rods now execute on inline, V, opposed, and custom explicit bank axes. A
 pristine-derived Subaru EJ25 fixture preserves its antipodal banks, direct journal
 bindings, and opposed mechanism pairs across a bounded runtime capture. More general
-heterogeneous heads, separate intakes, crankshafts, ignition sharing, and master/slave
-journals remain isolated follow-up commits within slice 10.
-
-The certified one-level master-rod plan now has an internal mechanics consumer for
-finite prescribed kinematic sweeps. It emits stable root/slave cylinder order, tagged
-axis coordinates, common chamber volume derivatives, and ordered ignition crossings
-directly from the immutable evaluator. It has no dynamic-crank, inertia, or torque
-authority. Internal gas now initializes and advances the same certified geometry under
-finite prescribed motion, consuming common chamber volume and `dV/dtheta` without
-nominal slave-cylinder shortcuts. The public engine compiler remains closed until
-capture consumes this path.
+heterogeneous heads, separate intakes, multiple crankshafts, and broader ignition
+sharing remain isolated follow-up commits within slice 10.
 
 The direct journal contract is now a single tagged attachment path:
 `cylinder.journal -> journal.crankshaft`. Every current engine uses required
@@ -657,48 +648,49 @@ compiler. Exact source-field binding rejects a stale same-ID plan, and a moved-f
 mechanics session fails terminally rather than dereferencing an empty plan. Existing
 direct slider-crank formulas, floating-point evaluation order, torque-accounting
 displacement, resolved request identity, and accepted audio remain the unchanged
-authority. A separate immutable one-level master-rod plan now retains each direct
-root, slave pin, stable master index, bank axis, chamber/route binding, and ignition
-angle without publishing slave stroke, displacement accounting, inertia, reactions,
-or torque. It is exact-source-bound and evaluable, while the public compiler still
-holds it behind one explicit runtime gate. The next isolated sub-slice opens that plan
-only for prescribed external-speed mechanics, gas, and capture execution, and owns
-the required full-cycle reachability and positive-volume admission check.
+authority. A separate immutable one-level master-rod plan retains each direct root,
+slave pin, stable master index, bank axis, chamber/route binding, and ignition angle
+without publishing slave stroke, displacement accounting, inertia, reactions, or
+torque. Exact root bounds and deliberately sufficient slave bounds certify full-cycle
+reachability and positive chamber volume before this plan is released.
 
 The existing direct mechanism now admits `prescribed_kinematic_sweep` through the
 public scenario contract and finite capture path. It reuses the established kinematic
 schedule, mechanics, gas, excitation, and presentation core. Its dedicated capture
 policy publishes only complete instantaneous indicated-gas torque; shaft/reaction
 torque, power, work, and cycle evidence remain explicitly unavailable, and live
-overrides are rejected. This closes a previously documented-but-unreachable direct
-mode without changing held-speed or dynamic-crank behavior. The master-rod public
-engine gate remains closed until prescribed radial mechanics/gas integration lands.
+overrides are rejected. Master-rod geometry now enters this same public prescribed
+path without changing held-speed or dynamic-crank behavior.
 
-The isolated full-cycle certificate primitive is now implemented. It analytically
-proves exact root reach and minimum volume and uses conservative one-level slave bounds
-without an angular sample grid. Canonical radial-five margins and three geometries that
-are valid at one point but fail later in the revolution are regression fixtures. This
-The mechanism-plan compiler now applies that certificate to every assembled root and
-slave, resolving each slave through its stable direct-root index. Point-valid geometry
-that becomes unreachable or nonpositive-volume later in the revolution is rejected at
-its bounded cylinder path before an immutable plan is released. This checkpoint grants
-no execution authority; the public engine gate remains closed until prescribed radial
-mechanics and gas are wired in the same admitted path.
+The mechanism-plan compiler applies the full-cycle certificate to every assembled root
+and slave, resolving each slave through its stable direct-root index. Canonical
+radial-five margins and three geometries that are valid at one point but fail later in
+the revolution are regression fixtures. Point-valid geometry that later becomes
+unreachable or nonpositive-volume is rejected at its bounded cylinder path.
 
-The internal mechanics-cylinder sample now separates direct centered-slider
+The mechanics-cylinder sample separates direct centered-slider
 coordinates from one-level master-rod axis coordinates with an explicit tagged union
 and empty state. Existing direct mechanics populates the direct alternative at the
 same statement boundary, while dynamic piston-wall reaction requires that alternative
-before reading phase. Gas and capture continue to consume only the common volume,
-volume derivative, and piston-speed fields. This refactor admits no radial execution
-and changes no public JSON, capture, C, or WASM schema.
+before reading phase. Prescribed radial mechanics emits the radial alternative in
+stable cylinder and spark order. Gas and capture consume only common volume, volume
+derivative, and piston-speed fields, so neither reconstructs nominal slave stroke or
+clearance geometry.
 
-The authored scenario resolver and resolved scenario contract now install the radial
-mode firewall ahead of execution: a master-rod engine admits only authored
+The authored scenario resolver and resolved scenario contract retain the radial mode
+firewall ahead of execution: a master-rod engine admits only authored
 `external_speed`, resolved as `PrescribedKinematicSweep`. Other authored modes fail at
 `/mode/type` before direct-only baseline inertia is queried, and programmatic callers
-receive the equivalent `mode` rejection. The public master-rod engine gate is still
-closed, so this prerequisite changes no existing engine session.
+receive the equivalent `mode` rejection. Mechanics and gas independently require a
+finite prescribed schedule, while dynamic crank retains its direct-plan gate.
+
+The pristine-derived radial-five fixture now exercises this boundary through public
+engine/scenario compilation, an exact 800-frame capture with active two-route gas
+sources, and a four-block `EngineSession` with finite nonzero PCM on the existing
+presentation path. It locks five bank axes, one root and four slave pins, firing/cam/
+route associations, the source's doubled head-flow tables, and exact IR bytes. This is
+structural and execution parity evidence; longer low/high holds and a short climb are
+still required before the representative radial recording set is accepted by ear.
 
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,

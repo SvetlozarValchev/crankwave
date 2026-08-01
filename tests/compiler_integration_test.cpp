@@ -2047,7 +2047,7 @@ void test_layout_shape_fails_closed() {
     }
 }
 
-void test_master_rod_graph_contract_and_execution_gate() {
+void test_master_rod_graph_contract_and_public_admission() {
     const SyntheticAssets assets = make_assets();
     auto views = assets.views();
     const auto require_graph_diagnostic = [](const authoring::DiagnosticReport &report,
@@ -2267,11 +2267,8 @@ void test_master_rod_graph_contract_and_execution_gate() {
             "master-rod root phase was reconstructed from its bank-relative "
             "core phase instead of preserving the public global phase");
 
-        const auto public_result = compile::compile_engine(document, twin_views);
-        require_diagnostic(public_result,
-                           authoring::DiagnosticCode::unsupported_capability,
-                           "/engine/cylinders/1/master_rod_attachment",
-                           "public master-rod execution gate");
+        (void)require_value(compile::compile_engine(document, twin_views),
+                            "certified public master-rod engine failed to compile");
     }
     {
         const auto document = make_master_rod_twin_document(assets);
@@ -2601,7 +2598,7 @@ int main() {
         test_four_cam_vtec_resolves_to_si_and_provenance();
         test_governor_resolves_to_executable_controller();
         test_layout_shape_fails_closed();
-        test_master_rod_graph_contract_and_execution_gate();
+        test_master_rod_graph_contract_and_public_admission();
         test_direct_engine_dto_identity_and_enum_admission_fails_closed();
         test_direct_scenario_dto_admission_fails_closed();
         std::cout << "compiler integration tests passed\n";

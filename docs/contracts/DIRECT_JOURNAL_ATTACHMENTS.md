@@ -1,8 +1,7 @@
 # Journal attachment graph
 
-Status: topology sub-slice 10C2b7; graph, typed core, pure geometry, certified
-immutable mechanism plan, tagged mechanics coordinates, and internal prescribed
-mechanics/gas implemented; master-rod capture and public execution closed
+Status: topology sub-slice 10C2b8; certified one-level master-rod geometry executes
+through public finite prescribed capture and audio; torque-owning motion remains closed
 
 ## One ownership path
 
@@ -115,18 +114,23 @@ chamber work and indicated torque consume the common mechanics volume and
 clearance shortcut. Cylinder and torque reductions retain authored order. This does
 not grant crank-motion ownership.
 
-The public engine compiler still rejects this plan at one explicit execution gate, so
-it cannot silently enter crank, capture, or an unsupported mechanics/gas owner. The
-resolution-only nominal stroke, compression, and displacement fields in `EngineSpec`
-remain non-executable master-rod facts. Nested attachments and coupled reactions are
-not implemented in this sub-slice.
+The public engine compiler accepts a certified plan. Finite prescribed capture shares
+that exact plan across mechanics and gas, then publishes the existing mechanism-neutral
+capture, excitation, conditioning, IR, mastering, and audio buses. The canonical
+radial-five fixture completes exactly 800 physics frames and four public audio blocks
+with active gas sources and finite nonzero PCM. This is execution-path evidence, not a
+claim that an 80 ms topology fixture is a production listening reference.
 
-The scenario firewalls are already narrower than that public engine gate. Authored
-master-rod engines reject every mode except `external_speed` at `/mode/type` before
-baseline inertia is queried, and the resolved contract admits only
-`PrescribedKinematicSweep`. These checks do not open public execution; they ensure the
-later cutover cannot accidentally route radial geometry into a held or dynamic-crank
-owner.
+The resolution-only nominal stroke, compression, and displacement fields in
+`EngineSpec` remain non-executable master-rod facts. Nested attachments and coupled
+reactions are not implemented in this sub-slice.
+
+The scenario firewalls define the public execution boundary. Authored master-rod
+engines reject every mode except `external_speed` at `/mode/type` before baseline
+inertia is queried, and the resolved contract admits only `PrescribedKinematicSweep`.
+Mechanics and gas independently require a finite prescribed schedule. Dynamic crank
+also retains its direct-plan gate, so held speed, dyno, free engine, free vehicle,
+inertia, and torque-owning operation cannot consume radial coordinates accidentally.
 
 ## Removed ambiguity
 
@@ -146,9 +150,7 @@ variant does not revive or alias any of them.
 
 Direct journal IDs, crankshaft ownership, phases, cylinder bindings, ordering, and
 resolved provenance remain unchanged. Existing direct engines continue through the
-same resolver/runtime path and canonical request shape. Master-rod public execution
-remains closed even though its immutable chamber-geometry plan is source-bound and
-internal prescribed mechanics/gas are executable. The first runtime gate is limited to
-prescribed external-speed motion;
+same resolver/runtime path and canonical request shape. Master-rod public execution is
+limited to certified finite prescribed external-speed motion;
 articulated inertia, coupled wall reactions, torque-owning operation, and dynamic
 operating modes remain later, separately gated work.

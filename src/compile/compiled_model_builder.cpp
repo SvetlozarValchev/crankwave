@@ -220,24 +220,6 @@ CompiledEngineBuilder::build(ResolvedEnginePackage resolved) noexcept {
                 std::get_if<contract::ValidationReport>(&mechanism_plan)) {
             return mechanism_admission_report(*validation);
         }
-        const auto &shared_plan =
-            std::get<simulation::SharedMechanismKinematicsPlan>(mechanism_plan);
-        if (simulation::direct_mechanism_kinematics_plan(shared_plan) == nullptr) {
-            contract::ValidationReport execution_gate;
-            const auto master = std::ranges::find_if(
-                resolved.engine.cylinders, [](const auto &cylinder) {
-                    return cylinder.master_rod_attachment.has_value();
-                });
-            const auto index =
-                static_cast<std::size_t>(master - resolved.engine.cylinders.begin());
-            execution_gate.add(
-                contract::ContractIssueCode::unsupported_value,
-                "engine.cylinders[" + std::to_string(index) + "].master_rod_attachment",
-                "one-level master-rod geometry is compiled, but no mechanics, "
-                "gas, crank, or capture runtime admits it yet");
-            return mechanism_admission_report(execution_gate);
-        }
-
         auto storage = std::make_shared<CompiledEngineStorage>();
         storage->id = engine_id;
         storage->resolved = std::move(resolved);

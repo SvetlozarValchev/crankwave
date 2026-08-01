@@ -124,8 +124,8 @@ one_level_master_rod_mechanism_kinematics_plan(
 
 // Point-evaluation helper. It resolves the stable slave-to-root index and delegates
 // to the pure one-level master-rod primitive. Plan compilation already certified
-// full-cycle geometry; evaluation grants no mechanics, gas, crank, or capture
-// runtime authority.
+// full-cycle geometry. The helper does not select a motion owner; callers still enforce
+// the prescribed-only or direct-dynamic admission boundary.
 [[nodiscard]] OneLevelMasterRodSample evaluate_one_level_master_rod_plan(
     const OneLevelMasterRodMechanismKinematicsPlan &plan, std::size_t cylinder_index,
     double body_angle_psi_rad, double angular_speed_rad_s) noexcept;

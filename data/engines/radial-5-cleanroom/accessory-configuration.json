@@ -1,0 +1,8 @@
+{
+  "schema_id": "engine-sim-offline.accessory-configuration.v1",
+  "configuration_id": "radial-5-cleanroom-warm-generic-accessories-v1",
+  "engine_id": "radial-5-cleanroom",
+  "serialization": "utf-8-json-lf-with-one-final-lf-byte-identity-v1",
+  "aggregate_loss_method": "chen-flynn-cycle-mean-aggregate-loss-v1",
+  "claim_boundary": "Generic warm-running executor prior only; the pristine Radial 5 asset does not provide measured aggregate loss coefficients or an accessory inventory."
+}
