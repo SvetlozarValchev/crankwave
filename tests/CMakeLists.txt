@@ -1884,6 +1884,28 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_one_level_master_rod_configuration_inertia_tests
+    one_level_master_rod_configuration_inertia_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_one_level_master_rod_configuration_inertia_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_one_level_master_rod_configuration_inertia_tests
+    PRIVATE
+        engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.one_level_master_rod_configuration_inertia
+    COMMAND engine_sim_offline_one_level_master_rod_configuration_inertia_tests
+)
+
+add_executable(
     engine_sim_offline_p18_reference_seed_reader_tests
     p18_reference_seed_reader_test.cpp
 )
