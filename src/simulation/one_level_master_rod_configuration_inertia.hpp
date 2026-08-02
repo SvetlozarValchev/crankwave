@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <span>
 #include <variant>
 #include <vector>
 
@@ -80,6 +81,33 @@ struct OneLevelMasterRodArticulatedState {
                            const OneLevelMasterRodArticulatedState &) = default;
 };
 
+inline constexpr std::size_t kNoOneLevelMasterRodParentCylinder =
+    std::numeric_limits<std::size_t>::max();
+
+// Prevalidated immutable mechanics facts shared by the articulated inertia and
+// coupled-reaction reductions. The cylinder axis points from the crank toward the
+// head. The normal is its clockwise perpendicular, so cross(normal, axis) = +1.
+// A direct root has parent_root_index == kNoOneLevelMasterRodParentCylinder; a
+// slave names its direct root's stable cylinder index.
+struct OneLevelMasterRodCompiledCylinderView {
+    contract::CylinderId cylinder_id;
+    std::size_t parent_root_index = kNoOneLevelMasterRodParentCylinder;
+    double bank_axis_x = 0.0;
+    double bank_axis_y = 0.0;
+    double clockwise_normal_x = 0.0;
+    double clockwise_normal_y = 0.0;
+    double piston_area_m2 = 0.0;
+    double piston_mass_kg = 0.0;
+    double connecting_rod_length_m = 0.0;
+    double connecting_rod_mass_kg = 0.0;
+    double connecting_rod_inertia_kg_m2 = 0.0;
+    double connecting_rod_center_fraction_from_big_end = 0.0;
+    bool direct_root = false;
+
+    friend bool operator==(const OneLevelMasterRodCompiledCylinderView &,
+                           const OneLevelMasterRodCompiledCylinderView &) = default;
+};
+
 // M(theta) is the exact one-degree-of-freedom kinetic-energy coefficient for the
 // rigid crank group, every translating piston, and every root or slave connecting
 // rod in the plan. The derivative is with respect to the same increasing crank
@@ -120,12 +148,15 @@ class CompiledOneLevelMasterRodArticulatedMechanism final {
     CompiledOneLevelMasterRodArticulatedMechanism(
         CompiledOneLevelMasterRodArticulatedMechanism &&) noexcept = default;
     CompiledOneLevelMasterRodArticulatedMechanism &
-    operator=(const CompiledOneLevelMasterRodArticulatedMechanism &) = default;
+    operator=(const CompiledOneLevelMasterRodArticulatedMechanism &) = delete;
     CompiledOneLevelMasterRodArticulatedMechanism &
-    operator=(CompiledOneLevelMasterRodArticulatedMechanism &&) noexcept = default;
+    operator=(CompiledOneLevelMasterRodArticulatedMechanism &&) noexcept = delete;
     ~CompiledOneLevelMasterRodArticulatedMechanism() = default;
 
     [[nodiscard]] std::size_t cylinder_count() const noexcept;
+
+    [[nodiscard]] std::span<const OneLevelMasterRodCompiledCylinderView>
+    cylinder_views() const noexcept;
 
     // Allocates exact-size scratch outside the tick path. A caller may instead
     // resize its own state once to cylinder_count().
@@ -159,11 +190,13 @@ class CompiledOneLevelMasterRodArticulatedMechanism final {
 
     CompiledOneLevelMasterRodArticulatedMechanism(
         double crank_tdc_reference_rad, double authored_crank_inertia_kg_m2,
-        std::vector<Cylinder> cylinders) noexcept;
+        std::vector<Cylinder> cylinders,
+        std::vector<OneLevelMasterRodCompiledCylinderView> cylinder_views) noexcept;
 
     double crank_tdc_reference_rad_ = 0.0;
     double authored_crank_inertia_kg_m2_ = 0.0;
     std::vector<Cylinder> cylinders_;
+    std::vector<OneLevelMasterRodCompiledCylinderView> cylinder_views_;
 
     friend std::variant<CompiledOneLevelMasterRodArticulatedMechanism,
                         OneLevelMasterRodConfigurationInertiaError>

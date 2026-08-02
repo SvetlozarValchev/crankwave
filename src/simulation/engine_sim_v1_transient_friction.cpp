@@ -143,8 +143,46 @@ EngineSimV1PistonWallFrictionCalculation stage_engine_sim_v1_piston_wall_frictio
         return *error;
     }
     const double slider_derivative = std::get<double>(derivative_calculation);
-    const double signed_velocity = slider_derivative * input.angular_speed_rad_s;
+    const auto law_calculation = stage_engine_sim_v1_piston_wall_kinematic_friction({
+        slider_derivative,
+        input.angular_speed_rad_s,
+        input.retained_previous_wall_reaction_magnitude_n,
+    });
+    if (const auto *error = std::get_if<EngineSimV1PistonWallError>(&law_calculation)) {
+        return *error;
+    }
+    const auto &law =
+        std::get<EngineSimV1PistonWallKinematicFrictionStage>(law_calculation);
+    return EngineSimV1PistonWallFrictionStage{
+        input,
+        slider_derivative,
+        law.signed_slider_axis_velocity_m_s,
+        law.friction_force_magnitude_n,
+        law.signed_slider_axis_friction_force_n,
+        law.generalized_friction_torque_nm,
+    };
+}
 
+EngineSimV1PistonWallKinematicFrictionCalculation
+stage_engine_sim_v1_piston_wall_kinematic_friction(
+    const EngineSimV1PistonWallKinematicFrictionInput &input) noexcept {
+    if (!std::isfinite(input.slider_axis_derivative_m_per_rad)) {
+        return piston_wall_error(EngineSimV1PistonWallIssue::nonfinite_derived_value);
+    }
+    if (!std::isfinite(input.angular_speed_rad_s)) {
+        return piston_wall_error(EngineSimV1PistonWallIssue::nonfinite_angular_speed);
+    }
+    if (!std::isfinite(input.retained_previous_wall_reaction_magnitude_n)) {
+        return piston_wall_error(
+            EngineSimV1PistonWallIssue::nonfinite_retained_wall_reaction);
+    }
+    if (input.retained_previous_wall_reaction_magnitude_n < 0.0) {
+        return piston_wall_error(
+            EngineSimV1PistonWallIssue::negative_retained_wall_reaction);
+    }
+
+    const double signed_velocity =
+        input.slider_axis_derivative_m_per_rad * input.angular_speed_rad_s;
     const double cylinder_wall_force =
         input.retained_previous_wall_reaction_magnitude_n;
     const double coulomb_force = kPristineFrictionCoefficient * cylinder_wall_force;
@@ -169,17 +207,15 @@ EngineSimV1PistonWallFrictionCalculation stage_engine_sim_v1_piston_wall_frictio
     const double signed_axis_friction_force =
         signed_velocity > 0.0 ? -friction_force_magnitude : friction_force_magnitude;
     const double generalized_friction_torque =
-        signed_axis_friction_force * slider_derivative;
+        signed_axis_friction_force * input.slider_axis_derivative_m_per_rad;
 
-    if (!std::isfinite(slider_derivative) || !std::isfinite(signed_velocity) ||
-        !std::isfinite(friction_force_magnitude) ||
+    if (!std::isfinite(signed_velocity) || !std::isfinite(friction_force_magnitude) ||
         !std::isfinite(signed_axis_friction_force) ||
         !std::isfinite(generalized_friction_torque)) {
         return piston_wall_error(EngineSimV1PistonWallIssue::nonfinite_derived_value);
     }
-    return EngineSimV1PistonWallFrictionStage{
+    return EngineSimV1PistonWallKinematicFrictionStage{
         input,
-        slider_derivative,
         signed_velocity,
         friction_force_magnitude,
         signed_axis_friction_force,

@@ -423,14 +423,20 @@ public_point(const SecondOrderPoint &point) noexcept {
 CompiledOneLevelMasterRodArticulatedMechanism::
     CompiledOneLevelMasterRodArticulatedMechanism(
         const double crank_tdc_reference_rad, const double authored_crank_inertia_kg_m2,
-        std::vector<Cylinder> cylinders) noexcept
+        std::vector<Cylinder> cylinders,
+        std::vector<OneLevelMasterRodCompiledCylinderView> cylinder_views) noexcept
     : crank_tdc_reference_rad_(crank_tdc_reference_rad),
       authored_crank_inertia_kg_m2_(authored_crank_inertia_kg_m2),
-      cylinders_(std::move(cylinders)) {}
+      cylinders_(std::move(cylinders)), cylinder_views_(std::move(cylinder_views)) {}
 
 std::size_t
 CompiledOneLevelMasterRodArticulatedMechanism::cylinder_count() const noexcept {
     return cylinders_.size();
+}
+
+std::span<const OneLevelMasterRodCompiledCylinderView>
+CompiledOneLevelMasterRodArticulatedMechanism::cylinder_views() const noexcept {
+    return cylinder_views_;
 }
 
 OneLevelMasterRodArticulatedState
@@ -449,7 +455,9 @@ compile_one_level_master_rod_articulated_mechanism(
     }
 
     std::vector<CompiledOneLevelMasterRodArticulatedMechanism::Cylinder> cylinders;
+    std::vector<OneLevelMasterRodCompiledCylinderView> cylinder_views;
     cylinders.reserve(plan.cylinders.size());
+    cylinder_views.reserve(plan.cylinders.size());
     for (std::size_t index = 0; index < plan.cylinders.size(); ++index) {
         const auto linkage = linkage_at(plan, index);
         OneLevelMasterRodSlavePin slave_pin;
@@ -467,11 +475,37 @@ compile_one_level_master_rod_articulated_mechanism(
             slave_pin,
             linkage.direct_root,
         });
+        const double axis_angle_rad =
+            linkage.cylinder->bank_angle_rad + kLegacyPi / 2.0;
+        const double axis_x = std::cos(axis_angle_rad);
+        const double axis_y = std::sin(axis_angle_rad);
+        const std::size_t parent_root_index =
+            linkage.direct_root
+                ? kNoOneLevelMasterRodParentCylinder
+                : std::get<OneLevelMasterRodSlaveAttachmentPlan>(planned.kinematics)
+                      .master_cylinder_index;
+        cylinder_views.push_back({
+            linkage.cylinder->cylinder_id,
+            parent_root_index,
+            axis_x,
+            axis_y,
+            axis_y,
+            -axis_x,
+            planned.piston_area_m2,
+            planned.piston_mass_kg,
+            linkage.cylinder->connecting_rod_length_m,
+            planned.connecting_rod_mass_kg,
+            planned.connecting_rod_inertia_kg_m2,
+            planned.connecting_rod_center_of_mass_from_big_end_m /
+                linkage.cylinder->connecting_rod_length_m,
+            linkage.direct_root,
+        });
     }
     return CompiledOneLevelMasterRodArticulatedMechanism{
         plan.crank_tdc_reference_rad,
         plan.rigid_crank_group.authored_crank_inertia_kg_m2,
         std::move(cylinders),
+        std::move(cylinder_views),
     };
 }
 
@@ -711,7 +745,7 @@ evaluate_one_level_master_rod_articulated_state(
             evaluation_error.has_value()) {
             return *evaluation_error;
         }
-        return std::move(scratch);
+        return scratch;
     } catch (...) {
         return error(
             OneLevelMasterRodConfigurationInertiaIssue::nonfinite_derived_value);

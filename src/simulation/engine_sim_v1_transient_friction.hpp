@@ -128,6 +128,40 @@ using EngineSimV1PistonWallFrictionCalculation =
 using EngineSimV1PistonWallReactionCalculation =
     std::variant<EngineSimV1PistonWallReaction, EngineSimV1PistonWallError>;
 
+// Geometry-independent execution of pristine's piston-wall friction law. The
+// caller supplies the exact derivative of outward piston-axis position with
+// respect to its increasing crank coordinate. Direct and articulated mechanisms
+// share this single written-order authority.
+struct EngineSimV1PistonWallKinematicFrictionInput {
+    double slider_axis_derivative_m_per_rad = 0.0;
+    double angular_speed_rad_s = 0.0;
+    double retained_previous_wall_reaction_magnitude_n = 0.0;
+
+    friend bool
+    operator==(const EngineSimV1PistonWallKinematicFrictionInput &,
+               const EngineSimV1PistonWallKinematicFrictionInput &) = default;
+};
+
+struct EngineSimV1PistonWallKinematicFrictionStage {
+    EngineSimV1PistonWallKinematicFrictionInput input;
+    double signed_slider_axis_velocity_m_s = 0.0;
+    double friction_force_magnitude_n = 0.0;
+    double signed_slider_axis_friction_force_n = 0.0;
+    double generalized_friction_torque_nm = 0.0;
+
+    friend bool
+    operator==(const EngineSimV1PistonWallKinematicFrictionStage &,
+               const EngineSimV1PistonWallKinematicFrictionStage &) = default;
+};
+
+using EngineSimV1PistonWallKinematicFrictionCalculation =
+    std::variant<EngineSimV1PistonWallKinematicFrictionStage,
+                 EngineSimV1PistonWallError>;
+
+[[nodiscard]] EngineSimV1PistonWallKinematicFrictionCalculation
+stage_engine_sim_v1_piston_wall_kinematic_friction(
+    const EngineSimV1PistonWallKinematicFrictionInput &input) noexcept;
+
 // Evaluates the exact pristine friction constants, formula, branches, and written
 // operation order against the retained previous-step wall reaction.
 [[nodiscard]] EngineSimV1PistonWallFrictionCalculation
