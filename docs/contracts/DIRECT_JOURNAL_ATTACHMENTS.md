@@ -68,13 +68,15 @@ master-rod graph resolves its stable master-cylinder ID, throw radius, and raw l
 phase into a distinct core alternative. It has no direct-only stroke, crank radius,
 or axis-relative journal phase to consume accidentally. The engine publishes
 geometry-only capability: both net-torque forms and equivalent inertia are unavailable.
-The shared mechanism-plan compiler selects a separate one-level master-rod geometry
-alternative. It retains exact root and slave identities, root global phase, slave
-local phase and throw, bank axes, stable slave-to-root indices, chamber geometry,
-route bindings, and ignition angles. Its pure evaluator reproduces the pristine
-one-level master/slave position and volume construction. The plan contains no slave
-stroke, nominal displacement, clearance-volume shortcut, equivalent inertia, wall
-reaction, or torque authority.
+The shared mechanism-plan compiler selects a separate one-level master-rod alternative.
+It retains exact root and slave identities, root global phase, slave local phase and
+throw, bank axes, stable slave-to-root indices, chamber geometry, route bindings,
+ignition angles, crank-group inertia/friction, and each piston/rod mass, rod inertia,
+and physical COM distance. Its pure evaluator reproduces the pristine one-level
+master/slave position and volume construction. The plan contains no slave stroke,
+nominal displacement, clearance-volume shortcut, derived equivalent inertia, wall
+reaction, or torque authority yet; retaining source inputs alone grants none of those
+behaviors.
 
 Before mechanics admission, a separate analytic primitive certifies each resolved root
 or slave cylinder over a complete revolution without an angular sample grid. For a

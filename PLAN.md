@@ -851,7 +851,13 @@ engine-definition parity in this order, with one coherent commit per bullet:
    in control `honda-b18c5-bank-local-vtec-control-fb20770` and candidate
    `honda-b18c5-bank-local-vtec-candidate-6b2d127` on 2026-08-02**);
 6. execute dynamic one-level master/slave mechanisms and only the remaining meaningful
-   multiple-crankshaft cases supported by pristine;
+   multiple-crankshaft cases supported by pristine (**in progress; the pristine
+   constrained-rigid-body path and leaf-to-root reaction ownership are frozen in
+   `docs/oracles/PRISTINE_ENGINE_SIM_MASTER_ROD_DYNAMICS.md`; the immutable radial plan
+   now retains source-bound crank inertia/friction and every piston/rod mass, rod
+   inertia, and COM in `b5b5411`; the already executed co-phased direct multi-crank
+   subset is complete, while unproven offset/geared/nested/multi-crank-master-rod
+   cases remain explicitly closed**);
 7. make native audition saturation explicit, then render, listen to, and freeze Slice
    16's representative fixed-cam inline/V, VTEC, governed, master/slave, and drivetrain
    procedures;
