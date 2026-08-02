@@ -6,7 +6,8 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-02
 
-Current checkpoint: **post-slice-15 parity closure — bank-local VTEC**
+Current checkpoint: **post-slice-15 parity closure — dynamic master/slave and
+remaining meaningful multi-crank cases**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -617,13 +618,14 @@ ports, standard valvetrains, and cams. The executable contract/runtime retain on
 ordered chamber/runner/flow profile per bank, use separate intake/exhaust flow radii,
 and bind each cylinder by BankId. Bank-local chamber volume, runner geometry, and flow
 tables, standard same-role cam profiles, and each referenced piston's calibrated
-blowby restriction may differ, while the multi-head VTEC gate remains closed. Standard
-cams resolve into deterministic first-use profile pools with explicit cylinder/lobe
-bindings, while each physical cam still requires one exact shared profile across its
-own lobes. The Shovelhead now binds source-authored 0.2/0.1 CFM front/rear piston
+blowby restriction may differ. Standard cams resolve into deterministic first-use
+profile pools with explicit cylinder/lobe bindings, while each physical cam still
+requires one exact shared profile across its own lobes. Post-slice parity closure now
+executes per-head VTEC ownership as canonical bank-keyed selectors; mixed
+standard/VTEC heads and distinct thresholds no longer collapse to one representative
+valvetrain. The Shovelhead now binds source-authored 0.2/0.1 CFM front/rear piston
 restrictions through independent runtime blowby lanes. Its equal-value control and
-source-value candidate are rendered; auditory acceptance is pending before the next
-parity bullet. The pristine-derived
+source-value candidate were accepted. The pristine-derived
 Shovelhead A/B fixture swaps only its four
 bank-local port-flow references; repeat A renders are byte-identical and A differs
 from B. Two generated controls additionally leave the front or rear profile unchanged
@@ -839,7 +841,15 @@ engine-definition parity in this order, with one coherent commit per bullet:
    20 kHz execution proves 50 us mechanics/capture and 360-vs-180-sample equal-time
    delay, and the accepted BMW complete WAV remains byte-identical on 2026-08-02**);
 5. execute bank-local VTEC selectors through the already admitted bank-local head and
-   cam-profile topology;
+   cam-profile topology (**complete; pristine per-head ownership is normalized to
+   canonical bank-keyed selectors, mixed standard/VTEC and two distinct VTEC banks
+   execute without a representative-head collapse, all 84 core tests and both clean
+   BMW render gates
+   pass, and every current Honda transition route/raw/audition WAV remains
+   byte-identical; audition SHA-256
+   `1dfc14b8dbfa364837d513d89ef6cf1fc5d4fbf2a21ebd54fc198b04421098ce`
+   in control `honda-b18c5-bank-local-vtec-control-fb20770` and candidate
+   `honda-b18c5-bank-local-vtec-candidate-6b2d127` on 2026-08-02**);
 6. execute dynamic one-level master/slave mechanisms and only the remaining meaningful
    multiple-crankshaft cases supported by pristine;
 7. make native audition saturation explicit, then render, listen to, and freeze Slice
