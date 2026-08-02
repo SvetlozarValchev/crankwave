@@ -160,6 +160,24 @@ radial_cylinder(const OneLevelMasterRodMechanismCylinderPlan &planned) noexcept 
         planned.kinematics);
 }
 
+[[nodiscard]] bool same_full_cycle_geometry_binary64(
+    const OneLevelMasterRodFullCycleGeometry &left,
+    const OneLevelMasterRodFullCycleGeometry &right) noexcept {
+    return left.stationary_point_count == right.stationary_point_count &&
+           same_binary64(left.minimum_piston_axis_position_m,
+                         right.minimum_piston_axis_position_m) &&
+           same_binary64(left.maximum_piston_axis_position_m,
+                         right.maximum_piston_axis_position_m) &&
+           same_binary64(left.swept_stroke_m, right.swept_stroke_m) &&
+           same_binary64(left.minimum_chamber_volume_m3,
+                         right.minimum_chamber_volume_m3) &&
+           same_binary64(left.maximum_chamber_volume_m3,
+                         right.maximum_chamber_volume_m3) &&
+           same_binary64(left.swept_displacement_m3, right.swept_displacement_m3) &&
+           same_binary64(left.piston_axis_path_length_m_per_crank_revolution,
+                         right.piston_axis_path_length_m_per_crank_revolution);
+}
+
 [[nodiscard]] const char *
 full_cycle_reason_name(const OneLevelMasterRodFullCycleReason reason) noexcept {
     switch (reason) {
@@ -173,6 +191,23 @@ full_cycle_reason_name(const OneLevelMasterRodFullCycleReason reason) noexcept {
         return "chamber_volume_not_certified";
     }
     return "invalid_geometry";
+}
+
+[[nodiscard]] const char *full_cycle_geometry_issue_name(
+    const OneLevelMasterRodFullCycleGeometryIssue issue) noexcept {
+    switch (issue) {
+    case OneLevelMasterRodFullCycleGeometryIssue::full_cycle_not_certified:
+        return "full_cycle_not_certified";
+    case OneLevelMasterRodFullCycleGeometryIssue::stationary_point_isolation_ambiguous:
+        return "stationary_point_isolation_ambiguous";
+    case OneLevelMasterRodFullCycleGeometryIssue::invalid_evaluator_sample:
+        return "invalid_evaluator_sample";
+    case OneLevelMasterRodFullCycleGeometryIssue::insufficient_stationary_points:
+        return "insufficient_stationary_points";
+    case OneLevelMasterRodFullCycleGeometryIssue::nonfinite_derived_geometry:
+        return "nonfinite_derived_geometry";
+    }
+    return "nonfinite_derived_geometry";
 }
 
 [[nodiscard]] MechanismKinematicsPlanCompileResult
@@ -460,7 +495,8 @@ compile_one_level_master_rod_kinematics_plan(
     }
 
     for (std::size_t index = 0; index < plan.cylinders.size(); ++index) {
-        const auto &kinematics = plan.cylinders[index].kinematics;
+        auto &planned = plan.cylinders[index];
+        const auto &kinematics = planned.kinematics;
         const OneLevelMasterRodDriver *driver = nullptr;
         const OneLevelMasterRodCylinder *cylinder = nullptr;
         if (const auto *root =
@@ -489,6 +525,22 @@ compile_one_level_master_rod_kinematics_plan(
                            std::to_string(index) + "].kinematics",
                        "one-level master-rod full cycle is not certified: " +
                            std::string{full_cycle_reason_name(certificate.reason)});
+            continue;
+        }
+
+        const auto geometry_calculation =
+            calculate_one_level_master_rod_full_cycle_geometry(*driver, *cylinder);
+        if (const auto *geometry = std::get_if<OneLevelMasterRodFullCycleGeometry>(
+                &geometry_calculation)) {
+            planned.full_cycle_geometry = *geometry;
+        } else {
+            report.add(ContractIssueCode::unsupported_value,
+                       "engine.physics_profile.mechanism.cylinders[" +
+                           std::to_string(index) + "].kinematics",
+                       "one-level master-rod full-cycle extrema are not resolved: " +
+                           std::string{full_cycle_geometry_issue_name(
+                               std::get<OneLevelMasterRodFullCycleGeometryIssue>(
+                                   geometry_calculation))});
         }
     }
     if (!report.ok()) {
@@ -885,6 +937,7 @@ bool mechanism_kinematics_plan_matches_source(
                 return false;
             }
 
+            const OneLevelMasterRodDriver *geometry_driver = nullptr;
             if (const auto *root =
                     std::get_if<OneLevelMasterRodDirectRootPlan>(&planned.kinematics)) {
                 const auto *direct =
@@ -904,6 +957,7 @@ bool mechanism_kinematics_plan_matches_source(
                                    root->cylinder.connecting_rod_length_m)) {
                     return false;
                 }
+                geometry_driver = &root->driver;
             } else {
                 const auto *slave = std::get_if<OneLevelMasterRodSlaveAttachmentPlan>(
                     &planned.kinematics);
@@ -945,7 +999,26 @@ bool mechanism_kinematics_plan_matches_source(
                                    resolved_attachment->master_local_phase_rad.value)) {
                     return false;
                 }
+                const auto *referenced_root =
+                    std::get_if<OneLevelMasterRodDirectRootPlan>(
+                        &radial->cylinders[slave->master_cylinder_index].kinematics);
+                geometry_driver =
+                    referenced_root == nullptr ? nullptr : &referenced_root->driver;
                 matched_slave = true;
+            }
+
+            if (geometry_driver == nullptr) {
+                return false;
+            }
+            const auto geometry_calculation =
+                calculate_one_level_master_rod_full_cycle_geometry(*geometry_driver,
+                                                                   *geometry);
+            const auto *calculated_geometry =
+                std::get_if<OneLevelMasterRodFullCycleGeometry>(&geometry_calculation);
+            if (calculated_geometry == nullptr ||
+                !same_full_cycle_geometry_binary64(planned.full_cycle_geometry,
+                                                   *calculated_geometry)) {
+                return false;
             }
         }
         return matched_slave;

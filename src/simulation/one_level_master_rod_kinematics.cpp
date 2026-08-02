@@ -3,9 +3,11 @@
 #include "simulation/legacy_mechanics_primitives.hpp"
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <optional>
 
 namespace engine_sim_offline::simulation {
@@ -13,6 +15,9 @@ namespace {
 
 constexpr double kBinary64CertificateGuard =
     128.0 * std::numeric_limits<double>::epsilon();
+constexpr std::size_t kFullCyclePrimaryProbeCount = 4096U;
+constexpr std::size_t kFullCycleConfirmationProbeCount = 8192U;
+constexpr std::size_t kFullCycleStationaryRefinementSteps = 80U;
 
 struct Dual {
     double value = 0.0;
@@ -22,6 +27,33 @@ struct Dual {
 struct DualPoint {
     Dual x;
     Dual y;
+};
+
+struct ResolvedStationaryPoint {
+    double piston_axis_position_m = 0.0;
+    double chamber_volume_m3 = 0.0;
+};
+
+enum class StationaryTransition {
+    positive_to_negative,
+    negative_to_positive,
+};
+
+struct StationaryBracket {
+    StationaryTransition transition = StationaryTransition::positive_to_negative;
+    double left_angle_rad = 0.0;
+    double right_angle_rad = 0.0;
+    bool exact_zero = false;
+};
+
+struct StationaryIsolation {
+    OneLevelMasterRodFullCycleGeometryIssue issue =
+        OneLevelMasterRodFullCycleGeometryIssue::stationary_point_isolation_ambiguous;
+    std::array<StationaryBracket, 2> brackets{};
+    std::size_t bracket_count = 0U;
+    double sampled_minimum_position_m = std::numeric_limits<double>::infinity();
+    double sampled_maximum_position_m = -std::numeric_limits<double>::infinity();
+    bool valid = false;
 };
 
 [[nodiscard]] Dual add(const Dual left, const Dual right) noexcept {
@@ -175,6 +207,194 @@ slave_pin(const OneLevelMasterRodDriver &driver,
     };
 }
 
+[[nodiscard]] bool opposite_nonzero_signs(const double left,
+                                          const double right) noexcept {
+    return left != 0.0 && right != 0.0 && std::signbit(left) != std::signbit(right);
+}
+
+[[nodiscard]] std::optional<ResolvedStationaryPoint>
+refine_stationary_point(const OneLevelMasterRodDriver &driver,
+                        const OneLevelMasterRodCylinder &cylinder,
+                        double left_angle_rad, double right_angle_rad,
+                        const double derivative_residual_guard_m) noexcept {
+    auto left = evaluate_one_level_master_rod(driver, cylinder, left_angle_rad, 0.0);
+    auto right = evaluate_one_level_master_rod(driver, cylinder, right_angle_rad, 0.0);
+    if (!left.valid || !right.valid ||
+        !opposite_nonzero_signs(left.piston_axis_derivative_m_per_rad,
+                                right.piston_axis_derivative_m_per_rad)) {
+        return std::nullopt;
+    }
+
+    for (std::size_t step = 0; step < kFullCycleStationaryRefinementSteps; ++step) {
+        const double midpoint_angle_rad =
+            left_angle_rad + (right_angle_rad - left_angle_rad) / 2.0;
+        if (midpoint_angle_rad == left_angle_rad ||
+            midpoint_angle_rad == right_angle_rad) {
+            break;
+        }
+        const auto midpoint =
+            evaluate_one_level_master_rod(driver, cylinder, midpoint_angle_rad, 0.0);
+        if (!midpoint.valid) {
+            return std::nullopt;
+        }
+        if (midpoint.piston_axis_derivative_m_per_rad == 0.0) {
+            return ResolvedStationaryPoint{
+                midpoint.piston_axis_position_m,
+                midpoint.chamber_volume_m3,
+            };
+        }
+        if (std::signbit(midpoint.piston_axis_derivative_m_per_rad) ==
+            std::signbit(left.piston_axis_derivative_m_per_rad)) {
+            left_angle_rad = midpoint_angle_rad;
+            left = midpoint;
+        } else {
+            right_angle_rad = midpoint_angle_rad;
+            right = midpoint;
+        }
+    }
+
+    if (std::nextafter(left_angle_rad, right_angle_rad) != right_angle_rad ||
+        !opposite_nonzero_signs(left.piston_axis_derivative_m_per_rad,
+                                right.piston_axis_derivative_m_per_rad)) {
+        return std::nullopt;
+    }
+
+    // The exact root need not be representable. Retain the adjacent endpoint with
+    // the smaller analytic residual; an exact tie selects the lower body angle.
+    const bool select_right = std::abs(right.piston_axis_derivative_m_per_rad) <
+                              std::abs(left.piston_axis_derivative_m_per_rad);
+    const auto &selected = select_right ? right : left;
+    if (!std::isfinite(derivative_residual_guard_m) ||
+        !(derivative_residual_guard_m > 0.0) ||
+        std::abs(selected.piston_axis_derivative_m_per_rad) >
+            derivative_residual_guard_m) {
+        return std::nullopt;
+    }
+    return ResolvedStationaryPoint{
+        selected.piston_axis_position_m,
+        selected.chamber_volume_m3,
+    };
+}
+
+[[nodiscard]] StationaryTransition classify_transition(const double left,
+                                                       const double right) noexcept {
+    return left > 0.0 && right < 0.0 ? StationaryTransition::positive_to_negative
+                                     : StationaryTransition::negative_to_positive;
+}
+
+template <std::size_t ProbeCount>
+[[nodiscard]] StationaryIsolation
+isolate_slave_stationary_points(const OneLevelMasterRodDriver &driver,
+                                const OneLevelMasterRodCylinder &cylinder,
+                                const double derivative_ambiguity_guard_m) noexcept {
+    StationaryIsolation isolation;
+    constexpr double probe_count = static_cast<double>(ProbeCount);
+    const double two_pi = 2.0 * std::numbers::pi_v<double>;
+    const double probe_step_rad = two_pi / probe_count;
+    std::array<double, ProbeCount> derivatives{};
+    for (std::size_t index = 0; index < derivatives.size(); ++index) {
+        const double angle_rad =
+            (static_cast<double>(index) + 0.5) * two_pi / probe_count;
+        const auto sample =
+            evaluate_one_level_master_rod(driver, cylinder, angle_rad, 0.0);
+        if (!sample.valid || !std::isfinite(sample.piston_axis_derivative_m_per_rad)) {
+            isolation.issue =
+                OneLevelMasterRodFullCycleGeometryIssue::invalid_evaluator_sample;
+            return isolation;
+        }
+        derivatives[index] = sample.piston_axis_derivative_m_per_rad;
+        isolation.sampled_minimum_position_m = std::min(
+            isolation.sampled_minimum_position_m, sample.piston_axis_position_m);
+        isolation.sampled_maximum_position_m = std::max(
+            isolation.sampled_maximum_position_m, sample.piston_axis_position_m);
+    }
+
+    for (std::size_t index = 0; index < derivatives.size(); ++index) {
+        const std::size_t previous_index =
+            index == 0U ? derivatives.size() - 1U : index - 1U;
+        const std::size_t next_index = (index + 1U) % derivatives.size();
+        const double derivative = derivatives[index];
+        if (derivative == 0.0) {
+            if (!opposite_nonzero_signs(derivatives[previous_index],
+                                        derivatives[next_index])) {
+                return isolation;
+            }
+            continue;
+        }
+        if (std::abs(derivative) <= derivative_ambiguity_guard_m &&
+            !opposite_nonzero_signs(derivatives[previous_index], derivative) &&
+            !opposite_nonzero_signs(derivative, derivatives[next_index])) {
+            return isolation;
+        }
+    }
+
+    const auto append_bracket = [&](const StationaryBracket &bracket) {
+        if (isolation.bracket_count >= isolation.brackets.size()) {
+            return false;
+        }
+        isolation.brackets[isolation.bracket_count++] = bracket;
+        return true;
+    };
+    for (std::size_t index = 0; index < derivatives.size(); ++index) {
+        const std::size_t previous_index =
+            index == 0U ? derivatives.size() - 1U : index - 1U;
+        const std::size_t next_index = (index + 1U) % derivatives.size();
+        const double left_angle_rad =
+            (static_cast<double>(index) + 0.5) * two_pi / probe_count;
+        if (derivatives[index] == 0.0) {
+            if (!append_bracket({classify_transition(derivatives[previous_index],
+                                                     derivatives[next_index]),
+                                 left_angle_rad, left_angle_rad, true})) {
+                return isolation;
+            }
+            continue;
+        }
+        if (opposite_nonzero_signs(derivatives[index], derivatives[next_index]) &&
+            !append_bracket(
+                {classify_transition(derivatives[index], derivatives[next_index]),
+                 left_angle_rad, left_angle_rad + probe_step_rad, false})) {
+            return isolation;
+        }
+    }
+
+    if (isolation.bracket_count != isolation.brackets.size() ||
+        isolation.brackets[0].transition == isolation.brackets[1].transition) {
+        isolation.issue = isolation.bracket_count < isolation.brackets.size()
+                              ? OneLevelMasterRodFullCycleGeometryIssue::
+                                    insufficient_stationary_points
+                              : OneLevelMasterRodFullCycleGeometryIssue::
+                                    stationary_point_isolation_ambiguous;
+        return isolation;
+    }
+    isolation.valid = true;
+    return isolation;
+}
+
+[[nodiscard]] double
+stationary_bracket_center(const StationaryBracket &bracket) noexcept {
+    return bracket.exact_zero
+               ? bracket.left_angle_rad
+               : bracket.left_angle_rad +
+                     (bracket.right_angle_rad - bracket.left_angle_rad) / 2.0;
+}
+
+[[nodiscard]] double periodic_angle_distance(double left, double right,
+                                             const double period) noexcept {
+    left = std::fmod(left, period);
+    right = std::fmod(right, period);
+    const double distance = std::abs(left - right);
+    return std::min(distance, period - distance);
+}
+
+[[nodiscard]] const StationaryBracket *
+find_transition(const StationaryIsolation &isolation,
+                const StationaryTransition transition) noexcept {
+    const auto found = std::find_if(
+        isolation.brackets.begin(), isolation.brackets.end(),
+        [&](const auto &bracket) { return bracket.transition == transition; });
+    return found == isolation.brackets.end() ? nullptr : &*found;
+}
+
 } // namespace
 
 OneLevelMasterRodSample evaluate_one_level_master_rod(
@@ -275,13 +495,10 @@ OneLevelMasterRodFullCycleCheck certify_one_level_master_rod_full_cycle(
     }
     const double reach_scale_m =
         slave == nullptr
-            ? std::max(driver.master_connecting_rod_length_m,
-                       driver.crank_radius_m)
-            : std::max({driver.master_connecting_rod_length_m,
-                        driver.crank_radius_m, cylinder.connecting_rod_length_m,
-                        slave->throw_radius_m});
-    const double numerical_reach_guard_m =
-        kBinary64CertificateGuard * reach_scale_m;
+            ? std::max(driver.master_connecting_rod_length_m, driver.crank_radius_m)
+            : std::max({driver.master_connecting_rod_length_m, driver.crank_radius_m,
+                        cylinder.connecting_rod_length_m, slave->throw_radius_m});
+    const double numerical_reach_guard_m = kBinary64CertificateGuard * reach_scale_m;
     if (!(check.forward_reach_margin_m > numerical_reach_guard_m)) {
         check.reason = OneLevelMasterRodFullCycleReason::reachability_not_certified;
         return check;
@@ -325,6 +542,186 @@ OneLevelMasterRodFullCycleCheck certify_one_level_master_rod_full_cycle(
 
     check.reason = OneLevelMasterRodFullCycleReason::admitted;
     return check;
+}
+
+OneLevelMasterRodFullCycleGeometryCalculation
+calculate_one_level_master_rod_full_cycle_geometry(
+    const OneLevelMasterRodDriver &driver,
+    const OneLevelMasterRodCylinder &cylinder) noexcept {
+    const auto certificate = certify_one_level_master_rod_full_cycle(driver, cylinder);
+    if (!certificate.admitted()) {
+        return OneLevelMasterRodFullCycleGeometryIssue::full_cycle_not_certified;
+    }
+
+    if (std::holds_alternative<OneLevelMasterRodRootJournal>(cylinder.journal)) {
+        // A direct root has exact dead-center extrema. Keep this path analytic so
+        // its geometry never inherits the slave stationary-point lattice.
+        const double minimum_position_m =
+            driver.master_connecting_rod_length_m - driver.crank_radius_m;
+        const double maximum_position_m =
+            driver.master_connecting_rod_length_m + driver.crank_radius_m;
+        const double swept_stroke_m = maximum_position_m - minimum_position_m;
+
+        // Preserve pristine CombustionChamber::getVolume() written order at both
+        // exact dead centers.
+        const double minimum_position_sweep_volume_m3 =
+            cylinder.piston_area_m2 * (cylinder.deck_height_m - minimum_position_m -
+                                       cylinder.piston_wrist_pin_position_m -
+                                       cylinder.piston_compression_height_m);
+        const double maximum_chamber_volume_m3 = minimum_position_sweep_volume_m3 +
+                                                 cylinder.head_chamber_volume_m3 -
+                                                 cylinder.piston_displacement_term_m3;
+        const double maximum_position_sweep_volume_m3 =
+            cylinder.piston_area_m2 * (cylinder.deck_height_m - maximum_position_m -
+                                       cylinder.piston_wrist_pin_position_m -
+                                       cylinder.piston_compression_height_m);
+        const double minimum_chamber_volume_m3 = maximum_position_sweep_volume_m3 +
+                                                 cylinder.head_chamber_volume_m3 -
+                                                 cylinder.piston_displacement_term_m3;
+        const double swept_displacement_m3 = cylinder.piston_area_m2 * swept_stroke_m;
+        const double piston_axis_path_length_m_per_crank_revolution =
+            swept_stroke_m + swept_stroke_m;
+
+        if (!finite_positive(minimum_position_m) ||
+            !finite_positive(maximum_position_m) || !finite_positive(swept_stroke_m) ||
+            !finite_positive(minimum_chamber_volume_m3) ||
+            !finite_positive(maximum_chamber_volume_m3) ||
+            !finite_positive(swept_displacement_m3) ||
+            !finite_positive(piston_axis_path_length_m_per_crank_revolution) ||
+            minimum_position_m >= maximum_position_m ||
+            minimum_chamber_volume_m3 > maximum_chamber_volume_m3) {
+            return OneLevelMasterRodFullCycleGeometryIssue::nonfinite_derived_geometry;
+        }
+        return OneLevelMasterRodFullCycleGeometry{
+            2U,
+            minimum_position_m,
+            maximum_position_m,
+            swept_stroke_m,
+            minimum_chamber_volume_m3,
+            maximum_chamber_volume_m3,
+            swept_displacement_m3,
+            piston_axis_path_length_m_per_crank_revolution,
+        };
+    }
+
+    const auto *slave = std::get_if<OneLevelMasterRodSlavePin>(&cylinder.journal);
+    if (slave == nullptr) {
+        return OneLevelMasterRodFullCycleGeometryIssue::full_cycle_not_certified;
+    }
+
+    const double derivative_scale_m =
+        std::max({driver.crank_radius_m, driver.master_connecting_rod_length_m,
+                  cylinder.connecting_rod_length_m, slave->throw_radius_m});
+    const double derivative_ambiguity_guard_m =
+        kBinary64CertificateGuard * derivative_scale_m;
+    if (!std::isfinite(derivative_ambiguity_guard_m) ||
+        !(derivative_ambiguity_guard_m > 0.0)) {
+        return OneLevelMasterRodFullCycleGeometryIssue::nonfinite_derived_geometry;
+    }
+
+    const auto primary = isolate_slave_stationary_points<kFullCyclePrimaryProbeCount>(
+        driver, cylinder, derivative_ambiguity_guard_m);
+    if (!primary.valid) {
+        return primary.issue;
+    }
+    const auto confirmation =
+        isolate_slave_stationary_points<kFullCycleConfirmationProbeCount>(
+            driver, cylinder, derivative_ambiguity_guard_m);
+    if (!confirmation.valid) {
+        return confirmation.issue;
+    }
+
+    const double two_pi = 2.0 * std::numbers::pi_v<double>;
+    constexpr std::array transitions{
+        StationaryTransition::positive_to_negative,
+        StationaryTransition::negative_to_positive,
+    };
+    std::array<ResolvedStationaryPoint, 2> stationary_points{};
+    for (std::size_t index = 0; index < transitions.size(); ++index) {
+        const auto *primary_bracket = find_transition(primary, transitions[index]);
+        const auto *confirmation_bracket =
+            find_transition(confirmation, transitions[index]);
+        if (primary_bracket == nullptr || confirmation_bracket == nullptr ||
+            periodic_angle_distance(stationary_bracket_center(*primary_bracket),
+                                    stationary_bracket_center(*confirmation_bracket),
+                                    two_pi) >
+                two_pi / static_cast<double>(kFullCyclePrimaryProbeCount)) {
+            return OneLevelMasterRodFullCycleGeometryIssue::
+                stationary_point_isolation_ambiguous;
+        }
+
+        if (confirmation_bracket->exact_zero) {
+            const auto sample = evaluate_one_level_master_rod(
+                driver, cylinder, confirmation_bracket->left_angle_rad, 0.0);
+            if (!sample.valid || sample.piston_axis_derivative_m_per_rad != 0.0) {
+                return OneLevelMasterRodFullCycleGeometryIssue::
+                    stationary_point_isolation_ambiguous;
+            }
+            stationary_points[index] = {
+                sample.piston_axis_position_m,
+                sample.chamber_volume_m3,
+            };
+        } else {
+            const auto stationary = refine_stationary_point(
+                driver, cylinder, confirmation_bracket->left_angle_rad,
+                confirmation_bracket->right_angle_rad, derivative_ambiguity_guard_m);
+            if (!stationary.has_value()) {
+                return OneLevelMasterRodFullCycleGeometryIssue::
+                    stationary_point_isolation_ambiguous;
+            }
+            stationary_points[index] = *stationary;
+        }
+    }
+
+    const double minimum_position_m =
+        std::min(stationary_points[0].piston_axis_position_m,
+                 stationary_points[1].piston_axis_position_m);
+    const double maximum_position_m =
+        std::max(stationary_points[0].piston_axis_position_m,
+                 stationary_points[1].piston_axis_position_m);
+    const double minimum_chamber_volume_m3 = std::min(
+        stationary_points[0].chamber_volume_m3, stationary_points[1].chamber_volume_m3);
+    const double maximum_chamber_volume_m3 = std::max(
+        stationary_points[0].chamber_volume_m3, stationary_points[1].chamber_volume_m3);
+    const double position_containment_guard_m =
+        kBinary64CertificateGuard * derivative_scale_m;
+    if (primary.sampled_minimum_position_m <
+            minimum_position_m - position_containment_guard_m ||
+        primary.sampled_maximum_position_m >
+            maximum_position_m + position_containment_guard_m ||
+        confirmation.sampled_minimum_position_m <
+            minimum_position_m - position_containment_guard_m ||
+        confirmation.sampled_maximum_position_m >
+            maximum_position_m + position_containment_guard_m) {
+        return OneLevelMasterRodFullCycleGeometryIssue::
+            stationary_point_isolation_ambiguous;
+    }
+
+    const double swept_stroke_m = maximum_position_m - minimum_position_m;
+    const double swept_displacement_m3 = cylinder.piston_area_m2 * swept_stroke_m;
+    const double piston_axis_path_length_m_per_crank_revolution =
+        swept_stroke_m + swept_stroke_m;
+    if (!finite_positive(minimum_position_m) || !finite_positive(maximum_position_m) ||
+        !finite_positive(swept_stroke_m) ||
+        !finite_positive(minimum_chamber_volume_m3) ||
+        !finite_positive(maximum_chamber_volume_m3) ||
+        !finite_positive(swept_displacement_m3) ||
+        !finite_positive(piston_axis_path_length_m_per_crank_revolution) ||
+        minimum_position_m >= maximum_position_m ||
+        minimum_chamber_volume_m3 > maximum_chamber_volume_m3) {
+        return OneLevelMasterRodFullCycleGeometryIssue::nonfinite_derived_geometry;
+    }
+
+    return OneLevelMasterRodFullCycleGeometry{
+        2U,
+        minimum_position_m,
+        maximum_position_m,
+        swept_stroke_m,
+        minimum_chamber_volume_m3,
+        maximum_chamber_volume_m3,
+        swept_displacement_m3,
+        piston_axis_path_length_m_per_crank_revolution,
+    };
 }
 
 } // namespace engine_sim_offline::simulation

@@ -89,6 +89,7 @@ struct OneLevelMasterRodMechanismCylinderPlan {
     double bore_m = 0.0;
     double piston_area_m2 = 0.0;
     double fixed_geometry_volume_m3 = 0.0;
+    OneLevelMasterRodFullCycleGeometry full_cycle_geometry;
     double ignition_wire_angle_rad = 0.0;
     double piston_mass_kg = 0.0;
     double connecting_rod_mass_kg = 0.0;

@@ -2984,6 +2984,12 @@ void test_master_rod_graph_contract_and_public_admission() {
             slave_plan == nullptr ? nullptr
                                   : std::get_if<simulation::OneLevelMasterRodSlavePin>(
                                         &slave_plan->cylinder.journal);
+        const auto *root_cycle_geometry =
+            radial_plan == nullptr ? nullptr
+                                   : &radial_plan->cylinders[0].full_cycle_geometry;
+        const auto *slave_cycle_geometry =
+            radial_plan == nullptr ? nullptr
+                                   : &radial_plan->cylinders[1].full_cycle_geometry;
         expect(root_plan != nullptr && slave_plan != nullptr && slave_pin != nullptr &&
                    root_plan->cylinder.cylinder_id == master.id &&
                    root_plan->driver.crank_journal_global_phase_rad ==
@@ -2999,6 +3005,26 @@ void test_master_rod_graph_contract_and_public_admission() {
                        profile.core.mechanism.cylinders[1].topology.exhaust_route_id,
                "compiled master-rod plan lost root/slave identity, global/local "
                "phase, stable master index, or chamber/route binding");
+        expect(
+            root_cycle_geometry != nullptr && slave_cycle_geometry != nullptr &&
+                root_cycle_geometry->stationary_point_count == 2U &&
+                slave_cycle_geometry->stationary_point_count == 2U &&
+                root_cycle_geometry->swept_stroke_m ==
+                    root_cycle_geometry->maximum_piston_axis_position_m -
+                        root_cycle_geometry->minimum_piston_axis_position_m &&
+                slave_cycle_geometry->swept_stroke_m ==
+                    slave_cycle_geometry->maximum_piston_axis_position_m -
+                        slave_cycle_geometry->minimum_piston_axis_position_m &&
+                root_cycle_geometry->piston_axis_path_length_m_per_crank_revolution ==
+                    root_cycle_geometry->swept_stroke_m +
+                        root_cycle_geometry->swept_stroke_m &&
+                slave_cycle_geometry->piston_axis_path_length_m_per_crank_revolution ==
+                    slave_cycle_geometry->swept_stroke_m +
+                        slave_cycle_geometry->swept_stroke_m &&
+                root_cycle_geometry->swept_displacement_m3 > 0.0 &&
+                slave_cycle_geometry->swept_displacement_m3 > 0.0,
+            "compiled master-rod plan lost its certified per-cylinder "
+            "full-revolution geometry");
         const auto root_certificate =
             root_plan == nullptr ? simulation::OneLevelMasterRodFullCycleCheck{}
                                  : simulation::certify_one_level_master_rod_full_cycle(
@@ -3027,6 +3053,24 @@ void test_master_rod_graph_contract_and_public_admission() {
                    simulation::mechanism_kinematics_plan_matches_source(
                        *shared_plan, resolved.engine, profile.core),
                "fresh master-rod geometry plan did not match its source");
+        auto stale_derived_plan = shared_plan == nullptr
+                                      ? simulation::MechanismKinematicsPlan{}
+                                      : **shared_plan;
+        auto *stale_derived_radial =
+            std::get_if<simulation::OneLevelMasterRodMechanismKinematicsPlan>(
+                &stale_derived_plan);
+        expect(stale_derived_radial != nullptr,
+               "master-rod stale-derived fixture lost its radial alternative");
+        if (stale_derived_radial != nullptr) {
+            stale_derived_radial->cylinders[1].full_cycle_geometry.swept_stroke_m +=
+                0.001;
+        }
+        const auto stale_derived_shared =
+            std::make_shared<const simulation::MechanismKinematicsPlan>(
+                std::move(stale_derived_plan));
+        expect(!simulation::mechanism_kinematics_plan_matches_source(
+                   stale_derived_shared, resolved.engine, profile.core),
+               "master-rod source binding accepted stale derived swept stroke");
         auto stale_mass_core = profile.core;
         stale_mass_core.mechanism.cylinders[1].parameters.piston_mass_kg.value += 0.01;
         expect(shared_plan != nullptr &&

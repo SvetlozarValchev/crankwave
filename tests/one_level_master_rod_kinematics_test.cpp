@@ -1,6 +1,7 @@
 #include "simulation/legacy_mechanics_primitives.hpp"
 #include "simulation/one_level_master_rod_kinematics.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <exception>
@@ -229,6 +230,186 @@ void test_radial_five_full_cycle_certificate_margins() {
     }
 }
 
+void test_full_cycle_geometry_uses_exact_root_and_resolved_slave_extrema() {
+    const auto fixture = radial_five();
+
+    const auto root_calculation = calculate_one_level_master_rod_full_cycle_geometry(
+        fixture.driver, fixture.cylinders[0]);
+    const auto *root =
+        std::get_if<OneLevelMasterRodFullCycleGeometry>(&root_calculation);
+    expect(root != nullptr, "canonical radial root extrema were not resolved");
+    const double expected_minimum_position_m =
+        fixture.driver.master_connecting_rod_length_m - fixture.driver.crank_radius_m;
+    const double expected_maximum_position_m =
+        fixture.driver.master_connecting_rod_length_m + fixture.driver.crank_radius_m;
+    const double expected_swept_stroke_m =
+        expected_maximum_position_m - expected_minimum_position_m;
+    const auto &root_cylinder = fixture.cylinders[0];
+    const double expected_maximum_sweep_volume_m3 =
+        root_cylinder.piston_area_m2 *
+        (root_cylinder.deck_height_m - expected_minimum_position_m -
+         root_cylinder.piston_wrist_pin_position_m -
+         root_cylinder.piston_compression_height_m);
+    const double expected_maximum_chamber_volume_m3 =
+        expected_maximum_sweep_volume_m3 + root_cylinder.head_chamber_volume_m3 -
+        root_cylinder.piston_displacement_term_m3;
+    const double expected_minimum_sweep_volume_m3 =
+        root_cylinder.piston_area_m2 *
+        (root_cylinder.deck_height_m - expected_maximum_position_m -
+         root_cylinder.piston_wrist_pin_position_m -
+         root_cylinder.piston_compression_height_m);
+    const double expected_minimum_chamber_volume_m3 =
+        expected_minimum_sweep_volume_m3 + root_cylinder.head_chamber_volume_m3 -
+        root_cylinder.piston_displacement_term_m3;
+    expect(root != nullptr && root->stationary_point_count == 2U &&
+               root->minimum_piston_axis_position_m == expected_minimum_position_m &&
+               root->maximum_piston_axis_position_m == expected_maximum_position_m &&
+               root->swept_stroke_m == expected_swept_stroke_m &&
+               root->minimum_chamber_volume_m3 == expected_minimum_chamber_volume_m3 &&
+               root->maximum_chamber_volume_m3 == expected_maximum_chamber_volume_m3 &&
+               root->swept_displacement_m3 ==
+                   root_cylinder.piston_area_m2 * expected_swept_stroke_m &&
+               root->piston_axis_path_length_m_per_crank_revolution ==
+                   expected_swept_stroke_m + expected_swept_stroke_m,
+           "radial root did not retain exact analytic dead-center arithmetic");
+
+    const auto slave_calculation = calculate_one_level_master_rod_full_cycle_geometry(
+        fixture.driver, fixture.cylinders[1]);
+    const auto repeated_slave_calculation =
+        calculate_one_level_master_rod_full_cycle_geometry(fixture.driver,
+                                                           fixture.cylinders[1]);
+    const auto *slave =
+        std::get_if<OneLevelMasterRodFullCycleGeometry>(&slave_calculation);
+    const auto *repeated_slave =
+        std::get_if<OneLevelMasterRodFullCycleGeometry>(&repeated_slave_calculation);
+    expect(slave != nullptr && repeated_slave != nullptr && *slave == *repeated_slave,
+           "canonical radial slave extrema were unavailable or nondeterministic");
+    const double nominal_twice_throw_stroke_m =
+        fixture.driver.crank_radius_m + fixture.driver.crank_radius_m;
+    expect(slave != nullptr && slave->stationary_point_count == 2U &&
+               slave->swept_stroke_m > nominal_twice_throw_stroke_m &&
+               slave->swept_displacement_m3 ==
+                   fixture.cylinders[1].piston_area_m2 * slave->swept_stroke_m &&
+               slave->piston_axis_path_length_m_per_crank_revolution ==
+                   slave->swept_stroke_m + slave->swept_stroke_m &&
+               slave->minimum_chamber_volume_m3 > 0.0 &&
+               slave->maximum_chamber_volume_m3 > slave->minimum_chamber_volume_m3,
+           "radial slave retained nominal stroke or inconsistent derived geometry");
+    expect_near(slave->swept_stroke_m / source_inch(), 5.506507223, 1.0e-8,
+                "canonical radial slave swept stroke changed");
+    constexpr std::array expected_swept_strokes_m{
+        0.13970000000000005, 0.13986528346522351, 0.14021918405069109,
+        0.14021918405069142, 0.13986528346522331,
+    };
+    constexpr std::array expected_swept_displacements_m3{
+        0.0017696758707481282, 0.0017717696299481252, 0.0017762527317859607,
+        0.0017762527317859648, 0.0017717696299481228,
+    };
+    std::array<OneLevelMasterRodFullCycleGeometry, 5> geometries{};
+    for (std::size_t index = 0; index < fixture.cylinders.size(); ++index) {
+        const auto calculation = calculate_one_level_master_rod_full_cycle_geometry(
+            fixture.driver, fixture.cylinders[index]);
+        const auto *geometry =
+            std::get_if<OneLevelMasterRodFullCycleGeometry>(&calculation);
+        expect(geometry != nullptr,
+               "canonical radial-five cylinder geometry was not resolved");
+        geometries[index] = *geometry;
+        expect_near(geometry->swept_stroke_m, expected_swept_strokes_m[index], 5.0e-16,
+                    "canonical radial-five per-cylinder swept stroke changed");
+        expect_near(geometry->swept_displacement_m3,
+                    expected_swept_displacements_m3[index], 8.0e-18,
+                    "canonical radial-five per-cylinder displacement changed");
+    }
+    expect(std::abs(geometries[1].swept_stroke_m - geometries[4].swept_stroke_m) <=
+                   3.0e-16 &&
+               std::abs(geometries[2].swept_stroke_m - geometries[3].swept_stroke_m) <=
+                   4.0e-16 &&
+               std::abs(geometries[1].swept_displacement_m3 -
+                        geometries[4].swept_displacement_m3) <= 3.0e-18 &&
+               std::abs(geometries[2].swept_displacement_m3 -
+                        geometries[3].swept_displacement_m3) <= 5.0e-18,
+           "canonical radial-five reflected slave pairs lost binary64 symmetry");
+    expect(geometries[2].swept_stroke_m - geometries[1].swept_stroke_m > 3.0e-4 &&
+               geometries[1].swept_stroke_m - geometries[0].swept_stroke_m > 1.0e-4,
+           "canonical radial-five distinct slave/root stroke families collapsed");
+
+    constexpr std::size_t dense_sample_count = 32768U;
+    const double two_pi = 2.0 * std::acos(-1.0);
+    double sampled_minimum_position_m = std::numeric_limits<double>::infinity();
+    double sampled_maximum_position_m = -std::numeric_limits<double>::infinity();
+    double sampled_minimum_volume_m3 = std::numeric_limits<double>::infinity();
+    double sampled_maximum_volume_m3 = -std::numeric_limits<double>::infinity();
+    for (std::size_t index = 0; index < dense_sample_count; ++index) {
+        const double angle_rad = (static_cast<double>(index) + 0.5) * two_pi /
+                                 static_cast<double>(dense_sample_count);
+        const auto sample = evaluate_one_level_master_rod(
+            fixture.driver, fixture.cylinders[1], angle_rad, 0.0);
+        expect(sample.valid, "dense radial slave extrema oracle was rejected");
+        sampled_minimum_position_m =
+            std::min(sampled_minimum_position_m, sample.piston_axis_position_m);
+        sampled_maximum_position_m =
+            std::max(sampled_maximum_position_m, sample.piston_axis_position_m);
+        sampled_minimum_volume_m3 =
+            std::min(sampled_minimum_volume_m3, sample.chamber_volume_m3);
+        sampled_maximum_volume_m3 =
+            std::max(sampled_maximum_volume_m3, sample.chamber_volume_m3);
+    }
+    expect(
+        sampled_minimum_position_m >= slave->minimum_piston_axis_position_m - 1.0e-14 &&
+            sampled_maximum_position_m <=
+                slave->maximum_piston_axis_position_m + 1.0e-14 &&
+            sampled_minimum_volume_m3 >= slave->minimum_chamber_volume_m3 - 1.0e-16 &&
+            sampled_maximum_volume_m3 <= slave->maximum_chamber_volume_m3 + 1.0e-16,
+        "resolved radial slave extrema did not contain a denser independent sweep");
+}
+
+void test_full_cycle_geometry_fails_closed_outside_two_turning_point_subset() {
+    const OneLevelMasterRodDriver driver{
+        1.0,
+        0.0,
+        0.0,
+        1.1646695401144738,
+    };
+    const OneLevelMasterRodCylinder four_turning_point_slave{
+        CylinderId{1},
+        1.7293803753630606,
+        13.550777245464793,
+        0.01,
+        20.0,
+        0.1,
+        0.0,
+        0.1,
+        0.0,
+        OneLevelMasterRodSlavePin{2.8906756825405315, -0.5627994782380452},
+    };
+    expect(certify_one_level_master_rod_full_cycle(driver, four_turning_point_slave)
+               .admitted(),
+           "four-turning-point rejection fixture lost its geometry certificate");
+    const auto four_root_calculation =
+        calculate_one_level_master_rod_full_cycle_geometry(driver,
+                                                           four_turning_point_slave);
+    const auto *four_root_issue =
+        std::get_if<OneLevelMasterRodFullCycleGeometryIssue>(&four_root_calculation);
+    expect(four_root_issue != nullptr && *four_root_issue ==
+                                             OneLevelMasterRodFullCycleGeometryIssue::
+                                                 stationary_point_isolation_ambiguous,
+           "slave with more than two simple stationary points was flattened to one "
+           "stroke");
+
+    auto uncertified = radial_five();
+    uncertified.driver.master_connecting_rod_length_m =
+        uncertified.driver.crank_radius_m / 2.0;
+    const auto uncertified_calculation =
+        calculate_one_level_master_rod_full_cycle_geometry(uncertified.driver,
+                                                           uncertified.cylinders[1]);
+    const auto *uncertified_issue =
+        std::get_if<OneLevelMasterRodFullCycleGeometryIssue>(&uncertified_calculation);
+    expect(uncertified_issue != nullptr &&
+               *uncertified_issue ==
+                   OneLevelMasterRodFullCycleGeometryIssue::full_cycle_not_certified,
+           "uncertified radial geometry reached stationary-point isolation");
+}
+
 void test_full_cycle_certificate_rejects_later_unreachable_geometry() {
     const OneLevelMasterRodDriver driver{
         0.05,
@@ -412,6 +593,8 @@ int main() {
         test_dual_derivative_matches_position_and_volume_finite_difference();
         test_wrist_pin_position_offsets_slave_volume_without_changing_motion();
         test_radial_five_full_cycle_certificate_margins();
+        test_full_cycle_geometry_uses_exact_root_and_resolved_slave_extrema();
+        test_full_cycle_geometry_fails_closed_outside_two_turning_point_subset();
         test_full_cycle_certificate_rejects_later_unreachable_geometry();
         test_full_cycle_certificate_rejects_later_backward_solution();
         test_full_cycle_certificate_rejects_later_nonpositive_volume();

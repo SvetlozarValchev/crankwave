@@ -34,6 +34,28 @@ There is no source scalar equivalent-inertia formula for a master rod. Its
 configuration-dependent inertia emerges from the complete constrained rigid-body mass
 matrix.
 
+## Full-cycle geometry authority
+
+Pristine `src/engine.cpp` also contains a separate displacement helper that probes a
+radial linkage at 1,000 half-open angular samples. That helper supports derived engine
+information; it is not the geometry executed by the rigid-body mechanics, and its
+private rod-placement arithmetic is not identical to the runtime placement path. It
+must therefore not become the clean-room chamber, stroke, or piston-travel oracle.
+
+The clean-room authority is the already source-matched point evaluator derived from
+`PistonEngineSimulator::placeCylinder` and
+`ConnectingRod::getRodJournalPositionGlobal`. A direct root has analytic dead-center
+extrema. A slave is admitted only when independent 4,096- and 8,192-point probe
+lattices agree that its continuous `2*pi` piston path has exactly one maximum and one
+minimum; the two analytic-derivative roots are then refined between adjacent binary64
+angles. Missing, additional, tangent, or numerically ambiguous stationary points fail
+closed rather than being flattened into a nominal twice-crank-throw stroke.
+
+The immutable mechanism plan retains each cylinder's resolved position and chamber
+extrema, swept stroke, swept displacement, and piston-axis path length per crank
+revolution. This checkpoint only derives and source-binds those facts. It does not yet
+replace the public nominal displacement, cycle accountant, or scenario inertia.
+
 ## Clean one-degree-of-freedom reduction
 
 The greenfield runtime retains its ideal one-degree-of-freedom crank coordinate rather
