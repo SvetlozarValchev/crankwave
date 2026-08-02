@@ -4,11 +4,52 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <limits>
+#include <new>
 #include <stdexcept>
+#include <utility>
 #include <variant>
+
+namespace allocation_probe {
+
+std::size_t allocation_count = 0U;
+bool count_allocations = false;
+
+} // namespace allocation_probe
+
+void *operator new(const std::size_t size) {
+    if (allocation_probe::count_allocations) {
+        ++allocation_probe::allocation_count;
+    }
+    if (void *allocation = std::malloc(size == 0U ? 1U : size)) {
+        return allocation;
+    }
+    throw std::bad_alloc{};
+}
+
+void *operator new[](const std::size_t size) {
+    return ::operator new(size);
+}
+
+void operator delete(void *allocation) noexcept {
+    std::free(allocation);
+}
+
+void operator delete[](void *allocation) noexcept {
+    ::operator delete(allocation);
+}
+
+void operator delete(void *allocation, std::size_t) noexcept {
+    ::operator delete(allocation);
+}
+
+void operator delete[](void *allocation, std::size_t) noexcept {
+    ::operator delete(allocation);
+}
 
 namespace {
 
@@ -167,6 +208,23 @@ require_inertia(const OneLevelMasterRodConfigurationInertiaCalculation &calculat
     return *inertia;
 }
 
+[[nodiscard]] CompiledOneLevelMasterRodArticulatedMechanism
+require_compiled(OneLevelMasterRodArticulatedMechanismCompilation compilation) {
+    const auto *compiled =
+        std::get_if<CompiledOneLevelMasterRodArticulatedMechanism>(&compilation);
+    expect(compiled != nullptr, "valid master-rod mechanism compilation failed");
+    return std::get<CompiledOneLevelMasterRodArticulatedMechanism>(
+        std::move(compilation));
+}
+
+void expect_state_error(
+    const std::optional<OneLevelMasterRodConfigurationInertiaError> &actual,
+    const OneLevelMasterRodConfigurationInertiaIssue expected_issue) {
+    expect(actual.has_value() && actual->issue == expected_issue &&
+               actual->cylinder_index == kNoOneLevelMasterRodInertiaCylinder,
+           "compiled articulated-state evaluator returned the wrong error");
+}
+
 void expect_error(
     const OneLevelMasterRodConfigurationInertiaCalculation &calculation,
     const OneLevelMasterRodConfigurationInertiaIssue expected_issue,
@@ -257,6 +315,103 @@ void test_theta_contract_and_shared_articulated_state() {
                         "rod COM first derivative lost the authored fraction");
         }
     }
+}
+
+void test_compiled_hot_path_exactly_matches_convenience_wrappers() {
+    const auto plan = radial_five_plan();
+    auto compiled =
+        require_compiled(compile_one_level_master_rod_articulated_mechanism(plan));
+    expect(compiled.cylinder_count() == plan.cylinders.size(),
+           "compiled mechanism lost a cylinder");
+    auto scratch = compiled.make_state_scratch();
+    expect(scratch.cylinders.size() == compiled.cylinder_count(),
+           "compiled mechanism created the wrong scratch size");
+    const auto *const scratch_data = scratch.cylinders.data();
+    const std::size_t scratch_capacity = scratch.cylinders.capacity();
+
+    constexpr double attached_inertia_kg_m2 = 0.045;
+    for (const double theta_rad : {-1.17, 0.0, 0.731, 2.71, 8.43}) {
+        const auto convenience_state = require_state(
+            evaluate_one_level_master_rod_articulated_state(plan, theta_rad));
+        const auto state_error =
+            compiled.evaluate_articulated_state(theta_rad, scratch);
+        expect(!state_error.has_value(),
+               "compiled articulated-state evaluation failed");
+        expect(scratch == convenience_state,
+               "compiled and convenience articulated states differ");
+
+        const auto convenience_inertia =
+            require_inertia(evaluate_one_level_master_rod_configuration_inertia(
+                plan, attached_inertia_kg_m2, theta_rad));
+        const auto compiled_calculation = compiled.evaluate_configuration_inertia(
+            attached_inertia_kg_m2, theta_rad, scratch);
+        const auto compiled_inertia = require_inertia(compiled_calculation);
+        expect(compiled_inertia == convenience_inertia,
+               "compiled and convenience M/M-prime differ");
+        expect(scratch.cylinders.data() == scratch_data &&
+                   scratch.cylinders.capacity() == scratch_capacity &&
+                   scratch.cylinders.size() == compiled.cylinder_count(),
+               "compiled hot path resized or replaced caller-owned scratch");
+    }
+}
+
+void test_compiled_hot_path_rejects_wrong_scratch_and_nonfinite_theta() {
+    const auto plan = radial_five_plan();
+    auto compiled =
+        require_compiled(compile_one_level_master_rod_articulated_mechanism(plan));
+    auto exact = compiled.make_state_scratch();
+
+    auto short_scratch = exact;
+    short_scratch.cylinders.pop_back();
+    expect_state_error(
+        compiled.evaluate_articulated_state(0.0, short_scratch),
+        OneLevelMasterRodConfigurationInertiaIssue::incorrect_state_scratch_size);
+    expect_error(
+        compiled.evaluate_configuration_inertia(0.0, 0.0, short_scratch),
+        OneLevelMasterRodConfigurationInertiaIssue::incorrect_state_scratch_size);
+
+    auto long_scratch = exact;
+    long_scratch.cylinders.push_back({});
+    expect_state_error(
+        compiled.evaluate_articulated_state(0.0, long_scratch),
+        OneLevelMasterRodConfigurationInertiaIssue::incorrect_state_scratch_size);
+
+    expect_state_error(
+        compiled.evaluate_articulated_state(std::numeric_limits<double>::quiet_NaN(),
+                                            exact),
+        OneLevelMasterRodConfigurationInertiaIssue::nonfinite_crank_angle);
+    expect_error(compiled.evaluate_configuration_inertia(
+                     0.0, std::numeric_limits<double>::infinity(), exact),
+                 OneLevelMasterRodConfigurationInertiaIssue::nonfinite_crank_angle);
+}
+
+void test_compiled_hot_path_does_not_allocate() {
+    const auto plan = radial_five_plan();
+    auto compiled =
+        require_compiled(compile_one_level_master_rod_articulated_mechanism(plan));
+    auto scratch = compiled.make_state_scratch();
+    const auto warmup = compiled.evaluate_configuration_inertia(0.045, 0.0, scratch);
+    expect(std::holds_alternative<OneLevelMasterRodConfigurationInertia>(warmup),
+           "compiled hot-path allocation warmup failed");
+
+    const std::size_t allocations_before = allocation_probe::allocation_count;
+    bool evaluations_valid = true;
+    allocation_probe::count_allocations = true;
+    for (std::size_t index = 0; index < 256U; ++index) {
+        const double theta_rad = 0.03125 * static_cast<double>(index);
+        const auto state_error =
+            compiled.evaluate_articulated_state(theta_rad, scratch);
+        const auto inertia =
+            compiled.evaluate_configuration_inertia(0.045, theta_rad, scratch);
+        evaluations_valid =
+            evaluations_valid && !state_error.has_value() &&
+            std::holds_alternative<OneLevelMasterRodConfigurationInertia>(inertia);
+    }
+    allocation_probe::count_allocations = false;
+
+    expect(evaluations_valid, "measured compiled hot path failed");
+    expect(allocation_probe::allocation_count == allocations_before,
+           "compiled articulated-state or M/M-prime evaluation allocated");
 }
 
 void test_inertia_is_the_exact_shared_state_energy_reduction() {
@@ -548,6 +703,9 @@ void test_invalid_plan_and_state_fail_closed() {
 int main() {
     try {
         test_theta_contract_and_shared_articulated_state();
+        test_compiled_hot_path_exactly_matches_convenience_wrappers();
+        test_compiled_hot_path_rejects_wrong_scratch_and_nonfinite_theta();
+        test_compiled_hot_path_does_not_allocate();
         test_inertia_is_the_exact_shared_state_energy_reduction();
         test_analytic_derivative_matches_tight_central_difference();
         test_positive_finite_and_two_pi_periodic();

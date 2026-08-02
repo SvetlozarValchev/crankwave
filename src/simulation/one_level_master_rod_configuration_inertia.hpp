@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -28,6 +29,7 @@ enum class OneLevelMasterRodConfigurationInertiaIssue : std::uint8_t {
     invalid_kinematics,
     invalid_slave_attachment,
     uncertified_full_cycle_geometry,
+    incorrect_state_scratch_size,
     nonfinite_derived_value,
     nonpositive_total_inertia,
 };
@@ -78,18 +80,6 @@ struct OneLevelMasterRodArticulatedState {
                            const OneLevelMasterRodArticulatedState &) = default;
 };
 
-using OneLevelMasterRodArticulatedStateCalculation =
-    std::variant<OneLevelMasterRodArticulatedState,
-                 OneLevelMasterRodConfigurationInertiaError>;
-
-// Resolves every rigid body's planar configuration and its first two analytic
-// derivatives with respect to increasing crank theta. It is intentionally public
-// so inertia and reaction calculations can share one geometry authority.
-[[nodiscard]] OneLevelMasterRodArticulatedStateCalculation
-evaluate_one_level_master_rod_articulated_state(
-    const OneLevelMasterRodMechanismKinematicsPlan &plan,
-    double crank_angle_theta_rad) noexcept;
-
 // M(theta) is the exact one-degree-of-freedom kinetic-energy coefficient for the
 // rigid crank group, every translating piston, and every root or slave connecting
 // rod in the plan. The derivative is with respect to the same increasing crank
@@ -119,11 +109,94 @@ using OneLevelMasterRodConfigurationInertiaCalculation =
     std::variant<OneLevelMasterRodConfigurationInertia,
                  OneLevelMasterRodConfigurationInertiaError>;
 
+// Immutable, compile-once execution form. Compilation validates every plan field,
+// certifies full-cycle geometry, and flattens each cylinder's resolved root driver,
+// geometry, and mass properties. Per-tick methods perform no allocation, identity
+// search, topology resolution, or full-cycle certification.
+class CompiledOneLevelMasterRodArticulatedMechanism final {
+  public:
+    CompiledOneLevelMasterRodArticulatedMechanism(
+        const CompiledOneLevelMasterRodArticulatedMechanism &) = default;
+    CompiledOneLevelMasterRodArticulatedMechanism(
+        CompiledOneLevelMasterRodArticulatedMechanism &&) noexcept = default;
+    CompiledOneLevelMasterRodArticulatedMechanism &
+    operator=(const CompiledOneLevelMasterRodArticulatedMechanism &) = default;
+    CompiledOneLevelMasterRodArticulatedMechanism &
+    operator=(CompiledOneLevelMasterRodArticulatedMechanism &&) noexcept = default;
+    ~CompiledOneLevelMasterRodArticulatedMechanism() = default;
+
+    [[nodiscard]] std::size_t cylinder_count() const noexcept;
+
+    // Allocates exact-size scratch outside the tick path. A caller may instead
+    // resize its own state once to cylinder_count().
+    [[nodiscard]] OneLevelMasterRodArticulatedState make_state_scratch() const;
+
+    // Fills exact-size caller-owned scratch. nullopt means success; an error leaves
+    // no valid state contract. This method never allocates.
+    [[nodiscard]] std::optional<OneLevelMasterRodConfigurationInertiaError>
+    evaluate_articulated_state(
+        double crank_angle_theta_rad,
+        OneLevelMasterRodArticulatedState &scratch) const noexcept;
+
+    // Evaluates shared articulated state into scratch and reduces that exact state
+    // to M/M-prime. This method never allocates.
+    [[nodiscard]] OneLevelMasterRodConfigurationInertiaCalculation
+    evaluate_configuration_inertia(
+        double attached_inertia_kg_m2, double crank_angle_theta_rad,
+        OneLevelMasterRodArticulatedState &scratch) const noexcept;
+
+  private:
+    struct Cylinder {
+        OneLevelMasterRodDriver driver;
+        OneLevelMasterRodCylinder geometry;
+        double piston_mass_kg = 0.0;
+        double connecting_rod_mass_kg = 0.0;
+        double connecting_rod_inertia_kg_m2 = 0.0;
+        double connecting_rod_center_of_mass_from_big_end_m = 0.0;
+        OneLevelMasterRodSlavePin slave_pin;
+        bool direct_root = false;
+    };
+
+    CompiledOneLevelMasterRodArticulatedMechanism(
+        double crank_tdc_reference_rad, double authored_crank_inertia_kg_m2,
+        std::vector<Cylinder> cylinders) noexcept;
+
+    double crank_tdc_reference_rad_ = 0.0;
+    double authored_crank_inertia_kg_m2_ = 0.0;
+    std::vector<Cylinder> cylinders_;
+
+    friend std::variant<CompiledOneLevelMasterRodArticulatedMechanism,
+                        OneLevelMasterRodConfigurationInertiaError>
+    compile_one_level_master_rod_articulated_mechanism(
+        const OneLevelMasterRodMechanismKinematicsPlan &plan);
+};
+
+using OneLevelMasterRodArticulatedMechanismCompilation =
+    std::variant<CompiledOneLevelMasterRodArticulatedMechanism,
+                 OneLevelMasterRodConfigurationInertiaError>;
+
+[[nodiscard]] OneLevelMasterRodArticulatedMechanismCompilation
+compile_one_level_master_rod_articulated_mechanism(
+    const OneLevelMasterRodMechanismKinematicsPlan &plan);
+
+using OneLevelMasterRodArticulatedStateCalculation =
+    std::variant<OneLevelMasterRodArticulatedState,
+                 OneLevelMasterRodConfigurationInertiaError>;
+
+// Convenience validating wrappers. They compile and allocate on every call and
+// are intended for tests and non-tick diagnostics. Runtime callers use the
+// compiled object's scratch-taking methods above.
+[[nodiscard]] OneLevelMasterRodArticulatedStateCalculation
+evaluate_one_level_master_rod_articulated_state(
+    const OneLevelMasterRodMechanismKinematicsPlan &plan,
+    double crank_angle_theta_rad) noexcept;
+
 // Evaluates analytic M(theta) and dM/dtheta. crank_angle_theta_rad is the same
 // increasing engine crank coordinate represented by LegacyMechanismStep's
 // theta_unwrapped_rad; the plan's legacy body angle is therefore
 // crank_tdc_reference_rad - crank_angle_theta_rad. All first and second planar
 // derivatives are obtained analytically by second-order automatic differentiation.
+// This overload is the convenience validating wrapper; tick paths compile once.
 [[nodiscard]] OneLevelMasterRodConfigurationInertiaCalculation
 evaluate_one_level_master_rod_configuration_inertia(
     const OneLevelMasterRodMechanismKinematicsPlan &plan, double attached_inertia_kg_m2,

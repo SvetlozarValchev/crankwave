@@ -420,23 +420,78 @@ public_point(const SecondOrderPoint &point) noexcept {
 
 } // namespace
 
-OneLevelMasterRodArticulatedStateCalculation
-evaluate_one_level_master_rod_articulated_state(
-    const OneLevelMasterRodMechanismKinematicsPlan &plan,
-    const double crank_angle_theta_rad) noexcept {
-    if (!std::isfinite(crank_angle_theta_rad)) {
-        return error(OneLevelMasterRodConfigurationInertiaIssue::nonfinite_crank_angle);
-    }
+CompiledOneLevelMasterRodArticulatedMechanism::
+    CompiledOneLevelMasterRodArticulatedMechanism(
+        const double crank_tdc_reference_rad, const double authored_crank_inertia_kg_m2,
+        std::vector<Cylinder> cylinders) noexcept
+    : crank_tdc_reference_rad_(crank_tdc_reference_rad),
+      authored_crank_inertia_kg_m2_(authored_crank_inertia_kg_m2),
+      cylinders_(std::move(cylinders)) {}
+
+std::size_t
+CompiledOneLevelMasterRodArticulatedMechanism::cylinder_count() const noexcept {
+    return cylinders_.size();
+}
+
+OneLevelMasterRodArticulatedState
+CompiledOneLevelMasterRodArticulatedMechanism::make_state_scratch() const {
+    OneLevelMasterRodArticulatedState result;
+    result.cylinders.resize(cylinders_.size());
+    return result;
+}
+
+OneLevelMasterRodArticulatedMechanismCompilation
+compile_one_level_master_rod_articulated_mechanism(
+    const OneLevelMasterRodMechanismKinematicsPlan &plan) {
     if (const auto validation_error = validate_plan(plan);
         validation_error.has_value()) {
         return *validation_error;
     }
 
+    std::vector<CompiledOneLevelMasterRodArticulatedMechanism::Cylinder> cylinders;
+    cylinders.reserve(plan.cylinders.size());
+    for (std::size_t index = 0; index < plan.cylinders.size(); ++index) {
+        const auto linkage = linkage_at(plan, index);
+        OneLevelMasterRodSlavePin slave_pin;
+        if (!linkage.direct_root) {
+            slave_pin = std::get<OneLevelMasterRodSlavePin>(linkage.cylinder->journal);
+        }
+        const auto &planned = plan.cylinders[index];
+        cylinders.push_back({
+            *linkage.driver,
+            *linkage.cylinder,
+            planned.piston_mass_kg,
+            planned.connecting_rod_mass_kg,
+            planned.connecting_rod_inertia_kg_m2,
+            planned.connecting_rod_center_of_mass_from_big_end_m,
+            slave_pin,
+            linkage.direct_root,
+        });
+    }
+    return CompiledOneLevelMasterRodArticulatedMechanism{
+        plan.crank_tdc_reference_rad,
+        plan.rigid_crank_group.authored_crank_inertia_kg_m2,
+        std::move(cylinders),
+    };
+}
+
+std::optional<OneLevelMasterRodConfigurationInertiaError>
+CompiledOneLevelMasterRodArticulatedMechanism::evaluate_articulated_state(
+    const double crank_angle_theta_rad,
+    OneLevelMasterRodArticulatedState &scratch) const noexcept {
+    if (!std::isfinite(crank_angle_theta_rad)) {
+        return error(OneLevelMasterRodConfigurationInertiaIssue::nonfinite_crank_angle);
+    }
+    if (scratch.cylinders.size() != cylinders_.size()) {
+        return error(
+            OneLevelMasterRodConfigurationInertiaIssue::incorrect_state_scratch_size);
+    }
+
     // Positive dynamic-crank theta advances opposite pristine engine-sim's body
-    // angle psi. The plan reference makes this the same unwrapped coordinate as
+    // angle psi. The compiled reference makes this the same unwrapped coordinate as
     // LegacyMechanismStep::theta_unwrapped_rad.
     const SecondOrderScalar body_angle_psi_rad{
-        plan.crank_tdc_reference_rad - crank_angle_theta_rad,
+        crank_tdc_reference_rad_ - crank_angle_theta_rad,
         -1.0,
         0.0,
     };
@@ -445,12 +500,10 @@ evaluate_one_level_master_rod_articulated_state(
             OneLevelMasterRodConfigurationInertiaIssue::nonfinite_derived_value);
     }
 
-    OneLevelMasterRodArticulatedState result;
-    result.cylinders.reserve(plan.cylinders.size());
-    for (std::size_t index = 0; index < plan.cylinders.size(); ++index) {
-        const auto linkage = linkage_at(plan, index);
-        const auto &driver = *linkage.driver;
-        const auto &cylinder = *linkage.cylinder;
+    for (std::size_t index = 0; index < cylinders_.size(); ++index) {
+        const auto &compiled = cylinders_[index];
+        const auto &driver = compiled.driver;
+        const auto &cylinder = compiled.geometry;
         const SecondOrderPoint journal = crank_pin(driver, body_angle_psi_rad);
         const auto master_wrist =
             slider_wrist_pin(journal, driver.master_bank_angle_rad,
@@ -463,11 +516,9 @@ evaluate_one_level_master_rod_articulated_state(
 
         SecondOrderPoint big_end = journal;
         SecondOrderPoint wrist = *master_wrist;
-        if (!linkage.direct_root) {
-            const auto &attachment =
-                std::get<OneLevelMasterRodSlavePin>(cylinder.journal);
+        if (!compiled.direct_root) {
             const auto calculated_big_end =
-                slave_big_end(driver, attachment, journal, *master_wrist);
+                slave_big_end(driver, compiled.slave_pin, journal, *master_wrist);
             if (!calculated_big_end.has_value()) {
                 return error(
                     OneLevelMasterRodConfigurationInertiaIssue::nonfinite_derived_value,
@@ -485,7 +536,7 @@ evaluate_one_level_master_rod_articulated_state(
         }
 
         const double center_distance_m =
-            plan.cylinders[index].connecting_rod_center_of_mass_from_big_end_m;
+            compiled.connecting_rod_center_of_mass_from_big_end_m;
         const double midpoint_m = 0.5 * cylinder.connecting_rod_length_m;
         const SecondOrderPoint rod_center =
             center_distance_m == midpoint_m
@@ -531,15 +582,15 @@ evaluate_one_level_master_rod_articulated_state(
                 OneLevelMasterRodConfigurationInertiaIssue::nonfinite_derived_value,
                 index);
         }
-        result.cylinders.push_back(std::move(state));
+        scratch.cylinders[index] = std::move(state);
     }
-    return result;
+    return std::nullopt;
 }
 
 OneLevelMasterRodConfigurationInertiaCalculation
-evaluate_one_level_master_rod_configuration_inertia(
-    const OneLevelMasterRodMechanismKinematicsPlan &plan,
-    const double attached_inertia_kg_m2, const double crank_angle_theta_rad) noexcept {
+CompiledOneLevelMasterRodArticulatedMechanism::evaluate_configuration_inertia(
+    const double attached_inertia_kg_m2, const double crank_angle_theta_rad,
+    OneLevelMasterRodArticulatedState &scratch) const noexcept {
     if (!std::isfinite(attached_inertia_kg_m2)) {
         return error(
             OneLevelMasterRodConfigurationInertiaIssue::nonfinite_attached_inertia);
@@ -548,51 +599,42 @@ evaluate_one_level_master_rod_configuration_inertia(
         return error(
             OneLevelMasterRodConfigurationInertiaIssue::negative_attached_inertia);
     }
-    const auto state_calculation =
-        evaluate_one_level_master_rod_articulated_state(plan, crank_angle_theta_rad);
-    if (const auto *state_error =
-            std::get_if<OneLevelMasterRodConfigurationInertiaError>(
-                &state_calculation)) {
+    if (const auto state_error =
+            evaluate_articulated_state(crank_angle_theta_rad, scratch);
+        state_error.has_value()) {
         return *state_error;
     }
 
-    const auto &state = std::get<OneLevelMasterRodArticulatedState>(state_calculation);
-    if (state.cylinders.size() != plan.cylinders.size()) {
-        return error(
-            OneLevelMasterRodConfigurationInertiaIssue::nonfinite_derived_value);
-    }
-
     OneLevelMasterRodConfigurationInertia result;
-    result.authored_crank_inertia_kg_m2 =
-        plan.rigid_crank_group.authored_crank_inertia_kg_m2;
+    result.authored_crank_inertia_kg_m2 = authored_crank_inertia_kg_m2_;
     result.attached_inertia_kg_m2 = attached_inertia_kg_m2;
-    for (std::size_t index = 0; index < state.cylinders.size(); ++index) {
-        const auto &planned = plan.cylinders[index];
-        const auto &cylinder = state.cylinders[index];
+    for (std::size_t index = 0; index < scratch.cylinders.size(); ++index) {
+        const auto &compiled = cylinders_[index];
+        const auto &cylinder = scratch.cylinders[index];
         const auto &wrist = cylinder.wrist_pin;
         const auto &center = cylinder.rod_center_of_mass;
         const double piston_translation_inertia =
-            planned.piston_mass_kg *
+            compiled.piston_mass_kg *
             (wrist.dx_dtheta_m_per_rad * wrist.dx_dtheta_m_per_rad +
              wrist.dy_dtheta_m_per_rad * wrist.dy_dtheta_m_per_rad);
         const double rod_translation_inertia =
-            planned.connecting_rod_mass_kg *
+            compiled.connecting_rod_mass_kg *
             (center.dx_dtheta_m_per_rad * center.dx_dtheta_m_per_rad +
              center.dy_dtheta_m_per_rad * center.dy_dtheta_m_per_rad);
         const double rod_rotation_inertia =
-            planned.connecting_rod_inertia_kg_m2 *
+            compiled.connecting_rod_inertia_kg_m2 *
             cylinder.rod_angle_first_derivative_rad_per_rad *
             cylinder.rod_angle_first_derivative_rad_per_rad;
         const double piston_translation_derivative =
-            2.0 * planned.piston_mass_kg *
+            2.0 * compiled.piston_mass_kg *
             (wrist.dx_dtheta_m_per_rad * wrist.d2x_dtheta2_m_per_rad2 +
              wrist.dy_dtheta_m_per_rad * wrist.d2y_dtheta2_m_per_rad2);
         const double rod_translation_derivative =
-            2.0 * planned.connecting_rod_mass_kg *
+            2.0 * compiled.connecting_rod_mass_kg *
             (center.dx_dtheta_m_per_rad * center.d2x_dtheta2_m_per_rad2 +
              center.dy_dtheta_m_per_rad * center.d2y_dtheta2_m_per_rad2);
         const double rod_rotation_derivative =
-            2.0 * planned.connecting_rod_inertia_kg_m2 *
+            2.0 * compiled.connecting_rod_inertia_kg_m2 *
             cylinder.rod_angle_first_derivative_rad_per_rad *
             cylinder.rod_angle_second_derivative_rad_per_rad2;
         if (!std::isfinite(piston_translation_inertia) ||
@@ -646,6 +688,66 @@ evaluate_one_level_master_rod_configuration_inertia(
             OneLevelMasterRodConfigurationInertiaIssue::nonpositive_total_inertia);
     }
     return result;
+}
+
+OneLevelMasterRodArticulatedStateCalculation
+evaluate_one_level_master_rod_articulated_state(
+    const OneLevelMasterRodMechanismKinematicsPlan &plan,
+    const double crank_angle_theta_rad) noexcept {
+    if (!std::isfinite(crank_angle_theta_rad)) {
+        return error(OneLevelMasterRodConfigurationInertiaIssue::nonfinite_crank_angle);
+    }
+    try {
+        auto compilation = compile_one_level_master_rod_articulated_mechanism(plan);
+        if (const auto *compilation_error =
+                std::get_if<OneLevelMasterRodConfigurationInertiaError>(&compilation)) {
+            return *compilation_error;
+        }
+        const auto &compiled =
+            std::get<CompiledOneLevelMasterRodArticulatedMechanism>(compilation);
+        auto scratch = compiled.make_state_scratch();
+        if (const auto evaluation_error =
+                compiled.evaluate_articulated_state(crank_angle_theta_rad, scratch);
+            evaluation_error.has_value()) {
+            return *evaluation_error;
+        }
+        return std::move(scratch);
+    } catch (...) {
+        return error(
+            OneLevelMasterRodConfigurationInertiaIssue::nonfinite_derived_value);
+    }
+}
+
+OneLevelMasterRodConfigurationInertiaCalculation
+evaluate_one_level_master_rod_configuration_inertia(
+    const OneLevelMasterRodMechanismKinematicsPlan &plan,
+    const double attached_inertia_kg_m2, const double crank_angle_theta_rad) noexcept {
+    if (!std::isfinite(attached_inertia_kg_m2)) {
+        return error(
+            OneLevelMasterRodConfigurationInertiaIssue::nonfinite_attached_inertia);
+    }
+    if (attached_inertia_kg_m2 < 0.0 || std::signbit(attached_inertia_kg_m2)) {
+        return error(
+            OneLevelMasterRodConfigurationInertiaIssue::negative_attached_inertia);
+    }
+    if (!std::isfinite(crank_angle_theta_rad)) {
+        return error(OneLevelMasterRodConfigurationInertiaIssue::nonfinite_crank_angle);
+    }
+    try {
+        auto compilation = compile_one_level_master_rod_articulated_mechanism(plan);
+        if (const auto *compilation_error =
+                std::get_if<OneLevelMasterRodConfigurationInertiaError>(&compilation)) {
+            return *compilation_error;
+        }
+        const auto &compiled =
+            std::get<CompiledOneLevelMasterRodArticulatedMechanism>(compilation);
+        auto scratch = compiled.make_state_scratch();
+        return compiled.evaluate_configuration_inertia(attached_inertia_kg_m2,
+                                                       crank_angle_theta_rad, scratch);
+    } catch (...) {
+        return error(
+            OneLevelMasterRodConfigurationInertiaIssue::nonfinite_derived_value);
+    }
 }
 
 } // namespace engine_sim_offline::simulation
