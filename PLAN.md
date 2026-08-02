@@ -859,10 +859,16 @@ engine-definition parity in this order, with one coherent commit per bullet:
    coupled wall reactions landed through `9104e9e`, and `c8127bd` executes that
    mechanism in the private cold dynamic-crank path; `d9a7176` additionally derives
    and source-binds each cylinder's certified full-cycle extrema, swept displacement,
-   and piston travel without opening a public mode or downstream consumer; `148af68`
-   separately derives the 4,096-point articulated cycle-mean engine inertia
-   (`0.86268068702831191 kg*m2` for the canonical radial five) and likewise stores it
-   without a scenario/runtime consumer; its Release radial prescribed and BMW direct
+   and piston travel without opening a public mode; `148af68` separately derives the
+   4,096-point articulated cycle-mean engine inertia (`0.86268068702831191 kg*m2` for
+   the canonical radial five). `3561cf3` adds the independent per-cylinder-travel
+   Chen--Flynn reduction, `f1070ca` gives the existing cycle accountant an explicit
+   common-stroke/per-cylinder-travel plan choice without changing direct execution,
+   and `f4b18e5` joins the certified radial geometry to that accountant in stable
+   cylinder/chamber order. A private 1,500-rpm run now completes 1,700 warm-preparation
+   frames, finalizes a heterogeneous radial cycle, and continues into released exact
+   articulated dynamics; public radial dynamic admission remains closed. GCC, Clang,
+   and ASan/UBSan pass, while the Release public radial prescribed and BMW direct
    held-dyno candidates reproduce all 16 control WAVs byte-for-byte, including
    audition SHA-256
    `58394f71ed58ee5af4434745e6f266c2cac7db33503848decbd61b9e8a9f0985` and
