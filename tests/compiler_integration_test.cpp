@@ -3027,6 +3027,19 @@ void test_master_rod_graph_contract_and_public_admission() {
                    simulation::mechanism_kinematics_plan_matches_source(
                        *shared_plan, resolved.engine, profile.core),
                "fresh master-rod geometry plan did not match its source");
+        auto stale_mass_core = profile.core;
+        stale_mass_core.mechanism.cylinders[1].parameters.piston_mass_kg.value += 0.01;
+        expect(shared_plan != nullptr &&
+                   !simulation::mechanism_kinematics_plan_matches_source(
+                       *shared_plan, resolved.engine, stale_mass_core),
+               "master-rod plan accepted stale articulated mass properties");
+        auto stale_crank_core = profile.core;
+        stale_crank_core.mechanism.cranks.front()
+            .authored_crank_inertia_kg_m2.value += 0.01;
+        expect(shared_plan != nullptr &&
+                   !simulation::mechanism_kinematics_plan_matches_source(
+                       *shared_plan, resolved.engine, stale_crank_core),
+               "master-rod plan accepted stale crank inertia");
         auto stale_engine = resolved.engine;
         stale_engine.cylinders[0].journal_phase_rad.value += 0.01;
         expect(shared_plan != nullptr &&

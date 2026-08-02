@@ -181,6 +181,10 @@ compile_one_level_master_rod_kinematics_plan(
     ValidationReport report;
     const auto &mechanism = core.mechanism;
     const auto *output_crank = contract::find_output_crank(mechanism);
+    const auto rigid_crank_group_calculation =
+        calculate_rigid_crank_group_properties(mechanism);
+    const auto *rigid_crank_group =
+        std::get_if<RigidCrankGroupProperties>(&rigid_crank_group_calculation);
     require(report, single_crank_topology_matches(engine, mechanism),
             ContractIssueCode::unsupported_value,
             "engine.physics_profile.mechanism.cranks",
@@ -204,6 +208,10 @@ compile_one_level_master_rod_kinematics_plan(
             "engine.physics_profile.mechanism.output_crankshaft.crank_tdc_reference_"
             "rad.value",
             "crank TDC reference must be finite");
+    require(report, rigid_crank_group != nullptr, ContractIssueCode::invalid_value,
+            "engine.physics_profile.mechanism.cranks",
+            "one-level master-rod plan requires finite authored crank inertia and "
+            "running friction");
     if (!report.ok()) {
         return report;
     }
@@ -235,6 +243,7 @@ compile_one_level_master_rod_kinematics_plan(
     plan.engine_profile_id = engine.profile_id.value;
     plan.output_crankshaft_id = mechanism.output_crankshaft_id;
     plan.crank_tdc_reference_rad = output_crank->crank_tdc_reference_rad.value;
+    plan.rigid_crank_group = *rigid_crank_group;
     plan.cylinders.reserve(mechanism.cylinders.size());
 
     bool compiled_slave = false;
@@ -317,6 +326,12 @@ compile_one_level_master_rod_kinematics_plan(
         planned.piston_area_m2 = piston_area_m2;
         planned.fixed_geometry_volume_m3 = fixed_geometry_volume_m3;
         planned.ignition_wire_angle_rad = ignition_wire_angle_rad;
+        planned.piston_mass_kg = parameters.piston_mass_kg.value;
+        planned.connecting_rod_mass_kg = parameters.connecting_rod_mass_kg.value;
+        planned.connecting_rod_inertia_kg_m2 =
+            parameters.connecting_rod_inertia_kg_m2.value;
+        planned.connecting_rod_center_of_mass_from_big_end_m =
+            parameters.connecting_rod_center_of_mass_from_crank_pin_m.value;
         bool cylinder_compiled = false;
 
         if (direct != nullptr) {
@@ -766,12 +781,17 @@ bool mechanism_kinematics_plan_matches_source(
     const contract::LowOrderEngineCoreV1 &core) noexcept {
     const auto &mechanism = core.mechanism;
     const auto *output_crank = contract::find_output_crank(mechanism);
+    const auto rigid_crank_group_calculation =
+        calculate_rigid_crank_group_properties(mechanism);
+    const auto *rigid_crank_group =
+        std::get_if<RigidCrankGroupProperties>(&rigid_crank_group_calculation);
     if (!bank_head_topology_matches(engine, core.gas_path) || output_crank == nullptr) {
         return false;
     }
     const auto *radial = one_level_master_rod_mechanism_kinematics_plan(plan);
     if (radial != nullptr) {
         if (!single_crank_topology_matches(engine, mechanism) ||
+            rigid_crank_group == nullptr ||
             radial->engine_id != engine.id ||
             radial->engine_profile_id != engine.profile_id.value ||
             radial->output_crankshaft_id != mechanism.output_crankshaft_id ||
@@ -779,7 +799,14 @@ bool mechanism_kinematics_plan_matches_source(
             radial->cylinders.size() != engine.cylinders.size() ||
             radial->cylinders.size() != mechanism.cylinders.size() ||
             !same_binary64(radial->crank_tdc_reference_rad,
-                           output_crank->crank_tdc_reference_rad.value)) {
+                           output_crank->crank_tdc_reference_rad.value) ||
+            radial->rigid_crank_group.crankshaft_count !=
+                rigid_crank_group->crankshaft_count ||
+            !same_binary64(radial->rigid_crank_group.authored_crank_inertia_kg_m2,
+                           rigid_crank_group->authored_crank_inertia_kg_m2) ||
+            !same_binary64(
+                radial->rigid_crank_group.running_friction_torque_magnitude_nm,
+                rigid_crank_group->running_friction_torque_magnitude_nm)) {
             return false;
         }
 
@@ -845,7 +872,16 @@ bool mechanism_kinematics_plan_matches_source(
                              parameters.piston_wrist_pin_position_m.value -
                              parameters.piston_compression_height_m.value)) ||
                 !same_binary64(planned.ignition_wire_angle_rad,
-                               parameters.ignition_wire_angle_rad.value)) {
+                               parameters.ignition_wire_angle_rad.value) ||
+                !same_binary64(planned.piston_mass_kg,
+                               parameters.piston_mass_kg.value) ||
+                !same_binary64(planned.connecting_rod_mass_kg,
+                               parameters.connecting_rod_mass_kg.value) ||
+                !same_binary64(planned.connecting_rod_inertia_kg_m2,
+                               parameters.connecting_rod_inertia_kg_m2.value) ||
+                !same_binary64(
+                    planned.connecting_rod_center_of_mass_from_big_end_m,
+                    parameters.connecting_rod_center_of_mass_from_crank_pin_m.value)) {
                 return false;
             }
 
@@ -916,10 +952,6 @@ bool mechanism_kinematics_plan_matches_source(
     }
 
     const auto *direct = direct_mechanism_kinematics_plan(plan);
-    const auto rigid_crank_group_calculation =
-        calculate_rigid_crank_group_properties(mechanism);
-    const auto *rigid_crank_group =
-        std::get_if<RigidCrankGroupProperties>(&rigid_crank_group_calculation);
     if (!co_phased_crank_group_topology_matches(engine, mechanism) ||
         rigid_crank_group == nullptr || direct == nullptr ||
         direct->engine_id != engine.id ||

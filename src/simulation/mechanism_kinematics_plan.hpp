@@ -76,11 +76,11 @@ struct OneLevelMasterRodSlaveAttachmentPlan {
 using OneLevelMasterRodCylinderKinematicsPlan =
     std::variant<OneLevelMasterRodDirectRootPlan, OneLevelMasterRodSlaveAttachmentPlan>;
 
-// Geometry-only one-level master/slave plan. The compiler releases it only after
-// every root and slave passes the analytic full-cycle geometry certificate, but it
-// is not yet an executable mechanism. In particular, this type carries no nominal
-// stroke, displacement, clearance volume, equivalent inertia, wall reaction, or
-// torque authority.
+// One-level master/slave geometry and its authored rigid-body properties. The
+// compiler releases it only after every root and slave passes the analytic
+// full-cycle geometry certificate. Carrying the physical properties here does not
+// itself grant equivalent-inertia, wall-reaction, or torque authority; those require
+// a separately admitted articulated-dynamics reduction.
 struct OneLevelMasterRodMechanismCylinderPlan {
     contract::CrankshaftId crankshaft_id;
     contract::BankId bank_id;
@@ -90,6 +90,10 @@ struct OneLevelMasterRodMechanismCylinderPlan {
     double piston_area_m2 = 0.0;
     double fixed_geometry_volume_m3 = 0.0;
     double ignition_wire_angle_rad = 0.0;
+    double piston_mass_kg = 0.0;
+    double connecting_rod_mass_kg = 0.0;
+    double connecting_rod_inertia_kg_m2 = 0.0;
+    double connecting_rod_center_of_mass_from_big_end_m = 0.0;
     OneLevelMasterRodCylinderKinematicsPlan kinematics;
 
     friend bool operator==(const OneLevelMasterRodMechanismCylinderPlan &,
@@ -101,6 +105,7 @@ struct OneLevelMasterRodMechanismKinematicsPlan {
     std::string engine_profile_id;
     contract::CrankshaftId output_crankshaft_id;
     double crank_tdc_reference_rad = 0.0;
+    RigidCrankGroupProperties rigid_crank_group;
     std::vector<OneLevelMasterRodMechanismCylinderPlan> cylinders;
 
     friend bool operator==(const OneLevelMasterRodMechanismKinematicsPlan &,

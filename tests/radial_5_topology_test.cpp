@@ -422,6 +422,10 @@ void verify_resolved_topology(const compile_detail::ResolvedEnginePackage &packa
             : simulation::one_level_master_rod_mechanism_kinematics_plan(*shared);
     expect(plan != nullptr &&
                plan->output_crankshaft_id == core.mechanism.output_crankshaft_id &&
+               plan->rigid_crank_group.crankshaft_count == 1U &&
+               near(plan->rigid_crank_group.authored_crank_inertia_kg_m2,
+                    core.mechanism.cranks.front()
+                        .authored_crank_inertia_kg_m2.value) &&
                plan->cylinders.size() == kExpectedCylinders.size() &&
                simulation::direct_mechanism_kinematics_plan(*shared) == nullptr,
            "radial-5 did not select the one-level master-rod plan");
@@ -433,6 +437,18 @@ void verify_resolved_topology(const compile_detail::ResolvedEnginePackage &packa
         expect(planned.crankshaft_id ==
                        core.mechanism.cylinders[index].topology.crankshaft_id &&
                    planned.bank_id == engine.cylinders[index].bank_id &&
+                   near(planned.piston_mass_kg,
+                        core.mechanism.cylinders[index].parameters.piston_mass_kg.value) &&
+                   near(planned.connecting_rod_mass_kg,
+                        core.mechanism.cylinders[index]
+                            .parameters.connecting_rod_mass_kg.value) &&
+                   near(planned.connecting_rod_inertia_kg_m2,
+                        core.mechanism.cylinders[index]
+                            .parameters.connecting_rod_inertia_kg_m2.value) &&
+                   near(planned.connecting_rod_center_of_mass_from_big_end_m,
+                        core.mechanism.cylinders[index]
+                            .parameters
+                            .connecting_rod_center_of_mass_from_crank_pin_m.value) &&
                    near(planned.ignition_wire_angle_rad,
                         expected.firing_degrees * kDegreesToRadians),
                "radial-5 plan lost stable bank or ignition binding");
