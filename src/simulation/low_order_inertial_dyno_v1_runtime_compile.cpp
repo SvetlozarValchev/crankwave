@@ -214,15 +214,17 @@ LowOrderInertialDynoV1CompileResult compile_low_order_inertial_dyno_v1_runtime(
             output_crank->crank_tdc_reference_rad.value,
             engine.total_displacement_m3.value,
         },
-        {
-            profile->aggregate_loss.constant_fmep_bar.value,
-            profile->aggregate_loss.peak_pressure_coefficient.value,
-            profile->aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m.value,
-            profile->aggregate_loss.mean_piston_speed_squared_coefficient_bar_s2_per_m2
-                .value,
+        CommonStrokeChenFlynnLossPlan{
+            {
+                profile->aggregate_loss.constant_fmep_bar.value,
+                profile->aggregate_loss.peak_pressure_coefficient.value,
+                profile->aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m.value,
+                profile->aggregate_loss
+                    .mean_piston_speed_squared_coefficient_bar_s2_per_m2.value,
+            },
+            stroke_m,
         },
         dyno->initial_engine_speed_rpm.value,
-        stroke_m,
         true,
         contract::indicated_gas_torque_term_mask(),
         profile->aggregate_loss.included_terms.value,

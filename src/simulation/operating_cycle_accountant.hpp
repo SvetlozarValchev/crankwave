@@ -3,6 +3,7 @@
 #include "engine_sim_offline/contract/common.hpp"
 #include "engine_sim_offline/contract/torque.hpp"
 #include "simulation/chen_flynn_cycle_mean_loss.hpp"
+#include "simulation/chen_flynn_per_cylinder_travel_cycle_mean_loss.hpp"
 #include "simulation/four_stroke_cycle_integrator.hpp"
 
 #include <cstddef>
@@ -24,11 +25,37 @@ struct OperatingCylinderAccountingPlan {
                            const OperatingCylinderAccountingPlan &) = default;
 };
 
+struct CommonStrokeChenFlynnLossPlan {
+    ChenFlynnCycleMeanLossPlan coefficients;
+    double stroke_m = 0.0;
+
+    friend bool operator==(const CommonStrokeChenFlynnLossPlan &,
+                           const CommonStrokeChenFlynnLossPlan &) = default;
+};
+
+struct PerCylinderTravelChenFlynnCylinderPlan {
+    contract::CylinderId cylinder_id;
+    double piston_axis_path_length_m_per_crank_revolution = 0.0;
+
+    friend bool operator==(const PerCylinderTravelChenFlynnCylinderPlan &,
+                           const PerCylinderTravelChenFlynnCylinderPlan &) = default;
+};
+
+struct PerCylinderTravelChenFlynnLossPlan {
+    ChenFlynnCycleMeanLossPlan coefficients;
+    std::vector<PerCylinderTravelChenFlynnCylinderPlan> cylinders;
+
+    friend bool operator==(const PerCylinderTravelChenFlynnLossPlan &,
+                           const PerCylinderTravelChenFlynnLossPlan &) = default;
+};
+
+using OperatingChenFlynnLossPlan =
+    std::variant<CommonStrokeChenFlynnLossPlan, PerCylinderTravelChenFlynnLossPlan>;
+
 struct OperatingCycleAccountingPlan {
     FourStrokeCycleIntegrationPlan quadrature;
-    ChenFlynnCycleMeanLossPlan aggregate_loss;
+    OperatingChenFlynnLossPlan aggregate_loss;
     double engine_speed_rpm = 0.0;
-    double stroke_m = 0.0;
     bool starter_mechanically_disengaged = false;
     contract::TorqueTermMask indicated_terms = 0;
     contract::TorqueTermMask aggregate_loss_terms = 0;
@@ -132,6 +159,8 @@ struct OperatingCycleAccountingError {
     std::size_t element_index = kNoOperatingCycleAccountingElement;
     std::optional<FourStrokeCycleIntegrationErrorCode> quadrature_error;
     std::optional<ChenFlynnCycleMeanLossErrorCode> aggregate_loss_error;
+    std::optional<ChenFlynnPerCylinderPistonTravelCycleMeanLossErrorCode>
+        per_cylinder_travel_aggregate_loss_error;
 
     friend bool operator==(const OperatingCycleAccountingError &,
                            const OperatingCycleAccountingError &) = default;
@@ -168,7 +197,9 @@ class OperatingCycleAccountant final {
          std::optional<FourStrokeCycleIntegrationErrorCode> quadrature_error =
              std::nullopt,
          std::optional<ChenFlynnCycleMeanLossErrorCode> aggregate_loss_error =
-             std::nullopt);
+             std::nullopt,
+         std::optional<ChenFlynnPerCylinderPistonTravelCycleMeanLossErrorCode>
+             per_cylinder_travel_aggregate_loss_error = std::nullopt);
     [[nodiscard]] std::optional<OperatingCycleAccountingError>
     validate_sample(const OperatingCycleSample &sample) const noexcept;
     void seed_cycle_peaks(

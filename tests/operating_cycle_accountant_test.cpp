@@ -39,9 +39,8 @@ void expect_near(double actual, double expected, double tolerance,
 [[nodiscard]] OperatingCycleAccountingPlan plan() {
     return {
         {0.0, 0.003},
-        {0.4, 0.005, 0.09, 0.0009},
+        CommonStrokeChenFlynnLossPlan{{0.4, 0.005, 0.09, 0.0009}, 0.1},
         kEngineSpeedRpm,
-        0.1,
         true,
         contract::indicated_gas_torque_term_mask(),
         contract::friction_pump_and_accessory_torque_term_mask(),
@@ -49,6 +48,30 @@ void expect_near(double actual, double expected, double tolerance,
         {
             {{1}, {10}, 0.001},
             {{2}, {20}, 0.002},
+        },
+        {{10}, {20}, {30}},
+    };
+}
+
+[[nodiscard]] OperatingCycleAccountingPlan per_cylinder_travel_plan() {
+    constexpr double kDisplacementUnitM3 = 1.0 / 1024.0;
+    return {
+        {0.0, 4.0 * kDisplacementUnitM3},
+        PerCylinderTravelChenFlynnLossPlan{
+            {0.0, 0.0, 0.0, 0.25},
+            {
+                {{1}, 0.125},
+                {{2}, 0.375},
+            },
+        },
+        960.0,
+        true,
+        contract::indicated_gas_torque_term_mask(),
+        contract::friction_pump_and_accessory_torque_term_mask(),
+        contract::torque_term_mask(contract::TorqueTerm::starter),
+        {
+            {{1}, {10}, kDisplacementUnitM3},
+            {{2}, {20}, 3.0 * kDisplacementUnitM3},
         },
         {{10}, {20}, {30}},
     };
@@ -294,7 +317,8 @@ void test_plan_and_sample_shapes_fail_closed() {
 
 void test_post_quadrature_loss_failure_does_not_count_an_operating_cycle() {
     auto overflow_plan = plan();
-    overflow_plan.aggregate_loss = {0.0, 1.0e6, 0.0, 0.0};
+    std::get<CommonStrokeChenFlynnLossPlan>(overflow_plan.aggregate_loss)
+        .coefficients = {0.0, 1.0e6, 0.0, 0.0};
     auto accountant = make_accountant(std::move(overflow_plan));
     const auto extreme = pressures(std::numeric_limits<double>::max(),
                                    std::numeric_limits<double>::max(),
@@ -332,6 +356,80 @@ void test_inertial_mode_derives_cycle_mean_speed_from_duration() {
                 "Chen-Flynn did not consume duration-derived cycle mean RPM");
 }
 
+void test_per_cylinder_travel_cycle_closure_and_exact_work() {
+    auto accountant = make_accountant(per_cylinder_travel_plan());
+    const auto state = pressures(1000000.0, 3000000.0);
+    constexpr double kRadialEngineSpeedRpm = 960.0;
+    constexpr double kRadialAngularSpeedRadS =
+        kRadialEngineSpeedRpm * 2.0 * std::numbers::pi_v<double> / 60.0;
+
+    (void)accountant.advance(state.view(0, 0.0, 0.0, 100.0, kRadialEngineSpeedRpm));
+    const auto result = accountant.advance(
+        state.view(1, kCycleRadians, kCycleRadians / kRadialAngularSpeedRadS, 100.0,
+                   kRadialEngineSpeedRpm));
+    const auto &crossing =
+        require_crossing(result, "per-cylinder-travel cycle did not close");
+    expect(crossing.completed_cycle.has_value(),
+           "per-cylinder-travel full cycle was discarded");
+
+    const auto &loss = crossing.completed_cycle->aggregate_loss;
+    expect(loss.total_displacement_m3 == 0.00390625 &&
+               loss.mean_piston_speed_m_s == 5.0 &&
+               loss.displacement_weighted_peak_pressure_pa_abs == 2500000.0 &&
+               loss.displacement_weighted_peak_pressure_bar_abs == 25.0 &&
+               loss.friction_mean_effective_pressure_bar == 7.0 &&
+               loss.positive_aggregate_loss_work_j == 2734.375 &&
+               loss.running_direction_cycle_mean_loss_torque_nm ==
+                   -2734.375 / kCycleRadians,
+           "per-cylinder-travel result was not normalized exactly");
+    expect(accountant.completed_cycle_count() == 1,
+           "per-cylinder-travel cycle count changed");
+}
+
+void test_per_cylinder_travel_ids_and_underlying_errors_fail_closed() {
+    {
+        auto invalid = per_cylinder_travel_plan();
+        std::get<PerCylinderTravelChenFlynnLossPlan>(invalid.aggregate_loss)
+            .cylinders.pop_back();
+        const auto compiled = compile_operating_cycle_accountant(std::move(invalid));
+        const auto *error = std::get_if<OperatingCycleAccountingError>(&compiled);
+        expect(error != nullptr &&
+                   error->code ==
+                       OperatingCycleAccountingErrorCode::invalid_cylinder_plan &&
+                   error->element_index == 1,
+               "short per-cylinder-travel identity vector was admitted");
+    }
+    {
+        auto invalid = per_cylinder_travel_plan();
+        std::get<PerCylinderTravelChenFlynnLossPlan>(invalid.aggregate_loss)
+            .cylinders[1]
+            .cylinder_id = {3};
+        const auto compiled = compile_operating_cycle_accountant(std::move(invalid));
+        const auto *error = std::get_if<OperatingCycleAccountingError>(&compiled);
+        expect(error != nullptr &&
+                   error->code ==
+                       OperatingCycleAccountingErrorCode::invalid_cylinder_plan &&
+                   error->element_index == 1,
+               "mismatched per-cylinder-travel identity was admitted");
+    }
+    {
+        auto invalid = per_cylinder_travel_plan();
+        std::get<PerCylinderTravelChenFlynnLossPlan>(invalid.aggregate_loss)
+            .cylinders[1]
+            .piston_axis_path_length_m_per_crank_revolution = 0.0;
+        const auto compiled = compile_operating_cycle_accountant(std::move(invalid));
+        const auto *error = std::get_if<OperatingCycleAccountingError>(&compiled);
+        expect(error != nullptr &&
+                   error->code == OperatingCycleAccountingErrorCode::invalid_plan &&
+                   error->element_index == 1 &&
+                   !error->aggregate_loss_error.has_value() &&
+                   error->per_cylinder_travel_aggregate_loss_error ==
+                       ChenFlynnPerCylinderPistonTravelCycleMeanLossErrorCode::
+                           nonpositive_piston_axis_path_length,
+               "per-cylinder-travel calculator error evidence was not preserved");
+    }
+}
+
 void test_move_leaves_one_working_accountant() {
     auto source = make_accountant();
     const auto start = pressures(200000.0, 300000.0);
@@ -365,6 +463,8 @@ int main() {
     test_plan_and_sample_shapes_fail_closed();
     test_post_quadrature_loss_failure_does_not_count_an_operating_cycle();
     test_inertial_mode_derives_cycle_mean_speed_from_duration();
+    test_per_cylinder_travel_cycle_closure_and_exact_work();
+    test_per_cylinder_travel_ids_and_underlying_errors_fail_closed();
     test_move_leaves_one_working_accountant();
     return 0;
 }
