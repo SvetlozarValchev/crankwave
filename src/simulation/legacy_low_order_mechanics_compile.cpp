@@ -47,9 +47,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
     if (!report.ok()) {
         return report;
     }
-    const double step_s =
-        static_cast<double>(scenario.rates.physics.denominator) /
-        static_cast<double>(scenario.rates.physics.numerator);
+    const double step_s = static_cast<double>(scenario.rates.physics.denominator) /
+                          static_cast<double>(scenario.rates.physics.numerator);
     for (std::uint64_t index = 0; index < schedule.sample_count(); ++index) {
         const auto rpm = schedule.rpm_at_sample_offset(index);
         if (!rpm.has_value()) {
@@ -107,18 +106,19 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
         std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
         std::holds_alternative<contract::HeldDyno>(scenario.mode) ||
         std::holds_alternative<contract::FreeVehicle>(scenario.mode);
+    const bool radial_dynamic_motion =
+        std::holds_alternative<contract::FreeEngine>(scenario.mode);
     const bool finite_control_schedule =
         schedule.execution_extent().finite_physics_frame_count().has_value();
     const bool radial_prescribed_motion_owner =
         has_kinematic_schedule && prescribed_motion && finite_control_schedule;
     const bool radial_external_motion_owner =
-        !has_kinematic_schedule && dynamic_motion;
+        !has_kinematic_schedule && radial_dynamic_motion;
     const bool radial_motion_owner_valid =
         radial_prescribed_motion_owner != radial_external_motion_owner;
     const bool exactly_one_crankshaft =
         engine.crankshafts.size() == 1U && core.mechanism.cranks.size() == 1U;
-    const bool rigid_group_dynamic_motion =
-        direct_plan != nullptr && dynamic_motion;
+    const bool rigid_group_dynamic_motion = direct_plan != nullptr && dynamic_motion;
     const bool admitted_crank_group =
         prescribed_motion || exactly_one_crankshaft || rigid_group_dynamic_motion;
     require(report, admitted_crank_group, ContractIssueCode::unsupported_value,
@@ -126,12 +126,11 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
             "multiple-crankshaft mechanics admits prescribed kinematics and "
             "FreeEngine, HeldDyno, or FreeVehicle rigid-group dynamics only");
     if (radial_plan != nullptr) {
-        require(
-            report, radial_motion_owner_valid, ContractIssueCode::unsupported_value,
-            "mechanism_plan",
-            "one-level master-rod mechanics requires exactly one motion owner: a "
-            "finite prescribed kinematic schedule or external post-step crank "
-            "motion for FreeEngine, HeldDyno, or FreeVehicle");
+        require(report, radial_motion_owner_valid, ContractIssueCode::unsupported_value,
+                "mechanism_plan",
+                "one-level master-rod mechanics requires exactly one motion owner: a "
+                "finite prescribed kinematic schedule or external post-step crank "
+                "motion for FreeEngine");
     } else {
         require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
                 "mechanism_plan",

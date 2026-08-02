@@ -1328,6 +1328,7 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
     const bool multiple_crankshafts = spec.crankshafts.size() > 1U;
     const bool prescribed_motion =
         std::holds_alternative<PrescribedKinematicSweep>(scenario.mode);
+    const bool free_engine_motion = std::holds_alternative<FreeEngine>(scenario.mode);
     const bool rigid_group_dynamic_motion =
         std::holds_alternative<FreeEngine>(scenario.mode) ||
         std::holds_alternative<HeldDyno>(scenario.mode) ||
@@ -1343,10 +1344,10 @@ ValidationReport validate_for_engine(const RenderScenario &scenario,
                    "multiple-crankshaft execution currently admits direct-journal "
                    "cylinders only");
     }
-    if (contains_master_rod && !prescribed_motion) {
+    if (contains_master_rod && !(prescribed_motion || free_engine_motion)) {
         report.add(ContractIssueCode::unsupported_value, "mode",
                    "one-level master-rod engines currently admit only prescribed "
-                   "kinematic sweep motion");
+                   "kinematic sweep or FreeEngine motion");
     }
     std::visit(
         [&](const auto &profile) {

@@ -1,5 +1,7 @@
 #include "simulation/cycle_accounting_method_registry.hpp"
 
+#include "simulation/chen_flynn_per_cylinder_travel_cycle_mean_loss.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -73,8 +75,8 @@ struct MethodCase {
     IdentityAccessor identity;
 };
 
-[[nodiscard]] const std::array<MethodCase, 2> &method_cases() {
-    static const std::array<MethodCase, 2> cases{{
+[[nodiscard]] const std::array<MethodCase, 3> &method_cases() {
+    static const std::array<MethodCase, 3> cases{{
         {
             "four-stroke-piecewise-linear-cycle-quadrature-v1",
             1,
@@ -89,15 +91,25 @@ struct MethodCase {
             simulation::chen_flynn_cycle_mean_aggregate_loss_method_descriptor,
             simulation::chen_flynn_cycle_mean_aggregate_loss_method_identity,
         },
+        {
+            "chen-flynn-per-cylinder-piston-travel-cycle-mean-aggregate-loss-v1",
+            1,
+            "6f2b6aeaff65da4c0cbc166a6d030f8085a594cf3c57427bb405c6eb6b27bcc1",
+            simulation::
+                chen_flynn_per_cylinder_piston_travel_cycle_mean_aggregate_loss_method_descriptor,
+            simulation::
+                chen_flynn_per_cylinder_piston_travel_cycle_mean_aggregate_loss_method_identity,
+        },
     }};
     return cases;
 }
 
-[[nodiscard]] std::array<const contract::MethodIdentity *, 2>
+[[nodiscard]] std::array<const contract::MethodIdentity *, 3>
 identity_fields(const simulation::CycleAccountingMethodIdentities &identities) {
     return {
         &identities.cycle_quadrature,
         &identities.aggregate_loss,
+        &identities.per_cylinder_travel_aggregate_loss,
     };
 }
 
@@ -106,16 +118,20 @@ struct ContractMethods {
     contract::LowOrderOperatingPointV1Profile profile;
 };
 
-[[nodiscard]] ContractMethods exact_contract_methods() {
+[[nodiscard]] ContractMethods exact_contract_methods(const bool master_rod = false) {
     const auto &implemented =
         simulation::implemented_cycle_accounting_method_identities();
     ContractMethods result;
+    if (master_rod) {
+        result.profile.core.mechanism.cylinders.emplace_back().kinematics =
+            contract::LegacyMasterRodJournalKinematics{};
+    }
     result.profile.cycle_quadrature = {
         implemented.cycle_quadrature,
         "registry-test.cycle-quadrature",
     };
     result.engine.methods.losses = {
-        implemented.aggregate_loss,
+        simulation::implemented_aggregate_loss_method_identity_for(result.profile),
         "registry-test.aggregate-loss",
     };
     return result;
@@ -198,13 +214,20 @@ void test_registry_shape_and_product_neutrality() {
 
     const auto fields = identity_fields(first);
     expect(fields[0] == &method_cases()[0].identity() &&
-               fields[1] == &method_cases()[1].identity(),
+               fields[1] == &method_cases()[1].identity() &&
+               *fields[2] == method_cases()[2].identity(),
            "identity accessors do not reference the implemented singleton");
-    expect(fields[0]->id != fields[1]->id &&
-               fields[0]->configuration_sha256 != fields[1]->configuration_sha256,
-           "cycle-accounting registry contains duplicate authority");
+    for (std::size_t left = 0; left < fields.size(); ++left) {
+        for (std::size_t right = left + 1U; right < fields.size(); ++right) {
+            expect(fields[left]->id != fields[right]->id &&
+                       fields[left]->configuration_sha256 !=
+                           fields[right]->configuration_sha256,
+                   "cycle-accounting registry contains duplicate authority");
+        }
+    }
 
-    constexpr std::array forbidden_tokens{"m4", "bmw", "fixture", "profile_id"};
+    constexpr std::array forbidden_tokens{"milestone=m4", "bmw", "fixture",
+                                          "profile_id"};
     for (const auto &method : method_cases()) {
         const auto lower_id = ascii_lower(method.identity().id);
         const auto lower_descriptor = ascii_lower(method.descriptor());
@@ -214,6 +237,36 @@ void test_registry_shape_and_product_neutrality() {
                    "cycle-accounting authority contains product-specific text");
         }
     }
+}
+
+void test_mechanism_family_selects_loss_authority() {
+    const auto &implemented =
+        simulation::implemented_cycle_accounting_method_identities();
+    auto direct = exact_contract_methods();
+    auto master_rod = exact_contract_methods(true);
+
+    expect(
+        &simulation::implemented_aggregate_loss_method_identity_for(direct.profile) ==
+                &implemented.aggregate_loss &&
+            &simulation::implemented_aggregate_loss_method_identity_for(
+                master_rod.profile) == &implemented.per_cylinder_travel_aggregate_loss,
+        "mechanism family selected the wrong aggregate-loss authority");
+    expect(simulation::exactly_matches_implemented_cycle_accounting_methods(
+               direct.engine, direct.profile) &&
+               simulation::admit_implemented_cycle_accounting_methods(direct.engine,
+                                                                      direct.profile)
+                   .ok() &&
+               simulation::exactly_matches_implemented_cycle_accounting_methods(
+                   master_rod.engine, master_rod.profile) &&
+               simulation::admit_implemented_cycle_accounting_methods(
+                   master_rod.engine, master_rod.profile)
+                   .ok(),
+           "family-correct aggregate-loss authority failed admission");
+
+    direct.engine.methods.losses.value = implemented.per_cylinder_travel_aggregate_loss;
+    expect_exact_rejection(direct, "engine.methods.losses.value");
+    master_rod.engine.methods.losses.value = implemented.aggregate_loss;
+    expect_exact_rejection(master_rod, "engine.methods.losses.value");
 }
 
 void test_exact_admission_and_all_identity_mutations() {
@@ -260,6 +313,7 @@ void test_exact_admission_and_all_identity_mutations() {
 void run_tests() {
     test_exact_method_identities();
     test_registry_shape_and_product_neutrality();
+    test_mechanism_family_selects_loss_authority();
     test_exact_admission_and_all_identity_mutations();
 }
 

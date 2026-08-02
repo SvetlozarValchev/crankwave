@@ -6,6 +6,8 @@
 #include "engine_sim_offline/compile.hpp"
 #include "engine_sim_offline/contract/capture.hpp"
 #include "engine_sim_offline/session.hpp"
+#include "simulation/chen_flynn_per_cylinder_travel_cycle_mean_loss.hpp"
+#include "simulation/free_engine_method_registry.hpp"
 #include "simulation/low_order_capture_session.hpp"
 #include "simulation/mechanism_kinematics_plan.hpp"
 
@@ -149,6 +151,7 @@ asset_views(const std::vector<OwnedAsset> &assets) {
 struct RadialSource {
     authoring::EnginePackageDocument engine_document;
     authoring::ScenarioDocument scenario_document;
+    authoring::ScenarioDocument free_engine_scenario_document;
     compile_detail::ResolvedEnginePackage resolved;
 };
 
@@ -158,17 +161,30 @@ struct RadialSource {
     const auto scenario_path = repository_root /
                                "data/engines/radial-5-cleanroom/scenarios/"
                                "prescribed-1500rpm.json";
+    const auto free_engine_scenario_path = repository_root /
+                                           "data/engines/radial-5-cleanroom/scenarios/"
+                                           "warm-running-free-rev-1500rpm.json";
     auto engine_document =
         require(authoring::parse_engine_document(read_text(engine_path)),
                 "radial-5 authored engine parse failed");
     auto scenario_document =
         require(authoring::parse_scenario_document(read_text(scenario_path)),
                 "radial-5 authored scenario parse failed");
+    auto free_engine_scenario_document = require(
+        authoring::parse_scenario_document(read_text(free_engine_scenario_path)),
+        "radial-5 authored FreeEngine scenario parse failed");
     const auto references =
         authoring::validate_scenario_references(scenario_document, engine_document);
     if (!references.ok()) {
         throw std::runtime_error{"radial-5 cross-document validation failed: " +
                                  diagnostics(references)};
+    }
+    const auto free_engine_references = authoring::validate_scenario_references(
+        free_engine_scenario_document, engine_document);
+    if (!free_engine_references.ok()) {
+        throw std::runtime_error{
+            "radial-5 FreeEngine cross-document validation failed: " +
+            diagnostics(free_engine_references)};
     }
 
     const auto assets = load_assets(engine_document, engine_path);
@@ -177,7 +193,7 @@ struct RadialSource {
         require(compile_detail::resolve_engine_package(engine_document, views),
                 "radial-5 engine resolution failed");
     return {std::move(engine_document), std::move(scenario_document),
-            std::move(resolved)};
+            std::move(free_engine_scenario_document), std::move(resolved)};
 }
 
 struct ExpectedCylinder {
@@ -415,11 +431,42 @@ void verify_resolved_topology(const compile_detail::ResolvedEnginePackage &packa
 
     const auto &torque = engine.torque_capability.value;
     expect(torque.instantaneous_net_shaft.availability ==
-                   contract::Availability::unavailable &&
+                   contract::Availability::available &&
+               torque.instantaneous_net_shaft.completeness ==
+                   contract::Completeness::complete &&
+               torque.instantaneous_net_shaft.included_terms ==
+                   contract::known_torque_term_mask() &&
+               torque.instantaneous_net_shaft.omitted_terms == 0 &&
                torque.cycle_mean_net_shaft.availability ==
-                   contract::Availability::unavailable &&
-               !torque.equivalent_inertia_available,
-           "geometry-only radial-5 falsely advertised torque or inertia");
+                   contract::Availability::available &&
+               torque.cycle_mean_net_shaft.completeness ==
+                   contract::Completeness::complete &&
+               torque.cycle_mean_net_shaft.included_terms ==
+                   contract::known_torque_term_mask() &&
+               torque.cycle_mean_net_shaft.omitted_terms == 0 &&
+               torque.equivalent_inertia_available,
+           "certified radial-5 lost complete operating torque or inertia capability");
+    expect(
+        engine.methods.losses.value ==
+            simulation::
+                chen_flynn_per_cylinder_piston_travel_cycle_mean_aggregate_loss_method_identity(),
+        "radial-5 did not select per-cylinder piston-travel Chen-Flynn loss "
+        "authority");
+    const auto loss_resolution =
+        std::ranges::find(package.provenance.resolutions, "engine.methods.losses",
+                          &contract::ResolutionRecord::parameter_path);
+    const std::vector<std::string> expected_loss_dependencies{
+        "engine.cylinders.cylinder-1.master_rod_attachment.throw_radius_m",
+        "engine.cylinders.cylinder-2.master_rod_attachment.throw_radius_m",
+        "engine.cylinders.cylinder-3.master_rod_attachment.throw_radius_m",
+        "engine.cylinders.cylinder-4.master_rod_attachment.throw_radius_m",
+        "engine.profile_id",
+    };
+    expect(loss_resolution != package.provenance.resolutions.end() &&
+               loss_resolution->dependency_parameter_paths ==
+                   expected_loss_dependencies,
+           "radial-5 loss selection lost its explicit master-rod topology "
+           "provenance");
 
     const auto plan_result =
         simulation::compile_mechanism_kinematics_plan(engine, core);
@@ -434,8 +481,7 @@ void verify_resolved_topology(const compile_detail::ResolvedEnginePackage &packa
                plan->output_crankshaft_id == core.mechanism.output_crankshaft_id &&
                plan->rigid_crank_group.crankshaft_count == 1U &&
                near(plan->rigid_crank_group.authored_crank_inertia_kg_m2,
-                    core.mechanism.cranks.front()
-                        .authored_crank_inertia_kg_m2.value) &&
+                    core.mechanism.cranks.front().authored_crank_inertia_kg_m2.value) &&
                plan->cylinders.size() == kExpectedCylinders.size() &&
                simulation::direct_mechanism_kinematics_plan(*shared) == nullptr,
            "radial-5 did not select the one-level master-rod plan");
@@ -444,24 +490,25 @@ void verify_resolved_topology(const compile_detail::ResolvedEnginePackage &packa
     for (std::size_t index = 0; index < kExpectedCylinders.size(); ++index) {
         const auto &expected = kExpectedCylinders[index];
         const auto &planned = plan->cylinders[index];
-        expect(planned.crankshaft_id ==
-                       core.mechanism.cylinders[index].topology.crankshaft_id &&
-                   planned.bank_id == engine.cylinders[index].bank_id &&
-                   near(planned.piston_mass_kg,
-                        core.mechanism.cylinders[index].parameters.piston_mass_kg.value) &&
-                   near(planned.connecting_rod_mass_kg,
-                        core.mechanism.cylinders[index]
-                            .parameters.connecting_rod_mass_kg.value) &&
-                   near(planned.connecting_rod_inertia_kg_m2,
-                        core.mechanism.cylinders[index]
-                            .parameters.connecting_rod_inertia_kg_m2.value) &&
-                   near(planned.connecting_rod_center_of_mass_from_big_end_m,
-                        core.mechanism.cylinders[index]
-                            .parameters
-                            .connecting_rod_center_of_mass_from_crank_pin_m.value) &&
-                   near(planned.ignition_wire_angle_rad,
-                        expected.firing_degrees * kDegreesToRadians),
-               "radial-5 plan lost stable bank or ignition binding");
+        expect(
+            planned.crankshaft_id ==
+                    core.mechanism.cylinders[index].topology.crankshaft_id &&
+                planned.bank_id == engine.cylinders[index].bank_id &&
+                near(planned.piston_mass_kg,
+                     core.mechanism.cylinders[index].parameters.piston_mass_kg.value) &&
+                near(planned.connecting_rod_mass_kg,
+                     core.mechanism.cylinders[index]
+                         .parameters.connecting_rod_mass_kg.value) &&
+                near(planned.connecting_rod_inertia_kg_m2,
+                     core.mechanism.cylinders[index]
+                         .parameters.connecting_rod_inertia_kg_m2.value) &&
+                near(planned.connecting_rod_center_of_mass_from_big_end_m,
+                     core.mechanism.cylinders[index]
+                         .parameters.connecting_rod_center_of_mass_from_crank_pin_m
+                         .value) &&
+                near(planned.ignition_wire_angle_rad,
+                     expected.firing_degrees * kDegreesToRadians),
+            "radial-5 plan lost stable bank or ignition binding");
         const simulation::OneLevelMasterRodDirectRootPlan *root = nullptr;
         const simulation::OneLevelMasterRodSlaveAttachmentPlan *slave = nullptr;
         if (index == 0U) {
@@ -552,6 +599,56 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
         contract::validate_for_engine(resolved.scenario, source.resolved.engine).ok(),
         "radial-5 prescribed scenario failed the resolved engine mode contract");
 
+    const auto free_resolved =
+        require(compile_detail::resolve_scenario_document(
+                    source.free_engine_scenario_document, context),
+                "radial-5 FreeEngine scenario resolution failed");
+    const auto *free_engine =
+        std::get_if<contract::FreeEngine>(&free_resolved.scenario.mode);
+    const auto *sampling = std::get_if<contract::FixedHorizonCycleSampling>(
+        &free_resolved.scenario.preparation);
+    const auto &core = test::low_order_core(source.resolved.engine);
+    const auto plan_result =
+        simulation::compile_mechanism_kinematics_plan(source.resolved.engine, core);
+    const auto *shared =
+        std::get_if<simulation::SharedMechanismKinematicsPlan>(&plan_result);
+    const auto *radial =
+        shared == nullptr
+            ? nullptr
+            : simulation::one_level_master_rod_mechanism_kinematics_plan(*shared);
+    expect(
+        free_engine != nullptr && sampling != nullptr && radial != nullptr &&
+            free_engine->crank_dynamics_method.value ==
+                simulation::
+                    nonnegative_speed_free_engine_one_level_master_rod_method_identity() &&
+            free_engine->engine_baseline_inertia_kg_m2.value ==
+                radial->cycle_mean_inertia.engine_equivalent_inertia_kg_m2 &&
+            free_engine->initial_engine_speed_rpm.value == 1500.0 &&
+            sampling->fixed_preparation_horizon_s.value == 0.5 &&
+            free_resolved.request_input.total_physics_frames == 52000U &&
+            contract::validate_for_engine(free_resolved.scenario,
+                                          source.resolved.engine)
+                .ok(),
+        "radial-5 FreeEngine scenario lost its articulated method, inertia, or "
+        "warm preparation authority");
+    const auto crank_method_resolution =
+        std::ranges::find(free_resolved.combined_provenance.resolutions,
+                          "scenario.mode.crank_dynamics_method",
+                          &contract::ResolutionRecord::parameter_path);
+    const std::vector<std::string> expected_crank_method_dependencies{
+        "engine.cylinders.cylinder-1.master_rod_attachment.throw_radius_m",
+        "engine.cylinders.cylinder-2.master_rod_attachment.throw_radius_m",
+        "engine.cylinders.cylinder-3.master_rod_attachment.throw_radius_m",
+        "engine.cylinders.cylinder-4.master_rod_attachment.throw_radius_m",
+        "scenario.mode.kind",
+    };
+    expect(crank_method_resolution !=
+                   free_resolved.combined_provenance.resolutions.end() &&
+               crank_method_resolution->dependency_parameter_paths ==
+                   expected_crank_method_dependencies,
+           "radial-5 FreeEngine method selection lost its explicit master-rod "
+           "topology provenance");
+
     auto rejected = source.scenario_document;
     const auto &external = std::get<authoring::ExternalSpeedMode>(rejected.mode);
     rejected.mode = authoring::HeldSpeedMode{
@@ -567,7 +664,6 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
            "radial-5 non-external-speed mode gate was removed or lost its path");
 
     const std::array closed_dynamic_modes{
-        authoring::ScenarioMode{authoring::FreeEngineMode{}},
         authoring::ScenarioMode{authoring::HeldDynoMode{}},
         authoring::ScenarioMode{authoring::FreeVehicleMode{}},
         authoring::ScenarioMode{authoring::InertialDynoMode{}},
@@ -581,7 +677,8 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
                    has_diagnostic(*dynamic_report,
                                   authoring::DiagnosticCode::unsupported_capability,
                                   "/mode/type"),
-               "radial-5 authored dynamic mode escaped the master-rod firewall");
+               "radial-5 authored non-FreeEngine mode escaped the master-rod "
+               "firewall");
     }
 }
 
@@ -601,7 +698,6 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
            "radial-5 public fixture lost its exact finite horizon");
 
     const std::array closed_dynamic_modes{
-        contract::ScenarioMode{contract::FreeEngine{}},
         contract::ScenarioMode{contract::HeldDyno{}},
         contract::ScenarioMode{contract::FreeVehicle{}},
         contract::ScenarioMode{contract::InertialDyno{}},
@@ -611,10 +707,14 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
         rejected_scenario.mode = mode;
         const auto contract_report =
             contract::validate_for_engine(rejected_scenario, fixture.engine);
-        expect(has_validation_issue(contract_report,
-                                    contract::ContractIssueCode::unsupported_value,
-                                    "mode", "master-rod engines currently admit only"),
-               "radial-5 resolved dynamic mode escaped the engine contract firewall");
+        if (!has_validation_issue(contract_report,
+                                  contract::ContractIssueCode::unsupported_value,
+                                  "mode", "master-rod engines currently admit only")) {
+            throw std::runtime_error{
+                "radial-5 resolved dynamic mode escaped the engine contract "
+                "firewall: " +
+                diagnostics(contract_report)};
+        }
 
         const auto rejected_session = simulation::compile_low_order_capture_session(
             fixture.engine, rejected_scenario,
@@ -713,6 +813,60 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
                session.published_sample_count() == *horizon && session.completed() &&
                !session.faulted(),
            "radial-5 public finite capture did not complete exactly 800 frames");
+
+    const auto free_fixture = test::load_authored_engine_fixture(
+        repository_root, "data/engines/radial-5-cleanroom/engine.json",
+        "data/engines/radial-5-cleanroom/scenarios/"
+        "warm-running-free-rev-1500rpm.json");
+    const auto free_horizon =
+        contract::resolve_frame_index(free_fixture.scenario.total_duration_s.value,
+                                      free_fixture.scenario.rates.physics);
+    expect(free_horizon.has_value() && *free_horizon == 52000U,
+           "radial-5 FreeEngine fixture lost its exact finite horizon");
+    auto free_result = simulation::compile_low_order_capture_session(
+        free_fixture.engine, free_fixture.scenario,
+        test::compile_fixture_random_plan(free_fixture), nonzero_request_identity(),
+        simulation::LowOrderExecutionExtent::finite_scenario(*free_horizon));
+    if (const auto *report = std::get_if<contract::ValidationReport>(&free_result)) {
+        throw std::runtime_error{
+            "radial-5 public FreeEngine runtime admission failed: " +
+            diagnostics(*report)};
+    }
+    auto free_session =
+        std::get<simulation::LowOrderCaptureSession>(std::move(free_result));
+    std::uint64_t free_frames = 0U;
+    bool observed_released_motion = false;
+    while (free_frames < 10000U) {
+        auto published = free_session.publish_next_block(
+            [&](const contract::CaptureBlockView &block) {
+                for (std::size_t frame = 0U; frame < block.frame_count(); ++frame) {
+                    const auto *engine = block.engine_sample(frame);
+                    expect(engine != nullptr &&
+                               std::isfinite(engine->engine_speed_rpm) &&
+                               engine->engine_speed_rpm > 0.0,
+                           "radial-5 FreeEngine emitted nonpositive engine motion");
+                    if (free_frames + frame < 5000U) {
+                        expect(engine->engine_speed_rpm == 1500.0,
+                               "radial-5 FreeEngine warm preparation lost its exact "
+                               "held speed");
+                    } else {
+                        observed_released_motion = observed_released_motion ||
+                                                   engine->engine_speed_rpm != 1500.0;
+                    }
+                }
+                free_frames += block.frame_count();
+                return true;
+            });
+        if (const auto *failure = std::get_if<contract::FailureContext>(&published)) {
+            throw std::runtime_error{"radial-5 FreeEngine capture faulted (" +
+                                     failure->detail_code +
+                                     "): " + failure->state_summary};
+        }
+    }
+    expect(observed_released_motion && free_frames == 10000U &&
+               free_session.published_sample_count() == 10000U &&
+               !free_session.completed() && !free_session.faulted(),
+           "radial-5 public FreeEngine did not hold, release, and advance exactly");
 }
 
 void verify_public_audio_session(const std::filesystem::path &repository_root,
@@ -724,7 +878,6 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
     auto engine = require(compile::compile_engine(source.engine_document, views),
                           "radial-5 public engine compilation failed");
     const std::array closed_dynamic_modes{
-        authoring::ScenarioMode{authoring::FreeEngineMode{}},
         authoring::ScenarioMode{authoring::HeldDynoMode{}},
         authoring::ScenarioMode{authoring::FreeVehicleMode{}},
         authoring::ScenarioMode{authoring::InertialDynoMode{}},
@@ -799,6 +952,77 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
                    completed.delivery_frame_count == 15360U &&
                    !completed.live_controls_accepted && observed_nonzero_audio,
                "radial-5 public audio session did not complete with finite PCM");
+        break;
+    }
+
+    auto free_scenario =
+        require(compile::compile_scenario(engine, source.free_engine_scenario_document),
+                "radial-5 public FreeEngine scenario compilation failed");
+    auto free_created = engine_sim_offline::create_engine_session(
+        free_scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+    if (const auto *error =
+            std::get_if<engine_sim_offline::EngineSessionError>(&free_created)) {
+        throw std::runtime_error{
+            "radial-5 public FreeEngine session creation failed: " +
+            error->detail_code + ": " + error->message};
+    }
+    auto free_session =
+        std::get<engine_sim_offline::EngineSession>(std::move(free_created));
+    const auto free_descriptor = free_session.descriptor();
+    expect(free_descriptor.engine_id == "radial-5-cleanroom" &&
+               free_descriptor.motion_mode ==
+                   engine_sim_offline::EngineMotionMode::free_engine &&
+               free_descriptor.preparation_block_count == 25U &&
+               free_descriptor.total_block_count == 260U &&
+               free_descriptor.live_control_capabilities != 0U,
+           "radial-5 public FreeEngine descriptor lost its warm/live surface");
+    std::uint64_t free_block_count = 0U;
+    bool observed_free_audible_audio = false;
+    while (true) {
+        auto result = free_session.process_block();
+        if (const auto *error =
+                std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
+            throw std::runtime_error{"radial-5 public FreeEngine session faulted: " +
+                                     error->detail_code + ": " + error->message};
+        }
+        if (const auto *block =
+                std::get_if<engine_sim_offline::EngineSessionBlockView>(&result)) {
+            const auto expected_phase =
+                free_block_count < free_descriptor.preparation_block_count
+                    ? engine_sim_offline::EngineSessionBlockPhase::preparation
+                    : engine_sim_offline::EngineSessionBlockPhase::audible;
+            expect(block->block_ordinal() == free_block_count &&
+                       block->phase() == expected_phase &&
+                       std::ranges::all_of(block->audio_buses(),
+                                           [](const auto &bus) {
+                                               return std::ranges::all_of(
+                                                   bus.samples, [](float sample) {
+                                                       return std::isfinite(sample);
+                                                   });
+                                           }),
+                   "radial-5 public FreeEngine emitted a malformed or nonfinite "
+                   "block");
+            if (expected_phase ==
+                engine_sim_offline::EngineSessionBlockPhase::audible) {
+                observed_free_audible_audio =
+                    observed_free_audible_audio ||
+                    std::ranges::any_of(block->audio_buses(), [](const auto &bus) {
+                        return std::ranges::any_of(
+                            bus.samples, [](float sample) { return sample != 0.0F; });
+                    });
+            }
+            ++free_block_count;
+            continue;
+        }
+        const auto &completed =
+            std::get<engine_sim_offline::EngineSessionCompleted>(result);
+        expect(free_block_count == free_descriptor.total_block_count &&
+                   completed.block_count == free_block_count &&
+                   completed.physics_frame_count == 52000U &&
+                   completed.delivery_frame_count == 998400U &&
+                   observed_free_audible_audio,
+               "radial-5 public FreeEngine did not complete its full authored "
+               "throttle procedure with finite nonzero PCM");
         break;
     }
 }

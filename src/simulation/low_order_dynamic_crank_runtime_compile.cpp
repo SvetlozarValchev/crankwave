@@ -7,6 +7,7 @@
 #include "simulation/free_vehicle_method_registry.hpp"
 #include "simulation/legacy_gas_primitives.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
+#include "simulation/one_level_master_rod_cycle_accounting_plan.hpp"
 
 #include <bit>
 #include <cmath>
@@ -105,6 +106,8 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     const auto *fixed_settling =
         std::get_if<contract::FixedSettling>(&scenario.preparation);
     const auto *direct_plan = direct_mechanism_kinematics_plan(mechanism_plan);
+    const auto *radial_plan =
+        one_level_master_rod_mechanism_kinematics_plan(mechanism_plan);
     require(report, profile != nullptr, ContractIssueCode::unsupported_value,
             "engine.physics_profile",
             "dynamic-crank runtime requires low_order_operating_point_v1");
@@ -116,13 +119,20 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
             "scenario.mode",
             "dynamic crank runtime requires exactly one FreeEngine, HeldDyno, or "
             "FreeVehicle mode");
-    require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
-            "mechanism_plan",
-            "dynamic-crank runtime requires one compiled direct mechanism plan");
+    require(report, (direct_plan == nullptr) != (radial_plan == nullptr),
+            ContractIssueCode::unsupported_value, "mechanism_plan",
+            "dynamic-crank runtime requires exactly one compiled direct or one-level "
+            "master-rod mechanism plan");
+    require(report, radial_plan == nullptr || free_engine != nullptr,
+            ContractIssueCode::unsupported_value, "scenario.mode",
+            "one-level master-rod dynamic-crank execution currently admits only "
+            "FreeEngine motion");
     require(report, !simulation_request_identity_v7_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v7_sha256",
             "dynamic-crank runtime requires the canonical nonzero request identity");
-    if (profile == nullptr || dynamic_mode_count != 1U || direct_plan == nullptr) {
+    if (profile == nullptr || dynamic_mode_count != 1U ||
+        (direct_plan == nullptr) == (radial_plan == nullptr) ||
+        (radial_plan != nullptr && free_engine == nullptr)) {
         return report;
     }
     const auto *output_crank = contract::find_output_crank(profile->core.mechanism);
@@ -136,8 +146,8 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         mechanism_kinematics_plan_matches_source(mechanism_plan, engine, profile->core);
     require(report, plan_matches_source, ContractIssueCode::inconsistent_semantics,
             "mechanism_plan",
-            "compiled direct mechanism plan does not exactly match its resolved "
-            "engine source");
+            "compiled mechanism plan does not exactly match its resolved engine "
+            "source");
     if (!plan_matches_source) {
         return report;
     }
@@ -173,7 +183,9 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
 
     const auto crank_friction_calculation =
         calculate_engine_sim_v1_positive_speed_crank_friction(
-            {direct_plan->rigid_crank_group.running_friction_torque_magnitude_nm});
+            {(direct_plan != nullptr ? direct_plan->rigid_crank_group
+                                     : radial_plan->rigid_crank_group)
+                 .running_friction_torque_magnitude_nm});
     const auto *crank_friction =
         std::get_if<EngineSimV1PositiveSpeedCrankFriction>(&crank_friction_calculation);
     require(report, crank_friction != nullptr, ContractIssueCode::invalid_value,
@@ -184,7 +196,9 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
 
     report.append(admit_implemented_cycle_accounting_methods(engine, *profile));
     const auto &expected_crank_dynamics_method =
-        direct_plan->rigid_crank_group.crankshaft_count > 1U
+        radial_plan != nullptr
+            ? nonnegative_speed_free_engine_one_level_master_rod_method_identity()
+        : direct_plan->rigid_crank_group.crankshaft_count > 1U
             ? nonnegative_speed_free_engine_centered_slider_crank_rigid_group_method_identity()
             : nonnegative_speed_free_engine_centered_slider_crank_method_identity();
     require(report,
@@ -192,8 +206,8 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
                                           expected_crank_dynamics_method,
             ContractIssueCode::unsupported_value,
             "scenario.mode.crank_dynamics_method.value",
-            "dynamic-crank runtime requires its exact nonnegative-speed "
-            "centered-slider crank method identity");
+            "dynamic-crank runtime requires its exact mechanism-family "
+            "nonnegative-speed crank method identity");
     require(report,
             free_vehicle == nullptr || free_vehicle->crank_dynamics_method.value ==
                                            expected_crank_dynamics_method,
@@ -332,30 +346,32 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     std::vector<OperatingCylinderAccountingPlan> cylinders;
     cylinders.reserve(capture_plan.cylinder_chambers.size());
     double stroke_m = 0.0;
-    for (std::size_t index = 0; index < capture_plan.cylinder_chambers.size();
-         ++index) {
-        const auto &binding = capture_plan.cylinder_chambers[index];
-        const auto *cylinder = find_cylinder(engine, binding.cylinder_id);
-        require(report, cylinder != nullptr, ContractIssueCode::dangling_reference,
-                "capture_plan.cylinder_chambers[" + std::to_string(index) + "]",
-                "dynamic-crank chamber binding references an unknown cylinder");
-        if (cylinder == nullptr) {
-            continue;
+    if (direct_plan != nullptr) {
+        for (std::size_t index = 0; index < capture_plan.cylinder_chambers.size();
+             ++index) {
+            const auto &binding = capture_plan.cylinder_chambers[index];
+            const auto *cylinder = find_cylinder(engine, binding.cylinder_id);
+            require(report, cylinder != nullptr, ContractIssueCode::dangling_reference,
+                    "capture_plan.cylinder_chambers[" + std::to_string(index) + "]",
+                    "dynamic-crank chamber binding references an unknown cylinder");
+            if (cylinder == nullptr) {
+                continue;
+            }
+            if (index == 0U) {
+                stroke_m = cylinder->stroke_m.value;
+            }
+            require(report,
+                    std::bit_cast<std::uint64_t>(cylinder->stroke_m.value) ==
+                        std::bit_cast<std::uint64_t>(stroke_m),
+                    ContractIssueCode::inconsistent_semantics, "engine.cylinders",
+                    "dynamic-crank runtime requires bit-identical cylinder strokes");
+            cylinders.push_back({
+                binding.cylinder_id,
+                binding.chamber_volume_id,
+                std::numbers::pi_v<double> * cylinder->bore_m.value *
+                    cylinder->bore_m.value * cylinder->stroke_m.value / 4.0,
+            });
         }
-        if (index == 0U) {
-            stroke_m = cylinder->stroke_m.value;
-        }
-        require(report,
-                std::bit_cast<std::uint64_t>(cylinder->stroke_m.value) ==
-                    std::bit_cast<std::uint64_t>(stroke_m),
-                ContractIssueCode::inconsistent_semantics, "engine.cylinders",
-                "dynamic-crank runtime requires bit-identical cylinder strokes");
-        cylinders.push_back({
-            binding.cylinder_id,
-            binding.chamber_volume_id,
-            std::numbers::pi_v<double> * cylinder->bore_m.value *
-                cylinder->bore_m.value * cylinder->stroke_m.value / 4.0,
-        });
     }
 
     std::vector<std::size_t> physical_gas_step_indices;
@@ -379,177 +395,322 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         return report;
     }
 
-    const auto &cycle_mean_inertia = direct_plan->cycle_mean_inertia;
+    const double engine_cycle_mean_inertia_kg_m2 =
+        direct_plan != nullptr
+            ? direct_plan->cycle_mean_inertia.engine_equivalent_inertia_kg_m2
+            : radial_plan->cycle_mean_inertia.engine_equivalent_inertia_kg_m2;
     if (free_engine != nullptr || free_vehicle != nullptr) {
         const double authored_engine_baseline_inertia_kg_m2 =
             free_engine != nullptr ? free_engine->engine_baseline_inertia_kg_m2.value
                                    : free_vehicle->engine_baseline_inertia_kg_m2.value;
         require(report,
                 std::bit_cast<std::uint64_t>(authored_engine_baseline_inertia_kg_m2) ==
-                    std::bit_cast<std::uint64_t>(
-                        cycle_mean_inertia.engine_equivalent_inertia_kg_m2),
+                    std::bit_cast<std::uint64_t>(engine_cycle_mean_inertia_kg_m2),
                 ContractIssueCode::inconsistent_semantics,
                 "scenario.mode.engine_baseline_inertia_kg_m2.value",
                 "dynamic-crank cycle-mean inertia reference differs from the compiled "
                 "engine mechanism");
     }
 
-    CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan{
-        direct_plan->rigid_crank_group.authored_crank_inertia_kg_m2,
-        attached_inertia_kg_m2,
-        {},
-    };
-    configuration_inertia_plan.cylinders.reserve(direct_plan->cylinders.size());
     std::vector<LowOrderDynamicCrankPistonWallCylinderPlan> piston_wall_cylinders;
-    piston_wall_cylinders.reserve(direct_plan->cylinders.size());
-    for (std::size_t index = 0; index < direct_plan->cylinders.size(); ++index) {
-        const auto &planned = direct_plan->cylinders[index];
-        const auto &model = planned.crank;
-        const auto chamber_gas_index =
-            find_capture_volume_index(capture_plan, planned.chamber_volume_id);
-        const auto initial_mechanism = evaluate_centered_slider_crank(
-            model, initial_theta_rad, initial_engine_speed_rpm * kLegacyRpmScale);
-        const double initial_chamber_pressure_pa_abs =
-            initial_mechanism.valid
-                ? legacy_gas_pressure_pa(legacy_initialize_gas_cell(
-                      scenario.ambient.pressure_pa_abs.value,
-                      initial_mechanism.chamber_volume_m3,
-                      scenario.initial_thermal_state.gas_temperature_k.value,
-                      LegacyGasMixture{0.0, 1.0, 0.0}))
-                : 0.0;
-        const EngineSimV1PistonWallCylinderPlan friction_plan{
-            model.piston_area_m2,
-            model.crank_radius_m,
-            model.connecting_rod_length_m,
-            planned.connecting_rod_center_of_mass_from_crank_pin_m,
-            planned.piston_mass_kg,
-            planned.connecting_rod_mass_kg,
-            planned.connecting_rod_inertia_kg_m2,
-            scenario.crankcase.pressure_pa_abs.value,
+    std::optional<LowOrderDynamicCrankMechanismRuntime> mechanism_runtime;
+    if (direct_plan != nullptr) {
+        CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan{
+            direct_plan->rigid_crank_group.authored_crank_inertia_kg_m2,
+            attached_inertia_kg_m2,
+            {},
         };
-        const auto initial_stage = stage_engine_sim_v1_piston_wall_friction({
-            friction_plan,
-            legacy_wrap_2pi(initial_theta_rad - model.geometric_tdc_rad),
-            initial_engine_speed_rpm * kLegacyRpmScale,
-            initial_chamber_pressure_pa_abs,
-            0.0,
-        });
-        require(report, chamber_gas_index.has_value(),
-                ContractIssueCode::dangling_reference,
-                "engine.physics_profile.mechanism.cylinders[" + std::to_string(index) +
-                    "].topology.chamber_volume_id",
-                "dynamic-crank piston-wall cylinder chamber is absent from the "
-                "captured gas transaction");
-        require(
-            report,
-            std::holds_alternative<EngineSimV1PistonWallFrictionStage>(initial_stage),
-            ContractIssueCode::invalid_value,
-            "engine.physics_profile.mechanism.cylinders[" + std::to_string(index) +
-                "].parameters",
-            "dynamic-crank piston-wall source law rejected the resolved "
-            "centered-slider mechanism");
-        if (chamber_gas_index.has_value() &&
-            std::holds_alternative<EngineSimV1PistonWallFrictionStage>(initial_stage)) {
-            configuration_inertia_plan.cylinders.push_back({
-                model.geometric_tdc_rad,
+        configuration_inertia_plan.cylinders.reserve(direct_plan->cylinders.size());
+        piston_wall_cylinders.reserve(direct_plan->cylinders.size());
+        for (std::size_t index = 0; index < direct_plan->cylinders.size(); ++index) {
+            const auto &planned = direct_plan->cylinders[index];
+            const auto &model = planned.crank;
+            const auto chamber_gas_index =
+                find_capture_volume_index(capture_plan, planned.chamber_volume_id);
+            const auto initial_mechanism = evaluate_centered_slider_crank(
+                model, initial_theta_rad, initial_engine_speed_rpm * kLegacyRpmScale);
+            const double initial_chamber_pressure_pa_abs =
+                initial_mechanism.valid
+                    ? legacy_gas_pressure_pa(legacy_initialize_gas_cell(
+                          scenario.ambient.pressure_pa_abs.value,
+                          initial_mechanism.chamber_volume_m3,
+                          scenario.initial_thermal_state.gas_temperature_k.value,
+                          LegacyGasMixture{0.0, 1.0, 0.0}))
+                    : 0.0;
+            const EngineSimV1PistonWallCylinderPlan friction_plan{
+                model.piston_area_m2,
                 model.crank_radius_m,
                 model.connecting_rod_length_m,
                 planned.connecting_rod_center_of_mass_from_crank_pin_m,
                 planned.piston_mass_kg,
                 planned.connecting_rod_mass_kg,
                 planned.connecting_rod_inertia_kg_m2,
-            });
-            piston_wall_cylinders.push_back({
-                model.cylinder_id,
-                planned.chamber_volume_id,
-                index,
-                *chamber_gas_index,
-                initial_chamber_pressure_pa_abs,
                 scenario.crankcase.pressure_pa_abs.value,
-                LowOrderDynamicCrankDirectCenteredPistonWallPlan{
-                    model.geometric_tdc_rad,
-                    friction_plan,
-                },
+            };
+            const auto initial_stage = stage_engine_sim_v1_piston_wall_friction({
+                friction_plan,
+                legacy_wrap_2pi(initial_theta_rad - model.geometric_tdc_rad),
+                initial_engine_speed_rpm * kLegacyRpmScale,
+                initial_chamber_pressure_pa_abs,
+                0.0,
             });
+            require(report, chamber_gas_index.has_value(),
+                    ContractIssueCode::dangling_reference,
+                    "engine.physics_profile.mechanism.cylinders[" +
+                        std::to_string(index) + "].topology.chamber_volume_id",
+                    "dynamic-crank piston-wall cylinder chamber is absent from the "
+                    "captured gas transaction");
+            require(report,
+                    std::holds_alternative<EngineSimV1PistonWallFrictionStage>(
+                        initial_stage),
+                    ContractIssueCode::invalid_value,
+                    "engine.physics_profile.mechanism.cylinders[" +
+                        std::to_string(index) + "].parameters",
+                    "dynamic-crank piston-wall source law rejected the resolved "
+                    "centered-slider mechanism");
+            if (chamber_gas_index.has_value() &&
+                std::holds_alternative<EngineSimV1PistonWallFrictionStage>(
+                    initial_stage)) {
+                configuration_inertia_plan.cylinders.push_back({
+                    model.geometric_tdc_rad,
+                    model.crank_radius_m,
+                    model.connecting_rod_length_m,
+                    planned.connecting_rod_center_of_mass_from_crank_pin_m,
+                    planned.piston_mass_kg,
+                    planned.connecting_rod_mass_kg,
+                    planned.connecting_rod_inertia_kg_m2,
+                });
+                piston_wall_cylinders.push_back({
+                    model.cylinder_id,
+                    planned.chamber_volume_id,
+                    index,
+                    *chamber_gas_index,
+                    initial_chamber_pressure_pa_abs,
+                    scenario.crankcase.pressure_pa_abs.value,
+                    LowOrderDynamicCrankDirectCenteredPistonWallPlan{
+                        model.geometric_tdc_rad,
+                        friction_plan,
+                    },
+                });
+            }
         }
-    }
-    require(report,
-            configuration_inertia_plan.cylinders.size() ==
-                direct_plan->cylinders.size(),
-            ContractIssueCode::inconsistent_shape,
-            "engine.physics_profile.mechanism.cylinders",
-            "dynamic-crank configuration-inertia inventory must cover every "
-            "mechanism cylinder exactly once");
-    require(report,
-            !piston_wall_cylinders.empty() &&
-                piston_wall_cylinders.size() == direct_plan->cylinders.size(),
-            ContractIssueCode::inconsistent_shape,
-            "engine.physics_profile.mechanism.cylinders",
-            "dynamic-crank piston-wall inventory must cover every mechanism "
-            "cylinder exactly once");
-    if (!report.ok()) {
-        return report;
-    }
-    const auto initial_configuration_inertia =
-        evaluate_centered_slider_crank_configuration_inertia(configuration_inertia_plan,
-                                                             initial_theta_rad);
-    require(report,
-            std::holds_alternative<CenteredSliderCrankConfigurationInertia>(
-                initial_configuration_inertia),
-            ContractIssueCode::invalid_value, "scenario.mode.initial_theta_rad.value",
-            "dynamic-crank configuration inertia rejected the initial crank "
-            "boundary");
-    if (!report.ok()) {
-        return report;
-    }
-    const auto piston_wall_cylinder_count = piston_wall_cylinders.size();
-    LowOrderDynamicCrankMechanismRuntime mechanism_runtime{
-        LowOrderDynamicCrankDirectCenteredMechanismRuntime{
+        require(report,
+                configuration_inertia_plan.cylinders.size() ==
+                    direct_plan->cylinders.size(),
+                ContractIssueCode::inconsistent_shape,
+                "engine.physics_profile.mechanism.cylinders",
+                "dynamic-crank configuration-inertia inventory must cover every "
+                "mechanism cylinder exactly once");
+        require(report,
+                !piston_wall_cylinders.empty() &&
+                    piston_wall_cylinders.size() == direct_plan->cylinders.size(),
+                ContractIssueCode::inconsistent_shape,
+                "engine.physics_profile.mechanism.cylinders",
+                "dynamic-crank piston-wall inventory must cover every mechanism "
+                "cylinder exactly once");
+        if (!report.ok()) {
+            return report;
+        }
+        const auto initial_configuration_inertia =
+            evaluate_centered_slider_crank_configuration_inertia(
+                configuration_inertia_plan, initial_theta_rad);
+        require(report,
+                std::holds_alternative<CenteredSliderCrankConfigurationInertia>(
+                    initial_configuration_inertia),
+                ContractIssueCode::invalid_value,
+                "scenario.mode.initial_theta_rad.value",
+                "dynamic-crank configuration inertia rejected the initial crank "
+                "boundary");
+        if (!report.ok()) {
+            return report;
+        }
+        const auto piston_wall_cylinder_count = piston_wall_cylinders.size();
+        mechanism_runtime.emplace(LowOrderDynamicCrankDirectCenteredMechanismRuntime{
             std::move(configuration_inertia_plan),
             std::vector<EngineSimV1PistonWallFrictionStage>(piston_wall_cylinder_count),
             std::vector<double>(piston_wall_cylinder_count),
             std::vector<double>(piston_wall_cylinder_count),
             initial_engine_speed_rpm * kLegacyRpmScale,
-        }};
+        });
+    } else {
+        const double initial_body_angle_psi_rad =
+            radial_plan->crank_tdc_reference_rad - initial_theta_rad;
+        const double initial_angular_speed_rad_s =
+            initial_engine_speed_rpm * kLegacyRpmScale;
+        auto articulated_compilation =
+            compile_one_level_master_rod_articulated_mechanism(*radial_plan);
+        const auto *articulated_error =
+            std::get_if<OneLevelMasterRodConfigurationInertiaError>(
+                &articulated_compilation);
+        require(report, articulated_error == nullptr, ContractIssueCode::invalid_value,
+                "mechanism_plan",
+                "dynamic-crank runtime could not compile the certified one-level "
+                "master-rod articulated mechanism");
+        if (!report.ok()) {
+            return report;
+        }
+        auto articulated = std::get<CompiledOneLevelMasterRodArticulatedMechanism>(
+            std::move(articulated_compilation));
+        auto articulated_state = articulated.make_state_scratch();
+        const auto initial_configuration_inertia =
+            articulated.evaluate_configuration_inertia_at_body_angle_psi(
+                attached_inertia_kg_m2, initial_body_angle_psi_rad, articulated_state);
+        require(report,
+                std::holds_alternative<OneLevelMasterRodConfigurationInertia>(
+                    initial_configuration_inertia),
+                ContractIssueCode::invalid_value,
+                "scenario.mode.initial_theta_rad.value",
+                "dynamic-crank articulated configuration inertia rejected the "
+                "initial crank boundary");
+
+        std::vector<OneLevelMasterRodPistonWallBoundaryInput> piston_wall_boundaries;
+        piston_wall_cylinders.reserve(radial_plan->cylinders.size());
+        piston_wall_boundaries.reserve(radial_plan->cylinders.size());
+        for (std::size_t index = 0; index < radial_plan->cylinders.size(); ++index) {
+            const auto &planned = radial_plan->cylinders[index];
+            const auto *geometry =
+                std::visit([](const auto &kinematics) { return &kinematics.cylinder; },
+                           planned.kinematics);
+            const auto chamber_gas_index =
+                find_capture_volume_index(capture_plan, planned.chamber_volume_id);
+            const auto initial_mechanism = evaluate_one_level_master_rod_plan(
+                *radial_plan, index, initial_body_angle_psi_rad,
+                initial_angular_speed_rad_s);
+            const double initial_chamber_pressure_pa_abs =
+                initial_mechanism.valid
+                    ? legacy_gas_pressure_pa(legacy_initialize_gas_cell(
+                          scenario.ambient.pressure_pa_abs.value,
+                          initial_mechanism.chamber_volume_m3,
+                          scenario.initial_thermal_state.gas_temperature_k.value,
+                          LegacyGasMixture{0.0, 1.0, 0.0}))
+                    : 0.0;
+            require(report, chamber_gas_index.has_value(),
+                    ContractIssueCode::dangling_reference,
+                    "engine.physics_profile.mechanism.cylinders[" +
+                        std::to_string(index) + "].topology.chamber_volume_id",
+                    "dynamic-crank articulated piston-wall chamber is absent from "
+                    "the captured gas transaction");
+            require(report,
+                    initial_mechanism.valid &&
+                        std::isfinite(initial_chamber_pressure_pa_abs) &&
+                        initial_chamber_pressure_pa_abs > 0.0,
+                    ContractIssueCode::invalid_value,
+                    "engine.physics_profile.mechanism.cylinders[" +
+                        std::to_string(index) + "].kinematics",
+                    "dynamic-crank articulated mechanism rejected its initial "
+                    "chamber boundary");
+            if (chamber_gas_index.has_value() && initial_mechanism.valid &&
+                std::isfinite(initial_chamber_pressure_pa_abs) &&
+                initial_chamber_pressure_pa_abs > 0.0) {
+                piston_wall_cylinders.push_back({
+                    geometry->cylinder_id,
+                    planned.chamber_volume_id,
+                    index,
+                    *chamber_gas_index,
+                    initial_chamber_pressure_pa_abs,
+                    scenario.crankcase.pressure_pa_abs.value,
+                    std::nullopt,
+                });
+                piston_wall_boundaries.push_back({
+                    geometry->cylinder_id,
+                    initial_chamber_pressure_pa_abs,
+                    scenario.crankcase.pressure_pa_abs.value,
+                    0.0,
+                });
+            }
+        }
+        require(report,
+                !piston_wall_cylinders.empty() &&
+                    piston_wall_cylinders.size() == radial_plan->cylinders.size() &&
+                    piston_wall_boundaries.size() == radial_plan->cylinders.size(),
+                ContractIssueCode::inconsistent_shape,
+                "engine.physics_profile.mechanism.cylinders",
+                "dynamic-crank articulated piston-wall inventory must cover every "
+                "mechanism cylinder exactly once");
+        if (!report.ok()) {
+            return report;
+        }
+        mechanism_runtime.emplace(LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime{
+            std::move(articulated), attached_inertia_kg_m2, initial_body_angle_psi_rad,
+            std::move(piston_wall_boundaries)});
+    }
 
     std::optional<OperatingCycleAccountant> accountant;
     std::optional<FixedHorizonCycleSampler> sampler;
     if (!cold_bootstrap) {
-        auto accountant_result = compile_operating_cycle_accountant({
-            {
-                output_crank->crank_tdc_reference_rad.value,
-                engine.total_displacement_m3.value,
-            },
-            CommonStrokeChenFlynnLossPlan{
+        if (direct_plan != nullptr) {
+            auto accountant_result = compile_operating_cycle_accountant({
                 {
-                    profile->aggregate_loss.constant_fmep_bar.value,
-                    profile->aggregate_loss.peak_pressure_coefficient.value,
-                    profile->aggregate_loss.mean_piston_speed_coefficient_bar_s_per_m
-                        .value,
-                    profile->aggregate_loss
-                        .mean_piston_speed_squared_coefficient_bar_s2_per_m2.value,
+                    output_crank->crank_tdc_reference_rad.value,
+                    engine.total_displacement_m3.value,
                 },
-                stroke_m,
-            },
-            initial_engine_speed_rpm,
-            true,
-            contract::indicated_gas_torque_term_mask(),
-            profile->aggregate_loss.included_terms.value,
-            profile->starter.included_terms.value,
-            std::move(cylinders),
-            capture_plan.physical_gas_volume_ids,
-            true,
-        });
-        if (const auto *error =
-                std::get_if<OperatingCycleAccountingError>(&accountant_result)) {
-            report.add(ContractIssueCode::unsupported_value, "engine.physics_profile",
-                       "dynamic-crank variable-speed accountant rejected the admitted "
-                       "profile; code=" +
-                           std::to_string(static_cast<std::uint32_t>(error->code)));
-            return report;
+                CommonStrokeChenFlynnLossPlan{
+                    {
+                        profile->aggregate_loss.constant_fmep_bar.value,
+                        profile->aggregate_loss.peak_pressure_coefficient.value,
+                        profile->aggregate_loss
+                            .mean_piston_speed_coefficient_bar_s_per_m.value,
+                        profile->aggregate_loss
+                            .mean_piston_speed_squared_coefficient_bar_s2_per_m2.value,
+                    },
+                    stroke_m,
+                },
+                initial_engine_speed_rpm,
+                true,
+                contract::indicated_gas_torque_term_mask(),
+                profile->aggregate_loss.included_terms.value,
+                profile->starter.included_terms.value,
+                std::move(cylinders),
+                capture_plan.physical_gas_volume_ids,
+                true,
+            });
+            if (const auto *error =
+                    std::get_if<OperatingCycleAccountingError>(&accountant_result)) {
+                report.add(
+                    ContractIssueCode::unsupported_value, "engine.physics_profile",
+                    "dynamic-crank variable-speed accountant rejected the admitted "
+                    "profile; code=" +
+                        std::to_string(static_cast<std::uint32_t>(error->code)));
+                return report;
+            }
+            accountant.emplace(
+                std::get<OperatingCycleAccountant>(std::move(accountant_result)));
+        } else {
+            auto accounting_plan_result =
+                compile_one_level_master_rod_dynamic_cycle_accounting_plan(
+                    *radial_plan, capture_plan,
+                    {
+                        {
+                            profile->aggregate_loss.constant_fmep_bar.value,
+                            profile->aggregate_loss.peak_pressure_coefficient.value,
+                            profile->aggregate_loss
+                                .mean_piston_speed_coefficient_bar_s_per_m.value,
+                            profile->aggregate_loss
+                                .mean_piston_speed_squared_coefficient_bar_s2_per_m2
+                                .value,
+                        },
+                        profile->aggregate_loss.included_terms.value,
+                        profile->starter.included_terms.value,
+                        initial_engine_speed_rpm,
+                    });
+            if (auto *nested = std::get_if<ValidationReport>(&accounting_plan_result)) {
+                return std::move(*nested);
+            }
+            auto accountant_result = compile_operating_cycle_accountant(
+                std::get<OperatingCycleAccountingPlan>(
+                    std::move(accounting_plan_result)));
+            if (const auto *error =
+                    std::get_if<OperatingCycleAccountingError>(&accountant_result)) {
+                report.add(
+                    ContractIssueCode::unsupported_value, "engine.physics_profile",
+                    "dynamic-crank articulated variable-speed accountant rejected "
+                    "the admitted profile; code=" +
+                        std::to_string(static_cast<std::uint32_t>(error->code)));
+                return report;
+            }
+            accountant.emplace(
+                std::get<OperatingCycleAccountant>(std::move(accountant_result)));
         }
-        accountant.emplace(
-            std::get<OperatingCycleAccountant>(std::move(accountant_result)));
 
         auto sampling_result = compile_fixed_horizon_cycle_sampler({
             fixed_horizon->method.value,
@@ -715,6 +876,12 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         free_vehicle_motion.emplace(std::move(plan));
     }
 
+    const char *runtime_model_id =
+        held_dyno != nullptr      ? "low-order-held-dyno"
+        : free_vehicle != nullptr ? "low-order-free-vehicle-v1"
+        : radial_plan != nullptr  ? "low-order-free-engine-one-level-master-rod-v1"
+                                  : "low-order-free-engine-v1";
+
     return LowOrderDynamicCrankRuntime{
         control_schedule.fresh_cursor(),
         std::move(mechanism_plan),
@@ -722,7 +889,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         std::move(sampler),
         std::move(physical_gas_step_indices),
         std::move(pressure_samples),
-        std::move(mechanism_runtime),
+        std::move(*mechanism_runtime),
         std::move(piston_wall_cylinders),
         scenario.rates.physics,
         execution_extent,
@@ -735,9 +902,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         profile->starter.target_speed_rad_s.value,
         std::move(held_dyno_motion),
         std::move(free_vehicle_motion),
-        held_dyno != nullptr      ? "low-order-held-dyno"
-        : free_vehicle != nullptr ? "low-order-free-vehicle-v1"
-                                  : "low-order-free-engine-v1",
+        runtime_model_id,
         engine.profile_id.value,
         scenario.scenario_id,
         engine.id,

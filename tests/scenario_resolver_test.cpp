@@ -83,6 +83,54 @@ void test_free_engine_method_identity_is_bound_to_nonnegative_semantics() {
            "semantics");
 }
 
+void test_master_rod_free_engine_method_identity_is_bound_to_articulated_semantics() {
+    constexpr std::string_view kExpectedId =
+        "nonnegative-speed-free-engine-one-level-master-rod-v1";
+    const auto descriptor = engine_sim_offline::simulation::
+        nonnegative_speed_free_engine_one_level_master_rod_method_descriptor();
+    const auto descriptor_digest = contract::sha256(
+        std::as_bytes(std::span<const char>{descriptor.data(), descriptor.size()}));
+    const auto &identity = engine_sim_offline::simulation::
+        nonnegative_speed_free_engine_one_level_master_rod_method_identity();
+
+    expect(!descriptor.empty() && descriptor.back() == '\n' &&
+               descriptor.find('\r') == std::string_view::npos &&
+               descriptor.find('\0') == std::string_view::npos,
+           "master-rod free-engine method descriptor is not canonical LF text");
+    expect(
+        identity.id == kExpectedId &&
+            identity.id == engine_sim_offline::simulation::
+                               kNonnegativeSpeedFreeEngineOneLevelMasterRodMethodId &&
+            identity.version ==
+                engine_sim_offline::simulation::
+                    kNonnegativeSpeedFreeEngineOneLevelMasterRodMethodVersion &&
+            identity.configuration_sha256 == descriptor_digest &&
+            contract::validate(identity).ok() &&
+            &identity ==
+                &engine_sim_offline::simulation::
+                    nonnegative_speed_free_engine_one_level_master_rod_method_identity(),
+        "master-rod free-engine method identity is invalid, unstable, or detached "
+        "from its canonical descriptor");
+    expect(descriptor.find("exact-articulated-kinetic-energy-coefficient-M-of-theta") !=
+                   std::string_view::npos &&
+               descriptor.find("analytic-M-of-theta-and-dM-dtheta") !=
+                   std::string_view::npos &&
+               descriptor.find("leaf-first-coupled-articulated-inverse-dynamics") !=
+                   std::string_view::npos &&
+               descriptor.find("per-cylinder-piston-travel-chen-flynn-evidence") !=
+                   std::string_view::npos &&
+               descriptor.find("starter=unchanged-engine-sim-v1-unilateral") !=
+                   std::string_view::npos &&
+               descriptor.find("external-resisting-sign=") != std::string_view::npos &&
+               descriptor.find("stall-commit=") != std::string_view::npos &&
+               descriptor.find("warm-preparation=") != std::string_view::npos &&
+               descriptor.find("warm-release=") != std::string_view::npos &&
+               descriptor.find("reverse=unsupported-and-never-published") !=
+                   std::string_view::npos,
+           "master-rod free-engine method descriptor lost articulated or "
+           "nonnegative-speed execution semantics");
+}
+
 [[nodiscard]] authoring::ScenarioDocument held_speed_scenario(std::string engine_id,
                                                               std::string fuel_id) {
     authoring::ScenarioDocument scenario;
@@ -612,6 +660,7 @@ void test_held_speed_resolution_on_the_integer_clock() {
 int main() {
     try {
         test_free_engine_method_identity_is_bound_to_nonnegative_semantics();
+        test_master_rod_free_engine_method_identity_is_bound_to_articulated_semantics();
         test_held_speed_resolution_on_the_integer_clock();
         std::cout << "scenario resolver tests passed\n";
         return EXIT_SUCCESS;

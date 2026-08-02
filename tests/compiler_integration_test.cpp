@@ -7,6 +7,8 @@
 #include "authoring/parse_engine_references.hpp"
 #include "compile/engine_resolver.hpp"
 #include "identity/simulation_request_identity_writer.hpp"
+#include "simulation/chen_flynn_per_cylinder_travel_cycle_mean_loss.hpp"
+#include "simulation/cycle_accounting_method_registry.hpp"
 #include "simulation/legacy_fixed_valvetrain.hpp"
 #include "simulation/legacy_flow_calibration.hpp"
 #include "simulation/mechanism_kinematics_plan.hpp"
@@ -1460,6 +1462,20 @@ void test_crankshaft_identity_output_and_cylinder_bindings_resolve() {
                                               engine.output_crankshaft_id;
                                    }),
            "direct cylinders lost their resolved crankshaft binding");
+    const auto &direct_torque_capability = engine.torque_capability.value;
+    expect(engine.methods.losses.value ==
+                   simulation::chen_flynn_cycle_mean_aggregate_loss_method_identity() &&
+               direct_torque_capability.instantaneous_net_shaft.availability ==
+                   contract::Availability::available &&
+               direct_torque_capability.instantaneous_net_shaft.completeness ==
+                   contract::Completeness::complete &&
+               direct_torque_capability.cycle_mean_net_shaft.availability ==
+                   contract::Availability::available &&
+               direct_torque_capability.cycle_mean_net_shaft.completeness ==
+                   contract::Completeness::complete &&
+               direct_torque_capability.equivalent_inertia_available,
+           "direct mechanism lost its common-stroke loss identity or operating "
+           "capability");
     const auto assignment =
         std::ranges::find_if(resolved.stable_id_assignments, [](const auto &value) {
             return value.object_namespace == "engine.crankshaft" &&
@@ -2940,19 +2956,59 @@ void test_master_rod_graph_contract_and_public_admission() {
                "resolved core lost its exact direct/master attachment alternatives");
         const auto &torque_capability = resolved.engine.torque_capability.value;
         expect(torque_capability.instantaneous_net_shaft.availability ==
-                       contract::Availability::unavailable &&
+                       contract::Availability::available &&
                    torque_capability.instantaneous_net_shaft.completeness ==
-                       contract::Completeness::incomplete &&
-                   torque_capability.instantaneous_net_shaft.included_terms == 0 &&
+                       contract::Completeness::complete &&
+                   torque_capability.instantaneous_net_shaft.included_terms ==
+                       contract::known_torque_term_mask() &&
                    torque_capability.instantaneous_net_shaft.omitted_terms == 0 &&
                    torque_capability.cycle_mean_net_shaft.availability ==
-                       contract::Availability::unavailable &&
+                       contract::Availability::available &&
                    torque_capability.cycle_mean_net_shaft.completeness ==
-                       contract::Completeness::incomplete &&
-                   torque_capability.cycle_mean_net_shaft.included_terms == 0 &&
+                       contract::Completeness::complete &&
+                   torque_capability.cycle_mean_net_shaft.included_terms ==
+                       contract::known_torque_term_mask() &&
                    torque_capability.cycle_mean_net_shaft.omitted_terms == 0 &&
-                   !torque_capability.equivalent_inertia_available,
-               "geometry-only master core falsely advertised torque or inertia");
+                   torque_capability.equivalent_inertia_available,
+               "certified master core lost complete operating torque or inertia "
+               "capability");
+        expect(
+            resolved.engine.methods.losses.value ==
+                simulation::
+                    chen_flynn_per_cylinder_piston_travel_cycle_mean_aggregate_loss_method_identity(),
+            "master core did not select per-cylinder piston-travel Chen-Flynn "
+            "loss authority");
+        auto compiled_engine =
+            require_value(compile::compile_engine(document, twin_views),
+                          "valid inline master-rod engine failed public compilation");
+        auto free_engine_document = make_scenario_document();
+        free_engine_document.id.value = "fixture-master-rod-free-engine";
+        free_engine_document.engine.value = "fixture-master-rod-twin";
+        free_engine_document.initial_state.dyno_enabled = false;
+        free_engine_document.initial_state.limiter_enabled = true;
+        free_engine_document.events.clear();
+        free_engine_document.mode = authoring::FreeEngineMode{
+            std::nullopt,
+            {
+                authoring::TrajectoryInterpolation::right_continuous_hold,
+                {{quantity(0.0, "s"), 0.35}},
+            },
+            std::nullopt,
+        };
+        auto compiled_free_engine = require_value(
+            compile::compile_scenario(compiled_engine, free_engine_document),
+            "valid inline master-rod FreeEngine scenario failed public compilation");
+        const auto inertia_resolution =
+            std::ranges::find(compiled_free_engine.provenance().resolutions,
+                              "scenario.mode.engine_baseline_inertia_kg_m2",
+                              &contract::ResolutionRecord::parameter_path);
+        expect(inertia_resolution !=
+                       compiled_free_engine.provenance().resolutions.end() &&
+                   std::ranges::find(inertia_resolution->dependency_parameter_paths,
+                                     "engine.cylinder_layout") !=
+                       inertia_resolution->dependency_parameter_paths.end(),
+               "inline master-rod inertia provenance lost its implicit zero bank-axis "
+               "authority");
         const auto plan_result = simulation::compile_mechanism_kinematics_plan(
             resolved.engine, profile.core);
         const auto *shared_plan =
@@ -3127,8 +3183,8 @@ void test_master_rod_graph_contract_and_public_admission() {
                        *shared_plan, resolved.engine, stale_mass_core),
                "master-rod plan accepted stale articulated mass properties");
         auto stale_crank_core = profile.core;
-        stale_crank_core.mechanism.cranks.front()
-            .authored_crank_inertia_kg_m2.value += 0.01;
+        stale_crank_core.mechanism.cranks.front().authored_crank_inertia_kg_m2.value +=
+            0.01;
         expect(shared_plan != nullptr &&
                    !simulation::mechanism_kinematics_plan_matches_source(
                        *shared_plan, resolved.engine, stale_crank_core),

@@ -19,6 +19,7 @@ inline constexpr std::uint32_t kChenFlynnCycleMeanAggregateLossMethodVersion = 1
 struct CycleAccountingMethodIdentities {
     contract::MethodIdentity cycle_quadrature;
     contract::MethodIdentity aggregate_loss;
+    contract::MethodIdentity per_cylinder_travel_aggregate_loss;
 
     friend bool operator==(const CycleAccountingMethodIdentities &,
                            const CycleAccountingMethodIdentities &) = default;
@@ -37,8 +38,13 @@ chen_flynn_cycle_mean_aggregate_loss_method_identity();
 [[nodiscard]] const CycleAccountingMethodIdentities &
 implemented_cycle_accounting_method_identities();
 
-// This admits only the two implemented cycle-accounting algorithms. It does not
-// admit an engine profile, preparation policy, capture producer, or render route.
+[[nodiscard]] const contract::MethodIdentity &
+implemented_aggregate_loss_method_identity_for(
+    const contract::LowOrderOperatingPointV1Profile &profile);
+
+// This admits only the implemented quadrature and the mechanism-family-correct
+// aggregate-loss algorithm. It does not admit an engine profile, preparation policy,
+// capture producer, or render route.
 [[nodiscard]] bool exactly_matches_implemented_cycle_accounting_methods(
     const contract::EngineSpec &engine,
     const contract::LowOrderOperatingPointV1Profile &profile);

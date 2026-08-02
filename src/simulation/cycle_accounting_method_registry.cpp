@@ -1,14 +1,22 @@
 #include "simulation/cycle_accounting_method_registry.hpp"
 
+#include "simulation/chen_flynn_per_cylinder_travel_cycle_mean_loss.hpp"
+
+#include <algorithm>
 #include <span>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace engine_sim_offline::simulation {
 namespace {
 
 static_assert(kFourStrokePiecewiseLinearCycleQuadratureMethodId !=
               kChenFlynnCycleMeanAggregateLossMethodId);
+static_assert(kFourStrokePiecewiseLinearCycleQuadratureMethodId !=
+              kChenFlynnPerCylinderPistonTravelCycleMeanAggregateLossMethodId);
+static_assert(kChenFlynnCycleMeanAggregateLossMethodId !=
+              kChenFlynnPerCylinderPistonTravelCycleMeanAggregateLossMethodId);
 
 [[nodiscard]] contract::Sha256Digest
 descriptor_digest(std::string_view descriptor) noexcept {
@@ -47,8 +55,21 @@ implemented_cycle_accounting_method_identities() {
         make_identity(kChenFlynnCycleMeanAggregateLossMethodId,
                       kChenFlynnCycleMeanAggregateLossMethodVersion,
                       chen_flynn_cycle_mean_aggregate_loss_method_descriptor()),
+        chen_flynn_per_cylinder_piston_travel_cycle_mean_aggregate_loss_method_identity(),
     };
     return identities;
+}
+
+const contract::MethodIdentity &implemented_aggregate_loss_method_identity_for(
+    const contract::LowOrderOperatingPointV1Profile &profile) {
+    const bool has_master_rod_kinematics =
+        std::ranges::any_of(profile.core.mechanism.cylinders, [](const auto &cylinder) {
+            return std::holds_alternative<contract::LegacyMasterRodJournalKinematics>(
+                cylinder.kinematics);
+        });
+    const auto &implemented = implemented_cycle_accounting_method_identities();
+    return has_master_rod_kinematics ? implemented.per_cylinder_travel_aggregate_loss
+                                     : implemented.aggregate_loss;
 }
 
 const contract::MethodIdentity &
@@ -65,7 +86,8 @@ bool exactly_matches_implemented_cycle_accounting_methods(
     const contract::LowOrderOperatingPointV1Profile &profile) {
     const auto &implemented = implemented_cycle_accounting_method_identities();
     return profile.cycle_quadrature.value == implemented.cycle_quadrature &&
-           engine.methods.losses.value == implemented.aggregate_loss;
+           engine.methods.losses.value ==
+               implemented_aggregate_loss_method_identity_for(profile);
 }
 
 contract::ValidationReport admit_implemented_cycle_accounting_methods(
@@ -75,7 +97,8 @@ contract::ValidationReport admit_implemented_cycle_accounting_methods(
     const auto &implemented = implemented_cycle_accounting_method_identities();
     require_exact(report, profile.cycle_quadrature.value, implemented.cycle_quadrature,
                   "engine.physics_profile.cycle_quadrature.value");
-    require_exact(report, engine.methods.losses.value, implemented.aggregate_loss,
+    require_exact(report, engine.methods.losses.value,
+                  implemented_aggregate_loss_method_identity_for(profile),
                   "engine.methods.losses.value");
     return report;
 }

@@ -3,7 +3,9 @@
 #include "simulation/bounded_dyno_constraint.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/free_engine_method_registry.hpp"
+#include "simulation/one_level_master_rod_cycle_mean_inertia.hpp"
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <string_view>
@@ -64,6 +66,21 @@ void ScenarioResolver::register_provenance() {
             }
             crank_dynamics_dependency_storage.push_back(record->parameter_path);
         }
+    }
+    for (const auto &cylinder : context_.engine.cylinders) {
+        if (!cylinder.master_rod_attachment.has_value()) {
+            continue;
+        }
+        const auto *record = find_resolution(
+            context_.engine_provenance,
+            cylinder.master_rod_attachment->throw_radius_m.resolution_id);
+        if (record == nullptr) {
+            add(authoring::DiagnosticCode::internal_failure, "",
+                "master-rod crank method selection has no attachment topology "
+                "provenance resolution");
+            continue;
+        }
+        crank_dynamics_dependency_storage.push_back(record->parameter_path);
     }
     std::vector<std::string_view> crank_dynamics_dependencies;
     crank_dynamics_dependencies.reserve(crank_dynamics_dependency_storage.size());
@@ -198,10 +215,17 @@ void ScenarioResolver::register_provenance() {
                 const auto &profile =
                     std::get<contract::LowOrderOperatingPointV1Profile>(
                         context_.engine.physics_profile);
+                const bool contains_master_rod = std::ranges::any_of(
+                    profile.core.mechanism.cylinders, [](const auto &cylinder) {
+                        return std::holds_alternative<
+                            contract::LegacyMasterRodJournalKinematics>(
+                            cylinder.kinematics);
+                    });
                 std::vector<std::string> inertia_dependency_storage;
                 inertia_dependency_storage.reserve(
                     profile.core.mechanism.cranks.size() +
-                    5U * profile.core.mechanism.cylinders.size());
+                    (contains_master_rod ? 10U : 5U) *
+                        profile.core.mechanism.cylinders.size());
                 const auto append_dependency = [&](const auto &resolved) {
                     const auto *record = find_resolution(context_.engine_provenance,
                                                          resolved.resolution_id);
@@ -213,20 +237,70 @@ void ScenarioResolver::register_provenance() {
                     }
                     inertia_dependency_storage.push_back(record->parameter_path);
                 };
+                bool implicit_inline_bank_axis_dependency_added = false;
                 for (const auto &crank : profile.core.mechanism.cranks) {
                     append_dependency(crank.authored_crank_inertia_kg_m2);
                 }
-                for (const auto &cylinder : profile.core.mechanism.cylinders) {
+                for (std::size_t index = 0;
+                     index < profile.core.mechanism.cylinders.size(); ++index) {
+                    const auto &cylinder = profile.core.mechanism.cylinders[index];
                     const auto *direct =
                         std::get_if<contract::LegacyDirectJournalKinematics>(
                             &cylinder.kinematics);
-                    if (direct == nullptr) {
-                        add(authoring::DiagnosticCode::internal_failure, "",
-                            "admitted dynamic scenario has non-direct cylinder "
-                            "kinematics");
-                        continue;
+                    if (!contains_master_rod) {
+                        if (direct == nullptr) {
+                            add(authoring::DiagnosticCode::internal_failure, "",
+                                "admitted direct dynamic scenario has non-direct "
+                                "cylinder kinematics");
+                            continue;
+                        }
+                        append_dependency(direct->crank_radius_m);
+                    } else {
+                        if (index >= context_.engine.cylinders.size()) {
+                            add(authoring::DiagnosticCode::internal_failure, "",
+                                "admitted master-rod scenario has mismatched public "
+                                "and mechanism cylinder inventories");
+                            continue;
+                        }
+                        const auto &public_cylinder = context_.engine.cylinders[index];
+                        const auto bank = std::find_if(
+                            context_.engine.banks.begin(), context_.engine.banks.end(),
+                            [&](const auto &candidate) {
+                                return candidate.id == public_cylinder.bank_id;
+                            });
+                        if (bank == context_.engine.banks.end()) {
+                            add(authoring::DiagnosticCode::internal_failure, "",
+                                "admitted master-rod scenario has no resolved bank "
+                                "binding");
+                        } else if (!bank->angle_rad.has_value()) {
+                            if (context_.engine.cylinder_layout.value ==
+                                contract::CylinderLayoutKind::inline_engine) {
+                                if (!implicit_inline_bank_axis_dependency_added) {
+                                    append_dependency(context_.engine.cylinder_layout);
+                                    implicit_inline_bank_axis_dependency_added = true;
+                                }
+                            } else {
+                                add(authoring::DiagnosticCode::internal_failure, "",
+                                    "admitted master-rod scenario has no resolved bank "
+                                    "axis provenance");
+                            }
+                        } else {
+                            append_dependency(*bank->angle_rad);
+                        }
+                        if (direct != nullptr) {
+                            append_dependency(direct->crank_radius_m);
+                            append_dependency(public_cylinder.journal_phase_rad);
+                        } else if (const auto *master = std::get_if<
+                                       contract::LegacyMasterRodJournalKinematics>(
+                                       &cylinder.kinematics)) {
+                            append_dependency(master->throw_radius_m);
+                            append_dependency(master->master_local_phase_rad);
+                        } else {
+                            add(authoring::DiagnosticCode::internal_failure, "",
+                                "admitted master-rod scenario has an unrecognized "
+                                "cylinder attachment");
+                        }
                     }
-                    append_dependency(direct->crank_radius_m);
                     append_dependency(cylinder.parameters.connecting_rod_length_m);
                     append_dependency(
                         cylinder.parameters
@@ -241,7 +315,10 @@ void ScenarioResolver::register_provenance() {
                     inertia_dependencies.push_back(path);
                 }
                 const auto &inertia_method =
-                    profile.core.mechanism.cranks.size() > 1U
+                    contains_master_rod
+                        ? simulation::
+                              one_level_master_rod_cycle_mean_inertia_method_identity()
+                    : profile.core.mechanism.cranks.size() > 1U
                         ? simulation::
                               centered_slider_crank_rigid_group_cycle_mean_inertia_method_identity()
                         : simulation::

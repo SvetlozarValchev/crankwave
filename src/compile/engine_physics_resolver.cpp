@@ -294,16 +294,6 @@ resolve_valve_flow_point(const authoring::CurveSample &source, std::size_t index
     };
 }
 
-[[nodiscard]] contract::TorqueCapability geometry_only_torque_capability() {
-    constexpr contract::NetTorqueFormCapability unavailable{
-        contract::Availability::unavailable,
-        contract::Completeness::incomplete,
-        0,
-        0,
-    };
-    return {unavailable, unavailable, false};
-}
-
 [[nodiscard]] contract::CylinderLayoutKind
 resolve_cylinder_layout(authoring::CylinderLayout layout) {
     switch (layout) {
@@ -357,6 +347,33 @@ contract::EngineSpec assemble_engine(const ModelContext &context,
 
     const auto method_dependency = "engine.profile_id";
     const auto low_order = contract::legacy_low_order_v1_method_identity();
+    const bool has_master_rod_journal =
+        std::ranges::any_of(source.journals, [](const auto &journal) {
+            return std::holds_alternative<authoring::MasterRodJournalAttachment>(
+                journal.attachment);
+        });
+    const auto &accounting_methods =
+        simulation::implemented_cycle_accounting_method_identities();
+    const auto &aggregate_loss_method =
+        has_master_rod_journal ? accounting_methods.per_cylinder_travel_aggregate_loss
+                               : accounting_methods.aggregate_loss;
+    std::vector<std::string> aggregate_loss_dependency_storage{method_dependency};
+    if (has_master_rod_journal) {
+        for (const auto &cylinder : source.cylinders) {
+            const auto &journal = *context.journals.at(cylinder.journal.value);
+            if (std::holds_alternative<authoring::MasterRodJournalAttachment>(
+                    journal.attachment)) {
+                aggregate_loss_dependency_storage.push_back(
+                    "engine.cylinders." + cylinder.id.value +
+                    ".master_rod_attachment.throw_radius_m");
+            }
+        }
+    }
+    std::vector<std::string_view> aggregate_loss_dependencies;
+    aggregate_loss_dependencies.reserve(aggregate_loss_dependency_storage.size());
+    for (const auto &dependency : aggregate_loss_dependency_storage) {
+        aggregate_loss_dependencies.push_back(dependency);
+    }
     const auto resolve_low_order_method = [&](std::string path) {
         return emitter.derived(
             low_order, std::move(path),
@@ -371,10 +388,12 @@ contract::EngineSpec assemble_engine(const ModelContext &context,
         resolve_low_order_method("engine.methods.combustion"),
         resolve_low_order_method("engine.methods.heat_transfer"),
         emitter.derived(
-            simulation::implemented_cycle_accounting_method_identities().aggregate_loss,
-            "engine.methods.losses",
-            derived_method_identity("implemented-aggregate-loss-selection-v1"),
-            {method_dependency}),
+            aggregate_loss_method, "engine.methods.losses",
+            derived_method_identity(
+                has_master_rod_journal
+                    ? "implemented-per-cylinder-travel-aggregate-loss-selection-v1"
+                    : "implemented-aggregate-loss-selection-v1"),
+            aggregate_loss_dependencies),
         resolve_low_order_method("engine.methods.excitation"),
     };
 
@@ -386,23 +405,11 @@ contract::EngineSpec assemble_engine(const ModelContext &context,
     resolve_ignition_and_fuel(context, emitter, profile.core);
     resolve_excitation(context, emitter, profile.core);
     resolve_operating_accounting(context, emitter, profile);
-    const bool has_master_kinematics =
-        std::ranges::any_of(profile.core.mechanism.cylinders, [](const auto &cylinder) {
-            return std::holds_alternative<contract::LegacyMasterRodJournalKinematics>(
-                cylinder.kinematics);
-        });
     engine.physics_profile = std::move(profile);
-    if (has_master_kinematics) {
-        engine.torque_capability = emitter.derived(
-            geometry_only_torque_capability(), "engine.torque_capability",
-            derived_method_identity("geometry-only-torque-capability-v1"),
-            {"engine.methods.mechanism"});
-    } else {
-        engine.torque_capability = emitter.derived(
-            operating_torque_capability(), "engine.torque_capability",
-            derived_method_identity("operating-point-torque-capability-v1"),
-            {"engine.methods.losses"});
-    }
+    engine.torque_capability =
+        emitter.derived(operating_torque_capability(), "engine.torque_capability",
+                        derived_method_identity("operating-point-torque-capability-v1"),
+                        {"engine.methods.losses"});
     return engine;
 }
 

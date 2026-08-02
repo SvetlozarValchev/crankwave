@@ -63,6 +63,8 @@ void ScenarioResolver::compile_mode() {
     const bool multiple_crankshafts = context_.engine.crankshafts.size() > 1U;
     const bool prescribed_motion =
         std::holds_alternative<authoring::ExternalSpeedMode>(document_.mode);
+    const bool free_engine_motion =
+        std::holds_alternative<authoring::FreeEngineMode>(document_.mode);
     const bool rigid_group_dynamic_motion =
         std::holds_alternative<authoring::FreeEngineMode>(document_.mode) ||
         std::holds_alternative<authoring::HeldDynoMode>(document_.mode) ||
@@ -79,10 +81,10 @@ void ScenarioResolver::compile_mode() {
             "only");
         return;
     }
-    if (contains_master_rod && !prescribed_motion) {
+    if (contains_master_rod && !(prescribed_motion || free_engine_motion)) {
         add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
             "one-level master-rod engines currently admit only external_speed "
-            "prescribed motion");
+            "prescribed motion or FreeEngine motion");
         return;
     }
 
@@ -100,7 +102,7 @@ void ScenarioResolver::compile_mode() {
                                                                     profile->core);
         if (const auto *nested = std::get_if<contract::ValidationReport>(&result)) {
             add(authoring::DiagnosticCode::internal_failure, "",
-                "admitted engine mechanism could not produce its shared direct "
+                "admitted engine mechanism could not produce its shared "
                 "kinematics plan; issue_count=" +
                     std::to_string(nested->issues.size()));
             return std::nullopt;
@@ -108,20 +110,27 @@ void ScenarioResolver::compile_mode() {
         const auto &shared =
             std::get<simulation::SharedMechanismKinematicsPlan>(result);
         const auto *direct = simulation::direct_mechanism_kinematics_plan(shared);
-        if (direct == nullptr) {
+        const auto *radial =
+            simulation::one_level_master_rod_mechanism_kinematics_plan(shared);
+        if ((direct == nullptr) == (radial == nullptr)) {
             add(authoring::DiagnosticCode::internal_failure, "",
-                "admitted engine mechanism did not compile a direct kinematics "
-                "plan");
+                "admitted engine mechanism did not compile exactly one direct or "
+                "one-level master-rod kinematics plan");
             return std::nullopt;
         }
-        return direct->cycle_mean_inertia.engine_equivalent_inertia_kg_m2;
+        return direct != nullptr
+                   ? direct->cycle_mean_inertia.engine_equivalent_inertia_kg_m2
+                   : radial->cycle_mean_inertia.engine_equivalent_inertia_kg_m2;
     };
     std::visit(
         [&](const auto &mode) {
             using T = std::decay_t<decltype(mode)>;
             if constexpr (std::is_same_v<T, authoring::FreeEngineMode>) {
                 const auto &method =
-                    multiple_crankshafts
+                    contains_master_rod
+                        ? simulation::
+                              nonnegative_speed_free_engine_one_level_master_rod_method_identity()
+                    : multiple_crankshafts
                         ? simulation::
                               nonnegative_speed_free_engine_centered_slider_crank_rigid_group_method_identity()
                         : simulation::

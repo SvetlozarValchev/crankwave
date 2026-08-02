@@ -46,22 +46,6 @@ constexpr TorqueCapability kOperatingTorqueCapability{
     },
     true,
 };
-constexpr TorqueCapability kGeometryOnlyTorqueCapability{
-    {
-        Availability::unavailable,
-        Completeness::incomplete,
-        0,
-        0,
-    },
-    {
-        Availability::unavailable,
-        Completeness::incomplete,
-        0,
-        0,
-    },
-    false,
-};
-
 template <class T>
 void validate_authored(ValidationReport &report, const AuthoredValue<T> &value,
                        const ProvenanceLedger &provenance, const std::string &path) {
@@ -2577,14 +2561,22 @@ void require_legacy_low_order_method(ValidationReport &report,
 
 void require_chen_flynn_aggregate_loss_method(
     ValidationReport &report, const ResolvedValue<MethodIdentity> &method,
-    std::string_view path) {
+    const bool per_cylinder_piston_travel, std::string_view path) {
+    constexpr std::string_view kCommonStrokeMethod =
+        "chen-flynn-cycle-mean-aggregate-loss-v1";
+    constexpr std::string_view kPerCylinderTravelMethod =
+        "chen-flynn-per-cylinder-piston-travel-cycle-mean-aggregate-loss-v1";
+    const auto expected_method =
+        per_cylinder_piston_travel ? kPerCylinderTravelMethod : kCommonStrokeMethod;
     detail::require(
-        report,
-        method.value.id == "chen-flynn-cycle-mean-aggregate-loss-v1" &&
-            method.value.version == 1,
+        report, method.value.id == expected_method && method.value.version == 1,
         ContractIssueCode::inconsistent_semantics, std::string(path) + ".value",
-        "operating-point loss accounting requires "
-        "chen-flynn-cycle-mean-aggregate-loss-v1 method identity version 1");
+        per_cylinder_piston_travel
+            ? "one-level master-rod operating-point loss accounting requires "
+              "chen-flynn-per-cylinder-piston-travel-cycle-mean-aggregate-loss-v1 "
+              "method identity version 1"
+            : "direct operating-point loss accounting requires "
+              "chen-flynn-cycle-mean-aggregate-loss-v1 method identity version 1");
 }
 
 template <class Method>
@@ -2620,8 +2612,13 @@ void validate_resolved_profile_specific(ValidationReport &report,
                                         const EngineSpec &engine,
                                         const ProvenanceLedger &provenance,
                                         std::string_view root) {
-    require_chen_flynn_aggregate_loss_method(report, engine.methods.losses,
-                                             "engine.methods.losses");
+    const bool has_master_kinematics =
+        std::ranges::any_of(profile.core.mechanism.cylinders, [](const auto &cylinder) {
+            return std::holds_alternative<LegacyMasterRodJournalKinematics>(
+                cylinder.kinematics);
+        });
+    require_chen_flynn_aggregate_loss_method(
+        report, engine.methods.losses, has_master_kinematics, "engine.methods.losses");
     visit_operating_profile_fields(
         profile, root, [&](const auto &value, const std::string &path) {
             validate_resolved(report, value, provenance, path);
@@ -2635,25 +2632,14 @@ void validate_resolved_profile_specific(ValidationReport &report,
                                           profile.starter);
     validate_resolved_accessory_evidence(report, profile.accessory_configuration,
                                          provenance);
-    const bool has_master_kinematics =
-        std::ranges::any_of(profile.core.mechanism.cylinders, [](const auto &cylinder) {
-            return std::holds_alternative<LegacyMasterRodJournalKinematics>(
-                cylinder.kinematics);
-        });
     if (!has_master_kinematics) {
         validate_operating_geometry(report, profile.core, engine);
     }
-    const auto expected_capability = has_master_kinematics
-                                         ? kGeometryOnlyTorqueCapability
-                                         : kOperatingTorqueCapability;
     detail::require(
-        report, engine.torque_capability.value == expected_capability,
+        report, engine.torque_capability.value == kOperatingTorqueCapability,
         ContractIssueCode::inconsistent_semantics, "engine.torque_capability.value",
-        has_master_kinematics
-            ? "geometry-only master-rod profile must leave net torque and equivalent "
-              "inertia unavailable"
-            : "operating-point profile requires complete instantaneous and cycle-mean "
-              "net torque coverage plus admitted equivalent inertia");
+        "operating-point profile requires complete instantaneous and cycle-mean net "
+        "torque coverage plus admitted equivalent inertia");
 }
 
 } // namespace
