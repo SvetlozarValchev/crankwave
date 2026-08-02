@@ -855,9 +855,18 @@ engine-definition parity in this order, with one coherent commit per bullet:
    constrained-rigid-body path and leaf-to-root reaction ownership are frozen in
    `docs/oracles/PRISTINE_ENGINE_SIM_MASTER_ROD_DYNAMICS.md`; the immutable radial plan
    now retains source-bound crank inertia/friction and every piston/rod mass, rod
-   inertia, and COM in `b5b5411`; the already executed co-phased direct multi-crank
-   subset is complete, while unproven offset/geared/nested/multi-crank-master-rod
-   cases remain explicitly closed**);
+   inertia, and COM in `b5b5411`; analytic articulated configuration inertia and
+   coupled wall reactions landed through `9104e9e`, and `c8127bd` executes that
+   mechanism in the private cold dynamic-crank path; `d9a7176` additionally derives
+   and source-binds each cylinder's certified full-cycle extrema, swept displacement,
+   and piston travel without opening a public mode or downstream consumer; its Release
+   radial prescribed and BMW direct held-dyno candidates reproduce all 16 control WAVs
+   byte-for-byte, including audition SHA-256
+   `58394f71ed58ee5af4434745e6f266c2cac7db33503848decbd61b9e8a9f0985` and
+   `487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496`
+   respectively; the already executed co-phased direct multi-crank subset is complete,
+   while unproven offset/geared/nested/multi-crank-master-rod cases remain explicitly
+   closed**);
 7. make native audition saturation explicit, then render, listen to, and freeze Slice
    16's representative fixed-cam inline/V, VTEC, governed, master/slave, and drivetrain
    procedures;
