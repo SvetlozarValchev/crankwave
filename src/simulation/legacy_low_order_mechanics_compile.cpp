@@ -103,13 +103,22 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
         mechanism_kinematics_plan_matches_source(mechanism_plan, engine, core);
     const bool prescribed_motion =
         std::holds_alternative<contract::PrescribedKinematicSweep>(scenario.mode);
+    const bool dynamic_motion =
+        std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
+        std::holds_alternative<contract::HeldDyno>(scenario.mode) ||
+        std::holds_alternative<contract::FreeVehicle>(scenario.mode);
+    const bool finite_control_schedule =
+        schedule.execution_extent().finite_physics_frame_count().has_value();
+    const bool radial_prescribed_motion_owner =
+        has_kinematic_schedule && prescribed_motion && finite_control_schedule;
+    const bool radial_external_motion_owner =
+        !has_kinematic_schedule && dynamic_motion;
+    const bool radial_motion_owner_valid =
+        radial_prescribed_motion_owner != radial_external_motion_owner;
     const bool exactly_one_crankshaft =
         engine.crankshafts.size() == 1U && core.mechanism.cranks.size() == 1U;
     const bool rigid_group_dynamic_motion =
-        direct_plan != nullptr &&
-        (std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
-         std::holds_alternative<contract::HeldDyno>(scenario.mode) ||
-         std::holds_alternative<contract::FreeVehicle>(scenario.mode));
+        direct_plan != nullptr && dynamic_motion;
     const bool admitted_crank_group =
         prescribed_motion || exactly_one_crankshaft || rigid_group_dynamic_motion;
     require(report, admitted_crank_group, ContractIssueCode::unsupported_value,
@@ -117,13 +126,12 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
             "multiple-crankshaft mechanics admits prescribed kinematics and "
             "FreeEngine, HeldDyno, or FreeVehicle rigid-group dynamics only");
     if (radial_plan != nullptr) {
-        require(report,
-                has_kinematic_schedule &&
-                    std::holds_alternative<contract::PrescribedKinematicSweep>(
-                        scenario.mode),
-                ContractIssueCode::unsupported_value, "mechanism_plan",
-                "one-level master-rod mechanics requires a finite prescribed "
-                "kinematic schedule");
+        require(
+            report, radial_motion_owner_valid, ContractIssueCode::unsupported_value,
+            "mechanism_plan",
+            "one-level master-rod mechanics requires exactly one motion owner: a "
+            "finite prescribed kinematic schedule or external post-step crank "
+            "motion for FreeEngine, HeldDyno, or FreeVehicle");
     } else {
         require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
                 "mechanism_plan",
@@ -138,10 +146,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
                   "match its resolved engine source");
     if ((direct_plan == nullptr && radial_plan == nullptr) || !plan_matches_source ||
         !admitted_crank_group ||
-        (radial_plan != nullptr &&
-         (!has_kinematic_schedule ||
-          !std::holds_alternative<contract::PrescribedKinematicSweep>(
-              scenario.mode)))) {
+        (radial_plan != nullptr && !radial_motion_owner_valid)) {
         return report;
     }
     require(report, scenario.engine_profile_id == engine.profile_id.value,

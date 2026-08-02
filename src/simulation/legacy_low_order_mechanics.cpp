@@ -42,6 +42,13 @@ double mechanism_crank_tdc_reference_rad(
     return 0.0;
 }
 
+double initial_body_angle_psi_rad(double crank_tdc_reference_rad,
+                                  double initial_theta_cycle_rad) noexcept {
+    const double body_angle_psi_rad =
+        crank_tdc_reference_rad - initial_theta_cycle_rad;
+    return body_angle_psi_rad == 0.0 ? 0.0 : body_angle_psi_rad;
+}
+
 std::size_t mechanism_cylinder_count(
     const SharedMechanismKinematicsPlan &plan) noexcept {
     if (const auto *direct = direct_mechanism_kinematics_plan(plan)) {
@@ -90,6 +97,8 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
       limiter_speed_rpm_(limiter_speed_rpm), limiter_hold_s_(limiter_hold_s),
       model_id_(std::move(model_id)), profile_id_(std::move(profile_id)),
       scenario_id_(std::move(scenario_id)), engine_id_(engine_id),
+      body_angle_psi_rad_(initial_body_angle_psi_rad(
+          crank_tdc_reference_rad_, initial_theta_cycle_rad)),
       theta_cycle_rad_(initial_theta_cycle_rad),
       theta_unwrapped_rad_(initial_theta_cycle_rad),
       ignition_saved_angle_rad_(initial_theta_cycle_rad) {
@@ -160,14 +169,6 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
                   "mechanics session has no retained direct mechanism plan");
         return *terminal_fault_;
     }
-    if (radial_plan != nullptr && !kinematic_cursor_.has_value()) {
-        terminal_fault_ = fault(
-            contract::FailureKind::contract_violation,
-            "legacy-mechanics-radial-kinematic-cursor-required",
-            "one-level master-rod mechanics requires its prescribed kinematic "
-            "cursor");
-        return *terminal_fault_;
-    }
     if (control_cursor_.completed()) {
         if (kinematic_cursor_.has_value() && !kinematic_cursor_->completed()) {
             terminal_fault_ =
@@ -178,12 +179,13 @@ LegacyMechanicsAdvanceResult LegacyLowOrderMechanicsSession::advance_with_motion
         }
         return LegacyMechanicsCompleted{produced_sample_count_};
     }
-    if (radial_plan != nullptr && motion.has_value()) {
+    if (radial_plan != nullptr &&
+        kinematic_cursor_.has_value() == motion.has_value()) {
         terminal_fault_ = fault(
             contract::FailureKind::contract_violation,
-            "legacy-mechanics-radial-external-motion-not-admitted",
-            "one-level master-rod mechanics does not admit external post-step "
-            "crank motion");
+            "legacy-mechanics-radial-motion-owner-disagreed",
+            "one-level master-rod mechanics requires exactly one motion owner: "
+            "prescribed cursor or external post-step crank motion");
         return *terminal_fault_;
     }
     if (!motion.has_value() && !kinematic_cursor_.has_value()) {

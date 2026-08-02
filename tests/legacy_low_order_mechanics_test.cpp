@@ -531,6 +531,40 @@ void configure_inertial_controls(MechanicsFixture &fixture) {
     };
 }
 
+void configure_free_engine_controls(MechanicsFixture &fixture) {
+    auto &core =
+        std::get<LowOrderOperatingPointV1Profile>(fixture.engine.physics_profile).core;
+    const double initial_theta_rad =
+        core.mechanism.cranks.front().crank_tdc_reference_rad.value;
+    for (auto &point : fixture.scenario.operating_state.value) {
+        point.state.dyno_enabled = false;
+    }
+    fixture.scenario.scenario_id = "radial-free-engine-four-step";
+    fixture.scenario.mode = FreeEngine{
+        fixture.builder.resolved(1000.0, "free-engine.initial_engine_speed_rpm"),
+        fixture.builder.resolved(initial_theta_rad,
+                                 "free-engine.initial_theta_rad"),
+        fixture.builder.resolved(0.20,
+                                 "free-engine.engine_baseline_inertia_kg_m2"),
+        fixture.builder.resolved(0.05, "free-engine.attached_inertia_kg_m2"),
+        fixture.builder.resolved(0.25,
+                                 "free-engine.total_equivalent_inertia_kg_m2"),
+        {
+            TrajectoryInterpolation::right_continuous_hold,
+            {{0.0, 0.25}, {0.0002, 0.75}},
+            fixture.builder.add_resolution("free-engine.throttle_01"),
+        },
+        {
+            TrajectoryInterpolation::right_continuous_hold,
+            {{0.0, 0.0}},
+            fixture.builder.add_resolution(
+                "free-engine.external_resisting_torque_nm"),
+        },
+        fixture.builder.resolved(method("inertial-crank-dynamics-v1", 1),
+                                 "free-engine.crank_dynamics_method"),
+    };
+}
+
 CoreRuntimeFactory::MechanicsCompileResult
 compile_dynamic_fixture(MechanicsFixture &fixture) {
     const auto frame_count = resolve_frame_index(
@@ -792,7 +826,7 @@ void test_mechanism_plan_requires_exact_bank_head_topology() {
     }
 }
 
-void test_radial_mechanics_requires_kinematic_schedule_and_rejects_external_motion() {
+void test_radial_mechanics_requires_exactly_one_motion_owner() {
     MechanicsFixture missing_cursor_fixture;
     configure_radial_master_rod_twin(missing_cursor_fixture);
     auto schedule_result =
@@ -821,7 +855,7 @@ void test_radial_mechanics_requires_kinematic_schedule_and_rejects_external_moti
                                    [](const auto &issue) {
                                        return issue.path == "mechanism_plan" &&
                                               issue.message.find(
-                                                  "prescribed kinematic schedule") !=
+                                                  "exactly one motion owner") !=
                                                   std::string::npos;
                                    }),
            "radial mechanics admitted a control schedule without a kinematic "
@@ -834,8 +868,86 @@ void test_radial_mechanics_requires_kinematic_schedule_and_rejects_external_moti
     const auto *failure = std::get_if<FailureContext>(&result);
     expect(failure != nullptr && failure->kind == FailureKind::contract_violation &&
                failure->detail_code ==
-                   "legacy-mechanics-radial-external-motion-not-admitted",
-           "radial mechanics admitted external post-step crank motion");
+                   "legacy-mechanics-radial-motion-owner-disagreed",
+           "radial mechanics admitted prescribed and external motion together");
+}
+
+void test_radial_mechanics_accepts_external_post_step_motion() {
+    MechanicsFixture fixture;
+    configure_radial_master_rod_twin(fixture);
+    configure_free_engine_controls(fixture);
+
+    const auto &core = std::get<LowOrderOperatingPointV1Profile>(
+                           fixture.engine.physics_profile)
+                           .core;
+    auto plan_result = compile_mechanism_kinematics_plan(fixture.engine, core);
+    expect(std::holds_alternative<SharedMechanismKinematicsPlan>(plan_result),
+           "externally driven radial fixture lost its certified plan");
+    const auto mechanism_plan =
+        std::get<SharedMechanismKinematicsPlan>(std::move(plan_result));
+    const auto *radial_plan =
+        one_level_master_rod_mechanism_kinematics_plan(mechanism_plan);
+    expect(radial_plan != nullptr,
+           "externally driven radial fixture compiled the wrong plan kind");
+
+    auto session = require_session(compile_dynamic_fixture(fixture));
+    constexpr PostStepCrankMotion first_motion{1250.0, 0.02};
+    auto first_result = session.advance(first_motion);
+    const auto &first = require_step(first_result);
+    const double expected_body_angle_psi_rad = std::fmod(
+        radial_plan->crank_tdc_reference_rad -
+                std::get<FreeEngine>(fixture.scenario.mode).initial_theta_rad.value -
+                first_motion.angular_displacement_rad,
+        4.0 * kLegacyPi);
+    const double expected_theta_cycle_rad = legacy_positive_mod(
+        -(expected_body_angle_psi_rad - radial_plan->crank_tdc_reference_rad),
+        4.0 * kLegacyPi);
+    expect(same_binary64(first.body_angle_psi_rad,
+                         expected_body_angle_psi_rad) &&
+               same_binary64(first.theta_cycle_rad, expected_theta_cycle_rad) &&
+               same_binary64(first.theta_unwrapped_rad,
+                             radial_plan->crank_tdc_reference_rad +
+                                 first_motion.angular_displacement_rad),
+           "external radial motion changed the master-body angle convention");
+    for (std::size_t index = 0; index < first.cylinders.size(); ++index) {
+        const auto expected = evaluate_one_level_master_rod_plan(
+            *radial_plan, index, first.body_angle_psi_rad,
+            first.angular_speed_rad_s);
+        const auto *coordinates = std::get_if<OneLevelMasterRodCoordinates>(
+            &first.cylinders[index].coordinates);
+        expect(expected.valid && coordinates != nullptr &&
+                   same_binary64(coordinates->piston_axis_position_m,
+                                 expected.piston_axis_position_m) &&
+                   same_binary64(coordinates->piston_axis_derivative_m_per_rad,
+                                 expected.piston_axis_derivative_m_per_rad) &&
+                   same_binary64(first.cylinders[index].chamber_volume_m3,
+                                 expected.chamber_volume_m3) &&
+                   same_binary64(
+                       first.cylinders[index].dvolume_dtheta_m3_per_rad,
+                       expected.dvolume_dtheta_m3_per_rad),
+               "external radial motion diverged from the pure geometry evaluator");
+    }
+    const double first_theta_unwrapped_rad = first.theta_unwrapped_rad;
+
+    auto second_result =
+        session.advance(PostStepCrankMotion{1500.0, 0.021});
+    const auto &second = require_step(second_result);
+    expect(second.sample_index == 1U && second.engine_speed_rpm == 1500.0 &&
+               second.theta_unwrapped_rad ==
+                   first_theta_unwrapped_rad + 0.021,
+           "external radial motion did not remain coherent across steps");
+
+    MechanicsFixture missing_motion_fixture;
+    configure_radial_master_rod_twin(missing_motion_fixture);
+    configure_free_engine_controls(missing_motion_fixture);
+    auto missing_motion =
+        require_session(compile_dynamic_fixture(missing_motion_fixture));
+    auto missing_result = missing_motion.advance();
+    const auto *missing_failure = std::get_if<FailureContext>(&missing_result);
+    expect(missing_failure != nullptr &&
+               missing_failure->detail_code ==
+                   "legacy-mechanics-radial-motion-owner-disagreed",
+           "radial dynamic mechanics admitted a step without its external owner");
 }
 
 void test_moved_from_mechanics_session_fails_stably() {
@@ -1253,7 +1365,8 @@ void run_tests() {
     test_mechanics_session_step_order_and_completion();
     test_radial_prescribed_mechanics_matches_pure_geometry_and_completes();
     test_mechanism_plan_requires_exact_bank_head_topology();
-    test_radial_mechanics_requires_kinematic_schedule_and_rejects_external_motion();
+    test_radial_mechanics_requires_exactly_one_motion_owner();
+    test_radial_mechanics_accepts_external_post_step_motion();
     test_moved_from_mechanics_session_fails_stably();
     test_mechanics_accepts_compiled_held_speed_schedule();
     test_mechanics_uses_authored_direct_throttle_transform();

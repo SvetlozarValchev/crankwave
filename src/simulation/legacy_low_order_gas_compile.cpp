@@ -283,16 +283,20 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
             "compiled mechanism plan does not exactly match its resolved "
             "engine source");
     if (radial_plan != nullptr) {
+        const bool prescribed_motion =
+            std::holds_alternative<contract::PrescribedKinematicSweep>(scenario.mode);
+        const bool dynamic_motion =
+            std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
+            std::holds_alternative<contract::HeldDyno>(scenario.mode) ||
+            std::holds_alternative<contract::FreeVehicle>(scenario.mode);
+        const bool finite_prescribed_motion =
+            prescribed_motion &&
+            schedule.execution_extent().finite_physics_frame_count().has_value();
         require(
-            report,
-            std::holds_alternative<contract::PrescribedKinematicSweep>(scenario.mode),
+            report, finite_prescribed_motion || dynamic_motion,
             ContractIssueCode::unsupported_value, "scenario.mode",
-            "one-level master-rod gas is admitted only for prescribed "
-            "kinematic sweeps");
-        require(report,
-                schedule.execution_extent().finite_physics_frame_count().has_value(),
-                ContractIssueCode::unsupported_value, "schedule.execution_extent",
-                "one-level master-rod gas requires a finite prescribed horizon");
+            "one-level master-rod gas requires a finite prescribed motion owner or "
+            "externally driven FreeEngine, HeldDyno, or FreeVehicle mechanics");
     }
     if (!report.ok()) {
         return report;

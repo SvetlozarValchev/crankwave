@@ -166,6 +166,14 @@ require_schedule(KinematicScenarioScheduleResult result) {
     return std::get<KinematicScenarioSchedule>(std::move(result));
 }
 
+[[nodiscard]] ScenarioControlSchedule
+require_control_schedule(ScenarioControlScheduleResult result) {
+    if (const auto *report = std::get_if<ValidationReport>(&result)) {
+        fail_report("short authored control schedule failed admission", *report);
+    }
+    return std::get<ScenarioControlSchedule>(std::move(result));
+}
+
 [[nodiscard]] const LowOrderEngineCoreV1 &
 low_order_core(const AuthoredEngineFixture &request) {
     return engine_sim_offline::test::low_order_core(request.engine);
@@ -1272,6 +1280,107 @@ void test_certified_radial_gas_uses_common_mechanism_coordinates(
     expect(!gas.faulted() && gas.produced_sample_count() == kRadialGasStepCount,
            "radial gas session did not reach its finite prescribed horizon");
 
+    auto externally_driven = make_radial_gas_request(canonical);
+    const auto &canonical_dyno =
+        std::get<InertialDyno>(canonical.scenario.mode);
+    auto initial_engine_speed = canonical_dyno.initial_engine_speed_rpm;
+    initial_engine_speed.value = kRadialGasRpm;
+    const auto initial_theta =
+        std::get<PrescribedKinematicSweep>(externally_driven.scenario.mode)
+            .trajectory.initial_theta_rad;
+    auto baseline_inertia = canonical_dyno.equivalent_inertia_kg_m2;
+    baseline_inertia.value = 0.20;
+    auto attached_inertia = canonical_dyno.equivalent_inertia_kg_m2;
+    attached_inertia.value = 0.05;
+    auto total_inertia = canonical_dyno.equivalent_inertia_kg_m2;
+    total_inertia.value = baseline_inertia.value + attached_inertia.value;
+    auto throttle =
+        std::get<PrescribedKinematicSweep>(externally_driven.scenario.mode)
+            .throttle_01;
+    ScalarTrajectory external_resisting_torque{
+        TrajectoryInterpolation::right_continuous_hold,
+        {{0.0, 0.0}},
+        "internal-radial-gas.external-resisting-torque",
+    };
+    externally_driven.scenario.mode = FreeEngine{
+        std::move(initial_engine_speed),
+        initial_theta,
+        std::move(baseline_inertia),
+        std::move(attached_inertia),
+        std::move(total_inertia),
+        std::move(throttle),
+        std::move(external_resisting_torque),
+        canonical_dyno.crank_dynamics_method,
+    };
+    externally_driven.scenario.mode_resolution_id =
+        "internal-radial-gas.free-engine";
+    externally_driven.scenario.scenario_id = "internal-radial-gas-external-motion";
+    auto external_schedule = require_control_schedule(
+        compile_scenario_control_schedule(
+            externally_driven.scenario,
+            LowOrderExecutionExtent::finite_scenario(kRadialGasStepCount)));
+    auto external_plan = require_mechanism_plan(externally_driven);
+    const auto *external_radial_plan =
+        one_level_master_rod_mechanism_kinematics_plan(external_plan);
+    expect(external_radial_plan != nullptr,
+           "externally driven radial gas fixture lost its certified plan");
+    auto external_mechanics = require_mechanics(
+        CoreRuntimeFactory::compile_mechanics(
+            externally_driven.engine, low_order_core(externally_driven),
+            externally_driven.scenario, external_plan, external_schedule));
+    const auto external_random_plan = require_random_plan(externally_driven);
+    auto external_gas = require_gas(CoreRuntimeFactory::compile_gas(
+        externally_driven.engine, low_order_core(externally_driven),
+        externally_driven.scenario, external_random_plan, external_schedule,
+        std::move(external_plan)));
+    constexpr double radial_step_s = 1.0 / 10000.0;
+    const double radial_angular_speed_rad_s = kRadialGasRpm * kLegacyRpmScale;
+    const double radial_angular_displacement_rad =
+        radial_angular_speed_rad_s * radial_step_s;
+    for (std::uint64_t sample_index = 0U; sample_index < kRadialGasStepCount;
+         ++sample_index) {
+        auto mechanics_result = external_mechanics.advance(PostStepCrankMotion{
+            kRadialGasRpm,
+            radial_angular_displacement_rad,
+        });
+        const auto &mechanics =
+            require_mechanics_step(mechanics_result, sample_index);
+        auto gas_result = external_gas.advance(mechanics);
+        const auto &gas_step = require_gas_step(gas_result, sample_index);
+        expect(mechanics.cylinders.size() == gas_step.cylinders.size(),
+               "external radial mechanics/gas cylinder shape diverged");
+        for (std::size_t index = 0; index < mechanics.cylinders.size(); ++index) {
+            const auto *coordinates = std::get_if<OneLevelMasterRodCoordinates>(
+                &mechanics.cylinders[index].coordinates);
+            const auto expected_geometry = evaluate_one_level_master_rod_plan(
+                *external_radial_plan, index, mechanics.body_angle_psi_rad,
+                mechanics.angular_speed_rad_s);
+            const auto chamber = std::ranges::find_if(
+                gas_step.gas_volumes, [&](const LegacyGasVolumeStepState &volume) {
+                    return volume.gas_volume_id ==
+                           gas_step.cylinders[index].chamber_volume_id;
+                });
+            expect(coordinates != nullptr && expected_geometry.valid &&
+                       coordinates->piston_axis_position_m ==
+                           expected_geometry.piston_axis_position_m &&
+                       chamber != gas_step.gas_volumes.end() &&
+                       chamber->cell.volume_m3 ==
+                           mechanics.cylinders[index].chamber_volume_m3,
+                   "external radial motion did not reach gas through common "
+                   "mechanism coordinates");
+            const double expected_torque_nm =
+                (legacy_gas_pressure_pa(chamber->cell) -
+                 externally_driven.scenario.ambient.pressure_pa_abs.value) *
+                mechanics.cylinders[index].dvolume_dtheta_m3_per_rad;
+            expect(gas_step.cylinders[index].indicated_gas_torque_nm ==
+                       expected_torque_nm,
+                   "external radial gas torque did not use common dV/dtheta");
+        }
+    }
+    expect(external_mechanics.completed() && !external_gas.faulted() &&
+               external_gas.produced_sample_count() == kRadialGasStepCount,
+           "externally driven radial mechanics/gas did not complete together");
+
     auto non_prescribed = make_radial_gas_request(canonical);
     const double initial_theta_rad = low_order_core(non_prescribed)
                                          .mechanism.cranks.front()
@@ -1293,7 +1402,7 @@ void test_certified_radial_gas_uses_common_mechanism_coordinates(
                        return issue.code == ContractIssueCode::unsupported_value &&
                               issue.path == "scenario.mode";
                    }),
-           "radial gas admitted motion outside finite prescribed kinematics");
+           "radial gas admitted an unsupported motion owner");
 }
 
 void expect_gas_compile_rejected(const AuthoredEngineFixture &request,
