@@ -1149,6 +1149,28 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
+    chen_flynn_per_cylinder_travel_cycle_mean_loss_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
+    PRIVATE engine_sim_offline::simulation
+)
+
+add_test(
+    NAME simulation.chen_flynn_per_cylinder_travel_cycle_mean_loss
+    COMMAND
+        engine_sim_offline_chen_flynn_per_cylinder_travel_cycle_mean_loss_tests
+)
+
+add_executable(
     engine_sim_offline_fixed_horizon_cycle_sampling_tests
     fixed_horizon_cycle_sampling_test.cpp
 )

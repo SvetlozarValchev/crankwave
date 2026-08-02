@@ -219,6 +219,7 @@ add_library(
         src/simulation/free_engine_method_registry.cpp
         src/simulation/free_vehicle_method_registry.cpp
         src/simulation/chen_flynn_cycle_mean_loss.cpp
+        src/simulation/chen_flynn_per_cylinder_travel_cycle_mean_loss.cpp
         src/simulation/cycle_accounting_method_descriptors.cpp
         src/simulation/cycle_accounting_method_registry.cpp
         src/simulation/engine_sim_v1_starter_motor.cpp
