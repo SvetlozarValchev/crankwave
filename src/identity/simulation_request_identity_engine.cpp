@@ -835,8 +835,17 @@ write_legacy_vtec_alternate(CanonicalJsonWriter &writer,
     return writer.begin_object() && writer.key("intake") &&
            write_legacy_camshaft(writer, alternate.intake) && writer.key("exhaust") &&
            write_legacy_camshaft(writer, alternate.exhaust) &&
-           writer.key("activation") &&
-           write_legacy_vtec_activation(writer, alternate.activation) &&
+           writer.key("selectors") &&
+           write_array(writer, alternate.selectors,
+                       [](CanonicalJsonWriter &output,
+                          const contract::LegacyVtecBankSelector &selector) {
+                           return output.begin_object() && output.key("bank_id") &&
+                                  write_stable_id(output, selector.bank_id) &&
+                                  output.key("activation") &&
+                                  write_legacy_vtec_activation(output,
+                                                               selector.activation) &&
+                                  output.end_object();
+                       }) &&
            writer.end_object();
 }
 

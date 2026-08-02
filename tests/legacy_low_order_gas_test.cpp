@@ -757,16 +757,19 @@ void configure_vtec_alternate(AuthoredEngineFixture &request, bool distinct_alte
         offset_cam_advance(alternate.exhaust, 0.35);
     }
 
-    alternate.activation.minimum_engine_speed_rad_s =
+    LegacyVtecBankSelector selector;
+    selector.bank_id = request.engine.banks.front().id;
+    selector.activation.minimum_engine_speed_rad_s =
         core.ignition.timing_curve_triangle_radius_rad_s;
-    alternate.activation.minimum_engine_speed_rad_s.value = 0.0;
-    alternate.activation.minimum_mean_manifold_pressure_pa_abs =
+    selector.activation.minimum_engine_speed_rad_s.value = 0.0;
+    selector.activation.minimum_mean_manifold_pressure_pa_abs =
         core.gas_path.intakes.front().parameters.plenum_volume_m3;
-    alternate.activation.minimum_mean_manifold_pressure_pa_abs.value = 1.0;
-    alternate.activation.minimum_throttle_linkage_opening_01 =
+    selector.activation.minimum_mean_manifold_pressure_pa_abs.value = 1.0;
+    selector.activation.minimum_throttle_linkage_opening_01 =
         std::get<DirectThrottleControllerV1>(core.throttle_controller).gamma;
-    alternate.activation.minimum_throttle_linkage_opening_01.value =
+    selector.activation.minimum_throttle_linkage_opening_01.value =
         force_alternate_active ? 0.0 : 0.8;
+    alternate.selectors.push_back(std::move(selector));
     core.valvetrain.alternate.emplace(std::move(alternate));
 }
 
@@ -1354,9 +1357,8 @@ void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical)
         engine_sim_offline::test::low_order_core(request.engine)
             .gas_path.intakes.front()
             .parameters.main_mixture_lambda.value = 0.0;
-        expect_gas_compile_rejected(
-            request, "gas_path.intakes[0].parameters",
-            "zero intake main-mixture lambda");
+        expect_gas_compile_rejected(request, "gas_path.intakes[0].parameters",
+                                    "zero intake main-mixture lambda");
     }
 
     {

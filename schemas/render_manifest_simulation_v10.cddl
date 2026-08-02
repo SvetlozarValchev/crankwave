@@ -446,6 +446,11 @@ legacy-cam-lobe = {
 legacy-vtec-alternate-cam-profile = {
   "intake": legacy-camshaft-profile,
   "exhaust": legacy-camshaft-profile,
+  "selectors": [1* legacy-vtec-bank-selector]
+}
+
+legacy-vtec-bank-selector = {
+  "bank_id": stable-id,
   "activation": legacy-vtec-activation-profile
 }
 

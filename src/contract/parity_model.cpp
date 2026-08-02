@@ -431,15 +431,18 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
                            std::string(root) + ".valvetrain.alternate.intake");
             visit_camshaft(alternate.exhaust,
                            std::string(root) + ".valvetrain.alternate.exhaust");
-            function(alternate.activation.minimum_engine_speed_rad_s,
-                     std::string(root) + ".valvetrain.alternate.activation."
-                                         "minimum_engine_speed_rad_s");
-            function(alternate.activation.minimum_mean_manifold_pressure_pa_abs,
-                     std::string(root) + ".valvetrain.alternate.activation."
-                                         "minimum_mean_manifold_pressure_pa_abs");
-            function(alternate.activation.minimum_throttle_linkage_opening_01,
-                     std::string(root) + ".valvetrain.alternate.activation."
-                                         "minimum_throttle_linkage_opening_01");
+            for (std::size_t index = 0; index < alternate.selectors.size(); ++index) {
+                const auto &activation = alternate.selectors[index].activation;
+                const auto selector_base = std::string(root) +
+                                           ".valvetrain.alternate.selectors.selector-" +
+                                           std::to_string(index) + ".activation.";
+                function(activation.minimum_engine_speed_rad_s,
+                         selector_base + "minimum_engine_speed_rad_s");
+                function(activation.minimum_mean_manifold_pressure_pa_abs,
+                         selector_base + "minimum_mean_manifold_pressure_pa_abs");
+                function(activation.minimum_throttle_linkage_opening_01,
+                         selector_base + "minimum_throttle_linkage_opening_01");
+            }
         }
     }
 
@@ -2133,15 +2136,49 @@ void validate_low_order_core_domains(ValidationReport &report,
                           "valvetrain.alternate.intake");
         validate_camshaft(alternate.exhaust, PortKind::exhaust,
                           "valvetrain.alternate.exhaust");
-        require(
-            report,
-            finite_nonnegative(alternate.activation.minimum_engine_speed_rad_s.value) &&
-                finite_positive(
-                    alternate.activation.minimum_mean_manifold_pressure_pa_abs.value) &&
-                detail::unit_interval(
-                    alternate.activation.minimum_throttle_linkage_opening_01.value),
-            ContractIssueCode::invalid_value, "valvetrain.alternate.activation",
-            "VTEC activation thresholds are outside their executable domains");
+        require(report, !alternate.selectors.empty(), ContractIssueCode::missing_value,
+                "valvetrain.alternate.selectors",
+                "alternate cams require at least one bank-local VTEC selector");
+        std::unordered_set<std::uint32_t> selector_bank_ids;
+        std::size_t previous_bank_index = 0U;
+        bool first_selector = true;
+        bool canonical_selector_order = true;
+        for (std::size_t index = 0; index < alternate.selectors.size(); ++index) {
+            const auto &selector = alternate.selectors[index];
+            const auto bank =
+                std::ranges::find(engine.banks, selector.bank_id, &BankSpec::id);
+            const bool known_unique_bank =
+                bank != engine.banks.end() && selector.bank_id.valid() &&
+                selector_bank_ids.insert(selector.bank_id.value).second;
+            require(
+                report, known_unique_bank, ContractIssueCode::inconsistent_semantics,
+                "valvetrain.alternate.selectors[" + std::to_string(index) + "].bank_id",
+                "each VTEC selector must bind one unique engine bank");
+            if (bank != engine.banks.end()) {
+                const auto bank_index =
+                    static_cast<std::size_t>(bank - engine.banks.begin());
+                canonical_selector_order =
+                    canonical_selector_order &&
+                    (first_selector || bank_index > previous_bank_index);
+                previous_bank_index = bank_index;
+                first_selector = false;
+            }
+            const auto &activation = selector.activation;
+            require(report,
+                    finite_nonnegative(activation.minimum_engine_speed_rad_s.value) &&
+                        finite_positive(
+                            activation.minimum_mean_manifold_pressure_pa_abs.value) &&
+                        detail::unit_interval(
+                            activation.minimum_throttle_linkage_opening_01.value),
+                    ContractIssueCode::invalid_value,
+                    "valvetrain.alternate.selectors[" + std::to_string(index) +
+                        "].activation",
+                    "VTEC activation thresholds are outside their executable domains");
+        }
+        require(report, canonical_selector_order,
+                ContractIssueCode::inconsistent_semantics,
+                "valvetrain.alternate.selectors",
+                "VTEC selectors must follow engine-bank order");
     }
 
     require(report,

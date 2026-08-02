@@ -110,19 +110,23 @@ LegacyCamshaftProfile make_vtec_camshaft(InputBuilder &builder,
 LegacyVtecAlternateCamProfile
 make_vtec_alternate(InputBuilder &builder, const LegacyValvetrainProfile &valvetrain) {
     constexpr std::string_view kActivationBase =
-        "engine.physics.low-order-operating-point-v1.valvetrain.alternate.activation";
+        "engine.physics.low-order-operating-point-v1.valvetrain.alternate.selectors."
+        "selector-0.activation";
     return {
         make_vtec_camshaft(builder, valvetrain.intake, "intake", 0.0115),
         make_vtec_camshaft(builder, valvetrain.exhaust, "exhaust", 0.0105),
-        {
-            builder.resolved(607.3745796940267, std::string{kActivationBase} +
-                                                    ".minimum_engine_speed_rad_s"),
-            builder.resolved(84393.05666666667,
-                             std::string{kActivationBase} +
-                                 ".minimum_mean_manifold_pressure_pa_abs"),
-            builder.resolved(0.3, std::string{kActivationBase} +
-                                      ".minimum_throttle_linkage_opening_01"),
-        },
+        {{
+            BankId{1},
+            {
+                builder.resolved(607.3745796940267, std::string{kActivationBase} +
+                                                        ".minimum_engine_speed_rad_s"),
+                builder.resolved(84393.05666666667,
+                                 std::string{kActivationBase} +
+                                     ".minimum_mean_manifold_pressure_pa_abs"),
+                builder.resolved(0.3, std::string{kActivationBase} +
+                                          ".minimum_throttle_linkage_opening_01"),
+            },
+        }},
     };
 }
 
@@ -276,8 +280,31 @@ void run_parity_model_contract_tests() {
         [](EngineSpec &engine, InputBuilder &builder) {
             auto &valvetrain = operating_profile(engine).core.valvetrain;
             valvetrain.alternate = make_vtec_alternate(builder, valvetrain);
-            valvetrain.alternate->activation.minimum_mean_manifold_pressure_pa_abs
-                .value = 0.0;
+            valvetrain.alternate->selectors.front()
+                .activation.minimum_mean_manifold_pressure_pa_abs.value = 0.0;
+        });
+    expect_parity_mutation_rejected(
+        "alternate VTEC cams without a bank selector were accepted",
+        [](EngineSpec &engine, InputBuilder &builder) {
+            auto &valvetrain = operating_profile(engine).core.valvetrain;
+            valvetrain.alternate = make_vtec_alternate(builder, valvetrain);
+            valvetrain.alternate->selectors.clear();
+        });
+    expect_parity_mutation_rejected("duplicate VTEC bank selectors were accepted",
+                                    [](EngineSpec &engine, InputBuilder &builder) {
+                                        auto &valvetrain =
+                                            operating_profile(engine).core.valvetrain;
+                                        valvetrain.alternate =
+                                            make_vtec_alternate(builder, valvetrain);
+                                        valvetrain.alternate->selectors.push_back(
+                                            valvetrain.alternate->selectors.front());
+                                    });
+    expect_parity_mutation_rejected(
+        "VTEC selector for an unknown bank was accepted",
+        [](EngineSpec &engine, InputBuilder &builder) {
+            auto &valvetrain = operating_profile(engine).core.valvetrain;
+            valvetrain.alternate = make_vtec_alternate(builder, valvetrain);
+            valvetrain.alternate->selectors.front().bank_id = BankId{999U};
         });
 
     expect_parity_mutation_rejected(
@@ -501,7 +528,6 @@ void run_parity_model_contract_tests() {
                     .parameters.main_throttle.resolved_k.resolution_id;
             falsely_mark_authored(builder, resolution_id);
         });
-
 }
 
 } // namespace engine_sim_offline::contract::test

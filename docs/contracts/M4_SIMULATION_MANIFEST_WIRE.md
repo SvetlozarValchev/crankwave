@@ -13,15 +13,18 @@ Machine schema:
 [`schemas/render_manifest_simulation_v10.cddl`](../../schemas/render_manifest_simulation_v10.cddl)
 
 Schema SHA-256:
-`57d42cf2ebce64ec2baaba39f3e9e823665ed20b11b1bfe7dccec1f4bf62b22e`
+`f9d511ace6e35230a1d50c2a59ed5f8e35382adb3280cbb34aa5c9c10014ae03`
 
 The v10/v7 cutover replaces the resolved valvetrain's one-shape-per-role projection
 with ordered bank-local cam-profile pools and an explicit profile index on every
 lobe. Profiles enter each pool in canonical engine-cylinder first-use order, and all
-lobes on one physical cam bind the same profile. General multi-head VTEC remains
-closed. The existing crankshaft-, bank-, intake-, head-, wire-, and route-keyed
-topology remains unchanged. This is an incompatible current grammar, so the project
-retains only the v10 CDDL and exposes no v9/v6 alias.
+lobes on one physical cam bind the same profile. Ordered bank-keyed VTEC selectors
+replace the former single-head boundary. Each selector owns one threshold triple;
+alternate cam roles remain
+total over all cylinders, with standard banks using their exact base cams as inert
+fillers. The existing crankshaft-, bank-, intake-, head-, wire-, and route-keyed
+topology otherwise remains unchanged. This is an incompatible current grammar, so
+the project retains only the v10 CDDL and exposes no older alias.
 
 Each resolved cylinder now owns the calibrated blowby restriction of its referenced
 piston. The gas-path record no longer carries a shared representative restriction.
@@ -111,9 +114,10 @@ therefore v10. The superseded `simulation_v8` discriminator is not retained.
 The request-v7 root has the exact member order `wire_schema`, `engine`, `scenario`,
 `random_plan`, `provenance`. It calls the same engine, scenario, and random-plan
 writers as the completed manifest. Its version advances because the engine grammar
-now carries ordered bank-local cam profiles and explicit per-lobe profile bindings.
-The stable crankshaft, intake, head, and route identities from the preceding grammar
-remain unchanged. The request-v6 root is deleted rather than accepted as an alias.
+now carries ordered bank-local cam profiles, explicit per-lobe profile bindings, and
+bank-keyed VTEC selectors. The stable crankshaft, intake, head, and route identities
+from the preceding grammar remain unchanged. The request-v6 root is deleted rather
+than accepted as an alias.
 
 The final executable-profile union is exactly:
 

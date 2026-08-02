@@ -456,10 +456,22 @@ struct LegacyVtecActivationProfile {
                            const LegacyVtecActivationProfile &) = default;
 };
 
+// Pristine owns VTEC selection at the cylinder head.  The executable contract
+// normalizes that ownership to the bank served by the head so each cylinder can
+// select its bank's coherent intake/exhaust pair while all selectors observe the
+// same engine-global operating state.
+struct LegacyVtecBankSelector {
+    BankId bank_id;
+    LegacyVtecActivationProfile activation;
+
+    friend bool operator==(const LegacyVtecBankSelector &,
+                           const LegacyVtecBankSelector &) = default;
+};
+
 struct LegacyVtecAlternateCamProfile {
     LegacyCamshaftProfile intake;
     LegacyCamshaftProfile exhaust;
-    LegacyVtecActivationProfile activation;
+    std::vector<LegacyVtecBankSelector> selectors;
 
     friend bool operator==(const LegacyVtecAlternateCamProfile &,
                            const LegacyVtecAlternateCamProfile &) = default;

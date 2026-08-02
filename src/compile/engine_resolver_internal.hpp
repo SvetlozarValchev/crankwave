@@ -58,7 +58,6 @@ struct ModelContext {
     std::string calibration_id;
 
     const authoring::CrankshaftDefinition *output_crankshaft = nullptr;
-    const authoring::ValvetrainDefinition *valvetrain = nullptr;
     const authoring::FuelDefinition *fuel = nullptr;
     const authoring::ThrottleControllerDefinition *throttle_controller = nullptr;
     const authoring::AccessoryConfigurationDefinition *accessory_configuration =
@@ -110,6 +109,10 @@ struct ModelContext {
         alternate_intake_camshaft_for_cylinder;
     std::unordered_map<std::string, const authoring::CamshaftDefinition *>
         alternate_exhaust_camshaft_for_cylinder;
+    // VTEC is owned by the head serving a bank. Standard-valvetrain banks have no
+    // entry; separate VTEC banks may point at distinct definitions/thresholds.
+    std::unordered_map<std::string, const authoring::VtecValvetrain *>
+        vtec_valvetrain_for_bank;
 };
 
 class ResolutionEmitter {

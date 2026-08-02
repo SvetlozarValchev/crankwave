@@ -135,19 +135,23 @@ LegacyCamshaftProfile make_vtec_camshaft(InputBuilder &builder,
 LegacyVtecAlternateCamProfile
 make_vtec_alternate(InputBuilder &builder, const LegacyValvetrainProfile &valvetrain) {
     constexpr std::string_view kActivationBase =
-        "engine.physics.low-order-operating-point-v1.valvetrain.alternate.activation";
+        "engine.physics.low-order-operating-point-v1.valvetrain.alternate.selectors."
+        "selector-0.activation";
     return {
         make_vtec_camshaft(builder, valvetrain.intake, "intake", 0.0115),
         make_vtec_camshaft(builder, valvetrain.exhaust, "exhaust", 0.0105),
-        {
-            builder.resolved(607.3745796940267, std::string{kActivationBase} +
-                                                    ".minimum_engine_speed_rad_s"),
-            builder.resolved(84393.05666666667,
-                             std::string{kActivationBase} +
-                                 ".minimum_mean_manifold_pressure_pa_abs"),
-            builder.resolved(0.3, std::string{kActivationBase} +
-                                      ".minimum_throttle_linkage_opening_01"),
-        },
+        {{
+            BankId{1},
+            {
+                builder.resolved(607.3745796940267, std::string{kActivationBase} +
+                                                        ".minimum_engine_speed_rad_s"),
+                builder.resolved(84393.05666666667,
+                                 std::string{kActivationBase} +
+                                     ".minimum_mean_manifold_pressure_pa_abs"),
+                builder.resolved(0.3, std::string{kActivationBase} +
+                                          ".minimum_throttle_linkage_opening_01"),
+            },
+        }},
     };
 }
 
@@ -559,8 +563,12 @@ void test_vtec_request_identity_wire_shape() {
         manifest_document.find("\"alternate\":{\"intake\":", valvetrain_position);
     const auto alternate_exhaust_position =
         manifest_document.find("\"exhaust\":", alternate_position);
+    const auto selectors_position =
+        manifest_document.find("\"selectors\":[", alternate_exhaust_position);
+    const auto selector_bank_position =
+        manifest_document.find("\"bank_id\":", selectors_position);
     const auto activation_position =
-        manifest_document.find("\"activation\":", alternate_exhaust_position);
+        manifest_document.find("\"activation\":", selector_bank_position);
     const auto speed_position =
         manifest_document.find("\"minimum_engine_speed_rad_s\":", activation_position);
     const auto pressure_position = manifest_document.find(
@@ -570,13 +578,17 @@ void test_vtec_request_identity_wire_shape() {
     expect(valvetrain_position != std::string::npos &&
                alternate_position != std::string::npos &&
                alternate_exhaust_position != std::string::npos &&
+               selectors_position != std::string::npos &&
+               selector_bank_position != std::string::npos &&
                activation_position != std::string::npos &&
                speed_position != std::string::npos &&
                pressure_position != std::string::npos &&
                throttle_position != std::string::npos &&
                valvetrain_position < alternate_position &&
                alternate_position < alternate_exhaust_position &&
-               alternate_exhaust_position < activation_position &&
+               alternate_exhaust_position < selectors_position &&
+               selectors_position < selector_bank_position &&
+               selector_bank_position < activation_position &&
                activation_position < speed_position &&
                speed_position < pressure_position &&
                pressure_position < throttle_position,
@@ -588,6 +600,8 @@ void test_vtec_request_identity_wire_shape() {
         fixture.manifest.content.provenance);
     const auto identity_document = as_string(first.bytes);
     expect(identity_document.find("\"alternate\":{\"intake\":") != std::string::npos &&
+               identity_document.find("\"selectors\":[{\"bank_id\":") !=
+                   std::string::npos &&
                identity_document.find("\"minimum_engine_speed_rad_s\":") !=
                    std::string::npos &&
                identity_document.find("\"minimum_mean_manifold_pressure_pa_abs\":") !=
@@ -610,12 +624,23 @@ void test_vtec_request_identity_wire_shape() {
 
     auto changed_threshold = resolved.engine;
     std::get<LowOrderOperatingPointV1Profile>(changed_threshold.physics_profile)
-        .core.valvetrain.alternate->activation.minimum_engine_speed_rad_s.value += 1.0;
+        .core.valvetrain.alternate->selectors.front()
+        .activation.minimum_engine_speed_rad_s.value += 1.0;
     const auto threshold_identity = require_request_identity_encoding(
         changed_threshold, resolved.scenario, fixture.manifest.content.randomness,
         fixture.manifest.content.provenance);
     expect(threshold_identity.sha256 != first.sha256,
            "VTEC activation-threshold mutation did not change request identity");
+
+    auto changed_selector_bank = resolved.engine;
+    std::get<LowOrderOperatingPointV1Profile>(changed_selector_bank.physics_profile)
+        .core.valvetrain.alternate->selectors.front()
+        .bank_id = BankId{2U};
+    const auto selector_bank_identity = require_request_identity_encoding(
+        changed_selector_bank, resolved.scenario, fixture.manifest.content.randomness,
+        fixture.manifest.content.provenance);
+    expect(selector_bank_identity.sha256 != first.sha256,
+           "VTEC selector bank mutation did not change request identity");
 }
 
 void test_fail_closed_boundaries() {

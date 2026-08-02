@@ -5,10 +5,29 @@ Status: source-audited parity authority for headless slice 8
 Authority: Ange Yaghi `engine-sim` commit
 `85f7c3b959a908ed5232ede4f1a4ac7eafe6b630`
 
+## Executed ownership
+
+Pristine does not own one engine-wide VTEC selector. Each `CylinderHeadNode`
+generates the valvetrain referenced by that head, and each
+`VtecValvetrainNode::generate()` call allocates a fresh `VtecValvetrain` plus
+four fresh base/alternate camshafts (`scripting/include/cylinder_head_node.h:23-35`,
+`scripting/include/vtec_valvetrain_node.h:17-45`). The resulting selector retains:
+
+- its own base and alternate intake/exhaust camshaft pointers;
+- its own RPM, manifold-pressure, and throttle-opening thresholds; and
+- a pointer to the shared engine state.
+
+Separate bank-local heads may therefore use standard and VTEC valvetrains in the
+same engine, or use distinct VTEC valvetrains with different cams and thresholds.
+Two VTEC banks can consequently select different profiles when their local
+thresholds straddle the same sensed engine state. The shipped Honda fixture has
+only one bank, so this general topology follows from the executed construction path,
+not from a multi-bank production calibration.
+
 ## Executed selector
 
 Pristine `VtecValvetrain::isVtecEnabled()` selects the alternate intake and
-exhaust cams when all three strict predicates are true:
+exhaust cams belonging to that valvetrain when all three strict predicates are true:
 
 ```text
 mean intake-manifold absolute pressure > pressure threshold
@@ -17,8 +36,9 @@ abs(crank angular speed)              > engine-speed threshold
 ```
 
 Equality does not activate the alternate cams. The selector has no hysteresis,
-blend, delay, debounce, or retained state. The same decision selects both
-alternate camshafts.
+blend, delay, debounce, or retained state. Intake and exhaust do not have separate
+activation thresholds: both query the same predicate, although each role owns its
+own base and alternate camshaft.
 
 The values come from current engine state:
 
@@ -28,10 +48,35 @@ The values come from current engine state:
 - `Engine::getThrottle()` returns the linkage-resolved throttle closedness, not
   the caller's unshaped throttle request.
 
+These three values are engine-global inputs. In particular, every bank-local
+selector receives the same arithmetic mean across all intake plenums; it does not
+read only the intake bound to its own cylinders. The selector thresholds and chosen
+camshafts remain valvetrain-local.
+
+## Exact evaluation timing
+
+Pristine does not explicitly evaluate one engine-wide selector once per frame.
+After the rigid-mechanics step and throttle-linkage update, it visits combustion
+chambers in engine-cylinder order (`src/simulator.cpp:95-149`,
+`src/piston_engine_simulator.cpp:283-318`). Each chamber caches intake conductance
+and then exhaust conductance. Those two lift queries independently call the same
+head-local `isVtecEnabled()` predicate (`src/combustion_chamber.cpp:226-233`,
+`src/cylinder_head.cpp:51-67`, `src/vtec_valvetrain.cpp:37-66`).
+
+The three sensed inputs do not change between those per-port calls: mechanics and
+throttle have already committed, and intake/cylinder fluid substeps occur only after
+every chamber has cached both conductances. The intake and exhaust results for one
+selector are therefore coherent despite the repeated source calls. A clean-room
+implementation may snapshot the pure predicate once per bank-local valvetrain at the
+physics-step boundary and reuse that decision for its cylinders and both ports; this
+is numerically equivalent to the source order, not a claim that pristine literally
+made one call. The snapshot follows the scenario's admitted physics clock. It is not
+fixed at 10 kHz; the pinned Honda asset authors a 20 kHz simulation frequency.
+
 The clean-room runtime takes the arithmetic mean across all admitted intake-plenum
-pressures in canonical intake order; one intake remains the identity case. It
-evaluates the selector once per 10 kHz gas frame before valve sampling. Every cylinder
-in that frame therefore sees one coherent base or alternate cam pair.
+pressures in canonical intake order; one intake remains the identity case. It then
+evaluates each bank-local selector against that shared mean and the current global
+speed and linkage position before valve sampling.
 
 ## Deliberately absent input
 

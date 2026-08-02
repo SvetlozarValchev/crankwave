@@ -388,14 +388,12 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         return report;
     }
 
-    resolved.valvetrain =
-        resolved.valvetrains.at(engine.heads.front().valvetrain.value);
-
     struct ValvetrainCams {
         const authoring::CamshaftDefinition *intake = nullptr;
         const authoring::CamshaftDefinition *exhaust = nullptr;
         const authoring::CamshaftDefinition *alternate_intake = nullptr;
         const authoring::CamshaftDefinition *alternate_exhaust = nullptr;
+        const authoring::VtecValvetrain *vtec = nullptr;
     };
     std::unordered_map<std::string, ValvetrainCams> valvetrain_cams;
     const auto find_camshaft = [&](const authoring::CamshaftRef &reference,
@@ -420,11 +418,7 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
                 find_camshaft(standard->exhaust_camshaft, path + "/exhaust_camshaft");
         } else if (const auto *vtec =
                        std::get_if<authoring::VtecValvetrain>(&valvetrain.kind)) {
-            if (engine.heads.size() != 1U) {
-                add(report, DiagnosticCode::unsupported_capability, path + "/type",
-                    "multiple bank-local heads currently admit standard valvetrains "
-                    "only");
-            }
+            cams.vtec = vtec;
             cams.intake = find_camshaft(vtec->base_intake_camshaft,
                                         path + "/base_intake_camshaft");
             cams.exhaust = find_camshaft(vtec->base_exhaust_camshaft,
@@ -440,6 +434,16 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         return report;
     }
 
+    const bool has_vtec = std::ranges::any_of(
+        valvetrain_cams, [](const auto &item) { return item.second.vtec != nullptr; });
+    for (const auto &bank : engine.banks) {
+        const auto &head = *resolved.heads.at(bank.head.value);
+        const auto &cams = valvetrain_cams.at(head.valvetrain.value);
+        if (cams.vtec != nullptr) {
+            resolved.vtec_valvetrain_for_bank.emplace(bank.id.value, cams.vtec);
+        }
+    }
+
     for (std::size_t index = 0; index < engine.cylinders.size(); ++index) {
         const auto &cylinder = engine.cylinders[index];
         const auto bank = resolved.banks.find(cylinder.bank.value);
@@ -453,11 +457,14 @@ DiagnosticReport admit_engine_document(const authoring::EnginePackageDocument &d
         const auto &cams = valvetrain_cams.at(head.valvetrain.value);
         resolved.intake_camshaft_for_cylinder.emplace(cylinder.id.value, cams.intake);
         resolved.exhaust_camshaft_for_cylinder.emplace(cylinder.id.value, cams.exhaust);
-        if (cams.alternate_intake != nullptr && cams.alternate_exhaust != nullptr) {
+        if (has_vtec) {
             resolved.alternate_intake_camshaft_for_cylinder.emplace(
-                cylinder.id.value, cams.alternate_intake);
+                cylinder.id.value,
+                cams.alternate_intake != nullptr ? cams.alternate_intake : cams.intake);
             resolved.alternate_exhaust_camshaft_for_cylinder.emplace(
-                cylinder.id.value, cams.alternate_exhaust);
+                cylinder.id.value, cams.alternate_exhaust != nullptr
+                                       ? cams.alternate_exhaust
+                                       : cams.exhaust);
         }
     }
     if (report.has_errors()) {

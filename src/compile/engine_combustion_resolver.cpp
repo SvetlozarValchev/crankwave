@@ -149,7 +149,6 @@ void resolve_valvetrain(const ModelContext &context, ResolutionEmitter &emitter,
         return;
     }
 
-    const auto &vtec = std::get<authoring::VtecValvetrain>(context.valvetrain->kind);
     contract::LegacyVtecAlternateCamProfile alternate;
     alternate.intake =
         resolve_camshaft(context, context.alternate_intake_camshaft_for_cylinder,
@@ -157,16 +156,28 @@ void resolve_valvetrain(const ModelContext &context, ResolutionEmitter &emitter,
     alternate.exhaust =
         resolve_camshaft(context, context.alternate_exhaust_camshaft_for_cylinder,
                          authoring::PortKind::exhaust, "alternate.exhaust", emitter);
-    const auto activation_base = profile_path("valvetrain.alternate.activation");
-    alternate.activation.minimum_engine_speed_rad_s =
-        emitter.authored(legacy_si_value(vtec.activation.minimum_engine_speed),
-                         activation_base + ".minimum_engine_speed_rad_s");
-    alternate.activation.minimum_mean_manifold_pressure_pa_abs =
-        emitter.authored(legacy_si_value(vtec.activation.minimum_manifold_pressure_abs),
-                         activation_base + ".minimum_mean_manifold_pressure_pa_abs");
-    alternate.activation.minimum_throttle_linkage_opening_01 =
-        emitter.authored(vtec.activation.minimum_throttle_linkage_opening_01,
-                         activation_base + ".minimum_throttle_linkage_opening_01");
+    for (const auto &bank : context.document.engine.banks) {
+        const auto selected = context.vtec_valvetrain_for_bank.find(bank.id.value);
+        if (selected == context.vtec_valvetrain_for_bank.end()) {
+            continue;
+        }
+        const auto &vtec = *selected->second;
+        const auto activation_base =
+            profile_path("valvetrain.alternate.selectors.selector-" +
+                         std::to_string(alternate.selectors.size()) + ".activation");
+        contract::LegacyVtecBankSelector selector;
+        selector.bank_id = bank_id(context, bank.id.value);
+        selector.activation.minimum_engine_speed_rad_s =
+            emitter.authored(legacy_si_value(vtec.activation.minimum_engine_speed),
+                             activation_base + ".minimum_engine_speed_rad_s");
+        selector.activation.minimum_mean_manifold_pressure_pa_abs = emitter.authored(
+            legacy_si_value(vtec.activation.minimum_manifold_pressure_abs),
+            activation_base + ".minimum_mean_manifold_pressure_pa_abs");
+        selector.activation.minimum_throttle_linkage_opening_01 =
+            emitter.authored(vtec.activation.minimum_throttle_linkage_opening_01,
+                             activation_base + ".minimum_throttle_linkage_opening_01");
+        alternate.selectors.push_back(std::move(selector));
+    }
     core.valvetrain.alternate.emplace(std::move(alternate));
 }
 

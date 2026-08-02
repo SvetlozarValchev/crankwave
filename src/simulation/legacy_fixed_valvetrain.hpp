@@ -135,18 +135,21 @@ class LegacySelectableValvetrain final {
     operator=(LegacySelectableValvetrain &&) noexcept = default;
 
     [[nodiscard]] const LegacyFixedValvetrain &
-    profile_for(const LegacyVtecSelectorInput &input) const noexcept;
+    profile_for(std::size_t cylinder_index,
+                const LegacyVtecSelectorInput &input) const noexcept;
 
   private:
     LegacySelectableValvetrain(LegacyFixedValvetrain base,
                                std::optional<LegacyFixedValvetrain> alternate,
-                               std::optional<LegacyVtecSelectorThresholds> thresholds);
+                               std::vector<std::optional<LegacyVtecSelectorThresholds>>
+                                   thresholds_by_cylinder);
     [[nodiscard]] bool
-    alternate_profile_active(const LegacyVtecSelectorInput &input) const noexcept;
+    alternate_profile_active(std::size_t cylinder_index,
+                             const LegacyVtecSelectorInput &input) const noexcept;
 
     LegacyFixedValvetrain base_;
     std::optional<LegacyFixedValvetrain> alternate_;
-    std::optional<LegacyVtecSelectorThresholds> thresholds_;
+    std::vector<std::optional<LegacyVtecSelectorThresholds>> thresholds_by_cylinder_;
 
     friend std::variant<LegacySelectableValvetrain, contract::ValidationReport>
     compile_legacy_selectable_valvetrain(const contract::EngineSpec &,
@@ -156,9 +159,10 @@ class LegacySelectableValvetrain final {
 using LegacySelectableValvetrainCompileResult =
     std::variant<LegacySelectableValvetrain, contract::ValidationReport>;
 
-// Compiles the fixed base pair unchanged. When an alternate pair is present, it is
-// independently compiled through the same fixed-valvetrain compiler and selected by
-// the stateless pristine VTEC predicate.
+// Compiles the fixed base pair unchanged. When alternate roles are present, they are
+// independently compiled through the same fixed-valvetrain compiler. Each cylinder
+// then selects through the stateless predicate owned by its bank; standard banks
+// have no selector and remain on their base pair.
 [[nodiscard]] LegacySelectableValvetrainCompileResult
 compile_legacy_selectable_valvetrain(const contract::EngineSpec &engine,
                                      const contract::LowOrderEngineCoreV1 &core);

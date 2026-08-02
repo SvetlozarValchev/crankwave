@@ -333,6 +333,23 @@ require_fixed_valvetrain(const contract::EngineSpec &engine,
     return std::get<simulation::LegacyFixedValvetrain>(std::move(result));
 }
 
+[[nodiscard]] simulation::LegacySelectableValvetrain
+require_selectable_valvetrain(const contract::EngineSpec &engine,
+                              const contract::LowOrderOperatingPointV1Profile &profile,
+                              const std::string_view context) {
+    auto result =
+        simulation::compile_legacy_selectable_valvetrain(engine, profile.core);
+    if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
+        std::string message{context};
+        if (!report->issues.empty()) {
+            message += " at " + report->issues.front().path + ": " +
+                       report->issues.front().message;
+        }
+        throw std::runtime_error{message};
+    }
+    return std::get<simulation::LegacySelectableValvetrain>(std::move(result));
+}
+
 [[nodiscard]] const contract::LegacyCamShape &
 only_cam_profile(const contract::LegacyCamshaftProfile &camshaft) {
     expect(camshaft.profiles.size() == 1U,
@@ -975,6 +992,80 @@ void use_equivalent_split_bank_heads_and_standard_valvetrains(
         cylinder.intake_port.value = kRightIntakePortId;
         cylinder.exhaust_port.value = kRightExhaustPortId;
     }
+}
+
+void convert_standard_valvetrain_to_bank_local_vtec(
+    authoring::EnginePackageDocument &package, const std::string_view valvetrain_id,
+    const std::string_view bank_label, const double minimum_engine_speed_rpm) {
+    auto &engine = package.engine;
+    const auto valvetrain = std::ranges::find(
+        engine.valvetrains, valvetrain_id,
+        [](const auto &value) -> std::string_view { return value.id.value; });
+    expect(valvetrain != engine.valvetrains.end(),
+           "bank-local VTEC fixture omitted its standard valvetrain");
+    const auto *standard =
+        std::get_if<authoring::StandardValvetrain>(&valvetrain->kind);
+    expect(standard != nullptr,
+           "bank-local VTEC fixture expected a standard source valvetrain");
+    const auto base = *standard;
+
+    const auto clone_alternate_cam =
+        [&](const authoring::CamshaftRef &base_reference,
+            const authoring::PortKind expected_kind,
+            const std::string_view role) -> authoring::CamshaftRef {
+        const auto source = std::ranges::find(
+            engine.camshafts, base_reference.value,
+            [](const auto &value) -> std::string_view { return value.id.value; });
+        expect(source != engine.camshafts.end(),
+               "bank-local VTEC fixture omitted its base camshaft");
+        auto alternate = *source;
+        alternate.id.value = "fixture-vtec-" + std::string{bank_label} + "-alternate-" +
+                             std::string{role} + "-cam";
+        alternate.lobes.clear();
+
+        for (std::size_t index = 0; index < source->lobes.size(); ++index) {
+            const auto source_lobe = std::ranges::find(
+                engine.cam_lobes, source->lobes[index].value,
+                [](const auto &value) -> std::string_view { return value.id.value; });
+            expect(source_lobe != engine.cam_lobes.end() &&
+                       source_lobe->port_kind == expected_kind,
+                   "bank-local VTEC fixture omitted a matching base cam lobe");
+            auto alternate_lobe = *source_lobe;
+            alternate_lobe.id.value = "fixture-vtec-" + std::string{bank_label} +
+                                      "-alternate-" + std::string{role} + "-lobe-" +
+                                      std::to_string(index + 1U);
+            auto *harmonic =
+                std::get_if<authoring::HarmonicCamLobe>(&alternate_lobe.shape);
+            expect(harmonic != nullptr,
+                   "bank-local VTEC fixture expected harmonic base cam lobes");
+            harmonic->duration_at_reference_lift = quantity(
+                expected_kind == authoring::PortKind::intake ? 244.0 : 236.0, "deg");
+            harmonic->maximum_lift = quantity(
+                expected_kind == authoring::PortKind::intake ? 11.7 : 10.7, "mm");
+            alternate.lobes.push_back({alternate_lobe.id.value});
+            engine.cam_lobes.push_back(std::move(alternate_lobe));
+        }
+
+        const auto alternate_id = alternate.id.value;
+        engine.camshafts.push_back(std::move(alternate));
+        return {alternate_id};
+    };
+
+    const auto alternate_intake = clone_alternate_cam(
+        base.intake_camshaft, authoring::PortKind::intake, "intake");
+    const auto alternate_exhaust = clone_alternate_cam(
+        base.exhaust_camshaft, authoring::PortKind::exhaust, "exhaust");
+    valvetrain->kind = authoring::VtecValvetrain{
+        base.intake_camshaft,
+        base.exhaust_camshaft,
+        alternate_intake,
+        alternate_exhaust,
+        {
+            quantity(minimum_engine_speed_rpm, "rpm"),
+            quantity(80.0, "kPa"),
+            0.25,
+        },
+    };
 }
 
 void reorder_harmless_collections(authoring::EnginePackageDocument &package) {
@@ -1847,8 +1938,7 @@ void test_v_engine_resolves_bank_geometry_and_axis_relative_journals() {
         "fixture-shared-intake.main_mixture_lambda",
         &contract::ResolutionRecord::parameter_path);
     expect(intake_lambda_resolution != resolved.provenance.resolutions.end() &&
-               intake_lambda_resolution->mode ==
-                   contract::ResolutionMode::authored &&
+               intake_lambda_resolution->mode == contract::ResolutionMode::authored &&
                !intake_lambda_resolution->method.has_value() &&
                intake_lambda_resolution->dependency_parameter_paths.empty(),
            "intake main-mixture lambda lost direct authored provenance");
@@ -2521,13 +2611,16 @@ void test_four_cam_vtec_resolves_to_si_and_provenance() {
     const auto near = [](const double left, const double right) {
         return std::abs(left - right) <= 1.0e-12;
     };
+    expect(alternate.selectors.size() == 1U,
+           "single-bank VTEC profile did not resolve exactly one bank selector");
+    const auto &activation = alternate.selectors.front().activation;
     expect(
         near(alternate_intake.maximum_lift_m.value, 0.0115) &&
-            near(alternate.activation.minimum_engine_speed_rad_s.value,
-                 5800.0 * 0.104719755) &&
-            near(alternate.activation.minimum_mean_manifold_pressure_pa_abs.value,
+            alternate.selectors.front().bank_id == resolved.engine.banks.front().id &&
+            near(activation.minimum_engine_speed_rad_s.value, 5800.0 * 0.104719755) &&
+            near(activation.minimum_mean_manifold_pressure_pa_abs.value,
                  84393.05666666664) &&
-            near(alternate.activation.minimum_throttle_linkage_opening_01.value, 0.3),
+            near(activation.minimum_throttle_linkage_opening_01.value, 0.3),
         "VTEC alternate cam or activation thresholds lost canonical SI values");
 
     const auto has_resolution = [&](const std::string_view path) {
@@ -2542,17 +2635,173 @@ void test_four_cam_vtec_resolves_to_si_and_provenance() {
                "intake.profiles.profile-0.shape.maximum_lift_m") &&
                has_resolution(
                    "engine.physics.low-order-operating-point-v1.valvetrain.alternate."
-                   "activation.minimum_engine_speed_rad_s") &&
+                   "selectors.selector-0.activation.minimum_engine_speed_rad_s") &&
                has_resolution(
                    "engine.physics.low-order-operating-point-v1.valvetrain.alternate."
-                   "activation.minimum_mean_manifold_pressure_pa_abs") &&
+                   "selectors.selector-0.activation."
+                   "minimum_mean_manifold_pressure_pa_abs") &&
                has_resolution(
                    "engine.physics.low-order-operating-point-v1.valvetrain.alternate."
-                   "activation.minimum_throttle_linkage_opening_01"),
+                   "selectors.selector-0.activation."
+                   "minimum_throttle_linkage_opening_01"),
            "VTEC alternate cam or activation thresholds lost authored provenance");
 
     (void)require_value(compile::compile_engine(document, views),
                         "public compiler rejected a valid four-cam VTEC engine");
+}
+
+void test_bank_local_vtec_resolves_and_selects_per_cylinder_bank() {
+    const SyntheticAssets assets = make_assets();
+    auto views = assets.views();
+    constexpr double kRpmToRadPerSecond = 0.104719755;
+    const auto near = [](const double left, const double right) {
+        return std::abs(left - right) <= 1.0e-12;
+    };
+    const auto cylinder_index_for_bank = [](const contract::EngineSpec &engine,
+                                            const contract::BankId bank_id) {
+        const auto cylinder = std::ranges::find(engine.cylinders, bank_id,
+                                                &contract::CylinderSpec::bank_id);
+        expect(cylinder != engine.cylinders.end(),
+               "bank-local VTEC fixture lost a cylinder bank binding");
+        return static_cast<std::size_t>(
+            std::distance(engine.cylinders.begin(), cylinder));
+    };
+    const simulation::LegacyVtecSelectorInput below_both{
+        2000.0 * kRpmToRadPerSecond,
+        90'000.0,
+        0.8,
+    };
+    const simulation::LegacyVtecSelectorInput between_thresholds{
+        4000.0 * kRpmToRadPerSecond,
+        90'000.0,
+        0.8,
+    };
+    const simulation::LegacyVtecSelectorInput above_both{
+        6000.0 * kRpmToRadPerSecond,
+        90'000.0,
+        0.8,
+    };
+
+    {
+        auto document = make_v_six_document(assets);
+        use_equivalent_split_bank_heads_and_standard_valvetrains(document);
+        convert_standard_valvetrain_to_bank_local_vtec(
+            document, "fixture-standard-valvetrain", "left", 3000.0);
+        convert_standard_valvetrain_to_bank_local_vtec(
+            document, "fixture-standard-valvetrain-right", "right", 5000.0);
+
+        const auto resolved =
+            require_value(compile_detail::resolve_engine_package(document, views),
+                          "two-bank VTEC engine resolution failed");
+        const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+            resolved.engine.physics_profile);
+        expect(profile.core.valvetrain.alternate.has_value(),
+               "two-bank VTEC resolution omitted its alternate role");
+        const auto &alternate = *profile.core.valvetrain.alternate;
+        expect(
+            resolved.engine.banks.size() == 2U &&
+                resolved.engine.banks[0].semantic_id.value == "fixture-bank-left" &&
+                resolved.engine.banks[1].semantic_id.value == "fixture-bank-right" &&
+                alternate.selectors.size() == 2U &&
+                alternate.selectors[0].bank_id == resolved.engine.banks[0].id &&
+                alternate.selectors[1].bank_id == resolved.engine.banks[1].id &&
+                near(alternate.selectors[0].activation.minimum_engine_speed_rad_s.value,
+                     3000.0 * kRpmToRadPerSecond) &&
+                near(alternate.selectors[1].activation.minimum_engine_speed_rad_s.value,
+                     5000.0 * kRpmToRadPerSecond),
+            "two-bank VTEC selectors lost canonical bank order or distinct "
+            "thresholds");
+
+        auto selectable = require_selectable_valvetrain(
+            resolved.engine, profile, "two-bank VTEC runtime compilation failed");
+        const auto left_index =
+            cylinder_index_for_bank(resolved.engine, resolved.engine.banks[0].id);
+        const auto right_index =
+            cylinder_index_for_bank(resolved.engine, resolved.engine.banks[1].id);
+        const auto &left_base = selectable.profile_for(left_index, below_both);
+        const auto &right_base = selectable.profile_for(right_index, below_both);
+        const auto &left_between =
+            selectable.profile_for(left_index, between_thresholds);
+        const auto &right_between =
+            selectable.profile_for(right_index, between_thresholds);
+        const auto &left_above = selectable.profile_for(left_index, above_both);
+        const auto &right_above = selectable.profile_for(right_index, above_both);
+        expect(&left_base == &right_base && &left_between != &left_base &&
+                   &right_between == &right_base && &left_above == &left_between &&
+                   &right_above == &left_above,
+               "per-bank VTEC runtime did not select left-alternate/right-base at "
+               "the intermediate speed and both alternates above both thresholds");
+
+        (void)require_value(compile::compile_engine(document, views),
+                            "public compiler rejected two bank-local VTEC heads");
+    }
+
+    {
+        auto document = make_v_six_document(assets);
+        use_equivalent_split_bank_heads_and_standard_valvetrains(document);
+        convert_standard_valvetrain_to_bank_local_vtec(
+            document, "fixture-standard-valvetrain", "left", 3000.0);
+
+        const auto resolved =
+            require_value(compile_detail::resolve_engine_package(document, views),
+                          "mixed VTEC/standard bank engine resolution failed");
+        const auto &profile = std::get<contract::LowOrderOperatingPointV1Profile>(
+            resolved.engine.physics_profile);
+        expect(profile.core.valvetrain.alternate.has_value() &&
+                   profile.core.valvetrain.alternate->selectors.size() == 1U &&
+                   profile.core.valvetrain.alternate->selectors.front().bank_id ==
+                       resolved.engine.banks[0].id,
+               "mixed VTEC/standard engine did not retain exactly the VTEC bank "
+               "selector");
+
+        const auto left_index =
+            cylinder_index_for_bank(resolved.engine, resolved.engine.banks[0].id);
+        const auto right_index =
+            cylinder_index_for_bank(resolved.engine, resolved.engine.banks[1].id);
+        const auto right_cylinder_id = resolved.engine.cylinders[right_index].id;
+        const auto &alternate_contract = *profile.core.valvetrain.alternate;
+        const auto alternate_right_intake =
+            std::ranges::find(alternate_contract.intake.lobes, right_cylinder_id,
+                              &contract::LegacyCamLobe::cylinder_id);
+        const auto alternate_right_exhaust =
+            std::ranges::find(alternate_contract.exhaust.lobes, right_cylinder_id,
+                              &contract::LegacyCamLobe::cylinder_id);
+        expect(alternate_right_intake != alternate_contract.intake.lobes.end() &&
+                   alternate_right_exhaust != alternate_contract.exhaust.lobes.end(),
+               "mixed VTEC alternate role was not totalized with the standard "
+               "bank's base cams");
+
+        auto selectable = require_selectable_valvetrain(
+            resolved.engine, profile, "mixed VTEC/standard runtime compilation failed");
+        const auto &base = selectable.profile_for(right_index, below_both);
+        const auto &alternate = selectable.profile_for(left_index, above_both);
+        expect(&selectable.profile_for(right_index, above_both) == &base &&
+                   &alternate != &base,
+               "standard bank selected a VTEC alternate or VTEC bank failed to "
+               "select its alternate");
+
+        bool sampled_open_valve = false;
+        for (std::size_t step = 0; step <= 96U; ++step) {
+            const double body_angle =
+                4.0 * std::numbers::pi * static_cast<double>(step) / 96.0;
+            const auto base_sample = base.sample_cylinder(right_index, body_angle);
+            const auto totalized_sample =
+                alternate.sample_cylinder(right_index, body_angle);
+            expect(base_sample.has_value() && totalized_sample.has_value() &&
+                       base_sample == totalized_sample,
+                   "standard bank's totalized alternate role changed its base cam "
+                   "execution");
+            sampled_open_valve = sampled_open_valve ||
+                                 base_sample->intake_lift_m > 0.0 ||
+                                 base_sample->exhaust_lift_m > 0.0;
+        }
+        expect(sampled_open_valve,
+               "standard-bank totalization comparison never sampled an open valve");
+
+        (void)require_value(
+            compile::compile_engine(document, views),
+            "public compiler rejected a mixed VTEC/standard bank engine");
+    }
 }
 
 void test_governor_resolves_to_executable_controller() {
@@ -3247,6 +3496,7 @@ int main() {
         test_harmonic_and_equivalent_sampled_cam_sessions_are_identical();
         test_invalid_sampled_fixed_cams_fail_closed();
         test_four_cam_vtec_resolves_to_si_and_provenance();
+        test_bank_local_vtec_resolves_and_selects_per_cylinder_bank();
         test_governor_resolves_to_executable_controller();
         test_layout_shape_fails_closed();
         test_master_rod_graph_contract_and_public_admission();

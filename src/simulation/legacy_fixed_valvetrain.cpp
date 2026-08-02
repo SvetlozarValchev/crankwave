@@ -677,19 +677,21 @@ compile_legacy_fixed_valvetrain(const contract::EngineSpec &engine,
 
 LegacySelectableValvetrain::LegacySelectableValvetrain(
     LegacyFixedValvetrain base, std::optional<LegacyFixedValvetrain> alternate,
-    std::optional<LegacyVtecSelectorThresholds> thresholds)
+    std::vector<std::optional<LegacyVtecSelectorThresholds>> thresholds_by_cylinder)
     : base_(std::move(base)), alternate_(std::move(alternate)),
-      thresholds_(std::move(thresholds)) {}
+      thresholds_by_cylinder_(std::move(thresholds_by_cylinder)) {}
 
 bool LegacySelectableValvetrain::alternate_profile_active(
-    const LegacyVtecSelectorInput &input) const noexcept {
-    return alternate_.has_value() && thresholds_.has_value() &&
-           legacy_vtec_alternate_profile_active(*thresholds_, input);
+    std::size_t cylinder_index, const LegacyVtecSelectorInput &input) const noexcept {
+    return alternate_.has_value() && cylinder_index < thresholds_by_cylinder_.size() &&
+           thresholds_by_cylinder_[cylinder_index].has_value() &&
+           legacy_vtec_alternate_profile_active(
+               *thresholds_by_cylinder_[cylinder_index], input);
 }
 
 const LegacyFixedValvetrain &LegacySelectableValvetrain::profile_for(
-    const LegacyVtecSelectorInput &input) const noexcept {
-    return alternate_profile_active(input) ? *alternate_ : base_;
+    std::size_t cylinder_index, const LegacyVtecSelectorInput &input) const noexcept {
+    return alternate_profile_active(cylinder_index, input) ? *alternate_ : base_;
 }
 
 LegacySelectableValvetrainCompileResult
@@ -705,32 +707,60 @@ compile_legacy_selectable_valvetrain(const contract::EngineSpec &engine,
         return LegacySelectableValvetrain{
             std::move(base),
             std::nullopt,
-            std::nullopt,
+            {},
         };
     }
 
     const auto &source = *core.valvetrain.alternate;
-    const double minimum_engine_speed_rad_s =
-        source.activation.minimum_engine_speed_rad_s.value;
-    const double minimum_manifold_pressure_pa_abs =
-        source.activation.minimum_mean_manifold_pressure_pa_abs.value;
-    const double minimum_throttle_linkage_opening_01 =
-        source.activation.minimum_throttle_linkage_opening_01.value;
-    const bool activation_valid = std::isfinite(minimum_engine_speed_rad_s) &&
-                                  minimum_engine_speed_rad_s >= 0.0 &&
-                                  finite_positive(minimum_manifold_pressure_pa_abs) &&
-                                  std::isfinite(minimum_throttle_linkage_opening_01) &&
-                                  minimum_throttle_linkage_opening_01 >= 0.0 &&
-                                  minimum_throttle_linkage_opening_01 <= 1.0;
-    if (!activation_valid) {
+    std::vector<std::optional<LegacyVtecSelectorThresholds>> thresholds_by_cylinder(
+        engine.cylinders.size());
+    std::unordered_set<std::uint32_t> selector_bank_ids;
+    bool selectors_valid = !source.selectors.empty();
+    for (const auto &selector : source.selectors) {
+        const double minimum_engine_speed_rad_s =
+            selector.activation.minimum_engine_speed_rad_s.value;
+        const double minimum_manifold_pressure_pa_abs =
+            selector.activation.minimum_mean_manifold_pressure_pa_abs.value;
+        const double minimum_throttle_linkage_opening_01 =
+            selector.activation.minimum_throttle_linkage_opening_01.value;
+        const bool known_bank =
+            std::ranges::find(engine.banks, selector.bank_id,
+                              &contract::BankSpec::id) != engine.banks.end();
+        const bool activation_valid =
+            std::isfinite(minimum_engine_speed_rad_s) &&
+            minimum_engine_speed_rad_s >= 0.0 &&
+            finite_positive(minimum_manifold_pressure_pa_abs) &&
+            std::isfinite(minimum_throttle_linkage_opening_01) &&
+            minimum_throttle_linkage_opening_01 >= 0.0 &&
+            minimum_throttle_linkage_opening_01 <= 1.0;
+        selectors_valid = selectors_valid && known_bank && selector.bank_id.valid() &&
+                          selector_bank_ids.insert(selector.bank_id.value).second &&
+                          activation_valid;
+    }
+    if (!selectors_valid) {
         contract::ValidationReport report;
         report.add(
             contract::ContractIssueCode::invalid_value,
-            "engine.physics_profile.valvetrain.alternate.activation",
-            "VTEC activation requires finite nonnegative engine speed, finite "
-            "positive absolute manifold pressure, and finite unit-interval throttle "
-            "linkage opening");
+            "engine.physics_profile.valvetrain.alternate.selectors",
+            "VTEC selectors require unique known banks, finite nonnegative engine "
+            "speed, finite positive absolute manifold pressure, and finite "
+            "unit-interval throttle linkage opening");
         return report;
+    }
+    for (std::size_t cylinder_index = 0; cylinder_index < engine.cylinders.size();
+         ++cylinder_index) {
+        const auto &cylinder = engine.cylinders[cylinder_index];
+        const auto selector =
+            std::ranges::find(source.selectors, cylinder.bank_id,
+                              &contract::LegacyVtecBankSelector::bank_id);
+        if (selector == source.selectors.end()) {
+            continue;
+        }
+        thresholds_by_cylinder[cylinder_index] = LegacyVtecSelectorThresholds{
+            selector->activation.minimum_engine_speed_rad_s.value,
+            selector->activation.minimum_mean_manifold_pressure_pa_abs.value,
+            selector->activation.minimum_throttle_linkage_opening_01.value,
+        };
     }
 
     auto alternate_core = core;
@@ -752,11 +782,7 @@ compile_legacy_selectable_valvetrain(const contract::EngineSpec &engine,
     return LegacySelectableValvetrain{
         std::move(base),
         std::move(alternate),
-        LegacyVtecSelectorThresholds{
-            minimum_engine_speed_rad_s,
-            minimum_manifold_pressure_pa_abs,
-            minimum_throttle_linkage_opening_01,
-        },
+        std::move(thresholds_by_cylinder),
     };
 }
 

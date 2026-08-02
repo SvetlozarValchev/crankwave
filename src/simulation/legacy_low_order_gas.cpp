@@ -373,9 +373,6 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
         left_boundary_manifold_pressure_pa_abs,
         1.0 - mechanics.resolved_engine_throttle_01,
     };
-    const LegacyFixedValvetrain &active_valvetrain =
-        valvetrain_->profile_for(valvetrain_selection_input);
-
     const auto fuel = fuel_.view();
 
     // Ignition consumes the old thermodynamic state but snapshots the current
@@ -453,6 +450,8 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
             mechanism_cylinder.piston_speed_abs_m_s;
         lane.pressure_history_pa[history_index] = legacy_gas_pressure_pa(chamber);
 
+        const auto &active_valvetrain =
+            valvetrain_->profile_for(index, valvetrain_selection_input);
         const auto valve_sample =
             active_valvetrain.sample_cylinder(index, mechanics.body_angle_psi_rad);
         if (!valve_sample.has_value() ||

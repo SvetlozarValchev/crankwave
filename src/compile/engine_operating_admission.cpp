@@ -368,12 +368,12 @@ void admit_engine_operating_systems(ModelContext &resolved,
         admit_camshaft_role(resolved.alternate_exhaust_camshaft_for_cylinder,
                             authoring::PortKind::exhaust);
 
-        const auto *vtec =
-            std::get_if<authoring::VtecValvetrain>(&resolved.valvetrain->kind);
-        if (vtec == nullptr) {
-            add(report, DiagnosticCode::internal_failure, "/engine/valvetrains/0",
-                "alternate camshafts were admitted without VTEC activation");
-        } else {
+        for (std::size_t index = 0; index < engine.valvetrains.size(); ++index) {
+            const auto *vtec =
+                std::get_if<authoring::VtecValvetrain>(&engine.valvetrains[index].kind);
+            if (vtec == nullptr) {
+                continue;
+            }
             const double minimum_speed_rad_s =
                 legacy_si_value(vtec->activation.minimum_engine_speed);
             const double minimum_pressure_pa_abs =
@@ -385,7 +385,7 @@ void admit_engine_operating_systems(ModelContext &resolved,
                   minimum_pressure_pa_abs > 0.0 && std::isfinite(minimum_opening) &&
                   minimum_opening >= 0.0 && minimum_opening <= 1.0)) {
                 add(report, DiagnosticCode::invalid_value,
-                    "/engine/valvetrains/0/activation",
+                    pointer_index("/engine/valvetrains", index) + "/activation",
                     "VTEC activation requires nonnegative engine speed, positive "
                     "absolute manifold pressure, and a unit-interval throttle "
                     "linkage opening");
