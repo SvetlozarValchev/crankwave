@@ -1,15 +1,19 @@
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
 #include "simulation/one_level_master_rod_configuration_inertia.hpp"
+#include "simulation/one_level_master_rod_cycle_mean_inertia.hpp"
 
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <limits>
 #include <new>
+#include <numbers>
 #include <stdexcept>
 #include <utility>
 #include <variant>
@@ -208,6 +212,13 @@ require_inertia(const OneLevelMasterRodConfigurationInertiaCalculation &calculat
     return *inertia;
 }
 
+[[nodiscard]] OneLevelMasterRodCycleMeanInertia
+require_cycle_mean(const OneLevelMasterRodCycleMeanInertiaCalculation &calculation) {
+    const auto *inertia = std::get_if<OneLevelMasterRodCycleMeanInertia>(&calculation);
+    expect(inertia != nullptr, "valid master-rod cycle-mean inertia was rejected");
+    return *inertia;
+}
+
 [[nodiscard]] CompiledOneLevelMasterRodArticulatedMechanism
 require_compiled(OneLevelMasterRodArticulatedMechanismCompilation compilation) {
     const auto *compiled =
@@ -244,6 +255,112 @@ void expect_error(
     expect(actual != nullptr && actual->issue == expected_issue &&
                actual->cylinder_index == expected_index,
            "configuration inertia returned the wrong fail-closed error");
+}
+
+[[nodiscard]] OneLevelMasterRodCycleMeanInertia
+explicit_cycle_mean_reference(const OneLevelMasterRodMechanismKinematicsPlan &plan) {
+    auto compiled =
+        require_compiled(compile_one_level_master_rod_articulated_mechanism(plan));
+    auto scratch = compiled.make_state_scratch();
+    OneLevelMasterRodCycleMeanInertia result;
+    result.authored_crank_inertia_kg_m2 =
+        plan.rigid_crank_group.authored_crank_inertia_kg_m2;
+    double piston_sum = 0.0;
+    double rod_translation_sum = 0.0;
+    double rod_rotation_sum = 0.0;
+    constexpr double sample_count =
+        static_cast<double>(kOneLevelMasterRodCycleMeanInertiaQuadraturePoints);
+    const double two_pi = 2.0 * std::numbers::pi_v<double>;
+    for (std::size_t index = 0;
+         index < kOneLevelMasterRodCycleMeanInertiaQuadraturePoints; ++index) {
+        const double body_angle_psi_rad =
+            (static_cast<double>(index) + 0.5) * two_pi / sample_count;
+        const auto sample =
+            require_inertia(compiled.evaluate_configuration_inertia_at_body_angle_psi(
+                0.0, body_angle_psi_rad, scratch));
+        piston_sum += sample.piston_translation_inertia_kg_m2;
+        rod_translation_sum += sample.connecting_rod_translation_inertia_kg_m2;
+        rod_rotation_sum += sample.connecting_rod_rotation_inertia_kg_m2;
+    }
+    result.piston_translation_inertia_kg_m2 = piston_sum / sample_count;
+    result.connecting_rod_translation_inertia_kg_m2 =
+        rod_translation_sum / sample_count;
+    result.connecting_rod_rotation_inertia_kg_m2 = rod_rotation_sum / sample_count;
+    result.engine_equivalent_inertia_kg_m2 =
+        result.authored_crank_inertia_kg_m2 + result.piston_translation_inertia_kg_m2 +
+        result.connecting_rod_translation_inertia_kg_m2 +
+        result.connecting_rod_rotation_inertia_kg_m2;
+    return result;
+}
+
+void test_cycle_mean_method_and_sample_major_reduction() {
+    const auto descriptor = one_level_master_rod_cycle_mean_inertia_method_descriptor();
+    const auto &identity = one_level_master_rod_cycle_mean_inertia_method_identity();
+    expect(identity.id == kOneLevelMasterRodCycleMeanEquivalentInertiaMethodId &&
+               identity.version ==
+                   kOneLevelMasterRodCycleMeanEquivalentInertiaMethodVersion &&
+               !identity.configuration_sha256.is_zero() &&
+               descriptor.find("quadrature=4096-point-uniform-midpoint") !=
+                   std::string_view::npos &&
+               descriptor.find("sample-coordinate=canonical-pristine-body-angle-psi") !=
+                   std::string_view::npos,
+           "master-rod cycle-mean method lost its fixed body-angle quadrature");
+
+    const auto plan = radial_five_plan();
+    const auto calculated =
+        require_cycle_mean(calculate_one_level_master_rod_cycle_mean_inertia(plan));
+    const auto explicit_reference = explicit_cycle_mean_reference(plan);
+    expect(calculated == explicit_reference,
+           "master-rod cycle mean changed its sample-major component reduction");
+    expect(calculated.authored_crank_inertia_kg_m2 ==
+                   plan.rigid_crank_group.authored_crank_inertia_kg_m2 &&
+               calculated.piston_translation_inertia_kg_m2 > 0.0 &&
+               calculated.connecting_rod_translation_inertia_kg_m2 > 0.0 &&
+               calculated.connecting_rod_rotation_inertia_kg_m2 > 0.0 &&
+               calculated.engine_equivalent_inertia_kg_m2 ==
+                   calculated.authored_crank_inertia_kg_m2 +
+                       calculated.piston_translation_inertia_kg_m2 +
+                       calculated.connecting_rod_translation_inertia_kg_m2 +
+                       calculated.connecting_rod_rotation_inertia_kg_m2,
+           "master-rod cycle mean did not add the authored crank exactly once");
+
+    auto shifted_reference = plan;
+    shifted_reference.crank_tdc_reference_rad += 0.731;
+    expect(require_cycle_mean(calculate_one_level_master_rod_cycle_mean_inertia(
+               shifted_reference)) == calculated,
+           "crank TDC reference shifted the canonical body-angle quadrature");
+}
+
+void test_cycle_mean_rejects_invalid_articulated_plan_with_cylinder_evidence() {
+    auto plan = radial_five_plan();
+    plan.cylinders[2].piston_mass_kg = -1.0;
+    const auto calculation = calculate_one_level_master_rod_cycle_mean_inertia(plan);
+    const auto *error =
+        std::get_if<OneLevelMasterRodCycleMeanInertiaError>(&calculation);
+    expect(
+        error != nullptr &&
+            error->issue ==
+                OneLevelMasterRodCycleMeanInertiaIssue::invalid_articulated_mechanism &&
+            error->cylinder_index == 2U,
+        "cycle-mean compilation lost its invalid cylinder evidence");
+}
+
+void test_pristine_radial_five_cycle_mean_oracle() {
+    const auto result = require_cycle_mean(
+        calculate_one_level_master_rod_cycle_mean_inertia(pristine_radial_five_plan()));
+    expect(std::bit_cast<std::uint64_t>(result.authored_crank_inertia_kg_m2) ==
+                   0x3feb764e4d6ca4acULL &&
+               std::bit_cast<std::uint64_t>(result.piston_translation_inertia_kg_m2) ==
+                   0x3f649c4307ca2a82ULL &&
+               std::bit_cast<std::uint64_t>(
+                   result.connecting_rod_translation_inertia_kg_m2) ==
+                   0x3f59dc52736741d0ULL &&
+               std::bit_cast<std::uint64_t>(
+                   result.connecting_rod_rotation_inertia_kg_m2) ==
+                   0x3f39de6c3c571092ULL &&
+               std::bit_cast<std::uint64_t>(result.engine_equivalent_inertia_kg_m2) ==
+                   0x3feb9b148735ad5aULL,
+           "pristine radial-five cycle-mean inertia bits changed");
 }
 
 void test_theta_contract_and_shared_articulated_state() {
@@ -702,6 +819,9 @@ void test_invalid_plan_and_state_fail_closed() {
 
 int main() {
     try {
+        test_cycle_mean_method_and_sample_major_reduction();
+        test_cycle_mean_rejects_invalid_articulated_plan_with_cylinder_evidence();
+        test_pristine_radial_five_cycle_mean_oracle();
         test_theta_contract_and_shared_articulated_state();
         test_compiled_hot_path_exactly_matches_convenience_wrappers();
         test_compiled_hot_path_rejects_wrong_scratch_and_nonfinite_theta();

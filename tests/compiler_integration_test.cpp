@@ -3025,6 +3025,36 @@ void test_master_rod_graph_contract_and_public_admission() {
                 slave_cycle_geometry->swept_displacement_m3 > 0.0,
             "compiled master-rod plan lost its certified per-cylinder "
             "full-revolution geometry");
+        simulation::OneLevelMasterRodCycleMeanInertiaCalculation cycle_mean_calculation{
+            simulation::OneLevelMasterRodCycleMeanInertiaError{}};
+        if (radial_plan != nullptr) {
+            cycle_mean_calculation =
+                simulation::calculate_one_level_master_rod_cycle_mean_inertia(
+                    *radial_plan);
+        }
+        const auto *calculated_cycle_mean =
+            std::get_if<simulation::OneLevelMasterRodCycleMeanInertia>(
+                &cycle_mean_calculation);
+        expect(
+            radial_plan != nullptr && calculated_cycle_mean != nullptr &&
+                radial_plan->cycle_mean_inertia == *calculated_cycle_mean &&
+                radial_plan->cycle_mean_inertia.authored_crank_inertia_kg_m2 ==
+                    radial_plan->rigid_crank_group.authored_crank_inertia_kg_m2 &&
+                radial_plan->cycle_mean_inertia.piston_translation_inertia_kg_m2 >
+                    0.0 &&
+                radial_plan->cycle_mean_inertia
+                        .connecting_rod_translation_inertia_kg_m2 > 0.0 &&
+                radial_plan->cycle_mean_inertia.connecting_rod_rotation_inertia_kg_m2 >
+                    0.0 &&
+                radial_plan->cycle_mean_inertia.engine_equivalent_inertia_kg_m2 ==
+                    radial_plan->cycle_mean_inertia.authored_crank_inertia_kg_m2 +
+                        radial_plan->cycle_mean_inertia
+                            .piston_translation_inertia_kg_m2 +
+                        radial_plan->cycle_mean_inertia
+                            .connecting_rod_translation_inertia_kg_m2 +
+                        radial_plan->cycle_mean_inertia
+                            .connecting_rod_rotation_inertia_kg_m2,
+            "compiled master-rod plan lost its source-derived cycle-mean inertia");
         const auto root_certificate =
             root_plan == nullptr ? simulation::OneLevelMasterRodFullCycleCheck{}
                                  : simulation::certify_one_level_master_rod_full_cycle(
@@ -3071,6 +3101,25 @@ void test_master_rod_graph_contract_and_public_admission() {
         expect(!simulation::mechanism_kinematics_plan_matches_source(
                    stale_derived_shared, resolved.engine, profile.core),
                "master-rod source binding accepted stale derived swept stroke");
+        auto stale_cycle_mean_plan = shared_plan == nullptr
+                                         ? simulation::MechanismKinematicsPlan{}
+                                         : **shared_plan;
+        auto *stale_cycle_mean_radial =
+            std::get_if<simulation::OneLevelMasterRodMechanismKinematicsPlan>(
+                &stale_cycle_mean_plan);
+        expect(stale_cycle_mean_radial != nullptr,
+               "master-rod stale cycle-mean fixture lost its radial alternative");
+        if (stale_cycle_mean_radial != nullptr) {
+            stale_cycle_mean_radial->cycle_mean_inertia
+                .connecting_rod_rotation_inertia_kg_m2 += 0.001;
+        }
+        const auto stale_cycle_mean_shared =
+            std::make_shared<const simulation::MechanismKinematicsPlan>(
+                std::move(stale_cycle_mean_plan));
+        expect(!simulation::mechanism_kinematics_plan_matches_source(
+                   stale_cycle_mean_shared, resolved.engine, profile.core),
+               "master-rod source binding accepted stale derived cycle-mean "
+               "inertia");
         auto stale_mass_core = profile.core;
         stale_mass_core.mechanism.cylinders[1].parameters.piston_mass_kg.value += 0.01;
         expect(shared_plan != nullptr &&

@@ -243,6 +243,7 @@ add_library(
         src/simulation/mechanism_kinematics_plan.cpp
         src/simulation/one_level_master_rod_configuration_inertia.cpp
         src/simulation/one_level_master_rod_coupled_reaction.cpp
+        src/simulation/one_level_master_rod_cycle_mean_inertia.cpp
         src/simulation/one_level_master_rod_kinematics.cpp
         src/simulation/low_order_capture_session.cpp
         src/simulation/low_order_capture_session_compile.cpp

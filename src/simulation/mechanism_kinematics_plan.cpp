@@ -30,6 +30,21 @@ void require(ValidationReport &report, bool condition, ContractIssueCode code,
     return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
 
+[[nodiscard]] bool same_cycle_mean_inertia_binary64(
+    const OneLevelMasterRodCycleMeanInertia &left,
+    const OneLevelMasterRodCycleMeanInertia &right) noexcept {
+    return same_binary64(left.authored_crank_inertia_kg_m2,
+                         right.authored_crank_inertia_kg_m2) &&
+           same_binary64(left.piston_translation_inertia_kg_m2,
+                         right.piston_translation_inertia_kg_m2) &&
+           same_binary64(left.connecting_rod_translation_inertia_kg_m2,
+                         right.connecting_rod_translation_inertia_kg_m2) &&
+           same_binary64(left.connecting_rod_rotation_inertia_kg_m2,
+                         right.connecting_rod_rotation_inertia_kg_m2) &&
+           same_binary64(left.engine_equivalent_inertia_kg_m2,
+                         right.engine_equivalent_inertia_kg_m2);
+}
+
 [[nodiscard]] const contract::BankSpec *
 find_bank(const contract::EngineSpec &engine, const contract::BankId bank_id) noexcept {
     const auto found =
@@ -546,6 +561,19 @@ compile_one_level_master_rod_kinematics_plan(
     if (!report.ok()) {
         return report;
     }
+
+    const auto cycle_mean_calculation =
+        calculate_one_level_master_rod_cycle_mean_inertia(plan);
+    const auto *cycle_mean =
+        std::get_if<OneLevelMasterRodCycleMeanInertia>(&cycle_mean_calculation);
+    require(report, cycle_mean != nullptr, ContractIssueCode::invalid_value,
+            "engine.physics_profile.mechanism",
+            "one-level master-rod cycle-mean inertia rejected the certified "
+            "articulated mechanism");
+    if (!report.ok() || cycle_mean == nullptr) {
+        return report;
+    }
+    plan.cycle_mean_inertia = *cycle_mean;
     return std::make_shared<const MechanismKinematicsPlan>(
         std::in_place_type<OneLevelMasterRodMechanismKinematicsPlan>, std::move(plan));
 }
@@ -1021,7 +1049,13 @@ bool mechanism_kinematics_plan_matches_source(
                 return false;
             }
         }
-        return matched_slave;
+        const auto cycle_mean_calculation =
+            calculate_one_level_master_rod_cycle_mean_inertia(*radial);
+        const auto *calculated_cycle_mean =
+            std::get_if<OneLevelMasterRodCycleMeanInertia>(&cycle_mean_calculation);
+        return matched_slave && calculated_cycle_mean != nullptr &&
+               same_cycle_mean_inertia_binary64(radial->cycle_mean_inertia,
+                                                *calculated_cycle_mean);
     }
 
     const auto *direct = direct_mechanism_kinematics_plan(plan);

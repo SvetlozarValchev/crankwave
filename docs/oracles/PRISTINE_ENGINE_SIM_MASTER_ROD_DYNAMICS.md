@@ -83,6 +83,21 @@ is consumed once. The existing reduced crank law then remains:
 Q = M(theta) * alpha + 0.5 * M'(theta) * omega^2
 ```
 
+Dynamic execution consumes `M(theta)` directly. Scenario preparation also needs one
+constant engine-only inertia baseline, so the articulated mechanism owns a separate
+cycle-mean method rather than reusing the centered-slider result. It evaluates one
+compiled mechanism at 4,096 ascending midpoint samples over the canonical body-angle
+interval `2*pi`, reuses one exact-size state scratch, and accumulates piston
+translation, rod translation, and rod rotation separately. Each component sum is
+divided once by 4,096; authored crank inertia is then added once in written order.
+Attached scenario inertia, instantaneous total inertia, and `M'` are not averaged.
+
+Sampling canonical body angle makes the result independent of the arbitrary crank-TDC
+coordinate reference. The centered-slider method, identity, and arithmetic remain a
+distinct direct-mechanism path. As with the full-cycle geometry record, the radial
+cycle mean is initially derived and source-bound without opening a public dynamic mode
+or changing torque, gas, capture, or audio execution.
+
 ## Coupled wall reactions
 
 The direct-cylinder wall-reaction shortcut is not valid for the root of a master/slave

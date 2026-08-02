@@ -4,6 +4,7 @@
 #include "engine_sim_offline/contract/parity_model.hpp"
 #include "simulation/centered_slider_crank_equivalent_inertia.hpp"
 #include "simulation/legacy_mechanics_primitives.hpp"
+#include "simulation/one_level_master_rod_cycle_mean_inertia.hpp"
 #include "simulation/one_level_master_rod_kinematics.hpp"
 #include "simulation/rigid_crank_group.hpp"
 
@@ -107,6 +108,7 @@ struct OneLevelMasterRodMechanismKinematicsPlan {
     contract::CrankshaftId output_crankshaft_id;
     double crank_tdc_reference_rad = 0.0;
     RigidCrankGroupProperties rigid_crank_group;
+    OneLevelMasterRodCycleMeanInertia cycle_mean_inertia;
     std::vector<OneLevelMasterRodMechanismCylinderPlan> cylinders;
 
     friend bool operator==(const OneLevelMasterRodMechanismKinematicsPlan &,
