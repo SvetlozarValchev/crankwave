@@ -776,8 +776,7 @@ bool valid_capture_block_after_layout_admission(
     const auto &parity = *block.reference_parity();
     std::uint64_t expected_first_timestamp = 0;
     std::uint64_t expected_last_step = 0;
-    if (clock.rate != RationalRateHz{10000U, 1U} ||
-        clock.phase != SamplePhase::post_step ||
+    if (clock.phase != SamplePhase::post_step ||
         !checked_add_u64(clock.first_sample_index, 1U,
                          expected_first_timestamp) ||
         clock.first_timestamp_tick != expected_first_timestamp ||
@@ -1611,12 +1610,10 @@ ValidationReport validate(const CaptureBlockView &block) {
 
     if (block.reference_parity().has_value()) {
         const auto &parity = *block.reference_parity();
-        require(report,
-                block.clock().rate == RationalRateHz{10000, 1} &&
-                    block.clock().phase == SamplePhase::post_step,
+        require(report, block.clock().phase == SamplePhase::post_step,
                 ContractIssueCode::inconsistent_semantics, "clock",
-                "low-order reference parity requires exact 10000/1 Hz post-step "
-                "capture");
+                "low-order reference parity requires post-step capture on its "
+                "declared clock");
 
         std::uint64_t expected_first_timestamp = 0;
         const auto timestamp_representable = checked_add_u64(

@@ -36,10 +36,13 @@ constexpr auto kTorque =
     return right > std::numeric_limits<std::size_t>::max() - left;
 }
 
-[[nodiscard]] double capture_mass_flow_kg_s(double signed_amount_mol) noexcept {
+[[nodiscard]] double capture_mass_flow_kg_s(
+    double signed_amount_mol, contract::RationalRateHz rate) noexcept {
     // Operation order is part of M3: convert the outer-step amount to mass first,
     // then divide by the exact outer-step duration.
-    return (signed_amount_mol * kLegacyAirMolarMassKgPerMol) / (1.0 / 10000.0);
+    const double step_s = static_cast<double>(rate.denominator) /
+                          static_cast<double>(rate.numerator);
+    return (signed_amount_mol * kLegacyAirMolarMassKgPerMol) / step_s;
 }
 
 } // namespace
@@ -278,7 +281,7 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
             kGasExchange,
             legacy_gas_pressure_pa(duct),
             legacy_gas_temperature_k(duct),
-            capture_mass_flow_kg_s(edge.signed_amount_mol),
+            capture_mass_flow_kg_s(edge.signed_amount_mol, plan_.rate),
             // K is a molar-flow conductance, not a geometric area. M3 does not
             // resolve a separate effective valve area, so its canonical value is +0.
             0.0,
@@ -308,7 +311,7 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
     for (const auto &edge : gas.flow_edges) {
         flow_edges_.push_back({
             kGasExchange,
-            capture_mass_flow_kg_s(edge.signed_amount_mol),
+            capture_mass_flow_kg_s(edge.signed_amount_mol, plan_.rate),
         });
     }
 
@@ -338,7 +341,7 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
             legacy_gas_temperature_k(source),
             // The edge is declared atmosphere -> collector. A route is oriented
             // source-volume -> exterior, so its public flow uses the opposite sign.
-            -capture_mass_flow_kg_s(edge.signed_amount_mol),
+            -capture_mass_flow_kg_s(edge.signed_amount_mol, plan_.rate),
             route.collector_cross_section_area_m2,
         });
     }

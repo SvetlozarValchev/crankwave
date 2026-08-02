@@ -19,7 +19,6 @@ namespace {
 
 constexpr double kFourStrokeCycleRadians = 4.0 * std::numbers::pi_v<double>;
 constexpr double kFrozenLegacyRpmScale = 0.104719755;
-constexpr RationalRateHz kFrozenMechanicsRate{10000, 1};
 
 [[nodiscard]] bool same_binary64(double lhs, double rhs) noexcept {
     return std::bit_cast<std::uint64_t>(lhs) == std::bit_cast<std::uint64_t>(rhs);
@@ -494,10 +493,9 @@ validate_operating_conditions(const HeldSpeedOperatingPointConditions &condition
                 detail::unit_interval(conditions.throttle_01),
             ContractIssueCode::invalid_value, "",
             "held-speed RPM, crank angle, and throttle are invalid");
-    require(report, conditions.physics_rate_hz == kFrozenMechanicsRate,
-            ContractIssueCode::unsupported_value, "physics_rate_hz",
-            "operating-point evidence requires the frozen 10000 Hz mechanics "
-            "sample grid");
+    require(report, validate(conditions.physics_rate_hz).ok(),
+            ContractIssueCode::invalid_value, "physics_rate_hz",
+            "operating-point evidence requires a valid positive physics rate");
     require(report,
             finite_positive(conditions.ambient.pressure_pa_abs) &&
                 finite_positive(conditions.ambient.temperature_k) &&

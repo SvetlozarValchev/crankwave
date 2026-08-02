@@ -962,8 +962,6 @@ write_legacy_pressure_gains(CanonicalJsonWriter &writer,
            write_resolved(writer, path.header_primary_length_m, write_f64) &&
            writer.key("sound_attenuation_linear") &&
            write_resolved(writer, path.sound_attenuation_linear, write_f64) &&
-           writer.key("resolved_delay_samples") &&
-           write_resolved(writer, path.resolved_delay_samples, write_u32) &&
            writer.end_object();
 }
 
@@ -1003,8 +1001,6 @@ write_legacy_excitation(CanonicalJsonWriter &writer,
            write_resolved(writer, excitation.cylinder_count_divisor, write_f64) &&
            writer.key("inverse_length_exponent") &&
            write_resolved(writer, excitation.inverse_length_exponent, write_f64) &&
-           writer.key("delay_rate") &&
-           write_resolved(writer, excitation.delay_rate, write_rational_rate) &&
            writer.key("cylinder_accumulation_order") &&
            write_resolved(writer, excitation.cylinder_accumulation_order,
                           write_cylinder_ids) &&

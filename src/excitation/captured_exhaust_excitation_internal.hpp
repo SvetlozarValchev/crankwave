@@ -37,6 +37,8 @@ class CapturedExhaustExcitationState final {
     contract::EngineId engine_id;
     std::string model_id;
     std::string profile_id;
+    contract::RationalRateHz sample_rate;
+    std::uint32_t block_capacity_frames = 0;
     std::vector<contract::CylinderId> cylinder_ids;
     std::vector<contract::RouteIdentity> route_layout;
     std::vector<contract::RouteId> route_ids;

@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <bit>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
@@ -285,8 +284,6 @@ void resolve_excitation(const ModelContext &context, ResolutionEmitter &emitter,
         constant(static_cast<double>(context.document.engine.cylinders.size()),
                  "cylinder_count_divisor");
     core.excitation.inverse_length_exponent = constant(2.0, "inverse_length_exponent");
-    core.excitation.delay_rate =
-        constant(contract::RationalRateHz{10000U, 1U}, "delay_rate");
 
     std::vector<contract::CylinderId> accumulation_order;
     accumulation_order.reserve(context.document.engine.cylinders.size());
@@ -318,44 +315,20 @@ void resolve_excitation(const ModelContext &context, ResolutionEmitter &emitter,
         });
     }
 
-    constexpr double propagation_speed_m_s = 343.0;
-    constexpr contract::RationalRateHz delay_rate{10000U, 1U};
     for (const auto &cylinder : context.document.engine.cylinders) {
         const auto semantic = cylinder.id.value;
         const auto route_semantic =
             context.route_for_exhaust.at(cylinder.exhaust.value);
         const auto cylinder_base = base + ".cylinder_paths." + semantic;
-        const auto route_base = base + ".routes." + route_semantic;
         const auto &presentation = *context.cylinder_presentations.at(semantic);
         const double header_length =
             legacy_si_value(cylinder.exhaust_header_primary_length);
-        const auto &exhaust = *context.exhausts.at(cylinder.exhaust.value);
-        const double collector_area =
-            legacy_si_value(exhaust.collector_cross_section_area);
-        const double exhaust_length =
-            exhaust.collector_volume
-                ? legacy_si_value(*exhaust.collector_volume) / collector_area
-                : legacy_si_value(*exhaust.collector_length);
-        const double requested_samples =
-            ((header_length + exhaust_length) / propagation_speed_m_s) *
-            (static_cast<double>(delay_rate.numerator) /
-             static_cast<double>(delay_rate.denominator));
         core.excitation.cylinder_paths.push_back({
             cylinder_id(context, semantic),
             route_id(context, route_semantic),
             emitter.authored(header_length, cylinder_base + ".header_primary_length_m"),
             emitter.authored(presentation.gain_linear,
                              cylinder_base + ".sound_attenuation_linear"),
-            emitter.derived(
-                static_cast<std::uint32_t>(std::round(requested_samples)),
-                cylinder_base + ".resolved_delay_samples",
-                derived_method_identity("legacy-propagation-delay-round-v1"),
-                {
-                    cylinder_base + ".header_primary_length_m",
-                    route_base + ".exhaust_system_length_m",
-                    base + ".legacy_propagation_speed_m_s",
-                    base + ".delay_rate",
-                }),
         });
     }
 }

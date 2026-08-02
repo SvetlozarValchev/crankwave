@@ -492,9 +492,8 @@ void run_capture_contract_tests() {
 
     auto wrong_clock = parity_clock;
     wrong_clock.rate = {20000, 1};
-    expect(has_issue(validate(make_block(wrong_clock, 256, 38, empty_journal, parity)),
-                     ContractIssueCode::inconsistent_semantics, "clock"),
-           "non-10k M3 reference-parity clock was accepted");
+    expect(validate(make_block(wrong_clock, 256, 38, empty_journal, parity)).ok(),
+           "valid 20 kHz reference-parity clock was rejected");
 
     wrong_clock = parity_clock;
     wrong_clock.first_timestamp_tick = 0;

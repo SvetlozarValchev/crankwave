@@ -511,8 +511,12 @@ find_cylinder(const LegacyMechanismStep &mechanics, CylinderId id) {
                       "mechanism cylinder");
 }
 
-[[nodiscard]] double mass_flow_kg_s(double signed_amount_mol) noexcept {
-    return signed_amount_mol * kLegacyAirMolarMassKgPerMol / kOuterStepS;
+[[nodiscard]] double mass_flow_kg_s(
+    double signed_amount_mol,
+    RationalRateHz rate = RationalRateHz{10000U, 1U}) noexcept {
+    const double step_s = static_cast<double>(rate.denominator) /
+                          static_cast<double>(rate.numerator);
+    return signed_amount_mol * kLegacyAirMolarMassKgPerMol / step_s;
 }
 
 [[nodiscard]] MixtureFractions mixture(const LegacyGasMixture &value) noexcept {
@@ -1063,6 +1067,152 @@ void test_authored_capture_mapping_and_completion(
                activity.combustion_heat && activity.event,
            "held capture did not exercise bidirectional flow, pressure, combustion, "
            "and events");
+}
+
+void test_twenty_khz_mechanics_gas_and_capture_share_one_clock(
+    const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
+    constexpr RationalRateHz kRate{20000U, 1U};
+    constexpr std::uint32_t kFrameCount = 400U;
+    constexpr double kDurationS = 0.02;
+    constexpr double kRpm = 2400.0;
+
+    auto request = engine_sim_offline::test::make_prescribed_fixture(
+        canonical, std::vector<double>(kFrameCount, kRpm));
+    auto &scenario = request.scenario;
+    scenario.scenario_id = "authored-20khz-lower-layer-rate-proof";
+    scenario.rates.physics = kRate;
+    scenario.rates.capture = kRate;
+    scenario.total_duration_s.value = kDurationS;
+    scenario.audible_start_s.value = 0.0;
+    scenario.audible_duration_s.value = kDurationS;
+    scenario.preparation = FixedSettling{
+        {0.0, "20khz-rate-proof.warm-up"},
+        {0.0, "20khz-rate-proof.settling"},
+    };
+    scenario.operating_state.value = {
+        {
+            "20khz-rate-proof-running",
+            0.0,
+            {true, true, false, true, false},
+        },
+    };
+    scenario.quality.value.capture_block_capacity_frames = kFrameCount;
+    scenario.quality.value.event_journal_capacity_records = kFrameCount * 19U;
+    auto &sweep = std::get<PrescribedKinematicSweep>(scenario.mode);
+    auto &rpm = std::get<FixedRateRpmTrajectory>(sweep.trajectory.rpm);
+    rpm.rate = kRate;
+    rpm.samples_f64le_sha256 = canonical_binary64_le_sha256(rpm.post_step_rpm);
+    sweep.throttle_01.points = {{0.0, 0.85}};
+    const double initial_theta_rad = sweep.trajectory.initial_theta_rad.value;
+
+    const auto clock_report = validate_clock_grid(scenario);
+    if (!clock_report.ok()) {
+        fail_report("20 kHz lower-layer fixture is not on its declared clocks",
+                    clock_report);
+    }
+    const auto engine_report = validate_for_engine(scenario, request.engine);
+    if (!engine_report.ok()) {
+        fail_report("20 kHz lower-layer fixture is not admitted for its engine",
+                    engine_report);
+    }
+
+    const auto random_plan =
+        fixture_random_plan(request, request.engine, scenario);
+    auto capture = require_simulation(compile_low_order_capture_session(
+        request.engine, scenario, random_plan, nonzero_request_identity(),
+        finite_extent(scenario)));
+
+    auto schedule_result = compile_kinematic_scenario_schedule(scenario);
+    if (const auto *report = std::get_if<ValidationReport>(&schedule_result)) {
+        fail_report("20 kHz kinematic schedule failed admission", *report);
+    }
+    const auto &schedule = std::get<KinematicScenarioSchedule>(schedule_result);
+    const auto &core = engine_sim_offline::test::low_order_core(request.engine);
+    auto mechanism_plan_result =
+        compile_mechanism_kinematics_plan(request.engine, core);
+    if (const auto *report =
+            std::get_if<ValidationReport>(&mechanism_plan_result)) {
+        fail_report("20 kHz mechanism plan failed admission", *report);
+    }
+    auto mechanism_plan = std::get<SharedMechanismKinematicsPlan>(
+        std::move(mechanism_plan_result));
+    auto mechanics = require_mechanics(CoreRuntimeFactory::compile_mechanics(
+        request.engine, core, scenario, mechanism_plan, schedule));
+    auto gas = require_gas(CoreRuntimeFactory::compile_gas(
+        request.engine, core, scenario, random_plan, schedule.control_schedule(),
+        std::move(mechanism_plan)));
+
+    bool saw_nonzero_flow = false;
+    std::size_t callback_count = 0U;
+    auto published = capture.publish_next_block([&](const CaptureBlockView &block) {
+        ++callback_count;
+        expect(block.clock() ==
+                       CaptureClock{kRate, 0U, 1U, SamplePhase::post_step} &&
+                   block.frame_count() == kFrameCount &&
+                   block.declared_block_capacity_frames() == kFrameCount &&
+                   block.declared_event_journal_capacity_records() ==
+                       kFrameCount * 19U,
+               "20 kHz capture did not use one exact 20 ms clock block");
+        const auto report = validate(block, request.engine, scenario);
+        if (!report.ok()) {
+            fail_report("20 kHz capture block failed validation", report);
+        }
+
+        for (std::uint32_t frame = 0U; frame < kFrameCount; ++frame) {
+            auto mechanics_result = mechanics.advance();
+            const auto &mechanics_step =
+                require_mechanics_step(mechanics_result, frame);
+            auto gas_result = gas.advance(mechanics_step);
+            const auto &gas_step = require_gas_step(gas_result, frame);
+            expect(mechanics_step.rate == kRate && gas_step.rate == kRate &&
+                       mechanics_step.sample_index == frame &&
+                       gas_step.sample_index == frame,
+                   "20 kHz mechanics and gas left their shared declared clock");
+            if (frame == 0U) {
+                const double expected_theta_rad =
+                    initial_theta_rad + mechanics_step.angular_speed_rad_s / 20000.0;
+                const double stale_theta_rad =
+                    initial_theta_rad + mechanics_step.angular_speed_rad_s / 10000.0;
+                expect(mechanics_step.theta_unwrapped_rad == expected_theta_rad &&
+                           mechanics_step.theta_unwrapped_rad != stale_theta_rad,
+                       "20 kHz mechanics did not integrate its first crank step over "
+                       "the declared 50 us duration");
+            }
+
+            for (std::size_t edge_index = 0U;
+                 edge_index < gas_step.flow_edges.size(); ++edge_index) {
+                const auto signed_amount_mol =
+                    gas_step.flow_edges[edge_index].signed_amount_mol;
+                const auto *actual = block.flow_edge_sample(frame, edge_index);
+                const double expected = mass_flow_kg_s(signed_amount_mol, kRate);
+                expect(actual != nullptr &&
+                           actual->signed_mass_flow_kg_s == expected,
+                       "20 kHz capture mass flow did not use its declared step time");
+                if (signed_amount_mol != 0.0) {
+                    saw_nonzero_flow = true;
+                    expect(actual->signed_mass_flow_kg_s !=
+                               mass_flow_kg_s(signed_amount_mol),
+                           "20 kHz nonzero flow retained the stale 10 kHz conversion");
+                }
+            }
+        }
+        return true;
+    });
+    const auto *published_block =
+        std::get_if<LowOrderCaptureBlockPublished>(&published);
+    expect(published_block != nullptr && callback_count == 1U &&
+               published_block->frame_count == kFrameCount &&
+               published_block->published_sample_count == kFrameCount &&
+               saw_nonzero_flow,
+           "20 kHz lower-layer session did not publish one active complete block");
+
+    auto completion =
+        capture.publish_next_block([](const CaptureBlockView &) { return true; });
+    const auto *completed = std::get_if<LowOrderCaptureCompleted>(&completion);
+    expect(completed != nullptr && completed->sample_count == kFrameCount &&
+               completed->block_count == 1U && capture.completed() &&
+               !capture.faulted(),
+           "20 kHz lower-layer session did not complete at exactly 20 ms");
 }
 
 void test_operating_capture_publishes_request_bound_completion_evidence(
@@ -2050,6 +2200,7 @@ void test_capture_partition_admission_rejection(
 void run_tests(const engine_sim_offline::test::AuthoredEngineFixture &canonical) {
     test_capture_projection_canonicalizes_legacy_mixture_weights();
     test_authored_capture_mapping_and_completion(canonical);
+    test_twenty_khz_mechanics_gas_and_capture_share_one_clock(canonical);
     test_operating_capture_publishes_request_bound_completion_evidence(canonical);
     test_operating_capture_rejects_zero_request_identity(canonical);
     test_free_engine_capture_holds_preparation_and_executes_authored_controls(

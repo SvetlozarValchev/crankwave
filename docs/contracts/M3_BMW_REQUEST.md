@@ -64,9 +64,13 @@ paths remain part of each provenance resolution rather than being hidden in the 
 | `legacy-slider-crank-compression-ratio-v1` | Per-cylinder compression ratio |
 | `legacy-flow-constant-v1` | Restriction/flow-table `resolved_k` |
 | `collector-volume-over-area-v1` | Exhaust collector/system length |
-| `legacy-propagation-delay-round-v1` | Integer source propagation delay |
 | `legacy-pseudo-gas-mass-afr-v1` | Scenario mass-AFR metadata |
 | `scenario-audible-duration-subtraction-v1` | Audible duration from total and start |
+
+Propagation delay is no longer a derived engine-request leaf. The engine retains
+physical header and route length plus the excitation method's propagation speed; the
+excitation session resolves the discrete delay against the admitted scenario capture
+clock when the session is compiled.
 
 The parity profile owns exactly six typed, resolved
 `LegacyCombustionRandomStream` request values in runtime-cylinder order. Their

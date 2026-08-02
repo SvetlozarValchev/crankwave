@@ -57,10 +57,17 @@ For source parity, these legacy constants are inputs, not modernized approximati
 | gas degrees of freedom `f` | `5` |
 | heat-capacity ratio `gamma=1.0+(2.0/f)` | `1.4` |
 | legacy RPM scale | `1 rpm = 0.104719755 rad/s` |
-| mechanism rate | `10000 Hz` |
-| mechanism step `h` | binary64 `1.0/10000.0 s` |
+| fixture scenario physics/capture rate | `10000 Hz` |
+| fixture mechanism step `h` | binary64 `1.0/10000.0 s` |
 | gas substeps | `8` |
 | gas step `hg` | binary64 `h/8 s` |
+
+The 10 kHz value in this table belongs to the frozen BMW parity scenario; it is not an
+engine-definition constant. In the general low-order executor, the scenario physics
+rate owns `h=double(rate.denominator)/double(rate.numerator)`, capture currently equals
+that rate, and one post-step excitation record inherits the capture clock. The 10 kHz
+substitution must produce the exact binary64 values and operation order specified by
+this companion.
 
 Source-authored angles use the literal unit construction
 `deg_source=pi_l/180.0`. Do not collapse a source expression to a total number of
@@ -1361,6 +1368,26 @@ All sound attenuations are one. Route 0 has volume `0.5` and stable cylinder IDs
 partition, presentation RNG, filtering, IR, crop, calibration, stems, and master are
 owned by the frozen fixture and `P18_PRESENTATION_RENDERER.md`. No gain, noise, IR,
 or normalization may be changed while diagnosing M3.
+
+The fixed 180-sample delay above is the resolved result for this 10 kHz fixture. In the
+general executor, physical header and route lengths remain engine facts, while the
+excitation session resolves
+
+```text
+delay_samples = round(
+    ((header_length + route_length) / propagation_speed)
+    * capture_rate_hz)
+```
+
+from the scenario-owned capture clock. Neither an engine-level `delay_rate` nor a
+scenario-specific cached delay count is a second authority. Solver, gas, capture, and
+excitation can therefore be exercised headlessly at another scenario rate without
+changing this frozen 10 kHz oracle.
+
+The accepted production presentation remains the explicit causal 10 kHz-to-192 kHz
+method. Publishing a higher-rate source through native/WASM/browser audio is deferred
+to the post-parity fidelity gate, where the unchanged 10 kHz render and the higher-rate
+candidate must be auditioned before that method can become production-listenable.
 
 The capture is an output of simulated state. Neither the core nor excitation stage
 links the fixture audit reader. Comparator tooling may read candidate capture and

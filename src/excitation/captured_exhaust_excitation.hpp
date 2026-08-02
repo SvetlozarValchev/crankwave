@@ -3,6 +3,7 @@
 #include "engine_sim_offline/contract/capture.hpp"
 #include "engine_sim_offline/contract/parity_model.hpp"
 #include "engine_sim_offline/contract/result.hpp"
+#include "engine_sim_offline/contract/scenario.hpp"
 #include "presentation/exhaust_excitation_block.hpp"
 
 #include <concepts>
@@ -17,8 +18,6 @@
 #include <variant>
 
 namespace engine_sim_offline::excitation {
-
-inline constexpr std::uint32_t kCapturedExcitationFramesPerBlock = 200U;
 
 /**
  * Callback-scoped diagnostics for the physical-capture to exhaust-excitation seam.
@@ -214,7 +213,8 @@ class CapturedExhaustExcitationSession final {
 
     friend std::variant<CapturedExhaustExcitationSession, contract::ValidationReport>
     compile_captured_exhaust_excitation_session(const contract::EngineSpec &,
-                                                const contract::LowOrderEngineCoreV1 &);
+                                                const contract::LowOrderEngineCoreV1 &,
+                                                const contract::RenderScenario &);
 };
 
 using CapturedExhaustExcitationCompileResult =
@@ -223,6 +223,7 @@ using CapturedExhaustExcitationCompileResult =
 // Resolves the exact low-order core excitation profile into an owned session.
 [[nodiscard]] CapturedExhaustExcitationCompileResult
 compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine,
-                                            const contract::LowOrderEngineCoreV1 &core);
+                                            const contract::LowOrderEngineCoreV1 &core,
+                                            const contract::RenderScenario &scenario);
 
 } // namespace engine_sim_offline::excitation

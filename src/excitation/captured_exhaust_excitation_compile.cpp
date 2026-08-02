@@ -79,7 +79,8 @@ resolve_delay_samples(double header_length_m, double route_length_m,
 } // namespace
 
 CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_session(
-    const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core) {
+    const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core,
+    const contract::RenderScenario &scenario) {
     ValidationReport report;
     require(report, engine.id.valid(), ContractIssueCode::invalid_value, "engine.id",
             "captured exhaust excitation requires a valid engine identity");
@@ -93,11 +94,26 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
     require(report, !engine.routes.empty(), ContractIssueCode::inconsistent_shape,
             "engine.routes",
             "captured exhaust excitation requires at least one exhaust route");
+    require(report, scenario.engine_profile_id == engine.profile_id.value,
+            ContractIssueCode::inconsistent_semantics, "scenario.engine_profile_id",
+            "captured exhaust excitation requires the selected engine profile");
+    require(report, contract::validate(scenario.rates.capture).ok(),
+            ContractIssueCode::invalid_value, "scenario.rates.capture",
+            "captured exhaust excitation requires a valid reduced capture rate");
+    require(report, scenario.rates.physics == scenario.rates.capture,
+            ContractIssueCode::inconsistent_semantics, "scenario.rates.capture",
+            "captured exhaust excitation requires equal physics and capture rates");
+    const auto block_capacity =
+        scenario.quality.value.capture_block_capacity_frames;
+    require(report, block_capacity > 0U, ContractIssueCode::invalid_value,
+            "scenario.quality.value.capture_block_capacity_frames",
+            "captured exhaust excitation requires a positive block capacity");
     require(report,
-            engine.cylinders.size() <= std::numeric_limits<std::size_t>::max() /
-                                           kCapturedExcitationFramesPerBlock &&
-                engine.routes.size() <= std::numeric_limits<std::size_t>::max() /
-                                            kCapturedExcitationFramesPerBlock,
+            block_capacity > 0U &&
+                engine.cylinders.size() <=
+                    std::numeric_limits<std::size_t>::max() / block_capacity &&
+                engine.routes.size() <=
+                    std::numeric_limits<std::size_t>::max() / block_capacity,
             ContractIssueCode::invalid_value, "engine",
             "captured exhaust excitation block storage size is unrepresentable");
     if (!report.ok()) {
@@ -107,10 +123,6 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
     const std::size_t route_count = engine.routes.size();
 
     const auto &source = core.excitation;
-    require(report, source.delay_rate.value == contract::RationalRateHz{10000, 1},
-            ContractIssueCode::unsupported_value,
-            "engine.physics_profile.excitation.delay_rate",
-            "captured exhaust excitation requires the exact 10000/1 Hz delay rate");
     require(report, source.filtered_speed_exponent.value == 3U,
             ContractIssueCode::unsupported_value,
             "engine.physics_profile.excitation.filtered_speed_exponent",
@@ -164,6 +176,8 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
     state->engine_id = engine.id;
     state->model_id = engine.methods.excitation.value.id;
     state->profile_id = engine.profile_id.value;
+    state->sample_rate = scenario.rates.capture;
+    state->block_capacity_frames = block_capacity;
     state->reference_atmosphere_pa_abs = source.reference_atmosphere_pa_abs.value;
     state->excitation_scale = source.excitation_scale.value;
     state->filtered_speed_threshold_rpm = source.filtered_speed_threshold_rpm.value;
@@ -178,10 +192,12 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
     state->prospective_delays.resize(cylinder_count);
     state->accumulation_order.resize(cylinder_count);
     state->routes.resize(route_count);
-    state->pre_delay.assign(kCapturedExcitationFramesPerBlock * cylinder_count, +0.0);
-    state->post_delay.assign(kCapturedExcitationFramesPerBlock * cylinder_count, +0.0);
-    state->route_bus_values.assign(kCapturedExcitationFramesPerBlock * route_count,
-                                   +0.0);
+    state->pre_delay.assign(static_cast<std::size_t>(block_capacity) * cylinder_count,
+                            +0.0);
+    state->post_delay.assign(static_cast<std::size_t>(block_capacity) * cylinder_count,
+                             +0.0);
+    state->route_bus_values.assign(
+        static_cast<std::size_t>(block_capacity) * route_count, +0.0);
 
     std::vector<bool> gas_route_seen(route_count, false);
     for (std::size_t index = 0; index < route_count; ++index) {
@@ -297,7 +313,7 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
             expected_delay = resolve_delay_samples(
                 configured.header_primary_length_m.value,
                 source.routes[*route_index].exhaust_system_length_m.value,
-                source.legacy_propagation_speed_m_s.value, source.delay_rate.value);
+                source.legacy_propagation_speed_m_s.value, scenario.rates.capture);
         }
         require(report,
                 finite_nonnegative(configured.header_primary_length_m.value) &&
@@ -305,11 +321,10 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
                     same_binary64(configured.header_primary_length_m.value,
                                   mechanism.parameters.header_primary_length_m.value) &&
                     configured.route_id == mechanism.topology.exhaust_route_id &&
-                    expected_delay.has_value() &&
-                    configured.resolved_delay_samples.value == *expected_delay,
+                    expected_delay.has_value(),
                 ContractIssueCode::inconsistent_semantics, path_name,
-                "excitation path geometry, route, or resolved delay is incoherent");
-        if (!route_index.has_value()) {
+                "excitation path geometry, route, or capture-rate delay is incoherent");
+        if (!route_index.has_value() || !expected_delay.has_value()) {
             continue;
         }
 
@@ -317,7 +332,7 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
             cylinder_id, index, *route_index, configured.sound_attenuation_linear.value,
             {},
         };
-        delay_samples[index] = configured.resolved_delay_samples.value;
+        delay_samples[index] = *expected_delay;
     }
 
     std::vector<bool> accumulation_seen(cylinder_count, false);

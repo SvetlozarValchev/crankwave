@@ -402,9 +402,11 @@ capacity.
 
 The optional `reference_parity` view is a narrow BMW M3 comparator extension carrying
 filtered RPM and the exact per-cylinder legacy pressure proxies. When present it
-activates the frozen 10 kHz post-step clock, sample/step relationship, and stable M3
-event-order constraints. It is not the validation-only `ReferenceAuditBlock`, and it
-is not a future production acoustic source contract.
+requires post-step observation on the block's declared capture clock, the exact
+sample/step relationship, and stable M3 event-order constraints. The frozen BMW
+fixture declares 10 kHz; that fixture value is not a general capture-contract limit.
+This is not the validation-only `ReferenceAuditBlock`, and it is not a future
+production acoustic source contract.
 
 ## 8. Physical source routes and output buses
 

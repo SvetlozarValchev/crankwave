@@ -435,8 +435,6 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
         builder.resolved(1.0, path("reference_excitation.cylinder_count_divisor"));
     core.excitation.inverse_length_exponent =
         builder.resolved(2.0, path("reference_excitation.inverse_length_exponent"));
-    core.excitation.delay_rate = builder.resolved(
-        RationalRateHz{10000, 1}, path("reference_excitation.delay_rate"));
     core.excitation.cylinder_accumulation_order =
         builder.resolved(std::vector<CylinderId>{CylinderId{1}},
                          path("reference_excitation.cylinder_accumulation_order"));
@@ -447,18 +445,6 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
                                    "header_primary_length_m")),
         builder.resolved(1.0, path("reference_excitation.cylinder_paths.cylinder-1."
                                    "sound_attenuation_linear")),
-        builder.derived<std::uint32_t>(
-            182,
-            path("reference_excitation.cylinder_paths.cylinder-1."
-                 "resolved_delay_samples"),
-            {
-                path("reference_excitation.cylinder_paths.cylinder-1."
-                     "header_primary_length_m"),
-                path("reference_excitation.routes.exhaust.outlet-1."
-                     "exhaust_system_length_m"),
-                path("reference_excitation.legacy_propagation_speed_m_s"),
-                path("reference_excitation.delay_rate"),
-            }),
     });
     core.excitation.routes.push_back({
         RouteId{1},

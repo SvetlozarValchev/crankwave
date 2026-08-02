@@ -1191,7 +1191,7 @@ void test_mechanics_compile_rejections() {
     }
     {
         MechanicsFixture fixture;
-        fixture.scenario.rates.physics = {12000, 1};
+        fixture.scenario.rates.physics = {12000, 2};
         fixture.scenario.total_duration_s.value = 0.0005;
         fixture.scenario.audible_duration_s.value = 0.0005;
         fixture.scenario.operating_state.value[1].time_s = 0.00025;

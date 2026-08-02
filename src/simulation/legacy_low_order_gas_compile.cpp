@@ -329,12 +329,12 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 "configuration");
     }
 
-    require(report, scenario.rates.physics == contract::RationalRateHz{10000U, 1U},
-            ContractIssueCode::unsupported_value, "scenario.rates.physics",
-            "legacy_low_order_v1 gas requires exactly 10000 Hz physics");
     require(report, schedule.rate() == scenario.rates.physics,
             ContractIssueCode::inconsistent_semantics, "schedule.rate",
             "gas session requires the admitted scenario physics rate");
+    require(report, contract::validate(scenario.rates.physics).ok(),
+            ContractIssueCode::invalid_value, "scenario.rates.physics",
+            "gas session requires a valid positive physics rate");
     require(report, schedule.first_step_index() == 0U,
             ContractIssueCode::inconsistent_semantics, "schedule.first_step_index",
             "gas session requires a schedule beginning at physics step zero");
@@ -1154,7 +1154,9 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
     session.expected_sample_count_ =
         schedule.execution_extent().finite_physics_frame_count();
     session.maximum_event_count_ = maximum_event_count;
-    session.step_s_ = 1.0 / 10000.0;
+    session.step_s_ =
+        static_cast<double>(session.rate_.denominator) /
+        static_cast<double>(session.rate_.numerator);
     session.gas_step_s_ = session.step_s_ / static_cast<double>(kLegacyGasSubstepCount);
     session.ambient_pressure_pa_ = scenario.ambient.pressure_pa_abs.value;
     session.ambient_temperature_k_ = scenario.ambient.temperature_k.value;

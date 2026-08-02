@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <functional>
 #include <initializer_list>
-#include <limits>
 #include <numbers>
 #include <span>
 #include <string>
@@ -477,7 +476,6 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
              excitation_base + ".cylinder_count_divisor");
     function(core.excitation.inverse_length_exponent,
              excitation_base + ".inverse_length_exponent");
-    function(core.excitation.delay_rate, excitation_base + ".delay_rate");
     function(core.excitation.cylinder_accumulation_order,
              excitation_base + ".cylinder_accumulation_order");
     for (const auto &path : core.excitation.cylinder_paths) {
@@ -486,7 +484,6 @@ void visit_low_order_core_fields(const Core &core, std::string_view root,
         function(path.header_primary_length_m, path_base + ".header_primary_length_m");
         function(path.sound_attenuation_linear,
                  path_base + ".sound_attenuation_linear");
-        function(path.resolved_delay_samples, path_base + ".resolved_delay_samples");
     }
     for (const auto &route : core.excitation.routes) {
         const auto route_base = excitation_base + ".routes." + route_name(route);
@@ -1155,9 +1152,6 @@ void validate_authored_low_order_core_domains(
                                  static_cast<double>(core.mechanism.cylinders.size())),
         ContractIssueCode::invalid_value, "reference_excitation",
         "reference excitation values are outside their domain");
-    detail::append_prefixed(report, validate(excitation.delay_rate.value),
-                            "reference_excitation.delay_rate.value");
-
     const auto find_gas_route =
         [&](std::string_view id) -> const AuthoredLegacyExhaustRouteProfile * {
         const auto iterator =
@@ -1166,14 +1160,6 @@ void validate_authored_low_order_core_domains(
                                      return route.topology.route_id.value == id;
                                  });
         return iterator == core.gas_path.exhaust_routes.end() ? nullptr : &*iterator;
-    };
-    const auto find_excitation_route =
-        [&](std::string_view id) -> const AuthoredLegacyExcitationRoute * {
-        const auto iterator = std::ranges::find_if(
-            excitation.routes, [&](const AuthoredLegacyExcitationRoute &route) {
-                return route.route_id.value == id;
-            });
-        return iterator == excitation.routes.end() ? nullptr : &*iterator;
     };
     const auto find_mechanism_cylinder =
         [&](std::string_view id) -> const AuthoredLegacyCylinderAssembly * {
@@ -1225,44 +1211,6 @@ void validate_authored_low_order_core_domains(
                         cylinder->parameters.header_primary_length_m.value),
                     ContractIssueCode::inconsistent_semantics, local_path,
                     "excitation header length must agree with its mechanism cylinder");
-        }
-
-        const auto *route = find_excitation_route(path.route_id.value);
-        if (route != nullptr &&
-            finite_nonnegative(path.header_primary_length_m.value) &&
-            finite_positive(route->exhaust_system_length_m.value) &&
-            finite_positive(excitation.legacy_propagation_speed_m_s.value) &&
-            excitation.delay_rate.value.numerator != 0 &&
-            excitation.delay_rate.value.denominator != 0) {
-            const auto total_length_m = path.header_primary_length_m.value +
-                                        route->exhaust_system_length_m.value;
-            const auto delay_seconds =
-                total_length_m / excitation.legacy_propagation_speed_m_s.value;
-            const auto delay_rate_hz =
-                static_cast<double>(excitation.delay_rate.value.numerator) /
-                static_cast<double>(excitation.delay_rate.value.denominator);
-            const auto requested_samples = delay_seconds * delay_rate_hz;
-            const auto rounded_samples = std::round(requested_samples);
-            const auto delay_in_range =
-                finite(total_length_m) && total_length_m >= 0.0 &&
-                finite(delay_seconds) && delay_seconds >= 0.0 &&
-                finite(delay_rate_hz) && delay_rate_hz > 0.0 &&
-                finite(requested_samples) && requested_samples >= 0.0 &&
-                finite(rounded_samples) && rounded_samples >= 0.0 &&
-                rounded_samples <=
-                    static_cast<double>(std::numeric_limits<std::uint32_t>::max());
-            require(report, delay_in_range, ContractIssueCode::invalid_value,
-                    local_path + ".resolved_delay_samples.value",
-                    "derived propagation delay must fit uint32 sample count");
-            if (delay_in_range) {
-                require(report,
-                        path.resolved_delay_samples.value ==
-                            static_cast<std::uint32_t>(rounded_samples),
-                        ContractIssueCode::inconsistent_semantics,
-                        local_path + ".resolved_delay_samples.value",
-                        "authored propagation delay must equal round-ties-away "
-                        "of path time at delay rate");
-            }
         }
     }
 }
@@ -2371,9 +2319,6 @@ void validate_low_order_core_domains(ValidationReport &report,
                                      static_cast<double>(engine.cylinders.size())),
             ContractIssueCode::invalid_value, "reference_excitation",
             "reference excitation values are outside their domain");
-    detail::append_prefixed(report, validate(excitation.delay_rate.value),
-                            "reference_excitation.delay_rate.value");
-
     std::unordered_set<std::uint32_t> accumulation_cylinder_ids;
     for (const auto cylinder_id : excitation.cylinder_accumulation_order.value) {
         if (cylinder_id.valid()) {
@@ -2436,7 +2381,6 @@ void validate_low_order_core_domains(ValidationReport &report,
     std::unordered_set<std::uint32_t> excitation_path_cylinder_ids;
     for (const auto &path : excitation.cylinder_paths) {
         const auto cylinder_semantic = cylinder_name(engine, path.cylinder_id);
-        const auto route_semantic = route_name(engine, path.route_id);
         const auto local_path =
             "reference_excitation.cylinder_paths." + cylinder_semantic;
         const auto *mechanism_cylinder =
@@ -2464,57 +2408,6 @@ void validate_low_order_core_domains(ValidationReport &report,
                 "mechanism cylinder");
         if (path.cylinder_id.valid()) {
             excitation_path_cylinder_ids.insert(path.cylinder_id.value);
-        }
-
-        const auto canonical_path = profile_path(profile_root, local_path);
-        const auto canonical_route_path =
-            profile_path(profile_root, "reference_excitation.routes." + route_semantic);
-        validate_derived_resolution(
-            report, path.resolved_delay_samples, provenance,
-            canonical_path + ".resolved_delay_samples",
-            {
-                canonical_path + ".header_primary_length_m",
-                canonical_route_path + ".exhaust_system_length_m",
-                profile_path(profile_root,
-                             "reference_excitation.legacy_propagation_speed_m_s"),
-                profile_path(profile_root, "reference_excitation.delay_rate"),
-            });
-
-        if (excitation_route != nullptr &&
-            finite_nonnegative(path.header_primary_length_m.value) &&
-            finite_positive(excitation_route->exhaust_system_length_m.value) &&
-            finite_positive(excitation.legacy_propagation_speed_m_s.value) &&
-            excitation.delay_rate.value.numerator != 0 &&
-            excitation.delay_rate.value.denominator != 0) {
-            const auto total_length_m = path.header_primary_length_m.value +
-                                        excitation_route->exhaust_system_length_m.value;
-            const auto delay_seconds =
-                total_length_m / excitation.legacy_propagation_speed_m_s.value;
-            const auto delay_rate_hz =
-                static_cast<double>(excitation.delay_rate.value.numerator) /
-                static_cast<double>(excitation.delay_rate.value.denominator);
-            const auto requested_samples = delay_seconds * delay_rate_hz;
-            const auto rounded_samples = std::round(requested_samples);
-            const auto delay_in_range =
-                finite(total_length_m) && total_length_m >= 0.0 &&
-                finite(delay_seconds) && delay_seconds >= 0.0 &&
-                finite(delay_rate_hz) && delay_rate_hz > 0.0 &&
-                finite(requested_samples) && requested_samples >= 0.0 &&
-                finite(rounded_samples) && rounded_samples >= 0.0 &&
-                rounded_samples <=
-                    static_cast<double>(std::numeric_limits<std::uint32_t>::max());
-            require(report, delay_in_range, ContractIssueCode::invalid_value,
-                    canonical_path + ".resolved_delay_samples.value",
-                    "derived propagation delay must fit uint32 sample count");
-            if (delay_in_range) {
-                require(report,
-                        path.resolved_delay_samples.value ==
-                            static_cast<std::uint32_t>(rounded_samples),
-                        ContractIssueCode::inconsistent_semantics,
-                        canonical_path + ".resolved_delay_samples.value",
-                        "resolved propagation delay must equal round-ties-away "
-                        "of path time at delay rate");
-            }
         }
     }
     require(report, excitation_path_cylinder_ids == engine_cylinder_ids,

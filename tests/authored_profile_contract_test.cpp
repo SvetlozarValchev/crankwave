@@ -221,7 +221,6 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
     };
     core.excitation.cylinder_count_divisor = authored(1.0);
     core.excitation.inverse_length_exponent = authored(2.0);
-    core.excitation.delay_rate = authored(RationalRateHz{10000, 1});
     core.excitation.cylinder_accumulation_order =
         authored(std::vector<std::string>{"cylinder-1"});
     core.excitation.cylinder_paths.push_back({
@@ -229,7 +228,6 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
         authored(std::string{"exhaust.outlet-1"}),
         authored(0.0),
         authored(1.0),
-        authored<std::uint32_t>(182),
     });
     core.excitation.routes.push_back({
         authored(std::string{"exhaust.outlet-1"}),
@@ -565,13 +563,6 @@ void run_authored_profile_contract_tests() {
         [](AuthoredLowOrderOperatingPointV1Profile &profile) {
             profile.core.excitation.routes.front().audio_volume_linear.value += 0.1;
         });
-    expect_authored_mutation_rejected(
-        "stale authored propagation delay was accepted",
-        [](AuthoredLowOrderOperatingPointV1Profile &profile) {
-            ++profile.core.excitation.cylinder_paths.front()
-                  .resolved_delay_samples.value;
-        });
-
     expect(validate(make_authored_engine()).ok(),
            "valid authored engine and executable profile were rejected");
     auto missing_authored_cranks = make_authored_engine();

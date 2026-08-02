@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-02
 
-Current checkpoint: **post-slice-15 parity closure — rate ownership**
+Current checkpoint: **post-slice-15 parity closure — bank-local VTEC**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -173,7 +173,7 @@ resampler is not expected to reproduce a 192 kHz WAV container.
 The current generic identities are:
 
 ```text
-simulation request SHA-256: df65b324c78d43c1b651ab69d217483d3b489199fbb1c5a2a4ad9da7e2143efd
+simulation request SHA-256: e01b872b91f142ef65633783a736cbea79169e99b4c45e8df6d68ffa481369d6
 audition WAV byte count:    8640586
 audition WAV SHA-256:       f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552
 ```
@@ -833,7 +833,11 @@ engine-definition parity in this order, with one coherent commit per bullet:
    lane-local metering, and the accepted BMW complete WAV remains byte-identical on
    2026-08-02**);
 4. generalize physics, capture, excitation, and propagation-delay rate ownership while
-   retaining exact output for every existing 10 kHz fixture;
+   retaining exact output for every existing 10 kHz fixture (**complete; scenario
+   physics owns solver and gas step duration, capture/excitation inherit its admitted
+   clock, propagation delay is session-resolved from physical path time, focused
+   20 kHz execution proves 50 us mechanics/capture and 360-vs-180-sample equal-time
+   delay, and the accepted BMW complete WAV remains byte-identical on 2026-08-02**);
 5. execute bank-local VTEC selectors through the already admitted bank-local head and
    cam-profile topology;
 6. execute dynamic one-level master/slave mechanisms and only the remaining meaningful

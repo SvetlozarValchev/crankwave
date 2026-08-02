@@ -464,14 +464,6 @@ void run_parity_model_contract_tests() {
         });
 
     expect_parity_mutation_rejected(
-        "stale propagation delay survived a path-length calculation",
-        [](EngineSpec &engine, InputBuilder &) {
-            ++operating_profile(engine)
-                  .core.excitation.cylinder_paths.front()
-                  .resolved_delay_samples.value;
-        });
-
-    expect_parity_mutation_rejected(
         "nonpositive resolved flame-speed table radius was accepted",
         [](EngineSpec &engine, InputBuilder &) {
             operating_profile(engine)
@@ -510,14 +502,6 @@ void run_parity_model_contract_tests() {
             falsely_mark_authored(builder, resolution_id);
         });
 
-    expect_parity_mutation_rejected(
-        "derived propagation delay was accepted as authored",
-        [](EngineSpec &engine, InputBuilder &builder) {
-            const auto &resolution_id = operating_profile(engine)
-                                            .core.excitation.cylinder_paths.front()
-                                            .resolved_delay_samples.resolution_id;
-            falsely_mark_authored(builder, resolution_id);
-        });
 }
 
 } // namespace engine_sim_offline::contract::test

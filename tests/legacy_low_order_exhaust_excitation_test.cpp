@@ -25,7 +25,7 @@ using namespace engine_sim_offline;
 using namespace engine_sim_offline::contract;
 using namespace engine_sim_offline::excitation;
 
-constexpr std::size_t kFrames = kCapturedExcitationFramesPerBlock;
+constexpr std::size_t kFrames = 200U;
 constexpr std::size_t kCylinders = 6U;
 constexpr std::size_t kRoutes = 2U;
 constexpr std::size_t kDelayFrames = 180U;
@@ -53,9 +53,10 @@ void expect_same_bits(double actual, double expected, std::string_view message) 
 }
 
 [[nodiscard]] CapturedExhaustExcitationCompileResult
-compile_fixture_session(const EngineSpec &engine) {
+compile_fixture_session(const EngineSpec &engine, const RenderScenario &scenario) {
     return compile_captured_exhaust_excitation_session(engine,
-                                                       test::low_order_core(engine));
+                                                       test::low_order_core(engine),
+                                                       scenario);
 }
 
 [[nodiscard]] CapturedExhaustExcitationSession
@@ -83,8 +84,9 @@ require_session(CapturedExhaustExcitationCompileResult result) {
  */
 class SyntheticCaptureBlock final {
   public:
-    SyntheticCaptureBlock(const EngineSpec &engine, std::uint64_t first_frame_index)
-        : engine_id_(engine.id), first_frame_index_(first_frame_index) {
+    SyntheticCaptureBlock(const EngineSpec &engine, std::uint64_t first_frame_index,
+                          RationalRateHz rate = kRate)
+        : engine_id_(engine.id), first_frame_index_(first_frame_index), rate_(rate) {
         cylinders_.reserve(engine.cylinders.size());
         for (const auto &cylinder : engine.cylinders) {
             cylinders_.push_back(cylinder.id);
@@ -191,7 +193,7 @@ class SyntheticCaptureBlock final {
             filtered_rpm_, parity_cylinders_);
         return CaptureBlockView::borrow_for_callback(
             layout,
-            CaptureClock{kRate, first_frame_index_, first_frame_index_ + 1U,
+            CaptureClock{rate_, first_frame_index_, first_frame_index_ + 1U,
                          SamplePhase::post_step},
             static_cast<std::uint32_t>(kFrames), static_cast<std::uint32_t>(kFrames),
             static_cast<std::uint32_t>(kFrames * 19U), engine_samples_,
@@ -220,6 +222,7 @@ class SyntheticCaptureBlock final {
   private:
     EngineId engine_id_;
     std::uint64_t first_frame_index_ = 0;
+    RationalRateHz rate_{};
     std::vector<CylinderId> cylinders_;
     std::vector<PortIdentity> ports_;
     std::vector<GasVolumeIdentity> gas_volumes_;
@@ -397,14 +400,6 @@ independent_pre_delay(const SyntheticCaptureBlock &block) {
                   });
     for (auto &path : core.excitation.cylinder_paths) {
         path.route_id = selected_route_id;
-        const double delay_seconds = (path.header_primary_length_m.value +
-                                      excitation_route.exhaust_system_length_m.value) /
-                                     core.excitation.legacy_propagation_speed_m_s.value;
-        const double delay_rate_hz =
-            static_cast<double>(core.excitation.delay_rate.value.numerator) /
-            static_cast<double>(core.excitation.delay_rate.value.denominator);
-        path.resolved_delay_samples.value =
-            static_cast<std::uint32_t>(std::round(delay_seconds * delay_rate_hz));
     }
     for (auto &cylinder : core.mechanism.cylinders) {
         cylinder.topology.exhaust_route_id = selected_route_id;
@@ -441,13 +436,14 @@ void expect_equal_block(const PublishedBlockCopy &actual,
     }
 }
 
-void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine) {
+void test_exact_arithmetic_delay_routes_and_continuity(
+    const EngineSpec &engine, const RenderScenario &scenario) {
     SyntheticCaptureBlock block_0{engine, 0U};
     SyntheticCaptureBlock block_1{engine, kFrames};
     block_0.fill_distinct_excitation();
     block_1.fill_distinct_excitation();
 
-    auto session = require_session(compile_fixture_session(engine));
+    auto session = require_session(compile_fixture_session(engine, scenario));
     const auto actual_0 = publish(session, block_0.view(), 0U);
     const auto actual_1 = publish(session, block_1.view(), 1U);
 
@@ -516,14 +512,75 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine)
            "two-block excitation session progress changed");
 }
 
-void test_two_cylinder_single_route_session(const EngineSpec &canonical_engine) {
+void test_twenty_khz_delay_is_derived_at_session_admission(
+    const EngineSpec &engine, RenderScenario scenario) {
+    constexpr RationalRateHz rate{20000U, 1U};
+    constexpr std::size_t expected_delay_frames = 360U;
+    static_assert(expected_delay_frames == 2U * kDelayFrames);
+    static_assert(expected_delay_frames * kRate.numerator ==
+                  kDelayFrames * rate.numerator);
+    expect(static_cast<std::size_t>(std::round(
+               (kTotalAudioLengthM / 343.0) *
+               static_cast<double>(rate.numerator) /
+               static_cast<double>(rate.denominator))) == expected_delay_frames,
+           "20 kHz path-time derivation did not resolve to 360 samples");
+
+    scenario.rates.physics = rate;
+    scenario.rates.capture = rate;
+    scenario.quality.value.capture_block_capacity_frames =
+        static_cast<std::uint32_t>(kFrames);
+
+    SyntheticCaptureBlock block_0{engine, 0U, rate};
+    SyntheticCaptureBlock block_1{engine, kFrames, rate};
+    block_0.fill_distinct_excitation();
+    block_1.fill_distinct_excitation();
+    block_0.filtered_rpm().front() = 80.0;
+
+    auto session = require_session(compile_fixture_session(engine, scenario));
+    const auto actual_0 = publish(session, block_0.view(), 0U);
+    const auto actual_1 = publish(session, block_1.view(), 1U);
+
+    expect(actual_0.sample_rate == rate && actual_1.sample_rate == rate &&
+               actual_0.frame_count == kFrames && actual_1.frame_count == kFrames,
+           "20 kHz excitation did not publish on its admitted capture clock");
+    expect(std::ranges::all_of(actual_0.post_delay,
+                               [](double value) { return bits(value) == bits(+0.0); }),
+           "20 kHz excitation used the stale 180-frame propagation delay");
+
+    const std::size_t local_arrival_frame = expected_delay_frames - kFrames;
+    for (std::size_t frame = 0; frame < local_arrival_frame; ++frame) {
+        for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
+            expect(bits(actual_1.post_delay[frame * kCylinders + cylinder]) ==
+                       bits(+0.0),
+                   "20 kHz propagation delay arrived before 360 capture samples");
+        }
+    }
+
+    bool observed_nonzero_arrival = false;
+    for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
+        const double expected = actual_0.pre_delay[cylinder];
+        const double actual =
+            actual_1.post_delay[local_arrival_frame * kCylinders + cylinder];
+        expect_same_bits(actual, expected,
+                         "20 kHz propagation delay was not derived from path time");
+        observed_nonzero_arrival = observed_nonzero_arrival || actual != 0.0;
+    }
+    expect(observed_nonzero_arrival,
+           "20 kHz propagation-delay proof did not observe a nonzero arrival");
+    expect(session.next_frame_index() == 2U * kFrames &&
+               session.published_block_count() == 2U && !session.faulted(),
+           "20 kHz excitation session progress changed");
+}
+
+void test_two_cylinder_single_route_session(const EngineSpec &canonical_engine,
+                                            const RenderScenario &scenario) {
     const auto engine = make_two_cylinder_single_route_engine(canonical_engine);
     SyntheticCaptureBlock block_0{engine, 0U};
     SyntheticCaptureBlock block_1{engine, kFrames};
     block_0.fill_distinct_excitation();
     block_1.fill_distinct_excitation();
 
-    auto session = require_session(compile_fixture_session(engine));
+    auto session = require_session(compile_fixture_session(engine, scenario));
     const auto actual_0 = publish(session, block_0.view(), 0U);
     const auto actual_1 = publish(session, block_1.view(), 1U);
 
@@ -544,14 +601,15 @@ void test_two_cylinder_single_route_session(const EngineSpec &canonical_engine) 
            "dynamic 2-cylinder/1-route session progress changed");
 }
 
-void test_independent_sessions_are_bit_deterministic(const EngineSpec &engine) {
+void test_independent_sessions_are_bit_deterministic(
+    const EngineSpec &engine, const RenderScenario &scenario) {
     SyntheticCaptureBlock block_0{engine, 0U};
     SyntheticCaptureBlock block_1{engine, kFrames};
     block_0.fill_distinct_excitation();
     block_1.fill_distinct_excitation();
 
-    auto first = require_session(compile_fixture_session(engine));
-    auto second = require_session(compile_fixture_session(engine));
+    auto first = require_session(compile_fixture_session(engine, scenario));
+    auto second = require_session(compile_fixture_session(engine, scenario));
     const auto first_0 = publish(first, block_0.view(), 0U);
     const auto second_0 = publish(second, block_0.view(), 0U);
     const auto first_1 = publish(first, block_1.view(), 1U);
@@ -571,13 +629,13 @@ require_fault(const CapturedExhaustExcitationProcessResult &result,
 }
 
 void test_complete_prevalidation_is_terminal_and_does_not_advance(
-    const EngineSpec &engine) {
+    const EngineSpec &engine, const RenderScenario &scenario) {
     SyntheticCaptureBlock malformed{engine, 0U};
     malformed.fill_distinct_excitation();
     malformed.parity_cylinders().back().dynamic_pressure_reverse_pa =
         std::numeric_limits<double>::quiet_NaN();
 
-    auto session = require_session(compile_fixture_session(engine));
+    auto session = require_session(compile_fixture_session(engine, scenario));
     std::size_t callbacks = 0U;
     const auto first = session.process_block(
         malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
@@ -608,12 +666,13 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance(
            "prevalidation failure was not stable and state-preserving");
 }
 
-void test_consumer_rejection_and_exception_are_terminal(const EngineSpec &engine) {
+void test_consumer_rejection_and_exception_are_terminal(
+    const EngineSpec &engine, const RenderScenario &scenario) {
     SyntheticCaptureBlock block{engine, 0U};
     block.fill_distinct_excitation();
 
     {
-        auto session = require_session(compile_fixture_session(engine));
+        auto session = require_session(compile_fixture_session(engine, scenario));
         std::size_t callbacks = 0U;
         const auto rejected = session.process_block(
             block.view(), [&](const presentation::ExhaustExcitationBlockView &,
@@ -639,7 +698,7 @@ void test_consumer_rejection_and_exception_are_terminal(const EngineSpec &engine
     }
 
     {
-        auto session = require_session(compile_fixture_session(engine));
+        auto session = require_session(compile_fixture_session(engine, scenario));
         std::size_t callbacks = 0U;
         const auto thrown = session.process_block(
             block.view(),
@@ -667,10 +726,10 @@ void test_consumer_rejection_and_exception_are_terminal(const EngineSpec &engine
 }
 
 void test_reentrant_callback_preserves_outer_views_and_faults(
-    const EngineSpec &engine) {
+    const EngineSpec &engine, const RenderScenario &scenario) {
     SyntheticCaptureBlock block{engine, 0U};
     block.fill_distinct_excitation();
-    auto session = require_session(compile_fixture_session(engine));
+    auto session = require_session(compile_fixture_session(engine, scenario));
 
     std::size_t outer_callbacks = 0U;
     std::size_t nested_callbacks = 0U;
@@ -714,48 +773,59 @@ void test_reentrant_callback_preserves_outer_views_and_faults(
            "reentrant excitation publication was not one stable unpublished fault");
 }
 
-void expect_compile_rejected(EngineSpec engine, std::string_view mutation) {
-    const auto result = compile_fixture_session(engine);
+void expect_compile_rejected(EngineSpec engine, RenderScenario scenario,
+                             std::string_view mutation) {
+    const auto result = compile_fixture_session(engine, scenario);
     const auto *report = std::get_if<ValidationReport>(&result);
     expect(report != nullptr && !report->ok(),
            std::string{mutation} + " was admitted by the excitation compiler");
 }
 
 void test_compile_rejects_method_profile_rate_and_layout_drift(
-    const EngineSpec &canonical_engine) {
+    const EngineSpec &canonical_engine, const RenderScenario &canonical_scenario) {
     {
         auto engine = canonical_engine;
         engine.methods.excitation.value.configuration_sha256.bytes[0] ^= 0x01U;
-        expect_compile_rejected(std::move(engine),
+        expect_compile_rejected(std::move(engine), canonical_scenario,
                                 "drifted excitation method configuration");
     }
     {
         auto engine = canonical_engine;
         test::low_order_core(engine).excitation.cylinder_count_divisor.value = 5.0;
-        expect_compile_rejected(std::move(engine), "drifted excitation profile");
+        expect_compile_rejected(std::move(engine), canonical_scenario,
+                                "drifted excitation profile");
     }
     {
-        auto engine = canonical_engine;
-        test::low_order_core(engine).excitation.delay_rate.value = {9999, 1};
-        expect_compile_rejected(std::move(engine), "drifted excitation rate");
+        auto scenario = canonical_scenario;
+        scenario.rates.capture = {9999, 1};
+        expect_compile_rejected(canonical_engine, std::move(scenario),
+                                "capture rate divergent from physics");
     }
     {
         auto engine = canonical_engine;
         std::swap(engine.cylinders[0], engine.cylinders[1]);
-        expect_compile_rejected(std::move(engine),
+        expect_compile_rejected(std::move(engine), canonical_scenario,
                                 "drifted same-shape cylinder layout");
     }
 }
 
 void run_tests(const std::filesystem::path &repository_root) {
     const auto fixture = test::load_canonical_authored_engine_fixture(repository_root);
-    test_exact_arithmetic_delay_routes_and_continuity(fixture.engine);
-    test_two_cylinder_single_route_session(fixture.engine);
-    test_independent_sessions_are_bit_deterministic(fixture.engine);
-    test_complete_prevalidation_is_terminal_and_does_not_advance(fixture.engine);
-    test_consumer_rejection_and_exception_are_terminal(fixture.engine);
-    test_reentrant_callback_preserves_outer_views_and_faults(fixture.engine);
-    test_compile_rejects_method_profile_rate_and_layout_drift(fixture.engine);
+    test_exact_arithmetic_delay_routes_and_continuity(fixture.engine,
+                                                      fixture.scenario);
+    test_twenty_khz_delay_is_derived_at_session_admission(fixture.engine,
+                                                          fixture.scenario);
+    test_two_cylinder_single_route_session(fixture.engine, fixture.scenario);
+    test_independent_sessions_are_bit_deterministic(fixture.engine,
+                                                    fixture.scenario);
+    test_complete_prevalidation_is_terminal_and_does_not_advance(
+        fixture.engine, fixture.scenario);
+    test_consumer_rejection_and_exception_are_terminal(fixture.engine,
+                                                       fixture.scenario);
+    test_reentrant_callback_preserves_outer_views_and_faults(fixture.engine,
+                                                             fixture.scenario);
+    test_compile_rejects_method_profile_rate_and_layout_drift(fixture.engine,
+                                                              fixture.scenario);
 }
 
 } // namespace

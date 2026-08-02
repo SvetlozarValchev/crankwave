@@ -278,7 +278,8 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
     const auto *core = std::visit([](const auto &profile) { return &profile.core; },
                                   engine.physics_profile);
     auto excitation_result =
-        excitation::compile_captured_exhaust_excitation_session(engine, *core);
+        excitation::compile_captured_exhaust_excitation_session(engine, *core,
+                                                                scenario);
     if (const auto *report =
             std::get_if<contract::ValidationReport>(&excitation_result)) {
         return build_error(

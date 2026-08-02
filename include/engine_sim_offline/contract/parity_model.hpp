@@ -562,7 +562,6 @@ struct AuthoredLegacyExcitationCylinderPath {
     AuthoredValue<std::string> route_id;
     AuthoredValue<double> header_primary_length_m;
     AuthoredValue<double> sound_attenuation_linear;
-    AuthoredValue<std::uint32_t> resolved_delay_samples;
 
     friend bool operator==(const AuthoredLegacyExcitationCylinderPath &,
                            const AuthoredLegacyExcitationCylinderPath &) = default;
@@ -573,7 +572,6 @@ struct LegacyExcitationCylinderPath {
     RouteId route_id;
     ResolvedValue<double> header_primary_length_m;
     ResolvedValue<double> sound_attenuation_linear;
-    ResolvedValue<std::uint32_t> resolved_delay_samples;
 
     friend bool operator==(const LegacyExcitationCylinderPath &,
                            const LegacyExcitationCylinderPath &) = default;
@@ -608,7 +606,6 @@ struct LegacyReferenceExcitationProfileT {
     LegacyExcitationPressureGainsT<Field> pressure_gains;
     Field<double> cylinder_count_divisor;
     Field<double> inverse_length_exponent;
-    Field<RationalRateHz> delay_rate;
     Field<std::vector<CylinderRef>> cylinder_accumulation_order;
     std::vector<CylinderPath> cylinder_paths;
     std::vector<Route> routes;

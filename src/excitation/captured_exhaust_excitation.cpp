@@ -16,8 +16,6 @@
 namespace engine_sim_offline::excitation {
 namespace {
 
-inline constexpr contract::RationalRateHz kExcitationRateHz{10000, 1};
-
 [[nodiscard]] contract::FailureContext
 moved_from_failure(std::uint64_t sample_index = 0U) {
     return {
@@ -27,7 +25,7 @@ moved_from_failure(std::uint64_t sample_index = 0U) {
         "unavailable",
         sample_index,
         sample_index,
-        static_cast<double>(sample_index) / 10000.0,
+        +0.0,
         +0.0,
         std::nullopt,
         std::nullopt,
@@ -53,7 +51,9 @@ make_failure(const detail::CapturedExhaustExcitationState &state,
         state.profile_id,
         state.next_frame_index,
         state.next_frame_index,
-        static_cast<double>(state.next_frame_index) / 10000.0,
+        static_cast<double>(state.next_frame_index) *
+            static_cast<double>(state.sample_rate.denominator) /
+            static_cast<double>(state.sample_rate.numerator),
         +0.0,
         state.engine_id,
         std::nullopt,
@@ -229,20 +229,21 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
                                  "capture engine, cylinder order, or route layout "
                                  "differs from the compiled excitation layout"));
     }
-    if (block.frame_count() != kCapturedExcitationFramesPerBlock ||
-        block.declared_block_capacity_frames() != kCapturedExcitationFramesPerBlock ||
-        block.clock().rate != kExcitationRateHz ||
+    if (block.frame_count() != state.block_capacity_frames ||
+        block.declared_block_capacity_frames() != state.block_capacity_frames ||
+        block.clock().rate != state.sample_rate ||
         block.clock().phase != contract::SamplePhase::post_step ||
         block.clock().first_sample_index != state.next_frame_index ||
         !block.reference_parity().has_value()) {
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
                                  "captured-excitation-block-extent-mismatch",
-                                 "excitation requires one contiguous 200-frame, "
-                                 "10000/1 Hz post-step block with reference parity"));
+                                 "excitation requires one contiguous full-capacity "
+                                 "post-step block on its compiled capture clock with "
+                                 "reference parity"));
     }
     if (state.next_frame_index >
-        std::numeric_limits<std::uint64_t>::max() - kCapturedExcitationFramesPerBlock) {
+        std::numeric_limits<std::uint64_t>::max() - state.block_capacity_frames) {
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
                                  "captured-excitation-frame-counter-overflow",
@@ -260,7 +261,7 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
         state.prospective_delays[cylinder] = state.cylinders[cylinder].delay;
     }
 
-    for (std::size_t frame = 0; frame < kCapturedExcitationFramesPerBlock; ++frame) {
+    for (std::size_t frame = 0; frame < state.block_capacity_frames; ++frame) {
         const double filtered_speed = parity.filtered_engine_speed_rpm()[frame];
         const double activity =
             std::min(std::abs(filtered_speed), state.filtered_speed_threshold_rpm) /
@@ -291,7 +292,7 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
         }
     }
 
-    for (std::size_t frame = 0; frame < kCapturedExcitationFramesPerBlock; ++frame) {
+    for (std::size_t frame = 0; frame < state.block_capacity_frames; ++frame) {
         std::fill_n(state.route_bus_values.begin() + frame * route_count, route_count,
                     +0.0);
         for (const auto cylinder_index : state.accumulation_order) {
@@ -327,11 +328,11 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
     }
 
     const auto output = presentation::ExhaustExcitationBlockView::borrow_for_callback(
-        state.next_frame_index, kExcitationRateHz, state.route_ids,
-        kCapturedExcitationFramesPerBlock, state.route_bus_values);
+        state.next_frame_index, state.sample_rate, state.route_ids,
+        state.block_capacity_frames, state.route_bus_values);
     const auto diagnostics = ExhaustExcitationDiagnosticBlockView::borrow_for_callback(
-        state.next_frame_index, kExcitationRateHz, state.cylinder_ids, state.route_ids,
-        kCapturedExcitationFramesPerBlock, state.pre_delay, state.post_delay,
+        state.next_frame_index, state.sample_rate, state.cylinder_ids, state.route_ids,
+        state.block_capacity_frames, state.pre_delay, state.post_delay,
         state.route_bus_values);
 
     bool accepted = false;
@@ -374,8 +375,8 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
     const ExhaustExcitationBlockPublished published{
         state.published_block_count,
         state.next_frame_index,
-        kCapturedExcitationFramesPerBlock,
-        state.next_frame_index + kCapturedExcitationFramesPerBlock,
+        state.block_capacity_frames,
+        state.next_frame_index + state.block_capacity_frames,
     };
     state.next_frame_index = published.published_frame_count;
     ++state.published_block_count;

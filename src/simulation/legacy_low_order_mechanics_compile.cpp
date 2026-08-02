@@ -41,7 +41,15 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
             schedule.sample_semantics() == contract::RpmSampleSemantics::post_step_rpm,
             ContractIssueCode::unsupported_value, "schedule.sample_semantics",
             "legacy mechanics requires post-step RPM schedule samples");
-    constexpr double kStepSeconds = 1.0 / 10000.0;
+    require(report, contract::validate(scenario.rates.physics).ok(),
+            ContractIssueCode::invalid_value, "scenario.rates.physics",
+            "legacy mechanics requires a valid positive physics rate");
+    if (!report.ok()) {
+        return report;
+    }
+    const double step_s =
+        static_cast<double>(scenario.rates.physics.denominator) /
+        static_cast<double>(scenario.rates.physics.numerator);
     for (std::uint64_t index = 0; index < schedule.sample_count(); ++index) {
         const auto rpm = schedule.rpm_at_sample_offset(index);
         if (!rpm.has_value()) {
@@ -49,7 +57,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics(
                     "kinematic schedule lost an admitted RPM sample");
             break;
         }
-        const double step_rotation = std::abs(-*rpm * kLegacyRpmScale * kStepSeconds);
+        const double step_rotation = std::abs(-*rpm * kLegacyRpmScale * step_s);
         if (!(step_rotation < 4.0 * kLegacyPi)) {
             require(report, false, ContractIssueCode::unsupported_value,
                     "schedule.rpm[" + std::to_string(index) + "]",
@@ -162,6 +170,9 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
     require(report, schedule.rate() == scenario.rates.physics,
             ContractIssueCode::inconsistent_semantics, "schedule.rate",
             "compiled control schedule rate must equal the scenario physics rate");
+    require(report, contract::validate(scenario.rates.physics).ok(),
+            ContractIssueCode::invalid_value, "scenario.rates.physics",
+            "legacy mechanics requires a valid positive physics rate");
     require(report, schedule.first_step_index() == 0,
             ContractIssueCode::inconsistent_semantics, "schedule.first_step_index",
             "legacy mechanics requires a control schedule beginning at physics "
@@ -186,9 +197,6 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
                 "open-ended mechanics execution is admitted only for FreeEngine, "
                 "HeldDyno, or FreeVehicle");
     }
-    require(report, scenario.rates.physics == contract::RationalRateHz{10000, 1},
-            ContractIssueCode::unsupported_value, "scenario.rates.physics",
-            "legacy_low_order_v1 mechanics requires exactly 10000 Hz");
     require(report,
             schedule.initial_theta_rad() == crank->crank_tdc_reference_rad.value,
             ContractIssueCode::unsupported_value, "schedule.initial_theta_rad",

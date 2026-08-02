@@ -506,7 +506,6 @@ legacy-reference-excitation-profile = {
   "pressure_gains": legacy-excitation-pressure-gains,
   "cylinder_count_divisor": resolved<f64-bits>,
   "inverse_length_exponent": resolved<f64-bits>,
-  "delay_rate": resolved<rational-rate-hz>,
   "cylinder_accumulation_order": resolved<cylinder-id-array>,
   "cylinder_paths": [* legacy-excitation-cylinder-path],
   "routes": [* legacy-excitation-route]
@@ -522,8 +521,7 @@ legacy-excitation-cylinder-path = {
   "cylinder_id": stable-id,
   "route_id": stable-id,
   "header_primary_length_m": resolved<f64-bits>,
-  "sound_attenuation_linear": resolved<f64-bits>,
-  "resolved_delay_samples": resolved<u32>
+  "sound_attenuation_linear": resolved<f64-bits>
 }
 
 legacy-excitation-route = {

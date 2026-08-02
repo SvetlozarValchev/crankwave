@@ -79,7 +79,9 @@ LegacyLowOrderMechanicsSession::LegacyLowOrderMechanicsSession(
       kinematic_cursor_(std::move(kinematic_cursor)), rate_(rate),
       mechanism_plan_(std::move(mechanism_plan)),
       crank_tdc_reference_rad_(mechanism_crank_tdc_reference_rad(mechanism_plan_)),
-      step_s_(1.0 / 10000.0), filter_alpha_(step_s_ / (100.0 + step_s_)),
+      step_s_(static_cast<double>(rate.denominator) /
+              static_cast<double>(rate.numerator)),
+      filter_alpha_(step_s_ / (100.0 + step_s_)),
       maximum_event_count_(mechanism_cylinder_count(mechanism_plan_) + 1U),
       timing_curve_(std::move(timing_curve)),
       timing_curve_radius_rad_s_(timing_curve_radius_rad_s),
