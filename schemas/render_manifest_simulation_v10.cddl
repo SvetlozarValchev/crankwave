@@ -346,6 +346,7 @@ legacy-intake-parameters = {
   "runner_length_m": resolved<f64-bits>,
   "velocity_decay": resolved<f64-bits>,
   "idle_throttle_plate_position_01": resolved<f64-bits>,
+  "main_mixture_lambda": resolved<f64-bits>,
   "main_throttle": legacy-restriction,
   "idle_bypass": legacy-restriction,
   "plenum_to_runner": legacy-restriction

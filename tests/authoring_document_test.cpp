@@ -250,7 +250,8 @@ void expect(bool condition, std::string_view message) {
           "discharge_coefficient_01": 0.8
         },
         "idle_throttle_position_01": 0.05,
-        "runner_velocity_decay_01": 0.1
+        "runner_velocity_decay_01": 0.1,
+        "main_mixture_lambda": 0.8
       }
     ],
     "exhausts": [
@@ -1089,6 +1090,43 @@ void test_output_crankshaft_reference_is_explicit_and_ordered() {
            "selection");
 }
 
+void test_intake_main_mixture_lambda_is_required_positive_and_greenfield() {
+    const auto package = require_engine(valid_engine_json());
+    expect(package.engine.intakes.size() == 1U &&
+               package.engine.intakes.front().main_mixture_lambda == 0.8,
+           "intake main-mixture lambda was not retained");
+
+    std::string missing = valid_engine_json();
+    replace_once(missing,
+                 R"json("runner_velocity_decay_01": 0.1,
+        "main_mixture_lambda": 0.8)json",
+                 R"json("runner_velocity_decay_01": 0.1)json");
+    expect(has_diagnostic(require_engine_report(parse_engine_document(missing)),
+                          DiagnosticCode::missing_value,
+                          "/engine/intakes/0/main_mixture_lambda"),
+           "intake without a main-mixture lambda was accepted");
+
+    std::string zero = valid_engine_json();
+    replace_once(zero, R"json("main_mixture_lambda": 0.8)json",
+                 R"json("main_mixture_lambda": 0)json");
+    expect(has_diagnostic(require_engine_report(parse_engine_document(zero)),
+                          DiagnosticCode::out_of_range,
+                          "/engine/intakes/0/main_mixture_lambda"),
+           "nonpositive intake main-mixture lambda was accepted");
+
+    std::string duplicated_fuel_authority = valid_engine_json();
+    replace_once(duplicated_fuel_authority,
+                 R"json("main_mixture_lambda": 0.8)json",
+                 R"json("main_mixture_lambda": 0.8,
+        "molecular_afr": 12.5)json");
+    expect(has_diagnostic(
+               require_engine_report(
+                   parse_engine_document(duplicated_fuel_authority)),
+               DiagnosticCode::unknown_field,
+               "/engine/intakes/0/molecular_afr"),
+           "duplicate intake molecular-AFR fuel authority was accepted");
+}
+
 void test_vtec_activation_contract_is_greenfield_and_strict() {
     const auto package = require_engine(valid_vtec_engine_json());
     const auto *vtec =
@@ -1347,6 +1385,7 @@ int main() {
         test_engine_schema_identifier_is_strict();
         test_complete_engine_package();
         test_output_crankshaft_reference_is_explicit_and_ordered();
+        test_intake_main_mixture_lambda_is_required_positive_and_greenfield();
         test_vtec_activation_contract_is_greenfield_and_strict();
         test_cranking_starter_contract_is_minimal_and_strict();
         test_direct_journal_attachment_contract_is_unambiguous();

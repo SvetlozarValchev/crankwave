@@ -261,6 +261,7 @@ struct IntakeDefinition {
     FlowRestriction runner_restriction;
     double idle_throttle_position_01 = 0.0;
     double runner_velocity_decay_01 = 0.0;
+    double main_mixture_lambda = 0.0;
 
     friend bool operator==(const IntakeDefinition &,
                            const IntakeDefinition &) = default;

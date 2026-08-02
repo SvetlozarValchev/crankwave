@@ -420,6 +420,7 @@ same_intake_base_values(const contract::LegacyIntakeParameters &left,
            left.plenum_cross_section_area_m2.value ==
                right.plenum_cross_section_area_m2.value &&
            left.runner_length_m.value == right.runner_length_m.value &&
+           left.main_mixture_lambda.value == right.main_mixture_lambda.value &&
            same_restriction_values(left.main_throttle, right.main_throttle) &&
            same_restriction_values(left.idle_bypass, right.idle_bypass) &&
            same_restriction_values(left.plenum_to_runner, right.plenum_to_runner);
@@ -492,6 +493,8 @@ void verify_resolved_intake_bindings(const ShovelheadSource &equal_split,
                different_intakes[1].parameters.idle_throttle_plate_position_01.value ==
                    0.993 &&
                different_intakes[1].parameters.velocity_decay.value == 0.5 &&
+               different_intakes[0].parameters.main_mixture_lambda.value == 0.8 &&
+               different_intakes[1].parameters.main_mixture_lambda.value == 0.8 &&
                !same_intake_values(equal_intakes[1].parameters,
                                    different_intakes[1].parameters),
            "differentiated C did not isolate its rear intake parameters");

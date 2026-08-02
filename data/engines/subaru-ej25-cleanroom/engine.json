@@ -136,7 +136,8 @@
         "idle_bypass_restriction": {"type": "flow_bench", "rated_flow": {"value": 0, "unit": "cfm", "standard": "carburetor_1p5_inhg"}, "pressure_drop": {"value": 1.5, "unit": "inHg"}},
         "runner_restriction": {"type": "flow_bench", "rated_flow": {"value": 250, "unit": "cfm", "standard": "carburetor_1p5_inhg"}, "pressure_drop": {"value": 1.5, "unit": "inHg"}},
         "idle_throttle_position_01": 0.9985,
-        "runner_velocity_decay_01": 0.5
+        "runner_velocity_decay_01": 0.5,
+        "main_mixture_lambda": 0.8
       }
     ],
     "exhausts": [

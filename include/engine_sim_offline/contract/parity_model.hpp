@@ -229,6 +229,7 @@ template <template <class> class Field> struct LegacyIntakeParametersT {
     Field<double> runner_length_m;
     Field<double> velocity_decay;
     Field<double> idle_throttle_plate_position_01;
+    Field<double> main_mixture_lambda;
     LegacyRestrictionT<Field> main_throttle;
     LegacyRestrictionT<Field> idle_bypass;
     LegacyRestrictionT<Field> plenum_to_runner;

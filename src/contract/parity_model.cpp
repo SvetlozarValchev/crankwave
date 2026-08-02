@@ -204,6 +204,7 @@ void visit_intake(const Intake &intake, const std::string &base, Function functi
     function(intake.velocity_decay, base + ".velocity_decay");
     function(intake.idle_throttle_plate_position_01,
              base + ".idle_throttle_plate_position_01");
+    function(intake.main_mixture_lambda, base + ".main_mixture_lambda");
     visit_restriction(intake.main_throttle, base + ".main_throttle", function);
     visit_restriction(intake.idle_bypass, base + ".idle_bypass", function);
     visit_restriction(intake.plenum_to_runner, base + ".plenum_to_runner", function);
@@ -920,14 +921,16 @@ void validate_authored_low_order_core_domains(
             ContractIssueCode::duplicate_identity,
             topology_path + ".idle_bypass_edge_id",
             "each intake boundary edge must be bound by exactly one intake profile");
-        require(report,
-                finite_positive(intake.plenum_volume_m3.value) &&
-                    finite_positive(intake.plenum_cross_section_area_m2.value) &&
-                    finite_positive(intake.runner_length_m.value) &&
-                    finite_nonnegative(intake.velocity_decay.value) &&
-                    detail::unit_interval(intake.idle_throttle_plate_position_01.value),
-                ContractIssueCode::invalid_value, parameters_path,
-                "legacy intake parameters are outside their domain");
+        require(
+            report,
+            finite_positive(intake.plenum_volume_m3.value) &&
+                finite_positive(intake.plenum_cross_section_area_m2.value) &&
+                finite_positive(intake.runner_length_m.value) &&
+                finite_nonnegative(intake.velocity_decay.value) &&
+                detail::unit_interval(intake.idle_throttle_plate_position_01.value) &&
+                finite_positive(intake.main_mixture_lambda.value),
+            ContractIssueCode::invalid_value, parameters_path,
+            "legacy intake parameters are outside their domain");
         validate_restriction_domain(report, intake.main_throttle,
                                     parameters_path + ".main_throttle");
         validate_restriction_domain(report, intake.idle_bypass,
@@ -1872,14 +1875,16 @@ void validate_low_order_core_domains(ValidationReport &report,
         const auto &intake = profile.parameters;
         const auto path =
             "gas_path.intakes." + intake_name(engine, profile.topology.intake_id);
-        require(report,
-                finite_positive(intake.plenum_volume_m3.value) &&
-                    finite_positive(intake.plenum_cross_section_area_m2.value) &&
-                    finite_positive(intake.runner_length_m.value) &&
-                    finite_nonnegative(intake.velocity_decay.value) &&
-                    detail::unit_interval(intake.idle_throttle_plate_position_01.value),
-                ContractIssueCode::invalid_value, path,
-                "legacy intake parameters are outside their domain");
+        require(
+            report,
+            finite_positive(intake.plenum_volume_m3.value) &&
+                finite_positive(intake.plenum_cross_section_area_m2.value) &&
+                finite_positive(intake.runner_length_m.value) &&
+                finite_nonnegative(intake.velocity_decay.value) &&
+                detail::unit_interval(intake.idle_throttle_plate_position_01.value) &&
+                finite_positive(intake.main_mixture_lambda.value),
+            ContractIssueCode::invalid_value, path,
+            "legacy intake parameters are outside their domain");
         validate_restriction_domain(report, intake.main_throttle,
                                     path + ".main_throttle", profile_root, &provenance);
         validate_restriction_domain(report, intake.idle_bypass, path + ".idle_bypass",

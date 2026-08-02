@@ -96,6 +96,7 @@ AuthoredLowOrderOperatingPointV1Profile make_authored_profile() {
             authored(0.15),
             authored(1.0),
             authored(0.0),
+            authored(0.8),
             make_restriction(LegacyRestrictionCalibration::carb_at_1p5_inhg, 500.0,
                              kCarb500),
             make_restriction(LegacyRestrictionCalibration::carb_at_1p5_inhg, 0.1,

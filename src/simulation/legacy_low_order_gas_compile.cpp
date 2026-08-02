@@ -27,6 +27,7 @@ struct AdmittedIntake {
     std::size_t idle_bypass_edge_index = 0;
     double plenum_volume_m3 = 0.0;
     double plenum_cross_section_area_m2 = 0.0;
+    double main_mixture_lambda = 0.0;
     double idle_throttle_plate_position_01 = 0.0;
     double main_throttle_k = 0.0;
     double idle_bypass_k = 0.0;
@@ -440,10 +441,11 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 finite_positive(intake.plenum_volume_m3.value) &&
                     finite_positive(intake.plenum_cross_section_area_m2.value) &&
                     finite_positive(intake.runner_length_m.value) &&
+                    finite_positive(intake.main_mixture_lambda.value) &&
                     finite_nonnegative(intake.velocity_decay.value),
                 ContractIssueCode::invalid_value, path + ".parameters",
-                "intake volume, areas, runner length, and velocity decay are "
-                "outside the admitted domain");
+                "intake volume, areas, runner length, main-mixture lambda, and "
+                "velocity decay are outside the admitted domain");
         require(report, unit_interval(intake.idle_throttle_plate_position_01.value),
                 ContractIssueCode::invalid_value, path + ".parameters",
                 "idle plate position must be finite in [0,1]");
@@ -673,6 +675,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
                 *idle_bypass_edge_index,
                 parameters.plenum_volume_m3.value,
                 parameters.plenum_cross_section_area_m2.value,
+                parameters.main_mixture_lambda.value,
                 parameters.idle_throttle_plate_position_01.value,
                 parameters.main_throttle.resolved_k.value,
                 parameters.idle_bypass.resolved_k.value,
@@ -1211,6 +1214,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         lane.main_throttle_edge_index = admitted.main_throttle_edge_index;
         lane.idle_bypass_edge_index = admitted.idle_bypass_edge_index;
         lane.plenum_cross_section_area_m2 = admitted.plenum_cross_section_area_m2;
+        lane.main_mixture_lambda = admitted.main_mixture_lambda;
         lane.idle_throttle_plate_position_01 = admitted.idle_throttle_plate_position_01;
         lane.main_throttle_k = admitted.main_throttle_k;
         lane.idle_bypass_k = admitted.idle_bypass_k;

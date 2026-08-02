@@ -14,7 +14,8 @@ void parse_intake(DocumentReader &reader, JsonValue value, std::string_view path
                           {"id", "plenum_volume", "plenum_cross_section_area",
                            "runner_length", "main_restriction",
                            "idle_bypass_restriction", "runner_restriction",
-                           "idle_throttle_position_01", "runner_velocity_decay_01"});
+                           "idle_throttle_position_01", "runner_velocity_decay_01",
+                           "main_mixture_lambda"});
     read_id_member(reader, value, "id", path, output.id);
     const auto owner = subject("intake", output.id.value);
     read_quantity_member(reader, value, "plenum_volume", path,
@@ -40,12 +41,20 @@ void parse_intake(DocumentReader &reader, JsonValue value, std::string_view path
     reader.fraction(reader.required(value, "runner_velocity_decay_01", path, owner),
                     pointer_member(path, "runner_velocity_decay_01"),
                     output.runner_velocity_decay_01, owner);
+    reader.nonnegative_number(
+        reader.required(value, "main_mixture_lambda", path, owner),
+        pointer_member(path, "main_mixture_lambda"), output.main_mixture_lambda, owner);
     require_positive(reader, output.plenum_volume,
                      pointer_member(path, "plenum_volume"), owner);
     require_positive(reader, output.plenum_cross_section_area,
                      pointer_member(path, "plenum_cross_section_area"), owner);
     require_nonnegative(reader, output.runner_length,
                         pointer_member(path, "runner_length"), owner);
+    if (output.main_mixture_lambda <= 0.0) {
+        reader.add(DiagnosticCode::out_of_range,
+                   pointer_member(path, "main_mixture_lambda"),
+                   "main mixture lambda must be positive", owner);
+    }
 }
 
 void parse_exhaust(DocumentReader &reader, JsonValue value, std::string_view path,

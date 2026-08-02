@@ -6,7 +6,7 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-02
 
-Current checkpoint: **post-slice-15 parity closure — intake-local molecular AFR**
+Current checkpoint: **post-slice-15 parity closure — rate ownership**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -827,7 +827,11 @@ engine-definition parity in this order, with one coherent commit per bullet:
    physics consumes them (**complete; physical rod COM and axial wrist-pin semantics
    are source-audited, synthetic closed forms pass, and accepted BMW/Shovelhead
    default-field output remains exact on 2026-08-02**);
-3. complete intake-local molecular-AFR ownership without duplicating fuel authority;
+3. complete intake-local molecular-AFR ownership without duplicating fuel authority
+   (**complete; fuel remains the sole stoichiometric authority, every intake executes
+   an explicit positive main-mixture lambda, a two-intake differential proves
+   lane-local metering, and the accepted BMW complete WAV remains byte-identical on
+   2026-08-02**);
 4. generalize physics, capture, excitation, and propagation-delay rate ownership while
    retaining exact output for every existing 10 kHz fixture;
 5. execute bank-local VTEC selectors through the already admitted bank-local head and

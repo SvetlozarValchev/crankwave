@@ -346,7 +346,8 @@
         "idle_bypass_restriction",
         "runner_restriction",
         "idle_throttle_position_01",
-        "runner_velocity_decay_01"
+        "runner_velocity_decay_01",
+        "main_mixture_lambda"
       ],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
@@ -357,7 +358,11 @@
         "idle_bypass_restriction": { "$ref": "#/$defs/flowRestriction" },
         "runner_restriction": { "$ref": "#/$defs/flowRestriction" },
         "idle_throttle_position_01": { "$ref": "#/$defs/fraction" },
-        "runner_velocity_decay_01": { "$ref": "#/$defs/fraction" }
+        "runner_velocity_decay_01": { "$ref": "#/$defs/fraction" },
+        "main_mixture_lambda": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
       }
     },
     "exhaust": {

@@ -550,6 +550,8 @@ write_legacy_intake_topology(CanonicalJsonWriter &writer,
            write_resolved(writer, intake.velocity_decay, write_f64) &&
            writer.key("idle_throttle_plate_position_01") &&
            write_resolved(writer, intake.idle_throttle_plate_position_01, write_f64) &&
+           writer.key("main_mixture_lambda") &&
+           write_resolved(writer, intake.main_mixture_lambda, write_f64) &&
            writer.key("main_throttle") &&
            write_legacy_restriction(writer, intake.main_throttle) &&
            writer.key("idle_bypass") &&

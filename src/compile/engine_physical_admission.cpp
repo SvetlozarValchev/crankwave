@@ -149,6 +149,11 @@ void admit_engine_physical_model(ModelContext &resolved,
                 "legacy_low_order_v1 requires a finite idle throttle plate "
                 "position in [0,1]");
         }
+        if (!std::isfinite(intake.main_mixture_lambda) ||
+            intake.main_mixture_lambda <= 0.0) {
+            add(report, DiagnosticCode::invalid_value, path + "/main_mixture_lambda",
+                "main mixture lambda must be finite and positive");
+        }
         require_carb(intake.main_restriction, path + "/main_restriction");
         require_carb(intake.idle_bypass_restriction, path + "/idle_bypass_restriction");
         require_carb(intake.runner_restriction, path + "/runner_restriction");

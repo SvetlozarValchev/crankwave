@@ -552,7 +552,8 @@ LegacyLowOrderGasSession::advance(const LegacyMechanismStep &mechanics) {
             auto &main_edge = step_.flow_edges[intake.main_throttle_edge_index];
             auto &idle_edge = step_.flow_edges[intake.idle_bypass_edge_index];
 
-            const double ideal_afr = (0.8 * fuel_.molecular_afr) * 4.0;
+            const double ideal_afr =
+                (intake.main_mixture_lambda * fuel_.molecular_afr) * 4.0;
             const double main_air_fraction = mechanics.operating_state.fuel_enabled
                                                  ? ideal_afr / (1.0 + ideal_afr)
                                                  : 1.0;

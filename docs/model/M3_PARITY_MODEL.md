@@ -381,12 +381,19 @@ The source-observable resolved engine throttle is `linkage`, exactly
 and restriction coefficient; all four use those explicit names in capture or
 diagnostics.
 
-The main and idle restrictions remain parallel. Preserve construction rounding. With
-fuel enabled:
+The main and idle restrictions remain parallel. Fuel owns the stoichiometric molar
+ratio; each intake owns its main-mixture lambda. The accepted BMW source has fuel
+ratio `12.5` and maps the source's fixed enrichment to intake lambda `0.8`. Preserve
+the written construction order. With fuel enabled:
 
 ```text
-ideal_afr = (0.8*12.5)*4
-main_air = ideal_afr/(1+ideal_afr)
+fuel_stoichiometric_ratio = 12.5
+main_mixture_lambda = 0.8
+main_total_pseudo_air_fuel_ratio =
+    (main_mixture_lambda*fuel_stoichiometric_ratio)*4
+main_air =
+    main_total_pseudo_air_fuel_ratio /
+    (1+main_total_pseudo_air_fuel_ratio)
 main_mix =
     (1-main_air, main_air*0.75, main_air*0.25)
 
@@ -400,6 +407,13 @@ These are mathematically `(1/41,30/41,10/41)` and `(1/3,1/2,1/6)`, but directly
 writing those rationals can differ by an ULP. With fuel disabled, both paths construct
 `air=1` and therefore `(0,0.75,0.25)`. Outlet and blowby environment mixtures are
 `(0,1,0)`.
+
+Pristine exposes the numeric `12.5` independently on Fuel and Intake. The greenfield
+contract does not retain that conflicting duplicate: fuel is the sole stoichiometric
+authority and intake `main_mixture_lambda` retains the local metering degree of
+freedom. The idle ratio `2` remains a separate calibration and does not consume the
+main lambda. The pinned source mapping and exclusions are frozen in
+[`PRISTINE_ENGINE_SIM_INTAKE_MIXTURE.md`](../oracles/PRISTINE_ENGINE_SIM_INTAKE_MIXTURE.md).
 
 Both cams use `9 mm` maximum lift, `1.27 mm` reference lift, `210°` crank duration,
 exponent `0.8`, 100 construction steps, zero advance, and a `0.6 inch` base-radius
@@ -451,7 +465,7 @@ The spark-ignition fuel parameters are:
 |---|---:|
 | Molecular mass | `0.100 kg/mol` |
 | Energy density | `48.1e6 J/kg` |
-| Molecular AFR parameter | `12.5` |
+| Stoichiometric molar-ratio parameter | `12.5` |
 | Maximum burning efficiency | `0.8` |
 | Burning-efficiency randomness | `0.5` |
 | Low-efficiency attenuation | `0.6` |

@@ -448,6 +448,7 @@ make_engine_document(const SyntheticAssets &assets) {
         authoring::FlowRestriction{runner_restriction},
         0.994,
         0.12,
+        0.8,
     });
 
     for (const std::string_view exhaust_id :
@@ -1829,12 +1830,28 @@ void test_v_engine_resolves_bank_geometry_and_axis_relative_journals() {
                         .parameters.idle_throttle_plate_position_01.value,
                     0.99715) &&
                near(physics.core.gas_path.intakes.front()
+                        .parameters.main_mixture_lambda.value,
+                    0.8) &&
+               near(physics.core.gas_path.intakes.front()
                         .parameters.idle_bypass.source_rating.value,
                     0.0) &&
                near(physics.core.gas_path.intakes.front()
                         .parameters.idle_bypass.resolved_k.value,
                     0.0),
-           "V-six lost its authored direct throttle or closed idle bypass");
+           "V-six lost its authored direct throttle, main-mixture lambda, or "
+           "closed idle bypass");
+
+    const auto intake_lambda_resolution = std::ranges::find(
+        resolved.provenance.resolutions,
+        "engine.physics.low-order-operating-point-v1.gas_path.intakes."
+        "fixture-shared-intake.main_mixture_lambda",
+        &contract::ResolutionRecord::parameter_path);
+    expect(intake_lambda_resolution != resolved.provenance.resolutions.end() &&
+               intake_lambda_resolution->mode ==
+                   contract::ResolutionMode::authored &&
+               !intake_lambda_resolution->method.has_value() &&
+               intake_lambda_resolution->dependency_parameter_paths.empty(),
+           "intake main-mixture lambda lost direct authored provenance");
 
     const auto journal_resolution = std::ranges::find(
         resolved.provenance.resolutions,
@@ -3134,6 +3151,14 @@ void test_direct_engine_dto_identity_and_enum_admission_fails_closed() {
         const auto result = compile::compile_engine(document, views);
         require_diagnostic(result, authoring::DiagnosticCode::missing_value,
                            "/engine/intakes", "empty direct-DTO intake collection");
+    }
+    {
+        auto document = make_engine_document(assets);
+        document.engine.intakes.front().main_mixture_lambda = 0.0;
+        const auto result = compile::compile_engine(document, views);
+        require_diagnostic(result, authoring::DiagnosticCode::invalid_value,
+                           "/engine/intakes/0/main_mixture_lambda",
+                           "nonpositive direct-DTO intake main-mixture lambda");
     }
     {
         auto document = make_engine_document(assets);

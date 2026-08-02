@@ -265,6 +265,8 @@ inline LowOrderOperatingPointV1Profile make_physics_profile(InputBuilder &builde
             builder.resolved(1.0, path("gas_path.intakes.intake-1.velocity_decay")),
             builder.resolved(
                 0.0, path("gas_path.intakes.intake-1.idle_throttle_plate_position_01")),
+            builder.resolved(0.8,
+                             path("gas_path.intakes.intake-1.main_mixture_lambda")),
             make_restriction(builder, LegacyRestrictionCalibration::carb_at_1p5_inhg,
                              500.0, kCarb500,
                              path("gas_path.intakes.intake-1.main_throttle")),

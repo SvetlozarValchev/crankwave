@@ -121,6 +121,7 @@ class LegacyLowOrderGasSession final {
         std::size_t main_throttle_edge_index = 0;
         std::size_t idle_bypass_edge_index = 0;
         double plenum_cross_section_area_m2 = 0.0;
+        double main_mixture_lambda = 0.0;
         double idle_throttle_plate_position_01 = 0.0;
         double main_throttle_k = 0.0;
         double idle_bypass_k = 0.0;

@@ -686,6 +686,7 @@ void accumulate_activity(const LegacyLowOrderGasStep &step,
 }
 
 struct IntakeLaneTraceSample {
+    LegacyGasMixture plenum_mixture;
     double plenum_pressure_pa_abs = 0.0;
     double main_boundary_transfer_mol = 0.0;
     double runner_transfer_sum_mol = 0.0;
@@ -731,6 +732,7 @@ sample_intake_lane(const AuthoredEngineFixture &request,
     expect(bound_cylinder_count > 0U,
            "two-intake trace found an intake without cylinder ownership");
     return {
+        plenum->cell.mixture,
         legacy_gas_pressure_pa(plenum->cell),
         main_edge->signed_amount_mol,
         runner_transfer_sum_mol,
@@ -993,6 +995,60 @@ void test_two_intake_direct_runtime_retains_independent_lanes(
                observed_second_runner_difference,
            "lane-2 plate perturbation did not reach its plenum and explicitly "
            "bound cylinder runners");
+}
+
+void test_two_intake_main_mixture_lambda_is_lane_local(
+    const AuthoredEngineFixture &canonical) {
+    auto reference = make_two_intake_request(canonical);
+    auto perturbed = reference;
+    auto &perturbed_intakes =
+        engine_sim_offline::test::low_order_core(perturbed.engine).gas_path.intakes;
+    expect(perturbed_intakes.size() == 2U &&
+               perturbed_intakes[0].parameters.main_mixture_lambda.value == 0.8 &&
+               perturbed_intakes[1].parameters.main_mixture_lambda.value == 0.8,
+           "two-intake lambda fixture lost its source-equal baseline");
+    perturbed_intakes[1].parameters.main_mixture_lambda.value = 1.0;
+
+    const auto &reference_intakes = low_order_core(reference).gas_path.intakes;
+    const IntakeId first_intake_id = reference_intakes[0].topology.intake_id;
+    const IntakeId second_intake_id = reference_intakes[1].topology.intake_id;
+    auto reference_sessions = compile_sessions(reference);
+    auto perturbed_gas_a = compile_gas_session(perturbed);
+    auto perturbed_gas_b = compile_gas_session(perturbed);
+
+    bool observed_second_mixture_difference = false;
+    constexpr std::uint64_t trace_step_count = 128U;
+    for (std::uint64_t sample_index = 0U; sample_index < trace_step_count;
+         ++sample_index) {
+        const auto &mechanics = advance_mechanics(reference_sessions, sample_index);
+        const auto &reference_step =
+            advance_gas(reference_sessions, mechanics, sample_index);
+        auto perturbed_result_a = perturbed_gas_a.advance(mechanics);
+        auto perturbed_result_b = perturbed_gas_b.advance(mechanics);
+        const auto &perturbed_step_a =
+            require_gas_step(perturbed_result_a, sample_index);
+        const auto &perturbed_step_b =
+            require_gas_step(perturbed_result_b, sample_index);
+        expect(same_gas_step(perturbed_step_a, perturbed_step_b),
+               "identical lane-local lambda runtimes produced different gas state");
+
+        const auto reference_first =
+            sample_intake_lane(reference, reference_step, first_intake_id);
+        const auto perturbed_first =
+            sample_intake_lane(perturbed, perturbed_step_a, first_intake_id);
+        const auto reference_second =
+            sample_intake_lane(reference, reference_step, second_intake_id);
+        const auto perturbed_second =
+            sample_intake_lane(perturbed, perturbed_step_a, second_intake_id);
+        expect(reference_first == perturbed_first,
+               "changing intake lane 2 lambda leaked into intake lane 1");
+        observed_second_mixture_difference =
+            observed_second_mixture_difference ||
+            reference_second.plenum_mixture != perturbed_second.plenum_mixture;
+    }
+
+    expect(observed_second_mixture_difference,
+           "lane-2 main-mixture lambda never changed its bound plenum mixture");
 }
 
 [[nodiscard]] double blowby_transfer_mol(const LegacyLowOrderGasStep &step,
@@ -1296,6 +1352,16 @@ void test_gas_method_admission_rejection(const AuthoredEngineFixture &canonical)
     {
         auto request = make_short_request(canonical);
         engine_sim_offline::test::low_order_core(request.engine)
+            .gas_path.intakes.front()
+            .parameters.main_mixture_lambda.value = 0.0;
+        expect_gas_compile_rejected(
+            request, "gas_path.intakes[0].parameters",
+            "zero intake main-mixture lambda");
+    }
+
+    {
+        auto request = make_short_request(canonical);
+        engine_sim_offline::test::low_order_core(request.engine)
             .mechanism.cylinders[1]
             .parameters.piston_blowby.resolved_k.value *= 2.0;
         expect_gas_compile_rejected(
@@ -1361,6 +1427,7 @@ void run_tests(const AuthoredEngineFixture &canonical) {
     test_vtec_selects_one_coherent_immutable_cam_pair(canonical);
     test_short_authored_fresh_state_and_deterministic_activity(canonical);
     test_two_intake_direct_runtime_retains_independent_lanes(canonical);
+    test_two_intake_main_mixture_lambda_is_lane_local(canonical);
     test_per_cylinder_blowby_executes_bound_restriction(canonical);
     test_bank_local_runner_and_primary_geometry_binds_and_advances(canonical);
     test_certified_radial_gas_uses_common_mechanism_coordinates(canonical);

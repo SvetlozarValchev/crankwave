@@ -170,7 +170,8 @@
           "pressure_drop": {"value": 1.5, "unit": "inHg"}
         },
         "idle_throttle_position_01": 0.9965,
-        "runner_velocity_decay_01": 0.4
+        "runner_velocity_decay_01": 0.4,
+        "main_mixture_lambda": 0.8
       }
     ],
     "exhausts": [
