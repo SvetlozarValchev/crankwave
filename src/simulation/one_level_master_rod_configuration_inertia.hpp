@@ -169,11 +169,24 @@ class CompiledOneLevelMasterRodArticulatedMechanism final {
         double crank_angle_theta_rad,
         OneLevelMasterRodArticulatedState &scratch) const noexcept;
 
+    // Exact canonical-body-angle entry point for the dynamic mechanics handoff.
+    // The scalar value is used without a theta/reference round trip while its AD
+    // derivatives remain dpsi/dtheta=-1 and d2psi/dtheta2=0.
+    [[nodiscard]] std::optional<OneLevelMasterRodConfigurationInertiaError>
+    evaluate_articulated_state_at_body_angle_psi(
+        double body_angle_psi_rad,
+        OneLevelMasterRodArticulatedState &scratch) const noexcept;
+
     // Evaluates shared articulated state into scratch and reduces that exact state
     // to M/M-prime. This method never allocates.
     [[nodiscard]] OneLevelMasterRodConfigurationInertiaCalculation
     evaluate_configuration_inertia(
         double attached_inertia_kg_m2, double crank_angle_theta_rad,
+        OneLevelMasterRodArticulatedState &scratch) const noexcept;
+
+    [[nodiscard]] OneLevelMasterRodConfigurationInertiaCalculation
+    evaluate_configuration_inertia_at_body_angle_psi(
+        double attached_inertia_kg_m2, double body_angle_psi_rad,
         OneLevelMasterRodArticulatedState &scratch) const noexcept;
 
   private:
@@ -192,6 +205,11 @@ class CompiledOneLevelMasterRodArticulatedMechanism final {
         double crank_tdc_reference_rad, double authored_crank_inertia_kg_m2,
         std::vector<Cylinder> cylinders,
         std::vector<OneLevelMasterRodCompiledCylinderView> cylinder_views) noexcept;
+
+    [[nodiscard]] OneLevelMasterRodConfigurationInertiaCalculation
+    reduce_configuration_inertia(
+        double attached_inertia_kg_m2,
+        const OneLevelMasterRodArticulatedState &state) const noexcept;
 
     double crank_tdc_reference_rad_ = 0.0;
     double authored_crank_inertia_kg_m2_ = 0.0;

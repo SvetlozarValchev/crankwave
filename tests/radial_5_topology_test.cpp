@@ -89,6 +89,16 @@ template <class Value, class Report>
     });
 }
 
+[[nodiscard]] bool has_validation_issue(const contract::ValidationReport &report,
+                                        contract::ContractIssueCode code,
+                                        std::string_view path,
+                                        std::string_view message_fragment) {
+    return std::ranges::any_of(report.issues, [&](const auto &issue) {
+        return issue.code == code && issue.path == path &&
+               issue.message.find(message_fragment) != std::string::npos;
+    });
+}
+
 [[nodiscard]] std::string read_text(const std::filesystem::path &path) {
     std::ifstream stream(path, std::ios::binary);
     if (!stream) {
@@ -555,6 +565,24 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
                               authoring::DiagnosticCode::unsupported_capability,
                               "/mode/type"),
            "radial-5 non-external-speed mode gate was removed or lost its path");
+
+    const std::array closed_dynamic_modes{
+        authoring::ScenarioMode{authoring::FreeEngineMode{}},
+        authoring::ScenarioMode{authoring::HeldDynoMode{}},
+        authoring::ScenarioMode{authoring::FreeVehicleMode{}},
+        authoring::ScenarioMode{authoring::InertialDynoMode{}},
+    };
+    for (const auto &mode : closed_dynamic_modes) {
+        auto dynamic = source.scenario_document;
+        dynamic.mode = mode;
+        const auto result = compile_detail::resolve_scenario_document(dynamic, context);
+        const auto *dynamic_report = std::get_if<authoring::DiagnosticReport>(&result);
+        expect(dynamic_report != nullptr &&
+                   has_diagnostic(*dynamic_report,
+                                  authoring::DiagnosticCode::unsupported_capability,
+                                  "/mode/type"),
+               "radial-5 authored dynamic mode escaped the master-rod firewall");
+    }
 }
 
 [[nodiscard]] contract::Sha256Digest nonzero_request_identity() {
@@ -571,6 +599,35 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
         fixture.scenario.total_duration_s.value, fixture.scenario.rates.physics);
     expect(horizon.has_value() && *horizon == 800U,
            "radial-5 public fixture lost its exact finite horizon");
+
+    const std::array closed_dynamic_modes{
+        contract::ScenarioMode{contract::FreeEngine{}},
+        contract::ScenarioMode{contract::HeldDyno{}},
+        contract::ScenarioMode{contract::FreeVehicle{}},
+        contract::ScenarioMode{contract::InertialDyno{}},
+    };
+    for (const auto &mode : closed_dynamic_modes) {
+        auto rejected_scenario = fixture.scenario;
+        rejected_scenario.mode = mode;
+        const auto contract_report =
+            contract::validate_for_engine(rejected_scenario, fixture.engine);
+        expect(has_validation_issue(contract_report,
+                                    contract::ContractIssueCode::unsupported_value,
+                                    "mode", "master-rod engines currently admit only"),
+               "radial-5 resolved dynamic mode escaped the engine contract firewall");
+
+        const auto rejected_session = simulation::compile_low_order_capture_session(
+            fixture.engine, rejected_scenario,
+            test::compile_fixture_random_plan(fixture), nonzero_request_identity(),
+            simulation::LowOrderExecutionExtent::finite_scenario(*horizon));
+        const auto *session_report =
+            std::get_if<contract::ValidationReport>(&rejected_session);
+        expect(session_report != nullptr &&
+                   has_validation_issue(
+                       *session_report, contract::ContractIssueCode::unsupported_value,
+                       "mode", "master-rod engines currently admit only"),
+               "radial-5 dynamic mode reached public capture-session execution");
+    }
 
     auto result = simulation::compile_low_order_capture_session(
         fixture.engine, fixture.scenario, test::compile_fixture_random_plan(fixture),
@@ -666,6 +723,23 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
     const auto views = asset_views(assets);
     auto engine = require(compile::compile_engine(source.engine_document, views),
                           "radial-5 public engine compilation failed");
+    const std::array closed_dynamic_modes{
+        authoring::ScenarioMode{authoring::FreeEngineMode{}},
+        authoring::ScenarioMode{authoring::HeldDynoMode{}},
+        authoring::ScenarioMode{authoring::FreeVehicleMode{}},
+        authoring::ScenarioMode{authoring::InertialDynoMode{}},
+    };
+    for (const auto &mode : closed_dynamic_modes) {
+        auto rejected = source.scenario_document;
+        rejected.mode = mode;
+        const auto result = compile::compile_scenario(engine, rejected);
+        const auto *report = std::get_if<authoring::DiagnosticReport>(&result);
+        expect(report != nullptr &&
+                   has_diagnostic(*report,
+                                  authoring::DiagnosticCode::unsupported_capability,
+                                  "/mode/type"),
+               "radial-5 dynamic mode reached the public compiled scenario API");
+    }
     auto scenario = require(compile::compile_scenario(engine, source.scenario_document),
                             "radial-5 public scenario compilation failed");
     auto created = engine_sim_offline::create_engine_session(

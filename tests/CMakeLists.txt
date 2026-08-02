@@ -1928,6 +1928,33 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_low_order_dynamic_crank_master_rod_runtime_tests
+    low_order_dynamic_crank_master_rod_runtime_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_low_order_dynamic_crank_master_rod_runtime_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_low_order_dynamic_crank_master_rod_runtime_tests
+    PRIVATE
+        engine_sim_offline_authored_engine_fixture_support
+        engine_sim_offline::simulation
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_low_order_dynamic_crank_master_rod_runtime_tests
+)
+
+add_test(
+    NAME simulation.low_order_dynamic_crank_master_rod_runtime
+    COMMAND engine_sim_offline_low_order_dynamic_crank_master_rod_runtime_tests
+            ${PROJECT_SOURCE_DIR}
+)
+
+add_executable(
     engine_sim_offline_p18_reference_seed_reader_tests
     p18_reference_seed_reader_test.cpp
 )

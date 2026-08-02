@@ -524,8 +524,28 @@ CompiledOneLevelMasterRodArticulatedMechanism::evaluate_articulated_state(
     // Positive dynamic-crank theta advances opposite pristine engine-sim's body
     // angle psi. The compiled reference makes this the same unwrapped coordinate as
     // LegacyMechanismStep::theta_unwrapped_rad.
+    const double body_angle_psi_rad = crank_tdc_reference_rad_ - crank_angle_theta_rad;
+    if (!std::isfinite(body_angle_psi_rad)) {
+        return error(
+            OneLevelMasterRodConfigurationInertiaIssue::nonfinite_derived_value);
+    }
+    return evaluate_articulated_state_at_body_angle_psi(body_angle_psi_rad, scratch);
+}
+
+std::optional<OneLevelMasterRodConfigurationInertiaError>
+CompiledOneLevelMasterRodArticulatedMechanism::
+    evaluate_articulated_state_at_body_angle_psi(
+        const double canonical_body_angle_psi_rad,
+        OneLevelMasterRodArticulatedState &scratch) const noexcept {
+    if (!std::isfinite(canonical_body_angle_psi_rad)) {
+        return error(OneLevelMasterRodConfigurationInertiaIssue::nonfinite_crank_angle);
+    }
+    if (scratch.cylinders.size() != cylinders_.size()) {
+        return error(
+            OneLevelMasterRodConfigurationInertiaIssue::incorrect_state_scratch_size);
+    }
     const SecondOrderScalar body_angle_psi_rad{
-        crank_tdc_reference_rad_ - crank_angle_theta_rad,
+        canonical_body_angle_psi_rad,
         -1.0,
         0.0,
     };
@@ -638,7 +658,34 @@ CompiledOneLevelMasterRodArticulatedMechanism::evaluate_configuration_inertia(
         state_error.has_value()) {
         return *state_error;
     }
+    return reduce_configuration_inertia(attached_inertia_kg_m2, scratch);
+}
 
+OneLevelMasterRodConfigurationInertiaCalculation
+CompiledOneLevelMasterRodArticulatedMechanism::
+    evaluate_configuration_inertia_at_body_angle_psi(
+        const double attached_inertia_kg_m2, const double body_angle_psi_rad,
+        OneLevelMasterRodArticulatedState &scratch) const noexcept {
+    if (!std::isfinite(attached_inertia_kg_m2)) {
+        return error(
+            OneLevelMasterRodConfigurationInertiaIssue::nonfinite_attached_inertia);
+    }
+    if (attached_inertia_kg_m2 < 0.0 || std::signbit(attached_inertia_kg_m2)) {
+        return error(
+            OneLevelMasterRodConfigurationInertiaIssue::negative_attached_inertia);
+    }
+    if (const auto state_error =
+            evaluate_articulated_state_at_body_angle_psi(body_angle_psi_rad, scratch);
+        state_error.has_value()) {
+        return *state_error;
+    }
+    return reduce_configuration_inertia(attached_inertia_kg_m2, scratch);
+}
+
+OneLevelMasterRodConfigurationInertiaCalculation
+CompiledOneLevelMasterRodArticulatedMechanism::reduce_configuration_inertia(
+    const double attached_inertia_kg_m2,
+    const OneLevelMasterRodArticulatedState &scratch) const noexcept {
     OneLevelMasterRodConfigurationInertia result;
     result.authored_crank_inertia_kg_m2 = authored_crank_inertia_kg_m2_;
     result.attached_inertia_kg_m2 = attached_inertia_kg_m2;

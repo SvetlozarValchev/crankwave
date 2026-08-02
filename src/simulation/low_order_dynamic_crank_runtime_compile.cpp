@@ -464,9 +464,12 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
                 planned.chamber_volume_id,
                 index,
                 *chamber_gas_index,
-                model.geometric_tdc_rad,
                 initial_chamber_pressure_pa_abs,
-                friction_plan,
+                scenario.crankcase.pressure_pa_abs.value,
+                LowOrderDynamicCrankDirectCenteredPistonWallPlan{
+                    model.geometric_tdc_rad,
+                    friction_plan,
+                },
             });
         }
     }
@@ -499,6 +502,15 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     if (!report.ok()) {
         return report;
     }
+    const auto piston_wall_cylinder_count = piston_wall_cylinders.size();
+    LowOrderDynamicCrankMechanismRuntime mechanism_runtime{
+        LowOrderDynamicCrankDirectCenteredMechanismRuntime{
+            std::move(configuration_inertia_plan),
+            std::vector<EngineSimV1PistonWallFrictionStage>(piston_wall_cylinder_count),
+            std::vector<double>(piston_wall_cylinder_count),
+            std::vector<double>(piston_wall_cylinder_count),
+            initial_engine_speed_rpm * kLegacyRpmScale,
+        }};
 
     std::optional<OperatingCycleAccountant> accountant;
     std::optional<FixedHorizonCycleSampler> sampler;
@@ -707,7 +719,7 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
         std::move(sampler),
         std::move(physical_gas_step_indices),
         std::move(pressure_samples),
-        std::move(configuration_inertia_plan),
+        std::move(mechanism_runtime),
         std::move(piston_wall_cylinders),
         scenario.rates.physics,
         execution_extent,

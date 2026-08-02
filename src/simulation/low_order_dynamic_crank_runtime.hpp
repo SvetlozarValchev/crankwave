@@ -10,12 +10,15 @@
 #include "simulation/low_order_capture_plan.hpp"
 #include "simulation/low_order_engine_core_v1_runtime.hpp"
 #include "simulation/mechanism_kinematics_plan.hpp"
+#include "simulation/one_level_master_rod_configuration_inertia.hpp"
+#include "simulation/one_level_master_rod_coupled_reaction.hpp"
 #include "simulation/operating_cycle_accountant.hpp"
 #include "simulation/positive_speed_rigid_crank_zoh.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <variant>
@@ -23,18 +26,82 @@
 
 namespace engine_sim_offline::simulation {
 
+namespace detail {
+struct LowOrderDynamicCrankRuntimeTestAccess;
+}
+
+struct LowOrderDynamicCrankDirectCenteredPistonWallPlan {
+    double geometric_tdc_rad = 0.0;
+    EngineSimV1PistonWallCylinderPlan friction;
+
+    friend bool
+    operator==(const LowOrderDynamicCrankDirectCenteredPistonWallPlan &,
+               const LowOrderDynamicCrankDirectCenteredPistonWallPlan &) = default;
+};
+
 struct LowOrderDynamicCrankPistonWallCylinderPlan {
     contract::CylinderId cylinder_id;
     contract::GasVolumeId chamber_volume_id;
     std::size_t mechanism_cylinder_index = 0;
     std::size_t chamber_gas_step_index = 0;
-    double geometric_tdc_rad = 0.0;
     double initial_chamber_pressure_pa_abs = 0.0;
-    EngineSimV1PistonWallCylinderPlan friction;
+    double crankcase_pressure_pa_abs = 0.0;
+    std::optional<LowOrderDynamicCrankDirectCenteredPistonWallPlan> direct_centered;
 
     friend bool
     operator==(const LowOrderDynamicCrankPistonWallCylinderPlan &,
                const LowOrderDynamicCrankPistonWallCylinderPlan &) = default;
+};
+
+// The direct alternative retains the exact centered-slider evaluation and
+// source-friction transaction used before articulated mechanisms were compiled.
+// Keeping its state together also makes mechanism selection explicit without
+// changing the written order of any direct-path arithmetic.
+struct LowOrderDynamicCrankDirectCenteredMechanismRuntime {
+    CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan;
+    std::vector<EngineSimV1PistonWallFrictionStage> piston_wall_stages;
+    std::vector<double> piston_wall_boundary_phase_rad;
+    std::vector<double> next_piston_wall_boundary_phase_rad;
+    double piston_wall_boundary_angular_speed_rad_s = 0.0;
+};
+
+// One immutable articulated mechanism and all of its allocation-owning tick
+// scratch. The compiled mechanism is heap-owned so its address remains stable
+// across moves of the enclosing runtime: the coupled-reaction workspace is bound
+// to that exact address. Member order is intentional; reverse destruction tears
+// down the workspace before the mechanism it names.
+struct LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime {
+    LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime(
+        CompiledOneLevelMasterRodArticulatedMechanism mechanism,
+        double attached_inertia_kg_m2, double initial_configuration_body_angle_psi_rad,
+        std::vector<OneLevelMasterRodPistonWallBoundaryInput> piston_wall_boundaries);
+
+    LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime(
+        const LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime &) = delete;
+    LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime &
+    operator=(const LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime &) = delete;
+    LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime(
+        LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime &&) noexcept = default;
+    LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime &operator=(
+        LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime &&) noexcept = default;
+
+    std::unique_ptr<CompiledOneLevelMasterRodArticulatedMechanism>
+        articulated_mechanism;
+    OneLevelMasterRodArticulatedState articulated_state;
+    OneLevelMasterRodCoupledReactionWorkspace coupled_reaction_workspace;
+    std::vector<OneLevelMasterRodPistonWallBoundaryInput> piston_wall_boundaries;
+    double attached_inertia_kg_m2 = 0.0;
+    double configuration_body_angle_psi_rad = 0.0;
+    std::optional<OneLevelMasterRodConfigurationInertia> cached_configuration_inertia;
+};
+
+using LowOrderDynamicCrankMechanismRuntime =
+    std::variant<LowOrderDynamicCrankDirectCenteredMechanismRuntime,
+                 LowOrderDynamicCrankOneLevelMasterRodMechanismRuntime>;
+
+struct LowOrderDynamicCrankConfigurationInertiaView {
+    double total_inertia_kg_m2 = 0.0;
+    double total_derivative_kg_m2_per_rad = 0.0;
 };
 
 struct LowOrderDynamicCrankStepView {
@@ -196,7 +263,7 @@ class LowOrderDynamicCrankRuntime final {
         std::optional<FixedHorizonCycleSampler> sampler,
         std::vector<std::size_t> physical_gas_step_indices,
         std::vector<OperatingGasVolumePressureSample> pressure_samples,
-        CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan,
+        LowOrderDynamicCrankMechanismRuntime mechanism_runtime,
         std::vector<LowOrderDynamicCrankPistonWallCylinderPlan> piston_wall_cylinders,
         contract::RationalRateHz rate, LowOrderExecutionExtent execution_extent,
         std::uint64_t release_frame_index, double initial_engine_speed_rpm,
@@ -223,10 +290,13 @@ class LowOrderDynamicCrankRuntime final {
     finalize_preparation(const LegacyMechanismStep &mechanics);
     [[nodiscard]] std::optional<contract::FailureContext> stage_piston_wall_friction();
     [[nodiscard]] std::optional<contract::FailureContext>
+    configuration_inertia(LowOrderDynamicCrankConfigurationInertiaView &output);
+    [[nodiscard]] std::optional<contract::FailureContext>
     calculate_next_piston_wall_reactions(double angular_acceleration_rad_s2);
     [[nodiscard]] std::optional<contract::FailureContext>
     commit_next_piston_wall_boundary(const LegacyMechanismStep &mechanics,
-                                     const LegacyLowOrderGasStep &gas);
+                                     const LegacyLowOrderGasStep &gas,
+                                     double exact_angular_speed_rad_s);
 
     ScenarioControlCursor control_cursor_;
     SharedMechanismKinematicsPlan mechanism_plan_;
@@ -234,14 +304,11 @@ class LowOrderDynamicCrankRuntime final {
     std::optional<FixedHorizonCycleSampler> sampler_;
     std::vector<std::size_t> physical_gas_step_indices_;
     std::vector<OperatingGasVolumePressureSample> pressure_samples_;
-    CenteredSliderCrankConfigurationInertiaPlan configuration_inertia_plan_;
+    LowOrderDynamicCrankMechanismRuntime mechanism_runtime_;
     std::vector<LowOrderDynamicCrankPistonWallCylinderPlan> piston_wall_cylinders_;
-    std::vector<double> piston_wall_boundary_phase_rad_;
     std::vector<double> piston_wall_boundary_pressure_pa_abs_;
     std::vector<double> retained_piston_wall_reaction_magnitude_n_;
-    std::vector<EngineSimV1PistonWallFrictionStage> piston_wall_stages_;
     std::vector<double> candidate_piston_wall_reaction_magnitude_n_;
-    std::vector<double> next_piston_wall_boundary_phase_rad_;
     std::vector<double> next_piston_wall_boundary_pressure_pa_abs_;
     contract::RationalRateHz rate_;
     LowOrderExecutionExtent execution_extent_ =
@@ -255,7 +322,6 @@ class LowOrderDynamicCrankRuntime final {
     double starter_target_speed_rad_s_ = 0.0;
     std::optional<HeldDynoMotionPlan> held_dyno_motion_;
     std::optional<FreeVehicleMotionPlan> free_vehicle_motion_;
-    double piston_wall_boundary_angular_speed_rad_s_ = 0.0;
     double applied_piston_wall_friction_torque_nm_ = 0.0;
     std::uint64_t piston_wall_boundary_index_ = 0;
     detail::PositiveSpeedRigidCrankState crank_state_;
@@ -276,6 +342,7 @@ class LowOrderDynamicCrankRuntime final {
                                             const contract::Sha256Digest &,
                                             SharedMechanismKinematicsPlan,
                                             LowOrderExecutionExtent);
+    friend struct detail::LowOrderDynamicCrankRuntimeTestAccess;
 };
 
 using LowOrderDynamicCrankCompileResult =
