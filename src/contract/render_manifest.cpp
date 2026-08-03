@@ -557,13 +557,16 @@ ValidationReport validate(const RenderManifestContent &content,
                 (seed.kind == RandomComponentKind::presentation_jitter ||
                  seed.kind == RandomComponentKind::presentation_air_noise)) {
                 require(report,
-                        std::ranges::any_of(
-                            input_view.presentation->routes,
-                            [&](const RoutePresentation &presentation_route) {
-                                return presentation_route.route_id == *seed.route_id;
-                            }),
+                        route->kind == SourceRouteKind::exhaust_outlet &&
+                            std::ranges::any_of(
+                                input_view.presentation->routes,
+                                [&](const RoutePresentation &presentation_route) {
+                                    return presentation_route.route_id ==
+                                           *seed.route_id;
+                                }),
                         ContractIssueCode::inconsistent_semantics, path + ".route_id",
-                        "presentation randomness must belong to a configured route");
+                        "presentation randomness must belong to a configured exhaust "
+                        "route");
             }
         }
         require(report,
@@ -602,14 +605,19 @@ ValidationReport validate(const RenderManifestContent &content,
         }
     }
     for (const auto &route : input_view.presentation->routes) {
-        require(report, jitter_seed_count[route.route_id.value] == 1,
+        const auto source_route = std::ranges::find(input_view.routes, route.route_id,
+                                                    &ManifestRouteView::route_id);
+        const bool exhaust = source_route != input_view.routes.end() &&
+                             source_route->kind == SourceRouteKind::exhaust_outlet;
+        const auto expected_count = exhaust ? 1U : 0U;
+        require(report, jitter_seed_count[route.route_id.value] == expected_count,
                 ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
                 "implemented presentation jitter requires exactly one initialized "
-                "stream per configured route");
-        require(report, air_noise_seed_count[route.route_id.value] == 1,
+                "stream per configured exhaust route and none for intake");
+        require(report, air_noise_seed_count[route.route_id.value] == expected_count,
                 ContractIssueCode::inconsistent_shape, "randomness.component_seeds",
                 "implemented presentation air noise requires exactly one initialized "
-                "stream per configured route");
+                "stream per configured exhaust route and none for intake");
     }
     auto expected_random_plan = compile_random_plan(
         content.inputs.resolved.randomness, content.inputs.resolved.engine,
