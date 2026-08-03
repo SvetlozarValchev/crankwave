@@ -744,12 +744,12 @@ It uses the pinned Emscripten 6.0.4 container digest recorded by the script, smo
 all public module exports and the fixed memory, runs the wasm32 binary128 admission
 test, and drives an 18-block controlled BMW fixture through the C ABI on both targets.
 The fixture has exact semantic transcript SHA-256
-`1493a854b9fef0905cb73f64c6b46c3993d7f7471ca15ee8d39a2eb44e89ab28`.
+`cfa562577ff0d42da60f30b6b010626cb85ceccc48d0863342b600d241b17286`.
 Its native and WASM bundle hashes are respectively
-`535c4754edf41c0ea0adb83d5790e17bda384ab69be7df885941d6be992034cb` and
-`53dea2aa3956ce2035290cb1ae49de9276f7bb16b15dedcba51e4c273edda73b`.
+`68fa71c94942a4ed0efcdb03ba44183c9f903542bfc62f03f40a5854b7331ede` and
+`005e63eb509e79ca686634f0bc198e9ad2c3f0a5311e211234d8072232d29952`.
 Across 7,680 audition samples, observed maximum absolute Float32 PCM error is
-`1.862645149230957e-9` and RMS error is `2.1807662361359516e-11`; the checked ceilings
+`7.450580596923828e-9` and RMS error is `7.063297896598868e-10`; the checked ceilings
 and each target's exact telemetry/PCM hashes live in
 [`parity_expectations.json`](../../tests/wasm/parity_expectations.json).
 
@@ -850,7 +850,7 @@ unsupported capability instead of silently using `ScriptProcessorNode` or anothe
 renderer. There is no MessagePort-copy audio fallback or JavaScript engine renderer.
 
 The real-module integration exports 7,680 canonical Float32 samples with SHA-256
-`77484393b278ec40a84b4bde7d2dae31f01894e94a6a47cd17fd16ccb1787413`.
+`7362df73a4f3bc0925fad36285f499d2c51f2b61d4dccf8a743f45a42f4728c9`.
 The headless Chrome gate exports the complete 3,840,056-byte BMW warm-running
 free-rev Float32 WAVE and pins its current SHA-256 in the executable browser test,
 continues past the authored 5.5-second horizon, verifies Stop/Start state continuity

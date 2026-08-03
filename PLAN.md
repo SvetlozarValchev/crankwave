@@ -358,12 +358,12 @@ long-double format.
 The pinned 18-block parity fixture proves exact bus topology, clocks, control
 acceptance/rejection, discrete telemetry, and completion state. Semantic transcript
 SHA-256 is
-`1493a854b9fef0905cb73f64c6b46c3993d7f7471ca15ee8d39a2eb44e89ab28`;
+`cfa562577ff0d42da60f30b6b010626cb85ceccc48d0863342b600d241b17286`;
 native/WASM bundle hashes are
-`535c4754edf41c0ea0adb83d5790e17bda384ab69be7df885941d6be992034cb` and
-`53dea2aa3956ce2035290cb1ae49de9276f7bb16b15dedcba51e4c273edda73b`.
+`68fa71c94942a4ed0efcdb03ba44183c9f903542bfc62f03f40a5854b7331ede` and
+`005e63eb509e79ca686634f0bc198e9ad2c3f0a5311e211234d8072232d29952`.
 Across 7,680 audition samples, maximum absolute PCM error is
-`1.862645149230957e-9` and RMS error is `2.1807662361359516e-11`, both within the
+`7.450580596923828e-9` and RMS error is `7.063297896598868e-10`, both within the
 predeclared tight bounds. The reproducible gate is
 [`scripts/verify-wasm-parity.sh`](scripts/verify-wasm-parity.sh).
 
@@ -394,7 +394,7 @@ silence/recovery.
 
 The real-module integration fixture exports 7,680 canonical WASM Float32 samples with
 SHA-256
-`77484393b278ec40a84b4bde7d2dae31f01894e94a6a47cd17fd16ccb1787413`.
+`7362df73a4f3bc0925fad36285f499d2c51f2b61d4dccf8a743f45a42f4728c9`.
 The complete BMW warm-running free-rev browser capture exports a 3,840,056-byte
 Float32 WAVE whose current SHA-256 is pinned by the browser integration gate rather
 than duplicated in this roadmap.

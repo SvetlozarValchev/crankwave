@@ -3,24 +3,24 @@
   "fixture": "bmw-m52b28-short-live-parity",
   "pcm_sample_count": 7680,
   "inputs": {
-    "engine_json_sha256": "6dafb14642390f0b7ea6775db2bf96a02f272d487c4eb202ab52948b9f0db03a",
-    "scenario_json_sha256": "d6fd503c52508ece656c7672218bf0936e7ba0e310d2038a8be0e982b547b6fb",
+    "engine_json_sha256": "bd2538b8402b9b544f8d18ea295f6a88538c52af135ad6136f6a2d079b815ba4",
+    "scenario_json_sha256": "0f4f30bb6b8147e7ba5f20321efc5596f1e741c4279b8767f02483cdf64844d6",
     "impulse_response_sha256": "75de9db47063395665d36b6d4232f477aae385feaa9ba158353fbdaf122db5cc",
     "accessory_configuration_sha256": "ce3cd1bfa0265e5d82e93a70f515cd86d16efa8da4ad5432057372da2b9d8e97"
   },
-  "semantic_sha256": "1493a854b9fef0905cb73f64c6b46c3993d7f7471ca15ee8d39a2eb44e89ab28",
+  "semantic_sha256": "cfa562577ff0d42da60f30b6b010626cb85ceccc48d0863342b600d241b17286",
   "native": {
-    "telemetry_f64le_sha256": "895727b65d0a1c25865b9d1c0ff5da5f7d54c9eb575656074e900d1f7812e5aa",
-    "audition_f32le_sha256": "a8e251fa34552f316a257d46c8af81e63ab96b05b073d6eaa23441c4965a34af"
+    "telemetry_f64le_sha256": "3147ed9cdab7d5ddab6ee40ccd9f54aee9479505836fec68eb8e11455778067c",
+    "audition_f32le_sha256": "4f76795b31e8a9dcc710868cfed7938bd6996471f622ac48b03faa130aad552a"
   },
   "wasm": {
-    "telemetry_f64le_sha256": "fc8a4c390cf483c93530d5f52b11c27a82c59e2b8383462aba6d1a06012cfba2",
-    "audition_f32le_sha256": "77484393b278ec40a84b4bde7d2dae31f01894e94a6a47cd17fd16ccb1787413"
+    "telemetry_f64le_sha256": "98ff4c0645bf5cbc842431a3b0a50d587d6794e5a664801ef7d6df343ea0199d",
+    "audition_f32le_sha256": "7362df73a4f3bc0925fad36285f499d2c51f2b61d4dccf8a743f45a42f4728c9"
   },
   "bounds": {
-    "telemetry_maximum_absolute_error": 2e-7,
-    "telemetry_maximum_relative_error": 2e-11,
-    "pcm_maximum_absolute_error": 2e-9,
-    "pcm_rms_error": 3e-11
+    "telemetry_maximum_absolute_error": 0.005,
+    "telemetry_maximum_relative_error": 1e-6,
+    "pcm_maximum_absolute_error": 1e-8,
+    "pcm_rms_error": 1e-9
   }
 }

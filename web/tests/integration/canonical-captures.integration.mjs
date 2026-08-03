@@ -9,6 +9,8 @@ import {
 } from "../../runtime/c-api-abi.js";
 import { EngineSimCapiClient } from "../../runtime/c-api-client.js";
 
+const canonicalPhysicsRateHz = 20_000;
+
 function usage() {
   return [
     "usage:",
@@ -139,10 +141,13 @@ function testShutdown(program) {
   assert.ok(sawRunning && sawKeyOff);
   assert.ok(maximumRpm > 650 && maximumRpm < 850);
   assert.equal(finalRpm, 0);
-  assert.ok(firstStoppedPhysicsStep !== null && firstStoppedPhysicsStep <= 22_000);
+  assert.ok(
+    firstStoppedPhysicsStep !== null &&
+      firstStoppedPhysicsStep / canonicalPhysicsRateHz <= 2.2,
+  );
   return {
     maximumRpm,
-    stoppedAtSeconds: firstStoppedPhysicsStep / 20_000,
+    stoppedAtSeconds: firstStoppedPhysicsStep / canonicalPhysicsRateHz,
   };
 }
 
