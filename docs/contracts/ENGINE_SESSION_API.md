@@ -144,8 +144,9 @@ A `free_engine` mode does not author a replacement total engine inertia. Its opt
 `attached_inertia` is a nonnegative crank-referred addition, and its optional
 `external_resisting_torque` is a nonnegative right-continuous trajectory. Omission of
 either resolves to canonical positive zero. The compiler derives the engine baseline
-with the versioned cycle-mean centered slider-crank kinetic-energy method and resolves
-the runtime total as baseline plus attachment.
+with the versioned mechanism-family cycle-mean kinetic-energy method—centered slider
+crank for direct journals or articulated one-level master rod for that admitted
+topology—and resolves the runtime total as baseline plus attachment.
 
 `quality.process_block_capacity_frames` is measured in delivery-rate PCM frames. The
 current method requires capacity for at least 3,840 frames and always returns exactly
@@ -419,14 +420,15 @@ attached_inertia_kg_m2
 total_equivalent_inertia_kg_m2
 ```
 
-The first is derived by
-`centered-slider-crank-cycle-mean-equivalent-inertia-v2`, the second is authored or
-declared-default positive zero, and the third is their versioned exact cycle-mean
-reference sum. Version 2 evaluates rod-center translation at the authored physical
-distance from crank pin, with omission deriving the exact midpoint. Free-running
-dynamics evaluates analytic `M(theta)` and `dM/dtheta` from the same engine mechanism
-and adds the attachment to the instantaneous `M(theta)`; the reference sum validates
-that the same mechanism and attachment were compiled.
+The first is derived by the selected mechanism-family method:
+`centered-slider-crank-cycle-mean-equivalent-inertia-v2` for direct journals or the
+articulated one-level master-rod cycle-mean method for that admitted topology. The
+second is authored or declared-default positive zero, and the third is their versioned
+exact cycle-mean reference sum. Both methods evaluate rod-center translation at the
+authored physical distance from crank pin, with omission deriving the exact midpoint.
+Free-running dynamics evaluates matching analytic `M(theta)` and `dM/dtheta` from the
+same engine mechanism and adds the attachment to the instantaneous `M(theta)`; the
+reference sum validates that the same mechanism and attachment were compiled.
 The external resisting-torque lane is independent and defaults to positive zero; it
 is not used to duplicate engine losses.
 
@@ -450,6 +452,12 @@ configuration-dependent centered-slider inertia equation at each left boundary. 
 controlled response gate passes: WOT differs from pristine by `0.0134 s`, every coast
 crossing by at most `0.0049 s`, and the long natural-balance mean by `1.079 RPM`. The
 frozen pristine oracle remains the authority for each subsequent mechanics slice.
+
+The certified one-level master-rod `FreeEngine` path uses the corresponding articulated
+configuration inertia and leaf-first coupled wall reactions. Its warm accountant uses
+each cylinder's certified swept displacement and piston travel rather than substituting
+one common stroke. The radial-five 52,000-frame procedure completes through the public
+session API; `HeldDyno` and `FreeVehicle` remain closed for this topology.
 
 ### 5.2 Remaining mode controls
 

@@ -489,15 +489,15 @@ as the clean mechanism's post-step indicated-torque definition, not a claim of
 source-dyno torque parity.
 
 For non-prescribed FreeEngine scenarios, engine inertia is not authored again in the
-scenario. The versioned
-`centered-slider-crank-cycle-mean-equivalent-inertia-v2` method evaluates 4,096
-uniform midpoint samples over one slider-crank revolution. It adds the authored crank
+scenario. Direct-journal mechanisms use the versioned
+`centered-slider-crank-cycle-mean-equivalent-inertia-v2` method; certified one-level
+master rods use the distinct articulated cycle-mean method. Both evaluate 4,096
+uniform midpoint samples over one mechanism revolution. They add authored crank
 inertia once to the full-cycle mean piston translation, authored connecting-rod-center
 translation, and connecting-rod rotation kinetic-energy contributions. The rod center
-is the authored distance from crank pin divided by rod length; omission derives the
-exact midpoint. This produces one constant crank-referred cycle-mean reference without
-introducing a general constraint solver solely to identify and validate the authored
-mechanism.
+is the authored physical distance from crank pin; omission derives the exact midpoint.
+This produces one constant crank-referred cycle-mean reference without introducing a
+general constraint solver solely to identify and validate the authored mechanism.
 
 The optional scenario `attached_inertia` is a nonnegative crank-referred addition and
 defaults to canonical positive zero. The compiler resolves
@@ -509,8 +509,8 @@ free_engine_total_inertia
 
 under the versioned `free-engine-equivalent-inertia-sum-v1` method, and the runtime
 retains that total as an exact cycle-mean reference. During free-running motion the
-runtime instead evaluates the centered mechanism's analytic `M(theta)` and
-`dM/dtheta`, adds the constant attachment to `M(theta)`, and solves
+runtime instead evaluates the selected direct or articulated mechanism's analytic
+`M(theta)` and `dM/dtheta`, adds the constant attachment to `M(theta)`, and solves
 `Q = M(theta)*alpha + 0.5*dM/dtheta*omega^2` at each left boundary. The optional
 `external_resisting_torque` trajectory likewise defaults to one right-continuous
 positive-zero point. It is an external test-rig load, not a second engine-friction

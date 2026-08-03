@@ -434,11 +434,12 @@ The authoring fields `attached_inertia` and `external_resisting_torque` are opti
 but the resolved wire never omits their values: each omission becomes canonical
 positive zero, with the torque default represented as one time-zero
 right-continuous-hold point. Engine baseline inertia is derived by the versioned
-cycle-mean centered slider-crank kinetic-energy method; total equivalent inertia is
-the versioned sum of that baseline and the attachment and remains the exact cycle-mean
-reference published on the wire. Free-running runtime mechanics evaluates analytic
-configuration-dependent mechanism inertia and adds the same attachment at each left
-boundary. The BMW neutral baseline and total reference are both
+mechanism-family cycle-mean kinetic-energy method: centered slider crank for direct
+journals or articulated one-level master rod for that admitted topology. Total
+equivalent inertia is the versioned sum of that baseline and the attachment and remains
+the exact cycle-mean reference published on the wire. Free-running runtime mechanics
+evaluates matching analytic configuration-dependent mechanism inertia and adds the same
+attachment at each left boundary. The BMW neutral baseline and total reference are both
 `0.2108686520185204 kg*m^2`.
 
 The CDDL lists all recognized non-`unspecified` enum strings needed by these records.

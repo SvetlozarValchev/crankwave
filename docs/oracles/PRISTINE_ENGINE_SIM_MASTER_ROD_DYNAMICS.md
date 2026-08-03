@@ -1,5 +1,8 @@
 # Pristine engine-sim master-rod dynamics oracle
 
+Status: source oracle frozen; public one-level master-rod FreeEngine accepted on
+2026-08-03 at `2e5d70d`; HeldDyno and FreeVehicle remain closed.
+
 This note freezes the source behavior that governs the clean-room one-level
 master/slave dynamics checkpoint. The behavioral source pin is pristine engine-sim
 commit `85f7c3b959a908ed5232ede4f1a4ac7eafe6b630`. Later local commits in
@@ -53,8 +56,10 @@ closed rather than being flattened into a nominal twice-crank-throw stroke.
 
 The immutable mechanism plan retains each cylinder's resolved position and chamber
 extrema, swept stroke, swept displacement, and piston-axis path length per crank
-revolution. This checkpoint only derives and source-binds those facts. It does not yet
-replace the public nominal displacement, cycle accountant, or scenario inertia.
+revolution. At the geometry-derivation checkpoint, that subslice only derived and
+source-bound those facts; it did not yet replace the public nominal displacement,
+cycle accountant, or scenario inertia. The subsequent public FreeEngine closure is
+recorded below.
 
 ## Clean one-degree-of-freedom reduction
 
@@ -124,9 +129,10 @@ error. The existing full-cycle geometry certificate remains mandatory.
 
 ## Scope boundary
 
-This parity checkpoint implements one-crank, one-level master/slave dynamics for the
-same FreeEngine, HeldDyno, and FreeVehicle families already owned by the dynamic crank
-runtime. Prescribed radial execution remains intact.
+The complete parity checkpoint is scoped to one-crank, one-level master/slave dynamics
+for the same FreeEngine, HeldDyno, and FreeVehicle families already owned by the dynamic
+crank runtime. Prescribed radial execution remains intact. The subsequent-status record
+below closes FreeEngine only; it does not claim HeldDyno or FreeVehicle admission.
 
 The following are not implied by pristine's shipped evidence and remain closed:
 
@@ -139,3 +145,40 @@ The following are not implied by pristine's shipped evidence and remain closed:
 Pristine's direct multi-crank implementation is only a co-phased 1:1 rigid group.
 That meaningful direct-journal subset is already complete in this project; no new
 multi-crank implementation is part of this checkpoint.
+
+## Subsequent public FreeEngine closure
+
+Commit `2e5d70d` opens only certified one-crank, one-level master-rod FreeEngine. The
+public resolver selects the articulated cycle-mean inertia baseline, the engine profile
+publishes complete operating torque and equivalent-inertia capability, and the runtime
+uses the exact articulated `M(theta)`/`M'(theta)` reduction plus leaf-first coupled wall
+reactions. Fixed warm preparation uses the per-cylinder-piston-travel Chen--Flynn
+accountant and discards it at dynamic release; released motion continues under source
+crank friction and the one-step-lagged piston-wall law. Public finite capture and
+`EngineSession` complete through the unchanged gas, excitation, routing, IR, and
+mastering path.
+
+Master-rod HeldDyno and FreeVehicle remain rejected by the authored and resolved mode
+gates. They are the remaining public dynamic families for this checkpoint, in that
+order. Nested, multi-crank-master-rod, offset, geared, and compliant cases remain closed
+under the scope boundary above.
+
+The exact closure evidence is:
+
+- The prescribed topology/byte fixture is `80 ms`, `46,698` bytes, and has SHA-256
+  `58394f71ed58ee5af4434745e6f266c2cac7db33503848decbd61b9e8a9f0985` at
+  `artifacts/listening/radial-free-engine-prescribed-control-2e5d70d/audio/master.engine.audition.wav`.
+  Its short audition-format container is not a human-listening reference.
+- The dynamic radial FreeEngine audition is `4.700 s`, `2,707,850` bytes, and has
+  SHA-256 `6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c` at
+  `artifacts/listening/radial-free-engine-candidate-2e5d70d/audio/master.engine.audition.wav`.
+  The user accepted it without a requested correction on 2026-08-03.
+- The direct BMW regression guard is `15.000 s`, `8,640,688` bytes, and has its already
+  accepted held-dyno SHA-256
+  `487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496` at
+  `artifacts/listening/radial-free-engine-direct-guard-2e5d70d/audio/master.engine.audition.wav`.
+  The user also confirmed that it still sounds correct.
+
+This acceptance closes the FreeEngine subslice only. Master-rod HeldDyno must be opened,
+regression-guarded against the direct BMW, rendered at a meaningful listening duration,
+and accepted before FreeVehicle begins.

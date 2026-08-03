@@ -3,6 +3,16 @@
 Status: topology sub-slice 10C2b8; certified one-level master-rod geometry executes
 through public finite prescribed capture and audio; torque-owning motion remains closed
 
+## Subsequent status
+
+This document freezes the original topology sub-slice boundary. Commit `2e5d70d`
+subsequently opened only the certified one-level master-rod `FreeEngine` path, with
+analytic articulated inertia, per-cylinder piston-travel loss evidence, and coupled
+leaf-first wall reactions. The authored 52,000-frame warm radial session completed and
+its 4.7 s dynamic candidate was accepted by ear. The 80 ms prescribed fixture remains
+a byte/topology regression, not a listening reference. `HeldDyno`, `FreeVehicle`, and
+the other master-rod motion owners remain closed.
+
 ## One ownership path
 
 The greenfield engine JSON has one authoritative path from a cylinder to a crankshaft:

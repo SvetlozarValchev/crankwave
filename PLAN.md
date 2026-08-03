@@ -4,10 +4,10 @@ Status: active — headless parity completion
 
 Branch: `clean-room/bmw-baseline`
 
-Date: 2026-08-02
+Date: 2026-08-03
 
-Current checkpoint: **post-slice-15 parity closure — dynamic master/slave and
-remaining meaningful multi-crank cases**
+Current checkpoint: **post-slice-15 parity closure — one-level master-rod FreeEngine
+accepted; HeldDyno next**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -510,27 +510,31 @@ Each session has one explicit motion owner:
 
 No mode may hide a prescribed pitch ramp behind a “natural” or “dyno” label.
 
-For FreeEngine, the compiler derives the engine baseline with the versioned
-cycle-mean centered slider-crank kinetic-energy method, adds optional
-`attached_inertia`, and retains the sum as an exact cycle-mean reference. The runtime
-evaluates analytic configuration-dependent `M(theta)` and `dM/dtheta` from the same
-mechanism and adds the constant attachment at every left boundary. The BMW M52B28
-baseline is `0.2108686520185204 kg*m^2`; its neutral fixture has zero attached inertia
-and zero external resistance. The existing interactive-scenario smoke requires its
+For FreeEngine, the compiler derives the engine baseline with the versioned cycle-mean
+method selected for its admitted mechanism: centered-slider kinetic energy for a direct
+mechanism, or articulated one-level master-rod kinetic energy for a certified one-crank
+master/slave mechanism. It adds optional `attached_inertia` and retains the sum as an
+exact cycle-mean reference. The runtime evaluates the corresponding analytic
+configuration-dependent `M(theta)` and `dM/dtheta` from that same mechanism and adds the
+constant attachment at every left boundary. The BMW M52B28 direct baseline is
+`0.2108686520185204 kg*m^2`; its neutral fixture has zero attached inertia and zero
+external resistance. The canonical radial-five articulated baseline is
+`0.86268068702831191 kg*m^2`. The existing BMW interactive-scenario smoke requires its
 full-throttle 1,500-to-7,000-rpm crossing in `0.44`--`0.50 s`.
 
 That smoke starts from a short part-throttle preparation and is not the controlled
 pristine ablation oracle. It guards the interactive recipe only. Gas-exchange pumping
-is already present inside the cylinder pressure-volume work. FreeEngine motion now
-uses pristine engine-sim's authored crank friction and executable one-step-lagged
-piston-wall law. Its clean centered inverse-dynamics wall reaction has passed direct
-held and coast comparison. The exact centered-slider configuration-inertia equation
-has also replaced the former cycle-mean approximation in free-running motion. The
-controlled response gate passes: WOT differs by `0.0134 s`, and every coast crossing
-by at most `0.0049 s`; the long natural-balance mean is `1,043.032 RPM` versus
-pristine `1,041.953 RPM`. FreeEngine also uses pristine's semi-implicit crank-step
-ordering: update `omega`, then advance `theta` with that new speed. The mechanics
-checkpoint is ready for native/WASM verification and listening.
+is already present inside the cylinder pressure-volume work. For that direct BMW
+boundary, FreeEngine uses pristine engine-sim's authored crank friction and executable
+one-step-lagged piston-wall law. Its clean centered inverse-dynamics wall reaction has
+passed direct held and coast comparison. The exact centered-slider
+configuration-inertia equation has also replaced the former cycle-mean approximation
+in free-running motion. The controlled response gate passes: WOT differs by `0.0134 s`,
+and every coast crossing by at most `0.0049 s`; the long natural-balance mean is
+`1,043.032 RPM` versus pristine `1,041.953 RPM`. FreeEngine uses pristine's
+semi-implicit crank-step ordering for both admitted mechanism families: update `omega`,
+then advance `theta` with that new speed. The BMW boundary remains the direct-mechanism
+regression guard for each master-rod opening.
 
 Pristine engine-sim commit
 `85f7c3b959a908ed5232ede4f1a4ac7eafe6b630` is the transient behavioral authority.
@@ -695,11 +699,11 @@ throw radius beside the raw owner-local phase. The resolved mechanism core is no
 fail-closed tagged union: a direct cylinder alone owns stroke, crank radius, and
 axis-relative journal phase, while a master-rod cylinder owns only its master ID,
 throw, and local phase. Direct canonical request bytes and provenance order remain
-unchanged. A mechanism containing a master rod truthfully publishes no net-torque or
-equivalent-inertia capability. Its pure one-level root/slave evaluator now matches the
-pristine position, derivative, chamber-volume, and volume-derivative construction,
-including the source bank-axis and phase conventions. Negative slider solutions fail
-closed.
+unchanged. At this attachment-only checkpoint, a mechanism containing a master rod
+published no net-torque or equivalent-inertia capability. Its pure one-level root/slave
+evaluator matched the pristine position, derivative, chamber-volume, and
+volume-derivative construction, including the source bank-axis and phase conventions.
+Negative slider solutions fail closed.
 
 Capture construction now compiles one immutable, source-bound mechanism-kinematics
 plan and shares that exact object with mechanics, gas, and dynamic-crank execution.
@@ -709,11 +713,12 @@ compiler. Exact source-field binding rejects a stale same-ID plan, and a moved-f
 mechanics session fails terminally rather than dereferencing an empty plan. Existing
 direct slider-crank formulas, floating-point evaluation order, torque-accounting
 displacement, resolved request identity, and accepted audio remain the unchanged
-authority. A separate immutable one-level master-rod plan retains each direct root,
-slave pin, stable master index, bank axis, chamber/route binding, and ignition angle
-without publishing slave stroke, displacement accounting, inertia, reactions, or
-torque. Exact root bounds and deliberately sufficient slave bounds certify full-cycle
-reachability and positive chamber volume before this plan is released.
+authority. The separate immutable one-level master-rod plan initially retained each
+direct root, slave pin, stable master index, bank axis, chamber/route binding, and
+ignition angle without publishing slave stroke, displacement accounting, inertia,
+reactions, or torque. Exact root bounds and deliberately sufficient slave bounds
+certify full-cycle reachability and positive chamber volume before this plan is
+released.
 
 The existing direct mechanism now admits `prescribed_kinematic_sweep` through the
 public scenario contract and finite capture path. It reuses the established kinematic
@@ -738,20 +743,41 @@ stable cylinder and spark order. Gas and capture consume only common volume, vol
 derivative, and piston-speed fields, so neither reconstructs nominal slave stroke or
 clearance geometry.
 
-The authored scenario resolver and resolved scenario contract retain the radial mode
-firewall ahead of execution: a master-rod engine admits only authored
-`external_speed`, resolved as `PrescribedKinematicSweep`. Other authored modes fail at
-`/mode/type` before direct-only baseline inertia is queried, and programmatic callers
-receive the equivalent `mode` rejection. Mechanics and gas independently require a
-finite prescribed schedule, while dynamic crank retains its direct-plan gate.
+Before the dynamic opening, the authored scenario resolver and resolved scenario
+contract retained a radial mode firewall: a master-rod engine admitted only authored
+`external_speed`, resolved as `PrescribedKinematicSweep`. Other authored modes failed
+at `/mode/type` before baseline inertia was queried, and programmatic callers received
+the equivalent `mode` rejection. Mechanics and gas independently required a finite
+prescribed schedule, while dynamic crank retained its direct-plan gate.
 
 The pristine-derived radial-five fixture now exercises this boundary through public
 engine/scenario compilation, an exact 800-frame capture with active two-route gas
 sources, and a four-block `EngineSession` with finite nonzero PCM on the existing
 presentation path. It locks five bank axes, one root and four slave pins, firing/cam/
-route associations, the source's doubled head-flow tables, and exact IR bytes. This is
-structural and execution parity evidence; longer low/high holds and a short climb are
-still required before the representative radial recording set is accepted by ear.
+route associations, the source's doubled head-flow tables, and exact IR bytes. Its
+`80 ms`, `46,698`-byte audition-format file at
+`artifacts/listening/radial-free-engine-prescribed-control-2e5d70d/audio/master.engine.audition.wav`
+with SHA-256
+`58394f71ed58ee5af4434745e6f266c2cac7db33503848decbd61b9e8a9f0985`
+is structural and byte-regression evidence, not a human-listening reference. The final
+curated Slice 16 master/slave recording set remains separately required.
+
+Commit `2e5d70d` subsequently opens certified one-crank, one-level master-rod
+`FreeEngine` through public scenario compilation, finite capture, and `EngineSession`.
+The radial method consumes the articulated cycle-mean baseline, exact
+configuration-dependent inertia and derivative, leaf-first coupled wall reactions,
+per-cylinder-travel warm loss accounting, and the existing nonnegative semi-implicit
+crank law. HeldDyno and FreeVehicle remain rejected for master-rod engines. The user
+accepted the `4.700 s`, `2,707,850`-byte dynamic radial audition at
+`artifacts/listening/radial-free-engine-candidate-2e5d70d/audio/master.engine.audition.wav`
+with SHA-256
+`6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c` on
+2026-08-03. The accompanying `15.000 s`, `8,640,688`-byte direct BMW guard at
+`artifacts/listening/radial-free-engine-direct-guard-2e5d70d/audio/master.engine.audition.wav`
+retained its already accepted held-dyno audition SHA-256
+`487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496`
+and was also accepted as sounding correct. This closes only the master-rod FreeEngine
+subslice; master-rod HeldDyno is next, followed by FreeVehicle.
 
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,
@@ -865,17 +891,24 @@ engine-definition parity in this order, with one coherent commit per bullet:
    Chen--Flynn reduction, `f1070ca` gives the existing cycle accountant an explicit
    common-stroke/per-cylinder-travel plan choice without changing direct execution,
    and `f4b18e5` joins the certified radial geometry to that accountant in stable
-   cylinder/chamber order. A private 1,500-rpm run now completes 1,700 warm-preparation
+   cylinder/chamber order. The private 1,500-rpm proof completes 1,700 warm-preparation
    frames, finalizes a heterogeneous radial cycle, and continues into released exact
-   articulated dynamics; public radial dynamic admission remains closed. GCC, Clang,
-   and ASan/UBSan pass, while the Release public radial prescribed and BMW direct
-   held-dyno candidates reproduce all 16 control WAVs byte-for-byte, including
-   audition SHA-256
-   `58394f71ed58ee5af4434745e6f266c2cac7db33503848decbd61b9e8a9f0985` and
-   `487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496`
-   respectively; the already executed co-phased direct multi-crank subset is complete,
-   while unproven offset/geared/nested/multi-crank-master-rod cases remain explicitly
-   closed**);
+   articulated dynamics. Commit `2e5d70d` then publishes complete operating torque and
+   equivalent-inertia capability for the certified master-rod profile, binds the
+   articulated FreeEngine method and its provenance, and opens only public master-rod
+   FreeEngine. GCC, Clang, and ASan/UBSan pass. The `80 ms` prescribed fixture retains
+   audition-format SHA-256
+   `58394f71ed58ee5af4434745e6f266c2cac7db33503848decbd61b9e8a9f0985`
+   as automated byte evidence, not a listening clip. The accepted `4.700 s` dynamic
+   radial FreeEngine audition has SHA-256
+   `6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c`;
+   its exact BMW direct guard retains accepted SHA-256
+   `487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496`.
+   The already executed co-phased direct multi-crank subset is complete, while
+   master-rod HeldDyno and FreeVehicle, and unproven
+   offset/geared/nested/multi-crank-master-rod cases, remain explicitly closed. Open
+   and audition master-rod HeldDyno next; after that gate is accepted, open and audition
+   FreeVehicle before declaring this bullet complete**);
 7. make native audition saturation explicit, then render, listen to, and freeze Slice
    16's representative fixed-cam inline/V, VTEC, governed, master/slave, and drivetrain
    procedures;

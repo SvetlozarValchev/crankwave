@@ -60,11 +60,13 @@ dynamic modes can be deliberately rebuilt with either lifetime; JavaScript never
 infers lifetime from motion mode or synthesizes physics. A `free_engine` scenario may add
 `attached_inertia` and an `external_resisting_torque` trajectory; omission of either
 means canonical positive zero. The compiler derives the engine baseline with the
-versioned cycle-mean centered slider-crank kinetic-energy method, adds any attached
-inertia, and retains that sum as the cycle-mean validation/provenance reference. The
-free-running integrator evaluates the same mechanism's analytic `M(theta)` and
-`dM/dtheta` at every left boundary and adds the constant attachment there; it does not
-flatten the moving crank, rods, and pistons into the cycle-mean value.
+versioned mechanism-family cycle-mean kinetic-energy method, adds any attached inertia,
+and retains that sum as the cycle-mean validation/provenance reference. Direct journals
+use the centered-slider method; certified one-level master rods use the articulated
+method. The free-running integrator evaluates the matching mechanism's analytic
+`M(theta)` and `dM/dtheta` at every left boundary and adds the constant attachment
+there; it does not flatten the moving crank, rods, and pistons into the cycle-mean
+value.
 
 For the BMW M52B28 fixture, the derived engine baseline is
 `0.2108686520185204 kg*m^2`; neutral uses no attached inertia and no external
@@ -92,6 +94,13 @@ or live controls. The selected throttle controller may instead be pristine's sta
 the public normalized demand becomes its speed command, while telemetry separately
 reports that request and the governor-resolved throttle opening. The Kohler CH750
 fixture exercises this path through a settled 12 N m load step.
+
+Certified one-level master-rod engines currently admit prescribed motion and
+`FreeEngine`. Their dynamic path uses analytic articulated inertia, per-cylinder
+piston-travel Chen--Flynn preparation evidence, and leaf-first coupled piston/rod wall
+reactions. The radial-five 52,000-frame warm procedure and its 4.7 s candidate are
+accepted; `HeldDyno`, `FreeVehicle`, nested master rods, and multi-crank master/slave
+remain separately closed.
 
 The compiler accepts the currently executable low-order topology without inspecting an
 engine name and fails closed on unsupported capabilities. Cylinder and
