@@ -818,6 +818,27 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_intake_pressure_source_stage_tests
+    intake_pressure_source_stage_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_intake_pressure_source_stage_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_intake_pressure_source_stage_tests
+    PRIVATE engine_sim_offline::presentation
+)
+
+add_test(
+    NAME presentation.intake_pressure_source_stage
+    COMMAND engine_sim_offline_intake_pressure_source_stage_tests
+)
+
+add_executable(
     engine_sim_offline_pcm16_ir_decoder_tests
     pcm16_ir_decoder_test.cpp
 )
