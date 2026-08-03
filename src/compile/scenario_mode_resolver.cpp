@@ -67,6 +67,8 @@ void ScenarioResolver::compile_mode() {
         std::holds_alternative<authoring::FreeEngineMode>(document_.mode);
     const bool held_dyno_motion =
         std::holds_alternative<authoring::HeldDynoMode>(document_.mode);
+    const bool free_vehicle_motion =
+        std::holds_alternative<authoring::FreeVehicleMode>(document_.mode);
     const bool rigid_group_dynamic_motion =
         std::holds_alternative<authoring::FreeEngineMode>(document_.mode) ||
         std::holds_alternative<authoring::HeldDynoMode>(document_.mode) ||
@@ -83,11 +85,12 @@ void ScenarioResolver::compile_mode() {
             "only");
         return;
     }
-    if (contains_master_rod &&
-        !(prescribed_motion || free_engine_motion || held_dyno_motion)) {
+    if (contains_master_rod && !(prescribed_motion || free_engine_motion ||
+                                 held_dyno_motion || free_vehicle_motion)) {
         add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
             "one-level master-rod engines currently admit only external_speed "
-            "prescribed motion, FreeEngine motion, or HeldDyno motion");
+            "prescribed motion, FreeEngine motion, HeldDyno motion, or FreeVehicle "
+            "motion");
         return;
     }
 
@@ -205,7 +208,10 @@ void ScenarioResolver::compile_mode() {
                 scenario_.mode = std::move(free_engine);
             } else if constexpr (std::is_same_v<T, authoring::FreeVehicleMode>) {
                 const auto &crank_method =
-                    multiple_crankshafts
+                    contains_master_rod
+                        ? simulation::
+                              nonnegative_speed_free_engine_one_level_master_rod_method_identity()
+                    : multiple_crankshafts
                         ? simulation::
                               nonnegative_speed_free_engine_centered_slider_crank_rigid_group_method_identity()
                         : simulation::

@@ -4,7 +4,7 @@
     "identity": {
       "id": "radial-5-cleanroom",
       "display_name": "Radial 5 (Clean Room)",
-      "description": "Declarative clean-room topology fixture derived from pristine engine-sim commit 85f7c3b959a908ed5232ede4f1a4ac7eafe6b630, assets/engines/atg-video-1/08_radial_5.mr and radial.mr. It preserves the five 72-degree banks, one direct master and four one-level slave pins, dimensions, cylinder-wire/cam/exhaust associations, shared intake, paired exhausts, ignition, starter, and presentation controls. The source's 0.2/0.03/0.1/0.1/0.5 CFM cylinder blowby values are normalized to the root cylinder's 0.2 CFM because the current shared low-order gas profile admits one blowby restriction. The unused sj0, unreferenced 535 g rod_mass label, center-of-mass and wrist-pin zeroes, propeller and direct drive, default fuel density, and 12 kHz simulation setting are not executor inputs. Chen-Flynn coefficients, the accessory descriptor, head exhaust-runner cross-section area, conditioning cutoffs, and the required 10 kHz runtime rate are explicit executor policy rather than Radial 5 measurements."
+      "description": "Declarative clean-room topology fixture derived from pristine engine-sim commit 85f7c3b959a908ed5232ede4f1a4ac7eafe6b630, assets/engines/atg-video-1/08_radial_5.mr and radial.mr. It preserves the five 72-degree banks, one direct master and four one-level slave pins, dimensions, cylinder-wire/cam/exhaust associations, shared intake, paired exhausts, ignition, starter, and presentation controls. The source's 0.2/0.03/0.1/0.1/0.5 CFM cylinder blowby values are normalized to the root cylinder's 0.2 CFM because the current shared low-order gas profile admits one blowby restriction. The unused sj0, unreferenced 535 g rod_mass label, center-of-mass and wrist-pin zeroes, default fuel density, and 12 kHz simulation setting are not executor inputs. The source's propeller and direct drive are now executor inputs. Chen-Flynn coefficients, the accessory descriptor, head exhaust-runner cross-section area, conditioning cutoffs, and the required 10 kHz runtime rate are explicit executor policy rather than Radial 5 measurements."
     },
     "cycle": "four_stroke",
     "layout": "custom",
@@ -287,6 +287,25 @@
       {"id": "exhaust-0", "type": "exhaust", "exhaust": "exhaust-0"},
       {"id": "exhaust-1", "type": "exhaust", "exhaust": "exhaust-1"}
     ]
+  },
+  "rig": {
+    "id": "radial-5-propellor-direct-drive-evaluation",
+    "vehicle": {
+      "id": "radial-5-propellor-proxy",
+      "mass": {"value": 100, "unit": "lb"},
+      "drag_coefficient": 0.5,
+      "frontal_area": {"value": 705, "unit": "in2"},
+      "differential_ratio": 1,
+      "tire_radius": {"value": 1, "unit": "m"},
+      "rolling_resistance_force": {"value": 300, "unit": "N"}
+    },
+    "transmission": {
+      "id": "radial-5-direct-drive",
+      "maximum_clutch_torque": {"value": 500, "unit": "lb*ft"},
+      "gears": [
+        {"id": "gear-1", "ratio": 1}
+      ]
+    }
   },
   "presentation": {
     "assets": [

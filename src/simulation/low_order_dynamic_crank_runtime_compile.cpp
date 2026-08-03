@@ -124,16 +124,18 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
             "dynamic-crank runtime requires exactly one compiled direct or one-level "
             "master-rod mechanism plan");
     require(report,
-            radial_plan == nullptr || free_engine != nullptr || held_dyno != nullptr,
+            radial_plan == nullptr || free_engine != nullptr || held_dyno != nullptr ||
+                free_vehicle != nullptr,
             ContractIssueCode::unsupported_value, "scenario.mode",
             "one-level master-rod dynamic-crank execution currently admits only "
-            "FreeEngine or HeldDyno motion");
+            "FreeEngine, HeldDyno, or FreeVehicle motion");
     require(report, !simulation_request_identity_v7_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v7_sha256",
             "dynamic-crank runtime requires the canonical nonzero request identity");
     if (profile == nullptr || dynamic_mode_count != 1U ||
         (direct_plan == nullptr) == (radial_plan == nullptr) ||
-        (radial_plan != nullptr && free_engine == nullptr && held_dyno == nullptr)) {
+        (radial_plan != nullptr && free_engine == nullptr && held_dyno == nullptr &&
+         free_vehicle == nullptr)) {
         return report;
     }
     const auto *output_crank = contract::find_output_crank(profile->core.mechanism);
@@ -214,8 +216,8 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
                                            expected_crank_dynamics_method,
             ContractIssueCode::unsupported_value,
             "scenario.mode.crank_dynamics_method.value",
-            "FreeVehicle runtime requires the exact nonnegative-speed centered-slider "
-            "crank method identity");
+            "FreeVehicle runtime requires its exact mechanism-family "
+            "nonnegative-speed crank method identity");
     require(report,
             free_vehicle == nullptr || free_vehicle->road_load_method.value ==
                                            forward_vehicle_road_load_method_identity(),
@@ -884,7 +886,9 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     const char *runtime_model_id =
         held_dyno != nullptr && radial_plan != nullptr
             ? "low-order-held-dyno-one-level-master-rod-v1"
-        : held_dyno != nullptr    ? "low-order-held-dyno"
+        : held_dyno != nullptr ? "low-order-held-dyno"
+        : free_vehicle != nullptr && radial_plan != nullptr
+            ? "low-order-free-vehicle-one-level-master-rod-v1"
         : free_vehicle != nullptr ? "low-order-free-vehicle-v1"
         : radial_plan != nullptr  ? "low-order-free-engine-one-level-master-rod-v1"
                                   : "low-order-free-engine-v1";

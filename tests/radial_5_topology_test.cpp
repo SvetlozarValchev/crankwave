@@ -154,62 +154,56 @@ struct RadialSource {
     authoring::ScenarioDocument scenario_document;
     authoring::ScenarioDocument free_engine_scenario_document;
     authoring::ScenarioDocument held_dyno_scenario_document;
+    authoring::ScenarioDocument free_vehicle_control_scenario_document;
+    authoring::ScenarioDocument free_vehicle_candidate_scenario_document;
     compile_detail::ResolvedEnginePackage resolved;
 };
 
 [[nodiscard]] RadialSource load_source(const std::filesystem::path &repository_root) {
     const auto engine_path =
         repository_root / "data/engines/radial-5-cleanroom/engine.json";
-    const auto scenario_path = repository_root /
-                               "data/engines/radial-5-cleanroom/scenarios/"
-                               "prescribed-1500rpm.json";
-    const auto free_engine_scenario_path = repository_root /
-                                           "data/engines/radial-5-cleanroom/scenarios/"
-                                           "warm-running-free-rev-1500rpm.json";
-    const auto held_dyno_scenario_path = repository_root /
-                                         "data/engines/radial-5-cleanroom/scenarios/"
-                                         "held-dyno-pull-hold-lift-1500-2800rpm.json";
     auto engine_document =
         require(authoring::parse_engine_document(read_text(engine_path)),
                 "radial-5 authored engine parse failed");
-    auto scenario_document =
-        require(authoring::parse_scenario_document(read_text(scenario_path)),
-                "radial-5 authored scenario parse failed");
-    auto free_engine_scenario_document = require(
-        authoring::parse_scenario_document(read_text(free_engine_scenario_path)),
-        "radial-5 authored FreeEngine scenario parse failed");
+    const auto scenarios_path = engine_path.parent_path() / "scenarios";
+    const auto load_scenario = [&](std::string_view filename, std::string_view label) {
+        auto document =
+            require(authoring::parse_scenario_document(
+                        read_text(scenarios_path / std::string{filename})),
+                    std::string{"radial-5 "} + std::string{label} + " parse failed");
+        const auto references =
+            authoring::validate_scenario_references(document, engine_document);
+        if (!references.ok()) {
+            throw std::runtime_error{
+                std::string{"radial-5 "} + std::string{label} +
+                " cross-document validation failed: " + diagnostics(references)};
+        }
+        return document;
+    };
+    auto scenario_document = load_scenario("prescribed-1500rpm.json", "prescribed");
+    auto free_engine_scenario_document =
+        load_scenario("warm-running-free-rev-1500rpm.json", "FreeEngine");
     auto held_dyno_scenario_document =
-        require(authoring::parse_scenario_document(read_text(held_dyno_scenario_path)),
-                "radial-5 authored HeldDyno scenario parse failed");
-    const auto references =
-        authoring::validate_scenario_references(scenario_document, engine_document);
-    if (!references.ok()) {
-        throw std::runtime_error{"radial-5 cross-document validation failed: " +
-                                 diagnostics(references)};
-    }
-    const auto free_engine_references = authoring::validate_scenario_references(
-        free_engine_scenario_document, engine_document);
-    if (!free_engine_references.ok()) {
-        throw std::runtime_error{
-            "radial-5 FreeEngine cross-document validation failed: " +
-            diagnostics(free_engine_references)};
-    }
-    const auto held_dyno_references = authoring::validate_scenario_references(
-        held_dyno_scenario_document, engine_document);
-    if (!held_dyno_references.ok()) {
-        throw std::runtime_error{
-            "radial-5 HeldDyno cross-document validation failed: " +
-            diagnostics(held_dyno_references)};
-    }
+        load_scenario("held-dyno-pull-hold-lift-1500-2800rpm.json", "HeldDyno");
+    auto free_vehicle_control_scenario_document = load_scenario(
+        "free-vehicle-propellor-direct-drive-open-clutch-control-1500rpm.json",
+        "FreeVehicle control");
+    auto free_vehicle_candidate_scenario_document = load_scenario(
+        "free-vehicle-propellor-direct-drive-20pct-clutch-candidate-1500rpm.json",
+        "FreeVehicle candidate");
 
     const auto assets = load_assets(engine_document, engine_path);
     const auto views = asset_views(assets);
     auto resolved =
         require(compile_detail::resolve_engine_package(engine_document, views),
                 "radial-5 engine resolution failed");
-    return {std::move(engine_document), std::move(scenario_document),
+    return {std::move(engine_document),
+            std::move(scenario_document),
             std::move(free_engine_scenario_document),
-            std::move(held_dyno_scenario_document), std::move(resolved)};
+            std::move(held_dyno_scenario_document),
+            std::move(free_vehicle_control_scenario_document),
+            std::move(free_vehicle_candidate_scenario_document),
+            std::move(resolved)};
 }
 
 struct ExpectedCylinder {
@@ -665,6 +659,122 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
            "radial-5 FreeEngine method selection lost its explicit master-rod "
            "topology provenance");
 
+    const auto *authored_rig =
+        source.engine_document.rig ? &*source.engine_document.rig : nullptr;
+    const auto *authored_vehicle = authored_rig != nullptr && authored_rig->vehicle
+                                       ? &*authored_rig->vehicle
+                                       : nullptr;
+    const auto *authored_transmission =
+        authored_rig != nullptr && authored_rig->transmission
+            ? &*authored_rig->transmission
+            : nullptr;
+    expect(authored_rig != nullptr && authored_vehicle != nullptr &&
+               authored_transmission != nullptr &&
+               authored_rig->id.value == "radial-5-propellor-direct-drive-evaluation" &&
+               authored_vehicle->id.value == "radial-5-propellor-proxy" &&
+               authored_vehicle->mass.value == 100.0 &&
+               authored_vehicle->mass.unit == "lb" &&
+               authored_vehicle->drag_coefficient == 0.5 &&
+               authored_vehicle->frontal_area.value == 705.0 &&
+               authored_vehicle->frontal_area.unit == "in2" &&
+               authored_vehicle->differential_ratio == 1.0 &&
+               authored_vehicle->tire_radius.value == 1.0 &&
+               authored_vehicle->tire_radius.unit == "m" &&
+               authored_vehicle->rolling_resistance_force.value == 300.0 &&
+               authored_vehicle->rolling_resistance_force.unit == "N" &&
+               !authored_vehicle->maximum_service_brake_force.has_value() &&
+               authored_transmission->id.value == "radial-5-direct-drive" &&
+               authored_transmission->maximum_clutch_torque.value == 500.0 &&
+               authored_transmission->maximum_clutch_torque.unit == "lb*ft" &&
+               authored_transmission->gears.size() == 1U &&
+               authored_transmission->gears.front().id.value == "gear-1" &&
+               authored_transmission->gears.front().ratio == 1.0,
+           "radial-5 authored propellor/direct-drive source rig changed");
+
+    const auto control_resolved =
+        require(compile_detail::resolve_scenario_document(
+                    source.free_vehicle_control_scenario_document, context),
+                "radial-5 FreeVehicle control scenario resolution failed");
+    const auto candidate_resolved =
+        require(compile_detail::resolve_scenario_document(
+                    source.free_vehicle_candidate_scenario_document, context),
+                "radial-5 FreeVehicle candidate scenario resolution failed");
+    const auto *control_vehicle =
+        std::get_if<contract::FreeVehicle>(&control_resolved.scenario.mode);
+    const auto *candidate_vehicle =
+        std::get_if<contract::FreeVehicle>(&candidate_resolved.scenario.mode);
+    const auto *candidate_sampling = std::get_if<contract::FixedHorizonCycleSampling>(
+        &candidate_resolved.scenario.preparation);
+    expect(
+        control_vehicle != nullptr && candidate_vehicle != nullptr &&
+            candidate_sampling != nullptr &&
+            candidate_vehicle->crank_dynamics_method.value ==
+                simulation::
+                    nonnegative_speed_free_engine_one_level_master_rod_method_identity() &&
+            candidate_vehicle->engine_baseline_inertia_kg_m2.value ==
+                free_engine->engine_baseline_inertia_kg_m2.value &&
+            candidate_vehicle->initial_engine_speed_rpm.value == 1500.0 &&
+            candidate_vehicle->initial_theta_rad.value == 1.17809724509625 &&
+            candidate_vehicle->initial_vehicle_speed_m_s.value == 157.07963267948966 &&
+            candidate_sampling->fixed_preparation_horizon_s.value == 0.5 &&
+            candidate_resolved.request_input.total_physics_frames == 52000U &&
+            control_resolved.request_input.total_physics_frames == 52000U &&
+            contract::validate_for_engine(candidate_resolved.scenario,
+                                          source.resolved.engine)
+                .ok() &&
+            contract::validate_for_engine(control_resolved.scenario,
+                                          source.resolved.engine)
+                .ok(),
+        "radial-5 FreeVehicle scenarios lost their articulated method, exact "
+        "frame grid, or initial conditions");
+    expect(candidate_vehicle->rig.semantic_id.value ==
+                   "radial-5-propellor-direct-drive-evaluation" &&
+               candidate_vehicle->rig.transmission.gears.size() == 1U &&
+               candidate_vehicle->rig.transmission.gears.front().semantic_id.value ==
+                   "gear-1" &&
+               candidate_vehicle->rig.transmission.gears.front().ratio.value == 1.0 &&
+               candidate_vehicle->selected_gear.value.size() == 1U &&
+               candidate_vehicle->selected_gear.value.front().gear_id ==
+                   candidate_vehicle->rig.transmission.gears.front().id &&
+               candidate_vehicle->clutch_engagement_01.value.size() == 3U &&
+               candidate_vehicle->clutch_engagement_01.value[1].time_s == 0.65 &&
+               candidate_vehicle->clutch_engagement_01.value[1].value == 0.2 &&
+               candidate_vehicle->clutch_engagement_01.value[2].time_s == 2.4 &&
+               candidate_vehicle->clutch_engagement_01.value[2].value == 0.0 &&
+               control_vehicle->clutch_engagement_01.value.size() == 1U &&
+               control_vehicle->clutch_engagement_01.value.front().value == 0.0,
+           "radial-5 FreeVehicle source rig or authored drivetrain lanes changed "
+           "during resolution");
+
+    const auto find_resolution = [](const auto &contracts,
+                                    std::string_view parameter_path) {
+        return std::ranges::find(contracts.combined_provenance.resolutions,
+                                 parameter_path,
+                                 &contract::ResolutionRecord::parameter_path);
+    };
+    const auto free_inertia_resolution =
+        find_resolution(free_resolved, "scenario.mode.engine_baseline_inertia_kg_m2");
+    const auto candidate_inertia_resolution = find_resolution(
+        candidate_resolved, "scenario.mode.engine_baseline_inertia_kg_m2");
+    const auto candidate_crank_method_resolution =
+        find_resolution(candidate_resolved, "scenario.mode.crank_dynamics_method");
+    expect(free_inertia_resolution !=
+                   free_resolved.combined_provenance.resolutions.end() &&
+               candidate_inertia_resolution !=
+                   candidate_resolved.combined_provenance.resolutions.end() &&
+               candidate_crank_method_resolution !=
+                   candidate_resolved.combined_provenance.resolutions.end() &&
+               candidate_inertia_resolution->method ==
+                   free_inertia_resolution->method &&
+               candidate_inertia_resolution->dependency_parameter_paths ==
+                   free_inertia_resolution->dependency_parameter_paths &&
+               candidate_crank_method_resolution->method ==
+                   crank_method_resolution->method &&
+               candidate_crank_method_resolution->dependency_parameter_paths ==
+                   crank_method_resolution->dependency_parameter_paths,
+           "radial-5 FreeVehicle did not retain the accepted FreeEngine topology "
+           "and baseline-inertia provenance");
+
     const auto held_dyno_resolved =
         require(compile_detail::resolve_scenario_document(
                     source.held_dyno_scenario_document, context),
@@ -712,7 +822,6 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
            "radial-5 non-external-speed mode gate was removed or lost its path");
 
     const std::array closed_dynamic_modes{
-        authoring::ScenarioMode{authoring::FreeVehicleMode{}},
         authoring::ScenarioMode{authoring::InertialDynoMode{}},
     };
     for (const auto &mode : closed_dynamic_modes) {
@@ -745,7 +854,6 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
            "radial-5 public fixture lost its exact finite horizon");
 
     const std::array closed_dynamic_modes{
-        contract::ScenarioMode{contract::FreeVehicle{}},
         contract::ScenarioMode{contract::InertialDyno{}},
     };
     for (const auto &mode : closed_dynamic_modes) {
@@ -913,6 +1021,129 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
                free_session.published_sample_count() == 10000U &&
                !free_session.completed() && !free_session.faulted(),
            "radial-5 public FreeEngine did not hold, release, and advance exactly");
+}
+
+void verify_public_free_vehicle_capture(const std::filesystem::path &repository_root) {
+    const auto candidate = test::load_authored_engine_fixture(
+        repository_root, "data/engines/radial-5-cleanroom/engine.json",
+        "data/engines/radial-5-cleanroom/scenarios/"
+        "free-vehicle-propellor-direct-drive-20pct-clutch-candidate-1500rpm.json");
+    const auto control = test::load_authored_engine_fixture(
+        repository_root, "data/engines/radial-5-cleanroom/engine.json",
+        "data/engines/radial-5-cleanroom/scenarios/"
+        "free-vehicle-propellor-direct-drive-open-clutch-control-1500rpm.json");
+    const auto horizon = contract::resolve_frame_index(
+        candidate.scenario.total_duration_s.value, candidate.scenario.rates.physics);
+    const auto release = contract::resolve_frame_index(
+        candidate.scenario.audible_start_s.value, candidate.scenario.rates.physics);
+    expect(horizon.has_value() && *horizon == 52000U && release.has_value() &&
+               *release == 5000U,
+           "radial-5 public FreeVehicle fixture lost its exact frame grid");
+
+    auto wrong_method_scenario = candidate.scenario;
+    std::get<contract::FreeVehicle>(wrong_method_scenario.mode)
+        .crank_dynamics_method.value = simulation::
+        nonnegative_speed_free_engine_centered_slider_crank_method_identity();
+    const auto wrong_method_result = simulation::compile_low_order_capture_session(
+        candidate.engine, wrong_method_scenario,
+        test::compile_fixture_random_plan(candidate), nonzero_request_identity(),
+        simulation::LowOrderExecutionExtent::finite_scenario(*horizon));
+    const auto *wrong_method_report =
+        std::get_if<contract::ValidationReport>(&wrong_method_result);
+    expect(wrong_method_report != nullptr &&
+               has_validation_issue(
+                   *wrong_method_report, contract::ContractIssueCode::unsupported_value,
+                   "scenario.mode.crank_dynamics_method.value", "mechanism-family"),
+           "radial-5 FreeVehicle admitted the direct centered-slider crank "
+           "identity");
+
+    expect(
+        std::holds_alternative<simulation::LowOrderCaptureSession>(
+            simulation::compile_low_order_capture_session(
+                control.engine, control.scenario,
+                test::compile_fixture_random_plan(control), nonzero_request_identity(),
+                simulation::LowOrderExecutionExtent::finite_scenario(*horizon))),
+        "radial-5 FreeVehicle open-clutch control failed admission");
+    auto session = require(
+        simulation::compile_low_order_capture_session(
+            candidate.engine, candidate.scenario,
+            test::compile_fixture_random_plan(candidate), nonzero_request_identity(),
+            simulation::LowOrderExecutionExtent::finite_scenario(*horizon)),
+        "radial-5 FreeVehicle candidate admission failed");
+
+    std::uint64_t observed_frames = 0U;
+    bool observed_released_motion = false;
+    bool observed_loaded_clutch = false;
+    constexpr std::uint64_t kSmokeFrameCount = 7000U;
+    while (observed_frames < kSmokeFrameCount) {
+        auto published =
+            session.publish_next_block([&](const contract::CaptureBlockView &block) {
+                expect(block.clock().first_sample_index == observed_frames,
+                       "radial-5 FreeVehicle capture lost contiguous frame order");
+                for (std::size_t index = 0U; index < block.frame_count(); ++index) {
+                    const auto sample_index = block.clock().first_sample_index + index;
+                    const auto *sample = block.engine_sample(index);
+                    expect(sample != nullptr &&
+                               std::isfinite(sample->engine_speed_rpm) &&
+                               sample->engine_speed_rpm > 0.0 &&
+                               std::isfinite(sample->theta_rad) &&
+                               std::isfinite(sample->angular_speed_rad_s) &&
+                               sample->angular_speed_rad_s > 0.0,
+                           "radial-5 FreeVehicle emitted nonpositive or nonfinite "
+                           "engine motion");
+                    if (sample_index < *release) {
+                        expect(sample->engine_speed_rpm == 1500.0,
+                               "radial-5 FreeVehicle preparation lost its exact "
+                               "1500 RPM hold");
+                    } else {
+                        observed_released_motion = true;
+                    }
+                }
+                observed_frames += block.frame_count();
+                return true;
+            });
+        if (const auto *failure = std::get_if<contract::FailureContext>(&published)) {
+            throw std::runtime_error{"radial-5 FreeVehicle capture faulted (" +
+                                     failure->detail_code +
+                                     "): " + failure->state_summary};
+        }
+        expect(!std::holds_alternative<simulation::LowOrderCaptureCompleted>(published),
+               "radial-5 FreeVehicle completed before its smoke horizon");
+
+        const auto state = session.free_vehicle_state();
+        if (observed_frames <= *release) {
+            expect(!state.has_value(),
+                   "radial-5 FreeVehicle exposed a sidecar during held "
+                   "preparation");
+            continue;
+        }
+        expect(state.has_value() && state->has_committed_drivetrain_step &&
+                   std::isfinite(state->engine_speed_rpm) &&
+                   state->engine_speed_rpm > 0.0 &&
+                   std::isfinite(state->vehicle_speed_m_s) &&
+                   state->vehicle_speed_m_s > 0.0 &&
+                   std::isfinite(state->vehicle_distance_m) &&
+                   state->vehicle_distance_m >= 0.0 &&
+                   state->selected_forward_gear_ordinal == 1U,
+               "radial-5 FreeVehicle omitted finite released drivetrain "
+               "telemetry");
+        if (observed_frames > 6500U) {
+            expect(state->clutch_engagement_01 == 0.2 &&
+                       state->clutch_torque_capacity_nm > 0.0 &&
+                       state->applied_average_clutch_torque_on_engine_nm != 0.0 &&
+                       state->requested_road_load_force_n > 0.0 &&
+                       state->applied_average_road_load_force_n > 0.0,
+                   "radial-5 FreeVehicle did not apply its authored 20% clutch "
+                   "and road load");
+            observed_loaded_clutch = true;
+        }
+    }
+    expect(observed_frames == kSmokeFrameCount &&
+               session.published_sample_count() == kSmokeFrameCount &&
+               !session.completed() && !session.faulted() && observed_released_motion &&
+               observed_loaded_clutch,
+           "radial-5 FreeVehicle did not hold, release, and engage its 20% "
+           "clutch load during the focused smoke");
 }
 
 void verify_public_held_dyno_capture(const std::filesystem::path &repository_root) {
@@ -1084,7 +1315,6 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
     auto engine = require(compile::compile_engine(source.engine_document, views),
                           "radial-5 public engine compilation failed");
     const std::array closed_dynamic_modes{
-        authoring::ScenarioMode{authoring::FreeVehicleMode{}},
         authoring::ScenarioMode{authoring::InertialDynoMode{}},
     };
     for (const auto &mode : closed_dynamic_modes) {
@@ -1320,6 +1550,7 @@ void run(const std::filesystem::path &repository_root) {
     verify_resolved_topology(source.resolved);
     verify_scenario_resolution_and_mode_gate(source);
     verify_public_capture(repository_root);
+    verify_public_free_vehicle_capture(repository_root);
     verify_public_held_dyno_capture(repository_root);
     verify_public_audio_session(repository_root, source);
 }
