@@ -591,6 +591,7 @@ class EngineSession::Implementation final {
                         capture,
                         [&](const presentation::ExhaustExcitationBlockView
                                 &excitation_block,
+                            const excitation::IntakePressureBlockView &,
                             const excitation::ExhaustExcitationDiagnosticBlockView &)
                             -> bool {
                             audio.emplace(presentation_->process(excitation_block));
@@ -910,7 +911,7 @@ class EngineSession::Implementation final {
     contract::RandomPlan random_plan_;
     presentation::AdmittedPresentationCalibration calibration_;
     simulation::LowOrderCaptureSession simulation_;
-    excitation::CapturedExhaustExcitationSession excitation_;
+    excitation::CapturedGasSourceExcitationSession excitation_;
     std::unique_ptr<presentation::PresentationAudioSession> presentation_;
     compile::CompiledSessionCapacities capacities_;
     contract::RationalRateHz physics_rate_ = kEngineSessionPhysicsRateHz;

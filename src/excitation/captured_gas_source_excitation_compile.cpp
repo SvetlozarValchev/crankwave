@@ -1,6 +1,6 @@
-#include "excitation/captured_exhaust_excitation.hpp"
+#include "excitation/captured_gas_source_excitation.hpp"
 
-#include "excitation/captured_exhaust_excitation_internal.hpp"
+#include "excitation/captured_gas_source_excitation_internal.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -78,51 +78,69 @@ resolve_delay_samples(double header_length_m, double route_length_m,
 
 } // namespace
 
-CapturedExhaustExcitationCompileResult
-compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine,
-                                            const contract::LowOrderEngineCoreV1 &core,
-                                            const contract::RenderScenario &scenario) {
+CapturedGasSourceExcitationCompileResult compile_captured_gas_source_excitation_session(
+    const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core,
+    const contract::RenderScenario &scenario) {
     ValidationReport report;
     std::vector<const contract::RouteSpec *> exhaust_routes;
+    std::vector<std::size_t> intake_route_indices;
     exhaust_routes.reserve(engine.routes.size());
-    for (const auto &route : engine.routes) {
+    intake_route_indices.reserve(engine.routes.size());
+    for (std::size_t index = 0; index < engine.routes.size(); ++index) {
+        const auto &route = engine.routes[index];
         if (route.kind.value == contract::SourceRouteKind::exhaust_outlet) {
             exhaust_routes.push_back(&route);
+        } else if (route.kind.value == contract::SourceRouteKind::intake_inlet) {
+            intake_route_indices.push_back(index);
+            const auto path = "engine.routes[" + std::to_string(index) + "]";
+            require(report, route.id.valid(), ContractIssueCode::invalid_value,
+                    path + ".id",
+                    "captured intake pressure requires a valid route identity");
+            require(report, route.source_volume_id.has_value(),
+                    ContractIssueCode::dangling_reference, path + ".source_volume_id",
+                    "captured intake pressure requires its plenum source volume");
         }
     }
     const std::size_t route_count = exhaust_routes.size();
+    const std::size_t intake_route_count = intake_route_indices.size();
     require(report, engine.id.valid(), ContractIssueCode::invalid_value, "engine.id",
-            "captured exhaust excitation requires a valid engine identity");
+            "captured gas-source excitation requires a valid engine identity");
     require(report, exact_excitation_method(engine.methods.excitation),
             ContractIssueCode::unsupported_value, "engine.methods.excitation",
-            "captured exhaust excitation requires the exact admitted "
+            "captured gas-source excitation requires the exact admitted "
             "legacy_low_order_v1 method identity");
     require(report, !engine.cylinders.empty(), ContractIssueCode::inconsistent_shape,
             "engine.cylinders",
-            "captured exhaust excitation requires at least one cylinder");
+            "captured gas-source excitation requires at least one cylinder");
     require(report, !exhaust_routes.empty(), ContractIssueCode::inconsistent_shape,
             "engine.routes",
-            "captured exhaust excitation requires at least one exhaust route");
+            "captured gas-source excitation requires at least one exhaust route");
     require(report, scenario.engine_profile_id == engine.profile_id.value,
             ContractIssueCode::inconsistent_semantics, "scenario.engine_profile_id",
-            "captured exhaust excitation requires the selected engine profile");
+            "captured gas-source excitation requires the selected engine profile");
     require(report, contract::validate(scenario.rates.capture).ok(),
             ContractIssueCode::invalid_value, "scenario.rates.capture",
-            "captured exhaust excitation requires a valid reduced capture rate");
+            "captured gas-source excitation requires a valid capture rate");
     require(report, scenario.rates.physics == scenario.rates.capture,
             ContractIssueCode::inconsistent_semantics, "scenario.rates.capture",
-            "captured exhaust excitation requires equal physics and capture rates");
+            "captured gas-source excitation requires equal physics and capture rates");
+    require(report, scenario.rates.capture == kCapturedGasSourceRateHz,
+            ContractIssueCode::unsupported_value, "scenario.rates.capture",
+            "captured gas-source excitation uses the canonical 20 kHz clock");
     const auto block_capacity = scenario.quality.value.capture_block_capacity_frames;
     require(report, block_capacity > 0U, ContractIssueCode::invalid_value,
             "scenario.quality.value.capture_block_capacity_frames",
-            "captured exhaust excitation requires a positive block capacity");
+            "captured gas-source excitation requires a positive block capacity");
     require(report,
             block_capacity > 0U &&
                 engine.cylinders.size() <=
                     std::numeric_limits<std::size_t>::max() / block_capacity &&
-                route_count <= std::numeric_limits<std::size_t>::max() / block_capacity,
+                route_count <=
+                    std::numeric_limits<std::size_t>::max() / block_capacity &&
+                intake_route_count <=
+                    std::numeric_limits<std::size_t>::max() / block_capacity,
             ContractIssueCode::invalid_value, "engine",
-            "captured exhaust excitation block storage size is unrepresentable");
+            "captured gas-source excitation block storage size is unrepresentable");
     if (!report.ok()) {
         return report;
     }
@@ -131,11 +149,11 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine,
     require(report, source.filtered_speed_exponent.value == 3U,
             ContractIssueCode::unsupported_value,
             "engine.physics_profile.excitation.filtered_speed_exponent",
-            "captured exhaust excitation admits only the exact cubic speed ramp");
+            "captured gas-source excitation admits only the exact cubic speed ramp");
     require(report, source.inverse_length_exponent.value == 2.0,
             ContractIssueCode::unsupported_value,
             "engine.physics_profile.excitation.inverse_length_exponent",
-            "captured exhaust excitation admits only inverse-square distance");
+            "captured gas-source excitation admits only inverse-square distance");
     require(report,
             finite_positive(source.reference_atmosphere_pa_abs.value) &&
                 finite_positive(source.legacy_propagation_speed_m_s.value) &&
@@ -146,7 +164,8 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine,
                 finite(source.pressure_gains.dynamic_reverse.value) &&
                 finite_positive(source.cylinder_count_divisor.value),
             ContractIssueCode::invalid_value, "engine.physics_profile.excitation",
-            "captured exhaust excitation parameters are outside their finite domains");
+            "captured gas-source excitation parameters are outside their finite "
+            "domains");
     require(report,
             same_binary64(source.cylinder_count_divisor.value,
                           static_cast<double>(engine.cylinders.size())),
@@ -156,28 +175,29 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine,
     require(report, source.cylinder_paths.size() == cylinder_count,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.excitation.cylinder_paths",
-            "captured exhaust excitation requires one path per cylinder");
+            "captured gas-source excitation requires one path per cylinder");
     require(report, source.cylinder_accumulation_order.value.size() == cylinder_count,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.excitation.cylinder_accumulation_order",
-            "captured exhaust excitation requires a complete cylinder order");
+            "captured gas-source excitation requires a complete cylinder order");
     require(report, source.routes.size() == route_count,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.excitation.routes",
-            "captured exhaust excitation requires one record per exhaust route");
+            "captured gas-source excitation requires one record per exhaust route");
     require(report, core.gas_path.exhaust_routes.size() == route_count,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.gas_path.exhaust_routes",
-            "captured exhaust excitation requires matching gas-path routes");
+            "captured gas-source excitation requires matching gas-path routes");
     require(report, core.mechanism.cylinders.size() == cylinder_count,
             ContractIssueCode::inconsistent_shape,
             "engine.physics_profile.mechanism.cylinders",
-            "captured exhaust excitation requires one mechanism record per cylinder");
+            "captured gas-source excitation requires one mechanism record per "
+            "cylinder");
     if (!report.ok()) {
         return report;
     }
 
-    auto state = std::make_unique<detail::CapturedExhaustExcitationState>();
+    auto state = std::make_unique<detail::CapturedGasSourceExcitationState>();
     state->engine_id = engine.id;
     state->model_id = engine.methods.excitation.value.id;
     state->profile_id = engine.profile_id.value;
@@ -192,7 +212,10 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine,
     state->cylinder_count_divisor = source.cylinder_count_divisor.value;
     state->cylinder_ids.resize(cylinder_count);
     state->route_layout.reserve(engine.routes.size());
-    for (const auto &declared : engine.routes) {
+    state->intake_route_ids.reserve(intake_route_count);
+    state->intake_capture_route_indices.reserve(intake_route_count);
+    for (std::size_t index = 0; index < engine.routes.size(); ++index) {
+        const auto &declared = engine.routes[index];
         state->route_layout.push_back({
             declared.id,
             declared.kind.value,
@@ -202,6 +225,10 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine,
                 ? std::optional<std::string>{declared.emitter_anchor_id->value}
                 : std::nullopt,
         });
+        if (declared.kind.value == contract::SourceRouteKind::intake_inlet) {
+            state->intake_route_ids.push_back(declared.id);
+            state->intake_capture_route_indices.push_back(index);
+        }
     }
     state->route_ids.resize(route_count);
     state->cylinders.resize(cylinder_count);
@@ -217,6 +244,8 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine,
         static_cast<std::size_t>(block_capacity) * route_count, +0.0);
     state->route_bus_values.assign(
         static_cast<std::size_t>(block_capacity) * route_count, +0.0);
+    state->intake_pressure_pa_abs.assign(
+        static_cast<std::size_t>(block_capacity) * intake_route_count, +0.0);
 
     std::vector<bool> gas_route_seen(route_count, false);
     std::vector<std::uint32_t> route_delay_samples(route_count, 0U);
@@ -398,7 +427,7 @@ compile_captured_exhaust_excitation_session(const contract::EngineSpec &engine,
                                                              +0.0);
         state->prospective_route_delays[route] = state->routes[route].downstream_delay;
     }
-    return CapturedExhaustExcitationSession{std::move(state)};
+    return CapturedGasSourceExcitationSession{std::move(state)};
 }
 
 } // namespace engine_sim_offline::excitation

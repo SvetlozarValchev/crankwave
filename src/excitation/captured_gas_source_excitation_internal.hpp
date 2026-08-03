@@ -1,6 +1,6 @@
 #pragma once
 
-#include "excitation/captured_exhaust_excitation.hpp"
+#include "excitation/captured_gas_source_excitation.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -33,7 +33,7 @@ struct CapturedExcitationRoutePlan {
     CapturedExcitationDelayState downstream_delay;
 };
 
-class CapturedExhaustExcitationState final {
+class CapturedGasSourceExcitationState final {
   public:
     contract::EngineId engine_id;
     std::string model_id;
@@ -43,6 +43,8 @@ class CapturedExhaustExcitationState final {
     std::vector<contract::CylinderId> cylinder_ids;
     std::vector<contract::RouteIdentity> route_layout;
     std::vector<contract::RouteId> route_ids;
+    std::vector<contract::RouteId> intake_route_ids;
+    std::vector<std::size_t> intake_capture_route_indices;
     std::vector<CapturedExcitationCylinderPlan> cylinders;
     // A second, equally bounded delay bank makes whole-block arithmetic
     // transactional without allocating during processing.
@@ -64,6 +66,7 @@ class CapturedExhaustExcitationState final {
     std::vector<double> post_delay;
     std::vector<double> collector_bus_values;
     std::vector<double> route_bus_values;
+    std::vector<double> intake_pressure_pa_abs;
 
     std::uint64_t next_frame_index = 0;
     std::uint64_t published_block_count = 0;

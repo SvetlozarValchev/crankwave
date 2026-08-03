@@ -1,5 +1,5 @@
 #include "authored_engine_fixture_support.hpp"
-#include "excitation/captured_exhaust_excitation.hpp"
+#include "excitation/captured_gas_source_excitation.hpp"
 
 #include <algorithm>
 #include <array>
@@ -53,15 +53,14 @@ void expect_same_bits(double actual, double expected, std::string_view message) 
     }
 }
 
-[[nodiscard]] CapturedExhaustExcitationCompileResult
+[[nodiscard]] CapturedGasSourceExcitationCompileResult
 compile_fixture_session(const EngineSpec &engine, const RenderScenario &scenario) {
-    return compile_captured_exhaust_excitation_session(engine,
-                                                       test::low_order_core(engine),
-                                                       scenario);
+    return compile_captured_gas_source_excitation_session(
+        engine, test::low_order_core(engine), scenario);
 }
 
-[[nodiscard]] CapturedExhaustExcitationSession
-require_session(CapturedExhaustExcitationCompileResult result) {
+[[nodiscard]] CapturedGasSourceExcitationSession
+require_session(CapturedGasSourceExcitationCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
         std::string message = "canonical BMW excitation request was rejected";
         for (const auto &issue : report->issues) {
@@ -69,7 +68,7 @@ require_session(CapturedExhaustExcitationCompileResult result) {
         }
         throw std::runtime_error{message};
     }
-    return std::get<CapturedExhaustExcitationSession>(std::move(result));
+    return std::get<CapturedGasSourceExcitationSession>(std::move(result));
 }
 
 [[nodiscard]] bool is_physical_route(SourceRouteKind kind) noexcept {
@@ -220,6 +219,33 @@ class SyntheticCaptureBlock final {
         return parity_cylinders_;
     }
 
+    void set_intake_pressure(RouteId route_id, std::size_t frame,
+                             double pressure_pa_abs) {
+        const auto route = std::ranges::find(routes_, route_id, &RouteIdentity::id);
+        expect(route != routes_.end() && route->kind == SourceRouteKind::intake_inlet &&
+                   frame < kFrames,
+               "intake pressure fixture route or frame is invalid");
+        const auto route_index = static_cast<std::size_t>(route - routes_.begin());
+        auto *sample = std::get_if<GasSourceRouteCaptureSample>(
+            &route_samples_[frame * routes_.size() + route_index]);
+        expect(sample != nullptr,
+               "intake pressure fixture did not own a gas-source sample");
+        sample->pressure_pa_abs = pressure_pa_abs;
+    }
+
+    [[nodiscard]] double intake_pressure(RouteId route_id, std::size_t frame) const {
+        const auto route = std::ranges::find(routes_, route_id, &RouteIdentity::id);
+        expect(route != routes_.end() && route->kind == SourceRouteKind::intake_inlet &&
+                   frame < kFrames,
+               "intake pressure fixture route or frame is invalid");
+        const auto route_index = static_cast<std::size_t>(route - routes_.begin());
+        const auto *sample = std::get_if<GasSourceRouteCaptureSample>(
+            &route_samples_[frame * routes_.size() + route_index]);
+        expect(sample != nullptr,
+               "intake pressure fixture did not own a gas-source sample");
+        return sample->pressure_pa_abs;
+    }
+
   private:
     EngineId engine_id_;
     std::uint64_t first_frame_index_ = 0;
@@ -250,10 +276,14 @@ struct PublishedBlockCopy {
     std::vector<double> pre_delay;
     std::vector<double> post_delay;
     std::vector<double> route_bus_values;
+    std::vector<RouteId> intake_route_ids;
+    std::vector<double> intake_pressure_pa_abs;
+    std::uintptr_t intake_storage_address = 0U;
 };
 
 [[nodiscard]] PublishedBlockCopy
 copy_callback_views(const presentation::ExhaustExcitationBlockView &output,
+                    const IntakePressureBlockView &intake,
                     const ExhaustExcitationDiagnosticBlockView &diagnostic) {
     expect(output.first_frame_index() == diagnostic.first_frame_index() &&
                output.sample_rate() == diagnostic.sample_rate() &&
@@ -261,6 +291,14 @@ copy_callback_views(const presentation::ExhaustExcitationBlockView &output,
                output.route_count() == diagnostic.route_count() &&
                std::ranges::equal(output.route_ids(), diagnostic.route_ids()),
            "presentation and diagnostic callback metadata diverged");
+    expect(intake.first_frame_index() == output.first_frame_index() &&
+               intake.sample_rate() == output.sample_rate() &&
+               intake.sample_rate() == kCapturedGasSourceRateHz &&
+               intake.frame_count() == output.frame_count() &&
+               intake.route_count() == intake.route_ids().size() &&
+               intake.pressure_pa_abs().size() ==
+                   intake.frame_count() * intake.route_count(),
+           "intake pressure callback metadata or frame-major extent diverged");
     expect(output.values_engine_sim_source_unit().data() ==
                    diagnostic.route_bus_values_engine_sim_source_unit().data() &&
                output.values_engine_sim_source_unit().size() ==
@@ -289,6 +327,20 @@ copy_callback_views(const presentation::ExhaustExcitationBlockView &output,
                                                        route],
                 "indexed excitation value does not match flat frame-major storage");
         }
+        const auto frame_pressure = intake.frame_pressure_pa_abs(frame);
+        expect(frame_pressure.size() == intake.route_count(),
+               "indexed intake pressure frame has the wrong route extent");
+        if (intake.route_count() != 0U) {
+            expect(frame_pressure.data() ==
+                       intake.pressure_pa_abs().data() + frame * intake.route_count(),
+                   "indexed intake pressure frame does not address flat storage");
+        }
+        for (std::size_t route = 0; route < intake.route_count(); ++route) {
+            expect_same_bits(
+                intake.pressure_pa_abs(frame, route),
+                intake.pressure_pa_abs()[frame * intake.route_count() + route],
+                "indexed intake pressure does not match flat frame-major storage");
+        }
     }
     return {
         output.first_frame_index(),
@@ -302,24 +354,28 @@ copy_callback_views(const presentation::ExhaustExcitationBlockView &output,
          diagnostic.post_delay_cylinder_values_engine_sim_source_unit().end()},
         {output.values_engine_sim_source_unit().begin(),
          output.values_engine_sim_source_unit().end()},
+        {intake.route_ids().begin(), intake.route_ids().end()},
+        {intake.pressure_pa_abs().begin(), intake.pressure_pa_abs().end()},
+        reinterpret_cast<std::uintptr_t>(intake.pressure_pa_abs().data()),
     };
 }
 
-[[nodiscard]] PublishedBlockCopy publish(CapturedExhaustExcitationSession &session,
+[[nodiscard]] PublishedBlockCopy publish(CapturedGasSourceExcitationSession &session,
                                          const CaptureBlockView &input,
                                          std::uint64_t expected_block_ordinal) {
     std::optional<PublishedBlockCopy> copy;
     const auto result = session.process_block(
         input, [&](const presentation::ExhaustExcitationBlockView &output,
+                   const IntakePressureBlockView &intake,
                    const ExhaustExcitationDiagnosticBlockView &diagnostic) {
-            copy = copy_callback_views(output, diagnostic);
+            copy = copy_callback_views(output, intake, diagnostic);
             return true;
         });
-    const auto *published = std::get_if<ExhaustExcitationBlockPublished>(&result);
+    const auto *published = std::get_if<CapturedGasSourceBlockPublished>(&result);
     expect(published != nullptr && copy.has_value(),
            "valid synthetic capture did not publish one excitation block");
     expect(*published ==
-               ExhaustExcitationBlockPublished{
+               CapturedGasSourceBlockPublished{
                    expected_block_ordinal,
                    input.clock().first_sample_index,
                    input.frame_count(),
@@ -328,6 +384,10 @@ copy_callback_views(const presentation::ExhaustExcitationBlockView &output,
            "excitation publication progress changed");
     return std::move(*copy);
 }
+
+[[nodiscard]] const FailureContext &
+require_fault(const CapturedGasSourceProcessResult &result, std::string_view code,
+              std::string_view message);
 
 [[nodiscard]] double
 independent_pre_delay(double filtered_rpm,
@@ -413,8 +473,66 @@ independent_pre_delay(const SyntheticCaptureBlock &block) {
     return engine;
 }
 
+struct IntakeRouteFixture {
+    EngineSpec engine;
+    RouteId intake_route_id;
+};
+
+[[nodiscard]] IntakeRouteFixture
+make_interleaved_intake_route_engine(EngineSpec engine) {
+    expect(engine.routes.size() >= 2U,
+           "canonical excitation fixture has fewer than two exhaust routes");
+    const auto &core = test::low_order_core(engine);
+    expect(!core.gas_path.intakes.empty(),
+           "canonical excitation fixture has no intake plenum topology");
+
+    const auto maximum_route =
+        std::ranges::max_element(engine.routes, {}, &RouteSpec::id);
+    expect(maximum_route != engine.routes.end(),
+           "canonical excitation fixture has no route identity");
+    auto intake = engine.routes.front();
+    intake.id = RouteId{maximum_route->id.value + 1U};
+    intake.semantic_id.value = "intake.capture.test";
+    intake.kind.value = SourceRouteKind::intake_inlet;
+    intake.source_volume_id = core.gas_path.intakes.front().topology.plenum_volume_id;
+    intake.default_parent_route_id.reset();
+    intake.emitter_anchor_id.reset();
+    const auto intake_route_id = intake.id;
+    engine.routes.insert(engine.routes.begin() + 1, std::move(intake));
+    return {std::move(engine), intake_route_id};
+}
+
 void expect_equal_block(const PublishedBlockCopy &actual,
                         const PublishedBlockCopy &expected, std::string_view message) {
+    expect(actual.first_frame_index == expected.first_frame_index &&
+               actual.sample_rate == expected.sample_rate &&
+               actual.frame_count == expected.frame_count &&
+               actual.cylinder_ids == expected.cylinder_ids &&
+               actual.route_ids == expected.route_ids &&
+               actual.intake_route_ids == expected.intake_route_ids &&
+               actual.pre_delay.size() == expected.pre_delay.size() &&
+               actual.post_delay.size() == expected.post_delay.size() &&
+               actual.route_bus_values.size() == expected.route_bus_values.size() &&
+               actual.intake_pressure_pa_abs.size() ==
+                   expected.intake_pressure_pa_abs.size(),
+           std::string{message} + ": shape or metadata mismatch");
+    for (std::size_t index = 0; index < actual.pre_delay.size(); ++index) {
+        expect_same_bits(actual.pre_delay[index], expected.pre_delay[index], message);
+        expect_same_bits(actual.post_delay[index], expected.post_delay[index], message);
+    }
+    for (std::size_t index = 0; index < actual.route_bus_values.size(); ++index) {
+        expect_same_bits(actual.route_bus_values[index],
+                         expected.route_bus_values[index], message);
+    }
+    for (std::size_t index = 0; index < actual.intake_pressure_pa_abs.size(); ++index) {
+        expect_same_bits(actual.intake_pressure_pa_abs[index],
+                         expected.intake_pressure_pa_abs[index], message);
+    }
+}
+
+void expect_equal_exhaust(const PublishedBlockCopy &actual,
+                          const PublishedBlockCopy &expected,
+                          std::string_view message) {
     expect(actual.first_frame_index == expected.first_frame_index &&
                actual.sample_rate == expected.sample_rate &&
                actual.frame_count == expected.frame_count &&
@@ -423,7 +541,7 @@ void expect_equal_block(const PublishedBlockCopy &actual,
                actual.pre_delay.size() == expected.pre_delay.size() &&
                actual.post_delay.size() == expected.post_delay.size() &&
                actual.route_bus_values.size() == expected.route_bus_values.size(),
-           std::string{message} + ": shape or metadata mismatch");
+           std::string{message} + ": exhaust shape or metadata mismatch");
     for (std::size_t index = 0; index < actual.pre_delay.size(); ++index) {
         expect_same_bits(actual.pre_delay[index], expected.pre_delay[index], message);
         expect_same_bits(actual.post_delay[index], expected.post_delay[index], message);
@@ -434,8 +552,8 @@ void expect_equal_block(const PublishedBlockCopy &actual,
     }
 }
 
-void test_exact_arithmetic_delay_routes_and_continuity(
-    const EngineSpec &engine, const RenderScenario &scenario) {
+void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
+                                                       const RenderScenario &scenario) {
     SyntheticCaptureBlock block_0{engine, 0U};
     SyntheticCaptureBlock block_1{engine, kFrames};
     block_0.fill_distinct_excitation();
@@ -512,6 +630,86 @@ void test_exact_arithmetic_delay_routes_and_continuity(
     expect(session.next_frame_index() == 2U * kFrames &&
                session.published_block_count() == 2U && !session.faulted(),
            "two-block excitation session progress changed");
+}
+
+void test_intake_pressure_is_exact_without_changing_exhaust(
+    const EngineSpec &canonical_engine, const RenderScenario &scenario) {
+    auto intake_fixture = make_interleaved_intake_route_engine(canonical_engine);
+    const auto intake_route_id = intake_fixture.intake_route_id;
+
+    SyntheticCaptureBlock baseline_0{canonical_engine, 0U};
+    SyntheticCaptureBlock baseline_1{canonical_engine, kFrames};
+    SyntheticCaptureBlock intake_0{intake_fixture.engine, 0U};
+    SyntheticCaptureBlock intake_1{intake_fixture.engine, kFrames};
+    baseline_0.fill_distinct_excitation();
+    baseline_1.fill_distinct_excitation();
+    intake_0.fill_distinct_excitation();
+    intake_1.fill_distinct_excitation();
+    for (std::size_t frame = 0; frame < kFrames; ++frame) {
+        intake_0.set_intake_pressure(intake_route_id, frame,
+                                     87321.25 + static_cast<double>(frame) * 0.125);
+        intake_1.set_intake_pressure(intake_route_id, frame,
+                                     87321.25 +
+                                         static_cast<double>(kFrames + frame) * 0.125);
+    }
+
+    auto baseline_session =
+        require_session(compile_fixture_session(canonical_engine, scenario));
+    auto intake_session =
+        require_session(compile_fixture_session(intake_fixture.engine, scenario));
+    const auto baseline_output_0 = publish(baseline_session, baseline_0.view(), 0U);
+    const auto intake_output_0 = publish(intake_session, intake_0.view(), 0U);
+    const auto baseline_output_1 = publish(baseline_session, baseline_1.view(), 1U);
+    const auto intake_output_1 = publish(intake_session, intake_1.view(), 1U);
+
+    expect_equal_exhaust(intake_output_0, baseline_output_0,
+                         "interleaved intake changed exhaust block zero");
+    expect_equal_exhaust(intake_output_1, baseline_output_1,
+                         "interleaved intake changed exhaust block one");
+    expect(baseline_output_0.intake_route_ids.empty() &&
+               baseline_output_0.intake_pressure_pa_abs.empty() &&
+               baseline_output_1.intake_route_ids.empty() &&
+               baseline_output_1.intake_pressure_pa_abs.empty(),
+           "exhaust-only layout did not publish a valid empty intake view");
+    expect(intake_output_0.intake_route_ids == std::vector<RouteId>{intake_route_id} &&
+               intake_output_1.intake_route_ids ==
+                   std::vector<RouteId>{intake_route_id} &&
+               intake_output_0.intake_pressure_pa_abs.size() == kFrames &&
+               intake_output_1.intake_pressure_pa_abs.size() == kFrames,
+           "intake view did not retain filtered authored route order or extent");
+    for (std::size_t frame = 0; frame < kFrames; ++frame) {
+        expect_same_bits(intake_output_0.intake_pressure_pa_abs[frame],
+                         intake_0.intake_pressure(intake_route_id, frame),
+                         "block-zero intake pressure was transformed");
+        expect_same_bits(intake_output_1.intake_pressure_pa_abs[frame],
+                         intake_1.intake_pressure(intake_route_id, frame),
+                         "block-one intake pressure was transformed");
+    }
+    expect(intake_output_0.intake_storage_address != 0U &&
+               intake_output_0.intake_storage_address ==
+                   intake_output_1.intake_storage_address,
+           "intake pressure callback scratch was not preallocated and reused");
+
+    SyntheticCaptureBlock malformed{intake_fixture.engine, 0U};
+    malformed.fill_distinct_excitation();
+    malformed.set_intake_pressure(intake_route_id, kFrames - 1U,
+                                  std::numeric_limits<double>::quiet_NaN());
+    auto malformed_session =
+        require_session(compile_fixture_session(intake_fixture.engine, scenario));
+    std::size_t callbacks = 0U;
+    const auto rejected = malformed_session.process_block(
+        malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
+                              const IntakePressureBlockView &,
+                              const ExhaustExcitationDiagnosticBlockView &) {
+            ++callbacks;
+            return true;
+        });
+    (void)require_fault(rejected, "captured-gas-source-block-invalid",
+                        "non-finite intake pressure was admitted");
+    expect(callbacks == 0U && malformed_session.faulted() &&
+               malformed_session.next_frame_index() == 0U &&
+               malformed_session.published_block_count() == 0U,
+           "invalid intake pressure entered callback or advanced session progress");
 }
 
 void test_split_primary_and_route_delays_preserve_total_arrival(
@@ -685,8 +883,8 @@ void test_three_cylinder_authored_order_collector(const EngineSpec &canonical_en
            "dynamic 3-cylinder/1-route session progress changed");
 }
 
-void test_independent_sessions_are_bit_deterministic(
-    const EngineSpec &engine, const RenderScenario &scenario) {
+void test_independent_sessions_are_bit_deterministic(const EngineSpec &engine,
+                                                     const RenderScenario &scenario) {
     SyntheticCaptureBlock block_0{engine, 0U};
     SyntheticCaptureBlock block_1{engine, kFrames};
     block_0.fill_distinct_excitation();
@@ -705,8 +903,8 @@ void test_independent_sessions_are_bit_deterministic(
 }
 
 [[nodiscard]] const FailureContext &
-require_fault(const CapturedExhaustExcitationProcessResult &result,
-              std::string_view code, std::string_view message) {
+require_fault(const CapturedGasSourceProcessResult &result, std::string_view code,
+              std::string_view message) {
     const auto *failure = std::get_if<FailureContext>(&result);
     expect(failure != nullptr && failure->detail_code == code, std::string{message});
     return *failure;
@@ -723,12 +921,13 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance(
     std::size_t callbacks = 0U;
     const auto first = session.process_block(
         malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
+                              const IntakePressureBlockView &,
                               const ExhaustExcitationDiagnosticBlockView &) {
             ++callbacks;
             return true;
         });
     const FailureContext first_fault = require_fault(
-        first, "captured-excitation-block-invalid",
+        first, "captured-gas-source-block-invalid",
         "malformed final input lane was not rejected by full prevalidation");
     expect(callbacks == 0U && session.faulted() && session.next_frame_index() == 0U &&
                session.published_block_count() == 0U,
@@ -737,6 +936,7 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance(
     malformed.parity_cylinders().back().dynamic_pressure_reverse_pa = 1.0;
     const auto repeated = session.process_block(
         malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
+                              const IntakePressureBlockView &,
                               const ExhaustExcitationDiagnosticBlockView &) {
             ++callbacks;
             return true;
@@ -760,15 +960,17 @@ void test_consumer_rejection_and_exception_are_terminal(
         std::size_t callbacks = 0U;
         const auto rejected = session.process_block(
             block.view(), [&](const presentation::ExhaustExcitationBlockView &,
+                              const IntakePressureBlockView &,
                               const ExhaustExcitationDiagnosticBlockView &) {
                 ++callbacks;
                 return false;
             });
         const FailureContext fault =
-            require_fault(rejected, "captured-excitation-consumer-rejected",
+            require_fault(rejected, "captured-gas-source-consumer-rejected",
                           "false excitation consumer did not reject publication");
         const auto repeated = session.process_block(
             block.view(), [&](const presentation::ExhaustExcitationBlockView &,
+                              const IntakePressureBlockView &,
                               const ExhaustExcitationDiagnosticBlockView &) {
                 ++callbacks;
                 return true;
@@ -787,15 +989,17 @@ void test_consumer_rejection_and_exception_are_terminal(
         const auto thrown = session.process_block(
             block.view(),
             [&](const presentation::ExhaustExcitationBlockView &,
+                const IntakePressureBlockView &,
                 const ExhaustExcitationDiagnosticBlockView &) -> bool {
                 ++callbacks;
                 throw std::runtime_error{"intentional excitation consumer failure"};
             });
         const FailureContext fault =
-            require_fault(thrown, "captured-excitation-consumer-threw",
+            require_fault(thrown, "captured-gas-source-consumer-threw",
                           "excitation consumer exception escaped its transaction");
         const auto repeated = session.process_block(
             block.view(), [&](const presentation::ExhaustExcitationBlockView &,
+                              const IntakePressureBlockView &,
                               const ExhaustExcitationDiagnosticBlockView &) {
                 ++callbacks;
                 return true;
@@ -811,9 +1015,15 @@ void test_consumer_rejection_and_exception_are_terminal(
 
 void test_reentrant_callback_preserves_outer_views_and_faults(
     const EngineSpec &engine, const RenderScenario &scenario) {
-    SyntheticCaptureBlock block{engine, 0U};
+    auto intake_fixture = make_interleaved_intake_route_engine(engine);
+    SyntheticCaptureBlock block{intake_fixture.engine, 0U};
     block.fill_distinct_excitation();
-    auto session = require_session(compile_fixture_session(engine, scenario));
+    for (std::size_t frame = 0; frame < kFrames; ++frame) {
+        block.set_intake_pressure(intake_fixture.intake_route_id, frame,
+                                  90000.5 + static_cast<double>(frame));
+    }
+    auto session =
+        require_session(compile_fixture_session(intake_fixture.engine, scenario));
 
     std::size_t outer_callbacks = 0U;
     std::size_t nested_callbacks = 0U;
@@ -821,20 +1031,22 @@ void test_reentrant_callback_preserves_outer_views_and_faults(
     std::exception_ptr callback_error;
     const auto outer = session.process_block(
         block.view(), [&](const presentation::ExhaustExcitationBlockView &output,
+                          const IntakePressureBlockView &intake,
                           const ExhaustExcitationDiagnosticBlockView &diagnostic) {
             try {
                 ++outer_callbacks;
-                const auto before = copy_callback_views(output, diagnostic);
+                const auto before = copy_callback_views(output, intake, diagnostic);
                 const auto nested = session.process_block(
                     block.view(), [&](const presentation::ExhaustExcitationBlockView &,
+                                      const IntakePressureBlockView &,
                                       const ExhaustExcitationDiagnosticBlockView &) {
                         ++nested_callbacks;
                         return true;
                     });
                 nested_fault =
-                    require_fault(nested, "captured-excitation-consumer-reentrant",
+                    require_fault(nested, "captured-gas-source-consumer-reentrant",
                                   "nested excitation publication was not rejected");
-                const auto after = copy_callback_views(output, diagnostic);
+                const auto after = copy_callback_views(output, intake, diagnostic);
                 expect_equal_block(after, before,
                                    "nested call mutated the borrowed outer views");
                 return true;
@@ -848,7 +1060,7 @@ void test_reentrant_callback_preserves_outer_views_and_faults(
     }
 
     const auto &outer_fault =
-        require_fault(outer, "captured-excitation-consumer-reentrant",
+        require_fault(outer, "captured-gas-source-consumer-reentrant",
                       "outer excitation transaction ignored its nested terminal fault");
     expect(nested_fault.has_value() && outer_fault == *nested_fault &&
                outer_callbacks == 1U && nested_callbacks == 0U && session.faulted() &&
@@ -886,6 +1098,13 @@ void test_compile_rejects_method_profile_rate_and_layout_drift(
                                 "capture rate divergent from physics");
     }
     {
+        auto scenario = canonical_scenario;
+        scenario.rates.physics = {10000, 1};
+        scenario.rates.capture = {10000, 1};
+        expect_compile_rejected(canonical_engine, std::move(scenario),
+                                "noncanonical 10 kHz gas-source clock");
+    }
+    {
         auto engine = canonical_engine;
         std::swap(engine.cylinders[0], engine.cylinders[1]);
         expect_compile_rejected(std::move(engine), canonical_scenario,
@@ -895,15 +1114,15 @@ void test_compile_rejects_method_profile_rate_and_layout_drift(
 
 void run_tests(const std::filesystem::path &repository_root) {
     const auto fixture = test::load_canonical_authored_engine_fixture(repository_root);
-    test_exact_arithmetic_delay_routes_and_continuity(fixture.engine,
-                                                      fixture.scenario);
+    test_exact_arithmetic_delay_routes_and_continuity(fixture.engine, fixture.scenario);
+    test_intake_pressure_is_exact_without_changing_exhaust(fixture.engine,
+                                                           fixture.scenario);
     test_split_primary_and_route_delays_preserve_total_arrival(fixture.engine,
                                                                fixture.scenario);
     test_three_cylinder_authored_order_collector(fixture.engine, fixture.scenario);
-    test_independent_sessions_are_bit_deterministic(fixture.engine,
-                                                    fixture.scenario);
-    test_complete_prevalidation_is_terminal_and_does_not_advance(
-        fixture.engine, fixture.scenario);
+    test_independent_sessions_are_bit_deterministic(fixture.engine, fixture.scenario);
+    test_complete_prevalidation_is_terminal_and_does_not_advance(fixture.engine,
+                                                                 fixture.scenario);
     test_consumer_rejection_and_exception_are_terminal(fixture.engine,
                                                        fixture.scenario);
     test_reentrant_callback_preserves_outer_views_and_faults(fixture.engine,
@@ -916,11 +1135,11 @@ void run_tests(const std::filesystem::path &repository_root) {
 
 int main(int argc, char **argv) {
     try {
-        expect(argc == 2, "usage: legacy_low_order_exhaust_excitation_test "
+        expect(argc == 2, "usage: captured_gas_source_excitation_test "
                           "<repository-root>");
         run_tests(argv[1]);
     } catch (const std::exception &error) {
-        std::cerr << "legacy low-order exhaust excitation test failed: " << error.what()
+        std::cerr << "captured gas-source excitation test failed: " << error.what()
                   << '\n';
         return 1;
     }
