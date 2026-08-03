@@ -114,7 +114,7 @@ struct MethodCase {
         {
             "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v1",
             1,
-            "b91704d4e25df3ea35a323ca73eae08a18b0e80341114f14a3f4dc52db812a7a",
+            "fa032450f15150ff7a5afd5916a1be13b7d9e343e7bc477a7950ce04433b019c",
             presentation::ordered_route_audition_method_descriptor,
             presentation::ordered_route_audition_method_identity,
         },

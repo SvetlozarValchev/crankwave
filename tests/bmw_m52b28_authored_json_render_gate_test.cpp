@@ -20,7 +20,7 @@ constexpr std::string_view kExpectedGenericRequestIdentitySha256 =
     "e01b872b91f142ef65633783a736cbea79169e99b4c45e8df6d68ffa481369d6";
 constexpr std::uint64_t kExpectedGenericAuditionWaveByteCount = UINT64_C(8640586);
 constexpr std::string_view kExpectedGenericAuditionWaveSha256 =
-    "f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552";
+    "630bc125815d0e80e4c4bd907f0ecd49edd55d3c24ba8e9c29202a220b01b4af";
 
 [[nodiscard]] std::string validation_text(const contract::ValidationReport &report) {
     std::string result;

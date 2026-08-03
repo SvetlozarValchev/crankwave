@@ -850,7 +850,10 @@ class NativePresentationPublisher::Implementation final {
                     "native presentation audition fade produced non-finite "
                     "output"};
             }
-            scratch_.pcm24[frame] = presentation::quantize_pcm24(faded).pcm24;
+            const auto quantized = presentation::quantize_pcm24(faded);
+            scratch_.pcm24[frame] = quantized.pcm24;
+            stats_.audition_saturated_sample_count +=
+                quantized.saturated ? UINT64_C(1) : UINT64_C(0);
         }
     }
 

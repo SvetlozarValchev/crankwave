@@ -106,6 +106,7 @@ struct NativePresentationPublicationStats {
     std::uint64_t processed_source_frame_count = 0;
     std::uint64_t pre_audible_source_frame_count = 0;
     std::uint64_t published_source_frame_count = 0;
+    std::uint64_t audition_saturated_sample_count = 0;
 
     friend bool operator==(const NativePresentationPublicationStats &,
                            const NativePresentationPublicationStats &) = default;

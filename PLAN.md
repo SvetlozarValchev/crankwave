@@ -176,12 +176,15 @@ The current generic identities are:
 ```text
 simulation request SHA-256: e01b872b91f142ef65633783a736cbea79169e99b4c45e8df6d68ffa481369d6
 audition WAV byte count:    8640586
-audition WAV SHA-256:       f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552
+audition WAV SHA-256:       630bc125815d0e80e4c4bd907f0ecd49edd55d3c24ba8e9c29202a220b01b4af
 ```
 
 Checkpoint 7 truthfully renamed the route-publication and audition-mix methods from
 fixed two-route identities to ordered N-route identities. This metadata-only change
 added 14 bytes to the WAVE container; the accepted PCM24 `data` chunk did not change.
+The Slice 16 saturation gate now counts every saturated audition quantization and
+rejects nonzero counts before publication commit. Its truthful method descriptor
+changes the whole-WAV metadata hash above without changing the PCM24 `data` chunk.
 Operating-bench checkpoint 1 added the resolved E36 evaluation rig to package
 provenance. That changed the request identity above without changing the WAVE or PCM.
 
@@ -960,9 +963,12 @@ engine-definition parity in this order, with one coherent commit per bullet:
    leakage. The executed co-phased direct multi-crank subset is complete. Unproven
    offset/geared/nested/multi-crank-master-rod cases remain explicitly fail-closed
    outside this parity scope**);
-7. make native audition saturation explicit, then render, listen to, and freeze Slice
-   16's representative fixed-cam inline/V, VTEC, governed, master/slave, and drivetrain
-   procedures;
+7. make native audition saturation explicit (**complete: the publisher counts every
+   saturated PCM24 quantization, native bake rejects a nonzero count as
+   `native-audition-saturated` before commit, and the zero-saturation PCM golden
+   remains exact**), then render, listen to, and freeze Slice 16's representative
+   fixed-cam inline/V, VTEC, governed, master/slave, and drivetrain procedures
+   (**next**);
 8. declare headless executable parity complete only after the Slice 16 listening gate
    is accepted.
 

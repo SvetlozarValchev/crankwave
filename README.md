@@ -277,16 +277,20 @@ because its metadata carries generic compiler identities rather than obsolete
 BMW-specific ones:
 
 ```text
-simulation request SHA-256: df65b324c78d43c1b651ab69d217483d3b489199fbb1c5a2a4ad9da7e2143efd
+simulation request SHA-256: e01b872b91f142ef65633783a736cbea79169e99b4c45e8df6d68ffa481369d6
 audition WAV byte count:    8640586
-audition WAV SHA-256:       f603ffed10dfe95b895084140cac46c448cafc4127c96b1671e53575b47ae552
+audition WAV SHA-256:       630bc125815d0e80e4c4bd907f0ecd49edd55d3c24ba8e9c29202a220b01b4af
 ```
 
 Checkpoint 7 replaced obsolete two-route method names with truthful ordered N-route
 identities. That metadata-only correction added 14 container bytes and changed the
 whole-WAV hash; the PCM24 `data` chunk above remains byte-identical.
+The Slice 16 saturation gate made the method descriptor truthful about counting and
+rejecting clipped audition samples. That metadata-only correction changed the
+whole-WAV hash again without changing the accepted PCM24 `data` chunk.
 The operating-bench rig is resolved into package provenance, so adding the E36
-evaluation rig changed the request identity without changing either audio hash.
+evaluation rig accounts for the request identity above without changing either audio
+hash.
 
 Historical model, manifest, provenance, and listening records remain under `docs/` and
 `reference/`. They document how the accepted implementation was established; they do

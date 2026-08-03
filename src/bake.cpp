@@ -321,6 +321,15 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
                            "session and native publisher completed different horizons",
                            physics_frame);
         }
+        if (stats.audition_saturated_sample_count != 0U) {
+            return failure(
+                std::move(plan.request), FailureKind::contract_violation,
+                "native-audition-saturated",
+                "audition PCM24 quantization saturated " +
+                    std::to_string(stats.audition_saturated_sample_count) +
+                    " samples; successful publication requires zero",
+                physics_frame);
+        }
 
         plan.manifest_basis.artifacts.assign(evidence.artifacts().begin(),
                                              evidence.artifacts().end());

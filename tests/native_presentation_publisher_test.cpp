@@ -1,6 +1,7 @@
 #include "render/native_presentation_publisher.hpp"
 
 #include "engine_sim_offline/authoring/parse.hpp"
+#include "engine_sim_offline/bake.hpp"
 
 #include <algorithm>
 #include <array>
@@ -175,7 +176,9 @@ struct OwnedAsset {
 };
 
 [[nodiscard]] compile::CompiledScenario
-compile_short_held_scenario(const std::filesystem::path &repository_root) {
+compile_short_held_scenario(
+    const std::filesystem::path &repository_root,
+    std::optional<double> audition_monitoring_gain_linear = std::nullopt) {
     const auto engine_path = repository_root / "data/engines/bmw-m52b28/engine.json";
     const auto scenario_path = repository_root / "data/engines/bmw-m52b28/scenarios/"
                                                  "inertial-dyno-1500-6500rpm.json";
@@ -185,6 +188,10 @@ compile_short_held_scenario(const std::filesystem::path &repository_root) {
     auto scenario_document =
         require(authoring::parse_scenario_document(read_text(scenario_path)),
                 "publisher fixture scenario parse failed");
+    if (audition_monitoring_gain_linear.has_value()) {
+        engine_document.presentation.audition.monitoring_gain_linear =
+            *audition_monitoring_gain_linear;
+    }
 
     const auto *inertial =
         std::get_if<authoring::InertialDynoMode>(&scenario_document.mode);
@@ -470,6 +477,7 @@ void test_public_session_byte_golden(const compile::CompiledScenario &scenario) 
                    69120U,
                    61440U,
                    7680U,
+                   0U,
                },
            "native publisher short-session timeline accounting changed");
     expect(published.records.size() == 8U && published.payloads.size() == 8U,
@@ -609,6 +617,43 @@ void test_prebinding_and_transaction_failures(
     }
 }
 
+void test_native_bake_rejects_audition_saturation(
+    const std::filesystem::path &repository_root) {
+    const auto scenario = compile_short_held_scenario(repository_root, 1.0e9);
+    CapturingSink sink;
+    const auto result = bake(scenario, sink);
+    const auto *failure = std::get_if<contract::RenderFailure>(&result);
+    if (failure == nullptr ||
+        failure->context.kind != contract::FailureKind::contract_violation ||
+        failure->context.detail_code != "native-audition-saturated") {
+        const auto detail = failure == nullptr
+                                ? std::string{"non-failure result"}
+                                : failure->context.detail_code + ": " +
+                                      failure->context.state_summary;
+        throw std::runtime_error{
+            "native bake did not report audition saturation explicitly: " +
+            detail};
+    }
+
+    constexpr std::string_view prefix =
+        "audition PCM24 quantization saturated ";
+    constexpr std::string_view suffix =
+        " samples; successful publication requires zero";
+    const auto &summary = failure->context.state_summary;
+    expect(summary.starts_with(prefix) && summary.ends_with(suffix),
+           "native bake saturation summary changed");
+    const auto count_text = summary.substr(
+        prefix.size(), summary.size() - prefix.size() - suffix.size());
+    expect(!count_text.empty() && count_text != "0" &&
+               std::ranges::all_of(count_text, [](const char value) {
+                   return value >= '0' && value <= '9';
+               }),
+           "native bake did not report a positive saturation count");
+    expect(sink.begin_calls == 1U && sink.commit_calls == 0U &&
+               sink.abort_calls == 1U,
+           "saturated native bake reached commit or failed to abort once");
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -621,6 +666,8 @@ int main(int argc, char **argv) {
             compile_short_held_scenario(std::filesystem::path{argv[1]});
         test_public_session_byte_golden(scenario);
         test_prebinding_and_transaction_failures(scenario);
+        test_native_bake_rejects_audition_saturation(
+            std::filesystem::path{argv[1]});
     } catch (const std::exception &error) {
         std::cerr << "native presentation publisher test failed: " << error.what()
                   << '\n';
