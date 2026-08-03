@@ -3,7 +3,7 @@
 // This module deliberately describes one ABI version. A mismatched module is
 // rejected during startup; there is no compatibility decoder.
 
-export const ESO_C_API_VERSION = 4;
+export const ESO_C_API_VERSION = 5;
 export const ESO_INVALID_HANDLE = 0n;
 export const ESO_CANONICAL_SAMPLE_RATE = 192_000;
 
@@ -31,11 +31,19 @@ export const AssetKind = Object.freeze({
 });
 
 export const AudioBusKind = Object.freeze({
-  exhaustRouteDry: 1,
-  exhaustRouteConfiguredIr: 2,
-  exhaustRouteSelected: 3,
+  sourceRouteDry: 1,
+  sourceRouteConfiguredTransfer: 2,
+  sourceRouteSelected: 3,
   engineRawMaster: 4,
   engineAuditionMaster: 5,
+});
+
+export const SourceRouteKind = Object.freeze({
+  unspecified: 0,
+  exhaustOutlet: 1,
+  intakeInlet: 2,
+  mechanicalEngine: 3,
+  mechanicalStarter: 4,
 });
 
 export const ControlKind = Object.freeze({
@@ -163,18 +171,35 @@ export function errorStageName(stage) {
 
 export function audioBusKindName(kind) {
   switch (kind) {
-    case AudioBusKind.exhaustRouteDry:
-      return "exhaust-route-dry";
-    case AudioBusKind.exhaustRouteConfiguredIr:
-      return "exhaust-route-configured-ir";
-    case AudioBusKind.exhaustRouteSelected:
-      return "exhaust-route-selected";
+    case AudioBusKind.sourceRouteDry:
+      return "source-route-dry";
+    case AudioBusKind.sourceRouteConfiguredTransfer:
+      return "source-route-configured-transfer";
+    case AudioBusKind.sourceRouteSelected:
+      return "source-route-selected";
     case AudioBusKind.engineRawMaster:
       return "engine-raw-master";
     case AudioBusKind.engineAuditionMaster:
       return "engine-audition-master";
     default:
       return `unknown-audio-bus-${kind}`;
+  }
+}
+
+export function sourceRouteKindName(kind) {
+  switch (kind) {
+    case SourceRouteKind.unspecified:
+      return "unspecified";
+    case SourceRouteKind.exhaustOutlet:
+      return "exhaust-outlet";
+    case SourceRouteKind.intakeInlet:
+      return "intake-inlet";
+    case SourceRouteKind.mechanicalEngine:
+      return "mechanical-engine";
+    case SourceRouteKind.mechanicalStarter:
+      return "mechanical-starter";
+    default:
+      return `unknown-source-route-${kind}`;
   }
 }
 
@@ -365,7 +390,8 @@ export const Layout = Object.freeze({
     sampleRateDenominator: 16,
     hasRouteId: 24,
     routeId: 28,
-    idBytes: 32,
+    sourceRouteKind: 32,
+    idBytes: 36,
   }),
   forwardGearDescriptor: Object.freeze({
     size: 24,

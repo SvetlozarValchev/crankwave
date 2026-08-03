@@ -7,7 +7,10 @@ import {
   ESO_C_API_VERSION,
   Layout,
   MotionMode,
+  SourceRouteKind,
   WASM32_ABI_WORDS,
+  audioBusKindName,
+  sourceRouteKindName,
 } from "../../web/runtime/c-api-abi.js";
 import { EngineSimSession } from "../../web/runtime/c-api-session.js";
 
@@ -315,14 +318,50 @@ function makeFakeClient() {
   return { client, capturedControlBatches };
 }
 
-test("frozen wasm32 ABI is the exact v4 layout", () => {
-  assert.equal(ESO_C_API_VERSION, 4);
-  assert.deepEqual(WASM32_ABI_WORDS, [4, 4, 4, 4, 8, 1, 40, 104, 24, 40, 696]);
+test("frozen wasm32 ABI is the exact v5 layout", () => {
+  assert.equal(ESO_C_API_VERSION, 5);
+  assert.deepEqual(WASM32_ABI_WORDS, [5, 4, 4, 4, 8, 1, 40, 104, 24, 40, 696]);
   assert.equal(Layout.diagnosticInfo.size, 56);
   assert.equal(Layout.engineTelemetry.size, 536);
   assert.equal(Layout.sessionTelemetry.engine, 8);
   assert.equal(Layout.sessionTelemetry.heldDyno, 552);
   assert.equal(Layout.sessionTelemetry.freeVehicle, 600);
+});
+
+test("audio bus kinds are source-generic and route kinds are exact", () => {
+  assert.deepEqual(AudioBusKind, {
+    sourceRouteDry: 1,
+    sourceRouteConfiguredTransfer: 2,
+    sourceRouteSelected: 3,
+    engineRawMaster: 4,
+    engineAuditionMaster: 5,
+  });
+  assert.deepEqual(SourceRouteKind, {
+    unspecified: 0,
+    exhaustOutlet: 1,
+    intakeInlet: 2,
+    mechanicalEngine: 3,
+    mechanicalStarter: 4,
+  });
+  assert.equal(audioBusKindName(AudioBusKind.sourceRouteDry), "source-route-dry");
+  assert.equal(
+    audioBusKindName(AudioBusKind.sourceRouteConfiguredTransfer),
+    "source-route-configured-transfer",
+  );
+  assert.equal(
+    audioBusKindName(AudioBusKind.sourceRouteSelected),
+    "source-route-selected",
+  );
+  assert.equal(sourceRouteKindName(SourceRouteKind.exhaustOutlet), "exhaust-outlet");
+  assert.equal(sourceRouteKindName(SourceRouteKind.intakeInlet), "intake-inlet");
+  assert.equal(
+    sourceRouteKindName(SourceRouteKind.mechanicalEngine),
+    "mechanical-engine",
+  );
+  assert.equal(
+    sourceRouteKindName(SourceRouteKind.mechanicalStarter),
+    "mechanical-starter",
+  );
 });
 
 test("session decodes motion, gear inventory, and nullable telemetry sidecars", () => {

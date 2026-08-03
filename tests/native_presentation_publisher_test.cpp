@@ -273,7 +273,8 @@ compile_short_held_scenario(
 require_master_bus(const EngineSessionDescriptor &session, EngineAudioBusKind kind) {
     const auto found =
         std::ranges::find(session.audio_buses, kind, &EngineAudioBusDescriptor::kind);
-    if (found == session.audio_buses.end()) {
+    if (found == session.audio_buses.end() || found->route_id.has_value() ||
+        found->source_route_kind != contract::SourceRouteKind::unspecified) {
         throw std::runtime_error{
             "publisher fixture session lacks a required master bus"};
     }
@@ -282,9 +283,11 @@ require_master_bus(const EngineSessionDescriptor &session, EngineAudioBusKind ki
 
 [[nodiscard]] const EngineAudioBusDescriptor &
 require_route_bus(const EngineSessionDescriptor &session, contract::RouteId route_id,
-                  EngineAudioBusKind kind) {
+                  EngineAudioBusKind kind,
+                  contract::SourceRouteKind source_route_kind) {
     const auto found = std::ranges::find_if(session.audio_buses, [&](const auto &bus) {
         return bus.kind == kind &&
+               bus.source_route_kind == source_route_kind &&
                bus.route_id == std::optional<contract::RouteId>{route_id};
     });
     if (found == session.audio_buses.end()) {
@@ -320,7 +323,8 @@ make_plan(const EngineSessionDescriptor &session) {
 
     std::vector<contract::RouteId> route_ids;
     for (const auto &bus : session.audio_buses) {
-        if (bus.kind == EngineAudioBusKind::exhaust_route_dry &&
+        if (bus.kind == EngineAudioBusKind::source_route_dry &&
+            bus.source_route_kind == contract::SourceRouteKind::exhaust_outlet &&
             bus.route_id.has_value()) {
             route_ids.push_back(*bus.route_id);
         }
@@ -346,12 +350,16 @@ make_plan(const EngineSessionDescriptor &session) {
 
     for (std::size_t index = 0; index < route_ids.size(); ++index) {
         const auto route_id = route_ids[index];
-        const auto dry =
-            require_route_bus(session, route_id, EngineAudioBusKind::exhaust_route_dry);
+        const auto dry = require_route_bus(
+            session, route_id, EngineAudioBusKind::source_route_dry,
+            contract::SourceRouteKind::exhaust_outlet);
         const auto configured = require_route_bus(
-            session, route_id, EngineAudioBusKind::exhaust_route_configured_ir);
+            session, route_id,
+            EngineAudioBusKind::source_route_configured_transfer,
+            contract::SourceRouteKind::exhaust_outlet);
         const auto selected = require_route_bus(
-            session, route_id, EngineAudioBusKind::exhaust_route_selected);
+            session, route_id, EngineAudioBusKind::source_route_selected,
+            contract::SourceRouteKind::exhaust_outlet);
         NativePresentationRouteArtifacts artifacts{
             pending(std::string{dry.id}, float_audio),
             pending(std::string{configured.id}, float_audio),
@@ -532,6 +540,32 @@ void test_prebinding_and_transaction_failures(
             "native publisher accepted a mismatched session descriptor");
         expect(sink.begin_calls == 0U && sink.abort_calls == 0U,
                "invalid bus binding reached the sink transaction");
+    }
+
+    {
+        auto session = require_session(scenario);
+        auto descriptor = session.descriptor();
+        std::vector<EngineAudioBusDescriptor> invalid_buses{
+            descriptor.audio_buses.begin(), descriptor.audio_buses.end()};
+        const auto route_bus = std::ranges::find_if(invalid_buses, [](const auto &bus) {
+            return bus.route_id.has_value();
+        });
+        expect(route_bus != invalid_buses.end(),
+               "publisher fixture has no source-route bus");
+        route_bus->source_route_kind = contract::SourceRouteKind::intake_inlet;
+        descriptor.audio_buses = invalid_buses;
+        CapturingSink sink;
+        expect_throw<std::invalid_argument>(
+            [&] {
+                NativePresentationPublisher publisher{
+                    sink,
+                    descriptor,
+                    make_plan(session.descriptor()),
+                };
+            },
+            "native publisher accepted a mismatched source-route kind");
+        expect(sink.begin_calls == 0U && sink.abort_calls == 0U,
+               "invalid source-route kind reached the sink transaction");
     }
 
     {

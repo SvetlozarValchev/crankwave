@@ -193,10 +193,11 @@ async function main() {
       (bus) => bus.kind === "engine-audition-master",
     );
     const routeBus = validBuild.descriptor.buses.find(
-      (bus) => bus.kind === "exhaust-route-dry",
+      (bus) => bus.kind === "source-route-dry",
     );
     assert.ok(auditionBus, "session does not expose an audition master");
     assert.ok(routeBus, "session does not expose a dry exhaust route");
+    assert.equal(routeBus.sourceRouteKind, "exhaust-outlet");
     assert.equal(
       validBuild.descriptor.selectedBusIndex,
       auditionBus.index,

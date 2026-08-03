@@ -15,7 +15,7 @@ extern "C" {
  * This is the only engine-sim-offline C ABI. It is a greenfield, exact-version
  * contract rather than a compatibility family.
  */
-#define ESO_C_API_VERSION UINT32_C(4)
+#define ESO_C_API_VERSION UINT32_C(5)
 #define ESO_INVALID_HANDLE UINT64_C(0)
 
 typedef struct eso_context eso_context_t;
@@ -269,11 +269,20 @@ typedef struct eso_forward_gear_descriptor {
 
 typedef uint32_t eso_audio_bus_kind_t;
 enum {
-    ESO_AUDIO_BUS_EXHAUST_ROUTE_DRY = 1,
-    ESO_AUDIO_BUS_EXHAUST_ROUTE_CONFIGURED_IR = 2,
-    ESO_AUDIO_BUS_EXHAUST_ROUTE_SELECTED = 3,
+    ESO_AUDIO_BUS_SOURCE_ROUTE_DRY = 1,
+    ESO_AUDIO_BUS_SOURCE_ROUTE_CONFIGURED_TRANSFER = 2,
+    ESO_AUDIO_BUS_SOURCE_ROUTE_SELECTED = 3,
     ESO_AUDIO_BUS_ENGINE_RAW_MASTER = 4,
     ESO_AUDIO_BUS_ENGINE_AUDITION_MASTER = 5
+};
+
+typedef uint32_t eso_source_route_kind_t;
+enum {
+    ESO_SOURCE_ROUTE_UNSPECIFIED = 0,
+    ESO_SOURCE_ROUTE_EXHAUST_OUTLET = 1,
+    ESO_SOURCE_ROUTE_INTAKE_INLET = 2,
+    ESO_SOURCE_ROUTE_MECHANICAL_ENGINE = 3,
+    ESO_SOURCE_ROUTE_MECHANICAL_STARTER = 4
 };
 
 typedef struct eso_audio_bus_descriptor {
@@ -283,6 +292,7 @@ typedef struct eso_audio_bus_descriptor {
     uint64_t sample_rate_denominator;
     uint32_t has_route_id;
     uint32_t route_id;
+    eso_source_route_kind_t source_route_kind;
     size_t id_utf8_bytes;
 } eso_audio_bus_descriptor_t;
 

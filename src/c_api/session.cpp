@@ -367,6 +367,7 @@ eso_status_t eso_session_get_audio_bus_descriptor(
             bus.sample_rate.denominator,
             bus.route_id.has_value() ? 1U : 0U,
             bus.route_id ? bus.route_id->value : 0U,
+            source_route_kind(bus.source_route_kind),
             bus.id.size(),
         };
         clear_error(*context);

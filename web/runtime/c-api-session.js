@@ -10,8 +10,10 @@ import {
   ProcessKind,
   QUANTITY_FIELDS,
   SessionExecutionKind,
+  SourceRouteKind,
   TORQUE_FIELDS,
   audioBusKindName,
+  sourceRouteKindName,
   blockPhaseName,
   clutchDispositionName,
   heldDynoDispositionName,
@@ -1251,12 +1253,37 @@ export class EngineSimSession {
           );
           this.#client.assertStatus(copyStatus, "copy-audio-bus-id");
           const kind = view.getUint32(pointer + layout.kind, true);
-          const hasRouteId = view.getUint32(pointer + layout.hasRouteId, true) !== 0;
+          const hasRouteIdValue = view.getUint32(
+            pointer + layout.hasRouteId,
+            true,
+          );
+          const sourceRouteKindCode = view.getUint32(
+            pointer + layout.sourceRouteKind,
+            true,
+          );
+          if (
+            (hasRouteIdValue !== 0 && hasRouteIdValue !== 1) ||
+            (hasRouteIdValue === 1) !==
+              (sourceRouteKindCode !== SourceRouteKind.unspecified) ||
+            sourceRouteKindName(sourceRouteKindCode).startsWith("unknown-")
+          ) {
+            throw new EngineSimRuntimeError(
+              "the session returned an invalid audio source-route descriptor",
+              {
+                operation: "inspect-audio-bus",
+                detailCode: "browser-runtime-audio-source-route-invalid",
+                diagnostics: [],
+              },
+            );
+          }
+          const hasRouteId = hasRouteIdValue === 1;
           result.push({
             index,
             id: this.#heap.decodeUtf8(idPointer, idBytes),
             kind: audioBusKindName(kind),
             kindCode: kind,
+            sourceRouteKind: sourceRouteKindName(sourceRouteKindCode),
+            sourceRouteKindCode,
             channelCount: view.getUint32(pointer + layout.channelCount, true),
             sampleRate: {
               numerator: decimal(numerator),

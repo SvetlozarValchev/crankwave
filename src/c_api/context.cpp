@@ -232,18 +232,35 @@ eso_error_code_t control_error_code(const EngineControlRejectionCode code) noexc
 
 eso_audio_bus_kind_t audio_bus_kind(const EngineAudioBusKind kind) noexcept {
     switch (kind) {
-    case EngineAudioBusKind::exhaust_route_dry:
-        return ESO_AUDIO_BUS_EXHAUST_ROUTE_DRY;
-    case EngineAudioBusKind::exhaust_route_configured_ir:
-        return ESO_AUDIO_BUS_EXHAUST_ROUTE_CONFIGURED_IR;
-    case EngineAudioBusKind::exhaust_route_selected:
-        return ESO_AUDIO_BUS_EXHAUST_ROUTE_SELECTED;
+    case EngineAudioBusKind::source_route_dry:
+        return ESO_AUDIO_BUS_SOURCE_ROUTE_DRY;
+    case EngineAudioBusKind::source_route_configured_transfer:
+        return ESO_AUDIO_BUS_SOURCE_ROUTE_CONFIGURED_TRANSFER;
+    case EngineAudioBusKind::source_route_selected:
+        return ESO_AUDIO_BUS_SOURCE_ROUTE_SELECTED;
     case EngineAudioBusKind::engine_raw_master:
         return ESO_AUDIO_BUS_ENGINE_RAW_MASTER;
     case EngineAudioBusKind::engine_audition_master:
         return ESO_AUDIO_BUS_ENGINE_AUDITION_MASTER;
     }
-    return ESO_AUDIO_BUS_EXHAUST_ROUTE_SELECTED;
+    return ESO_AUDIO_BUS_SOURCE_ROUTE_SELECTED;
+}
+
+eso_source_route_kind_t
+source_route_kind(const contract::SourceRouteKind kind) noexcept {
+    switch (kind) {
+    case contract::SourceRouteKind::unspecified:
+        return ESO_SOURCE_ROUTE_UNSPECIFIED;
+    case contract::SourceRouteKind::exhaust_outlet:
+        return ESO_SOURCE_ROUTE_EXHAUST_OUTLET;
+    case contract::SourceRouteKind::intake_inlet:
+        return ESO_SOURCE_ROUTE_INTAKE_INLET;
+    case contract::SourceRouteKind::mechanical_engine:
+        return ESO_SOURCE_ROUTE_MECHANICAL_ENGINE;
+    case contract::SourceRouteKind::mechanical_starter:
+        return ESO_SOURCE_ROUTE_MECHANICAL_STARTER;
+    }
+    return ESO_SOURCE_ROUTE_UNSPECIFIED;
 }
 
 } // namespace engine_sim_offline::c_api

@@ -560,10 +560,11 @@ EngineAudioBusDescriptor
   delivery sample rate
 ```
 
-Bus IDs are semantic and are not inferred from vector position. The implemented,
-mono, 192 kHz buses are:
+Bus IDs are semantic and are not inferred from vector position. Route-local bus roles
+are source-generic; each descriptor separately carries its physical `SourceRouteKind`
+and optional `RouteId`. The implemented, mono, 192 kHz buses are:
 
-- for every exhaust outlet route: dry, configured-IR, and configured-selected signals;
+- for every admitted source route: dry, configured-transfer, and selected signals;
 - a raw master;
 - an audition master.
 
@@ -572,8 +573,9 @@ exactly 3,840 samples. The spans remain valid only until the next enqueue/proces
 operation, session move, or session destruction. File publishers must consume or copy
 them before advancing the session.
 
-Intake and mechanical buses are not currently advertised. Their absence is an explicit
-missing capability, not a silent placeholder. Caller-selected bus subsets and
+The currently admitted routes are exhaust outlets. Intake and mechanical buses are not
+yet advertised, even though ABI v5 can identify them without another bus-role change.
+Their absence is an explicit missing capability, not a silent placeholder. Caller-selected bus subsets and
 caller-owned output buffers are also not part of the implemented C++ surface.
 
 The audition master is a convenience listening mix. Game hosts should normally consume
@@ -691,7 +693,7 @@ There is no form that omits `execution_kind`.
 
 The implemented ABI:
 
-- the sole accepted exact version is `ESO_C_API_VERSION == 4`, with no older-layout
+- the sole accepted exact version is `ESO_C_API_VERSION == 5`, with no older-layout
   decoder or compatibility symbol family;
 - no C++ exception crosses the boundary;
 - every call returns an explicit status;

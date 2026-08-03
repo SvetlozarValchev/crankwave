@@ -25,16 +25,18 @@ inline constexpr contract::RationalRateHz kEngineSessionPhysicsRateHz{20000U, 1U
 inline constexpr contract::RationalRateHz kEngineSessionDeliveryRateHz{192000U, 1U};
 
 enum class EngineAudioBusKind : std::uint8_t {
-    exhaust_route_dry,
-    exhaust_route_configured_ir,
-    exhaust_route_selected,
+    source_route_dry,
+    source_route_configured_transfer,
+    source_route_selected,
     engine_raw_master,
     engine_audition_master,
 };
 
 struct EngineAudioBusDescriptor {
     std::string_view id;
-    EngineAudioBusKind kind = EngineAudioBusKind::exhaust_route_selected;
+    EngineAudioBusKind kind = EngineAudioBusKind::source_route_selected;
+    contract::SourceRouteKind source_route_kind =
+        contract::SourceRouteKind::unspecified;
     std::optional<contract::RouteId> route_id;
     std::uint32_t channel_count = 1U;
     contract::RationalRateHz sample_rate = kEngineSessionDeliveryRateHz;

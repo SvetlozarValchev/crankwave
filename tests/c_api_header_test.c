@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-_Static_assert(ESO_C_API_VERSION == 4, "unexpected C ABI version");
+_Static_assert(ESO_C_API_VERSION == 5, "unexpected C ABI version");
 _Static_assert(sizeof(eso_engine_handle_t) == sizeof(uint64_t),
                "engine handle width changed");
 _Static_assert(sizeof(eso_scenario_handle_t) == sizeof(uint64_t),
@@ -47,6 +47,18 @@ _Static_assert(ESO_MOTION_HELD_SPEED == 1 &&
                    ESO_MOTION_INERTIAL_DYNO == 5 && ESO_MOTION_FREE_ENGINE == 6 &&
                    ESO_MOTION_FREE_VEHICLE == 7,
                "motion-mode values changed");
+_Static_assert(ESO_AUDIO_BUS_SOURCE_ROUTE_DRY == 1 &&
+                   ESO_AUDIO_BUS_SOURCE_ROUTE_CONFIGURED_TRANSFER == 2 &&
+                   ESO_AUDIO_BUS_SOURCE_ROUTE_SELECTED == 3 &&
+                   ESO_AUDIO_BUS_ENGINE_RAW_MASTER == 4 &&
+                   ESO_AUDIO_BUS_ENGINE_AUDITION_MASTER == 5,
+               "audio-bus kind values changed");
+_Static_assert(ESO_SOURCE_ROUTE_UNSPECIFIED == 0 &&
+                   ESO_SOURCE_ROUTE_EXHAUST_OUTLET == 1 &&
+                   ESO_SOURCE_ROUTE_INTAKE_INLET == 2 &&
+                   ESO_SOURCE_ROUTE_MECHANICAL_ENGINE == 3 &&
+                   ESO_SOURCE_ROUTE_MECHANICAL_STARTER == 4,
+               "source-route kind values changed");
 _Static_assert(sizeof(((eso_control_command_t *)0)->scalar_value) == sizeof(double),
                "control scalar width changed");
 _Static_assert(sizeof(((eso_control_command_t *)0)->id_value) == sizeof(uint32_t),
@@ -68,6 +80,13 @@ _Static_assert(offsetof(eso_session_descriptor_t, execution_kind) <
                    offsetof(eso_session_descriptor_t, motion_mode) <
                        offsetof(eso_session_descriptor_t, forward_gear_count),
                "session motion/inventory layout changed");
+_Static_assert(offsetof(eso_audio_bus_descriptor_t, kind) == 0U &&
+                   offsetof(eso_audio_bus_descriptor_t, has_route_id) == 24U &&
+                   offsetof(eso_audio_bus_descriptor_t, route_id) == 28U &&
+                   offsetof(eso_audio_bus_descriptor_t, source_route_kind) == 32U &&
+                   offsetof(eso_audio_bus_descriptor_t, id_utf8_bytes) >
+                       offsetof(eso_audio_bus_descriptor_t, source_route_kind),
+               "audio-bus descriptor ABI layout changed");
 _Static_assert(offsetof(eso_session_telemetry_t, physics_step_end) == 0U &&
                    offsetof(eso_session_telemetry_t, engine) == sizeof(uint64_t) &&
                    offsetof(eso_session_telemetry_t, has_held_dyno) <

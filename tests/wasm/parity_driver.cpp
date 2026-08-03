@@ -295,6 +295,8 @@ void append_bus(std::string &output, const eso_audio_bus_descriptor_t &bus,
     } else {
         output += "null";
     }
+    output += ",\"source_route_kind\":";
+    append_integer(output, bus.source_route_kind);
     output += ",\"id\":";
     append_json_string(output, id);
     output.push_back('}');

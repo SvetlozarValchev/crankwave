@@ -25,6 +25,12 @@ namespace {
 inline constexpr std::uint64_t kMaximumSessionBlockCount =
     std::numeric_limits<std::uint64_t>::max() / kEngineSessionDeliveryFramesPerBlock;
 
+inline constexpr std::array kSourceRouteAudioBusKinds{
+    EngineAudioBusKind::source_route_dry,
+    EngineAudioBusKind::source_route_configured_transfer,
+    EngineAudioBusKind::source_route_selected,
+};
+
 [[nodiscard]] EngineSessionError processing_error(
     std::string detail_code, std::string message,
     std::optional<contract::FailureContext> simulation_failure = std::nullopt) {
@@ -735,6 +741,7 @@ class EngineSession::Implementation final {
                                   &contract::SourceRouteRequirement::semantic_id);
             if (requirement ==
                     inputs.scenario.source_matrix.required_source_routes.end() ||
+                requirement->kind != engine_route->kind.value ||
                 requirement->artifact_roles.size() != 3U) {
                 throw std::logic_error{
                     "presentation route lacks three ordered public signal roles"};
@@ -763,22 +770,28 @@ class EngineSession::Implementation final {
         audio_bus_descriptors_.reserve(bus_count);
         for (std::size_t route = 0; route < route_count; ++route) {
             const auto route_id = calibration_.routes()[route].route_id();
+            const auto engine_route =
+                std::ranges::find(inputs.engine.engine.routes, route_id,
+                                  &contract::RouteSpec::id);
+            if (engine_route == inputs.engine.engine.routes.end()) {
+                throw std::logic_error{
+                    "presentation route is absent from the compiled engine"};
+            }
             const auto base = route * 3U;
-            audio_bus_descriptors_.push_back({audio_bus_ids_[base],
-                                              EngineAudioBusKind::exhaust_route_dry,
-                                              route_id});
-            audio_bus_descriptors_.push_back(
-                {audio_bus_ids_[base + 1U],
-                 EngineAudioBusKind::exhaust_route_configured_ir, route_id});
-            audio_bus_descriptors_.push_back(
-                {audio_bus_ids_[base + 2U], EngineAudioBusKind::exhaust_route_selected,
-                 route_id});
+            for (std::size_t stem = 0; stem < kSourceRouteAudioBusKinds.size();
+                 ++stem) {
+                audio_bus_descriptors_.push_back(
+                    {audio_bus_ids_[base + stem], kSourceRouteAudioBusKinds[stem],
+                     engine_route->kind.value, route_id});
+            }
         }
         audio_bus_descriptors_.push_back({audio_bus_ids_[bus_count - 2U],
                                           EngineAudioBusKind::engine_raw_master,
+                                          contract::SourceRouteKind::unspecified,
                                           std::nullopt});
         audio_bus_descriptors_.push_back({audio_bus_ids_[bus_count - 1U],
                                           EngineAudioBusKind::engine_audition_master,
+                                          contract::SourceRouteKind::unspecified,
                                           std::nullopt});
         audio_bus_views_.resize(bus_count);
     }
