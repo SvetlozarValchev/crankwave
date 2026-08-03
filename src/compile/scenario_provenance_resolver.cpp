@@ -51,6 +51,10 @@ void ScenarioResolver::register_common_provenance() {
 
 void ScenarioResolver::register_provenance() {
     register_common_provenance();
+    const bool contains_master_rod =
+        std::ranges::any_of(context_.engine.cylinders, [](const auto &cylinder) {
+            return cylinder.master_rod_attachment.has_value();
+        });
     std::vector<std::string> crank_dynamics_dependency_storage{"scenario.mode.kind"};
     if (context_.engine.crankshafts.size() > 1U) {
         crank_dynamics_dependency_storage.reserve(1U +
@@ -150,11 +154,17 @@ void ScenarioResolver::register_provenance() {
                 provenance_.add_derived("scenario.mode.target_engine_speed_rpm",
                                         fixed_rate_post_step_rpm_method_identity(),
                                         target_dependency);
-                constexpr std::array<std::string_view, 1> method_dependency{
-                    "scenario.mode.kind"};
-                provenance_.add_derived("scenario.mode.constraint_method",
-                                        mode.constraint_method.value,
-                                        method_dependency);
+                if (contains_master_rod) {
+                    provenance_.add_derived("scenario.mode.constraint_method",
+                                            mode.constraint_method.value,
+                                            crank_dynamics_dependencies);
+                } else {
+                    constexpr std::array<std::string_view, 1> method_dependency{
+                        "scenario.mode.kind"};
+                    provenance_.add_derived("scenario.mode.constraint_method",
+                                            mode.constraint_method.value,
+                                            method_dependency);
+                }
             } else if constexpr (std::is_same_v<T, contract::LoadTargetHeldCapture>) {
                 for (const std::string_view path : {
                          "scenario.mode.engine_speed_rpm",

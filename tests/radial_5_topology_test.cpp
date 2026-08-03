@@ -6,6 +6,7 @@
 #include "engine_sim_offline/compile.hpp"
 #include "engine_sim_offline/contract/capture.hpp"
 #include "engine_sim_offline/session.hpp"
+#include "simulation/bounded_dyno_constraint.hpp"
 #include "simulation/chen_flynn_per_cylinder_travel_cycle_mean_loss.hpp"
 #include "simulation/free_engine_method_registry.hpp"
 #include "simulation/low_order_capture_session.hpp"
@@ -152,6 +153,7 @@ struct RadialSource {
     authoring::EnginePackageDocument engine_document;
     authoring::ScenarioDocument scenario_document;
     authoring::ScenarioDocument free_engine_scenario_document;
+    authoring::ScenarioDocument held_dyno_scenario_document;
     compile_detail::ResolvedEnginePackage resolved;
 };
 
@@ -164,6 +166,9 @@ struct RadialSource {
     const auto free_engine_scenario_path = repository_root /
                                            "data/engines/radial-5-cleanroom/scenarios/"
                                            "warm-running-free-rev-1500rpm.json";
+    const auto held_dyno_scenario_path = repository_root /
+                                         "data/engines/radial-5-cleanroom/scenarios/"
+                                         "held-dyno-pull-hold-lift-1500-2800rpm.json";
     auto engine_document =
         require(authoring::parse_engine_document(read_text(engine_path)),
                 "radial-5 authored engine parse failed");
@@ -173,6 +178,9 @@ struct RadialSource {
     auto free_engine_scenario_document = require(
         authoring::parse_scenario_document(read_text(free_engine_scenario_path)),
         "radial-5 authored FreeEngine scenario parse failed");
+    auto held_dyno_scenario_document =
+        require(authoring::parse_scenario_document(read_text(held_dyno_scenario_path)),
+                "radial-5 authored HeldDyno scenario parse failed");
     const auto references =
         authoring::validate_scenario_references(scenario_document, engine_document);
     if (!references.ok()) {
@@ -186,6 +194,13 @@ struct RadialSource {
             "radial-5 FreeEngine cross-document validation failed: " +
             diagnostics(free_engine_references)};
     }
+    const auto held_dyno_references = authoring::validate_scenario_references(
+        held_dyno_scenario_document, engine_document);
+    if (!held_dyno_references.ok()) {
+        throw std::runtime_error{
+            "radial-5 HeldDyno cross-document validation failed: " +
+            diagnostics(held_dyno_references)};
+    }
 
     const auto assets = load_assets(engine_document, engine_path);
     const auto views = asset_views(assets);
@@ -193,7 +208,8 @@ struct RadialSource {
         require(compile_detail::resolve_engine_package(engine_document, views),
                 "radial-5 engine resolution failed");
     return {std::move(engine_document), std::move(scenario_document),
-            std::move(free_engine_scenario_document), std::move(resolved)};
+            std::move(free_engine_scenario_document),
+            std::move(held_dyno_scenario_document), std::move(resolved)};
 }
 
 struct ExpectedCylinder {
@@ -635,7 +651,7 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
         std::ranges::find(free_resolved.combined_provenance.resolutions,
                           "scenario.mode.crank_dynamics_method",
                           &contract::ResolutionRecord::parameter_path);
-    const std::vector<std::string> expected_crank_method_dependencies{
+    const std::vector<std::string> expected_topology_method_dependencies{
         "engine.cylinders.cylinder-1.master_rod_attachment.throw_radius_m",
         "engine.cylinders.cylinder-2.master_rod_attachment.throw_radius_m",
         "engine.cylinders.cylinder-3.master_rod_attachment.throw_radius_m",
@@ -645,9 +661,41 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
     expect(crank_method_resolution !=
                    free_resolved.combined_provenance.resolutions.end() &&
                crank_method_resolution->dependency_parameter_paths ==
-                   expected_crank_method_dependencies,
+                   expected_topology_method_dependencies,
            "radial-5 FreeEngine method selection lost its explicit master-rod "
            "topology provenance");
+
+    const auto held_dyno_resolved =
+        require(compile_detail::resolve_scenario_document(
+                    source.held_dyno_scenario_document, context),
+                "radial-5 HeldDyno scenario resolution failed");
+    const auto *held_dyno =
+        std::get_if<contract::HeldDyno>(&held_dyno_resolved.scenario.mode);
+    const auto *held_dyno_sampling = std::get_if<contract::FixedHorizonCycleSampling>(
+        &held_dyno_resolved.scenario.preparation);
+    expect(
+        held_dyno != nullptr && held_dyno_sampling != nullptr &&
+            held_dyno->constraint_method.value ==
+                simulation::
+                    bounded_held_dyno_one_level_master_rod_constraint_method_identity() &&
+            held_dyno->initial_engine_speed_rpm.value == 1500.0 &&
+            held_dyno_sampling->fixed_preparation_horizon_s.value == 0.5 &&
+            held_dyno->target_engine_speed_rpm.post_step_rpm.size() == 60000U &&
+            held_dyno_resolved.request_input.total_physics_frames == 60000U &&
+            contract::validate_for_engine(held_dyno_resolved.scenario,
+                                          source.resolved.engine)
+                .ok(),
+        "radial-5 HeldDyno scenario lost its articulated constraint, exact frame "
+        "grid, or warm preparation authority");
+    const auto held_dyno_method_resolution = std::ranges::find(
+        held_dyno_resolved.combined_provenance.resolutions,
+        "scenario.mode.constraint_method", &contract::ResolutionRecord::parameter_path);
+    expect(held_dyno_method_resolution !=
+                   held_dyno_resolved.combined_provenance.resolutions.end() &&
+               held_dyno_method_resolution->dependency_parameter_paths ==
+                   expected_topology_method_dependencies,
+           "radial-5 HeldDyno method selection lost its exact master-rod topology "
+           "provenance");
 
     auto rejected = source.scenario_document;
     const auto &external = std::get<authoring::ExternalSpeedMode>(rejected.mode);
@@ -664,7 +712,6 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
            "radial-5 non-external-speed mode gate was removed or lost its path");
 
     const std::array closed_dynamic_modes{
-        authoring::ScenarioMode{authoring::HeldDynoMode{}},
         authoring::ScenarioMode{authoring::FreeVehicleMode{}},
         authoring::ScenarioMode{authoring::InertialDynoMode{}},
     };
@@ -677,7 +724,7 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
                    has_diagnostic(*dynamic_report,
                                   authoring::DiagnosticCode::unsupported_capability,
                                   "/mode/type"),
-               "radial-5 authored non-FreeEngine mode escaped the master-rod "
+               "radial-5 unsupported dynamic mode escaped the master-rod "
                "firewall");
     }
 }
@@ -698,7 +745,6 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
            "radial-5 public fixture lost its exact finite horizon");
 
     const std::array closed_dynamic_modes{
-        contract::ScenarioMode{contract::HeldDyno{}},
         contract::ScenarioMode{contract::FreeVehicle{}},
         contract::ScenarioMode{contract::InertialDyno{}},
     };
@@ -869,6 +915,166 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
            "radial-5 public FreeEngine did not hold, release, and advance exactly");
 }
 
+void verify_public_held_dyno_capture(const std::filesystem::path &repository_root) {
+    const auto fixture = test::load_authored_engine_fixture(
+        repository_root, "data/engines/radial-5-cleanroom/engine.json",
+        "data/engines/radial-5-cleanroom/scenarios/"
+        "held-dyno-pull-hold-lift-1500-2800rpm.json");
+    const auto control_fixture = test::load_authored_engine_fixture(
+        repository_root, "data/engines/radial-5-cleanroom/engine.json",
+        "data/engines/radial-5-cleanroom/scenarios/"
+        "prescribed-pull-hold-lift-1500-2800rpm.json");
+    const auto *dyno = std::get_if<contract::HeldDyno>(&fixture.scenario.mode);
+    const auto *control =
+        std::get_if<contract::PrescribedKinematicSweep>(&control_fixture.scenario.mode);
+    const auto *control_rpm =
+        control == nullptr
+            ? nullptr
+            : std::get_if<contract::FixedRateRpmTrajectory>(&control->trajectory.rpm);
+    const auto horizon = contract::resolve_frame_index(
+        fixture.scenario.total_duration_s.value, fixture.scenario.rates.physics);
+    const auto release = contract::resolve_frame_index(
+        fixture.scenario.audible_start_s.value, fixture.scenario.rates.physics);
+    expect(
+        dyno != nullptr && horizon.has_value() && *horizon == 60000U &&
+            release.has_value() && *release == 5000U &&
+            dyno->constraint_method.value ==
+                simulation::
+                    bounded_held_dyno_one_level_master_rod_constraint_method_identity() &&
+            dyno->target_engine_speed_rpm.post_step_rpm.size() == *horizon,
+        "radial-5 public HeldDyno fixture lost its method or exact frame grid");
+    expect(control != nullptr && control_rpm != nullptr &&
+               control_rpm->post_step_rpm ==
+                   dyno->target_engine_speed_rpm.post_step_rpm &&
+               std::ranges::equal(control->throttle_01.points, dyno->throttle_01.points,
+                                  [](const auto &left, const auto &right) {
+                                      return left.time_s == right.time_s &&
+                                             left.value == right.value;
+                                  }) &&
+               control_fixture.scenario.audible_start_s.value ==
+                   fixture.scenario.audible_start_s.value &&
+               control_fixture.scenario.audible_duration_s.value ==
+                   fixture.scenario.audible_duration_s.value,
+           "radial-5 prescribed listening control differs from the HeldDyno target "
+           "or throttle procedure");
+
+    auto wrong_method_scenario = fixture.scenario;
+    std::get<contract::HeldDyno>(wrong_method_scenario.mode).constraint_method.value =
+        simulation::bounded_held_dyno_constraint_method_identity();
+    const auto wrong_method_result = simulation::compile_low_order_capture_session(
+        fixture.engine, wrong_method_scenario,
+        test::compile_fixture_random_plan(fixture), nonzero_request_identity(),
+        simulation::LowOrderExecutionExtent::finite_scenario(*horizon));
+    const auto *wrong_method_report =
+        std::get_if<contract::ValidationReport>(&wrong_method_result);
+    expect(wrong_method_report != nullptr &&
+               has_validation_issue(
+                   *wrong_method_report, contract::ContractIssueCode::unsupported_value,
+                   "scenario.mode.constraint_method.value", "mechanism-family"),
+           "radial-5 HeldDyno admitted the direct centered-slider constraint "
+           "identity");
+
+    auto result = simulation::compile_low_order_capture_session(
+        fixture.engine, fixture.scenario, test::compile_fixture_random_plan(fixture),
+        nonzero_request_identity(),
+        simulation::LowOrderExecutionExtent::finite_scenario(*horizon));
+    if (const auto *report = std::get_if<contract::ValidationReport>(&result)) {
+        throw std::runtime_error{"radial-5 public HeldDyno admission failed: " +
+                                 diagnostics(*report)};
+    }
+    auto session = std::get<simulation::LowOrderCaptureSession>(std::move(result));
+
+    std::uint64_t observed_frames = 0U;
+    double maximum_pull_tracking_error_rpm = 0.0;
+    double plateau_rpm = 0.0;
+    double first_lift_throttle = 0.0;
+    double final_rpm = 0.0;
+    bool observed_finite_released_motion = false;
+    bool observed_positive_absorbing_reaction = false;
+    bool observed_released_sidecar = false;
+    while (true) {
+        auto published =
+            session.publish_next_block([&](const contract::CaptureBlockView &block) {
+                for (std::size_t index = 0U; index < block.frame_count(); ++index) {
+                    const auto sample_index = block.clock().first_sample_index + index;
+                    const auto *sample = block.engine_sample(index);
+                    expect(sample != nullptr && sample->dyno_enabled &&
+                               !sample->starter_enabled &&
+                               std::isfinite(sample->engine_speed_rpm) &&
+                               sample->engine_speed_rpm > 0.0,
+                           "radial-5 HeldDyno emitted invalid positive-speed motion");
+                    if (sample_index < *release) {
+                        expect(sample->engine_speed_rpm == 1500.0,
+                               "radial-5 HeldDyno preparation lost its exact 1500 "
+                               "RPM hold");
+                        continue;
+                    }
+
+                    observed_finite_released_motion = true;
+                    expect(sample->torque.actuator.availability ==
+                                   contract::Availability::available &&
+                               sample->torque.dyno_reaction.availability ==
+                                   contract::Availability::available &&
+                               std::isfinite(sample->torque.actuator.value_nm) &&
+                               std::isfinite(sample->torque.dyno_reaction.value_nm) &&
+                               sample->torque.dyno_reaction.value_nm ==
+                                   -sample->torque.actuator.value_nm,
+                           "radial-5 HeldDyno lost exact finite actuator/reaction "
+                           "telemetry");
+                    observed_positive_absorbing_reaction =
+                        observed_positive_absorbing_reaction ||
+                        sample->torque.dyno_reaction.value_nm > 0.0;
+                    if (sample_index < 31000U) {
+                        maximum_pull_tracking_error_rpm =
+                            std::max(maximum_pull_tracking_error_rpm,
+                                     std::abs(sample->engine_speed_rpm -
+                                              dyno->target_engine_speed_rpm
+                                                  .post_step_rpm[sample_index]));
+                    }
+                    if (sample_index == 35000U) {
+                        plateau_rpm = sample->engine_speed_rpm;
+                    }
+                    if (sample_index == 40000U) {
+                        first_lift_throttle = sample->requested_throttle_01;
+                    }
+                    final_rpm = sample->engine_speed_rpm;
+                }
+                observed_frames += block.frame_count();
+                return true;
+            });
+        if (const auto *failure = std::get_if<contract::FailureContext>(&published)) {
+            throw std::runtime_error{"radial-5 HeldDyno capture faulted (" +
+                                     failure->detail_code +
+                                     "): " + failure->state_summary};
+        }
+        if (const auto *completed =
+                std::get_if<simulation::LowOrderCaptureCompleted>(&published)) {
+            expect(completed->sample_count == *horizon && observed_frames == *horizon &&
+                       session.completed() && !session.faulted() &&
+                       observed_released_sidecar,
+                   "radial-5 HeldDyno capture did not complete exactly 60000 "
+                   "frames");
+            break;
+        }
+        const auto state = session.held_dyno_state();
+        if (observed_frames <= *release) {
+            expect(!state.has_value(),
+                   "radial-5 HeldDyno exposed a sidecar during held preparation");
+        } else {
+            expect(state.has_value() && std::isfinite(state->target_engine_speed_rpm) &&
+                       std::isfinite(state->required_actuator_torque_nm) &&
+                       std::isfinite(state->applied_actuator_torque_nm),
+                   "radial-5 HeldDyno omitted its finite released sidecar");
+            observed_released_sidecar = true;
+        }
+    }
+    expect(observed_finite_released_motion && observed_positive_absorbing_reaction &&
+               maximum_pull_tracking_error_rpm < 25.0 &&
+               std::abs(plateau_rpm - 2800.0) < 25.0 && first_lift_throttle == 0.08 &&
+               final_rpm > 0.0 && final_rpm < plateau_rpm,
+           "radial-5 HeldDyno did not execute its pull, plateau, and lift behavior");
+}
+
 void verify_public_audio_session(const std::filesystem::path &repository_root,
                                  const RadialSource &source) {
     const auto engine_path =
@@ -878,7 +1084,6 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
     auto engine = require(compile::compile_engine(source.engine_document, views),
                           "radial-5 public engine compilation failed");
     const std::array closed_dynamic_modes{
-        authoring::ScenarioMode{authoring::HeldDynoMode{}},
         authoring::ScenarioMode{authoring::FreeVehicleMode{}},
         authoring::ScenarioMode{authoring::InertialDynoMode{}},
     };
@@ -1025,6 +1230,88 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
                "throttle procedure with finite nonzero PCM");
         break;
     }
+
+    auto held_dyno_scenario =
+        require(compile::compile_scenario(engine, source.held_dyno_scenario_document),
+                "radial-5 public HeldDyno scenario compilation failed");
+    auto held_dyno_created = engine_sim_offline::create_engine_session(
+        held_dyno_scenario,
+        engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+    if (const auto *error =
+            std::get_if<engine_sim_offline::EngineSessionError>(&held_dyno_created)) {
+        throw std::runtime_error{"radial-5 public HeldDyno session creation failed: " +
+                                 error->detail_code + ": " + error->message};
+    }
+    auto held_dyno_session =
+        std::get<engine_sim_offline::EngineSession>(std::move(held_dyno_created));
+    const auto held_dyno_descriptor = held_dyno_session.descriptor();
+    expect(held_dyno_descriptor.engine_id == "radial-5-cleanroom" &&
+               held_dyno_descriptor.motion_mode ==
+                   engine_sim_offline::EngineMotionMode::held_dyno &&
+               held_dyno_descriptor.preparation_block_count == 25U &&
+               held_dyno_descriptor.total_block_count == 300U &&
+               (held_dyno_descriptor.live_control_capabilities &
+                engine_sim_offline::
+                    kEngineLiveControlCapabilityHeldDynoTargetEngineSpeed) != 0U,
+           "radial-5 public HeldDyno descriptor lost its finite warm/live surface");
+    std::uint64_t held_dyno_block_count = 0U;
+    bool observed_held_dyno_audible_audio = false;
+    bool observed_held_dyno_sidecar = false;
+    constexpr std::uint64_t kHeldDynoSmokeBlockCount = 30U;
+    while (held_dyno_block_count < kHeldDynoSmokeBlockCount) {
+        auto result = held_dyno_session.process_block();
+        if (const auto *error =
+                std::get_if<engine_sim_offline::EngineSessionError>(&result)) {
+            throw std::runtime_error{"radial-5 public HeldDyno session faulted: " +
+                                     error->detail_code + ": " + error->message};
+        }
+        if (const auto *block =
+                std::get_if<engine_sim_offline::EngineSessionBlockView>(&result)) {
+            const auto expected_phase =
+                held_dyno_block_count < held_dyno_descriptor.preparation_block_count
+                    ? engine_sim_offline::EngineSessionBlockPhase::preparation
+                    : engine_sim_offline::EngineSessionBlockPhase::audible;
+            expect(block->block_ordinal() == held_dyno_block_count &&
+                       block->phase() == expected_phase &&
+                       std::ranges::all_of(block->audio_buses(),
+                                           [](const auto &bus) {
+                                               return std::ranges::all_of(
+                                                   bus.samples, [](float sample) {
+                                                       return std::isfinite(sample);
+                                                   });
+                                           }),
+                   "radial-5 public HeldDyno emitted a malformed or nonfinite "
+                   "block");
+            if (expected_phase ==
+                engine_sim_offline::EngineSessionBlockPhase::audible) {
+                observed_held_dyno_audible_audio =
+                    observed_held_dyno_audible_audio ||
+                    std::ranges::any_of(block->audio_buses(), [](const auto &bus) {
+                        return std::ranges::any_of(
+                            bus.samples, [](float sample) { return sample != 0.0F; });
+                    });
+                expect(block->telemetry().size() == 1U &&
+                           block->telemetry().front().held_dyno.has_value() &&
+                           std::isfinite(block->telemetry()
+                                             .front()
+                                             .held_dyno->required_actuator_torque_nm) &&
+                           std::isfinite(block->telemetry()
+                                             .front()
+                                             .held_dyno->applied_actuator_torque_nm),
+                       "radial-5 public HeldDyno omitted its finite audible "
+                       "telemetry sidecar");
+                observed_held_dyno_sidecar = true;
+            }
+            ++held_dyno_block_count;
+            continue;
+        }
+        throw std::runtime_error{
+            "radial-5 public HeldDyno completed before its finite-session smoke "
+            "horizon"};
+    }
+    expect(observed_held_dyno_audible_audio && observed_held_dyno_sidecar,
+           "radial-5 public HeldDyno did not cross preparation into finite nonzero "
+           "audible PCM");
 }
 
 void run(const std::filesystem::path &repository_root) {
@@ -1033,6 +1320,7 @@ void run(const std::filesystem::path &repository_root) {
     verify_resolved_topology(source.resolved);
     verify_scenario_resolution_and_mode_gate(source);
     verify_public_capture(repository_root);
+    verify_public_held_dyno_capture(repository_root);
     verify_public_audio_session(repository_root, source);
 }
 

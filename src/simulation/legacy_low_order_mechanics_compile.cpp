@@ -107,7 +107,8 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
         std::holds_alternative<contract::HeldDyno>(scenario.mode) ||
         std::holds_alternative<contract::FreeVehicle>(scenario.mode);
     const bool radial_dynamic_motion =
-        std::holds_alternative<contract::FreeEngine>(scenario.mode);
+        std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
+        std::holds_alternative<contract::HeldDyno>(scenario.mode);
     const bool finite_control_schedule =
         schedule.execution_extent().finite_physics_frame_count().has_value();
     const bool radial_prescribed_motion_owner =
@@ -130,7 +131,7 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_mechanics_with_control(
                 "mechanism_plan",
                 "one-level master-rod mechanics requires exactly one motion owner: a "
                 "finite prescribed kinematic schedule or external post-step crank "
-                "motion for FreeEngine");
+                "motion for FreeEngine or HeldDyno");
     } else {
         require(report, direct_plan != nullptr, ContractIssueCode::unsupported_value,
                 "mechanism_plan",

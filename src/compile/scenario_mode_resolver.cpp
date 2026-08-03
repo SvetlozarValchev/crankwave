@@ -65,6 +65,8 @@ void ScenarioResolver::compile_mode() {
         std::holds_alternative<authoring::ExternalSpeedMode>(document_.mode);
     const bool free_engine_motion =
         std::holds_alternative<authoring::FreeEngineMode>(document_.mode);
+    const bool held_dyno_motion =
+        std::holds_alternative<authoring::HeldDynoMode>(document_.mode);
     const bool rigid_group_dynamic_motion =
         std::holds_alternative<authoring::FreeEngineMode>(document_.mode) ||
         std::holds_alternative<authoring::HeldDynoMode>(document_.mode) ||
@@ -81,10 +83,11 @@ void ScenarioResolver::compile_mode() {
             "only");
         return;
     }
-    if (contains_master_rod && !(prescribed_motion || free_engine_motion)) {
+    if (contains_master_rod &&
+        !(prescribed_motion || free_engine_motion || held_dyno_motion)) {
         add(authoring::DiagnosticCode::unsupported_capability, "/mode/type",
             "one-level master-rod engines currently admit only external_speed "
-            "prescribed motion or FreeEngine motion");
+            "prescribed motion, FreeEngine motion, or HeldDyno motion");
         return;
     }
 
@@ -483,7 +486,10 @@ void ScenarioResolver::compile_mode() {
                 };
             } else if constexpr (std::is_same_v<T, authoring::HeldDynoMode>) {
                 const auto &method =
-                    simulation::bounded_held_dyno_constraint_method_identity();
+                    contains_master_rod
+                        ? simulation::
+                              bounded_held_dyno_one_level_master_rod_constraint_method_identity()
+                        : simulation::bounded_held_dyno_constraint_method_identity();
                 const auto method_validation = contract::validate(method);
                 if (!method_validation.ok()) {
                     append_contract_report(report_, method_validation,

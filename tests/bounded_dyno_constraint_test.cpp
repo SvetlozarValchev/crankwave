@@ -1,10 +1,12 @@
 #include "simulation/bounded_dyno_constraint.hpp"
 
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <limits>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -12,7 +14,9 @@
 
 namespace {
 
+namespace contract = engine_sim_offline::contract;
 namespace detail = engine_sim_offline::simulation::detail;
+namespace simulation = engine_sim_offline::simulation;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {
@@ -27,6 +31,91 @@ void expect_near(double actual, double expected, double tolerance,
                                  ": actual=" + std::to_string(actual) +
                                  "; expected=" + std::to_string(expected)};
     }
+}
+
+[[nodiscard]] std::string digest_hex(const contract::Sha256Digest &digest) {
+    constexpr std::string_view kDigits = "0123456789abcdef";
+    std::string result(digest.bytes.size() * 2U, '0');
+    for (std::size_t index = 0; index < digest.bytes.size(); ++index) {
+        result[index * 2U] = kDigits[digest.bytes[index] >> 4U];
+        result[index * 2U + 1U] = kDigits[digest.bytes[index] & UINT8_C(0x0f)];
+    }
+    return result;
+}
+
+void test_constraint_method_identities_are_canonical_and_topology_specific() {
+    constexpr std::string_view kDirectDigest =
+        "09acc664facd8ac09e8d29e44065866cdb4665def732a923c72a42d27789ace2";
+    constexpr std::string_view kMasterRodDigest =
+        "71b511ed6c5c2c29225cd96645e8c117dea4093cf965c22a76358f220b2bbe8b";
+
+    const auto direct_descriptor =
+        simulation::bounded_held_dyno_constraint_method_descriptor();
+    const auto master_rod_descriptor = simulation::
+        bounded_held_dyno_one_level_master_rod_constraint_method_descriptor();
+    const auto descriptor_is_canonical = [](std::string_view descriptor) {
+        return !descriptor.empty() && descriptor.back() == '\n' &&
+               descriptor.find('\r') == std::string_view::npos &&
+               descriptor.find('\0') == std::string_view::npos;
+    };
+    expect(descriptor_is_canonical(direct_descriptor),
+           "direct held-dyno descriptor is not canonical LF text");
+    expect(descriptor_is_canonical(master_rod_descriptor),
+           "master-rod held-dyno descriptor is not canonical LF text");
+
+    const auto direct_digest = contract::sha256(std::as_bytes(
+        std::span<const char>{direct_descriptor.data(), direct_descriptor.size()}));
+    const auto master_rod_digest = contract::sha256(std::as_bytes(std::span<const char>{
+        master_rod_descriptor.data(), master_rod_descriptor.size()}));
+    expect(digest_hex(direct_digest) == kDirectDigest,
+           "direct held-dyno descriptor digest changed");
+    expect(digest_hex(master_rod_digest) == kMasterRodDigest,
+           "master-rod held-dyno descriptor digest changed");
+
+    const auto &direct = simulation::bounded_held_dyno_constraint_method_identity();
+    const auto &master_rod =
+        simulation::bounded_held_dyno_one_level_master_rod_constraint_method_identity();
+    expect(direct.id == simulation::kBoundedHeldDynoConstraintMethodId &&
+               direct.version == simulation::kBoundedHeldDynoConstraintMethodVersion &&
+               direct.configuration_sha256 == direct_digest &&
+               contract::validate(direct).ok() &&
+               &direct == &simulation::bounded_held_dyno_constraint_method_identity(),
+           "direct held-dyno identity changed, is invalid, or is unstable");
+    expect(
+        master_rod.id ==
+                simulation::kBoundedHeldDynoOneLevelMasterRodConstraintMethodId &&
+            master_rod.version ==
+                simulation::kBoundedHeldDynoOneLevelMasterRodConstraintMethodVersion &&
+            master_rod.configuration_sha256 == master_rod_digest &&
+            contract::validate(master_rod).ok() &&
+            &master_rod ==
+                &simulation::
+                    bounded_held_dyno_one_level_master_rod_constraint_method_identity(),
+        "master-rod held-dyno identity is invalid, detached, or unstable");
+    expect(direct.id != master_rod.id &&
+               direct.configuration_sha256 != master_rod.configuration_sha256,
+           "direct and master-rod held-dyno methods share an identity");
+
+    expect(direct_descriptor.find("exact-centered-slider-crank-M-of-theta") !=
+                   std::string_view::npos &&
+               direct_descriptor.find("one-level-master-rod") == std::string_view::npos,
+           "direct held-dyno descriptor lost its centered-slider-crank boundary");
+    expect(master_rod_descriptor.find(
+               "exact-articulated-kinetic-energy-coefficient-M-of-theta") !=
+                   std::string_view::npos &&
+               master_rod_descriptor.find(
+                   "leaf-first-coupled-articulated-inverse-dynamics") !=
+                   std::string_view::npos &&
+               master_rod_descriptor.find(
+                   "retained-previous-step-wall-reaction-magnitude") !=
+                   std::string_view::npos &&
+               master_rod_descriptor.find(
+                   "step-n-friction-consumes-wall-reaction-n-minus-one") !=
+                   std::string_view::npos &&
+               master_rod_descriptor.find(
+                   "per-cylinder-piston-travel-chen-flynn-evidence") !=
+                   std::string_view::npos,
+           "master-rod held-dyno descriptor lost articulated mechanics semantics");
 }
 
 [[nodiscard]] const detail::BoundedDynoConstraintStep &
@@ -127,6 +216,7 @@ void test_invalid_and_unpreventable_reverse_are_typed() {
 }
 
 void run_tests() {
+    test_constraint_method_identities_are_canonical_and_topology_specific();
     test_constraint_tracks_target_with_absorbing_or_driving_torque();
     test_constraint_exposes_each_torque_limit();
     test_constraint_compensates_configuration_inertia_term();

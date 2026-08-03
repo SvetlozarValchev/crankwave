@@ -286,14 +286,15 @@ detail::LowOrderEngineCoreV1RuntimeFactory::compile_gas(
         const bool prescribed_motion =
             std::holds_alternative<contract::PrescribedKinematicSweep>(scenario.mode);
         const bool radial_dynamic_motion =
-            std::holds_alternative<contract::FreeEngine>(scenario.mode);
+            std::holds_alternative<contract::FreeEngine>(scenario.mode) ||
+            std::holds_alternative<contract::HeldDyno>(scenario.mode);
         const bool finite_prescribed_motion =
             prescribed_motion &&
             schedule.execution_extent().finite_physics_frame_count().has_value();
         require(report, finite_prescribed_motion || radial_dynamic_motion,
                 ContractIssueCode::unsupported_value, "scenario.mode",
                 "one-level master-rod gas requires a finite prescribed motion owner or "
-                "externally driven FreeEngine mechanics");
+                "externally driven FreeEngine or HeldDyno mechanics");
     }
     if (!report.ok()) {
         return report;

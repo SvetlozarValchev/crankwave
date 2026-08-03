@@ -46,6 +46,39 @@ binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-daz
 
 static_assert(canonical_lf_descriptor(kBoundedHeldDynoConstraintDescriptor));
 
+constexpr std::string_view kBoundedHeldDynoOneLevelMasterRodConstraintDescriptor =
+    R"method(engine-sim-offline.simulation-method-configuration.v1
+method=bounded-held-dyno-speed-constraint-one-level-master-rod-v1
+version=1
+operation=positive-speed-one-degree-of-freedom-bounded-dynamometer-velocity-constraint-with-one-level-master-rod-articulated-mechanism
+source=ange-yaghi-engine-sim-85f7c3b959a908ed5232ede4f1a4ac7eafe6b630-dynamometer-and-one-level-master-rod-rigid-body-mechanism
+solver-source=ange-yaghi-simple-2d-constraint-solver-e009f4ff1c9c4c5874e865e893cdb62e208fb2b3-optimized-nsv-rigid-body-system
+topology=one-authored-rigid-crank-plus-one-level-master-rod-root-and-slave-rigid-rods-and-translating-pistons
+state=finite-binary64-unwrapped-theta-rad-and-positive-binary64-angular-speed-rad-s
+engine-inertia=exact-articulated-kinetic-energy-coefficient-M-of-theta-and-dM-dtheta-at-current-left-boundary
+causal-engine-input=previous-committed-indicated-torque-plus-current-source-crank-friction-and-per-cylinder-piston-wall-friction
+piston-wall-friction=pristine-engine-sim-cpp-default-stribeck-coulomb-viscous-law-using-each-current-signed-piston-axis-speed-and-that-piston-retained-previous-step-wall-reaction-magnitude
+piston-wall-reaction=leaf-first-coupled-articulated-inverse-dynamics-from-current-left-boundary-phase-speed-acceleration-and-per-cylinder-chamber-pressure
+piston-wall-reaction-reduction=slave-branch-forces-and-moments-accumulate-into-the-root-before-the-root-bearing-and-master-piston-wall-reaction-are-solved
+piston-wall-timing=step-n-friction-consumes-wall-reaction-n-minus-one-then-the-coupled-wall-reaction-vector-n-is-committed-only-with-the-successful-post-gas-boundary-n-plus-one-transaction
+warm-preparation=per-cylinder-piston-travel-chen-flynn-evidence-under-the-fixed-held-preparation-boundary
+warm-release=first-post-preparation-step-consumes-carried-articulated-gas-flame-randomness-pressure-and-wall-reaction-history
+target=input-finite-nonnegative-binary64-post-step-angular-speed-rad-s
+required-actuator=M-times-target-minus-current-omega-divided-by-dt-plus-binary64-0.5-times-dM-dtheta-times-current-omega-squared-minus-held-upstream-engine-torque
+limits=required-actuator-clamped-between-negative-maximum-absorbing-torque-and-positive-maximum-driving-torque
+reaction=dyno-reaction-is-exact-negative-of-applied-actuator-torque
+alpha=held-upstream-engine-torque-plus-applied-actuator-torque-minus-velocity-inertia-torque-divided-by-M
+omega-next=omega-plus-alpha-times-dt
+theta-displacement=omega-next-times-dt
+theta-next=theta-plus-theta-displacement
+saturation=publish-achieved-speed-and-absorbing-or-driving-limit-disposition
+reverse=unsupported-and-reported-as-a-typed-within-step-stall
+binary64_execution=ieee754-binary64-nearest-ties-to-even-no-fma-no-ftz-no-daz
+)method";
+
+static_assert(
+    canonical_lf_descriptor(kBoundedHeldDynoOneLevelMasterRodConstraintDescriptor));
+
 [[nodiscard]] contract::MethodIdentity make_identity() noexcept {
     return {
         std::string{kBoundedHeldDynoConstraintMethodId},
@@ -53,6 +86,16 @@ static_assert(canonical_lf_descriptor(kBoundedHeldDynoConstraintDescriptor));
         contract::sha256(std::as_bytes(
             std::span<const char>{kBoundedHeldDynoConstraintDescriptor.data(),
                                   kBoundedHeldDynoConstraintDescriptor.size()})),
+    };
+}
+
+[[nodiscard]] contract::MethodIdentity make_one_level_master_rod_identity() noexcept {
+    return {
+        std::string{kBoundedHeldDynoOneLevelMasterRodConstraintMethodId},
+        kBoundedHeldDynoOneLevelMasterRodConstraintMethodVersion,
+        contract::sha256(std::as_bytes(std::span<const char>{
+            kBoundedHeldDynoOneLevelMasterRodConstraintDescriptor.data(),
+            kBoundedHeldDynoOneLevelMasterRodConstraintDescriptor.size()})),
     };
 }
 
@@ -64,6 +107,17 @@ std::string_view bounded_held_dyno_constraint_method_descriptor() noexcept {
 
 const contract::MethodIdentity &bounded_held_dyno_constraint_method_identity() {
     static const auto identity = make_identity();
+    return identity;
+}
+
+std::string_view
+bounded_held_dyno_one_level_master_rod_constraint_method_descriptor() noexcept {
+    return kBoundedHeldDynoOneLevelMasterRodConstraintDescriptor;
+}
+
+const contract::MethodIdentity &
+bounded_held_dyno_one_level_master_rod_constraint_method_identity() {
+    static const auto identity = make_one_level_master_rod_identity();
     return identity;
 }
 

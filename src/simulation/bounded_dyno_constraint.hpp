@@ -12,11 +12,19 @@ namespace engine_sim_offline::simulation {
 inline constexpr std::string_view kBoundedHeldDynoConstraintMethodId =
     "bounded-held-dyno-speed-constraint";
 inline constexpr std::uint32_t kBoundedHeldDynoConstraintMethodVersion = 1U;
+inline constexpr std::string_view kBoundedHeldDynoOneLevelMasterRodConstraintMethodId =
+    "bounded-held-dyno-speed-constraint-one-level-master-rod-v1";
+inline constexpr std::uint32_t
+    kBoundedHeldDynoOneLevelMasterRodConstraintMethodVersion = 1U;
 
 [[nodiscard]] std::string_view
 bounded_held_dyno_constraint_method_descriptor() noexcept;
 [[nodiscard]] const contract::MethodIdentity &
 bounded_held_dyno_constraint_method_identity();
+[[nodiscard]] std::string_view
+bounded_held_dyno_one_level_master_rod_constraint_method_descriptor() noexcept;
+[[nodiscard]] const contract::MethodIdentity &
+bounded_held_dyno_one_level_master_rod_constraint_method_identity();
 
 namespace detail {
 

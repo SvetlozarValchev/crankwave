@@ -123,16 +123,17 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
             ContractIssueCode::unsupported_value, "mechanism_plan",
             "dynamic-crank runtime requires exactly one compiled direct or one-level "
             "master-rod mechanism plan");
-    require(report, radial_plan == nullptr || free_engine != nullptr,
+    require(report,
+            radial_plan == nullptr || free_engine != nullptr || held_dyno != nullptr,
             ContractIssueCode::unsupported_value, "scenario.mode",
             "one-level master-rod dynamic-crank execution currently admits only "
-            "FreeEngine motion");
+            "FreeEngine or HeldDyno motion");
     require(report, !simulation_request_identity_v7_sha256.is_zero(),
             ContractIssueCode::missing_value, "simulation_request_identity_v7_sha256",
             "dynamic-crank runtime requires the canonical nonzero request identity");
     if (profile == nullptr || dynamic_mode_count != 1U ||
         (direct_plan == nullptr) == (radial_plan == nullptr) ||
-        (radial_plan != nullptr && free_engine == nullptr)) {
+        (radial_plan != nullptr && free_engine == nullptr && held_dyno == nullptr)) {
         return report;
     }
     const auto *output_crank = contract::find_output_crank(profile->core.mechanism);
@@ -236,13 +237,17 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
             "scenario.mode.drivetrain_dynamics_method.value",
             "FreeVehicle runtime requires the exact fixed-128-pass coupled drivetrain "
             "method identity");
+    const auto &expected_held_dyno_constraint_method =
+        radial_plan != nullptr
+            ? bounded_held_dyno_one_level_master_rod_constraint_method_identity()
+            : bounded_held_dyno_constraint_method_identity();
     require(report,
             held_dyno == nullptr || held_dyno->constraint_method.value ==
-                                        bounded_held_dyno_constraint_method_identity(),
+                                        expected_held_dyno_constraint_method,
             ContractIssueCode::unsupported_value,
             "scenario.mode.constraint_method.value",
-            "held-dyno runtime requires the exact bounded speed-constraint method "
-            "identity");
+            "held-dyno runtime requires the exact mechanism-family bounded "
+            "speed-constraint method identity");
     if (fixed_horizon != nullptr) {
         require(report,
                 fixed_horizon->method.value ==
@@ -877,7 +882,9 @@ LowOrderDynamicCrankCompileResult compile_low_order_dynamic_crank_runtime(
     }
 
     const char *runtime_model_id =
-        held_dyno != nullptr      ? "low-order-held-dyno"
+        held_dyno != nullptr && radial_plan != nullptr
+            ? "low-order-held-dyno-one-level-master-rod-v1"
+        : held_dyno != nullptr    ? "low-order-held-dyno"
         : free_vehicle != nullptr ? "low-order-free-vehicle-v1"
         : radial_plan != nullptr  ? "low-order-free-engine-one-level-master-rod-v1"
                                   : "low-order-free-engine-v1";
