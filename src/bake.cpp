@@ -39,8 +39,8 @@ class NumericControlRecovery final {
     }
 };
 
-[[nodiscard]] double scenario_time(
-    std::uint64_t physics_frame, contract::RationalRateHz physics_rate) noexcept {
+[[nodiscard]] double scenario_time(std::uint64_t physics_frame,
+                                   contract::RationalRateHz physics_rate) noexcept {
     if (physics_rate.numerator == 0U || physics_rate.denominator == 0U) {
         return 0.0;
     }
@@ -328,13 +328,12 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
                            physics_frame);
         }
         if (stats.audition_saturated_sample_count != 0U) {
-            return failure(
-                std::move(plan.request), FailureKind::contract_violation,
-                "native-audition-saturated",
-                "audition PCM24 quantization saturated " +
-                    std::to_string(stats.audition_saturated_sample_count) +
-                    " samples; successful publication requires zero",
-                physics_frame);
+            return failure(std::move(plan.request), FailureKind::contract_violation,
+                           "native-audition-saturated",
+                           "audition PCM24 quantization saturated " +
+                               std::to_string(stats.audition_saturated_sample_count) +
+                               " samples; successful publication requires zero",
+                           physics_frame);
         }
 
         plan.manifest_basis.artifacts.assign(evidence.artifacts().begin(),
@@ -350,11 +349,19 @@ contract::RenderResult bake(const compile::CompiledScenario &compiled_scenario,
             std::move(completion.inertial_dyno),
         }};
 
-        if (!validate_bake_result(result, compiled_scenario).ok()) {
+        const auto result_report = validate_bake_result(result, compiled_scenario);
+        if (!result_report.ok()) {
+            std::string message =
+                "complete request-bound bake result failed validation";
+            if (!result_report.issues.empty()) {
+                message += ": ";
+                message += result_report.issues.front().path;
+                message += ": ";
+                message += result_report.issues.front().message;
+            }
             return failure(std::move(plan.request), FailureKind::contract_violation,
                            "bake-result-validation-failed-before-commit",
-                           "complete request-bound bake result failed validation",
-                           physics_frame);
+                           std::move(message), physics_frame);
         }
 
         publisher.commit(evidence, std::get<contract::RenderSuccess>(result).manifest,
