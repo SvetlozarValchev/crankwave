@@ -11,8 +11,7 @@
 
 namespace engine_sim_offline::presentation {
 
-inline constexpr contract::RationalRateHz kExcitationRateHz{10000, 1};
-inline constexpr contract::RationalRateHz kHigherExcitationRateHz{20000, 1};
+inline constexpr contract::RationalRateHz kExcitationRateHz{20000, 1};
 
 struct RouteConditioningSeeds {
     Pcg32Seed jitter;
@@ -33,7 +32,7 @@ struct SourceBlockExtent {
 };
 
 // Fixture-free coordinator for one exact source-stage session. Each call admits
-// one complete 20 ms excitation block at the configured 10 or 20 kHz input clock
+// one complete 400-frame, 20 ms excitation block at the canonical 20 kHz input clock
 // and produces 3,840 conditioned source frames at 192 kHz. Arithmetic failure is
 // terminal because route state may already have advanced; structural validation
 // happens before mutation.

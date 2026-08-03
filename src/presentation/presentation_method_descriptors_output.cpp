@@ -18,8 +18,8 @@ namespace {
 
 constexpr std::string_view kRouteStemPublicationMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
-method=n-route-wet-selection-float32-wave-publication-20ms-clock-v2
-version=2
+method=n-route-wet-selection-float32-wave-publication-20000-to-192000-20ms-clock-v3
+version=3
 operation=n-route-dry-configured-ir-selected-stem-publication
 topology=one-or-more-distinct-ordered-exhaust-routes-and-three-stems-per-route
 route_input=one-finite-binary64-dry-sample-and-one-finite-binary64-configured-ir-sample-per-route-per-source-frame
@@ -31,8 +31,8 @@ publication_inputs=dry,configured-ir,selected-in-that-order-per-route
 resolved_argument_2=calibration_gain_linear
 resolved_argument_2_domain=finite-binary64-strictly-greater-than-positive-zero;both-signed-zeros-are-rejected
 timeline_unit=complete-3840-source-frame-blocks-at-192000/1-hz
-timeline_input_clock=exactly-one-of-10000/1-hz-or-20000/1-hz-fixed-for-session
-timeline_input_mapping=each-complete-20ms-input-block-of-200-frames-at-10000/1-hz-or-400-frames-at-20000/1-hz-produces-exactly-3840-source-frames-and-returns-the-reconstruction-clock-to-zero-phase
+timeline_input_clock=exactly-20000/1-hz-fixed-for-session
+timeline_input_mapping=each-complete-400-frame-20ms-input-block-at-20000/1-hz-produces-exactly-3840-source-frames-at-192000/1-hz-and-returns-the-reconstruction-clock-to-zero-phase
 timeline_domain=positive-total-block-count-and-pre-audible-block-count-strictly-less-than-total
 timeline_arithmetic=total-and-pre-audible-block-count-times-3840-must-be-representable-as-u64
 published_interval=complete-block-ordinals-pre-audible-block-count-through-total-block-count-minus-one

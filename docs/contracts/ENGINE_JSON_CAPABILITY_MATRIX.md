@@ -14,7 +14,8 @@ admitted, source-demonstrated topology and operating-capability scope**, with th
 seven-procedure Slice 16 listening gate accepted on 2026-08-03. **Full pristine
 authoring/application-surface parity is neither complete nor the product target**:
 `.mr` and GUI behavior, fuel-consumption display, unproven mechanism combinations, and
-post-parity fidelity extensions are excluded or separately deferred. Unsupported
+remaining post-parity fidelity extensions are separately gated. The accepted 20 kHz
+rate cutover is the sole production/cooker path. Unsupported
 configurations remain fail-closed.
 
 The repository now has a strict product JSON schema/parser and a generic immutable
@@ -258,7 +259,7 @@ the remainder as explicit capability diagnostics:
 | Chen--Flynn cycle-mean loss coefficients and required oil temperature (clean-room extension, not a pristine capability) | `engine.losses` with `type: "chen_flynn_cycle_mean"` | **Low-order executed** in operating-point accounting and as one-cycle-lagged inertial-dyno resistance; dynamic FreeEngine/HeldDyno/FreeVehicle use it only to certify fixed warm preparation, discard the accountant at release, and publish released cycle integration as unavailable | Generic compilation selects the registered method and derives torque-term accounting without an engine-name branch; do not call it pristine parity. |
 | Accessory-configuration URI and content hash | `engine.accessory_configurations[]` referenced by the selected loss model | **Metadata/evidence only**; current execution records identity and digest but does not interpret payload bytes | Do not expose it as a power/audio tuning surface until a typed accessory-load schema is executed. |
 | Dyno min/max/hold step defaults | `rig.dyno_defaults`, not engine physics | **Partial**; package JSON parses and resolves the defaults with provenance, but they do not schedule a run or drive a UI sequence | Native and browser UI generate the same held-point sequence. |
-| Simulation frequency | Session/render request; `rates.physics` owns the outer solver cadence and `rates.capture` owns observation cadence | **Low-order executed headlessly**; mechanics and gas derive their step from the scenario physics rate, low-order capture currently requires the same rate, excitation consumes that capture clock, and propagation delay is resolved against it. The accepted production presentation remains explicitly 10 kHz to 192 kHz | Every existing 10 kHz fixture remains bit-exact; focused non-10-kHz mechanics/gas/capture/excitation probes prove rate ownership. A public higher-rate render remains a post-parity control/candidate audition, not an implicit parity change. |
+| Simulation frequency | Session/render request; `rates.physics` owns the outer solver cadence and `rates.capture` owns observation cadence | **Low-order executed headlessly**; mechanics and gas derive their step from the scenario physics rate, low-order capture requires the same rate, excitation consumes that capture clock, and propagation delay is resolved against it. The accepted production/cooker path is 20 kHz physics/capture to 192 kHz source processing, acoustics, and delivery | Historical 10 kHz parity fixtures remain frozen evidence; the accepted 20 kHz BMW control/candidate gate and exact repeat establish the single canonical production rate. |
 
 ### Cranktrain, banks, and cylinders
 
@@ -272,7 +273,7 @@ the remainder as explicit capability diagnostics:
 | Piston mass, blowby, compression height, wrist-pin position, displacement term | `engine.pistons[]`; blowby resolves into each bound cylinder's mechanism parameters and runtime gas lane | **Low-order executed** for admitted direct and prescribed/`FreeEngine`/`HeldDyno`/`FreeVehicle` one-level master/slave mechanisms. Wrist-pin position is an axial piston-datum offset that changes clearance/fixed volume but not wrist-pin motion; omission resolves to exact zero. Independent per-piston 28-inH2O CFM blowby also executes | Exact default baseline output, direct and master/slave constant-volume-offset proofs, exact flow-calibration admission, unequal synthetic blowby resolution, lane-local runtime differential, and the accepted Shovelhead source-value audition. |
 | Banks with angle, bore, and deck height | `engine.banks[]` | **Low-order executed/Partial**; execution admits one zero-angle inline bank, exactly two finite distinct-angle V banks, exactly two antipodal opposed banks, or custom explicit finite axes, including authored bank bore/deck geometry. Direct centered rods and certified one-level master-rod axes execute in their admitted modes | Inline, Toyota V8, Subaru EJ25 opposed, synthetic three-axis custom, synthetic inline master-rod, and radial-five fixtures preserve bank geometry and axis-relative mechanics. |
 | Arbitrary cylinder-to-bank/journal/intake/exhaust/wire connections | Explicit cylinder references; crank ownership derives through the referenced journal | **Partial**; dynamic cylinders, direct bank-axis and bank-local-head/cam/VTEC bindings, direct shared journals, prescribed and articulated-`FreeEngine`/`HeldDyno`/`FreeVehicle` one-level master/slave bindings, prescribed and rigid-dynamic co-phased multi-crank bindings, shared or distinct intakes and ignition wires, firing order, and exhaust sharing execute. Multi-crank master/slave remains closed | Toyota V8, Subaru EJ25, Shovelhead V-twin, radial five, synthetic three-axis custom, shared-wire inline-twin, separate-intake, split-crank, and split-bank VTEC fixtures prove the admitted connection patterns. |
-| Per-cylinder primary length | Physical exhaust path in `engine`; session compilation combines it with route length, excitation propagation speed, and the admitted capture clock | **Low-order executed** without an engine-owned delay-rate duplicate or cached scenario-specific delay count | Resolved delay comparison at 10 kHz and a non-10-kHz rate prove `round(((header+route)/speed)*capture_hz)` while existing PCM remains exact. |
+| Per-cylinder primary length | Physical exhaust path in `engine`; session compilation combines it with route length, excitation propagation speed, and the admitted capture clock | **Low-order executed** without an engine-owned delay-rate duplicate or cached scenario-specific delay count | Historical 10 kHz and accepted 20 kHz delay comparisons prove `round(((header+route)/speed)*capture_hz)` while the frozen parity evidence remains exact. |
 
 ### Gas exchange, manifolds, heads, and exhaust
 
@@ -325,7 +326,7 @@ objects merely because pristine MR placed some of them there.
 |---|---|---|---|
 | Per-cylinder `sound_attenuation` | `presentation.cylinder_routes[]` gain | **Low-order executed** in excitation paths | Equal/inherited gain A/B remains an explicit authoring choice. |
 | Per-exhaust `audio_volume` | `presentation.routes[]` source gain | **Low-order executed** in excitation route | Route solo and full mix prove exact routing/gain. |
-| Exhaust/primary length attenuation and delay | Physical length in engine; excitation-session compilation derives the discrete delay from the scenario-owned capture clock | **Typed core/Low-order executed**; propagation speed remains method configuration, while no duplicate engine-level delay rate or cached delay sample count exists | Delay and inverse-length behavior are visible in resolved diagnostics; unchanged 10 kHz requests remain exact. |
+| Exhaust/primary length attenuation and delay | Physical length in engine; excitation-session compilation derives the discrete delay from the scenario-owned capture clock | **Typed core/Low-order executed**; propagation speed remains method configuration, while no duplicate engine-level delay rate or cached delay sample count exists | Delay and inverse-length behavior are visible in resolved diagnostics; historical 10 kHz requests remain exact parity evidence and the accepted 20 kHz path uses the corresponding clock-derived counts. |
 | IR filename/asset and IR volume | Content-addressed presentation asset and route gain | **Low-order executed** as static verified-asset conversion and per-route convolution | Decode/resample/hash and route convolution fixtures. |
 | Convolution wet level | Presentation default; live-safe override | **Low-order executed** as a static per-route wet mix; no live override exists yet | Dry, wet, and mixed route auditions. |
 | Engine `hf_gain` | Presentation derivative/HF conditioning default | **Low-order executed** as static derivative conditioning | Zero and accepted BMW settings A/B without changing physics. |
@@ -333,7 +334,7 @@ objects merely because pristine MR placed some of them there.
 | Engine `noise` and GUI air-noise mix | Presentation conditioning default/live-safe override | **Low-order executed** as static deterministic filtered-air conditioning; no live override exists yet | Noise solo and zero-noise regression. |
 | GUI master volume | Session monitor/output gain | **Partial**; audition monitoring gain exists | It never changes physical stems or canonical raw capture. |
 | One channel per unique exhaust object | Compiler derives source routes from explicit shared exhaust identity | **Low-order executed** for the dynamic exhaust-route set | Shared object produces one route; copied objects remain separate. |
-| Excitation pressure combination, scale, low-speed ramp, propagation constant, and accumulation policy | Selected excitation-method configuration, generated by the compiler; physical lengths and audible gains remain authored; the capture block supplies cadence | **Low-order executed** behind a typed core at the admitted scenario capture rate | Generic method selection reproduces the accepted 10 kHz values without exposing implementation calibration or branching on engine identity; a non-10-kHz diagnostic probe demonstrates that excitation and delay follow capture rather than a hidden literal. |
+| Excitation pressure combination, scale, low-speed ramp, propagation constant, and accumulation policy | Selected excitation-method configuration, generated by the compiler; physical lengths and audible gains remain authored; the capture block supplies cadence | **Low-order executed** behind a typed core at the admitted scenario capture rate | Generic method selection retains the historical accepted 10 kHz parity values without engine-identity branching; the accepted 20 kHz gate demonstrates that excitation and delay follow capture rather than a hidden literal. |
 
 Pristine `engine-sim` does not expose a separately audible intake bus. The clean-room
 production source plan's intake, mechanical-engine, and mechanical-starter routes are
@@ -344,16 +345,15 @@ session is built; they do not imply a timestamped presentation-mutation API.
 
 ## Rig, session, and live-control capability matrix
 
-The current executable session quantum is exact: 200 physics frames at 10 kHz become
+The current executable session quantum is exact: 400 physics frames at 20 kHz become
 3,840 delivery frames at 192 kHz, or 20 ms per `process_block()` call.
 `quality.process_block_capacity_frames` is delivery-frame capacity and must be at least
 3,840; a larger value does not change the current quantum.
-This is the admitted production-presentation method, not solver-rate ownership.
-Headless low-order mechanics, gas, capture, and excitation may execute another admitted
-scenario rate, but wiring such a rate into public audio is intentionally deferred to a
-post-parity control/candidate audition. Until that gate is accepted, public native,
-WASM, and browser audio continue to use the exact 10 kHz-to-192 kHz source method and
-the 200-to-3,840 frame quantum.
+This is the sole admitted production/cooker presentation path in native, WASM, and
+browser execution. Historical 10 kHz fixtures remain parity evidence only; there is
+no legacy rate selector or parallel compatibility mode. The accepted rate decision is
+recorded in
+[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md).
 `quality.event_queue_capacity` bounds caller-authored timestamped control commands, not
 the internal simulation event journal. `quality.telemetry_capacity_frames` bounds
 records returned per call; the current session emits one final-step session-telemetry

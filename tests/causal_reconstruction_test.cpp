@@ -17,6 +17,9 @@ namespace {
 using namespace engine_sim_offline::presentation;
 
 constexpr std::size_t kBmwRouteCount = 2;
+constexpr std::size_t kCanonicalInputFrames = kExcitationFramesPerMethodBlock;
+constexpr std::uint64_t kCanonicalInputRateHz =
+    CausalReconstruction::kInputRateHz;
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -104,26 +107,27 @@ void test_frozen_phase_resolution() {
     expect_throw<std::invalid_argument>(
         [] {
             static_cast<void>(
-                CausalReconstruction::resolve_phase(CausalReconstruction::kSourceRate));
+                CausalReconstruction::resolve_phase(
+                    CausalReconstruction::kSourceRateHz));
         },
         "reconstruction accepted an interval-end phase offset");
-    expect_throw<std::invalid_argument>([] { CausalReconstruction invalid{0}; },
+    expect_throw<std::invalid_argument>([] { CausalReconstruction invalid{0, kCanonicalInputRateHz}; },
                                         "reconstruction accepted zero routes");
-    expect_throw<std::invalid_argument>([] { CausalReconstruction invalid{1, 15000}; },
-                                        "reconstruction accepted an unsupported "
+    expect_throw<std::invalid_argument>([] { CausalReconstruction invalid{1, 10000}; },
+                                        "reconstruction accepted the retired 10 kHz "
                                         "input clock");
 }
 
 void test_exact_clock_count_and_distance_pattern() {
-    CausalReconstruction reconstruction{kBmwRouteCount};
+    CausalReconstruction reconstruction{kBmwRouteCount, kCanonicalInputRateHz};
     expect(reconstruction.expected_output_frame_count(
-               kExcitationFramesPerMethodBlock) == kSourceFramesPerMethodBlock &&
+               kCanonicalInputFrames) == kSourceFramesPerMethodBlock &&
                reconstruction.distance_to_next_output() == 0,
-           "200-to-3840 count projection changed or mutated the clock");
+           "400-to-3840 count projection changed or mutated the clock");
 
-    constexpr std::array expected_counts{20U, 19U, 19U, 19U, 19U};
-    constexpr std::array<std::uint64_t, 5> expected_distances{8000, 6000, 4000, 2000,
-                                                              0};
+    constexpr std::array expected_counts{10U, 10U, 9U, 10U, 9U};
+    constexpr std::array<std::uint64_t, 5> expected_distances{8000, 16000, 4000,
+                                                              12000, 0};
     std::array<double, kBmwRouteCount> input{};
     std::size_t total_output = 0;
     for (std::size_t frame = 0; frame < expected_counts.size(); ++frame) {
@@ -137,57 +141,34 @@ void test_exact_clock_count_and_distance_pattern() {
                "shared reconstruction clock distance changed");
     }
 
-    std::vector<double> remainder(195 * kBmwRouteCount);
-    const auto remainder_count = reconstruction.expected_output_frame_count(195);
+    constexpr std::size_t remainder_frames = kCanonicalInputFrames - 5U;
+    std::vector<double> remainder(remainder_frames * kBmwRouteCount);
+    const auto remainder_count =
+        reconstruction.expected_output_frame_count(remainder_frames);
     expect(remainder_count == kSourceFramesPerMethodBlock - total_output,
            "remaining method-block source count changed");
     std::vector<double> remainder_output(remainder_count * kBmwRouteCount);
-    reconstruction.process(remainder, 195, remainder_output);
+    reconstruction.process(remainder, remainder_frames, remainder_output);
     total_output += remainder_count;
     expect(total_output == kSourceFramesPerMethodBlock &&
                reconstruction.distance_to_next_output() == 0,
            "method block did not end at 3840 frames and phase zero");
 }
 
-void test_twenty_khz_block_returns_to_zero_phase() {
-    CausalReconstruction reconstruction{kBmwRouteCount,
-                                        CausalReconstruction::kHigherPhysicsRate};
-    expect(reconstruction.input_rate_hz() == CausalReconstruction::kHigherPhysicsRate &&
-               reconstruction.input_frames_per_method_block() ==
-                   kHigherRateExcitationFramesPerMethodBlock &&
-               reconstruction.expected_output_frame_count(
-                   kHigherRateExcitationFramesPerMethodBlock) ==
-                   kSourceFramesPerMethodBlock &&
-               reconstruction.distance_to_next_output() == 0U,
-           "20 kHz reconstruction did not expose one exact 20 ms clock block");
-
-    std::vector<double> input(kHigherRateExcitationFramesPerMethodBlock *
-                              kBmwRouteCount);
-    input.front() = 1.0;
-    std::vector<double> output(kSourceFramesPerMethodBlock * kBmwRouteCount);
-    reconstruction.process(input, kHigherRateExcitationFramesPerMethodBlock, output);
-
-    expect(reconstruction.distance_to_next_output() == 0U,
-           "400 frames at 20 kHz did not return the 192 kHz clock to zero phase");
-    for (const auto sample : output) {
-        expect(std::isfinite(sample),
-               "20 kHz reconstruction produced a non-finite output sample");
-    }
-}
-
-void test_frozen_causal_impulse_and_route_isolation() {
-    std::vector<double> input(260 * kBmwRouteCount);
+void test_canonical_causal_impulse_and_route_isolation() {
+    constexpr std::size_t input_frames = 300U;
+    std::vector<double> input(input_frames * kBmwRouteCount);
     input[0] = 1.0;
 
-    CausalReconstruction reconstruction{kBmwRouteCount};
-    constexpr std::array chunks{std::size_t{200}, std::size_t{60}};
+    CausalReconstruction reconstruction{kBmwRouteCount, kCanonicalInputRateHz};
+    constexpr std::array chunks{input_frames};
     const auto output = process_chunks(reconstruction, input, chunks);
-    expect(output.size() == 4992 * kBmwRouteCount,
-           "260-frame impulse output count changed");
+    expect(output.size() == 2880U * kBmwRouteCount,
+           "20 kHz causal impulse produced the wrong extent");
 
-    for (std::size_t frame = 0; frame < 39; ++frame) {
+    for (std::size_t frame = 0; frame < 20U; ++frame) {
         expect(bits(value(output, frame, 0, kBmwRouteCount)) == UINT64_C(0),
-               "causal impulse began before its frozen support");
+               "20 kHz causal impulse began before its pinned support");
     }
 
     struct ImpulseProbe {
@@ -195,49 +176,55 @@ void test_frozen_causal_impulse_and_route_isolation() {
         std::uint64_t expected_bits;
     };
     constexpr std::array probes{
-        ImpulseProbe{39, UINT64_C(0x3e8b214886bb0e40)},
-        ImpulseProbe{40, UINT64_C(0x3e8c7b7ecc7ff249)},
-        ImpulseProbe{57, UINT64_C(0xbe8615d5773eaf87)},
-        ImpulseProbe{58, UINT64_C(0xbe92a5cabdfbe18e)},
-        ImpulseProbe{2457, UINT64_C(0x3f9422674c66a256)},
-        ImpulseProbe{2458, UINT64_C(0x3fb21838e746b7a1)},
-        ImpulseProbe{2475, UINT64_C(0x3fee00c5eb99bf78)},
-        ImpulseProbe{2476, UINT64_C(0x3fee5222f133b8f4)},
-        ImpulseProbe{2477, UINT64_C(0x3fee6525361c5cdf)},
-        ImpulseProbe{2495, UINT64_C(0x3fba706677ece100)},
-        ImpulseProbe{4930, UINT64_C(0xbe8b0d5082953c43)},
-        ImpulseProbe{4991, UINT64_C(0x0000000000000000)},
+        ImpulseProbe{20U, UINT64_C(0x3e8c7b7ecc7ff249)},
+        ImpulseProbe{28U, UINT64_C(0xbe82cd5758678248)},
+        ImpulseProbe{29U, UINT64_C(0xbe92a5cabdfbe18e)},
+        ImpulseProbe{1227U, UINT64_C(0xbfbad98995897efd)},
+        ImpulseProbe{1228U, UINT64_C(0xbf9b800b89e1bdc8)},
+        ImpulseProbe{1229U, UINT64_C(0x3fb21838e746b7a1)},
+        ImpulseProbe{1237U, UINT64_C(0x3fed724aff174e01)},
+        ImpulseProbe{1238U, UINT64_C(0x3fee5222f133b8f4)},
+        ImpulseProbe{1239U, UINT64_C(0x3fee395b810818de)},
+        ImpulseProbe{2455U, UINT64_C(0x3e94bb6ac9bc2b3d)},
+        ImpulseProbe{2465U, UINT64_C(0xbe8b0d5082953c43)},
+        ImpulseProbe{2467U, UINT64_C(0xbe8c0e0a32500067)},
     };
     for (const auto &probe : probes) {
         expect(bits(value(output, probe.frame, 0, kBmwRouteCount)) ==
                    probe.expected_bits,
-               "causal impulse reconstruction changed");
+               "20 kHz causal impulse reconstruction changed");
+    }
+    for (std::size_t frame = 2468U; frame < 2880U; ++frame) {
+        expect(bits(value(output, frame, 0, kBmwRouteCount)) == UINT64_C(0),
+               "20 kHz causal impulse extended beyond its pinned support");
     }
 
-    for (std::size_t frame = 0; frame < 4992; ++frame) {
+    for (std::size_t frame = 0; frame < 2880U; ++frame) {
         expect(value(output, frame, 1, kBmwRouteCount) == 0.0,
                "reconstruction leaked route 0 into route 1");
     }
 }
 
 void test_split_and_contiguous_processing_are_identical() {
-    std::vector<double> input(200 * kBmwRouteCount);
-    for (std::size_t frame = 0; frame < 200; ++frame) {
+    std::vector<double> input(kCanonicalInputFrames * kBmwRouteCount);
+    for (std::size_t frame = 0; frame < kCanonicalInputFrames; ++frame) {
         const auto route_0 = static_cast<int>(frame % 17) - 8;
         const auto route_1 = static_cast<int>(frame % 11) - 5;
         input[frame * kBmwRouteCount] = static_cast<double>(route_0) * 0.125;
         input[frame * kBmwRouteCount + 1] = static_cast<double>(route_1) * 0.25;
     }
 
-    CausalReconstruction contiguous_reconstruction{kBmwRouteCount};
-    constexpr std::array contiguous_chunk{std::size_t{200}};
+    CausalReconstruction contiguous_reconstruction{kBmwRouteCount,
+                                                   kCanonicalInputRateHz};
+    constexpr std::array contiguous_chunk{kCanonicalInputFrames};
     const auto contiguous =
         process_chunks(contiguous_reconstruction, input, contiguous_chunk);
 
-    CausalReconstruction split_reconstruction{kBmwRouteCount};
+    CausalReconstruction split_reconstruction{kBmwRouteCount,
+                                              kCanonicalInputRateHz};
     constexpr std::array split_chunks{
         std::size_t{1}, std::size_t{2}, std::size_t{4},   std::size_t{3},
-        std::size_t{8}, std::size_t{5}, std::size_t{177},
+        std::size_t{8}, std::size_t{5}, std::size_t{377},
     };
     const auto split = process_chunks(split_reconstruction, input, split_chunks);
 
@@ -255,7 +242,7 @@ void test_preflight_failures_do_not_mutate_state() {
     valid_input[6] = 0.25;
     valid_input[7] = 0.75;
 
-    CausalReconstruction candidate{kBmwRouteCount};
+    CausalReconstruction candidate{kBmwRouteCount, kCanonicalInputRateHz};
     const auto expected_count = candidate.expected_output_frame_count(5);
     std::vector<double> wrong_size(expected_count * kBmwRouteCount - 1);
     expect_throw<std::invalid_argument>(
@@ -286,7 +273,7 @@ void test_preflight_failures_do_not_mutate_state() {
     std::vector<double> candidate_output(expected_count * kBmwRouteCount);
     candidate.process(valid_input, 5, candidate_output);
 
-    CausalReconstruction fresh{kBmwRouteCount};
+    CausalReconstruction fresh{kBmwRouteCount, kCanonicalInputRateHz};
     std::vector<double> fresh_output(expected_count * kBmwRouteCount);
     fresh.process(valid_input, 5, fresh_output);
     expect_same_output(candidate_output, fresh_output,
@@ -295,9 +282,9 @@ void test_preflight_failures_do_not_mutate_state() {
 
 void test_dynamic_route_counts_preserve_independent_route_arithmetic() {
     constexpr std::size_t kMultiRouteCount = 3;
-    std::vector<double> single_input(kExcitationFramesPerMethodBlock);
-    std::vector<double> multi_input(kExcitationFramesPerMethodBlock * kMultiRouteCount);
-    for (std::size_t frame = 0; frame < kExcitationFramesPerMethodBlock; ++frame) {
+    std::vector<double> single_input(kCanonicalInputFrames);
+    std::vector<double> multi_input(kCanonicalInputFrames * kMultiRouteCount);
+    for (std::size_t frame = 0; frame < kCanonicalInputFrames; ++frame) {
         const auto centered = static_cast<int>(frame % 13) - 6;
         single_input[frame] = static_cast<double>(centered) * 0.0625;
         multi_input[frame * kMultiRouteCount] = single_input[frame];
@@ -306,12 +293,12 @@ void test_dynamic_route_counts_preserve_independent_route_arithmetic() {
         multi_input[frame * kMultiRouteCount + 2] = single_input[frame];
     }
 
-    CausalReconstruction single{1};
-    CausalReconstruction multi{kMultiRouteCount};
+    CausalReconstruction single{1, kCanonicalInputRateHz};
+    CausalReconstruction multi{kMultiRouteCount, kCanonicalInputRateHz};
     std::vector<double> single_output(kSourceFramesPerMethodBlock);
     std::vector<double> multi_output(kSourceFramesPerMethodBlock * kMultiRouteCount);
-    single.process(single_input, kExcitationFramesPerMethodBlock, single_output);
-    multi.process(multi_input, kExcitationFramesPerMethodBlock, multi_output);
+    single.process(single_input, kCanonicalInputFrames, single_output);
+    multi.process(multi_input, kCanonicalInputFrames, multi_output);
 
     for (std::size_t frame = 0; frame < kSourceFramesPerMethodBlock; ++frame) {
         expect(bits(single_output[frame]) ==
@@ -325,8 +312,7 @@ void test_dynamic_route_counts_preserve_independent_route_arithmetic() {
 void run_tests() {
     test_frozen_phase_resolution();
     test_exact_clock_count_and_distance_pattern();
-    test_twenty_khz_block_returns_to_zero_phase();
-    test_frozen_causal_impulse_and_route_isolation();
+    test_canonical_causal_impulse_and_route_isolation();
     test_split_and_contiguous_processing_are_identical();
     test_preflight_failures_do_not_mutate_state();
     test_dynamic_route_counts_preserve_independent_route_arithmetic();

@@ -645,7 +645,7 @@ render_audition_pcm(const compile::CompiledScenario &scenario) {
             std::get<engine_sim_offline::EngineSessionCompleted>(result);
         expect(observed_nonzero && block_count == 4U &&
                    completed.block_count == block_count &&
-                   completed.physics_frame_count == 800U &&
+                   completed.physics_frame_count == 1600U &&
                    completed.delivery_frame_count == 15360U,
                "Shovelhead bounded session did not complete with finite nonzero "
                "audition PCM");

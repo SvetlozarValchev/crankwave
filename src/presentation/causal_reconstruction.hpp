@@ -9,8 +9,7 @@
 
 namespace engine_sim_offline::presentation {
 
-inline constexpr std::size_t kExcitationFramesPerMethodBlock = 200;
-inline constexpr std::size_t kHigherRateExcitationFramesPerMethodBlock = 400;
+inline constexpr std::size_t kExcitationFramesPerMethodBlock = 400;
 inline constexpr std::size_t kSourceFramesPerMethodBlock = 3840;
 
 struct ReconstructionPhase {
@@ -27,12 +26,11 @@ struct ReconstructionPhase {
 // after every output in its source interval.
 class CausalReconstruction {
   public:
-    static constexpr std::uint64_t kPhysicsRate = 10000;
-    static constexpr std::uint64_t kHigherPhysicsRate = 20000;
-    static constexpr std::uint64_t kSourceRate = 192000;
+    static constexpr std::uint64_t kInputRateHz = 20000;
+    static constexpr std::uint64_t kSourceRateHz = 192000;
 
     explicit CausalReconstruction(std::size_t route_count,
-                                  std::uint64_t input_rate_hz = kPhysicsRate);
+                                  std::uint64_t input_rate_hz = kInputRateHz);
 
     [[nodiscard]] static ReconstructionPhase
     resolve_phase(std::uint64_t source_interval_offset);

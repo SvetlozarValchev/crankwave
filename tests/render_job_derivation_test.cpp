@@ -215,9 +215,9 @@ make_scenario(const contract::EngineSpec &engine) {
     scenario.audible_start_s.value = 2.0;
     scenario.audible_duration_s.value = 15.0;
     scenario.rates = {
-        {10000, 1}, {10000, 1}, {192000, 1}, {192000, 1}, {192000, 1},
+        {20000, 1}, {20000, 1}, {192000, 1}, {192000, 1}, {192000, 1},
     };
-    scenario.quality.value.capture_block_capacity_frames = 256;
+    scenario.quality.value.capture_block_capacity_frames = 400;
     return scenario;
 }
 

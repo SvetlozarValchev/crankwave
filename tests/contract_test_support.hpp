@@ -744,10 +744,10 @@ inline RenderScenario make_scenario(InputBuilder &builder, const EngineSpec &eng
     scenario.audible_start_s = builder.resolved(2.0, "scenario.audible_start_s");
     scenario.audible_duration_s = builder.resolved(1.0, "scenario.audible_duration_s");
     scenario.rates = {
-        {10000, 1}, {10000, 1}, {192000, 1}, {192000, 1}, {192000, 1},
+        {20000, 1}, {20000, 1}, {192000, 1}, {192000, 1}, {192000, 1},
     };
     scenario.rates_resolution_id = builder.add_resolution("scenario.rates");
-    scenario.quality = builder.resolved(RenderQuality{"production-v1", 1, 256, 4096},
+    scenario.quality = builder.resolved(RenderQuality{"production-v1", 1, 400, 4096},
                                         "scenario.quality");
     scenario.public_seed =
         builder.resolved<std::uint64_t>(12648430, "scenario.public_seed");

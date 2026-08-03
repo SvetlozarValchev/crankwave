@@ -470,7 +470,7 @@ void test_public_session_byte_golden(const compile::CompiledScenario &scenario) 
     const auto published = publish_complete_session(scenario);
     expect(published.stats ==
                NativePresentationPublicationStats{
-                   3600U,
+                   7200U,
                    18U,
                    16U,
                    2U,
@@ -487,14 +487,14 @@ void test_public_session_byte_golden(const compile::CompiledScenario &scenario) 
     // public EngineSession fixture. They replace the temporary runtime dependency
     // on the fused presentation-session oracle used during the exact split proof.
     constexpr std::array<std::string_view, 8> kExpectedSha256{
-        "9606a33d54a4c8717501e48cd6769f4cdb0f453eaceb2d20a66b3670517003ab",
-        "1b639cceaa00c616927310f521877a8a3a1bc72357bacbd57cf80800e3f0e206",
-        "1b639cceaa00c616927310f521877a8a3a1bc72357bacbd57cf80800e3f0e206",
-        "d3b2c6f61b00a93deb065b678f97f9c8dc1179365b1d1ab0843c6556ee90688d",
-        "9b82a6fc63030961b0acf163b220878ae5c3990a9df1c9eab21082928369ede2",
-        "9b82a6fc63030961b0acf163b220878ae5c3990a9df1c9eab21082928369ede2",
-        "221d1ee51622c8e867a39cbf2129112e0b1aa755fa65de8cbb5b8d1e53f221c7",
-        "16ab1e29dbc7e5b74da484b789ec5e72deb516f4f6e47d5a4bdafb4a1e61af53",
+        "7d88354324ff7007b6e96c5ac9454de38137630071cc74fec1390a10cf71b87f",
+        "61e6e6b0964ba46f72d4fb7c38743d576d30b3e5e5c4d45c02924022b6cb886d",
+        "61e6e6b0964ba46f72d4fb7c38743d576d30b3e5e5c4d45c02924022b6cb886d",
+        "4f14dbca7b40b711d242dfd912477a9a1c5faceb6c3899f5c9658d2ddabe7d04",
+        "fa64e5a6726cd25c6ebdb3efa3c4d51d88107d6797e3728e79f90d2a4c16d96e",
+        "fa64e5a6726cd25c6ebdb3efa3c4d51d88107d6797e3728e79f90d2a4c16d96e",
+        "2301774135dc3dbcac78b829fc559896a4980249b5a055565870cba5c2d305bb",
+        "284b82650225cd308703a1cc4d3ea677800fc7898b4bbeaa262d9e8e99909211",
     };
     std::vector<std::string> actual_sha256;
     actual_sha256.reserve(published.records.size());
@@ -532,6 +532,25 @@ void test_prebinding_and_transaction_failures(
             "native publisher accepted a mismatched session descriptor");
         expect(sink.begin_calls == 0U && sink.abort_calls == 0U,
                "invalid bus binding reached the sink transaction");
+    }
+
+    {
+        auto session = require_session(scenario);
+        auto descriptor = session.descriptor();
+        descriptor.physics_rate = {10000U, 1U};
+        descriptor.physics_frames_per_block = 200U;
+        CapturingSink sink;
+        expect_throw<std::invalid_argument>(
+            [&] {
+                NativePresentationPublisher publisher{
+                    sink,
+                    descriptor,
+                    make_plan(session.descriptor()),
+                };
+            },
+            "native publisher accepted the retired 10 kHz session quantum");
+        expect(sink.begin_calls == 0U && sink.abort_calls == 0U,
+               "retired session rate reached the sink transaction");
     }
 
     {

@@ -4,7 +4,7 @@
     "identity": {
       "id": "kohler-ch750-cleanroom",
       "display_name": "Kohler CH750 747 cc Governed V-Twin (Clean Room)",
-      "description": "Declarative clean-room port of pristine engine-sim assets/engines/atg-video-1/02_kohler_ch750.mr. It preserves the 90-degree shared-pin V-twin mechanism, default small-engine head and fuel, 160-degree 0.200-inch harmonic cam, 0/270-degree firing phases, 18-50 degree timing curve, 50 lb*ft at 500 rpm starter, and source governor parameters. The source's 30 kHz simulation request is intentionally executed by the current admitted 10 kHz preview runtime. Head exhaust-runner cross-section area, Chen-Flynn loss coefficients, accessory descriptor, and audition monitoring gain are explicit executor policy because the source does not declare those measurements."
+      "description": "Declarative clean-room port of pristine engine-sim assets/engines/atg-video-1/02_kohler_ch750.mr. It preserves the 90-degree shared-pin V-twin mechanism, default small-engine head and fuel, 160-degree 0.200-inch harmonic cam, 0/270-degree firing phases, 18-50 degree timing curve, 50 lb*ft at 500 rpm starter, and source governor parameters. The source's 30 kHz simulation request is intentionally evaluated on the canonical 20 kHz production/cooker clock. Head exhaust-runner cross-section area, Chen-Flynn loss coefficients, accessory descriptor, and audition monitoring gain are explicit executor policy because the source does not declare those measurements."
     },
     "cycle": "four_stroke",
     "layout": "v_engine",

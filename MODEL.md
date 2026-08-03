@@ -190,6 +190,15 @@ boundaries do. Half-open intervals are used throughout.
 - Simultaneous events use a documented stable priority and stable identity.
 - Warm-up and pre-roll are causal state history. Audible cropping never resets a
   delay, random stream, filter, integrator, or controller.
+
+The current post-parity production/cooker contract uses 20,000 Hz physics and capture
+with 192,000 Hz source processing, acoustics, and delivery. One 20 ms method quantum
+therefore contains 400 physics/capture frames and 3,840 delivery frames. The accepted
+decision and evidence are in
+[`docs/POST_PARITY_FIDELITY_RATE_GATE.md`](docs/POST_PARITY_FIDELITY_RATE_GATE.md).
+The 10 kHz statements below describe the frozen M3 parity model and its historical
+evidence; they do not define another production mode.
+
 - M3 publishes its reference-parity capture at exactly 10,000 Hz, post-step. Record
   `k`, beginning at zero, represents state after advancing from `k/10000 s` to
   `(k+1)/10000 s` and is timestamped `(k+1)/10000 s`. That convention matches the
@@ -353,8 +362,11 @@ M2 bypasses physics and reads only the two
 `legacy_reference.exhaust_bus_pre_dsp` fixture lanes through a test-only adapter. The
 complete normative renderer is
 [`P18_PRESENTATION_RENDERER.md`](reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md).
-The implemented fixture-free source-stage boundary and ownership rules are recorded
-in [`M2_P18_SOURCE_STAGE.md`](docs/model/M2_P18_SOURCE_STAGE.md).
+The frozen 10 kHz fixture-free source-stage boundary and ownership rules are recorded
+in [`M2_P18_SOURCE_STAGE.md`](docs/model/M2_P18_SOURCE_STAGE.md). The current production
+clock and method quantum are recorded in
+[`POST_PARITY_FIDELITY_RATE_GATE.md`](docs/POST_PARITY_FIDELITY_RATE_GATE.md) and the
+implemented presentation method descriptors.
 The strict configured-IR decode and exact static conversion boundary are recorded in
 [`M2_P18_IR_CONVERSION.md`](docs/model/M2_P18_IR_CONVERSION.md).
 The isolated fixed-topology transform, immutable configured-IR spectrum, and causal

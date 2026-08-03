@@ -19,10 +19,13 @@ Headless executable parity for the explicitly admitted pristine engine-sim capab
 scope is accepted. [Slice 16](docs/SLICE_16_PARITY_LISTENING_GATE.md) froze seven
 zero-saturation recordings spanning a
 fixed-cam inline-six, fixed-cam V8, VTEC transition, governed load step, one-level
-master-rod engine, sustained vehicle pull, and launch/shift procedure. The next work is
-the separately gated post-parity fidelity queue; it has not started.
+master-rod engine, sustained vehicle pull, and launch/shift procedure. The first
+post-parity fidelity gate is also accepted: production and cooker scenarios now use
+one canonical 20 kHz physics/capture path, while source processing, acoustics, and
+delivery remain at 192 kHz. The per-cylinder source-lane refactor is next.
 This scoped claim does not include `.mr` or native-GUI parity, arbitrary unproven
-mechanisms, fuel-volume-display parity, or a post-parity fidelity enhancement.
+mechanisms, fuel-volume-display parity, or fidelity enhancements beyond the accepted
+rate gate.
 Strict engine/scenario JSON compilation is the only production input path. A compiled
 scenario can create an independent mutable `EngineSession`, whose bounded
 `process_block()` method
@@ -174,6 +177,13 @@ engine.json + scenario.json + assets
                               |
                        AudioWorklet + UI
 ```
+
+Its exact method quantum is 400 physics/capture frames at 20 kHz to 3,840 delivery
+frames at 192 kHz: 20 ms per `process_block()` call. The accepted control/candidate
+evidence is recorded in
+[the post-parity fidelity rate gate](docs/POST_PARITY_FIDELITY_RATE_GATE.md). Historical
+10 kHz parity recordings remain evidence only; there is no second production-rate or
+compatibility path.
 
 The BMW now remains only as JSON data, an automated byte-identity migration fixture,
 and historical evidence. The generic compiler intentionally establishes new request

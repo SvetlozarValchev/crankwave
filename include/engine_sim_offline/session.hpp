@@ -19,9 +19,9 @@ namespace session_detail {
 class EngineSessionFactory;
 } // namespace session_detail
 
-inline constexpr std::uint32_t kEngineSessionPhysicsFramesPerBlock = 200U;
+inline constexpr std::uint32_t kEngineSessionPhysicsFramesPerBlock = 400U;
 inline constexpr std::uint32_t kEngineSessionDeliveryFramesPerBlock = 3840U;
-inline constexpr contract::RationalRateHz kEngineSessionPhysicsRateHz{10000U, 1U};
+inline constexpr contract::RationalRateHz kEngineSessionPhysicsRateHz{20000U, 1U};
 inline constexpr contract::RationalRateHz kEngineSessionDeliveryRateHz{192000U, 1U};
 
 enum class EngineAudioBusKind : std::uint8_t {

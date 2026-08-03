@@ -165,49 +165,6 @@ void test_exact_block_extent_and_component_wiring() {
            "source stage changed per-route random consumption");
 }
 
-void test_twenty_khz_block_produces_one_source_quantum() {
-    std::vector<double> input(kHigherRateExcitationFramesPerMethodBlock *
-                              kBmwRouteCount);
-    fill_block(input, kHigherRateExcitationFramesPerMethodBlock, kBmwRouteCount, 0);
-    std::vector<double> output(kSourceFramesPerMethodBlock * kBmwRouteCount);
-
-    ExhaustSourceStage stage{kCanonicalRouteIds, kFrozenSeeds, kCanonicalConditioning,
-                             kHigherExcitationRateHz,
-                             kHigherRateExcitationFramesPerMethodBlock};
-    const auto extent = stage.process(
-        make_view(0, input, kCanonicalRouteIds,
-                  kHigherRateExcitationFramesPerMethodBlock, kHigherExcitationRateHz),
-        output);
-
-    expect(stage.input_rate() == kHigherExcitationRateHz &&
-               stage.input_frames_per_block() ==
-                   kHigherRateExcitationFramesPerMethodBlock &&
-               extent == SourceBlockExtent{0U, 0U,
-                                           kHigherRateExcitationFramesPerMethodBlock,
-                                           kSourceFramesPerMethodBlock} &&
-               stage.next_input_frame_index() ==
-                   kHigherRateExcitationFramesPerMethodBlock &&
-               stage.next_source_frame_index() == kSourceFramesPerMethodBlock &&
-               !stage.terminal_failed(),
-           "20 kHz source stage did not produce one exact 20 ms source quantum");
-    for (const auto sample : output) {
-        expect(std::isfinite(sample),
-               "20 kHz source stage produced a non-finite output sample");
-    }
-
-    expect_throw<std::invalid_argument>(
-        [] {
-            ExhaustSourceStage invalid{
-                kCanonicalRouteIds,
-                kFrozenSeeds,
-                kCanonicalConditioning,
-                kHigherExcitationRateHz,
-                kExcitationFramesPerMethodBlock,
-            };
-        },
-        "source stage accepted a frame count that did not span 20 ms");
-}
-
 void test_explicit_route_ids_preserve_positional_seed_binding() {
     constexpr std::array custom_route_ids{
         contract::RouteId{41},
@@ -279,12 +236,25 @@ void test_block_continuity_and_session_isolation() {
                                        kExcitationFramesPerMethodBlock, continuous_1);
     expect_same_output(first_1, continuous_1,
                        "source stage reset component state at a method-block boundary");
-    expect(first.next_input_frame_index() == 400 &&
+    expect(first.next_input_frame_index() ==
+                   2U * kExcitationFramesPerMethodBlock &&
                first.next_source_frame_index() == 7680,
            "source-stage continuity counters changed after two blocks");
 }
 
 void test_structural_rejections_do_not_mutate_state() {
+    expect_throw<std::invalid_argument>(
+        [] {
+            ExhaustSourceStage retired_rate{
+                kCanonicalRouteIds,
+                kFrozenSeeds,
+                kCanonicalConditioning,
+                contract::RationalRateHz{10000, 1},
+                kExcitationFramesPerMethodBlock / 2U,
+            };
+        },
+        "source stage accepted the retired 10 kHz method quantum");
+
     std::vector<double> valid(kExcitationFramesPerMethodBlock * kBmwRouteCount);
     fill_block(valid, kExcitationFramesPerMethodBlock, kBmwRouteCount, 0);
     std::vector<double> output(kSourceFramesPerMethodBlock * kBmwRouteCount);
@@ -309,10 +279,10 @@ void test_structural_rejections_do_not_mutate_state() {
         [&] {
             static_cast<void>(candidate.process(
                 make_view(0, valid, kCanonicalRouteIds, kExcitationFramesPerMethodBlock,
-                          contract::RationalRateHz{9999, 1}),
+                          contract::RationalRateHz{10000, 1}),
                 output));
         },
-        "source stage accepted the wrong input rate");
+        "source stage accepted a retired 10 kHz input view");
     expect_throw<std::invalid_argument>(
         [&] {
             static_cast<void>(
@@ -507,7 +477,6 @@ void test_one_and_three_route_sessions_preserve_bmw_route_arithmetic() {
 
 void run_tests() {
     test_exact_block_extent_and_component_wiring();
-    test_twenty_khz_block_produces_one_source_quantum();
     test_explicit_route_ids_preserve_positional_seed_binding();
     test_block_continuity_and_session_isolation();
     test_structural_rejections_do_not_mutate_state();

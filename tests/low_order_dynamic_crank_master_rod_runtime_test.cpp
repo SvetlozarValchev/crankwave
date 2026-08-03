@@ -196,8 +196,8 @@ void test_cold_radial_dynamic_crank_executes_across_body_angle_wrap(
         "data/engines/radial-5-cleanroom/scenarios/prescribed-1500rpm.json");
     const auto frame_count = resolve_frame_index(
         fixture.scenario.total_duration_s.value, fixture.scenario.rates.physics);
-    expect(frame_count.has_value() && *frame_count == 800U,
-           "radial fixture lost its canonical 800-frame horizon");
+    expect(frame_count.has_value() && *frame_count == 1600U,
+           "radial fixture lost its canonical 1600-frame horizon");
     const auto extent = LowOrderExecutionExtent::finite_scenario(*frame_count);
     auto capture_compilation =
         compile_low_order_capture_plan(fixture.engine, fixture.scenario, extent);
@@ -461,8 +461,8 @@ void test_warm_radial_dynamic_crank_finalizes_accounting_and_releases(
     constexpr double attached_inertia_kg_m2 = 0.11;
     constexpr double preparation_horizon_s = 0.17;
     constexpr double total_duration_s = 0.18;
-    constexpr std::uint64_t release_frame_index = 1700U;
-    constexpr std::uint64_t total_frame_count = 1800U;
+    constexpr std::uint64_t release_frame_index = 3400U;
+    constexpr std::uint64_t total_frame_count = 3600U;
 
     const auto fixture = engine_sim_offline::test::load_authored_engine_fixture(
         repository_root, "data/engines/radial-5-cleanroom/engine.json",
@@ -522,7 +522,7 @@ void test_warm_radial_dynamic_crank_finalizes_accounting_and_releases(
                                scenario.rates.physics) == total_frame_count &&
                resolve_frame_index(preparation_horizon_s, scenario.rates.physics) ==
                    release_frame_index,
-           "warm radial horizons no longer resolve to their exact 10 kHz frames");
+           "warm radial horizons no longer resolve to their exact 20 kHz frames");
     const auto extent = LowOrderExecutionExtent::finite_scenario(total_frame_count);
     auto capture_compilation =
         compile_low_order_capture_plan(fixture.engine, scenario, extent);

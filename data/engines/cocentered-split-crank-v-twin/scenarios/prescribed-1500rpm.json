@@ -50,8 +50,8 @@
   },
   "events": [],
   "rates": {
-    "physics": {"numerator": "10000", "denominator": "1", "unit": "Hz"},
-    "capture": {"numerator": "10000", "denominator": "1", "unit": "Hz"},
+    "physics": {"numerator": "20000", "denominator": "1", "unit": "Hz"},
+    "capture": {"numerator": "20000", "denominator": "1", "unit": "Hz"},
     "source_processing": {"numerator": "192000", "denominator": "1", "unit": "Hz"},
     "acoustics": {"numerator": "192000", "denominator": "1", "unit": "Hz"},
     "delivery": {"numerator": "192000", "denominator": "1", "unit": "Hz"}

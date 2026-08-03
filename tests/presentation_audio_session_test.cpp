@@ -308,30 +308,6 @@ void test_process_is_allocation_free() {
            "allocation-free presentation process did not complete");
 }
 
-void test_twenty_khz_plan_reaches_the_audio_session() {
-    auto plan = make_plan();
-    plan.excitation_rate = kHigherExcitationRateHz;
-    plan.excitation_frames_per_block = kHigherRateExcitationFramesPerMethodBlock;
-    PresentationAudioSession session{std::move(plan)};
-    Excitation excitation{kHigherExcitationRateHz,
-                          kHigherRateExcitationFramesPerMethodBlock};
-    fill_excitation(excitation, 0);
-
-    const auto block = session.process(make_view(excitation, 0));
-    expect(block.input_frame_count() == kHigherRateExcitationFramesPerMethodBlock &&
-               block.frame_count() == kSourceFramesPerMethodBlock &&
-               block.sample_rate() == kPresentationAudioRateHz &&
-               session.next_input_frame_index() ==
-                   kHigherRateExcitationFramesPerMethodBlock &&
-               session.next_source_frame_index() == kSourceFramesPerMethodBlock &&
-               !session.terminal_failed(),
-           "20 kHz presentation plan did not produce one 192 kHz audio block");
-    for (const auto sample : block.raw_master()) {
-        expect(std::isfinite(sample),
-               "20 kHz presentation session produced non-finite master audio");
-    }
-}
-
 void test_validation_and_structural_rejection() {
     auto empty = make_plan();
     empty.routes.clear();
@@ -346,11 +322,19 @@ void test_validation_and_structural_rejection() {
         [&] { PresentationAudioSession rejected{std::move(duplicate_audition)}; },
         "presentation audio accepted duplicate audition routes");
 
-    auto wrong_higher_rate_extent = make_plan();
-    wrong_higher_rate_extent.excitation_rate = kHigherExcitationRateHz;
+    auto wrong_canonical_extent = make_plan();
+    wrong_canonical_extent.excitation_frames_per_block =
+        kExcitationFramesPerMethodBlock / 2U;
     expect_throw<std::invalid_argument>(
-        [&] { PresentationAudioSession rejected{std::move(wrong_higher_rate_extent)}; },
-        "presentation audio accepted a 10 kHz block size at 20 kHz");
+        [&] { PresentationAudioSession rejected{std::move(wrong_canonical_extent)}; },
+        "presentation audio accepted a partial canonical input block");
+
+    auto retired_rate = make_plan();
+    retired_rate.excitation_rate = {10000U, 1U};
+    retired_rate.excitation_frames_per_block = 200U;
+    expect_throw<std::invalid_argument>(
+        [&] { PresentationAudioSession rejected{std::move(retired_rate)}; },
+        "presentation audio accepted the retired 10 kHz method quantum");
 
     PresentationAudioSession session{make_plan()};
     Excitation excitation;
@@ -382,7 +366,6 @@ int main() {
     try {
         test_exact_dynamic_route_pipeline();
         test_process_is_allocation_free();
-        test_twenty_khz_plan_reaches_the_audio_session();
         test_validation_and_structural_rejection();
     } catch (const std::exception &error) {
         std::cerr << "presentation audio session test failed: " << error.what() << '\n';

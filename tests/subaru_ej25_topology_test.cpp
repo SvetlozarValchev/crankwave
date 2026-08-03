@@ -163,7 +163,7 @@ void verify_resolved_topology(const test::AuthoredEngineFixture &fixture) {
 void verify_dynamic_capture(const test::AuthoredEngineFixture &fixture) {
     const auto horizon = contract::resolve_frame_index(
         fixture.scenario.total_duration_s.value, fixture.scenario.rates.physics);
-    expect(horizon.has_value() && *horizon == 5400U,
+    expect(horizon.has_value() && *horizon == 10800U,
            "EJ25 topology scenario did not retain its exact finite horizon");
 
     auto result = simulation::compile_low_order_capture_session(

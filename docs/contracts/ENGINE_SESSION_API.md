@@ -325,7 +325,7 @@ EngineSessionProcessResult EngineSession::process_block();
 
 One successful `process_block()` call:
 
-- advances exactly 200 physics frames at 10,000 Hz and 3,840 delivery frames at
+- advances exactly 400 physics frames at 20,000 Hz and 3,840 delivery frames at
   192,000 Hz: one 20 ms method quantum;
 - returns borrowed planar `float32` spans for every advertised bus;
 - advances all internal clocks by integer/rational schedule state;
@@ -339,10 +339,13 @@ One successful `process_block()` call:
 - does not select a different model because a deadline is near.
 
 The 3,840-frame size is currently part of the executable method, not a caller transport
-choice. It matches the existing FFT/resampling arithmetic and is required to preserve
-the accepted BMW byte output. The descriptor publishes both exact block sizes. A
+choice. It matches the existing FFT/resampling arithmetic and the accepted single-path
+20 kHz rate gate. The descriptor publishes both exact block sizes. A
 scenario with `process_block_capacity_frames < 3840` is rejected; a larger capacity
 does not authorize a different call size.
+The decision, control, candidate, and repeat evidence are recorded in
+[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md); 10 kHz
+remains historical parity evidence rather than another session mode.
 
 For `finite_scenario`, `process_block()` returns blocks until the exact authored
 horizon is exhausted, then returns a stable `EngineSessionCompleted`. For
@@ -587,8 +590,8 @@ After session creation, `EngineSession::descriptor()` returns:
 
 - engine and scenario IDs;
 - caller control-command and returned-telemetry capacities;
-- the exact 10 kHz physics and 192 kHz delivery rates;
-- the exact 200/3,840 frames per block;
+- the exact 20 kHz physics/capture and 192 kHz delivery rates;
+- the exact 400/3,840 frames per block;
 - the explicit execution kind;
 - preparation block count;
 - the exact authored total block count for `finite_scenario`, or canonical
@@ -648,7 +651,7 @@ Deterministic execution requires:
 - integer-frame controls with stable sequence numbers;
 - versioned clock projection and interpolation methods;
 - no wall-clock or audio-device input;
-- the exact 200/3,840-frame executable method quantum;
+- the exact 400/3,840-frame executable method quantum;
 - a recorded build, target, numeric runtime, and method identity.
 
 The same build, target, numeric runtime, compiled scenario, configuration, and command

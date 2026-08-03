@@ -589,7 +589,7 @@ void run(const std::filesystem::path &repository_root) {
         ESO_LIVE_CONTROL_CAPABILITY_FUEL_ENABLED;
     expect(eso_session_get_descriptor(context, session_a, &descriptor) ==
                    ESO_STATUS_OK &&
-               descriptor.physics_frames_per_block == 200U &&
+               descriptor.physics_frames_per_block == 400U &&
                descriptor.delivery_frames_per_block == 3840U &&
                descriptor.audio_bus_count == 8U &&
                descriptor.live_control_capabilities == kInertialDynoLiveControls &&

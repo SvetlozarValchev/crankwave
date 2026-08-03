@@ -1,10 +1,16 @@
-# Exact P1.8 source-stage contract
+# Exact P1.8 source-stage contract (frozen 10 kHz authority)
 
-Status: normative architecture and verification boundary for the M2 source-stage
-checkpoint
+Status: historical normative authority for the M2 source-stage checkpoint; superseded
+as the production clock contract by the accepted 20 kHz rate gate
 
 Applies to: the typed two-route excitation seam, causal 10 kHz-to-192 kHz
 reconstruction, and the exact P1.8 jitter and conditioning state machines
+
+The equations, ordering, and 10 kHz fixture values below remain authoritative for the
+frozen P1.8 oracle only. Current production and cooker sessions admit one 20 kHz,
+400-to-3,840-frame method quantum, recorded in
+[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md). This
+document does not define a second production mode.
 
 This checkpoint turns two synchronous 10 kHz exhaust-excitation routes into two
 conditioned binary64 streams at 192 kHz. It deliberately stops before crop, impulse

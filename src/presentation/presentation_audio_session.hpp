@@ -96,7 +96,7 @@ class PresentationAudioBlockView final {
 // Stateful, processing-only presentation renderer. Construction owns and
 // preallocates every route processor and scratch block. A successful process()
 // performs no dynamic allocation and consumes exactly one configured 20 ms
-// excitation block (200 frames at 10 kHz or 400 at 20 kHz), returning a borrowed
+// excitation block (400 frames at 20 kHz), returning a borrowed
 // 3,840-frame Float32 result.
 //
 // Structural input rejection occurs before DSP mutation. A failure after the

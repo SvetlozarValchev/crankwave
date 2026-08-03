@@ -206,12 +206,14 @@ void test_identity_and_seed_shape(const P18ReferenceCatalogV1 &catalog) {
 
 void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
     const auto &capture = catalog.expected_capture;
+    constexpr contract::RationalRateHz kHistoricalP18ExcitationRate{10000, 1};
+    constexpr std::uint64_t kHistoricalP18PhysicsFramesPerBlock = 200U;
     const contract::RationalRateHz source_rate{
-        presentation::CausalReconstruction::kSourceRate, 1};
+        presentation::CausalReconstruction::kSourceRateHz, 1};
     expect(contract::validate(capture.expected_rates).ok(),
            "catalog render rates are invalid");
-    expect(capture.expected_rates.physics == presentation::kExcitationRateHz &&
-               capture.expected_rates.capture == presentation::kExcitationRateHz &&
+    expect(capture.expected_rates.physics == kHistoricalP18ExcitationRate &&
+               capture.expected_rates.capture == kHistoricalP18ExcitationRate &&
                capture.expected_rates.source_processing == source_rate &&
                capture.expected_rates.acoustic == source_rate &&
                capture.expected_rates.delivery == source_rate,
@@ -222,7 +224,7 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
                capture.expected_consumed_end_record_exclusive ==
                    kP18ReferenceAuditIntervalEndExclusive &&
                capture.expected_physics_frames_per_block ==
-                   presentation::kExcitationFramesPerMethodBlock &&
+                   kHistoricalP18PhysicsFramesPerBlock &&
                capture.expected_source_frames_per_block ==
                    presentation::kSourceFramesPerMethodBlock &&
                capture.expected_public_seed != 0,
@@ -348,7 +350,7 @@ void test_subsystem_constant_alignment(const P18ReferenceCatalogV1 &catalog) {
                    std::bit_cast<std::uint64_t>(
                        static_cast<double>(kFixtureFadeFrameCount) /
                        static_cast<double>(
-                           presentation::CausalReconstruction::kSourceRate)) &&
+                           presentation::CausalReconstruction::kSourceRateHz)) &&
                scalars.expected_audition_fade_out_duration_s.expected_ieee754_bits ==
                    scalars.expected_audition_fade_in_duration_s.expected_ieee754_bits,
            "presentation scalar catalog differs from publication or mastering");

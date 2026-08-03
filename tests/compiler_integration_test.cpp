@@ -1134,7 +1134,7 @@ void reorder_harmless_collections(authoring::EnginePackageDocument &package) {
         },
     };
     scenario.rates = {
-        {10000U, 1U, "Hz"},  {10000U, 1U, "Hz"},  {192000U, 1U, "Hz"},
+        {20000U, 1U, "Hz"},  {20000U, 1U, "Hz"},  {192000U, 1U, "Hz"},
         {192000U, 1U, "Hz"}, {192000U, 1U, "Hz"},
     };
     scenario.quality = {

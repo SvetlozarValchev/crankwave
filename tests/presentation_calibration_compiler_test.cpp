@@ -174,9 +174,9 @@ make_scenario(const contract::EngineSpec &engine) {
     scenario.audible_start_s.value = 2.0;
     scenario.audible_duration_s.value = 15.0;
     scenario.rates = {
-        {10000, 1}, {10000, 1}, {192000, 1}, {192000, 1}, {192000, 1},
+        {20000, 1}, {20000, 1}, {192000, 1}, {192000, 1}, {192000, 1},
     };
-    scenario.quality.value.capture_block_capacity_frames = 256;
+    scenario.quality.value.capture_block_capacity_frames = 400;
     return scenario;
 }
 
@@ -299,8 +299,9 @@ void test_valid_projection_and_engine_route_order() {
                admitted.conditioning() ==
                    presentation::RouteConditioningCalibration{0.5, 10000.0, 0.01, 1.0,
                                                               2000.0} &&
-               admitted.capture_rate() == contract::RationalRateHz{10000, 1} &&
-               admitted.capture_frames_per_block() == 200 &&
+               admitted.capture_rate() == contract::RationalRateHz{20000, 1} &&
+               admitted.capture_frames_per_block() == 400 &&
+               admitted.source_frames_per_block == 3840 &&
                admitted.total_block_count() == 850 &&
                admitted.pre_audible_block_count() == 100,
            "admitted method, conditioning, or block projection changed");
@@ -324,23 +325,6 @@ void test_valid_projection_and_engine_route_order() {
                admitted.mastering().fade_out_frame_count() == 3840 &&
                admitted.mastering().monitoring_gain_linear() == 0.75F,
            "admitted publication or mastering projection changed");
-}
-
-void test_higher_capture_clock_preserves_the_20ms_timeline() {
-    Inputs inputs;
-    inputs.scenario.rates.physics = {20000, 1};
-    inputs.scenario.rates.capture = {20000, 1};
-    inputs.scenario.quality.value.capture_block_capacity_frames = 400;
-    const auto result = presentation::compile_presentation_calibration(
-        inputs.calibration, inputs.engine, inputs.scenario, inputs.builder.provenance);
-    const auto &admitted = expect_admitted(result);
-    expect(admitted.capture_rate() == contract::RationalRateHz{20000, 1} &&
-               admitted.capture_frames_per_block() == 400 &&
-               admitted.source_frames_per_block == 3840 &&
-               admitted.total_block_count() == 850 &&
-               admitted.pre_audible_block_count() == 100 &&
-               admitted.mastering().audible_frame_count() == 2880000,
-           "20 kHz capture did not preserve the exact 20 ms presentation timeline");
 }
 
 void test_dynamic_route_projection() {
@@ -453,8 +437,11 @@ void test_calibration_leaf_boundaries() {
 
 void test_clock_and_topology_boundaries() {
     expect_mutation_rejected(
-        [](Inputs &inputs) { inputs.scenario.rates.physics = {20000, 1}; },
+        [](Inputs &inputs) { inputs.scenario.rates.physics = {10000, 1}; },
         "scenario.rates.physics");
+    expect_mutation_rejected(
+        [](Inputs &inputs) { inputs.scenario.rates.capture = {10000, 1}; },
+        "scenario.rates.capture");
     expect_mutation_rejected(
         [](Inputs &inputs) { inputs.scenario.rates.capture = {40000, 1}; },
         "scenario.rates.capture");
@@ -484,7 +471,7 @@ void test_clock_and_topology_boundaries() {
         "scenario.audible_duration_s.value");
     expect_mutation_rejected(
         [](Inputs &inputs) {
-            inputs.scenario.quality.value.capture_block_capacity_frames = 199;
+            inputs.scenario.quality.value.capture_block_capacity_frames = 399;
         },
         "scenario.quality.value.capture_block_capacity_frames");
     expect_mutation_rejected([](Inputs &inputs) { inputs.engine.routes.pop_back(); },
@@ -559,7 +546,6 @@ void test_schema_version_is_exact() {
 
 void run_tests() {
     test_valid_projection_and_engine_route_order();
-    test_higher_capture_clock_preserves_the_20ms_timeline();
     test_dynamic_route_projection();
     test_every_method_is_exact();
     test_calibration_leaf_boundaries();

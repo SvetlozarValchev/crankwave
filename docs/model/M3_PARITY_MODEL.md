@@ -1384,10 +1384,11 @@ scenario-specific cached delay count is a second authority. Solver, gas, capture
 excitation can therefore be exercised headlessly at another scenario rate without
 changing this frozen 10 kHz oracle.
 
-The accepted production presentation remains the explicit causal 10 kHz-to-192 kHz
-method. Publishing a higher-rate source through native/WASM/browser audio is deferred
-to the post-parity fidelity gate, where the unchanged 10 kHz render and the higher-rate
-candidate must be auditioned before that method can become production-listenable.
+This section records the frozen 10 kHz parity method, not the current production
+clock. The post-parity rate gate subsequently accepted one canonical 20 kHz-to-192 kHz
+native/WASM/browser path; its control, candidate, repeat, and listening decision are in
+[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md). The
+10 kHz method remains historical oracle evidence only.
 
 The capture is an output of simulated state. Neither the core nor excitation stage
 links the fixture audit reader. Comparator tooling may read candidate capture and

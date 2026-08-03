@@ -1,10 +1,17 @@
 # M4 operating-point model
 
-Status: normative implementation companion; fixed-horizon sampling cutover implemented
+Status: frozen historical implementation companion; superseded as current rate and
+session-quantum authority
 
 Applies to: M4 held-speed and inertial-dyno BMW M52B28 operation
 
 Date: 2026-07-28
+
+The 10 kHz/200-frame values below freeze the accepted M4 checkpoint and its artifact
+identities. Current production and cooker sessions use the accepted single 20 kHz,
+400-frame clock described in
+[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md). The
+historical equations and evidence are not rewritten into a compatibility mode.
 
 ## 1. Purpose and claim boundary
 

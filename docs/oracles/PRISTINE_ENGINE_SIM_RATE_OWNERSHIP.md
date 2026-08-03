@@ -30,7 +30,9 @@ rate ownership:
 The clean-room contract therefore treats solver, capture, and excitation cadence as
 scenario-owned and derives physical propagation delay from the admitted capture clock.
 It does not preserve the stale 10 kHz FIFO assumption as a second engine-definition
-authority. Existing 10 kHz requests must remain binary-identical.
+authority. Within this parity checkpoint, existing 10 kHz requests were required to
+remain binary-identical. The later accepted rate gate retained those requests as
+historical evidence rather than as another production mode.
 
 ## Exact pristine clock graph
 
@@ -162,12 +164,13 @@ At the pinned commit the per-route reconstruction low-pass is 1.9 kHz, not 8 kHz
 (`src/synthesizer.cpp:58-79`). The fixed 8 kHz filter belongs to the later downstream
 fork commit `bf3d59e09c00723eb2de2b6c4b7407723e5d2161`; it is not pristine behavior.
 
-The clean-room renderer also does not use pristine's linear 44.1 kHz output path. Its
-accepted presentation method is a causal 257-tap, 4096-phase windowed-sinc
-reconstruction from 10 kHz to 192 kHz, followed by 192 kHz route conditioning,
-convolution, and publication. Static 44.1 kHz PCM16 is an input-IR constraint, not the
-engine-output format. None of those presentation facts makes 10 kHz an engine-owned
-solver constant.
+The clean-room renderer also does not use pristine's linear 44.1 kHz output path. At
+this parity checkpoint its accepted presentation method was a causal 257-tap,
+4096-phase windowed-sinc reconstruction from 10 kHz to 192 kHz, followed by 192 kHz
+route conditioning, convolution, and publication. The later fidelity gate retained
+that reconstruction and admitted a 20 kHz input clock. Static 44.1 kHz PCM16 is an
+input-IR constraint, not the engine-output format. None of those presentation facts
+makes 10 kHz an engine-owned solver constant.
 
 ## Greenfield ownership and current execution boundary
 
@@ -187,12 +190,12 @@ ownership is:
 propagation speed, and deterministic accumulation order. It must not retain a duplicate
 engine-level `delay_rate` or scenario-specific cached `resolved_delay_samples`.
 
-This parity slice generalizes headless solver, capture, excitation, and delay ownership.
-It does **not** publish a new higher-rate production-audio method. The production source
-stage remains the accepted explicit 10 kHz-to-192 kHz method until the post-parity
-fidelity gate renders and auditions a higher physical/capture rate. That later audition
-is expected to change PCM because both solver resolution and correctly timed propagation
-can change the source signal.
+This parity slice generalized headless solver, capture, excitation, and delay ownership
+without itself publishing a new production-audio method. The later post-parity gate did
+render, repeat, and audition the higher physical/capture rate and accepted one canonical
+20 kHz-to-192 kHz production/cooker path. See
+[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md). That
+subsequent decision does not alter the frozen 10 kHz evidence below.
 
 ## Exact 10 kHz preservation requirements
 
@@ -212,9 +215,9 @@ For every existing 10 kHz fixture, the refactor must preserve:
 9. exact accepted decoded PCM and completed WAV bytes for unchanged procedures.
 
 Request identity and manifest schema may change when redundant resolved fields are
-removed; such metadata churn must not be mistaken for an audio change. A public
-non-10-kHz recording remains deliberately outside this parity checkpoint and requires
-the later control/candidate listening gate.
+removed; such metadata churn must not be mistaken for an audio change. The public
+20 kHz recording remained deliberately outside this parity checkpoint and was admitted
+only by the later control/candidate listening gate.
 
 ## Clean-room completion evidence
 

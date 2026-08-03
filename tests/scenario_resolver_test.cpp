@@ -166,7 +166,7 @@ void test_master_rod_free_engine_method_identity_is_bound_to_articulated_semanti
     scenario.mode =
         authoring::HeldSpeedMode{quantity(3000.0, "rpm"), std::move(throttle)};
     scenario.rates = {
-        rate(10000U), rate(10000U), rate(192000U), rate(192000U), rate(192000U),
+        rate(20000U), rate(20000U), rate(192000U), rate(192000U), rate(192000U),
     };
     scenario.quality = {"resolver-production", 4096U, 7U, 13U};
     scenario.total_duration = quantity(3.0, "s");
@@ -291,7 +291,7 @@ void test_held_speed_resolution_on_the_integer_clock() {
     const auto &held = std::get<contract::HeldSpeed>(resolved.scenario.mode);
     expect(held.engine_speed_rpm.value == 3000.0 && held.throttle_01.value == 0.85,
            "held-speed controls changed during resolution");
-    expect(resolved.request_input.total_physics_frames == 30000U &&
+    expect(resolved.request_input.total_physics_frames == 60000U &&
                resolved.request_input.audible_delivery_frames == 192000U,
            "deterministic request frame material changed");
     expect(resolved.request_input.session_capacities ==
@@ -303,28 +303,11 @@ void test_held_speed_resolution_on_the_integer_clock() {
            "authored session capacities were not retained as delivery/control/"
            "telemetry bounds");
     const auto expected_internal_event_capacity =
-        static_cast<std::uint32_t>((3U * engine.cylinders.size() + 1U) * 200U);
-    expect(resolved.scenario.quality.value.capture_block_capacity_frames == 200U &&
+        static_cast<std::uint32_t>((3U * engine.cylinders.size() + 1U) * 400U);
+    expect(resolved.scenario.quality.value.capture_block_capacity_frames == 400U &&
                resolved.scenario.quality.value.event_journal_capacity_records ==
                    expected_internal_event_capacity,
            "public session capacities leaked into private capture transport");
-
-    auto higher_rate_document = document;
-    higher_rate_document.id.value = "resolver.held-speed-20khz";
-    higher_rate_document.rates.physics = rate(20000U);
-    higher_rate_document.rates.capture = rate(20000U);
-    const auto higher_rate_result =
-        compile::resolve_scenario_document(higher_rate_document, context);
-    const auto *higher_rate =
-        std::get_if<compile::ResolvedScenarioContracts>(&higher_rate_result);
-    expect(higher_rate != nullptr &&
-               higher_rate->request_input.total_physics_frames == 60000U &&
-               higher_rate->request_input.audible_delivery_frames == 192000U &&
-               higher_rate->scenario.quality.value.capture_block_capacity_frames ==
-                   400U &&
-               higher_rate->scenario.quality.value.event_journal_capacity_records ==
-                   expected_internal_event_capacity * 2U,
-           "20 kHz scenario did not derive its exact 20 ms capture/event quantum");
     expect(resolved.source_matrix.required_source_routes.size() == 1U &&
                resolved.source_matrix.required_output_buses.size() == 2U &&
                resolved.source_matrix.required_artifacts.size() == 5U,
@@ -379,7 +362,7 @@ void test_held_speed_resolution_on_the_integer_clock() {
         std::get<contract::FixedRateRpmTrajectory>(prescribed.trajectory.rpm);
     expect(std::holds_alternative<contract::FixedSettling>(
                external_speed_contracts.scenario.preparation) &&
-               rpm_lane.post_step_rpm.size() == 30000U &&
+               rpm_lane.post_step_rpm.size() == 60000U &&
                rpm_lane.post_step_rpm.front() > 3000.0 &&
                rpm_lane.post_step_rpm.back() == 4500.0 &&
                prescribed.throttle_01.points.size() == 1U &&

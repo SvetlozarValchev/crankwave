@@ -55,8 +55,8 @@ void run(const std::filesystem::path &repository_root) {
         fixture.scenario.total_duration_s.value, fixture.scenario.rates.physics);
     const auto release = contract::resolve_frame_index(
         fixture.scenario.audible_start_s.value, fixture.scenario.rates.physics);
-    expect(horizon.has_value() && release.has_value() && *release == 30000U &&
-               *horizon == 180000U &&
+    expect(horizon.has_value() && release.has_value() && *release == 60000U &&
+               *horizon == 360000U &&
                dyno->target_engine_speed_rpm.post_step_rpm.size() == *horizon,
            "held-dyno authored frame grid was not resolved exactly");
 
@@ -98,7 +98,7 @@ void run(const std::filesystem::path &repository_root) {
                         expect(std::bit_cast<std::uint64_t>(sample.engine_speed_rpm) ==
                                    std::bit_cast<std::uint64_t>(1500.0),
                                "held-dyno preparation did not hold exact initial RPM");
-                    } else if (sample_index < 140000U) {
+                    } else if (sample_index < 280000U) {
                         const double target =
                             dyno->target_engine_speed_rpm.post_step_rpm[sample_index];
                         const double error = std::abs(sample.engine_speed_rpm - target);
@@ -109,7 +109,7 @@ void run(const std::filesystem::path &repository_root) {
                             maximum_pull_tracking_target_rpm = target;
                         }
                     }
-                    if (sample_index == 80000U) {
+                    if (sample_index == 160000U) {
                         expect(sample.torque.dyno_reaction.availability ==
                                        contract::Availability::available &&
                                    sample.torque.actuator.availability ==
@@ -120,10 +120,10 @@ void run(const std::filesystem::path &repository_root) {
                         pull_midpoint_reaction_nm =
                             sample.torque.dyno_reaction.value_nm;
                     }
-                    if (sample_index == 135000U) {
+                    if (sample_index == 270000U) {
                         hold_rpm = sample.engine_speed_rpm;
                     }
-                    if (sample_index == 140000U) {
+                    if (sample_index == 280000U) {
                         first_lift_throttle = sample.requested_throttle_01;
                     }
                     final_rpm = sample.engine_speed_rpm;

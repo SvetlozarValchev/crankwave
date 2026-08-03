@@ -62,9 +62,10 @@ The fixture does not claim byte-for-byte source serialization:
   omitted. The current core resolves those omissions to the exact rod midpoint and
   zero axial offset, respectively, and executes both physical quantities without
   changing this accepted fixture.
-- Chen--Flynn coefficients, the accessory descriptor, head exhaust-runner
-  cross-section area, and the 10 kHz physics/capture rate are executor policy, not
-  measured EJ25 source facts.
+- At this topology checkpoint, Chen--Flynn coefficients, the accessory descriptor,
+  head exhaust-runner cross-section area, and the then-current 10 kHz physics/capture
+  rate were executor policy, not measured EJ25 source facts. The active scenario now
+  uses the canonical 20 kHz rate gate.
 - The source Impreza vehicle/transmission is outside this topology-only engine fixture.
 
 ## Acceptance and exclusions

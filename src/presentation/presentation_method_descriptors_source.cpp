@@ -7,15 +7,15 @@ namespace {
 
 constexpr std::string_view kCausalReconstructionMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
-method=causal-kaiser-sinc-257tap-4096phase-10000-or-20000-to-192000-binary64-v2
-version=2
+method=causal-kaiser-sinc-257tap-4096phase-20000-to-192000-binary64-v3
+version=3
 operation=continuous-ordered-route-causal-bandlimited-reconstruction
-input=finite-binary64-frame-major-ordered-route-matrix-at-session-selected-10000/1-hz-or-20000/1-hz
+input=finite-binary64-frame-major-ordered-route-matrix-at-exact-20000/1-hz
 output=finite-binary64-frame-major-ordered-route-matrix-at-192000/1-hz
 route_count=nonzero-session-owned-size-t-fixed-for-session
-input_rate_hz=exactly-one-of-10000/1-or-20000/1-fixed-for-session
+input_rate_hz=exactly-20000/1-fixed-for-session
 input_method_block_duration=exactly-1/50-second
-input_method_block_frame_count=200-at-10000/1-hz-or-400-at-20000/1-hz
+input_method_block_frame_count=exactly-400
 input_block_frame_count=caller-partitioned-nonempty-integer-1..input-method-block-frame-count
 block_partition=not-arithmetic-or-state-affecting
 table_shape=4097-phases-by-257-taps-phase-major-binary64
@@ -56,8 +56,8 @@ phase_resolution_input=unsigned-source-interval-offset-in-range-0..191999
 phase_resolution_loop=12-bits-by-repeated-remainder-doubling-and-subtraction
 phase_resolution_branch=if-remainder-greater-than-or-equal-to-192000-minus-remainder-then-remainder-minus-equals-192000-minus-remainder-and-set-phase-low-bit-else-remainder-times-equals-2
 phase_mix=binary64(final-remainder)/binary64(192000)
-outputs_per_input=1+(192000-distance-to-next-output-1)/session-input-rate-numerator-using-u64-integer-division
-output_offset=distance-to-next-output-then-plus-session-input-rate-numerator-after-each-output
+outputs_per_input=1+(192000-distance-to-next-output-1)/20000-using-u64-integer-division
+output_offset=distance-to-next-output-then-plus-20000-after-each-output
 output_phase_rows=resolved-phase-and-resolved-phase-plus-one
 coefficient_interpolation=row0+(row1-row0)*phase-mix-in-written-order
 output_loop_order=input-ascending-then-generated-output-ascending-then-tap-ascending-then-route-ascending

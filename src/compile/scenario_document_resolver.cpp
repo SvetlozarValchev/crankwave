@@ -15,32 +15,19 @@
 namespace engine_sim_offline::compile::detail::scenario_resolution {
 namespace {
 
-// The admitted simulation -> capture -> excitation method consumes one exact 20 ms
-// capture block and projects it to one exact 3,840-frame delivery block. The capture
-// frame count therefore follows the authored capture clock (200 at 10 kHz, 400 at
-// 20 kHz); these are method-owned execution quanta, not authored session capacities.
-constexpr std::uint64_t kMethodBlocksPerSecond = 50U;
+// The admitted simulation -> capture -> excitation method consumes one exact
+// 400-frame, 20 ms capture block at 20 kHz and projects it to one exact 3,840-frame
+// delivery block. These are method-owned execution quanta, not authored session
+// capacities.
+constexpr contract::RationalRateHz kCaptureRate{20000U, 1U};
+constexpr std::uint32_t kCaptureFramesPerMethodBlock = 400U;
 constexpr std::uint32_t kDeliveryFramesPerMethodBlock = 3840U;
 
 [[nodiscard]] std::optional<std::uint32_t> capture_frames_per_method_block(
     const contract::RationalRateHz &capture_rate) noexcept {
-    if (capture_rate.denominator == 0U ||
-        capture_rate.denominator >
-            std::numeric_limits<std::uint64_t>::max() / kMethodBlocksPerSecond) {
-        return std::nullopt;
-    }
-    const auto quantum_denominator =
-        capture_rate.denominator * kMethodBlocksPerSecond;
-    if (capture_rate.numerator == 0U ||
-        capture_rate.numerator % quantum_denominator != 0U) {
-        return std::nullopt;
-    }
-    const auto frame_count = capture_rate.numerator / quantum_denominator;
-    if (frame_count == 0U ||
-        frame_count > std::numeric_limits<std::uint32_t>::max()) {
-        return std::nullopt;
-    }
-    return static_cast<std::uint32_t>(frame_count);
+    return capture_rate == kCaptureRate
+               ? std::optional<std::uint32_t>{kCaptureFramesPerMethodBlock}
+               : std::nullopt;
 }
 
 [[nodiscard]] std::optional<std::uint32_t>
@@ -148,8 +135,8 @@ void ScenarioResolver::compile_common_fields() {
         capture_frames_per_method_block(scenario_.rates.capture);
     if (!capture_frames.has_value()) {
         add(authoring::DiagnosticCode::unsupported_capability, "/rates/capture",
-            "capture rate must resolve to a positive integral 20 ms method "
-            "quantum");
+            "capture rate must use the exact 20000/1 executable clock with a "
+            "400-frame, 20 ms method quantum");
     }
     const auto derived_event_capacity =
         capture_frames.has_value()

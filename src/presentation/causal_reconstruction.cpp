@@ -10,10 +10,8 @@ namespace engine_sim_offline::presentation {
 CausalReconstruction::CausalReconstruction(std::size_t route_count,
                                            std::uint64_t input_rate_hz)
     : route_count_(route_count), input_rate_hz_(input_rate_hz),
-      input_frames_per_method_block_(input_rate_hz == kPhysicsRate
+      input_frames_per_method_block_(input_rate_hz == kInputRateHz
                                          ? kExcitationFramesPerMethodBlock
-                                     : input_rate_hz == kHigherPhysicsRate
-                                         ? kHigherRateExcitationFramesPerMethodBlock
                                          : 0U) {
     if (route_count_ == 0) {
         throw std::invalid_argument{
@@ -21,7 +19,7 @@ CausalReconstruction::CausalReconstruction(std::size_t route_count,
     }
     if (input_frames_per_method_block_ == 0U) {
         throw std::invalid_argument{
-            "causal reconstruction admits only 10000 or 20000 Hz input"};
+            "causal reconstruction admits only exact 20000 Hz input"};
     }
     if (route_count_ > std::numeric_limits<std::size_t>::max() /
                            dsp::CausalReconstructionTable::tap_count) {
@@ -32,7 +30,7 @@ CausalReconstruction::CausalReconstruction(std::size_t route_count,
 
 ReconstructionPhase
 CausalReconstruction::resolve_phase(std::uint64_t source_interval_offset) {
-    if (source_interval_offset >= kSourceRate) {
+    if (source_interval_offset >= kSourceRateHz) {
         throw std::invalid_argument{
             "reconstruction phase offset must be inside one source interval"};
     }
@@ -41,8 +39,8 @@ CausalReconstruction::resolve_phase(std::uint64_t source_interval_offset) {
     std::uint16_t phase0 = 0;
     for (std::uint32_t bit = 0; bit < 12; ++bit) {
         phase0 = static_cast<std::uint16_t>(phase0 << 1U);
-        if (remainder >= kSourceRate - remainder) {
-            remainder = remainder - (kSourceRate - remainder);
+        if (remainder >= kSourceRateHz - remainder) {
+            remainder = remainder - (kSourceRateHz - remainder);
             phase0 = static_cast<std::uint16_t>(phase0 | 1U);
         } else {
             remainder = remainder * 2U;
@@ -52,7 +50,7 @@ CausalReconstruction::resolve_phase(std::uint64_t source_interval_offset) {
     return {
         phase0,
         remainder,
-        static_cast<double>(remainder) / static_cast<double>(kSourceRate),
+        static_cast<double>(remainder) / static_cast<double>(kSourceRateHz),
     };
 }
 
@@ -66,14 +64,14 @@ CausalReconstruction::expected_output_frame_count(std::size_t input_frame_count)
     auto distance = distance_to_next_output_;
     std::size_t result = 0;
     for (std::size_t frame = 0; frame < input_frame_count; ++frame) {
-        const auto remaining = kSourceRate - distance;
+        const auto remaining = kSourceRateHz - distance;
         const auto output_count =
             UINT64_C(1) + (remaining - UINT64_C(1)) / input_rate_hz_;
         if (output_count > std::numeric_limits<std::size_t>::max() - result) {
             throw std::overflow_error{"reconstruction output frame count overflowed"};
         }
         result += static_cast<std::size_t>(output_count);
-        distance = distance + output_count * input_rate_hz_ - kSourceRate;
+        distance = distance + output_count * input_rate_hz_ - kSourceRateHz;
     }
     return result;
 }
@@ -101,7 +99,7 @@ void CausalReconstruction::process(std::span<const double> input_frame_major,
 
     std::size_t output_index = 0;
     for (std::size_t input_frame = 0; input_frame < input_frame_count; ++input_frame) {
-        const auto remaining = kSourceRate - distance_to_next_output_;
+        const auto remaining = kSourceRateHz - distance_to_next_output_;
         const auto output_count =
             UINT64_C(1) + (remaining - UINT64_C(1)) / input_rate_hz_;
         auto offset = distance_to_next_output_;
@@ -150,7 +148,7 @@ void CausalReconstruction::process(std::span<const double> input_frame_major,
         if (oldest_history_frame_ == dsp::CausalReconstructionTable::tap_count) {
             oldest_history_frame_ = 0;
         }
-        distance_to_next_output_ = offset - kSourceRate;
+        distance_to_next_output_ = offset - kSourceRateHz;
     }
 }
 

@@ -88,10 +88,10 @@ muffler work cannot excuse it.
 
 ## 3. Source capture contract
 
-The current ordinary `PortCaptureSample` is a post-step 10 kHz observation. The first
-M5 design incorrectly inferred that its summed mass flow established at most 5 kHz of
-physical source bandwidth, then exposed an exhaust-only substep lane without changing
-the accepted gas calculation:
+At the rejected M5 checkpoint, the ordinary `PortCaptureSample` was a post-step 10 kHz
+observation. The first M5 design incorrectly inferred that its summed mass flow
+established at most 5 kHz of physical source bandwidth, then exposed an exhaust-only
+substep lane without changing the accepted gas calculation:
 
 ```text
 outer capture rate       = 10,000 Hz

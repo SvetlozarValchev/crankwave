@@ -90,8 +90,8 @@ EngineResolutionResult resolve_engine_package(
             });
         }
         presentation_context.rates = {
-            {10000U, 1U},
-            {10000U, 1U},
+            {20000U, 1U},
+            {20000U, 1U},
             {192000U, 1U},
             {192000U, 1U},
             {192000U, 1U},

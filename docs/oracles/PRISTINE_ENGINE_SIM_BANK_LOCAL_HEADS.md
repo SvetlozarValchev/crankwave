@@ -115,9 +115,10 @@ remain independent inputs.
 - `display_depth: 0.55` and rear `flip_display: true` affect pristine's GUI only
   and are omitted. The physical bank axes are retained.
 - The source's 35 kHz simulation setting is not copied into engine identity.
-  The fixture uses the current executor policy: 10 kHz physics/capture and
-  192 kHz source/acoustic/delivery. H1 is a topology/profile-binding comparison,
-  not a cross-rate numerical-parity claim.
+  At the H1 checkpoint the fixture used 10 kHz physics/capture and 192 kHz
+  source/acoustic/delivery. The active scenario now uses the canonical 20 kHz
+  production/cooker clock. H1 remains a topology/profile-binding comparison, not a
+  cross-rate numerical-parity claim.
 - The source motorcycle and transmission are outside this head-only fixture.
 
 ## H1 gates

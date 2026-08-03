@@ -1,14 +1,14 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — verified post-parity fidelity next
+Status: active — post-parity fidelity rate gate accepted; per-cylinder lanes next
 
 Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-03
 
 Current checkpoint: **headless executable engine-sim parity complete — Slice 16's
-seven-procedure recording set accepted on 2026-08-03; verified post-parity fidelity is
-next and has not started**
+seven-procedure recording set and the single-path 20 kHz production/cooker cutover
+were accepted on 2026-08-03; per-cylinder source lanes are next**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -997,7 +997,13 @@ The production-fidelity work begins only after parity closure. Each item is an i
 candidate with the accepted parity renderer as its control:
 
 1. audition a higher physical source rate with propagation delays derived from the
-   actual capture clock; retain the existing windowed-sinc reconstruction;
+   actual capture clock; retain the existing windowed-sinc reconstruction
+   (**complete: the 10 kHz control and 20 kHz candidate were rendered from the same
+   BMW held-dyno procedure, the 20 kHz result repeated exactly, and the user accepted
+   it on 2026-08-03 as sounding good with no obvious audible difference. Production
+   and cooker scenarios now use one canonical 20 kHz physics/capture path; the 10 kHz
+   result remains historical evidence, not a compatibility mode. See
+   [`docs/POST_PARITY_FIDELITY_RATE_GATE.md`](docs/POST_PARITY_FIDELITY_RATE_GATE.md)**);
 2. preserve per-cylinder lanes through primary transfer and merge them only at the
    physical collector, beginning with a byte-identical architectural refactor;
 3. add a separately published intake source bus;

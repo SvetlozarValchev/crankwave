@@ -44,13 +44,19 @@ Every procedure remains an ordinary `finite_scenario` document and is exported b
 fresh unpaced execution of its authored timeline. Live workbench changes are not folded
 into the capture. The six jobs own no shared simulation state and may run concurrently.
 
-All procedures retain the accepted listening profile:
+At the Slice 15 checkpoint, all procedures retained the then-accepted listening
+profile:
 
 - physics and capture at 10 kHz;
 - source processing, acoustics, and delivery at 192 kHz;
 - `master-engine-raw` and `master-engine-audition` output buses;
 - the existing M52TUB28 presentation routes, conditioning, configured IR, and
   mastering.
+
+The post-parity fidelity rate gate subsequently migrated these active scenarios to the
+single canonical 20 kHz physics/capture clock without changing their authored
+durations or 192 kHz presentation path. See
+[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md).
 
 The longest authored horizon is the existing settled-idle procedure at `21.44 s`.
 That bounds a concurrent six-procedure batch by one short clip rather than the sum of

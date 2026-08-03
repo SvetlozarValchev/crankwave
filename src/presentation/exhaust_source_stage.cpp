@@ -67,9 +67,9 @@ ExhaustSourceStage::ExhaustSourceStage(
       conditioning_(conditioning), input_rate_(input_rate),
       input_frames_per_block_(input_frames_per_block),
       reconstruction_(expected_route_ids_.size(), input_rate.numerator) {
-    if (input_rate_ != kExcitationRateHz && input_rate_ != kHigherExcitationRateHz) {
+    if (input_rate_ != kExcitationRateHz) {
         throw std::invalid_argument{
-            "source stage admits only exact 10000/1 or 20000/1 excitation rates"};
+            "source stage admits only the exact 20000/1 excitation rate"};
     }
     if (input_frames_per_block_ != reconstruction_.input_frames_per_method_block()) {
         throw std::invalid_argument{

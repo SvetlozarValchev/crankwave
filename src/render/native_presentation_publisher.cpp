@@ -29,7 +29,6 @@ using artifacts::WavEncodingStatus;
 
 constexpr std::size_t kSourceFramesPerBlock = kEngineSessionDeliveryFramesPerBlock;
 constexpr std::size_t kMaximumWaveChunkBytes = 16U * 1024U;
-constexpr contract::RationalRateHz kHigherFidelityPhysicsRate{20000U, 1U};
 
 [[nodiscard]] constexpr std::size_t stem_count(std::size_t route_count) noexcept {
     return route_count * kNativePresentationArtifactsPerRoute;
@@ -396,14 +395,8 @@ require_output_bus(const NativePresentationPublicationPlan &plan,
 [[nodiscard]] NativePresentationBusBinding
 bind_session_buses(const EngineSessionDescriptor &session,
                    const NativePresentationPublicationPlan &plan) {
-    const bool admitted_physics_rate =
-        session.physics_rate == kEngineSessionPhysicsRateHz ||
-        session.physics_rate == kHigherFidelityPhysicsRate;
-    const bool exact_input_quantum =
-        session.physics_rate.denominator == 1U &&
-        session.physics_rate.numerator % 50U == 0U &&
-        session.physics_frames_per_block == session.physics_rate.numerator / 50U;
-    if (!admitted_physics_rate || !exact_input_quantum ||
+    if (session.physics_rate != kEngineSessionPhysicsRateHz ||
+        session.physics_frames_per_block != kEngineSessionPhysicsFramesPerBlock ||
         session.delivery_rate != kEngineSessionDeliveryRateHz ||
         session.delivery_frames_per_block != kEngineSessionDeliveryFramesPerBlock ||
         session.total_block_count != plan.timeline.total_block_count ||

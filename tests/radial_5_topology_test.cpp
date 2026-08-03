@@ -600,11 +600,11 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
                settling->warm_up_duration_s.value == 0.0 &&
                settling->settling_duration_s.value == 0.0 &&
                lane->rate == resolved.scenario.rates.physics &&
-               lane->first_step_index == 0U && lane->post_step_rpm.size() == 800U &&
+               lane->first_step_index == 0U && lane->post_step_rpm.size() == 1600U &&
                std::ranges::all_of(lane->post_step_rpm,
                                    [](double rpm) { return rpm == 1500.0; }) &&
-               resolved.request_input.total_physics_frames == 800U,
-           "radial-5 external-speed scenario lost its exact 800-sample lane");
+               resolved.request_input.total_physics_frames == 1600U,
+           "radial-5 external-speed scenario lost its exact 1600-sample lane");
     expect(
         contract::validate_for_engine(resolved.scenario, source.resolved.engine).ok(),
         "radial-5 prescribed scenario failed the resolved engine mode contract");
@@ -635,7 +635,7 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
                 radial->cycle_mean_inertia.engine_equivalent_inertia_kg_m2 &&
             free_engine->initial_engine_speed_rpm.value == 1500.0 &&
             sampling->fixed_preparation_horizon_s.value == 0.5 &&
-            free_resolved.request_input.total_physics_frames == 52000U &&
+            free_resolved.request_input.total_physics_frames == 104000U &&
             contract::validate_for_engine(free_resolved.scenario,
                                           source.resolved.engine)
                 .ok(),
@@ -717,8 +717,8 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
             candidate_vehicle->initial_theta_rad.value == 1.17809724509625 &&
             candidate_vehicle->initial_vehicle_speed_m_s.value == 157.07963267948966 &&
             candidate_sampling->fixed_preparation_horizon_s.value == 0.5 &&
-            candidate_resolved.request_input.total_physics_frames == 52000U &&
-            control_resolved.request_input.total_physics_frames == 52000U &&
+            candidate_resolved.request_input.total_physics_frames == 104000U &&
+            control_resolved.request_input.total_physics_frames == 104000U &&
             contract::validate_for_engine(candidate_resolved.scenario,
                                           source.resolved.engine)
                 .ok() &&
@@ -790,8 +790,8 @@ void verify_scenario_resolution_and_mode_gate(const RadialSource &source) {
                     bounded_held_dyno_one_level_master_rod_constraint_method_identity() &&
             held_dyno->initial_engine_speed_rpm.value == 1500.0 &&
             held_dyno_sampling->fixed_preparation_horizon_s.value == 0.5 &&
-            held_dyno->target_engine_speed_rpm.post_step_rpm.size() == 60000U &&
-            held_dyno_resolved.request_input.total_physics_frames == 60000U &&
+            held_dyno->target_engine_speed_rpm.post_step_rpm.size() == 120000U &&
+            held_dyno_resolved.request_input.total_physics_frames == 120000U &&
             contract::validate_for_engine(held_dyno_resolved.scenario,
                                           source.resolved.engine)
                 .ok(),
@@ -850,7 +850,7 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
         "data/engines/radial-5-cleanroom/scenarios/prescribed-1500rpm.json");
     const auto horizon = contract::resolve_frame_index(
         fixture.scenario.total_duration_s.value, fixture.scenario.rates.physics);
-    expect(horizon.has_value() && *horizon == 800U,
+    expect(horizon.has_value() && *horizon == 1600U,
            "radial-5 public fixture lost its exact finite horizon");
 
     const std::array closed_dynamic_modes{
@@ -966,7 +966,7 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
     expect(observed_frame && observed_active_source && observed_frames == *horizon &&
                session.published_sample_count() == *horizon && session.completed() &&
                !session.faulted(),
-           "radial-5 public finite capture did not complete exactly 800 frames");
+           "radial-5 public finite capture did not complete exactly 1600 frames");
 
     const auto free_fixture = test::load_authored_engine_fixture(
         repository_root, "data/engines/radial-5-cleanroom/engine.json",
@@ -975,7 +975,7 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
     const auto free_horizon =
         contract::resolve_frame_index(free_fixture.scenario.total_duration_s.value,
                                       free_fixture.scenario.rates.physics);
-    expect(free_horizon.has_value() && *free_horizon == 52000U,
+    expect(free_horizon.has_value() && *free_horizon == 104000U,
            "radial-5 FreeEngine fixture lost its exact finite horizon");
     auto free_result = simulation::compile_low_order_capture_session(
         free_fixture.engine, free_fixture.scenario,
@@ -990,7 +990,7 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
         std::get<simulation::LowOrderCaptureSession>(std::move(free_result));
     std::uint64_t free_frames = 0U;
     bool observed_released_motion = false;
-    while (free_frames < 10000U) {
+    while (free_frames < 20000U) {
         auto published = free_session.publish_next_block(
             [&](const contract::CaptureBlockView &block) {
                 for (std::size_t frame = 0U; frame < block.frame_count(); ++frame) {
@@ -999,7 +999,7 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
                                std::isfinite(engine->engine_speed_rpm) &&
                                engine->engine_speed_rpm > 0.0,
                            "radial-5 FreeEngine emitted nonpositive engine motion");
-                    if (free_frames + frame < 5000U) {
+                    if (free_frames + frame < 10000U) {
                         expect(engine->engine_speed_rpm == 1500.0,
                                "radial-5 FreeEngine warm preparation lost its exact "
                                "held speed");
@@ -1017,8 +1017,8 @@ void verify_public_capture(const std::filesystem::path &repository_root) {
                                      "): " + failure->state_summary};
         }
     }
-    expect(observed_released_motion && free_frames == 10000U &&
-               free_session.published_sample_count() == 10000U &&
+    expect(observed_released_motion && free_frames == 20000U &&
+               free_session.published_sample_count() == 20000U &&
                !free_session.completed() && !free_session.faulted(),
            "radial-5 public FreeEngine did not hold, release, and advance exactly");
 }
@@ -1036,8 +1036,8 @@ void verify_public_free_vehicle_capture(const std::filesystem::path &repository_
         candidate.scenario.total_duration_s.value, candidate.scenario.rates.physics);
     const auto release = contract::resolve_frame_index(
         candidate.scenario.audible_start_s.value, candidate.scenario.rates.physics);
-    expect(horizon.has_value() && *horizon == 52000U && release.has_value() &&
-               *release == 5000U,
+    expect(horizon.has_value() && *horizon == 104000U && release.has_value() &&
+               *release == 10000U,
            "radial-5 public FreeVehicle fixture lost its exact frame grid");
 
     auto wrong_method_scenario = candidate.scenario;
@@ -1074,7 +1074,7 @@ void verify_public_free_vehicle_capture(const std::filesystem::path &repository_
     std::uint64_t observed_frames = 0U;
     bool observed_released_motion = false;
     bool observed_loaded_clutch = false;
-    constexpr std::uint64_t kSmokeFrameCount = 7000U;
+    constexpr std::uint64_t kSmokeFrameCount = 14000U;
     while (observed_frames < kSmokeFrameCount) {
         auto published =
             session.publish_next_block([&](const contract::CaptureBlockView &block) {
@@ -1127,7 +1127,7 @@ void verify_public_free_vehicle_capture(const std::filesystem::path &repository_
                    state->selected_forward_gear_ordinal == 1U,
                "radial-5 FreeVehicle omitted finite released drivetrain "
                "telemetry");
-        if (observed_frames > 6500U) {
+        if (observed_frames > 13000U) {
             expect(state->clutch_engagement_01 == 0.2 &&
                        state->clutch_torque_capacity_nm > 0.0 &&
                        state->applied_average_clutch_torque_on_engine_nm != 0.0 &&
@@ -1167,8 +1167,8 @@ void verify_public_held_dyno_capture(const std::filesystem::path &repository_roo
     const auto release = contract::resolve_frame_index(
         fixture.scenario.audible_start_s.value, fixture.scenario.rates.physics);
     expect(
-        dyno != nullptr && horizon.has_value() && *horizon == 60000U &&
-            release.has_value() && *release == 5000U &&
+        dyno != nullptr && horizon.has_value() && *horizon == 120000U &&
+            release.has_value() && *release == 10000U &&
             dyno->constraint_method.value ==
                 simulation::
                     bounded_held_dyno_one_level_master_rod_constraint_method_identity() &&
@@ -1255,17 +1255,17 @@ void verify_public_held_dyno_capture(const std::filesystem::path &repository_roo
                     observed_positive_absorbing_reaction =
                         observed_positive_absorbing_reaction ||
                         sample->torque.dyno_reaction.value_nm > 0.0;
-                    if (sample_index < 31000U) {
+                    if (sample_index < 62000U) {
                         maximum_pull_tracking_error_rpm =
                             std::max(maximum_pull_tracking_error_rpm,
                                      std::abs(sample->engine_speed_rpm -
                                               dyno->target_engine_speed_rpm
                                                   .post_step_rpm[sample_index]));
                     }
-                    if (sample_index == 35000U) {
+                    if (sample_index == 70000U) {
                         plateau_rpm = sample->engine_speed_rpm;
                     }
-                    if (sample_index == 40000U) {
+                    if (sample_index == 80000U) {
                         first_lift_throttle = sample->requested_throttle_01;
                     }
                     final_rpm = sample->engine_speed_rpm;
@@ -1283,7 +1283,7 @@ void verify_public_held_dyno_capture(const std::filesystem::path &repository_roo
             expect(completed->sample_count == *horizon && observed_frames == *horizon &&
                        session.completed() && !session.faulted() &&
                        observed_released_sidecar,
-                   "radial-5 HeldDyno capture did not complete exactly 60000 "
+                   "radial-5 HeldDyno capture did not complete exactly 120000 "
                    "frames");
             break;
         }
@@ -1356,7 +1356,7 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
                 std::get_if<engine_sim_offline::EngineSessionBlockView>(&result)) {
             expect(block->phase() ==
                            engine_sim_offline::EngineSessionBlockPhase::audible &&
-                       block->physics_frame_count() == 200U &&
+                       block->physics_frame_count() == 400U &&
                        block->delivery_frame_count() == 3840U &&
                        block->audio_buses().size() == descriptor.audio_buses.size(),
                    "radial-5 public audio block changed shape");
@@ -1383,7 +1383,7 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
             std::get<engine_sim_offline::EngineSessionCompleted>(result);
         expect(block_count == descriptor.total_block_count &&
                    completed.block_count == block_count &&
-                   completed.physics_frame_count == 800U &&
+                   completed.physics_frame_count == 1600U &&
                    completed.delivery_frame_count == 15360U &&
                    !completed.live_controls_accepted && observed_nonzero_audio,
                "radial-5 public audio session did not complete with finite PCM");
@@ -1453,7 +1453,7 @@ void verify_public_audio_session(const std::filesystem::path &repository_root,
             std::get<engine_sim_offline::EngineSessionCompleted>(result);
         expect(free_block_count == free_descriptor.total_block_count &&
                    completed.block_count == free_block_count &&
-                   completed.physics_frame_count == 52000U &&
+                   completed.physics_frame_count == 104000U &&
                    completed.delivery_frame_count == 998400U &&
                    observed_free_audible_audio,
                "radial-5 public FreeEngine did not complete its full authored "

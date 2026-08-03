@@ -29,7 +29,7 @@ void expect(bool condition, const std::string &message) {
 [[nodiscard]] test::AuthoredEngineFixture
 make_request(const test::AuthoredEngineFixture &canonical) {
     auto request =
-        test::make_prescribed_fixture(canonical, std::vector<double>(200U, 2400.0));
+        test::make_prescribed_fixture(canonical, std::vector<double>(400U, 2400.0));
     request.scenario.total_duration_s.value = 17.0;
     request.scenario.audible_start_s.value = 2.0;
     request.scenario.audible_duration_s.value = 15.0;
@@ -133,8 +133,8 @@ void test_physical_inventory_is_stable_and_excludes_atmosphere(
                baseline.scenario_id == request.scenario.scenario_id &&
                baseline.execution_extent.finite_physics_frame_count() ==
                    expected_horizon &&
-               baseline.capture_buffer.declared_block_capacity_frames == 200U &&
-               baseline.capture_buffer.declared_event_capacity_records == 3800U &&
+               baseline.capture_buffer.declared_block_capacity_frames == 400U &&
+               baseline.capture_buffer.declared_event_capacity_records == 7600U &&
                baseline.capture_buffer.maximum_events_per_frame == 19U,
            "capture ownership, horizon, or bounded storage capacities changed");
     expect(!expected.empty() && baseline.physical_gas_volume_ids == expected &&
@@ -178,7 +178,7 @@ void test_physical_inventory_is_stable_and_excludes_atmosphere(
     auto &rpm = std::get<contract::FixedRateRpmTrajectory>(
         std::get<contract::PrescribedKinematicSweep>(request.scenario.mode)
             .trajectory.rpm);
-    rpm.post_step_rpm.assign(170000U, 2400.0);
+    rpm.post_step_rpm.assign(340000U, 2400.0);
     rpm.samples_f64le_sha256 =
         contract::canonical_binary64_le_sha256(rpm.post_step_rpm);
     const auto mechanism_plan = require_mechanism_plan(
@@ -267,7 +267,7 @@ void test_capacity_derivation_is_shape_driven(
     expect(plan.capture_buffer.declared_block_capacity_frames == 37U &&
                plan.capture_buffer.declared_event_capacity_records == 37U * 19U &&
                plan.capture_buffer.maximum_events_per_frame == 19U,
-           "capture plan retained the former 200/3800 transport ceiling");
+           "capture plan retained the canonical 400/7600 transport ceiling");
 
     const auto canonical_profile_id = request.engine.profile_id.value;
     request.scenario.engine_profile_id = canonical_profile_id + "-foreign";
