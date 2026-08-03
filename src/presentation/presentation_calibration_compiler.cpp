@@ -81,7 +81,8 @@ void require_canonical_zero(ValidationReport &report, double value, std::string 
 route_uses_asset(const contract::PresentationCalibration &calibration,
                  contract::AudioAssetId asset_id) noexcept {
     return std::ranges::any_of(calibration.routes, [asset_id](const auto &route) {
-        return route.impulse_response_asset_id == asset_id;
+        return route.impulse_response_asset_id ==
+               std::optional<contract::AudioAssetId>{asset_id};
     });
 }
 
@@ -96,17 +97,19 @@ find_configured_route(const contract::PresentationCalibration &calibration,
 } // namespace
 
 AdmittedPresentationRoute::AdmittedPresentationRoute(
-    contract::RouteId route_id, contract::AudioAssetId impulse_response_asset_id,
-    contract::ResolvedValue<double> impulse_response_gain_linear, double wet_mix_01)
+    contract::RouteId route_id,
+    std::optional<contract::AudioAssetId> impulse_response_asset_id,
+    contract::ResolvedValue<double> impulse_response_gain_linear, double wet_mix_01,
+    contract::SourceRouteKind source_route_kind)
     : route_id_(route_id), impulse_response_asset_id_(impulse_response_asset_id),
       impulse_response_gain_linear_(std::move(impulse_response_gain_linear)),
-      wet_mix_01_(wet_mix_01) {}
+      wet_mix_01_(wet_mix_01), source_route_kind_(source_route_kind) {}
 
 contract::RouteId AdmittedPresentationRoute::route_id() const noexcept {
     return route_id_;
 }
 
-contract::AudioAssetId
+const std::optional<contract::AudioAssetId> &
 AdmittedPresentationRoute::impulse_response_asset_id() const noexcept {
     return impulse_response_asset_id_;
 }
@@ -120,20 +123,23 @@ double AdmittedPresentationRoute::wet_mix_01() const noexcept {
     return wet_mix_01_;
 }
 
+contract::SourceRouteKind
+AdmittedPresentationRoute::source_route_kind() const noexcept {
+    return source_route_kind_;
+}
+
 AdmittedPresentationCalibration::AdmittedPresentationCalibration(
     PresentationMethodIdentities methods, RouteConditioningCalibration conditioning,
     std::vector<AdmittedPresentationRoute> routes,
     contract::ResolvedValue<double> publication_calibration_gain_linear,
     std::vector<contract::RouteId> audition_route_ids, MasteringSettings mastering,
-    contract::RationalRateHz capture_rate,
-    std::uint64_t capture_frames_per_block,
+    contract::RationalRateHz capture_rate, std::uint64_t capture_frames_per_block,
     std::uint64_t total_block_count, std::uint64_t pre_audible_block_count)
     : methods_(std::move(methods)), conditioning_(conditioning),
       routes_(std::move(routes)), publication_calibration_gain_linear_(
                                       std::move(publication_calibration_gain_linear)),
       audition_route_ids_(audition_route_ids), mastering_(std::move(mastering)),
-      capture_rate_(capture_rate),
-      capture_frames_per_block_(capture_frames_per_block),
+      capture_rate_(capture_rate), capture_frames_per_block_(capture_frames_per_block),
       total_block_count_(total_block_count),
       pre_audible_block_count_(pre_audible_block_count) {}
 
@@ -224,9 +230,8 @@ struct PresentationCalibrationCompiler {
 
         const auto total_capture = contract::resolve_frame_index(
             scenario.total_duration_s.value, scenario.rates.capture);
-        const auto pre_audible_capture =
-            contract::resolve_frame_index(scenario.audible_start_s.value,
-                                          scenario.rates.capture);
+        const auto pre_audible_capture = contract::resolve_frame_index(
+            scenario.audible_start_s.value, scenario.rates.capture);
         const auto audible_capture = contract::resolve_frame_index(
             scenario.audible_duration_s.value, scenario.rates.capture);
         const auto total_source =
@@ -320,8 +325,7 @@ struct PresentationCalibrationCompiler {
         std::uint64_t represented_pre_source = 0;
         std::uint64_t audible_source_frames = 0;
         const bool total_capture_product_ok = checked_multiply(
-            total_blocks, capture_frames_per_block,
-            represented_total_capture);
+            total_blocks, capture_frames_per_block, represented_total_capture);
         const bool total_source_product_ok = checked_multiply(
             total_blocks, AdmittedPresentationCalibration::source_frames_per_block,
             represented_total_source);
@@ -374,12 +378,13 @@ struct PresentationCalibrationCompiler {
                 "the executable presentation requires at least one engine source "
                 "route");
         for (std::size_t index = 0; index < engine.routes.size(); ++index) {
+            const auto kind = engine.routes[index].kind.value;
             require(report,
-                    engine.routes[index].kind.value ==
-                        contract::SourceRouteKind::exhaust_outlet,
+                    kind == contract::SourceRouteKind::exhaust_outlet ||
+                        kind == contract::SourceRouteKind::intake_inlet,
                     ContractIssueCode::unsupported_value,
                     "engine.routes[" + std::to_string(index) + "].kind.value",
-                    "the executable presentation accepts exhaust routes only");
+                    "the executable presentation accepts gas source routes only");
         }
 
         require(report, calibration.routes.size() == engine.routes.size(),
@@ -389,6 +394,21 @@ struct PresentationCalibrationCompiler {
         for (std::size_t index = 0; index < calibration.routes.size(); ++index) {
             const auto &route = calibration.routes[index];
             const auto path = "presentation.routes[" + std::to_string(index) + "]";
+            const auto engine_route = std::ranges::find(engine.routes, route.route_id,
+                                                        &contract::RouteSpec::id);
+            const bool exhaust =
+                engine_route != engine.routes.end() &&
+                engine_route->kind.value == contract::SourceRouteKind::exhaust_outlet;
+            const bool intake =
+                engine_route != engine.routes.end() &&
+                engine_route->kind.value == contract::SourceRouteKind::intake_inlet;
+            require(report,
+                    (exhaust && route.impulse_response_asset_id.has_value()) ||
+                        (intake && !route.impulse_response_asset_id.has_value()),
+                    ContractIssueCode::inconsistent_semantics,
+                    path + ".impulse_response_asset_id",
+                    "active exhaust routes require a transfer asset while "
+                    "declared-silent intake routes require none");
             require(report,
                     canonical_nonnegative(route.impulse_response_gain_linear.value),
                     ContractIssueCode::invalid_value,
@@ -399,6 +419,16 @@ struct PresentationCalibrationCompiler {
                     ContractIssueCode::invalid_value, path + ".wet_mix_01.value",
                     "wet mix must be finite in [0, 1] and use canonical positive "
                     "zero");
+            if (intake) {
+                require(report,
+                        route.impulse_response_gain_linear.value == 0.0 &&
+                            !std::signbit(route.impulse_response_gain_linear.value) &&
+                            route.wet_mix_01.value == 0.0 &&
+                            !std::signbit(route.wet_mix_01.value),
+                        ContractIssueCode::unsupported_value, path,
+                        "declared-silent intake transfer values must be canonical "
+                        "positive zero");
+            }
         }
         if (calibration.routes.size() == engine.routes.size()) {
             for (std::size_t index = 0; index < engine.routes.size(); ++index) {
@@ -423,8 +453,9 @@ struct PresentationCalibrationCompiler {
                     engine.routes.size(),
                 ContractIssueCode::unsupported_value,
                 "presentation.audition.selected_routes.value",
-                "the executable audition mix requires every rendered route in "
-                "deterministic arithmetic order");
+                "the executable audition selection must declare every configured "
+                "route once; its active-exhaust subsequence owns deterministic "
+                "arithmetic order");
 
         const RouteConditioningCalibration conditioning{
             calibration.conditioning.jitter_scale.value,
@@ -508,7 +539,8 @@ struct PresentationCalibrationCompiler {
             const auto *route = find_configured_route(calibration, engine_route.id);
             routes.push_back(AdmittedPresentationRoute{
                 route->route_id, route->impulse_response_asset_id,
-                route->impulse_response_gain_linear, route->wet_mix_01.value});
+                route->impulse_response_gain_linear, route->wet_mix_01.value,
+                engine_route.kind.value});
         }
         auto audition_routes = calibration.audition.selected_routes.value;
         return AdmittedPresentationCalibration{

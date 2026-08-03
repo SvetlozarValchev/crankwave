@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -65,7 +66,8 @@ published_block_count(const NativePresentationPublicationPlan &plan) noexcept {
 [[nodiscard]] std::uint64_t
 processed_input_frame_count(const NativePresentationPublicationPlan &plan,
                             std::size_t input_frames_per_block) {
-    return checked_frame_product(plan.timeline.total_block_count, input_frames_per_block,
+    return checked_frame_product(plan.timeline.total_block_count,
+                                 input_frames_per_block,
                                  "native presentation input horizon");
 }
 
@@ -94,7 +96,7 @@ ordered_audio_artifacts(const NativePresentationPublicationPlan &plan) {
     result.reserve(native_presentation_artifact_count(plan.routes.size()));
     for (const auto &route : plan.routes) {
         result.push_back(route.artifacts.dry);
-        result.push_back(route.artifacts.configured_ir);
+        result.push_back(route.artifacts.configured_transfer);
         result.push_back(route.artifacts.selected);
     }
     result.push_back(plan.audition.raw_master_artifact);
@@ -197,7 +199,7 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
     static_cast<void>(make_fade_settings(plan));
     if (plan.routes.empty()) {
         throw std::invalid_argument{
-            "native presentation requires at least one rendered route"};
+            "native presentation requires at least one published route"};
     }
     if (!native_presentation_artifact_count_representable(plan.routes.size())) {
         throw std::invalid_argument{
@@ -205,6 +207,7 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
             "layout"};
     }
 
+    std::size_t active_exhaust_route_count = 0;
     for (std::size_t route = 0; route < plan.routes.size(); ++route) {
         const auto &configured = plan.routes[route];
         if (!configured.route_id.valid() || configured.route_semantic_id.empty()) {
@@ -224,12 +227,20 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
             &contract::SourceRouteRequirement::semantic_id);
         const std::array<std::string_view, 3> artifact_roles{
             configured.artifacts.dry.role,
-            configured.artifacts.configured_ir.role,
+            configured.artifacts.configured_transfer.role,
             configured.artifacts.selected.role,
         };
-        if (requirement == plan.output_contract.required_source_routes.end() ||
-            requirement->kind != contract::SourceRouteKind::exhaust_outlet ||
-            requirement->disposition != contract::RouteDisposition::rendered ||
+        const bool gas_route =
+            requirement != plan.output_contract.required_source_routes.end() &&
+            (requirement->kind == contract::SourceRouteKind::exhaust_outlet ||
+             requirement->kind == contract::SourceRouteKind::intake_inlet);
+        const bool expected_disposition =
+            requirement != plan.output_contract.required_source_routes.end() &&
+            ((requirement->kind == contract::SourceRouteKind::exhaust_outlet &&
+              requirement->disposition == contract::RouteDisposition::rendered) ||
+             (requirement->kind == contract::SourceRouteKind::intake_inlet &&
+              requirement->disposition == contract::RouteDisposition::declared_silent));
+        if (!gas_route || !expected_disposition ||
             requirement->artifact_roles.size() != artifact_roles.size() ||
             !std::equal(requirement->artifact_roles.begin(),
                         requirement->artifact_roles.end(), artifact_roles.begin())) {
@@ -237,11 +248,13 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
                 "native presentation route artifacts differ from their "
                 "source-route owner"};
         }
+        active_exhaust_route_count += static_cast<std::size_t>(
+            requirement->kind == contract::SourceRouteKind::exhaust_outlet);
     }
 
-    if (plan.audition.selected_route_ids.size() != plan.routes.size()) {
+    if (plan.audition.selected_route_ids.size() != active_exhaust_route_count) {
         throw std::invalid_argument{
-            "native presentation audition must select every rendered route"};
+            "native presentation audition must select every active exhaust route"};
     }
     std::unordered_set<std::uint32_t> selected_route_ids;
     for (const auto selected : plan.audition.selected_route_ids) {
@@ -249,12 +262,20 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
             throw std::invalid_argument{
                 "native presentation audition routes must be distinct"};
         }
-        if (std::ranges::none_of(plan.routes, [&](const auto &route) {
-                return route.route_id == selected;
-            })) {
+        const auto route = std::ranges::find(
+            plan.routes, selected, &NativePresentationRoutePublicationPlan::route_id);
+        const auto requirement =
+            route == plan.routes.end()
+                ? plan.output_contract.required_source_routes.end()
+                : std::ranges::find(plan.output_contract.required_source_routes,
+                                    route->route_semantic_id,
+                                    &contract::SourceRouteRequirement::semantic_id);
+        if (route == plan.routes.end() ||
+            requirement == plan.output_contract.required_source_routes.end() ||
+            requirement->kind != contract::SourceRouteKind::exhaust_outlet) {
             throw std::invalid_argument{
-                "native presentation audition route is absent from the route "
-                "plan"};
+                "native presentation audition route is absent from the active "
+                "exhaust plan"};
         }
     }
 
@@ -263,8 +284,8 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
         plan.output_contract.required_artifacts.size() !=
             native_presentation_artifact_count(plan.routes.size())) {
         throw std::invalid_argument{
-            "native presentation requires three artifacts per rendered route "
-            "and exactly two master buses and artifacts"};
+            "native presentation requires three artifacts per published gas-source "
+            "route and exactly two master buses and artifacts"};
     }
 
     const auto raw_bus = std::ranges::find_if(
@@ -345,27 +366,40 @@ same_optional_route(const std::optional<contract::RouteId> &actual,
     return actual == expected;
 }
 
+[[nodiscard]] EngineAudioSignalDisposition
+expected_route_signal_disposition(contract::RouteDisposition disposition) {
+    if (disposition == contract::RouteDisposition::rendered) {
+        return EngineAudioSignalDisposition::active;
+    }
+    if (disposition == contract::RouteDisposition::declared_silent) {
+        return EngineAudioSignalDisposition::declared_silent;
+    }
+    throw std::invalid_argument{
+        "published source route has no executable signal disposition"};
+}
+
 [[nodiscard]] bool is_expected_bus(const EngineAudioBusDescriptor &bus,
                                    EngineAudioBusKind kind,
                                    contract::SourceRouteKind source_route_kind,
+                                   EngineAudioSignalDisposition signal_disposition,
                                    const std::optional<contract::RouteId> &route_id,
                                    std::string_view id) noexcept {
     return bus.id == id && bus.kind == kind &&
            bus.source_route_kind == source_route_kind &&
+           bus.signal_disposition == signal_disposition &&
            same_optional_route(bus.route_id, route_id) && bus.channel_count == 1U &&
            bus.sample_rate == kEngineSessionDeliveryRateHz;
 }
 
-[[nodiscard]] std::size_t bind_unique_bus(const EngineSessionDescriptor &session,
-                                          std::vector<bool> &claimed,
-                                          EngineAudioBusKind kind,
-                                          contract::SourceRouteKind source_route_kind,
-                                          std::optional<contract::RouteId> route_id,
-                                          std::string_view id) {
+[[nodiscard]] std::size_t
+bind_unique_bus(const EngineSessionDescriptor &session, std::vector<bool> &claimed,
+                EngineAudioBusKind kind, contract::SourceRouteKind source_route_kind,
+                EngineAudioSignalDisposition signal_disposition,
+                std::optional<contract::RouteId> route_id, std::string_view id) {
     std::optional<std::size_t> match;
     for (std::size_t index = 0; index < session.audio_buses.size(); ++index) {
         if (!is_expected_bus(session.audio_buses[index], kind, source_route_kind,
-                             route_id, id)) {
+                             signal_disposition, route_id, id)) {
             continue;
         }
         if (match.has_value()) {
@@ -387,9 +421,9 @@ same_optional_route(const std::optional<contract::RouteId> &actual,
 [[nodiscard]] const contract::SourceRouteRequirement &
 require_source_route(const NativePresentationPublicationPlan &plan,
                      std::string_view semantic_id) {
-    const auto found = std::ranges::find(
-        plan.output_contract.required_source_routes, semantic_id,
-        &contract::SourceRouteRequirement::semantic_id);
+    const auto found =
+        std::ranges::find(plan.output_contract.required_source_routes, semantic_id,
+                          &contract::SourceRouteRequirement::semantic_id);
     if (found == plan.output_contract.required_source_routes.end()) {
         throw std::invalid_argument{
             "native presentation plan lacks a required source route"};
@@ -441,12 +475,13 @@ bind_session_buses(const EngineSessionDescriptor &session,
             require_source_route(plan, configured.route_semantic_id);
         const std::array<std::string_view, kNativePresentationArtifactsPerRoute> ids{
             configured.artifacts.dry.role,
-            configured.artifacts.configured_ir.role,
+            configured.artifacts.configured_transfer.role,
             configured.artifacts.selected.role,
         };
         for (std::size_t stem = 0; stem < route_kinds.size(); ++stem) {
             result.routes[route].stems[stem] = bind_unique_bus(
                 session, claimed, route_kinds[stem], requirement.kind,
+                expected_route_signal_disposition(requirement.disposition),
                 configured.route_id, ids[stem]);
         }
     }
@@ -457,14 +492,14 @@ bind_session_buses(const EngineSessionDescriptor &session,
         require_output_bus(plan, contract::OutputBusKind::master_engine_audition);
     result.raw_master_id = raw.semantic_id;
     result.audition_master_id = audition.semantic_id;
-    result.raw_master =
-        bind_unique_bus(session, claimed, EngineAudioBusKind::engine_raw_master,
-                        contract::SourceRouteKind::unspecified, std::nullopt,
-                        result.raw_master_id);
-    result.audition_master =
-        bind_unique_bus(session, claimed, EngineAudioBusKind::engine_audition_master,
-                        contract::SourceRouteKind::unspecified, std::nullopt,
-                        result.audition_master_id);
+    result.raw_master = bind_unique_bus(
+        session, claimed, EngineAudioBusKind::engine_raw_master,
+        contract::SourceRouteKind::unspecified, EngineAudioSignalDisposition::active,
+        std::nullopt, result.raw_master_id);
+    result.audition_master = bind_unique_bus(
+        session, claimed, EngineAudioBusKind::engine_audition_master,
+        contract::SourceRouteKind::unspecified, EngineAudioSignalDisposition::active,
+        std::nullopt, result.audition_master_id);
 
     if (std::ranges::any_of(claimed, [](bool value) { return !value; })) {
         throw std::invalid_argument{
@@ -782,9 +817,11 @@ class NativePresentationPublisher::Implementation final {
     void validate_runtime_bus(const EngineAudioBusBlockView &bus,
                               EngineAudioBusKind kind,
                               contract::SourceRouteKind source_route_kind,
+                              EngineAudioSignalDisposition signal_disposition,
                               std::optional<contract::RouteId> route_id,
                               std::string_view id) const {
-        if (!is_expected_bus(bus.descriptor, kind, source_route_kind, route_id, id) ||
+        if (!is_expected_bus(bus.descriptor, kind, source_route_kind,
+                             signal_disposition, route_id, id) ||
             bus.samples.size() != kSourceFramesPerBlock) {
             throw std::invalid_argument{
                 "native publication block differs from its prebound session "
@@ -827,33 +864,43 @@ class NativePresentationPublisher::Implementation final {
             const std::array<std::string_view, kNativePresentationArtifactsPerRoute>
                 ids{
                     configured.artifacts.dry.role,
-                    configured.artifacts.configured_ir.role,
+                    configured.artifacts.configured_transfer.role,
                     configured.artifacts.selected.role,
                 };
             for (std::size_t stem = 0; stem < route_kinds.size(); ++stem) {
-                validate_runtime_bus(audio_buses[buses_.routes[route].stems[stem]],
-                                     route_kinds[stem], requirement.kind,
-                                     configured.route_id, ids[stem]);
+                validate_runtime_bus(
+                    audio_buses[buses_.routes[route].stems[stem]], route_kinds[stem],
+                    requirement.kind,
+                    expected_route_signal_disposition(requirement.disposition),
+                    configured.route_id, ids[stem]);
             }
         }
-        validate_runtime_bus(audio_buses[buses_.raw_master],
-                             EngineAudioBusKind::engine_raw_master,
-                             contract::SourceRouteKind::unspecified, std::nullopt,
-                             buses_.raw_master_id);
+        validate_runtime_bus(
+            audio_buses[buses_.raw_master], EngineAudioBusKind::engine_raw_master,
+            contract::SourceRouteKind::unspecified,
+            EngineAudioSignalDisposition::active, std::nullopt, buses_.raw_master_id);
         validate_runtime_bus(audio_buses[buses_.audition_master],
                              EngineAudioBusKind::engine_audition_master,
-                             contract::SourceRouteKind::unspecified, std::nullopt,
+                             contract::SourceRouteKind::unspecified,
+                             EngineAudioSignalDisposition::active, std::nullopt,
                              buses_.audition_master_id);
     }
 
     void prepare_published_block(const EngineSessionBlockView &block) {
         const auto audio_buses = block.audio_buses();
         for (std::size_t route = 0; route < plan_.routes.size(); ++route) {
+            const auto &requirement =
+                require_source_route(plan_, plan_.routes[route].route_semantic_id);
+            const bool declared_silent =
+                requirement.disposition == contract::RouteDisposition::declared_silent;
             for (const auto stem_bus : buses_.routes[route].stems) {
                 for (const float sample : audio_buses[stem_bus].samples) {
-                    if (!std::isfinite(sample)) {
+                    if (!std::isfinite(sample) ||
+                        (declared_silent &&
+                         std::bit_cast<std::uint32_t>(sample) != 0U)) {
                         throw std::domain_error{
-                            "native presentation stem was non-finite"};
+                            "native presentation stem violated its active/silent "
+                            "signal disposition"};
                     }
                 }
             }

@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <variant>
 #include <vector>
@@ -22,21 +23,26 @@ struct PresentationCalibrationCompiler;
 class AdmittedPresentationRoute final {
   public:
     [[nodiscard]] contract::RouteId route_id() const noexcept;
-    [[nodiscard]] contract::AudioAssetId impulse_response_asset_id() const noexcept;
+    [[nodiscard]] const std::optional<contract::AudioAssetId> &
+    impulse_response_asset_id() const noexcept;
     [[nodiscard]] const contract::ResolvedValue<double> &
     impulse_response_gain_linear() const noexcept;
     [[nodiscard]] double wet_mix_01() const noexcept;
+    [[nodiscard]] contract::SourceRouteKind source_route_kind() const noexcept;
 
   private:
     AdmittedPresentationRoute(
-        contract::RouteId route_id, contract::AudioAssetId impulse_response_asset_id,
-        contract::ResolvedValue<double> impulse_response_gain_linear,
-        double wet_mix_01);
+        contract::RouteId route_id,
+        std::optional<contract::AudioAssetId> impulse_response_asset_id,
+        contract::ResolvedValue<double> impulse_response_gain_linear, double wet_mix_01,
+        contract::SourceRouteKind source_route_kind);
 
     contract::RouteId route_id_;
-    contract::AudioAssetId impulse_response_asset_id_;
+    std::optional<contract::AudioAssetId> impulse_response_asset_id_;
     contract::ResolvedValue<double> impulse_response_gain_linear_;
     double wet_mix_01_ = 0.0;
+    contract::SourceRouteKind source_route_kind_ =
+        contract::SourceRouteKind::unspecified;
 
     friend struct detail::PresentationCalibrationCompiler;
 };
@@ -73,8 +79,7 @@ class AdmittedPresentationCalibration final {
         std::vector<AdmittedPresentationRoute> routes,
         contract::ResolvedValue<double> publication_calibration_gain_linear,
         std::vector<contract::RouteId> audition_route_ids, MasteringSettings mastering,
-        contract::RationalRateHz capture_rate,
-        std::uint64_t capture_frames_per_block,
+        contract::RationalRateHz capture_rate, std::uint64_t capture_frames_per_block,
         std::uint64_t total_block_count, std::uint64_t pre_audible_block_count);
 
     PresentationMethodIdentities methods_;

@@ -170,8 +170,18 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
     for (std::size_t route_index = 0; route_index < calibration.route_count();
          ++route_index) {
         const auto &route = calibration.routes()[route_index];
+        if (route.source_route_kind() == contract::SourceRouteKind::intake_inlet) {
+            route_kernels[route_index] = nullptr;
+            continue;
+        }
+        if (!route.impulse_response_asset_id().has_value()) {
+            return build_error(
+                EngineSessionErrorCode::invalid_compiled_scenario,
+                "session-presentation-route-transfer-missing",
+                "an active exhaust presentation route lacks its transfer asset");
+        }
         const auto *asset =
-            find_asset(presentation_contract, route.impulse_response_asset_id());
+            find_asset(presentation_contract, *route.impulse_response_asset_id());
         if (asset == nullptr) {
             return build_error(EngineSessionErrorCode::invalid_compiled_scenario,
                                "session-presentation-asset-binding-lost",
@@ -236,14 +246,25 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
         calibration.publication_calibration_gain_linear().value;
     audio_plan.audition_monitoring_gain_linear =
         calibration.mastering().monitoring_gain_linear();
-    audio_plan.audition_route_ids.assign(calibration.audition_route_ids().begin(),
-                                         calibration.audition_route_ids().end());
+    audio_plan.audition_route_ids.reserve(calibration.audition_route_ids().size());
+    for (const auto selected_id : calibration.audition_route_ids()) {
+        const auto selected =
+            std::ranges::find(calibration.routes(), selected_id,
+                              &presentation::AdmittedPresentationRoute::route_id);
+        if (selected != calibration.routes().end() &&
+            selected->source_route_kind() ==
+                contract::SourceRouteKind::exhaust_outlet) {
+            audio_plan.audition_route_ids.push_back(selected_id);
+        }
+    }
     audio_plan.routes.reserve(calibration.route_count());
     for (std::size_t route_index = 0; route_index < calibration.route_count();
          ++route_index) {
         const auto &route = calibration.routes()[route_index];
         const auto seeds = route_seeds(random_plan, route.route_id());
-        if (!seeds.has_value()) {
+        const bool exhaust =
+            route.source_route_kind() == contract::SourceRouteKind::exhaust_outlet;
+        if (exhaust && !seeds.has_value()) {
             return build_error(
                 EngineSessionErrorCode::invalid_compiled_scenario,
                 "session-presentation-random-plan-incomplete",
@@ -251,7 +272,8 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
         }
         audio_plan.routes.push_back({
             route.route_id(),
-            *seeds,
+            route.source_route_kind(),
+            exhaust ? seeds : std::nullopt,
             route_kernels[route_index],
             route.wet_mix_01(),
         });
@@ -280,9 +302,8 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
 
     const auto *core = std::visit([](const auto &profile) { return &profile.core; },
                                   engine.physics_profile);
-    auto excitation_result =
-        excitation::compile_captured_exhaust_excitation_session(engine, *core,
-                                                                scenario);
+    auto excitation_result = excitation::compile_captured_exhaust_excitation_session(
+        engine, *core, scenario);
     if (const auto *report =
             std::get_if<contract::ValidationReport>(&excitation_result)) {
         return build_error(

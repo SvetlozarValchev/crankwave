@@ -140,16 +140,27 @@ ordered_routes(const ModelContext &context) {
     std::vector<ResolvedRouteSource> result;
     result.reserve(context.document.engine.source_routes.size());
     for (const auto &route : context.document.engine.source_routes) {
-        const auto &source = std::get<authoring::ExhaustRouteSource>(route.source);
-        result.push_back({
-            &route,
-            context.exhausts.at(source.exhaust.value),
-        });
+        ResolvedRouteSource resolved;
+        resolved.route = &route;
+        if (const auto *source =
+                std::get_if<authoring::ExhaustRouteSource>(&route.source)) {
+            resolved.exhaust = context.exhausts.at(source->exhaust.value);
+        } else if (const auto *source =
+                       std::get_if<authoring::IntakeRouteSource>(&route.source)) {
+            resolved.intake = context.intakes.at(source->intake.value);
+        }
+        result.push_back(resolved);
     }
     std::ranges::sort(result, [&](const auto &left, const auto &right) {
         return route_id(context, left.route->id.value).value <
                route_id(context, right.route->id.value).value;
     });
+    return result;
+}
+
+std::vector<ResolvedRouteSource> ordered_exhaust_routes(const ModelContext &context) {
+    auto result = ordered_routes(context);
+    std::erase_if(result, [](const auto &route) { return route.exhaust == nullptr; });
     return result;
 }
 

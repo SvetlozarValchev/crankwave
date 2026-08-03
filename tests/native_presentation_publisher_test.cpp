@@ -175,8 +175,7 @@ struct OwnedAsset {
     std::vector<std::byte> bytes;
 };
 
-[[nodiscard]] compile::CompiledScenario
-compile_short_held_scenario(
+[[nodiscard]] compile::CompiledScenario compile_short_held_scenario(
     const std::filesystem::path &repository_root,
     std::optional<double> audition_monitoring_gain_linear = std::nullopt) {
     const auto engine_path = repository_root / "data/engines/bmw-m52b28/engine.json";
@@ -274,7 +273,8 @@ require_master_bus(const EngineSessionDescriptor &session, EngineAudioBusKind ki
     const auto found =
         std::ranges::find(session.audio_buses, kind, &EngineAudioBusDescriptor::kind);
     if (found == session.audio_buses.end() || found->route_id.has_value() ||
-        found->source_route_kind != contract::SourceRouteKind::unspecified) {
+        found->source_route_kind != contract::SourceRouteKind::unspecified ||
+        found->signal_disposition != EngineAudioSignalDisposition::active) {
         throw std::runtime_error{
             "publisher fixture session lacks a required master bus"};
     }
@@ -283,11 +283,11 @@ require_master_bus(const EngineSessionDescriptor &session, EngineAudioBusKind ki
 
 [[nodiscard]] const EngineAudioBusDescriptor &
 require_route_bus(const EngineSessionDescriptor &session, contract::RouteId route_id,
-                  EngineAudioBusKind kind,
-                  contract::SourceRouteKind source_route_kind) {
+                  EngineAudioBusKind kind, contract::SourceRouteKind source_route_kind,
+                  EngineAudioSignalDisposition signal_disposition) {
     const auto found = std::ranges::find_if(session.audio_buses, [&](const auto &bus) {
-        return bus.kind == kind &&
-               bus.source_route_kind == source_route_kind &&
+        return bus.kind == kind && bus.source_route_kind == source_route_kind &&
+               bus.signal_disposition == signal_disposition &&
                bus.route_id == std::optional<contract::RouteId>{route_id};
     });
     if (found == session.audio_buses.end()) {
@@ -350,16 +350,18 @@ make_plan(const EngineSessionDescriptor &session) {
 
     for (std::size_t index = 0; index < route_ids.size(); ++index) {
         const auto route_id = route_ids[index];
-        const auto dry = require_route_bus(
-            session, route_id, EngineAudioBusKind::source_route_dry,
-            contract::SourceRouteKind::exhaust_outlet);
+        const auto dry =
+            require_route_bus(session, route_id, EngineAudioBusKind::source_route_dry,
+                              contract::SourceRouteKind::exhaust_outlet,
+                              EngineAudioSignalDisposition::active);
         const auto configured = require_route_bus(
-            session, route_id,
-            EngineAudioBusKind::source_route_configured_transfer,
-            contract::SourceRouteKind::exhaust_outlet);
+            session, route_id, EngineAudioBusKind::source_route_configured_transfer,
+            contract::SourceRouteKind::exhaust_outlet,
+            EngineAudioSignalDisposition::active);
         const auto selected = require_route_bus(
             session, route_id, EngineAudioBusKind::source_route_selected,
-            contract::SourceRouteKind::exhaust_outlet);
+            contract::SourceRouteKind::exhaust_outlet,
+            EngineAudioSignalDisposition::active);
         NativePresentationRouteArtifacts artifacts{
             pending(std::string{dry.id}, float_audio),
             pending(std::string{configured.id}, float_audio),
@@ -374,7 +376,7 @@ make_plan(const EngineSessionDescriptor &session) {
             "",
             {
                 artifacts.dry.role,
-                artifacts.configured_ir.role,
+                artifacts.configured_transfer.role,
                 artifacts.selected.role,
             },
         });
@@ -547,9 +549,8 @@ void test_prebinding_and_transaction_failures(
         auto descriptor = session.descriptor();
         std::vector<EngineAudioBusDescriptor> invalid_buses{
             descriptor.audio_buses.begin(), descriptor.audio_buses.end()};
-        const auto route_bus = std::ranges::find_if(invalid_buses, [](const auto &bus) {
-            return bus.route_id.has_value();
-        });
+        const auto route_bus = std::ranges::find_if(
+            invalid_buses, [](const auto &bus) { return bus.route_id.has_value(); });
         expect(route_bus != invalid_buses.end(),
                "publisher fixture has no source-route bus");
         route_bus->source_route_kind = contract::SourceRouteKind::intake_inlet;
@@ -566,6 +567,33 @@ void test_prebinding_and_transaction_failures(
             "native publisher accepted a mismatched source-route kind");
         expect(sink.begin_calls == 0U && sink.abort_calls == 0U,
                "invalid source-route kind reached the sink transaction");
+    }
+
+    {
+        auto session = require_session(scenario);
+        auto descriptor = session.descriptor();
+        std::vector<EngineAudioBusDescriptor> invalid_buses{
+            descriptor.audio_buses.begin(), descriptor.audio_buses.end()};
+        const auto route_bus = std::ranges::find_if(invalid_buses, [](const auto &bus) {
+            return bus.source_route_kind == contract::SourceRouteKind::exhaust_outlet &&
+                   bus.route_id.has_value();
+        });
+        expect(route_bus != invalid_buses.end(),
+               "publisher fixture has no active exhaust-route bus");
+        route_bus->signal_disposition = EngineAudioSignalDisposition::declared_silent;
+        descriptor.audio_buses = invalid_buses;
+        CapturingSink sink;
+        expect_throw<std::invalid_argument>(
+            [&] {
+                NativePresentationPublisher publisher{
+                    sink,
+                    descriptor,
+                    make_plan(session.descriptor()),
+                };
+            },
+            "native publisher accepted a mismatched signal disposition");
+        expect(sink.begin_calls == 0U && sink.abort_calls == 0U,
+               "invalid signal disposition reached the sink transaction");
     }
 
     {
@@ -679,31 +707,27 @@ void test_native_bake_rejects_audition_saturation(
     if (failure == nullptr ||
         failure->context.kind != contract::FailureKind::contract_violation ||
         failure->context.detail_code != "native-audition-saturated") {
-        const auto detail = failure == nullptr
-                                ? std::string{"non-failure result"}
-                                : failure->context.detail_code + ": " +
-                                      failure->context.state_summary;
+        const auto detail = failure == nullptr ? std::string{"non-failure result"}
+                                               : failure->context.detail_code + ": " +
+                                                     failure->context.state_summary;
         throw std::runtime_error{
-            "native bake did not report audition saturation explicitly: " +
-            detail};
+            "native bake did not report audition saturation explicitly: " + detail};
     }
 
-    constexpr std::string_view prefix =
-        "audition PCM24 quantization saturated ";
+    constexpr std::string_view prefix = "audition PCM24 quantization saturated ";
     constexpr std::string_view suffix =
         " samples; successful publication requires zero";
     const auto &summary = failure->context.state_summary;
     expect(summary.starts_with(prefix) && summary.ends_with(suffix),
            "native bake saturation summary changed");
-    const auto count_text = summary.substr(
-        prefix.size(), summary.size() - prefix.size() - suffix.size());
+    const auto count_text =
+        summary.substr(prefix.size(), summary.size() - prefix.size() - suffix.size());
     expect(!count_text.empty() && count_text != "0" &&
-               std::ranges::all_of(count_text, [](const char value) {
-                   return value >= '0' && value <= '9';
-               }),
+               std::ranges::all_of(
+                   count_text,
+                   [](const char value) { return value >= '0' && value <= '9'; }),
            "native bake did not report a positive saturation count");
-    expect(sink.begin_calls == 1U && sink.commit_calls == 0U &&
-               sink.abort_calls == 1U,
+    expect(sink.begin_calls == 1U && sink.commit_calls == 0U && sink.abort_calls == 1U,
            "saturated native bake reached commit or failed to abort once");
 }
 
@@ -719,8 +743,7 @@ int main(int argc, char **argv) {
             compile_short_held_scenario(std::filesystem::path{argv[1]});
         test_public_session_byte_golden(scenario);
         test_prebinding_and_transaction_failures(scenario);
-        test_native_bake_rejects_audition_saturation(
-            std::filesystem::path{argv[1]});
+        test_native_bake_rejects_audition_saturation(std::filesystem::path{argv[1]});
     } catch (const std::exception &error) {
         std::cerr << "native presentation publisher test failed: " << error.what()
                   << '\n';

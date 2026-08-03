@@ -5,6 +5,7 @@
 #include "engine_sim_offline/session.hpp"
 
 #include "authoring/parse_engine_references.hpp"
+#include "compile/compiled_scenario_view.hpp"
 #include "compile/engine_resolver.hpp"
 #include "identity/simulation_request_identity_writer.hpp"
 #include "simulation/chen_flynn_per_cylinder_travel_cycle_mean_loss.hpp"
@@ -1697,6 +1698,132 @@ void test_inline_twin_one_route_reaches_executable_boundary() {
                    completion.block_count == block_count,
                "inline-twin session did not execute its complete one-route horizon");
         break;
+    }
+}
+
+void test_intake_source_route_resolves_without_relabeling_exhaust_physics() {
+    const SyntheticAssets assets = make_assets();
+    auto document = make_engine_document(assets);
+    document.engine.source_routes.push_back({
+        {"fixture-route-intake"},
+        authoring::SourceRouteBinding{
+            authoring::IntakeRouteSource{{"fixture-shared-intake"}}},
+    });
+    document.presentation.routes.push_back({
+        {"fixture-route-intake"},
+        +0.0,
+        std::nullopt,
+        +0.0,
+        0.0,
+    });
+    for (auto &bus : document.presentation.buses) {
+        bus.routes.insert(bus.routes.begin() + 1, {"fixture-route-intake"});
+    }
+
+    auto views = assets.views();
+    const auto compiled =
+        require_value(compile_detail::resolve_engine_package(document, views),
+                      "intake source-route compiler fixture was rejected");
+    const auto intake_route =
+        std::ranges::find(compiled.engine.routes, std::string{"fixture-route-intake"},
+                          [](const auto &route) { return route.semantic_id.value; });
+    expect(intake_route != compiled.engine.routes.end() &&
+               intake_route->kind.value == contract::SourceRouteKind::intake_inlet,
+           "compiler did not preserve the intake source-route kind");
+    const auto &core = std::get<contract::LowOrderOperatingPointV1Profile>(
+                           compiled.engine.physics_profile)
+                           .core;
+    expect(!core.gas_path.intakes.empty() &&
+               intake_route->source_volume_id ==
+                   std::optional<contract::GasVolumeId>{
+                       core.gas_path.intakes.front().topology.plenum_volume_id} &&
+               core.gas_path.exhaust_routes.size() == 2U &&
+               core.excitation.routes.size() == 2U,
+           "intake publication changed the physical exhaust/excitation route set or "
+           "lost its plenum source");
+
+    auto public_engine =
+        require_value(compile::compile_engine(document, views),
+                      "intake source-route public engine compile failed");
+    auto scenario = require_value(
+        compile::compile_scenario(public_engine, make_scenario_document()),
+        "intake source-route scenario compile failed");
+    const auto scenario_inputs =
+        compile_detail::CompiledScenarioViewAccess::inputs(scenario);
+    const auto public_intake_route = std::ranges::find(
+        scenario_inputs.engine.engine.routes, std::string{"fixture-route-intake"},
+        [](const auto &route) { return route.semantic_id.value; });
+    const auto intake_requirement =
+        std::ranges::find(scenario_inputs.scenario.source_matrix.required_source_routes,
+                          std::string{"fixture-route-intake"},
+                          &contract::SourceRouteRequirement::semantic_id);
+    expect(
+        public_intake_route != scenario_inputs.engine.engine.routes.end() &&
+            intake_requirement !=
+                scenario_inputs.scenario.source_matrix.required_source_routes.end() &&
+            intake_requirement->disposition ==
+                contract::RouteDisposition::declared_silent &&
+            !intake_requirement->disposition_reason.empty() &&
+            std::ranges::none_of(scenario_inputs.scenario.random_plan.component_seeds,
+                                 [&](const auto &seed) {
+                                     return seed.route_id ==
+                                            std::optional<contract::RouteId>{
+                                                public_intake_route->id};
+                                 }),
+        "declared-silent intake was mislabeled or provisioned unused random "
+        "streams");
+    for (const auto &role : intake_requirement->artifact_roles) {
+        const auto artifact =
+            std::ranges::find(scenario_inputs.scenario.source_matrix.required_artifacts,
+                              role, &contract::ArtifactRequirement::role);
+        expect(
+            artifact !=
+                    scenario_inputs.scenario.source_matrix.required_artifacts.end() &&
+                artifact->diagnostic,
+            "declared-silent intake owns a nondiagnostic artifact");
+    }
+    auto created = engine_sim_offline::create_engine_session(
+        scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
+    if (const auto *error =
+            std::get_if<engine_sim_offline::EngineSessionError>(&created)) {
+        throw std::runtime_error{"intake source-route session creation failed: " +
+                                 error->detail_code + ": " + error->message};
+    }
+    auto session = std::get<engine_sim_offline::EngineSession>(std::move(created));
+    const auto descriptor = session.descriptor();
+    const auto silent_intake_bus_count =
+        std::ranges::count_if(descriptor.audio_buses, [](const auto &bus) {
+            return bus.source_route_kind == contract::SourceRouteKind::intake_inlet &&
+                   bus.signal_disposition ==
+                       engine_sim_offline::EngineAudioSignalDisposition::
+                           declared_silent;
+        });
+    expect(descriptor.audio_buses.size() == 11U && silent_intake_bus_count == 3,
+           "intake route did not reach the public session as three explicitly "
+           "declared-silent stems");
+
+    auto block_result = session.process_block();
+    const auto *block =
+        std::get_if<engine_sim_offline::EngineSessionBlockView>(&block_result);
+    if (const auto *error =
+            std::get_if<engine_sim_offline::EngineSessionError>(&block_result)) {
+        throw std::runtime_error{"intake source-route session block failed: " +
+                                 error->detail_code + ": " + error->message};
+    }
+    expect(block != nullptr && block->audio_buses().size() == 11U,
+           "intake source-route session did not publish its first complete block");
+    for (const auto &bus : block->audio_buses()) {
+        if (bus.descriptor.source_route_kind !=
+            contract::SourceRouteKind::intake_inlet) {
+            continue;
+        }
+        expect(std::ranges::all_of(bus.samples,
+                                   [](float sample) {
+                                       return std::bit_cast<std::uint32_t>(sample) ==
+                                              0U;
+                                   }),
+               "declared-silent intake stem published a noncanonical zero or "
+               "nonzero sample");
     }
 }
 
@@ -3646,6 +3773,7 @@ int main() {
         test_per_piston_blowby_resolves_to_bound_cylinder();
         test_rod_center_of_mass_and_wrist_pin_resolution_and_admission();
         test_inline_twin_one_route_reaches_executable_boundary();
+        test_intake_source_route_resolves_without_relabeling_exhaust_physics();
         test_shared_ignition_wire_fans_out_without_topology_collapse();
         test_v_engine_resolves_bank_geometry_and_axis_relative_journals();
         test_custom_engine_resolves_arbitrary_bank_axes_for_direct_rods();

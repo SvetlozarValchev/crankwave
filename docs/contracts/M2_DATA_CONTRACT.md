@@ -425,11 +425,14 @@ pretence of being a physical emitter. A master is therefore never accepted as a
 substitute for a required source route.
 
 Both domains own artifact roles explicitly. Every required audio artifact has exactly
-one source-route or output-bus owner. A rendered route owns its required artifacts and
-has no omission reason, and it must have an admitted presentation configuration. A
-`not_applicable` route owns no artifacts, has no presentation configuration, and must
-carry a policy-owned reason in the source matrix; the manifest must reproduce that
-reason exactly. “Not implemented” is not made equivalent to `not_applicable`.
+one source-route or output-bus owner. A `rendered` route owns active artifacts, has no
+disposition reason, and must have an admitted presentation configuration. A
+`declared_silent` route also owns an admitted presentation configuration and explicit
+diagnostic artifacts, but every published sample must be canonical positive zero and
+the route must carry a nonempty reason. A `not_applicable` route owns no artifacts,
+has no presentation configuration, and must carry a policy-owned reason in the source
+matrix; the manifest must reproduce that reason exactly. “Not implemented” is not
+made equivalent to `not_applicable` or disguised as `rendered`.
 
 ## 9. Source matrix and presentation calibration
 
@@ -477,13 +480,17 @@ authority. Their configuration digests cover the executable block partition,
 filter/kernel preparation, state, crop, tail, mastering, and publication conventions;
 there is no second caller-authored algorithm record that can drift from execution.
 
-The ordered audition route vector is an arithmetic reduction order, not merely a set.
+The ordered audition route vector is a declared selection order, not merely a set.
+Its active-route subsequence is the arithmetic reduction order; declared-silent
+routes do not insert placeholder zero additions.
 Engine, scenario, and presentation profile IDs must agree. Assets must link to
 content-addressed provenance evidence whose digest exactly matches the asset, route
 and asset references must resolve, filter cutoffs must be below the
 source-processing Nyquist rate, and fades must fit in the audible interval.
-The current convolution-presentation validator admits configured exhaust routes only;
-it does not falsely claim intake or mechanical presentation support.
+The current presentation validator admits configured active exhaust routes and
+explicitly declared-silent intake routes. The latter receive no conditioning seed,
+convolution kernel, or master-reduction operation and do not falsely claim audible
+intake fidelity. Mechanical routes remain unadmitted.
 
 The historical frozen BMW reference evidence separately pins its former P1.8 method
 IDs and versions and the immutable complete renderer record at SHA-256

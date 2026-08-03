@@ -304,7 +304,7 @@ void resolve_excitation(const ModelContext &context, ResolutionEmitter &emitter,
     core.excitation.cylinder_accumulation_order = emitter.authored(
         std::move(accumulation_order), base + ".cylinder_accumulation_order");
 
-    for (const auto &resolved : ordered_routes(context)) {
+    for (const auto &resolved : ordered_exhaust_routes(context)) {
         const auto semantic = resolved.route->id.value;
         const auto route_base = base + ".routes." + semantic;
         const auto gas_base = profile_path("gas_path.exhaust_routes." + semantic);

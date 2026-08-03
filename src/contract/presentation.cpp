@@ -414,17 +414,26 @@ ValidationReport validate(const PresentationCalibration &calibration,
                 path + ".route_id", "presentation references an unknown source route");
         require(report,
                 source_route != nullptr &&
-                    source_route->kind == SourceRouteKind::exhaust_outlet,
+                    (source_route->kind == SourceRouteKind::exhaust_outlet ||
+                     source_route->kind == SourceRouteKind::intake_inlet),
                 ContractIssueCode::unsupported_value, path + ".route_id",
-                "current convolution presentation accepts exhaust routes only");
+                "current convolution presentation accepts gas source routes only");
         if (!configured_routes.insert(route.route_id.value).second) {
             report.add(ContractIssueCode::duplicate_identity, path + ".route_id",
                        "presentation route IDs must be unique");
         }
+        const bool exhaust = source_route != nullptr &&
+                             source_route->kind == SourceRouteKind::exhaust_outlet;
+        const bool intake = source_route != nullptr &&
+                            source_route->kind == SourceRouteKind::intake_inlet;
         require(
-            report, find_asset(calibration, route.impulse_response_asset_id) != nullptr,
+            report,
+            (exhaust && route.impulse_response_asset_id.has_value() &&
+             find_asset(calibration, *route.impulse_response_asset_id) != nullptr) ||
+                (intake && !route.impulse_response_asset_id.has_value()),
             ContractIssueCode::dangling_reference, path + ".impulse_response_asset_id",
-            "route references an unknown audio asset");
+            "active exhaust routes require a known transfer asset while "
+            "declared-silent intake routes require none");
         validate_resolved(report, route.impulse_response_gain_linear, provenance,
                           path + ".impulse_response_gain_linear");
         validate_resolved(report, route.wet_mix_01, provenance, path + ".wet_mix_01");

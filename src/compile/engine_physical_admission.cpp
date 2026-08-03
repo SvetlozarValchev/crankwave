@@ -302,23 +302,37 @@ void admit_engine_physical_model(ModelContext &resolved,
 
     for (std::size_t index = 0; index < engine.source_routes.size(); ++index) {
         const auto &route = engine.source_routes[index];
-        const auto *source = std::get_if<authoring::ExhaustRouteSource>(&route.source);
-        if (source == nullptr) {
+        if (const auto *source =
+                std::get_if<authoring::ExhaustRouteSource>(&route.source)) {
+            if (!resolved.route_for_exhaust
+                     .emplace(source->exhaust.value, route.id.value)
+                     .second) {
+                add(report, DiagnosticCode::unsupported_capability,
+                    pointer_index("/engine/source_routes", index),
+                    "each exhaust must own exactly one source route");
+            }
+        } else if (const auto *source =
+                       std::get_if<authoring::IntakeRouteSource>(&route.source)) {
+            if (!resolved.route_for_intake.emplace(source->intake.value, route.id.value)
+                     .second) {
+                add(report, DiagnosticCode::unsupported_capability,
+                    pointer_index("/engine/source_routes", index),
+                    "each published intake must own exactly one source route");
+            }
+        } else {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/engine/source_routes", index) + "/type",
-                "the current presentation admits exhaust source routes only");
-            continue;
-        }
-        if (!resolved.route_for_exhaust.emplace(source->exhaust.value, route.id.value)
-                 .second) {
-            add(report, DiagnosticCode::unsupported_capability,
-                pointer_index("/engine/source_routes", index),
-                "each exhaust must own exactly one source route");
+                "the current presentation admits gas source routes only");
         }
     }
     if (resolved.route_for_exhaust.size() != engine.exhausts.size()) {
         add(report, DiagnosticCode::unsupported_capability, "/engine/source_routes",
             "source routes must exactly cover all cylinder-referenced exhausts");
+    }
+    if (resolved.route_for_intake.size() > engine.intakes.size()) {
+        add(report, DiagnosticCode::unsupported_capability, "/engine/source_routes",
+            "published intake source routes must resolve uniquely to declared "
+            "intakes");
     }
 }
 

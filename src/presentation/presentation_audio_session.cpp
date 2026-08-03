@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <utility>
@@ -58,14 +59,24 @@ void validate_plan(const PresentationAudioPlan &plan) {
             "20000/1 Hz"};
     }
 
+    std::size_t exhaust_route_count = 0;
     for (std::size_t route = 0; route < plan.routes.size(); ++route) {
         const auto &configured = plan.routes[route];
-        if (!configured.route_id.valid() || !configured.configured_ir ||
+        const bool exhaust =
+            configured.source_route_kind == contract::SourceRouteKind::exhaust_outlet;
+        const bool intake =
+            configured.source_route_kind == contract::SourceRouteKind::intake_inlet;
+        exhaust_route_count += static_cast<std::size_t>(exhaust);
+        if (!configured.route_id.valid() || (!exhaust && !intake) ||
+            (exhaust && !configured.configured_ir) ||
+            (intake && configured.configured_ir) ||
+            (exhaust && !configured.conditioning_seeds.has_value()) ||
+            (intake && configured.conditioning_seeds.has_value()) ||
             !std::isfinite(configured.wet_mix_01) || configured.wet_mix_01 < 0.0 ||
             configured.wet_mix_01 > 1.0) {
             throw std::invalid_argument{
-                "presentation audio route requires a valid identity, IR, and "
-                "wet mix in [0, 1]"};
+                "presentation audio route requires a valid gas-source identity, "
+                "IR, and wet mix in [0, 1]"};
         }
         if (configured.wet_mix_01 == 0.0 && std::signbit(configured.wet_mix_01)) {
             throw std::invalid_argument{
@@ -78,21 +89,28 @@ void validate_plan(const PresentationAudioPlan &plan) {
             }
         }
     }
-
-    if (plan.audition_route_ids.size() != plan.routes.size()) {
+    if (exhaust_route_count == 0U) {
         throw std::invalid_argument{
-            "presentation audio audition must select every route"};
+            "presentation audio requires at least one active exhaust route"};
+    }
+
+    if (plan.audition_route_ids.size() != exhaust_route_count) {
+        throw std::invalid_argument{
+            "presentation audio audition must select every active exhaust route"};
     }
     for (std::size_t selected = 0; selected < plan.audition_route_ids.size();
          ++selected) {
         const auto selected_id = plan.audition_route_ids[selected];
         bool found = false;
         for (const auto &route : plan.routes) {
-            found = found || route.route_id == selected_id;
+            found = found || (route.route_id == selected_id &&
+                              route.source_route_kind ==
+                                  contract::SourceRouteKind::exhaust_outlet);
         }
         if (!found) {
             throw std::invalid_argument{
-                "presentation audio audition route is absent from the route plan"};
+                "presentation audio audition route is absent from the active "
+                "exhaust plan"};
         }
         for (std::size_t prior = 0; prior < selected; ++prior) {
             if (selected_id == plan.audition_route_ids[prior]) {
@@ -109,28 +127,32 @@ void validate_plan(const PresentationAudioPlan &plan) {
 }
 
 [[nodiscard]] std::vector<contract::RouteId>
-source_route_ids(const PresentationAudioPlan &plan) {
+exhaust_route_ids(const PresentationAudioPlan &plan) {
     std::vector<contract::RouteId> result;
     result.reserve(plan.routes.size());
     for (const auto &route : plan.routes) {
-        result.push_back(route.route_id);
+        if (route.source_route_kind == contract::SourceRouteKind::exhaust_outlet) {
+            result.push_back(route.route_id);
+        }
     }
     return result;
 }
 
 [[nodiscard]] std::vector<RouteConditioningSeeds>
-source_route_seeds(const PresentationAudioPlan &plan) {
+exhaust_route_seeds(const PresentationAudioPlan &plan) {
     std::vector<RouteConditioningSeeds> result;
     result.reserve(plan.routes.size());
     for (const auto &route : plan.routes) {
-        result.push_back(route.conditioning_seeds);
+        if (route.source_route_kind == contract::SourceRouteKind::exhaust_outlet) {
+            result.push_back(*route.conditioning_seeds);
+        }
     }
     return result;
 }
 
 [[nodiscard]] ExhaustSourceStage make_source_stage(const PresentationAudioPlan &plan) {
-    const auto route_ids = source_route_ids(plan);
-    const auto route_seeds = source_route_seeds(plan);
+    const auto route_ids = exhaust_route_ids(plan);
+    const auto route_seeds = exhaust_route_seeds(plan);
     return ExhaustSourceStage{route_ids, route_seeds, plan.conditioning,
                               plan.excitation_rate, plan.excitation_frames_per_block};
 }
@@ -140,8 +162,12 @@ make_convolvers(const PresentationAudioPlan &plan) {
     std::vector<std::unique_ptr<CausalOverlapSaveConvolver>> result;
     result.reserve(plan.routes.size());
     for (const auto &route : plan.routes) {
-        result.push_back(
-            std::make_unique<CausalOverlapSaveConvolver>(route.configured_ir));
+        if (route.source_route_kind == contract::SourceRouteKind::exhaust_outlet) {
+            result.push_back(
+                std::make_unique<CausalOverlapSaveConvolver>(route.configured_ir));
+        } else {
+            result.push_back(nullptr);
+        }
     }
     return result;
 }
@@ -161,10 +187,33 @@ make_audition_route_indices(const PresentationAudioPlan &plan) {
     return result;
 }
 
+[[nodiscard]] std::vector<contract::RouteId>
+all_route_ids(const PresentationAudioPlan &plan) {
+    std::vector<contract::RouteId> result;
+    result.reserve(plan.routes.size());
+    for (const auto &route : plan.routes) {
+        result.push_back(route.route_id);
+    }
+    return result;
+}
+
+[[nodiscard]] std::vector<std::optional<std::size_t>>
+make_exhaust_route_indices(const PresentationAudioPlan &plan) {
+    std::vector<std::optional<std::size_t>> result(plan.routes.size());
+    std::size_t exhaust_index = 0;
+    for (std::size_t route = 0; route < plan.routes.size(); ++route) {
+        if (plan.routes[route].source_route_kind ==
+            contract::SourceRouteKind::exhaust_outlet) {
+            result[route] = exhaust_index++;
+        }
+    }
+    return result;
+}
+
 struct AudioScratch {
-    explicit AudioScratch(std::size_t route_count)
-        : conditioned(kSourceFramesPerMethodBlock * route_count), dry(route_count),
-          configured_ir(route_count), selected(route_count),
+    AudioScratch(std::size_t route_count, std::size_t exhaust_route_count)
+        : conditioned(kSourceFramesPerMethodBlock * exhaust_route_count),
+          dry(route_count), configured_ir(route_count), selected(route_count),
           stems(stem_count(route_count)), stem_views(stem_count(route_count)) {
         for (std::size_t stem = 0; stem < stems.size(); ++stem) {
             stem_views[stem] = std::span<const float>{stems[stem]};
@@ -247,10 +296,12 @@ std::span<const float> PresentationAudioBlockView::audition_master() const noexc
 class PresentationAudioSession::Implementation final {
   public:
     explicit Implementation(PresentationAudioPlan plan)
-        : plan_(validated_plan(std::move(plan))),
-          source_stage_(make_source_stage(plan_)), convolvers_(make_convolvers(plan_)),
+        : plan_(validated_plan(std::move(plan))), route_ids_(all_route_ids(plan_)),
+          source_stage_(make_source_stage(plan_)),
+          exhaust_route_indices_(make_exhaust_route_indices(plan_)),
+          convolvers_(make_convolvers(plan_)),
           audition_route_indices_(make_audition_route_indices(plan_)),
-          scratch_(plan_.routes.size()) {}
+          scratch_(plan_.routes.size(), source_stage_.route_count()) {}
 
     [[nodiscard]] PresentationAudioBlockView process(ExhaustExcitationBlockView input) {
         if (terminal_failed_) {
@@ -265,10 +316,18 @@ class PresentationAudioSession::Implementation final {
 
             const auto route_count = plan_.routes.size();
             for (std::size_t route = 0; route < route_count; ++route) {
+                if (!exhaust_route_indices_[route].has_value()) {
+                    scratch_.dry[route].fill(+0.0);
+                    scratch_.configured_ir[route].fill(+0.0);
+                    scratch_.selected[route].fill(+0.0);
+                    continue;
+                }
+                const auto exhaust_route = *exhaust_route_indices_[route];
                 for (std::size_t frame = 0; frame < kSourceFramesPerMethodBlock;
                      ++frame) {
                     scratch_.dry[route][frame] =
-                        scratch_.conditioned[frame * route_count + route];
+                        scratch_.conditioned[frame * source_stage_.route_count() +
+                                             exhaust_route];
                 }
 
                 convolvers_[route]->process(scratch_.dry[route],
@@ -286,7 +345,7 @@ class PresentationAudioSession::Implementation final {
             mix_masters();
             return {
                 extent,
-                source_stage_.expected_route_ids(),
+                route_ids_,
                 plan_.audition_route_ids,
                 scratch_.stem_views,
                 scratch_.raw_master,
@@ -301,7 +360,7 @@ class PresentationAudioSession::Implementation final {
     }
 
     [[nodiscard]] std::span<const contract::RouteId> route_ids() const noexcept {
-        return source_stage_.expected_route_ids();
+        return route_ids_;
     }
 
     [[nodiscard]] std::span<const contract::RouteId>
@@ -326,7 +385,7 @@ class PresentationAudioSession::Implementation final {
         for (std::size_t route = 0; route < plan_.routes.size(); ++route) {
             const auto dry = stem_offset(route, PresentationAudioStemRole::dry);
             const auto configured_ir =
-                stem_offset(route, PresentationAudioStemRole::configured_ir);
+                stem_offset(route, PresentationAudioStemRole::configured_transfer);
             const auto selected =
                 stem_offset(route, PresentationAudioStemRole::selected);
             for (std::size_t frame = 0; frame < kSourceFramesPerMethodBlock; ++frame) {
@@ -379,7 +438,9 @@ class PresentationAudioSession::Implementation final {
     }
 
     PresentationAudioPlan plan_;
+    std::vector<contract::RouteId> route_ids_;
     ExhaustSourceStage source_stage_;
+    std::vector<std::optional<std::size_t>> exhaust_route_indices_;
     std::vector<std::unique_ptr<CausalOverlapSaveConvolver>> convolvers_;
     std::vector<std::size_t> audition_route_indices_;
     AudioScratch scratch_;

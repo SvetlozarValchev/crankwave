@@ -88,6 +88,7 @@ struct ModelContext {
         crankshaft_for_cylinder;
 
     std::unordered_map<std::string, std::string> route_for_exhaust;
+    std::unordered_map<std::string, std::string> route_for_intake;
     // Pristine ignition wires are fan-out connections: one distributor post may
     // drive more than one cylinder.  Preserve authored cylinder order inside each
     // wire so expansion into the executable cylinder firing order is deterministic.
@@ -174,6 +175,7 @@ struct AssembledContracts {
 struct ResolvedRouteSource {
     const authoring::SourceRouteDefinition *route = nullptr;
     const authoring::ExhaustDefinition *exhaust = nullptr;
+    const authoring::IntakeDefinition *intake = nullptr;
 };
 
 [[nodiscard]] authoring::DiagnosticReport
@@ -244,6 +246,9 @@ resolve_restriction(const authoring::FlowRestriction &source, std::string base_p
 [[nodiscard]] std::string sample_id(std::size_t index);
 [[nodiscard]] std::vector<ResolvedRouteSource>
 ordered_routes(const ModelContext &context);
+
+[[nodiscard]] std::vector<ResolvedRouteSource>
+ordered_exhaust_routes(const ModelContext &context);
 [[nodiscard]] std::vector<const authoring::BankDefinition *>
 ordered_banks(const ModelContext &context);
 [[nodiscard]] std::vector<const authoring::IntakeDefinition *>

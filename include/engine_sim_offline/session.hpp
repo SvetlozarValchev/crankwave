@@ -32,12 +32,19 @@ enum class EngineAudioBusKind : std::uint8_t {
     engine_audition_master,
 };
 
+enum class EngineAudioSignalDisposition : std::uint8_t {
+    active,
+    declared_silent,
+};
+
 struct EngineAudioBusDescriptor {
     std::string_view id;
     EngineAudioBusKind kind = EngineAudioBusKind::source_route_selected;
     contract::SourceRouteKind source_route_kind =
         contract::SourceRouteKind::unspecified;
     std::optional<contract::RouteId> route_id;
+    EngineAudioSignalDisposition signal_disposition =
+        EngineAudioSignalDisposition::declared_silent;
     std::uint32_t channel_count = 1U;
     contract::RationalRateHz sample_rate = kEngineSessionDeliveryRateHz;
 };

@@ -111,6 +111,7 @@ bool valid_route_disposition(RouteDisposition disposition) {
     switch (disposition) {
     case RouteDisposition::rendered:
     case RouteDisposition::not_applicable:
+    case RouteDisposition::declared_silent:
         return true;
     case RouteDisposition::unspecified:
         return false;
@@ -371,10 +372,11 @@ ValidationReport validate_render_admission(const EngineSpec &engine,
             });
         require(report,
                 presentation_configured ==
-                    (requirement->disposition == RouteDisposition::rendered),
+                    (requirement->disposition == RouteDisposition::rendered ||
+                     requirement->disposition == RouteDisposition::declared_silent),
                 ContractIssueCode::inconsistent_semantics, path,
-                "exactly rendered source-matrix routes require presentation "
-                "configuration");
+                "rendered and declared-silent source-matrix routes require "
+                "presentation configuration");
     }
 
     for (std::size_t index = 0; index < source_matrix.required_source_routes.size();
@@ -792,10 +794,11 @@ ValidationReport validate(const RenderManifestContent &content,
             });
         require(report,
                 presentation_configured ==
-                    (route.disposition == RouteDisposition::rendered),
+                    (route.disposition == RouteDisposition::rendered ||
+                     route.disposition == RouteDisposition::declared_silent),
                 ContractIssueCode::inconsistent_semantics, path + ".disposition",
-                "exactly rendered selected routes must have a presentation "
-                "configuration");
+                "rendered and declared-silent selected routes must have a "
+                "presentation configuration");
 
         if (route.disposition == RouteDisposition::rendered) {
             require(report,
@@ -807,6 +810,11 @@ ValidationReport validate(const RenderManifestContent &content,
                     !route.disposition_reason.empty() && route.artifact_roles.empty(),
                     ContractIssueCode::inconsistent_semantics, path,
                     "not-applicable route needs a reason and cannot name artifacts");
+        } else if (route.disposition == RouteDisposition::declared_silent) {
+            require(report,
+                    !route.disposition_reason.empty() && !route.artifact_roles.empty(),
+                    ContractIssueCode::inconsistent_semantics, path,
+                    "declared-silent route needs a reason and diagnostic artifacts");
         }
         validate_unique_owned_roles(report, route.artifact_roles,
                                     path + ".artifact_roles");
@@ -818,6 +826,13 @@ ValidationReport validate(const RenderManifestContent &content,
                         artifact->second->kind == ArtifactKind::audio,
                     ContractIssueCode::dangling_reference, path + ".artifact_roles",
                     "source routes may own only emitted audio artifacts");
+            if (route.disposition == RouteDisposition::declared_silent &&
+                artifact != artifact_by_role.end()) {
+                require(report, artifact->second->diagnostic,
+                        ContractIssueCode::inconsistent_semantics,
+                        path + ".artifact_roles",
+                        "declared-silent route artifacts must be diagnostic");
+            }
         }
     }
     require(report, content.routes.size() == input_view.routes.size(),

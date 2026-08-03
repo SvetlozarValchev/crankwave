@@ -143,6 +143,9 @@ void run_randomness_contract_tests() {
     auto route_2 = multi_owner_inputs.presentation.routes.front();
     route_2.route_id = RouteId{2};
     multi_owner_inputs.presentation.routes.push_back(std::move(route_2));
+    auto engine_route_2 = multi_owner_inputs.engine.routes.front();
+    engine_route_2.id = RouteId{2};
+    multi_owner_inputs.engine.routes.push_back(std::move(engine_route_2));
 
     const auto multi_owner_plan = require_random_plan(
         multi_owner_inputs.randomness, multi_owner_inputs.engine,
@@ -206,6 +209,10 @@ void run_randomness_contract_tests() {
     route_3.route_id = RouteId{3};
     inserted_inputs.presentation.routes.insert(
         inserted_inputs.presentation.routes.begin(), std::move(route_3));
+    auto engine_route_3 = inserted_inputs.engine.routes.front();
+    engine_route_3.id = RouteId{3};
+    inserted_inputs.engine.routes.insert(inserted_inputs.engine.routes.begin(),
+                                         std::move(engine_route_3));
     const auto inserted_plan =
         require_random_plan(inserted_inputs.randomness, inserted_inputs.engine,
                             inserted_inputs.presentation, inserted_inputs.scenario);

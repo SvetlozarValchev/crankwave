@@ -105,16 +105,17 @@ struct MethodCase {
             presentation::fixed_overlap_save_convolution_method_identity,
         },
         {
-            "n-route-wet-selection-float32-wave-publication-20000-to-192000-20ms-clock-v3",
-            3,
-            "4d12f3d5017441c12904d6915ea813e884928a094f8983f9d62e16e95f4f3fdb",
+            "typed-gas-route-wet-selection-float32-wave-publication-20000-to-192000-"
+            "20ms-clock-v4",
+            4,
+            "91669ccab1a3d31cdbff58ad14be3ab1681d705de97c76451ce0b4d12a59f323",
             presentation::route_stem_publication_method_descriptor,
             presentation::route_stem_publication_method_identity,
         },
         {
-            "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v1",
-            1,
-            "fa032450f15150ff7a5afd5916a1be13b7d9e343e7bc477a7950ce04433b019c",
+            "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v2",
+            2,
+            "c1f70d617445b657ce82796ae0988b5e6638a69ce29e3101e0627700a93ac398",
             presentation::ordered_route_audition_method_descriptor,
             presentation::ordered_route_audition_method_identity,
         },

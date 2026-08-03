@@ -209,7 +209,7 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
         add_volume(volume_semantic_id(cylinder.id.value, "exhaust-primary"),
                    contract::GasVolumeKind::exhaust_primary, dependency);
     }
-    for (const auto &route : ordered_routes(context)) {
+    for (const auto &route : ordered_exhaust_routes(context)) {
         add_volume(collector_semantic_id(route.exhaust->id.value),
                    contract::GasVolumeKind::exhaust_collector,
                    "engine.routes." + route.route->id.value + ".semantic_id");
@@ -253,7 +253,7 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
         add_edge(flow_semantic_id(semantic, "blowby"), chamber, "volume.atmosphere",
                  dependency);
     }
-    for (const auto &route : ordered_routes(context)) {
+    for (const auto &route : ordered_exhaust_routes(context)) {
         add_edge(flow_semantic_id(route.exhaust->id.value, "collector-outlet"),
                  "volume.atmosphere", collector_semantic_id(route.exhaust->id.value),
                  "engine.routes." + route.route->id.value + ".semantic_id");
@@ -262,13 +262,23 @@ void resolve_public_topology(const ModelContext &context, ResolutionEmitter &emi
     for (const auto &resolved : ordered_routes(context)) {
         const auto semantic = resolved.route->id.value;
         const auto base = "engine.routes." + semantic;
+        const bool exhaust = resolved.exhaust != nullptr;
+        const auto source_volume =
+            exhaust
+                ? volume_id(context, collector_semantic_id(resolved.exhaust->id.value))
+                : volume_id(context,
+                            intake_plenum_semantic_id(resolved.intake->id.value));
         engine.routes.push_back({
             route_id(context, semantic),
             emitter.authored(semantic, base + ".semantic_id"),
-            emitter.derived(contract::SourceRouteKind::exhaust_outlet, base + ".kind",
-                            derived_method_identity("exhaust-source-route-kind-v1"),
-                            {base + ".semantic_id"}),
-            volume_id(context, collector_semantic_id(resolved.exhaust->id.value)),
+            emitter.derived(
+                exhaust ? contract::SourceRouteKind::exhaust_outlet
+                        : contract::SourceRouteKind::intake_inlet,
+                base + ".kind",
+                derived_method_identity(exhaust ? "exhaust-source-route-kind-v1"
+                                                : "intake-source-route-kind-v1"),
+                {base + ".semantic_id"}),
+            source_volume,
             std::nullopt,
             std::nullopt,
         });

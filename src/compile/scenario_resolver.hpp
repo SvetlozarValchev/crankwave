@@ -59,11 +59,12 @@ struct ScenarioRequestInputMaterial {
     double authored_initial_engine_speed_rpm = 0.0;
     std::uint64_t total_physics_frames = 0;
     std::uint64_t audible_delivery_frames = 0;
-    // Canonically ordered buses retain their authored route reduction order and
+    // Canonically ordered buses retain their authored route-selection order and
     // gain; the SourceMatrixContract intentionally describes ownership rather than
-    // the executable mix graph.
+    // the executable mix graph. Only active routes participate in arithmetic
+    // reduction.
     std::vector<ResolvedAudioBusDescriptor> selected_audio_buses;
-    std::vector<contract::RouteId> rendered_route_ids;
+    std::vector<contract::RouteId> published_route_ids;
 
     friend bool operator==(const ScenarioRequestInputMaterial &,
                            const ScenarioRequestInputMaterial &) = default;

@@ -172,12 +172,20 @@ void test_diagnostic_surface(eso_context_t *context) {
             bus.kind == ESO_AUDIO_BUS_SOURCE_ROUTE_DRY ||
             bus.kind == ESO_AUDIO_BUS_SOURCE_ROUTE_CONFIGURED_TRANSFER ||
             bus.kind == ESO_AUDIO_BUS_SOURCE_ROUTE_SELECTED;
+        const auto expected_signal_disposition =
+            bus.source_route_kind == ESO_SOURCE_ROUTE_EXHAUST_OUTLET
+                ? ESO_AUDIO_SIGNAL_ACTIVE
+            : source_route_bus ? ESO_AUDIO_SIGNAL_DECLARED_SILENT
+                               : ESO_AUDIO_SIGNAL_ACTIVE;
         expect(source_route_bus
                    ? bus.has_route_id == 1U && bus.route_id != 0U &&
-                         bus.source_route_kind == ESO_SOURCE_ROUTE_EXHAUST_OUTLET
+                         bus.source_route_kind != ESO_SOURCE_ROUTE_UNSPECIFIED &&
+                         bus.signal_disposition == expected_signal_disposition
                    : bus.has_route_id == 0U && bus.route_id == 0U &&
-                         bus.source_route_kind == ESO_SOURCE_ROUTE_UNSPECIFIED,
-               "audio bus route identity and source kind disagree");
+                         bus.source_route_kind == ESO_SOURCE_ROUTE_UNSPECIFIED &&
+                         bus.signal_disposition == expected_signal_disposition,
+               "audio bus route identity, source kind, and signal disposition "
+               "disagree");
         if (bus.kind == ESO_AUDIO_BUS_ENGINE_AUDITION_MASTER) {
             std::vector<char> id(bus.id_utf8_bytes + 1U);
             expect(eso_session_copy_audio_bus_id(context, session, index,
@@ -251,14 +259,14 @@ void test_motion_contract_surface(eso_context_t *context,
     eso_engine_handle_t engine = ESO_INVALID_HANDLE;
     expect(eso_compile_engine_json(context, view(engine_json), assets, 2U, &engine) ==
                ESO_STATUS_OK,
-           "M52TU engine compilation through C ABI v5 failed");
+           "M52TU engine compilation through C ABI v6 failed");
     eso_scenario_handle_t held_dyno_scenario = ESO_INVALID_HANDLE;
     eso_scenario_handle_t free_vehicle_scenario = ESO_INVALID_HANDLE;
     expect(eso_compile_scenario_json(context, engine, view(held_dyno_json),
                                      &held_dyno_scenario) == ESO_STATUS_OK &&
                eso_compile_scenario_json(context, engine, view(free_vehicle_json),
                                          &free_vehicle_scenario) == ESO_STATUS_OK,
-           "C ABI v5 motion-scenario compilation failed");
+           "C ABI v6 motion-scenario compilation failed");
 
     eso_session_handle_t held_dyno_session = ESO_INVALID_HANDLE;
     eso_session_handle_t free_vehicle_session = ESO_INVALID_HANDLE;
@@ -268,7 +276,7 @@ void test_motion_contract_surface(eso_context_t *context,
                eso_create_session(context, free_vehicle_scenario,
                                   ESO_SESSION_EXECUTION_OPEN_ENDED,
                                   &free_vehicle_session) == ESO_STATUS_OK,
-           "C ABI v5 open operating-bench session creation failed");
+           "C ABI v6 open operating-bench session creation failed");
 
     constexpr auto kCoreLiveControls = ESO_LIVE_CONTROL_CAPABILITY_THROTTLE |
                                        ESO_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED |
@@ -297,8 +305,7 @@ void test_motion_contract_surface(eso_context_t *context,
     expect(eso_session_get_descriptor(context, free_vehicle_session,
                                       &vehicle_descriptor) == ESO_STATUS_OK &&
                vehicle_descriptor.motion_mode == ESO_MOTION_FREE_VEHICLE &&
-               vehicle_descriptor.execution_kind ==
-                   ESO_SESSION_EXECUTION_OPEN_ENDED &&
+               vehicle_descriptor.execution_kind == ESO_SESSION_EXECUTION_OPEN_ENDED &&
                vehicle_descriptor.total_block_count == 0U &&
                vehicle_descriptor.forward_gear_count == 5U &&
                vehicle_descriptor.live_control_capabilities == kFreeVehicleLiveControls,
@@ -497,7 +504,7 @@ void test_motion_contract_surface(eso_context_t *context,
 
     expect(eso_destroy_session(context, held_dyno_session) == ESO_STATUS_OK &&
                eso_destroy_session(context, free_vehicle_session) == ESO_STATUS_OK,
-           "C ABI v5 motion-session teardown failed");
+           "C ABI v6 motion-session teardown failed");
 }
 
 void run(const std::filesystem::path &repository_root) {

@@ -3,7 +3,7 @@
 // This module deliberately describes one ABI version. A mismatched module is
 // rejected during startup; there is no compatibility decoder.
 
-export const ESO_C_API_VERSION = 5;
+export const ESO_C_API_VERSION = 6;
 export const ESO_INVALID_HANDLE = 0n;
 export const ESO_CANONICAL_SAMPLE_RATE = 192_000;
 
@@ -44,6 +44,11 @@ export const SourceRouteKind = Object.freeze({
   intakeInlet: 2,
   mechanicalEngine: 3,
   mechanicalStarter: 4,
+});
+
+export const AudioSignalDisposition = Object.freeze({
+  active: 1,
+  declaredSilent: 2,
 });
 
 export const ControlKind = Object.freeze({
@@ -200,6 +205,17 @@ export function sourceRouteKindName(kind) {
       return "mechanical-starter";
     default:
       return `unknown-source-route-${kind}`;
+  }
+}
+
+export function audioSignalDispositionName(disposition) {
+  switch (disposition) {
+    case AudioSignalDisposition.active:
+      return "active";
+    case AudioSignalDisposition.declaredSilent:
+      return "declared-silent";
+    default:
+      return `unknown-audio-signal-disposition-${disposition}`;
   }
 }
 
@@ -383,7 +399,7 @@ export const Layout = Object.freeze({
     scenarioCapacity: 12,
   }),
   audioBusDescriptor: Object.freeze({
-    size: 40,
+    size: 48,
     kind: 0,
     channelCount: 4,
     sampleRateNumerator: 8,
@@ -391,7 +407,8 @@ export const Layout = Object.freeze({
     hasRouteId: 24,
     routeId: 28,
     sourceRouteKind: 32,
-    idBytes: 36,
+    signalDisposition: 36,
+    idBytes: 40,
   }),
   forwardGearDescriptor: Object.freeze({
     size: 24,

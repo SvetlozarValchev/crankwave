@@ -56,6 +56,22 @@ find_exhaust_profile_index(const contract::LowOrderEngineCoreV1 &core,
     return static_cast<std::size_t>(found - routes.begin());
 }
 
+[[nodiscard]] std::optional<std::size_t>
+find_intake_profile_index(const contract::LowOrderEngineCoreV1 &core,
+                          std::optional<contract::GasVolumeId> source_volume_id) {
+    if (!source_volume_id.has_value()) {
+        return std::nullopt;
+    }
+    const auto &intakes = core.gas_path.intakes;
+    const auto found = std::ranges::find_if(intakes, [&](const auto &intake) {
+        return intake.topology.plenum_volume_id == *source_volume_id;
+    });
+    if (found == intakes.end()) {
+        return std::nullopt;
+    }
+    return static_cast<std::size_t>(found - intakes.begin());
+}
+
 [[nodiscard]] bool reserve_product_representable(std::size_t entity_count,
                                                  std::uint32_t frame_count) noexcept {
     return frame_count == 0U ||
@@ -353,39 +369,89 @@ compile_low_order_capture_plan(const contract::EngineSpec &engine,
     std::size_t public_exhaust_index = 0;
     for (std::size_t index = 0; index < engine.routes.size(); ++index) {
         const auto &route = engine.routes[index];
-        const auto profile_index = find_exhaust_profile_index(selected_core, route.id);
         const bool exhaust =
             route.kind.value == contract::SourceRouteKind::exhaust_outlet;
-        require(report, exhaust && profile_index.has_value(),
-                ContractIssueCode::unsupported_value,
-                "engine.routes[" + std::to_string(index) + "]",
-                "low-order capture admits exhaust-outlet source routes only");
-        if (!exhaust || !profile_index.has_value()) {
-            continue;
+        const bool intake = route.kind.value == contract::SourceRouteKind::intake_inlet;
+        const auto path = "engine.routes[" + std::to_string(index) + "]";
+        if (exhaust) {
+            const auto profile_index =
+                find_exhaust_profile_index(selected_core, route.id);
+            require(report, profile_index.has_value(),
+                    ContractIssueCode::dangling_reference, path,
+                    "exhaust capture route does not resolve in the gas topology");
+            if (!profile_index.has_value()) {
+                continue;
+            }
+            const auto &profile = selected_core.gas_path.exhaust_routes[*profile_index];
+            const auto &topology = profile.topology;
+            const auto source =
+                find_id_index(engine.gas_volumes, topology.collector_volume_id);
+            const auto outlet =
+                find_id_index(engine.flow_edges, topology.collector_outlet_edge_id);
+            require(report,
+                    route.source_volume_id ==
+                            std::optional<contract::GasVolumeId>{
+                                topology.collector_volume_id} &&
+                        source.has_value() && outlet.has_value(),
+                    ContractIssueCode::inconsistent_semantics, path,
+                    "exhaust capture source or outlet differs from gas topology");
+            if (source.has_value() && outlet.has_value()) {
+                plan.route_bindings[index] = {
+                    contract::SourceRouteKind::exhaust_outlet,
+                    public_exhaust_index,
+                    *source,
+                    *outlet,
+                    std::nullopt,
+                    profile.parameters.collector_cross_section_area_m2.value,
+                };
+            }
+            ++public_exhaust_index;
+        } else if (intake) {
+            const auto profile_index =
+                find_intake_profile_index(selected_core, route.source_volume_id);
+            require(report, profile_index.has_value(),
+                    ContractIssueCode::dangling_reference, path,
+                    "intake capture route does not resolve in the gas topology");
+            if (!profile_index.has_value()) {
+                continue;
+            }
+            const auto &profile = selected_core.gas_path.intakes[*profile_index];
+            const auto &topology = profile.topology;
+            const auto source =
+                find_id_index(engine.gas_volumes, topology.plenum_volume_id);
+            const auto main =
+                find_id_index(engine.flow_edges, topology.main_throttle_edge_id);
+            const auto idle =
+                find_id_index(engine.flow_edges, topology.idle_bypass_edge_id);
+            require(report,
+                    route.source_volume_id ==
+                            std::optional<contract::GasVolumeId>{
+                                topology.plenum_volume_id} &&
+                        source.has_value() && main.has_value() && idle.has_value(),
+                    ContractIssueCode::inconsistent_semantics, path,
+                    "intake capture source or boundary edges differ from gas "
+                    "topology");
+            if (source.has_value() && main.has_value() && idle.has_value()) {
+                plan.route_bindings[index] = {
+                    contract::SourceRouteKind::intake_inlet,
+                    std::nullopt,
+                    *source,
+                    *main,
+                    *idle,
+                    // The low-order intake owns a plenum transfer area, not an
+                    // exterior inlet-mouth/radiation area. Keep the public route
+                    // area explicitly unavailable rather than relabeling that
+                    // internal solver geometry.
+                    +0.0,
+                };
+            }
+        } else {
+            require(report, false, ContractIssueCode::unsupported_value, path,
+                    "low-order capture admits exhaust-outlet and intake-inlet gas "
+                    "source routes only");
         }
-        const auto &topology =
-            selected_core.gas_path.exhaust_routes[*profile_index].topology;
-        const auto source =
-            find_id_index(engine.gas_volumes, topology.collector_volume_id);
-        const auto outlet =
-            find_id_index(engine.flow_edges, topology.collector_outlet_edge_id);
-        require(report,
-                route.source_volume_id ==
-                        std::optional<contract::GasVolumeId>{
-                            topology.collector_volume_id} &&
-                    source.has_value() && outlet.has_value(),
-                ContractIssueCode::inconsistent_semantics,
-                "engine.routes[" + std::to_string(index) + "]",
-                "capture route source or outlet differs from gas topology");
-        if (source.has_value() && outlet.has_value()) {
-            plan.route_bindings[index] = {
-                public_exhaust_index,
-                *source,
-                *outlet,
-            };
-        }
-        ++public_exhaust_index;
     }
+    plan.gas_exhaust_route_count = public_exhaust_index;
 
     append_layout_issues(report, plan);
     if (!report.ok() || !horizon.has_value()) {

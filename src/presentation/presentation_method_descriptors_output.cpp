@@ -6,28 +6,30 @@ namespace engine_sim_offline::presentation {
 namespace {
 
 #if defined(__wasm32__)
-#define ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL                          \
-    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-"           \
-    "wasm32-binary128-v1"
+#define ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL                                  \
+    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-"                   \
+    "wasm32-binary128-v2"
 #define ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL "wasm32-ieee754-binary128"
 #else
-#define ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL                          \
-    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v1"
+#define ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL                                  \
+    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v2"
 #define ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL "x87-extended"
 #endif
 
 constexpr std::string_view kRouteStemPublicationMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
-method=n-route-wet-selection-float32-wave-publication-20000-to-192000-20ms-clock-v3
-version=3
-operation=n-route-dry-configured-ir-selected-stem-publication
-topology=one-or-more-distinct-ordered-exhaust-routes-and-three-stems-per-route
-route_input=one-finite-binary64-dry-sample-and-one-finite-binary64-configured-ir-sample-per-route-per-source-frame
+method=typed-gas-route-wet-selection-float32-wave-publication-20000-to-192000-20ms-clock-v4
+version=4
+operation=typed-gas-route-dry-configured-transfer-selected-stem-publication
+topology=one-or-more-distinct-ordered-active-exhaust-routes;zero-or-more-distinct-ordered-declared-silent-intake-routes;three-stems-per-route
+active_exhaust_input=one-finite-binary64-dry-sample-and-one-finite-binary64-configured-transfer-sample-per-route-per-source-frame
+declared_silent_intake_processing=no-reconstruction-conditioning-convolution-or-random-stream-consumption
+declared_silent_intake_values=dry,configured-transfer,and-selected-are-canonical-positive-binary64-zero-before-publication
 resolved_argument_1=per-route-wet_mix_01
 resolved_argument_1_domain=finite-canonical-binary64-in-closed-interval-0..1;negative-zero-is-rejected
-selected=wet-mix-01*configured-ir+(binary64-1-wet-mix-01)*dry-in-written-order
+selected=wet-mix-01*configured-transfer+(binary64-1-wet-mix-01)*dry-in-written-order
 selection_execution=every-processed-source-frame-including-pre-audible-frames
-publication_inputs=dry,configured-ir,selected-in-that-order-per-route
+publication_inputs=dry,configured-transfer,selected-in-that-order-per-route
 resolved_argument_2=calibration_gain_linear
 resolved_argument_2_domain=finite-binary64-strictly-greater-than-positive-zero;both-signed-zeros-are-rejected
 timeline_unit=complete-3840-source-frame-blocks-at-192000/1-hz
@@ -40,13 +42,13 @@ pre_audible_policy=process-selection-and-continuous-convolution-state-but-publis
 crop_state_policy=no-reconstruction-conditioning-convolution-or-random-state-is-reset-at-the-pre-audible-boundary
 tail_policy=truncate-at-timeline-end-with-no-convolution-zero-extension-or-tail-flush
 published_frame_mapping=one-output-frame-per-published-source-frame-in-input-order
-published_stem_order=for-route-index-zero-through-r-minus-one-serially-dry,configured-ir,selected
+published_stem_order=for-route-index-zero-through-r-minus-one-serially-dry,configured-transfer,selected
 publication_round_1=float32(input)-using-nearest-ties-to-even
 publication_round_1_validation=result-must-be-finite
 calibration=binary64(publication-round-1)-times-calibration-gain-linear-in-written-order
 publication_round_2=float32(calibration)-using-nearest-ties-to-even
 publication_round_2_validation=result-must-be-finite
-output=exactly-three-times-r-finite-float32-mono-route-stem-streams
+output=exactly-three-times-all-published-route-count-finite-float32-mono-route-stem-streams
 clipping=none
 limiting=none
 dither=none
@@ -71,10 +73,11 @@ constexpr std::string_view kOrderedRouteAuditionMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
 )method"
     "method=" ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL "\n"
-    R"method(version=1
+    R"method(version=2
 operation=ordered-n-route-serial-float32-audition-mix-quarter-sine-fades-and-pcm24-master
-route_selection=all-r-rendered-routes-exactly-once-in-declared-vector-order
-route_input=one-finite-float32-sample-per-selected-route-per-frame
+route_selection=all-published-routes-exactly-once-in-declared-vector-order-with-at-least-one-active-exhaust-route
+active_route_input=one-finite-float32-sample-per-active-selected-exhaust-route-per-frame
+declared_silent_route_policy=exclude-from-the-arithmetic-reduction-with-no-inserted-zero-operation
 delivery_rate_hz=192000/1
 resolved_argument_1=monitoring_gain_linear
 resolved_argument_1_domain=finite-binary64-that-rounds-nearest-ties-even-to-finite-positive-float32
@@ -90,7 +93,7 @@ duration_resolution_bound=resolved-frame-index-less-than-or-equal-to-2^53-minus-
 audible_frame_count=positive-resolved-integer
 fade_fit=fade-in-frame-count-plus-fade-out-frame-count-less-than-or-equal-to-audible-frame-count
 monitoring_gain_compile=float32(monitoring-gain-linear)-using-nearest-ties-to-even
-raw_mix=initialize-with-route-0-selected-then-for-route-index-one-through-r-minus-one-assign-float32(raw-mix-plus-route-selected)-serially-in-declared-route-order-with-no-leading-zero
+raw_mix=initialize-with-first-active-selected-exhaust-route-then-for-each-remaining-active-selected-exhaust-route-assign-float32(raw-mix-plus-route-selected)-serially-in-declared-route-order-with-no-leading-or-placeholder-zero
 raw_mix_validation=result-must-be-finite
 monitor=float32(raw-mix-times-compiled-monitoring-gain)-in-written-order
 monitor_validation=result-must-be-finite

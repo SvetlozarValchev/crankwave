@@ -142,7 +142,7 @@ function testShutdown(program) {
   assert.ok(firstStoppedPhysicsStep !== null && firstStoppedPhysicsStep <= 22_000);
   return {
     maximumRpm,
-    stoppedAtSeconds: firstStoppedPhysicsStep / 10_000,
+    stoppedAtSeconds: firstStoppedPhysicsStep / 20_000,
   };
 }
 

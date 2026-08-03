@@ -15,12 +15,10 @@ namespace {
 
 // This is the incumbent seed-derivation namespace carried by the admitted
 // randomness method. It preserves derivation bytes; it is not an engine selector.
-inline constexpr std::string_view kIncumbentSeedNamespace =
-    "baked.loaded_acceleration";
+inline constexpr std::string_view kIncumbentSeedNamespace = "baked.loaded_acceleration";
 
 template <class Id>
-[[nodiscard]] Id runtime_id(const IdNamespace &ids,
-                            std::string_view semantic_id) {
+[[nodiscard]] Id runtime_id(const IdNamespace &ids, std::string_view semantic_id) {
     return Id{ids.by_semantic_id.at(std::string{semantic_id})};
 }
 
@@ -36,12 +34,11 @@ ordered_assets(const ModelContext &context) {
         result.push_back(&asset);
     }
     std::ranges::sort(result, [&](const auto *left, const auto *right) {
-        return runtime_id<contract::AudioAssetId>(
-                   context.ids.audio_assets, left->id.value)
-                   .value <
-               runtime_id<contract::AudioAssetId>(
-                   context.ids.audio_assets, right->id.value)
-                   .value;
+        return runtime_id<contract::AudioAssetId>(context.ids.audio_assets,
+                                                  left->id.value)
+                   .value < runtime_id<contract::AudioAssetId>(context.ids.audio_assets,
+                                                               right->id.value)
+                                .value;
     });
     return result;
 }
@@ -54,11 +51,9 @@ ordered_route_presentations(const ModelContext &context) {
         result.push_back(&route);
     }
     std::ranges::sort(result, [&](const auto *left, const auto *right) {
-        return runtime_id<contract::RouteId>(context.ids.routes,
-                                             left->route.value)
+        return runtime_id<contract::RouteId>(context.ids.routes, left->route.value)
                    .value <
-               runtime_id<contract::RouteId>(context.ids.routes,
-                                             right->route.value)
+               runtime_id<contract::RouteId>(context.ids.routes, right->route.value)
                    .value;
     });
     return result;
@@ -70,8 +65,8 @@ resolved_bus_routes(const ModelContext &context,
     std::vector<contract::RouteId> result;
     result.reserve(bus.routes.size());
     for (const auto &route : bus.routes) {
-        result.push_back(runtime_id<contract::RouteId>(
-            context.ids.routes, route.value));
+        result.push_back(
+            runtime_id<contract::RouteId>(context.ids.routes, route.value));
     }
     return result;
 }
@@ -79,16 +74,15 @@ resolved_bus_routes(const ModelContext &context,
 [[nodiscard]] std::vector<contract::RouteId>
 resolved_audition_routes(const ModelContext &context) {
     std::vector<contract::RouteId> result;
-    for (const auto &bus_reference :
-         context.document.presentation.audition.buses) {
-        const auto bus = std::ranges::find(
-            context.document.presentation.buses, bus_reference.value,
-            [](const auto &candidate) -> const std::string & {
-                return candidate.id.value;
-            });
+    for (const auto &bus_reference : context.document.presentation.audition.buses) {
+        const auto bus =
+            std::ranges::find(context.document.presentation.buses, bus_reference.value,
+                              [](const auto &candidate) -> const std::string & {
+                                  return candidate.id.value;
+                              });
         for (const auto &route : bus->routes) {
-            result.push_back(runtime_id<contract::RouteId>(
-                context.ids.routes, route.value));
+            result.push_back(
+                runtime_id<contract::RouteId>(context.ids.routes, route.value));
         }
     }
     return result;
@@ -96,11 +90,10 @@ resolved_audition_routes(const ModelContext &context) {
 
 } // namespace
 
-void assemble_presentation(
-    const ModelContext &context, ResolutionEmitter &emitter,
-    contract::PresentationCalibration &calibration,
-    contract::ResolvedRandomnessPolicy &randomness,
-    std::vector<ResolvedAudioBusDescriptor> &audio_buses) {
+void assemble_presentation(const ModelContext &context, ResolutionEmitter &emitter,
+                           contract::PresentationCalibration &calibration,
+                           contract::ResolvedRandomnessPolicy &randomness,
+                           std::vector<ResolvedAudioBusDescriptor> &audio_buses) {
     const auto &source = context.document.presentation;
     calibration.schema_version = 2U;
     calibration.calibration_id = context.calibration_id;
@@ -109,8 +102,7 @@ void assemble_presentation(
         derived_method_identity("presentation-engine-profile-binding-v1"),
         {"engine.profile_id"});
 
-    const auto &methods =
-        presentation::implemented_presentation_method_identities();
+    const auto &methods = presentation::implemented_presentation_method_identities();
     const auto method = [&](const contract::MethodIdentity &identity,
                             std::string path) {
         return emitter.derived(
@@ -119,8 +111,7 @@ void assemble_presentation(
             {"presentation.engine_profile_id"});
     };
     calibration.methods = {
-        method(methods.reconstruction,
-               "presentation.methods.reconstruction"),
+        method(methods.reconstruction, "presentation.methods.reconstruction"),
         method(methods.conditioning, "presentation.methods.conditioning"),
         method(methods.impulse_response_conversion,
                "presentation.methods.impulse_response_conversion"),
@@ -133,8 +124,7 @@ void assemble_presentation(
         emitter.authored(source.conditioning.jitter_scale,
                          "presentation.conditioning.jitter_scale"),
         emitter.authored(
-            legacy_si_value(
-                source.conditioning.jitter_modulation_cutoff_frequency),
+            legacy_si_value(source.conditioning.jitter_modulation_cutoff_frequency),
             "presentation.conditioning.jitter_modulation_cutoff_hz"),
         emitter.authored(source.conditioning.derivative_mix_01,
                          "presentation.conditioning.derivative_mix_01"),
@@ -148,24 +138,19 @@ void assemble_presentation(
     for (const auto *asset_definition : ordered_assets(context)) {
         const auto semantic = asset_definition->id.value;
         const auto base = "presentation.assets." + semantic;
-        const auto verified_index =
-            context.assets.audio_by_id.at(semantic);
+        const auto verified_index = context.assets.audio_by_id.at(semantic);
         const auto &verified = context.assets.values[verified_index];
         calibration.assets.push_back({
-            runtime_id<contract::AudioAssetId>(context.ids.audio_assets,
-                                               semantic),
+            runtime_id<contract::AudioAssetId>(context.ids.audio_assets, semantic),
             emitter.authored(semantic, base + ".semantic_id"),
-            emitter.derived(
-                audio_evidence_id(semantic), base + ".evidence_source_id",
-                derived_method_identity("content-evidence-id-v1"),
-                {base + ".semantic_id"}),
-            emitter.authored(verified.content_sha256,
-                             base + ".content_sha256"),
-            emitter.derived(
-                context.assets.audio_media_by_id.at(semantic),
-                base + ".media",
-                derived_method_identity("pcm16-wave-media-inspection-v1"),
-                {base + ".content_sha256"}),
+            emitter.derived(audio_evidence_id(semantic), base + ".evidence_source_id",
+                            derived_method_identity("content-evidence-id-v1"),
+                            {base + ".semantic_id"}),
+            emitter.authored(verified.content_sha256, base + ".content_sha256"),
+            emitter.derived(context.assets.audio_media_by_id.at(semantic),
+                            base + ".media",
+                            derived_method_identity("pcm16-wave-media-inspection-v1"),
+                            {base + ".content_sha256"}),
         });
     }
 
@@ -174,9 +159,11 @@ void assemble_presentation(
         const auto base = "presentation.routes." + semantic;
         calibration.routes.push_back({
             runtime_id<contract::RouteId>(context.ids.routes, semantic),
-            runtime_id<contract::AudioAssetId>(
-                context.ids.audio_assets,
-                route->impulse_response->value),
+            route->impulse_response.has_value()
+                ? std::optional<
+                      contract::AudioAssetId>{runtime_id<contract::AudioAssetId>(
+                      context.ids.audio_assets, route->impulse_response->value)}
+                : std::nullopt,
             emitter.authored(route->impulse_response_gain_linear,
                              base + ".impulse_response_gain_linear"),
             emitter.authored(route->wet_mix_01, base + ".wet_mix_01"),
@@ -220,18 +207,15 @@ void assemble_presentation(
     });
 
     randomness.seed_namespace_id = emitter.derived(
-        std::string{kIncumbentSeedNamespace},
-        "randomness.seed_namespace_id",
+        std::string{kIncumbentSeedNamespace}, "randomness.seed_namespace_id",
         derived_method_identity("engine-seed-namespace-selection-v1"),
         {"engine.profile_id"});
     randomness.generator = emitter.derived(
-        contract::pcg32_generator_method_identity(),
-        "randomness.generator",
+        contract::pcg32_generator_method_identity(), "randomness.generator",
         derived_method_identity("implemented-random-generator-selection-v1"),
         {"randomness.seed_namespace_id"});
     randomness.derivation = emitter.derived(
-        contract::component_seed_derivation_method_identity(),
-        "randomness.derivation",
+        contract::component_seed_derivation_method_identity(), "randomness.derivation",
         derived_method_identity("implemented-seed-derivation-selection-v1"),
         {"randomness.seed_namespace_id"});
 }

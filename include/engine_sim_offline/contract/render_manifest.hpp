@@ -82,7 +82,7 @@ struct RouteRecord {
     RouteId route_id;
     std::string semantic_id;
     SourceRouteKind kind = SourceRouteKind::unspecified;
-    RouteDisposition disposition = RouteDisposition::rendered;
+    RouteDisposition disposition = RouteDisposition::unspecified;
     std::string disposition_reason;
     std::vector<std::string> artifact_roles;
 

@@ -125,7 +125,9 @@ bool write_route_presentation(CanonicalJsonWriter &writer,
     return writer.begin_object() && writer.key("route_id") &&
            writer.uint32_value(route.route_id.value) &&
            writer.key("impulse_response_asset_id") &&
-           writer.uint32_value(route.impulse_response_asset_id.value) &&
+           (route.impulse_response_asset_id.has_value()
+                ? writer.uint32_value(route.impulse_response_asset_id->value)
+                : writer.null_value()) &&
            writer.key("impulse_response_gain_linear") &&
            write_resolved(writer, route.impulse_response_gain_linear, write_f64) &&
            writer.key("wet_mix_01") &&

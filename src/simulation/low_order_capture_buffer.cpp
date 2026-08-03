@@ -36,12 +36,12 @@ constexpr auto kTorque =
     return right > std::numeric_limits<std::size_t>::max() - left;
 }
 
-[[nodiscard]] double capture_mass_flow_kg_s(
-    double signed_amount_mol, contract::RationalRateHz rate) noexcept {
+[[nodiscard]] double capture_mass_flow_kg_s(double signed_amount_mol,
+                                            contract::RationalRateHz rate) noexcept {
     // Operation order is part of M3: convert the outer-step amount to mass first,
     // then divide by the exact outer-step duration.
-    const double step_s = static_cast<double>(rate.denominator) /
-                          static_cast<double>(rate.numerator);
+    const double step_s =
+        static_cast<double>(rate.denominator) / static_cast<double>(rate.numerator);
     return (signed_amount_mol * kLegacyAirMolarMassKgPerMol) / step_s;
 }
 
@@ -131,7 +131,7 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
         gas.cylinders.size() != plan_.cylinders.size() ||
         gas.gas_volumes.size() != plan_.gas_volumes.size() ||
         gas.flow_edges.size() != plan_.flow_edges.size() ||
-        gas.exhaust_routes.size() != plan_.route_bindings.size() ||
+        gas.exhaust_routes.size() != plan_.gas_exhaust_route_count ||
         plan_.cylinder_bindings.size() != plan_.cylinders.size() ||
         plan_.port_bindings.size() != plan_.ports.size() ||
         plan_.route_bindings.size() != plan_.routes.size()) {
@@ -317,33 +317,71 @@ LowOrderCaptureBuffer::append(const LegacyMechanismStep &mechanics,
 
     for (std::size_t index = 0; index < plan_.route_bindings.size(); ++index) {
         const auto &binding = plan_.route_bindings[index];
-        if (binding.gas_route_index >= gas.exhaust_routes.size() ||
-            binding.source_volume_index >= gas.gas_volumes.size() ||
-            binding.outlet_edge_index >= gas.flow_edges.size()) {
+        const bool exhaust = binding.kind == contract::SourceRouteKind::exhaust_outlet;
+        const bool intake = binding.kind == contract::SourceRouteKind::intake_inlet;
+        if (binding.source_volume_index >= gas.gas_volumes.size() ||
+            binding.primary_boundary_edge_index >= gas.flow_edges.size() ||
+            (exhaust && (!binding.gas_route_index.has_value() ||
+                         *binding.gas_route_index >= gas.exhaust_routes.size())) ||
+            (intake &&
+             (!binding.secondary_boundary_edge_index.has_value() ||
+              *binding.secondary_boundary_edge_index >= gas.flow_edges.size())) ||
+            (!exhaust && !intake)) {
             auto failure = shape_fault("compiled route capture binding is invalid");
             failure.route_id = plan_.routes[index].id;
             return failure;
         }
-        const auto &route = gas.exhaust_routes[binding.gas_route_index];
         const auto &source = gas.gas_volumes[binding.source_volume_index].cell;
-        const auto &edge = gas.flow_edges[binding.outlet_edge_index];
-        if (route.route_id != plan_.routes[index].id ||
-            route.collector_volume_id != plan_.routes[index].source_volume_id ||
-            route.collector_outlet_edge_id != edge.flow_edge_id) {
-            auto failure = shape_fault(
-                "gas route identity, source, outlet, or order differs from capture");
-            failure.route_id = plan_.routes[index].id;
-            return failure;
+        const auto &primary_edge = gas.flow_edges[binding.primary_boundary_edge_index];
+        if (exhaust) {
+            const auto &route = gas.exhaust_routes[*binding.gas_route_index];
+            if (route.route_id != plan_.routes[index].id ||
+                route.collector_volume_id != plan_.routes[index].source_volume_id ||
+                route.collector_outlet_edge_id != primary_edge.flow_edge_id) {
+                auto failure = shape_fault(
+                    "gas route identity, source, outlet, or order differs from "
+                    "capture");
+                failure.route_id = plan_.routes[index].id;
+                return failure;
+            }
+            routes_.push_back(contract::GasSourceRouteCaptureSample{
+                kThermodynamic | kGasExchange,
+                legacy_gas_pressure_pa(source),
+                legacy_gas_temperature_k(source),
+                // The edge is declared atmosphere -> collector. A route is oriented
+                // source-volume -> exterior, so its public flow uses the opposite
+                // sign.
+                -capture_mass_flow_kg_s(primary_edge.signed_amount_mol, plan_.rate),
+                route.collector_cross_section_area_m2,
+            });
+        } else {
+            const auto &secondary_edge =
+                gas.flow_edges[*binding.secondary_boundary_edge_index];
+            if (plan_.routes[index].source_volume_id !=
+                    std::optional<contract::GasVolumeId>{
+                        gas.gas_volumes[binding.source_volume_index].gas_volume_id} ||
+                primary_edge.endpoint_1_volume_id !=
+                    *plan_.routes[index].source_volume_id ||
+                secondary_edge.endpoint_1_volume_id !=
+                    *plan_.routes[index].source_volume_id) {
+                auto failure = shape_fault(
+                    "intake source, main-throttle edge, or idle-bypass edge differs "
+                    "from capture");
+                failure.route_id = plan_.routes[index].id;
+                return failure;
+            }
+            const double signed_amount_mol =
+                primary_edge.signed_amount_mol + secondary_edge.signed_amount_mol;
+            routes_.push_back(contract::GasSourceRouteCaptureSample{
+                kThermodynamic | kGasExchange,
+                legacy_gas_pressure_pa(source),
+                legacy_gas_temperature_k(source),
+                // Both edges are atmosphere -> plenum. The public intake route is
+                // oriented plenum -> exterior, matching the gas-route convention.
+                -capture_mass_flow_kg_s(signed_amount_mol, plan_.rate),
+                binding.effective_area_m2,
+            });
         }
-        routes_.push_back(contract::GasSourceRouteCaptureSample{
-            kThermodynamic | kGasExchange,
-            legacy_gas_pressure_pa(source),
-            legacy_gas_temperature_k(source),
-            // The edge is declared atmosphere -> collector. A route is oriented
-            // source-volume -> exterior, so its public flow uses the opposite sign.
-            -capture_mass_flow_kg_s(edge.signed_amount_mol, plan_.rate),
-            route.collector_cross_section_area_m2,
-        });
     }
 
     const auto frame_offset = frame_count_;

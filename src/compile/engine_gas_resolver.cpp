@@ -82,7 +82,7 @@ void resolve_gas_path(const ModelContext &context, ResolutionEmitter &emitter,
         core.gas_path.heads.push_back(std::move(resolved_head));
     }
 
-    for (const auto &resolved : ordered_routes(context)) {
+    for (const auto &resolved : ordered_exhaust_routes(context)) {
         const auto &route_source = *resolved.route;
         const auto &exhaust = *resolved.exhaust;
         const auto route_semantic = route_source.id.value;

@@ -75,11 +75,28 @@ void admit_engine_presentation(const authoring::EnginePackageDocument &document,
                 pointer_index("/presentation/routes", index) + "/route",
                 "each source route must have exactly one presentation binding");
         }
-        if (!binding.impulse_response.has_value()) {
+        const auto source_route = find_by_text(
+            engine.source_routes, binding.route.value,
+            [](const auto &value) -> const std::string & { return value.id.value; });
+        const bool exhaust =
+            source_route != nullptr &&
+            std::holds_alternative<authoring::ExhaustRouteSource>(source_route->source);
+        const bool intake =
+            source_route != nullptr &&
+            std::holds_alternative<authoring::IntakeRouteSource>(source_route->source);
+        if (exhaust && !binding.impulse_response.has_value()) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/presentation/routes", index) + "/impulse_response",
-                "the current convolution path requires an impulse response for "
-                "each route");
+                "an active exhaust route requires an impulse response");
+        }
+        if (intake && (binding.impulse_response.has_value() ||
+                       !same_binary64(binding.source_gain_linear, +0.0) ||
+                       !same_binary64(binding.impulse_response_gain_linear, +0.0) ||
+                       !same_binary64(binding.wet_mix_01, +0.0))) {
+            add(report, DiagnosticCode::unsupported_capability,
+                pointer_index("/presentation/routes", index),
+                "a declared-silent intake route requires no impulse response and "
+                "canonical positive-zero source, transfer, and wet gains");
         }
     }
     if (resolved.route_presentations.size() != engine.source_routes.size()) {
@@ -137,7 +154,7 @@ void admit_engine_presentation(const authoring::EnginePackageDocument &document,
         add(report, DiagnosticCode::unsupported_capability,
             "/presentation/audition/buses",
             "the current audition method requires the selected buses to flatten "
-            "to every exhaust route exactly once");
+            "to every admitted source route exactly once");
     }
 
     std::vector<std::string> deterministic_raw_route_order;
@@ -159,7 +176,7 @@ void admit_engine_presentation(const authoring::EnginePackageDocument &document,
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/presentation/buses", index),
                 "each current raw/audition bus must be published at exact unity "
-                "gain and cover every exhaust route exactly once");
+                "gain and cover every admitted source route exactly once");
         }
         if (!selected_bus_ids.contains(bus.id.value)) {
             std::vector<std::string> raw_route_order;

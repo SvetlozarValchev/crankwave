@@ -29,15 +29,14 @@ int main() {
                "wasm32-ieee754-binary128-strict-v1",
            "wasm32 extended-precision identity changed");
 
-    const auto &methods =
-        presentation::implemented_presentation_method_identities();
+    const auto &methods = presentation::implemented_presentation_method_identities();
     expect(methods.impulse_response_conversion.id ==
                "static-ir-blackman-sinc-24tap-4096phase-44100-to-192000-"
                "binary64-wasm32-binary128-v1",
            "wasm32 static-IR method ID does not identify binary128");
     expect(methods.audition_mix.id ==
                "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-"
-               "wasm32-binary128-v1",
+               "wasm32-binary128-v2",
            "wasm32 audition method ID does not identify binary128 duration "
            "resolution");
 
@@ -50,12 +49,12 @@ int main() {
                std::string_view::npos,
            "wasm32 audition descriptor omits binary128 duration resolution");
 
-    expect(contract::resolve_frame_index(
-               1001.0 / 30000.0, contract::RationalRateHz{30000, 1001}) ==
+    expect(contract::resolve_frame_index(1001.0 / 30000.0,
+                                         contract::RationalRateHz{30000, 1001}) ==
                std::optional<std::uint64_t>{1},
            "wasm32 binary128 duration resolution rejected an integral frame");
-    expect(!contract::resolve_frame_index(
-                0.5 / 48000.0, contract::RationalRateHz{48000, 1})
+    expect(!contract::resolve_frame_index(0.5 / 48000.0,
+                                          contract::RationalRateHz{48000, 1})
                 .has_value(),
            "wasm32 binary128 duration resolution rounded a half frame");
     return 0;

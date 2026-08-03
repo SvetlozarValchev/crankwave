@@ -346,6 +346,26 @@ void test_dynamic_route_projection() {
            "three-route calibration was not admitted in engine and audition order");
 }
 
+void test_declared_silent_intake_requires_no_transfer_asset() {
+    Inputs inputs;
+    inputs.engine.routes[1].kind.value = contract::SourceRouteKind::intake_inlet;
+    inputs.calibration.routes[0].impulse_response_asset_id.reset();
+    inputs.calibration.routes[0].impulse_response_gain_linear.value = +0.0;
+    inputs.calibration.routes[0].wet_mix_01.value = +0.0;
+    inputs.calibration.assets.erase(inputs.calibration.assets.begin() + 1);
+
+    const auto result = presentation::compile_presentation_calibration(
+        inputs.calibration, inputs.engine, inputs.scenario, inputs.builder.provenance);
+    const auto &admitted = expect_admitted(result);
+    expect(admitted.routes()[1].route_id() == contract::RouteId{2} &&
+               admitted.routes()[1].source_route_kind() ==
+                   contract::SourceRouteKind::intake_inlet &&
+               !admitted.routes()[1].impulse_response_asset_id().has_value() &&
+               admitted.routes()[1].impulse_response_gain_linear().value == +0.0 &&
+               admitted.routes()[1].wet_mix_01() == +0.0,
+           "declared-silent intake retained a fake transfer asset or gain");
+}
+
 void test_every_method_is_exact() {
     constexpr std::array paths{
         "presentation.methods.reconstruction.value",
@@ -478,12 +498,6 @@ void test_clock_and_topology_boundaries() {
                              "presentation.routes");
     expect_mutation_rejected(
         [](Inputs &inputs) {
-            inputs.engine.routes[1].kind.value =
-                contract::SourceRouteKind::intake_inlet;
-        },
-        "engine.routes[1].kind.value");
-    expect_mutation_rejected(
-        [](Inputs &inputs) {
             inputs.calibration.routes[0].route_id = contract::RouteId{1};
         },
         "presentation.routes.route.one.route_id");
@@ -547,6 +561,7 @@ void test_schema_version_is_exact() {
 void run_tests() {
     test_valid_projection_and_engine_route_order();
     test_dynamic_route_projection();
+    test_declared_silent_intake_requires_no_transfer_asset();
     test_every_method_is_exact();
     test_calibration_leaf_boundaries();
     test_clock_and_topology_boundaries();

@@ -30,18 +30,19 @@ inline constexpr std::string_view kFixedOverlapSaveConvolutionMethodId =
 inline constexpr std::uint32_t kFixedOverlapSaveConvolutionMethodVersion = 1;
 
 inline constexpr std::string_view kRouteStemPublicationMethodId =
-    "n-route-wet-selection-float32-wave-publication-20000-to-192000-20ms-clock-v3";
-inline constexpr std::uint32_t kRouteStemPublicationMethodVersion = 3;
+    "typed-gas-route-wet-selection-float32-wave-publication-20000-to-192000-"
+    "20ms-clock-v4";
+inline constexpr std::uint32_t kRouteStemPublicationMethodVersion = 4;
 
 #if defined(__wasm32__)
 inline constexpr std::string_view kOrderedRouteAuditionMethodId =
     "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-"
-    "wasm32-binary128-v1";
+    "wasm32-binary128-v2";
 #else
 inline constexpr std::string_view kOrderedRouteAuditionMethodId =
-    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v1";
+    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v2";
 #endif
-inline constexpr std::uint32_t kOrderedRouteAuditionMethodVersion = 1;
+inline constexpr std::uint32_t kOrderedRouteAuditionMethodVersion = 2;
 
 struct PresentationMethodIdentities {
     contract::MethodIdentity reconstruction;

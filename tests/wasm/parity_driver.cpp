@@ -297,6 +297,8 @@ void append_bus(std::string &output, const eso_audio_bus_descriptor_t &bus,
     }
     output += ",\"source_route_kind\":";
     append_integer(output, bus.source_route_kind);
+    output += ",\"signal_disposition\":";
+    append_integer(output, bus.signal_disposition);
     output += ",\"id\":";
     append_json_string(output, id);
     output.push_back('}');
@@ -401,12 +403,13 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     return result;
 }
 
-[[nodiscard]] std::string copy_gear_semantic_id(
-    eso_context_t *context, const eso_session_handle_t session,
-    const std::uint32_t gear_index, const std::size_t size) {
+[[nodiscard]] std::string copy_gear_semantic_id(eso_context_t *context,
+                                                const eso_session_handle_t session,
+                                                const std::uint32_t gear_index,
+                                                const std::size_t size) {
     std::string result(size + 1U, '\0');
-    if (eso_session_copy_forward_gear_semantic_id(
-            context, session, gear_index, {result.data(), result.size()}) !=
+    if (eso_session_copy_forward_gear_semantic_id(context, session, gear_index,
+                                                  {result.data(), result.size()}) !=
         ESO_STATUS_OK) {
         throw DriverStatus::gear;
     }

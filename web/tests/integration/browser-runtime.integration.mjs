@@ -197,7 +197,9 @@ async function main() {
     );
     assert.ok(auditionBus, "session does not expose an audition master");
     assert.ok(routeBus, "session does not expose a dry exhaust route");
+    assert.equal(auditionBus.signalDisposition, "active");
     assert.equal(routeBus.sourceRouteKind, "exhaust-outlet");
+    assert.equal(routeBus.signalDisposition, "active");
     assert.equal(
       validBuild.descriptor.selectedBusIndex,
       auditionBus.index,

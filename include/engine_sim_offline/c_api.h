@@ -15,7 +15,7 @@ extern "C" {
  * This is the only engine-sim-offline C ABI. It is a greenfield, exact-version
  * contract rather than a compatibility family.
  */
-#define ESO_C_API_VERSION UINT32_C(5)
+#define ESO_C_API_VERSION UINT32_C(6)
 #define ESO_INVALID_HANDLE UINT64_C(0)
 
 typedef struct eso_context eso_context_t;
@@ -285,6 +285,9 @@ enum {
     ESO_SOURCE_ROUTE_MECHANICAL_STARTER = 4
 };
 
+typedef uint32_t eso_audio_signal_disposition_t;
+enum { ESO_AUDIO_SIGNAL_ACTIVE = 1, ESO_AUDIO_SIGNAL_DECLARED_SILENT = 2 };
+
 typedef struct eso_audio_bus_descriptor {
     eso_audio_bus_kind_t kind;
     uint32_t channel_count;
@@ -293,6 +296,7 @@ typedef struct eso_audio_bus_descriptor {
     uint32_t has_route_id;
     uint32_t route_id;
     eso_source_route_kind_t source_route_kind;
+    eso_audio_signal_disposition_t signal_disposition;
     size_t id_utf8_bytes;
 } eso_audio_bus_descriptor_t;
 

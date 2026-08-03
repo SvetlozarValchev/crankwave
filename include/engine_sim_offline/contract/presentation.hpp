@@ -5,6 +5,7 @@
 #include "engine_sim_offline/contract/provenance.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -110,7 +111,7 @@ struct AuthoredRoutePresentation {
 
 struct RoutePresentation {
     RouteId route_id;
-    AudioAssetId impulse_response_asset_id;
+    std::optional<AudioAssetId> impulse_response_asset_id;
     ResolvedValue<double> impulse_response_gain_linear;
     ResolvedValue<double> wet_mix_01;
 
@@ -142,7 +143,9 @@ struct AuthoredAuditionMix {
 };
 
 struct AuditionMix {
-    // Vector order is the deterministic arithmetic reduction order.
+    // Vector order is the declared route-selection order. Its active-exhaust
+    // subsequence is the deterministic arithmetic reduction order; declared-silent
+    // routes perform no placeholder-zero operation.
     ResolvedValue<std::vector<RouteId>> selected_routes;
     ResolvedValue<double> monitoring_gain_linear;
     ResolvedValue<double> fade_in_duration_s;

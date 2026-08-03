@@ -33,9 +33,12 @@ struct LowOrderCaptureCylinderBinding {
 };
 
 struct LowOrderCaptureRouteBinding {
-    std::size_t gas_route_index = 0;
+    contract::SourceRouteKind kind = contract::SourceRouteKind::unspecified;
+    std::optional<std::size_t> gas_route_index;
     std::size_t source_volume_index = 0;
-    std::size_t outlet_edge_index = 0;
+    std::size_t primary_boundary_edge_index = 0;
+    std::optional<std::size_t> secondary_boundary_edge_index;
+    double effective_area_m2 = 0.0;
 };
 
 struct LowOrderCaptureBufferFault {
@@ -63,6 +66,7 @@ struct LowOrderCaptureBufferPlan {
     std::vector<LowOrderCaptureCylinderBinding> cylinder_bindings;
     std::vector<LowOrderCapturePortBinding> port_bindings;
     std::vector<LowOrderCaptureRouteBinding> route_bindings;
+    std::size_t gas_exhaust_route_count = 0;
 };
 
 class LowOrderCaptureBuffer final {

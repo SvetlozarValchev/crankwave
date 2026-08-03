@@ -81,16 +81,14 @@ void ScenarioResolver::compile_output_selection() {
         }
         selected_buses_.push_back(bus);
     }
-    const auto raw_count = std::ranges::count(
-        selected_buses_, contract::OutputBusKind::master_engine_raw,
-        [](const auto *bus) { return bus->kind; });
+    const auto raw_count =
+        std::ranges::count(selected_buses_, contract::OutputBusKind::master_engine_raw,
+                           [](const auto *bus) { return bus->kind; });
     const auto audition_count = std::ranges::count(
         selected_buses_, contract::OutputBusKind::master_engine_audition,
         [](const auto *bus) { return bus->kind; });
-    if (selected_buses_.size() != 2U || raw_count != 1U ||
-        audition_count != 1U) {
-        add(authoring::DiagnosticCode::unsupported_capability,
-            "/output/buses",
+    if (selected_buses_.size() != 2U || raw_count != 1U || audition_count != 1U) {
+        add(authoring::DiagnosticCode::unsupported_capability, "/output/buses",
             "the current presentation session requires exactly the engine raw "
             "and audition buses");
     }
@@ -116,15 +114,15 @@ void ScenarioResolver::compile_output_selection() {
                 add(authoring::DiagnosticCode::internal_failure, "",
                     "compiled audio bus references a non-executable engine route");
             }
-            request_input_.rendered_route_ids.push_back(route_id);
+            request_input_.published_route_ids.push_back(route_id);
         }
     }
-    std::ranges::sort(request_input_.rendered_route_ids, {},
+    std::ranges::sort(request_input_.published_route_ids, {},
                       [](const contract::RouteId id) { return id.value; });
-    request_input_.rendered_route_ids.erase(
-        std::unique(request_input_.rendered_route_ids.begin(),
-                    request_input_.rendered_route_ids.end()),
-        request_input_.rendered_route_ids.end());
+    request_input_.published_route_ids.erase(
+        std::unique(request_input_.published_route_ids.begin(),
+                    request_input_.published_route_ids.end()),
+        request_input_.published_route_ids.end());
 }
 
 contract::SourceMatrixContract ScenarioResolver::build_source_matrix() {
@@ -138,7 +136,7 @@ contract::SourceMatrixContract ScenarioResolver::build_source_matrix() {
         "float32le",
     };
 
-    for (const auto route_id : request_input_.rendered_route_ids) {
+    for (const auto route_id : request_input_.published_route_ids) {
         const auto *route = find_route(route_id);
         if (route == nullptr) {
             continue;
@@ -146,14 +144,17 @@ contract::SourceMatrixContract ScenarioResolver::build_source_matrix() {
         const auto role_prefix = route->semantic_id.value;
         const std::vector<std::string> roles{
             role_prefix + ".dry",
-            role_prefix + ".configured_ir",
+            role_prefix + ".configured_transfer",
             role_prefix + ".selected",
         };
+        const bool declared_silent =
+            route->kind.value == contract::SourceRouteKind::intake_inlet;
         matrix.required_source_routes.push_back({
             route->semantic_id.value,
             route->kind.value,
-            contract::RouteDisposition::rendered,
-            "",
+            declared_silent ? contract::RouteDisposition::declared_silent
+                            : contract::RouteDisposition::rendered,
+            declared_silent ? "audible-intake-signal-not-yet-admitted" : "",
             roles,
         });
         matrix.required_artifacts.push_back(
@@ -161,7 +162,7 @@ contract::SourceMatrixContract ScenarioResolver::build_source_matrix() {
         matrix.required_artifacts.push_back(
             {roles[1], contract::ArtifactKind::audio, route_audio, true});
         matrix.required_artifacts.push_back(
-            {roles[2], contract::ArtifactKind::audio, route_audio, false});
+            {roles[2], contract::ArtifactKind::audio, route_audio, declared_silent});
     }
     std::ranges::sort(matrix.required_source_routes, {},
                       &contract::SourceRouteRequirement::semantic_id);
@@ -190,8 +191,8 @@ contract::SourceMatrixContract ScenarioResolver::build_source_matrix() {
 
     std::vector<const contract::RouteSpec *> omitted;
     for (const auto &route : context_.engine.routes) {
-        if (std::ranges::find(request_input_.rendered_route_ids, route.id) ==
-            request_input_.rendered_route_ids.end()) {
+        if (std::ranges::find(request_input_.published_route_ids, route.id) ==
+            request_input_.published_route_ids.end()) {
             omitted.push_back(&route);
         }
     }

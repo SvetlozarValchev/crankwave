@@ -1,15 +1,16 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — rate and cylinder-collector gates accepted; intake source bus next
+Status: active — intake topology is exact and silent; isolated audible intake gate next
 
 Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-03
 
 Current checkpoint: **headless executable engine-sim parity complete — Slice 16's
-seven-procedure recording set, the single-path 20 kHz production/cooker cutover, and
-the byte-identical cylinder-lane/collector topology were accepted on 2026-08-03; the
-intake source bus is next**
+seven-procedure recording set and the single-path 20 kHz production/cooker cutover are
+accepted; cylinder/collector and typed intake-route topology are now explicit without
+changing the accepted exhaust PCM; one isolated audible intake-pressure diagnostic is
+next and must stop for listening**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -1012,7 +1013,12 @@ candidate with the accepted parity renderer as its control:
    preserving every old rounded total arrival. Both canonical BMW renders matched all
    eight accepted WAVs byte for byte. See
    [`docs/POST_PARITY_FIDELITY_CYLINDER_LANES.md`](docs/POST_PARITY_FIDELITY_CYLINDER_LANES.md)**);
-3. add a separately published intake source bus;
+3. add a separately published intake source bus (**in progress: typed intake topology,
+   20 kHz capture, explicit `declared_silent` source/stems, native/C/WASM publication,
+   and exhaust-PCM identity are complete; one isolated audible BMW intake-pressure
+   candidate is next and must stop for matched control/intake/full audition before
+   this item can be accepted. See
+   [`docs/POST_PARITY_FIDELITY_INTAKE_TOPOLOGY.md`](docs/POST_PARITY_FIDELITY_INTAKE_TOPOLOGY.md)**);
 4. add mechanical/valvetrain/block and starter buses independently;
 5. couple combustion variation and flow noise to combustion work, valve flow, and
    pressure ratio rather than granting static generic jitter/noise sole authority;

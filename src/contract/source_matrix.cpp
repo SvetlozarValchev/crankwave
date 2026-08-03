@@ -61,6 +61,7 @@ bool valid_route_disposition(RouteDisposition disposition) {
     switch (disposition) {
     case RouteDisposition::rendered:
     case RouteDisposition::not_applicable:
+    case RouteDisposition::declared_silent:
         return true;
     case RouteDisposition::unspecified:
         return false;
@@ -186,6 +187,12 @@ ValidationReport validate(const SourceMatrixContract &source_matrix) {
                     ContractIssueCode::inconsistent_semantics, path,
                     "not-applicable routes require a policy-owned reason and "
                     "cannot own artifacts");
+        } else if (route.disposition == RouteDisposition::declared_silent) {
+            require(report,
+                    !route.disposition_reason.empty() && !route.artifact_roles.empty(),
+                    ContractIssueCode::inconsistent_semantics, path,
+                    "declared-silent routes require an explicit reason and "
+                    "diagnostic artifacts");
         }
         validate_unique_owned_roles(report, route.artifact_roles,
                                     path + ".artifact_roles");
@@ -197,6 +204,13 @@ ValidationReport validate(const SourceMatrixContract &source_matrix) {
                         artifact->second->kind == ArtifactKind::audio,
                     ContractIssueCode::dangling_reference, path + ".artifact_roles",
                     "source routes may own only declared audio artifacts");
+            if (route.disposition == RouteDisposition::declared_silent &&
+                artifact != artifact_by_role.end()) {
+                require(report, artifact->second->diagnostic,
+                        ContractIssueCode::inconsistent_semantics,
+                        path + ".artifact_roles",
+                        "declared-silent route artifacts must be diagnostic");
+            }
         }
     }
 

@@ -3,6 +3,7 @@
 #include "render/render_job_derivation.hpp"
 #include "render/render_request.hpp"
 
+#include <ranges>
 #include <utility>
 #include <vector>
 
@@ -33,9 +34,18 @@ NativeBakePlanResult derive_native_bake_plan(
         });
     }
 
-    std::vector<contract::RouteId> audition_route_ids(
-        calibration.audition_route_ids().begin(),
-        calibration.audition_route_ids().end());
+    std::vector<contract::RouteId> audition_route_ids;
+    audition_route_ids.reserve(calibration.audition_route_ids().size());
+    for (const auto selected_id : calibration.audition_route_ids()) {
+        const auto selected =
+            std::ranges::find(calibration.routes(), selected_id,
+                              &presentation::AdmittedPresentationRoute::route_id);
+        if (selected != calibration.routes().end() &&
+            selected->source_route_kind() ==
+                contract::SourceRouteKind::exhaust_outlet) {
+            audition_route_ids.push_back(selected_id);
+        }
+    }
     const auto &mastering = calibration.mastering();
     NativePresentationPublicationPlan publication{
         projection.output_contract,

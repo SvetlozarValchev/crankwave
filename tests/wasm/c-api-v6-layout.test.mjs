@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  AudioSignalDisposition,
   AudioBusKind,
   ControlCapability,
   ESO_C_API_VERSION,
@@ -10,6 +11,7 @@ import {
   SourceRouteKind,
   WASM32_ABI_WORDS,
   audioBusKindName,
+  audioSignalDispositionName,
   sourceRouteKindName,
 } from "../../web/runtime/c-api-abi.js";
 import { EngineSimSession } from "../../web/runtime/c-api-session.js";
@@ -61,12 +63,32 @@ function writeEngineTelemetry(view, pointer, engineStep, rpm) {
   view.setFloat64(pointer + layout.requestedThrottle, 0.75, true);
 }
 
-function makeFakeClient() {
+function makeFakeClient({
+  busKind = AudioBusKind.engineAuditionMaster,
+  sourceRouteKind = SourceRouteKind.unspecified,
+  signalDisposition = AudioSignalDisposition.active,
+} = {}) {
   const heap = new FakeHeap();
   const capturedControlBatches = [];
   const engineId = "fixture-engine";
   const scenarioId = "fixture-free-vehicle";
-  const busId = "master.engine.audition";
+  const requestedBus = {
+    id: busKind === AudioBusKind.engineAuditionMaster
+      ? "master.engine.audition"
+      : "route.fixture.dry",
+    kind: busKind,
+    sourceRouteKind,
+    signalDisposition,
+  };
+  const buses = [requestedBus];
+  if (busKind !== AudioBusKind.engineAuditionMaster) {
+    buses.push({
+      id: "master.engine.audition",
+      kind: AudioBusKind.engineAuditionMaster,
+      sourceRouteKind: SourceRouteKind.unspecified,
+      signalDisposition: AudioSignalDisposition.active,
+    });
+  }
   const gears = [
     { gearId: 41, authoredOrdinal: 1, ratio: 4.21, semanticId: "gear-1" },
     { gearId: 42, authoredOrdinal: 2, ratio: 2.49, semanticId: "gear-2" },
@@ -92,7 +114,7 @@ function makeFakeClient() {
       view.setUint32(pointer + layout.deliveryFramesPerBlock, 4, true);
       view.setBigUint64(pointer + layout.totalBlockCount, 2n, true);
       view.setBigUint64(pointer + layout.preparationBlockCount, 0n, true);
-      view.setUint32(pointer + layout.audioBusCount, 1, true);
+      view.setUint32(pointer + layout.audioBusCount, buses.length, true);
       view.setUint32(pointer + layout.liveControlCapabilities, allCapabilities, true);
       view.setUint32(pointer + layout.engineIdBytes, engineId.length, true);
       view.setUint32(pointer + layout.scenarioIdBytes, scenarioId.length, true);
@@ -143,18 +165,32 @@ function makeFakeClient() {
       copyToMutableBuffer(heap, buffer, gears[index].semanticId);
       return 0;
     },
-    _eso_session_get_audio_bus_descriptor(_context, _session, _index, pointer) {
+    _eso_session_get_audio_bus_descriptor(_context, _session, index, pointer) {
+      const bus = buses[index];
       const layout = Layout.audioBusDescriptor;
       heap.bytes.fill(0, pointer, pointer + layout.size);
-      heap.view.setUint32(pointer + layout.kind, AudioBusKind.engineAuditionMaster, true);
+      heap.view.setUint32(pointer + layout.kind, bus.kind, true);
+      const hasRouteId = bus.sourceRouteKind !== SourceRouteKind.unspecified;
+      heap.view.setUint32(pointer + layout.hasRouteId, hasRouteId ? 1 : 0, true);
+      heap.view.setUint32(pointer + layout.routeId, hasRouteId ? 71 : 0, true);
+      heap.view.setUint32(
+        pointer + layout.sourceRouteKind,
+        bus.sourceRouteKind,
+        true,
+      );
+      heap.view.setUint32(
+        pointer + layout.signalDisposition,
+        bus.signalDisposition,
+        true,
+      );
       heap.view.setUint32(pointer + layout.channelCount, 1, true);
       heap.view.setBigUint64(pointer + layout.sampleRateNumerator, 192_000n, true);
       heap.view.setBigUint64(pointer + layout.sampleRateDenominator, 1n, true);
-      heap.view.setUint32(pointer + layout.idBytes, busId.length, true);
+      heap.view.setUint32(pointer + layout.idBytes, bus.id.length, true);
       return 0;
     },
-    _eso_session_copy_audio_bus_id(_context, _session, _index, buffer) {
-      copyToMutableBuffer(heap, buffer, busId);
+    _eso_session_copy_audio_bus_id(_context, _session, index, buffer) {
+      copyToMutableBuffer(heap, buffer, buses[index].id);
       return 0;
     },
     _eso_session_enqueue_controls(
@@ -318,9 +354,9 @@ function makeFakeClient() {
   return { client, capturedControlBatches };
 }
 
-test("frozen wasm32 ABI is the exact v5 layout", () => {
-  assert.equal(ESO_C_API_VERSION, 5);
-  assert.deepEqual(WASM32_ABI_WORDS, [5, 4, 4, 4, 8, 1, 40, 104, 24, 40, 696]);
+test("frozen wasm32 ABI is the exact v6 layout", () => {
+  assert.equal(ESO_C_API_VERSION, 6);
+  assert.deepEqual(WASM32_ABI_WORDS, [6, 4, 4, 4, 8, 1, 40, 104, 24, 48, 696]);
   assert.equal(Layout.diagnosticInfo.size, 56);
   assert.equal(Layout.engineTelemetry.size, 536);
   assert.equal(Layout.sessionTelemetry.engine, 8);
@@ -328,7 +364,7 @@ test("frozen wasm32 ABI is the exact v5 layout", () => {
   assert.equal(Layout.sessionTelemetry.freeVehicle, 600);
 });
 
-test("audio bus kinds are source-generic and route kinds are exact", () => {
+test("audio bus kinds, route kinds, and signal dispositions are exact", () => {
   assert.deepEqual(AudioBusKind, {
     sourceRouteDry: 1,
     sourceRouteConfiguredTransfer: 2,
@@ -342,6 +378,10 @@ test("audio bus kinds are source-generic and route kinds are exact", () => {
     intakeInlet: 2,
     mechanicalEngine: 3,
     mechanicalStarter: 4,
+  });
+  assert.deepEqual(AudioSignalDisposition, {
+    active: 1,
+    declaredSilent: 2,
   });
   assert.equal(audioBusKindName(AudioBusKind.sourceRouteDry), "source-route-dry");
   assert.equal(
@@ -362,6 +402,42 @@ test("audio bus kinds are source-generic and route kinds are exact", () => {
     sourceRouteKindName(SourceRouteKind.mechanicalStarter),
     "mechanical-starter",
   );
+  assert.equal(
+    audioSignalDispositionName(AudioSignalDisposition.active),
+    "active",
+  );
+  assert.equal(
+    audioSignalDispositionName(AudioSignalDisposition.declaredSilent),
+    "declared-silent",
+  );
+});
+
+test("session distinguishes declared-silent intake topology from active audio", () => {
+  const { client } = makeFakeClient({
+    busKind: AudioBusKind.sourceRouteDry,
+    sourceRouteKind: SourceRouteKind.intakeInlet,
+    signalDisposition: AudioSignalDisposition.declaredSilent,
+  });
+  const session = new EngineSimSession(client, 1n);
+  try {
+    assert.equal(session.buses[0].sourceRouteKind, "intake-inlet");
+    assert.equal(session.buses[0].routeId, 71);
+    assert.equal(session.buses[0].signalDisposition, "declared-silent");
+  } finally {
+    session.dispose();
+  }
+});
+
+test("session rejects a master bus carrying source-route identity", () => {
+  const { client } = makeFakeClient({
+    busKind: AudioBusKind.engineRawMaster,
+    sourceRouteKind: SourceRouteKind.exhaustOutlet,
+    signalDisposition: AudioSignalDisposition.active,
+  });
+  assert.throws(
+    () => new EngineSimSession(client, 1n),
+    /invalid audio source-route descriptor/,
+  );
 });
 
 test("session decodes motion, gear inventory, and nullable telemetry sidecars", () => {
@@ -370,6 +446,11 @@ test("session decodes motion, gear inventory, and nullable telemetry sidecars", 
   try {
     assert.equal(session.descriptor.motionMode, "free-vehicle");
     assert.equal(session.descriptor.motionModeCode, MotionMode.freeVehicle);
+    assert.equal(session.buses[0].signalDisposition, "active");
+    assert.equal(
+      session.buses[0].signalDispositionCode,
+      AudioSignalDisposition.active,
+    );
     assert.deepEqual(session.forwardGears, [
       {
         index: 0,

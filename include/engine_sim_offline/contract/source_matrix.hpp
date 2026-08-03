@@ -53,6 +53,7 @@ enum class RouteDisposition : std::uint8_t {
     unspecified,
     rendered,
     not_applicable,
+    declared_silent,
 };
 
 enum class OmissionKind : std::uint8_t {

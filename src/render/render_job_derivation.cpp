@@ -165,7 +165,7 @@ RenderJobProjectionResult derive_render_job_projection(
         return error(RenderJobDerivationErrorCode::route_projection_failed,
                      "source_matrix",
                      "the admitted presentation job requires three artifacts per "
-                     "rendered route and two master artifacts");
+                     "published gas-source route and two master artifacts");
     }
 
     projection.routes.reserve(calibration.route_count());
@@ -186,20 +186,28 @@ RenderJobProjectionResult derive_render_job_projection(
             std::ranges::find(request.source_matrix.required_source_routes,
                               engine_route->semantic_id.value,
                               &contract::SourceRouteRequirement::semantic_id);
-        if (required == request.source_matrix.required_source_routes.end() ||
-            required->kind != contract::SourceRouteKind::exhaust_outlet ||
-            required->disposition != contract::RouteDisposition::rendered ||
+        const bool gas_route =
+            required != request.source_matrix.required_source_routes.end() &&
+            (required->kind == contract::SourceRouteKind::exhaust_outlet ||
+             required->kind == contract::SourceRouteKind::intake_inlet);
+        const bool expected_disposition =
+            required != request.source_matrix.required_source_routes.end() &&
+            ((required->kind == contract::SourceRouteKind::exhaust_outlet &&
+              required->disposition == contract::RouteDisposition::rendered) ||
+             (required->kind == contract::SourceRouteKind::intake_inlet &&
+              required->disposition == contract::RouteDisposition::declared_silent));
+        if (!gas_route || !expected_disposition ||
             required->artifact_roles.size() != 3) {
             return error(RenderJobDerivationErrorCode::route_projection_failed,
                          "source_matrix.required_source_routes",
-                         "each admitted exhaust route requires positional "
-                         "dry/configured-IR/selected artifact roles");
+                         "each admitted gas-source route requires positional "
+                         "dry/configured-transfer/selected artifact roles");
         }
 
         auto &route_artifacts = projection.route_artifacts[route_index];
         std::array<PendingArtifact *, 3> destinations{
             &route_artifacts.dry,
-            &route_artifacts.configured_ir,
+            &route_artifacts.configured_transfer,
             &route_artifacts.selected,
         };
         for (std::size_t artifact_index = 0; artifact_index < destinations.size();

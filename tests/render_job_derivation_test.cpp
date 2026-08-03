@@ -108,7 +108,7 @@ struct ResolutionBuilder {
         engine.routes.push_back({
             contract::RouteId{3},
             {std::string{"route.three"}, {}},
-            {contract::SourceRouteKind::exhaust_outlet, {}},
+            {contract::SourceRouteKind::intake_inlet, {}},
             std::nullopt,
             std::nullopt,
             std::nullopt,
@@ -181,10 +181,10 @@ make_presentation(ResolutionBuilder &builder, const contract::EngineSpec &engine
     if (engine.routes.size() == 3) {
         presentation.routes.push_back({
             contract::RouteId{3},
-            contract::AudioAssetId{1},
+            std::nullopt,
             builder.resolved(
-                0.001, "presentation.routes.route.three.impulse_response_gain_linear"),
-            builder.resolved(0.25, "presentation.routes.route.three.wet_mix_01"),
+                +0.0, "presentation.routes.route.three.impulse_response_gain_linear"),
+            builder.resolved(+0.0, "presentation.routes.route.three.wet_mix_01"),
         });
     }
     presentation.publication.calibration_gain_linear =
@@ -250,7 +250,7 @@ make_source_matrix(std::size_t route_count = 2) {
             "",
             {
                 "stem/route.two.dry",
-                "stem/route.two.configured_ir",
+                "stem/route.two.configured_transfer",
                 "stem/route.two.selected",
             },
         },
@@ -261,7 +261,7 @@ make_source_matrix(std::size_t route_count = 2) {
             "",
             {
                 "stem/route.one.dry",
-                "stem/route.one.configured_ir",
+                "stem/route.one.configured_transfer",
                 "stem/route.one.selected",
             },
         },
@@ -271,12 +271,12 @@ make_source_matrix(std::size_t route_count = 2) {
             matrix.required_source_routes.begin() + 1,
             {
                 "route.three",
-                contract::SourceRouteKind::exhaust_outlet,
-                contract::RouteDisposition::rendered,
-                "",
+                contract::SourceRouteKind::intake_inlet,
+                contract::RouteDisposition::declared_silent,
+                "audible-intake-signal-not-yet-admitted",
                 {
                     "stem/route.three.dry",
-                    "stem/route.three.configured_ir",
+                    "stem/route.three.configured_transfer",
                     "stem/route.three.selected",
                 },
             });
@@ -298,24 +298,24 @@ make_source_matrix(std::size_t route_count = 2) {
         {"master/engine.audition", contract::ArtifactKind::audio, audition_audio,
          false},
         {"stem/route.two.selected", contract::ArtifactKind::audio, float_audio, false},
-        {"stem/route.one.configured_ir", contract::ArtifactKind::audio, float_audio,
-         true},
+        {"stem/route.one.configured_transfer", contract::ArtifactKind::audio,
+         float_audio, true},
         {"master/engine.raw", contract::ArtifactKind::audio, float_audio, false},
         {"stem/route.two.dry", contract::ArtifactKind::audio, float_audio, true},
         {"stem/route.one.selected", contract::ArtifactKind::audio, float_audio, false},
-        {"stem/route.two.configured_ir", contract::ArtifactKind::audio, float_audio,
-         true},
+        {"stem/route.two.configured_transfer", contract::ArtifactKind::audio,
+         float_audio, true},
         {"stem/route.one.dry", contract::ArtifactKind::audio, float_audio, true},
     };
     if (route_count == 3) {
         matrix.required_artifacts.push_back(
             {"stem/route.three.dry", contract::ArtifactKind::audio, float_audio, true});
-        matrix.required_artifacts.push_back({"stem/route.three.configured_ir",
+        matrix.required_artifacts.push_back({"stem/route.three.configured_transfer",
                                              contract::ArtifactKind::audio, float_audio,
                                              true});
         matrix.required_artifacts.push_back({"stem/route.three.selected",
                                              contract::ArtifactKind::audio, float_audio,
-                                             false});
+                                             true});
     }
     return matrix;
 }
@@ -366,10 +366,11 @@ struct ProjectionFixture {
 
 void test_artifact_path_projection() {
     {
-        auto result = derive_audio_artifact_path("exhaust.reference.0.configured_ir");
+        auto result =
+            derive_audio_artifact_path("exhaust.reference.0.configured_transfer");
         const auto *path = std::get_if<std::string>(&result);
         expect(path != nullptr &&
-                   *path == "audio/exhaust.reference.0.configured_ir.wav",
+                   *path == "audio/exhaust.reference.0.configured_transfer.wav",
                "plain artifact role projection changed");
     }
     {
@@ -468,17 +469,18 @@ void test_complete_projection() {
 
     const auto &route_0 = projection->route_artifacts[0];
     const auto &route_1 = projection->route_artifacts[1];
-    expect(route_0.dry.role == "stem/route.one.dry" &&
-               route_0.dry.relative_path == "audio/stem%2froute.one.dry.wav" &&
-               route_0.configured_ir.role == "stem/route.one.configured_ir" &&
-               route_0.selected.role == "stem/route.one.selected" &&
-               route_1.dry.role == "stem/route.two.dry" &&
-               route_1.configured_ir.role == "stem/route.two.configured_ir" &&
-               route_1.selected.role == "stem/route.two.selected",
-           "route artifact positions or derived paths changed");
-    expect(route_0.dry.diagnostic && route_0.configured_ir.diagnostic &&
+    expect(
+        route_0.dry.role == "stem/route.one.dry" &&
+            route_0.dry.relative_path == "audio/stem%2froute.one.dry.wav" &&
+            route_0.configured_transfer.role == "stem/route.one.configured_transfer" &&
+            route_0.selected.role == "stem/route.one.selected" &&
+            route_1.dry.role == "stem/route.two.dry" &&
+            route_1.configured_transfer.role == "stem/route.two.configured_transfer" &&
+            route_1.selected.role == "stem/route.two.selected",
+        "route artifact positions or derived paths changed");
+    expect(route_0.dry.diagnostic && route_0.configured_transfer.diagnostic &&
                !route_0.selected.diagnostic && route_1.dry.diagnostic &&
-               route_1.configured_ir.diagnostic && !route_1.selected.diagnostic,
+               route_1.configured_transfer.diagnostic && !route_1.selected.diagnostic,
            "artifact diagnostic policy was not copied exactly");
     expect(projection->raw_master_artifact.role == "master/engine.raw" &&
                projection->raw_master_artifact.relative_path ==
@@ -513,9 +515,11 @@ void test_dynamic_route_projection() {
                projection->output_contract.required_artifacts.size() == 11 &&
                projection->routes[2].route_id == contract::RouteId{3} &&
                projection->routes[2].semantic_id == "route.three" &&
+               projection->output_contract.required_source_routes[1].kind ==
+                   contract::SourceRouteKind::intake_inlet &&
                projection->route_artifacts[2].dry.role == "stem/route.three.dry" &&
-               projection->route_artifacts[2].configured_ir.role ==
-                   "stem/route.three.configured_ir" &&
+               projection->route_artifacts[2].configured_transfer.role ==
+                   "stem/route.three.configured_transfer" &&
                projection->route_artifacts[2].selected.role ==
                    "stem/route.three.selected" &&
                projection->output_buses.size() == 2,

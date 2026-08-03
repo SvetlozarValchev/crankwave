@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-_Static_assert(ESO_C_API_VERSION == 5, "unexpected C ABI version");
+_Static_assert(ESO_C_API_VERSION == 6, "unexpected C ABI version");
 _Static_assert(sizeof(eso_engine_handle_t) == sizeof(uint64_t),
                "engine handle width changed");
 _Static_assert(sizeof(eso_scenario_handle_t) == sizeof(uint64_t),
@@ -59,6 +59,8 @@ _Static_assert(ESO_SOURCE_ROUTE_UNSPECIFIED == 0 &&
                    ESO_SOURCE_ROUTE_MECHANICAL_ENGINE == 3 &&
                    ESO_SOURCE_ROUTE_MECHANICAL_STARTER == 4,
                "source-route kind values changed");
+_Static_assert(ESO_AUDIO_SIGNAL_ACTIVE == 1 && ESO_AUDIO_SIGNAL_DECLARED_SILENT == 2,
+               "audio-signal disposition values changed");
 _Static_assert(sizeof(((eso_control_command_t *)0)->scalar_value) == sizeof(double),
                "control scalar width changed");
 _Static_assert(sizeof(((eso_control_command_t *)0)->id_value) == sizeof(uint32_t),
@@ -84,8 +86,9 @@ _Static_assert(offsetof(eso_audio_bus_descriptor_t, kind) == 0U &&
                    offsetof(eso_audio_bus_descriptor_t, has_route_id) == 24U &&
                    offsetof(eso_audio_bus_descriptor_t, route_id) == 28U &&
                    offsetof(eso_audio_bus_descriptor_t, source_route_kind) == 32U &&
-                   offsetof(eso_audio_bus_descriptor_t, id_utf8_bytes) >
-                       offsetof(eso_audio_bus_descriptor_t, source_route_kind),
+                   offsetof(eso_audio_bus_descriptor_t, signal_disposition) == 36U &&
+                   offsetof(eso_audio_bus_descriptor_t, id_utf8_bytes) == 40U &&
+                   sizeof(eso_audio_bus_descriptor_t) == 48U,
                "audio-bus descriptor ABI layout changed");
 _Static_assert(offsetof(eso_session_telemetry_t, physics_step_end) == 0U &&
                    offsetof(eso_session_telemetry_t, engine) == sizeof(uint64_t) &&

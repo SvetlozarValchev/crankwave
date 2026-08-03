@@ -1,4 +1,5 @@
 import {
+  AudioSignalDisposition,
   AudioBusKind,
   BlockPhase,
   ControlCapability,
@@ -13,6 +14,7 @@ import {
   SourceRouteKind,
   TORQUE_FIELDS,
   audioBusKindName,
+  audioSignalDispositionName,
   sourceRouteKindName,
   blockPhaseName,
   clutchDispositionName,
@@ -1261,11 +1263,32 @@ export class EngineSimSession {
             pointer + layout.sourceRouteKind,
             true,
           );
+          const signalDispositionCode = view.getUint32(
+            pointer + layout.signalDisposition,
+            true,
+          );
+          const hasRouteId = hasRouteIdValue === 1;
+          const sourceRouteBus =
+            kind === AudioBusKind.sourceRouteDry ||
+            kind === AudioBusKind.sourceRouteConfiguredTransfer ||
+            kind === AudioBusKind.sourceRouteSelected;
+          const masterBus =
+            kind === AudioBusKind.engineRawMaster ||
+            kind === AudioBusKind.engineAuditionMaster;
           if (
             (hasRouteIdValue !== 0 && hasRouteIdValue !== 1) ||
-            (hasRouteIdValue === 1) !==
-              (sourceRouteKindCode !== SourceRouteKind.unspecified) ||
-            sourceRouteKindName(sourceRouteKindCode).startsWith("unknown-")
+            (!sourceRouteBus && !masterBus) ||
+            (sourceRouteBus &&
+              (!hasRouteId ||
+                sourceRouteKindCode === SourceRouteKind.unspecified)) ||
+            (masterBus &&
+              (hasRouteId ||
+                sourceRouteKindCode !== SourceRouteKind.unspecified ||
+                signalDispositionCode !== AudioSignalDisposition.active)) ||
+            sourceRouteKindName(sourceRouteKindCode).startsWith("unknown-") ||
+            audioSignalDispositionName(signalDispositionCode).startsWith(
+              "unknown-",
+            )
           ) {
             throw new EngineSimRuntimeError(
               "the session returned an invalid audio source-route descriptor",
@@ -1276,7 +1299,6 @@ export class EngineSimSession {
               },
             );
           }
-          const hasRouteId = hasRouteIdValue === 1;
           result.push({
             index,
             id: this.#heap.decodeUtf8(idPointer, idBytes),
@@ -1284,6 +1306,8 @@ export class EngineSimSession {
             kindCode: kind,
             sourceRouteKind: sourceRouteKindName(sourceRouteKindCode),
             sourceRouteKindCode,
+            signalDisposition: audioSignalDispositionName(signalDispositionCode),
+            signalDispositionCode,
             channelCount: view.getUint32(pointer + layout.channelCount, true),
             sampleRate: {
               numerator: decimal(numerator),

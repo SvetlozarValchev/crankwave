@@ -59,13 +59,16 @@ same_capture_topology(const detail::LowOrderCaptureBufferPlan &left,
         });
     const bool same_route_bindings = same_sequence(
         left.route_bindings, right.route_bindings, [](const auto &a, const auto &b) {
-            return a.gas_route_index == b.gas_route_index &&
+            return a.kind == b.kind && a.gas_route_index == b.gas_route_index &&
                    a.source_volume_index == b.source_volume_index &&
-                   a.outlet_edge_index == b.outlet_edge_index;
+                   a.primary_boundary_edge_index == b.primary_boundary_edge_index &&
+                   a.secondary_boundary_edge_index == b.secondary_boundary_edge_index &&
+                   a.effective_area_m2 == b.effective_area_m2;
         });
     return left.cylinders == right.cylinders && left.ports == right.ports &&
            left.gas_volumes == right.gas_volumes &&
            left.flow_edges == right.flow_edges && left.routes == right.routes &&
+           left.gas_exhaust_route_count == right.gas_exhaust_route_count &&
            same_cylinder_bindings && same_port_bindings && same_route_bindings;
 }
 

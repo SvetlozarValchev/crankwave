@@ -212,6 +212,8 @@ control_error_code(EngineControlRejectionCode code) noexcept;
 [[nodiscard]] eso_audio_bus_kind_t audio_bus_kind(EngineAudioBusKind kind) noexcept;
 [[nodiscard]] eso_source_route_kind_t
 source_route_kind(contract::SourceRouteKind kind) noexcept;
+[[nodiscard]] eso_audio_signal_disposition_t
+audio_signal_disposition(EngineAudioSignalDisposition disposition) noexcept;
 
 [[nodiscard]] eso_quantity_value_t
 quantity_value(const contract::QuantityValue &value) noexcept;

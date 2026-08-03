@@ -1,12 +1,14 @@
 #pragma once
 
 #include "dsp/fixed_fft.hpp"
+#include "engine_sim_offline/contract/engine.hpp"
 #include "presentation/exhaust_excitation_block.hpp"
 #include "presentation/exhaust_source_stage.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -20,7 +22,7 @@ inline constexpr std::size_t kPresentationAudioStemsPerRoute = 3;
 // value as the route-local stem offset.
 enum class PresentationAudioStemRole : std::uint8_t {
     dry = 0,
-    configured_ir = 1,
+    configured_transfer = 1,
     selected = 2,
 };
 
@@ -28,14 +30,17 @@ enum class PresentationAudioStemRole : std::uint8_t {
 // delivery-format policy.
 struct PresentationAudioRoutePlan {
     contract::RouteId route_id;
-    RouteConditioningSeeds conditioning_seeds;
+    contract::SourceRouteKind source_route_kind =
+        contract::SourceRouteKind::unspecified;
+    std::optional<RouteConditioningSeeds> conditioning_seeds;
     std::shared_ptr<const dsp::FixedConvolutionKernel> configured_ir;
     double wet_mix_01 = 0.0;
 };
 
 // Processing-only presentation contract. `routes` owns source/stem order while
 // `audition_route_ids` owns the exact serial Float32 reduction order. The latter
-// must be a permutation of every configured route.
+// must be a permutation of every active exhaust route; declared-silent routes do
+// not appear because the reduction performs no placeholder-zero operation.
 struct PresentationAudioPlan {
     RouteConditioningCalibration conditioning;
     std::vector<PresentationAudioRoutePlan> routes;

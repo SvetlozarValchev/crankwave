@@ -426,7 +426,17 @@ compile_random_plan(const ResolvedRandomnessPolicy &policy, const EngineSpec &en
                         ContractIssueCode::invalid_value,
                         "presentation.routes[" + std::to_string(index) + "].route_id",
                         "random component owner must have a stable nonzero ID");
-        routes.push_back(&route);
+        const auto engine_route =
+            std::ranges::find(engine.routes, route.route_id, &RouteSpec::id);
+        detail::require(
+            report, engine_route != engine.routes.end(),
+            ContractIssueCode::dangling_reference,
+            "presentation.routes[" + std::to_string(index) + "].route_id",
+            "random component owner must resolve to an engine source route");
+        if (engine_route != engine.routes.end() &&
+            engine_route->kind.value == SourceRouteKind::exhaust_outlet) {
+            routes.push_back(&route);
+        }
     }
     std::ranges::sort(routes, {},
                       [](const auto *route) { return route->route_id.value; });

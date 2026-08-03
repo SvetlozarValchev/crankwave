@@ -21,12 +21,14 @@ zero-saturation recordings spanning a
 fixed-cam inline-six, fixed-cam V8, VTEC transition, governed load step, one-level
 master-rod engine, sustained vehicle pull, and launch/shift procedure. The first
 two post-parity fidelity gates are also accepted: production and cooker scenarios now
-use one canonical 20 kHz physics/capture path, and identity-stable cylinder-primary
-lanes now merge at an explicit collector before shared route propagation. Source
-processing, acoustics, and delivery remain at 192 kHz. The intake source bus is next.
+use one canonical 20 kHz physics/capture path, identity-stable cylinder-primary lanes
+now merge at an explicit collector before shared route propagation, and typed intake
+topology is carried to a separately published `declared_silent` source bus without
+changing exhaust PCM. Source processing, acoustics, and delivery remain at 192 kHz.
+One isolated audible intake-pressure candidate is next.
 This scoped claim does not include `.mr` or native-GUI parity, arbitrary unproven
-mechanisms, fuel-volume-display parity, or fidelity enhancements beyond the accepted
-rate gate.
+mechanisms, fuel-volume-display parity, or audible-fidelity claims beyond the accepted
+20 kHz exhaust path.
 Strict engine/scenario JSON compilation is the only production input path. A compiled
 scenario can create an independent mutable `EngineSession`, whose bounded
 `process_block()` method
@@ -42,7 +44,7 @@ handoff, and preserves continuous physical and DSP state until the caller restar
 destroys, or faults the session. A warm dynamic bench may physically release at its
 fixed preparation horizon and continue acquisition before that later audible handoff.
 
-Exact C ABI v4 exposes strict JSON compilation, immutable engine/scenario handles,
+Exact C ABI v6 exposes strict JSON compilation, immutable engine/scenario handles,
 mutable sessions, twelve typed controls, caller-owned PCM/session telemetry, ordered
 forward-gear discovery, and structured diagnostics without leaking C++ types or
 exceptions. Its descriptor identifies one of all seven implemented motion modes. The
@@ -139,7 +141,7 @@ Finite JSON `held_dyno` scenarios now drive that same crank through a bounded si
 speed constraint. The dyno may absorb or drive only within authored limits, reports
 the exact opposite reaction torque, and exposes achieved RPM when saturated. The first
 BMW procedure covers a target-driven pull, exact plateau, lift, and unforced overrun;
-the native session, C ABI v4, WASM wrapper, and Worker protocol v3 now publish live
+the native session, C ABI v6, WASM wrapper, and Worker protocol v3 now publish live
 target and torque-limit commands plus nullable final-step dyno telemetry.
 
 Finite JSON `free_vehicle` scenarios couple the same crank to a forward-only vehicle,

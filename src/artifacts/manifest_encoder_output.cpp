@@ -72,6 +72,8 @@ bool write_route_disposition(CanonicalJsonWriter &writer,
         return writer.string_value("rendered");
     case contract::RouteDisposition::not_applicable:
         return writer.string_value("not_applicable");
+    case contract::RouteDisposition::declared_silent:
+        return writer.string_value("declared_silent");
     case contract::RouteDisposition::unspecified:
         break;
     }

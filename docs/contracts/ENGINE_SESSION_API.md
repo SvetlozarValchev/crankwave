@@ -555,7 +555,9 @@ The session descriptor exposes stable bus descriptors:
 EngineAudioBusDescriptor
   id
   bus kind
-  optional exhaust route ID
+  physical source-route kind
+  optional source-route ID
+  signal disposition
   channel count
   delivery sample rate
 ```
@@ -568,15 +570,24 @@ and optional `RouteId`. The implemented, mono, 192 kHz buses are:
 - a raw master;
 - an audition master.
 
+`signal disposition` is exact, not advisory. `active` means the bus is backed by the
+implemented signal path. `declared_silent` means the topology is public but this
+checkpoint intentionally publishes zeros; clients must not mistake its existence for
+implemented audible fidelity.
+
 Every successful block returns all advertised buses as borrowed `float32` spans of
 exactly 3,840 samples. The spans remain valid only until the next enqueue/process
 operation, session move, or session destruction. File publishers must consume or copy
 them before advancing the session.
 
-The currently admitted routes are exhaust outlets. Intake and mechanical buses are not
-yet advertised, even though ABI v5 can identify them without another bus-role change.
-Their absence is an explicit missing capability, not a silent placeholder. Caller-selected bus subsets and
-caller-owned output buffers are also not part of the implemented C++ surface.
+Exhaust route buses and both masters are `active`. The admitted intake topology is
+published as `declared_silent` at this checkpoint: it is an explicit topology lane, not
+fabricated intake audio. Mechanical route kinds remain reserved and would likewise be
+`declared_silent` until a real signal implementation is admitted. Changing a route to
+`active` requires its separately accepted signal implementation and audition evidence.
+The sole portable boundary is C ABI v6; there are no earlier-version aliases or
+compatibility decoders. Caller-selected bus subsets and caller-owned output buffers are
+also not part of the implemented C++ surface.
 
 The audition master is a convenience listening mix. Game hosts should normally consume
 separate buses and own spatial placement, distance attenuation, occlusion,
@@ -693,7 +704,7 @@ There is no form that omits `execution_kind`.
 
 The implemented ABI:
 
-- the sole accepted exact version is `ESO_C_API_VERSION == 5`, with no older-layout
+- the sole accepted exact version is `ESO_C_API_VERSION == 6`, with no older-layout
   decoder or compatibility symbol family;
 - no C++ exception crosses the boundary;
 - every call returns an explicit status;

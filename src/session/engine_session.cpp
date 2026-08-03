@@ -31,6 +31,21 @@ inline constexpr std::array kSourceRouteAudioBusKinds{
     EngineAudioBusKind::source_route_selected,
 };
 
+[[nodiscard]] EngineAudioSignalDisposition
+source_route_signal_disposition(contract::RouteDisposition disposition) {
+    switch (disposition) {
+    case contract::RouteDisposition::rendered:
+        return EngineAudioSignalDisposition::active;
+    case contract::RouteDisposition::declared_silent:
+        return EngineAudioSignalDisposition::declared_silent;
+    case contract::RouteDisposition::unspecified:
+    case contract::RouteDisposition::not_applicable:
+        throw std::logic_error{
+            "published source-route bus requires an executable signal disposition"};
+    }
+    throw std::logic_error{"source-route signal disposition is unknown"};
+}
+
 [[nodiscard]] EngineSessionError processing_error(
     std::string detail_code, std::string message,
     std::optional<contract::FailureContext> simulation_failure = std::nullopt) {
@@ -264,10 +279,8 @@ required_capability(const EngineControlPayload &payload) noexcept {
 
 EngineSessionBlockView::EngineSessionBlockView(
     const std::uint64_t block_ordinal, const EngineSessionBlockPhase phase,
-    const std::uint64_t first_physics_frame,
-    const std::uint32_t physics_frame_count,
-    const std::uint64_t first_delivery_frame,
-    const std::uint32_t delivery_frame_count,
+    const std::uint64_t first_physics_frame, const std::uint32_t physics_frame_count,
+    const std::uint64_t first_delivery_frame, const std::uint32_t delivery_frame_count,
     const std::span<const EngineAudioBusBlockView> audio_buses,
     const std::span<const EngineTelemetryFrame> telemetry) noexcept
     : block_ordinal_(block_ordinal), phase_(phase),
@@ -324,13 +337,13 @@ class EngineSession::Implementation final {
           presentation_(std::move(components.presentation)),
           capacities_(compiled_scenario_.session_capacities()),
           physics_rate_(calibration_.capture_rate()),
-          delivery_rate_(compile::detail::CompiledScenarioViewAccess::inputs(
-                             compiled_scenario_)
-                             .scenario.scenario.rates.delivery),
-          physics_frames_per_block_(static_cast<std::uint32_t>(
-              calibration_.capture_frames_per_block())),
-          control_timeline_(capacities_.control_command_queue_capacity,
-                            physics_rate_, delivery_rate_),
+          delivery_rate_(
+              compile::detail::CompiledScenarioViewAccess::inputs(compiled_scenario_)
+                  .scenario.scenario.rates.delivery),
+          physics_frames_per_block_(
+              static_cast<std::uint32_t>(calibration_.capture_frames_per_block())),
+          control_timeline_(capacities_.control_command_queue_capacity, physics_rate_,
+                            delivery_rate_),
           control_scratch_(capacities_.control_command_queue_capacity),
           total_block_count_(execution_kind_ ==
                                      EngineSessionExecutionKind::finite_scenario
@@ -695,14 +708,10 @@ class EngineSession::Implementation final {
                                    ? EngineSessionBlockPhase::preparation
                                    : EngineSessionBlockPhase::audible;
             return EngineSessionBlockView{
-                expected_block,
-                phase,
-                expected_first_physics,
-                physics_frames_per_block_,
-                expected_first_delivery,
-                delivery_frames_per_block_,
-                audio_bus_views_,
-                telemetry_,
+                expected_block,          phase,
+                expected_first_physics,  physics_frames_per_block_,
+                expected_first_delivery, delivery_frames_per_block_,
+                audio_bus_views_,        telemetry_,
             };
         } catch (const std::bad_alloc &) {
             return fail({
@@ -770,29 +779,38 @@ class EngineSession::Implementation final {
         audio_bus_descriptors_.reserve(bus_count);
         for (std::size_t route = 0; route < route_count; ++route) {
             const auto route_id = calibration_.routes()[route].route_id();
-            const auto engine_route =
-                std::ranges::find(inputs.engine.engine.routes, route_id,
-                                  &contract::RouteSpec::id);
+            const auto engine_route = std::ranges::find(
+                inputs.engine.engine.routes, route_id, &contract::RouteSpec::id);
             if (engine_route == inputs.engine.engine.routes.end()) {
                 throw std::logic_error{
                     "presentation route is absent from the compiled engine"};
+            }
+            const auto requirement =
+                std::ranges::find(inputs.scenario.source_matrix.required_source_routes,
+                                  engine_route->semantic_id.value,
+                                  &contract::SourceRouteRequirement::semantic_id);
+            if (requirement ==
+                inputs.scenario.source_matrix.required_source_routes.end()) {
+                throw std::logic_error{
+                    "presentation route lacks a public source requirement"};
             }
             const auto base = route * 3U;
             for (std::size_t stem = 0; stem < kSourceRouteAudioBusKinds.size();
                  ++stem) {
                 audio_bus_descriptors_.push_back(
                     {audio_bus_ids_[base + stem], kSourceRouteAudioBusKinds[stem],
-                     engine_route->kind.value, route_id});
+                     engine_route->kind.value, route_id,
+                     source_route_signal_disposition(requirement->disposition)});
             }
         }
-        audio_bus_descriptors_.push_back({audio_bus_ids_[bus_count - 2U],
-                                          EngineAudioBusKind::engine_raw_master,
-                                          contract::SourceRouteKind::unspecified,
-                                          std::nullopt});
-        audio_bus_descriptors_.push_back({audio_bus_ids_[bus_count - 1U],
-                                          EngineAudioBusKind::engine_audition_master,
-                                          contract::SourceRouteKind::unspecified,
-                                          std::nullopt});
+        audio_bus_descriptors_.push_back(
+            {audio_bus_ids_[bus_count - 2U], EngineAudioBusKind::engine_raw_master,
+             contract::SourceRouteKind::unspecified, std::nullopt,
+             EngineAudioSignalDisposition::active});
+        audio_bus_descriptors_.push_back(
+            {audio_bus_ids_[bus_count - 1U], EngineAudioBusKind::engine_audition_master,
+             contract::SourceRouteKind::unspecified, std::nullopt,
+             EngineAudioSignalDisposition::active});
         audio_bus_views_.resize(bus_count);
     }
 
@@ -801,7 +819,7 @@ class EngineSession::Implementation final {
         for (std::size_t route = 0; route < audio.route_count(); ++route) {
             using Role = presentation::PresentationAudioStemRole;
             for (const auto role :
-                 std::array{Role::dry, Role::configured_ir, Role::selected}) {
+                 std::array{Role::dry, Role::configured_transfer, Role::selected}) {
                 audio_bus_views_[bus] = {
                     audio_bus_descriptors_[bus],
                     audio.route_stem(route, role),
@@ -834,8 +852,7 @@ class EngineSession::Implementation final {
                 "open-session-completion-invalid",
                 "only a finite-scenario session may publish completion evidence"));
         }
-        const auto expected_physics =
-            total_block_count_ * physics_frames_per_block_;
+        const auto expected_physics = total_block_count_ * physics_frames_per_block_;
         if (completed.sample_count != expected_physics ||
             completed.block_count != total_block_count_ ||
             simulation_.published_sample_count() != expected_physics ||
@@ -898,10 +915,8 @@ class EngineSession::Implementation final {
     compile::CompiledSessionCapacities capacities_;
     contract::RationalRateHz physics_rate_ = kEngineSessionPhysicsRateHz;
     contract::RationalRateHz delivery_rate_ = kEngineSessionDeliveryRateHz;
-    std::uint32_t physics_frames_per_block_ =
-        kEngineSessionPhysicsFramesPerBlock;
-    std::uint32_t delivery_frames_per_block_ =
-        kEngineSessionDeliveryFramesPerBlock;
+    std::uint32_t physics_frames_per_block_ = kEngineSessionPhysicsFramesPerBlock;
+    std::uint32_t delivery_frames_per_block_ = kEngineSessionDeliveryFramesPerBlock;
     session::ControlTimeline control_timeline_;
     std::vector<session::TimestampedControlCommand> control_scratch_;
     std::string engine_id_;

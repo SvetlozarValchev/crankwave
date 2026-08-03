@@ -263,6 +263,17 @@ source_route_kind(const contract::SourceRouteKind kind) noexcept {
     return ESO_SOURCE_ROUTE_UNSPECIFIED;
 }
 
+eso_audio_signal_disposition_t
+audio_signal_disposition(const EngineAudioSignalDisposition disposition) noexcept {
+    switch (disposition) {
+    case EngineAudioSignalDisposition::active:
+        return ESO_AUDIO_SIGNAL_ACTIVE;
+    case EngineAudioSignalDisposition::declared_silent:
+        return ESO_AUDIO_SIGNAL_DECLARED_SILENT;
+    }
+    return ESO_AUDIO_SIGNAL_DECLARED_SILENT;
+}
+
 } // namespace engine_sim_offline::c_api
 
 extern "C" {

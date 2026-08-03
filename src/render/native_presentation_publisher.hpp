@@ -54,11 +54,12 @@ struct NativePresentationTimeline {
 
 struct NativePresentationRouteArtifacts {
     PendingArtifact dry;
-    PendingArtifact configured_ir;
+    PendingArtifact configured_transfer;
     PendingArtifact selected;
 };
 
-// Publication binding for one already-rendered route. This intentionally owns
+// Publication binding for one already-produced route. An active route carries its
+// rendered signal; a declared-silent route carries canonical positive zero. This owns
 // no source conditioning, random seed, convolution kernel, or wet-selection
 // setting.
 struct NativePresentationRoutePublicationPlan {
