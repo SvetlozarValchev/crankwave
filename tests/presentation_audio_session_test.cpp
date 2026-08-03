@@ -5,6 +5,7 @@
 
 #include <array>
 #include <bit>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -150,13 +151,20 @@ void expect_throw(Function &&function, const char *message) {
 
 struct Excitation {
     std::array<contract::RouteId, 3> route_ids = kRouteIds;
-    std::vector<double> values =
-        std::vector<double>(kExcitationFramesPerMethodBlock * kRouteIds.size());
+    contract::RationalRateHz rate = kExcitationRateHz;
+    std::size_t frame_count = kExcitationFramesPerMethodBlock;
+    std::vector<double> values;
+
+    explicit Excitation(
+        contract::RationalRateHz configured_rate = kExcitationRateHz,
+        std::size_t configured_frame_count = kExcitationFramesPerMethodBlock)
+        : rate(configured_rate), frame_count(configured_frame_count),
+          values(frame_count * kRouteIds.size()) {}
 };
 
 void fill_excitation(Excitation &excitation, std::uint64_t block_ordinal) {
-    for (std::size_t frame = 0; frame < kExcitationFramesPerMethodBlock; ++frame) {
-        const auto global = block_ordinal * kExcitationFramesPerMethodBlock + frame;
+    for (std::size_t frame = 0; frame < excitation.frame_count; ++frame) {
+        const auto global = block_ordinal * excitation.frame_count + frame;
         for (std::size_t route = 0; route < kRouteIds.size(); ++route) {
             const auto code =
                 static_cast<std::int64_t>((global + 3) * (route + 5) % 37) - 18;
@@ -169,8 +177,8 @@ void fill_excitation(Excitation &excitation, std::uint64_t block_ordinal) {
 [[nodiscard]] ExhaustExcitationBlockView make_view(Excitation &excitation,
                                                    std::uint64_t first_frame_index) {
     return ExhaustExcitationBlockView::borrow_for_callback(
-        first_frame_index, kExcitationRateHz, excitation.route_ids,
-        kExcitationFramesPerMethodBlock, excitation.values);
+        first_frame_index, excitation.rate, excitation.route_ids,
+        excitation.frame_count, excitation.values);
 }
 
 void expect_exact_float(float actual, float expected, const char *message) {
@@ -300,6 +308,30 @@ void test_process_is_allocation_free() {
            "allocation-free presentation process did not complete");
 }
 
+void test_twenty_khz_plan_reaches_the_audio_session() {
+    auto plan = make_plan();
+    plan.excitation_rate = kHigherExcitationRateHz;
+    plan.excitation_frames_per_block = kHigherRateExcitationFramesPerMethodBlock;
+    PresentationAudioSession session{std::move(plan)};
+    Excitation excitation{kHigherExcitationRateHz,
+                          kHigherRateExcitationFramesPerMethodBlock};
+    fill_excitation(excitation, 0);
+
+    const auto block = session.process(make_view(excitation, 0));
+    expect(block.input_frame_count() == kHigherRateExcitationFramesPerMethodBlock &&
+               block.frame_count() == kSourceFramesPerMethodBlock &&
+               block.sample_rate() == kPresentationAudioRateHz &&
+               session.next_input_frame_index() ==
+                   kHigherRateExcitationFramesPerMethodBlock &&
+               session.next_source_frame_index() == kSourceFramesPerMethodBlock &&
+               !session.terminal_failed(),
+           "20 kHz presentation plan did not produce one 192 kHz audio block");
+    for (const auto sample : block.raw_master()) {
+        expect(std::isfinite(sample),
+               "20 kHz presentation session produced non-finite master audio");
+    }
+}
+
 void test_validation_and_structural_rejection() {
     auto empty = make_plan();
     empty.routes.clear();
@@ -313,6 +345,12 @@ void test_validation_and_structural_rejection() {
     expect_throw<std::invalid_argument>(
         [&] { PresentationAudioSession rejected{std::move(duplicate_audition)}; },
         "presentation audio accepted duplicate audition routes");
+
+    auto wrong_higher_rate_extent = make_plan();
+    wrong_higher_rate_extent.excitation_rate = kHigherExcitationRateHz;
+    expect_throw<std::invalid_argument>(
+        [&] { PresentationAudioSession rejected{std::move(wrong_higher_rate_extent)}; },
+        "presentation audio accepted a 10 kHz block size at 20 kHz");
 
     PresentationAudioSession session{make_plan()};
     Excitation excitation;
@@ -344,6 +382,7 @@ int main() {
     try {
         test_exact_dynamic_route_pipeline();
         test_process_is_allocation_free();
+        test_twenty_khz_plan_reaches_the_audio_session();
         test_validation_and_structural_rejection();
     } catch (const std::exception &error) {
         std::cerr << "presentation audio session test failed: " << error.what() << '\n';

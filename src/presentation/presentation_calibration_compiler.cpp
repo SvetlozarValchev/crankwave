@@ -13,15 +13,16 @@ namespace {
 using contract::ContractIssueCode;
 using contract::ValidationReport;
 
-constexpr contract::RationalRateHz kCaptureRate{10000, 1};
+constexpr contract::RationalRateHz kStandardCaptureRate{10000, 1};
+constexpr contract::RationalRateHz kHigherCaptureRate{20000, 1};
 constexpr contract::RationalRateHz kSourceRate{192000, 1};
+constexpr std::uint64_t kPresentationBlocksPerSecond = 50;
 constexpr std::uint64_t kFloat32WaveBytesPerFrame = 4;
 constexpr std::uint64_t kFloat32WaveRiffFixedByteCount = 50;
 
-static_assert(AdmittedPresentationCalibration::capture_frames_per_block *
-                  kSourceRate.numerator ==
-              AdmittedPresentationCalibration::source_frames_per_block *
-                  kCaptureRate.numerator);
+static_assert(AdmittedPresentationCalibration::source_frames_per_block *
+                  kPresentationBlocksPerSecond ==
+              kSourceRate.numerator);
 
 void require(ValidationReport &report, bool condition, ContractIssueCode code,
              std::string path, std::string message) {
@@ -63,6 +64,17 @@ void require_exact_rate(ValidationReport &report,
     require(report, actual == expected, ContractIssueCode::unsupported_value,
             std::move(path),
             "rate does not match the exact executable presentation clock");
+}
+
+[[nodiscard]] std::uint64_t
+admitted_capture_frames_per_block(const contract::RationalRateHz &rate) noexcept {
+    if (rate == kStandardCaptureRate) {
+        return 200;
+    }
+    if (rate == kHigherCaptureRate) {
+        return 400;
+    }
+    return 0;
 }
 
 void require_canonical_zero(ValidationReport &report, double value, std::string path) {
@@ -119,11 +131,15 @@ AdmittedPresentationCalibration::AdmittedPresentationCalibration(
     std::vector<AdmittedPresentationRoute> routes,
     contract::ResolvedValue<double> publication_calibration_gain_linear,
     std::vector<contract::RouteId> audition_route_ids, MasteringSettings mastering,
+    contract::RationalRateHz capture_rate,
+    std::uint64_t capture_frames_per_block,
     std::uint64_t total_block_count, std::uint64_t pre_audible_block_count)
     : methods_(std::move(methods)), conditioning_(conditioning),
       routes_(std::move(routes)), publication_calibration_gain_linear_(
                                       std::move(publication_calibration_gain_linear)),
       audition_route_ids_(audition_route_ids), mastering_(std::move(mastering)),
+      capture_rate_(capture_rate),
+      capture_frames_per_block_(capture_frames_per_block),
       total_block_count_(total_block_count),
       pre_audible_block_count_(pre_audible_block_count) {}
 
@@ -160,6 +176,16 @@ const MasteringSettings &AdmittedPresentationCalibration::mastering() const noex
     return mastering_;
 }
 
+const contract::RationalRateHz &
+AdmittedPresentationCalibration::capture_rate() const noexcept {
+    return capture_rate_;
+}
+
+std::uint64_t
+AdmittedPresentationCalibration::capture_frames_per_block() const noexcept {
+    return capture_frames_per_block_;
+}
+
 std::uint64_t AdmittedPresentationCalibration::total_block_count() const noexcept {
     return total_block_count_;
 }
@@ -181,10 +207,14 @@ struct PresentationCalibrationCompiler {
             contract::validate(calibration, engine, scenario, provenance);
         report.append(admit_implemented_presentation_methods(calibration.methods));
 
-        require_exact_rate(report, scenario.rates.physics, kCaptureRate,
-                           "scenario.rates.physics");
-        require_exact_rate(report, scenario.rates.capture, kCaptureRate,
-                           "scenario.rates.capture");
+        const auto capture_frames_per_block =
+            admitted_capture_frames_per_block(scenario.rates.capture);
+        require(report, scenario.rates.physics == scenario.rates.capture,
+                ContractIssueCode::unsupported_value, "scenario.rates.physics",
+                "physics and capture must use the same executable clock");
+        require(report, capture_frames_per_block != 0,
+                ContractIssueCode::unsupported_value, "scenario.rates.capture",
+                "capture must use the exact 10000/1 or 20000/1 executable clock");
         require_exact_rate(report, scenario.rates.source_processing, kSourceRate,
                            "scenario.rates.source_processing");
         require_exact_rate(report, scenario.rates.acoustic, kSourceRate,
@@ -193,17 +223,18 @@ struct PresentationCalibrationCompiler {
                            "scenario.rates.delivery");
         require(report,
                 scenario.quality.value.capture_block_capacity_frames >=
-                    AdmittedPresentationCalibration::capture_frames_per_block,
+                    capture_frames_per_block,
                 ContractIssueCode::unsupported_value,
                 "scenario.quality.value.capture_block_capacity_frames",
-                "capture transport cannot hold one exact 200-frame presentation block");
+                "capture transport cannot hold one exact 20 ms presentation block");
 
         const auto total_capture = contract::resolve_frame_index(
-            scenario.total_duration_s.value, kCaptureRate);
+            scenario.total_duration_s.value, scenario.rates.capture);
         const auto pre_audible_capture =
-            contract::resolve_frame_index(scenario.audible_start_s.value, kCaptureRate);
+            contract::resolve_frame_index(scenario.audible_start_s.value,
+                                          scenario.rates.capture);
         const auto audible_capture = contract::resolve_frame_index(
-            scenario.audible_duration_s.value, kCaptureRate);
+            scenario.audible_duration_s.value, scenario.rates.capture);
         const auto total_source =
             contract::resolve_frame_index(scenario.total_duration_s.value, kSourceRate);
         const auto pre_audible_source =
@@ -240,28 +271,27 @@ struct PresentationCalibrationCompiler {
         std::uint64_t pre_audible_blocks = 0;
         if (total_capture.has_value()) {
             require(report,
-                    *total_capture %
-                            AdmittedPresentationCalibration::capture_frames_per_block ==
-                        0,
+                    capture_frames_per_block != 0 &&
+                        *total_capture % capture_frames_per_block == 0,
                     ContractIssueCode::inconsistent_semantics,
                     "scenario.total_duration_s.value",
-                    "total duration must align to a complete 200-frame presentation "
+                    "total duration must align to a complete 20 ms presentation "
                     "block");
-            total_blocks = *total_capture /
-                           AdmittedPresentationCalibration::capture_frames_per_block;
+            if (capture_frames_per_block != 0) {
+                total_blocks = *total_capture / capture_frames_per_block;
+            }
         }
         if (pre_audible_capture.has_value()) {
             require(report,
-                    *pre_audible_capture %
-                            AdmittedPresentationCalibration::capture_frames_per_block ==
-                        0,
+                    capture_frames_per_block != 0 &&
+                        *pre_audible_capture % capture_frames_per_block == 0,
                     ContractIssueCode::inconsistent_semantics,
                     "scenario.audible_start_s.value",
-                    "audible start must align to a complete 200-frame presentation "
+                    "audible start must align to a complete 20 ms presentation "
                     "block");
-            pre_audible_blocks =
-                *pre_audible_capture /
-                AdmittedPresentationCalibration::capture_frames_per_block;
+            if (capture_frames_per_block != 0) {
+                pre_audible_blocks = *pre_audible_capture / capture_frames_per_block;
+            }
         }
 
         std::uint64_t capture_end = 0;
@@ -296,7 +326,7 @@ struct PresentationCalibrationCompiler {
         std::uint64_t represented_pre_source = 0;
         std::uint64_t audible_source_frames = 0;
         const bool total_capture_product_ok = checked_multiply(
-            total_blocks, AdmittedPresentationCalibration::capture_frames_per_block,
+            total_blocks, capture_frames_per_block,
             represented_total_capture);
         const bool total_source_product_ok = checked_multiply(
             total_blocks, AdmittedPresentationCalibration::source_frames_per_block,
@@ -495,6 +525,8 @@ struct PresentationCalibrationCompiler {
             audition_routes,
             MasteringSettings{audible_source_frames, *fade_in_frames, *fade_out_frames,
                               compiled_monitoring_gain},
+            scenario.rates.capture,
+            capture_frames_per_block,
             total_blocks,
             pre_audible_blocks,
         };

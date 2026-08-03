@@ -15,25 +15,47 @@
 namespace engine_sim_offline::compile::detail::scenario_resolution {
 namespace {
 
-// The admitted simulation -> capture -> excitation method currently consumes one
-// exact 200-frame physics block and projects it to one exact 3,840-frame delivery
-// block. These are method-owned execution quanta, not authored session capacities.
-constexpr std::uint32_t kInternalCaptureFramesPerMethodBlock = 200U;
+// The admitted simulation -> capture -> excitation method consumes one exact 20 ms
+// capture block and projects it to one exact 3,840-frame delivery block. The capture
+// frame count therefore follows the authored capture clock (200 at 10 kHz, 400 at
+// 20 kHz); these are method-owned execution quanta, not authored session capacities.
+constexpr std::uint64_t kMethodBlocksPerSecond = 50U;
 constexpr std::uint32_t kDeliveryFramesPerMethodBlock = 3840U;
 
+[[nodiscard]] std::optional<std::uint32_t> capture_frames_per_method_block(
+    const contract::RationalRateHz &capture_rate) noexcept {
+    if (capture_rate.denominator == 0U ||
+        capture_rate.denominator >
+            std::numeric_limits<std::uint64_t>::max() / kMethodBlocksPerSecond) {
+        return std::nullopt;
+    }
+    const auto quantum_denominator =
+        capture_rate.denominator * kMethodBlocksPerSecond;
+    if (capture_rate.numerator == 0U ||
+        capture_rate.numerator % quantum_denominator != 0U) {
+        return std::nullopt;
+    }
+    const auto frame_count = capture_rate.numerator / quantum_denominator;
+    if (frame_count == 0U ||
+        frame_count > std::numeric_limits<std::uint32_t>::max()) {
+        return std::nullopt;
+    }
+    return static_cast<std::uint32_t>(frame_count);
+}
+
 [[nodiscard]] std::optional<std::uint32_t>
-internal_event_journal_capacity(const std::size_t cylinder_count) noexcept {
+internal_event_journal_capacity(const std::size_t cylinder_count,
+                                const std::uint32_t capture_frames) noexcept {
     constexpr auto kMaximum =
         static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max());
     if (cylinder_count > (kMaximum - 1U) / 3U) {
         return std::nullopt;
     }
     const auto events_per_physics_frame = 3U * cylinder_count + 1U;
-    if (events_per_physics_frame > kMaximum / kInternalCaptureFramesPerMethodBlock) {
+    if (events_per_physics_frame > kMaximum / capture_frames) {
         return std::nullopt;
     }
-    return static_cast<std::uint32_t>(events_per_physics_frame *
-                                      kInternalCaptureFramesPerMethodBlock);
+    return static_cast<std::uint32_t>(events_per_physics_frame * capture_frames);
 }
 
 } // namespace
@@ -122,9 +144,19 @@ void ScenarioResolver::compile_common_fields() {
             "returned telemetry-frame capacity must be positive");
     }
 
+    const auto capture_frames =
+        capture_frames_per_method_block(scenario_.rates.capture);
+    if (!capture_frames.has_value()) {
+        add(authoring::DiagnosticCode::unsupported_capability, "/rates/capture",
+            "capture rate must resolve to a positive integral 20 ms method "
+            "quantum");
+    }
     const auto derived_event_capacity =
-        internal_event_journal_capacity(context_.engine.cylinders.size());
-    if (!derived_event_capacity.has_value()) {
+        capture_frames.has_value()
+            ? internal_event_journal_capacity(context_.engine.cylinders.size(),
+                                              *capture_frames)
+            : std::nullopt;
+    if (capture_frames.has_value() && !derived_event_capacity.has_value()) {
         add(authoring::DiagnosticCode::unsupported_capability, "/engine",
             "engine cylinder count cannot be represented by the current bounded "
             "internal event journal");
@@ -132,7 +164,7 @@ void ScenarioResolver::compile_common_fields() {
     scenario_.quality.value = {
         document_.quality.id,
         1U,
-        kInternalCaptureFramesPerMethodBlock,
+        capture_frames.value_or(0U),
         derived_event_capacity.value_or(0U),
     };
     scenario_.public_seed.value = document_.public_seed;

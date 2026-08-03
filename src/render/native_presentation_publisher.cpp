@@ -27,9 +27,9 @@ namespace {
 using artifacts::WavEncoder;
 using artifacts::WavEncodingStatus;
 
-constexpr std::size_t kInputFramesPerBlock = kEngineSessionPhysicsFramesPerBlock;
 constexpr std::size_t kSourceFramesPerBlock = kEngineSessionDeliveryFramesPerBlock;
 constexpr std::size_t kMaximumWaveChunkBytes = 16U * 1024U;
+constexpr contract::RationalRateHz kHigherFidelityPhysicsRate{20000U, 1U};
 
 [[nodiscard]] constexpr std::size_t stem_count(std::size_t route_count) noexcept {
     return route_count * kNativePresentationArtifactsPerRoute;
@@ -64,8 +64,9 @@ published_block_count(const NativePresentationPublicationPlan &plan) noexcept {
 }
 
 [[nodiscard]] std::uint64_t
-processed_input_frame_count(const NativePresentationPublicationPlan &plan) {
-    return checked_frame_product(plan.timeline.total_block_count, kInputFramesPerBlock,
+processed_input_frame_count(const NativePresentationPublicationPlan &plan,
+                            std::size_t input_frames_per_block) {
+    return checked_frame_product(plan.timeline.total_block_count, input_frames_per_block,
                                  "native presentation input horizon");
 }
 
@@ -187,7 +188,6 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
             "implementation"};
     }
 
-    static_cast<void>(processed_input_frame_count(plan));
     static_cast<void>(processed_source_frame_count(plan));
     static_cast<void>(pre_audible_source_frame_count(plan));
     const auto audible_frames = published_source_frame_count(plan);
@@ -396,9 +396,15 @@ require_output_bus(const NativePresentationPublicationPlan &plan,
 [[nodiscard]] NativePresentationBusBinding
 bind_session_buses(const EngineSessionDescriptor &session,
                    const NativePresentationPublicationPlan &plan) {
-    if (session.physics_rate != kEngineSessionPhysicsRateHz ||
+    const bool admitted_physics_rate =
+        session.physics_rate == kEngineSessionPhysicsRateHz ||
+        session.physics_rate == kHigherFidelityPhysicsRate;
+    const bool exact_input_quantum =
+        session.physics_rate.denominator == 1U &&
+        session.physics_rate.numerator % 50U == 0U &&
+        session.physics_frames_per_block == session.physics_rate.numerator / 50U;
+    if (!admitted_physics_rate || !exact_input_quantum ||
         session.delivery_rate != kEngineSessionDeliveryRateHz ||
-        session.physics_frames_per_block != kEngineSessionPhysicsFramesPerBlock ||
         session.delivery_frames_per_block != kEngineSessionDeliveryFramesPerBlock ||
         session.total_block_count != plan.timeline.total_block_count ||
         session.preparation_block_count != plan.timeline.pre_audible_block_count ||
@@ -523,6 +529,7 @@ class NativePresentationPublisher::Implementation final {
     Implementation(RenderSink &sink, const EngineSessionDescriptor &session,
                    NativePresentationPublicationPlan plan, RenderControl control)
         : sink_(sink), plan_(validated_plan(std::move(plan))),
+          input_frames_per_block_(session.physics_frames_per_block),
           buses_(bind_session_buses(session, plan_)),
           audio_artifacts_(ordered_audio_artifacts(plan_)),
           control_(std::move(control)),
@@ -531,6 +538,8 @@ class NativePresentationPublisher::Implementation final {
           fade_settings_(make_fade_settings(plan_)),
           observations_(audio_artifacts_.size()), consumers_(audio_artifacts_.size()) {
         try {
+            static_cast<void>(
+                processed_input_frame_count(plan_, input_frames_per_block_));
             begin();
         } catch (...) {
             // A throwing constructor does not run ~Implementation.
@@ -770,7 +779,7 @@ class NativePresentationPublisher::Implementation final {
     void validate_block(const EngineSessionBlockView &block) const {
         const auto expected_block = stats_.processed_block_count;
         const auto expected_input_frame = checked_frame_product(
-            expected_block, kInputFramesPerBlock, "native input continuity");
+            expected_block, input_frames_per_block_, "native input continuity");
         const auto expected_source_frame = checked_frame_product(
             expected_block, kSourceFramesPerBlock, "native source continuity");
         const auto expected_phase =
@@ -781,7 +790,7 @@ class NativePresentationPublisher::Implementation final {
             block.phase() != expected_phase ||
             block.first_physics_frame() != expected_input_frame ||
             block.first_delivery_frame() != expected_source_frame ||
-            block.physics_frame_count() != kInputFramesPerBlock ||
+            block.physics_frame_count() != input_frames_per_block_ ||
             block.delivery_frame_count() != kSourceFramesPerBlock ||
             block.audio_buses().size() != buses_.bus_count) {
             throw std::invalid_argument{
@@ -923,7 +932,8 @@ class NativePresentationPublisher::Implementation final {
     }
 
     void require_complete_schedule() const {
-        const auto expected_input_frames = processed_input_frame_count(plan_);
+        const auto expected_input_frames =
+            processed_input_frame_count(plan_, input_frames_per_block_);
         const auto expected_source_frames = processed_source_frame_count(plan_);
         const auto expected_pre_audible_frames = pre_audible_source_frame_count(plan_);
         const auto expected_published_frames = published_source_frame_count(plan_);
@@ -952,6 +962,7 @@ class NativePresentationPublisher::Implementation final {
 
     RenderSink &sink_;
     NativePresentationPublicationPlan plan_;
+    std::size_t input_frames_per_block_ = 0U;
     NativePresentationBusBinding buses_;
     std::vector<PendingArtifact> audio_artifacts_;
     RenderControl control_;

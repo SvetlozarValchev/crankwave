@@ -39,18 +39,24 @@ class NumericControlRecovery final {
     }
 };
 
-[[nodiscard]] double scenario_time(std::uint64_t physics_frame) noexcept {
-    return static_cast<double>(physics_frame) /
-           static_cast<double>(kEngineSessionPhysicsRateHz.numerator);
+[[nodiscard]] double scenario_time(
+    std::uint64_t physics_frame, contract::RationalRateHz physics_rate) noexcept {
+    if (physics_rate.numerator == 0U || physics_rate.denominator == 0U) {
+        return 0.0;
+    }
+    return static_cast<double>(physics_frame) *
+           static_cast<double>(physics_rate.denominator) /
+           static_cast<double>(physics_rate.numerator);
 }
 
 [[nodiscard]] RenderFailure failure(RenderRequestRecord request, FailureKind kind,
                                     std::string detail_code, std::string state_summary,
                                     std::uint64_t physics_frame = 0) {
+    const auto physics_rate = request.resolved_inputs.scenario.rates.physics;
     return render_detail::make_job_failure(
         std::move(request), kind, std::move(detail_code), "native-engine-bake-v1",
         std::move(state_summary), physics_frame, physics_frame,
-        scenario_time(physics_frame));
+        scenario_time(physics_frame, physics_rate));
 }
 
 [[nodiscard]] RenderFailure preflight_failure(RenderRequestRecord request,

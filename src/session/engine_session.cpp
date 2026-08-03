@@ -24,8 +24,6 @@ namespace {
 
 inline constexpr std::uint64_t kMaximumSessionBlockCount =
     std::numeric_limits<std::uint64_t>::max() / kEngineSessionDeliveryFramesPerBlock;
-inline constexpr std::uint64_t kMaximumOpenSessionPhysicsFrameCount =
-    kMaximumSessionBlockCount * kEngineSessionPhysicsFramesPerBlock;
 
 [[nodiscard]] EngineSessionError processing_error(
     std::string detail_code, std::string message,
@@ -260,12 +258,17 @@ required_capability(const EngineControlPayload &payload) noexcept {
 
 EngineSessionBlockView::EngineSessionBlockView(
     const std::uint64_t block_ordinal, const EngineSessionBlockPhase phase,
-    const std::uint64_t first_physics_frame, const std::uint64_t first_delivery_frame,
+    const std::uint64_t first_physics_frame,
+    const std::uint32_t physics_frame_count,
+    const std::uint64_t first_delivery_frame,
+    const std::uint32_t delivery_frame_count,
     const std::span<const EngineAudioBusBlockView> audio_buses,
     const std::span<const EngineTelemetryFrame> telemetry) noexcept
     : block_ordinal_(block_ordinal), phase_(phase),
       first_physics_frame_(first_physics_frame),
-      first_delivery_frame_(first_delivery_frame), audio_buses_(audio_buses),
+      physics_frame_count_(physics_frame_count),
+      first_delivery_frame_(first_delivery_frame),
+      delivery_frame_count_(delivery_frame_count), audio_buses_(audio_buses),
       telemetry_(telemetry) {}
 
 std::uint64_t EngineSessionBlockView::block_ordinal() const noexcept {
@@ -281,7 +284,7 @@ std::uint64_t EngineSessionBlockView::first_physics_frame() const noexcept {
 }
 
 std::uint32_t EngineSessionBlockView::physics_frame_count() const noexcept {
-    return kEngineSessionPhysicsFramesPerBlock;
+    return physics_frame_count_;
 }
 
 std::uint64_t EngineSessionBlockView::first_delivery_frame() const noexcept {
@@ -289,7 +292,7 @@ std::uint64_t EngineSessionBlockView::first_delivery_frame() const noexcept {
 }
 
 std::uint32_t EngineSessionBlockView::delivery_frame_count() const noexcept {
-    return kEngineSessionDeliveryFramesPerBlock;
+    return delivery_frame_count_;
 }
 
 std::span<const EngineAudioBusBlockView>
@@ -314,8 +317,14 @@ class EngineSession::Implementation final {
           excitation_(std::move(components.excitation)),
           presentation_(std::move(components.presentation)),
           capacities_(compiled_scenario_.session_capacities()),
+          physics_rate_(calibration_.capture_rate()),
+          delivery_rate_(compile::detail::CompiledScenarioViewAccess::inputs(
+                             compiled_scenario_)
+                             .scenario.scenario.rates.delivery),
+          physics_frames_per_block_(static_cast<std::uint32_t>(
+              calibration_.capture_frames_per_block())),
           control_timeline_(capacities_.control_command_queue_capacity,
-                            kEngineSessionPhysicsRateHz, kEngineSessionDeliveryRateHz),
+                            physics_rate_, delivery_rate_),
           control_scratch_(capacities_.control_command_queue_capacity),
           total_block_count_(execution_kind_ ==
                                      EngineSessionExecutionKind::finite_scenario
@@ -346,10 +355,10 @@ class EngineSession::Implementation final {
             engine_id_,
             scenario_id_,
             capacities_,
-            kEngineSessionPhysicsRateHz,
-            kEngineSessionDeliveryRateHz,
-            kEngineSessionPhysicsFramesPerBlock,
-            kEngineSessionDeliveryFramesPerBlock,
+            physics_rate_,
+            delivery_rate_,
+            physics_frames_per_block_,
+            delivery_frames_per_block_,
             total_block_count_,
             preparation_block_count_,
             audio_bus_descriptors_,
@@ -385,7 +394,7 @@ class EngineSession::Implementation final {
             };
         }
         const auto first_live_delivery_frame =
-            preparation_block_count_ * kEngineSessionDeliveryFramesPerBlock;
+            preparation_block_count_ * delivery_frames_per_block_;
         for (std::size_t index = 0; index < commands.size(); ++index) {
             const auto &source = commands[index];
             if ((live_control_capabilities_ & required_capability(source.payload)) ==
@@ -416,8 +425,7 @@ class EngineSession::Implementation final {
                 };
             }
             const auto projection = session::project_delivery_frame_to_physics_step(
-                source.delivery_frame, kEngineSessionPhysicsRateHz,
-                kEngineSessionDeliveryRateHz);
+                source.delivery_frame, physics_rate_, delivery_rate_);
             if (!projection) {
                 return EngineControlRejection{
                     EngineControlRejectionCode::internal_clock_error,
@@ -428,8 +436,8 @@ class EngineSession::Implementation final {
             }
             const auto terminal_physics_frame =
                 execution_kind_ == EngineSessionExecutionKind::finite_scenario
-                    ? total_block_count_ * kEngineSessionPhysicsFramesPerBlock
-                    : kMaximumOpenSessionPhysicsFrameCount;
+                    ? total_block_count_ * physics_frames_per_block_
+                    : kMaximumSessionBlockCount * physics_frames_per_block_;
             if (projection.physics_step >= terminal_physics_frame) {
                 return EngineControlRejection{
                     EngineControlRejectionCode::outside_session_horizon,
@@ -526,9 +534,9 @@ class EngineSession::Implementation final {
                 });
             }
             const auto expected_first_physics =
-                expected_block * kEngineSessionPhysicsFramesPerBlock;
+                expected_block * physics_frames_per_block_;
             const auto expected_first_delivery =
-                expected_block * kEngineSessionDeliveryFramesPerBlock;
+                expected_block * delivery_frames_per_block_;
             std::optional<contract::FailureContext> nested_failure;
             std::optional<presentation::PresentationAudioBlockView> audio;
             const simulation::detail::LowOrderLiveControlProvider live_controls{
@@ -547,7 +555,7 @@ class EngineSession::Implementation final {
 
             auto simulation_result = simulation_.publish_next_block(
                 [&](const contract::CaptureBlockView &capture) -> bool {
-                    if (capture.frame_count() != kEngineSessionPhysicsFramesPerBlock ||
+                    if (capture.frame_count() != physics_frames_per_block_ ||
                         capture.clock().first_sample_index != expected_first_physics ||
                         capture.engine().empty()) {
                         return false;
@@ -604,12 +612,12 @@ class EngineSession::Implementation final {
                 std::get<simulation::LowOrderCaptureBlockPublished>(simulation_result);
             if (!audio.has_value() || published.block_ordinal != expected_block ||
                 published.first_sample_index != expected_first_physics ||
-                published.frame_count != kEngineSessionPhysicsFramesPerBlock ||
+                published.frame_count != physics_frames_per_block_ ||
                 published.published_sample_count !=
-                    expected_first_physics + kEngineSessionPhysicsFramesPerBlock ||
+                    expected_first_physics + physics_frames_per_block_ ||
                 audio->first_input_frame_index() != expected_first_physics ||
                 audio->first_source_frame_index() != expected_first_delivery ||
-                audio->frame_count() != kEngineSessionDeliveryFramesPerBlock) {
+                audio->frame_count() != delivery_frames_per_block_) {
                 return fail(processing_error(
                     "session-block-extent-disagreed",
                     "simulation, excitation, and presentation block clocks "
@@ -671,7 +679,7 @@ class EngineSession::Implementation final {
 
             bind_audio_bus_views(*audio);
             const auto cursor_error = control_timeline_.advance_delivery_cursor(
-                expected_first_delivery + kEngineSessionDeliveryFramesPerBlock);
+                expected_first_delivery + delivery_frames_per_block_);
             if (cursor_error != session::ControlTimelineError::none) {
                 return fail(processing_error("session-control-cursor-failed",
                                              control_error_message(cursor_error)));
@@ -681,9 +689,14 @@ class EngineSession::Implementation final {
                                    ? EngineSessionBlockPhase::preparation
                                    : EngineSessionBlockPhase::audible;
             return EngineSessionBlockView{
-                expected_block,         phase,
-                expected_first_physics, expected_first_delivery,
-                audio_bus_views_,       telemetry_,
+                expected_block,
+                phase,
+                expected_first_physics,
+                physics_frames_per_block_,
+                expected_first_delivery,
+                delivery_frames_per_block_,
+                audio_bus_views_,
+                telemetry_,
             };
         } catch (const std::bad_alloc &) {
             return fail({
@@ -809,14 +822,14 @@ class EngineSession::Implementation final {
                 "only a finite-scenario session may publish completion evidence"));
         }
         const auto expected_physics =
-            total_block_count_ * kEngineSessionPhysicsFramesPerBlock;
+            total_block_count_ * physics_frames_per_block_;
         if (completed.sample_count != expected_physics ||
             completed.block_count != total_block_count_ ||
             simulation_.published_sample_count() != expected_physics ||
             excitation_.next_frame_index() != expected_physics ||
             presentation_->next_input_frame_index() != expected_physics ||
             presentation_->next_source_frame_index() !=
-                total_block_count_ * kEngineSessionDeliveryFramesPerBlock) {
+                total_block_count_ * delivery_frames_per_block_) {
             return fail(processing_error(
                 "session-completion-count-disagreed",
                 "pipeline stages did not complete one common fixed horizon"));
@@ -848,7 +861,7 @@ class EngineSession::Implementation final {
 
         terminal_completion_ = EngineSessionCompleted{
             expected_physics,
-            total_block_count_ * kEngineSessionDeliveryFramesPerBlock,
+            total_block_count_ * delivery_frames_per_block_,
             total_block_count_,
             has_accepted_live_controls_,
             has_accepted_live_controls_
@@ -870,6 +883,12 @@ class EngineSession::Implementation final {
     excitation::CapturedExhaustExcitationSession excitation_;
     std::unique_ptr<presentation::PresentationAudioSession> presentation_;
     compile::CompiledSessionCapacities capacities_;
+    contract::RationalRateHz physics_rate_ = kEngineSessionPhysicsRateHz;
+    contract::RationalRateHz delivery_rate_ = kEngineSessionDeliveryRateHz;
+    std::uint32_t physics_frames_per_block_ =
+        kEngineSessionPhysicsFramesPerBlock;
+    std::uint32_t delivery_frames_per_block_ =
+        kEngineSessionDeliveryFramesPerBlock;
     session::ControlTimeline control_timeline_;
     std::vector<session::TimestampedControlCommand> control_scratch_;
     std::string engine_id_;

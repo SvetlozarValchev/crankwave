@@ -7,11 +7,21 @@
 
 namespace engine_sim_offline::presentation {
 
-CausalReconstruction::CausalReconstruction(std::size_t route_count)
-    : route_count_(route_count) {
+CausalReconstruction::CausalReconstruction(std::size_t route_count,
+                                           std::uint64_t input_rate_hz)
+    : route_count_(route_count), input_rate_hz_(input_rate_hz),
+      input_frames_per_method_block_(input_rate_hz == kPhysicsRate
+                                         ? kExcitationFramesPerMethodBlock
+                                     : input_rate_hz == kHigherPhysicsRate
+                                         ? kHigherRateExcitationFramesPerMethodBlock
+                                         : 0U) {
     if (route_count_ == 0) {
         throw std::invalid_argument{
             "causal reconstruction requires at least one route"};
+    }
+    if (input_frames_per_method_block_ == 0U) {
+        throw std::invalid_argument{
+            "causal reconstruction admits only 10000 or 20000 Hz input"};
     }
     if (route_count_ > std::numeric_limits<std::size_t>::max() /
                            dsp::CausalReconstructionTable::tap_count) {
@@ -48,9 +58,9 @@ CausalReconstruction::resolve_phase(std::uint64_t source_interval_offset) {
 
 std::size_t
 CausalReconstruction::expected_output_frame_count(std::size_t input_frame_count) const {
-    if (input_frame_count == 0 || input_frame_count > kExcitationFramesPerMethodBlock) {
+    if (input_frame_count == 0 || input_frame_count > input_frames_per_method_block_) {
         throw std::invalid_argument{
-            "reconstruction input block must contain between 1 and 200 frames"};
+            "reconstruction input block exceeds its configured method quantum"};
     }
 
     auto distance = distance_to_next_output_;
@@ -58,12 +68,12 @@ CausalReconstruction::expected_output_frame_count(std::size_t input_frame_count)
     for (std::size_t frame = 0; frame < input_frame_count; ++frame) {
         const auto remaining = kSourceRate - distance;
         const auto output_count =
-            UINT64_C(1) + (remaining - UINT64_C(1)) / kPhysicsRate;
+            UINT64_C(1) + (remaining - UINT64_C(1)) / input_rate_hz_;
         if (output_count > std::numeric_limits<std::size_t>::max() - result) {
             throw std::overflow_error{"reconstruction output frame count overflowed"};
         }
         result += static_cast<std::size_t>(output_count);
-        distance = distance + output_count * kPhysicsRate - kSourceRate;
+        distance = distance + output_count * input_rate_hz_ - kSourceRate;
     }
     return result;
 }
@@ -93,7 +103,7 @@ void CausalReconstruction::process(std::span<const double> input_frame_major,
     for (std::size_t input_frame = 0; input_frame < input_frame_count; ++input_frame) {
         const auto remaining = kSourceRate - distance_to_next_output_;
         const auto output_count =
-            UINT64_C(1) + (remaining - UINT64_C(1)) / kPhysicsRate;
+            UINT64_C(1) + (remaining - UINT64_C(1)) / input_rate_hz_;
         auto offset = distance_to_next_output_;
 
         for (std::uint64_t frame = 0; frame < output_count; ++frame) {
@@ -128,7 +138,7 @@ void CausalReconstruction::process(std::span<const double> input_frame_major,
                 }
             }
             ++output_index;
-            offset += kPhysicsRate;
+            offset += input_rate_hz_;
         }
 
         for (std::size_t route = 0; route < route_count_; ++route) {

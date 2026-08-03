@@ -43,7 +43,6 @@ class AdmittedPresentationRoute final {
 
 class AdmittedPresentationCalibration final {
   public:
-    static constexpr std::uint64_t capture_frames_per_block = 200;
     static constexpr std::uint64_t source_frames_per_block = 3840;
 
     AdmittedPresentationCalibration(const AdmittedPresentationCalibration &) = delete;
@@ -63,6 +62,8 @@ class AdmittedPresentationCalibration final {
     [[nodiscard]] std::span<const contract::RouteId>
     audition_route_ids() const noexcept;
     [[nodiscard]] const MasteringSettings &mastering() const noexcept;
+    [[nodiscard]] const contract::RationalRateHz &capture_rate() const noexcept;
+    [[nodiscard]] std::uint64_t capture_frames_per_block() const noexcept;
     [[nodiscard]] std::uint64_t total_block_count() const noexcept;
     [[nodiscard]] std::uint64_t pre_audible_block_count() const noexcept;
 
@@ -72,6 +73,8 @@ class AdmittedPresentationCalibration final {
         std::vector<AdmittedPresentationRoute> routes,
         contract::ResolvedValue<double> publication_calibration_gain_linear,
         std::vector<contract::RouteId> audition_route_ids, MasteringSettings mastering,
+        contract::RationalRateHz capture_rate,
+        std::uint64_t capture_frames_per_block,
         std::uint64_t total_block_count, std::uint64_t pre_audible_block_count);
 
     PresentationMethodIdentities methods_;
@@ -80,6 +83,8 @@ class AdmittedPresentationCalibration final {
     contract::ResolvedValue<double> publication_calibration_gain_linear_;
     std::vector<contract::RouteId> audition_route_ids_;
     MasteringSettings mastering_;
+    contract::RationalRateHz capture_rate_;
+    std::uint64_t capture_frames_per_block_ = 0;
     std::uint64_t total_block_count_ = 0;
     std::uint64_t pre_audible_block_count_ = 0;
 

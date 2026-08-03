@@ -77,9 +77,9 @@ struct MethodCase {
 [[nodiscard]] const std::array<MethodCase, 6> &method_cases() {
     static const std::array<MethodCase, 6> cases{{
         {
-            "causal-kaiser-sinc-257tap-4096phase-10000-to-192000-binary64-v1",
-            1,
-            "d3c1610581a26e9ad8483396856b7f5b55e55bce8c3ec4a4683bbd8c563286a0",
+            "causal-kaiser-sinc-257tap-4096phase-10000-or-20000-to-192000-binary64-v2",
+            2,
+            "27e42b1617796c5792bf2190c54cb993d209908df7e3516ab122416fa308b301",
             presentation::causal_reconstruction_method_descriptor,
             presentation::causal_reconstruction_method_identity,
         },
@@ -105,9 +105,9 @@ struct MethodCase {
             presentation::fixed_overlap_save_convolution_method_identity,
         },
         {
-            "n-route-wet-selection-float32-wave-publication-v1",
-            1,
-            "7494ba0d938286e05d6505eda45a9f429379eaf3eca4ca0d6e9218556de1eb10",
+            "n-route-wet-selection-float32-wave-publication-20ms-clock-v2",
+            2,
+            "be6e62502777921cd017a1300d4adaa79e74197c299b95eb8dfb8c6eea7d0a3a",
             presentation::route_stem_publication_method_descriptor,
             presentation::route_stem_publication_method_identity,
         },

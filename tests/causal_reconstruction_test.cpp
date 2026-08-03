@@ -109,6 +109,9 @@ void test_frozen_phase_resolution() {
         "reconstruction accepted an interval-end phase offset");
     expect_throw<std::invalid_argument>([] { CausalReconstruction invalid{0}; },
                                         "reconstruction accepted zero routes");
+    expect_throw<std::invalid_argument>([] { CausalReconstruction invalid{1, 15000}; },
+                                        "reconstruction accepted an unsupported "
+                                        "input clock");
 }
 
 void test_exact_clock_count_and_distance_pattern() {
@@ -144,6 +147,32 @@ void test_exact_clock_count_and_distance_pattern() {
     expect(total_output == kSourceFramesPerMethodBlock &&
                reconstruction.distance_to_next_output() == 0,
            "method block did not end at 3840 frames and phase zero");
+}
+
+void test_twenty_khz_block_returns_to_zero_phase() {
+    CausalReconstruction reconstruction{kBmwRouteCount,
+                                        CausalReconstruction::kHigherPhysicsRate};
+    expect(reconstruction.input_rate_hz() == CausalReconstruction::kHigherPhysicsRate &&
+               reconstruction.input_frames_per_method_block() ==
+                   kHigherRateExcitationFramesPerMethodBlock &&
+               reconstruction.expected_output_frame_count(
+                   kHigherRateExcitationFramesPerMethodBlock) ==
+                   kSourceFramesPerMethodBlock &&
+               reconstruction.distance_to_next_output() == 0U,
+           "20 kHz reconstruction did not expose one exact 20 ms clock block");
+
+    std::vector<double> input(kHigherRateExcitationFramesPerMethodBlock *
+                              kBmwRouteCount);
+    input.front() = 1.0;
+    std::vector<double> output(kSourceFramesPerMethodBlock * kBmwRouteCount);
+    reconstruction.process(input, kHigherRateExcitationFramesPerMethodBlock, output);
+
+    expect(reconstruction.distance_to_next_output() == 0U,
+           "400 frames at 20 kHz did not return the 192 kHz clock to zero phase");
+    for (const auto sample : output) {
+        expect(std::isfinite(sample),
+               "20 kHz reconstruction produced a non-finite output sample");
+    }
 }
 
 void test_frozen_causal_impulse_and_route_isolation() {
@@ -296,6 +325,7 @@ void test_dynamic_route_counts_preserve_independent_route_arithmetic() {
 void run_tests() {
     test_frozen_phase_resolution();
     test_exact_clock_count_and_distance_pattern();
+    test_twenty_khz_block_returns_to_zero_phase();
     test_frozen_causal_impulse_and_route_isolation();
     test_split_and_contiguous_processing_are_identical();
     test_preflight_failures_do_not_mutate_state();

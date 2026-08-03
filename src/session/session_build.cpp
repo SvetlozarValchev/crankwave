@@ -229,6 +229,9 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
 
     presentation::PresentationAudioPlan audio_plan;
     audio_plan.conditioning = calibration.conditioning();
+    audio_plan.excitation_rate = calibration.capture_rate();
+    audio_plan.excitation_frames_per_block =
+        static_cast<std::size_t>(calibration.capture_frames_per_block());
     audio_plan.publication_calibration_gain_linear =
         calibration.publication_calibration_gain_linear().value;
     audio_plan.audition_monitoring_gain_linear =
@@ -259,7 +262,7 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
             ? simulation::LowOrderExecutionExtent::open_ended()
             : simulation::LowOrderExecutionExtent::finite_scenario(
                   calibration.total_block_count() *
-                  kEngineSessionPhysicsFramesPerBlock);
+                  calibration.capture_frames_per_block());
     auto simulation_result = simulation::compile_low_order_capture_session(
         engine, scenario, random_plan, request_identity, execution_extent);
     if (const auto *report =

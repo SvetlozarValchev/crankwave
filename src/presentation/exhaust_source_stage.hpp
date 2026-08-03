@@ -12,6 +12,7 @@
 namespace engine_sim_offline::presentation {
 
 inline constexpr contract::RationalRateHz kExcitationRateHz{10000, 1};
+inline constexpr contract::RationalRateHz kHigherExcitationRateHz{20000, 1};
 
 struct RouteConditioningSeeds {
     Pcg32Seed jitter;
@@ -31,18 +32,22 @@ struct SourceBlockExtent {
                            const SourceBlockExtent &) = default;
 };
 
-// Fixture-free coordinator for one exact source-stage session. Each call
-// admits one complete 200-frame method block and produces 3,840 conditioned
-// source frames. Arithmetic failure is terminal because route state may already
-// have advanced; structural validation happens before mutation.
+// Fixture-free coordinator for one exact source-stage session. Each call admits
+// one complete 20 ms excitation block at the configured 10 or 20 kHz input clock
+// and produces 3,840 conditioned source frames at 192 kHz. Arithmetic failure is
+// terminal because route state may already have advanced; structural validation
+// happens before mutation.
 class ExhaustSourceStage {
   public:
     // Route values and conditioning seeds share this exact positional order:
     // route_seeds[i] belongs to expected_route_ids[i], and every input block must
     // present the same ordered IDs before any stateful DSP work begins.
-    ExhaustSourceStage(std::span<const contract::RouteId> expected_route_ids,
-                       std::span<const RouteConditioningSeeds> route_seeds,
-                       RouteConditioningCalibration conditioning);
+    ExhaustSourceStage(
+        std::span<const contract::RouteId> expected_route_ids,
+        std::span<const RouteConditioningSeeds> route_seeds,
+        RouteConditioningCalibration conditioning,
+        contract::RationalRateHz input_rate = kExcitationRateHz,
+        std::size_t input_frames_per_block = kExcitationFramesPerMethodBlock);
 
     // Output values are frame-major: frame * route_count() + route.
     [[nodiscard]] SourceBlockExtent process(ExhaustExcitationBlockView input,
@@ -51,6 +56,8 @@ class ExhaustSourceStage {
     [[nodiscard]] std::span<const contract::RouteId>
     expected_route_ids() const noexcept;
     [[nodiscard]] std::size_t route_count() const noexcept;
+    [[nodiscard]] contract::RationalRateHz input_rate() const noexcept;
+    [[nodiscard]] std::size_t input_frames_per_block() const noexcept;
     [[nodiscard]] std::uint64_t next_input_frame_index() const noexcept;
     [[nodiscard]] std::uint64_t next_source_frame_index() const noexcept;
     [[nodiscard]] bool terminal_failed() const noexcept;
@@ -68,6 +75,8 @@ class ExhaustSourceStage {
     std::vector<contract::RouteId> expected_route_ids_;
     std::vector<RouteConditioningSeeds> seeds_;
     RouteConditioningCalibration conditioning_;
+    contract::RationalRateHz input_rate_{};
+    std::size_t input_frames_per_block_ = 0;
     CausalReconstruction reconstruction_;
     std::vector<RouteConditioner> conditioners_;
     std::vector<double> reconstructed_scratch_;

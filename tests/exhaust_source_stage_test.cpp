@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -162,6 +163,49 @@ void test_exact_block_extent_and_component_wiring() {
                stage.jitter_rng_state(1) == UINT64_C(0x90c28d44851509c2) &&
                stage.air_noise_rng_state(1) == UINT64_C(0x2a5d082701ba5e7f),
            "source stage changed per-route random consumption");
+}
+
+void test_twenty_khz_block_produces_one_source_quantum() {
+    std::vector<double> input(kHigherRateExcitationFramesPerMethodBlock *
+                              kBmwRouteCount);
+    fill_block(input, kHigherRateExcitationFramesPerMethodBlock, kBmwRouteCount, 0);
+    std::vector<double> output(kSourceFramesPerMethodBlock * kBmwRouteCount);
+
+    ExhaustSourceStage stage{kCanonicalRouteIds, kFrozenSeeds, kCanonicalConditioning,
+                             kHigherExcitationRateHz,
+                             kHigherRateExcitationFramesPerMethodBlock};
+    const auto extent = stage.process(
+        make_view(0, input, kCanonicalRouteIds,
+                  kHigherRateExcitationFramesPerMethodBlock, kHigherExcitationRateHz),
+        output);
+
+    expect(stage.input_rate() == kHigherExcitationRateHz &&
+               stage.input_frames_per_block() ==
+                   kHigherRateExcitationFramesPerMethodBlock &&
+               extent == SourceBlockExtent{0U, 0U,
+                                           kHigherRateExcitationFramesPerMethodBlock,
+                                           kSourceFramesPerMethodBlock} &&
+               stage.next_input_frame_index() ==
+                   kHigherRateExcitationFramesPerMethodBlock &&
+               stage.next_source_frame_index() == kSourceFramesPerMethodBlock &&
+               !stage.terminal_failed(),
+           "20 kHz source stage did not produce one exact 20 ms source quantum");
+    for (const auto sample : output) {
+        expect(std::isfinite(sample),
+               "20 kHz source stage produced a non-finite output sample");
+    }
+
+    expect_throw<std::invalid_argument>(
+        [] {
+            ExhaustSourceStage invalid{
+                kCanonicalRouteIds,
+                kFrozenSeeds,
+                kCanonicalConditioning,
+                kHigherExcitationRateHz,
+                kExcitationFramesPerMethodBlock,
+            };
+        },
+        "source stage accepted a frame count that did not span 20 ms");
 }
 
 void test_explicit_route_ids_preserve_positional_seed_binding() {
@@ -463,6 +507,7 @@ void test_one_and_three_route_sessions_preserve_bmw_route_arithmetic() {
 
 void run_tests() {
     test_exact_block_extent_and_component_wiring();
+    test_twenty_khz_block_produces_one_source_quantum();
     test_explicit_route_ids_preserve_positional_seed_binding();
     test_block_continuity_and_session_isolation();
     test_structural_rejections_do_not_mutate_state();

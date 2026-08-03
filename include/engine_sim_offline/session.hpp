@@ -126,14 +126,18 @@ class EngineSessionBlockView final {
   private:
     EngineSessionBlockView(std::uint64_t block_ordinal, EngineSessionBlockPhase phase,
                            std::uint64_t first_physics_frame,
+                           std::uint32_t physics_frame_count,
                            std::uint64_t first_delivery_frame,
+                           std::uint32_t delivery_frame_count,
                            std::span<const EngineAudioBusBlockView> audio_buses,
                            std::span<const EngineTelemetryFrame> telemetry) noexcept;
 
     std::uint64_t block_ordinal_ = 0;
     EngineSessionBlockPhase phase_ = EngineSessionBlockPhase::preparation;
     std::uint64_t first_physics_frame_ = 0;
+    std::uint32_t physics_frame_count_ = 0;
     std::uint64_t first_delivery_frame_ = 0;
+    std::uint32_t delivery_frame_count_ = 0;
     std::span<const EngineAudioBusBlockView> audio_buses_;
     std::span<const EngineTelemetryFrame> telemetry_;
 

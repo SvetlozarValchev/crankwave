@@ -60,10 +60,21 @@ ExhaustSourceStage::validate_seeds(std::span<const RouteConditioningSeeds> seeds
 ExhaustSourceStage::ExhaustSourceStage(
     std::span<const contract::RouteId> expected_route_ids,
     std::span<const RouteConditioningSeeds> route_seeds,
-    RouteConditioningCalibration conditioning)
+    RouteConditioningCalibration conditioning, contract::RationalRateHz input_rate,
+    std::size_t input_frames_per_block)
     : expected_route_ids_(validate_route_ids(expected_route_ids)),
       seeds_(validate_seeds(route_seeds, expected_route_ids_.size())),
-      conditioning_(conditioning), reconstruction_(expected_route_ids_.size()) {
+      conditioning_(conditioning), input_rate_(input_rate),
+      input_frames_per_block_(input_frames_per_block),
+      reconstruction_(expected_route_ids_.size(), input_rate.numerator) {
+    if (input_rate_ != kExcitationRateHz && input_rate_ != kHigherExcitationRateHz) {
+        throw std::invalid_argument{
+            "source stage admits only exact 10000/1 or 20000/1 excitation rates"};
+    }
+    if (input_frames_per_block_ != reconstruction_.input_frames_per_method_block()) {
+        throw std::invalid_argument{
+            "source-stage input frame count must span one exact 20 ms block"};
+    }
     reconstructed_scratch_.resize(kSourceFramesPerMethodBlock *
                                   expected_route_ids_.size());
     conditioners_.reserve(seeds_.size());
@@ -78,9 +89,9 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
         throw std::logic_error{
             "source stage cannot resume after an arithmetic failure"};
     }
-    if (input.sample_rate() != kExcitationRateHz) {
+    if (input.sample_rate() != input_rate_) {
         throw std::invalid_argument{
-            "source stage requires an exact 10000/1 excitation rate"};
+            "source-stage excitation rate differs from its configured input clock"};
     }
     if (!std::ranges::equal(input.route_ids(), expected_route_ids_)) {
         throw std::invalid_argument{
@@ -91,9 +102,10 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
             "source-stage excitation frames must be globally contiguous"};
     }
     if (input.route_count() != expected_route_ids_.size() ||
-        input.frame_count() != kExcitationFramesPerMethodBlock) {
+        input.frame_count() != input_frames_per_block_) {
         throw std::invalid_argument{
-            "source stage requires exactly 200 excitation frames per block"};
+            "source-stage excitation frame count differs from its configured "
+            "method block"};
     }
     if (input.frame_count() >
             std::numeric_limits<std::size_t>::max() / input.route_count() ||
@@ -109,8 +121,8 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
         throw std::invalid_argument{
             "source stage requires exactly 3840 complete output frames per block"};
     }
-    if (next_input_frame_index_ > std::numeric_limits<std::uint64_t>::max() -
-                                      kExcitationFramesPerMethodBlock ||
+    if (next_input_frame_index_ >
+            std::numeric_limits<std::uint64_t>::max() - input_frames_per_block_ ||
         next_source_frame_index_ >
             std::numeric_limits<std::uint64_t>::max() - kSourceFramesPerMethodBlock) {
         throw std::overflow_error{"source-stage frame counter overflow"};
@@ -122,7 +134,7 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
     }
 
     const auto exact_output_count =
-        reconstruction_.expected_output_frame_count(kExcitationFramesPerMethodBlock);
+        reconstruction_.expected_output_frame_count(input_frames_per_block_);
     if (exact_output_count != kSourceFramesPerMethodBlock ||
         reconstruction_.distance_to_next_output() != 0) {
         terminal_failed_ = true;
@@ -133,13 +145,17 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
     const SourceBlockExtent extent{
         next_input_frame_index_,
         next_source_frame_index_,
-        kExcitationFramesPerMethodBlock,
+        input_frames_per_block_,
         kSourceFramesPerMethodBlock,
     };
 
     try {
         reconstruction_.process(input.values_engine_sim_source_unit(),
                                 input.frame_count(), reconstructed_scratch_);
+        if (reconstruction_.distance_to_next_output() != 0U) {
+            throw std::logic_error{
+                "source-stage method block did not return to exact clock phase"};
+        }
         for (std::size_t frame = 0; frame < kSourceFramesPerMethodBlock; ++frame) {
             for (std::size_t route = 0; route < route_count(); ++route) {
                 const auto result = conditioners_[route].process(
@@ -153,7 +169,7 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
         throw;
     }
 
-    next_input_frame_index_ += kExcitationFramesPerMethodBlock;
+    next_input_frame_index_ += input_frames_per_block_;
     next_source_frame_index_ += kSourceFramesPerMethodBlock;
     return extent;
 }
@@ -165,6 +181,14 @@ ExhaustSourceStage::expected_route_ids() const noexcept {
 
 std::size_t ExhaustSourceStage::route_count() const noexcept {
     return expected_route_ids_.size();
+}
+
+contract::RationalRateHz ExhaustSourceStage::input_rate() const noexcept {
+    return input_rate_;
+}
+
+std::size_t ExhaustSourceStage::input_frames_per_block() const noexcept {
+    return input_frames_per_block_;
 }
 
 std::uint64_t ExhaustSourceStage::next_input_frame_index() const noexcept {

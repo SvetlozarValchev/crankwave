@@ -308,6 +308,23 @@ void test_held_speed_resolution_on_the_integer_clock() {
                resolved.scenario.quality.value.event_journal_capacity_records ==
                    expected_internal_event_capacity,
            "public session capacities leaked into private capture transport");
+
+    auto higher_rate_document = document;
+    higher_rate_document.id.value = "resolver.held-speed-20khz";
+    higher_rate_document.rates.physics = rate(20000U);
+    higher_rate_document.rates.capture = rate(20000U);
+    const auto higher_rate_result =
+        compile::resolve_scenario_document(higher_rate_document, context);
+    const auto *higher_rate =
+        std::get_if<compile::ResolvedScenarioContracts>(&higher_rate_result);
+    expect(higher_rate != nullptr &&
+               higher_rate->request_input.total_physics_frames == 60000U &&
+               higher_rate->request_input.audible_delivery_frames == 192000U &&
+               higher_rate->scenario.quality.value.capture_block_capacity_frames ==
+                   400U &&
+               higher_rate->scenario.quality.value.event_journal_capacity_records ==
+                   expected_internal_event_capacity * 2U,
+           "20 kHz scenario did not derive its exact 20 ms capture/event quantum");
     expect(resolved.source_matrix.required_source_routes.size() == 1U &&
                resolved.source_matrix.required_output_buses.size() == 2U &&
                resolved.source_matrix.required_artifacts.size() == 5U,

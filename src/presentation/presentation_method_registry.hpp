@@ -8,8 +8,8 @@
 namespace engine_sim_offline::presentation {
 
 inline constexpr std::string_view kCausalReconstructionMethodId =
-    "causal-kaiser-sinc-257tap-4096phase-10000-to-192000-binary64-v1";
-inline constexpr std::uint32_t kCausalReconstructionMethodVersion = 1;
+    "causal-kaiser-sinc-257tap-4096phase-10000-or-20000-to-192000-binary64-v2";
+inline constexpr std::uint32_t kCausalReconstructionMethodVersion = 2;
 
 inline constexpr std::string_view kRouteConditioningMethodId =
     "route-jitter-dc-derivative-air-noise-binary64-v1";
@@ -30,8 +30,8 @@ inline constexpr std::string_view kFixedOverlapSaveConvolutionMethodId =
 inline constexpr std::uint32_t kFixedOverlapSaveConvolutionMethodVersion = 1;
 
 inline constexpr std::string_view kRouteStemPublicationMethodId =
-    "n-route-wet-selection-float32-wave-publication-v1";
-inline constexpr std::uint32_t kRouteStemPublicationMethodVersion = 1;
+    "n-route-wet-selection-float32-wave-publication-20ms-clock-v2";
+inline constexpr std::uint32_t kRouteStemPublicationMethodVersion = 2;
 
 #if defined(__wasm32__)
 inline constexpr std::string_view kOrderedRouteAuditionMethodId =

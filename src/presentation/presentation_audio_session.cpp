@@ -51,6 +51,17 @@ void validate_plan(const PresentationAudioPlan &plan) {
         throw std::invalid_argument{
             "presentation audio monitoring gain must be finite and positive"};
     }
+    const auto expected_input_frames = plan.excitation_rate == kExcitationRateHz
+                                           ? kExcitationFramesPerMethodBlock
+                                       : plan.excitation_rate == kHigherExcitationRateHz
+                                           ? kHigherRateExcitationFramesPerMethodBlock
+                                           : 0U;
+    if (expected_input_frames == 0U ||
+        plan.excitation_frames_per_block != expected_input_frames) {
+        throw std::invalid_argument{
+            "presentation audio requires one exact 20 ms block at 10000/1 or "
+            "20000/1 Hz"};
+    }
 
     for (std::size_t route = 0; route < plan.routes.size(); ++route) {
         const auto &configured = plan.routes[route];
@@ -125,7 +136,8 @@ source_route_seeds(const PresentationAudioPlan &plan) {
 [[nodiscard]] ExhaustSourceStage make_source_stage(const PresentationAudioPlan &plan) {
     const auto route_ids = source_route_ids(plan);
     const auto route_seeds = source_route_seeds(plan);
-    return ExhaustSourceStage{route_ids, route_seeds, plan.conditioning};
+    return ExhaustSourceStage{route_ids, route_seeds, plan.conditioning,
+                              plan.excitation_rate, plan.excitation_frames_per_block};
 }
 
 [[nodiscard]] std::vector<std::unique_ptr<CausalOverlapSaveConvolver>>
