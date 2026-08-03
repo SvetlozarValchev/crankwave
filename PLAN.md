@@ -771,7 +771,7 @@ crank law. HeldDyno and FreeVehicle remain rejected for master-rod engines. The 
 accepted the `4.700 s`, `2,707,850`-byte dynamic radial audition at
 `artifacts/listening/radial-free-engine-candidate-2e5d70d/audio/master.engine.audition.wav`
 with SHA-256
-`6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c` on
+`6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c3` on
 2026-08-03. The accompanying `15.000 s`, `8,640,688`-byte direct BMW guard at
 `artifacts/listening/radial-free-engine-direct-guard-2e5d70d/audio/master.engine.audition.wav`
 retained its already accepted held-dyno audition SHA-256
@@ -915,7 +915,7 @@ engine-definition parity in this order, with one coherent commit per bullet:
    `58394f71ed58ee5af4434745e6f266c2cac7db33503848decbd61b9e8a9f0985`
    as automated byte evidence, not a listening clip. The accepted `4.700 s` dynamic
    radial FreeEngine audition has SHA-256
-   `6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c`;
+   `6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c3`;
    its exact BMW direct guard retains accepted SHA-256
    `487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496`.
    Commit `eb26214` additionally opens and publishes one-level master-rod HeldDyno

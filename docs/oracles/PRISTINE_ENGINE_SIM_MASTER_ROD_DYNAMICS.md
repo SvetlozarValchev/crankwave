@@ -171,7 +171,7 @@ The exact closure evidence is:
   `artifacts/listening/radial-free-engine-prescribed-control-2e5d70d/audio/master.engine.audition.wav`.
   Its short audition-format container is not a human-listening reference.
 - The dynamic radial FreeEngine audition is `4.700 s`, `2,707,850` bytes, and has
-  SHA-256 `6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c` at
+  SHA-256 `6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c3` at
   `artifacts/listening/radial-free-engine-candidate-2e5d70d/audio/master.engine.audition.wav`.
   The user accepted it without a requested correction on 2026-08-03.
 - The direct BMW regression guard is `15.000 s`, `8,640,688` bytes, and has its already
