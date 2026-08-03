@@ -1,14 +1,15 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — post-parity fidelity rate gate accepted; per-cylinder lanes next
+Status: active — rate and cylinder-collector gates accepted; intake source bus next
 
 Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-03
 
 Current checkpoint: **headless executable engine-sim parity complete — Slice 16's
-seven-procedure recording set and the single-path 20 kHz production/cooker cutover
-were accepted on 2026-08-03; per-cylinder source lanes are next**
+seven-procedure recording set, the single-path 20 kHz production/cooker cutover, and
+the byte-identical cylinder-lane/collector topology were accepted on 2026-08-03; the
+intake source bus is next**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -1005,7 +1006,12 @@ candidate with the accepted parity renderer as its control:
    result remains historical evidence, not a compatibility mode. See
    [`docs/POST_PARITY_FIDELITY_RATE_GATE.md`](docs/POST_PARITY_FIDELITY_RATE_GATE.md)**);
 2. preserve per-cylinder lanes through primary transfer and merge them only at the
-   physical collector, beginning with a byte-identical architectural refactor;
+   physical collector, beginning with a byte-identical architectural refactor
+   (**complete: `de4704e` separated the identity-stable lanes from the authored serial
+   fold, and `3589070` moved common route propagation after that collector while
+   preserving every old rounded total arrival. Both canonical BMW renders matched all
+   eight accepted WAVs byte for byte. See
+   [`docs/POST_PARITY_FIDELITY_CYLINDER_LANES.md`](docs/POST_PARITY_FIDELITY_CYLINDER_LANES.md)**);
 3. add a separately published intake source bus;
 4. add mechanical/valvetrain/block and starter buses independently;
 5. couple combustion variation and flow noise to combustion work, valve flow, and

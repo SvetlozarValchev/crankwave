@@ -81,5 +81,7 @@ active session or migration tests.
 
 This closes item 1 of the verified post-parity fidelity queue. It changes the canonical
 physical/capture cadence, not the engine definitions, presentation rates, resampler,
-IR/convolution path, mix, or output encoding. Per-cylinder source lanes remain the
-next independently gated fidelity change.
+IR/convolution path, mix, or output encoding. The independently gated cylinder-lane
+and collector refactor subsequently closed without changing those accepted samples;
+see
+[`POST_PARITY_FIDELITY_CYLINDER_LANES.md`](POST_PARITY_FIDELITY_CYLINDER_LANES.md).

@@ -20,9 +20,10 @@ scope is accepted. [Slice 16](docs/SLICE_16_PARITY_LISTENING_GATE.md) froze seve
 zero-saturation recordings spanning a
 fixed-cam inline-six, fixed-cam V8, VTEC transition, governed load step, one-level
 master-rod engine, sustained vehicle pull, and launch/shift procedure. The first
-post-parity fidelity gate is also accepted: production and cooker scenarios now use
-one canonical 20 kHz physics/capture path, while source processing, acoustics, and
-delivery remain at 192 kHz. The per-cylinder source-lane refactor is next.
+two post-parity fidelity gates are also accepted: production and cooker scenarios now
+use one canonical 20 kHz physics/capture path, and identity-stable cylinder-primary
+lanes now merge at an explicit collector before shared route propagation. Source
+processing, acoustics, and delivery remain at 192 kHz. The intake source bus is next.
 This scoped claim does not include `.mr` or native-GUI parity, arbitrary unproven
 mechanisms, fuel-volume-display parity, or fidelity enhancements beyond the accepted
 rate gate.
