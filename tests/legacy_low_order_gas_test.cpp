@@ -28,11 +28,11 @@ using engine_sim_offline::test::AuthoredEngineFixture;
 using CoreRuntimeFactory =
     engine_sim_offline::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
 
-inline constexpr std::size_t kShortRunStepCount = 4000U;
+inline constexpr std::size_t kShortRunStepCount = 8000U;
 inline constexpr double kShortRunRpm = 2400.0;
 inline constexpr double kShortRunDurationS =
-    static_cast<double>(kShortRunStepCount) / 10000.0;
-inline constexpr std::size_t kRadialGasStepCount = 2U;
+    static_cast<double>(kShortRunStepCount) / 20000.0;
+inline constexpr std::size_t kRadialGasStepCount = 4U;
 inline constexpr double kRadialGasRpm = 1800.0;
 
 void expect(bool condition, const std::string &message) {
@@ -104,7 +104,7 @@ make_radial_gas_request(const AuthoredEngineFixture &canonical) {
         canonical_binary64_le_sha256(trajectory.post_step_rpm);
     request.scenario.scenario_id = "internal-radial-gas-prescribed";
     request.scenario.total_duration_s.value =
-        static_cast<double>(kRadialGasStepCount) / 10000.0;
+        static_cast<double>(kRadialGasStepCount) / 20000.0;
     request.scenario.audible_duration_s.value = request.scenario.total_duration_s.value;
     request.scenario.operating_state.value = {
         {
@@ -287,14 +287,14 @@ require_mechanism_plan(const AuthoredEngineFixture &request) {
 [[nodiscard]] LegacyMechanismStep
 make_radial_mechanism_step(const OneLevelMasterRodMechanismKinematicsPlan &plan,
                            const std::uint64_t sample_index) {
-    constexpr double step_s = 1.0 / 10000.0;
+    constexpr double step_s = 1.0 / 20000.0;
     const double angular_speed_rad_s = kRadialGasRpm * kLegacyRpmScale;
     const double angular_displacement_rad = angular_speed_rad_s * step_s;
     const double body_angle_psi_rad =
         -static_cast<double>(sample_index + 1U) * angular_displacement_rad;
 
     LegacyMechanismStep step;
-    step.rate = {10000U, 1U};
+    step.rate = {20000U, 1U};
     step.sample_index = sample_index;
     step.step_end_index = sample_index + 1U;
     step.timestamp_tick = step.step_end_index;
@@ -411,7 +411,7 @@ require_gas_step(LegacyGasAdvanceResult &result, std::uint64_t expected_sample_i
 void verify_fresh_layout_and_first_state(const AuthoredEngineFixture &request,
                                          const LegacyMechanismStep &mechanics,
                                          const LegacyLowOrderGasStep &gas) {
-    expect(gas.rate == RationalRateHz{10000, 1} && gas.sample_index == 0 &&
+    expect(gas.rate == RationalRateHz{20000, 1} && gas.sample_index == 0 &&
                gas.step_end_index == 1 && gas.timestamp_tick == 1,
            "fresh gas step has the wrong fixed-rate clock");
     expect(gas.gas_volumes.size() == 22U && gas.flow_edges.size() == 34U &&
@@ -1333,7 +1333,7 @@ void test_certified_radial_gas_uses_common_mechanism_coordinates(
         externally_driven.engine, low_order_core(externally_driven),
         externally_driven.scenario, external_random_plan, external_schedule,
         std::move(external_plan)));
-    constexpr double radial_step_s = 1.0 / 10000.0;
+    constexpr double radial_step_s = 1.0 / 20000.0;
     const double radial_angular_speed_rad_s = kRadialGasRpm * kLegacyRpmScale;
     const double radial_angular_displacement_rad =
         radial_angular_speed_rad_s * radial_step_s;

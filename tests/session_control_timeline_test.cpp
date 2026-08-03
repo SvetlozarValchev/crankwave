@@ -55,7 +55,7 @@ namespace contract = engine_sim_offline::contract;
 namespace contract_test = engine_sim_offline::contract::test;
 namespace simulation = engine_sim_offline::simulation;
 
-constexpr RationalRateHz kPhysicsRate{10000, 1};
+constexpr RationalRateHz kPhysicsRate{20000, 1};
 constexpr RationalRateHz kDeliveryRate{192000, 1};
 
 void test_exact_delivery_projection() {
@@ -66,10 +66,10 @@ void test_exact_delivery_projection() {
     const auto off_grid =
         project_delivery_frame_to_physics_step(97, kPhysicsRate, kDeliveryRate);
     expect(zero && zero.physics_step == 0, "delivery frame zero did not map to step 0");
-    expect(on_grid && on_grid.physics_step == 5,
-           "delivery frame 96 did not map exactly to step 5");
-    expect(off_grid && off_grid.physics_step == 6,
-           "delivery frame 97 did not ceil-map to step 6");
+    expect(on_grid && on_grid.physics_step == 10,
+           "delivery frame 96 did not map exactly to step 10");
+    expect(off_grid && off_grid.physics_step == 11,
+           "delivery frame 97 did not ceil-map to step 11");
 
     const auto rational = project_delivery_frame_to_physics_step(7, {3, 2}, {5, 2});
     expect(rational && rational.physics_step == 5,
@@ -106,7 +106,7 @@ void test_right_continuous_drain_and_sequence_order() {
                step.controls.overrides ==
                    LiveControlOverrides{true, 0.25, false, false, false, false},
            "step-zero throttle was not applied right-continuously");
-    for (std::uint64_t index = 1; index < 5; ++index) {
+    for (std::uint64_t index = 1; index < 10; ++index) {
         step = timeline.drain_for_physics_step(index);
         expect(step && step.controls.applied_command_count == 0 &&
                    step.controls.overrides ==
@@ -114,12 +114,12 @@ void test_right_continuous_drain_and_sequence_order() {
                "future controls changed state before their projected step");
     }
 
-    step = timeline.drain_for_physics_step(5);
+    step = timeline.drain_for_physics_step(10);
     expect(step && step.controls.applied_command_count == 1 &&
                step.controls.overrides ==
                    LiveControlOverrides{true, 0.25, true, false, false, false},
-           "delivery frame 96 was not applied at physics step 5");
-    step = timeline.drain_for_physics_step(6);
+           "delivery frame 96 was not applied at physics step 10");
+    step = timeline.drain_for_physics_step(11);
     expect(step && step.controls.applied_command_count == 3 &&
                step.controls.overrides ==
                    LiveControlOverrides{true, 0.75, true, false, true, false},
@@ -127,10 +127,10 @@ void test_right_continuous_drain_and_sequence_order() {
     expect(timeline.queued_command_count() == 0,
            "drain retained commands after their projected step");
 
-    const auto skipped = timeline.drain_for_physics_step(8);
+    const auto skipped = timeline.drain_for_physics_step(13);
     expect(!skipped &&
                skipped.error == ControlTimelineError::noncontiguous_physics_step &&
-               timeline.next_physics_step() == 7,
+               timeline.next_physics_step() == 12,
            "noncontiguous drain mutated the physics cursor");
 }
 
@@ -179,8 +179,8 @@ void test_limiter_and_external_resistance_payloads() {
     const std::array commands{
         TimestampedControlCommand{0, 1, SetLimiterEnabled{false}},
         TimestampedControlCommand{0, 2, SetExternalResistingTorque{17.5}},
-        TimestampedControlCommand{19, 3, SetLimiterEnabled{true}},
-        TimestampedControlCommand{19, 4, SetExternalResistingTorque{0.0}},
+        TimestampedControlCommand{9, 3, SetLimiterEnabled{true}},
+        TimestampedControlCommand{9, 4, SetExternalResistingTorque{0.0}},
     };
     expect(static_cast<bool>(timeline.enqueue(commands)),
            "valid limiter/load command batch was rejected");
@@ -227,7 +227,7 @@ void test_starter_level_is_sticky_until_release() {
     ControlTimeline timeline{2, kPhysicsRate, kDeliveryRate};
     const std::array commands{
         TimestampedControlCommand{0, 1, SetStarterEnabled{true}},
-        TimestampedControlCommand{19, 2, SetStarterEnabled{false}},
+        TimestampedControlCommand{9, 2, SetStarterEnabled{false}},
     };
     expect(static_cast<bool>(timeline.enqueue(commands)),
            "valid starter press/release commands were rejected");
@@ -254,11 +254,11 @@ void test_dyno_and_vehicle_levels_are_sticky() {
         TimestampedControlCommand{0, 4, SetVehicleSelectedForwardGear{2U}},
         TimestampedControlCommand{0, 5, SetVehicleClutchEngagement{0.25}},
         TimestampedControlCommand{0, 6, SetVehicleServiceBrakeApplication{0.75}},
-        TimestampedControlCommand{19, 7, SetDynoTargetEngineSpeed{4500.0}},
-        TimestampedControlCommand{19, 8, SetDynoMaximumDrivingTorque{0.0}},
-        TimestampedControlCommand{19, 9, SetVehicleSelectedForwardGear{0U}},
-        TimestampedControlCommand{19, 10, SetVehicleClutchEngagement{1.0}},
-        TimestampedControlCommand{19, 11, SetVehicleServiceBrakeApplication{0.0}},
+        TimestampedControlCommand{9, 7, SetDynoTargetEngineSpeed{4500.0}},
+        TimestampedControlCommand{9, 8, SetDynoMaximumDrivingTorque{0.0}},
+        TimestampedControlCommand{9, 9, SetVehicleSelectedForwardGear{0U}},
+        TimestampedControlCommand{9, 10, SetVehicleClutchEngagement{1.0}},
+        TimestampedControlCommand{9, 11, SetVehicleServiceBrakeApplication{0.0}},
     };
     expect(static_cast<bool>(timeline.enqueue(commands)),
            "valid dyno/drivetrain command batch was rejected");
@@ -457,9 +457,9 @@ struct SimulationControlFixture {
         physics_profile.core.gas_path.intakes.front()
             .parameters.idle_throttle_plate_position_01.value = 0.994;
 
-        constexpr std::size_t kStepCount = 8;
-        scenario.scenario_id = "session-live-control-eight-step";
-        scenario.total_duration_s.value = static_cast<double>(kStepCount) / 10000.0;
+        constexpr std::size_t kStepCount = 16;
+        scenario.scenario_id = "session-live-control-sixteen-step";
+        scenario.total_duration_s.value = static_cast<double>(kStepCount) / 20000.0;
         scenario.audible_start_s.value = 0.0;
         scenario.audible_duration_s.value = scenario.total_duration_s.value;
         scenario.preparation = contract::FixedSettling{
@@ -630,7 +630,7 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
         require_core_runtime(simulation::compile_low_order_engine_core_v1_runtime(
             fixture.engine, fixture.scenario, profile.core, random_plan, mechanism_plan,
             finite_extent(fixture.scenario)));
-    for (std::uint64_t step_index = 0; step_index < 8; ++step_index) {
+    for (std::uint64_t step_index = 0; step_index < 16; ++step_index) {
         auto old_result = old_call_shape.advance();
         auto empty_result = explicit_empty.advance(LiveControlOverrides{});
         expect_core_step_bits_equal(require_core_step(old_result),
@@ -654,7 +654,7 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
     expect(static_cast<bool>(timeline.enqueue(commands)),
            "simulation live-control batch was rejected");
 
-    for (std::uint64_t step_index = 0; step_index < 8; ++step_index) {
+    for (std::uint64_t step_index = 0; step_index < 16; ++step_index) {
         const auto controls = timeline.drain_for_physics_step(step_index);
         expect(static_cast<bool>(controls),
                "timeline did not resolve a contiguous simulation step");
@@ -662,13 +662,13 @@ void test_simulation_preserves_schedule_bits_until_a_field_is_overridden() {
         auto controlled_result = controlled.advance(controls.controls.overrides);
         const auto &authored_step = require_core_step(authored_result);
         const auto &controlled_step = require_core_step(controlled_result);
-        if (step_index < 6) {
+        if (step_index < 11) {
             expect_core_step_bits_equal(authored_step, controlled_step);
-            if (step_index == 4) {
+            if (step_index == 8) {
                 expect(controlled_step.mechanics.get().requested_throttle_01 == 0.75,
                        "authored throttle boundary stopped before a live override");
             }
-            if (step_index == 5) {
+            if (step_index == 10) {
                 expect(
                     !controlled_step.mechanics.get().operating_state.ignition_enabled &&
                         !controlled_step.mechanics.get().operating_state.fuel_enabled,

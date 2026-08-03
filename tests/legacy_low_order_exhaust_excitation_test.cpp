@@ -25,11 +25,11 @@ using namespace engine_sim_offline;
 using namespace engine_sim_offline::contract;
 using namespace engine_sim_offline::excitation;
 
-constexpr std::size_t kFrames = 200U;
+constexpr std::size_t kFrames = 400U;
 constexpr std::size_t kCylinders = 6U;
 constexpr std::size_t kRoutes = 2U;
-constexpr std::size_t kDelayFrames = 180U;
-constexpr RationalRateHz kRate{10000, 1};
+constexpr std::size_t kDelayFrames = 360U;
+constexpr RationalRateHz kRate{20000, 1};
 constexpr double kAtmospherePa = 101325.0;
 constexpr double kExcitationScale = 1600.0;
 constexpr double kSpeedThresholdRpm = 40.0;
@@ -460,7 +460,7 @@ void test_exact_arithmetic_delay_routes_and_continuity(
                actual_0.post_delay.size() == kFrames * kCylinders &&
                actual_0.frame_count == kFrames &&
                actual_0.route_bus_values.size() == kFrames * kRoutes,
-           "excitation diagnostics do not cover the complete 200-frame block");
+           "excitation diagnostics do not cover the complete 400-frame block");
 
     const auto expected_pre_0 = independent_pre_delay(block_0);
     const auto expected_pre_1 = independent_pre_delay(block_1);
@@ -512,13 +512,11 @@ void test_exact_arithmetic_delay_routes_and_continuity(
            "two-block excitation session progress changed");
 }
 
-void test_twenty_khz_delay_is_derived_at_session_admission(
+void test_canonical_delay_is_derived_at_session_admission(
     const EngineSpec &engine, RenderScenario scenario) {
-    constexpr RationalRateHz rate{20000U, 1U};
+    constexpr RationalRateHz rate = kRate;
     constexpr std::size_t expected_delay_frames = 360U;
-    static_assert(expected_delay_frames == 2U * kDelayFrames);
-    static_assert(expected_delay_frames * kRate.numerator ==
-                  kDelayFrames * rate.numerator);
+    static_assert(expected_delay_frames == kDelayFrames);
     expect(static_cast<std::size_t>(std::round(
                (kTotalAudioLengthM / 343.0) *
                static_cast<double>(rate.numerator) /
@@ -543,14 +541,9 @@ void test_twenty_khz_delay_is_derived_at_session_admission(
     expect(actual_0.sample_rate == rate && actual_1.sample_rate == rate &&
                actual_0.frame_count == kFrames && actual_1.frame_count == kFrames,
            "20 kHz excitation did not publish on its admitted capture clock");
-    expect(std::ranges::all_of(actual_0.post_delay,
-                               [](double value) { return bits(value) == bits(+0.0); }),
-           "20 kHz excitation used the stale 180-frame propagation delay");
-
-    const std::size_t local_arrival_frame = expected_delay_frames - kFrames;
-    for (std::size_t frame = 0; frame < local_arrival_frame; ++frame) {
+    for (std::size_t frame = 0; frame < expected_delay_frames; ++frame) {
         for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
-            expect(bits(actual_1.post_delay[frame * kCylinders + cylinder]) ==
+            expect(bits(actual_0.post_delay[frame * kCylinders + cylinder]) ==
                        bits(+0.0),
                    "20 kHz propagation delay arrived before 360 capture samples");
         }
@@ -560,7 +553,7 @@ void test_twenty_khz_delay_is_derived_at_session_admission(
     for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
         const double expected = actual_0.pre_delay[cylinder];
         const double actual =
-            actual_1.post_delay[local_arrival_frame * kCylinders + cylinder];
+            actual_0.post_delay[expected_delay_frames * kCylinders + cylinder];
         expect_same_bits(actual, expected,
                          "20 kHz propagation delay was not derived from path time");
         observed_nonzero_arrival = observed_nonzero_arrival || actual != 0.0;
@@ -813,7 +806,7 @@ void run_tests(const std::filesystem::path &repository_root) {
     const auto fixture = test::load_canonical_authored_engine_fixture(repository_root);
     test_exact_arithmetic_delay_routes_and_continuity(fixture.engine,
                                                       fixture.scenario);
-    test_twenty_khz_delay_is_derived_at_session_admission(fixture.engine,
+    test_canonical_delay_is_derived_at_session_admission(fixture.engine,
                                                           fixture.scenario);
     test_two_cylinder_single_route_session(fixture.engine, fixture.scenario);
     test_independent_sessions_are_bit_deterministic(fixture.engine,

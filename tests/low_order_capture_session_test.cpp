@@ -41,11 +41,11 @@ using engine_sim_offline::artifacts::TelemetryStreamDescriptor;
 using CoreRuntimeFactory =
     engine_sim_offline::simulation::detail::LowOrderEngineCoreV1RuntimeFactory;
 
-inline constexpr double kOuterStepS = 1.0 / 10000.0;
+inline constexpr double kOuterStepS = 1.0 / 20000.0;
 inline constexpr double kOperatingHeldRpm = 3000.0;
 inline constexpr double kOperatingCutoffTimeS = 0.22;
 inline constexpr double kOperatingTotalDurationS = 0.3;
-inline constexpr std::size_t kOperatingStepCount = 3000U;
+inline constexpr std::size_t kOperatingStepCount = 6000U;
 inline constexpr std::uint32_t kOperatingCyclesPerBlock = 2U;
 inline constexpr double kFreeEngineControlBoundaryS = 0.24;
 inline constexpr double kFreeEngineTotalDurationS = 0.4;
@@ -179,10 +179,10 @@ make_operating_capture_request(
     scenario.audible_start_s.value = kOperatingCutoffTimeS;
     scenario.audible_duration_s.value =
         kOperatingTotalDurationS - kOperatingCutoffTimeS;
-    scenario.rates.physics = {10000U, 1U};
+    scenario.rates.physics = {20000U, 1U};
     scenario.rates.capture = scenario.rates.physics;
-    scenario.quality.value.capture_block_capacity_frames = 200U;
-    scenario.quality.value.event_journal_capacity_records = 3800U;
+    scenario.quality.value.capture_block_capacity_frames = 400U;
+    scenario.quality.value.event_journal_capacity_records = 7600U;
     return request;
 }
 
@@ -254,10 +254,10 @@ make_free_engine_capture_request(
     scenario.total_duration_s.value = total_duration_s;
     scenario.audible_start_s.value = kOperatingCutoffTimeS;
     scenario.audible_duration_s.value = total_duration_s - kOperatingCutoffTimeS;
-    scenario.rates.physics = {10000U, 1U};
+    scenario.rates.physics = {20000U, 1U};
     scenario.rates.capture = scenario.rates.physics;
-    scenario.quality.value.capture_block_capacity_frames = 200U;
-    scenario.quality.value.event_journal_capacity_records = 3800U;
+    scenario.quality.value.capture_block_capacity_frames = 400U;
+    scenario.quality.value.event_journal_capacity_records = 7600U;
     return request;
 }
 
@@ -513,7 +513,7 @@ find_cylinder(const LegacyMechanismStep &mechanics, CylinderId id) {
 
 [[nodiscard]] double mass_flow_kg_s(
     double signed_amount_mol,
-    RationalRateHz rate = RationalRateHz{10000U, 1U}) noexcept {
+    RationalRateHz rate = RationalRateHz{20000U, 1U}) noexcept {
     const double step_s = static_cast<double>(rate.denominator) /
                           static_cast<double>(rate.numerator);
     return signed_amount_mol * kLegacyAirMolarMassKgPerMol / step_s;
@@ -949,15 +949,15 @@ void test_authored_capture_mapping_and_completion(
             try {
                 ++callback_count;
                 callback_frame_count = block.frame_count();
-                expect(block.clock() == CaptureClock{{10000, 1},
+                expect(block.clock() == CaptureClock{{20000, 1},
                                                      expected_first_sample,
                                                      expected_first_sample + 1U,
                                                      SamplePhase::post_step} &&
-                           block.declared_block_capacity_frames() == 200U &&
-                           block.declared_event_journal_capacity_records() == 3800U,
+                           block.declared_block_capacity_frames() == 400U &&
+                           block.declared_event_journal_capacity_records() == 7600U,
                        "capture block clock or declared bounds changed");
                 expect(block.frame_count() ==
-                           std::min<std::uint64_t>(200U, kOperatingStepCount -
+                           std::min<std::uint64_t>(400U, kOperatingStepCount -
                                                              expected_first_sample),
                        "capture block did not use the bounded declared partition");
                 expect(block.engine().size() == block.frame_count() &&
@@ -1191,7 +1191,8 @@ void test_twenty_khz_mechanics_gas_and_capture_share_one_clock(
                 if (signed_amount_mol != 0.0) {
                     saw_nonzero_flow = true;
                     expect(actual->signed_mass_flow_kg_s !=
-                               mass_flow_kg_s(signed_amount_mol),
+                               mass_flow_kg_s(signed_amount_mol,
+                                              RationalRateHz{10000U, 1U}),
                            "20 kHz nonzero flow retained the stale 10 kHz conversion");
                 }
             }
@@ -1200,6 +1201,11 @@ void test_twenty_khz_mechanics_gas_and_capture_share_one_clock(
     });
     const auto *published_block =
         std::get_if<LowOrderCaptureBlockPublished>(&published);
+    if (const auto *failure = std::get_if<FailureContext>(&published)) {
+        throw std::runtime_error{
+            "20 kHz lower-layer capture faulted: " + failure->detail_code + "; " +
+            failure->state_summary};
+    }
     expect(published_block != nullptr && callback_count == 1U &&
                published_block->frame_count == kFrameCount &&
                published_block->published_sample_count == kFrameCount &&
@@ -1828,7 +1834,7 @@ void test_consumer_rejection_is_a_stable_terminal_fault(
     std::size_t callback_count = 0U;
     auto rejected = capture.publish_next_block([&](const CaptureBlockView &block) {
         ++callback_count;
-        expect(block.frame_count() == 200U,
+        expect(block.frame_count() == 400U,
                "rejection probe did not receive one complete bounded block");
         return false;
     });

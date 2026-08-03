@@ -23,9 +23,9 @@ namespace {
 
 using namespace engine_sim_offline;
 
-inline constexpr std::size_t kStepCount = 401U;
+inline constexpr std::size_t kStepCount = 802U;
 inline constexpr double kRpm = 2400.0;
-inline constexpr double kDurationS = static_cast<double>(kStepCount) / 10000.0;
+inline constexpr double kDurationS = static_cast<double>(kStepCount) / 20000.0;
 
 void expect(bool condition, std::string_view message) {
     if (!condition) {

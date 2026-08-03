@@ -11,10 +11,10 @@
 namespace engine_sim_offline::test::bmw_m52b28_render_gate {
 namespace {
 
-constexpr std::string_view kLastGoodWaveSha256 =
-    "87eda586902fbcf7e015161a84688c74e486285c99150c1a6fb3bc9c4382c444";
+constexpr std::string_view kCanonical20KhzWaveSha256 =
+    "61b815441fdca9e30a03b3f755a7b3a9200e8663d98a0d7924838813e41f6697";
 constexpr std::string_view kAcceptedPcm24Sha256 =
-    "176010069c88c99a3cc8262099fa5f02eba3af9517b1c92e148d88ace869756f";
+    "758df536d5b4fc2fdf031d16d31ba0294300a0c10e9008bc126b0e94b5607ac6";
 constexpr std::uint64_t kAcceptedPcm24ByteCount = UINT64_C(8640000);
 constexpr std::uint64_t kAudibleFrameCount = UINT64_C(2880000);
 
@@ -251,7 +251,7 @@ void expect_exact_info(const contract::RenderManifestContent &content,
 RenderIdentityObservation
 verify_render_success(const contract::RenderSuccess &success,
                       const VerifyingMemorySink &sink,
-                      const std::span<const std::byte> last_good_oracle_wave) {
+                      const std::span<const std::byte> canonical_oracle_wave) {
     expect(sink.begin_calls == 1U && sink.declaration_calls == kArtifacts.size() &&
                sink.write_calls > 0U && sink.seal_calls == kArtifacts.size() &&
                sink.commit_calls == 1U && sink.abort_calls == 0U,
@@ -267,14 +267,14 @@ verify_render_success(const contract::RenderSuccess &success,
            "generic inertial render did not complete the authored dyno pull");
     expect_exact_manifest(success, sink);
 
-    expect(last_good_oracle_wave.size() == UINT64_C(8640578) &&
-               contract::sha256(last_good_oracle_wave) ==
-                   digest_from_hex(kLastGoodWaveSha256),
-           "render gate did not receive the authoritative last-good WAV");
-    const auto oracle = parse_wave(last_good_oracle_wave);
+    expect(canonical_oracle_wave.size() == UINT64_C(8640586) &&
+               contract::sha256(canonical_oracle_wave) ==
+                   digest_from_hex(kCanonical20KhzWaveSha256),
+           "render gate did not receive the canonical 20 kHz WAV");
+    const auto oracle = parse_wave(canonical_oracle_wave);
     expect(oracle.data.size() == kAcceptedPcm24ByteCount &&
                contract::sha256(oracle.data) == digest_from_hex(kAcceptedPcm24Sha256),
-           "authoritative last-good PCM24 span changed");
+           "canonical 20 kHz PCM24 span changed");
 
     const auto &audition_artifact = sink.at("master.engine.audition");
     const auto audition = parse_wave(audition_artifact.bytes);
@@ -282,7 +282,7 @@ verify_render_success(const contract::RenderSuccess &success,
                contract::sha256(audition.data) ==
                    digest_from_hex(kAcceptedPcm24Sha256) &&
                std::ranges::equal(audition.data, oracle.data),
-           "generic PCM24 data span differs from the accepted last-good bytes");
+           "generic PCM24 data span differs from the canonical 20 kHz bytes");
     expect_exact_info(success.manifest.content, audition);
 
     return {

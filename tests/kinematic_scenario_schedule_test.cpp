@@ -176,7 +176,7 @@ void test_held_speed_horizon_is_not_materialized() {
     auto schedule =
         require_schedule(compile_kinematic_scenario_schedule(fixture.scenario));
 
-    constexpr std::uint64_t expected_steps = UINT64_C(1000000000);
+    constexpr std::uint64_t expected_steps = UINT64_C(2000000000);
     expect(schedule.sample_count() == expected_steps &&
                schedule.rpm_at_sample_offset(expected_steps - 1U) == 3000.0 &&
                !schedule.rpm_at_sample_offset(expected_steps).has_value(),
@@ -190,8 +190,8 @@ void test_held_speed_horizon_is_not_materialized() {
 }
 
 void configure_prescribed_schedule(ScheduleFixture &fixture) {
-    fixture.scenario.scenario_id = "prescribed-schedule-four-step";
-    fixture.scenario.rates.physics = {10000, 1};
+    fixture.scenario.scenario_id = "prescribed-schedule-eight-step";
+    fixture.scenario.rates.physics = {20000, 1};
     fixture.scenario.total_duration_s.value = 0.0004;
     fixture.scenario.operating_state.value = {
         {
@@ -207,10 +207,11 @@ void configure_prescribed_schedule(ScheduleFixture &fixture) {
     };
 
     FixedRateRpmTrajectory rpm{
-        {10000, 1},
+        {20000, 1},
         0,
         RpmSampleSemantics::post_step_rpm,
-        {400000.0, 1000.0, 1000.0, 1000.0},
+        {400000.0, 400000.0, 1000.0, 1000.0,
+         1000.0,   1000.0,   1000.0, 1000.0},
         {},
         fixture.builder.add_resolution("prescribed.rpm"),
     };
@@ -235,8 +236,8 @@ void test_prescribed_sweep_behavior_is_preserved() {
     configure_prescribed_schedule(fixture);
     auto schedule =
         require_schedule(compile_kinematic_scenario_schedule(fixture.scenario));
-    expect(schedule.rate() == RationalRateHz{10000, 1} &&
-               schedule.first_step_index() == 0 && schedule.sample_count() == 4,
+    expect(schedule.rate() == RationalRateHz{20000, 1} &&
+               schedule.first_step_index() == 0 && schedule.sample_count() == 8,
            "sampled schedule changed its fixed-rate extent");
 
     auto &source_rpm = std::get<FixedRateRpmTrajectory>(
@@ -246,8 +247,12 @@ void test_prescribed_sweep_behavior_is_preserved() {
     auto cursor = schedule.fresh_cursor();
     const auto first = cursor.next();
     const auto second = cursor.next();
-    const auto boundary = cursor.next();
+    const auto third = cursor.next();
     const auto fourth = cursor.next();
+    const auto boundary = cursor.next();
+    const auto sixth = cursor.next();
+    const auto seventh = cursor.next();
+    const auto eighth = cursor.next();
     expect(first.has_value() && first->sample_index == 0 &&
                first->step_end_index == 1 && first->rpm == 400000.0 &&
                first->requested_throttle == 0.25 &&
@@ -259,12 +264,16 @@ void test_prescribed_sweep_behavior_is_preserved() {
                second->requested_throttle == 0.25 &&
                second->operating_state.ignition_enabled,
            "sampled schedule changed controls before a boundary");
-    expect(boundary.has_value() && boundary->sample_index == 2 &&
+    expect(third.has_value() && fourth.has_value() &&
+               third->requested_throttle == 0.25 &&
+               fourth->requested_throttle == 0.25 &&
+               boundary.has_value() && boundary->sample_index == 4 &&
                boundary->rpm == 1000.0 && boundary->requested_throttle == 0.75 &&
                !boundary->operating_state.ignition_enabled,
            "sampled schedule changed right-continuous boundary behavior");
-    expect(fourth.has_value() && fourth->sample_index == 3 &&
-               fourth->step_end_index == 4 && cursor.completed() &&
+    expect(sixth.has_value() && seventh.has_value() && eighth.has_value() &&
+               eighth->sample_index == 7 && eighth->step_end_index == 8 &&
+               cursor.completed() &&
                !cursor.next().has_value(),
            "sampled schedule changed final-step completion");
 }

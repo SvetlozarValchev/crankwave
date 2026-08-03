@@ -17,10 +17,10 @@ namespace contract = engine_sim_offline::contract;
 // These generic identities were established by a clean public JSON compile/render.
 // They intentionally do not inherit obsolete BMW-profile provenance/container IDs.
 constexpr std::string_view kExpectedGenericRequestIdentitySha256 =
-    "e01b872b91f142ef65633783a736cbea79169e99b4c45e8df6d68ffa481369d6";
+    "5b940f5aafe2a8f96d4b336edfc0d41bcc6b4f7cadcea19585e830c27815f974";
 constexpr std::uint64_t kExpectedGenericAuditionWaveByteCount = UINT64_C(8640586);
 constexpr std::string_view kExpectedGenericAuditionWaveSha256 =
-    "630bc125815d0e80e4c4bd907f0ecd49edd55d3c24ba8e9c29202a220b01b4af";
+    "61b815441fdca9e30a03b3f755a7b3a9200e8663d98a0d7924838813e41f6697";
 
 [[nodiscard]] std::string validation_text(const contract::ValidationReport &report) {
     std::string result;
@@ -98,7 +98,7 @@ void run(const std::filesystem::path &repository_root, const bool compile_only) 
     const auto &success = require_success(result);
     const auto oracle = gate::read_bytes(
         repository_root / "reference/oracles/bmw-m52b28/"
-                          "bmw-m52b28-last-good-ffcc45c-dyno-1500-6500rpm.wav");
+                          "bmw-m52b28-canonical-20khz-a3ae7cd-dyno-1500-6500rpm.wav");
     const auto observation = gate::verify_render_success(success, sink, oracle);
     require_pinned_generic_identities(observation);
 }

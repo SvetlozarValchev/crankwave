@@ -152,7 +152,7 @@ void require_pcm_block(
         const auto expected = oracle_pcm.subspan(byte_offset + frame * 3U, 3U);
         if (!std::equal(encoded.begin(), encoded.end(), expected.begin())) {
             throw std::runtime_error{
-                "session PCM differs from the accepted oracle at audible frame " +
+                "session PCM differs from the canonical 20 kHz oracle at audible frame " +
                 std::to_string(absolute)};
         }
     }
@@ -650,11 +650,11 @@ void run(const std::filesystem::path &repository_root) {
     const auto oracle = gate::read_bytes(
         repository_root /
         "reference/oracles/bmw-m52b28/"
-        "bmw-m52b28-last-good-ffcc45c-dyno-1500-6500rpm.wav");
+        "bmw-m52b28-canonical-20khz-a3ae7cd-dyno-1500-6500rpm.wav");
     const auto pcm = wave_data(oracle);
     constexpr std::uint64_t kAudibleFrames = UINT64_C(2880000);
     gate::expect(pcm.size() == kAudibleFrames * 3U,
-                 "accepted oracle PCM extent changed");
+                 "canonical 20 kHz oracle PCM extent changed");
     const presentation::MasteringSettings mastering{
         kAudibleFrames,
         kEngineSessionDeliveryFramesPerBlock,
@@ -674,7 +674,7 @@ void run(const std::filesystem::path &repository_root) {
         if (const auto *completed =
                 std::get_if<EngineSessionCompleted>(&result)) {
             gate::expect(
-                completed->physics_frame_count == 214400U &&
+                completed->physics_frame_count == 428800U &&
                     completed->delivery_frame_count == 4116480U &&
                     completed->block_count == 1072U &&
                     !completed->live_controls_accepted &&

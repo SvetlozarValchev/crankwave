@@ -72,7 +72,7 @@ file(SIZE "${audition_wave}" audition_wave_size)
 file(SHA256 "${audition_wave}" audition_wave_sha256)
 if(NOT audition_wave_size EQUAL 8640586 OR
    NOT audition_wave_sha256 STREQUAL
-       "630bc125815d0e80e4c4bd907f0ecd49edd55d3c24ba8e9c29202a220b01b4af")
+       "61b815441fdca9e30a03b3f755a7b3a9200e8663d98a0d7924838813e41f6697")
     message(FATAL_ERROR
         "CLI audition WAV identity changed\n"
         "size: ${audition_wave_size}\nsha256: ${audition_wave_sha256}")

@@ -65,6 +65,18 @@ This closes the implementation gate as well as the earlier listening gate: produ
 has one 20 kHz physics/capture clock, and that cutover did not alter the approved
 samples.
 
+The deterministic session and JSON-migration tests use the separate authored
+`bmw-m52b28-inertial-dyno-1500-6500rpm` procedure. Its clean 20 kHz Release output is
+preserved as
+`reference/oracles/bmw-m52b28/bmw-m52b28-canonical-20khz-a3ae7cd-dyno-1500-6500rpm.wav`
+with whole-WAV SHA-256
+`61b815441fdca9e30a03b3f755a7b3a9200e8663d98a0d7924838813e41f6697` and decoded
+PCM24 SHA-256
+`758df536d5b4fc2fdf031d16d31ba0294300a0c10e9008bc126b0e94b5607ac6`.
+This is a machine regression oracle, not an additional listening claim. The prior
+10 kHz generated oracle remains historical evidence and is no longer consumed by the
+active session or migration tests.
+
 ## Acceptance boundary
 
 This closes item 1 of the verified post-parity fidelity queue. It changes the canonical

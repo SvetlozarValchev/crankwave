@@ -108,6 +108,10 @@ make_request(const test::AuthoredEngineFixture &canonical,
 
     auto request = test::make_prescribed_fixture(canonical, std::move(rpm));
     auto &scenario = request.scenario;
+    // This test executes the immutable 10 kHz P18 source-parity evidence. It is
+    // not a production render path; canonical production clocks are gated elsewhere.
+    scenario.rates.physics = {10000U, 1U};
+    scenario.rates.capture = scenario.rates.physics;
     scenario.scenario_id = "bmw-m52b28-reference-pull-v1";
     scenario.preparation = contract::FixedSettling{
         {1.0, "authored-fixture.parity.warm-up"},
@@ -143,6 +147,9 @@ make_request(const test::AuthoredEngineFixture &canonical,
         3800,
     };
     auto &sweep = std::get<contract::PrescribedKinematicSweep>(scenario.mode);
+    auto &rpm_lane =
+        std::get<contract::FixedRateRpmTrajectory>(sweep.trajectory.rpm);
+    rpm_lane.rate = scenario.rates.physics;
     sweep.throttle_01 = {
         contract::TrajectoryInterpolation::right_continuous_hold,
         {

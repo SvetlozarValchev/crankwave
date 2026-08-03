@@ -349,7 +349,7 @@ struct MechanicsFixture {
         profile.core.ignition.limiter_speed_rpm.value = 300000.0;
         profile.core.ignition.limiter_hold_s.value = 0.0002;
 
-        scenario.scenario_id = "mechanics-four-step";
+        scenario.scenario_id = "mechanics-eight-step";
         scenario.total_duration_s.value = 0.0004;
         scenario.audible_start_s.value = 0.0;
         scenario.audible_duration_s.value = 0.0004;
@@ -367,10 +367,11 @@ struct MechanicsFixture {
         };
 
         FixedRateRpmTrajectory rpm{
-            {10000, 1},
+            {20000, 1},
             0,
             RpmSampleSemantics::post_step_rpm,
-            {400000.0, 1000.0, 1000.0, 1000.0},
+            {800000.0, 1000.0, 1000.0, 1000.0,
+             1000.0,   1000.0, 1000.0, 1000.0},
             {},
             builder.add_resolution("scenario.mode.trajectory.rpm"),
         };
@@ -430,7 +431,7 @@ void configure_radial_master_rod_twin(MechanicsFixture &fixture) {
     };
     profile.core.mechanism.cylinders.push_back(std::move(slave));
     profile.core.ignition.firing_order.value = {CylinderId{1}, CylinderId{2}};
-    fixture.scenario.scenario_id = "radial-mechanics-four-step";
+    fixture.scenario.scenario_id = "radial-mechanics-eight-step";
 }
 
 void append_second_bank_head(MechanicsFixture &fixture,
@@ -597,7 +598,11 @@ void expect_compile_rejected(MechanicsFixture &fixture,
                              std::string_view expected_path) {
     auto result = compile_fixture(fixture);
     const auto *report = std::get_if<ValidationReport>(&result);
-    expect(report != nullptr, "invalid mechanics request compiled successfully");
+    if (report == nullptr) {
+        throw std::runtime_error{
+            "invalid mechanics request compiled successfully: " +
+            std::string{expected_path}};
+    }
     const bool found = std::any_of(
         report->issues.begin(), report->issues.end(), [&](const auto &issue) {
             return issue.path.find(expected_path) != std::string::npos;
@@ -621,13 +626,13 @@ void test_mechanics_session_step_order_and_completion() {
 
     auto first_result = session.advance();
     const auto &first = require_step(first_result);
-    const double expected_speed = 400000.0 * kLegacyRpmScale;
+    const double expected_speed = 800000.0 * kLegacyRpmScale;
     expect(first.sample_index == 0 && first.step_end_index == 1 &&
-               first.timestamp_tick == 1 && first.engine_speed_rpm == 400000.0,
+               first.timestamp_tick == 1 && first.engine_speed_rpm == 800000.0,
            "first mechanics step has the wrong post-step clock or RPM");
     expect_near(first.angular_speed_rad_s, expected_speed, 0.0,
                 "first mechanics angular speed changed");
-    expect_near(first.theta_cycle_rad, expected_speed / 10000.0, 1.0e-15,
+    expect_near(first.theta_cycle_rad, expected_speed / 20000.0, 1.0e-15,
                 "first mechanics cycle angle changed");
     expect(first.requested_throttle_01 == 0.25 &&
                first.resolved_engine_throttle_01 == 0.9375,
@@ -661,26 +666,45 @@ void test_mechanics_session_step_order_and_completion() {
 
     auto third_result = session.advance();
     const auto &third = require_step(third_result);
-    expect(third.sample_index == 2 && third.requested_throttle_01 == 0.75 &&
-               !third.operating_state.ignition_enabled && third.events.size() == 1 &&
-               std::holds_alternative<LimiterStateChanged>(third.events[0].payload) &&
-               !third.limiter_cut_active,
-           "third mechanics step did not apply controls and limiter expiry together");
+    expect(third.sample_index == 2 && third.requested_throttle_01 == 0.25 &&
+               third.operating_state.ignition_enabled && third.limiter_cut_active,
+           "third mechanics step changed before the control boundary");
+    auto fourth_result = session.advance();
+    const auto &fourth = require_step(fourth_result);
+    expect(fourth.sample_index == 3 && fourth.requested_throttle_01 == 0.25 &&
+               fourth.operating_state.ignition_enabled && fourth.limiter_cut_active,
+           "fourth mechanics step changed before the control boundary");
+    auto boundary_result = session.advance();
+    const auto &boundary = require_step(boundary_result);
+    expect(boundary.sample_index == 4 && boundary.requested_throttle_01 == 0.75 &&
+               !boundary.operating_state.ignition_enabled &&
+               boundary.limiter_cut_active,
+           "canonical 20 kHz controls did not apply at the authored boundary");
+    auto expiry_result = session.advance();
+    const auto &expiry = require_step(expiry_result);
+    expect(expiry.sample_index == 5 && expiry.events.size() == 1 &&
+               std::holds_alternative<LimiterStateChanged>(expiry.events[0].payload) &&
+               !expiry.limiter_cut_active,
+           "canonical 20 kHz limiter did not expire deterministically");
     const auto &limiter_stopped =
-        std::get<LimiterStateChanged>(third.events[0].payload);
+        std::get<LimiterStateChanged>(expiry.events[0].payload);
     expect(limiter_stopped.old_active && !limiter_stopped.new_active &&
                limiter_stopped.resulting_timer_s == 0.0,
            "limiter expiry evidence changed");
 
-    auto fourth_result = session.advance();
-    const auto &fourth = require_step(fourth_result);
-    expect(fourth.sample_index == 3 && fourth.step_end_index == 4 &&
-               fourth.events.empty() && session.completed(),
+    auto seventh_result = session.advance();
+    const auto &seventh = require_step(seventh_result);
+    expect(seventh.sample_index == 6 && seventh.events.empty(),
+           "mechanics session changed before its final step");
+    auto eighth_result = session.advance();
+    const auto &eighth = require_step(eighth_result);
+    expect(eighth.sample_index == 7 && eighth.step_end_index == 8 &&
+               eighth.events.empty() && session.completed(),
            "mechanics session did not produce and consume its final step");
 
     auto terminal = session.advance();
     const auto *completed = std::get_if<LegacyMechanicsCompleted>(&terminal);
-    expect(completed != nullptr && completed->sample_count == 4,
+    expect(completed != nullptr && completed->sample_count == 8,
            "mechanics session completed with the wrong sample count");
     auto stable_terminal = session.advance();
     const auto *stable_completed =
@@ -698,7 +722,7 @@ void test_radial_prescribed_mechanics_matches_pure_geometry_and_completes() {
     expect(radial_plan != nullptr && radial_plan->cylinders.size() == 2U,
            "radial mechanics test lost its certified two-cylinder plan");
 
-    for (std::uint64_t sample_index = 0; sample_index < 4U; ++sample_index) {
+    for (std::uint64_t sample_index = 0; sample_index < 8U; ++sample_index) {
         auto result = compiled.session.advance();
         const auto &step = require_step(result);
         expect(step.sample_index == sample_index &&
@@ -754,13 +778,13 @@ void test_radial_prescribed_mechanics_matches_pure_geometry_and_completes() {
            "radial mechanics did not complete with its prescribed cursor");
     auto terminal = compiled.session.advance();
     const auto *completed = std::get_if<LegacyMechanicsCompleted>(&terminal);
-    expect(completed != nullptr && completed->sample_count == 4U,
+    expect(completed != nullptr && completed->sample_count == 8U,
            "radial mechanics completed with the wrong exact sample count");
 
     auto terminal_with_motion =
         compiled.session.advance(PostStepCrankMotion{1000.0, 0.01});
     completed = std::get_if<LegacyMechanicsCompleted>(&terminal_with_motion);
-    expect(completed != nullptr && completed->sample_count == 4U,
+    expect(completed != nullptr && completed->sample_count == 8U,
            "radial mechanics completion changed across advance overloads");
 }
 
@@ -1027,7 +1051,8 @@ void test_mechanics_executes_governor_with_persistent_state() {
         resolved(2.0),
     };
     auto &rpm = fixed_rpm(fixture);
-    rpm.post_step_rpm = {1000.0, 1000.0, 1000.0, 1000.0};
+    rpm.post_step_rpm = {1000.0, 1000.0, 1000.0, 1000.0,
+                         1000.0, 1000.0, 1000.0, 1000.0};
     rpm.samples_f64le_sha256 = canonical_binary64_le_sha256(rpm.post_step_rpm);
 
     auto session = require_session(compile_fixture(fixture));
@@ -1039,8 +1064,8 @@ void test_mechanics_executes_governor_with_persistent_state() {
         auto result = session.advance();
         const auto &step = require_step(result);
         const auto expected = evaluate_legacy_governor_throttle(
-            expected_state, parameters, index < 2U ? 0.25 : 0.75,
-            1000.0 * kLegacyRpmScale, 1.0 / 10000.0,
+            expected_state, parameters, index < 4U ? 0.25 : 0.75,
+            1000.0 * kLegacyRpmScale, 1.0 / 20000.0,
             profile.core.gas_path.intakes.front()
                 .parameters.idle_throttle_plate_position_01.value);
         expected_state = expected.controller;
@@ -1080,11 +1105,25 @@ void test_mechanics_accepts_external_post_step_motion_for_inertial_controls() {
 
     auto third_result = session.advance(PostStepCrankMotion{1750.0, 0.022});
     const auto &third = require_step(third_result);
-    expect(third.sample_index == 2U && third.requested_throttle_01 == 0.75 &&
-               !third.operating_state.ignition_enabled,
-           "dynamic mechanics did not apply its right-continuous controls");
+    expect(third.sample_index == 2U && third.requested_throttle_01 == 0.25 &&
+               third.operating_state.ignition_enabled,
+           "dynamic mechanics changed before its authored boundary");
     auto fourth_result = session.advance(PostStepCrankMotion{2000.0, 0.023});
-    require_step(fourth_result);
+    const auto &fourth = require_step(fourth_result);
+    expect(fourth.sample_index == 3U && fourth.requested_throttle_01 == 0.25 &&
+               fourth.operating_state.ignition_enabled,
+           "dynamic mechanics changed before its authored boundary");
+    auto fifth_result = session.advance(PostStepCrankMotion{2250.0, 0.024});
+    const auto &fifth = require_step(fifth_result);
+    expect(fifth.sample_index == 4U && fifth.requested_throttle_01 == 0.75 &&
+               !fifth.operating_state.ignition_enabled,
+           "dynamic mechanics did not apply its right-continuous controls");
+    auto sixth_result = session.advance(PostStepCrankMotion{2500.0, 0.025});
+    require_step(sixth_result);
+    auto seventh_result = session.advance(PostStepCrankMotion{2750.0, 0.026});
+    require_step(seventh_result);
+    auto eighth_result = session.advance(PostStepCrankMotion{3000.0, 0.027});
+    require_step(eighth_result);
     expect(session.completed(),
            "externally driven mechanics did not complete at the control horizon");
 
@@ -1175,7 +1214,7 @@ void test_mechanics_uniform_limiter_disabled_policy() {
     }
 
     auto session = require_session(compile_fixture(fixture));
-    for (std::uint64_t index = 0; index < 4U; ++index) {
+    for (std::uint64_t index = 0; index < 8U; ++index) {
         auto result = session.advance();
         const auto &step = require_step(result);
         expect(step.sample_index == index && !step.operating_state.limiter_enabled &&
@@ -1281,7 +1320,7 @@ void test_mechanics_compile_rejections() {
     {
         MechanicsFixture fixture;
         auto &rpm = fixed_rpm(fixture);
-        rpm.post_step_rpm[0] = 2000000.0;
+        rpm.post_step_rpm[0] = 4000000.0;
         rpm.samples_f64le_sha256 = canonical_binary64_le_sha256(rpm.post_step_rpm);
         expect_compile_rejected(fixture, "schedule.rpm[0]");
     }

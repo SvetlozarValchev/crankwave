@@ -98,6 +98,6 @@ struct RenderIdentityObservation {
 // sound-bearing PCM24 bytes before returning the new generic identities.
 [[nodiscard]] RenderIdentityObservation verify_render_success(
     const contract::RenderSuccess &success, const VerifyingMemorySink &sink,
-    std::span<const std::byte> last_good_oracle_wave);
+    std::span<const std::byte> canonical_oracle_wave);
 
 } // namespace engine_sim_offline::test::bmw_m52b28_render_gate
