@@ -438,8 +438,19 @@ SHA-256
 `71b511ed6c5c2c29225cd96645e8c117dea4093cf965c22a76358f220b2bbe8b`.
 This names the same bounded signed dyno operation composed with articulated
 `M(theta)`, `M'(theta)`, and coupled wall reactions; it does not relabel the direct
-method or change direct request bytes. `FreeVehicle` remains unadmitted for the
-master-rod topology.
+method or change direct request bytes.
+
+Commit `11d5853` also admits `FreeVehicle` for the certified one-crank, one-level
+master-rod topology. Its wire retains the existing
+`nonnegative-speed-free-engine-one-level-master-rod-v1` crank-dynamics identity, and
+`scenario.mode.engine_baseline_inertia_kg_m2` retains the
+`one-level-master-rod-cycle-mean-equivalent-inertia-v1` provenance method. The existing
+`forward-vehicle-road-load-v1`, `bounded-forward-clutch-coupling-v1`, and
+`bounded-forward-vehicle-drivetrain-pgs-v1` identities remain topology-neutral; only
+the composed runtime identifies itself as
+`low-order-free-vehicle-one-level-master-rod-v1`. This admission does not change the
+direct/BMW wire or request bytes. Nested attachments and offset, geared, or otherwise
+independent multi-crank master-rod mechanisms remain unadmitted.
 
 The authoring fields `attached_inertia` and `external_resisting_torque` are optional,
 but the resolved wire never omits their values: each omission becomes canonical

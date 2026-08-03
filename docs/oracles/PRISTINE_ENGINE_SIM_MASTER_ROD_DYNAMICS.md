@@ -1,7 +1,8 @@
 # Pristine engine-sim master-rod dynamics oracle
 
 Status: source oracle frozen; public one-level master-rod FreeEngine accepted at
-`2e5d70d` and HeldDyno accepted at `eb26214` on 2026-08-03; FreeVehicle remains closed.
+`2e5d70d`, HeldDyno accepted at `eb26214`, and FreeVehicle accepted at `11d5853`
+on 2026-08-03. The one-crank, one-level master-rod dynamic family is complete.
 
 This note freezes the source behavior that governs the clean-room one-level
 master/slave dynamics checkpoint. The behavioral source pin is pristine engine-sim
@@ -131,9 +132,9 @@ error. The existing full-cycle geometry certificate remains mandatory.
 
 The complete parity checkpoint is scoped to one-crank, one-level master/slave dynamics
 for the same FreeEngine, HeldDyno, and FreeVehicle families already owned by the dynamic
-crank runtime. Prescribed radial execution remains intact. The first subsequent-status
-record below closes FreeEngine only; the later HeldDyno closure is a separate gate and
-does not claim FreeVehicle admission.
+crank runtime. Prescribed radial execution remains intact. The subsequent-status
+records below preserve the separately auditioned FreeEngine, HeldDyno, and FreeVehicle
+gates; the final gate does not broaden the topology beyond this family.
 
 The following are not implied by pristine's shipped evidence and remain closed:
 
@@ -214,3 +215,51 @@ The acceptance evidence is:
 This closes the HeldDyno subslice only. Master-rod `FreeVehicle` remains rejected and
 is the next public dynamic-family gate. Nested, multi-crank-master-rod, offset, geared,
 and compliant cases remain closed under the scope boundary above.
+
+## Subsequent public FreeVehicle closure
+
+Commit `11d5853` opens certified one-crank, one-level master-rod `FreeVehicle` through
+the public resolver, finite capture, and `EngineSession`. This is a composition of the
+already accepted articulated inertia, causal torque, coupled wall-reaction, gas, and
+audio paths with the existing topology-neutral FreeVehicle drivetrain. It does not add
+a radial-only clutch, road-load law, or vehicle integrator.
+
+The canonical radial-five rig is source-backed by pristine's authored `propellor`
+vehicle and `direct_drive` transmission rather than an invented road car:
+
+- vehicle mass: `100 lb`;
+- drag coefficient: `0.5`;
+- frontal area: `705 in^2` (`15 in * 47 in`);
+- differential ratio: `1`;
+- tire radius: raw `1.0`, interpreted by the source DSL as `1 m`;
+- rolling resistance: `300 N`;
+- maximum clutch torque: `500 lb*ft`; and
+- `gear-1`: `1:1`.
+
+Two otherwise matched FreeVehicle captures isolate the coupling. The control keeps the
+clutch open. The candidate engages `20%` of the source-backed clutch capacity for its
+loaded interval and then releases it. The accepted candidate is at
+`artifacts/listening/radial-free-vehicle-20pct-clutch-candidate-11d5853/audio/`:
+
+- `master.engine.audition.wav` SHA-256:
+  `8b2cc6620ef0e5e3f66ed18ebaf2990066fd813f9da1b11f97ee9eebf0f613eb`;
+- `master.engine.raw.wav` SHA-256:
+  `873f3ff548be267808ea78d6ec433dacb1d29a5434f591761913a5a8ece42c73`;
+  and
+- a separate repeat render reproduced every candidate WAV byte-for-byte.
+
+The open-clutch control records zero clutch impulse, but it is not sample-identical to
+FreeEngine. Existing FreeVehicle motion commits crank angle with its semi-implicit
+update, whereas FreeEngine commits the motion integral. That integrator distinction is
+the source of the small acoustic difference; it is not road-load leakage through an
+open clutch.
+
+The accepted radial FreeEngine and HeldDyno guards and the accepted direct BMW launch
+guard reproduced their complete WAV sets byte-for-byte. The user accepted the loaded
+radial FreeVehicle candidate as sounding good on 2026-08-03.
+
+This closes the one-crank, one-level master-rod dynamic family across FreeEngine,
+HeldDyno, and FreeVehicle. Nested attachments and offset, geared, or otherwise
+independent multi-crank master-rod mechanisms remain intentionally closed. They may be
+opened only if separate pristine evidence establishes meaningful support; this closure
+does not infer it.

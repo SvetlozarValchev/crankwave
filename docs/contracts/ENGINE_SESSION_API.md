@@ -453,16 +453,31 @@ controlled response gate passes: WOT differs from pristine by `0.0134 s`, every 
 crossing by at most `0.0049 s`, and the long natural-balance mean by `1.079 RPM`. The
 frozen pristine oracle remains the authority for each subsequent mechanics slice.
 
-The certified one-level master-rod `FreeEngine` and `HeldDyno` paths use the
-corresponding articulated configuration inertia and leaf-first coupled wall reactions.
-Their warm accountant uses each cylinder's certified swept displacement and piston
-travel rather than substituting one common stroke. The radial-five 52,000-frame
+The certified one-level master-rod `FreeEngine`, `HeldDyno`, and `FreeVehicle` paths
+use the corresponding articulated configuration inertia and leaf-first coupled wall
+reactions. Their warm accountant uses each cylinder's certified swept displacement and
+piston travel rather than substituting one common stroke. The radial-five 52,000-frame
 FreeEngine procedure completes through the public session API. Commit `eb26214` also
 admits its HeldDyno session under
 `bounded-held-dyno-speed-constraint-one-level-master-rod-v1`, whose canonical
 descriptor has SHA-256
 `71b511ed6c5c2c29225cd96645e8c117dea4093cf965c22a76358f220b2bbe8b`.
-`FreeVehicle` remains closed for this topology.
+Commit `11d5853` admits the corresponding FreeVehicle session. It retains
+`nonnegative-speed-free-engine-one-level-master-rod-v1` as its crank-dynamics method,
+derives `scenario.mode.engine_baseline_inertia_kg_m2` through
+`one-level-master-rod-cycle-mean-equivalent-inertia-v1`, and identifies its composed
+runtime as `low-order-free-vehicle-one-level-master-rod-v1`. The existing
+`forward-vehicle-road-load-v1`, `bounded-forward-clutch-coupling-v1`, and
+`bounded-forward-vehicle-drivetrain-pgs-v1` identities remain topology-neutral.
+
+The source-backed radial loaded candidate's audition SHA-256 is
+`8b2cc6620ef0e5e3f66ed18ebaf2990066fd813f9da1b11f97ee9eebf0f613eb`, and the user
+accepted it on 2026-08-03. Its matched open-clutch control records zero clutch impulse
+but is not sample-identical to FreeEngine because the existing FreeVehicle path commits
+crank angle semi-implicitly while FreeEngine commits its motion integral. That small
+numerical distinction is not road-load or clutch-load leakage. Direct/BMW execution
+and request identities remain unchanged. Nested attachments and offset, geared, or
+otherwise independent multi-crank master-rod mechanisms remain closed.
 
 ### 5.2 Remaining mode controls
 

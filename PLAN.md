@@ -6,8 +6,8 @@ Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-03
 
-Current checkpoint: **post-slice-15 parity closure — one-level master-rod FreeEngine
-and HeldDyno accepted; FreeVehicle next**
+Current checkpoint: **post-slice-15 parity closure — dynamic one-level master-rod
+FreeEngine, HeldDyno, and FreeVehicle accepted; Slice 16 listening gate next**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -597,9 +597,8 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--9 and 11--15 are executable and accepted for the currently
-admitted topology. Slice 10 remains open for the isolated general-topology commits
-listed below, and Slice 16 remains the final curated parity recording gate. Slice 14's
+Current progress: slices 1--15 are executable and accepted for the currently admitted
+topology. Slice 16 remains the final curated parity recording gate. Slice 14's
 capability-driven UI and continuous FreeEngine, HeldDyno, and FreeVehicle lifetimes
 are accepted. Slice 15 is accepted. Slice 12's pristine
 vehicle/transmission equations and explicit non-parity service-brake boundary are
@@ -793,6 +792,22 @@ The direct BMW guard remains byte-exact at accepted SHA-256
 The user accepted the radial HeldDyno result as sounding good on 2026-08-03. This
 closes the master-rod HeldDyno subslice only; FreeVehicle remains closed and is next.
 
+Commit `11d5853` subsequently opens certified one-crank, one-level master-rod
+`FreeVehicle` through the source-authored radial propellor/direct-drive rig. Its
+open-clutch control and 20%-clutch candidate are each `4.700 s`, 192 kHz mono PCM24. The
+candidate peaks at `-18.150361 dBFS`, has audition SHA-256
+`8b2cc6620ef0e5e3f66ed18ebaf2990066fd813f9da1b11f97ee9eebf0f613eb`, and all
+candidate WAV files match the repeat render byte for byte. The accepted radial
+FreeEngine, radial HeldDyno, and BMW launch guards remain exact at audition SHA-256
+`6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c3`,
+`e193d2e981a5d432928aa8596b6730df37c9cd6aa680332479d77eb24a636c72`, and
+`4a096535cda350ee52426638005a4197ad4d998a83efbfa658ac17b84bdd2216`.
+The user accepted the candidate as sounding good on 2026-08-03. The open-clutch
+control is intentionally not sample-identical to FreeEngine: the existing FreeVehicle
+integrator commits semi-implicit crank angle even when clutch impulse is zero. This is
+an integration-law distinction, not vehicle-load leakage. Dynamic one-level
+master-rod FreeEngine, HeldDyno, and FreeVehicle are therefore closed and accepted.
+
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,
 configuration-inertia, routing, conditioning, IR, and mastering paths. The BMW gate
@@ -891,7 +906,7 @@ engine-definition parity in this order, with one coherent commit per bullet:
    in control `honda-b18c5-bank-local-vtec-control-fb20770` and candidate
    `honda-b18c5-bank-local-vtec-candidate-6b2d127` on 2026-08-02**);
 6. execute dynamic one-level master/slave mechanisms and only the remaining meaningful
-   multiple-crankshaft cases supported by pristine (**in progress; the pristine
+   multiple-crankshaft cases supported by pristine (**complete; the pristine
    constrained-rigid-body path and leaf-to-root reaction ownership are frozen in
    `docs/oracles/PRISTINE_ENGINE_SIM_MASTER_ROD_DYNAMICS.md`; the immutable radial plan
    now retains source-bound crank inertia/friction and every piston/rod mass, rod
@@ -927,11 +942,24 @@ engine-definition parity in this order, with one coherent commit per bullet:
    `e193d2e981a5d432928aa8596b6730df37c9cd6aa680332479d77eb24a636c72`;
    the exact direct BMW guard retains accepted SHA-256
    `487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496`.
-   The user accepted the candidate as sounding good on 2026-08-03. The already
-   executed co-phased direct multi-crank subset is complete, while master-rod
-   FreeVehicle and unproven offset/geared/nested/multi-crank-master-rod cases remain
-   explicitly closed. Open and audition master-rod FreeVehicle before declaring this
-   bullet complete**);
+   The user accepted the candidate as sounding good on 2026-08-03. Commit `11d5853`
+   opens master-rod FreeVehicle with the source-authored radial propellor/direct-drive
+   rig, an open-clutch control, and a 20%-clutch candidate. Both renders are `4.700 s`
+   mono 192 kHz PCM24; the candidate peaks at `-18.150361 dBFS`, its audition SHA-256
+   is `8b2cc6620ef0e5e3f66ed18ebaf2990066fd813f9da1b11f97ee9eebf0f613eb`,
+   and every candidate WAV matches its repeat byte for byte. Exact audition guards
+   retain radial FreeEngine SHA-256
+   `6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c3`,
+   radial HeldDyno SHA-256
+   `e193d2e981a5d432928aa8596b6730df37c9cd6aa680332479d77eb24a636c72`, and BMW
+   launch SHA-256
+   `4a096535cda350ee52426638005a4197ad4d998a83efbfa658ac17b84bdd2216`.
+   The user accepted the candidate as sounding good on 2026-08-03. The open-clutch
+   control is not sample-identical to FreeEngine because existing FreeVehicle commits
+   semi-implicit crank angle even with zero clutch impulse; this is not vehicle-load
+   leakage. The executed co-phased direct multi-crank subset is complete. Unproven
+   offset/geared/nested/multi-crank-master-rod cases remain explicitly fail-closed
+   outside this parity scope**);
 7. make native audition saturation explicit, then render, listen to, and freeze Slice
    16's representative fixed-cam inline/V, VTEC, governed, master/slave, and drivetrain
    procedures;

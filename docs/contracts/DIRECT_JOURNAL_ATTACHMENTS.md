@@ -1,7 +1,8 @@
 # Journal attachment graph
 
-Status: topology sub-slice 10C2b8; certified one-level master-rod geometry executes
-through public finite prescribed capture and audio; torque-owning motion remains closed
+Status: topology sub-slice 10C2b8 preserved as history; certified one-crank,
+one-level master-rod dynamics now execute through FreeEngine, HeldDyno, and
+FreeVehicle, with the family accepted at `11d5853` on 2026-08-03
 
 ## Subsequent status
 
@@ -18,8 +19,43 @@ path under the distinct
 `bounded-held-dyno-speed-constraint-one-level-master-rod-v1` method identity. Its
 5.5 s prescribed control and 5.5 s physical candidate were rendered at 192 kHz mono
 PCM24, and the user accepted the candidate as sounding good on 2026-08-03. The direct
-BMW guard remained exact. This later opening does not alter the historical firewall
-described below: `FreeVehicle` and every other master-rod motion owner remain closed.
+BMW guard remained exact. At that checkpoint, the historical firewall described below
+still rejected `FreeVehicle` and every other master-rod motion owner.
+
+## Subsequent public FreeVehicle closure
+
+Commit `11d5853` opens certified one-crank, one-level master-rod `FreeVehicle`. The
+accepted articulated mechanics compose with the existing topology-neutral clutch,
+transmission, road-load, and vehicle integrator; no radial-specific drivetrain model
+was introduced.
+
+The radial-five fixture carries pristine's authored `propellor` evaluation rig exactly:
+
+- `100 lb` vehicle mass, drag coefficient `0.5`, and `705 in^2` frontal area;
+- differential ratio `1`, raw tire radius `1.0` interpreted as `1 m`, and `300 N`
+  rolling resistance; and
+- `500 lb*ft` maximum clutch torque with `gear-1` at `1:1`.
+
+The paired closure captures use the same initial and control schedule. One remains
+open-clutch; the candidate engages `20%` clutch capacity for the isolated loaded
+interval. The candidate's audition SHA-256 is
+`8b2cc6620ef0e5e3f66ed18ebaf2990066fd813f9da1b11f97ee9eebf0f613eb`, and its raw
+master SHA-256 is
+`873f3ff548be267808ea78d6ec433dacb1d29a5434f591761913a5a8ece42c73`. A separate
+repeat reproduced every candidate WAV byte-for-byte. The accepted radial FreeEngine
+and HeldDyno guard trees and the accepted direct BMW launch guard tree also reproduced
+all WAVs byte-for-byte. The user accepted the candidate as sounding good on
+2026-08-03.
+
+The open-clutch control has zero clutch impulse but is not sample-identical to
+FreeEngine: the existing FreeVehicle path uses a semi-implicit crank-angle commit,
+while FreeEngine uses its motion integral. The difference is an integrator boundary,
+not road-load leakage through the open clutch.
+
+The one-crank, one-level master-rod family is therefore complete for FreeEngine,
+HeldDyno, and FreeVehicle. Nested attachments and offset, geared, or otherwise
+independent multi-crank master-rod mechanisms remain intentionally closed unless
+separate pristine evidence proves meaningful support.
 
 ## One ownership path
 
@@ -170,7 +206,9 @@ variant does not revive or alias any of them.
 
 Direct journal IDs, crankshaft ownership, phases, cylinder bindings, ordering, and
 resolved provenance remain unchanged. Existing direct engines continue through the
-same resolver/runtime path and canonical request shape. Master-rod public execution is
-limited to certified finite prescribed external-speed motion;
-articulated inertia, coupled wall reactions, torque-owning operation, and dynamic
-operating modes remain later, separately gated work.
+same resolver/runtime path and canonical request shape. At topology sub-slice 10C2b8,
+master-rod public execution was limited to certified finite prescribed external-speed
+motion; articulated inertia, coupled wall reactions, torque-owning operation, and
+dynamic operating modes were deliberately later gates. The subsequent-status records
+above now close only the evidenced one-crank, one-level FreeEngine, HeldDyno, and
+FreeVehicle family. They do not relax the remaining topology exclusions.
