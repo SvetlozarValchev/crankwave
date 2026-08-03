@@ -637,7 +637,7 @@
       },
       {
         "route": "intake.inlet",
-        "source_gain_linear": 1,
+        "source_gain_linear": 4,
         "impulse_response_gain_linear": 0,
         "wet_mix_01": 0
       }
