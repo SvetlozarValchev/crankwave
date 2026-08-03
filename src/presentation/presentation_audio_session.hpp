@@ -4,6 +4,7 @@
 #include "engine_sim_offline/contract/engine.hpp"
 #include "presentation/exhaust_excitation_block.hpp"
 #include "presentation/exhaust_source_stage.hpp"
+#include "presentation/intake_pressure_source_stage.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -35,12 +36,12 @@ struct PresentationAudioRoutePlan {
     std::optional<RouteConditioningSeeds> conditioning_seeds;
     std::shared_ptr<const dsp::FixedConvolutionKernel> configured_ir;
     double wet_mix_01 = 0.0;
+    std::optional<IntakePressureSourceRouteConfiguration> intake_pressure_source;
 };
 
 // Processing-only presentation contract. `routes` owns source/stem order while
 // `audition_route_ids` owns the exact serial Float32 reduction order. The latter
-// must be a permutation of every active exhaust route; declared-silent routes do
-// not appear because the reduction performs no placeholder-zero operation.
+// must be a permutation of every active gas-source route.
 struct PresentationAudioPlan {
     RouteConditioningCalibration conditioning;
     std::vector<PresentationAudioRoutePlan> routes;
@@ -117,7 +118,9 @@ class PresentationAudioSession final {
     PresentationAudioSession(PresentationAudioSession &&) = delete;
     PresentationAudioSession &operator=(PresentationAudioSession &&) = delete;
 
-    [[nodiscard]] PresentationAudioBlockView process(ExhaustExcitationBlockView input);
+    [[nodiscard]] PresentationAudioBlockView
+    process(ExhaustExcitationBlockView exhaust,
+            IntakePressureInputBlockView intake_pressure);
 
     [[nodiscard]] std::span<const contract::RouteId> route_ids() const noexcept;
     [[nodiscard]] std::span<const contract::RouteId>

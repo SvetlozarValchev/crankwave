@@ -8,23 +8,34 @@ namespace {
 #if defined(__wasm32__)
 #define ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL                                  \
     "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-"                   \
-    "wasm32-binary128-v2"
+    "wasm32-binary128-v3"
 #define ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL "wasm32-ieee754-binary128"
 #else
 #define ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL                                  \
-    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v2"
+    "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v3"
 #define ENGINE_SIM_OFFLINE_DURATION_EXTENDED_LABEL "x87-extended"
 #endif
 
 constexpr std::string_view kRouteStemPublicationMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
-method=typed-gas-route-wet-selection-float32-wave-publication-20000-to-192000-20ms-clock-v4
-version=4
+method=typed-gas-route-wet-selection-float32-wave-publication-20000-to-192000-20ms-clock-v5
+version=5
 operation=typed-gas-route-dry-configured-transfer-selected-stem-publication
-topology=one-or-more-distinct-ordered-active-exhaust-routes;zero-or-more-distinct-ordered-declared-silent-intake-routes;three-stems-per-route
+topology=one-or-more-distinct-ordered-active-exhaust-routes;zero-or-more-distinct-ordered-active-intake-routes;three-stems-per-route
 active_exhaust_input=one-finite-binary64-dry-sample-and-one-finite-binary64-configured-transfer-sample-per-route-per-source-frame
-declared_silent_intake_processing=no-reconstruction-conditioning-convolution-or-random-stream-consumption
-declared_silent_intake_values=dry,configured-transfer,and-selected-are-canonical-positive-binary64-zero-before-publication
+active_intake_input=one-finite-nonnegative-binary64-absolute-plenum-pressure-sample-per-route-per-input-frame
+active_intake_reference=resolved-scenario-ambient-positive-finite-binary64-pressure-pa-abs
+active_intake_gauge_pressure=absolute-plenum-pressure-minus-reference-pressure-in-written-order
+active_intake_reconstruction=the-exact-implemented-causal-reconstruction-method-from-20000/1-to-192000/1-hz
+active_intake_dc_cutoff_hz=exact-binary64-10
+active_intake_dc_time_step_s=exact-binary64-1-divided-by-192000
+active_intake_dc_time_constant_s=binary64-1-divided-by-(binary64-2-times-source-conditioning-pi-times-binary64-10)-in-written-order
+active_intake_dc_alpha=time-step-divided-by-(time-constant-plus-time-step)-in-written-order
+active_intake_dc_state=one-binary64-state-per-route-initialized-to-positive-zero
+active_intake_dc_update=state=alpha-times-input+(binary64-1-minus-alpha)*prior-state-in-written-order
+active_intake_dc_output=input-minus-updated-state
+active_intake_source_gain=dc-output-times-resolved-finite-canonical-nonnegative-binary64-source-gain-linear
+active_intake_transfer=dry,configured-transfer,and-selected-are-the-same-binary64-source-gain-result-with-no-random-conditioning-ir-or-convolution
 resolved_argument_1=per-route-wet_mix_01
 resolved_argument_1_domain=finite-canonical-binary64-in-closed-interval-0..1;negative-zero-is-rejected
 selected=wet-mix-01*configured-transfer+(binary64-1-wet-mix-01)*dry-in-written-order
@@ -73,11 +84,10 @@ constexpr std::string_view kOrderedRouteAuditionMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
 )method"
     "method=" ENGINE_SIM_OFFLINE_AUDITION_METHOD_ID_LITERAL "\n"
-    R"method(version=2
+    R"method(version=3
 operation=ordered-n-route-serial-float32-audition-mix-quarter-sine-fades-and-pcm24-master
-route_selection=all-published-routes-exactly-once-in-declared-vector-order-with-at-least-one-active-exhaust-route
-active_route_input=one-finite-float32-sample-per-active-selected-exhaust-route-per-frame
-declared_silent_route_policy=exclude-from-the-arithmetic-reduction-with-no-inserted-zero-operation
+route_selection=all-active-published-gas-source-routes-exactly-once-in-declared-vector-order-with-at-least-one-active-exhaust-route
+active_route_input=one-finite-float32-sample-per-active-selected-exhaust-or-intake-route-per-frame
 delivery_rate_hz=192000/1
 resolved_argument_1=monitoring_gain_linear
 resolved_argument_1_domain=finite-binary64-that-rounds-nearest-ties-even-to-finite-positive-float32
@@ -93,7 +103,7 @@ duration_resolution_bound=resolved-frame-index-less-than-or-equal-to-2^53-minus-
 audible_frame_count=positive-resolved-integer
 fade_fit=fade-in-frame-count-plus-fade-out-frame-count-less-than-or-equal-to-audible-frame-count
 monitoring_gain_compile=float32(monitoring-gain-linear)-using-nearest-ties-to-even
-raw_mix=initialize-with-first-active-selected-exhaust-route-then-for-each-remaining-active-selected-exhaust-route-assign-float32(raw-mix-plus-route-selected)-serially-in-declared-route-order-with-no-leading-or-placeholder-zero
+raw_mix=initialize-with-first-active-selected-gas-source-route-then-for-each-remaining-active-selected-gas-source-route-assign-float32(raw-mix-plus-route-selected)-serially-in-declared-route-order-with-no-leading-or-placeholder-zero
 raw_mix_validation=result-must-be-finite
 monitor=float32(raw-mix-times-compiled-monitoring-gain)-in-written-order
 monitor_validation=result-must-be-finite

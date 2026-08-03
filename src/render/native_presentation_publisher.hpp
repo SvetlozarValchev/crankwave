@@ -58,10 +58,8 @@ struct NativePresentationRouteArtifacts {
     PendingArtifact selected;
 };
 
-// Publication binding for one already-produced route. An active route carries its
-// rendered signal; a declared-silent route carries canonical positive zero. This owns
-// no source conditioning, random seed, convolution kernel, or wet-selection
-// setting.
+// Publication binding for one already-produced active gas-source route. This owns no
+// source conditioning, random seed, convolution kernel, or wet-selection setting.
 struct NativePresentationRoutePublicationPlan {
     contract::RouteId route_id;
     std::string route_semantic_id;

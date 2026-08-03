@@ -192,10 +192,7 @@ RenderJobProjectionResult derive_render_job_projection(
              required->kind == contract::SourceRouteKind::intake_inlet);
         const bool expected_disposition =
             required != request.source_matrix.required_source_routes.end() &&
-            ((required->kind == contract::SourceRouteKind::exhaust_outlet &&
-              required->disposition == contract::RouteDisposition::rendered) ||
-             (required->kind == contract::SourceRouteKind::intake_inlet &&
-              required->disposition == contract::RouteDisposition::declared_silent));
+            required->disposition == contract::RouteDisposition::rendered;
         if (!gas_route || !expected_disposition ||
             required->artifact_roles.size() != 3) {
             return error(RenderJobDerivationErrorCode::route_projection_failed,

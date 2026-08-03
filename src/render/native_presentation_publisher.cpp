@@ -207,7 +207,7 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
             "layout"};
     }
 
-    std::size_t active_exhaust_route_count = 0;
+    std::size_t active_route_count = 0;
     for (std::size_t route = 0; route < plan.routes.size(); ++route) {
         const auto &configured = plan.routes[route];
         if (!configured.route_id.valid() || configured.route_semantic_id.empty()) {
@@ -236,10 +236,7 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
              requirement->kind == contract::SourceRouteKind::intake_inlet);
         const bool expected_disposition =
             requirement != plan.output_contract.required_source_routes.end() &&
-            ((requirement->kind == contract::SourceRouteKind::exhaust_outlet &&
-              requirement->disposition == contract::RouteDisposition::rendered) ||
-             (requirement->kind == contract::SourceRouteKind::intake_inlet &&
-              requirement->disposition == contract::RouteDisposition::declared_silent));
+            requirement->disposition == contract::RouteDisposition::rendered;
         if (!gas_route || !expected_disposition ||
             requirement->artifact_roles.size() != artifact_roles.size() ||
             !std::equal(requirement->artifact_roles.begin(),
@@ -248,13 +245,13 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
                 "native presentation route artifacts differ from their "
                 "source-route owner"};
         }
-        active_exhaust_route_count += static_cast<std::size_t>(
-            requirement->kind == contract::SourceRouteKind::exhaust_outlet);
+        ++active_route_count;
     }
 
-    if (plan.audition.selected_route_ids.size() != active_exhaust_route_count) {
+    if (plan.audition.selected_route_ids.size() != active_route_count) {
         throw std::invalid_argument{
-            "native presentation audition must select every active exhaust route"};
+            "native presentation audition must select every active gas-source "
+            "route"};
     }
     std::unordered_set<std::uint32_t> selected_route_ids;
     for (const auto selected : plan.audition.selected_route_ids) {
@@ -272,10 +269,11 @@ void validate_plan(const NativePresentationPublicationPlan &plan) {
                                     &contract::SourceRouteRequirement::semantic_id);
         if (route == plan.routes.end() ||
             requirement == plan.output_contract.required_source_routes.end() ||
-            requirement->kind != contract::SourceRouteKind::exhaust_outlet) {
+            (requirement->kind != contract::SourceRouteKind::exhaust_outlet &&
+             requirement->kind != contract::SourceRouteKind::intake_inlet)) {
             throw std::invalid_argument{
                 "native presentation audition route is absent from the active "
-                "exhaust plan"};
+                "gas-source plan"};
         }
     }
 
@@ -889,18 +887,11 @@ class NativePresentationPublisher::Implementation final {
     void prepare_published_block(const EngineSessionBlockView &block) {
         const auto audio_buses = block.audio_buses();
         for (std::size_t route = 0; route < plan_.routes.size(); ++route) {
-            const auto &requirement =
-                require_source_route(plan_, plan_.routes[route].route_semantic_id);
-            const bool declared_silent =
-                requirement.disposition == contract::RouteDisposition::declared_silent;
             for (const auto stem_bus : buses_.routes[route].stems) {
                 for (const float sample : audio_buses[stem_bus].samples) {
-                    if (!std::isfinite(sample) ||
-                        (declared_silent &&
-                         std::bit_cast<std::uint32_t>(sample) != 0U)) {
+                    if (!std::isfinite(sample)) {
                         throw std::domain_error{
-                            "native presentation stem violated its active/silent "
-                            "signal disposition"};
+                            "native presentation stem contains a non-finite sample"};
                     }
                 }
             }

@@ -248,14 +248,7 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
         calibration.mastering().monitoring_gain_linear();
     audio_plan.audition_route_ids.reserve(calibration.audition_route_ids().size());
     for (const auto selected_id : calibration.audition_route_ids()) {
-        const auto selected =
-            std::ranges::find(calibration.routes(), selected_id,
-                              &presentation::AdmittedPresentationRoute::route_id);
-        if (selected != calibration.routes().end() &&
-            selected->source_route_kind() ==
-                contract::SourceRouteKind::exhaust_outlet) {
-            audio_plan.audition_route_ids.push_back(selected_id);
-        }
+        audio_plan.audition_route_ids.push_back(selected_id);
     }
     audio_plan.routes.reserve(calibration.route_count());
     for (std::size_t route_index = 0; route_index < calibration.route_count();
@@ -264,6 +257,8 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
         const auto seeds = route_seeds(random_plan, route.route_id());
         const bool exhaust =
             route.source_route_kind() == contract::SourceRouteKind::exhaust_outlet;
+        const bool intake =
+            route.source_route_kind() == contract::SourceRouteKind::intake_inlet;
         if (exhaust && !seeds.has_value()) {
             return build_error(
                 EngineSessionErrorCode::invalid_compiled_scenario,
@@ -276,6 +271,15 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
             exhaust ? seeds : std::nullopt,
             route_kernels[route_index],
             route.wet_mix_01(),
+            intake
+                ? std::optional<presentation::IntakePressureSourceRouteConfiguration>{
+                      {
+                          route.route_id(),
+                          scenario.ambient.pressure_pa_abs.value,
+                          route.source_gain_linear().value,
+                      },
+                  }
+                : std::nullopt,
         });
     }
 

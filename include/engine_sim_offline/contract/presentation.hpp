@@ -145,9 +145,8 @@ struct AuthoredAuditionMix {
 };
 
 struct AuditionMix {
-    // Vector order is the declared route-selection order. Its active-exhaust
-    // subsequence is the deterministic arithmetic reduction order; declared-silent
-    // routes perform no placeholder-zero operation.
+    // Vector order is the deterministic arithmetic reduction order for every
+    // active gas-source route.
     ResolvedValue<std::vector<RouteId>> selected_routes;
     ResolvedValue<double> monitoring_gain_linear;
     ResolvedValue<double> fade_in_duration_s;

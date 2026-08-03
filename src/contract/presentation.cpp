@@ -442,8 +442,8 @@ ValidationReport validate(const PresentationCalibration &calibration,
              find_asset(calibration, *route.impulse_response_asset_id) != nullptr) ||
                 (intake && !route.impulse_response_asset_id.has_value()),
             ContractIssueCode::dangling_reference, path + ".impulse_response_asset_id",
-            "active exhaust routes require a known transfer asset while "
-            "declared-silent intake routes require none");
+            "active exhaust routes require a known transfer asset while active "
+            "intake-pressure routes use an identity transfer with none");
         validate_resolved(report, route.impulse_response_gain_linear, provenance,
                           path + ".impulse_response_gain_linear");
         validate_resolved(report, route.wet_mix_01, provenance, path + ".wet_mix_01");

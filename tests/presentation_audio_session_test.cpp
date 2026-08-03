@@ -139,6 +139,7 @@ void expect_throw(Function &&function, const char *message) {
             kSeeds[route],
             kernel,
             kWetMixes[route],
+            std::nullopt,
         });
     }
     return {
@@ -182,6 +183,28 @@ void fill_excitation(Excitation &excitation, std::uint64_t block_ordinal) {
         excitation.frame_count, excitation.values);
 }
 
+struct IntakePressure {
+    std::vector<contract::RouteId> route_ids;
+    contract::RationalRateHz rate = kIntakePressureInputRateHz;
+    std::size_t frame_count = kExcitationFramesPerMethodBlock;
+    std::vector<double> values;
+};
+
+[[nodiscard]] IntakePressureInputBlockView
+make_intake_view(IntakePressure &intake, std::uint64_t first_frame_index) {
+    return IntakePressureInputBlockView::borrow_for_callback(
+        first_frame_index, intake.rate, intake.route_ids, intake.frame_count,
+        intake.values);
+}
+
+[[nodiscard]] PresentationAudioBlockView
+process_exhaust_only(PresentationAudioSession &session, Excitation &excitation,
+                     std::uint64_t first_frame_index) {
+    IntakePressure intake;
+    return session.process(make_view(excitation, first_frame_index),
+                           make_intake_view(intake, first_frame_index));
+}
+
 void expect_exact_float(float actual, float expected, const char *message) {
     expect(bits(actual) == bits(expected), message);
 }
@@ -192,7 +215,7 @@ void test_exact_dynamic_route_pipeline() {
 
     Excitation excitation;
     fill_excitation(excitation, 0);
-    const auto actual = session.process(make_view(excitation, 0));
+    const auto actual = process_exhaust_only(session, excitation, 0);
 
     expect(actual.first_input_frame_index() == 0 &&
                actual.first_source_frame_index() == 0 &&
@@ -299,7 +322,7 @@ void test_process_is_allocation_free() {
 
     const PresentationAudioBlockView block = [&] {
         RejectAllocations guard;
-        return session.process(make_view(excitation, 0));
+        return process_exhaust_only(session, excitation, 0);
     }();
 
     expect(block.frame_count() == kSourceFramesPerMethodBlock &&
@@ -309,7 +332,7 @@ void test_process_is_allocation_free() {
            "allocation-free presentation process did not complete");
 }
 
-void test_declared_silent_intake_does_not_change_exhaust_or_masters() {
+void test_active_intake_preserves_exhaust_and_enters_master_once() {
     auto baseline_plan = make_plan();
     auto mixed_plan = make_plan();
     const contract::RouteId intake_id{99U};
@@ -320,7 +343,13 @@ void test_declared_silent_intake_does_not_change_exhaust_or_masters() {
                                  std::nullopt,
                                  nullptr,
                                  +0.0,
+                                 IntakePressureSourceRouteConfiguration{
+                                     intake_id,
+                                     101325.0,
+                                     1.5,
+                                 },
                              });
+    mixed_plan.audition_route_ids.push_back(intake_id);
     PresentationAudioSession baseline{std::move(baseline_plan)};
     PresentationAudioSession mixed{std::move(mixed_plan)};
     const std::array<std::size_t, 3> mixed_exhaust_indices{0U, 2U, 3U};
@@ -331,16 +360,27 @@ void test_declared_silent_intake_does_not_change_exhaust_or_masters() {
     };
 
     Excitation excitation;
+    IntakePressure empty_intake;
+    IntakePressure active_intake;
+    active_intake.route_ids = {intake_id};
+    active_intake.values.resize(active_intake.frame_count, 101325.0);
     for (std::uint64_t block_ordinal = 0; block_ordinal < 2U; ++block_ordinal) {
         fill_excitation(excitation, block_ordinal);
+        for (std::size_t frame = 0; frame < active_intake.frame_count; ++frame) {
+            const auto global = block_ordinal * active_intake.frame_count + frame;
+            const auto code = static_cast<std::int64_t>((global * 13U) % 101U) - 50;
+            active_intake.values[frame] = 101325.0 + static_cast<double>(code) * 4.0;
+        }
         const auto first =
             block_ordinal * static_cast<std::uint64_t>(excitation.frame_count);
-        const auto baseline_block = baseline.process(make_view(excitation, first));
-        const auto mixed_block = mixed.process(make_view(excitation, first));
+        const auto baseline_block = baseline.process(
+            make_view(excitation, first), make_intake_view(empty_intake, first));
+        const auto mixed_block = mixed.process(make_view(excitation, first),
+                                               make_intake_view(active_intake, first));
 
         expect(mixed_block.route_count() == 4U &&
                    mixed_block.route_ids()[1] == intake_id &&
-                   std::ranges::equal(mixed_block.audition_route_ids(), kAuditionOrder),
+                   mixed_block.audition_route_ids().back() == intake_id,
                "mixed presentation lost the interleaved intake route");
         for (std::size_t route = 0; route < kRouteIds.size(); ++route) {
             for (const auto role : roles) {
@@ -353,19 +393,28 @@ void test_declared_silent_intake_does_not_change_exhaust_or_masters() {
                 }
             }
         }
-        for (const auto role : roles) {
-            for (const float sample : mixed_block.route_stem(1U, role)) {
-                expect(bits(sample) == 0U,
-                       "declared-silent intake stem is not canonical positive zero");
-            }
-        }
+        const auto intake_dry =
+            mixed_block.route_stem(1U, PresentationAudioStemRole::dry);
+        const auto intake_transfer =
+            mixed_block.route_stem(1U, PresentationAudioStemRole::configured_transfer);
+        const auto intake_selected =
+            mixed_block.route_stem(1U, PresentationAudioStemRole::selected);
+        bool nonzero_intake = false;
         for (std::size_t frame = 0; frame < baseline_block.frame_count(); ++frame) {
-            expect(bits(mixed_block.raw_master()[frame]) ==
-                           bits(baseline_block.raw_master()[frame]) &&
-                       bits(mixed_block.audition_master()[frame]) ==
-                           bits(baseline_block.audition_master()[frame]),
-                   "silent intake changed a master bit pattern");
+            expect(bits(intake_transfer[frame]) == bits(intake_dry[frame]) &&
+                       bits(intake_selected[frame]) == bits(intake_dry[frame]),
+                   "intake identity transfer changed its dry sample");
+            nonzero_intake = nonzero_intake || bits(intake_selected[frame]) != 0U;
+            const float expected_raw =
+                baseline_block.raw_master()[frame] + intake_selected[frame];
+            expect_exact_float(mixed_block.raw_master()[frame], expected_raw,
+                               "intake was not included exactly once in the raw "
+                               "master");
+            expect_exact_float(
+                mixed_block.audition_master()[frame], expected_raw * kMonitoringGain,
+                "intake was not included exactly once in the audition master");
         }
+        expect(nonzero_intake, "active intake source produced only zero samples");
     }
 }
 
@@ -383,21 +432,18 @@ void test_validation_and_structural_rejection() {
         [&] { PresentationAudioSession rejected{std::move(duplicate_audition)}; },
         "presentation audio accepted duplicate audition routes");
 
-    auto silent_intake_in_audition = make_plan();
-    silent_intake_in_audition.routes.push_back({
+    auto incomplete_intake = make_plan();
+    incomplete_intake.routes.push_back({
         contract::RouteId{99U},
         contract::SourceRouteKind::intake_inlet,
         std::nullopt,
         nullptr,
         +0.0,
+        std::nullopt,
     });
-    silent_intake_in_audition.audition_route_ids.push_back(contract::RouteId{99U});
     expect_throw<std::invalid_argument>(
-        [&] {
-            PresentationAudioSession rejected{std::move(silent_intake_in_audition)};
-        },
-        "presentation audio admitted a declared-silent route into the exact "
-        "master reduction order");
+        [&] { PresentationAudioSession rejected{std::move(incomplete_intake)}; },
+        "presentation audio admitted an intake without an active source");
 
     auto wrong_canonical_extent = make_plan();
     wrong_canonical_extent.excitation_frames_per_block =
@@ -418,14 +464,14 @@ void test_validation_and_structural_rejection() {
     fill_excitation(excitation, 0);
     std::swap(excitation.route_ids[0], excitation.route_ids[1]);
     expect_throw<std::invalid_argument>(
-        [&] { static_cast<void>(session.process(make_view(excitation, 0))); },
+        [&] { static_cast<void>(process_exhaust_only(session, excitation, 0)); },
         "presentation audio accepted reordered excitation routes");
     expect(session.next_input_frame_index() == 0 &&
                session.next_source_frame_index() == 0 && !session.terminal_failed(),
            "structural presentation rejection advanced or poisoned the session");
 
     std::swap(excitation.route_ids[0], excitation.route_ids[1]);
-    const auto recovered = session.process(make_view(excitation, 0));
+    const auto recovered = process_exhaust_only(session, excitation, 0);
     expect(recovered.frame_count() == kSourceFramesPerMethodBlock &&
                !session.terminal_failed(),
            "presentation audio could not recover from structural rejection");
@@ -443,7 +489,7 @@ int main() {
     try {
         test_exact_dynamic_route_pipeline();
         test_process_is_allocation_free();
-        test_declared_silent_intake_does_not_change_exhaust_or_masters();
+        test_active_intake_preserves_exhaust_and_enters_master_once();
         test_validation_and_structural_rejection();
     } catch (const std::exception &error) {
         std::cerr << "presentation audio session test failed: " << error.what() << '\n';

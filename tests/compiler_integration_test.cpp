@@ -1711,7 +1711,7 @@ void test_intake_source_route_resolves_without_relabeling_exhaust_physics() {
     });
     document.presentation.routes.push_back({
         {"fixture-route-intake"},
-        +0.0,
+        1.0,
         std::nullopt,
         +0.0,
         0.0,
@@ -1761,26 +1761,26 @@ void test_intake_source_route_resolves_without_relabeling_exhaust_physics() {
         public_intake_route != scenario_inputs.engine.engine.routes.end() &&
             intake_requirement !=
                 scenario_inputs.scenario.source_matrix.required_source_routes.end() &&
-            intake_requirement->disposition ==
-                contract::RouteDisposition::declared_silent &&
-            !intake_requirement->disposition_reason.empty() &&
+            intake_requirement->disposition == contract::RouteDisposition::rendered &&
+            intake_requirement->disposition_reason.empty() &&
             std::ranges::none_of(scenario_inputs.scenario.random_plan.component_seeds,
                                  [&](const auto &seed) {
                                      return seed.route_id ==
                                             std::optional<contract::RouteId>{
                                                 public_intake_route->id};
                                  }),
-        "declared-silent intake was mislabeled or provisioned unused random "
-        "streams");
-    for (const auto &role : intake_requirement->artifact_roles) {
+        "active intake was mislabeled or provisioned unused random streams");
+    for (std::size_t index = 0; index < intake_requirement->artifact_roles.size();
+         ++index) {
+        const auto &role = intake_requirement->artifact_roles[index];
         const auto artifact =
             std::ranges::find(scenario_inputs.scenario.source_matrix.required_artifacts,
                               role, &contract::ArtifactRequirement::role);
         expect(
             artifact !=
                     scenario_inputs.scenario.source_matrix.required_artifacts.end() &&
-                artifact->diagnostic,
-            "declared-silent intake owns a nondiagnostic artifact");
+                artifact->diagnostic == (index != 2U),
+            "active intake artifact diagnostic policy changed");
     }
     auto created = engine_sim_offline::create_engine_session(
         scenario, engine_sim_offline::EngineSessionExecutionKind::finite_scenario);
@@ -1791,16 +1791,14 @@ void test_intake_source_route_resolves_without_relabeling_exhaust_physics() {
     }
     auto session = std::get<engine_sim_offline::EngineSession>(std::move(created));
     const auto descriptor = session.descriptor();
-    const auto silent_intake_bus_count =
+    const auto active_intake_bus_count =
         std::ranges::count_if(descriptor.audio_buses, [](const auto &bus) {
             return bus.source_route_kind == contract::SourceRouteKind::intake_inlet &&
                    bus.signal_disposition ==
-                       engine_sim_offline::EngineAudioSignalDisposition::
-                           declared_silent;
+                       engine_sim_offline::EngineAudioSignalDisposition::active;
         });
-    expect(descriptor.audio_buses.size() == 11U && silent_intake_bus_count == 3,
-           "intake route did not reach the public session as three explicitly "
-           "declared-silent stems");
+    expect(descriptor.audio_buses.size() == 11U && active_intake_bus_count == 3,
+           "intake route did not reach the public session as three active stems");
 
     auto block_result = session.process_block();
     const auto *block =
@@ -1812,19 +1810,30 @@ void test_intake_source_route_resolves_without_relabeling_exhaust_physics() {
     }
     expect(block != nullptr && block->audio_buses().size() == 11U,
            "intake source-route session did not publish its first complete block");
+    std::array<std::span<const float>, 3> intake_stems{};
+    std::size_t intake_stem_count = 0;
     for (const auto &bus : block->audio_buses()) {
         if (bus.descriptor.source_route_kind !=
             contract::SourceRouteKind::intake_inlet) {
             continue;
         }
-        expect(std::ranges::all_of(bus.samples,
-                                   [](float sample) {
-                                       return std::bit_cast<std::uint32_t>(sample) ==
-                                              0U;
-                                   }),
-               "declared-silent intake stem published a noncanonical zero or "
-               "nonzero sample");
+        expect(intake_stem_count < intake_stems.size(),
+               "active intake published too many stems");
+        intake_stems[intake_stem_count++] = bus.samples;
     }
+    expect(intake_stem_count == intake_stems.size(),
+           "active intake did not publish all three stems");
+    bool nonzero = false;
+    for (std::size_t frame = 0; frame < intake_stems[0].size(); ++frame) {
+        expect(std::isfinite(intake_stems[0][frame]) &&
+                   std::bit_cast<std::uint32_t>(intake_stems[0][frame]) ==
+                       std::bit_cast<std::uint32_t>(intake_stems[1][frame]) &&
+                   std::bit_cast<std::uint32_t>(intake_stems[0][frame]) ==
+                       std::bit_cast<std::uint32_t>(intake_stems[2][frame]),
+               "active intake identity stems diverged");
+        nonzero = nonzero || std::bit_cast<std::uint32_t>(intake_stems[0][frame]) != 0U;
+    }
+    expect(nonzero, "active intake first block produced only zero samples");
 }
 
 void test_shared_ignition_wire_fans_out_without_topology_collapse() {

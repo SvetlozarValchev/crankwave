@@ -276,8 +276,8 @@ make_source_matrix(std::size_t route_count = 2) {
             {
                 "route.three",
                 contract::SourceRouteKind::intake_inlet,
-                contract::RouteDisposition::declared_silent,
-                "audible-intake-signal-not-yet-admitted",
+                contract::RouteDisposition::rendered,
+                "",
                 {
                     "stem/route.three.dry",
                     "stem/route.three.configured_transfer",
@@ -319,7 +319,7 @@ make_source_matrix(std::size_t route_count = 2) {
                                              true});
         matrix.required_artifacts.push_back({"stem/route.three.selected",
                                              contract::ArtifactKind::audio, float_audio,
-                                             true});
+                                             false});
     }
     return matrix;
 }

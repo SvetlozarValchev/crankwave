@@ -147,14 +147,11 @@ contract::SourceMatrixContract ScenarioResolver::build_source_matrix() {
             role_prefix + ".configured_transfer",
             role_prefix + ".selected",
         };
-        const bool declared_silent =
-            route->kind.value == contract::SourceRouteKind::intake_inlet;
         matrix.required_source_routes.push_back({
             route->semantic_id.value,
             route->kind.value,
-            declared_silent ? contract::RouteDisposition::declared_silent
-                            : contract::RouteDisposition::rendered,
-            declared_silent ? "audible-intake-signal-not-yet-admitted" : "",
+            contract::RouteDisposition::rendered,
+            "",
             roles,
         });
         matrix.required_artifacts.push_back(
@@ -162,7 +159,7 @@ contract::SourceMatrixContract ScenarioResolver::build_source_matrix() {
         matrix.required_artifacts.push_back(
             {roles[1], contract::ArtifactKind::audio, route_audio, true});
         matrix.required_artifacts.push_back(
-            {roles[2], contract::ArtifactKind::audio, route_audio, declared_silent});
+            {roles[2], contract::ArtifactKind::audio, route_audio, false});
     }
     std::ranges::sort(matrix.required_source_routes, {},
                       &contract::SourceRouteRequirement::semantic_id);

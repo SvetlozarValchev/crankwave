@@ -418,8 +418,8 @@ struct PresentationCalibrationCompiler {
                         (intake && !route.impulse_response_asset_id.has_value()),
                     ContractIssueCode::inconsistent_semantics,
                     path + ".impulse_response_asset_id",
-                    "active exhaust routes require a transfer asset while "
-                    "declared-silent intake routes require none");
+                    "active exhaust routes require a transfer asset while active "
+                    "intake-pressure routes use an identity transfer with none");
             require(report,
                     canonical_nonnegative(route.impulse_response_gain_linear.value),
                     ContractIssueCode::invalid_value,
@@ -437,7 +437,7 @@ struct PresentationCalibrationCompiler {
                             route.wet_mix_01.value == 0.0 &&
                             !std::signbit(route.wet_mix_01.value),
                         ContractIssueCode::unsupported_value, path,
-                        "declared-silent intake transfer values must be canonical "
+                        "active intake identity-transfer values must be canonical "
                         "positive zero");
             }
         }

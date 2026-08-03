@@ -106,16 +106,16 @@ struct MethodCase {
         },
         {
             "typed-gas-route-wet-selection-float32-wave-publication-20000-to-192000-"
-            "20ms-clock-v4",
-            4,
-            "91669ccab1a3d31cdbff58ad14be3ab1681d705de97c76451ce0b4d12a59f323",
+            "20ms-clock-v5",
+            5,
+            "f21f8963a9990dd93f975694b28671eceb022c4eb45f4d85d0b9d1a88ec0b57f",
             presentation::route_stem_publication_method_descriptor,
             presentation::route_stem_publication_method_identity,
         },
         {
-            "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v2",
-            2,
-            "c1f70d617445b657ce82796ae0988b5e6638a69ce29e3101e0627700a93ac398",
+            "ordered-n-route-serial-float32-quarter-sine-pcm24-wave-master-v3",
+            3,
+            "d93315ed08f94cd3fc2e583306503d116b1d3bc5caa04864c79a20d24f916423",
             presentation::ordered_route_audition_method_descriptor,
             presentation::ordered_route_audition_method_identity,
         },
