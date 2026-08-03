@@ -292,9 +292,12 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
         }
     }
 
+    // Preserve the delayed excitation as one identity-stable lane per capture
+    // cylinder before any collector aggregation. This is the replacement seam for
+    // later primary-transfer work; delay state and lane storage remain indexed by
+    // canonical capture-cylinder order even when the authored accumulation order is
+    // different.
     for (std::size_t frame = 0; frame < state.block_capacity_frames; ++frame) {
-        std::fill_n(state.route_bus_values.begin() + frame * route_count, route_count,
-                    +0.0);
         for (const auto cylinder_index : state.accumulation_order) {
             const auto &cylinder = state.cylinders[cylinder_index];
             const double delayed = state.prospective_delays[cylinder_index].process(
@@ -302,7 +305,19 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
                                 cylinder.capture_cylinder_index]);
             state.post_delay[frame * cylinder_count + cylinder.capture_cylinder_index] =
                 delayed;
+        }
+    }
 
+    // The current parity collector is deliberately separate from lane production.
+    // Fold the same terms, with the same parentheses and authored serial order, so
+    // this architectural split cannot alter the accepted route samples.
+    for (std::size_t frame = 0; frame < state.block_capacity_frames; ++frame) {
+        std::fill_n(state.route_bus_values.begin() + frame * route_count, route_count,
+                    +0.0);
+        for (const auto cylinder_index : state.accumulation_order) {
+            const auto &cylinder = state.cylinders[cylinder_index];
+            const double delayed = state.post_delay[frame * cylinder_count +
+                                                    cylinder.capture_cylinder_index];
             const auto &route = state.routes[cylinder.route_index];
             const double route_term =
                 cylinder.sound_attenuation_linear *

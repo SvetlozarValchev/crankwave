@@ -363,10 +363,10 @@ independent_pre_delay(const SyntheticCaptureBlock &block) {
     return result;
 }
 
-[[nodiscard]] EngineSpec make_two_cylinder_single_route_engine(EngineSpec engine) {
+[[nodiscard]] EngineSpec make_three_cylinder_single_route_engine(EngineSpec engine) {
     auto &core = test::low_order_core(engine);
 
-    engine.cylinders.resize(2U);
+    engine.cylinders.resize(3U);
     std::erase_if(engine.ports, [&](const PortSpec &port) {
         return std::ranges::none_of(engine.cylinders,
                                     [&](const CylinderSpec &cylinder) {
@@ -375,7 +375,7 @@ independent_pre_delay(const SyntheticCaptureBlock &block) {
     });
     engine.routes.resize(1U);
 
-    core.mechanism.cylinders.resize(2U);
+    core.mechanism.cylinders.resize(3U);
     const auto selected_route_id = engine.routes.front().id;
     const auto gas_route = *std::ranges::find_if(
         core.gas_path.exhaust_routes, [&](const LegacyExhaustRouteProfile &route) {
@@ -400,18 +400,15 @@ independent_pre_delay(const SyntheticCaptureBlock &block) {
                   });
     for (auto &path : core.excitation.cylinder_paths) {
         path.route_id = selected_route_id;
+        path.sound_attenuation_linear.value =
+            path.cylinder_id == CylinderId{2} ? 1.0 : 0x1p60;
     }
     for (auto &cylinder : core.mechanism.cylinders) {
         cylinder.topology.exhaust_route_id = selected_route_id;
     }
 
-    std::erase_if(core.excitation.cylinder_accumulation_order.value,
-                  [&](CylinderId cylinder_id) {
-                      return std::ranges::none_of(engine.cylinders,
-                                                  [&](const CylinderSpec &cylinder) {
-                                                      return cylinder.id == cylinder_id;
-                                                  });
-                  });
+    core.excitation.cylinder_accumulation_order.value = {CylinderId{1}, CylinderId{3},
+                                                         CylinderId{2}};
     return engine;
 }
 
@@ -565,33 +562,82 @@ void test_canonical_delay_is_derived_at_session_admission(
            "20 kHz excitation session progress changed");
 }
 
-void test_two_cylinder_single_route_session(const EngineSpec &canonical_engine,
-                                            const RenderScenario &scenario) {
-    const auto engine = make_two_cylinder_single_route_engine(canonical_engine);
+void test_three_cylinder_authored_order_collector(const EngineSpec &canonical_engine,
+                                                  const RenderScenario &scenario) {
+    const auto engine = make_three_cylinder_single_route_engine(canonical_engine);
     SyntheticCaptureBlock block_0{engine, 0U};
     SyntheticCaptureBlock block_1{engine, kFrames};
     block_0.fill_distinct_excitation();
     block_1.fill_distinct_excitation();
+    block_0.filtered_rpm().front() = 80.0;
+    for (std::size_t cylinder = 0; cylinder < 3U; ++cylinder) {
+        auto &sample = block_0.parity_cylinders()[cylinder];
+        sample.exhaust_primary_static_pressure_pa_abs =
+            cylinder == 2U ? kAtmospherePa - 1.0 : kAtmospherePa + 1.0;
+        sample.dynamic_pressure_forward_pa = 0.0;
+        sample.dynamic_pressure_reverse_pa = 0.0;
+    }
 
     auto session = require_session(compile_fixture_session(engine, scenario));
     const auto actual_0 = publish(session, block_0.view(), 0U);
     const auto actual_1 = publish(session, block_1.view(), 1U);
 
     expect(actual_0.frame_count == kFrames &&
-               actual_0.cylinder_ids ==
-                   std::vector<CylinderId>{CylinderId{1}, CylinderId{2}} &&
+               actual_0.cylinder_ids == std::vector<CylinderId>{CylinderId{1},
+                                                                CylinderId{2},
+                                                                CylinderId{3}} &&
                actual_0.route_ids == std::vector<RouteId>{RouteId{1}} &&
-               actual_0.pre_delay.size() == kFrames * 2U &&
-               actual_0.post_delay.size() == kFrames * 2U &&
+               actual_0.pre_delay.size() == kFrames * 3U &&
+               actual_0.post_delay.size() == kFrames * 3U &&
                actual_0.route_bus_values.size() == kFrames &&
                actual_1.route_bus_values.size() == kFrames,
-           "dynamic excitation did not publish the admitted 2-cylinder/1-route shape");
-    expect(std::ranges::any_of(actual_1.route_bus_values,
-                               [](double value) { return value != 0.0; }),
-           "dynamic 2-cylinder/1-route excitation never reached its published bus");
+           "dynamic excitation did not publish the admitted 3-cylinder/1-route shape");
+
+    const auto &source = test::low_order_core(engine).excitation;
+    expect(source.routes.size() == 1U && source.cylinder_paths.size() == 3U &&
+               source.cylinder_accumulation_order.value ==
+                   std::vector<CylinderId>{CylinderId{1}, CylinderId{3}, CylinderId{2}},
+           "shared-route collector fixture lost its three authored-order lanes");
+    const auto &route = source.routes.front();
+    constexpr std::size_t arrival_frame = kDelayFrames;
+    constexpr std::array<double, 3> expected_delayed{1600.0, 1600.0, -1600.0};
+    for (std::size_t cylinder = 0; cylinder < expected_delayed.size(); ++cylinder) {
+        expect_same_bits(actual_0.post_delay[arrival_frame * 3U + cylinder],
+                         expected_delayed[cylinder],
+                         "post-delay lane left canonical cylinder identity order");
+    }
+    const auto route_term = [&](const std::size_t cylinder) {
+        const auto path =
+            std::ranges::find_if(source.cylinder_paths, [&](const auto &candidate) {
+                return candidate.cylinder_id ==
+                       CylinderId{static_cast<std::uint32_t>(cylinder + 1U)};
+            });
+        expect(path != source.cylinder_paths.end(),
+               "adversarial collector path did not resolve");
+        return path->sound_attenuation_linear.value *
+               ((route.audio_volume_linear.value * expected_delayed[cylinder]) /
+                source.cylinder_count_divisor.value) *
+               (1.0 / (route.exhaust_system_length_m.value *
+                       route.exhaust_system_length_m.value));
+    };
+    const std::array<double, 3> terms{route_term(0U), route_term(1U), route_term(2U)};
+    double authored_fold = +0.0;
+    authored_fold += terms[0];
+    authored_fold += terms[2];
+    authored_fold += terms[1];
+    double capture_order_fold = +0.0;
+    capture_order_fold += terms[0];
+    capture_order_fold += terms[1];
+    capture_order_fold += terms[2];
+    expect(bits(authored_fold) != bits(capture_order_fold),
+           "collector-order fixture is not sensitive to reassociation");
+    expect(authored_fold != 0.0,
+           "authored collector-order fixture did not retain its quiet lane");
+    expect_same_bits(actual_0.route_bus_values[arrival_frame], authored_fold,
+                     "collector did not use the authored serial cylinder order");
     expect(session.next_frame_index() == 2U * kFrames &&
                session.published_block_count() == 2U && !session.faulted(),
-           "dynamic 2-cylinder/1-route session progress changed");
+           "dynamic 3-cylinder/1-route session progress changed");
 }
 
 void test_independent_sessions_are_bit_deterministic(
@@ -808,7 +854,7 @@ void run_tests(const std::filesystem::path &repository_root) {
                                                       fixture.scenario);
     test_canonical_delay_is_derived_at_session_admission(fixture.engine,
                                                           fixture.scenario);
-    test_two_cylinder_single_route_session(fixture.engine, fixture.scenario);
+    test_three_cylinder_authored_order_collector(fixture.engine, fixture.scenario);
     test_independent_sessions_are_bit_deterministic(fixture.engine,
                                                     fixture.scenario);
     test_complete_prevalidation_is_terminal_and_does_not_advance(
