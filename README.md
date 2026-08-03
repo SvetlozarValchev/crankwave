@@ -15,6 +15,14 @@ dead fields, or a general-purpose scripting language.
 The accepted engine-sim-equivalent exhaust audio path, low-order simulation, dyno and
 forward-vehicle scenarios, block presentation pipeline, WAV publication, and telemetry
 are implemented.
+Headless executable parity for the explicitly admitted pristine engine-sim capability
+scope is accepted. [Slice 16](docs/SLICE_16_PARITY_LISTENING_GATE.md) froze seven
+zero-saturation recordings spanning a
+fixed-cam inline-six, fixed-cam V8, VTEC transition, governed load step, one-level
+master-rod engine, sustained vehicle pull, and launch/shift procedure. The next work is
+the separately gated post-parity fidelity queue; it has not started.
+This scoped claim does not include `.mr` or native-GUI parity, arbitrary unproven
+mechanisms, fuel-volume-display parity, or a post-parity fidelity enhancement.
 Strict engine/scenario JSON compilation is the only production input path. A compiled
 scenario can create an independent mutable `EngineSession`, whose bounded
 `process_block()` method
@@ -95,14 +103,16 @@ the public normalized demand becomes its speed command, while telemetry separate
 reports that request and the governor-resolved throttle opening. The Kohler CH750
 fixture exercises this path through a settled 12 N m load step.
 
-Certified one-level master-rod engines currently admit prescribed motion,
-`FreeEngine`, and `HeldDyno`. Their dynamic path uses analytic articulated inertia,
+Certified one-level master-rod engines admit prescribed motion, `FreeEngine`,
+`HeldDyno`, and `FreeVehicle`. Their dynamic path uses analytic articulated inertia,
 per-cylinder piston-travel Chen--Flynn preparation evidence, and leaf-first coupled
-piston/rod wall reactions. The radial-five 52,000-frame warm FreeEngine procedure and
-the 5.5 s HeldDyno pull are accepted. HeldDyno selects the topology-specific
+piston/rod wall reactions. The radial-five warm FreeEngine procedure, 5.5 s HeldDyno
+pull, and source-backed propeller/direct-drive FreeVehicle procedure are accepted.
+HeldDyno selects the topology-specific
 `bounded-held-dyno-speed-constraint-one-level-master-rod-v1` identity rather than
-claiming the direct centered-slider constraint. `FreeVehicle`, nested master rods, and
-multi-crank master/slave remain separately closed.
+claiming the direct centered-slider constraint. Nested master rods and offset, geared,
+or otherwise independent multi-crank master/slave mechanisms remain explicitly
+outside the admitted topology.
 
 The compiler accepts the currently executable low-order topology without inspecting an
 engine name and fails closed on unsupported capabilities. Cylinder and

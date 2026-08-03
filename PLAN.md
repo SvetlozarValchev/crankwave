@@ -1,13 +1,14 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — headless parity completion
+Status: active — verified post-parity fidelity next
 
 Branch: `clean-room/bmw-baseline`
 
 Date: 2026-08-03
 
-Current checkpoint: **post-slice-15 parity closure — dynamic one-level master-rod
-FreeEngine, HeldDyno, and FreeVehicle accepted; Slice 16 listening gate next**
+Current checkpoint: **headless executable engine-sim parity complete — Slice 16's
+seven-procedure recording set accepted on 2026-08-03; verified post-parity fidelity is
+next and has not started**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -600,10 +601,12 @@ names that role explicitly or removes it.
     drivetrain procedures and recordings as the minimum parity regression set before
     resuming fidelity experiments.
 
-Current progress: slices 1--15 are executable and accepted for the currently admitted
-topology. Slice 16 remains the final curated parity recording gate. Slice 14's
-capability-driven UI and continuous FreeEngine, HeldDyno, and FreeVehicle lifetimes
-are accepted. Slice 15 is accepted. Slice 12's pristine
+Current progress: slices 1--16 are executable and accepted for the currently admitted
+topology. Slice 16 closed the final curated parity recording gate on 2026-08-03.
+Its seven exact artifact paths, hashes, peaks, and regression comparisons are frozen in
+[`docs/SLICE_16_PARITY_LISTENING_GATE.md`](docs/SLICE_16_PARITY_LISTENING_GATE.md).
+Slice 14's capability-driven UI and continuous FreeEngine, HeldDyno, and FreeVehicle
+lifetimes are accepted. Slice 15 is accepted. Slice 12's pristine
 vehicle/transmission equations and explicit non-parity service-brake boundary are
 frozen in
 [`docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md`](docs/oracles/PRISTINE_ENGINE_SIM_DRIVETRAIN.md).
@@ -761,8 +764,10 @@ route associations, the source's doubled head-flow tables, and exact IR bytes. I
 `artifacts/listening/radial-free-engine-prescribed-control-2e5d70d/audio/master.engine.audition.wav`
 with SHA-256
 `58394f71ed58ee5af4434745e6f266c2cac7db33503848decbd61b9e8a9f0985`
-is structural and byte-regression evidence, not a human-listening reference. The final
-curated Slice 16 master/slave recording set remains separately required.
+is structural and byte-regression evidence, not a human-listening reference. At that
+pre-dynamic-opening checkpoint, the final curated Slice 16 master/slave recording set
+remained separately required; it was subsequently rendered and accepted as part of
+the complete Slice 16 gate on 2026-08-03.
 
 Commit `2e5d70d` subsequently opens certified one-crank, one-level master-rod
 `FreeEngine` through public scenario compilation, finite capture, and `EngineSession`.
@@ -968,9 +973,17 @@ engine-definition parity in this order, with one coherent commit per bullet:
    `native-audition-saturated` before commit, and the zero-saturation PCM golden
    remains exact**), then render, listen to, and freeze Slice 16's representative
    fixed-cam inline/V, VTEC, governed, master/slave, and drivetrain procedures
-   (**next**);
+   (**complete: all seven authored procedures published with zero saturated samples:
+   BMW M52TUB28 inline-six held dyno, Toyota 3UR-FE V8 inertial dyno, Honda B18C5 VTEC
+   transition, Kohler CH750 governed load step, radial-five master-rod FreeEngine,
+   BMW M52TUB28 fifth-gear pull/lift, and BMW M52TUB28 launch/first-to-second shift.
+   For the six procedures with accepted predecessors, the new publication retained
+   exact master raw-WAV bytes and exact decoded audition PCM; the Toyota procedure is
+   the first native parity baseline for that authored family. The user accepted the
+   complete listening set on 2026-08-03**);
 8. declare headless executable parity complete only after the Slice 16 listening gate
-   is accepted.
+   is accepted (**complete: the listening gate was accepted on 2026-08-03; headless
+   executable engine-sim parity is closed for the explicitly admitted topology**).
 
 An implementation that leaves PCM unchanged is proved headlessly. Any intentional or
 unexpected PCM change stops the queue: render the unchanged baseline and the candidate

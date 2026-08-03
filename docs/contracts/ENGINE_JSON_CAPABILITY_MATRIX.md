@@ -1,14 +1,21 @@
 # Engine JSON capability matrix
 
-Status: design and implementation inventory  
+Status: headless executable parity accepted for the explicitly admitted scope;
+wider authoring/application inventory remains intentionally partial
+
 Pristine reference: Ange Yaghi `engine-sim` commit
 `85f7c3b959a908ed5232ede4f1a4ac7eafe6b630`  
 Clean-room inventory date: 2026-08-03
 
 ## Answer
 
-No. The clean-room core does **not** yet execute all of pristine `engine-sim`'s engine
-configurability.
+Two answers are required. **Headless executable parity is complete for the explicitly
+admitted, source-demonstrated topology and operating-capability scope**, with the
+seven-procedure Slice 16 listening gate accepted on 2026-08-03. **Full pristine
+authoring/application-surface parity is neither complete nor the product target**:
+`.mr` and GUI behavior, fuel-consumption display, unproven mechanism combinations, and
+post-parity fidelity extensions are excluded or separately deferred. Unsupported
+configurations remain fail-closed.
 
 The repository now has a strict product JSON schema/parser and a generic immutable
 compiler for the currently executable low-order slice: mechanism, gas path, fixed and
@@ -304,7 +311,7 @@ the remainder as explicit capability diagnostics:
 | Rev limiter speed and cut duration | `engine.ignition.limiter` | **Low-order executed** | Cut/re-enable event timing at the boundary is deterministic. |
 | Ignition wires and arbitrary firing angles/order | Explicit wire objects, cylinder references, and ordered firing map | **Low-order executed**; each declared wire is used, has exactly one ordered firing post, and fans out to one or more cylinders. Public cylinders retain shared-wire group identity while one-cylinder wire objects normalize to their firing angles; the executable core expands posts to stable cylinder order | Toyota and V-twin firing sequences compile and render correctly; shared-wire and equal-angle split-wire twins retain different canonical identities but byte-identical PCM. |
 | Fuel name/ID, molecular mass, energy density, molecular AFR | `engine.fuels[]` | **Low-order executed** | Gasoline fixture resolves every physical field once. |
-| Fuel density | Fuel physical field | **Missing** | Unit conversion and resolved-value fixture. |
+| Fuel density | Fuel-volume-consumption telemetry, if that product output is later required | **Intentionally excluded from the simulation contract**; pristine consumes density only when its GUI converts accumulated fuel mass into displayed volume, not in combustion, torque, RPM, or audio | Define a fuel-consumption telemetry contract before adding it; do not imply a physics or sound control. |
 | Turbulence-to-flame-speed curve and radius | Fuel curve reference | **Low-order executed** with typed curve | Original curve evaluation fixtures pass. |
 | Maximum efficiency, randomness, low-efficiency attenuation, turbulence/dilution limits | Fuel/combustion fields | **Low-order executed** | Seeded BMW combustion regression and bound validation. |
 | Per-cylinder deterministic random streams | Resolved compiler/session detail derived from public seed and IDs | **Typed core** | Reordering unrelated JSON objects does not change a cylinder's stream. |
@@ -395,6 +402,7 @@ all-zero absent POD, while JavaScript maps absence to `null`.
 | `cylinder_friction_parameters` nodes | Declared but not connected to the pristine cylinder backend. |
 | `intake.throttle_gamma` | Deprecated/unused intake field; direct throttle linkage gamma is the supported controller capability. |
 | Fork-only diesel/CI fuel fields, including auto-ignition, premixed/diffusion multipliers, and `lbv_multiplier` | Not present in pristine Ange `engine-sim`; they require a separately designed combustion model rather than accidental compatibility. |
+| Fuel density and GUI fuel-volume display | Pristine uses density for application telemetry only; neither affects engine physics or audio, and this product does not reproduce the native GUI. |
 | Named Chevy/other part-library presets and the bundled IR catalog as schema capabilities | They are assets/templates. They may be converted and distributed separately. |
 | Accidental implementation/channel behavior | Bugs are not contract. Parity claims cover intended audible behavior and explicit accepted fixtures. |
 
@@ -404,13 +412,14 @@ fuel contract replaces the current low-order spark-ignition method family.
 
 ## Required acceptance fixtures
 
-Full original configurability is not claimed until these small, capability-focused
-fixtures pass. They avoid a large test matrix while covering the graph shapes that the
-BMW inline-six cannot.
+These capability-focused fixtures define the accepted executable scope. They avoid a
+large test matrix while covering the graph shapes that the BMW inline-six cannot.
 
 During cutover checkpoints 1-10, only compiler/graph and deterministic behavior checks
-are blocking. The listening column is a post-cutover gate when the user is available;
-it does not block checkpoints 1-10.
+were blocking. Slice 16 subsequently rendered and accepted the representative
+fixed-cam inline/V, VTEC, governed, master/slave, and drivetrain procedures; exact
+paths and hashes are frozen in
+[`../SLICE_16_PARITY_LISTENING_GATE.md`](../SLICE_16_PARITY_LISTENING_GATE.md).
 
 | Fixture | Capabilities it must prove | Post-cutover listening |
 |---|---|---|
