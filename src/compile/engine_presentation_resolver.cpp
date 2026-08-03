@@ -159,6 +159,7 @@ void assemble_presentation(const ModelContext &context, ResolutionEmitter &emitt
         const auto base = "presentation.routes." + semantic;
         calibration.routes.push_back({
             runtime_id<contract::RouteId>(context.ids.routes, semantic),
+            emitter.authored(route->source_gain_linear, base + ".source_gain_linear"),
             route->impulse_response.has_value()
                 ? std::optional<
                       contract::AudioAssetId>{runtime_id<contract::AudioAssetId>(

@@ -165,6 +165,7 @@ make_presentation(ResolutionBuilder &builder, const contract::EngineSpec &engine
     presentation.routes = {
         {
             contract::RouteId{2},
+            builder.resolved(1.0, "presentation.routes.route.two.source_gain_linear"),
             contract::AudioAssetId{1},
             builder.resolved(
                 0.001, "presentation.routes.route.two.impulse_response_gain_linear"),
@@ -172,6 +173,7 @@ make_presentation(ResolutionBuilder &builder, const contract::EngineSpec &engine
         },
         {
             contract::RouteId{1},
+            builder.resolved(1.0, "presentation.routes.route.one.source_gain_linear"),
             contract::AudioAssetId{1},
             builder.resolved(
                 0.001, "presentation.routes.route.one.impulse_response_gain_linear"),
@@ -181,6 +183,8 @@ make_presentation(ResolutionBuilder &builder, const contract::EngineSpec &engine
     if (engine.routes.size() == 3) {
         presentation.routes.push_back({
             contract::RouteId{3},
+            builder.resolved(+0.0,
+                             "presentation.routes.route.three.source_gain_linear"),
             std::nullopt,
             builder.resolved(
                 +0.0, "presentation.routes.route.three.impulse_response_gain_linear"),

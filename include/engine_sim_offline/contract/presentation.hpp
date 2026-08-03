@@ -101,6 +101,7 @@ struct PresentationConditioning {
 
 struct AuthoredRoutePresentation {
     AuthoredValue<std::string> route_semantic_id;
+    AuthoredValue<double> source_gain_linear;
     AuthoredValue<std::string> impulse_response_asset_id;
     AuthoredValue<double> impulse_response_gain_linear;
     AuthoredValue<double> wet_mix_01;
@@ -111,6 +112,7 @@ struct AuthoredRoutePresentation {
 
 struct RoutePresentation {
     RouteId route_id;
+    ResolvedValue<double> source_gain_linear;
     std::optional<AudioAssetId> impulse_response_asset_id;
     ResolvedValue<double> impulse_response_gain_linear;
     ResolvedValue<double> wet_mix_01;

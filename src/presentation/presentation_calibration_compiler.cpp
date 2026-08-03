@@ -97,16 +97,22 @@ find_configured_route(const contract::PresentationCalibration &calibration,
 } // namespace
 
 AdmittedPresentationRoute::AdmittedPresentationRoute(
-    contract::RouteId route_id,
+    contract::RouteId route_id, contract::ResolvedValue<double> source_gain_linear,
     std::optional<contract::AudioAssetId> impulse_response_asset_id,
     contract::ResolvedValue<double> impulse_response_gain_linear, double wet_mix_01,
     contract::SourceRouteKind source_route_kind)
-    : route_id_(route_id), impulse_response_asset_id_(impulse_response_asset_id),
+    : route_id_(route_id), source_gain_linear_(std::move(source_gain_linear)),
+      impulse_response_asset_id_(impulse_response_asset_id),
       impulse_response_gain_linear_(std::move(impulse_response_gain_linear)),
       wet_mix_01_(wet_mix_01), source_route_kind_(source_route_kind) {}
 
 contract::RouteId AdmittedPresentationRoute::route_id() const noexcept {
     return route_id_;
+}
+
+const contract::ResolvedValue<double> &
+AdmittedPresentationRoute::source_gain_linear() const noexcept {
+    return source_gain_linear_;
 }
 
 const std::optional<contract::AudioAssetId> &
@@ -402,6 +408,11 @@ struct PresentationCalibrationCompiler {
             const bool intake =
                 engine_route != engine.routes.end() &&
                 engine_route->kind.value == contract::SourceRouteKind::intake_inlet;
+            require(report, canonical_nonnegative(route.source_gain_linear.value),
+                    ContractIssueCode::invalid_value,
+                    path + ".source_gain_linear.value",
+                    "source gain must be finite, nonnegative, and use canonical "
+                    "positive zero");
             require(report,
                     (exhaust && route.impulse_response_asset_id.has_value()) ||
                         (intake && !route.impulse_response_asset_id.has_value()),
@@ -538,9 +549,9 @@ struct PresentationCalibrationCompiler {
         for (const auto &engine_route : engine.routes) {
             const auto *route = find_configured_route(calibration, engine_route.id);
             routes.push_back(AdmittedPresentationRoute{
-                route->route_id, route->impulse_response_asset_id,
-                route->impulse_response_gain_linear, route->wet_mix_01.value,
-                engine_route.kind.value});
+                route->route_id, route->source_gain_linear,
+                route->impulse_response_asset_id, route->impulse_response_gain_linear,
+                route->wet_mix_01.value, engine_route.kind.value});
         }
         auto audition_routes = calibration.audition.selected_routes.value;
         return AdmittedPresentationCalibration{

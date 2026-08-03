@@ -139,6 +139,7 @@ make_calibration(ResolutionBuilder &builder, const contract::EngineSpec &engine)
     calibration.routes = {
         {
             contract::RouteId{2},
+            builder.resolved(2.0, "presentation.routes.route.two.source_gain_linear"),
             contract::AudioAssetId{2},
             builder.resolved(
                 0.002, "presentation.routes.route.two.impulse_response_gain_linear"),
@@ -146,6 +147,7 @@ make_calibration(ResolutionBuilder &builder, const contract::EngineSpec &engine)
         },
         {
             contract::RouteId{1},
+            builder.resolved(1.0, "presentation.routes.route.one.source_gain_linear"),
             contract::AudioAssetId{1},
             builder.resolved(
                 0.001, "presentation.routes.route.one.impulse_response_gain_linear"),
@@ -204,6 +206,8 @@ void append_third_route(Inputs &inputs) {
         make_asset(inputs.builder, 3, "ir.three", "unused-asset-source", 13));
     inputs.calibration.routes.push_back({
         contract::RouteId{3},
+        inputs.builder.resolved(1.0,
+                                "presentation.routes.route.three.source_gain_linear"),
         contract::AudioAssetId{3},
         inputs.builder.resolved(
             0.003, "presentation.routes.route.three.impulse_response_gain_linear"),
@@ -306,12 +310,16 @@ void test_valid_projection_and_engine_route_order() {
                admitted.pre_audible_block_count() == 100,
            "admitted method, conditioning, or block projection changed");
     expect(admitted.routes()[0].route_id() == contract::RouteId{1} &&
+               admitted.routes()[0].source_gain_linear() ==
+                   inputs.calibration.routes[1].source_gain_linear &&
                admitted.routes()[0].impulse_response_asset_id() ==
                    contract::AudioAssetId{1} &&
                admitted.routes()[0].impulse_response_gain_linear() ==
                    inputs.calibration.routes[1].impulse_response_gain_linear &&
                admitted.routes()[0].wet_mix_01() == 1.0 &&
                admitted.routes()[1].route_id() == contract::RouteId{2} &&
+               admitted.routes()[1].source_gain_linear() ==
+                   inputs.calibration.routes[0].source_gain_linear &&
                admitted.routes()[1].impulse_response_asset_id() ==
                    contract::AudioAssetId{2} &&
                admitted.routes()[1].wet_mix_01() == 0.5,

@@ -90,13 +90,12 @@ void admit_engine_presentation(const authoring::EnginePackageDocument &document,
                 "an active exhaust route requires an impulse response");
         }
         if (intake && (binding.impulse_response.has_value() ||
-                       !same_binary64(binding.source_gain_linear, +0.0) ||
                        !same_binary64(binding.impulse_response_gain_linear, +0.0) ||
                        !same_binary64(binding.wet_mix_01, +0.0))) {
             add(report, DiagnosticCode::unsupported_capability,
                 pointer_index("/presentation/routes", index),
-                "a declared-silent intake route requires no impulse response and "
-                "canonical positive-zero source, transfer, and wet gains");
+                "an intake-pressure route requires no impulse response and canonical "
+                "positive-zero transfer and wet gains");
         }
     }
     if (resolved.route_presentations.size() != engine.source_routes.size()) {

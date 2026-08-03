@@ -23,6 +23,8 @@ struct PresentationCalibrationCompiler;
 class AdmittedPresentationRoute final {
   public:
     [[nodiscard]] contract::RouteId route_id() const noexcept;
+    [[nodiscard]] const contract::ResolvedValue<double> &
+    source_gain_linear() const noexcept;
     [[nodiscard]] const std::optional<contract::AudioAssetId> &
     impulse_response_asset_id() const noexcept;
     [[nodiscard]] const contract::ResolvedValue<double> &
@@ -32,12 +34,13 @@ class AdmittedPresentationRoute final {
 
   private:
     AdmittedPresentationRoute(
-        contract::RouteId route_id,
+        contract::RouteId route_id, contract::ResolvedValue<double> source_gain_linear,
         std::optional<contract::AudioAssetId> impulse_response_asset_id,
         contract::ResolvedValue<double> impulse_response_gain_linear, double wet_mix_01,
         contract::SourceRouteKind source_route_kind);
 
     contract::RouteId route_id_;
+    contract::ResolvedValue<double> source_gain_linear_;
     std::optional<contract::AudioAssetId> impulse_response_asset_id_;
     contract::ResolvedValue<double> impulse_response_gain_linear_;
     double wet_mix_01_ = 0.0;

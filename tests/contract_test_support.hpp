@@ -681,6 +681,8 @@ inline PresentationCalibration make_presentation(InputBuilder &builder,
     });
     presentation.routes.push_back({
         RouteId{1},
+        builder.resolved(1.0,
+                         "presentation.routes.exhaust.outlet-1.source_gain_linear"),
         AudioAssetId{1},
         builder.resolved(0.001, "presentation.routes.exhaust.outlet-1."
                                 "impulse_response_gain_linear"),

@@ -225,6 +225,8 @@ ValidationReport validate(const AuthoredPresentationCalibration &calibration) {
         const auto path = "presentation.routes[" + std::to_string(index) + "]";
         validate_authored(report, route.route_semantic_id, calibration.provenance,
                           path + ".route_semantic_id");
+        validate_authored(report, route.source_gain_linear, calibration.provenance,
+                          path + ".source_gain_linear");
         validate_authored(report, route.impulse_response_asset_id,
                           calibration.provenance, path + ".impulse_response_asset_id");
         validate_authored(report, route.impulse_response_gain_linear,
@@ -240,6 +242,9 @@ ValidationReport validate(const AuthoredPresentationCalibration &calibration) {
                        path + ".route_semantic_id.value",
                        "presentation routes must be unique");
         }
+        require(report, finite_nonnegative(route.source_gain_linear.value),
+                ContractIssueCode::invalid_value, path + ".source_gain_linear.value",
+                "source gain must be finite and nonnegative");
         require(report, asset_ids.contains(route.impulse_response_asset_id.value),
                 ContractIssueCode::dangling_reference,
                 path + ".impulse_response_asset_id.value",
@@ -422,6 +427,11 @@ ValidationReport validate(const PresentationCalibration &calibration,
             report.add(ContractIssueCode::duplicate_identity, path + ".route_id",
                        "presentation route IDs must be unique");
         }
+        validate_resolved(report, route.source_gain_linear, provenance,
+                          path + ".source_gain_linear");
+        require(report, finite_nonnegative(route.source_gain_linear.value),
+                ContractIssueCode::invalid_value, path + ".source_gain_linear.value",
+                "source gain must be finite and nonnegative");
         const bool exhaust = source_route != nullptr &&
                              source_route->kind == SourceRouteKind::exhaust_outlet;
         const bool intake = source_route != nullptr &&

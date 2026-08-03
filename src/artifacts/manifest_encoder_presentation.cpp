@@ -124,6 +124,8 @@ bool write_route_presentation(CanonicalJsonWriter &writer,
     };
     return writer.begin_object() && writer.key("route_id") &&
            writer.uint32_value(route.route_id.value) &&
+           writer.key("source_gain_linear") &&
+           write_resolved(writer, route.source_gain_linear, write_f64) &&
            writer.key("impulse_response_asset_id") &&
            (route.impulse_response_asset_id.has_value()
                 ? writer.uint32_value(route.impulse_response_asset_id->value)
