@@ -22,9 +22,11 @@ namespace engine_sim_offline::excitation {
 /**
  * Callback-scoped diagnostics for the physical-capture to exhaust-excitation seam.
  *
- * Cylinder values are frame-major in `cylinder_ids()` order. Route values use
- * `route_ids()` order and are the same immutable flat storage published through the
- * presentation view. All spans expire when the receiving callback returns.
+ * Cylinder values are frame-major in `cylinder_ids()` order. Post-delay values are
+ * the identity-stable primary lanes immediately before the collector. Route values
+ * use `route_ids()` order, include the shared downstream propagation delay, and are
+ * the same immutable flat storage published through the presentation view. All spans
+ * expire when the receiving callback returns.
  */
 class ExhaustExcitationDiagnosticBlockView final {
   public:

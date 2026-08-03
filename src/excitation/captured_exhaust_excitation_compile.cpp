@@ -192,14 +192,18 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
     state->prospective_delays.resize(cylinder_count);
     state->accumulation_order.resize(cylinder_count);
     state->routes.resize(route_count);
+    state->prospective_route_delays.resize(route_count);
     state->pre_delay.assign(static_cast<std::size_t>(block_capacity) * cylinder_count,
                             +0.0);
     state->post_delay.assign(static_cast<std::size_t>(block_capacity) * cylinder_count,
                              +0.0);
+    state->collector_bus_values.assign(
+        static_cast<std::size_t>(block_capacity) * route_count, +0.0);
     state->route_bus_values.assign(
         static_cast<std::size_t>(block_capacity) * route_count, +0.0);
 
     std::vector<bool> gas_route_seen(route_count, false);
+    std::vector<std::uint32_t> route_delay_samples(route_count, 0U);
     for (std::size_t index = 0; index < route_count; ++index) {
         const auto &declared = engine.routes[index];
         const auto &configured = source.routes[index];
@@ -258,7 +262,17 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
             configured.route_id,
             configured.exhaust_system_length_m.value,
             configured.audio_volume_linear.value,
+            {},
         };
+        const auto downstream_delay = resolve_delay_samples(
+            0.0, configured.exhaust_system_length_m.value,
+            source.legacy_propagation_speed_m_s.value, scenario.rates.capture);
+        require(report, downstream_delay.has_value(), ContractIssueCode::invalid_value,
+                path + ".exhaust_system_length_m",
+                "route propagation delay is outside its representable domain");
+        if (downstream_delay.has_value()) {
+            route_delay_samples[index] = *downstream_delay;
+        }
     }
 
     std::vector<bool> path_seen(cylinder_count, false);
@@ -308,9 +322,9 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
         require(report, route_index.has_value(), ContractIssueCode::dangling_reference,
                 path_name + ".route_id",
                 "excitation cylinder path route does not resolve");
-        std::optional<std::uint32_t> expected_delay;
+        std::optional<std::uint32_t> expected_total_delay;
         if (route_index.has_value()) {
-            expected_delay = resolve_delay_samples(
+            expected_total_delay = resolve_delay_samples(
                 configured.header_primary_length_m.value,
                 source.routes[*route_index].exhaust_system_length_m.value,
                 source.legacy_propagation_speed_m_s.value, scenario.rates.capture);
@@ -321,10 +335,13 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
                     same_binary64(configured.header_primary_length_m.value,
                                   mechanism.parameters.header_primary_length_m.value) &&
                     configured.route_id == mechanism.topology.exhaust_route_id &&
-                    expected_delay.has_value(),
+                    expected_total_delay.has_value() &&
+                    (!route_index.has_value() || expected_total_delay.value_or(0U) >=
+                                                     route_delay_samples[*route_index]),
                 ContractIssueCode::inconsistent_semantics, path_name,
                 "excitation path geometry, route, or capture-rate delay is incoherent");
-        if (!route_index.has_value() || !expected_delay.has_value()) {
+        if (!route_index.has_value() || !expected_total_delay.has_value() ||
+            *expected_total_delay < route_delay_samples[*route_index]) {
             continue;
         }
 
@@ -332,7 +349,11 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
             cylinder_id, index, *route_index, configured.sound_attenuation_linear.value,
             {},
         };
-        delay_samples[index] = *expected_delay;
+        // Preserve the old rounded total arrival exactly. The cylinder FIFO owns
+        // only the residual primary delay; the common route FIFO is applied after
+        // the collector fold.
+        delay_samples[index] =
+            *expected_total_delay - route_delay_samples[*route_index];
     }
 
     std::vector<bool> accumulation_seen(cylinder_count, false);
@@ -364,6 +385,11 @@ CapturedExhaustExcitationCompileResult compile_captured_exhaust_excitation_sessi
     for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
         state->cylinders[cylinder].delay.history.assign(delay_samples[cylinder], +0.0);
         state->prospective_delays[cylinder] = state->cylinders[cylinder].delay;
+    }
+    for (std::size_t route = 0; route < route_count; ++route) {
+        state->routes[route].downstream_delay.history.assign(route_delay_samples[route],
+                                                             +0.0);
+        state->prospective_route_delays[route] = state->routes[route].downstream_delay;
     }
     return CapturedExhaustExcitationSession{std::move(state)};
 }

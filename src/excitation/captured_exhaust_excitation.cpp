@@ -260,6 +260,9 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
     for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
         state.prospective_delays[cylinder] = state.cylinders[cylinder].delay;
     }
+    for (std::size_t route = 0; route < route_count; ++route) {
+        state.prospective_route_delays[route] = state.routes[route].downstream_delay;
+    }
 
     for (std::size_t frame = 0; frame < state.block_capacity_frames; ++frame) {
         const double filtered_speed = parity.filtered_engine_speed_rpm()[frame];
@@ -312,8 +315,8 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
     // Fold the same terms, with the same parentheses and authored serial order, so
     // this architectural split cannot alter the accepted route samples.
     for (std::size_t frame = 0; frame < state.block_capacity_frames; ++frame) {
-        std::fill_n(state.route_bus_values.begin() + frame * route_count, route_count,
-                    +0.0);
+        std::fill_n(state.collector_bus_values.begin() + frame * route_count,
+                    route_count, +0.0);
         for (const auto cylinder_index : state.accumulation_order) {
             const auto &cylinder = state.cylinders[cylinder_index];
             const double delayed = state.post_delay[frame * cylinder_count +
@@ -324,7 +327,7 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
                 ((route.audio_volume_linear * delayed) / state.cylinder_count_divisor) *
                 (1.0 / (route.exhaust_system_length_m * route.exhaust_system_length_m));
             auto &bus =
-                state.route_bus_values[frame * route_count + cylinder.route_index];
+                state.collector_bus_values[frame * route_count + cylinder.route_index];
             bus += route_term;
             if (!std::isfinite(delayed) || !std::isfinite(route_term) ||
                 !std::isfinite(bus)) {
@@ -338,8 +341,30 @@ CapturedExhaustExcitationProcessResult CapturedExhaustExcitationSession::process
         }
     }
 
+    // Apply the shared route propagation after the collector. The compiler derives
+    // each primary residual so primary + downstream delay is exactly the old rounded
+    // total sample count; this topology change therefore preserves every arrival.
+    for (std::size_t frame = 0; frame < state.block_capacity_frames; ++frame) {
+        for (std::size_t route = 0; route < route_count; ++route) {
+            const double delayed = state.prospective_route_delays[route].process(
+                state.collector_bus_values[frame * route_count + route]);
+            if (!std::isfinite(delayed)) {
+                return fail(
+                    state, make_failure(state, contract::FailureKind::numerical_failure,
+                                        "captured-excitation-value-nonfinite",
+                                        "route propagation produced a non-finite value",
+                                        state.routes[route].route_id));
+            }
+            state.route_bus_values[frame * route_count + route] = delayed;
+        }
+    }
+
     for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
         std::swap(state.cylinders[cylinder].delay, state.prospective_delays[cylinder]);
+    }
+    for (std::size_t route = 0; route < route_count; ++route) {
+        std::swap(state.routes[route].downstream_delay,
+                  state.prospective_route_delays[route]);
     }
 
     const auto output = presentation::ExhaustExcitationBlockView::borrow_for_callback(

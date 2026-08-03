@@ -28,7 +28,8 @@ using namespace engine_sim_offline::excitation;
 constexpr std::size_t kFrames = 400U;
 constexpr std::size_t kCylinders = 6U;
 constexpr std::size_t kRoutes = 2U;
-constexpr std::size_t kDelayFrames = 360U;
+constexpr std::size_t kTotalDelayFrames = 360U;
+constexpr std::size_t kPrimaryDelayFrames = 0U;
 constexpr RationalRateHz kRate{20000, 1};
 constexpr double kAtmospherePa = 101325.0;
 constexpr double kExcitationScale = 1600.0;
@@ -480,26 +481,30 @@ void test_exact_arithmetic_delay_routes_and_continuity(
                                  "frozen pre-delay arithmetic changed");
 
                 const double expected_post =
-                    global < kDelayFrames
-                        ? 0.0
-                        : all_pre[(global - kDelayFrames) * kCylinders + cylinder];
+                    all_pre[(global - kPrimaryDelayFrames) * kCylinders + cylinder];
                 expect_same_bits(actual.post_delay[local], expected_post,
-                                 "180-frame delay history or block continuity changed");
-                if (global < kDelayFrames) {
-                    expect(bits(actual.post_delay[local]) == bits(0.0),
-                           "delay startup did not emit canonical positive zero");
-                }
+                                 "primary-delay lane or block continuity changed");
 
                 const bool even_cylinder_id = ((cylinder + 1U) % 2U) == 0U;
                 const std::size_t route = even_cylinder_id ? 0U : 1U;
                 const double volume = even_cylinder_id ? 0.5 : 1.0;
-                expected_buses[route] += independent_route_term(expected_post, volume);
+                const double expected_arrival =
+                    global < kTotalDelayFrames
+                        ? +0.0
+                        : all_pre[(global - kTotalDelayFrames) * kCylinders + cylinder];
+                expected_buses[route] +=
+                    independent_route_term(expected_arrival, volume);
             }
             for (std::size_t route = 0; route < kRoutes; ++route) {
                 expect_same_bits(
                     actual.route_bus_values[frame * kRoutes + route],
                     expected_buses[route],
                     "stable cylinder accumulation, divisor, length, or route changed");
+                if (global < kTotalDelayFrames) {
+                    expect(bits(actual.route_bus_values[frame * kRoutes + route]) ==
+                               bits(+0.0),
+                           "route-delay startup did not emit canonical positive zero");
+                }
             }
         }
     }
@@ -509,16 +514,37 @@ void test_exact_arithmetic_delay_routes_and_continuity(
            "two-block excitation session progress changed");
 }
 
-void test_canonical_delay_is_derived_at_session_admission(
-    const EngineSpec &engine, RenderScenario scenario) {
+void test_split_primary_and_route_delays_preserve_total_arrival(
+    const EngineSpec &canonical_engine, RenderScenario scenario) {
     constexpr RationalRateHz rate = kRate;
-    constexpr std::size_t expected_delay_frames = 360U;
-    static_assert(expected_delay_frames == kDelayFrames);
-    expect(static_cast<std::size_t>(std::round(
-               (kTotalAudioLengthM / 343.0) *
-               static_cast<double>(rate.numerator) /
-               static_cast<double>(rate.denominator))) == expected_delay_frames,
-           "20 kHz path-time derivation did not resolve to 360 samples");
+    constexpr double added_primary_length_m = 0.35329;
+    constexpr std::size_t expected_primary_delay_frames = 20U;
+    constexpr std::size_t expected_route_delay_frames = 360U;
+    constexpr std::size_t expected_total_delay_frames = 380U;
+    constexpr std::size_t independently_rounded_primary_frames = 21U;
+    static_assert(expected_primary_delay_frames + expected_route_delay_frames ==
+                  expected_total_delay_frames);
+    const auto rounded_samples = [&](const double length_m) {
+        return static_cast<std::size_t>(
+            std::round((length_m / 343.0) * static_cast<double>(rate.numerator) /
+                       static_cast<double>(rate.denominator)));
+    };
+    expect(rounded_samples(kTotalAudioLengthM) == expected_route_delay_frames &&
+               rounded_samples(kTotalAudioLengthM + added_primary_length_m) ==
+                   expected_total_delay_frames &&
+               rounded_samples(added_primary_length_m) ==
+                   independently_rounded_primary_frames &&
+               independently_rounded_primary_frames != expected_primary_delay_frames,
+           "primary/route rounding fixture is not sensitive to total-delay factoring");
+
+    auto engine = canonical_engine;
+    auto &core = test::low_order_core(engine);
+    for (auto &path : core.excitation.cylinder_paths) {
+        path.header_primary_length_m.value += added_primary_length_m;
+    }
+    for (auto &cylinder : core.mechanism.cylinders) {
+        cylinder.parameters.header_primary_length_m.value += added_primary_length_m;
+    }
 
     scenario.rates.physics = rate;
     scenario.rates.capture = rate;
@@ -538,22 +564,40 @@ void test_canonical_delay_is_derived_at_session_admission(
     expect(actual_0.sample_rate == rate && actual_1.sample_rate == rate &&
                actual_0.frame_count == kFrames && actual_1.frame_count == kFrames,
            "20 kHz excitation did not publish on its admitted capture clock");
-    for (std::size_t frame = 0; frame < expected_delay_frames; ++frame) {
+    for (std::size_t frame = 0; frame < expected_primary_delay_frames; ++frame) {
         for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
             expect(bits(actual_0.post_delay[frame * kCylinders + cylinder]) ==
                        bits(+0.0),
-                   "20 kHz propagation delay arrived before 360 capture samples");
+                   "primary propagation arrived before its residual delay");
+        }
+    }
+    for (std::size_t frame = 0; frame < expected_total_delay_frames; ++frame) {
+        for (std::size_t route = 0; route < kRoutes; ++route) {
+            expect(bits(actual_0.route_bus_values[frame * kRoutes + route]) ==
+                       bits(+0.0),
+                   "collector output arrived before its preserved total delay");
         }
     }
 
     bool observed_nonzero_arrival = false;
+    std::array<double, kRoutes> expected_buses{};
     for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
         const double expected = actual_0.pre_delay[cylinder];
         const double actual =
-            actual_0.post_delay[expected_delay_frames * kCylinders + cylinder];
+            actual_0.post_delay[expected_primary_delay_frames * kCylinders + cylinder];
         expect_same_bits(actual, expected,
-                         "20 kHz propagation delay was not derived from path time");
+                         "primary residual changed its cylinder-lane arrival");
         observed_nonzero_arrival = observed_nonzero_arrival || actual != 0.0;
+        const bool even_cylinder_id = ((cylinder + 1U) % 2U) == 0U;
+        const std::size_t route = even_cylinder_id ? 0U : 1U;
+        const double volume = even_cylinder_id ? 0.5 : 1.0;
+        expected_buses[route] += independent_route_term(expected, volume);
+    }
+    for (std::size_t route = 0; route < kRoutes; ++route) {
+        expect_same_bits(
+            actual_0.route_bus_values[expected_total_delay_frames * kRoutes + route],
+            expected_buses[route],
+            "primary plus route delay did not preserve the total arrival sample");
     }
     expect(observed_nonzero_arrival,
            "20 kHz propagation-delay proof did not observe a nonzero arrival");
@@ -599,10 +643,11 @@ void test_three_cylinder_authored_order_collector(const EngineSpec &canonical_en
                    std::vector<CylinderId>{CylinderId{1}, CylinderId{3}, CylinderId{2}},
            "shared-route collector fixture lost its three authored-order lanes");
     const auto &route = source.routes.front();
-    constexpr std::size_t arrival_frame = kDelayFrames;
+    constexpr std::size_t lane_frame = kPrimaryDelayFrames;
+    constexpr std::size_t arrival_frame = kTotalDelayFrames;
     constexpr std::array<double, 3> expected_delayed{1600.0, 1600.0, -1600.0};
     for (std::size_t cylinder = 0; cylinder < expected_delayed.size(); ++cylinder) {
-        expect_same_bits(actual_0.post_delay[arrival_frame * 3U + cylinder],
+        expect_same_bits(actual_0.post_delay[lane_frame * 3U + cylinder],
                          expected_delayed[cylinder],
                          "post-delay lane left canonical cylinder identity order");
     }
@@ -852,8 +897,8 @@ void run_tests(const std::filesystem::path &repository_root) {
     const auto fixture = test::load_canonical_authored_engine_fixture(repository_root);
     test_exact_arithmetic_delay_routes_and_continuity(fixture.engine,
                                                       fixture.scenario);
-    test_canonical_delay_is_derived_at_session_admission(fixture.engine,
-                                                          fixture.scenario);
+    test_split_primary_and_route_delays_preserve_total_arrival(fixture.engine,
+                                                               fixture.scenario);
     test_three_cylinder_authored_order_collector(fixture.engine, fixture.scenario);
     test_independent_sessions_are_bit_deterministic(fixture.engine,
                                                     fixture.scenario);

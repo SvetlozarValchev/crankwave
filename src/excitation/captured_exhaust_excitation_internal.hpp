@@ -30,6 +30,7 @@ struct CapturedExcitationRoutePlan {
     contract::RouteId route_id;
     double exhaust_system_length_m = 0.0;
     double audio_volume_linear = 0.0;
+    CapturedExcitationDelayState downstream_delay;
 };
 
 class CapturedExhaustExcitationState final {
@@ -48,6 +49,8 @@ class CapturedExhaustExcitationState final {
     std::vector<CapturedExcitationDelayState> prospective_delays;
     std::vector<std::size_t> accumulation_order;
     std::vector<CapturedExcitationRoutePlan> routes;
+    // A transactional route-delay bank mirrors the per-cylinder delay bank.
+    std::vector<CapturedExcitationDelayState> prospective_route_delays;
 
     double reference_atmosphere_pa_abs = 0.0;
     double excitation_scale = 0.0;
@@ -59,6 +62,7 @@ class CapturedExhaustExcitationState final {
 
     std::vector<double> pre_delay;
     std::vector<double> post_delay;
+    std::vector<double> collector_bus_values;
     std::vector<double> route_bus_values;
 
     std::uint64_t next_frame_index = 0;
