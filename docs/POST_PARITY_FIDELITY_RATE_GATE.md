@@ -40,6 +40,31 @@ The independent repeat at
 candidate's complete audition WAV and raw WAV byte for byte. The user then explicitly
 selected 20 kHz as the single canonical production/cooker rate.
 
+## Canonical cutover verification
+
+Commit `a3ae7cd8003921b1aecd4afb3dbe24bb156cffae` made that accepted rate the
+sole production contract. A clean Release build rendered the now-canonical BMW
+scenario twice:
+
+- `artifacts/listening/fidelity-rate-bmw-20khz-canonical-a3ae7cd/` (`36.98 s`);
+- `artifacts/listening/fidelity-rate-bmw-20khz-canonical-repeat-a3ae7cd/` (`36.32 s`).
+
+All eight WAV files match between those two renders byte for byte. The canonical raw
+master also matches the accepted candidate byte for byte at
+`90737e00d6f56c6893f9afb23957ed1becc1aebe3571423c263210edb306dee7`, and
+the decoded signed-24-bit audition PCM matches it exactly at
+`cb49e13910360525bbdcb8b004c8c8ad6cb3a8a10a6854782946c1962ff3fe04`.
+The canonical audition container itself hashes to
+`e77a236d2c94fb66b6dc2799e212b6cd0f4f9bd27643568e2f1dd379cb884dcf`;
+its container differs from the pre-cutover candidate only because the embedded build
+and method metadata now identify the canonical contract.
+
+The clean build records renderer source-closure SHA-256
+`38ec6853a7b5b37c7afcbfc8bc98544e95e6dc09363c61f8ae3042e4d6feb08f`.
+This closes the implementation gate as well as the earlier listening gate: production
+has one 20 kHz physics/capture clock, and that cutover did not alter the approved
+samples.
+
 ## Acceptance boundary
 
 This closes item 1 of the verified post-parity fidelity queue. It changes the canonical
