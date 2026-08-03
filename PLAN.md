@@ -7,7 +7,7 @@ Branch: `clean-room/bmw-baseline`
 Date: 2026-08-03
 
 Current checkpoint: **post-slice-15 parity closure — one-level master-rod FreeEngine
-accepted; HeldDyno next**
+and HeldDyno accepted; FreeVehicle next**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -779,6 +779,20 @@ retained its already accepted held-dyno audition SHA-256
 and was also accepted as sounding correct. This closes only the master-rod FreeEngine
 subslice; master-rod HeldDyno is next, followed by FreeVehicle.
 
+Commit `eb26214` subsequently opens certified one-crank, one-level master-rod
+`HeldDyno` without changing the direct centered-slider path. Its combined articulated
+mechanism and bounded-dyno constraint has method ID
+`bounded-held-dyno-speed-constraint-one-level-master-rod-v1` and descriptor SHA-256
+`71b511ed6c5c2c29225cd96645e8c117dea4093cf965c22a76358f220b2bbe8b`.
+The prescribed control and physical HeldDyno candidate are each `5.500 s`, 192 kHz
+mono PCM24. Their audition SHA-256 values are respectively
+`e446c0fd0f9348877dcdd59b32f59152912b13a68ecbc824f83881b3c9c599a9` and
+`e193d2e981a5d432928aa8596b6730df37c9cd6aa680332479d77eb24a636c72`.
+The direct BMW guard remains byte-exact at accepted SHA-256
+`487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496`.
+The user accepted the radial HeldDyno result as sounding good on 2026-08-03. This
+closes the master-rod HeldDyno subslice only; FreeVehicle remains closed and is next.
+
 Slice 11 now executes a finite authored `held_dyno` request through a bounded signed
 velocity constraint while reusing the accepted gas, source-friction,
 configuration-inertia, routing, conditioning, IR, and mastering paths. The BMW gate
@@ -904,11 +918,20 @@ engine-definition parity in this order, with one coherent commit per bullet:
    `6e6db58c74313634a7490326cab88f0f68763607dcb0bfe104bce6f8096888c`;
    its exact BMW direct guard retains accepted SHA-256
    `487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496`.
-   The already executed co-phased direct multi-crank subset is complete, while
-   master-rod HeldDyno and FreeVehicle, and unproven
-   offset/geared/nested/multi-crank-master-rod cases, remain explicitly closed. Open
-   and audition master-rod HeldDyno next; after that gate is accepted, open and audition
-   FreeVehicle before declaring this bullet complete**);
+   Commit `eb26214` additionally opens and publishes one-level master-rod HeldDyno
+   under the topology-specific constraint identity
+   `bounded-held-dyno-speed-constraint-one-level-master-rod-v1`, descriptor SHA-256
+   `71b511ed6c5c2c29225cd96645e8c117dea4093cf965c22a76358f220b2bbe8b`.
+   Its 5.5 s prescribed control and HeldDyno candidate have audition SHA-256
+   `e446c0fd0f9348877dcdd59b32f59152912b13a68ecbc824f83881b3c9c599a9` and
+   `e193d2e981a5d432928aa8596b6730df37c9cd6aa680332479d77eb24a636c72`;
+   the exact direct BMW guard retains accepted SHA-256
+   `487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496`.
+   The user accepted the candidate as sounding good on 2026-08-03. The already
+   executed co-phased direct multi-crank subset is complete, while master-rod
+   FreeVehicle and unproven offset/geared/nested/multi-crank-master-rod cases remain
+   explicitly closed. Open and audition master-rod FreeVehicle before declaring this
+   bullet complete**);
 7. make native audition saturation explicit, then render, listen to, and freeze Slice
    16's representative fixed-cam inline/V, VTEC, governed, master/slave, and drivetrain
    procedures;

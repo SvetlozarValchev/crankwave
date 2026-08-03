@@ -430,6 +430,17 @@ The target lane is content-addressed at the physics rate. Absorbing and driving
 limits remain distinct nonnegative magnitudes; the runtime applies a signed actuator
 inside those bounds and publishes dyno reaction with the opposite sign.
 
+For a direct-journal centered-slider mechanism, `constraint_method` remains the
+existing bounded-held-dyno identity and exact wire value. A certified one-crank,
+one-level master-rod HeldDyno instead resolves
+`bounded-held-dyno-speed-constraint-one-level-master-rod-v1`, version `1`, descriptor
+SHA-256
+`71b511ed6c5c2c29225cd96645e8c117dea4093cf965c22a76358f220b2bbe8b`.
+This names the same bounded signed dyno operation composed with articulated
+`M(theta)`, `M'(theta)`, and coupled wall reactions; it does not relabel the direct
+method or change direct request bytes. `FreeVehicle` remains unadmitted for the
+master-rod topology.
+
 The authoring fields `attached_inertia` and `external_resisting_torque` are optional,
 but the resolved wire never omits their values: each omission becomes canonical
 positive zero, with the torque default represented as one time-zero

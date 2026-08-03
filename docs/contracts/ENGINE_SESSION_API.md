@@ -453,11 +453,16 @@ controlled response gate passes: WOT differs from pristine by `0.0134 s`, every 
 crossing by at most `0.0049 s`, and the long natural-balance mean by `1.079 RPM`. The
 frozen pristine oracle remains the authority for each subsequent mechanics slice.
 
-The certified one-level master-rod `FreeEngine` path uses the corresponding articulated
-configuration inertia and leaf-first coupled wall reactions. Its warm accountant uses
-each cylinder's certified swept displacement and piston travel rather than substituting
-one common stroke. The radial-five 52,000-frame procedure completes through the public
-session API; `HeldDyno` and `FreeVehicle` remain closed for this topology.
+The certified one-level master-rod `FreeEngine` and `HeldDyno` paths use the
+corresponding articulated configuration inertia and leaf-first coupled wall reactions.
+Their warm accountant uses each cylinder's certified swept displacement and piston
+travel rather than substituting one common stroke. The radial-five 52,000-frame
+FreeEngine procedure completes through the public session API. Commit `eb26214` also
+admits its HeldDyno session under
+`bounded-held-dyno-speed-constraint-one-level-master-rod-v1`, whose canonical
+descriptor has SHA-256
+`71b511ed6c5c2c29225cd96645e8c117dea4093cf965c22a76358f220b2bbe8b`.
+`FreeVehicle` remains closed for this topology.
 
 ### 5.2 Remaining mode controls
 

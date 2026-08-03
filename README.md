@@ -95,12 +95,14 @@ the public normalized demand becomes its speed command, while telemetry separate
 reports that request and the governor-resolved throttle opening. The Kohler CH750
 fixture exercises this path through a settled 12 N m load step.
 
-Certified one-level master-rod engines currently admit prescribed motion and
-`FreeEngine`. Their dynamic path uses analytic articulated inertia, per-cylinder
-piston-travel Chen--Flynn preparation evidence, and leaf-first coupled piston/rod wall
-reactions. The radial-five 52,000-frame warm procedure and its 4.7 s candidate are
-accepted; `HeldDyno`, `FreeVehicle`, nested master rods, and multi-crank master/slave
-remain separately closed.
+Certified one-level master-rod engines currently admit prescribed motion,
+`FreeEngine`, and `HeldDyno`. Their dynamic path uses analytic articulated inertia,
+per-cylinder piston-travel Chen--Flynn preparation evidence, and leaf-first coupled
+piston/rod wall reactions. The radial-five 52,000-frame warm FreeEngine procedure and
+the 5.5 s HeldDyno pull are accepted. HeldDyno selects the topology-specific
+`bounded-held-dyno-speed-constraint-one-level-master-rod-v1` identity rather than
+claiming the direct centered-slider constraint. `FreeVehicle`, nested master rods, and
+multi-crank master/slave remain separately closed.
 
 The compiler accepts the currently executable low-order topology without inspecting an
 engine name and fails closed on unsupported capabilities. Cylinder and

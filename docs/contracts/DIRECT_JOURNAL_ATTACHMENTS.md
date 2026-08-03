@@ -13,6 +13,14 @@ its 4.7 s dynamic candidate was accepted by ear. The 80 ms prescribed fixture re
 a byte/topology regression, not a listening reference. `HeldDyno`, `FreeVehicle`, and
 the other master-rod motion owners remain closed.
 
+Commit `eb26214` then opened the certified one-crank, one-level master-rod `HeldDyno`
+path under the distinct
+`bounded-held-dyno-speed-constraint-one-level-master-rod-v1` method identity. Its
+5.5 s prescribed control and 5.5 s physical candidate were rendered at 192 kHz mono
+PCM24, and the user accepted the candidate as sounding good on 2026-08-03. The direct
+BMW guard remained exact. This later opening does not alter the historical firewall
+described below: `FreeVehicle` and every other master-rod motion owner remain closed.
+
 ## One ownership path
 
 The greenfield engine JSON has one authoritative path from a cylinder to a crankshaft:

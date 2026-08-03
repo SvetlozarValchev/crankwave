@@ -1,7 +1,7 @@
 # Pristine engine-sim master-rod dynamics oracle
 
-Status: source oracle frozen; public one-level master-rod FreeEngine accepted on
-2026-08-03 at `2e5d70d`; HeldDyno and FreeVehicle remain closed.
+Status: source oracle frozen; public one-level master-rod FreeEngine accepted at
+`2e5d70d` and HeldDyno accepted at `eb26214` on 2026-08-03; FreeVehicle remains closed.
 
 This note freezes the source behavior that governs the clean-room one-level
 master/slave dynamics checkpoint. The behavioral source pin is pristine engine-sim
@@ -131,8 +131,9 @@ error. The existing full-cycle geometry certificate remains mandatory.
 
 The complete parity checkpoint is scoped to one-crank, one-level master/slave dynamics
 for the same FreeEngine, HeldDyno, and FreeVehicle families already owned by the dynamic
-crank runtime. Prescribed radial execution remains intact. The subsequent-status record
-below closes FreeEngine only; it does not claim HeldDyno or FreeVehicle admission.
+crank runtime. Prescribed radial execution remains intact. The first subsequent-status
+record below closes FreeEngine only; the later HeldDyno closure is a separate gate and
+does not claim FreeVehicle admission.
 
 The following are not implied by pristine's shipped evidence and remain closed:
 
@@ -182,3 +183,34 @@ The exact closure evidence is:
 This acceptance closes the FreeEngine subslice only. Master-rod HeldDyno must be opened,
 regression-guarded against the direct BMW, rendered at a meaningful listening duration,
 and accepted before FreeVehicle begins.
+
+## Subsequent public HeldDyno closure
+
+Commit `eb26214` opens certified one-crank, one-level master-rod `HeldDyno` through the
+public resolver, finite capture, and `EngineSession`. It reuses the accepted
+articulated mechanism state, `M(theta)`/`M'(theta)`, causal torque input, coupled wall
+reactions, gas, excitation, routing, IR, and mastering paths. The bounded signed dyno
+operation is named separately from the direct centered-slider composition:
+
+- method ID: `bounded-held-dyno-speed-constraint-one-level-master-rod-v1`;
+- version: `1`; and
+- canonical descriptor SHA-256:
+  `71b511ed6c5c2c29225cd96645e8c117dea4093cf965c22a76358f220b2bbe8b`.
+
+The acceptance evidence is:
+
+- The prescribed control is `5.500 s`, 192 kHz mono PCM24, with audition SHA-256
+  `e446c0fd0f9348877dcdd59b32f59152912b13a68ecbc824f83881b3c9c599a9` at
+  `artifacts/listening/radial-held-dyno-prescribed-control-eb26214/audio/master.engine.audition.wav`.
+- The physical HeldDyno pull/lift candidate is `5.500 s`, 192 kHz mono PCM24, with
+  audition SHA-256
+  `e193d2e981a5d432928aa8596b6730df37c9cd6aa680332479d77eb24a636c72` at
+  `artifacts/listening/radial-held-dyno-candidate-eb26214/audio/master.engine.audition.wav`.
+  The user accepted it as sounding good on 2026-08-03.
+- The direct BMW guard remains byte-exact at its already accepted audition SHA-256
+  `487beafdd6eacd21cc81de01bc7b558e10861453839b1332a6fbd690de3f8496` at
+  `artifacts/listening/radial-held-dyno-direct-guard-eb26214/audio/master.engine.audition.wav`.
+
+This closes the HeldDyno subslice only. Master-rod `FreeVehicle` remains rejected and
+is the next public dynamic-family gate. Nested, multi-crank-master-rod, offset, geared,
+and compliant cases remain closed under the scope boundary above.
