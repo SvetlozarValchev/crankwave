@@ -339,7 +339,7 @@ void validate_compiled_source(
     const std::size_t source_index, authoring::DiagnosticReport &report) {
     const auto &scenario = compiled.scenario.scenario;
     if (authored_scenario.engine.value != atlas.engine.value ||
-        scenario.engine_profile_id != atlas.engine.value) {
+        compiled.engine.engine.engine_id.value != atlas.engine.value) {
         add(report, authoring::DiagnosticCode::inconsistent_value,
             source_document_path(source_index, "/engine"),
             "source scenario engine does not match the atlas engine");
