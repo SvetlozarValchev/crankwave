@@ -22,7 +22,9 @@ namespace {
 
 namespace authoring = engine_sim_offline::authoring;
 namespace compile = engine_sim_offline::compile;
+namespace contract = engine_sim_offline::contract;
 using engine_sim_offline::CompiledPackageBake;
+using engine_sim_offline::CompiledPackageBakeAudioBus;
 using engine_sim_offline::PackageBakeCompileResult;
 using engine_sim_offline::PackageBakeScenarioInputView;
 
@@ -164,8 +166,12 @@ void test_real_bmw_plan_compiles_and_retains_authored_order(
                plan.public_seed() == 12648430U,
            "compiled package lost its exact package, engine, or seed identity");
     expect(plan.audio_sample_rate() == compile::SiRate{192000U, 1U} &&
-               plan.audio_bus_ids().size() == 1U &&
-               plan.audio_bus_ids().front() == "master-engine-audition",
+               plan.audio_buses().size() == 1U &&
+               plan.audio_buses().front() == CompiledPackageBakeAudioBus{
+                                                     "master-engine-audition",
+                                                     "master.engine.audition",
+                                                     contract::OutputBusKind::
+                                                         master_engine_audition},
            "compiled package lost its isolated A/B audio contract");
     expect(plan.method_geometry() == engine_sim_offline::kPackageBakeMethodGeometry &&
                near(plan.method_geometry().cycle_signal_alignment_frames, 1228.8) &&

@@ -13,7 +13,7 @@ struct CompiledPackageBakeStorage {
     compile::CompiledEngine engine;
     std::uint64_t public_seed = 0;
     compile::SiRate audio_sample_rate;
-    std::vector<std::string> audio_bus_ids;
+    std::vector<CompiledPackageBakeAudioBus> audio_buses;
     PackageBakeMethodGeometry geometry;
     CompiledPackageBakeRpmRange rpm_range;
     std::vector<CompiledPackageBakeScenarioSource> scenario_sources;

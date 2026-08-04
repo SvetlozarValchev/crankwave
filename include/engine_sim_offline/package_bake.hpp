@@ -3,6 +3,7 @@
 #include "engine_sim_offline/authoring/package_bake_document.hpp"
 #include "engine_sim_offline/authoring/scenario_document.hpp"
 #include "engine_sim_offline/compile.hpp"
+#include "engine_sim_offline/contract/source_matrix.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -58,6 +59,17 @@ struct CompiledPackageBakeScenarioSource {
     compile::CompiledScenario scenario;
 };
 
+struct CompiledPackageBakeAudioBus {
+    // Stable package-facing identity authored by package-bake.json.
+    std::string id;
+    // Exact semantic identity published by EngineSession blocks.
+    std::string session_bus_id;
+    contract::OutputBusKind kind = contract::OutputBusKind::unspecified;
+
+    friend bool operator==(const CompiledPackageBakeAudioBus &,
+                           const CompiledPackageBakeAudioBus &) = default;
+};
+
 struct CompiledPackageBakeRunningPlane {
     std::string id;
     double load_coordinate = 0.0;
@@ -86,7 +98,8 @@ class CompiledPackageBake final {
     [[nodiscard]] compile::CompiledEngine engine() const noexcept;
     [[nodiscard]] std::uint64_t public_seed() const noexcept;
     [[nodiscard]] compile::SiRate audio_sample_rate() const noexcept;
-    [[nodiscard]] std::span<const std::string> audio_bus_ids() const noexcept;
+    [[nodiscard]] std::span<const CompiledPackageBakeAudioBus>
+    audio_buses() const noexcept;
     [[nodiscard]] const PackageBakeMethodGeometry &method_geometry() const noexcept;
     [[nodiscard]] const CompiledPackageBakeRpmRange &rpm_range() const noexcept;
     [[nodiscard]] std::span<const CompiledPackageBakeScenarioSource>

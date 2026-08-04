@@ -410,10 +410,6 @@ class CompiledPackageBakeBuilder final {
                     {},
                     0U,
                 });
-            storage->audio_bus_ids.reserve(document.audio.buses.size());
-            for (const auto &bus : document.audio.buses) {
-                storage->audio_bus_ids.push_back(bus.value);
-            }
             storage->scenario_sources.reserve(document.scenario_sources.size());
 
             for (std::size_t index = 0; index < document.scenario_sources.size();
@@ -433,6 +429,21 @@ class CompiledPackageBakeBuilder final {
                     compile::detail::CompiledScenarioViewAccess::inputs(scenario);
                 validate_stable_capture(*input->document, inputs, index, report);
                 validate_audio_contract(document, inputs, index, report);
+                if (index == 0U) {
+                    storage->audio_buses.reserve(document.audio.buses.size());
+                    for (const auto &required : document.audio.buses) {
+                        const auto resolved = std::ranges::find(
+                            inputs.scenario.request_input.selected_audio_buses,
+                            required.value,
+                            &compile::detail::ResolvedAudioBusDescriptor::authored_id);
+                        if (resolved !=
+                            inputs.scenario.request_input.selected_audio_buses.end()) {
+                            storage->audio_buses.push_back(
+                                {required.value, resolved->semantic_id,
+                                 resolved->kind});
+                        }
+                    }
+                }
                 storage->scenario_sources.push_back(
                     {source.id.value, source.uri, std::move(scenario)});
             }
@@ -510,8 +521,9 @@ compile::SiRate CompiledPackageBake::audio_sample_rate() const noexcept {
     return storage_->audio_sample_rate;
 }
 
-std::span<const std::string> CompiledPackageBake::audio_bus_ids() const noexcept {
-    return storage_->audio_bus_ids;
+std::span<const CompiledPackageBakeAudioBus>
+CompiledPackageBake::audio_buses() const noexcept {
+    return storage_->audio_buses;
 }
 
 const PackageBakeMethodGeometry &CompiledPackageBake::method_geometry() const noexcept {
