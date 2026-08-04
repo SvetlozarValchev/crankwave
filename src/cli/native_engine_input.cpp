@@ -80,8 +80,11 @@ NativeEngineInputResult load_engine_impl(
     }
     auto root = std::get<OpenedAssetRoot>(std::move(root_result));
 
+    const auto engine_sha256 = contract::sha256(read_engine.bytes);
     NativeEngineInput result{
-        std::get<authoring::EnginePackageDocument>(std::move(parsed)), {}};
+        std::get<authoring::EnginePackageDocument>(std::move(parsed)), {},
+        {read_engine.canonical_path, std::move(read_engine.bytes),
+         engine_sha256}};
     const auto audio_count = result.document.presentation.assets.size();
     const auto accessory_count =
         result.document.engine.accessory_configurations.size();
@@ -89,7 +92,7 @@ NativeEngineInputResult load_engine_impl(
         return input_error(NativeInputErrorKind::data_error,
                            NativeInputErrorCode::size_overflow,
                            NativeInputSubject::engine_document,
-                           read_engine.canonical_path,
+                           result.source.canonical_path,
                            "declared asset count overflows this process");
     }
     const auto asset_count = audio_count + accessory_count;
@@ -97,7 +100,7 @@ NativeEngineInputResult load_engine_impl(
         return input_error(
             NativeInputErrorKind::data_error,
             NativeInputErrorCode::asset_count_limit_exceeded,
-            NativeInputSubject::engine_document, read_engine.canonical_path,
+            NativeInputSubject::engine_document, result.source.canonical_path,
             "engine document declares too many assets");
     }
     result.assets.reserve(asset_count);
@@ -105,7 +108,7 @@ NativeEngineInputResult load_engine_impl(
     std::uintmax_t total_bytes = 0;
     for (const auto &asset : result.document.presentation.assets) {
         auto error = append_asset(
-            result, read_engine.canonical_path, root, compile::AssetKind::audio,
+            result, result.source.canonical_path, root, compile::AssetKind::audio,
             NativeInputSubject::audio_asset, asset.id.value, asset.uri, limits,
             total_bytes);
         if (error) {
@@ -115,7 +118,7 @@ NativeEngineInputResult load_engine_impl(
     for (const auto &asset :
          result.document.engine.accessory_configurations) {
         auto error = append_asset(
-            result, read_engine.canonical_path, root,
+            result, result.source.canonical_path, root,
             compile::AssetKind::accessory_configuration,
             NativeInputSubject::accessory_configuration_asset, asset.id.value,
             asset.uri, limits, total_bytes);

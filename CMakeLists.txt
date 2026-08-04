@@ -746,6 +746,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             src/cli/native_input_files.cpp
             src/cli/native_input_filesystem.cpp
             src/cli/native_output_directory.cpp
+            src/cli/native_package_input.cpp
     )
 
     target_include_directories(

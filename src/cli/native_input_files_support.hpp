@@ -80,6 +80,11 @@ open_asset_root(const std::filesystem::path &asset_root);
     const std::filesystem::path &scenario_path,
     const NativeInputLimits &limits);
 
+[[nodiscard]] NativePackageBakeInputResult load_package_bake_impl(
+    const std::filesystem::path &package_bake_path,
+    const std::filesystem::path &asset_root,
+    const NativeInputLimits &limits);
+
 [[nodiscard]] NativeOutputError output_error(
     NativeOutputErrorKind kind, NativeOutputErrorCode code,
     std::filesystem::path path, std::string message);

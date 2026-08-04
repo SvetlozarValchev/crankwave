@@ -43,6 +43,8 @@ native_input_error_code_label(NativeInputErrorCode code) noexcept {
         return "invalid-engine-document";
     case NativeInputErrorCode::invalid_scenario_document:
         return "invalid-scenario-document";
+    case NativeInputErrorCode::invalid_package_bake_document:
+        return "invalid-package-bake-document";
     case NativeInputErrorCode::memory_allocation_failed:
         return "memory-allocation-failed";
     case NativeInputErrorCode::filesystem_failure:
@@ -133,6 +135,33 @@ NativeScenarioInputResult load_native_scenario_input(
             NativeInputErrorCode::filesystem_failure,
             NativeInputSubject::scenario_document, scenario_path,
             "native scenario input loading failed unexpectedly");
+    }
+}
+
+NativePackageBakeInputResult load_native_package_bake_input(
+    const std::filesystem::path &package_bake_path,
+    const std::filesystem::path &asset_root, NativeInputLimits limits) {
+    try {
+        return detail::load_package_bake_impl(package_bake_path, asset_root,
+                                              limits);
+    } catch (const std::bad_alloc &) {
+        return detail::input_error(
+            NativeInputErrorKind::software,
+            NativeInputErrorCode::memory_allocation_failed,
+            NativeInputSubject::package_bake_document, package_bake_path,
+            "native package bake input allocation failed");
+    } catch (const std::filesystem::filesystem_error &) {
+        return detail::input_error(
+            NativeInputErrorKind::software,
+            NativeInputErrorCode::filesystem_failure,
+            NativeInputSubject::package_bake_document, package_bake_path,
+            "native package bake input filesystem operation failed");
+    } catch (...) {
+        return detail::input_error(
+            NativeInputErrorKind::software,
+            NativeInputErrorCode::filesystem_failure,
+            NativeInputSubject::package_bake_document, package_bake_path,
+            "native package bake input loading failed unexpectedly");
     }
 }
 
