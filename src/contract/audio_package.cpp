@@ -575,6 +575,13 @@ ValidationReport validate(const AudioPackageManifest &manifest) {
                 report, detail::nearly_equal(unit.canonical_rpm, expected_rpm),
                 ContractIssueCode::inconsistent_semantics, unit_path + ".canonical_rpm",
                 "canonical RPM does not occupy the declared uniform grid");
+            detail::require(
+                report,
+                detail::nearly_equal(unit.average_signed_load,
+                                     plane.load_coordinate),
+                ContractIssueCode::inconsistent_semantics,
+                unit_path + ".average_signed_load",
+                "cycle load coordinate must equal its authored running plane");
             detail::require(report,
                             canonical_finite(unit.measured_rpm) &&
                                 std::abs(unit.measured_rpm - unit.canonical_rpm) <=
@@ -590,6 +597,15 @@ ValidationReport validate(const AudioPackageManifest &manifest) {
                         running.planes.front().units[unit_index].canonical_rpm),
                     ContractIssueCode::inconsistent_shape, unit_path + ".canonical_rpm",
                     "all load planes must share identical canonical RPM rows");
+                detail::require(
+                    report,
+                    running.planes[plane_index - 1U]
+                            .units[unit_index]
+                            .average_net_torque_nm < unit.average_net_torque_nm,
+                    ContractIssueCode::inconsistent_semantics,
+                    unit_path + ".average_net_torque_nm",
+                    "adjacent load planes must have strictly increasing cycle-mean "
+                    "net torque at every RPM row");
             }
         }
     }

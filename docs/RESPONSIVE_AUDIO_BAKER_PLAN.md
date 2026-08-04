@@ -105,7 +105,9 @@ The manifest owns:
   cycle-average load/torque, throttle, direction, and discrete engine state;
 - uniform-grid spacing, edge guards, assignment error, and selector padding;
 - lifecycle-event tape references, checkpoints, loop seams, and handoff metadata;
-- deterministic selector seed and the accepted smoothing/overlap defaults; and
+- deterministic selector seed; the single current follower defines and tests its
+  accepted smoothing/overlap behavior rather than exposing versioned playback knobs;
+  and
 - the complete source provenance needed to reproduce the package.
 
 Audio payloads are stored compactly for delivery and decoded to Float32 by the player.

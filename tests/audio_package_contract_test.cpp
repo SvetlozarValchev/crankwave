@@ -111,27 +111,27 @@ plane(std::string id, double coordinate,
               "bmw-package-coast-source", 10U, "plane.coast.master",
               "plane.coast.exhaust",
               {
-                  unit(33U, 130U, 140U, 1000.0, 1005.0, -0.85, -34.0, 0.04),
-                  unit(32U, 100U, 110U, 1500.0, 1494.0, -0.84, -38.0, 0.04),
-                  unit(31U, 70U, 80U, 2000.0, 2004.0, -0.83, -42.0, 0.04),
-                  unit(30U, 40U, 50U, 2500.0, 2496.0, -0.82, -46.0, 0.04),
+                  unit(33U, 130U, 140U, 1000.0, 1005.0, -1.0, -34.0, 0.04),
+                  unit(32U, 100U, 110U, 1500.0, 1494.0, -1.0, -38.0, 0.04),
+                  unit(31U, 70U, 80U, 2000.0, 2004.0, -1.0, -42.0, 0.04),
+                  unit(30U, 40U, 50U, 2500.0, 2496.0, -1.0, -46.0, 0.04),
               }),
         plane("part-load", 0.0, contract::AudioPackageRunningDirection::rising,
               "bmw-package-part-source", 11U, "plane.part.master", "plane.part.exhaust",
               {
-                  unit(40U, 10U, 20U, 1000.0, 1003.0, 0.05, 9.0, 0.20),
-                  unit(41U, 40U, 50U, 1500.0, 1496.0, 0.06, 12.0, 0.20),
-                  unit(42U, 70U, 80U, 2000.0, 2004.0, 0.07, 15.0, 0.20),
-                  unit(43U, 100U, 110U, 2500.0, 2498.0, 0.08, 18.0, 0.20),
+                  unit(40U, 10U, 20U, 1000.0, 1003.0, 0.0, 9.0, 0.20),
+                  unit(41U, 40U, 50U, 1500.0, 1496.0, 0.0, 12.0, 0.20),
+                  unit(42U, 70U, 80U, 2000.0, 2004.0, 0.0, 15.0, 0.20),
+                  unit(43U, 100U, 110U, 2500.0, 2498.0, 0.0, 18.0, 0.20),
               }),
         plane("power", 1.0, contract::AudioPackageRunningDirection::rising,
               "bmw-package-power-source", 12U, "plane.power.master",
               "plane.power.exhaust",
               {
-                  unit(50U, 10U, 20U, 1000.0, 1002.0, 0.81, 145.0, 1.00),
-                  unit(51U, 40U, 50U, 1500.0, 1498.0, 0.83, 165.0, 1.00),
-                  unit(52U, 70U, 80U, 2000.0, 2003.0, 0.85, 190.0, 1.00),
-                  unit(53U, 100U, 110U, 2500.0, 2497.0, 0.86, 205.0, 1.00),
+                  unit(50U, 10U, 20U, 1000.0, 1002.0, 1.0, 145.0, 1.00),
+                  unit(51U, 40U, 50U, 1500.0, 1498.0, 1.0, 165.0, 1.00),
+                  unit(52U, 70U, 80U, 2000.0, 2003.0, 1.0, 190.0, 1.00),
+                  unit(53U, 100U, 110U, 2500.0, 2497.0, 1.0, 205.0, 1.00),
               }),
     };
     manifest.running.idle = {
@@ -245,6 +245,22 @@ void test_plane_and_artifact_order_are_closed() {
                      contract::ContractIssueCode::inconsistent_semantics,
                      "running.planes[1].load_coordinate"),
            "unordered load planes were accepted");
+
+    auto mismatched_unit_load = valid_manifest();
+    mismatched_unit_load.running.planes[1].units[0].average_signed_load = 0.1;
+    expect(has_issue(contract::validate(mismatched_unit_load),
+                     contract::ContractIssueCode::inconsistent_semantics,
+                     "running.planes[1].units[0].average_signed_load"),
+           "cycle load coordinate outside its authored plane was accepted");
+
+    auto unordered_calibration = valid_manifest();
+    unordered_calibration.running.planes[1]
+        .units[0]
+        .average_net_torque_nm = -40.0;
+    expect(has_issue(contract::validate(unordered_calibration),
+                     contract::ContractIssueCode::inconsistent_semantics,
+                     "running.planes[1].units[0].average_net_torque_nm"),
+           "non-increasing per-row load calibration was accepted");
 
     auto unordered_artifacts = valid_manifest();
     std::swap(unordered_artifacts.artifacts[0], unordered_artifacts.artifacts[1]);
