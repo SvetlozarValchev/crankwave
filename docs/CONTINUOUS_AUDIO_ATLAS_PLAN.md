@@ -1,8 +1,9 @@
 # Continuous engine-audio atlas plan
 
-Status: replacement steps 1--6 complete and accepted by ear; stationary-tile spike next.
+Status: moving-segment proof accepted as internal evidence; interactive baked B is not
+yet a user-facing deliverable.
 
-Date: 2026-08-04
+Date: 2026-08-05
 
 ## Decision
 
@@ -19,6 +20,20 @@ The accepted dense single-clock experiment is evidence, not production code. It
 proved that the source simulation and baked-delivery premise are sound during a slow
 loaded pull, while also confirming that isolated 720-degree grains are not a complete
 product representation.
+
+## User-facing acceptance target
+
+A finite or scripted scenario is never the product acceptance surface. Such scenarios
+may drive independent baker captures and held-out evidence, but the user-facing gate
+is the existing **BMW M52TUB28 Interactive free rev** session with live throttle,
+ignition, starter, limiter, and external-load controls. Source A and baked B must be
+manually switchable there while the same live session continues.
+
+The accepted fifth-gear slice below proves one representation lane only. It must not
+be described as interactive baked audio or as a completed WASM product milestone.
+Interactive B requires sufficient stationary, rising, falling, load, state, and
+handoff coverage; outside that coverage the implementation is incomplete, even when
+its fail-safe Source A fallback is correct.
 
 ## Why the first package was rejected
 
@@ -251,13 +266,15 @@ it is not being mixed into the next sound-representation experiment.
    shared resampler, ring, worklet, and direct Source A path.
 6. Bake an independently captured BMW atlas and audition a held-out fifth-gear pull.
    Stop for user acceptance.
-7. Add stationary tiles, then fast transient lanes, then load/state transitions, each
-   behind its own immediate A/B listening gate.
-8. Add lifecycle performances one at a time.
-9. Profile package size, build time, runtime CPU, and adapter delivery only after the
+7. Spike stationary idle, fast free-rev rise, and throttle-lift/fall material, then
+   prove their handoffs internally without presenting a scripted run as the product.
+8. Attach the accepted coverage to the BMW interactive free-rev preset and stop for
+   live browser A/B acceptance under free controls.
+9. Add remaining load/state and lifecycle performances one at a time.
+10. Profile package size, build time, runtime CPU, and adapter delivery only after the
    audio representation is accepted.
 
 The first implementation slice ended at step 6 and is accepted. It does not claim
 free-rev, steady, partial-load, or lifecycle completeness before those representations
-exist and have been heard. The next sound-bearing action is the smallest stationary
-tile spike and its separate held-out A/B gate.
+exist and have been heard. The next deliverable gate is not another scripted audition:
+it is baked B operating in the existing interactive free-rev session.
