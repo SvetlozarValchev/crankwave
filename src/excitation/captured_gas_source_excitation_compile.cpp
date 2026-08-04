@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <numbers>
 #include <optional>
 #include <string>
 #include <utility>
@@ -127,6 +128,11 @@ CapturedGasSourceExcitationCompileResult compile_captured_gas_source_excitation_
     require(report, scenario.rates.capture == kCapturedGasSourceRateHz,
             ContractIssueCode::unsupported_value, "scenario.rates.capture",
             "captured gas-source excitation uses the canonical 20 kHz clock");
+    require(report, finite_positive(scenario.crankcase.pressure_pa_abs.value),
+            ContractIssueCode::invalid_value,
+            "scenario.crankcase.pressure_pa_abs.value",
+            "axial pressure-force capture requires finite positive crankcase "
+            "absolute pressure");
     const auto block_capacity = scenario.quality.value.capture_block_capacity_frames;
     require(report, block_capacity > 0U, ContractIssueCode::invalid_value,
             "scenario.quality.value.capture_block_capacity_frames",
@@ -211,6 +217,8 @@ CapturedGasSourceExcitationCompileResult compile_captured_gas_source_excitation_
     state->dynamic_reverse_gain = source.pressure_gains.dynamic_reverse.value;
     state->cylinder_count_divisor = source.cylinder_count_divisor.value;
     state->cylinder_ids.resize(cylinder_count);
+    state->piston_crown_areas_m2.resize(cylinder_count);
+    state->crankcase_pressure_pa_abs = scenario.crankcase.pressure_pa_abs.value;
     state->route_layout.reserve(engine.routes.size());
     state->intake_route_ids.reserve(intake_route_count);
     state->intake_capture_route_indices.reserve(intake_route_count);
@@ -246,6 +254,8 @@ CapturedGasSourceExcitationCompileResult compile_captured_gas_source_excitation_
         static_cast<std::size_t>(block_capacity) * route_count, +0.0);
     state->intake_pressure_pa_abs.assign(
         static_cast<std::size_t>(block_capacity) * intake_route_count, +0.0);
+    state->axial_pressure_force_n.assign(
+        static_cast<std::size_t>(block_capacity) * cylinder_count, +0.0);
 
     std::vector<bool> gas_route_seen(route_count, false);
     std::vector<std::uint32_t> route_delay_samples(route_count, 0U);
@@ -315,8 +325,23 @@ CapturedGasSourceExcitationCompileResult compile_captured_gas_source_excitation_
     std::vector<bool> mechanism_seen(cylinder_count, false);
     std::vector<std::uint32_t> delay_samples(cylinder_count, 0U);
     for (std::size_t index = 0; index < cylinder_count; ++index) {
-        const auto cylinder_id = engine.cylinders[index].id;
+        const auto &engine_cylinder = engine.cylinders[index];
+        const auto cylinder_id = engine_cylinder.id;
         state->cylinder_ids[index] = cylinder_id;
+        // EngineSpec bore is the immutable public geometry authority at this seam;
+        // the simulation's compiled piston area is private runtime state.
+        const double bore_squared_m2 =
+            engine_cylinder.bore_m.value * engine_cylinder.bore_m.value;
+        const double piston_crown_area_m2 =
+            (std::numbers::pi_v<double> * bore_squared_m2) / 4.0;
+        state->piston_crown_areas_m2[index] = piston_crown_area_m2;
+        require(report,
+                finite_positive(engine_cylinder.bore_m.value) &&
+                    finite_positive(piston_crown_area_m2),
+                ContractIssueCode::invalid_value,
+                "engine.cylinders[" + std::to_string(index) + "].bore_m.value",
+                "axial pressure-force capture requires a representable piston "
+                "crown area");
         const auto path_index =
             find_index(source.cylinder_paths, cylinder_id,
                        [](const contract::LegacyExcitationCylinderPath &path) {

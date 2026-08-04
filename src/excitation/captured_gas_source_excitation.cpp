@@ -215,6 +215,49 @@ ExhaustExcitationDiagnosticBlockView::route_bus_values_engine_sim_source_unit()
     return route_bus_values_;
 }
 
+CylinderAxialPressureForceDiagnosticBlockView::
+    CylinderAxialPressureForceDiagnosticBlockView(
+        std::uint64_t first_frame_index, contract::RationalRateHz sample_rate,
+        std::span<const contract::CylinderId> cylinder_ids, std::size_t frame_count,
+        std::span<const double> force_n) noexcept
+    : first_frame_index_(first_frame_index), sample_rate_(sample_rate),
+      cylinder_ids_(cylinder_ids), frame_count_(frame_count), force_n_(force_n) {}
+
+std::uint64_t
+CylinderAxialPressureForceDiagnosticBlockView::first_frame_index() const noexcept {
+    return first_frame_index_;
+}
+
+contract::RationalRateHz
+CylinderAxialPressureForceDiagnosticBlockView::sample_rate() const noexcept {
+    return sample_rate_;
+}
+
+std::span<const contract::CylinderId>
+CylinderAxialPressureForceDiagnosticBlockView::cylinder_ids() const noexcept {
+    return cylinder_ids_;
+}
+
+std::size_t
+CylinderAxialPressureForceDiagnosticBlockView::cylinder_count() const noexcept {
+    return cylinder_ids_.size();
+}
+
+std::size_t
+CylinderAxialPressureForceDiagnosticBlockView::frame_count() const noexcept {
+    return frame_count_;
+}
+
+std::span<const double>
+CylinderAxialPressureForceDiagnosticBlockView::force_n() const noexcept {
+    return force_n_;
+}
+
+std::span<const double> CylinderAxialPressureForceDiagnosticBlockView::frame_force_n(
+    std::size_t frame_index) const noexcept {
+    return force_n_.subspan(frame_index * cylinder_count(), cylinder_count());
+}
+
 CapturedGasSourceExcitationSession::CapturedGasSourceExcitationSession(
     std::unique_ptr<detail::CapturedGasSourceExcitationState> state) noexcept
     : state_(std::move(state)) {}
@@ -318,8 +361,41 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
         }
     }
 
-    const auto &parity = *block.reference_parity();
     const std::size_t cylinder_count = state.cylinders.size();
+    const auto thermodynamic_state =
+        contract::capture_validity_mask(contract::CaptureValidity::thermodynamic_state);
+    for (std::size_t frame = 0; frame < state.block_capacity_frames; ++frame) {
+        for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
+            const auto &sample = block.cylinders()[frame * cylinder_count + cylinder];
+            if ((sample.validity & thermodynamic_state) == 0U ||
+                !std::isfinite(sample.pressure_pa_abs) ||
+                sample.pressure_pa_abs <= 0.0) {
+                return fail(
+                    state,
+                    make_failure(
+                        state, contract::FailureKind::contract_violation,
+                        "captured-gas-source-pressure-force-input-invalid",
+                        "axial combustion/compression pressure force requires "
+                        "finite positive thermodynamic cylinder absolute pressure"));
+            }
+            // Scalar axial piston-crown resultant in newtons. Positive follows the
+            // callback-view convention: chamber toward crankcase along the axis.
+            const double force_n =
+                state.piston_crown_areas_m2[cylinder] *
+                (sample.pressure_pa_abs - state.crankcase_pressure_pa_abs);
+            if (!std::isfinite(force_n)) {
+                return fail(
+                    state, make_failure(
+                               state, contract::FailureKind::numerical_failure,
+                               "captured-gas-source-pressure-force-value-nonfinite",
+                               "axial combustion/compression pressure-force arithmetic "
+                               "produced a non-finite value"));
+            }
+            state.axial_pressure_force_n[frame * cylinder_count + cylinder] = force_n;
+        }
+    }
+
+    const auto &parity = *block.reference_parity();
     const std::size_t route_count = state.routes.size();
     // Advance copies first. Thus every input-derived value and every accumulated
     // route term for the complete block is known finite before persistent delay
@@ -444,11 +520,15 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
         state.next_frame_index, state.sample_rate, state.cylinder_ids, state.route_ids,
         state.block_capacity_frames, state.pre_delay, state.post_delay,
         state.route_bus_values);
+    const auto pressure_force =
+        CylinderAxialPressureForceDiagnosticBlockView::borrow_for_callback(
+            state.next_frame_index, state.sample_rate, state.cylinder_ids,
+            state.block_capacity_frames, state.axial_pressure_force_n);
 
     bool accepted = false;
     state.consumer_callback_active = true;
     try {
-        accepted = consumer(output, intake, diagnostics);
+        accepted = consumer(output, intake, diagnostics, pressure_force);
     } catch (const std::exception &exception) {
         state.consumer_callback_active = false;
         if (state.terminal_fault.has_value()) {

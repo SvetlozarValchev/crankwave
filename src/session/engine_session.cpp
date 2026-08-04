@@ -592,8 +592,8 @@ class EngineSession::Implementation final {
                         [&](const presentation::ExhaustExcitationBlockView
                                 &excitation_block,
                             const excitation::IntakePressureBlockView &intake_pressure,
-                            const excitation::ExhaustExcitationDiagnosticBlockView &)
-                            -> bool {
+                            const excitation::ExhaustExcitationDiagnosticBlockView &,
+                            const auto & /*pressure_force*/) -> bool {
                             const auto intake_route_ids = intake_pressure.route_ids();
                             const auto intake_values =
                                 intake_pressure.pressure_pa_abs();

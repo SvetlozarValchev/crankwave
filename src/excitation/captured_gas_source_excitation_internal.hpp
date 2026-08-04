@@ -41,6 +41,8 @@ class CapturedGasSourceExcitationState final {
     contract::RationalRateHz sample_rate;
     std::uint32_t block_capacity_frames = 0;
     std::vector<contract::CylinderId> cylinder_ids;
+    std::vector<double> piston_crown_areas_m2;
+    double crankcase_pressure_pa_abs = 0.0;
     std::vector<contract::RouteIdentity> route_layout;
     std::vector<contract::RouteId> route_ids;
     std::vector<contract::RouteId> intake_route_ids;
@@ -67,6 +69,7 @@ class CapturedGasSourceExcitationState final {
     std::vector<double> collector_bus_values;
     std::vector<double> route_bus_values;
     std::vector<double> intake_pressure_pa_abs;
+    std::vector<double> axial_pressure_force_n;
 
     std::uint64_t next_frame_index = 0;
     std::uint64_t published_block_count = 0;

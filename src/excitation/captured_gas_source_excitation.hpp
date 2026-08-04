@@ -174,6 +174,56 @@ class ExhaustExcitationDiagnosticBlockView final {
 };
 
 /**
+ * Callback-scoped scalar axial combustion/compression pressure force on each piston
+ * crown. Values are newtons, frame-major in `cylinder_ids()` order, on the canonical
+ * 20 kHz post-step capture clock. Positive means chamber pressure exceeds crankcase
+ * pressure and acts from chamber toward crankcase along the cylinder axis. This is
+ * not piston slap, an engine-body wrench, or radiated acoustic pressure.
+ */
+class CylinderAxialPressureForceDiagnosticBlockView final {
+  public:
+    template <class CylinderIdRange, class ForceRange>
+        requires contract::detail::CallbackBorrowRange<CylinderIdRange,
+                                                       contract::CylinderId> &&
+                 contract::detail::CallbackBorrowRange<ForceRange, double>
+    [[nodiscard]] static CylinderAxialPressureForceDiagnosticBlockView
+    borrow_for_callback(std::uint64_t first_frame_index,
+                        contract::RationalRateHz sample_rate,
+                        CylinderIdRange &&cylinder_ids, std::size_t frame_count,
+                        ForceRange &&force_n) noexcept {
+        return {
+            first_frame_index,
+            sample_rate,
+            contract::detail::callback_span<contract::CylinderId>(
+                std::forward<CylinderIdRange>(cylinder_ids)),
+            frame_count,
+            contract::detail::callback_span<double>(std::forward<ForceRange>(force_n)),
+        };
+    }
+
+    [[nodiscard]] std::uint64_t first_frame_index() const noexcept;
+    [[nodiscard]] contract::RationalRateHz sample_rate() const noexcept;
+    [[nodiscard]] std::span<const contract::CylinderId> cylinder_ids() const noexcept;
+    [[nodiscard]] std::size_t cylinder_count() const noexcept;
+    [[nodiscard]] std::size_t frame_count() const noexcept;
+    [[nodiscard]] std::span<const double> force_n() const noexcept;
+    [[nodiscard]] std::span<const double>
+    frame_force_n(std::size_t frame_index) const noexcept;
+
+  private:
+    CylinderAxialPressureForceDiagnosticBlockView(
+        std::uint64_t first_frame_index, contract::RationalRateHz sample_rate,
+        std::span<const contract::CylinderId> cylinder_ids, std::size_t frame_count,
+        std::span<const double> force_n) noexcept;
+
+    std::uint64_t first_frame_index_ = 0;
+    contract::RationalRateHz sample_rate_{};
+    std::span<const contract::CylinderId> cylinder_ids_;
+    std::size_t frame_count_ = 0;
+    std::span<const double> force_n_;
+};
+
+/**
  * Non-owning, synchronous callback for one excitation publication.
  *
  * The target is borrowed only for the duration of process_block(). The representation
@@ -188,44 +238,51 @@ class CapturedGasSourceConsumer final {
         requires(!std::same_as<std::remove_cvref_t<Consumer>,
                                CapturedGasSourceConsumer> &&
                  std::is_object_v<std::remove_reference_t<Consumer>> &&
-                 std::invocable<Consumer &,
-                                const presentation::ExhaustExcitationBlockView &,
-                                const IntakePressureBlockView &,
-                                const ExhaustExcitationDiagnosticBlockView &> &&
+                 std::invocable<
+                     Consumer &, const presentation::ExhaustExcitationBlockView &,
+                     const IntakePressureBlockView &,
+                     const ExhaustExcitationDiagnosticBlockView &,
+                     const CylinderAxialPressureForceDiagnosticBlockView &> &&
                  std::convertible_to<
                      std::invoke_result_t<
                          Consumer &, const presentation::ExhaustExcitationBlockView &,
                          const IntakePressureBlockView &,
-                         const ExhaustExcitationDiagnosticBlockView &>,
+                         const ExhaustExcitationDiagnosticBlockView &,
+                         const CylinderAxialPressureForceDiagnosticBlockView &>,
                      bool>)
     CapturedGasSourceConsumer(Consumer &&consumer) noexcept
         : context_(
               const_cast<void *>(static_cast<const void *>(std::addressof(consumer)))),
-          invoke_([](void *context,
-                     const presentation::ExhaustExcitationBlockView &block,
-                     const IntakePressureBlockView &intake,
-                     const ExhaustExcitationDiagnosticBlockView &diagnostics) -> bool {
-              using Target = std::remove_reference_t<Consumer>;
-              return static_cast<bool>(std::invoke(*static_cast<Target *>(context),
-                                                   block, intake, diagnostics));
-          }) {}
+          invoke_(
+              [](void *context, const presentation::ExhaustExcitationBlockView &block,
+                 const IntakePressureBlockView &intake,
+                 const ExhaustExcitationDiagnosticBlockView &diagnostics,
+                 const CylinderAxialPressureForceDiagnosticBlockView &pressure_force)
+                  -> bool {
+                  using Target = std::remove_reference_t<Consumer>;
+                  return static_cast<bool>(std::invoke(*static_cast<Target *>(context),
+                                                       block, intake, diagnostics,
+                                                       pressure_force));
+              }) {}
 
     [[nodiscard]] explicit constexpr operator bool() const noexcept {
         return context_ != nullptr && invoke_ != nullptr;
     }
 
-    [[nodiscard]] bool
-    operator()(const presentation::ExhaustExcitationBlockView &block,
-               const IntakePressureBlockView &intake,
-               const ExhaustExcitationDiagnosticBlockView &diagnostics) const {
-        return invoke_(context_, block, intake, diagnostics);
+    [[nodiscard]] bool operator()(
+        const presentation::ExhaustExcitationBlockView &block,
+        const IntakePressureBlockView &intake,
+        const ExhaustExcitationDiagnosticBlockView &diagnostics,
+        const CylinderAxialPressureForceDiagnosticBlockView &pressure_force) const {
+        return invoke_(context_, block, intake, diagnostics, pressure_force);
     }
 
   private:
     void *context_ = nullptr;
     bool (*invoke_)(void *, const presentation::ExhaustExcitationBlockView &,
                     const IntakePressureBlockView &,
-                    const ExhaustExcitationDiagnosticBlockView &) = nullptr;
+                    const ExhaustExcitationDiagnosticBlockView &,
+                    const CylinderAxialPressureForceDiagnosticBlockView &) = nullptr;
 };
 
 static_assert(std::is_trivially_copyable_v<CapturedGasSourceConsumer>);

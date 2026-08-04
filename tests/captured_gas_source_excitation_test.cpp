@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <iostream>
 #include <limits>
+#include <numbers>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -171,6 +172,12 @@ class SyntheticCaptureBlock final {
             for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
                 const auto signed_pattern =
                     static_cast<int>((global * 7U + cylinder * 3U) % 31U) - 15;
+                auto &pressure = cylinder_samples_[frame * cylinder_count + cylinder];
+                pressure.validity =
+                    capture_validity_mask(CaptureValidity::thermodynamic_state);
+                pressure.pressure_pa_abs =
+                    kAtmospherePa + 100.0 * static_cast<double>(signed_pattern);
+                pressure.temperature_k = 400.0;
                 auto &sample = parity_cylinders_[frame * cylinder_count + cylinder];
                 sample.exhaust_primary_static_pressure_pa_abs =
                     kAtmospherePa + static_cast<double>(signed_pattern) * 0.25;
@@ -217,6 +224,18 @@ class SyntheticCaptureBlock final {
     [[nodiscard]] const std::vector<ReferenceParityCylinderSample> &
     parity_cylinders() const noexcept {
         return parity_cylinders_;
+    }
+
+    void set_cylinder_pressure(std::size_t frame, std::size_t cylinder,
+                               double pressure_pa_abs) {
+        cylinder_samples_.at(frame * cylinders_.size() + cylinder).pressure_pa_abs =
+            pressure_pa_abs;
+    }
+
+    [[nodiscard]] double cylinder_pressure(std::size_t frame,
+                                           std::size_t cylinder) const {
+        return cylinder_samples_.at(frame * cylinders_.size() + cylinder)
+            .pressure_pa_abs;
     }
 
     void set_intake_pressure(RouteId route_id, std::size_t frame,
@@ -279,12 +298,15 @@ struct PublishedBlockCopy {
     std::vector<RouteId> intake_route_ids;
     std::vector<double> intake_pressure_pa_abs;
     std::uintptr_t intake_storage_address = 0U;
+    std::vector<double> axial_pressure_force_n;
+    std::uintptr_t pressure_force_storage_address = 0U;
 };
 
-[[nodiscard]] PublishedBlockCopy
-copy_callback_views(const presentation::ExhaustExcitationBlockView &output,
-                    const IntakePressureBlockView &intake,
-                    const ExhaustExcitationDiagnosticBlockView &diagnostic) {
+[[nodiscard]] PublishedBlockCopy copy_callback_views(
+    const presentation::ExhaustExcitationBlockView &output,
+    const IntakePressureBlockView &intake,
+    const ExhaustExcitationDiagnosticBlockView &diagnostic,
+    const CylinderAxialPressureForceDiagnosticBlockView &pressure_force) {
     expect(output.first_frame_index() == diagnostic.first_frame_index() &&
                output.sample_rate() == diagnostic.sample_rate() &&
                output.frame_count() == diagnostic.frame_count() &&
@@ -304,6 +326,15 @@ copy_callback_views(const presentation::ExhaustExcitationBlockView &output,
                output.values_engine_sim_source_unit().size() ==
                    diagnostic.route_bus_values_engine_sim_source_unit().size(),
            "diagnostics did not expose the exact published route-value storage");
+    expect(pressure_force.first_frame_index() == output.first_frame_index() &&
+               pressure_force.sample_rate() == output.sample_rate() &&
+               pressure_force.sample_rate() == kCapturedGasSourceRateHz &&
+               pressure_force.frame_count() == output.frame_count() &&
+               std::ranges::equal(pressure_force.cylinder_ids(),
+                                  diagnostic.cylinder_ids()) &&
+               pressure_force.force_n().size() ==
+                   pressure_force.frame_count() * pressure_force.cylinder_count(),
+           "axial pressure-force metadata, order, or frame-major extent diverged");
     expect(diagnostic.cylinder_count() == diagnostic.cylinder_ids().size() &&
                diagnostic.route_count() == diagnostic.route_ids().size() &&
                diagnostic.pre_delay_cylinder_values_engine_sim_source_unit().size() ==
@@ -341,6 +372,11 @@ copy_callback_views(const presentation::ExhaustExcitationBlockView &output,
                 intake.pressure_pa_abs()[frame * intake.route_count() + route],
                 "indexed intake pressure does not match flat frame-major storage");
         }
+        const auto frame_force = pressure_force.frame_force_n(frame);
+        expect(frame_force.size() == pressure_force.cylinder_count() &&
+                   frame_force.data() == pressure_force.force_n().data() +
+                                             frame * pressure_force.cylinder_count(),
+               "indexed axial pressure force does not address flat storage");
     }
     return {
         output.first_frame_index(),
@@ -357,6 +393,8 @@ copy_callback_views(const presentation::ExhaustExcitationBlockView &output,
         {intake.route_ids().begin(), intake.route_ids().end()},
         {intake.pressure_pa_abs().begin(), intake.pressure_pa_abs().end()},
         reinterpret_cast<std::uintptr_t>(intake.pressure_pa_abs().data()),
+        {pressure_force.force_n().begin(), pressure_force.force_n().end()},
+        reinterpret_cast<std::uintptr_t>(pressure_force.force_n().data()),
     };
 }
 
@@ -365,10 +403,12 @@ copy_callback_views(const presentation::ExhaustExcitationBlockView &output,
                                          std::uint64_t expected_block_ordinal) {
     std::optional<PublishedBlockCopy> copy;
     const auto result = session.process_block(
-        input, [&](const presentation::ExhaustExcitationBlockView &output,
-                   const IntakePressureBlockView &intake,
-                   const ExhaustExcitationDiagnosticBlockView &diagnostic) {
-            copy = copy_callback_views(output, intake, diagnostic);
+        input,
+        [&](const presentation::ExhaustExcitationBlockView &output,
+            const IntakePressureBlockView &intake,
+            const ExhaustExcitationDiagnosticBlockView &diagnostic,
+            const CylinderAxialPressureForceDiagnosticBlockView &pressure_force) {
+            copy = copy_callback_views(output, intake, diagnostic, pressure_force);
             return true;
         });
     const auto *published = std::get_if<CapturedGasSourceBlockPublished>(&result);
@@ -514,7 +554,9 @@ void expect_equal_block(const PublishedBlockCopy &actual,
                actual.post_delay.size() == expected.post_delay.size() &&
                actual.route_bus_values.size() == expected.route_bus_values.size() &&
                actual.intake_pressure_pa_abs.size() ==
-                   expected.intake_pressure_pa_abs.size(),
+                   expected.intake_pressure_pa_abs.size() &&
+               actual.axial_pressure_force_n.size() ==
+                   expected.axial_pressure_force_n.size(),
            std::string{message} + ": shape or metadata mismatch");
     for (std::size_t index = 0; index < actual.pre_delay.size(); ++index) {
         expect_same_bits(actual.pre_delay[index], expected.pre_delay[index], message);
@@ -527,6 +569,10 @@ void expect_equal_block(const PublishedBlockCopy &actual,
     for (std::size_t index = 0; index < actual.intake_pressure_pa_abs.size(); ++index) {
         expect_same_bits(actual.intake_pressure_pa_abs[index],
                          expected.intake_pressure_pa_abs[index], message);
+    }
+    for (std::size_t index = 0; index < actual.axial_pressure_force_n.size(); ++index) {
+        expect_same_bits(actual.axial_pressure_force_n[index],
+                         expected.axial_pressure_force_n[index], message);
     }
 }
 
@@ -574,6 +620,8 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
            "excitation callback IDs, ordering, or clock changed");
     expect(actual_0.pre_delay.size() == kFrames * kCylinders &&
                actual_0.post_delay.size() == kFrames * kCylinders &&
+               actual_0.axial_pressure_force_n.size() == kFrames * kCylinders &&
+               actual_1.axial_pressure_force_n.size() == kFrames * kCylinders &&
                actual_0.frame_count == kFrames &&
                actual_0.route_bus_values.size() == kFrames * kRoutes,
            "excitation diagnostics do not cover the complete 400-frame block");
@@ -586,8 +634,11 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
     all_pre.insert(all_pre.end(), expected_pre_1.begin(), expected_pre_1.end());
 
     const std::array<const PublishedBlockCopy *, 2> actual_blocks{&actual_0, &actual_1};
+    const std::array<const SyntheticCaptureBlock *, 2> capture_blocks{&block_0,
+                                                                      &block_1};
     for (std::size_t block = 0; block < actual_blocks.size(); ++block) {
         const auto &actual = *actual_blocks[block];
+        const auto &capture = *capture_blocks[block];
         for (std::size_t frame = 0; frame < kFrames; ++frame) {
             const auto global = block * kFrames + frame;
             std::array<double, kRoutes> expected_buses{};
@@ -602,6 +653,15 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
                     all_pre[(global - kPrimaryDelayFrames) * kCylinders + cylinder];
                 expect_same_bits(actual.post_delay[local], expected_post,
                                  "primary-delay lane or block continuity changed");
+
+                const double bore_m = engine.cylinders[cylinder].bore_m.value;
+                const double piston_crown_area_m2 =
+                    (std::numbers::pi_v<double> * (bore_m * bore_m)) / 4.0;
+                const double expected_force_n =
+                    piston_crown_area_m2 * (capture.cylinder_pressure(frame, cylinder) -
+                                            scenario.crankcase.pressure_pa_abs.value);
+                expect_same_bits(actual.axial_pressure_force_n[local], expected_force_n,
+                                 "axial piston-crown pressure force changed");
 
                 const bool even_cylinder_id = ((cylinder + 1U) % 2U) == 0U;
                 const std::size_t route = even_cylinder_id ? 0U : 1U;
@@ -626,6 +686,11 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
             }
         }
     }
+
+    expect(actual_0.pressure_force_storage_address != 0U &&
+               actual_0.pressure_force_storage_address ==
+                   actual_1.pressure_force_storage_address,
+           "axial pressure-force scratch was not preallocated and reused");
 
     expect(session.next_frame_index() == 2U * kFrames &&
                session.published_block_count() == 2U && !session.faulted(),
@@ -690,6 +755,41 @@ void test_intake_pressure_is_exact_without_changing_exhaust(
                    intake_output_1.intake_storage_address,
            "intake pressure callback scratch was not preallocated and reused");
 
+    constexpr std::size_t mutated_frame = kFrames - 1U;
+    constexpr std::size_t mutated_cylinder = 2U;
+    intake_0.set_cylinder_pressure(
+        mutated_frame, mutated_cylinder,
+        intake_0.cylinder_pressure(mutated_frame, mutated_cylinder) + 12345.0);
+    auto pressure_session =
+        require_session(compile_fixture_session(intake_fixture.engine, scenario));
+    const auto pressure_output = publish(pressure_session, intake_0.view(), 0U);
+    expect_equal_exhaust(pressure_output, intake_output_0,
+                         "cylinder-pressure-only mutation changed exhaust");
+    expect(pressure_output.intake_route_ids == intake_output_0.intake_route_ids &&
+               pressure_output.intake_pressure_pa_abs.size() ==
+                   intake_output_0.intake_pressure_pa_abs.size(),
+           "cylinder-pressure-only mutation changed intake shape");
+    for (std::size_t index = 0; index < pressure_output.intake_pressure_pa_abs.size();
+         ++index) {
+        expect_same_bits(pressure_output.intake_pressure_pa_abs[index],
+                         intake_output_0.intake_pressure_pa_abs[index],
+                         "cylinder-pressure-only mutation changed intake values");
+    }
+    std::size_t changed_force_count = 0U;
+    for (std::size_t index = 0; index < pressure_output.axial_pressure_force_n.size();
+         ++index) {
+        changed_force_count += bits(pressure_output.axial_pressure_force_n[index]) !=
+                               bits(intake_output_0.axial_pressure_force_n[index]);
+    }
+    expect(
+        changed_force_count == 1U &&
+            bits(pressure_output.axial_pressure_force_n[mutated_frame * kCylinders +
+                                                        mutated_cylinder]) !=
+                bits(intake_output_0.axial_pressure_force_n[mutated_frame * kCylinders +
+                                                            mutated_cylinder]),
+        "cylinder-pressure-only mutation did not remain isolated to one force "
+        "lane");
+
     SyntheticCaptureBlock malformed{intake_fixture.engine, 0U};
     malformed.fill_distinct_excitation();
     malformed.set_intake_pressure(intake_route_id, kFrames - 1U,
@@ -700,7 +800,8 @@ void test_intake_pressure_is_exact_without_changing_exhaust(
     const auto rejected = malformed_session.process_block(
         malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
                               const IntakePressureBlockView &,
-                              const ExhaustExcitationDiagnosticBlockView &) {
+                              const ExhaustExcitationDiagnosticBlockView &,
+                              const CylinderAxialPressureForceDiagnosticBlockView &) {
             ++callbacks;
             return true;
         });
@@ -914,15 +1015,18 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance(
     const EngineSpec &engine, const RenderScenario &scenario) {
     SyntheticCaptureBlock malformed{engine, 0U};
     malformed.fill_distinct_excitation();
-    malformed.parity_cylinders().back().dynamic_pressure_reverse_pa =
-        std::numeric_limits<double>::quiet_NaN();
+    const double valid_final_pressure =
+        malformed.cylinder_pressure(kFrames - 1U, kCylinders - 1U);
+    malformed.set_cylinder_pressure(kFrames - 1U, kCylinders - 1U,
+                                    std::numeric_limits<double>::quiet_NaN());
 
     auto session = require_session(compile_fixture_session(engine, scenario));
     std::size_t callbacks = 0U;
     const auto first = session.process_block(
         malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
                               const IntakePressureBlockView &,
-                              const ExhaustExcitationDiagnosticBlockView &) {
+                              const ExhaustExcitationDiagnosticBlockView &,
+                              const CylinderAxialPressureForceDiagnosticBlockView &) {
             ++callbacks;
             return true;
         });
@@ -933,11 +1037,13 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance(
                session.published_block_count() == 0U,
            "prevalidation failure entered callback, advanced delay, or published");
 
-    malformed.parity_cylinders().back().dynamic_pressure_reverse_pa = 1.0;
+    malformed.set_cylinder_pressure(kFrames - 1U, kCylinders - 1U,
+                                    valid_final_pressure);
     const auto repeated = session.process_block(
         malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
                               const IntakePressureBlockView &,
-                              const ExhaustExcitationDiagnosticBlockView &) {
+                              const ExhaustExcitationDiagnosticBlockView &,
+                              const CylinderAxialPressureForceDiagnosticBlockView &) {
             ++callbacks;
             return true;
         });
@@ -961,7 +1067,8 @@ void test_consumer_rejection_and_exception_are_terminal(
         const auto rejected = session.process_block(
             block.view(), [&](const presentation::ExhaustExcitationBlockView &,
                               const IntakePressureBlockView &,
-                              const ExhaustExcitationDiagnosticBlockView &) {
+                              const ExhaustExcitationDiagnosticBlockView &,
+                              const CylinderAxialPressureForceDiagnosticBlockView &) {
                 ++callbacks;
                 return false;
             });
@@ -971,7 +1078,8 @@ void test_consumer_rejection_and_exception_are_terminal(
         const auto repeated = session.process_block(
             block.view(), [&](const presentation::ExhaustExcitationBlockView &,
                               const IntakePressureBlockView &,
-                              const ExhaustExcitationDiagnosticBlockView &) {
+                              const ExhaustExcitationDiagnosticBlockView &,
+                              const CylinderAxialPressureForceDiagnosticBlockView &) {
                 ++callbacks;
                 return true;
             });
@@ -990,7 +1098,8 @@ void test_consumer_rejection_and_exception_are_terminal(
             block.view(),
             [&](const presentation::ExhaustExcitationBlockView &,
                 const IntakePressureBlockView &,
-                const ExhaustExcitationDiagnosticBlockView &) -> bool {
+                const ExhaustExcitationDiagnosticBlockView &,
+                const CylinderAxialPressureForceDiagnosticBlockView &) -> bool {
                 ++callbacks;
                 throw std::runtime_error{"intentional excitation consumer failure"};
             });
@@ -1000,7 +1109,8 @@ void test_consumer_rejection_and_exception_are_terminal(
         const auto repeated = session.process_block(
             block.view(), [&](const presentation::ExhaustExcitationBlockView &,
                               const IntakePressureBlockView &,
-                              const ExhaustExcitationDiagnosticBlockView &) {
+                              const ExhaustExcitationDiagnosticBlockView &,
+                              const CylinderAxialPressureForceDiagnosticBlockView &) {
                 ++callbacks;
                 return true;
             });
@@ -1030,23 +1140,29 @@ void test_reentrant_callback_preserves_outer_views_and_faults(
     std::optional<FailureContext> nested_fault;
     std::exception_ptr callback_error;
     const auto outer = session.process_block(
-        block.view(), [&](const presentation::ExhaustExcitationBlockView &output,
-                          const IntakePressureBlockView &intake,
-                          const ExhaustExcitationDiagnosticBlockView &diagnostic) {
+        block.view(),
+        [&](const presentation::ExhaustExcitationBlockView &output,
+            const IntakePressureBlockView &intake,
+            const ExhaustExcitationDiagnosticBlockView &diagnostic,
+            const CylinderAxialPressureForceDiagnosticBlockView &pressure_force) {
             try {
                 ++outer_callbacks;
-                const auto before = copy_callback_views(output, intake, diagnostic);
+                const auto before =
+                    copy_callback_views(output, intake, diagnostic, pressure_force);
                 const auto nested = session.process_block(
-                    block.view(), [&](const presentation::ExhaustExcitationBlockView &,
-                                      const IntakePressureBlockView &,
-                                      const ExhaustExcitationDiagnosticBlockView &) {
+                    block.view(),
+                    [&](const presentation::ExhaustExcitationBlockView &,
+                        const IntakePressureBlockView &,
+                        const ExhaustExcitationDiagnosticBlockView &,
+                        const CylinderAxialPressureForceDiagnosticBlockView &) {
                         ++nested_callbacks;
                         return true;
                     });
                 nested_fault =
                     require_fault(nested, "captured-gas-source-consumer-reentrant",
                                   "nested excitation publication was not rejected");
-                const auto after = copy_callback_views(output, intake, diagnostic);
+                const auto after =
+                    copy_callback_views(output, intake, diagnostic, pressure_force);
                 expect_equal_block(after, before,
                                    "nested call mutated the borrowed outer views");
                 return true;
