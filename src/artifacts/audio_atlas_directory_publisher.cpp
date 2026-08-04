@@ -17,6 +17,7 @@
 #include <unordered_set>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #if defined(__linux__)
 #include <fcntl.h>
@@ -98,15 +99,17 @@ using Result = AudioAtlasDirectoryPublicationResult;
 
 class StagingCleanup final {
   public:
-    StagingCleanup(const int parent_fd, std::string name)
-        : parent_fd_(parent_fd), name_(std::move(name)) {}
+    StagingCleanup(const int parent_fd, const std::uintmax_t device,
+                   const std::uintmax_t inode)
+        : parent_fd_(parent_fd), device_(device), inode_(inode) {}
 
     StagingCleanup(const StagingCleanup &) = delete;
     StagingCleanup &operator=(const StagingCleanup &) = delete;
 
     ~StagingCleanup() {
         if (active_) {
-            static_cast<void>(detail::remove_tree_entry_at(parent_fd_, name_.c_str()));
+            static_cast<void>(detail::remove_tree_entry_by_identity(
+                parent_fd_, device_, inode_));
         }
     }
 
@@ -116,9 +119,73 @@ class StagingCleanup final {
 
   private:
     int parent_fd_ = -1;
-    std::string name_;
+    std::uintmax_t device_ = 0U;
+    std::uintmax_t inode_ = 0U;
     bool active_ = true;
 };
+
+[[nodiscard]] Result verify_staging_tree(
+    const int parent_fd, const int stage_fd, const std::string &staging_name,
+    const std::uintmax_t stage_device, const std::uintmax_t stage_inode,
+    const AssembledAudioAtlas &atlas) {
+    std::unordered_set<std::string> expected_files{"atlas.json"};
+    std::unordered_set<std::string> expected_directories;
+    const auto expect_path = [&](const std::string_view path) {
+        expected_files.emplace(path);
+        std::size_t separator = path.find('/');
+        while (separator != std::string_view::npos) {
+            expected_directories.emplace(path.substr(0U, separator));
+            separator = path.find('/', separator + 1U);
+        }
+    };
+    for (const auto &artifact : atlas.manifest.artifacts) {
+        expect_path(artifact.relative_path);
+    }
+
+    const auto expected_count = expected_files.size() + expected_directories.size();
+    auto inventory = detail::inventory_directory_tree(stage_fd, expected_count);
+    if (const auto *error = std::get_if<RenderSinkError>(&inventory)) {
+        return map_stage_error(*error, ErrorCode::publication_failure);
+    }
+    auto entries =
+        std::get<std::vector<detail::DirectoryTreeEntry>>(std::move(inventory));
+    if (entries.size() != expected_count) {
+        return fail(ErrorCode::publication_failure,
+                    "audio-atlas-publication-staging-inventory-mismatch",
+                    "staging tree does not contain exactly the atlas manifest and "
+                    "declared payloads");
+    }
+    for (const auto &entry : entries) {
+        auto &expected = entry.directory ? expected_directories : expected_files;
+        if (expected.erase(entry.relative_path) != 1U) {
+            return fail(ErrorCode::publication_failure,
+                        "audio-atlas-publication-staging-inventory-mismatch",
+                        "staging tree contains an undeclared or incorrectly typed "
+                        "entry");
+        }
+    }
+    if (!expected_files.empty() || !expected_directories.empty()) {
+        return fail(ErrorCode::publication_failure,
+                    "audio-atlas-publication-staging-inventory-mismatch",
+                    "staging tree is missing a declared atlas file or directory");
+    }
+
+    struct stat held {};
+    struct stat named {};
+    if (::fstat(stage_fd, &held) == -1 ||
+        ::fstatat(parent_fd, staging_name.c_str(), &named, AT_SYMLINK_NOFOLLOW) ==
+            -1 ||
+        !S_ISDIR(held.st_mode) || !S_ISDIR(named.st_mode) ||
+        static_cast<std::uintmax_t>(held.st_dev) != stage_device ||
+        static_cast<std::uintmax_t>(held.st_ino) != stage_inode ||
+        held.st_dev != named.st_dev || held.st_ino != named.st_ino) {
+        return fail(ErrorCode::publication_failure,
+                    "audio-atlas-publication-staging-identity-mismatch",
+                    "the named staging directory was replaced or moved before "
+                    "publication");
+    }
+    return AudioAtlasDirectoryPublication{};
+}
 
 [[nodiscard]] Result write_staged_file(const int stage_fd,
                                        const std::string_view relative_path,
@@ -176,15 +243,24 @@ class StagingCleanup final {
                     "could not allocate a unique atlas staging directory");
     }
 
-    StagingCleanup cleanup(parent_fd.get(), staging_name);
     detail::FileDescriptor stage_fd(
         ::openat(parent_fd.get(), staging_name.c_str(),
                  O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-    if (!stage_fd.valid()) {
+    struct stat stage_status {};
+    if (!stage_fd.valid() || ::fstat(stage_fd.get(), &stage_status) == -1 ||
+        !S_ISDIR(stage_status.st_mode)) {
+        const auto error_number = errno;
+        static_cast<void>(
+            ::unlinkat(parent_fd.get(), staging_name.c_str(), AT_REMOVEDIR));
         return fail(
             ErrorCode::staging_failure, "audio-atlas-publication-staging-open-failed",
-            detail::errno_message("could not open the atlas staging directory", errno));
+            detail::errno_message("could not open the atlas staging directory",
+                                  error_number));
     }
+    const auto stage_device =
+        static_cast<std::uintmax_t>(stage_status.st_dev);
+    const auto stage_inode = static_cast<std::uintmax_t>(stage_status.st_ino);
+    StagingCleanup cleanup(parent_fd.get(), stage_device, stage_inode);
 
     if (auto result = write_staged_file(stage_fd.get(), "atlas.json", encoded_manifest);
         std::holds_alternative<AudioAtlasDirectoryPublicationError>(result)) {
@@ -205,6 +281,12 @@ class StagingCleanup final {
             "audio-atlas-publication-tree-sync-failed",
             detail::errno_message(
                 "could not synchronize the staged atlas directory tree", errno));
+    }
+    if (auto verified = verify_staging_tree(
+            parent_fd.get(), stage_fd.get(), staging_name, stage_device,
+            stage_inode, atlas);
+        std::holds_alternative<AudioAtlasDirectoryPublicationError>(verified)) {
+        return verified;
     }
 
     if (detail::rename_noreplace(parent_fd.get(), staging_name.c_str(),
