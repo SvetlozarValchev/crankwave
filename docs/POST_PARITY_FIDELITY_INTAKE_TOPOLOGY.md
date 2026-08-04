@@ -34,8 +34,8 @@ reduction. That prevented a topology declaration from masquerading as audible in
 fidelity and prevented an inserted zero operation from changing the accepted Float32
 exhaust sum.
 
-The sole portable boundary is now C ABI v6. There are no v5 aliases or compatibility
-decoders.
+The sole portable boundary is now C ABI v7. There are no earlier-version aliases or
+compatibility decoders.
 
 ## Exact-output evidence
 

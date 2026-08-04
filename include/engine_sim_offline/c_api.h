@@ -15,7 +15,7 @@ extern "C" {
  * This is the only engine-sim-offline C ABI. It is a greenfield, exact-version
  * contract rather than a compatibility family.
  */
-#define ESO_C_API_VERSION UINT32_C(6)
+#define ESO_C_API_VERSION UINT32_C(7)
 #define ESO_INVALID_HANDLE UINT64_C(0)
 
 typedef struct eso_context eso_context_t;
@@ -194,6 +194,7 @@ typedef struct eso_abi_layout {
     uint32_t forward_gear_descriptor_size_bytes;
     uint32_t audio_bus_descriptor_size_bytes;
     uint32_t session_telemetry_size_bytes;
+    uint32_t completed_cycle_evidence_size_bytes;
 } eso_abi_layout_t;
 
 typedef uint32_t eso_live_control_capability_mask_t;
@@ -233,6 +234,7 @@ typedef struct eso_session_descriptor {
     uint32_t maximum_delivery_frames_per_process_call;
     uint32_t control_command_queue_capacity;
     uint32_t maximum_telemetry_frames_per_process_call;
+    uint32_t maximum_cycle_evidence_per_process_call;
     uint64_t physics_rate_numerator_hz;
     uint64_t physics_rate_denominator;
     uint64_t delivery_rate_numerator_hz;
@@ -472,6 +474,63 @@ typedef struct eso_session_telemetry {
     eso_free_vehicle_telemetry_t free_vehicle;
 } eso_session_telemetry_t;
 
+typedef uint32_t eso_engine_cycle_state_flag_mask_t;
+enum {
+    ESO_ENGINE_CYCLE_STATE_IGNITION_ENABLED = UINT32_C(1) << 0U,
+    ESO_ENGINE_CYCLE_STATE_FUEL_ENABLED = UINT32_C(1) << 1U,
+    ESO_ENGINE_CYCLE_STATE_STARTER_ENABLED = UINT32_C(1) << 2U,
+    ESO_ENGINE_CYCLE_STATE_DYNO_ENABLED = UINT32_C(1) << 3U,
+    ESO_ENGINE_CYCLE_STATE_LIMITER_ENABLED = UINT32_C(1) << 4U,
+    ESO_ENGINE_CYCLE_STATE_LIMITER_CUT_ACTIVE = UINT32_C(1) << 5U
+};
+
+typedef struct eso_cycle_boundary_evidence {
+    int64_t cycle_ordinal;
+    uint64_t left_physics_frame;
+    uint64_t right_physics_frame;
+    double fraction_from_left_01;
+    double theta_unwrapped_rad;
+    double time_s;
+    double delivery_frame;
+} eso_cycle_boundary_evidence_t;
+
+typedef struct eso_cycle_control_evidence {
+    double time_weighted_mean_01;
+    double minimum_01;
+    double maximum_01;
+    uint32_t change_count;
+} eso_cycle_control_evidence_t;
+
+typedef struct eso_cycle_net_shaft_evidence {
+    double angular_work_j;
+    double cycle_mean_torque_nm;
+    eso_availability_t availability;
+    eso_completeness_t completeness;
+    eso_quantity_unavailable_reason_t unavailable_reason;
+    uint64_t included_terms;
+    uint64_t omitted_terms;
+} eso_cycle_net_shaft_evidence_t;
+
+/*
+ * Exact completed 720-degree cycle evidence. Boundary delivery_frame values are
+ * fractional by design; the integer ordinals and physics-frame brackets remain
+ * exact 64-bit values across native and WASM callers.
+ */
+typedef struct eso_completed_cycle_evidence {
+    uint64_t completed_cycle_ordinal;
+    eso_cycle_boundary_evidence_t start_boundary;
+    eso_cycle_boundary_evidence_t end_boundary;
+    double duration_s;
+    double mean_engine_speed_rpm;
+    eso_cycle_control_evidence_t requested_throttle;
+    eso_cycle_control_evidence_t resolved_engine_throttle;
+    eso_cycle_control_evidence_t intake_plate_position;
+    eso_cycle_net_shaft_evidence_t instantaneous_net_shaft;
+    eso_engine_cycle_state_flag_mask_t start_state_flags;
+    eso_engine_cycle_state_flag_mask_t end_state_flags;
+    eso_engine_cycle_state_flag_mask_t state_transition_flags;
+} eso_completed_cycle_evidence_t;
+
 typedef struct eso_audio_copy_buffer {
     uint32_t bus_index;
     float *samples;
@@ -494,6 +553,7 @@ typedef struct eso_process_info {
     uint64_t first_delivery_frame;
     uint32_t delivery_frame_count;
     size_t telemetry_written;
+    size_t cycle_evidence_written;
     uint64_t completed_physics_frame_count;
     uint64_t completed_delivery_frame_count;
     uint64_t completed_block_count;
@@ -586,14 +646,16 @@ eso_session_enqueue_controls(eso_context_t *context, eso_session_handle_t sessio
 /*
  * Every supplied audio buffer names one bus to copy. Omitted buses are discarded.
  * All capacities are checked before process_block advances the session. Passing
- * {NULL, 0} for telemetry discards telemetry; otherwise capacity must hold the
- * complete returned telemetry block.
+ * {NULL, 0} for telemetry or cycle evidence discards that output; otherwise the
+ * corresponding capacity must hold one complete returned block.
  */
 eso_status_t eso_session_process(eso_context_t *context, eso_session_handle_t session,
                                  eso_audio_copy_buffer_t *audio_buffers,
                                  size_t audio_buffer_count,
                                  eso_session_telemetry_t *telemetry,
                                  size_t telemetry_capacity,
+                                 eso_completed_cycle_evidence_t *cycle_evidence,
+                                 size_t cycle_evidence_capacity,
                                  eso_process_info_t *out_process) ESO_C_API_NOEXCEPT;
 
 #if defined(__cplusplus)

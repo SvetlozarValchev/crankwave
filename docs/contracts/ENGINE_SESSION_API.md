@@ -594,7 +594,7 @@ superseded after the 2026-08-04 A/B/C listening gate documented in
 [`POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](../POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
 Mechanical route kinds remain reserved and unadmitted until a real signal
 implementation has its own acceptance evidence.
-The sole portable boundary is C ABI v6; there are no earlier-version aliases or
+The sole portable boundary is C ABI v7; there are no earlier-version aliases or
 compatibility decoders. Caller-selected bus subsets and caller-owned output buffers are
 also not part of the implemented C++ surface.
 
@@ -700,7 +700,7 @@ strict engine JSON + caller asset bytes -> compiled engine handle
 compiled engine + strict scenario JSON -> compiled scenario handle
 compiled scenario + required execution kind -> mutable session handle
 timestamped typed controls -> bounded session queue
-session process -> caller-owned PCM buses + POD telemetry
+session process -> caller-owned PCM buses + POD telemetry + completed-cycle evidence
 ```
 
 The creation call is:
@@ -713,13 +713,14 @@ There is no form that omits `execution_kind`.
 
 The implemented ABI:
 
-- the sole accepted exact version is `ESO_C_API_VERSION == 6`, with no older-layout
+- the sole accepted exact version is `ESO_C_API_VERSION == 7`, with no older-layout
   decoder or compatibility symbol family;
 - no C++ exception crosses the boundary;
 - every call returns an explicit status;
 - parse/compile diagnostics and related locations are copied into caller-owned buffers;
 - JSON appears only at compile time;
-- audio, controls, and telemetry use fixed-layout structs and bounded views;
+- audio, controls, telemetry, and completed-cycle evidence use fixed-layout structs
+  and bounded views;
 - ABI sizes, endianness, enum values, and the exact version are queryable;
 - handles carry context, kind, slot, and non-wrapping generation checks so stale and
   wrong-kind handles fail;
@@ -736,8 +737,13 @@ The implemented ABI:
   `id_value`, while the other payload fields must retain their canonical zero values;
 - `eso_session_telemetry_t` wraps engine telemetry with HeldDyno and FreeVehicle
   presence flags and sidecars; every absent sidecar is bytewise all-zero;
-- requested PCM and telemetry buffers are completely preflighted before the session
-  advances;
+- `eso_completed_cycle_evidence_t` mirrors each exact committed 720-degree cycle,
+  retaining signed lattice ordinals, unsigned physics-frame brackets, fractional
+  boundary delivery frames, integrated controls, net-shaft evidence, and state flags;
+- the descriptor publishes the maximum completed-cycle records per process call, and
+  `eso_process_info_t::cycle_evidence_written` publishes the exact returned prefix;
+- requested PCM, telemetry, and cycle-evidence buffers are completely preflighted
+  before the session advances;
 - successful control conversion and block processing use session-owned bounded scratch;
 - WASM linear-memory growth is disabled;
 - the core owns no DOM, Web Audio, filesystem, URL, fetch, or JavaScript object.
@@ -755,10 +761,10 @@ test, and drives an 18-block controlled BMW fixture through the C ABI on both ta
 The fixture has exact semantic transcript SHA-256
 `cfa562577ff0d42da60f30b6b010626cb85ceccc48d0863342b600d241b17286`.
 Its native and WASM bundle hashes are respectively
-`68fa71c94942a4ed0efcdb03ba44183c9f903542bfc62f03f40a5854b7331ede` and
-`005e63eb509e79ca686634f0bc198e9ad2c3f0a5311e211234d8072232d29952`.
+`335068943e036f47ec5ea297f3e7207e9d22944d8eb38a74b37713b826aa312d` and
+`3422d5a84ebfe3feb1d1631c74a5c1117e805f6c304f8c0955046af805e684e4`.
 Across 7,680 audition samples, observed maximum absolute Float32 PCM error is
-`7.450580596923828e-9` and RMS error is `7.063297896598868e-10`; the checked ceilings
+`7.450580596923828e-9` and RMS error is `6.981065970216309e-10`; the checked ceilings
 and each target's exact telemetry/PCM hashes live in
 [`parity_expectations.json`](../../tests/wasm/parity_expectations.json).
 

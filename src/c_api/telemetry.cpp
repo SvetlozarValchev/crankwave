@@ -127,6 +127,39 @@ free_vehicle_telemetry(const EngineFreeVehicleTelemetry &value) noexcept {
     };
 }
 
+[[nodiscard]] eso_cycle_boundary_evidence_t
+cycle_boundary_evidence(const EngineCycleBoundaryEvidence &value) noexcept {
+    return {
+        value.cycle_ordinal,       value.left_physics_frame,
+        value.right_physics_frame, value.fraction_from_left_01,
+        value.theta_unwrapped_rad, value.time_s,
+        value.delivery_frame,
+    };
+}
+
+[[nodiscard]] eso_cycle_control_evidence_t
+cycle_control_evidence(const EngineCycleControlEvidence &value) noexcept {
+    return {
+        value.time_weighted_mean_01,
+        value.minimum_01,
+        value.maximum_01,
+        value.change_count,
+    };
+}
+
+[[nodiscard]] eso_cycle_net_shaft_evidence_t
+cycle_net_shaft_evidence(const EngineCycleNetShaftEvidence &value) noexcept {
+    return {
+        value.angular_work_j,
+        value.cycle_mean_torque_nm,
+        availability(value.availability),
+        completeness(value.completeness),
+        unavailable_reason(value.unavailable_reason),
+        value.included_terms,
+        value.omitted_terms,
+    };
+}
+
 } // namespace
 
 eso_quantity_value_t quantity_value(const contract::QuantityValue &value) noexcept {
@@ -188,6 +221,24 @@ eso_session_telemetry_t session_telemetry(const EngineTelemetryFrame &frame) noe
         result.free_vehicle = free_vehicle_telemetry(*frame.free_vehicle);
     }
     return result;
+}
+
+eso_completed_cycle_evidence_t
+completed_cycle_evidence(const EngineCompletedCycleEvidence &cycle) noexcept {
+    return {
+        cycle.completed_cycle_ordinal,
+        cycle_boundary_evidence(cycle.start_boundary),
+        cycle_boundary_evidence(cycle.end_boundary),
+        cycle.duration_s,
+        cycle.mean_engine_speed_rpm,
+        cycle_control_evidence(cycle.requested_throttle),
+        cycle_control_evidence(cycle.resolved_engine_throttle),
+        cycle_control_evidence(cycle.intake_plate_position),
+        cycle_net_shaft_evidence(cycle.instantaneous_net_shaft),
+        cycle.start_state_flags,
+        cycle.end_state_flags,
+        cycle.state_transition_flags,
+    };
 }
 
 } // namespace engine_sim_offline::c_api

@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-_Static_assert(ESO_C_API_VERSION == 6, "unexpected C ABI version");
+_Static_assert(ESO_C_API_VERSION == 7, "unexpected C ABI version");
 _Static_assert(sizeof(eso_engine_handle_t) == sizeof(uint64_t),
                "engine handle width changed");
 _Static_assert(sizeof(eso_scenario_handle_t) == sizeof(uint64_t),
@@ -77,6 +77,9 @@ _Static_assert(offsetof(eso_control_command_t, delivery_frame) == 0U &&
 _Static_assert(sizeof(((eso_session_descriptor_t *)0)->live_control_capabilities) ==
                    sizeof(uint32_t),
                "live-control capability mask width changed");
+_Static_assert(offsetof(eso_session_descriptor_t,
+                        maximum_cycle_evidence_per_process_call) == 12U,
+               "session cycle-evidence capacity layout changed");
 _Static_assert(offsetof(eso_session_descriptor_t, execution_kind) <
                        offsetof(eso_session_descriptor_t, motion_mode) &&
                    offsetof(eso_session_descriptor_t, motion_mode) <
@@ -97,10 +100,47 @@ _Static_assert(offsetof(eso_session_telemetry_t, physics_step_end) == 0U &&
                    offsetof(eso_session_telemetry_t, has_free_vehicle) <
                        offsetof(eso_session_telemetry_t, free_vehicle),
                "session-telemetry ABI layout changed");
+_Static_assert(ESO_ENGINE_CYCLE_STATE_IGNITION_ENABLED == (UINT32_C(1) << 0U) &&
+                   ESO_ENGINE_CYCLE_STATE_FUEL_ENABLED == (UINT32_C(1) << 1U) &&
+                   ESO_ENGINE_CYCLE_STATE_STARTER_ENABLED == (UINT32_C(1) << 2U) &&
+                   ESO_ENGINE_CYCLE_STATE_DYNO_ENABLED == (UINT32_C(1) << 3U) &&
+                   ESO_ENGINE_CYCLE_STATE_LIMITER_ENABLED == (UINT32_C(1) << 4U) &&
+                   ESO_ENGINE_CYCLE_STATE_LIMITER_CUT_ACTIVE == (UINT32_C(1) << 5U),
+               "cycle-state flag bits changed");
+_Static_assert(offsetof(eso_cycle_boundary_evidence_t, cycle_ordinal) == 0U &&
+                   offsetof(eso_cycle_boundary_evidence_t, left_physics_frame) == 8U &&
+                   offsetof(eso_cycle_boundary_evidence_t, right_physics_frame) ==
+                       16U &&
+                   offsetof(eso_cycle_boundary_evidence_t, fraction_from_left_01) ==
+                       24U &&
+                   offsetof(eso_cycle_boundary_evidence_t, delivery_frame) == 48U &&
+                   sizeof(eso_cycle_boundary_evidence_t) == 56U,
+               "cycle-boundary evidence ABI layout changed");
+_Static_assert(offsetof(eso_cycle_control_evidence_t, change_count) == 24U &&
+                   sizeof(eso_cycle_control_evidence_t) == 32U,
+               "cycle-control evidence ABI layout changed");
+_Static_assert(offsetof(eso_cycle_net_shaft_evidence_t, included_terms) == 32U &&
+                   offsetof(eso_cycle_net_shaft_evidence_t, omitted_terms) == 40U &&
+                   sizeof(eso_cycle_net_shaft_evidence_t) == 48U,
+               "cycle-net-shaft evidence ABI layout changed");
+_Static_assert(
+    offsetof(eso_completed_cycle_evidence_t, start_boundary) == 8U &&
+        offsetof(eso_completed_cycle_evidence_t, end_boundary) == 64U &&
+        offsetof(eso_completed_cycle_evidence_t, duration_s) == 120U &&
+        offsetof(eso_completed_cycle_evidence_t, requested_throttle) == 136U &&
+        offsetof(eso_completed_cycle_evidence_t, instantaneous_net_shaft) == 232U &&
+        offsetof(eso_completed_cycle_evidence_t, start_state_flags) == 280U &&
+        sizeof(eso_completed_cycle_evidence_t) == 296U,
+    "completed-cycle evidence ABI layout changed");
+_Static_assert(offsetof(eso_process_info_t, telemetry_written) <
+                       offsetof(eso_process_info_t, cycle_evidence_written) &&
+                   offsetof(eso_process_info_t, cycle_evidence_written) <
+                       offsetof(eso_process_info_t, completed_physics_frame_count),
+               "process cycle-evidence extent layout changed");
 
 int main(void) {
     eso_context_t *context = (eso_context_t *)(uintptr_t)1;
-    if (eso_context_create(ESO_C_API_VERSION + 1U, &context) !=
+    if (eso_context_create(ESO_C_API_VERSION - 1U, &context) !=
             ESO_STATUS_ABI_VERSION_MISMATCH ||
         context != NULL) {
         return 1;
@@ -122,7 +162,9 @@ int main(void) {
         layout.forward_gear_descriptor_size_bytes !=
             sizeof(eso_forward_gear_descriptor_t) ||
         layout.audio_bus_descriptor_size_bytes != sizeof(eso_audio_bus_descriptor_t) ||
-        layout.session_telemetry_size_bytes != sizeof(eso_session_telemetry_t)) {
+        layout.session_telemetry_size_bytes != sizeof(eso_session_telemetry_t) ||
+        layout.completed_cycle_evidence_size_bytes !=
+            sizeof(eso_completed_cycle_evidence_t)) {
         return 3;
     }
 

@@ -433,7 +433,9 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     eso_abi_layout_t abi{};
     if (eso_api_version() != ESO_C_API_VERSION ||
         eso_get_abi_layout(&abi) != ESO_STATUS_OK ||
-        abi.api_version != ESO_C_API_VERSION || abi.little_endian != 1U) {
+        abi.api_version != ESO_C_API_VERSION || abi.little_endian != 1U ||
+        abi.completed_cycle_evidence_size_bytes !=
+            sizeof(eso_completed_cycle_evidence_t)) {
         return DriverStatus::context;
     }
 
@@ -480,6 +482,7 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
     if (eso_session_get_descriptor(owner.get(), handles.session, &descriptor) !=
             ESO_STATUS_OK ||
         descriptor.maximum_telemetry_frames_per_process_call == 0U ||
+        descriptor.maximum_cycle_evidence_per_process_call == 0U ||
         descriptor.maximum_delivery_frames_per_process_call == 0U ||
         descriptor.audio_bus_count == 0U ||
         descriptor.execution_kind != ESO_SESSION_EXECUTION_FINITE_SCENARIO) {
@@ -688,9 +691,9 @@ void append_binary_bytes(std::vector<std::uint8_t> &output, const void *data,
         eso_audio_copy_buffer_t audio{audition_bus_index, block_audio.data(),
                                       block_audio.size(), 0U};
         eso_process_info_t process{};
-        const auto status =
-            eso_session_process(owner.get(), handles.session, &audio, 1U,
-                                telemetry.data(), telemetry.size(), &process);
+        const auto status = eso_session_process(owner.get(), handles.session, &audio,
+                                                1U, telemetry.data(), telemetry.size(),
+                                                nullptr, 0U, &process);
         if (status != ESO_STATUS_OK) {
             return DriverStatus::process;
         }

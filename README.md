@@ -48,10 +48,11 @@ handoff, and preserves continuous physical and DSP state until the caller restar
 destroys, or faults the session. A warm dynamic bench may physically release at its
 fixed preparation horizon and continue acquisition before that later audible handoff.
 
-Exact C ABI v6 exposes strict JSON compilation, immutable engine/scenario handles,
-mutable sessions, twelve typed controls, caller-owned PCM/session telemetry, ordered
-forward-gear discovery, and structured diagnostics without leaking C++ types or
-exceptions. Its descriptor identifies one of all seven implemented motion modes. The
+Exact C ABI v7 exposes strict JSON compilation, immutable engine/scenario handles,
+mutable sessions, twelve typed controls, caller-owned PCM/session telemetry and exact
+completed-cycle evidence, ordered forward-gear discovery, and structured diagnostics
+without leaking C++ types or exceptions. Its descriptor identifies one of all seven
+implemented motion modes. The
 Emscripten build exports that same boundary with fixed 128 MiB memory. A pinned headless
 gate checks all public exports, wasm32 numeric admission, exact native/WASM semantic
 state, target-specific hashes, and tight continuous telemetry/PCM error bounds.
@@ -145,7 +146,7 @@ Finite JSON `held_dyno` scenarios now drive that same crank through a bounded si
 speed constraint. The dyno may absorb or drive only within authored limits, reports
 the exact opposite reaction torque, and exposes achieved RPM when saturated. The first
 BMW procedure covers a target-driven pull, exact plateau, lift, and unforced overrun;
-the native session, C ABI v6, WASM wrapper, and Worker protocol v3 now publish live
+the native session, C ABI v7, WASM wrapper, and Worker protocol v3 now publish live
 target and torque-limit commands plus nullable final-step dyno telemetry.
 
 Finite JSON `free_vehicle` scenarios couple the same crank to a forward-only vehicle,

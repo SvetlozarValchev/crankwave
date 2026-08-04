@@ -5,6 +5,7 @@ import {
   AudioSignalDisposition,
   AudioBusKind,
   ControlCapability,
+  EngineCycleState,
   ESO_C_API_VERSION,
   Layout,
   MotionMode,
@@ -106,6 +107,7 @@ function makeFakeClient({
       view.setUint32(pointer + layout.maximumDeliveryFrames, 4, true);
       view.setUint32(pointer + layout.controlQueueCapacity, 32, true);
       view.setUint32(pointer + layout.maximumTelemetryFrames, 3, true);
+      view.setUint32(pointer + layout.maximumCycleEvidence, 4, true);
       view.setBigUint64(pointer + layout.physicsRateNumerator, 20_000n, true);
       view.setBigUint64(pointer + layout.physicsRateDenominator, 1n, true);
       view.setBigUint64(pointer + layout.deliveryRateNumerator, 192_000n, true);
@@ -213,9 +215,12 @@ function makeFakeClient({
       _audioCount,
       telemetry,
       telemetryCapacity,
+      cycleEvidence,
+      cycleEvidenceCapacity,
       process,
     ) {
       assert.ok(telemetryCapacity >= 3);
+      assert.ok(cycleEvidenceCapacity >= 4);
       const view = heap.view;
       const audio = Layout.audioCopyBuffer;
       const samples = view.getUint32(audioCopy + audio.samples, true);
@@ -325,6 +330,81 @@ function makeFakeClient({
         true,
       );
 
+      heap.bytes.fill(
+        0,
+        cycleEvidence,
+        cycleEvidence + 4 * Layout.completedCycleEvidence.size,
+      );
+      const cycle = Layout.completedCycleEvidence;
+      const boundary = Layout.cycleBoundaryEvidence;
+      const control = Layout.cycleControlEvidence;
+      const net = Layout.cycleNetShaftEvidence;
+      view.setBigUint64(
+        cycleEvidence + cycle.completedCycleOrdinal,
+        9_007_199_254_740_993n,
+        true,
+      );
+      const start = cycleEvidence + cycle.startBoundary;
+      view.setBigInt64(start + boundary.cycleOrdinal, -9_007_199_254_740_993n, true);
+      view.setBigUint64(
+        start + boundary.leftPhysicsFrame,
+        9_007_199_254_740_994n,
+        true,
+      );
+      view.setBigUint64(
+        start + boundary.rightPhysicsFrame,
+        9_007_199_254_740_995n,
+        true,
+      );
+      view.setFloat64(start + boundary.fractionFromLeft01, 0.125, true);
+      view.setFloat64(start + boundary.thetaUnwrappedRad, -12.5, true);
+      view.setFloat64(start + boundary.timeS, 1.25, true);
+      view.setFloat64(start + boundary.deliveryFrame, 240_000.5, true);
+      const end = cycleEvidence + cycle.endBoundary;
+      view.setBigInt64(end + boundary.cycleOrdinal, -9_007_199_254_740_992n, true);
+      view.setBigUint64(
+        end + boundary.leftPhysicsFrame,
+        9_007_199_254_741_000n,
+        true,
+      );
+      view.setBigUint64(
+        end + boundary.rightPhysicsFrame,
+        9_007_199_254_741_001n,
+        true,
+      );
+      view.setFloat64(end + boundary.fractionFromLeft01, 0.875, true);
+      view.setFloat64(end + boundary.thetaUnwrappedRad, 0.06637061435917246, true);
+      view.setFloat64(end + boundary.timeS, 1.3, true);
+      view.setFloat64(end + boundary.deliveryFrame, 249_600.25, true);
+      view.setFloat64(cycleEvidence + cycle.durationS, 0.05, true);
+      view.setFloat64(cycleEvidence + cycle.meanEngineSpeedRpm, 2400.5, true);
+      const requested = cycleEvidence + cycle.requestedThrottle;
+      view.setFloat64(requested + control.timeWeightedMean01, 0.6, true);
+      view.setFloat64(requested + control.minimum01, 0.5, true);
+      view.setFloat64(requested + control.maximum01, 0.75, true);
+      view.setUint32(requested + control.changeCount, 2, true);
+      const resolved = cycleEvidence + cycle.resolvedEngineThrottle;
+      view.setFloat64(resolved + control.timeWeightedMean01, 0.55, true);
+      view.setFloat64(resolved + control.minimum01, 0.45, true);
+      view.setFloat64(resolved + control.maximum01, 0.7, true);
+      view.setUint32(resolved + control.changeCount, 3, true);
+      const plate = cycleEvidence + cycle.intakePlatePosition;
+      view.setFloat64(plate + control.timeWeightedMean01, 0.42, true);
+      view.setFloat64(plate + control.minimum01, 0.35, true);
+      view.setFloat64(plate + control.maximum01, 0.5, true);
+      view.setUint32(plate + control.changeCount, 4, true);
+      const shaft = cycleEvidence + cycle.instantaneousNetShaft;
+      view.setFloat64(shaft + net.angularWorkJ, 123.5, true);
+      view.setFloat64(shaft + net.cycleMeanTorqueNm, 9.827113, true);
+      view.setUint32(shaft + net.availability, 1, true);
+      view.setUint32(shaft + net.completeness, 1, true);
+      view.setUint32(shaft + net.unavailableReason, 0, true);
+      view.setBigUint64(shaft + net.includedTerms, 9_007_199_254_740_997n, true);
+      view.setBigUint64(shaft + net.omittedTerms, 4n, true);
+      view.setUint32(cycleEvidence + cycle.startStateFlags, 0x03, true);
+      view.setUint32(cycleEvidence + cycle.endStateFlags, 0x13, true);
+      view.setUint32(cycleEvidence + cycle.stateTransitionFlags, 0x10, true);
+
       const info = Layout.processInfo;
       heap.bytes.fill(0, process, process + info.size);
       view.setUint32(process + info.kind, 1, true);
@@ -335,6 +415,7 @@ function makeFakeClient({
       view.setBigUint64(process + info.firstDeliveryFrame, 0n, true);
       view.setUint32(process + info.deliveryFrameCount, 4, true);
       view.setUint32(process + info.telemetryWritten, 3, true);
+      view.setUint32(process + info.cycleEvidenceWritten, 1, true);
       view.setUint32(process + info.liveControlsAccepted, 1, true);
       return 0;
     },
@@ -354,14 +435,22 @@ function makeFakeClient({
   return { client, capturedControlBatches };
 }
 
-test("frozen wasm32 ABI is the exact v6 layout", () => {
-  assert.equal(ESO_C_API_VERSION, 6);
-  assert.deepEqual(WASM32_ABI_WORDS, [6, 4, 4, 4, 8, 1, 40, 104, 24, 48, 696]);
+test("frozen wasm32 ABI is the exact v7 layout", () => {
+  assert.equal(ESO_C_API_VERSION, 7);
+  assert.deepEqual(
+    WASM32_ABI_WORDS,
+    [7, 4, 4, 4, 8, 1, 40, 104, 24, 48, 696, 296],
+  );
   assert.equal(Layout.diagnosticInfo.size, 56);
   assert.equal(Layout.engineTelemetry.size, 536);
   assert.equal(Layout.sessionTelemetry.engine, 8);
   assert.equal(Layout.sessionTelemetry.heldDyno, 552);
   assert.equal(Layout.sessionTelemetry.freeVehicle, 600);
+  assert.equal(Layout.processInfo.size, 96);
+  assert.equal(Layout.completedCycleEvidence.startBoundary, 8);
+  assert.equal(Layout.completedCycleEvidence.endBoundary, 64);
+  assert.equal(Layout.completedCycleEvidence.instantaneousNetShaft, 232);
+  assert.equal(Layout.completedCycleEvidence.size, 296);
 });
 
 test("audio bus kinds, route kinds, and signal dispositions are exact", () => {
@@ -412,6 +501,17 @@ test("audio bus kinds, route kinds, and signal dispositions are exact", () => {
   );
 });
 
+test("completed-cycle state bits are exact", () => {
+  assert.deepEqual(EngineCycleState, {
+    ignitionEnabled: 1 << 0,
+    fuelEnabled: 1 << 1,
+    starterEnabled: 1 << 2,
+    dynoEnabled: 1 << 3,
+    limiterEnabled: 1 << 4,
+    limiterCutActive: 1 << 5,
+  });
+});
+
 test("session distinguishes declared-silent intake topology from active audio", () => {
   const { client } = makeFakeClient({
     busKind: AudioBusKind.sourceRouteDry,
@@ -446,6 +546,7 @@ test("session decodes motion, gear inventory, and nullable telemetry sidecars", 
   try {
     assert.equal(session.descriptor.motionMode, "free-vehicle");
     assert.equal(session.descriptor.motionModeCode, MotionMode.freeVehicle);
+    assert.equal(session.descriptor.maximumCycleEvidencePerProcessCall, 4);
     assert.equal(session.buses[0].signalDisposition, "active");
     assert.equal(
       session.buses[0].signalDispositionCode,
@@ -513,6 +614,60 @@ test("session decodes motion, gear inventory, and nullable telemetry sidecars", 
       roadLoadDispositionCode: 1,
       requestedRoadLoadForceN: 750,
       appliedAverageRoadLoadForceN: 725,
+    });
+    assert.equal(block.completedCycles.length, 1);
+    assert.deepEqual(block.completedCycles[0], {
+      completedCycleOrdinal: "9007199254740993",
+      startBoundary: {
+        cycleOrdinal: "-9007199254740993",
+        leftPhysicsFrame: "9007199254740994",
+        rightPhysicsFrame: "9007199254740995",
+        fractionFromLeft01: 0.125,
+        thetaUnwrappedRad: -12.5,
+        timeS: 1.25,
+        deliveryFrame: 240000.5,
+      },
+      endBoundary: {
+        cycleOrdinal: "-9007199254740992",
+        leftPhysicsFrame: "9007199254741000",
+        rightPhysicsFrame: "9007199254741001",
+        fractionFromLeft01: 0.875,
+        thetaUnwrappedRad: 0.06637061435917246,
+        timeS: 1.3,
+        deliveryFrame: 249600.25,
+      },
+      durationS: 0.05,
+      meanEngineSpeedRpm: 2400.5,
+      requestedThrottle: {
+        timeWeightedMean01: 0.6,
+        minimum01: 0.5,
+        maximum01: 0.75,
+        changeCount: 2,
+      },
+      resolvedEngineThrottle: {
+        timeWeightedMean01: 0.55,
+        minimum01: 0.45,
+        maximum01: 0.7,
+        changeCount: 3,
+      },
+      intakePlatePosition: {
+        timeWeightedMean01: 0.42,
+        minimum01: 0.35,
+        maximum01: 0.5,
+        changeCount: 4,
+      },
+      instantaneousNetShaft: {
+        angularWorkJ: 123.5,
+        cycleMeanTorqueNm: 9.827113,
+        availability: 1,
+        completeness: 1,
+        unavailableReason: 0,
+        includedTerms: "9007199254740997",
+        omittedTerms: "4",
+      },
+      startStateFlags: 0x03,
+      endStateFlags: 0x13,
+      stateTransitionFlags: 0x10,
     });
   } finally {
     session.dispose();

@@ -3,7 +3,7 @@
 // This module deliberately describes one ABI version. A mismatched module is
 // rejected during startup; there is no compatibility decoder.
 
-export const ESO_C_API_VERSION = 6;
+export const ESO_C_API_VERSION = 7;
 export const ESO_INVALID_HANDLE = 0n;
 export const ESO_CANONICAL_SAMPLE_RATE = 192_000;
 
@@ -114,6 +114,15 @@ export const RoadLoadDisposition = Object.freeze({
   moving: 1,
   stoppedWithinStep: 2,
   heldAtRest: 3,
+});
+
+export const EngineCycleState = Object.freeze({
+  ignitionEnabled: 1 << 0,
+  fuelEnabled: 1 << 1,
+  starterEnabled: 1 << 2,
+  dynoEnabled: 1 << 3,
+  limiterEnabled: 1 << 4,
+  limiterCutActive: 1 << 5,
 });
 
 export const ProcessKind = Object.freeze({
@@ -319,7 +328,7 @@ export const Layout = Object.freeze({
     payloadData: 12,
     payloadBytes: 16,
   }),
-  abiLayout: Object.freeze({ size: 44 }),
+  abiLayout: Object.freeze({ size: 48 }),
   errorInfo: Object.freeze({
     size: 24,
     status: 0,
@@ -375,6 +384,7 @@ export const Layout = Object.freeze({
     maximumDeliveryFrames: 0,
     controlQueueCapacity: 4,
     maximumTelemetryFrames: 8,
+    maximumCycleEvidence: 12,
     physicsRateNumerator: 16,
     physicsRateDenominator: 24,
     deliveryRateNumerator: 32,
@@ -436,7 +446,7 @@ export const Layout = Object.freeze({
     samplesWritten: 12,
   }),
   processInfo: Object.freeze({
-    size: 88,
+    size: 96,
     kind: 0,
     blockPhase: 4,
     blockOrdinal: 8,
@@ -445,12 +455,13 @@ export const Layout = Object.freeze({
     firstDeliveryFrame: 32,
     deliveryFrameCount: 40,
     telemetryWritten: 44,
-    completedPhysicsFrames: 48,
-    completedDeliveryFrames: 56,
-    completedBlockCount: 64,
-    liveControlsAccepted: 72,
-    hasHeldSpeedOperatingPoint: 76,
-    hasInertialDynoResult: 80,
+    cycleEvidenceWritten: 48,
+    completedPhysicsFrames: 56,
+    completedDeliveryFrames: 64,
+    completedBlockCount: 72,
+    liveControlsAccepted: 80,
+    hasHeldSpeedOperatingPoint: 84,
+    hasInertialDynoResult: 88,
   }),
   quantityValue: Object.freeze({
     size: 24,
@@ -525,6 +536,48 @@ export const Layout = Object.freeze({
     heldDyno: 552,
     freeVehicle: 600,
   }),
+  cycleBoundaryEvidence: Object.freeze({
+    size: 56,
+    cycleOrdinal: 0,
+    leftPhysicsFrame: 8,
+    rightPhysicsFrame: 16,
+    fractionFromLeft01: 24,
+    thetaUnwrappedRad: 32,
+    timeS: 40,
+    deliveryFrame: 48,
+  }),
+  cycleControlEvidence: Object.freeze({
+    size: 32,
+    timeWeightedMean01: 0,
+    minimum01: 8,
+    maximum01: 16,
+    changeCount: 24,
+  }),
+  cycleNetShaftEvidence: Object.freeze({
+    size: 48,
+    angularWorkJ: 0,
+    cycleMeanTorqueNm: 8,
+    availability: 16,
+    completeness: 20,
+    unavailableReason: 24,
+    includedTerms: 32,
+    omittedTerms: 40,
+  }),
+  completedCycleEvidence: Object.freeze({
+    size: 296,
+    completedCycleOrdinal: 0,
+    startBoundary: 8,
+    endBoundary: 64,
+    durationS: 120,
+    meanEngineSpeedRpm: 128,
+    requestedThrottle: 136,
+    resolvedEngineThrottle: 168,
+    intakePlatePosition: 200,
+    instantaneousNetShaft: 232,
+    startStateFlags: 280,
+    endStateFlags: 284,
+    stateTransitionFlags: 288,
+  }),
 });
 
 export const TORQUE_FIELDS = Object.freeze([
@@ -557,4 +610,5 @@ export const WASM32_ABI_WORDS = Object.freeze([
   Layout.forwardGearDescriptor.size,
   Layout.audioBusDescriptor.size,
   Layout.sessionTelemetry.size,
+  Layout.completedCycleEvidence.size,
 ]);

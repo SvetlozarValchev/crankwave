@@ -223,6 +223,8 @@ torque_value(const contract::TorqueValueNm &value) noexcept;
 engine_telemetry(const contract::EngineCaptureSample &engine) noexcept;
 [[nodiscard]] eso_session_telemetry_t
 session_telemetry(const EngineTelemetryFrame &frame) noexcept;
+[[nodiscard]] eso_completed_cycle_evidence_t
+completed_cycle_evidence(const EngineCompletedCycleEvidence &cycle) noexcept;
 
 } // namespace engine_sim_offline::c_api
 

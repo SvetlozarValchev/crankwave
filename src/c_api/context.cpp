@@ -298,6 +298,7 @@ eso_status_t eso_get_abi_layout(eso_abi_layout_t *const out_layout) noexcept {
         static_cast<std::uint32_t>(sizeof(eso_forward_gear_descriptor_t)),
         static_cast<std::uint32_t>(sizeof(eso_audio_bus_descriptor_t)),
         static_cast<std::uint32_t>(sizeof(eso_session_telemetry_t)),
+        static_cast<std::uint32_t>(sizeof(eso_completed_cycle_evidence_t)),
     };
     return ESO_STATUS_OK;
 }

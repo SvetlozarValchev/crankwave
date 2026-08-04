@@ -19,6 +19,8 @@ impulse_response="${repository_dir}/reference/fixtures/bmw-m52b28-p18/presentati
 accessory_configuration="${repository_dir}/data/profiles/bmw-m52b28/accessory-configurations/bmw-m52b28-warm-stock-accessories-v1.json"
 expectations="${repository_dir}/tests/wasm/parity_expectations.json"
 
+node --test "${repository_dir}/tests/wasm/c-api-v7-layout.test.mjs"
+
 cmake -E remove_directory "${work_dir}"
 cmake -E make_directory \
     "${work_dir}" \

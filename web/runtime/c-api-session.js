@@ -299,6 +299,106 @@ function readSessionTelemetry(view, pointer) {
   };
 }
 
+function readCycleBoundaryEvidence(view, pointer) {
+  const layout = Layout.cycleBoundaryEvidence;
+  return {
+    cycleOrdinal: decimal(view.getBigInt64(pointer + layout.cycleOrdinal, true)),
+    leftPhysicsFrame: decimal(
+      view.getBigUint64(pointer + layout.leftPhysicsFrame, true),
+    ),
+    rightPhysicsFrame: decimal(
+      view.getBigUint64(pointer + layout.rightPhysicsFrame, true),
+    ),
+    fractionFromLeft01: view.getFloat64(
+      pointer + layout.fractionFromLeft01,
+      true,
+    ),
+    thetaUnwrappedRad: view.getFloat64(
+      pointer + layout.thetaUnwrappedRad,
+      true,
+    ),
+    timeS: view.getFloat64(pointer + layout.timeS, true),
+    deliveryFrame: view.getFloat64(pointer + layout.deliveryFrame, true),
+  };
+}
+
+function readCycleControlEvidence(view, pointer) {
+  const layout = Layout.cycleControlEvidence;
+  return {
+    timeWeightedMean01: view.getFloat64(
+      pointer + layout.timeWeightedMean01,
+      true,
+    ),
+    minimum01: view.getFloat64(pointer + layout.minimum01, true),
+    maximum01: view.getFloat64(pointer + layout.maximum01, true),
+    changeCount: view.getUint32(pointer + layout.changeCount, true),
+  };
+}
+
+function readCycleNetShaftEvidence(view, pointer) {
+  const layout = Layout.cycleNetShaftEvidence;
+  return {
+    angularWorkJ: view.getFloat64(pointer + layout.angularWorkJ, true),
+    cycleMeanTorqueNm: view.getFloat64(
+      pointer + layout.cycleMeanTorqueNm,
+      true,
+    ),
+    availability: view.getUint32(pointer + layout.availability, true),
+    completeness: view.getUint32(pointer + layout.completeness, true),
+    unavailableReason: view.getUint32(
+      pointer + layout.unavailableReason,
+      true,
+    ),
+    includedTerms: decimal(
+      view.getBigUint64(pointer + layout.includedTerms, true),
+    ),
+    omittedTerms: decimal(
+      view.getBigUint64(pointer + layout.omittedTerms, true),
+    ),
+  };
+}
+
+function readCompletedCycleEvidence(view, pointer) {
+  const layout = Layout.completedCycleEvidence;
+  return {
+    completedCycleOrdinal: decimal(
+      view.getBigUint64(pointer + layout.completedCycleOrdinal, true),
+    ),
+    startBoundary: readCycleBoundaryEvidence(
+      view,
+      pointer + layout.startBoundary,
+    ),
+    endBoundary: readCycleBoundaryEvidence(view, pointer + layout.endBoundary),
+    durationS: view.getFloat64(pointer + layout.durationS, true),
+    meanEngineSpeedRpm: view.getFloat64(
+      pointer + layout.meanEngineSpeedRpm,
+      true,
+    ),
+    requestedThrottle: readCycleControlEvidence(
+      view,
+      pointer + layout.requestedThrottle,
+    ),
+    resolvedEngineThrottle: readCycleControlEvidence(
+      view,
+      pointer + layout.resolvedEngineThrottle,
+    ),
+    intakePlatePosition: readCycleControlEvidence(
+      view,
+      pointer + layout.intakePlatePosition,
+    ),
+    instantaneousNetShaft: readCycleNetShaftEvidence(
+      view,
+      pointer + layout.instantaneousNetShaft,
+    ),
+    startStateFlags: view.getUint32(pointer + layout.startStateFlags, true),
+    endStateFlags: view.getUint32(pointer + layout.endStateFlags, true),
+    stateTransitionFlags: view.getUint32(
+      pointer + layout.stateTransitionFlags,
+      true,
+    ),
+  };
+}
+
 function readProcessInfo(view, pointer) {
   const layout = Layout.processInfo;
   const kind = view.getUint32(pointer + layout.kind, true);
@@ -324,6 +424,10 @@ function readProcessInfo(view, pointer) {
       true,
     ),
     telemetryWritten: view.getUint32(pointer + layout.telemetryWritten, true),
+    cycleEvidenceWritten: view.getUint32(
+      pointer + layout.cycleEvidenceWritten,
+      true,
+    ),
     completedPhysicsFrameCount: decimal(
       view.getBigUint64(pointer + layout.completedPhysicsFrames, true),
     ),
@@ -355,6 +459,7 @@ export class EngineSimSession {
   #audioPointer = 0;
   #audioCopyPointer = 0;
   #telemetryPointer = 0;
+  #cycleEvidencePointer = 0;
   #processPointer = 0;
   #disposed = false;
   #terminal = false;
@@ -429,6 +534,11 @@ export class EngineSimSession {
         this.#descriptor.maximumTelemetryFramesPerProcessCall *
           Layout.sessionTelemetry.size,
         "session telemetry block",
+      );
+      this.#cycleEvidencePointer = this.#heap.allocate(
+        this.#descriptor.maximumCycleEvidencePerProcessCall *
+          Layout.completedCycleEvidence.size,
+        "completed-cycle evidence block",
       );
       this.#processPointer = this.#heap.allocate(
         Layout.processInfo.size,
@@ -831,6 +941,8 @@ export class EngineSimSession {
       1,
       this.#telemetryPointer,
       this.#descriptor.maximumTelemetryFramesPerProcessCall,
+      this.#cycleEvidencePointer,
+      this.#descriptor.maximumCycleEvidencePerProcessCall,
       this.#processPointer,
     );
     this.#client.assertStatus(status, "process-session");
@@ -841,6 +953,29 @@ export class EngineSimSession {
         readSessionTelemetry(
           view,
           this.#telemetryPointer + index * Layout.sessionTelemetry.size,
+        ),
+      );
+    }
+    if (
+      process.cycleEvidenceWritten >
+      this.#descriptor.maximumCycleEvidencePerProcessCall
+    ) {
+      throw new EngineSimRuntimeError(
+        "the C API reported more completed cycles than the supplied buffer can hold",
+        {
+          operation: "process-session",
+          detailCode: "browser-runtime-cycle-evidence-write-overflow",
+          diagnostics: [],
+        },
+      );
+    }
+    const completedCycles = [];
+    for (let index = 0; index < process.cycleEvidenceWritten; ++index) {
+      completedCycles.push(
+        readCompletedCycleEvidence(
+          view,
+          this.#cycleEvidencePointer +
+            index * Layout.completedCycleEvidence.size,
         ),
       );
     }
@@ -884,6 +1019,7 @@ export class EngineSimSession {
     return {
       process,
       telemetry,
+      completedCycles,
       samples,
       bus,
       audible: process.blockPhaseCode === BlockPhase.audible,
@@ -896,10 +1032,12 @@ export class EngineSimSession {
     }
     this.#disposed = true;
     this.#heap?.free(this.#processPointer);
+    this.#heap?.free(this.#cycleEvidencePointer);
     this.#heap?.free(this.#telemetryPointer);
     this.#heap?.free(this.#audioCopyPointer);
     this.#heap?.free(this.#audioPointer);
     this.#processPointer = 0;
+    this.#cycleEvidencePointer = 0;
     this.#telemetryPointer = 0;
     this.#audioCopyPointer = 0;
     this.#audioPointer = 0;
@@ -1014,6 +1152,10 @@ export class EngineSimSession {
         ),
         maximumTelemetryFramesPerProcessCall: view.getUint32(
           pointer + layout.maximumTelemetryFrames,
+          true,
+        ),
+        maximumCycleEvidencePerProcessCall: view.getUint32(
+          pointer + layout.maximumCycleEvidence,
           true,
         ),
         physicsRate: {

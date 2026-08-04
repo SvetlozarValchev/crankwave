@@ -89,16 +89,50 @@ template <class Value> [[nodiscard]] bool bytes_are_zero(const Value &value) noe
 [[nodiscard]] eso_session_telemetry_t process_to_first_audible_block(
     eso_context_t *context, const eso_session_handle_t session,
     const eso_session_descriptor_t &descriptor, const std::string_view label) {
+    std::vector<eso_completed_cycle_evidence_t> cycles(
+        descriptor.maximum_cycle_evidence_per_process_call);
+    bool saw_completed_cycle = false;
     for (std::uint64_t block = 0U; block <= descriptor.preparation_block_count;
          ++block) {
         eso_session_telemetry_t telemetry{};
         eso_process_info_t process{};
         expect(eso_session_process(context, session, nullptr, 0U, &telemetry, 1U,
+                                   cycles.data(), cycles.size(),
                                    &process) == ESO_STATUS_OK,
                std::string{label} + " failed before its first audible block");
         expect(process.kind == ESO_PROCESS_BLOCK && process.block_ordinal == block &&
-                   process.telemetry_written == 1U,
+                   process.telemetry_written == 1U &&
+                   process.cycle_evidence_written <= cycles.size(),
                std::string{label} + " returned a discontinuous block");
+        for (std::size_t index = 0; index < process.cycle_evidence_written; ++index) {
+            const auto &cycle = cycles[index];
+            const auto known_state_flags = ESO_ENGINE_CYCLE_STATE_IGNITION_ENABLED |
+                                           ESO_ENGINE_CYCLE_STATE_FUEL_ENABLED |
+                                           ESO_ENGINE_CYCLE_STATE_STARTER_ENABLED |
+                                           ESO_ENGINE_CYCLE_STATE_DYNO_ENABLED |
+                                           ESO_ENGINE_CYCLE_STATE_LIMITER_ENABLED |
+                                           ESO_ENGINE_CYCLE_STATE_LIMITER_CUT_ACTIVE;
+            expect(cycle.end_boundary.cycle_ordinal ==
+                           cycle.start_boundary.cycle_ordinal + 1 &&
+                       cycle.start_boundary.left_physics_frame <=
+                           cycle.start_boundary.right_physics_frame &&
+                       cycle.end_boundary.left_physics_frame <=
+                           cycle.end_boundary.right_physics_frame &&
+                       cycle.start_boundary.delivery_frame <
+                           cycle.end_boundary.delivery_frame &&
+                       cycle.duration_s > 0.0 &&
+                       std::isfinite(cycle.mean_engine_speed_rpm) &&
+                       cycle.requested_throttle.minimum_01 <=
+                           cycle.requested_throttle.time_weighted_mean_01 + 1.0e-12 &&
+                       cycle.requested_throttle.time_weighted_mean_01 <=
+                           cycle.requested_throttle.maximum_01 + 1.0e-12 &&
+                       (cycle.start_state_flags & ~known_state_flags) == 0U &&
+                       (cycle.end_state_flags & ~known_state_flags) == 0U &&
+                       (cycle.state_transition_flags & ~known_state_flags) == 0U,
+                   std::string{label} +
+                       " returned malformed exact completed-cycle evidence");
+            saw_completed_cycle = true;
+        }
         if (process.block_phase == ESO_BLOCK_PREPARATION) {
             expect(telemetry.has_held_dyno == 0U && telemetry.has_free_vehicle == 0U &&
                        bytes_are_zero(telemetry.held_dyno) &&
@@ -108,7 +142,7 @@ template <class Value> [[nodiscard]] bool bytes_are_zero(const Value &value) noe
             continue;
         }
         expect(process.block_phase == ESO_BLOCK_AUDIBLE &&
-                   block == descriptor.preparation_block_count,
+                   block == descriptor.preparation_block_count && saw_completed_cycle,
                std::string{label} + " released at the wrong block");
         return telemetry;
     }
@@ -259,14 +293,14 @@ void test_motion_contract_surface(eso_context_t *context,
     eso_engine_handle_t engine = ESO_INVALID_HANDLE;
     expect(eso_compile_engine_json(context, view(engine_json), assets, 2U, &engine) ==
                ESO_STATUS_OK,
-           "M52TU engine compilation through C ABI v6 failed");
+           "M52TU engine compilation through C ABI v7 failed");
     eso_scenario_handle_t held_dyno_scenario = ESO_INVALID_HANDLE;
     eso_scenario_handle_t free_vehicle_scenario = ESO_INVALID_HANDLE;
     expect(eso_compile_scenario_json(context, engine, view(held_dyno_json),
                                      &held_dyno_scenario) == ESO_STATUS_OK &&
                eso_compile_scenario_json(context, engine, view(free_vehicle_json),
                                          &free_vehicle_scenario) == ESO_STATUS_OK,
-           "C ABI v6 motion-scenario compilation failed");
+           "C ABI v7 motion-scenario compilation failed");
 
     eso_session_handle_t held_dyno_session = ESO_INVALID_HANDLE;
     eso_session_handle_t free_vehicle_session = ESO_INVALID_HANDLE;
@@ -276,7 +310,7 @@ void test_motion_contract_surface(eso_context_t *context,
                eso_create_session(context, free_vehicle_scenario,
                                   ESO_SESSION_EXECUTION_OPEN_ENDED,
                                   &free_vehicle_session) == ESO_STATUS_OK,
-           "C ABI v6 open operating-bench session creation failed");
+           "C ABI v7 open operating-bench session creation failed");
 
     constexpr auto kCoreLiveControls = ESO_LIVE_CONTROL_CAPABILITY_THROTTLE |
                                        ESO_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED |
@@ -504,7 +538,7 @@ void test_motion_contract_surface(eso_context_t *context,
 
     expect(eso_destroy_session(context, held_dyno_session) == ESO_STATUS_OK &&
                eso_destroy_session(context, free_vehicle_session) == ESO_STATUS_OK,
-           "C ABI v6 motion-session teardown failed");
+           "C ABI v7 motion-session teardown failed");
 }
 
 void run(const std::filesystem::path &repository_root) {
@@ -607,6 +641,7 @@ void run(const std::filesystem::path &repository_root) {
     expect(eso_session_get_descriptor(context, session_a, &descriptor) ==
                    ESO_STATUS_OK &&
                descriptor.physics_frames_per_block == 400U &&
+               descriptor.maximum_cycle_evidence_per_process_call == 400U &&
                descriptor.delivery_frames_per_block == 3840U &&
                descriptor.audio_bus_count == 8U &&
                descriptor.live_control_capabilities == kInertialDynoLiveControls &&
@@ -719,7 +754,22 @@ void run(const std::filesystem::path &repository_root) {
     eso_audio_copy_buffer_t short_buffer{bus, pcm_a.data(), pcm_a.size() - 1U, 99U};
     eso_session_telemetry_t telemetry_a{};
     eso_process_info_t process_a{};
+    std::vector<eso_completed_cycle_evidence_t> cycle_evidence_a(
+        descriptor.maximum_cycle_evidence_per_process_call);
+    std::vector<eso_completed_cycle_evidence_t> cycle_evidence_b(
+        descriptor.maximum_cycle_evidence_per_process_call);
+    expect(eso_session_process(context, session_a, nullptr, 0U, &telemetry_a, 1U,
+                               nullptr, 1U,
+                               &process_a) == ESO_STATUS_INVALID_ARGUMENT &&
+               process_a.kind == 0U,
+           "null cycle-evidence pointer with nonzero capacity was admitted");
+    expect(eso_session_process(context, session_a, nullptr, 0U, &telemetry_a, 1U,
+                               cycle_evidence_a.data(), cycle_evidence_a.size() - 1U,
+                               &process_a) == ESO_STATUS_BUFFER_TOO_SMALL &&
+               process_a.kind == 0U,
+           "short cycle-evidence buffer advanced or published a session block");
     expect(eso_session_process(context, session_a, &short_buffer, 1U, &telemetry_a, 1U,
+                               nullptr, 0U,
                                &process_a) == ESO_STATUS_BUFFER_TOO_SMALL &&
                short_buffer.samples_written == 0U,
            "short PCM buffer advanced or partially published a session block");
@@ -729,16 +779,19 @@ void run(const std::filesystem::path &repository_root) {
     eso_session_telemetry_t telemetry_b{};
     eso_process_info_t process_b{};
     allocation_probe::reject.store(true, std::memory_order_relaxed);
-    const auto process_a_status = eso_session_process(context, session_a, &audio_a, 1U,
-                                                      &telemetry_a, 1U, &process_a);
+    const auto process_a_status = eso_session_process(
+        context, session_a, &audio_a, 1U, &telemetry_a, 1U, cycle_evidence_a.data(),
+        cycle_evidence_a.size(), &process_a);
     allocation_probe::reject.store(false, std::memory_order_relaxed);
-    const auto process_b_status = eso_session_process(context, session_b, &audio_b, 1U,
-                                                      &telemetry_b, 1U, &process_b);
+    const auto process_b_status = eso_session_process(
+        context, session_b, &audio_b, 1U, &telemetry_b, 1U, cycle_evidence_b.data(),
+        cycle_evidence_b.size(), &process_b);
     expect(process_a_status == ESO_STATUS_OK && process_b_status == ESO_STATUS_OK,
            "C API could not process the first session block");
     expect(process_a.kind == ESO_PROCESS_BLOCK &&
                process_a.block_phase == ESO_BLOCK_PREPARATION &&
                process_a.block_ordinal == 0U && process_a.telemetry_written == 1U &&
+               process_a.cycle_evidence_written == process_b.cycle_evidence_written &&
                process_a.block_ordinal == process_b.block_ordinal &&
                audio_a.samples_written == pcm_a.size() &&
                audio_b.samples_written == pcm_b.size(),
@@ -760,7 +813,7 @@ void run(const std::filesystem::path &repository_root) {
         eso_session_telemetry_t free_telemetry{};
         eso_process_info_t free_process{};
         expect(eso_session_process(context, free_session, nullptr, 0U, &free_telemetry,
-                                   1U, &free_process) == ESO_STATUS_OK,
+                                   1U, nullptr, 0U, &free_process) == ESO_STATUS_OK,
                "free-engine RPM trajectory session failed");
         expect(free_process.kind == ESO_PROCESS_BLOCK,
                "free-engine completed before its 7,000-rpm WOT crossing");

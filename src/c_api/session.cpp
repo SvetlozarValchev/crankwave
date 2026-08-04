@@ -279,6 +279,7 @@ eso_session_get_descriptor(eso_context_t *const context,
             descriptor.capacities.maximum_delivery_frames_per_process_call,
             descriptor.capacities.control_command_queue_capacity,
             descriptor.capacities.maximum_telemetry_frames_per_process_call,
+            descriptor.physics_frames_per_block,
             descriptor.physics_rate.numerator,
             descriptor.physics_rate.denominator,
             descriptor.delivery_rate.numerator,
@@ -542,6 +543,8 @@ eso_status_t eso_session_process(eso_context_t *const context,
                                  const size_t audio_buffer_count,
                                  eso_session_telemetry_t *const telemetry,
                                  const size_t telemetry_capacity,
+                                 eso_completed_cycle_evidence_t *const cycle_evidence,
+                                 const size_t cycle_evidence_capacity,
                                  eso_process_info_t *const out_process) noexcept {
     if (context == nullptr) {
         return ESO_STATUS_INVALID_ARGUMENT;
@@ -562,6 +565,11 @@ eso_status_t eso_session_process(eso_context_t *const context,
             return invalid_pointer(
                 *context,
                 "telemetry buffer must not be null when its capacity is nonzero");
+        }
+        if (cycle_evidence == nullptr && cycle_evidence_capacity != 0U) {
+            return invalid_pointer(
+                *context,
+                "cycle-evidence buffer must not be null when its capacity is nonzero");
         }
         auto *entry = context->sessions.get(session);
         if (entry == nullptr) {
@@ -617,6 +625,12 @@ eso_status_t eso_session_process(eso_context_t *const context,
                     *context,
                     "telemetry buffer cannot hold one complete returned block");
             }
+            if (cycle_evidence != nullptr &&
+                cycle_evidence_capacity < descriptor.physics_frames_per_block) {
+                return buffer_error(
+                    *context,
+                    "cycle-evidence buffer cannot hold one complete returned block");
+            }
         }
 
         auto result = entry->session.process_block();
@@ -629,6 +643,7 @@ eso_status_t eso_session_process(eso_context_t *const context,
             entry->terminal = true;
             *out_process = {
                 ESO_PROCESS_COMPLETED,
+                0U,
                 0U,
                 0U,
                 0U,
@@ -693,6 +708,23 @@ eso_status_t eso_session_process(eso_context_t *const context,
             }
         }
 
+        std::size_t cycle_evidence_written = 0U;
+        if (cycle_evidence != nullptr) {
+            if (block.cycle_evidence().size() > cycle_evidence_capacity) {
+                entry->terminal = true;
+                return set_error(
+                    *context, ESO_STATUS_PROCESS_FAILED, ESO_ERROR_STAGE_PROCESS,
+                    ESO_ERROR_SESSION_INTERNAL,
+                    "c-api-session-cycle-evidence-extent-invalid",
+                    "session cycle evidence exceeded its published caller capacity");
+            }
+            for (const auto &cycle : block.cycle_evidence()) {
+                cycle_evidence[cycle_evidence_written] =
+                    completed_cycle_evidence(cycle);
+                ++cycle_evidence_written;
+            }
+        }
+
         *out_process = {
             ESO_PROCESS_BLOCK,
             block.phase() == EngineSessionBlockPhase::preparation
@@ -704,6 +736,7 @@ eso_status_t eso_session_process(eso_context_t *const context,
             block.first_delivery_frame(),
             block.delivery_frame_count(),
             telemetry_written,
+            cycle_evidence_written,
             0U,
             0U,
             0U,
