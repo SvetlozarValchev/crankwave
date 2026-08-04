@@ -56,8 +56,12 @@ The lab had to infer cycle phase by latency-shifting block RPM telemetry and
 integrating it. `EngineCaptureSample` already contains exact `theta_rad`,
 `theta_cycle_rad`, operating state, and torque at the 20 kHz capture clock. The package
 baker will derive exact ordered 720-degree boundary crossings from those samples and
-project them once onto the rendered bus clock. Correlation remains a diagnostic; it is
-not the phase authority.
+project them once onto the rendered bus clock. The physical crossing is then shifted
+by exactly 128 capture ticks, or 1,228.8 frames at 192 kHz, to account for the common
+linear-phase delay of the causal reconstruction filter. That fractional shift is the
+only common signal-alignment correction: authored propagation, route conditioning,
+and IR phase remain in the continuously rendered tapes. Correlation remains a
+diagnostic; it is not the phase authority.
 
 The simulator also already preserves exhaust and intake route identities. Package
 material remains bus-addressable so a future host can position intake and outlets as
@@ -209,6 +213,14 @@ concurrently within explicit CPU and memory limits. The initial normal-running p
 targets roughly that wall-time class; expanding the RPM/load/event domain must not turn
 one package into a serial multi-minute bake without first profiling and changing the
 capture strategy.
+
+The first clean Release benchmark of the four 20-second BMW source recipes completed
+successfully in parallel in 40.26 seconds wall time and 158.97 aggregate CPU seconds.
+The generic scenario publisher wrote 442 MiB because it retained every diagnostic bus;
+the first package retains only four mono audition tapes, approximately 43 MiB at the
+temporary 192 kHz Float32 reconstruction gate. This establishes capture computation as
+the present wall-time constraint and keeps the desired 30-second class as a measured
+optimization target rather than an assumed property.
 
 ## First audition boundary
 
