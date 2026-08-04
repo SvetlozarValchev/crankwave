@@ -1021,7 +1021,14 @@ candidate with the accepted parity renderer as its control:
    randomness or IR, preserves every accepted exhaust WAV byte for byte, and the user
    accepted its matched exhaust-control/intake-solo/full comparison on 2026-08-04. See
    [`docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md)**);
-4. add mechanical/valvetrain/block and starter buses independently;
+4. add `mechanical.engine`, valvetrain, and `mechanical.starter` as independent gates,
+   beginning with a byte-identical per-cylinder combustion/compression-force capture
+   seam. The sound-bearing engine-structure route is blocked until a calibrated,
+   rights-cleared BMW M52 pressure/force-to-radiated-sound transfer matrix or identified
+   structural model exists; no generic resonator/noise substitute is admitted. Its
+   eventual one-render A/B/C/D gate targets no more than 45 seconds and stops for
+   listening before any later mechanical component. See
+   [`docs/POST_PARITY_FIDELITY_MECHANICAL_ENGINE_PLAN.md`](docs/POST_PARITY_FIDELITY_MECHANICAL_ENGINE_PLAN.md);
 5. couple combustion variation and flow noise to combustion work, valve flow, and
    pressure ratio rather than granting static generic jitter/noise sole authority;
 6. add measured or explicit catalyst, resonator, muffler, and outlet transfer with
