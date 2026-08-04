@@ -1,16 +1,18 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — intake topology is exact and silent; isolated audible intake gate next
+Status: active — audible intake accepted; browser realtime regression under review
 
 Branch: `clean-room/bmw-baseline`
 
-Date: 2026-08-03
+Date: 2026-08-04
 
 Current checkpoint: **headless executable engine-sim parity complete — Slice 16's
 seven-procedure recording set and the single-path 20 kHz production/cooker cutover are
-accepted; cylinder/collector and typed intake-route topology are now explicit without
-changing the accepted exhaust PCM; one isolated audible intake-pressure diagnostic is
-next and must stop for listening**
+accepted; cylinder/collector routing is explicit; the separately published intake
+pressure path preserved every accepted exhaust WAV byte for byte and passed its matched
+control/solo/full listening gate on 2026-08-04. Before the mechanical-source item begins,
+the reproducible browser underrun exposed by the additional active route must be
+measured and resolved without adding a second renderer path.**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -177,9 +179,9 @@ resampler is not expected to reproduce a 192 kHz WAV container.
 The current generic identities are:
 
 ```text
-simulation request SHA-256: e01b872b91f142ef65633783a736cbea79169e99b4c45e8df6d68ffa481369d6
+simulation request SHA-256: 8c75e9bfa871e88d58031d52c5eb7278a27a9092e252c7a1fb09466755678ced
 audition WAV byte count:    8640586
-audition WAV SHA-256:       630bc125815d0e80e4c4bd907f0ecd49edd55d3c24ba8e9c29202a220b01b4af
+audition WAV SHA-256:       6563eca69744bf0bfa375b81e694aa0640388e995cc90e8217233a029e9942a6
 ```
 
 Checkpoint 7 truthfully renamed the route-publication and audition-mix methods from
@@ -1013,12 +1015,12 @@ candidate with the accepted parity renderer as its control:
    preserving every old rounded total arrival. Both canonical BMW renders matched all
    eight accepted WAVs byte for byte. See
    [`docs/POST_PARITY_FIDELITY_CYLINDER_LANES.md`](docs/POST_PARITY_FIDELITY_CYLINDER_LANES.md)**);
-3. add a separately published intake source bus (**in progress: typed intake topology,
-   20 kHz capture, explicit `declared_silent` source/stems, native/C/WASM publication,
-   and exhaust-PCM identity are complete; one isolated audible BMW intake-pressure
-   candidate is next and must stop for matched control/intake/full audition before
-   this item can be accepted. See
-   [`docs/POST_PARITY_FIDELITY_INTAKE_TOPOLOGY.md`](docs/POST_PARITY_FIDELITY_INTAKE_TOPOLOGY.md)**);
+3. add a separately published intake source bus (**complete: the sole active path uses
+   captured 20 kHz plenum pressure, ambient subtraction, causal reconstruction to
+   192 kHz, deterministic DC removal, and authored route gain. It consumes no exhaust
+   randomness or IR, preserves every accepted exhaust WAV byte for byte, and the user
+   accepted its matched exhaust-control/intake-solo/full comparison on 2026-08-04. See
+   [`docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md)**);
 4. add mechanical/valvetrain/block and starter buses independently;
 5. couple combustion variation and flow noise to combustion work, valve flow, and
    pressure ratio rather than granting static generic jitter/noise sole authority;
