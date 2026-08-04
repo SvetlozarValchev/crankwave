@@ -189,7 +189,8 @@ edge_rejection(const contract::AudioPackageSourceBoundary &boundary,
 
 [[nodiscard]] std::variant<Candidate, UniformCycleBankError>
 candidate(const EngineCompletedCycleEvidence &cycle, const UniformCycleLaneView &lane,
-          const PackageBakeMethodGeometry &geometry, const std::size_t cycle_index) {
+          const PackageBakeMethodGeometry &geometry, const std::size_t cycle_index,
+          const bool require_available_torque) {
     if (cycle.state_transition_flags != 0U) {
         return error(
             UniformCycleBankErrorCode::cycle_rejected,
@@ -202,8 +203,9 @@ candidate(const EngineCompletedCycleEvidence &cycle, const UniformCycleLaneView 
                      cycle_path(cycle_index, "state_flags"),
                      "cycle is not stable ignition-on, fuel-on, dyno-on running");
     }
-    if (cycle.instantaneous_net_shaft.availability !=
-        contract::Availability::available) {
+    if (require_available_torque &&
+        cycle.instantaneous_net_shaft.availability !=
+            contract::Availability::available) {
         return error(UniformCycleBankErrorCode::cycle_rejected,
                      cycle_path(cycle_index, "instantaneous_net_shaft"),
                      "cycle has no available modeled net-shaft torque summary");
@@ -295,7 +297,11 @@ validate_request(const UniformCycleLaneView &lane,
         canonical_rpm,
         cycle.mean_engine_speed_rpm,
         canonical_zero(load_coordinate),
-        canonical_zero(cycle.instantaneous_net_shaft.cycle_mean_torque_nm),
+        cycle.instantaneous_net_shaft.availability ==
+                contract::Availability::available
+            ? std::optional<double>{canonical_zero(
+                  cycle.instantaneous_net_shaft.cycle_mean_torque_nm)}
+            : std::nullopt,
         canonical_zero(cycle.requested_throttle.time_weighted_mean_01),
         canonical_zero(cycle.resolved_engine_throttle.time_weighted_mean_01),
         cycle.end_state_flags,
@@ -306,12 +312,14 @@ validate_request(const UniformCycleLaneView &lane,
 [[nodiscard]] std::variant<std::vector<Candidate>, UniformCycleBankError>
 safe_candidates(const UniformCycleLaneView &lane,
                 const PackageBakeMethodGeometry &geometry,
-                std::uint64_t &rejected_count) {
+                std::uint64_t &rejected_count,
+                const bool require_available_torque) {
     std::vector<Candidate> candidates;
     candidates.reserve(lane.cycles.size());
     std::optional<UniformCycleBankError> first_rejection;
     for (std::size_t index = 0; index < lane.cycles.size(); ++index) {
-        auto result = candidate(lane.cycles[index], lane, geometry, index);
+        auto result = candidate(lane.cycles[index], lane, geometry, index,
+                                require_available_torque);
         if (auto *failure = std::get_if<UniformCycleBankError>(&result)) {
             if (failure->code == UniformCycleBankErrorCode::malformed_evidence) {
                 return std::move(*failure);
@@ -368,8 +376,8 @@ UniformCycleBankResult assign_uniform_running_cycle_bank(
         const auto row_count = static_cast<std::size_t>(rounded_intervals) + 1U;
 
         std::uint64_t rejected_count = 0U;
-        auto candidate_result =
-            safe_candidates(request.lane, request.geometry, rejected_count);
+        auto candidate_result = safe_candidates(request.lane, request.geometry,
+                                                rejected_count, true);
         if (auto *failure = std::get_if<UniformCycleBankError>(&candidate_result)) {
             return std::move(*failure);
         }
@@ -493,35 +501,16 @@ retain_uniform_idle_cycle_pool(const UniformIdleCyclePoolRequest &request) noexc
                          "idle target RPM must be finite and positive");
         }
         std::uint64_t rejected_count = 0U;
-        auto candidate_result =
-            safe_candidates(request.lane, request.geometry, rejected_count);
+        auto candidate_result = safe_candidates(request.lane, request.geometry,
+                                                rejected_count, false);
         if (auto *failure = std::get_if<UniformCycleBankError>(&candidate_result)) {
             return std::move(*failure);
         }
         const auto &candidates = std::get<std::vector<Candidate>>(candidate_result);
         UniformCycleBank bank;
-        const auto &first_torque =
-            candidates.front().evidence->instantaneous_net_shaft;
-        bank.load_calibration = {
-            first_torque.completeness,
-            first_torque.included_terms,
-            first_torque.omitted_terms,
-        };
         bank.rejected_cycle_count = rejected_count;
         bank.units.reserve(candidates.size());
         for (const auto &candidate : candidates) {
-            const auto &torque =
-                candidate.evidence->instantaneous_net_shaft;
-            if (contract::AudioPackageLoadCalibration{
-                    torque.completeness,
-                    torque.included_terms,
-                    torque.omitted_terms,
-                } != bank.load_calibration) {
-                return error(
-                    UniformCycleBankErrorCode::impossible_coverage,
-                    "lane.cycles",
-                    "idle cycles do not share one modeled net-torque term partition");
-            }
             // Idle is not projected onto the directional grid. Retaining each
             // unit's measured pitch keeps the dense pool selectable without
             // inventing identical coordinates for distinct source cycles.

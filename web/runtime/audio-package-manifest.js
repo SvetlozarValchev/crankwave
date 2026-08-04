@@ -331,10 +331,12 @@ function validateUnit(unit, sourceFrameCount, edgeGuardFrames, path) {
       "must be in [-1, 1]",
     );
   }
-  requireCanonicalFinite(
-    unit.average_net_torque_nm,
-    `${path}.average_net_torque_nm`,
-  );
+  if (unit.average_net_torque_nm !== null) {
+    requireCanonicalFinite(
+      unit.average_net_torque_nm,
+      `${path}.average_net_torque_nm`,
+    );
+  }
   for (const field of [
     "average_requested_throttle_01",
     "average_resolved_throttle_01",
@@ -913,6 +915,13 @@ export function validateAudioPackageManifest(manifest) {
           "audio-package-invalid-manifest",
           `${unitPath}.measured_rpm`,
           "exceeds row assignment error",
+        );
+      }
+      if (unit.average_net_torque_nm === null) {
+        fail(
+          "audio-package-invalid-manifest",
+          `${unitPath}.average_net_torque_nm`,
+          "directional load calibration requires available modeled net torque",
         );
       }
       if (planeIndex > 0) {

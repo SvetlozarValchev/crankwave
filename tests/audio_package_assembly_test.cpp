@@ -201,9 +201,20 @@ cycle(const std::uint64_t ordinal, const double rpm, const double torque,
                                 : (falling ? 6575.0 - 25.0 * index_f64
                                            : 625.0 + 25.0 * index_f64);
         const double local_start = 5000.0 + 100.0 * index_f64;
-        result.usable_cycles.push_back(cycle(
+        auto evidence = cycle(
             static_cast<std::uint64_t>(index + 1U), rpm, torque, throttle,
-            local_start));
+            local_start);
+        if (idle) {
+            evidence.instantaneous_net_shaft.availability =
+                contract::Availability::unavailable;
+            evidence.instantaneous_net_shaft.completeness =
+                contract::Completeness::incomplete;
+            evidence.instantaneous_net_shaft.unavailable_reason =
+                contract::QuantityUnavailableReason::model_not_admitted;
+            evidence.instantaneous_net_shaft.included_terms = 0U;
+            evidence.instantaneous_net_shaft.omitted_terms = 0U;
+        }
+        result.usable_cycles.push_back(std::move(evidence));
         result.usable_cycle_lane_boundaries.push_back(
             {local_start, local_start + 50.0});
     }
@@ -270,6 +281,10 @@ void test_exact_deterministic_package(const CompiledPackageBake &plan) {
                        .find("\"signal\":\"cycle-mean-integrated-"
                              "instantaneous-net-shaft\"") != std::string::npos,
            "assembly did not publish the exact typed BMW load calibration");
+    expect(!package.manifest.running.idle.units.empty() &&
+               !package.manifest.running.idle.units.front()
+                    .average_net_torque_nm.has_value(),
+           "assembly invented idle torque when held-speed evidence was unavailable");
     expect(std::ranges::is_sorted(package.payload_files, {},
                                   &AudioPackagePayloadFile::relative_path) &&
                std::ranges::is_sorted(package.manifest.artifacts, {},

@@ -156,9 +156,12 @@ void validate_unit_values(ValidationReport &report, const AudioPackageCycleUnit 
                         unit.average_signed_load <= 1.0,
                     ContractIssueCode::invalid_value, path + ".average_signed_load",
                     "average signed load must be finite and in [-1, 1]");
-    detail::require(report, canonical_finite(unit.average_net_torque_nm),
-                    ContractIssueCode::invalid_value, path + ".average_net_torque_nm",
-                    "average net torque must be finite");
+    detail::require(
+        report,
+        !unit.average_net_torque_nm.has_value() ||
+            canonical_finite(*unit.average_net_torque_nm),
+        ContractIssueCode::invalid_value, path + ".average_net_torque_nm",
+        "available average net torque must be finite");
     detail::require(report,
                     canonical_finite(unit.average_requested_throttle_01) &&
                         unit.average_requested_throttle_01 >= 0.0 &&
@@ -619,6 +622,11 @@ ValidationReport validate(const AudioPackageManifest &manifest) {
                             ContractIssueCode::inconsistent_semantics,
                             unit_path + ".measured_rpm",
                             "measured RPM exceeds the declared row assignment error");
+            detail::require(
+                report, unit.average_net_torque_nm.has_value(),
+                ContractIssueCode::missing_value,
+                unit_path + ".average_net_torque_nm",
+                "directional load calibration requires available modeled net torque");
             if (plane_index > 0 && unit_index < running.planes.front().units.size()) {
                 detail::require(
                     report,
@@ -627,15 +635,19 @@ ValidationReport validate(const AudioPackageManifest &manifest) {
                         running.planes.front().units[unit_index].canonical_rpm),
                     ContractIssueCode::inconsistent_shape, unit_path + ".canonical_rpm",
                     "all load planes must share identical canonical RPM rows");
+                const auto &previous_torque =
+                    running.planes[plane_index - 1U]
+                        .units[unit_index]
+                        .average_net_torque_nm;
                 detail::require(
                     report,
-                    running.planes[plane_index - 1U]
-                            .units[unit_index]
-                            .average_net_torque_nm < unit.average_net_torque_nm,
+                    previous_torque.has_value() &&
+                        unit.average_net_torque_nm.has_value() &&
+                        *previous_torque < *unit.average_net_torque_nm,
                     ContractIssueCode::inconsistent_semantics,
                     unit_path + ".average_net_torque_nm",
-                    "adjacent load planes must have strictly increasing cycle-mean "
-                    "net torque at every RPM row");
+                    "adjacent load planes must have available, strictly increasing "
+                    "cycle-mean net torque at every RPM row");
             }
         }
     }

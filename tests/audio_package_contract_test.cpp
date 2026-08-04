@@ -151,6 +151,8 @@ plane(std::string id, double coordinate,
         },
     };
     manifest.running.idle.units[0].start = {10U, 10U, 0.0};
+    manifest.running.idle.units[0].average_net_torque_nm.reset();
+    manifest.running.idle.units[1].average_net_torque_nm.reset();
     manifest.artifacts = {
         {"idle.exhaust", "audio/idle/exhaust-front.wav", 100U, 444U, digest(24U)},
         {"idle.master", "audio/idle/master.wav", 100U, 444U, digest(20U)},
@@ -320,6 +322,21 @@ void test_load_calibration_scope_is_closed() {
            "false complete modeled-torque calibration was accepted");
 }
 
+void test_idle_torque_may_be_unavailable_but_directional_torque_may_not() {
+    auto valid = valid_manifest();
+    expect(contract::validate(valid).ok(),
+           "unavailable held-speed idle torque invalidated the package");
+
+    auto missing_directional = valid_manifest();
+    missing_directional.running.planes[0]
+        .units[0]
+        .average_net_torque_nm.reset();
+    expect(has_issue(contract::validate(missing_directional),
+                     contract::ContractIssueCode::missing_value,
+                     "running.planes[0].units[0].average_net_torque_nm"),
+           "directional row without modeled torque was accepted");
+}
+
 void test_boundaries_references_and_units_fail_closed() {
     auto false_padding = valid_manifest();
     false_padding.running.rpm_grid.minimum_rpm = 1100.0;
@@ -381,6 +398,7 @@ int main() {
         test_valid_contract_and_deterministic_runtime_json();
         test_plane_and_artifact_order_are_closed();
         test_load_calibration_scope_is_closed();
+        test_idle_torque_may_be_unavailable_but_directional_torque_may_not();
         test_boundaries_references_and_units_fail_closed();
         std::cout << "audio package contract tests passed\n";
         return EXIT_SUCCESS;

@@ -177,11 +177,21 @@ void test_unsafe_cycles_and_impossible_coverage_are_rejected() {
 }
 
 void test_idle_retains_every_safe_cycle_chronologically() {
-    const std::vector cycles{
+    std::vector cycles{
         cycle(30U, 698.0, 4000.0),
         cycle(31U, 702.0, 4100.0),
         cycle(32U, 700.0, 4200.0),
     };
+    for (auto &item : cycles) {
+        item.instantaneous_net_shaft.availability =
+            contract::Availability::unavailable;
+        item.instantaneous_net_shaft.completeness =
+            contract::Completeness::incomplete;
+        item.instantaneous_net_shaft.unavailable_reason =
+            contract::QuantityUnavailableReason::model_not_admitted;
+        item.instantaneous_net_shaft.included_terms = 0U;
+        item.instantaneous_net_shaft.omitted_terms = 0U;
+    }
     const auto bank = require_bank(retain_uniform_idle_cycle_pool({
         {cycles, kFirstGlobalFrame, kTapeFrameCount},
         kPackageBakeMethodGeometry,
@@ -193,7 +203,9 @@ void test_idle_retains_every_safe_cycle_chronologically() {
                bank.units[2].completed_cycle_ordinal == 32U &&
                bank.units[0].canonical_rpm == 698.0 &&
                bank.units[1].canonical_rpm == 702.0 &&
-               bank.units[2].canonical_rpm == 700.0,
+               bank.units[2].canonical_rpm == 700.0 &&
+               !bank.units[0].average_net_torque_nm.has_value() &&
+               !bank.units[2].average_net_torque_nm.has_value(),
            "idle pool did not retain every safe cycle in chronological order");
 }
 

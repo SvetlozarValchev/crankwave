@@ -400,7 +400,9 @@ write_boundary(RuntimeJsonWriter &writer,
            writer.key("average_signed_load") &&
            writer.double_value(unit.average_signed_load) &&
            writer.key("average_net_torque_nm") &&
-           writer.double_value(unit.average_net_torque_nm) &&
+           (unit.average_net_torque_nm.has_value()
+                ? writer.double_value(*unit.average_net_torque_nm)
+                : writer.null_value()) &&
            writer.key("average_requested_throttle_01") &&
            writer.double_value(unit.average_requested_throttle_01) &&
            writer.key("average_resolved_throttle_01") &&

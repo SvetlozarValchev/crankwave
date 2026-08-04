@@ -120,7 +120,9 @@ struct AudioPackageCycleUnit {
     double canonical_rpm = 0.0;
     double measured_rpm = 0.0;
     double average_signed_load = 0.0;
-    double average_net_torque_nm = 0.0;
+    // Held-speed idle sources may not expose the directional load-calibration
+    // signal. Null is unavailable evidence, never an inferred zero torque.
+    std::optional<double> average_net_torque_nm;
     double average_requested_throttle_01 = 0.0;
     double average_resolved_throttle_01 = 0.0;
     // One invariant discrete state over the half-open unit. The normal-running

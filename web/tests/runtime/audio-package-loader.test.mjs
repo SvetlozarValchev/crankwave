@@ -162,7 +162,10 @@ function makeFixture() {
       idle: {
         source_scenario: identity("bmw-idle-source"),
         artifacts: [laneArtifact("master.engine.audition", "idle.master")],
-        units: [unit(0, 0, 0, "rising", true), unit(1, 0, 1, "rising", true)],
+        units: [
+          unit(0, 0, null, "rising", true),
+          unit(1, 0, null, "rising", true),
+        ],
       },
     },
     events: [],
@@ -363,6 +366,29 @@ test("load calibration is an exact typed partition of known torque terms", async
     );
     assert.deepEqual(requests, [MANIFEST_URL]);
   }
+});
+
+test("idle may declare torque unavailable but directional rows may not", async () => {
+  const valid = makeFixture();
+  const loaded = await loadAudioPackage(MANIFEST_URL, {
+    fetch: packageFetch(valid.manifest, valid.payloads),
+    crypto: webcrypto,
+  });
+  assert.equal(loaded.manifest.running.idle.units[0].average_net_torque_nm, null);
+
+  const invalid = makeFixture();
+  invalid.manifest.running.planes[0].units[0].average_net_torque_nm = null;
+  await assert.rejects(
+    loadAudioPackage(MANIFEST_URL, {
+      fetch: packageFetch(invalid.manifest, invalid.payloads),
+      crypto: webcrypto,
+    }),
+    (error) =>
+      error instanceof AudioPackageLoadError &&
+      error.code === "audio-package-invalid-manifest" &&
+      error.path ===
+        "running.planes[0].units[0].average_net_torque_nm",
+  );
 });
 
 test("WAVE chunk scan accepts both native fmt18 and browser fmt16 without DSP", () => {
