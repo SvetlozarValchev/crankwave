@@ -1,5 +1,6 @@
 #include "cli_app.hpp"
 
+#include "atlas_bake_command.hpp"
 #include "native_input_files.hpp"
 
 #include "engine_sim_offline/artifacts/directory_render_sink.hpp"
@@ -45,10 +46,17 @@ void print_help(std::ostream &stream) {
               "--scenario <scenario.json> \\\n"
               "      --asset-root <directory> "
               "--output-directory <new-directory>\n"
+              "  engine-sim-offline bake-atlas --engine <engine.json> "
+              "--atlas-bake <atlas-bake.json> \\\n"
+              "      --asset-root <directory> "
+              "--output-directory <new-directory>\n"
               "\n"
               "Commands:\n"
               "  render  Compile declarative engine and scenario JSON, render the\n"
               "          admitted simulation, and atomically publish its artifacts.\n"
+              "  bake-atlas\n"
+              "          Capture independent authored performances and atomically\n"
+              "          publish one continuous audio atlas.\n"
               "\n"
               "Command options may appear in any order and each is required exactly "
               "once.\n";
@@ -368,6 +376,20 @@ CliParseResult parse_cli_arguments(const std::span<const std::string_view> argum
                     "--output-directory", &RenderCommand::output_directory},
             });
     }
+    if (arguments.front() == "bake-atlas") {
+        return parse_command_options(
+            arguments, BakeAtlasCommand{},
+            std::array{
+                CommandOption<BakeAtlasCommand>{
+                    "--engine", &BakeAtlasCommand::engine_path},
+                CommandOption<BakeAtlasCommand>{
+                    "--atlas-bake", &BakeAtlasCommand::atlas_bake_path},
+                CommandOption<BakeAtlasCommand>{
+                    "--asset-root", &BakeAtlasCommand::asset_root},
+                CommandOption<BakeAtlasCommand>{
+                    "--output-directory", &BakeAtlasCommand::output_directory},
+            });
+    }
     return usage_error("unknown command '" + std::string{arguments.front()} +
                        "'");
 }
@@ -388,8 +410,11 @@ int run_cli(const std::span<const std::string_view> arguments,
             standard_out << kProgramName << ' ' << version_label() << '\n';
             return kExitSuccess;
         }
-        return execute_render(std::get<RenderCommand>(command), standard_out,
-                              standard_error);
+        if (const auto *render = std::get_if<RenderCommand>(&command)) {
+            return execute_render(*render, standard_out, standard_error);
+        }
+        return execute_bake_atlas(std::get<BakeAtlasCommand>(command), standard_out,
+                                  standard_error);
     } catch (const std::bad_alloc &) {
         return report_error(standard_error, kExitSoftware,
                             "insufficient memory while processing the request");

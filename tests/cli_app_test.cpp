@@ -15,6 +15,7 @@ namespace {
 using engine_sim_offline::cli::CliCommand;
 using engine_sim_offline::cli::CliParseResult;
 using engine_sim_offline::cli::CliUsageError;
+using engine_sim_offline::cli::BakeAtlasCommand;
 using engine_sim_offline::cli::RenderCommand;
 
 static_assert(engine_sim_offline::cli::kExitSuccess == 0);
@@ -64,6 +65,21 @@ void test_exact_render_grammar() {
     expect(other.engine_path == "motor.json" && other.scenario_path == "drive.json" &&
                other.asset_root == "root" && other.output_directory == "out",
            "render flags must be order-independent");
+}
+
+void test_exact_atlas_grammar() {
+    const auto parsed =
+        parse({"bake-atlas", "--engine", "engine.json", "--atlas-bake",
+               "atlas-bake.json", "--asset-root", "assets", "--output-directory",
+               "atlas"});
+    const auto *command = std::get_if<CliCommand>(&parsed);
+    expect(command != nullptr, "valid bake-atlas syntax was rejected");
+    const auto *atlas = std::get_if<BakeAtlasCommand>(command);
+    expect(atlas != nullptr && atlas->engine_path == "engine.json" &&
+               atlas->atlas_bake_path == "atlas-bake.json" &&
+               atlas->asset_root == "assets" &&
+               atlas->output_directory == "atlas",
+           "bake-atlas values were not retained");
 }
 
 void test_strict_render_rejections() {
@@ -161,6 +177,7 @@ void test_usage_output_channels() {
 int main() {
     try {
         test_exact_render_grammar();
+        test_exact_atlas_grammar();
         test_strict_render_rejections();
         test_standalone_help_and_version();
         test_usage_output_channels();

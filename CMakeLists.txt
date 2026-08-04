@@ -786,6 +786,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
     add_library(
         engine_sim_offline_cli_support
         STATIC
+            src/cli/atlas_bake_command.cpp
             src/cli/cli_app.cpp
             src/cli/native_atlas_input.cpp
             src/cli/native_asset_root.cpp
@@ -813,6 +814,9 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             engine_sim_offline::build_options
         PRIVATE
             engine_sim_offline::artifacts
+            engine_sim_offline::atlas_assembly
+            engine_sim_offline::atlas_bake
+            engine_sim_offline::atlas_capture
             engine_sim_offline::authoring
             engine_sim_offline::compile
             engine_sim_offline::bake
