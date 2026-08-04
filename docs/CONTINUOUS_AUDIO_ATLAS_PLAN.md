@@ -1,6 +1,6 @@
 # Continuous engine-audio atlas plan
 
-Status: accepted architecture; sole-contract cutover complete; moving capture next.
+Status: replacement steps 1--6 complete and accepted by ear; stationary-tile spike next.
 
 Date: 2026-08-04
 
@@ -217,6 +217,28 @@ Fail-closed admission rejects:
 Every sound-bearing slice ends with separate, manually selectable A and B files or
 live paths. Combined A/B audio is not an audition substitute.
 
+## Accepted moving-segment gate
+
+The first independently captured BMW moving atlas and its untouched held-out
+fifth-gear run completed the step-6 gate on 2026-08-04. The audition retained
+18.04 seconds from 1600.855 to 3816.172 RPM. Source A and atlas B remained separate;
+B advanced only through the chronological atlas cursor and never copied held-out A.
+The user accepted the result as "sounds identical almost," which is the intended
+result for a representation-preservation gate.
+
+The sealed evidence is exact:
+
+- Source A WAV SHA-256: `c365c816b82e3afc7a42b0c9bffbdab2e2f0485156aece340137e86e190595bc`.
+- Atlas B WAV SHA-256: `91e8b803cb07ee19e434680f25419b0e628ca0bbce9dc137587159907397d4be`.
+- Atlas PCM SHA-256: `303efa06bdec9306ac06738fd6f42451135b1443e60fd78c3768df6e424e806b`.
+- Compiled engine provenance: `1d81da0057a42fa37f138ef54881d431007409c1a2b90c58b62008f6bd3ae4cf`.
+- Sealed renderer source closure: `4bafabed95d6c3401f5119c482edaa91a9a2f263eb6d3219a6bdfce6dbba85dd`.
+
+Two provenance-only rebuilds left the complete atlas PCM and both accepted audition
+WAVs byte-for-byte unchanged. The current native lane capture takes about 52.4
+seconds on the development PC, so build-time parallelization remains future work;
+it is not being mixed into the next sound-representation experiment.
+
 ## Replacement sequence
 
 1. Replace this plan and name the rejected architecture. No PCM change.
@@ -235,6 +257,7 @@ live paths. Combined A/B audio is not an audition substitute.
 9. Profile package size, build time, runtime CPU, and adapter delivery only after the
    audio representation is accepted.
 
-The first implementation slice ends at step 6. It does not claim free-rev, steady,
-partial-load, or lifecycle completeness before those representations exist and have
-been heard.
+The first implementation slice ended at step 6 and is accepted. It does not claim
+free-rev, steady, partial-load, or lifecycle completeness before those representations
+exist and have been heard. The next sound-bearing action is the smallest stationary
+tile spike and its separate held-out A/B gate.
