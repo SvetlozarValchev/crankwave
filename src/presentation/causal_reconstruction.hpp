@@ -61,6 +61,8 @@ class CausalReconstruction {
     static constexpr std::uint64_t kRationalPhaseStepHz = 4000;
     static constexpr std::size_t kRationalPhaseKernelCount =
         kSourceRateHz / kRationalPhaseStepHz;
+    static constexpr std::size_t kHistoryStride =
+        dsp::CausalReconstructionTable::tap_count * 2U;
 
     dsp::CausalReconstructionTable table_;
     std::size_t route_count_ = 0;
@@ -71,6 +73,9 @@ class CausalReconstruction {
     // path does not repeat phase resolution and coefficient interpolation for every
     // output frame.
     std::vector<double> rational_phase_kernels_;
+    // Each route's circular history is mirrored once. Starting at the oldest
+    // frame therefore exposes one contiguous tap_count window without a branch
+    // in every convolution tap; both copies are committed together below.
     std::vector<double> histories_;
     std::size_t oldest_history_frame_ = 0;
     std::uint64_t distance_to_next_output_ = 0;

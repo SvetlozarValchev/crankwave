@@ -21,8 +21,8 @@ CausalReconstruction::CausalReconstruction(std::size_t route_count,
         throw std::invalid_argument{
             "causal reconstruction admits only exact 20000 Hz input"};
     }
-    if (route_count_ > std::numeric_limits<std::size_t>::max() /
-                           dsp::CausalReconstructionTable::tap_count) {
+    if (route_count_ >
+        std::numeric_limits<std::size_t>::max() / kHistoryStride) {
         throw std::overflow_error{"causal reconstruction history size overflowed"};
     }
     static_assert(kInputRateHz % kRationalPhaseStepHz == 0U);
@@ -42,7 +42,7 @@ CausalReconstruction::CausalReconstruction(std::size_t route_count,
                 row0[tap] + (row1[tap] - row0[tap]) * phase.mix;
         }
     }
-    histories_.resize(route_count_ * dsp::CausalReconstructionTable::tap_count);
+    histories_.resize(route_count_ * kHistoryStride);
 }
 
 ReconstructionPhase
@@ -142,18 +142,13 @@ void CausalReconstruction::process(std::span<const double> input_frame_major,
                 output_frame_major.subspan(output_index * route_count_, route_count_);
             for (std::size_t route = 0; route < route_count_; ++route) {
                 double sample = 0.0;
-                auto history_index = oldest_history_frame_;
                 const auto history_offset =
-                    route * dsp::CausalReconstructionTable::tap_count;
+                    route * kHistoryStride + oldest_history_frame_;
                 for (std::size_t tap = 0;
                      tap < dsp::CausalReconstructionTable::tap_count; ++tap) {
                     sample = sample +
-                             histories_[history_offset + history_index] *
+                             histories_[history_offset + tap] *
                                  coefficients[tap];
-                    ++history_index;
-                    if (history_index == dsp::CausalReconstructionTable::tap_count) {
-                        history_index = 0;
-                    }
                 }
                 if (!std::isfinite(sample)) {
                     throw std::domain_error{"reconstruction output was non-finite"};
@@ -165,9 +160,12 @@ void CausalReconstruction::process(std::span<const double> input_frame_major,
         }
 
         for (std::size_t route = 0; route < route_count_; ++route) {
-            histories_[route * dsp::CausalReconstructionTable::tap_count +
-                       oldest_history_frame_] =
+            const auto history_offset = route * kHistoryStride;
+            const auto sample =
                 input_frame_major[input_frame * route_count_ + route];
+            histories_[history_offset + oldest_history_frame_] = sample;
+            histories_[history_offset + dsp::CausalReconstructionTable::tap_count +
+                       oldest_history_frame_] = sample;
         }
         ++oldest_history_frame_;
         if (oldest_history_frame_ == dsp::CausalReconstructionTable::tap_count) {
