@@ -237,6 +237,38 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_package_source_capture_tests
+    package_source_capture_test.cpp
+    bmw_m52b28_render_gate_support.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_package_source_capture_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_package_source_capture_tests
+    PRIVATE
+        engine_sim_offline::package_bake
+        engine_sim_offline::session
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_package_source_capture_tests
+)
+
+add_test(
+    NAME package_bake.source_capture
+    COMMAND
+        engine_sim_offline_package_source_capture_tests
+        ${PROJECT_SOURCE_DIR}
+)
+set_tests_properties(
+    package_bake.source_capture
+    PROPERTIES TIMEOUT 120
+)
+
+add_executable(
     engine_sim_offline_audio_package_contract_tests
     audio_package_contract_test.cpp
 )

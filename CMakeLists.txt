@@ -182,6 +182,7 @@ add_library(
     engine_sim_offline_package_bake
     STATIC
         src/package/package_bake_compile.cpp
+        src/package/package_source_capture.cpp
 )
 add_library(
     engine_sim_offline::package_bake
@@ -201,6 +202,8 @@ target_link_libraries(
     PUBLIC
         engine_sim_offline::compile
         engine_sim_offline::build_options
+    PRIVATE
+        engine_sim_offline::session
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_package_bake)
 
