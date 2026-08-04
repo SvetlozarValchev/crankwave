@@ -423,6 +423,13 @@ ValidationReport validate(const AudioPackageManifest &manifest) {
     detail::require(report, running.cycle_revolutions == 2U,
                     ContractIssueCode::unsupported_value, "running.cycle_revolutions",
                     "four-stroke package units must span exactly two revolutions");
+    detail::require(
+        report,
+        canonical_finite(running.cycle_signal_alignment_frames) &&
+            running.cycle_signal_alignment_frames >= 0.0,
+        ContractIssueCode::invalid_value,
+        "running.cycle_signal_alignment_frames",
+        "cycle signal alignment must be a finite nonnegative delivery-frame offset");
     const auto &grid = running.rpm_grid;
     detail::require(report,
                     canonical_finite(grid.minimum_rpm) && grid.minimum_rpm > 0.0,

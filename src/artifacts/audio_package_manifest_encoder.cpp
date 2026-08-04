@@ -499,6 +499,8 @@ write_units(RuntimeJsonWriter &writer,
           writer.uint32_value(manifest.running.cycle_revolutions) &&
           writer.key("selector_seed") &&
           writer.uint64_string_value(manifest.running.selector_seed) &&
+          writer.key("cycle_signal_alignment_frames") &&
+          writer.double_value(manifest.running.cycle_signal_alignment_frames) &&
           writer.key("rpm_grid") && writer.begin_object() &&
           writer.key("minimum_rpm") &&
           writer.double_value(manifest.running.rpm_grid.minimum_rpm) &&

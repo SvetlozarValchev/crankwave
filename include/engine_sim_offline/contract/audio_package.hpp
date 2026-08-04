@@ -187,6 +187,10 @@ struct AudioPackageIdle {
 struct AudioPackageRunning {
     std::uint32_t cycle_revolutions = 2;
     std::uint64_t selector_seed = 0;
+    // Added to exact physical crank-boundary delivery coordinates before they
+    // become source-tape unit boundaries. This is the common reconstruction
+    // delay only; modeled route propagation and transfer phase remain in PCM.
+    double cycle_signal_alignment_frames = 0.0;
     AudioPackageRpmGrid rpm_grid;
     std::vector<AudioPackageRunningPlane> planes;
     AudioPackageIdle idle;

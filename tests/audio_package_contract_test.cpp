@@ -102,6 +102,7 @@ plane(std::string id, double coordinate,
     };
     manifest.running.cycle_revolutions = 2U;
     manifest.running.selector_seed = UINT64_C(18446744073709551615);
+    manifest.running.cycle_signal_alignment_frames = 1228.8;
     manifest.running.rpm_grid = {
         1000.0, 1500.0, 2000.0, 2500.0, 500.0, 1U, 1U, 4U, 25.0,
     };
@@ -208,6 +209,9 @@ void test_valid_contract_and_deterministic_runtime_json() {
     expect(document.find("\"selector_seed\":"
                          "\"18446744073709551615\"") != std::string::npos,
            "full uint64 selector seed lost exact decimal identity");
+    expect(document.find("\"cycle_signal_alignment_frames\":1228.8") !=
+               std::string::npos,
+           "cycle signal-alignment offset was not encoded canonically");
     expect(document.find("\"canonical_rpm\":1000") != std::string::npos &&
                document.find("0x") == std::string::npos,
            "binary64 package values regressed to internal bit strings");
