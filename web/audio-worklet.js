@@ -108,7 +108,15 @@ class EngineSimOfflineRingOutput extends AudioWorkletProcessor {
       this.indices.producerState,
     );
     available = Math.max(0, Math.min(this.capacityFrames, available));
-    const framesToRead = Math.min(frameCount, available);
+    // Idle means the producer is rebuilding its requested lead; paused means
+    // the session clock is intentionally frozen. In both states the consumer
+    // ramps to silence without draining retained lead. Otherwise a resumed
+    // slow/high-RPM simulation can never refill while the device simultaneously
+    // consumes the same ring.
+    const consumerHeld = producerState === 0 || producerState === 2;
+    const framesToRead = consumerHeld
+      ? 0
+      : Math.min(frameCount, available);
     let readFrame = Atomics.load(this.state, this.indices.readFrame);
     readFrame =
       ((readFrame % this.capacityFrames) + this.capacityFrames) %
