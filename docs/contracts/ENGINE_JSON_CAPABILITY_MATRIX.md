@@ -368,7 +368,7 @@ sidecars.
 
 Slice 13 introduced this operating surface through the portable C++ session. The
 current sole boundary is exact C ABI v7, the fixed-memory WASM wrapper, and
-`engine-sim-offline/browser-worker-v3`. The
+`engine-sim-offline/browser-worker-v4`. The
 descriptor identifies one of seven motion modes and publishes an ordered forward-gear
 inventory where applicable. The BMW FreeVehicle fixture exposes five descriptors in
 authored order with ratios `4.21`, `2.49`, `1.66`, `1.24`, and `1.00`. Both mode

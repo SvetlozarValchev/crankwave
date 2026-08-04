@@ -15,7 +15,7 @@ through the unchanged execution-kind boundary.
 
 ## 1. One backend remains authoritative
 
-- The UI uses `engine-sim-offline/browser-worker-v3`; it does not inspect scenario JSON
+- The UI uses `engine-sim-offline/browser-worker-v4`; it does not inspect scenario JSON
   to invent capabilities, calculate vehicle/dyno state, or synthesize audio.
 - The built descriptor's motion mode, exact control list, and forward-gear descriptors
   decide which widgets exist and whether they are enabled.

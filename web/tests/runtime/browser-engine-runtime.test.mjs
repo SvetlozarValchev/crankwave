@@ -63,8 +63,8 @@ test("browser build forwards explicit execution kind without mode inference", ()
   );
 });
 
-test("Worker protocol v3 publishes the complete typed control vocabulary", () => {
-  assert.equal(WORKER_PROTOCOL_ID, "engine-sim-offline/browser-worker-v3");
+test("Worker protocol v4 publishes the complete typed control vocabulary", () => {
+  assert.equal(WORKER_PROTOCOL_ID, "engine-sim-offline/browser-worker-v4");
   assert.deepEqual(
     LIVE_CONTROL_CAPABILITIES.map(({ kind }) => kind),
     [
