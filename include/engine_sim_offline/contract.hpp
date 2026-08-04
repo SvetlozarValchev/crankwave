@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine_sim_offline/contract/audio_package.hpp"
 #include "engine_sim_offline/contract/capture.hpp"
 #include "engine_sim_offline/contract/common.hpp"
 #include "engine_sim_offline/contract/engine.hpp"

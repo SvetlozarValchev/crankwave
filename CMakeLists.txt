@@ -86,6 +86,7 @@ target_link_libraries(
 add_library(
     engine_sim_offline_contract
     STATIC
+        src/contract/audio_package.cpp
         src/contract/capture.cpp
         src/contract/common.cpp
         src/contract/engine.cpp
@@ -319,6 +320,7 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_bake)
 add_library(
     engine_sim_offline_artifacts
     STATIC
+        src/artifacts/audio_package_manifest_encoder.cpp
         src/artifacts/directory_render_sink.cpp
         src/artifacts/directory_render_sink_commit.cpp
         src/artifacts/directory_render_sink_lifecycle.cpp

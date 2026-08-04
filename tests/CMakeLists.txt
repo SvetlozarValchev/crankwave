@@ -218,6 +218,21 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_audio_package_contract_tests
+    audio_package_contract_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_audio_package_contract_tests
+    PRIVATE engine_sim_offline::artifacts
+)
+
+add_test(
+    NAME contract.audio_package
+    COMMAND engine_sim_offline_audio_package_contract_tests
+)
+
+add_executable(
     engine_sim_offline_compiler_foundation_tests
     compiler_foundation_test.cpp
 )
