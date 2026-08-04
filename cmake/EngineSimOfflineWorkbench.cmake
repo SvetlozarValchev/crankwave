@@ -61,6 +61,7 @@ function(engine_sim_offline_add_web_workbench _wasm_target)
         OUTPUT "${_stamp}"
         COMMAND "${CMAKE_COMMAND}" -E remove_directory "${_output_root}"
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${_output_root}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${_output_root}/packages"
         COMMAND
             "${CMAKE_COMMAND}" -E copy_directory
             "${PROJECT_SOURCE_DIR}/web"
