@@ -347,7 +347,7 @@ The decision, control, candidate, and repeat evidence are recorded in
 [`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md). The
 canonical cooker remains 20 kHz. Exact 10 kHz admission is retained solely for the
 isolated, explicitly labelled realtime browser A/B preview described in
-[`../RESPONSIVE_AUDIO_BAKER_PLAN.md`](../RESPONSIVE_AUDIO_BAKER_PLAN.md); it is not a
+[`../CONTINUOUS_AUDIO_ATLAS_PLAN.md`](../CONTINUOUS_AUDIO_ATLAS_PLAN.md); it is not a
 native publication mode or a second production contract.
 
 For `finite_scenario`, `process_block()` returns blocks until the exact authored

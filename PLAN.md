@@ -1,7 +1,7 @@
 # Engine Sim Offline: greenfield product cutover
 
 Status: active — source fidelity frozen at the accepted flow-coupled baseline;
-responsive package baker and live source/baked A/B are the current milestone
+continuous audio-atlas baker and live source/baked A/B are the current milestone
 
 Branch: `clean-room/bmw-baseline`
 
@@ -17,9 +17,9 @@ zero-underrun BMW/V8 browser startup through the same renderer. Fidelity queue i
 20 kHz per-cylinder pressure-force diagnostic seam is now complete and preserves the
 accepted audio exactly; no `mechanical.engine` route or sound path exists yet. Item 5's
 first valve-flow correction was retained after an audibly neutral A/B and is frozen at
-`b098e8e`. Further speculative fidelity work is parked while the responsive package
-baker and same-control source/baked web audition path are implemented. See
-[`docs/RESPONSIVE_AUDIO_BAKER_PLAN.md`](docs/RESPONSIVE_AUDIO_BAKER_PLAN.md).**
+`b098e8e`. Further speculative fidelity work is parked while the continuous
+audio-atlas baker and same-control source/baked web audition path are implemented. See
+[`docs/CONTINUOUS_AUDIO_ATLAS_PLAN.md`](docs/CONTINUOUS_AUDIO_ATLAS_PLAN.md).**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -1079,13 +1079,15 @@ the current renderer already uses windowed-sinc reconstruction, has no such mast
 filter or dynamics processor, and publishes 192 kHz Float32/PCM24 audio. Mono 44.1 kHz
 PCM16 is currently an input-IR restriction, not the engine output format.
 
-### 9.6 Responsive package baker and source/baked audition
+### 9.6 Continuous audio-atlas baker and source/baked audition
 
-The current product milestone is the greenfield responsive package described in
-[`docs/RESPONSIVE_AUDIO_BAKER_PLAN.md`](docs/RESPONSIVE_AUDIO_BAKER_PLAN.md). It adopts
-the proven complete-cycle, controlled three-load, shared-clock, dense-idle, and
-native-event principles from the sibling `engine-audio-lab`, while using this
-simulator's exact 20 kHz crank phase instead of inferred audio pitch marks.
+The current product milestone is the greenfield continuous audio atlas described in
+[`docs/CONTINUOUS_AUDIO_ATLAS_PLAN.md`](docs/CONTINUOUS_AUDIO_ATLAS_PLAN.md). The
+rejected one-cycle package is not a compatibility baseline. The replacement retains
+chronological moving segments, long stationary tiles, and native event performances,
+with one atlas cursor owning normal-running time. This simulator's exact 20 kHz crank
+phase and PCM-aligned operating state remain capture and handoff evidence rather than
+a second runtime scheduler.
 
 The first vertical slice keeps the source renderer byte-identical, bakes one BMW
 normal-running package, and extends the existing workbench with continuously advancing
