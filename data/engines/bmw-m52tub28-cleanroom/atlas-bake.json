@@ -30,7 +30,7 @@
       "load_coordinate": 1,
       "state_mask": 11,
       "normalized_rpm_slope": {
-        "minimum_per_second": 0.025,
+        "minimum_per_second": 0.023,
         "maximum_per_second": 0.085
       },
       "captured_rpm": {
