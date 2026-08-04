@@ -332,6 +332,24 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_audio_package_directory_publisher_tests
+    audio_package_directory_publisher_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_audio_package_directory_publisher_tests
+    PRIVATE engine_sim_offline::artifacts
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_audio_package_directory_publisher_tests
+)
+
+add_test(
+    NAME artifacts.audio_package_directory_publisher
+    COMMAND engine_sim_offline_audio_package_directory_publisher_tests
+)
+
+add_executable(
     engine_sim_offline_compiler_foundation_tests
     compiler_foundation_test.cpp
 )
