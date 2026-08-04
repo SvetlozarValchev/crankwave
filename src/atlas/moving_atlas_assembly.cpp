@@ -115,9 +115,12 @@ valid_fractional_position(const contract::AudioAtlasFractionalFrame &position,
     return true;
 }
 
-[[nodiscard]] bool interval_matches_direction(const double left, const double right,
-                                              const Direction direction) noexcept {
-    return direction == Direction::rising ? right >= left : right <= left;
+[[nodiscard]] bool knot_matches_direction(
+    const contract::AudioAtlasTimelineKnot &knot,
+    const Direction direction) noexcept {
+    return direction == Direction::rising
+               ? knot.rpm_slope_rpm_per_second > 0.0
+               : knot.rpm_slope_rpm_per_second < 0.0;
 }
 
 [[nodiscard]] bool run_covers(const contract::AudioAtlasStateTimeline &timeline,
@@ -135,21 +138,27 @@ valid_fractional_position(const contract::AudioAtlasFractionalFrame &position,
 covering_runs(const contract::AudioAtlasStateTimeline &timeline,
               const authoring::AtlasBakeRpmRange &range, const Direction direction) {
     std::vector<MonotoneRun> result;
-    std::size_t run_start = 0U;
-    for (std::size_t right = 1U; right < timeline.knots.size(); ++right) {
-        if (interval_matches_direction(timeline.knots[right - 1U].rpm,
-                                       timeline.knots[right].rpm, direction)) {
+    std::optional<std::size_t> run_start;
+    for (std::size_t index = 0U; index < timeline.knots.size(); ++index) {
+        if (knot_matches_direction(timeline.knots[index], direction)) {
+            if (!run_start.has_value()) {
+                run_start = index;
+            }
             continue;
         }
-        const MonotoneRun run{run_start, right - 1U};
+        if (run_start.has_value() && index - *run_start >= 2U) {
+            const MonotoneRun run{*run_start, index - 1U};
+            if (run_covers(timeline, run, range, direction)) {
+                result.push_back(run);
+            }
+        }
+        run_start.reset();
+    }
+    if (run_start.has_value() && timeline.knots.size() - *run_start >= 2U) {
+        const MonotoneRun run{*run_start, timeline.knots.size() - 1U};
         if (run_covers(timeline, run, range, direction)) {
             result.push_back(run);
         }
-        run_start = right;
-    }
-    const MonotoneRun final_run{run_start, timeline.knots.size() - 1U};
-    if (run_covers(timeline, final_run, range, direction)) {
-        result.push_back(final_run);
     }
     return result;
 }
@@ -320,9 +329,7 @@ timeline_matches_segment(const contract::AudioAtlasStateTimeline &timeline,
             normalized_slope < segment.normalized_rpm_slope.minimum_per_second ||
             normalized_slope > segment.normalized_rpm_slope.maximum_per_second ||
             (segment.direction == Direction::rising && !(normalized_slope > 0.0)) ||
-            (segment.direction == Direction::falling && !(normalized_slope < 0.0)) ||
-            (index != 0U && !interval_matches_direction(timeline.knots[index - 1U].rpm,
-                                                        knot.rpm, segment.direction))) {
+            (segment.direction == Direction::falling && !(normalized_slope < 0.0))) {
             return false;
         }
     }
