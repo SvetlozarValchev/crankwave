@@ -64,7 +64,7 @@
     "throttle_01": {
       "interpolation": "right_continuous_hold",
       "points": [
-        {"time": {"value": 0, "unit": "s"}, "value": 0.04}
+        {"time": {"value": 0, "unit": "s"}, "value": 0}
       ]
     }
   },
