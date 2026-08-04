@@ -19,6 +19,7 @@
 
 namespace engine_sim_offline::excitation {
 
+inline constexpr contract::RationalRateHz kPreviewCapturedSourceRateHz{10000U, 1U};
 inline constexpr contract::RationalRateHz kCapturedSourceRateHz{20000U, 1U};
 
 /**

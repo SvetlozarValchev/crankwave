@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const EXPECTED_WAV_BYTES = 4_224_056;
 const EXPECTED_WAV_SHA256 =
-  "d83bb699dc1b3809649d538cc2e86188e809e55335af28b4d4b8987dc70c9334";
+  "1c67f7d7075f5647960ff635a550aa9004e9b11eb4585f3257d3389c5c0d1b93";
 const FINITE_EXECUTION_KIND = "1";
 const OPEN_ENDED_EXECUTION_KIND = "2";
 
@@ -16,12 +16,13 @@ function repositoryPackageExpectations(
   engineId,
   idleRpm,
   dynoRange,
+  freeRevScenarioId = `${engineId}-warm-running-free-rev-${idleRpm}rpm`,
 ) {
   return [
     {
       packageId: `${packagePrefix}-free-rev`,
       engineId,
-      scenarioId: `${engineId}-warm-running-free-rev-${idleRpm}rpm`,
+      scenarioId: freeRevScenarioId,
       executionKind: OPEN_ENDED_EXECUTION_KIND,
     },
     {
@@ -69,6 +70,7 @@ const NEW_REPOSITORY_PACKAGES = Object.freeze([
     "bmw-m52tub28-cleanroom",
     700,
     "700-6500",
+    "bmw-m52tub28-cleanroom-warm-running-free-rev-700rpm-10khz-preview",
   ),
   {
     packageId: "bmw-m52tub28-cold-start",
@@ -512,14 +514,16 @@ async function verifyResponsiveAudioPackage(cdp) {
     () => pageState(cdp),
     (state) =>
       state.session === "Running" &&
+      uiDurationSeconds(state.elapsed) >= 6 &&
       /B−A .* B peak .* clips 0 · gaps 0 · silence 0/u.test(
         state.audioPackageDetail,
       ),
-    "finite gap-free baked diagnostics",
-    20_000,
+    "six seconds of gap-free source/baked playback",
+    30_000,
   );
   assert.doesNotMatch(baked.audioPackageDetail, /B−A n\/a/u);
   assert.doesNotMatch(baked.audioPackageDetail, /B peak 0\.000/u);
+  assert.equal(baked.underruns, "0");
 
   await cdp.evaluate(
     `document.querySelector('[data-comparison-mode="source-a"]').click(); true`,
@@ -896,9 +900,7 @@ async function main() {
     );
     await delay(500);
     let running = await pageState(cdp);
-    const initialSharedUnderruns = Number(running.underruns);
-    assert.ok(Number.isSafeInteger(initialSharedUnderruns));
-    assert.ok(initialSharedUnderruns >= 0);
+    assert.equal(running.underruns, "0");
     assert.equal(running.starterDisabled, false);
 
     await cdp.evaluate(`(() => {
@@ -924,8 +926,7 @@ async function main() {
       15_000,
     );
     assert.equal(running.throttle, "20%");
-    const sustainedSharedUnderruns = Number(running.underruns);
-    assert.ok(sustainedSharedUnderruns >= initialSharedUnderruns);
+    assert.equal(running.underruns, "0");
 
     await cdp.evaluate(
       `document.querySelector("#stop-button").click(); true`,
@@ -956,7 +957,7 @@ async function main() {
         uiDurationSeconds(state.elapsed) > pausedElapsed,
       "resumed live session with retained state",
     );
-    assert.ok(Number(resumed.underruns) >= sustainedSharedUnderruns);
+    assert.equal(resumed.underruns, "0");
 
     await cdp.evaluate(
       `document.querySelector("#stop-button").click(); true`,
@@ -978,8 +979,7 @@ async function main() {
       "freshly restarted live session",
       20_000,
     );
-    assert.ok(Number.isSafeInteger(Number(restarted.underruns)));
-    assert.ok(Number(restarted.underruns) >= 0);
+    assert.equal(restarted.underruns, "0");
 
     await cdp.evaluate(
       `document.querySelector("#stop-button").click(); true`,
@@ -1108,7 +1108,7 @@ async function main() {
         buses: routeReady.busCount,
         wavBytes: exported.bytes,
         wavSha256: exported.sha256,
-        sourceSharedUnderruns: sustainedSharedUnderruns,
+        sourceSharedUnderruns: Number(running.underruns),
         throttle: running.throttle,
         selectedRoute,
         v8Engine: v8Running.sessionTitle,

@@ -31,6 +31,8 @@ constexpr std::size_t kCylinders = 6U;
 constexpr std::size_t kRoutes = 2U;
 constexpr std::size_t kTotalDelayFrames = 360U;
 constexpr std::size_t kPrimaryDelayFrames = 0U;
+constexpr std::size_t kPreviewFrames = 200U;
+constexpr RationalRateHz kPreviewRate{10000, 1};
 constexpr RationalRateHz kRate{20000, 1};
 constexpr double kAtmospherePa = 101325.0;
 constexpr double kExcitationScale = 1600.0;
@@ -86,8 +88,10 @@ require_session(CapturedSourceExcitationCompileResult result) {
 class SyntheticCaptureBlock final {
   public:
     SyntheticCaptureBlock(const EngineSpec &engine, std::uint64_t first_frame_index,
-                          RationalRateHz rate = kRate)
-        : engine_id_(engine.id), first_frame_index_(first_frame_index), rate_(rate) {
+                          RationalRateHz rate = kRate,
+                          std::size_t frame_count = kFrames)
+        : engine_id_(engine.id), first_frame_index_(first_frame_index), rate_(rate),
+          frame_count_(frame_count) {
         cylinders_.reserve(engine.cylinders.size());
         for (const auto &cylinder : engine.cylinders) {
             cylinders_.push_back(cylinder.id);
@@ -121,21 +125,21 @@ class SyntheticCaptureBlock final {
             });
         }
 
-        engine_samples_.resize(kFrames);
-        cylinder_samples_.resize(kFrames * cylinders_.size());
-        port_samples_.resize(kFrames * ports_.size());
-        volume_samples_.resize(kFrames * gas_volumes_.size());
-        edge_samples_.resize(kFrames * flow_edges_.size());
-        route_samples_.resize(kFrames * routes_.size());
-        event_offsets_.assign(kFrames + 1U, 0U);
-        filtered_rpm_.resize(kFrames);
-        parity_cylinders_.resize(kFrames * cylinders_.size());
+        engine_samples_.resize(frame_count_);
+        cylinder_samples_.resize(frame_count_ * cylinders_.size());
+        port_samples_.resize(frame_count_ * ports_.size());
+        volume_samples_.resize(frame_count_ * gas_volumes_.size());
+        edge_samples_.resize(frame_count_ * flow_edges_.size());
+        route_samples_.resize(frame_count_ * routes_.size());
+        event_offsets_.assign(frame_count_ + 1U, 0U);
+        filtered_rpm_.resize(frame_count_);
+        parity_cylinders_.resize(frame_count_ * cylinders_.size());
 
-        for (std::size_t frame = 0; frame < kFrames; ++frame) {
+        for (std::size_t frame = 0; frame < frame_count_; ++frame) {
             engine_samples_[frame].step_end_index =
                 first_frame_index_ + static_cast<std::uint64_t>(frame) + 1U;
         }
-        for (std::size_t frame = 0; frame < kFrames; ++frame) {
+        for (std::size_t frame = 0; frame < frame_count_; ++frame) {
             for (std::size_t route = 0; route < routes_.size(); ++route) {
                 const auto kind = routes_[route].kind;
                 if (kind == SourceRouteKind::exhaust_outlet ||
@@ -152,7 +156,7 @@ class SyntheticCaptureBlock final {
 
     void fill_distinct_excitation() {
         const std::size_t cylinder_count = cylinders_.size();
-        for (std::size_t frame = 0; frame < kFrames; ++frame) {
+        for (std::size_t frame = 0; frame < frame_count_; ++frame) {
             const auto global = first_frame_index_ + static_cast<std::uint64_t>(frame);
             switch (global % 4U) {
             case 0U:
@@ -211,8 +215,9 @@ class SyntheticCaptureBlock final {
             layout,
             CaptureClock{rate_, first_frame_index_, first_frame_index_ + 1U,
                          SamplePhase::post_step},
-            static_cast<std::uint32_t>(kFrames), static_cast<std::uint32_t>(kFrames),
-            static_cast<std::uint32_t>(kFrames * 19U), engine_samples_,
+            static_cast<std::uint32_t>(frame_count_),
+            static_cast<std::uint32_t>(frame_count_),
+            static_cast<std::uint32_t>(frame_count_ * 19U), engine_samples_,
             cylinder_samples_, port_samples_, volume_samples_, edge_samples_,
             route_samples_, journal, parity);
     }
@@ -275,7 +280,7 @@ class SyntheticCaptureBlock final {
                              double pressure_pa_abs) {
         const auto route = std::ranges::find(routes_, route_id, &RouteIdentity::id);
         expect(route != routes_.end() && route->kind == SourceRouteKind::intake_inlet &&
-                   frame < kFrames,
+                   frame < frame_count_,
                "intake pressure fixture route or frame is invalid");
         const auto route_index = static_cast<std::size_t>(route - routes_.begin());
         auto *sample = std::get_if<GasSourceRouteCaptureSample>(
@@ -288,7 +293,7 @@ class SyntheticCaptureBlock final {
     [[nodiscard]] double intake_pressure(RouteId route_id, std::size_t frame) const {
         const auto route = std::ranges::find(routes_, route_id, &RouteIdentity::id);
         expect(route != routes_.end() && route->kind == SourceRouteKind::intake_inlet &&
-                   frame < kFrames,
+                   frame < frame_count_,
                "intake pressure fixture route or frame is invalid");
         const auto route_index = static_cast<std::size_t>(route - routes_.begin());
         const auto *sample = std::get_if<GasSourceRouteCaptureSample>(
@@ -302,6 +307,7 @@ class SyntheticCaptureBlock final {
     EngineId engine_id_;
     std::uint64_t first_frame_index_ = 0;
     RationalRateHz rate_{};
+    std::size_t frame_count_ = 0U;
     std::vector<CylinderId> cylinders_;
     std::vector<PortIdentity> ports_;
     std::vector<GasVolumeIdentity> gas_volumes_;
@@ -350,7 +356,8 @@ struct PublishedBlockCopy {
            "presentation and diagnostic callback metadata diverged");
     expect(intake.first_frame_index() == output.first_frame_index() &&
                intake.sample_rate() == output.sample_rate() &&
-               intake.sample_rate() == kCapturedSourceRateHz &&
+               (intake.sample_rate() == kPreviewCapturedSourceRateHz ||
+                intake.sample_rate() == kCapturedSourceRateHz) &&
                intake.frame_count() == output.frame_count() &&
                intake.route_count() == intake.route_ids().size() &&
                intake.pressure_pa_abs().size() ==
@@ -365,7 +372,8 @@ struct PublishedBlockCopy {
            "diagnostics did not expose the exact published route-value storage");
     expect(pressure_force.first_frame_index() == output.first_frame_index() &&
                pressure_force.sample_rate() == output.sample_rate() &&
-               pressure_force.sample_rate() == kCapturedSourceRateHz &&
+               (pressure_force.sample_rate() == kPreviewCapturedSourceRateHz ||
+                pressure_force.sample_rate() == kCapturedSourceRateHz) &&
                pressure_force.frame_count() == output.frame_count() &&
                std::ranges::equal(pressure_force.cylinder_ids(),
                                   diagnostic.cylinder_ids()) &&
@@ -807,8 +815,8 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
            "two-block excitation session progress changed");
 }
 
-void test_pressure_force_uses_each_cylinder_bore(
-    const EngineSpec &canonical_engine, const RenderScenario &scenario) {
+void test_pressure_force_uses_each_cylinder_bore(const EngineSpec &canonical_engine,
+                                                 const RenderScenario &scenario) {
     constexpr std::size_t distinct_cylinder = 3U;
     constexpr std::size_t observed_frame = 0U;
     constexpr double common_pressure_pa_abs = kAtmospherePa + 1000.0;
@@ -818,8 +826,7 @@ void test_pressure_force_uses_each_cylinder_bore(
     SyntheticCaptureBlock block{engine, 0U};
     block.fill_distinct_excitation();
     for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
-        block.set_cylinder_pressure(observed_frame, cylinder,
-                                    common_pressure_pa_abs);
+        block.set_cylinder_pressure(observed_frame, cylinder, common_pressure_pa_abs);
     }
 
     auto session = require_session(compile_fixture_session(engine, scenario));
@@ -827,14 +834,12 @@ void test_pressure_force_uses_each_cylinder_bore(
     const double pressure_delta_pa =
         common_pressure_pa_abs - scenario.crankcase.pressure_pa_abs.value;
     const double common_bore_m = engine.cylinders.front().bore_m.value;
-    const double common_force_n =
-        std::numbers::pi_v<double> * common_bore_m * common_bore_m * 0.25 *
-        pressure_delta_pa;
+    const double common_force_n = std::numbers::pi_v<double> * common_bore_m *
+                                  common_bore_m * 0.25 * pressure_delta_pa;
     for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
         const double bore_m = engine.cylinders[cylinder].bore_m.value;
         const double expected_force_n =
-            std::numbers::pi_v<double> * bore_m * bore_m * 0.25 *
-            pressure_delta_pa;
+            std::numbers::pi_v<double> * bore_m * bore_m * 0.25 * pressure_delta_pa;
         const double actual_force_n =
             output.axial_pressure_force_n[observed_frame * kCylinders + cylinder];
         expect_same_bits(actual_force_n, expected_force_n,
@@ -1166,10 +1171,11 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance(
         auto session = require_session(compile_fixture_session(engine, scenario));
         std::size_t callbacks = 0U;
         const auto first = session.process_block(
-            malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
-                                  const IntakePressureBlockView &,
-                                  const ExhaustExcitationDiagnosticBlockView &,
-                                  const CylinderAxialPressureForceDiagnosticBlockView &) {
+            malformed.view(),
+            [&](const presentation::ExhaustExcitationBlockView &,
+                const IntakePressureBlockView &,
+                const ExhaustExcitationDiagnosticBlockView &,
+                const CylinderAxialPressureForceDiagnosticBlockView &) {
                 ++callbacks;
                 return true;
             });
@@ -1179,15 +1185,15 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance(
         expect(callbacks == 0U && session.faulted() &&
                    session.next_frame_index() == 0U &&
                    session.published_block_count() == 0U,
-               std::string{label} +
-                   " entered callback, advanced delay, or published");
+               std::string{label} + " entered callback, advanced delay, or published");
 
         repair();
         const auto repeated = session.process_block(
-            malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
-                                  const IntakePressureBlockView &,
-                                  const ExhaustExcitationDiagnosticBlockView &,
-                                  const CylinderAxialPressureForceDiagnosticBlockView &) {
+            malformed.view(),
+            [&](const presentation::ExhaustExcitationBlockView &,
+                const IntakePressureBlockView &,
+                const ExhaustExcitationDiagnosticBlockView &,
+                const CylinderAxialPressureForceDiagnosticBlockView &) {
                 ++callbacks;
                 return true;
             });
@@ -1197,8 +1203,7 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance(
         expect(repeated_fault == first_fault && callbacks == 0U &&
                    session.next_frame_index() == 0U &&
                    session.published_block_count() == 0U,
-               std::string{label} +
-                   " failure was not stable and state-preserving");
+               std::string{label} + " failure was not stable and state-preserving");
     };
 
     {
@@ -1208,26 +1213,25 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance(
             malformed.cylinder_pressure(kFrames - 1U, kCylinders - 1U);
         malformed.set_cylinder_pressure(kFrames - 1U, kCylinders - 1U,
                                         std::numeric_limits<double>::quiet_NaN());
-        prove_terminal(malformed,
-                       [&] {
-                           malformed.set_cylinder_pressure(
-                               kFrames - 1U, kCylinders - 1U,
-                               valid_final_pressure);
-                       },
-                       "invalid cylinder pressure");
+        prove_terminal(
+            malformed,
+            [&] {
+                malformed.set_cylinder_pressure(kFrames - 1U, kCylinders - 1U,
+                                                valid_final_pressure);
+            },
+            "invalid cylinder pressure");
     }
     {
         SyntheticCaptureBlock malformed{engine, 0U};
         malformed.fill_distinct_excitation();
         malformed.parity_cylinders().back().dynamic_pressure_reverse_pa =
             std::numeric_limits<double>::quiet_NaN();
-        prove_terminal(malformed,
-                       [&] {
-                           malformed.parity_cylinders()
-                               .back()
-                               .dynamic_pressure_reverse_pa = 1.0;
-                       },
-                       "invalid exhaust reference parity");
+        prove_terminal(
+            malformed,
+            [&] {
+                malformed.parity_cylinders().back().dynamic_pressure_reverse_pa = 1.0;
+            },
+            "invalid exhaust reference parity");
     }
     {
         SyntheticCaptureBlock malformed{engine, 0U};
@@ -1383,6 +1387,32 @@ void expect_compile_rejected(EngineSpec engine, RenderScenario scenario,
            std::string{mutation} + " was admitted by the excitation compiler");
 }
 
+void test_preview_rate_admission_and_publication(const EngineSpec &engine,
+                                                 RenderScenario scenario) {
+    scenario.rates.physics = kPreviewRate;
+    scenario.rates.capture = kPreviewRate;
+    scenario.quality.value.capture_block_capacity_frames =
+        static_cast<std::uint32_t>(kPreviewFrames);
+
+    SyntheticCaptureBlock block{engine, 0U, kPreviewRate, kPreviewFrames};
+    block.fill_distinct_excitation();
+    auto session = require_session(compile_fixture_session(engine, scenario));
+    const auto output = publish(session, block.view(), 0U);
+
+    expect(output.first_frame_index == 0U && output.sample_rate == kPreviewRate &&
+               output.frame_count == kPreviewFrames &&
+               output.pre_delay.size() == kPreviewFrames * kCylinders &&
+               output.post_delay.size() == kPreviewFrames * kCylinders &&
+               output.route_bus_values.size() == kPreviewFrames * kRoutes &&
+               output.absolute_exhaust_valve_mass_flow_kg_s.size() ==
+                   kPreviewFrames * kRoutes &&
+               output.axial_pressure_force_n.size() == kPreviewFrames * kCylinders &&
+               session.next_frame_index() == kPreviewFrames &&
+               session.published_block_count() == 1U && !session.faulted(),
+           "10 kHz captured source did not admit and publish one exact 200-frame "
+           "block");
+}
+
 void test_compile_rejects_method_profile_rate_and_layout_drift(
     const EngineSpec &canonical_engine, const RenderScenario &canonical_scenario) {
     {
@@ -1405,10 +1435,10 @@ void test_compile_rejects_method_profile_rate_and_layout_drift(
     }
     {
         auto scenario = canonical_scenario;
-        scenario.rates.physics = {10000, 1};
-        scenario.rates.capture = {10000, 1};
+        scenario.rates.physics = {15000, 1};
+        scenario.rates.capture = {15000, 1};
         expect_compile_rejected(canonical_engine, std::move(scenario),
-                                "noncanonical 10 kHz gas-source clock");
+                                "unsupported 15 kHz gas-source clock");
     }
     {
         auto engine = canonical_engine;
@@ -1434,6 +1464,7 @@ void run_tests(const std::filesystem::path &repository_root) {
                                                        fixture.scenario);
     test_reentrant_callback_preserves_outer_views_and_faults(fixture.engine,
                                                              fixture.scenario);
+    test_preview_rate_admission_and_publication(fixture.engine, fixture.scenario);
     test_compile_rejects_method_profile_rate_and_layout_drift(fixture.engine,
                                                               fixture.scenario);
 }

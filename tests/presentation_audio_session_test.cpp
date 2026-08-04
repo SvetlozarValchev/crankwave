@@ -3,6 +3,7 @@
 #include "dsp/source_conditioning_primitives.hpp"
 #include "presentation/overlap_save_convolver.hpp"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cmath>
@@ -210,6 +211,8 @@ make_intake_view(IntakePressure &intake, std::uint64_t first_frame_index) {
 process_exhaust_only(PresentationAudioSession &session, Excitation &excitation,
                      std::uint64_t first_frame_index) {
     IntakePressure intake;
+    intake.rate = excitation.rate;
+    intake.frame_count = excitation.frame_count;
     return session.process(make_view(excitation, first_frame_index),
                            make_intake_view(intake, first_frame_index));
 }
@@ -308,6 +311,32 @@ void test_exact_dynamic_route_pipeline() {
         expect_exact_float(audition[frame], expected_raw * kMonitoringGain,
                            "presentation audio monitor arithmetic changed");
     }
+}
+
+void test_preview_clock_dynamic_route_pipeline() {
+    auto plan = make_plan();
+    plan.excitation_rate = kPreviewExcitationRateHz;
+    plan.excitation_frames_per_block = kPreviewExcitationFramesPerMethodBlock;
+    PresentationAudioSession session{std::move(plan)};
+
+    Excitation excitation{kPreviewExcitationRateHz,
+                          kPreviewExcitationFramesPerMethodBlock};
+    fill_excitation(excitation, 0);
+    const auto actual = process_exhaust_only(session, excitation, 0);
+
+    expect(actual.first_input_frame_index() == 0U &&
+               actual.first_source_frame_index() == 0U &&
+               actual.input_frame_count() == kPreviewExcitationFramesPerMethodBlock &&
+               actual.frame_count() == kSourceFramesPerMethodBlock &&
+               actual.sample_rate() == kPresentationAudioRateHz &&
+               session.next_input_frame_index() ==
+                   kPreviewExcitationFramesPerMethodBlock &&
+               session.next_source_frame_index() == kSourceFramesPerMethodBlock &&
+               !session.terminal_failed(),
+           "10 kHz presentation audio returned the wrong method quantum");
+    expect(std::ranges::any_of(actual.audition_master(),
+                               [](float sample) { return sample != 0.0F; }),
+           "10 kHz presentation audio produced an entirely silent master");
 }
 
 class RejectAllocations final {
@@ -463,12 +492,22 @@ void test_validation_and_structural_rejection() {
         [&] { PresentationAudioSession rejected{std::move(wrong_canonical_extent)}; },
         "presentation audio accepted a partial canonical input block");
 
-    auto retired_rate = make_plan();
-    retired_rate.excitation_rate = {10000U, 1U};
-    retired_rate.excitation_frames_per_block = 200U;
+    auto mismatched_standard_extent = make_plan();
+    mismatched_standard_extent.excitation_rate = {10000U, 1U};
+    mismatched_standard_extent.excitation_frames_per_block =
+        kExcitationFramesPerMethodBlock;
     expect_throw<std::invalid_argument>(
-        [&] { PresentationAudioSession rejected{std::move(retired_rate)}; },
-        "presentation audio accepted the retired 10 kHz method quantum");
+        [&] {
+            PresentationAudioSession rejected{std::move(mismatched_standard_extent)};
+        },
+        "presentation audio accepted 400 frames for its 10 kHz method quantum");
+
+    auto unsupported_rate = make_plan();
+    unsupported_rate.excitation_rate = {15000U, 1U};
+    unsupported_rate.excitation_frames_per_block = 300U;
+    expect_throw<std::invalid_argument>(
+        [&] { PresentationAudioSession rejected{std::move(unsupported_rate)}; },
+        "presentation audio accepted an unsupported input clock");
 
     PresentationAudioSession session{make_plan()};
     Excitation excitation;
@@ -499,6 +538,7 @@ void test_validation_and_structural_rejection() {
 int main() {
     try {
         test_exact_dynamic_route_pipeline();
+        test_preview_clock_dynamic_route_pipeline();
         test_process_is_allocation_free();
         test_active_intake_preserves_exhaust_and_enters_master_once();
         test_validation_and_structural_rejection();

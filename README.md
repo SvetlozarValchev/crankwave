@@ -186,12 +186,15 @@ engine.json + scenario.json + assets
                        AudioWorklet + UI
 ```
 
-Its exact method quantum is 400 physics/capture frames at 20 kHz to 3,840 delivery
-frames at 192 kHz: 20 ms per `process_block()` call. The accepted control/candidate
+Its canonical method quantum is 400 physics/capture frames at 20 kHz to 3,840 delivery
+frames at 192 kHz: 20 ms per `process_block()` call. The browser's explicitly labelled
+source/baked audition preset temporarily admits 200 frames at 10 kHz into the same
+3,840-frame presentation path so Source A can meet its realtime deadline; native
+publication and every canonical scenario remain 20 kHz. The accepted control/candidate
 evidence is recorded in
 [the post-parity fidelity rate gate](docs/POST_PARITY_FIDELITY_RATE_GATE.md). Historical
-10 kHz parity recordings remain evidence only; there is no second production-rate or
-compatibility path.
+10 kHz parity recordings remain evidence only; the preview is not a second production
+rate or compatibility path.
 
 The BMW now remains only as JSON data, an automated byte-identity migration fixture,
 and historical evidence. The generic compiler intentionally establishes new request

@@ -9,6 +9,7 @@
 
 namespace engine_sim_offline::presentation {
 
+inline constexpr std::size_t kPreviewExcitationFramesPerMethodBlock = 200;
 inline constexpr std::size_t kExcitationFramesPerMethodBlock = 400;
 inline constexpr std::size_t kSourceFramesPerMethodBlock = 3840;
 
@@ -26,6 +27,7 @@ struct ReconstructionPhase {
 // after every output in its source interval.
 class CausalReconstruction {
   public:
+    static constexpr std::uint64_t kPreviewInputRateHz = 10000;
     static constexpr std::uint64_t kInputRateHz = 20000;
     static constexpr std::uint64_t kSourceRateHz = 192000;
 
@@ -58,7 +60,7 @@ class CausalReconstruction {
     }
 
   private:
-    static constexpr std::uint64_t kRationalPhaseStepHz = 4000;
+    static constexpr std::uint64_t kRationalPhaseStepHz = 2000;
     static constexpr std::size_t kRationalPhaseKernelCount =
         kSourceRateHz / kRationalPhaseStepHz;
     static constexpr std::size_t kHistoryStride =
@@ -68,7 +70,7 @@ class CausalReconstruction {
     std::size_t route_count_ = 0;
     std::uint64_t input_rate_hz_ = 0;
     std::size_t input_frames_per_method_block_ = 0;
-    // The admitted 20 kHz -> 192 kHz clocks visit only 48 distinct fractional
+    // The admitted 10 or 20 kHz -> 192 kHz clocks visit only 96 distinct fractional
     // phases. Store the exact interpolated 257-tap rows once so the realtime hot
     // path does not repeat phase resolution and coefficient interpolation for every
     // output frame.

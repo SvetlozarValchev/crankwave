@@ -6,6 +6,13 @@ repository_dir=$(CDPATH= cd -- "${script_dir}/.." && pwd)
 workbench_dir="${repository_dir}/.work/browser-workbench/build/workbench"
 server_log="${repository_dir}/.work/browser-workbench/server.log"
 chrome_executable="${ENGINE_SIM_OFFLINE_CHROME:-google-chrome}"
+responsive_package_manifest="${repository_dir}/artifacts/listening/bmw-m52tub28-responsive-package-first-audition/package.json"
+
+if [[ ! -f "${responsive_package_manifest}" ]]; then
+    printf '%s\n' \
+        "browser A/B verification requires ${responsive_package_manifest}" >&2
+    exit 1
+fi
 
 node --check "${repository_dir}/web/app.js"
 node --check "${repository_dir}/web/audio-worklet.js"

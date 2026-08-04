@@ -18,8 +18,7 @@ using namespace engine_sim_offline::presentation;
 
 constexpr std::size_t kBmwRouteCount = 2;
 constexpr std::size_t kCanonicalInputFrames = kExcitationFramesPerMethodBlock;
-constexpr std::uint64_t kCanonicalInputRateHz =
-    CausalReconstruction::kInputRateHz;
+constexpr std::uint64_t kCanonicalInputRateHz = CausalReconstruction::kInputRateHz;
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -106,28 +105,63 @@ void test_frozen_phase_resolution() {
     }
     expect_throw<std::invalid_argument>(
         [] {
-            static_cast<void>(
-                CausalReconstruction::resolve_phase(
-                    CausalReconstruction::kSourceRateHz));
+            static_cast<void>(CausalReconstruction::resolve_phase(
+                CausalReconstruction::kSourceRateHz));
         },
         "reconstruction accepted an interval-end phase offset");
-    expect_throw<std::invalid_argument>([] { CausalReconstruction invalid{0, kCanonicalInputRateHz}; },
-                                        "reconstruction accepted zero routes");
-    expect_throw<std::invalid_argument>([] { CausalReconstruction invalid{1, 10000}; },
-                                        "reconstruction accepted the retired 10 kHz "
+    expect_throw<std::invalid_argument>(
+        [] { CausalReconstruction invalid{0, kCanonicalInputRateHz}; },
+        "reconstruction accepted zero routes");
+    expect_throw<std::invalid_argument>([] { CausalReconstruction invalid{1, 15000}; },
+                                        "reconstruction accepted an unsupported "
                                         "input clock");
+}
+
+void test_preview_clock_count_and_partition() {
+    constexpr std::size_t input_frames = kPreviewExcitationFramesPerMethodBlock;
+    std::vector<double> input(input_frames * kBmwRouteCount);
+    for (std::size_t frame = 0; frame < input_frames; ++frame) {
+        input[frame * kBmwRouteCount] =
+            static_cast<double>(static_cast<int>(frame % 17U) - 8) * 0.125;
+        input[frame * kBmwRouteCount + 1U] =
+            static_cast<double>(static_cast<int>(frame % 11U) - 5) * 0.25;
+    }
+
+    CausalReconstruction contiguous{kBmwRouteCount,
+                                    CausalReconstruction::kPreviewInputRateHz};
+    expect(contiguous.input_frames_per_method_block() == input_frames &&
+               contiguous.expected_output_frame_count(input_frames) ==
+                   kSourceFramesPerMethodBlock,
+           "10 kHz reconstruction did not resolve its exact 200-to-3840 clock");
+    constexpr std::array contiguous_chunk{input_frames};
+    const auto contiguous_output = process_chunks(contiguous, input, contiguous_chunk);
+
+    CausalReconstruction split{kBmwRouteCount,
+                               CausalReconstruction::kPreviewInputRateHz};
+    constexpr std::array split_chunks{
+        std::size_t{1}, std::size_t{2}, std::size_t{4},
+        std::size_t{3}, std::size_t{8}, std::size_t{182},
+    };
+    const auto split_output = process_chunks(split, input, split_chunks);
+
+    expect_same_output(split_output, contiguous_output,
+                       "10 kHz reconstruction changed across caller chunks");
+    expect(contiguous_output.size() == kSourceFramesPerMethodBlock * kBmwRouteCount &&
+               contiguous.distance_to_next_output() == 0U &&
+               split.distance_to_next_output() == 0U,
+           "10 kHz method block did not end at 3840 frames and phase zero");
 }
 
 void test_exact_clock_count_and_distance_pattern() {
     CausalReconstruction reconstruction{kBmwRouteCount, kCanonicalInputRateHz};
-    expect(reconstruction.expected_output_frame_count(
-               kCanonicalInputFrames) == kSourceFramesPerMethodBlock &&
+    expect(reconstruction.expected_output_frame_count(kCanonicalInputFrames) ==
+                   kSourceFramesPerMethodBlock &&
                reconstruction.distance_to_next_output() == 0,
            "400-to-3840 count projection changed or mutated the clock");
 
     constexpr std::array expected_counts{10U, 10U, 9U, 10U, 9U};
-    constexpr std::array<std::uint64_t, 5> expected_distances{8000, 16000, 4000,
-                                                              12000, 0};
+    constexpr std::array<std::uint64_t, 5> expected_distances{8000, 16000, 4000, 12000,
+                                                              0};
     std::array<double, kBmwRouteCount> input{};
     std::size_t total_output = 0;
     for (std::size_t frame = 0; frame < expected_counts.size(); ++frame) {
@@ -220,8 +254,7 @@ void test_split_and_contiguous_processing_are_identical() {
     const auto contiguous =
         process_chunks(contiguous_reconstruction, input, contiguous_chunk);
 
-    CausalReconstruction split_reconstruction{kBmwRouteCount,
-                                              kCanonicalInputRateHz};
+    CausalReconstruction split_reconstruction{kBmwRouteCount, kCanonicalInputRateHz};
     constexpr std::array split_chunks{
         std::size_t{1}, std::size_t{2}, std::size_t{4},   std::size_t{3},
         std::size_t{8}, std::size_t{5}, std::size_t{377},
@@ -311,6 +344,7 @@ void test_dynamic_route_counts_preserve_independent_route_arithmetic() {
 
 void run_tests() {
     test_frozen_phase_resolution();
+    test_preview_clock_count_and_partition();
     test_exact_clock_count_and_distance_pattern();
     test_canonical_causal_impulse_and_route_isolation();
     test_split_and_contiguous_processing_are_identical();

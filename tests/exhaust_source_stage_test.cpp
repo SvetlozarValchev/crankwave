@@ -215,6 +215,44 @@ void test_exact_block_extent_and_component_wiring() {
            "source stage changed per-route random consumption");
 }
 
+void test_preview_clock_extent_and_component_wiring() {
+    constexpr std::size_t input_frames = kPreviewExcitationFramesPerMethodBlock;
+    std::vector<double> input(input_frames * kBmwRouteCount);
+    fill_block(input, input_frames, kBmwRouteCount, 0);
+    std::vector<double> actual(kSourceFramesPerMethodBlock * kBmwRouteCount);
+
+    ExhaustSourceStage stage{
+        kCanonicalRouteIds,       kFrozenSeeds,
+        kReferenceMassFlowKgS,    kCanonicalConditioning,
+        kPreviewExcitationRateHz, input_frames,
+    };
+    const auto extent = stage.process(
+        make_view(0, input, kCanonicalRouteIds, input_frames, kPreviewExcitationRateHz),
+        actual);
+    expect(extent ==
+                   SourceBlockExtent{
+                       0,
+                       0,
+                       input_frames,
+                       kSourceFramesPerMethodBlock,
+                   } &&
+               stage.input_rate() == kPreviewExcitationRateHz &&
+               stage.next_input_frame_index() == input_frames &&
+               stage.next_source_frame_index() == kSourceFramesPerMethodBlock &&
+               !stage.terminal_failed(),
+           "10 kHz source-stage block extent or counters changed");
+
+    CausalReconstruction reconstruction{kBmwRouteCount * 2U,
+                                        CausalReconstruction::kPreviewInputRateHz};
+    auto conditioners = make_bmw_conditioners();
+    std::vector<double> expected(kSourceFramesPerMethodBlock * kBmwRouteCount);
+    process_with_continuous_components(reconstruction, conditioners,
+                                       kReferenceMassFlowKgS, input, input_frames, 0U,
+                                       expected);
+    expect_same_output(actual, expected,
+                       "10 kHz source stage changed component order or route wiring");
+}
+
 void test_explicit_route_ids_preserve_positional_seed_binding() {
     constexpr std::array custom_route_ids{
         contract::RouteId{41},
@@ -289,8 +327,7 @@ void test_block_continuity_and_session_isolation() {
                                        kExcitationFramesPerMethodBlock, continuous_1);
     expect_same_output(first_1, continuous_1,
                        "source stage reset component state at a method-block boundary");
-    expect(first.next_input_frame_index() ==
-                   2U * kExcitationFramesPerMethodBlock &&
+    expect(first.next_input_frame_index() == 2U * kExcitationFramesPerMethodBlock &&
                first.next_source_frame_index() == 7680,
            "source-stage continuity counters changed after two blocks");
 }
@@ -298,16 +335,28 @@ void test_block_continuity_and_session_isolation() {
 void test_structural_rejections_do_not_mutate_state() {
     expect_throw<std::invalid_argument>(
         [] {
-            ExhaustSourceStage retired_rate{
+            ExhaustSourceStage mismatched_quantum{
                 kCanonicalRouteIds,
                 kFrozenSeeds,
                 kReferenceMassFlowKgS,
                 kCanonicalConditioning,
                 contract::RationalRateHz{10000, 1},
-                kExcitationFramesPerMethodBlock / 2U,
+                kExcitationFramesPerMethodBlock,
             };
         },
-        "source stage accepted the retired 10 kHz method quantum");
+        "source stage accepted 400 frames for the 10 kHz method quantum");
+    expect_throw<std::invalid_argument>(
+        [] {
+            ExhaustSourceStage unsupported_rate{
+                kCanonicalRouteIds,
+                kFrozenSeeds,
+                kReferenceMassFlowKgS,
+                kCanonicalConditioning,
+                contract::RationalRateHz{15000, 1},
+                300U,
+            };
+        },
+        "source stage accepted an unsupported 15 kHz input clock");
 
     std::vector<double> valid(kExcitationFramesPerMethodBlock * kBmwRouteCount);
     fill_block(valid, kExcitationFramesPerMethodBlock, kBmwRouteCount, 0);
@@ -336,7 +385,7 @@ void test_structural_rejections_do_not_mutate_state() {
                           contract::RationalRateHz{10000, 1}),
                 output));
         },
-        "source stage accepted a retired 10 kHz input view");
+        "20 kHz source stage accepted a 10 kHz input view");
     expect_throw<std::invalid_argument>(
         [&] {
             static_cast<void>(
@@ -594,6 +643,7 @@ void test_one_and_three_route_sessions_preserve_bmw_route_arithmetic() {
 
 void run_tests() {
     test_exact_block_extent_and_component_wiring();
+    test_preview_clock_extent_and_component_wiring();
     test_explicit_route_ids_preserve_positional_seed_binding();
     test_block_continuity_and_session_isolation();
     test_structural_rejections_do_not_mutate_state();

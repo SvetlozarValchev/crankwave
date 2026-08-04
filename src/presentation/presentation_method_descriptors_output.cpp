@@ -18,15 +18,15 @@ namespace {
 
 constexpr std::string_view kRouteStemPublicationMethodDescriptor =
     R"method(engine-sim-offline.presentation-method-configuration.v1
-method=typed-gas-route-wet-selection-float32-wave-publication-20000-to-192000-20ms-clock-v5
-version=5
+method=typed-gas-route-wet-selection-float32-wave-publication-10000-or-20000-to-192000-20ms-clock-v6
+version=6
 operation=typed-gas-route-dry-configured-transfer-selected-stem-publication
 topology=one-or-more-distinct-ordered-active-exhaust-routes;zero-or-more-distinct-ordered-active-intake-routes;three-stems-per-route
 active_exhaust_input=one-finite-binary64-dry-sample-and-one-finite-binary64-configured-transfer-sample-per-route-per-source-frame
 active_intake_input=one-finite-nonnegative-binary64-absolute-plenum-pressure-sample-per-route-per-input-frame
 active_intake_reference=resolved-scenario-ambient-positive-finite-binary64-pressure-pa-abs
 active_intake_gauge_pressure=absolute-plenum-pressure-minus-reference-pressure-in-written-order
-active_intake_reconstruction=the-exact-implemented-causal-reconstruction-method-from-20000/1-to-192000/1-hz
+active_intake_reconstruction=the-exact-implemented-causal-reconstruction-method-from-session-selected-exact-10000/1-or-20000/1-to-192000/1-hz
 active_intake_dc_cutoff_hz=exact-binary64-10
 active_intake_dc_time_step_s=exact-binary64-1-divided-by-192000
 active_intake_dc_time_constant_s=binary64-1-divided-by-(binary64-2-times-source-conditioning-pi-times-binary64-10)-in-written-order
@@ -44,8 +44,8 @@ publication_inputs=dry,configured-transfer,selected-in-that-order-per-route
 resolved_argument_2=calibration_gain_linear
 resolved_argument_2_domain=finite-binary64-strictly-greater-than-positive-zero;both-signed-zeros-are-rejected
 timeline_unit=complete-3840-source-frame-blocks-at-192000/1-hz
-timeline_input_clock=exactly-20000/1-hz-fixed-for-session
-timeline_input_mapping=each-complete-400-frame-20ms-input-block-at-20000/1-hz-produces-exactly-3840-source-frames-at-192000/1-hz-and-returns-the-reconstruction-clock-to-zero-phase
+timeline_input_clock=exactly-one-of-10000/1-hz-or-20000/1-hz-fixed-for-session
+timeline_input_mapping=each-complete-20ms-input-block-of-200-frames-at-10000/1-hz-or-400-frames-at-20000/1-hz-produces-exactly-3840-source-frames-at-192000/1-hz-and-returns-the-reconstruction-clock-to-zero-phase
 timeline_domain=positive-total-block-count-and-pre-audible-block-count-strictly-less-than-total
 timeline_arithmetic=total-and-pre-audible-block-count-times-3840-must-be-representable-as-u64
 published_interval=complete-block-ordinals-pre-audible-block-count-through-total-block-count-minus-one

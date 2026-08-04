@@ -22,23 +22,28 @@ constexpr double kIntakePressureDcRemovalTimeConstantS =
 std::vector<IntakePressureSourceRouteConfiguration>
 IntakePressureSourceStage::validate_configuration(
     const IntakePressureSourceStageConfiguration &configuration) {
-    if (configuration.input_rate != kIntakePressureInputRateHz ||
+    const auto expected_input_frames =
+        configuration.input_rate == kPreviewIntakePressureInputRateHz
+            ? kPreviewExcitationFramesPerMethodBlock
+        : configuration.input_rate == kIntakePressureInputRateHz
+            ? kExcitationFramesPerMethodBlock
+            : 0U;
+    if (expected_input_frames == 0U ||
         configuration.source_rate != kIntakePressureSourceRateHz) {
         throw std::invalid_argument{
-            "intake-pressure source stage admits only exact 20000/1 to "
-            "192000/1 clocks"};
+            "intake-pressure source stage admits only exact 10000/1 or 20000/1 "
+            "input and 192000/1 output clocks"};
     }
-    if (configuration.input_frames_per_block != kExcitationFramesPerMethodBlock) {
+    if (configuration.input_frames_per_block != expected_input_frames) {
         throw std::invalid_argument{
-            "intake-pressure source stage requires one exact 400-frame input "
-            "block"};
+            "intake-pressure source stage requires one exact 20 ms input block"};
     }
     if (configuration.routes.empty()) {
         throw std::invalid_argument{
             "intake-pressure source stage requires at least one route"};
     }
-    if (configuration.routes.size() >
-            std::numeric_limits<std::size_t>::max() / kExcitationFramesPerMethodBlock ||
+    if (configuration.routes.size() > std::numeric_limits<std::size_t>::max() /
+                                          configuration.input_frames_per_block ||
         configuration.routes.size() >
             std::numeric_limits<std::size_t>::max() / kSourceFramesPerMethodBlock) {
         throw std::overflow_error{

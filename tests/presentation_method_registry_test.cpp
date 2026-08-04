@@ -77,16 +77,17 @@ struct MethodCase {
 [[nodiscard]] const std::array<MethodCase, 6> &method_cases() {
     static const std::array<MethodCase, 6> cases{{
         {
-            "causal-kaiser-sinc-257tap-4096phase-20000-to-192000-binary64-v3",
-            3,
-            "6b77060b6cb91cb40f2d65a1dc9b90407bfe3ce00485347005a4442c79ffa828",
+            "causal-kaiser-sinc-257tap-4096phase-10000-or-20000-to-192000-"
+            "binary64-v4",
+            4,
+            "59bf6b72dcc1526f61f4a4cc504f647ace15532c0e21273d9957190b87e7dc3c",
             presentation::causal_reconstruction_method_descriptor,
             presentation::causal_reconstruction_method_identity,
         },
         {
-            "route-jitter-dc-derivative-flow-coupled-air-noise-binary64-v2",
-            2,
-            "d1fc9ea280b4ca9452d033cf0cb85f98f7c0d3bfb424e96f9eb98af97b38745e",
+            "route-jitter-dc-derivative-flow-coupled-air-noise-binary64-v3",
+            3,
+            "0cac6f86b2577e083452eb1c97962af0131ebc4dfd5aa03ce175a29d8d3cd3ee",
             presentation::route_conditioning_method_descriptor,
             presentation::route_conditioning_method_identity,
         },
@@ -105,10 +106,10 @@ struct MethodCase {
             presentation::fixed_overlap_save_convolution_method_identity,
         },
         {
-            "typed-gas-route-wet-selection-float32-wave-publication-20000-to-192000-"
-            "20ms-clock-v5",
-            5,
-            "f21f8963a9990dd93f975694b28671eceb022c4eb45f4d85d0b9d1a88ec0b57f",
+            "typed-gas-route-wet-selection-float32-wave-publication-10000-or-"
+            "20000-to-192000-20ms-clock-v6",
+            6,
+            "c4433991d1b470cd8fd2117eb5d2e982a6061fa355c66ade2258484919fee119",
             presentation::route_stem_publication_method_descriptor,
             presentation::route_stem_publication_method_identity,
         },

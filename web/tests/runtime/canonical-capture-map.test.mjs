@@ -37,6 +37,7 @@ const PROCEDURES = Object.freeze([
   {
     packageId: "bmw-m52tub28-free-rev",
     file: "warm-running-free-rev-700rpm.json",
+    webFile: "warm-running-free-rev-700rpm-10khz-preview.json",
     covers: ["neutral limiter", "limiter lift/recovery"],
   },
   {
@@ -129,10 +130,27 @@ test("compound procedures retain their canonical phase boundaries", () => {
 
 test("the Web workbench catalogs all six canonical procedures", () => {
   const app = fs.readFileSync(path.join(REPOSITORY, "web/app.js"), "utf8");
-  for (const { packageId, file } of PROCEDURES) {
+  for (const { packageId, file, webFile } of PROCEDURES) {
     assert.match(app, new RegExp(`id: "${packageId}"`, "u"));
-    assert.match(app, new RegExp(`/scenarios/${file}`, "u"));
+    assert.match(app, new RegExp(`/scenarios/${webFile ?? file}`, "u"));
   }
+});
+
+test("the temporary A/B preview halves only the physics and capture clocks", () => {
+  const canonical = scenario("warm-running-free-rev-700rpm.json");
+  const preview = scenario("warm-running-free-rev-700rpm-10khz-preview.json");
+  assert.deepEqual(canonical.rates, {
+    physics: { numerator: "20000", denominator: "1", unit: "Hz" },
+    capture: { numerator: "20000", denominator: "1", unit: "Hz" },
+    source_processing: { numerator: "192000", denominator: "1", unit: "Hz" },
+    acoustics: { numerator: "192000", denominator: "1", unit: "Hz" },
+    delivery: { numerator: "192000", denominator: "1", unit: "Hz" },
+  });
+  assert.deepEqual(preview.rates, {
+    ...canonical.rates,
+    physics: { numerator: "10000", denominator: "1", unit: "Hz" },
+    capture: { numerator: "10000", denominator: "1", unit: "Hz" },
+  });
 });
 
 test("every Web package declares its session lifetime independently of mode", () => {

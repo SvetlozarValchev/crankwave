@@ -176,6 +176,26 @@ The first named A/B procedures are:
 4. settled idle and an idle-to-running transition; and
 5. lifecycle events only after their isolated package assets are admitted.
 
+### Temporary realtime preview clock
+
+The browser's BMW source/baked preset temporarily uses the dedicated
+`warm-running-free-rev-700rpm-10khz-preview.json` scenario. Only its physics and
+capture clocks are 10 kHz; source processing, acoustics, delivery, and the shared A/B
+output path remain at 192 kHz. All canonical scenarios and the already baked B package
+remain 20 kHz captures.
+
+This is an audition aid, not a new cooker-quality decision. Running the 20 kHz Source
+A simulator and the B follower together missed the browser's realtime deadline and
+produced audible output-ring underruns. The preview restores the historically proven
+10 kHz source clock so perceptual A/B work can continue without first entering an
+optimization project. Its browser gate requires zero shared-output underruns.
+
+Because the existing package's cycle alignment was measured from a 20 kHz capture,
+this mixed-clock preview is suitable for exclusive manual listening but is not a
+sample-aligned null-test or transient-timing authority. The preset is explicitly
+labelled `Source A 10 kHz / Baked B 20 kHz`, isolated from the canonical scenario,
+and can be removed as one checkpoint when 20 kHz realtime execution is revisited.
+
 ## Implementation sequence and commit gates
 
 1. **Plan and method boundary.** Record this decision and the adopted/rejected lab
@@ -234,8 +254,8 @@ normal-running domain in the workbench. Required evidence is:
 - raw power, part-load, coast, and idle tapes;
 - A/B steady holds and one shared rising/falling control trace;
 - zero follower scheduling gaps, exact-silent running frames, clipping, and invalid row
-  or load-plane transitions; shared output-ring underruns are reported separately
-  because the authoring harness still runs the expensive Source A simulator; and
+  or load-plane transitions; the temporary 10 kHz browser preview must also report
+  zero shared output-ring underruns; and
 - clickable paths or a documented local URL for immediate listening.
 
 Work stops at that point for user audition. A later lifecycle or fidelity phase may

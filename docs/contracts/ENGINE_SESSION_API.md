@@ -325,8 +325,8 @@ EngineSessionProcessResult EngineSession::process_block();
 
 One successful `process_block()` call:
 
-- advances exactly 400 physics frames at 20,000 Hz and 3,840 delivery frames at
-  192,000 Hz: one 20 ms method quantum;
+- advances the session descriptor's exact 20 ms input quantum—200 physics frames at
+  10,000 Hz or 400 at 20,000 Hz—and 3,840 delivery frames at 192,000 Hz;
 - returns borrowed planar `float32` spans for every advertised bus;
 - advances all internal clocks by integer/rational schedule state;
 - consumes controls causally over that half-open physics/delivery interval;
@@ -339,13 +339,16 @@ One successful `process_block()` call:
 - does not select a different model because a deadline is near.
 
 The 3,840-frame size is currently part of the executable method, not a caller transport
-choice. It matches the existing FFT/resampling arithmetic and the accepted single-path
-20 kHz rate gate. The descriptor publishes both exact block sizes. A
-scenario with `process_block_capacity_frames < 3840` is rejected; a larger capacity
-does not authorize a different call size.
+choice. It matches the existing FFT/resampling arithmetic. The descriptor publishes
+the session's exact input and output block sizes. A scenario with
+`process_block_capacity_frames < 3840` is rejected; a larger capacity does not
+authorize a different call size.
 The decision, control, candidate, and repeat evidence are recorded in
-[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md); 10 kHz
-remains historical parity evidence rather than another session mode.
+[`../POST_PARITY_FIDELITY_RATE_GATE.md`](../POST_PARITY_FIDELITY_RATE_GATE.md). The
+canonical cooker remains 20 kHz. Exact 10 kHz admission is retained solely for the
+isolated, explicitly labelled realtime browser A/B preview described in
+[`../RESPONSIVE_AUDIO_BAKER_PLAN.md`](../RESPONSIVE_AUDIO_BAKER_PLAN.md); it is not a
+native publication mode or a second production contract.
 
 For `finite_scenario`, `process_block()` returns blocks until the exact authored
 horizon is exhausted, then returns a stable `EngineSessionCompleted`. For
@@ -581,12 +584,12 @@ operation, session move, or session destruction. File publishers must consume or
 them before advancing the session.
 
 Exhaust routes, admitted intake routes, and both masters are `active`. Each active
-intake route is backed by captured plenum pressure on the canonical 20 kHz capture
-clock, ambient-pressure subtraction, causal reconstruction to 192 kHz, deterministic
-10 Hz DC removal, and its authored source gain. Its dry, configured-transfer, and
-selected buses are identical because intake uses no exhaust random conditioning,
-impulse response, or convolution. The selected intake bus participates once in the
-ordered raw and audition masters.
+intake route is backed by captured plenum pressure on the session's admitted 10 or
+20 kHz capture clock, ambient-pressure subtraction, causal reconstruction to 192 kHz,
+deterministic 10 Hz DC removal, and its authored source gain. Its dry,
+configured-transfer, and selected buses are identical because intake uses no exhaust
+random conditioning, impulse response, or convolution. The selected intake bus
+participates once in the ordered raw and audition masters.
 
 This is the sole intake implementation. The prior `declared_silent` intake checkpoint
 is historical evidence rather than a runtime option or compatibility path. It was
@@ -612,8 +615,9 @@ After session creation, `EngineSession::descriptor()` returns:
 
 - engine and scenario IDs;
 - caller control-command and returned-telemetry capacities;
-- the exact 20 kHz physics/capture and 192 kHz delivery rates;
-- the exact 400/3,840 frames per block;
+- the exact session physics/capture rate (10 kHz preview or canonical 20 kHz) and
+  192 kHz delivery rate;
+- the corresponding exact 200/3,840 or 400/3,840 frames per block;
 - the explicit execution kind;
 - preparation block count;
 - the exact authored total block count for `finite_scenario`, or canonical
@@ -673,7 +677,7 @@ Deterministic execution requires:
 - integer-frame controls with stable sequence numbers;
 - versioned clock projection and interpolation methods;
 - no wall-clock or audio-device input;
-- the exact 400/3,840-frame executable method quantum;
+- the exact descriptor-owned 200/3,840- or 400/3,840-frame executable method quantum;
 - a recorded build, target, numeric runtime, and method identity.
 
 The same build, target, numeric runtime, compiled scenario, configuration, and command
@@ -824,8 +828,8 @@ When another turn is immediately due, the Worker posts it through a private
 `MessageChannel`; it does not recurse and does not enter Chrome's nested zero-delay
 timer clamp. Positive pacing delays still use timers, and posting a new turn yields to
 pending control messages. This is adapter scheduling only: every core call remains
-the exact 400-frame/3,840-frame method block and follows the same bounded ring-lead
-policy.
+the descriptor's exact 200- or 400-frame input/3,840-frame output method block and
+follows the same bounded ring-lead policy.
 
 The Worker maintains a bounded lead selected by the adapter. A control request carries
 a nonempty atomic batch. Every command has an absolute delivery-frame target that must

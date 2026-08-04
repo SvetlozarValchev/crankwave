@@ -11,7 +11,7 @@ const DEFAULT_PACKAGE_ID = "bmw-m52tub28-free-rev";
 const BMW_M52TUB28_RESPONSIVE_PACKAGE_URL =
   "/packages/bmw-m52tub28-responsive/package.json";
 const RESPONSIVE_AUDIO_PACKAGE_PRESET =
-  "BMW M52TUB28 · Interactive free rev";
+  "BMW M52TUB28 · Source A 10 kHz / Baked B 20 kHz · Interactive free rev";
 const COMPARISON_MODE = Object.freeze({
   source: "source-a",
   baked: "baked-b",
@@ -131,11 +131,11 @@ const WORKBENCH_PACKAGES = Object.freeze([
   }),
   Object.freeze({
     id: "bmw-m52tub28-free-rev",
-    label: "BMW M52TUB28 · Source/Baked A/B · Interactive free rev",
+    label: "BMW M52TUB28 · Source A 10 kHz / Baked B 20 kHz · Interactive free rev",
     executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
-      "/data/engines/bmw-m52tub28-cleanroom/scenarios/warm-running-free-rev-700rpm.json",
+      "/data/engines/bmw-m52tub28-cleanroom/scenarios/warm-running-free-rev-700rpm-10khz-preview.json",
     responsiveAudioPackageUrl: BMW_M52TUB28_RESPONSIVE_PACKAGE_URL,
   }),
   Object.freeze({

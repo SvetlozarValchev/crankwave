@@ -127,9 +127,11 @@ compile_captured_source_excitation_session(const contract::EngineSpec &engine,
     require(report, scenario.rates.physics == scenario.rates.capture,
             ContractIssueCode::inconsistent_semantics, "scenario.rates.capture",
             "captured source excitation requires equal physics and capture rates");
-    require(report, scenario.rates.capture == kCapturedSourceRateHz,
+    require(report,
+            scenario.rates.capture == kPreviewCapturedSourceRateHz ||
+                scenario.rates.capture == kCapturedSourceRateHz,
             ContractIssueCode::unsupported_value, "scenario.rates.capture",
-            "captured source excitation uses the canonical 20 kHz clock");
+            "captured source excitation uses an exact 10 or 20 kHz clock");
     require(report, finite_positive(scenario.crankcase.pressure_pa_abs.value),
             ContractIssueCode::invalid_value,
             "scenario.crankcase.pressure_pa_abs.value",

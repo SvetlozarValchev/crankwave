@@ -14,6 +14,7 @@
 
 namespace engine_sim_offline::presentation {
 
+inline constexpr contract::RationalRateHz kPreviewIntakePressureInputRateHz{10000, 1};
 inline constexpr contract::RationalRateHz kIntakePressureInputRateHz{20000, 1};
 inline constexpr contract::RationalRateHz kIntakePressureSourceRateHz{192000, 1};
 inline constexpr double kIntakePressureDcRemovalCutoffHz = 10.0;

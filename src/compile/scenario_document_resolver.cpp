@@ -15,19 +15,19 @@
 namespace engine_sim_offline::compile::detail::scenario_resolution {
 namespace {
 
-// The admitted simulation -> capture -> excitation method consumes one exact
-// 400-frame, 20 ms capture block at 20 kHz and projects it to one exact 3,840-frame
-// delivery block. These are method-owned execution quanta, not authored session
-// capacities.
-constexpr contract::RationalRateHz kCaptureRate{20000U, 1U};
-constexpr std::uint32_t kCaptureFramesPerMethodBlock = 400U;
+// The admitted simulation -> capture -> excitation method consumes one exact 20 ms
+// capture block and projects it to one exact 3,840-frame delivery block. The capture
+// frame count therefore follows the authored 10 or 20 kHz capture clock.
+constexpr std::uint64_t kMethodBlocksPerSecond = 50U;
 constexpr std::uint32_t kDeliveryFramesPerMethodBlock = 3840U;
 
-[[nodiscard]] std::optional<std::uint32_t> capture_frames_per_method_block(
-    const contract::RationalRateHz &capture_rate) noexcept {
-    return capture_rate == kCaptureRate
-               ? std::optional<std::uint32_t>{kCaptureFramesPerMethodBlock}
-               : std::nullopt;
+[[nodiscard]] std::optional<std::uint32_t>
+capture_frames_per_method_block(const contract::RationalRateHz &capture_rate) noexcept {
+    if (capture_rate != contract::RationalRateHz{10000U, 1U} &&
+        capture_rate != contract::RationalRateHz{20000U, 1U}) {
+        return std::nullopt;
+    }
+    return static_cast<std::uint32_t>(capture_rate.numerator / kMethodBlocksPerSecond);
 }
 
 [[nodiscard]] std::optional<std::uint32_t>
@@ -135,8 +135,8 @@ void ScenarioResolver::compile_common_fields() {
         capture_frames_per_method_block(scenario_.rates.capture);
     if (!capture_frames.has_value()) {
         add(authoring::DiagnosticCode::unsupported_capability, "/rates/capture",
-            "capture rate must use the exact 20000/1 executable clock with a "
-            "400-frame, 20 ms method quantum");
+            "capture rate must use an exact 10000/1 or 20000/1 executable clock "
+            "with a complete 20 ms method quantum");
     }
     const auto derived_event_capacity =
         capture_frames.has_value()

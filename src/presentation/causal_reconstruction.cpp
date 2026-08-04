@@ -12,6 +12,8 @@ CausalReconstruction::CausalReconstruction(std::size_t route_count,
     : route_count_(route_count), input_rate_hz_(input_rate_hz),
       input_frames_per_method_block_(input_rate_hz == kInputRateHz
                                          ? kExcitationFramesPerMethodBlock
+                                     : input_rate_hz == kPreviewInputRateHz
+                                         ? kPreviewExcitationFramesPerMethodBlock
                                          : 0U) {
     if (route_count_ == 0) {
         throw std::invalid_argument{
@@ -19,26 +21,25 @@ CausalReconstruction::CausalReconstruction(std::size_t route_count,
     }
     if (input_frames_per_method_block_ == 0U) {
         throw std::invalid_argument{
-            "causal reconstruction admits only exact 20000 Hz input"};
+            "causal reconstruction admits only exact 10000 or 20000 Hz input"};
     }
-    if (route_count_ >
-        std::numeric_limits<std::size_t>::max() / kHistoryStride) {
+    if (route_count_ > std::numeric_limits<std::size_t>::max() / kHistoryStride) {
         throw std::overflow_error{"causal reconstruction history size overflowed"};
     }
     static_assert(kInputRateHz % kRationalPhaseStepHz == 0U);
+    static_assert(kPreviewInputRateHz % kRationalPhaseStepHz == 0U);
     static_assert(kSourceRateHz % kRationalPhaseStepHz == 0U);
-    static_assert(kRationalPhaseKernelCount == 48U);
+    static_assert(kRationalPhaseKernelCount == 96U);
     rational_phase_kernels_.resize(kRationalPhaseKernelCount *
                                    dsp::CausalReconstructionTable::tap_count);
     for (std::size_t kernel = 0; kernel < kRationalPhaseKernelCount; ++kernel) {
         const auto phase = resolve_phase(kernel * kRationalPhaseStepHz);
         const auto row0 = table_.phase_row(phase.phase0);
-        const auto row1 =
-            table_.phase_row(static_cast<std::size_t>(phase.phase0) + 1U);
+        const auto row1 = table_.phase_row(static_cast<std::size_t>(phase.phase0) + 1U);
         for (std::size_t tap = 0; tap < dsp::CausalReconstructionTable::tap_count;
              ++tap) {
-            rational_phase_kernels_[
-                kernel * dsp::CausalReconstructionTable::tap_count + tap] =
+            rational_phase_kernels_[kernel * dsp::CausalReconstructionTable::tap_count +
+                                    tap] =
                 row0[tap] + (row1[tap] - row0[tap]) * phase.mix;
         }
     }
@@ -133,10 +134,10 @@ void CausalReconstruction::process(std::span<const double> input_frame_major,
                     "reconstruction rational phase index exceeded its table"};
             }
             const std::span<const double, dsp::CausalReconstructionTable::tap_count>
-                coefficients{
-                    rational_phase_kernels_.data() +
-                        kernel_index * dsp::CausalReconstructionTable::tap_count,
-                    dsp::CausalReconstructionTable::tap_count};
+                coefficients{rational_phase_kernels_.data() +
+                                 kernel_index *
+                                     dsp::CausalReconstructionTable::tap_count,
+                             dsp::CausalReconstructionTable::tap_count};
 
             auto samples =
                 output_frame_major.subspan(output_index * route_count_, route_count_);
@@ -146,9 +147,8 @@ void CausalReconstruction::process(std::span<const double> input_frame_major,
                     route * kHistoryStride + oldest_history_frame_;
                 for (std::size_t tap = 0;
                      tap < dsp::CausalReconstructionTable::tap_count; ++tap) {
-                    sample = sample +
-                             histories_[history_offset + tap] *
-                                 coefficients[tap];
+                    sample =
+                        sample + histories_[history_offset + tap] * coefficients[tap];
                 }
                 if (!std::isfinite(sample)) {
                     throw std::domain_error{"reconstruction output was non-finite"};
@@ -161,8 +161,7 @@ void CausalReconstruction::process(std::span<const double> input_frame_major,
 
         for (std::size_t route = 0; route < route_count_; ++route) {
             const auto history_offset = route * kHistoryStride;
-            const auto sample =
-                input_frame_major[input_frame * route_count_ + route];
+            const auto sample = input_frame_major[input_frame * route_count_ + route];
             histories_[history_offset + oldest_history_frame_] = sample;
             histories_[history_offset + dsp::CausalReconstructionTable::tap_count +
                        oldest_history_frame_] = sample;

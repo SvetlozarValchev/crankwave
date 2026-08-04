@@ -53,10 +53,15 @@ void validate_plan(const PresentationAudioPlan &plan) {
         throw std::invalid_argument{
             "presentation audio monitoring gain must be finite and positive"};
     }
-    if (plan.excitation_rate != kExcitationRateHz ||
-        plan.excitation_frames_per_block != kExcitationFramesPerMethodBlock) {
+    const auto expected_input_frames = plan.excitation_rate == kPreviewExcitationRateHz
+                                           ? kPreviewExcitationFramesPerMethodBlock
+                                       : plan.excitation_rate == kExcitationRateHz
+                                           ? kExcitationFramesPerMethodBlock
+                                           : 0U;
+    if (expected_input_frames == 0U ||
+        plan.excitation_frames_per_block != expected_input_frames) {
         throw std::invalid_argument{
-            "presentation audio requires one exact 400-frame, 20 ms block at "
+            "presentation audio requires one exact 20 ms block at 10000/1 or "
             "20000/1 Hz"};
     }
 

@@ -175,6 +175,56 @@ void test_exact_pressure_pipeline_and_gain() {
            "finite varying plenum pressure produced an entirely silent source");
 }
 
+void test_preview_clock_pressure_pipeline() {
+    constexpr std::size_t input_frames = kPreviewExcitationFramesPerMethodBlock;
+    std::vector<double> input(input_frames * kRoutes.size());
+    std::vector<double> gauge(input.size());
+    for (std::size_t frame = 0; frame < input_frames; ++frame) {
+        const double pressure_delta =
+            80.0 + static_cast<double>(static_cast<int>(frame % 29U) - 14) * 0.25;
+        for (std::size_t route = 0; route < kRoutes.size(); ++route) {
+            const auto index = frame * kRoutes.size() + route;
+            gauge[index] = pressure_delta;
+            input[index] = kRoutes[route].reference_pressure_pa + pressure_delta;
+        }
+    }
+    std::vector<double> actual(kSourceFramesPerMethodBlock * kRoutes.size());
+    IntakePressureSourceStage stage{
+        make_configuration(kRoutes, kPreviewIntakePressureInputRateHz,
+                           kIntakePressureSourceRateHz, input_frames)};
+    const auto block = stage.process(
+        make_view(0, input, kRouteIds, input_frames, kPreviewIntakePressureInputRateHz),
+        actual);
+    expect(block.input_frame_count() == input_frames &&
+               block.frame_count() == kSourceFramesPerMethodBlock &&
+               stage.input_rate() == kPreviewIntakePressureInputRateHz &&
+               stage.next_input_frame_index() == input_frames &&
+               stage.next_source_frame_index() == kSourceFramesPerMethodBlock &&
+               !stage.terminal_failed(),
+           "10 kHz intake-pressure stage changed its exact block extent");
+
+    CausalReconstruction reconstruction{kRoutes.size(),
+                                        CausalReconstruction::kPreviewInputRateHz};
+    std::vector<double> reconstructed(actual.size());
+    reconstruction.process(gauge, input_frames, reconstructed);
+    constexpr double time_constant_s =
+        1.0 / (2.0 * dsp::kSourceConditioningPi * kIntakePressureDcRemovalCutoffHz);
+    std::array dc_removers{
+        dsp::DcRemoval{dsp::kConditionedSourceTimeStepS, time_constant_s},
+        dsp::DcRemoval{dsp::kConditionedSourceTimeStepS, time_constant_s},
+    };
+    for (std::size_t frame = 0; frame < kSourceFramesPerMethodBlock; ++frame) {
+        for (std::size_t route = 0; route < kRoutes.size(); ++route) {
+            const auto index = frame * kRoutes.size() + route;
+            const double expected = dc_removers[route].process(reconstructed[index]) *
+                                    kRoutes[route].source_gain_linear;
+            expect(bits(actual[index]) == bits(expected),
+                   "10 kHz intake subtraction, reconstruction, DC removal, or gain "
+                   "order changed");
+        }
+    }
+}
+
 void test_dc_decay_and_block_chronology() {
     constexpr std::array routes{
         IntakePressureSourceRouteConfiguration{contract::RouteId{9}, 101325.0, 1.0}};
@@ -227,7 +277,14 @@ void test_configuration_and_structural_validation() {
             IntakePressureSourceStage invalid{
                 make_configuration(kRoutes, contract::RationalRateHz{10000, 1})};
         },
-        "intake-pressure stage accepted the retired 10 kHz clock");
+        "intake-pressure stage accepted 400 frames for its 10 kHz clock");
+    expect_throw<std::invalid_argument>(
+        [&] {
+            IntakePressureSourceStage invalid{
+                make_configuration(kRoutes, contract::RationalRateHz{15000, 1},
+                                   kIntakePressureSourceRateHz, 300U)};
+        },
+        "intake-pressure stage accepted an unsupported input clock");
     expect_throw<std::invalid_argument>(
         [&] {
             IntakePressureSourceStage invalid{
@@ -285,7 +342,7 @@ void test_configuration_and_structural_validation() {
                           contract::RationalRateHz{10000, 1}),
                 output));
         },
-        "intake-pressure stage accepted a retired input-view clock");
+        "20 kHz intake-pressure stage accepted a 10 kHz input-view clock");
     expect_throw<std::invalid_argument>(
         [&] {
             static_cast<void>(stage.process(make_view(1, valid, kRouteIds), output));
@@ -390,10 +447,13 @@ void test_process_is_allocation_free() {
 }
 
 void run_tests() {
+    static_assert(kPreviewIntakePressureInputRateHz ==
+                  contract::RationalRateHz{10000, 1});
     static_assert(kIntakePressureInputRateHz == contract::RationalRateHz{20000, 1});
     static_assert(kIntakePressureSourceRateHz == contract::RationalRateHz{192000, 1});
     static_assert(kIntakePressureDcRemovalCutoffHz == 10.0);
     test_exact_pressure_pipeline_and_gain();
+    test_preview_clock_pressure_pipeline();
     test_dc_decay_and_block_chronology();
     test_configuration_and_structural_validation();
     test_terminal_arithmetic_failure();

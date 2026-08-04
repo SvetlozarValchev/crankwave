@@ -13,7 +13,9 @@ namespace {
 using contract::ContractIssueCode;
 using contract::ValidationReport;
 
+constexpr contract::RationalRateHz kPreviewCaptureRate{10000, 1};
 constexpr contract::RationalRateHz kCaptureRate{20000, 1};
+constexpr std::uint64_t kPreviewCaptureFramesPerBlock = 200;
 constexpr std::uint64_t kCaptureFramesPerBlock = 400;
 constexpr contract::RationalRateHz kSourceRate{192000, 1};
 constexpr std::uint64_t kPresentationBlocksPerSecond = 50;
@@ -68,6 +70,9 @@ void require_exact_rate(ValidationReport &report,
 
 [[nodiscard]] std::uint64_t
 admitted_capture_frames_per_block(const contract::RationalRateHz &rate) noexcept {
+    if (rate == kPreviewCaptureRate) {
+        return kPreviewCaptureFramesPerBlock;
+    }
     return rate == kCaptureRate ? kCaptureFramesPerBlock : 0;
 }
 
@@ -220,7 +225,7 @@ struct PresentationCalibrationCompiler {
                 "physics and capture must use the same executable clock");
         require(report, capture_frames_per_block != 0,
                 ContractIssueCode::unsupported_value, "scenario.rates.capture",
-                "capture must use the exact 20000/1 executable clock");
+                "capture must use an exact 10000/1 or 20000/1 executable clock");
         require_exact_rate(report, scenario.rates.source_processing, kSourceRate,
                            "scenario.rates.source_processing");
         require_exact_rate(report, scenario.rates.acoustic, kSourceRate,

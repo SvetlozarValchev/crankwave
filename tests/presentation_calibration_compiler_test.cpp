@@ -335,6 +335,23 @@ void test_valid_projection_and_engine_route_order() {
            "admitted publication or mastering projection changed");
 }
 
+void test_preview_clock_projection() {
+    Inputs inputs;
+    inputs.scenario.rates.physics = {10000, 1};
+    inputs.scenario.rates.capture = {10000, 1};
+    inputs.scenario.quality.value.capture_block_capacity_frames = 200;
+    const auto result = presentation::compile_presentation_calibration(
+        inputs.calibration, inputs.engine, inputs.scenario, inputs.builder.provenance);
+    const auto &admitted = expect_admitted(result);
+    expect(admitted.capture_rate() == contract::RationalRateHz{10000, 1} &&
+               admitted.capture_frames_per_block() == 200 &&
+               admitted.source_frames_per_block == 3840 &&
+               admitted.total_block_count() == 850 &&
+               admitted.pre_audible_block_count() == 100,
+           "10 kHz calibration did not retain its exact 20 ms to 192 kHz "
+           "projection");
+}
+
 void test_dynamic_route_projection() {
     Inputs inputs;
     append_third_route(inputs);
@@ -469,6 +486,12 @@ void test_clock_and_topology_boundaries() {
         "scenario.rates.physics");
     expect_mutation_rejected(
         [](Inputs &inputs) { inputs.scenario.rates.capture = {10000, 1}; },
+        "scenario.rates.physics");
+    expect_mutation_rejected(
+        [](Inputs &inputs) {
+            inputs.scenario.rates.physics = {15000, 1};
+            inputs.scenario.rates.capture = {15000, 1};
+        },
         "scenario.rates.capture");
     expect_mutation_rejected(
         [](Inputs &inputs) { inputs.scenario.rates.capture = {40000, 1}; },
@@ -500,6 +523,13 @@ void test_clock_and_topology_boundaries() {
     expect_mutation_rejected(
         [](Inputs &inputs) {
             inputs.scenario.quality.value.capture_block_capacity_frames = 399;
+        },
+        "scenario.quality.value.capture_block_capacity_frames");
+    expect_mutation_rejected(
+        [](Inputs &inputs) {
+            inputs.scenario.rates.physics = {10000, 1};
+            inputs.scenario.rates.capture = {10000, 1};
+            inputs.scenario.quality.value.capture_block_capacity_frames = 199;
         },
         "scenario.quality.value.capture_block_capacity_frames");
     expect_mutation_rejected([](Inputs &inputs) { inputs.engine.routes.pop_back(); },
@@ -568,6 +598,7 @@ void test_schema_version_is_exact() {
 
 void run_tests() {
     test_valid_projection_and_engine_route_order();
+    test_preview_clock_projection();
     test_dynamic_route_projection();
     test_declared_silent_intake_requires_no_transfer_asset();
     test_every_method_is_exact();
