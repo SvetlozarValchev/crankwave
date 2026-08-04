@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <new>
 #include <numbers>
@@ -22,6 +23,11 @@ namespace {
 
 constexpr compile::SiRate kIsolatedComparisonRate{192000U, 1U};
 constexpr double kRpmComparisonTolerance = 1.0e-9;
+
+enum class PackageCaptureRole : std::uint8_t {
+    directional_running,
+    natural_idle,
+};
 
 [[nodiscard]] authoring::Diagnostic
 make_diagnostic(const authoring::DiagnosticCode code, std::string path,
@@ -183,6 +189,7 @@ void validate_source_graph(const authoring::PackageBakeDocument &document,
 void validate_stable_capture(const authoring::ScenarioDocument &document,
                              const compile::detail::CompiledScenarioInputsView inputs,
                              const std::size_t source_index,
+                             const PackageCaptureRole role,
                              authoring::DiagnosticReport &report) {
     const auto &scenario = inputs.scenario.scenario;
     if (!document.events.empty()) {
@@ -196,12 +203,17 @@ void validate_stable_capture(const authoring::ScenarioDocument &document,
             "normal-running package source must have one stable operating state");
     } else {
         const auto &state = scenario.operating_state.value.front().state;
-        if (!state.ignition_enabled || !state.fuel_enabled || !state.dyno_enabled ||
-            state.starter_enabled || state.limiter_enabled) {
+        const bool requires_dyno = role == PackageCaptureRole::directional_running;
+        if (!state.ignition_enabled || !state.fuel_enabled ||
+            state.dyno_enabled != requires_dyno || state.starter_enabled ||
+            state.limiter_enabled) {
             add(report, authoring::DiagnosticCode::inconsistent_value,
                 source_document_path(source_index, "/initial_state"),
-                "normal-running package source requires ignition, fuel, and dyno "
-                "on with starter and limiter off");
+                requires_dyno
+                    ? "directional package source requires ignition, fuel, and dyno "
+                      "on with starter and limiter off"
+                    : "natural-idle package source requires ignition and fuel on "
+                      "with dyno, starter, and limiter off");
         }
     }
 
@@ -313,12 +325,43 @@ void validate_idle(const compile::detail::CompiledScenarioInputsView inputs,
                    const CompiledPackageBakeRpmRange &rpm_range,
                    const std::size_t source_index,
                    authoring::DiagnosticReport &report) {
-    const auto *held = std::get_if<contract::HeldSpeed>(&inputs.scenario.scenario.mode);
-    if (held == nullptr ||
-        !near(held->engine_speed_rpm.value, rpm_range.playback_minimum_rpm)) {
+    const auto *free_engine =
+        std::get_if<contract::FreeEngine>(&inputs.scenario.scenario.mode);
+    if (free_engine == nullptr) {
+        add(report, authoring::DiagnosticCode::unsupported_capability,
+            source_document_path(source_index, "/mode/type"),
+            "idle package source requires a finite FreeEngine capture");
+        return;
+    }
+    if (!near(free_engine->initial_engine_speed_rpm.value,
+              rpm_range.playback_minimum_rpm)) {
         add(report, authoring::DiagnosticCode::inconsistent_value,
-            source_document_path(source_index, "/mode/target_engine_speed"),
-            "idle package source must be HeldSpeed at the playback minimum RPM");
+            source_document_path(source_index, "/initial_state/engine_speed"),
+            "idle package source must begin at the playback minimum RPM");
+    }
+    const bool closed_throttle =
+        !free_engine->throttle_01.points.empty() &&
+        std::ranges::all_of(free_engine->throttle_01.points,
+                            [](const auto &point) { return point.value == 0.0; });
+    if (!closed_throttle) {
+        add(report, authoring::DiagnosticCode::inconsistent_value,
+            source_document_path(source_index, "/mode/throttle_01"),
+            "natural-idle package source requires closed throttle throughout its "
+            "finite capture");
+    }
+    if (free_engine->attached_inertia_kg_m2.value != 0.0) {
+        add(report, authoring::DiagnosticCode::inconsistent_value,
+            source_document_path(source_index, "/mode/attached_inertia"),
+            "natural-idle package source must not attach external inertia");
+    }
+    const bool unloaded =
+        !free_engine->external_resisting_torque_nm.points.empty() &&
+        std::ranges::all_of(free_engine->external_resisting_torque_nm.points,
+                            [](const auto &point) { return point.value == 0.0; });
+    if (!unloaded) {
+        add(report, authoring::DiagnosticCode::inconsistent_value,
+            source_document_path(source_index, "/mode/external_resisting_torque"),
+            "natural-idle package source must not apply external resisting torque");
     }
 }
 
@@ -427,7 +470,11 @@ class CompiledPackageBakeBuilder final {
                     std::get<compile::CompiledScenario>(std::move(compiled_result));
                 const auto inputs =
                     compile::detail::CompiledScenarioViewAccess::inputs(scenario);
-                validate_stable_capture(*input->document, inputs, index, report);
+                const auto role =
+                    source.id.value == document.running.idle.scenario.value
+                        ? PackageCaptureRole::natural_idle
+                        : PackageCaptureRole::directional_running;
+                validate_stable_capture(*input->document, inputs, index, role, report);
                 validate_audio_contract(document, inputs, index, report);
                 if (index == 0U) {
                     storage->audio_buses.reserve(document.audio.buses.size());

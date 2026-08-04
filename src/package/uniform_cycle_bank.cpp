@@ -13,10 +13,13 @@
 namespace engine_sim_offline::package_detail {
 namespace {
 
-constexpr auto kNormalRunningState =
+constexpr auto kDirectionalRunningState =
     engine_cycle_state_flag_mask(EngineCycleStateFlag::ignition_enabled) |
     engine_cycle_state_flag_mask(EngineCycleStateFlag::fuel_enabled) |
     engine_cycle_state_flag_mask(EngineCycleStateFlag::dyno_enabled);
+constexpr auto kNaturalIdleState =
+    engine_cycle_state_flag_mask(EngineCycleStateFlag::ignition_enabled) |
+    engine_cycle_state_flag_mask(EngineCycleStateFlag::fuel_enabled);
 constexpr double kGridClosureTolerance = 1.0e-9;
 
 struct Candidate {
@@ -190,18 +193,20 @@ edge_rejection(const contract::AudioPackageSourceBoundary &boundary,
 [[nodiscard]] std::variant<Candidate, UniformCycleBankError>
 candidate(const EngineCompletedCycleEvidence &cycle, const UniformCycleLaneView &lane,
           const PackageBakeMethodGeometry &geometry, const std::size_t cycle_index,
-          const bool require_available_torque) {
+          const EngineCycleStateFlagMask required_state,
+          const std::string_view lane_role, const bool require_available_torque) {
     if (cycle.state_transition_flags != 0U) {
-        return error(
-            UniformCycleBankErrorCode::cycle_rejected,
-            cycle_path(cycle_index, "state_transition_flags"),
-            "normal-running package cycles may not contain a state transition");
+        return error(UniformCycleBankErrorCode::cycle_rejected,
+                     cycle_path(cycle_index, "state_transition_flags"),
+                     std::string{lane_role} +
+                         " package cycles may not contain a state transition");
     }
-    if (cycle.start_state_flags != kNormalRunningState ||
-        cycle.end_state_flags != kNormalRunningState) {
+    if (cycle.start_state_flags != required_state ||
+        cycle.end_state_flags != required_state) {
         return error(UniformCycleBankErrorCode::cycle_rejected,
                      cycle_path(cycle_index, "state_flags"),
-                     "cycle is not stable ignition-on, fuel-on, dyno-on running");
+                     std::string{"cycle is not stable "} + std::string{lane_role} +
+                         " operating state");
     }
     if (require_available_torque &&
         cycle.instantaneous_net_shaft.availability !=
@@ -313,13 +318,14 @@ validate_request(const UniformCycleLaneView &lane,
 safe_candidates(const UniformCycleLaneView &lane,
                 const PackageBakeMethodGeometry &geometry,
                 std::uint64_t &rejected_count,
-                const bool require_available_torque) {
+                const EngineCycleStateFlagMask required_state,
+                const std::string_view lane_role, const bool require_available_torque) {
     std::vector<Candidate> candidates;
     candidates.reserve(lane.cycles.size());
     std::optional<UniformCycleBankError> first_rejection;
     for (std::size_t index = 0; index < lane.cycles.size(); ++index) {
         auto result = candidate(lane.cycles[index], lane, geometry, index,
-                                require_available_torque);
+                                required_state, lane_role, require_available_torque);
         if (auto *failure = std::get_if<UniformCycleBankError>(&result)) {
             if (failure->code == UniformCycleBankErrorCode::malformed_evidence) {
                 return std::move(*failure);
@@ -376,8 +382,9 @@ UniformCycleBankResult assign_uniform_running_cycle_bank(
         const auto row_count = static_cast<std::size_t>(rounded_intervals) + 1U;
 
         std::uint64_t rejected_count = 0U;
-        auto candidate_result = safe_candidates(request.lane, request.geometry,
-                                                rejected_count, true);
+        auto candidate_result =
+            safe_candidates(request.lane, request.geometry, rejected_count,
+                            kDirectionalRunningState, "directional-running", true);
         if (auto *failure = std::get_if<UniformCycleBankError>(&candidate_result)) {
             return std::move(*failure);
         }
@@ -501,8 +508,9 @@ retain_uniform_idle_cycle_pool(const UniformIdleCyclePoolRequest &request) noexc
                          "idle target RPM must be finite and positive");
         }
         std::uint64_t rejected_count = 0U;
-        auto candidate_result = safe_candidates(request.lane, request.geometry,
-                                                rejected_count, false);
+        auto candidate_result =
+            safe_candidates(request.lane, request.geometry, rejected_count,
+                            kNaturalIdleState, "natural-idle", false);
         if (auto *failure = std::get_if<UniformCycleBankError>(&candidate_result)) {
             return std::move(*failure);
         }

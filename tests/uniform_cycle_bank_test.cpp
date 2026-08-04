@@ -20,6 +20,9 @@ constexpr auto kRunningState =
     engine_cycle_state_flag_mask(EngineCycleStateFlag::ignition_enabled) |
     engine_cycle_state_flag_mask(EngineCycleStateFlag::fuel_enabled) |
     engine_cycle_state_flag_mask(EngineCycleStateFlag::dyno_enabled);
+constexpr auto kNaturalIdleState =
+    engine_cycle_state_flag_mask(EngineCycleStateFlag::ignition_enabled) |
+    engine_cycle_state_flag_mask(EngineCycleStateFlag::fuel_enabled);
 constexpr std::uint64_t kFirstGlobalFrame = 10000U;
 constexpr std::uint64_t kTapeFrameCount = 100000U;
 constexpr contract::TorqueTermMask kBmwIncludedTorqueTerms =
@@ -43,7 +46,8 @@ void expect(const bool condition, const std::string_view message) {
 
 [[nodiscard]] EngineCompletedCycleEvidence
 cycle(const std::uint64_t ordinal, const double rpm, const double local_start,
-      const EngineCycleStateFlagMask transitions = 0U) {
+      const EngineCycleStateFlagMask transitions = 0U,
+      const EngineCycleStateFlagMask state = kRunningState) {
     const auto global_start = static_cast<double>(kFirstGlobalFrame) + local_start;
     const auto global_end = global_start + 100.0;
     const auto lattice = static_cast<std::int64_t>(ordinal + 100U);
@@ -69,9 +73,9 @@ cycle(const std::uint64_t ordinal, const double rpm, const double local_start,
         kBmwOmittedTorqueTerms,
     };
     return {
-        ordinal, start,         end,           end.time_s - start.time_s,
-        rpm,     requested,     resolved,      intake,
-        torque,  kRunningState, kRunningState, transitions,
+        ordinal, start, end, end.time_s - start.time_s,
+        rpm, requested, resolved, intake,
+        torque, state, state, transitions,
     };
 }
 
@@ -178,9 +182,9 @@ void test_unsafe_cycles_and_impossible_coverage_are_rejected() {
 
 void test_idle_retains_every_safe_cycle_chronologically() {
     std::vector cycles{
-        cycle(30U, 698.0, 4000.0),
-        cycle(31U, 702.0, 4100.0),
-        cycle(32U, 700.0, 4200.0),
+        cycle(30U, 698.0, 4000.0, 0U, kNaturalIdleState),
+        cycle(31U, 702.0, 4100.0, 0U, kNaturalIdleState),
+        cycle(32U, 700.0, 4200.0, 0U, kNaturalIdleState),
     };
     for (auto &item : cycles) {
         item.instantaneous_net_shaft.availability =
@@ -207,6 +211,38 @@ void test_idle_retains_every_safe_cycle_chronologically() {
                !bank.units[0].average_net_torque_nm.has_value() &&
                !bank.units[2].average_net_torque_nm.has_value(),
            "idle pool did not retain every safe cycle in chronological order");
+}
+
+void test_directional_and_idle_state_roles_do_not_cross_admit() {
+    const std::vector dyno_free_directional{
+        cycle(60U, 1000.0, 4000.0, 0U, kNaturalIdleState),
+    };
+    const auto directional = assign_uniform_running_cycle_bank(running_request(
+        dyno_free_directional, authoring::PackageBakeRunningDirection::rising));
+    expect(require_error(directional, UniformCycleBankErrorCode::cycle_rejected).path ==
+               "lane.cycles[0].state_flags",
+           "directional bank admitted a dyno-free natural-idle cycle");
+
+    std::vector held_dyno_idle{
+        cycle(61U, 700.0, 4000.0),
+    };
+    held_dyno_idle.front().instantaneous_net_shaft.availability =
+        contract::Availability::unavailable;
+    held_dyno_idle.front().instantaneous_net_shaft.completeness =
+        contract::Completeness::incomplete;
+    held_dyno_idle.front().instantaneous_net_shaft.unavailable_reason =
+        contract::QuantityUnavailableReason::model_not_admitted;
+    held_dyno_idle.front().instantaneous_net_shaft.included_terms = 0U;
+    held_dyno_idle.front().instantaneous_net_shaft.omitted_terms = 0U;
+    const auto idle = retain_uniform_idle_cycle_pool({
+        {held_dyno_idle, kFirstGlobalFrame, kTapeFrameCount},
+        kPackageBakeMethodGeometry,
+        700.0,
+        0.0,
+    });
+    expect(require_error(idle, UniformCycleBankErrorCode::cycle_rejected).path ==
+               "lane.cycles[0].state_flags",
+           "natural-idle pool admitted a held-dyno cycle");
 }
 
 void test_torque_availability_and_term_partition_fail_closed() {
@@ -252,6 +288,7 @@ int main() {
         test_falling_rows_reverse_source_order_without_reuse();
         test_unsafe_cycles_and_impossible_coverage_are_rejected();
         test_idle_retains_every_safe_cycle_chronologically();
+        test_directional_and_idle_state_roles_do_not_cross_admit();
         test_torque_availability_and_term_partition_fail_closed();
         std::cout << "uniform cycle-bank tests passed\n";
         return EXIT_SUCCESS;

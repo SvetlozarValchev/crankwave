@@ -34,6 +34,9 @@ constexpr auto kRunningState =
     engine_cycle_state_flag_mask(EngineCycleStateFlag::ignition_enabled) |
     engine_cycle_state_flag_mask(EngineCycleStateFlag::fuel_enabled) |
     engine_cycle_state_flag_mask(EngineCycleStateFlag::dyno_enabled);
+constexpr auto kNaturalIdleState =
+    engine_cycle_state_flag_mask(EngineCycleStateFlag::ignition_enabled) |
+    engine_cycle_state_flag_mask(EngineCycleStateFlag::fuel_enabled);
 constexpr std::uint64_t kFirstGlobalFrame = 10000U;
 constexpr std::uint64_t kTapeFrameCount = 35000U;
 constexpr contract::TorqueTermMask kBmwIncludedTorqueTerms =
@@ -205,14 +208,8 @@ cycle(const std::uint64_t ordinal, const double rpm, const double torque,
             static_cast<std::uint64_t>(index + 1U), rpm, torque, throttle,
             local_start);
         if (idle) {
-            evidence.instantaneous_net_shaft.availability =
-                contract::Availability::unavailable;
-            evidence.instantaneous_net_shaft.completeness =
-                contract::Completeness::incomplete;
-            evidence.instantaneous_net_shaft.unavailable_reason =
-                contract::QuantityUnavailableReason::model_not_admitted;
-            evidence.instantaneous_net_shaft.included_terms = 0U;
-            evidence.instantaneous_net_shaft.omitted_terms = 0U;
+            evidence.start_state_flags = kNaturalIdleState;
+            evidence.end_state_flags = kNaturalIdleState;
         }
         result.usable_cycles.push_back(std::move(evidence));
         result.usable_cycle_lane_boundaries.push_back(
@@ -249,7 +246,7 @@ cycle(const std::uint64_t ordinal, const double rpm, const double torque,
     result.sources.push_back(capture(sources[0], true, false, -100.0, 0.04));
     result.sources.push_back(capture(sources[1], false, false, 0.0, 0.45));
     result.sources.push_back(capture(sources[2], false, false, 100.0, 1.0));
-    result.sources.push_back(capture(sources[3], false, true, 0.0, 0.08));
+    result.sources.push_back(capture(sources[3], false, true, 0.0, 0.0));
     return result;
 }
 
@@ -282,9 +279,11 @@ void test_exact_deterministic_package(const CompiledPackageBake &plan) {
                              "instantaneous-net-shaft\"") != std::string::npos,
            "assembly did not publish the exact typed BMW load calibration");
     expect(!package.manifest.running.idle.units.empty() &&
-               !package.manifest.running.idle.units.front()
-                    .average_net_torque_nm.has_value(),
-           "assembly invented idle torque when held-speed evidence was unavailable");
+               package.manifest.running.idle.units.front()
+                   .average_net_torque_nm.has_value() &&
+               *package.manifest.running.idle.units.front().average_net_torque_nm ==
+                   0.0,
+           "assembly lost available natural-idle FreeEngine torque evidence");
     expect(std::ranges::is_sorted(package.payload_files, {},
                                   &AudioPackagePayloadFile::relative_path) &&
                std::ranges::is_sorted(package.manifest.artifacts, {},

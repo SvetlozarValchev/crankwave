@@ -197,6 +197,31 @@ void test_real_bmw_plan_compiles_and_retains_authored_order(
                planes[2].id == "power" && plan.idle_scenario_source_index() == 3U &&
                plan.idle_scenario().id() == "bmw-m52tub28-cleanroom-package-idle",
            "compiled package lost ordered plane binding or idle ownership");
+
+    const auto &idle_document = fixture.scenarios[3];
+    const auto *idle_mode = std::get_if<authoring::FreeEngineMode>(&idle_document.mode);
+    const auto *idle_preparation =
+        std::get_if<authoring::FixedHorizonPreparation>(&idle_document.preparation);
+    expect(idle_mode != nullptr && idle_preparation != nullptr &&
+               idle_document.initial_state.ignition_enabled &&
+               idle_document.initial_state.fuel_enabled &&
+               !idle_document.initial_state.dyno_enabled &&
+               !idle_document.initial_state.starter_enabled &&
+               !idle_document.initial_state.limiter_enabled &&
+               idle_mode->throttle_01.points.size() == 1U &&
+               near(idle_mode->throttle_01.points.front().value, 0.0) &&
+               near(idle_preparation->preparation_duration.value, 6.0) &&
+               near(idle_document.total_duration.value, 21.0) &&
+               near(idle_document.audible_start.value, 11.0) &&
+               near(idle_document.audible_duration.value, 10.0),
+           "BMW package idle source lost its finite natural-idle recipe");
+
+    for (std::size_t plane_index = 0; plane_index < 3U; ++plane_index) {
+        expect(std::holds_alternative<authoring::HeldDynoMode>(
+                   fixture.scenarios[plane_index].mode) &&
+                   fixture.scenarios[plane_index].initial_state.dyno_enabled,
+               "directional package source stopped being a dyno-enabled HeldDyno");
+    }
 }
 
 void test_source_graph_and_capture_invariants_are_diagnostic(
@@ -220,6 +245,65 @@ void test_source_graph_and_capture_invariants_are_diagnostic(
                           authoring::DiagnosticCode::inconsistent_value,
                           "/scenario_sources/0/document/public_seed"),
            "source seed mismatch lacks its external-document path");
+
+    fixture = load_fixture(repository_root);
+    fixture.scenarios[3].initial_state.limiter_enabled = true;
+    inputs = reverse_inputs(fixture);
+    const auto limiter_idle = engine_sim_offline::compile_package_bake(
+        fixture.package, fixture.engine, inputs);
+    expect(has_diagnostic(require_report(limiter_idle),
+                          authoring::DiagnosticCode::inconsistent_value,
+                          "/scenario_sources/3/document/initial_state"),
+           "idle package source admitted a non-natural limiter state");
+
+    fixture = load_fixture(repository_root);
+    fixture.scenarios[0].initial_state.dyno_enabled = false;
+    inputs = reverse_inputs(fixture);
+    const auto free_directional = engine_sim_offline::compile_package_bake(
+        fixture.package, fixture.engine, inputs);
+    (void)require_report(free_directional);
+
+    fixture = load_fixture(repository_root);
+    auto &idle_mode = std::get<authoring::FreeEngineMode>(fixture.scenarios[3].mode);
+    idle_mode.throttle_01.points.front().value = 0.1;
+    inputs = reverse_inputs(fixture);
+    const auto open_idle = engine_sim_offline::compile_package_bake(
+        fixture.package, fixture.engine, inputs);
+    expect(has_diagnostic(require_report(open_idle),
+                          authoring::DiagnosticCode::inconsistent_value,
+                          "/scenario_sources/3/document/mode/throttle_01"),
+           "natural-idle package source admitted nonzero throttle");
+
+    fixture = load_fixture(repository_root);
+    auto &inertial_idle =
+        std::get<authoring::FreeEngineMode>(fixture.scenarios[3].mode);
+    inertial_idle.attached_inertia = authoring::Quantity{0.1, "kg*m2", {}};
+    inputs = reverse_inputs(fixture);
+    const auto attached_idle = engine_sim_offline::compile_package_bake(
+        fixture.package, fixture.engine, inputs);
+    expect(has_diagnostic(require_report(attached_idle),
+                          authoring::DiagnosticCode::inconsistent_value,
+                          "/scenario_sources/3/document/mode/attached_inertia"),
+           "natural-idle package source admitted attached inertia");
+
+    fixture = load_fixture(repository_root);
+    auto &loaded_idle = std::get<authoring::FreeEngineMode>(fixture.scenarios[3].mode);
+    loaded_idle.external_resisting_torque.emplace();
+    loaded_idle.external_resisting_torque->value_dimension =
+        authoring::QuantityDimension::torque;
+    loaded_idle.external_resisting_torque->interpolation =
+        authoring::TrajectoryInterpolation::right_continuous_hold;
+    loaded_idle.external_resisting_torque->points = {
+        {authoring::Quantity{0.0, "s", {}}, authoring::Quantity{1.0, "N*m", {}}},
+    };
+    inputs = reverse_inputs(fixture);
+    const auto resisted_idle = engine_sim_offline::compile_package_bake(
+        fixture.package, fixture.engine, inputs);
+    expect(
+        has_diagnostic(require_report(resisted_idle),
+                       authoring::DiagnosticCode::inconsistent_value,
+                       "/scenario_sources/3/document/mode/external_resisting_torque"),
+        "natural-idle package source admitted external resisting torque");
 }
 
 } // namespace

@@ -24,7 +24,7 @@
     "ignition_enabled": true,
     "fuel_enabled": true,
     "starter_enabled": false,
-    "dyno_enabled": true,
+    "dyno_enabled": false,
     "limiter_enabled": false
   },
   "preparation": {
@@ -33,8 +33,7 @@
     "trailing_complete_cycle_count": 32
   },
   "mode": {
-    "type": "held_speed",
-    "target_engine_speed": {"value": 700, "unit": "rpm"},
+    "type": "free_engine",
     "throttle_01": {
       "interpolation": "right_continuous_hold",
       "points": [
@@ -56,9 +55,9 @@
     "event_queue_capacity": 3800,
     "telemetry_capacity_frames": 1
   },
-  "total_duration": {"value": 20, "unit": "s"},
-  "audible_start": {"value": 6, "unit": "s"},
-  "audible_duration": {"value": 14, "unit": "s"},
+  "total_duration": {"value": 21, "unit": "s"},
+  "audible_start": {"value": 11, "unit": "s"},
+  "audible_duration": {"value": 10, "unit": "s"},
   "public_seed": "12648430",
   "output": {
     "buses": ["master-engine-raw", "master-engine-audition"],
