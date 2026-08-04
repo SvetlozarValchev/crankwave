@@ -346,6 +346,7 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_bake)
 add_library(
     engine_sim_offline_artifacts
     STATIC
+        src/artifacts/audio_atlas_directory_publisher.cpp
         src/artifacts/audio_atlas_manifest_encoder.cpp
         src/artifacts/directory_render_sink.cpp
         src/artifacts/directory_render_sink_commit.cpp
