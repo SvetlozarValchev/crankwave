@@ -292,6 +292,31 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_audio_package_assembly_tests
+    audio_package_assembly_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_audio_package_assembly_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_audio_package_assembly_tests
+    PRIVATE engine_sim_offline::package_bake
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_audio_package_assembly_tests
+)
+
+add_test(
+    NAME package_bake.audio_package_assembly
+    COMMAND
+        engine_sim_offline_audio_package_assembly_tests
+        ${PROJECT_SOURCE_DIR}
+)
+
+add_executable(
     engine_sim_offline_audio_package_contract_tests
     audio_package_contract_test.cpp
 )
