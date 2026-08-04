@@ -92,3 +92,34 @@ gate and makes the active path above canonical. It does not claim a resolved inl
 mouth impedance, intake radiation geometry, load-dependent transfer, stereo spatial
 model, or mechanical/valvetrain source path; each remains a separate future fidelity
 change with its own controlled audition.
+
+## Post-acceptance performance closure
+
+The first full browser run after acceptance exposed two separate integration issues:
+the smoke test still pinned the former exhaust-only export, and Chrome's running pump
+did not retain enough scheduling margin for the additional active route. Neither issue
+was an active-intake PCM regression.
+
+Three changes closed that performance gate without introducing another renderer or
+changing accepted samples:
+
+- `2dfee5696c762e7e78ce4caec5d24e505972ccb3` caches the 48 exact rational phase
+  kernels visited by canonical 20 kHz-to-192 kHz reconstruction;
+- `b2a62030e8922fc594a8e6db2142eb8fc412fbeb` mirrors each reconstruction history so
+  every 257-tap read is contiguous; and
+- `1c77c714814739fa317fed7303d7d2d44cb3ae2f` uses `MessageChannel` for immediate
+  browser-pump continuation and processes a bounded four core blocks per running turn.
+  Genuine pacing waits still use timers.
+
+A clean `scripts/verify-browser-workbench.sh` run passed its runtime-unit, WASM
+integration, canonical-capture, operating-bench, and headless-Chrome sequence. The
+browser export is exactly `3,840,056` bytes with SHA-256
+`f1c057e2eef807f0d68711dc1e196e04093faab3c306d37f7523c8a8d2ce6130`;
+both BMW and 6.2 L V8 interactive starts report `startupUnderruns = 0`; and all 22
+repository packages pass the visible workbench compile/session checks.
+
+A fresh native BMW M52TU held-dyno bake completed in `35.00 s` end to end. All 11
+published WAVs—six exhaust stems, three intake stems, and both masters—are byte-for-byte
+identical to the accepted `9530402` artifact set. Therefore the performance work needs
+no new listening decision: it changes reconstruction storage and browser scheduling,
+not the accepted 20 kHz capture, 192 kHz presentation, or audio result.

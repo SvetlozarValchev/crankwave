@@ -107,7 +107,7 @@ from their descriptors, renders neutral plus five ordered gears, submits
 and 25% service brake as one drivetrain batch. Returned sidecars report the applied
 values. After explicit open-ended rebuilds, both dynamic sessions remain nonterminal
 until stopped or restarted. The
-canonical finite-export browser WAV remains 3,840,056 bytes with SHA-256
+Slice 14 finite-export browser WAV was 3,840,056 bytes with SHA-256
 `2972cdad90d08d31ddfac3ca99a4efcda93a15db637d93abc2b7844085c3e4b2`, and the
 workbench reports zero startup underruns.
 
@@ -115,3 +115,28 @@ No renderer source, engine/scenario data, C ABI, WASM core, or audio code change
 this correction. Worker v3 adds the required execution-kind field with no old-layout
 decoder. The renderer source closure remains identical to the slice-13 production
 proof, which reproduced all six accepted HeldDyno/FreeVehicle WAV hashes byte-for-byte.
+
+## 7. Post-parity active-intake performance closure
+
+The Slice 14 hash above remains historical exhaust-only evidence. After the separately
+accepted active-intake route entered the same master, the current browser export stayed
+exactly 3,840,056 bytes and intentionally changed to SHA-256
+`f1c057e2eef807f0d68711dc1e196e04093faab3c306d37f7523c8a8d2ce6130`.
+Commit `e43282139ac1c91d1804f46a75931e5fb4594654` updates only that executable
+expectation.
+
+The additional route also exposed insufficient scheduling margin in the realtime
+adapter. This was not an audio-model failure. Commits
+`2dfee5696c762e7e78ce4caec5d24e505972ccb3` and
+`b2a62030e8922fc594a8e6db2142eb8fc412fbeb` remove redundant canonical
+reconstruction work while retaining exact samples. Commit
+`1c77c714814739fa317fed7303d7d2d44cb3ae2f` replaces immediate nested-timer pump
+continuations with `MessageChannel` tasks and permits a bounded four core blocks per
+running turn.
+
+The clean full `scripts/verify-browser-workbench.sh` gate now passes, reports zero
+startup underruns for both BMW and the 6.2 L V8, and verifies all 22 repository
+packages. A fresh native M52TU held-dyno bake took `35.00 s`; each of its 11 WAVs is
+byte-identical to the accepted active-intake `9530402` set. The observed failure is
+therefore closed as browser scheduling margin plus an exhaust-only smoke expectation,
+not an active-intake PCM regression.

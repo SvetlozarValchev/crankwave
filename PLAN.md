@@ -1,6 +1,7 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — audible intake accepted; browser realtime regression under review
+Status: active — audible intake and browser realtime closure verified; mechanical
+source capture seam next
 
 Branch: `clean-room/bmw-baseline`
 
@@ -10,9 +11,10 @@ Current checkpoint: **headless executable engine-sim parity complete — Slice 1
 seven-procedure recording set and the single-path 20 kHz production/cooker cutover are
 accepted; cylinder/collector routing is explicit; the separately published intake
 pressure path preserved every accepted exhaust WAV byte for byte and passed its matched
-control/solo/full listening gate on 2026-08-04. Before the mechanical-source item begins,
-the reproducible browser underrun exposed by the additional active route must be
-measured and resolved without adding a second renderer path.**
+control/solo/full listening gate on 2026-08-04. The follow-up reconstruction and
+browser-pump performance work preserved all 11 accepted WAVs byte for byte and restored
+zero-underrun BMW/V8 browser startup through the same renderer. Fidelity queue item 4
+may now begin with its byte-identical mechanical-source capture seam.**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -405,6 +407,14 @@ horizon, admitted throttle and external-resistance controls, Stop/Start state
 continuity, fresh Restart state, route selection, cross-origin-isolation headers,
 zero startup underruns, and exact WAV framing:
 [`scripts/verify-browser-workbench.sh`](scripts/verify-browser-workbench.sh).
+
+Post-intake performance closure caches only the 48 canonical rational reconstruction
+phases, uses mirrored contiguous histories, and schedules immediate running-pump turns
+through `MessageChannel` in bounded four-block batches. The clean full gate verifies
+all 22 workbench packages and zero startup underruns for BMW and the 6.2 L V8. A fresh
+`35.00 s` native M52TU held-dyno bake reproduces all 11 accepted active-intake WAVs
+byte for byte, so this closes scheduling margin without changing the 20 kHz capture or
+192 kHz presentation result.
 
 ## 6. Cutover acceptance policy
 
@@ -1020,7 +1030,9 @@ candidate with the accepted parity renderer as its control:
    192 kHz, deterministic DC removal, and authored route gain. It consumes no exhaust
    randomness or IR, preserves every accepted exhaust WAV byte for byte, and the user
    accepted its matched exhaust-control/intake-solo/full comparison on 2026-08-04. See
-   [`docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md)**);
+   [`docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](docs/POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
+   Post-acceptance performance work also retains all 11 accepted WAVs byte for byte
+   and passes the full zero-startup-underrun browser gate**);
 4. add `mechanical.engine`, valvetrain, and `mechanical.starter` as independent gates,
    beginning with a byte-identical per-cylinder combustion/compression-force capture
    seam. The sound-bearing engine-structure route is blocked until a calibrated,

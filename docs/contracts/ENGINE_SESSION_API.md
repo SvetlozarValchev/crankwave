@@ -813,6 +813,14 @@ requested lead. Once released, the open-ended session continues the same crank, 
 random, filter, convolution, and resampler state; it is not a loop of the authored
 finite clip.
 
+Running production also uses a bounded maximum of four core blocks per pump turn.
+When another turn is immediately due, the Worker posts it through a private
+`MessageChannel`; it does not recurse and does not enter Chrome's nested zero-delay
+timer clamp. Positive pacing delays still use timers, and posting a new turn yields to
+pending control messages. This is adapter scheduling only: every core call remains
+the exact 400-frame/3,840-frame method block and follows the same bounded ring-lead
+policy.
+
 The Worker maintains a bounded lead selected by the adapter. A control request carries
 a nonempty atomic batch. Every command has an absolute delivery-frame target that must
 not already have been generated and must not fall inside preparation; one default
@@ -861,9 +869,14 @@ renderer. There is no MessagePort-copy audio fallback or JavaScript engine rende
 The real-module integration exports 7,680 canonical Float32 samples with SHA-256
 `7362df73a4f3bc0925fad36285f499d2c51f2b61d4dccf8a743f45a42f4728c9`.
 The headless Chrome gate exports the complete 3,840,056-byte BMW warm-running
-free-rev Float32 WAVE and pins its current SHA-256 in the executable browser test,
+free-rev Float32 WAVE at SHA-256
+`f1c057e2eef807f0d68711dc1e196e04093faab3c306d37f7523c8a8d2ce6130`,
 continues past the authored 5.5-second horizon, verifies Stop/Start state continuity
-and fresh Restart state, and reports zero startup underrun frames/events.
+and fresh Restart state, and reports zero BMW startup underrun frames/events. The same
+clean gate reports zero startup underruns for the 6.2 L V8 and compiles/creates the
+expected sessions for all 22 visible repository packages. The former browser failure
+was an exhaust-only smoke expectation plus insufficient pump scheduling margin, not a
+core processing failure or active-intake PCM regression.
 The reproducible gate is
 [`verify-browser-workbench.sh`](../../scripts/verify-browser-workbench.sh).
 
@@ -974,8 +987,9 @@ admission.
 
 The workbench UI gate applies one three-value dyno batch and one three-value drivetrain
 batch, observes the exact returned sidecars, and verifies stop/resume/fresh-restart
-semantics for the continuous benches. The existing canonical finite-export browser WAV
-hash remains unchanged.
+semantics for the continuous benches. It pins the current active-intake finite-export
+browser WAV identity recorded in section 11; older exhaust-only hashes remain
+historical milestone evidence rather than current expectations.
 
 ## 14. Implementation order
 
