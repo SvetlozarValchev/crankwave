@@ -269,6 +269,29 @@ set_tests_properties(
 )
 
 add_executable(
+    engine_sim_offline_uniform_cycle_bank_tests
+    uniform_cycle_bank_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_uniform_cycle_bank_tests
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_uniform_cycle_bank_tests
+    PRIVATE engine_sim_offline::package_bake
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_uniform_cycle_bank_tests
+)
+
+add_test(
+    NAME package_bake.uniform_cycle_bank
+    COMMAND engine_sim_offline_uniform_cycle_bank_tests
+)
+
+add_executable(
     engine_sim_offline_audio_package_contract_tests
     audio_package_contract_test.cpp
 )

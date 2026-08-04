@@ -183,6 +183,7 @@ add_library(
     STATIC
         src/package/package_bake_compile.cpp
         src/package/package_source_capture.cpp
+        src/package/uniform_cycle_bank.cpp
 )
 add_library(
     engine_sim_offline::package_bake
