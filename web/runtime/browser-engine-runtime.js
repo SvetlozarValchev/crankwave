@@ -25,6 +25,7 @@ import {
 
 const RUNTIME_STATS_INTERVAL_MS = 250;
 const PRIMING_CORE_BLOCKS_PER_TURN = 4;
+const RUNNING_CORE_BLOCKS_PER_TURN = 4;
 
 function runtimeError(message, detailCode, operation = "browser-runtime") {
   return new EngineSimRuntimeError(message, {
@@ -84,6 +85,8 @@ export class BrowserEngineRuntime {
   #deviceFrames = 0;
   #startedAt = 0;
   #lastStatsAt = 0;
+  #pumpReceivePort;
+  #pumpSendPort;
 
   static async create({ moduleUrl, emit }) {
     const client = await EngineSimCapiClient.create(moduleUrl);
@@ -96,6 +99,12 @@ export class BrowserEngineRuntime {
     }
     this.#client = client;
     this.#emit = emit;
+    const pumpChannel = new MessageChannel();
+    this.#pumpReceivePort = pumpChannel.port1;
+    this.#pumpSendPort = pumpChannel.port2;
+    this.#pumpReceivePort.onmessage = (event) => this.#pump(event.data);
+    this.#pumpReceivePort.unref?.();
+    this.#pumpSendPort.unref?.();
   }
 
   announceReady(requestId, moduleUrl) {
@@ -392,6 +401,8 @@ export class BrowserEngineRuntime {
       );
     }
     ++this.#pumpEpoch;
+    this.#pumpReceivePort.close();
+    this.#pumpSendPort.close();
     this.#discardOutput(RingState.ended);
     this.#program?.dispose();
     this.#program = null;
@@ -448,6 +459,12 @@ export class BrowserEngineRuntime {
 
   #schedulePump(delayMilliseconds) {
     const epoch = ++this.#pumpEpoch;
+    if (delayMilliseconds === 0) {
+      // A posted task yields to pending controls without Chrome's 4 ms nested-
+      // timer clamp. Genuine pacing waits below continue to use timers.
+      this.#pumpSendPort.postMessage(epoch);
+      return;
+    }
     setTimeout(() => this.#pump(epoch), delayMilliseconds);
   }
 
@@ -460,7 +477,9 @@ export class BrowserEngineRuntime {
     }
     try {
       const blockLimit =
-        this.#state === "preparing" ? PRIMING_CORE_BLOCKS_PER_TURN : 1;
+        this.#state === "preparing"
+          ? PRIMING_CORE_BLOCKS_PER_TURN
+          : RUNNING_CORE_BLOCKS_PER_TURN;
       for (let processed = 0; processed < blockLimit; ++processed) {
         if (!this.#drainPendingPcm()) {
           this.#emitRuntimeStats();
