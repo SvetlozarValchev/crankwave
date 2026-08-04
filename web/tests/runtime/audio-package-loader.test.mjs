@@ -103,6 +103,12 @@ function makeFixture() {
     running: {
       cycle_revolutions: 2,
       selector_seed: "42",
+      load_calibration: {
+        signal: "cycle-mean-integrated-instantaneous-net-shaft",
+        completeness: "incomplete",
+        included_terms: "135",
+        omitted_terms: "120",
+      },
       cycle_signal_alignment_frames: 1228.8,
       rpm_grid: {
         minimum_rpm: 1000,
@@ -246,6 +252,10 @@ test("loader fetches, hashes, and preserves every current-contract lane and tape
   assert.equal(new Set(requests).size, requests.length);
   assert.equal(loaded.manifest, loaded.manifest);
   assert.deepEqual(loaded.manifest.running.planes, manifest.running.planes);
+  assert.deepEqual(
+    loaded.manifest.running.load_calibration,
+    manifest.running.load_calibration,
+  );
   assert.deepEqual(loaded.manifest.running.idle.units, manifest.running.idle.units);
   assert.ok(Object.isFrozen(loaded.manifest));
   assert.ok(Object.isFrozen(loaded.manifest.running.planes[0].units));
@@ -262,6 +272,97 @@ test("loader fetches, hashes, and preserves every current-contract lane and tape
   assert.equal(idle.pcm[3], 0.5);
   assert.deepEqual(idle.bytes, payloads["audio/idle/master.wav"].bytes);
   assert.equal(loaded.artifact("absent"), null);
+});
+
+test("load calibration is an exact typed partition of known torque terms", async () => {
+  const cases = [
+    {
+      mutate: (calibration) => {
+        calibration.signal = "modeled_net_shaft_torque";
+      },
+      path: "running.load_calibration.signal",
+    },
+    {
+      mutate: (calibration) => {
+        calibration.completeness = "partial";
+      },
+      path: "running.load_calibration.completeness",
+    },
+    {
+      mutate: (calibration) => {
+        calibration.included_terms = "0135";
+      },
+      path: "running.load_calibration.included_terms",
+    },
+    {
+      mutate: (calibration) => {
+        calibration.omitted_terms = "18446744073709551616";
+      },
+      path: "running.load_calibration.omitted_terms",
+    },
+    {
+      mutate: (calibration) => {
+        calibration.included_terms = "0";
+        calibration.omitted_terms = "255";
+      },
+      path: "running.load_calibration.included_terms",
+    },
+    {
+      mutate: (calibration) => {
+        calibration.omitted_terms = "121";
+      },
+      path: "running.load_calibration",
+    },
+    {
+      mutate: (calibration) => {
+        calibration.omitted_terms = "112";
+      },
+      path: "running.load_calibration",
+    },
+    {
+      mutate: (calibration) => {
+        calibration.completeness = "complete";
+      },
+      path: "running.load_calibration.completeness",
+    },
+    {
+      mutate: (calibration) => {
+        calibration.completeness = "incomplete";
+        calibration.included_terms = "255";
+        calibration.omitted_terms = "0";
+      },
+      path: "running.load_calibration.completeness",
+    },
+    {
+      mutate: (calibration) => {
+        calibration.extra = true;
+      },
+      path: "running.load_calibration.extra",
+    },
+    {
+      mutate: (calibration) => {
+        delete calibration.omitted_terms;
+      },
+      path: "running.load_calibration.omitted_terms",
+    },
+  ];
+
+  for (const { mutate, path } of cases) {
+    const { manifest, payloads } = makeFixture();
+    mutate(manifest.running.load_calibration);
+    const requests = [];
+    await assert.rejects(
+      loadAudioPackage(MANIFEST_URL, {
+        fetch: packageFetch(manifest, payloads, requests),
+        crypto: webcrypto,
+      }),
+      (error) =>
+        error instanceof AudioPackageLoadError &&
+        error.code === "audio-package-invalid-manifest" &&
+        error.path === path,
+    );
+    assert.deepEqual(requests, [MANIFEST_URL]);
+  }
 });
 
 test("WAVE chunk scan accepts both native fmt18 and browser fmt16 without DSP", () => {

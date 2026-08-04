@@ -4,6 +4,7 @@
 #include "engine_sim_offline/contract/presentation.hpp"
 #include "engine_sim_offline/contract/provenance.hpp"
 #include "engine_sim_offline/contract/source_matrix.hpp"
+#include "engine_sim_offline/contract/torque.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -184,6 +185,17 @@ struct AudioPackageIdle {
                            const AudioPackageIdle &) = default;
 };
 
+struct AudioPackageLoadCalibration {
+    // This is the exact modeled net-shaft subset used to compare coast, part,
+    // and power captures. It is not promoted to complete physical brake torque.
+    Completeness completeness = Completeness::incomplete;
+    TorqueTermMask included_terms = 0;
+    TorqueTermMask omitted_terms = 0;
+
+    friend bool operator==(const AudioPackageLoadCalibration &,
+                           const AudioPackageLoadCalibration &) = default;
+};
+
 struct AudioPackageRunning {
     std::uint32_t cycle_revolutions = 2;
     std::uint64_t selector_seed = 0;
@@ -191,6 +203,7 @@ struct AudioPackageRunning {
     // become source-tape unit boundaries. This is the common reconstruction
     // delay only; modeled route propagation and transfer phase remain in PCM.
     double cycle_signal_alignment_frames = 0.0;
+    AudioPackageLoadCalibration load_calibration;
     AudioPackageRpmGrid rpm_grid;
     std::vector<AudioPackageRunningPlane> planes;
     AudioPackageIdle idle;

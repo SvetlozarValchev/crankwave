@@ -47,6 +47,7 @@ enum class AudioPackageAssemblyErrorCode : std::uint8_t {
     unsupported_audio_bus,
     invalid_audio_payload,
     cycle_bank_failed,
+    inconsistent_load_calibration,
     wave_encoding_failed,
     manifest_validation_failed,
     manifest_encoding_failed,

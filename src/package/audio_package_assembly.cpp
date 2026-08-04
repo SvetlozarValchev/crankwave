@@ -388,6 +388,7 @@ AudioPackageAssemblyResult assemble_audio_package(
 
         const auto planes = plan.running_planes();
         manifest.running.planes.reserve(planes.size());
+        std::optional<contract::AudioPackageLoadCalibration> load_calibration;
         for (std::size_t plane_index = 0; plane_index < planes.size();
              ++plane_index) {
             const auto &compiled_plane = planes[plane_index];
@@ -407,6 +408,16 @@ AudioPackageAssemblyResult assemble_audio_package(
                     indexed("running.planes", plane_index) + "." + failure->path,
                     "audio-package-running-cycle-bank-failed", failure->detail);
             }
+            auto bank = std::get<UniformCycleBank>(std::move(bank_result));
+            if (!load_calibration.has_value()) {
+                load_calibration = bank.load_calibration;
+            } else if (*load_calibration != bank.load_calibration) {
+                return error(
+                    AudioPackageAssemblyErrorCode::inconsistent_load_calibration,
+                    indexed("running.planes", plane_index) + ".units",
+                    "audio-package-running-load-calibration-mismatch",
+                    "every directional plane must use the same modeled net-shaft torque term partition");
+            }
 
             const auto lane_id = "running." + compiled_plane.id;
             const auto lane_path = "running/" + compiled_plane.id;
@@ -424,11 +435,18 @@ AudioPackageAssemblyResult assemble_audio_package(
                 package_direction(compiled_plane.direction),
                 identity.source_scenarios[source_index].scenario,
                 std::move(payloads.references),
-                std::get<UniformCycleBank>(std::move(bank_result)).units,
+                std::move(bank.units),
             };
             append_lane_payloads(package, std::move(payloads));
             manifest.running.planes.push_back(std::move(plane));
         }
+        if (!load_calibration.has_value()) {
+            return error(AudioPackageAssemblyErrorCode::invalid_capture_set,
+                         "running.planes",
+                         "audio-package-running-plane-set-empty",
+                         "package assembly requires directional running planes");
+        }
+        manifest.running.load_calibration = *load_calibration;
 
         const auto idle_source_index = plan.idle_scenario_source_index();
         const auto &idle_capture = captures.sources[idle_source_index];

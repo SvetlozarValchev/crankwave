@@ -39,6 +39,7 @@ struct UniformIdleCyclePoolRequest {
 
 struct UniformCycleBank {
     std::vector<contract::AudioPackageCycleUnit> units;
+    contract::AudioPackageLoadCalibration load_calibration;
     double total_squared_rpm_error = 0.0;
     std::uint64_t rejected_cycle_count = 0U;
 };

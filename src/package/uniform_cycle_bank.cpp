@@ -94,6 +94,24 @@ validate_evidence(const EngineCompletedCycleEvidence &cycle, const std::size_t i
                      cycle_path(index, "instantaneous_net_shaft"),
                      "cycle contains nonfinite net-shaft evidence");
     }
+    const auto &torque = cycle.instantaneous_net_shaft;
+    const bool available_metadata_valid =
+        torque.availability != contract::Availability::available ||
+        ((torque.completeness == contract::Completeness::complete ||
+          torque.completeness == contract::Completeness::incomplete) &&
+         torque.included_terms != 0U &&
+         (torque.included_terms & torque.omitted_terms) == 0U &&
+         (torque.included_terms | torque.omitted_terms) ==
+             contract::known_torque_term_mask() &&
+         ((torque.completeness == contract::Completeness::complete &&
+           torque.omitted_terms == 0U) ||
+          (torque.completeness == contract::Completeness::incomplete &&
+           torque.omitted_terms != 0U)));
+    if (!available_metadata_valid) {
+        return error(UniformCycleBankErrorCode::malformed_evidence,
+                     cycle_path(index, "instantaneous_net_shaft"),
+                     "cycle modeled net-shaft metadata does not partition known torque terms");
+    }
     if (cycle.completed_cycle_ordinal > contract::kMaximumResolvedFrameIndex) {
         return error(UniformCycleBankErrorCode::malformed_evidence,
                      cycle_path(index, "completed_cycle_ordinal"),
@@ -185,12 +203,10 @@ candidate(const EngineCompletedCycleEvidence &cycle, const UniformCycleLaneView 
                      "cycle is not stable ignition-on, fuel-on, dyno-on running");
     }
     if (cycle.instantaneous_net_shaft.availability !=
-            contract::Availability::available ||
-        cycle.instantaneous_net_shaft.completeness !=
-            contract::Completeness::complete) {
+        contract::Availability::available) {
         return error(UniformCycleBankErrorCode::cycle_rejected,
                      cycle_path(cycle_index, "instantaneous_net_shaft"),
-                     "cycle has no available complete net-shaft torque summary");
+                     "cycle has no available modeled net-shaft torque summary");
     }
 
     auto start_result = aligned_boundary(cycle.start_boundary, lane, geometry,
@@ -424,10 +440,29 @@ UniformCycleBankResult assign_uniform_running_cycle_bank(
         }
 
         UniformCycleBank bank;
+        const auto &first_torque =
+            candidates[selected.front()].evidence->instantaneous_net_shaft;
+        bank.load_calibration = {
+            first_torque.completeness,
+            first_torque.included_terms,
+            first_torque.omitted_terms,
+        };
         bank.total_squared_rpm_error = previous.back();
         bank.rejected_cycle_count = rejected_count;
         bank.units.reserve(row_count);
         for (std::size_t index = 0; index < row_count; ++index) {
+            const auto &torque =
+                candidates[selected[index]].evidence->instantaneous_net_shaft;
+            if (contract::AudioPackageLoadCalibration{
+                    torque.completeness,
+                    torque.included_terms,
+                    torque.omitted_terms,
+                } != bank.load_calibration) {
+                return error(
+                    UniformCycleBankErrorCode::impossible_coverage,
+                    "lane.cycles",
+                    "selected RPM rows do not share one modeled net-torque term partition");
+            }
             const double canonical_rpm =
                 request.padded_minimum_rpm +
                 request.geometry.rpm_grid_spacing * static_cast<double>(index);
@@ -465,9 +500,28 @@ retain_uniform_idle_cycle_pool(const UniformIdleCyclePoolRequest &request) noexc
         }
         const auto &candidates = std::get<std::vector<Candidate>>(candidate_result);
         UniformCycleBank bank;
+        const auto &first_torque =
+            candidates.front().evidence->instantaneous_net_shaft;
+        bank.load_calibration = {
+            first_torque.completeness,
+            first_torque.included_terms,
+            first_torque.omitted_terms,
+        };
         bank.rejected_cycle_count = rejected_count;
         bank.units.reserve(candidates.size());
         for (const auto &candidate : candidates) {
+            const auto &torque =
+                candidate.evidence->instantaneous_net_shaft;
+            if (contract::AudioPackageLoadCalibration{
+                    torque.completeness,
+                    torque.included_terms,
+                    torque.omitted_terms,
+                } != bank.load_calibration) {
+                return error(
+                    UniformCycleBankErrorCode::impossible_coverage,
+                    "lane.cycles",
+                    "idle cycles do not share one modeled net-torque term partition");
+            }
             // Idle is not projected onto the directional grid. Retaining each
             // unit's measured pitch keeps the dense pool selectable without
             // inventing identical coordinates for distinct source cycles.

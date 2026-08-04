@@ -103,6 +103,11 @@ plane(std::string id, double coordinate,
     manifest.running.cycle_revolutions = 2U;
     manifest.running.selector_seed = UINT64_C(18446744073709551615);
     manifest.running.cycle_signal_alignment_frames = 1228.8;
+    manifest.running.load_calibration = {
+        contract::Completeness::incomplete,
+        UINT64_C(0x87),
+        UINT64_C(0x78),
+    };
     manifest.running.rpm_grid = {
         1000.0, 1500.0, 2000.0, 2500.0, 500.0, 1U, 1U, 4U, 25.0,
     };
@@ -212,6 +217,12 @@ void test_valid_contract_and_deterministic_runtime_json() {
     expect(document.find("\"cycle_signal_alignment_frames\":1228.8") !=
                std::string::npos,
            "cycle signal-alignment offset was not encoded canonically");
+    expect(document.find(
+               "\"load_calibration\":{\"signal\":\"cycle-mean-integrated-"
+               "instantaneous-net-shaft\",\"completeness\":\"incomplete\","
+               "\"included_terms\":\"135\",\"omitted_terms\":\"120\"}") !=
+               std::string::npos,
+           "typed modeled-torque load calibration was not encoded exactly");
     expect(document.find("\"canonical_rpm\":1000") != std::string::npos &&
                document.find("0x") == std::string::npos,
            "binary64 package values regressed to internal bit strings");
@@ -278,6 +289,37 @@ void test_plane_and_artifact_order_are_closed() {
            "duplicate portable artifact path was accepted");
 }
 
+void test_load_calibration_scope_is_closed() {
+    auto unknown_term = valid_manifest();
+    unknown_term.running.load_calibration.included_terms |= UINT64_C(1) << 20U;
+    expect(has_issue(contract::validate(unknown_term),
+                     contract::ContractIssueCode::inconsistent_semantics,
+                     "running.load_calibration"),
+           "unknown modeled-torque calibration term was accepted");
+
+    auto overlap = valid_manifest();
+    overlap.running.load_calibration.omitted_terms |= UINT64_C(1);
+    expect(has_issue(contract::validate(overlap),
+                     contract::ContractIssueCode::inconsistent_semantics,
+                     "running.load_calibration"),
+           "overlapping modeled-torque calibration masks were accepted");
+
+    auto unclassified = valid_manifest();
+    unclassified.running.load_calibration.omitted_terms &= ~UINT64_C(0x08);
+    expect(has_issue(contract::validate(unclassified),
+                     contract::ContractIssueCode::inconsistent_semantics,
+                     "running.load_calibration"),
+           "unclassified modeled-torque calibration term was accepted");
+
+    auto false_complete = valid_manifest();
+    false_complete.running.load_calibration.completeness =
+        contract::Completeness::complete;
+    expect(has_issue(contract::validate(false_complete),
+                     contract::ContractIssueCode::inconsistent_semantics,
+                     "running.load_calibration.completeness"),
+           "false complete modeled-torque calibration was accepted");
+}
+
 void test_boundaries_references_and_units_fail_closed() {
     auto false_padding = valid_manifest();
     false_padding.running.rpm_grid.minimum_rpm = 1100.0;
@@ -338,6 +380,7 @@ int main() {
     try {
         test_valid_contract_and_deterministic_runtime_json();
         test_plane_and_artifact_order_are_closed();
+        test_load_calibration_scope_is_closed();
         test_boundaries_references_and_units_fail_closed();
         std::cout << "audio package contract tests passed\n";
         return EXIT_SUCCESS;

@@ -430,6 +430,36 @@ ValidationReport validate(const AudioPackageManifest &manifest) {
         ContractIssueCode::invalid_value,
         "running.cycle_signal_alignment_frames",
         "cycle signal alignment must be a finite nonnegative delivery-frame offset");
+    const auto &load_calibration = running.load_calibration;
+    const bool calibration_completeness_valid =
+        load_calibration.completeness == Completeness::complete ||
+        load_calibration.completeness == Completeness::incomplete;
+    detail::require(report, calibration_completeness_valid,
+                    ContractIssueCode::invalid_value,
+                    "running.load_calibration.completeness",
+                    "modeled torque completeness is not part of the contract");
+    detail::require(
+        report, load_calibration.included_terms != 0U,
+        ContractIssueCode::invalid_value,
+        "running.load_calibration.included_terms",
+        "modeled torque calibration must include at least one classified term");
+    detail::require(
+        report,
+        (load_calibration.included_terms & load_calibration.omitted_terms) == 0U &&
+            (load_calibration.included_terms |
+             load_calibration.omitted_terms) == known_torque_term_mask(),
+        ContractIssueCode::inconsistent_semantics,
+        "running.load_calibration",
+        "modeled torque calibration must partition every known torque term exactly");
+    detail::require(
+        report,
+        (load_calibration.completeness == Completeness::complete &&
+         load_calibration.omitted_terms == 0U) ||
+            (load_calibration.completeness == Completeness::incomplete &&
+             load_calibration.omitted_terms != 0U),
+        ContractIssueCode::inconsistent_semantics,
+        "running.load_calibration.completeness",
+        "modeled torque completeness must agree with the omitted-term mask");
     const auto &grid = running.rpm_grid;
     detail::require(report,
                     canonical_finite(grid.minimum_rpm) && grid.minimum_rpm > 0.0,

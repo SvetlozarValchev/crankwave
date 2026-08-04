@@ -410,6 +410,17 @@ write_boundary(RuntimeJsonWriter &writer,
            writer.end_object();
 }
 
+[[nodiscard]] std::string_view
+completeness_id(const contract::Completeness completeness) noexcept {
+    switch (completeness) {
+    case contract::Completeness::complete:
+        return "complete";
+    case contract::Completeness::incomplete:
+        return "incomplete";
+    }
+    return {};
+}
+
 [[nodiscard]] bool
 write_units(RuntimeJsonWriter &writer,
             const std::vector<contract::AudioPackageCycleUnit> &units) {
@@ -501,6 +512,20 @@ write_units(RuntimeJsonWriter &writer,
           writer.uint64_string_value(manifest.running.selector_seed) &&
           writer.key("cycle_signal_alignment_frames") &&
           writer.double_value(manifest.running.cycle_signal_alignment_frames) &&
+          writer.key("load_calibration") && writer.begin_object() &&
+          writer.key("signal") &&
+          writer.string_value(
+              "cycle-mean-integrated-instantaneous-net-shaft") &&
+          writer.key("completeness") &&
+          writer.string_value(
+              completeness_id(manifest.running.load_calibration.completeness)) &&
+          writer.key("included_terms") &&
+          writer.uint64_string_value(
+              manifest.running.load_calibration.included_terms) &&
+          writer.key("omitted_terms") &&
+          writer.uint64_string_value(
+              manifest.running.load_calibration.omitted_terms) &&
+          writer.end_object() &&
           writer.key("rpm_grid") && writer.begin_object() &&
           writer.key("minimum_rpm") &&
           writer.double_value(manifest.running.rpm_grid.minimum_rpm) &&

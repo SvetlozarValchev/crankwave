@@ -6,6 +6,7 @@ export const MAXIMUM_AUDIO_PACKAGE_MANIFEST_BYTES = 16 * 1024 * 1024;
 const MAXIMUM_RUNTIME_INTEGER = 2 ** 53 - 1;
 const MAXIMUM_UINT32 = 0xffff_ffff;
 const MAXIMUM_UINT64_DECIMAL = 18_446_744_073_709_551_615n;
+const KNOWN_TORQUE_TERM_MASK = 255n;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const SEMANTIC_ID_PATTERN = /^[a-z0-9][a-z0-9._/-]*$/;
 const ARTIFACT_PATH_PATTERN = /^[A-Za-z0-9._/-]+$/;
@@ -149,7 +150,7 @@ function requireContentIdentity(value, path) {
   requireSha256(value.sha256, `${path}.sha256`);
 }
 
-function requireSelectorSeed(value, path) {
+function requireCanonicalUint64Decimal(value, path) {
   requireString(value, path);
   if (!/^(0|[1-9][0-9]*)$/.test(value)) {
     fail(
@@ -166,6 +167,73 @@ function requireSelectorSeed(value, path) {
   }
   if (parsed > MAXIMUM_UINT64_DECIMAL) {
     fail("audio-package-invalid-manifest", path, "exceeds uint64 range");
+  }
+  return parsed;
+}
+
+function validateLoadCalibration(calibration) {
+  const path = "running.load_calibration";
+  requireRecord(
+    calibration,
+    ["signal", "completeness", "included_terms", "omitted_terms"],
+    path,
+  );
+  if (
+    calibration.signal !==
+    "cycle-mean-integrated-instantaneous-net-shaft"
+  ) {
+    fail(
+      "audio-package-invalid-manifest",
+      `${path}.signal`,
+      "must identify the current cycle-mean net-shaft calibration signal",
+    );
+  }
+  if (
+    calibration.completeness !== "complete" &&
+    calibration.completeness !== "incomplete"
+  ) {
+    fail(
+      "audio-package-invalid-manifest",
+      `${path}.completeness`,
+      "must be complete or incomplete",
+    );
+  }
+  const included = requireCanonicalUint64Decimal(
+    calibration.included_terms,
+    `${path}.included_terms`,
+  );
+  const omitted = requireCanonicalUint64Decimal(
+    calibration.omitted_terms,
+    `${path}.omitted_terms`,
+  );
+  if (included === 0n) {
+    fail(
+      "audio-package-invalid-manifest",
+      `${path}.included_terms`,
+      "must include at least one known torque term",
+    );
+  }
+  if ((included & omitted) !== 0n) {
+    fail(
+      "audio-package-invalid-manifest",
+      path,
+      "included and omitted torque terms must be disjoint",
+    );
+  }
+  if ((included | omitted) !== KNOWN_TORQUE_TERM_MASK) {
+    fail(
+      "audio-package-invalid-manifest",
+      path,
+      "included and omitted torque terms must exactly partition the known mask",
+    );
+  }
+  const complete = omitted === 0n;
+  if ((calibration.completeness === "complete") !== complete) {
+    fail(
+      "audio-package-invalid-manifest",
+      `${path}.completeness`,
+      "must agree with whether any torque terms are omitted",
+    );
   }
 }
 
@@ -618,6 +686,7 @@ export function validateAudioPackageManifest(manifest) {
     [
       "cycle_revolutions",
       "selector_seed",
+      "load_calibration",
       "cycle_signal_alignment_frames",
       "rpm_grid",
       "planes",
@@ -638,7 +707,8 @@ export function validateAudioPackageManifest(manifest) {
       "four-stroke package units must span exactly two revolutions",
     );
   }
-  requireSelectorSeed(running.selector_seed, "running.selector_seed");
+  requireCanonicalUint64Decimal(running.selector_seed, "running.selector_seed");
+  validateLoadCalibration(running.load_calibration);
   if (
     requireCanonicalFinite(
       running.cycle_signal_alignment_frames,

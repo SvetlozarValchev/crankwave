@@ -36,6 +36,13 @@ constexpr auto kRunningState =
     engine_cycle_state_flag_mask(EngineCycleStateFlag::dyno_enabled);
 constexpr std::uint64_t kFirstGlobalFrame = 10000U;
 constexpr std::uint64_t kTapeFrameCount = 35000U;
+constexpr contract::TorqueTermMask kBmwIncludedTorqueTerms =
+    contract::torque_term_mask(contract::TorqueTerm::indicated_gas) |
+    contract::torque_term_mask(contract::TorqueTerm::crank_friction) |
+    contract::torque_term_mask(contract::TorqueTerm::piston_ring_friction) |
+    contract::torque_term_mask(contract::TorqueTerm::starter);
+constexpr contract::TorqueTermMask kBmwOmittedTorqueTerms =
+    contract::known_torque_term_mask() & ~kBmwIncludedTorqueTerms;
 
 void expect(const bool condition, const std::string_view message) {
     if (!condition) {
@@ -156,10 +163,10 @@ cycle(const std::uint64_t ordinal, const double rpm, const double torque,
         torque * 4.0 * std::numbers::pi,
         torque,
         contract::Availability::available,
-        contract::Completeness::complete,
+        contract::Completeness::incomplete,
         contract::QuantityUnavailableReason::none,
-        1U,
-        0U,
+        kBmwIncludedTorqueTerms,
+        kBmwOmittedTorqueTerms,
     };
     return {
         ordinal, start, end, end_time - start_time, rpm, control, control,
@@ -252,6 +259,17 @@ void test_exact_deterministic_package(const CompiledPackageBake &plan) {
                !package.package_json.empty() && package.payload_files.size() == 4U &&
                package.manifest.artifacts.size() == 4U,
            "assembled package is incomplete or invalid");
+    expect(package.manifest.running.load_calibration ==
+               contract::AudioPackageLoadCalibration{
+                   contract::Completeness::incomplete,
+                   kBmwIncludedTorqueTerms,
+                   kBmwOmittedTorqueTerms} &&
+               std::string{reinterpret_cast<const char *>(
+                               package.package_json.data()),
+                           package.package_json.size()}
+                       .find("\"signal\":\"cycle-mean-integrated-"
+                             "instantaneous-net-shaft\"") != std::string::npos,
+           "assembly did not publish the exact typed BMW load calibration");
     expect(std::ranges::is_sorted(package.payload_files, {},
                                   &AudioPackagePayloadFile::relative_path) &&
                std::ranges::is_sorted(package.manifest.artifacts, {},
@@ -291,6 +309,26 @@ void test_identity_and_clipping_fail_closed(const CompiledPackageBake &plan) {
            "clipping first-audition PCM was published");
 }
 
+void test_directional_load_calibration_must_be_uniform(
+    const CompiledPackageBake &plan) {
+    auto mismatched = captures(plan);
+    for (auto &cycle : mismatched.sources[2].usable_cycles) {
+        cycle.instantaneous_net_shaft.completeness =
+            contract::Completeness::complete;
+        cycle.instantaneous_net_shaft.included_terms =
+            contract::known_torque_term_mask();
+        cycle.instantaneous_net_shaft.omitted_terms = 0U;
+    }
+    const auto result =
+        assemble_audio_package(plan, mismatched, identities(plan));
+    expect(std::holds_alternative<AudioPackageAssemblyError>(result) &&
+               std::get<AudioPackageAssemblyError>(result).code ==
+                   AudioPackageAssemblyErrorCode::inconsistent_load_calibration &&
+               std::get<AudioPackageAssemblyError>(result).path ==
+                   "running.planes[2].units",
+           "directional planes with unlike modeled-torque scopes were accepted");
+}
+
 } // namespace
 
 int main(const int argc, char **argv) {
@@ -301,6 +339,7 @@ int main(const int argc, char **argv) {
         const auto fixture = load_fixture(argv[1]);
         test_exact_deterministic_package(fixture.plan);
         test_identity_and_clipping_fail_closed(fixture.plan);
+        test_directional_load_calibration_must_be_uniform(fixture.plan);
         std::cout << "audio package assembly tests passed\n";
         return EXIT_SUCCESS;
     } catch (const std::exception &exception) {

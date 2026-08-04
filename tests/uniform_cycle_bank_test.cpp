@@ -22,6 +22,13 @@ constexpr auto kRunningState =
     engine_cycle_state_flag_mask(EngineCycleStateFlag::dyno_enabled);
 constexpr std::uint64_t kFirstGlobalFrame = 10000U;
 constexpr std::uint64_t kTapeFrameCount = 100000U;
+constexpr contract::TorqueTermMask kBmwIncludedTorqueTerms =
+    contract::torque_term_mask(contract::TorqueTerm::indicated_gas) |
+    contract::torque_term_mask(contract::TorqueTerm::crank_friction) |
+    contract::torque_term_mask(contract::TorqueTerm::piston_ring_friction) |
+    contract::torque_term_mask(contract::TorqueTerm::starter);
+constexpr contract::TorqueTermMask kBmwOmittedTorqueTerms =
+    contract::known_torque_term_mask() & ~kBmwIncludedTorqueTerms;
 
 void expect(const bool condition, const std::string_view message) {
     if (!condition) {
@@ -56,10 +63,10 @@ cycle(const std::uint64_t ordinal, const double rpm, const double local_start,
         120.0,
         24.0,
         contract::Availability::available,
-        contract::Completeness::complete,
+        contract::Completeness::incomplete,
         contract::QuantityUnavailableReason::none,
-        1U,
-        0U,
+        kBmwIncludedTorqueTerms,
+        kBmwOmittedTorqueTerms,
     };
     return {
         ordinal, start,         end,           end.time_s - start.time_s,
@@ -111,6 +118,11 @@ void test_fractional_alignment_and_optimal_rising_assignment() {
                bank.units[2].completed_cycle_ordinal == 14U &&
                near(bank.total_squared_rpm_error, 75.0),
            "rising assignment was not the minimum-error unique ordered solution");
+    expect(bank.load_calibration == contract::AudioPackageLoadCalibration{
+                                        contract::Completeness::incomplete,
+                                        kBmwIncludedTorqueTerms,
+                                        kBmwOmittedTorqueTerms},
+           "BMW partial modeled-torque calibration was not retained exactly");
     expect(bank.units[0].start.left_frame == 5228U &&
                bank.units[0].start.right_frame == 5229U &&
                near(bank.units[0].start.fraction_from_left_01, 0.8) &&
@@ -185,6 +197,41 @@ void test_idle_retains_every_safe_cycle_chronologically() {
            "idle pool did not retain every safe cycle in chronological order");
 }
 
+void test_torque_availability_and_term_partition_fail_closed() {
+    auto unavailable = cycle(40U, 1000.0, 4000.0);
+    unavailable.instantaneous_net_shaft.availability =
+        contract::Availability::unavailable;
+    unavailable.instantaneous_net_shaft.completeness =
+        contract::Completeness::incomplete;
+    unavailable.instantaneous_net_shaft.unavailable_reason =
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted;
+    unavailable.instantaneous_net_shaft.included_terms = 0U;
+    unavailable.instantaneous_net_shaft.omitted_terms = 0U;
+    const std::vector unavailable_cycles{unavailable};
+    const auto unavailable_result = assign_uniform_running_cycle_bank(
+        running_request(unavailable_cycles,
+                        authoring::PackageBakeRunningDirection::rising));
+    expect(require_error(unavailable_result,
+                         UniformCycleBankErrorCode::cycle_rejected)
+                   .path == "lane.cycles[0].instantaneous_net_shaft",
+           "unavailable modeled torque did not reject the running cycle precisely");
+
+    std::vector mixed{
+        cycle(50U, 1000.0, 4000.0),
+        cycle(51U, 1025.0, 4100.0),
+        cycle(52U, 1050.0, 4200.0),
+    };
+    mixed[1].instantaneous_net_shaft.completeness =
+        contract::Completeness::complete;
+    mixed[1].instantaneous_net_shaft.included_terms =
+        contract::known_torque_term_mask();
+    mixed[1].instantaneous_net_shaft.omitted_terms = 0U;
+    const auto mixed_result = assign_uniform_running_cycle_bank(
+        running_request(mixed, authoring::PackageBakeRunningDirection::rising));
+    (void)require_error(mixed_result,
+                        UniformCycleBankErrorCode::impossible_coverage);
+}
+
 } // namespace
 
 int main() {
@@ -193,6 +240,7 @@ int main() {
         test_falling_rows_reverse_source_order_without_reuse();
         test_unsafe_cycles_and_impossible_coverage_are_rejected();
         test_idle_retains_every_safe_cycle_chronologically();
+        test_torque_availability_and_term_partition_fail_closed();
         std::cout << "uniform cycle-bank tests passed\n";
         return EXIT_SUCCESS;
     } catch (const std::exception &exception) {
