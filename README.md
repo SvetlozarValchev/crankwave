@@ -20,12 +20,14 @@ scope is accepted. [Slice 16](docs/SLICE_16_PARITY_LISTENING_GATE.md) froze seve
 zero-saturation recordings spanning a
 fixed-cam inline-six, fixed-cam V8, VTEC transition, governed load step, one-level
 master-rod engine, sustained vehicle pull, and launch/shift procedure. The first
-two post-parity fidelity gates are also accepted: production and cooker scenarios now
+three post-parity fidelity gates are also accepted: production and cooker scenarios
 use one canonical 20 kHz physics/capture path, identity-stable cylinder-primary lanes
-now merge at an explicit collector before shared route propagation, and typed intake
-topology is carried to a separately published `declared_silent` source bus without
-changing exhaust PCM. Source processing, acoustics, and delivery remain at 192 kHz.
-One isolated audible intake-pressure candidate is next.
+merge at an explicit collector before shared route propagation, and captured plenum
+pressure drives the separately published active intake route. The mechanical-engine
+force-capture seam is complete but remains diagnostic-only pending a defensible
+structural/radiation model. The first isolated queue-item-5 candidate now awaits
+listening: actual delayed exhaust-valve flow modulates only the existing filtered-air
+term. Source processing, acoustics, and delivery remain at 192 kHz.
 This scoped claim does not include `.mr` or native-GUI parity, arbitrary unproven
 mechanisms, fuel-volume-display parity, or audible-fidelity claims beyond the accepted
 20 kHz exhaust path.

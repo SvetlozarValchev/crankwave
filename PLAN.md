@@ -1051,7 +1051,14 @@ candidate with the accepted parity renderer as its control:
    45 seconds and stops for listening before any later mechanical component. See
    [`docs/POST_PARITY_FIDELITY_MECHANICAL_ENGINE_PLAN.md`](docs/POST_PARITY_FIDELITY_MECHANICAL_ENGINE_PLAN.md);
 5. couple combustion variation and flow noise to combustion work, valve flow, and
-   pressure ratio rather than granting static generic jitter/noise sole authority;
+   pressure ratio rather than granting static generic jitter/noise sole authority
+   (**in progress: `4eafff8` implements only the first isolated valve-flow subgate.
+   Actual delayed per-route exhaust-valve mass flow now modulates only the existing
+   filtered-air term; all other audible systems are frozen. The matched BMW A/B and
+   exhaust-only diagnostic rendered in 35.13 seconds and await user listening. The
+   accepted PCM oracle remains unchanged, and combustion-work or pressure-ratio work
+   may not begin before this verdict. See
+   [`docs/POST_PARITY_FIDELITY_FLOW_COUPLING_LISTENING_GATE.md`](docs/POST_PARITY_FIDELITY_FLOW_COUPLING_LISTENING_GATE.md)**);
 6. add measured or explicit catalyst, resonator, muffler, and outlet transfer with
    temperature/load state, retaining the accepted static IR as the control until a
    candidate is accepted;
