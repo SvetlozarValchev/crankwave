@@ -1,7 +1,7 @@
-#include "excitation/captured_gas_source_excitation.hpp"
+#include "excitation/captured_source_excitation.hpp"
 
 #include "contract/capture_block_admission.hpp"
-#include "excitation/captured_gas_source_excitation_internal.hpp"
+#include "excitation/captured_source_excitation_internal.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -20,8 +20,8 @@ namespace {
 moved_from_failure(std::uint64_t sample_index = 0U) {
     return {
         contract::FailureKind::contract_violation,
-        "captured-gas-source-session-moved-from",
-        "captured-gas-source-excitation",
+        "captured-source-session-moved-from",
+        "captured-source-excitation",
         "unavailable",
         sample_index,
         sample_index,
@@ -33,14 +33,14 @@ moved_from_failure(std::uint64_t sample_index = 0U) {
         std::nullopt,
         std::nullopt,
         std::nullopt,
-        "captured gas-source excitation session has no owned state",
-        "none; gas-source excitation processing terminated without fallback",
+        "captured source excitation session has no owned state",
+        "none; source excitation processing terminated without fallback",
         {},
     };
 }
 
 [[nodiscard]] contract::FailureContext
-make_failure(const detail::CapturedGasSourceExcitationState &state,
+make_failure(const detail::CapturedSourceExcitationState &state,
              contract::FailureKind kind, std::string detail_code,
              std::string state_summary,
              std::optional<contract::RouteId> route_id = std::nullopt) {
@@ -62,14 +62,13 @@ make_failure(const detail::CapturedGasSourceExcitationState &state,
         std::nullopt,
         route_id,
         std::move(state_summary),
-        "none; gas-source excitation processing terminated without fallback",
+        "none; source excitation processing terminated without fallback",
         {},
     };
 }
 
-[[nodiscard]] CapturedGasSourceProcessResult
-fail(detail::CapturedGasSourceExcitationState &state,
-     contract::FailureContext failure) {
+[[nodiscard]] CapturedSourceProcessResult
+fail(detail::CapturedSourceExcitationState &state, contract::FailureContext failure) {
     if (!state.terminal_fault.has_value()) {
         state.terminal_fault = std::move(failure);
     }
@@ -85,7 +84,7 @@ first_issue_summary(const contract::ValidationReport &report) {
 }
 
 [[nodiscard]] bool
-exact_layout_matches(const detail::CapturedGasSourceExcitationState &state,
+exact_layout_matches(const detail::CapturedSourceExcitationState &state,
                      const contract::CaptureLayoutView &layout) {
     return layout.engine_id() == state.engine_id &&
            std::ranges::equal(layout.cylinders(), state.cylinder_ids) &&
@@ -258,21 +257,21 @@ std::span<const double> CylinderAxialPressureForceDiagnosticBlockView::frame_for
     return force_n_.subspan(frame_index * cylinder_count(), cylinder_count());
 }
 
-CapturedGasSourceExcitationSession::CapturedGasSourceExcitationSession(
-    std::unique_ptr<detail::CapturedGasSourceExcitationState> state) noexcept
+CapturedSourceExcitationSession::CapturedSourceExcitationSession(
+    std::unique_ptr<detail::CapturedSourceExcitationState> state) noexcept
     : state_(std::move(state)) {}
 
-CapturedGasSourceExcitationSession::CapturedGasSourceExcitationSession(
-    CapturedGasSourceExcitationSession &&) noexcept = default;
+CapturedSourceExcitationSession::CapturedSourceExcitationSession(
+    CapturedSourceExcitationSession &&) noexcept = default;
 
-CapturedGasSourceExcitationSession &CapturedGasSourceExcitationSession::operator=(
-    CapturedGasSourceExcitationSession &&) noexcept = default;
+CapturedSourceExcitationSession &CapturedSourceExcitationSession::operator=(
+    CapturedSourceExcitationSession &&) noexcept = default;
 
-CapturedGasSourceExcitationSession::~CapturedGasSourceExcitationSession() = default;
+CapturedSourceExcitationSession::~CapturedSourceExcitationSession() = default;
 
-CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block(
-    const contract::CaptureBlockView &block,
-    const CapturedGasSourceConsumer &consumer) {
+CapturedSourceProcessResult
+CapturedSourceExcitationSession::process_block(const contract::CaptureBlockView &block,
+                                               const CapturedSourceConsumer &consumer) {
     if (state_ == nullptr) {
         return moved_from_failure();
     }
@@ -283,14 +282,14 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
     if (state.consumer_callback_active) {
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
-                                 "captured-gas-source-consumer-reentrant",
+                                 "captured-source-consumer-reentrant",
                                  "excitation consumer re-entered its session while "
                                  "borrowed output views were active"));
     }
     if (!consumer) {
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
-                                 "captured-gas-source-consumer-missing",
+                                 "captured-source-consumer-missing",
                                  "excitation publication requires a synchronous "
                                  "consumer"));
     }
@@ -302,7 +301,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
         const auto validation = contract::validate(block);
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
-                                 "captured-gas-source-block-invalid",
+                                 "captured-source-block-invalid",
                                  validation.ok()
                                      ? "allocation-free admitted-layout validation "
                                        "rejected the capture block without a public "
@@ -312,7 +311,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
     if (!exact_layout_matches(state, block.layout())) {
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
-                                 "captured-gas-source-block-layout-mismatch",
+                                 "captured-source-block-layout-mismatch",
                                  "capture engine, cylinder order, or route layout "
                                  "differs from the compiled excitation layout"));
     }
@@ -324,7 +323,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
         !block.reference_parity().has_value()) {
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
-                                 "captured-gas-source-block-extent-mismatch",
+                                 "captured-source-block-extent-mismatch",
                                  "excitation requires one contiguous full-capacity "
                                  "post-step block on its compiled capture clock with "
                                  "reference parity"));
@@ -333,7 +332,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
         std::numeric_limits<std::uint64_t>::max() - state.block_capacity_frames) {
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
-                                 "captured-gas-source-frame-counter-overflow",
+                                 "captured-source-frame-counter-overflow",
                                  "excitation frame counter cannot represent the next "
                                  "complete block"));
     }
@@ -351,7 +350,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
                     state,
                     make_failure(
                         state, contract::FailureKind::contract_violation,
-                        "captured-gas-source-intake-pressure-invalid",
+                        "captured-source-intake-pressure-invalid",
                         "admitted intake route did not provide a finite gas-source "
                         "absolute pressure",
                         state.intake_route_ids[intake_route]));
@@ -374,7 +373,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
                     state,
                     make_failure(
                         state, contract::FailureKind::contract_violation,
-                        "captured-gas-source-pressure-force-input-invalid",
+                        "captured-source-pressure-force-input-invalid",
                         "axial combustion/compression pressure force requires "
                         "finite positive thermodynamic cylinder absolute pressure"));
             }
@@ -387,7 +386,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
                 return fail(
                     state, make_failure(
                                state, contract::FailureKind::numerical_failure,
-                               "captured-gas-source-pressure-force-value-nonfinite",
+                               "captured-source-pressure-force-value-nonfinite",
                                "axial combustion/compression pressure-force arithmetic "
                                "produced a non-finite value"));
             }
@@ -430,7 +429,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
             if (!std::isfinite(value)) {
                 return fail(
                     state, make_failure(state, contract::FailureKind::numerical_failure,
-                                        "captured-gas-source-value-nonfinite",
+                                        "captured-source-value-nonfinite",
                                         "pre-delay excitation arithmetic produced a "
                                         "non-finite value"));
             }
@@ -476,7 +475,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
                 !std::isfinite(bus)) {
                 return fail(
                     state, make_failure(state, contract::FailureKind::numerical_failure,
-                                        "captured-gas-source-value-nonfinite",
+                                        "captured-source-value-nonfinite",
                                         "delay or route-bus arithmetic produced a "
                                         "non-finite value",
                                         route.route_id));
@@ -494,7 +493,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
             if (!std::isfinite(delayed)) {
                 return fail(
                     state, make_failure(state, contract::FailureKind::numerical_failure,
-                                        "captured-gas-source-value-nonfinite",
+                                        "captured-source-value-nonfinite",
                                         "route propagation produced a non-finite value",
                                         state.routes[route].route_id));
             }
@@ -536,7 +535,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
         }
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
-                                 "captured-gas-source-consumer-threw",
+                                 "captured-source-consumer-threw",
                                  "excitation consumer threw: " +
                                      std::string{exception.what()}));
     } catch (...) {
@@ -546,7 +545,7 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
         }
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
-                                 "captured-gas-source-consumer-threw",
+                                 "captured-source-consumer-threw",
                                  "excitation consumer threw a non-standard "
                                  "exception"));
     }
@@ -557,12 +556,12 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
     if (!accepted) {
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
-                                 "captured-gas-source-consumer-rejected",
+                                 "captured-source-consumer-rejected",
                                  "excitation consumer rejected a complete validated "
                                  "block"));
     }
 
-    const CapturedGasSourceBlockPublished published{
+    const CapturedSourceBlockPublished published{
         state.published_block_count,
         state.next_frame_index,
         state.block_capacity_frames,
@@ -573,16 +572,15 @@ CapturedGasSourceProcessResult CapturedGasSourceExcitationSession::process_block
     return published;
 }
 
-std::uint64_t CapturedGasSourceExcitationSession::next_frame_index() const noexcept {
+std::uint64_t CapturedSourceExcitationSession::next_frame_index() const noexcept {
     return state_ != nullptr ? state_->next_frame_index : 0U;
 }
 
-std::uint64_t
-CapturedGasSourceExcitationSession::published_block_count() const noexcept {
+std::uint64_t CapturedSourceExcitationSession::published_block_count() const noexcept {
     return state_ != nullptr ? state_->published_block_count : 0U;
 }
 
-bool CapturedGasSourceExcitationSession::faulted() const noexcept {
+bool CapturedSourceExcitationSession::faulted() const noexcept {
     return state_ == nullptr || state_->terminal_fault.has_value();
 }
 

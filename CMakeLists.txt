@@ -423,8 +423,8 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_presentatio
 add_library(
     engine_sim_offline_excitation
     STATIC
-        src/excitation/captured_gas_source_excitation.cpp
-        src/excitation/captured_gas_source_excitation_compile.cpp
+        src/excitation/captured_source_excitation.cpp
+        src/excitation/captured_source_excitation_compile.cpp
 )
 add_library(
     engine_sim_offline::excitation

@@ -19,13 +19,13 @@
 
 namespace engine_sim_offline::excitation {
 
-inline constexpr contract::RationalRateHz kCapturedGasSourceRateHz{20000U, 1U};
+inline constexpr contract::RationalRateHz kCapturedSourceRateHz{20000U, 1U};
 
 /**
  * Callback-scoped absolute intake-plenum pressure captured at the simulation clock.
  *
  * Values are frame-major in `route_ids()` order. The storage is owned and reused by
- * the captured-gas-source session, so every span expires when the callback returns.
+ * the captured-source session, so every span expires when the callback returns.
  */
 class IntakePressureBlockView final {
   public:
@@ -230,13 +230,12 @@ class CylinderAxialPressureForceDiagnosticBlockView final {
  * is fixed at a context pointer plus function pointer so callback adaptation cannot
  * allocate on the block-producing path.
  */
-class CapturedGasSourceConsumer final {
+class CapturedSourceConsumer final {
   public:
-    constexpr CapturedGasSourceConsumer() noexcept = default;
+    constexpr CapturedSourceConsumer() noexcept = default;
 
     template <class Consumer>
-        requires(!std::same_as<std::remove_cvref_t<Consumer>,
-                               CapturedGasSourceConsumer> &&
+        requires(!std::same_as<std::remove_cvref_t<Consumer>, CapturedSourceConsumer> &&
                  std::is_object_v<std::remove_reference_t<Consumer>> &&
                  std::invocable<
                      Consumer &, const presentation::ExhaustExcitationBlockView &,
@@ -250,7 +249,7 @@ class CapturedGasSourceConsumer final {
                          const ExhaustExcitationDiagnosticBlockView &,
                          const CylinderAxialPressureForceDiagnosticBlockView &>,
                      bool>)
-    CapturedGasSourceConsumer(Consumer &&consumer) noexcept
+    CapturedSourceConsumer(Consumer &&consumer) noexcept
         : context_(
               const_cast<void *>(static_cast<const void *>(std::addressof(consumer)))),
           invoke_(
@@ -285,23 +284,23 @@ class CapturedGasSourceConsumer final {
                     const CylinderAxialPressureForceDiagnosticBlockView &) = nullptr;
 };
 
-static_assert(std::is_trivially_copyable_v<CapturedGasSourceConsumer>);
+static_assert(std::is_trivially_copyable_v<CapturedSourceConsumer>);
 
-struct CapturedGasSourceBlockPublished {
+struct CapturedSourceBlockPublished {
     std::uint64_t block_ordinal = 0;
     std::uint64_t first_frame_index = 0;
     std::uint32_t frame_count = 0;
     std::uint64_t published_frame_count = 0;
 
-    friend bool operator==(const CapturedGasSourceBlockPublished &,
-                           const CapturedGasSourceBlockPublished &) = default;
+    friend bool operator==(const CapturedSourceBlockPublished &,
+                           const CapturedSourceBlockPublished &) = default;
 };
 
-using CapturedGasSourceProcessResult =
-    std::variant<CapturedGasSourceBlockPublished, contract::FailureContext>;
+using CapturedSourceProcessResult =
+    std::variant<CapturedSourceBlockPublished, contract::FailureContext>;
 
 namespace detail {
-class CapturedGasSourceExcitationState;
+class CapturedSourceExcitationState;
 }
 
 /**
@@ -309,44 +308,43 @@ class CapturedGasSourceExcitationState;
  * presentation seam. It owns all IDs, delay history, and callback scratch and retains
  * no EngineSpec or CaptureBlock reference.
  */
-class CapturedGasSourceExcitationSession final {
+class CapturedSourceExcitationSession final {
   public:
-    CapturedGasSourceExcitationSession(const CapturedGasSourceExcitationSession &) =
-        delete;
-    CapturedGasSourceExcitationSession &
-    operator=(const CapturedGasSourceExcitationSession &) = delete;
-    CapturedGasSourceExcitationSession(CapturedGasSourceExcitationSession &&) noexcept;
-    CapturedGasSourceExcitationSession &
-    operator=(CapturedGasSourceExcitationSession &&) noexcept;
-    ~CapturedGasSourceExcitationSession();
+    CapturedSourceExcitationSession(const CapturedSourceExcitationSession &) = delete;
+    CapturedSourceExcitationSession &
+    operator=(const CapturedSourceExcitationSession &) = delete;
+    CapturedSourceExcitationSession(CapturedSourceExcitationSession &&) noexcept;
+    CapturedSourceExcitationSession &
+    operator=(CapturedSourceExcitationSession &&) noexcept;
+    ~CapturedSourceExcitationSession();
 
-    [[nodiscard]] CapturedGasSourceProcessResult
+    [[nodiscard]] CapturedSourceProcessResult
     process_block(const contract::CaptureBlockView &block,
-                  const CapturedGasSourceConsumer &consumer);
+                  const CapturedSourceConsumer &consumer);
 
     [[nodiscard]] std::uint64_t next_frame_index() const noexcept;
     [[nodiscard]] std::uint64_t published_block_count() const noexcept;
     [[nodiscard]] bool faulted() const noexcept;
 
   private:
-    explicit CapturedGasSourceExcitationSession(
-        std::unique_ptr<detail::CapturedGasSourceExcitationState> state) noexcept;
+    explicit CapturedSourceExcitationSession(
+        std::unique_ptr<detail::CapturedSourceExcitationState> state) noexcept;
 
-    std::unique_ptr<detail::CapturedGasSourceExcitationState> state_;
+    std::unique_ptr<detail::CapturedSourceExcitationState> state_;
 
-    friend std::variant<CapturedGasSourceExcitationSession, contract::ValidationReport>
-    compile_captured_gas_source_excitation_session(
-        const contract::EngineSpec &, const contract::LowOrderEngineCoreV1 &,
-        const contract::RenderScenario &);
+    friend std::variant<CapturedSourceExcitationSession, contract::ValidationReport>
+    compile_captured_source_excitation_session(const contract::EngineSpec &,
+                                               const contract::LowOrderEngineCoreV1 &,
+                                               const contract::RenderScenario &);
 };
 
-using CapturedGasSourceExcitationCompileResult =
-    std::variant<CapturedGasSourceExcitationSession, contract::ValidationReport>;
+using CapturedSourceExcitationCompileResult =
+    std::variant<CapturedSourceExcitationSession, contract::ValidationReport>;
 
 // Resolves the exact low-order core excitation profile into an owned session.
-[[nodiscard]] CapturedGasSourceExcitationCompileResult
-compile_captured_gas_source_excitation_session(
-    const contract::EngineSpec &engine, const contract::LowOrderEngineCoreV1 &core,
-    const contract::RenderScenario &scenario);
+[[nodiscard]] CapturedSourceExcitationCompileResult
+compile_captured_source_excitation_session(const contract::EngineSpec &engine,
+                                           const contract::LowOrderEngineCoreV1 &core,
+                                           const contract::RenderScenario &scenario);
 
 } // namespace engine_sim_offline::excitation

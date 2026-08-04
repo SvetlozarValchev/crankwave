@@ -306,19 +306,19 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
 
     const auto *core = std::visit([](const auto &profile) { return &profile.core; },
                                   engine.physics_profile);
-    auto excitation_result = excitation::compile_captured_gas_source_excitation_session(
-        engine, *core, scenario);
+    auto excitation_result =
+        excitation::compile_captured_source_excitation_session(engine, *core, scenario);
     if (const auto *report =
             std::get_if<contract::ValidationReport>(&excitation_result)) {
         return build_error(
             EngineSessionErrorCode::unsupported_configuration,
             "session-excitation-profile-not-admitted",
             with_first_issue(
-                "the compiled engine is unavailable to the gas-source excitation "
+                "the compiled engine is unavailable to the source excitation "
                 "executor",
                 *report));
     }
-    auto excitation = std::get<excitation::CapturedGasSourceExcitationSession>(
+    auto excitation = std::get<excitation::CapturedSourceExcitationSession>(
         std::move(excitation_result));
 
     auto presentation =

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "excitation/captured_gas_source_excitation.hpp"
+#include "excitation/captured_source_excitation.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -33,7 +33,7 @@ struct CapturedExcitationRoutePlan {
     CapturedExcitationDelayState downstream_delay;
 };
 
-class CapturedGasSourceExcitationState final {
+class CapturedSourceExcitationState final {
   public:
     contract::EngineId engine_id;
     std::string model_id;

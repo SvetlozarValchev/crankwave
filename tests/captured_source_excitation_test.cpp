@@ -1,5 +1,5 @@
 #include "authored_engine_fixture_support.hpp"
-#include "excitation/captured_gas_source_excitation.hpp"
+#include "excitation/captured_source_excitation.hpp"
 
 #include <algorithm>
 #include <array>
@@ -54,14 +54,14 @@ void expect_same_bits(double actual, double expected, std::string_view message) 
     }
 }
 
-[[nodiscard]] CapturedGasSourceExcitationCompileResult
+[[nodiscard]] CapturedSourceExcitationCompileResult
 compile_fixture_session(const EngineSpec &engine, const RenderScenario &scenario) {
-    return compile_captured_gas_source_excitation_session(
+    return compile_captured_source_excitation_session(
         engine, test::low_order_core(engine), scenario);
 }
 
-[[nodiscard]] CapturedGasSourceExcitationSession
-require_session(CapturedGasSourceExcitationCompileResult result) {
+[[nodiscard]] CapturedSourceExcitationSession
+require_session(CapturedSourceExcitationCompileResult result) {
     if (const auto *report = std::get_if<ValidationReport>(&result)) {
         std::string message = "canonical BMW excitation request was rejected";
         for (const auto &issue : report->issues) {
@@ -69,7 +69,7 @@ require_session(CapturedGasSourceExcitationCompileResult result) {
         }
         throw std::runtime_error{message};
     }
-    return std::get<CapturedGasSourceExcitationSession>(std::move(result));
+    return std::get<CapturedSourceExcitationSession>(std::move(result));
 }
 
 [[nodiscard]] bool is_physical_route(SourceRouteKind kind) noexcept {
@@ -315,7 +315,7 @@ struct PublishedBlockCopy {
            "presentation and diagnostic callback metadata diverged");
     expect(intake.first_frame_index() == output.first_frame_index() &&
                intake.sample_rate() == output.sample_rate() &&
-               intake.sample_rate() == kCapturedGasSourceRateHz &&
+               intake.sample_rate() == kCapturedSourceRateHz &&
                intake.frame_count() == output.frame_count() &&
                intake.route_count() == intake.route_ids().size() &&
                intake.pressure_pa_abs().size() ==
@@ -328,7 +328,7 @@ struct PublishedBlockCopy {
            "diagnostics did not expose the exact published route-value storage");
     expect(pressure_force.first_frame_index() == output.first_frame_index() &&
                pressure_force.sample_rate() == output.sample_rate() &&
-               pressure_force.sample_rate() == kCapturedGasSourceRateHz &&
+               pressure_force.sample_rate() == kCapturedSourceRateHz &&
                pressure_force.frame_count() == output.frame_count() &&
                std::ranges::equal(pressure_force.cylinder_ids(),
                                   diagnostic.cylinder_ids()) &&
@@ -398,7 +398,7 @@ struct PublishedBlockCopy {
     };
 }
 
-[[nodiscard]] PublishedBlockCopy publish(CapturedGasSourceExcitationSession &session,
+[[nodiscard]] PublishedBlockCopy publish(CapturedSourceExcitationSession &session,
                                          const CaptureBlockView &input,
                                          std::uint64_t expected_block_ordinal) {
     std::optional<PublishedBlockCopy> copy;
@@ -411,11 +411,11 @@ struct PublishedBlockCopy {
             copy = copy_callback_views(output, intake, diagnostic, pressure_force);
             return true;
         });
-    const auto *published = std::get_if<CapturedGasSourceBlockPublished>(&result);
+    const auto *published = std::get_if<CapturedSourceBlockPublished>(&result);
     expect(published != nullptr && copy.has_value(),
            "valid synthetic capture did not publish one excitation block");
     expect(*published ==
-               CapturedGasSourceBlockPublished{
+               CapturedSourceBlockPublished{
                    expected_block_ordinal,
                    input.clock().first_sample_index,
                    input.frame_count(),
@@ -426,7 +426,7 @@ struct PublishedBlockCopy {
 }
 
 [[nodiscard]] const FailureContext &
-require_fault(const CapturedGasSourceProcessResult &result, std::string_view code,
+require_fault(const CapturedSourceProcessResult &result, std::string_view code,
               std::string_view message);
 
 [[nodiscard]] double
@@ -805,7 +805,7 @@ void test_intake_pressure_is_exact_without_changing_exhaust(
             ++callbacks;
             return true;
         });
-    (void)require_fault(rejected, "captured-gas-source-block-invalid",
+    (void)require_fault(rejected, "captured-source-block-invalid",
                         "non-finite intake pressure was admitted");
     expect(callbacks == 0U && malformed_session.faulted() &&
                malformed_session.next_frame_index() == 0U &&
@@ -1004,7 +1004,7 @@ void test_independent_sessions_are_bit_deterministic(const EngineSpec &engine,
 }
 
 [[nodiscard]] const FailureContext &
-require_fault(const CapturedGasSourceProcessResult &result, std::string_view code,
+require_fault(const CapturedSourceProcessResult &result, std::string_view code,
               std::string_view message) {
     const auto *failure = std::get_if<FailureContext>(&result);
     expect(failure != nullptr && failure->detail_code == code, std::string{message});
@@ -1031,7 +1031,7 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance(
             return true;
         });
     const FailureContext first_fault = require_fault(
-        first, "captured-gas-source-block-invalid",
+        first, "captured-source-block-invalid",
         "malformed final input lane was not rejected by full prevalidation");
     expect(callbacks == 0U && session.faulted() && session.next_frame_index() == 0U &&
                session.published_block_count() == 0U,
@@ -1073,7 +1073,7 @@ void test_consumer_rejection_and_exception_are_terminal(
                 return false;
             });
         const FailureContext fault =
-            require_fault(rejected, "captured-gas-source-consumer-rejected",
+            require_fault(rejected, "captured-source-consumer-rejected",
                           "false excitation consumer did not reject publication");
         const auto repeated = session.process_block(
             block.view(), [&](const presentation::ExhaustExcitationBlockView &,
@@ -1104,7 +1104,7 @@ void test_consumer_rejection_and_exception_are_terminal(
                 throw std::runtime_error{"intentional excitation consumer failure"};
             });
         const FailureContext fault =
-            require_fault(thrown, "captured-gas-source-consumer-threw",
+            require_fault(thrown, "captured-source-consumer-threw",
                           "excitation consumer exception escaped its transaction");
         const auto repeated = session.process_block(
             block.view(), [&](const presentation::ExhaustExcitationBlockView &,
@@ -1159,7 +1159,7 @@ void test_reentrant_callback_preserves_outer_views_and_faults(
                         return true;
                     });
                 nested_fault =
-                    require_fault(nested, "captured-gas-source-consumer-reentrant",
+                    require_fault(nested, "captured-source-consumer-reentrant",
                                   "nested excitation publication was not rejected");
                 const auto after =
                     copy_callback_views(output, intake, diagnostic, pressure_force);
@@ -1176,7 +1176,7 @@ void test_reentrant_callback_preserves_outer_views_and_faults(
     }
 
     const auto &outer_fault =
-        require_fault(outer, "captured-gas-source-consumer-reentrant",
+        require_fault(outer, "captured-source-consumer-reentrant",
                       "outer excitation transaction ignored its nested terminal fault");
     expect(nested_fault.has_value() && outer_fault == *nested_fault &&
                outer_callbacks == 1U && nested_callbacks == 0U && session.faulted() &&
@@ -1251,12 +1251,11 @@ void run_tests(const std::filesystem::path &repository_root) {
 
 int main(int argc, char **argv) {
     try {
-        expect(argc == 2, "usage: captured_gas_source_excitation_test "
+        expect(argc == 2, "usage: captured_source_excitation_test "
                           "<repository-root>");
         run_tests(argv[1]);
     } catch (const std::exception &error) {
-        std::cerr << "captured gas-source excitation test failed: " << error.what()
-                  << '\n';
+        std::cerr << "captured source excitation test failed: " << error.what() << '\n';
         return 1;
     }
     return 0;

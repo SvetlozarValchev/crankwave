@@ -1850,27 +1850,27 @@ add_test(
 )
 
 add_executable(
-    engine_sim_offline_captured_gas_source_excitation_tests
-    captured_gas_source_excitation_test.cpp
+    engine_sim_offline_captured_source_excitation_tests
+    captured_source_excitation_test.cpp
 )
 
 target_include_directories(
-    engine_sim_offline_captured_gas_source_excitation_tests
+    engine_sim_offline_captured_source_excitation_tests
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(
-    engine_sim_offline_captured_gas_source_excitation_tests
+    engine_sim_offline_captured_source_excitation_tests
     PRIVATE
         engine_sim_offline::excitation
         engine_sim_offline_authored_engine_fixture_support
 )
 
 add_test(
-    NAME excitation.captured_gas_source
+    NAME excitation.captured_source
     COMMAND
-        engine_sim_offline_captured_gas_source_excitation_tests
+        engine_sim_offline_captured_source_excitation_tests
         ${PROJECT_SOURCE_DIR}
 )
 

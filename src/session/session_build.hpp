@@ -1,7 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/session.hpp"
-#include "excitation/captured_gas_source_excitation.hpp"
+#include "excitation/captured_source_excitation.hpp"
 #include "presentation/presentation_audio_session.hpp"
 #include "presentation/presentation_calibration_compiler.hpp"
 #include "simulation/low_order_capture_session.hpp"
@@ -19,12 +19,11 @@ struct BuiltSessionComponents {
     contract::RandomPlan random_plan;
     presentation::AdmittedPresentationCalibration calibration;
     simulation::LowOrderCaptureSession simulation;
-    excitation::CapturedGasSourceExcitationSession excitation;
+    excitation::CapturedSourceExcitationSession excitation;
     std::unique_ptr<presentation::PresentationAudioSession> presentation;
 };
 
-using SessionBuildResult =
-    std::variant<BuiltSessionComponents, EngineSessionError>;
+using SessionBuildResult = std::variant<BuiltSessionComponents, EngineSessionError>;
 
 [[nodiscard]] SessionBuildResult
 build_session_components(const compile::CompiledScenario &scenario,
