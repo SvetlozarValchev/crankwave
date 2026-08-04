@@ -757,6 +757,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
         engine_sim_offline_cli_support
         STATIC
             src/cli/cli_app.cpp
+            src/cli/native_atlas_input.cpp
             src/cli/native_asset_root.cpp
             src/cli/native_engine_input.cpp
             src/cli/native_input_files.cpp

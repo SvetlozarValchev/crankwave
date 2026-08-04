@@ -41,6 +41,8 @@ native_input_error_code_label(NativeInputErrorCode code) noexcept {
         return "file-changed-during-read";
     case NativeInputErrorCode::invalid_engine_document:
         return "invalid-engine-document";
+    case NativeInputErrorCode::invalid_atlas_bake_document:
+        return "invalid-atlas-bake-document";
     case NativeInputErrorCode::invalid_scenario_document:
         return "invalid-scenario-document";
     case NativeInputErrorCode::memory_allocation_failed:

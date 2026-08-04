@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_sim_offline/authoring/diagnostic.hpp"
+#include "engine_sim_offline/authoring/atlas_bake_document.hpp"
 #include "engine_sim_offline/authoring/engine_document.hpp"
 #include "engine_sim_offline/authoring/parse.hpp"
 #include "engine_sim_offline/authoring/scenario_document.hpp"
@@ -38,6 +39,7 @@ enum class NativeInputErrorKind : std::uint8_t {
 
 enum class NativeInputSubject : std::uint8_t {
     engine_document,
+    atlas_bake_document,
     scenario_document,
     asset_root,
     audio_asset,
@@ -61,6 +63,7 @@ enum class NativeInputErrorCode : std::uint8_t {
     file_read_failed,
     file_changed_during_read,
     invalid_engine_document,
+    invalid_atlas_bake_document,
     invalid_scenario_document,
     memory_allocation_failed,
     filesystem_failure,
@@ -111,10 +114,24 @@ struct NativeEngineInput {
     [[nodiscard]] std::vector<compile::AssetPayloadView> asset_views() const;
 };
 
+struct NativeAtlasScenarioInput {
+    std::string source_id;
+    authoring::ScenarioDocument document;
+    NativeSourceDocument source;
+};
+
+struct NativeAtlasBakeInput {
+    authoring::AtlasBakeDocument document;
+    std::vector<NativeAtlasScenarioInput> scenarios;
+    NativeSourceDocument source;
+};
+
 using NativeEngineInputResult =
     std::variant<NativeEngineInput, NativeInputError>;
 using NativeScenarioInputResult =
     std::variant<authoring::ScenarioDocument, NativeInputError>;
+using NativeAtlasBakeInputResult =
+    std::variant<NativeAtlasBakeInput, NativeInputError>;
 
 [[nodiscard]] NativeEngineInputResult load_native_engine_input(
     const std::filesystem::path &engine_path,
@@ -123,6 +140,12 @@ using NativeScenarioInputResult =
 
 [[nodiscard]] NativeScenarioInputResult load_native_scenario_input(
     const std::filesystem::path &scenario_path,
+    NativeInputLimits limits = {});
+
+// Loads the atlas document and every relative scenario source beneath the atlas
+// document directory in exact authored order.
+[[nodiscard]] NativeAtlasBakeInputResult load_native_atlas_bake_input(
+    const std::filesystem::path &atlas_bake_path,
     NativeInputLimits limits = {});
 
 enum class NativeOutputErrorKind : std::uint8_t {
