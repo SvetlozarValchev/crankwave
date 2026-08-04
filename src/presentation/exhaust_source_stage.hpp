@@ -44,6 +44,7 @@ class ExhaustSourceStage {
     ExhaustSourceStage(
         std::span<const contract::RouteId> expected_route_ids,
         std::span<const RouteConditioningSeeds> route_seeds,
+        std::span<const double> exhaust_valve_reference_mass_flow_kg_s,
         RouteConditioningCalibration conditioning,
         contract::RationalRateHz input_rate = kExcitationRateHz,
         std::size_t input_frames_per_block = kExcitationFramesPerMethodBlock);
@@ -70,14 +71,19 @@ class ExhaustSourceStage {
     static std::vector<RouteConditioningSeeds>
     validate_seeds(std::span<const RouteConditioningSeeds> seeds,
                    std::size_t route_count);
+    static std::vector<double>
+    validate_reference_mass_flows(std::span<const double> reference_mass_flow_kg_s,
+                                  std::size_t route_count);
 
     std::vector<contract::RouteId> expected_route_ids_;
     std::vector<RouteConditioningSeeds> seeds_;
+    std::vector<double> exhaust_valve_reference_mass_flow_kg_s_;
     RouteConditioningCalibration conditioning_;
     contract::RationalRateHz input_rate_{};
     std::size_t input_frames_per_block_ = 0;
     CausalReconstruction reconstruction_;
     std::vector<RouteConditioner> conditioners_;
+    std::vector<double> packed_input_scratch_;
     std::vector<double> reconstructed_scratch_;
     std::uint64_t next_input_frame_index_ = 0;
     std::uint64_t next_source_frame_index_ = 0;

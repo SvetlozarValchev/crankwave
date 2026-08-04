@@ -14,7 +14,7 @@ std::vector<contract::RouteId> ExhaustSourceStage::validate_route_ids(
         throw std::invalid_argument{"source stage requires at least one route"};
     }
     if (expected_route_ids.size() >
-        std::numeric_limits<std::size_t>::max() / kSourceFramesPerMethodBlock) {
+        std::numeric_limits<std::size_t>::max() / (2U * kSourceFramesPerMethodBlock)) {
         throw std::overflow_error{"source-stage scratch size overflowed"};
     }
     for (std::size_t index = 0; index < expected_route_ids.size(); ++index) {
@@ -57,16 +57,36 @@ ExhaustSourceStage::validate_seeds(std::span<const RouteConditioningSeeds> seeds
     return {seeds.begin(), seeds.end()};
 }
 
+std::vector<double> ExhaustSourceStage::validate_reference_mass_flows(
+    std::span<const double> reference_mass_flow_kg_s, std::size_t route_count) {
+    if (reference_mass_flow_kg_s.size() != route_count) {
+        throw std::invalid_argument{
+            "source-stage routes and exhaust-valve reference flows must have "
+            "equal counts"};
+    }
+    for (const double reference : reference_mass_flow_kg_s) {
+        if (!std::isfinite(reference) || reference <= 0.0) {
+            throw std::invalid_argument{
+                "source-stage exhaust-valve reference flow must be finite and "
+                "positive"};
+        }
+    }
+    return {reference_mass_flow_kg_s.begin(), reference_mass_flow_kg_s.end()};
+}
+
 ExhaustSourceStage::ExhaustSourceStage(
     std::span<const contract::RouteId> expected_route_ids,
     std::span<const RouteConditioningSeeds> route_seeds,
+    std::span<const double> exhaust_valve_reference_mass_flow_kg_s,
     RouteConditioningCalibration conditioning, contract::RationalRateHz input_rate,
     std::size_t input_frames_per_block)
     : expected_route_ids_(validate_route_ids(expected_route_ids)),
       seeds_(validate_seeds(route_seeds, expected_route_ids_.size())),
+      exhaust_valve_reference_mass_flow_kg_s_(validate_reference_mass_flows(
+          exhaust_valve_reference_mass_flow_kg_s, expected_route_ids_.size())),
       conditioning_(conditioning), input_rate_(input_rate),
       input_frames_per_block_(input_frames_per_block),
-      reconstruction_(expected_route_ids_.size(), input_rate.numerator) {
+      reconstruction_(expected_route_ids_.size() * 2U, input_rate.numerator) {
     if (input_rate_ != kExcitationRateHz) {
         throw std::invalid_argument{
             "source stage admits only the exact 20000/1 excitation rate"};
@@ -75,8 +95,10 @@ ExhaustSourceStage::ExhaustSourceStage(
         throw std::invalid_argument{
             "source-stage input frame count must span one exact 20 ms block"};
     }
+    packed_input_scratch_.resize(input_frames_per_block_ * expected_route_ids_.size() *
+                                 2U);
     reconstructed_scratch_.resize(kSourceFramesPerMethodBlock *
-                                  expected_route_ids_.size());
+                                  expected_route_ids_.size() * 2U);
     conditioners_.reserve(seeds_.size());
     for (const auto &seed : seeds_) {
         conditioners_.emplace_back(seed.jitter, seed.air_noise, conditioning_);
@@ -132,6 +154,18 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
             throw std::domain_error{"source-stage excitation input was non-finite"};
         }
     }
+    if (input.absolute_exhaust_valve_mass_flow_kg_s().size() !=
+        input.frame_count() * input.route_count()) {
+        throw std::invalid_argument{
+            "source-stage exhaust-valve flow must be a complete frame-major "
+            "route matrix"};
+    }
+    for (const double flow : input.absolute_exhaust_valve_mass_flow_kg_s()) {
+        if (!std::isfinite(flow) || flow < 0.0) {
+            throw std::domain_error{
+                "source-stage exhaust-valve flow was non-finite or negative"};
+        }
+    }
 
     const auto exact_output_count =
         reconstruction_.expected_output_frame_count(input_frames_per_block_);
@@ -150,16 +184,36 @@ SourceBlockExtent ExhaustSourceStage::process(ExhaustExcitationBlockView input,
     };
 
     try {
-        reconstruction_.process(input.values_engine_sim_source_unit(),
-                                input.frame_count(), reconstructed_scratch_);
+        const std::size_t physical_route_count = expected_route_ids_.size();
+        const std::size_t packed_route_count = physical_route_count * 2U;
+        for (std::size_t frame = 0; frame < input.frame_count(); ++frame) {
+            for (std::size_t route = 0; route < physical_route_count; ++route) {
+                packed_input_scratch_[frame * packed_route_count + route] =
+                    input.value_engine_sim_source_unit(frame, route);
+                packed_input_scratch_[frame * packed_route_count +
+                                      physical_route_count + route] =
+                    input.absolute_exhaust_valve_mass_flow_kg_s(frame, route);
+            }
+        }
+        reconstruction_.process(packed_input_scratch_, input.frame_count(),
+                                reconstructed_scratch_);
         if (reconstruction_.distance_to_next_output() != 0U) {
             throw std::logic_error{
                 "source-stage method block did not return to exact clock phase"};
         }
         for (std::size_t frame = 0; frame < kSourceFramesPerMethodBlock; ++frame) {
             for (std::size_t route = 0; route < route_count(); ++route) {
+                const double reconstructed_flow =
+                    reconstructed_scratch_[frame * packed_route_count +
+                                           physical_route_count + route];
+                const double nonnegative_flow =
+                    reconstructed_flow > 0.0 ? reconstructed_flow : +0.0;
+                const double flow_activity = std::clamp(
+                    nonnegative_flow / exhaust_valve_reference_mass_flow_kg_s_[route],
+                    0.0, 1.0);
                 const auto result = conditioners_[route].process(
-                    reconstructed_scratch_[frame * route_count() + route]);
+                    reconstructed_scratch_[frame * packed_route_count + route],
+                    flow_activity);
                 output_frame_major[frame * route_count() + route] =
                     result.conditioned_engine_sim_source_unit;
             }

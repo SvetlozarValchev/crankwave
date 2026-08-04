@@ -88,6 +88,7 @@ constexpr std::array<RouteConditioningSeeds, 3> kSeeds{
 constexpr RouteConditioningCalibration kConditioning{
     0.5, 10000.0, std::bit_cast<double>(UINT64_C(0x3f847ae140000000)), 1.0, 2000.0,
 };
+constexpr std::array<double, 3> kReferenceMassFlowKgS{1.0, 1.0, 1.0};
 
 constexpr std::array<double, 3> kWetMixes{0.0, 0.375, 1.0};
 constexpr std::array<contract::RouteId, 3> kAuditionOrder{
@@ -137,6 +138,7 @@ void expect_throw(Function &&function, const char *message) {
             kRouteIds[route],
             contract::SourceRouteKind::exhaust_outlet,
             kSeeds[route],
+            kReferenceMassFlowKgS[route],
             kernel,
             kWetMixes[route],
             std::nullopt,
@@ -156,12 +158,14 @@ struct Excitation {
     contract::RationalRateHz rate = kExcitationRateHz;
     std::size_t frame_count = kExcitationFramesPerMethodBlock;
     std::vector<double> values;
+    std::vector<double> absolute_exhaust_valve_mass_flow_kg_s;
 
     explicit Excitation(
         contract::RationalRateHz configured_rate = kExcitationRateHz,
         std::size_t configured_frame_count = kExcitationFramesPerMethodBlock)
         : rate(configured_rate), frame_count(configured_frame_count),
-          values(frame_count * kRouteIds.size()) {}
+          values(frame_count * kRouteIds.size()),
+          absolute_exhaust_valve_mass_flow_kg_s(frame_count * kRouteIds.size()) {}
 };
 
 void fill_excitation(Excitation &excitation, std::uint64_t block_ordinal) {
@@ -172,6 +176,10 @@ void fill_excitation(Excitation &excitation, std::uint64_t block_ordinal) {
                 static_cast<std::int64_t>((global + 3) * (route + 5) % 37) - 18;
             excitation.values[frame * kRouteIds.size() + route] =
                 static_cast<double>(code) * 0.0625;
+            excitation.absolute_exhaust_valve_mass_flow_kg_s[frame * kRouteIds.size() +
+                                                             route] =
+                0.05 * static_cast<double>(route + 1U) *
+                static_cast<double>((global % 5U) + 1U);
         }
     }
 }
@@ -180,7 +188,8 @@ void fill_excitation(Excitation &excitation, std::uint64_t block_ordinal) {
                                                    std::uint64_t first_frame_index) {
     return ExhaustExcitationBlockView::borrow_for_callback(
         first_frame_index, excitation.rate, excitation.route_ids,
-        excitation.frame_count, excitation.values);
+        excitation.frame_count, excitation.values,
+        excitation.absolute_exhaust_valve_mass_flow_kg_s);
 }
 
 struct IntakePressure {
@@ -229,7 +238,7 @@ void test_exact_dynamic_route_pipeline() {
            "presentation audio lost dynamic route order");
 
     std::vector<double> conditioned(kSourceFramesPerMethodBlock * kRouteIds.size());
-    ExhaustSourceStage source{kRouteIds, kSeeds, kConditioning};
+    ExhaustSourceStage source{kRouteIds, kSeeds, kReferenceMassFlowKgS, kConditioning};
     const auto reference_extent = source.process(make_view(excitation, 0), conditioned);
     expect(reference_extent.first_source_frame_index ==
                actual.first_source_frame_index(),
@@ -341,6 +350,7 @@ void test_active_intake_preserves_exhaust_and_enters_master_once() {
                                  intake_id,
                                  contract::SourceRouteKind::intake_inlet,
                                  std::nullopt,
+                                 std::nullopt,
                                  nullptr,
                                  +0.0,
                                  IntakePressureSourceRouteConfiguration{
@@ -436,6 +446,7 @@ void test_validation_and_structural_rejection() {
     incomplete_intake.routes.push_back({
         contract::RouteId{99U},
         contract::SourceRouteKind::intake_inlet,
+        std::nullopt,
         std::nullopt,
         nullptr,
         +0.0,

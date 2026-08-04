@@ -269,6 +269,7 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
             route.route_id(),
             route.source_route_kind(),
             exhaust ? seeds : std::nullopt,
+            std::nullopt,
             route_kernels[route_index],
             route.wet_mix_01(),
             intake
@@ -320,6 +321,38 @@ build_session_components(const compile::CompiledScenario &compiled_scenario,
     }
     auto excitation = std::get<excitation::CapturedSourceExcitationSession>(
         std::move(excitation_result));
+
+    const auto excitation_route_ids = excitation.exhaust_route_ids();
+    const auto reference_mass_flow =
+        excitation.exhaust_valve_reference_mass_flow_kg_s();
+    if (excitation_route_ids.size() != reference_mass_flow.size()) {
+        return build_error(
+            EngineSessionErrorCode::invalid_compiled_scenario,
+            "session-exhaust-flow-reference-shape-disagreed",
+            "the source excitation route and exhaust-valve reference-flow shapes "
+            "differ");
+    }
+    std::size_t exhaust_route_index = 0U;
+    for (auto &route : audio_plan.routes) {
+        if (route.source_route_kind != contract::SourceRouteKind::exhaust_outlet) {
+            continue;
+        }
+        if (exhaust_route_index >= excitation_route_ids.size() ||
+            route.route_id != excitation_route_ids[exhaust_route_index]) {
+            return build_error(
+                EngineSessionErrorCode::invalid_compiled_scenario,
+                "session-exhaust-flow-reference-route-disagreed",
+                "presentation and excitation exhaust-route orders differ");
+        }
+        route.exhaust_valve_reference_mass_flow_kg_s =
+            reference_mass_flow[exhaust_route_index];
+        ++exhaust_route_index;
+    }
+    if (exhaust_route_index != excitation_route_ids.size()) {
+        return build_error(EngineSessionErrorCode::invalid_compiled_scenario,
+                           "session-exhaust-flow-reference-count-disagreed",
+                           "presentation and excitation exhaust-route counts differ");
+    }
 
     auto presentation =
         std::make_unique<presentation::PresentationAudioSession>(std::move(audio_plan));

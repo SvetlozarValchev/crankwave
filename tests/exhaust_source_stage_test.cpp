@@ -42,6 +42,7 @@ constexpr RouteConditioningSeeds kThirdRouteSeeds{
 constexpr RouteConditioningCalibration kCanonicalConditioning{
     0.5, 10000.0, std::bit_cast<double>(UINT64_C(0x3f847ae140000000)), 1.0, 2000.0,
 };
+constexpr std::array<double, kBmwRouteCount> kReferenceMassFlowKgS{1.0, 1.0};
 
 void expect(bool condition, const char *message) {
     if (!condition) {
@@ -63,14 +64,38 @@ std::uint64_t bits(double value) {
     return std::bit_cast<std::uint64_t>(value);
 }
 
+double synthetic_flow(std::uint64_t global_frame, std::size_t route) {
+    return 0.05 * static_cast<double>(route + 1U) *
+           static_cast<double>((global_frame % 5U) + 1U);
+}
+
 template <class Values, class RouteIds>
 ExhaustExcitationBlockView
 make_view(std::uint64_t first_frame_index, Values &frame_major_values,
           RouteIds &route_ids,
           std::size_t frame_count = kExcitationFramesPerMethodBlock,
           contract::RationalRateHz rate = kExcitationRateHz) {
+    static thread_local std::vector<double> flow;
+    flow.resize(frame_count * route_ids.size());
+    for (std::size_t frame = 0; frame < frame_count; ++frame) {
+        for (std::size_t route = 0; route < route_ids.size(); ++route) {
+            flow[frame * route_ids.size() + route] =
+                synthetic_flow(first_frame_index + frame, route);
+        }
+    }
     return ExhaustExcitationBlockView::borrow_for_callback(
-        first_frame_index, rate, route_ids, frame_count, frame_major_values);
+        first_frame_index, rate, route_ids, frame_count, frame_major_values, flow);
+}
+
+template <class Values, class RouteIds, class Flow>
+ExhaustExcitationBlockView
+make_view_with_flow(std::uint64_t first_frame_index, Values &frame_major_values,
+                    RouteIds &route_ids, Flow &frame_major_flow,
+                    std::size_t frame_count = kExcitationFramesPerMethodBlock,
+                    contract::RationalRateHz rate = kExcitationRateHz) {
+    return ExhaustExcitationBlockView::borrow_for_callback(
+        first_frame_index, rate, route_ids, frame_count, frame_major_values,
+        frame_major_flow);
 }
 
 void fill_block(std::span<double> frame_major_values, std::size_t frame_count,
@@ -100,21 +125,44 @@ void expect_same_output(std::span<const double> actual,
 
 void process_with_continuous_components(CausalReconstruction &reconstruction,
                                         std::vector<RouteConditioner> &conditioners,
+                                        std::span<const double> reference_mass_flow,
                                         std::span<const double> input_frame_major,
                                         std::size_t input_frame_count,
+                                        std::uint64_t first_input_frame_index,
                                         std::span<double> output_frame_major) {
-    const auto route_count = reconstruction.route_count();
+    const auto route_count = conditioners.size();
+    const auto packed_route_count = route_count * 2U;
+    expect(reconstruction.route_count() == packed_route_count &&
+               reference_mass_flow.size() == route_count,
+           "component reference route shape changed");
+    std::vector<double> packed_input(input_frame_count * packed_route_count);
+    for (std::size_t frame = 0; frame < input_frame_count; ++frame) {
+        for (std::size_t route = 0; route < route_count; ++route) {
+            packed_input[frame * packed_route_count + route] =
+                input_frame_major[frame * route_count + route];
+            packed_input[frame * packed_route_count + route_count + route] =
+                synthetic_flow(first_input_frame_index + frame, route);
+        }
+    }
     std::vector<double> reconstructed(
-        reconstruction.expected_output_frame_count(input_frame_count) * route_count);
-    expect(reconstructed.size() == output_frame_major.size(),
+        reconstruction.expected_output_frame_count(input_frame_count) *
+        packed_route_count);
+    expect(reconstructed.size() == output_frame_major.size() * 2U,
            "component reference output size changed");
-    reconstruction.process(input_frame_major, input_frame_count, reconstructed);
+    reconstruction.process(packed_input, input_frame_count, reconstructed);
     for (std::size_t frame = 0; frame < output_frame_major.size() / route_count;
          ++frame) {
         for (std::size_t route = 0; route < route_count; ++route) {
+            const double activity = std::clamp(
+                std::max(
+                    reconstructed[frame * packed_route_count + route_count + route],
+                    0.0) /
+                    reference_mass_flow[route],
+                0.0, 1.0);
             output_frame_major[frame * route_count + route] =
                 conditioners[route]
-                    .process(reconstructed[frame * route_count + route])
+                    .process(reconstructed[frame * packed_route_count + route],
+                             activity)
                     .conditioned_engine_sim_source_unit;
         }
     }
@@ -134,7 +182,8 @@ void test_exact_block_extent_and_component_wiring() {
     fill_block(input, kExcitationFramesPerMethodBlock, kBmwRouteCount, 0);
     std::vector<double> actual(kSourceFramesPerMethodBlock * kBmwRouteCount);
 
-    ExhaustSourceStage stage{kCanonicalRouteIds, kFrozenSeeds, kCanonicalConditioning};
+    ExhaustSourceStage stage{kCanonicalRouteIds, kFrozenSeeds, kReferenceMassFlowKgS,
+                             kCanonicalConditioning};
     expect(std::ranges::equal(stage.expected_route_ids(), kCanonicalRouteIds) &&
                stage.route_count() == kBmwRouteCount,
            "source stage did not retain its ordered route binding");
@@ -151,11 +200,12 @@ void test_exact_block_extent_and_component_wiring() {
                !stage.terminal_failed(),
            "source-stage block extent or counters changed");
 
-    CausalReconstruction reconstruction{kBmwRouteCount};
+    CausalReconstruction reconstruction{kBmwRouteCount * 2U};
     auto conditioners = make_bmw_conditioners();
     std::vector<double> expected(kSourceFramesPerMethodBlock * kBmwRouteCount);
-    process_with_continuous_components(reconstruction, conditioners, input,
-                                       kExcitationFramesPerMethodBlock, expected);
+    process_with_continuous_components(reconstruction, conditioners,
+                                       kReferenceMassFlowKgS, input,
+                                       kExcitationFramesPerMethodBlock, 0U, expected);
     expect_same_output(actual, expected,
                        "source stage changed component order or route wiring");
     expect(stage.jitter_rng_state(0) == UINT64_C(0x38c474f6f27476ae) &&
@@ -174,8 +224,9 @@ void test_explicit_route_ids_preserve_positional_seed_binding() {
     fill_block(input, kExcitationFramesPerMethodBlock, kBmwRouteCount, 0);
 
     ExhaustSourceStage canonical{kCanonicalRouteIds, kFrozenSeeds,
-                                 kCanonicalConditioning};
-    ExhaustSourceStage custom{custom_route_ids, kFrozenSeeds, kCanonicalConditioning};
+                                 kReferenceMassFlowKgS, kCanonicalConditioning};
+    ExhaustSourceStage custom{custom_route_ids, kFrozenSeeds, kReferenceMassFlowKgS,
+                              kCanonicalConditioning};
     std::vector<double> canonical_output(kSourceFramesPerMethodBlock * kBmwRouteCount);
     std::vector<double> custom_output(kSourceFramesPerMethodBlock * kBmwRouteCount);
     static_cast<void>(
@@ -200,9 +251,10 @@ void test_block_continuity_and_session_isolation() {
     fill_block(block_0, kExcitationFramesPerMethodBlock, kBmwRouteCount, 0);
     fill_block(block_1, kExcitationFramesPerMethodBlock, kBmwRouteCount, 1);
 
-    ExhaustSourceStage first{kCanonicalRouteIds, kFrozenSeeds, kCanonicalConditioning};
+    ExhaustSourceStage first{kCanonicalRouteIds, kFrozenSeeds, kReferenceMassFlowKgS,
+                             kCanonicalConditioning};
     ExhaustSourceStage interleaved{kCanonicalRouteIds, kFrozenSeeds,
-                                   kCanonicalConditioning};
+                                   kReferenceMassFlowKgS, kCanonicalConditioning};
     std::vector<double> first_0(kSourceFramesPerMethodBlock * kBmwRouteCount);
     std::vector<double> first_1(kSourceFramesPerMethodBlock * kBmwRouteCount);
     std::vector<double> other_0(kSourceFramesPerMethodBlock * kBmwRouteCount);
@@ -224,15 +276,16 @@ void test_block_continuity_and_session_isolation() {
     expect_same_output(first_1, other_1,
                        "state reset or crossed sessions at a block boundary");
 
-    CausalReconstruction continuous_reconstruction{kBmwRouteCount};
+    CausalReconstruction continuous_reconstruction{kBmwRouteCount * 2U};
     auto continuous_conditioners = make_bmw_conditioners();
     std::vector<double> continuous_0(kSourceFramesPerMethodBlock * kBmwRouteCount);
     std::vector<double> continuous_1(kSourceFramesPerMethodBlock * kBmwRouteCount);
+    process_with_continuous_components(
+        continuous_reconstruction, continuous_conditioners, kReferenceMassFlowKgS,
+        block_0, kExcitationFramesPerMethodBlock, 0U, continuous_0);
     process_with_continuous_components(continuous_reconstruction,
-                                       continuous_conditioners, block_0,
-                                       kExcitationFramesPerMethodBlock, continuous_0);
-    process_with_continuous_components(continuous_reconstruction,
-                                       continuous_conditioners, block_1,
+                                       continuous_conditioners, kReferenceMassFlowKgS,
+                                       block_1, kExcitationFramesPerMethodBlock,
                                        kExcitationFramesPerMethodBlock, continuous_1);
     expect_same_output(first_1, continuous_1,
                        "source stage reset component state at a method-block boundary");
@@ -248,6 +301,7 @@ void test_structural_rejections_do_not_mutate_state() {
             ExhaustSourceStage retired_rate{
                 kCanonicalRouteIds,
                 kFrozenSeeds,
+                kReferenceMassFlowKgS,
                 kCanonicalConditioning,
                 contract::RationalRateHz{10000, 1},
                 kExcitationFramesPerMethodBlock / 2U,
@@ -259,7 +313,7 @@ void test_structural_rejections_do_not_mutate_state() {
     fill_block(valid, kExcitationFramesPerMethodBlock, kBmwRouteCount, 0);
     std::vector<double> output(kSourceFramesPerMethodBlock * kBmwRouteCount);
     ExhaustSourceStage candidate{kCanonicalRouteIds, kFrozenSeeds,
-                                 kCanonicalConditioning};
+                                 kReferenceMassFlowKgS, kCanonicalConditioning};
     const std::array initial_rng_states{
         candidate.jitter_rng_state(0),
         candidate.air_noise_rng_state(0),
@@ -326,6 +380,35 @@ void test_structural_rejections_do_not_mutate_state() {
         },
         "source stage accepted non-finite excitation");
 
+    std::vector<double> valid_flow(kExcitationFramesPerMethodBlock * kBmwRouteCount,
+                                   0.25);
+    auto short_flow = valid_flow;
+    short_flow.pop_back();
+    expect_throw<std::invalid_argument>(
+        [&] {
+            static_cast<void>(candidate.process(
+                make_view_with_flow(0, valid, kCanonicalRouteIds, short_flow), output));
+        },
+        "source stage accepted an incomplete exhaust-valve flow matrix");
+    auto negative_flow = valid_flow;
+    negative_flow[137] = -0.25;
+    expect_throw<std::domain_error>(
+        [&] {
+            static_cast<void>(candidate.process(
+                make_view_with_flow(0, valid, kCanonicalRouteIds, negative_flow),
+                output));
+        },
+        "source stage accepted negative absolute exhaust-valve flow");
+    auto nonfinite_flow = valid_flow;
+    nonfinite_flow[241] = std::numeric_limits<double>::infinity();
+    expect_throw<std::domain_error>(
+        [&] {
+            static_cast<void>(candidate.process(
+                make_view_with_flow(0, valid, kCanonicalRouteIds, nonfinite_flow),
+                output));
+        },
+        "source stage accepted non-finite exhaust-valve flow");
+
     expect(candidate.next_input_frame_index() == 0 &&
                candidate.next_source_frame_index() == 0 && !candidate.terminal_failed(),
            "source-stage structural rejection mutated session state");
@@ -338,7 +421,8 @@ void test_structural_rejections_do_not_mutate_state() {
         } == initial_rng_states,
         "source-stage structural rejection advanced a route-owned RNG");
 
-    ExhaustSourceStage fresh{kCanonicalRouteIds, kFrozenSeeds, kCanonicalConditioning};
+    ExhaustSourceStage fresh{kCanonicalRouteIds, kFrozenSeeds, kReferenceMassFlowKgS,
+                             kCanonicalConditioning};
     std::vector<double> fresh_output(kSourceFramesPerMethodBlock * kBmwRouteCount);
     static_cast<void>(
         candidate.process(make_view(0, valid, kCanonicalRouteIds), output));
@@ -352,9 +436,11 @@ void test_structural_rejections_do_not_mutate_state() {
 void test_invalid_seed_ownership_and_terminal_arithmetic_failure() {
     constexpr std::array<contract::RouteId, 0> no_route_ids{};
     constexpr std::array<RouteConditioningSeeds, 0> no_seeds{};
+    constexpr std::array<double, 0> no_reference_mass_flows{};
     expect_throw<std::invalid_argument>(
         [&] {
-            ExhaustSourceStage invalid{no_route_ids, no_seeds, kCanonicalConditioning};
+            ExhaustSourceStage invalid{no_route_ids, no_seeds, no_reference_mass_flows,
+                                       kCanonicalConditioning};
         },
         "source stage accepted zero routes");
 
@@ -363,7 +449,7 @@ void test_invalid_seed_ownership_and_terminal_arithmetic_failure() {
     expect_throw<std::invalid_argument>(
         [&] {
             ExhaustSourceStage invalid{invalid_route_ids, kFrozenSeeds,
-                                       kCanonicalConditioning};
+                                       kReferenceMassFlowKgS, kCanonicalConditioning};
         },
         "source stage accepted an invalid route identity");
 
@@ -372,7 +458,7 @@ void test_invalid_seed_ownership_and_terminal_arithmetic_failure() {
     expect_throw<std::invalid_argument>(
         [&] {
             ExhaustSourceStage invalid{duplicate_route_ids, kFrozenSeeds,
-                                       kCanonicalConditioning};
+                                       kReferenceMassFlowKgS, kCanonicalConditioning};
         },
         "source stage accepted duplicate route identities");
 
@@ -380,9 +466,35 @@ void test_invalid_seed_ownership_and_terminal_arithmetic_failure() {
     expect_throw<std::invalid_argument>(
         [&] {
             ExhaustSourceStage invalid{kCanonicalRouteIds, short_seeds,
-                                       kCanonicalConditioning};
+                                       kReferenceMassFlowKgS, kCanonicalConditioning};
         },
         "source stage accepted mismatched route and seed counts");
+
+    constexpr std::array<double, 1> short_reference_mass_flow{1.0};
+    expect_throw<std::invalid_argument>(
+        [&] {
+            ExhaustSourceStage invalid{kCanonicalRouteIds, kFrozenSeeds,
+                                       short_reference_mass_flow,
+                                       kCanonicalConditioning};
+        },
+        "source stage accepted mismatched route and flow-reference counts");
+    constexpr std::array<double, kBmwRouteCount> zero_reference_mass_flow{1.0, 0.0};
+    expect_throw<std::invalid_argument>(
+        [&] {
+            ExhaustSourceStage invalid{kCanonicalRouteIds, kFrozenSeeds,
+                                       zero_reference_mass_flow,
+                                       kCanonicalConditioning};
+        },
+        "source stage accepted a zero exhaust-valve flow reference");
+    constexpr std::array<double, kBmwRouteCount> nonfinite_reference_mass_flow{
+        1.0, std::numeric_limits<double>::quiet_NaN()};
+    expect_throw<std::invalid_argument>(
+        [&] {
+            ExhaustSourceStage invalid{kCanonicalRouteIds, kFrozenSeeds,
+                                       nonfinite_reference_mass_flow,
+                                       kCanonicalConditioning};
+        },
+        "source stage accepted a non-finite exhaust-valve flow reference");
 
     auto duplicate_seeds = kFrozenSeeds;
     duplicate_seeds[1].air_noise.stream = duplicate_seeds[0].jitter.stream;
@@ -391,7 +503,7 @@ void test_invalid_seed_ownership_and_terminal_arithmetic_failure() {
     expect_throw<std::invalid_argument>(
         [&] {
             ExhaustSourceStage invalid{kCanonicalRouteIds, duplicate_seeds,
-                                       kCanonicalConditioning};
+                                       kReferenceMassFlowKgS, kCanonicalConditioning};
         },
         "source stage accepted one selector for two random-stream owners");
 
@@ -401,14 +513,15 @@ void test_invalid_seed_ownership_and_terminal_arithmetic_failure() {
     expect_throw<std::invalid_argument>(
         [&] {
             ExhaustSourceStage invalid{kCanonicalRouteIds, oversized_stream,
-                                       kCanonicalConditioning};
+                                       kReferenceMassFlowKgS, kCanonicalConditioning};
         },
         "source stage accepted an oversized PCG stream");
 
     std::vector<double> huge(kExcitationFramesPerMethodBlock * kBmwRouteCount,
                              std::numeric_limits<double>::max());
     std::vector<double> output(kSourceFramesPerMethodBlock * kBmwRouteCount);
-    ExhaustSourceStage failed{kCanonicalRouteIds, kFrozenSeeds, kCanonicalConditioning};
+    ExhaustSourceStage failed{kCanonicalRouteIds, kFrozenSeeds, kReferenceMassFlowKgS,
+                              kCanonicalConditioning};
     expect_throw<std::domain_error>(
         [&] {
             static_cast<void>(
@@ -431,10 +544,13 @@ void test_invalid_seed_ownership_and_terminal_arithmetic_failure() {
 void test_one_and_three_route_sessions_preserve_bmw_route_arithmetic() {
     constexpr std::array single_route_ids{contract::RouteId{1}};
     constexpr std::array single_route_seeds{kFrozenSeeds[0]};
+    constexpr std::array single_reference_mass_flow{kReferenceMassFlowKgS[0]};
     constexpr std::array triple_route_ids{contract::RouteId{1}, contract::RouteId{2},
                                           contract::RouteId{3}};
     constexpr std::array triple_route_seeds{kFrozenSeeds[0], kFrozenSeeds[1],
                                             kThirdRouteSeeds};
+    constexpr std::array triple_reference_mass_flow{kReferenceMassFlowKgS[0],
+                                                    kReferenceMassFlowKgS[1], 1.0};
 
     std::vector<double> bmw_input(kExcitationFramesPerMethodBlock * kBmwRouteCount);
     std::vector<double> single_input(kExcitationFramesPerMethodBlock);
@@ -450,11 +566,12 @@ void test_one_and_three_route_sessions_preserve_bmw_route_arithmetic() {
                "dynamic source fixture changed the BMW route inputs");
     }
 
-    ExhaustSourceStage bmw{kCanonicalRouteIds, kFrozenSeeds, kCanonicalConditioning};
+    ExhaustSourceStage bmw{kCanonicalRouteIds, kFrozenSeeds, kReferenceMassFlowKgS,
+                           kCanonicalConditioning};
     ExhaustSourceStage single{single_route_ids, single_route_seeds,
-                              kCanonicalConditioning};
+                              single_reference_mass_flow, kCanonicalConditioning};
     ExhaustSourceStage triple{triple_route_ids, triple_route_seeds,
-                              kCanonicalConditioning};
+                              triple_reference_mass_flow, kCanonicalConditioning};
     std::vector<double> bmw_output(kSourceFramesPerMethodBlock * kBmwRouteCount);
     std::vector<double> single_output(kSourceFramesPerMethodBlock);
     std::vector<double> triple_output(kSourceFramesPerMethodBlock * 3);

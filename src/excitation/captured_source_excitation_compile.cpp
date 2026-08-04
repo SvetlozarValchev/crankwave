@@ -1,6 +1,7 @@
 #include "excitation/captured_source_excitation.hpp"
 
 #include "excitation/captured_source_excitation_internal.hpp"
+#include "simulation/legacy_flow_calibration.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -218,6 +219,10 @@ compile_captured_source_excitation_session(const contract::EngineSpec &engine,
     state->dynamic_reverse_gain = source.pressure_gains.dynamic_reverse.value;
     state->cylinder_count_divisor = source.cylinder_count_divisor.value;
     state->cylinder_ids.resize(cylinder_count);
+    state->port_layout.reserve(engine.ports.size());
+    for (const auto &port : engine.ports) {
+        state->port_layout.push_back({port.id, port.cylinder_id, port.kind.value});
+    }
     state->piston_crown_areas_m2.resize(cylinder_count);
     state->crankcase_pressure_pa_abs = scenario.crankcase.pressure_pa_abs.value;
     state->route_layout.reserve(engine.routes.size());
@@ -240,11 +245,14 @@ compile_captured_source_excitation_session(const contract::EngineSpec &engine,
         }
     }
     state->route_ids.resize(route_count);
+    state->exhaust_valve_reference_mass_flow_kg_s.assign(route_count, +0.0);
     state->cylinders.resize(cylinder_count);
     state->prospective_delays.resize(cylinder_count);
+    state->prospective_exhaust_flow_delays.resize(cylinder_count);
     state->accumulation_order.resize(cylinder_count);
     state->routes.resize(route_count);
     state->prospective_route_delays.resize(route_count);
+    state->prospective_exhaust_flow_route_delays.resize(route_count);
     state->pre_delay.assign(static_cast<std::size_t>(block_capacity) * cylinder_count,
                             +0.0);
     state->post_delay.assign(static_cast<std::size_t>(block_capacity) * cylinder_count,
@@ -252,6 +260,10 @@ compile_captured_source_excitation_session(const contract::EngineSpec &engine,
     state->collector_bus_values.assign(
         static_cast<std::size_t>(block_capacity) * route_count, +0.0);
     state->route_bus_values.assign(
+        static_cast<std::size_t>(block_capacity) * route_count, +0.0);
+    state->collector_absolute_exhaust_valve_mass_flow_kg_s.assign(
+        static_cast<std::size_t>(block_capacity) * route_count, +0.0);
+    state->route_absolute_exhaust_valve_mass_flow_kg_s.assign(
         static_cast<std::size_t>(block_capacity) * route_count, +0.0);
     state->intake_pressure_pa_abs.assign(
         static_cast<std::size_t>(block_capacity) * intake_route_count, +0.0);
@@ -309,6 +321,7 @@ compile_captured_source_excitation_session(const contract::EngineSpec &engine,
             configured.route_id,
             configured.exhaust_system_length_m.value,
             configured.audio_volume_linear.value,
+            {},
             {},
         };
         const auto downstream_delay = resolve_delay_samples(
@@ -381,6 +394,42 @@ compile_captured_source_excitation_session(const contract::EngineSpec &engine,
                        [](const contract::LegacyExcitationRoute &route) {
                            return route.route_id;
                        });
+        const auto exhaust_port_index =
+            find_index(engine.ports, mechanism.topology.exhaust_port_id,
+                       [](const contract::PortSpec &port) { return port.id; });
+        const bool exhaust_port_matches =
+            exhaust_port_index.has_value() &&
+            engine.ports[*exhaust_port_index].cylinder_id == cylinder_id &&
+            engine.ports[*exhaust_port_index].kind.value == contract::PortKind::exhaust;
+        require(report, exhaust_port_matches, ContractIssueCode::dangling_reference,
+                path_name + ".exhaust_port_id",
+                "excitation cylinder must bind one matching exhaust capture port");
+
+        const auto head_index = find_index(
+            core.gas_path.heads, engine_cylinder.bank_id,
+            [](const contract::LegacyBankHeadProfile &head) { return head.bank_id; });
+        double maximum_exhaust_flow_cfm = +0.0;
+        bool valid_exhaust_capacity = head_index.has_value();
+        if (head_index.has_value()) {
+            const auto &flow = core.gas_path.heads[*head_index].exhaust_flow;
+            valid_exhaust_capacity = !flow.empty();
+            for (const auto &point : flow) {
+                const double source_cfm = point.source_cfm_at_28_inh2o.value;
+                valid_exhaust_capacity =
+                    valid_exhaust_capacity && finite_nonnegative(source_cfm);
+                maximum_exhaust_flow_cfm =
+                    std::max(maximum_exhaust_flow_cfm, source_cfm);
+            }
+        }
+        const double exhaust_valve_reference_mass_flow_kg_s =
+            simulation::legacy_standard_cfm_mass_flow_kg_s(maximum_exhaust_flow_cfm);
+        valid_exhaust_capacity =
+            valid_exhaust_capacity &&
+            finite_positive(exhaust_valve_reference_mass_flow_kg_s);
+        require(report, valid_exhaust_capacity, ContractIssueCode::invalid_value,
+                path_name + ".bank_exhaust_flow",
+                "excitation cylinder requires a finite positive authored maximum "
+                "bank-local exhaust-valve flow-bench capacity");
         require(report, route_index.has_value(), ContractIssueCode::dangling_reference,
                 path_name + ".route_id",
                 "excitation cylinder path route does not resolve");
@@ -402,15 +451,32 @@ compile_captured_source_excitation_session(const contract::EngineSpec &engine,
                                                      route_delay_samples[*route_index]),
                 ContractIssueCode::inconsistent_semantics, path_name,
                 "excitation path geometry, route, or capture-rate delay is incoherent");
-        if (!route_index.has_value() || !expected_total_delay.has_value() ||
+        if (!route_index.has_value() || !exhaust_port_matches ||
+            !valid_exhaust_capacity || !expected_total_delay.has_value() ||
             *expected_total_delay < route_delay_samples[*route_index]) {
             continue;
         }
 
         state->cylinders[index] = {
-            cylinder_id, index, *route_index, configured.sound_attenuation_linear.value,
+            cylinder_id,
+            index,
+            *exhaust_port_index,
+            *route_index,
+            configured.sound_attenuation_linear.value,
+            {},
             {},
         };
+        auto &route_reference =
+            state->exhaust_valve_reference_mass_flow_kg_s[*route_index];
+        const double accumulated_reference =
+            route_reference + exhaust_valve_reference_mass_flow_kg_s;
+        require(report, finite_positive(accumulated_reference),
+                ContractIssueCode::invalid_value, path_name + ".bank_exhaust_flow",
+                "route exhaust-valve reference mass-flow sum is not finite and "
+                "positive");
+        if (finite_positive(accumulated_reference)) {
+            route_reference = accumulated_reference;
+        }
         // Preserve the old rounded total arrival exactly. The cylinder FIFO owns
         // only the residual primary delay; the common route FIFO is applied after
         // the collector fold.
@@ -441,17 +507,35 @@ compile_captured_source_excitation_session(const contract::EngineSpec &engine,
         }
     }
 
+    for (std::size_t route = 0; route < route_count; ++route) {
+        require(report,
+                finite_positive(state->exhaust_valve_reference_mass_flow_kg_s[route]),
+                ContractIssueCode::invalid_value,
+                "engine.physics_profile.excitation.routes[" + std::to_string(route) +
+                    "].exhaust_valve_reference_mass_flow",
+                "each exhaust route requires a finite positive sum of authored "
+                "cylinder exhaust-valve flow-bench capacities");
+    }
+
     if (!report.ok()) {
         return report;
     }
     for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
         state->cylinders[cylinder].delay.history.assign(delay_samples[cylinder], +0.0);
         state->prospective_delays[cylinder] = state->cylinders[cylinder].delay;
+        state->cylinders[cylinder].exhaust_flow_delay.history.assign(
+            delay_samples[cylinder], +0.0);
+        state->prospective_exhaust_flow_delays[cylinder] =
+            state->cylinders[cylinder].exhaust_flow_delay;
     }
     for (std::size_t route = 0; route < route_count; ++route) {
         state->routes[route].downstream_delay.history.assign(route_delay_samples[route],
                                                              +0.0);
         state->prospective_route_delays[route] = state->routes[route].downstream_delay;
+        state->routes[route].exhaust_flow_downstream_delay.history.assign(
+            route_delay_samples[route], +0.0);
+        state->prospective_exhaust_flow_route_delays[route] =
+            state->routes[route].exhaust_flow_downstream_delay;
     }
     return CapturedSourceExcitationSession{std::move(state)};
 }

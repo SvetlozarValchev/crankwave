@@ -109,8 +109,8 @@ void test_route_conditioning_goldens_and_rng_consumption() {
     std::size_t route_1_probe = 0;
     for (std::size_t frame = 0; frame < 3840; ++frame) {
         const auto input = synthetic_input(frame);
-        const auto result_0 = route_0.process(input);
-        const auto result_1 = route_1.process(input);
+        const auto result_0 = route_0.process(input, 1.0);
+        const auto result_1 = route_1.process(input, 1.0);
         if (frame < 30) {
             expect(bits(result_0.conditioned_engine_sim_source_unit) == UINT64_C(0),
                    "route 0 conditioning warm-up ceased being positive zero");
@@ -146,9 +146,12 @@ void test_nonfinite_input_is_rejected_before_mutation() {
     expect_throw<std::domain_error>(
         [&] {
             static_cast<void>(
-                candidate.process(std::numeric_limits<double>::quiet_NaN()));
+                candidate.process(std::numeric_limits<double>::quiet_NaN(), 1.0));
         },
         "conditioner accepted a non-finite input");
+    expect_throw<std::domain_error>(
+        [&] { static_cast<void>(candidate.process(0.25, -0.0)); },
+        "conditioner accepted negative-zero exhaust-flow activity");
     expect(candidate.jitter_rng_state() == initial_jitter_state &&
                candidate.air_noise_rng_state() == initial_air_state,
            "conditioner advanced RNG state for a rejected input");
@@ -156,8 +159,8 @@ void test_nonfinite_input_is_rejected_before_mutation() {
     RouteConditioner fresh{kRoute0Jitter, kRoute0Air, kCanonicalCalibration};
     for (std::size_t frame = 0; frame < 128; ++frame) {
         const auto input = synthetic_input(frame);
-        const auto candidate_result = candidate.process(input);
-        const auto fresh_result = fresh.process(input);
+        const auto candidate_result = candidate.process(input, 1.0);
+        const auto fresh_result = fresh.process(input, 1.0);
         expect_same_result_bits(candidate_result, fresh_result,
                                 "rejected conditioning input changed later state");
     }
@@ -170,11 +173,11 @@ void test_interleaved_sessions_remain_independent() {
 
     std::array<ConditioningResult, 128> expected{};
     for (std::size_t frame = 0; frame < expected.size(); ++frame) {
-        expected[frame] = contiguous.process(synthetic_input(frame));
+        expected[frame] = contiguous.process(synthetic_input(frame), 1.0);
     }
     for (std::size_t frame = 0; frame < expected.size(); ++frame) {
-        static_cast<void>(unrelated.process(-synthetic_input(frame)));
-        expect_same_result_bits(interleaved.process(synthetic_input(frame)),
+        static_cast<void>(unrelated.process(-synthetic_input(frame), 1.0));
+        expect_same_result_bits(interleaved.process(synthetic_input(frame), 1.0),
                                 expected[frame],
                                 "interleaving another session changed route state");
     }
@@ -193,8 +196,8 @@ conditioning_differences(const RouteConditioningCalibration &changed) {
     RouteConditioner configured{kRoute0Jitter, kRoute0Air, changed};
     ConditioningDifferences differences;
     for (std::size_t frame = 0; frame < 3840; ++frame) {
-        const auto canonical_result = canonical.process(synthetic_input(frame));
-        const auto configured_result = configured.process(synthetic_input(frame));
+        const auto canonical_result = canonical.process(synthetic_input(frame), 1.0);
+        const auto configured_result = configured.process(synthetic_input(frame), 1.0);
         differences.jittered =
             differences.jittered ||
             bits(canonical_result.jittered_engine_sim_source_unit) !=
@@ -211,6 +214,38 @@ conditioning_differences(const RouteConditioningCalibration &changed) {
         canonical.jitter_rng_state() == configured.jitter_rng_state() &&
         canonical.air_noise_rng_state() == configured.air_noise_rng_state();
     return differences;
+}
+
+void test_exhaust_flow_activity_changes_only_the_random_mix() {
+    RouteConditioner full_flow{kRoute0Jitter, kRoute0Air, kCanonicalCalibration};
+    RouteConditioner zero_flow{kRoute0Jitter, kRoute0Air, kCanonicalCalibration};
+    bool conditioned_difference = false;
+    for (std::size_t frame = 0; frame < 3840; ++frame) {
+        const double input = synthetic_input(frame);
+        const auto full = full_flow.process(input, 1.0);
+        const auto zero = zero_flow.process(input, 0.0);
+        expect(bits(full.jittered_engine_sim_source_unit) ==
+                       bits(zero.jittered_engine_sim_source_unit) &&
+                   bits(full.filtered_air_noise) == bits(zero.filtered_air_noise),
+               "exhaust-flow activity changed jitter or air-noise filter state");
+        conditioned_difference =
+            conditioned_difference || bits(full.conditioned_engine_sim_source_unit) !=
+                                          bits(zero.conditioned_engine_sim_source_unit);
+    }
+    expect(conditioned_difference &&
+               full_flow.jitter_rng_state() == zero_flow.jitter_rng_state() &&
+               full_flow.air_noise_rng_state() == zero_flow.air_noise_rng_state(),
+           "exhaust-flow activity did not isolate the final stochastic mix");
+
+    RouteConditioner rejected{kRoute0Jitter, kRoute0Air, kCanonicalCalibration};
+    const auto initial_jitter = rejected.jitter_rng_state();
+    const auto initial_air = rejected.air_noise_rng_state();
+    expect_throw<std::domain_error>(
+        [&] { static_cast<void>(rejected.process(0.25, -0.01)); },
+        "conditioner admitted negative exhaust-flow activity");
+    expect(rejected.jitter_rng_state() == initial_jitter &&
+               rejected.air_noise_rng_state() == initial_air,
+           "invalid exhaust-flow activity advanced random state");
 }
 
 void test_every_calibration_leaf_controls_execution() {
@@ -270,6 +305,7 @@ void run_tests() {
     test_nonfinite_input_is_rejected_before_mutation();
     test_interleaved_sessions_remain_independent();
     test_every_calibration_leaf_controls_execution();
+    test_exhaust_flow_activity_changes_only_the_random_mix();
     test_invalid_calibration_is_rejected();
 }
 

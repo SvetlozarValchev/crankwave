@@ -34,6 +34,7 @@ struct PresentationAudioRoutePlan {
     contract::SourceRouteKind source_route_kind =
         contract::SourceRouteKind::unspecified;
     std::optional<RouteConditioningSeeds> conditioning_seeds;
+    std::optional<double> exhaust_valve_reference_mass_flow_kg_s;
     std::shared_ptr<const dsp::FixedConvolutionKernel> configured_ir;
     double wet_mix_01 = 0.0;
     std::optional<IntakePressureSourceRouteConfiguration> intake_pressure_source;

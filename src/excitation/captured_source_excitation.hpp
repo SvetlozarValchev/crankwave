@@ -327,6 +327,9 @@ class CapturedSourceExcitationSession final {
 
     [[nodiscard]] std::uint64_t next_frame_index() const noexcept;
     [[nodiscard]] std::uint64_t published_block_count() const noexcept;
+    [[nodiscard]] std::span<const contract::RouteId> exhaust_route_ids() const noexcept;
+    [[nodiscard]] std::span<const double>
+    exhaust_valve_reference_mass_flow_kg_s() const noexcept;
     [[nodiscard]] bool faulted() const noexcept;
 
   private:

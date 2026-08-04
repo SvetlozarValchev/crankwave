@@ -75,6 +75,11 @@ void validate_plan(const PresentationAudioPlan &plan) {
             (intake && configured.configured_ir) ||
             (exhaust && !configured.conditioning_seeds.has_value()) ||
             (intake && configured.conditioning_seeds.has_value()) ||
+            (exhaust &&
+             (!configured.exhaust_valve_reference_mass_flow_kg_s.has_value() ||
+              !std::isfinite(*configured.exhaust_valve_reference_mass_flow_kg_s) ||
+              *configured.exhaust_valve_reference_mass_flow_kg_s <= 0.0)) ||
+            (intake && configured.exhaust_valve_reference_mass_flow_kg_s.has_value()) ||
             (exhaust && configured.intake_pressure_source.has_value()) ||
             (intake && !configured.intake_pressure_source.has_value()) ||
             (intake && configured.intake_pressure_source->id != configured.route_id) ||
@@ -153,11 +158,25 @@ exhaust_route_seeds(const PresentationAudioPlan &plan) {
     return result;
 }
 
+[[nodiscard]] std::vector<double>
+exhaust_route_reference_mass_flows(const PresentationAudioPlan &plan) {
+    std::vector<double> result;
+    result.reserve(plan.routes.size());
+    for (const auto &route : plan.routes) {
+        if (route.source_route_kind == contract::SourceRouteKind::exhaust_outlet) {
+            result.push_back(*route.exhaust_valve_reference_mass_flow_kg_s);
+        }
+    }
+    return result;
+}
+
 [[nodiscard]] ExhaustSourceStage make_source_stage(const PresentationAudioPlan &plan) {
     const auto route_ids = exhaust_route_ids(plan);
     const auto route_seeds = exhaust_route_seeds(plan);
-    return ExhaustSourceStage{route_ids, route_seeds, plan.conditioning,
-                              plan.excitation_rate, plan.excitation_frames_per_block};
+    const auto reference_mass_flows = exhaust_route_reference_mass_flows(plan);
+    return ExhaustSourceStage{
+        route_ids,         route_seeds,          reference_mass_flows,
+        plan.conditioning, plan.excitation_rate, plan.excitation_frames_per_block};
 }
 
 [[nodiscard]] std::vector<IntakePressureSourceRouteConfiguration>

@@ -58,9 +58,16 @@ RouteConditioner::RouteConditioner(Pcg32Seed jitter_seed, Pcg32Seed air_noise_se
                         dsp::kConditionedSourceRateHz) {}
 
 ConditioningResult
-RouteConditioner::process(double reconstructed_engine_sim_source_unit) {
-    if (!std::isfinite(reconstructed_engine_sim_source_unit)) {
-        throw std::domain_error{"conditioning input was non-finite"};
+RouteConditioner::process(double reconstructed_engine_sim_source_unit,
+                          double exhaust_flow_activity_01) {
+    if (!std::isfinite(reconstructed_engine_sim_source_unit) ||
+        !std::isfinite(exhaust_flow_activity_01) || exhaust_flow_activity_01 < 0.0 ||
+        exhaust_flow_activity_01 > 1.0) {
+        throw std::domain_error{
+            "conditioning input or exhaust-flow activity was invalid"};
+    }
+    if (exhaust_flow_activity_01 == 0.0 && std::signbit(exhaust_flow_activity_01)) {
+        throw std::domain_error{"conditioning exhaust-flow activity was negative zero"};
     }
 
     jitter_history_[jitter_write_offset_] = reconstructed_engine_sim_source_unit;
@@ -93,7 +100,8 @@ RouteConditioner::process(double reconstructed_engine_sim_source_unit) {
 
     const double noise = air_noise_rng_.uniform_signed_double() * kNoiseExcitationScale;
     const double filtered_air_noise = air_noise_filter_.process(noise);
-    const double noise_mix = calibration_.air_noise_mix_01 * filtered_air_noise +
+    const double flow_coupled_air_noise = exhaust_flow_activity_01 * filtered_air_noise;
+    const double noise_mix = calibration_.air_noise_mix_01 * flow_coupled_air_noise +
                              (1.0 - calibration_.air_noise_mix_01);
 
     const double conditioned = dsp::cleanup_conditioned_sample(

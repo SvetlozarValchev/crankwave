@@ -50,7 +50,8 @@ class RouteConditioner {
                      RouteConditioningCalibration calibration);
 
     [[nodiscard]] ConditioningResult
-    process(double reconstructed_engine_sim_source_unit);
+    process(double reconstructed_engine_sim_source_unit,
+            double exhaust_flow_activity_01);
 
     [[nodiscard]] std::uint64_t jitter_rng_state() const noexcept;
     [[nodiscard]] std::uint64_t air_noise_rng_state() const noexcept;

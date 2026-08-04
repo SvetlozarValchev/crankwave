@@ -84,9 +84,9 @@ struct MethodCase {
             presentation::causal_reconstruction_method_identity,
         },
         {
-            "route-jitter-dc-derivative-air-noise-binary64-v1",
-            1,
-            "eab7c1dd013287a6c1db022bc4b6dd824b84851b3a4d96e030f1981f520a20e2",
+            "route-jitter-dc-derivative-flow-coupled-air-noise-binary64-v2",
+            2,
+            "d1fc9ea280b4ca9452d033cf0cb85f98f7c0d3bfb424e96f9eb98af97b38745e",
             presentation::route_conditioning_method_descriptor,
             presentation::route_conditioning_method_identity,
         },

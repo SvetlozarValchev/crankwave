@@ -12,8 +12,8 @@ inline constexpr std::string_view kCausalReconstructionMethodId =
 inline constexpr std::uint32_t kCausalReconstructionMethodVersion = 3;
 
 inline constexpr std::string_view kRouteConditioningMethodId =
-    "route-jitter-dc-derivative-air-noise-binary64-v1";
-inline constexpr std::uint32_t kRouteConditioningMethodVersion = 1;
+    "route-jitter-dc-derivative-flow-coupled-air-noise-binary64-v2";
+inline constexpr std::uint32_t kRouteConditioningMethodVersion = 2;
 
 #if defined(__wasm32__)
 inline constexpr std::string_view kStaticIrConversionMethodId =

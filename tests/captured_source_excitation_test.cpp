@@ -188,6 +188,15 @@ class SyntheticCaptureBlock final {
                     static_cast<double>((global % 7U) + 2U) *
                     static_cast<double>(cylinder_count - cylinder) * 0.125;
             }
+            for (std::size_t port = 0; port < ports_.size(); ++port) {
+                auto &sample = port_samples_[frame * ports_.size() + port];
+                sample.validity = capture_validity_mask(CaptureValidity::gas_exchange);
+                sample.pressure_pa_abs = kAtmospherePa;
+                sample.temperature_k = 400.0;
+                const auto signed_code =
+                    static_cast<int>((global * 5U + port * 7U) % 23U) - 11;
+                sample.signed_mass_flow_kg_s = static_cast<double>(signed_code) * 0.001;
+            }
         }
     }
 
@@ -236,6 +245,30 @@ class SyntheticCaptureBlock final {
                                            std::size_t cylinder) const {
         return cylinder_samples_.at(frame * cylinders_.size() + cylinder)
             .pressure_pa_abs;
+    }
+
+    [[nodiscard]] double exhaust_valve_mass_flow(std::size_t frame,
+                                                 std::size_t cylinder) const {
+        const auto port = std::ranges::find_if(ports_, [&](const PortIdentity &item) {
+            return item.cylinder_id == cylinders_.at(cylinder) &&
+                   item.kind == PortKind::exhaust;
+        });
+        expect(port != ports_.end(), "synthetic capture cylinder has no exhaust port");
+        const auto port_index = static_cast<std::size_t>(port - ports_.begin());
+        return port_samples_.at(frame * ports_.size() + port_index)
+            .signed_mass_flow_kg_s;
+    }
+
+    void set_exhaust_valve_mass_flow(std::size_t frame, std::size_t cylinder,
+                                     double mass_flow_kg_s) {
+        const auto port = std::ranges::find_if(ports_, [&](const PortIdentity &item) {
+            return item.cylinder_id == cylinders_.at(cylinder) &&
+                   item.kind == PortKind::exhaust;
+        });
+        expect(port != ports_.end(), "synthetic capture cylinder has no exhaust port");
+        const auto port_index = static_cast<std::size_t>(port - ports_.begin());
+        port_samples_.at(frame * ports_.size() + port_index).signed_mass_flow_kg_s =
+            mass_flow_kg_s;
     }
 
     void set_intake_pressure(RouteId route_id, std::size_t frame,
@@ -295,6 +328,8 @@ struct PublishedBlockCopy {
     std::vector<double> pre_delay;
     std::vector<double> post_delay;
     std::vector<double> route_bus_values;
+    std::vector<double> absolute_exhaust_valve_mass_flow_kg_s;
+    std::uintptr_t exhaust_valve_flow_storage_address = 0U;
     std::vector<RouteId> intake_route_ids;
     std::vector<double> intake_pressure_pa_abs;
     std::uintptr_t intake_storage_address = 0U;
@@ -324,7 +359,9 @@ struct PublishedBlockCopy {
     expect(output.values_engine_sim_source_unit().data() ==
                    diagnostic.route_bus_values_engine_sim_source_unit().data() &&
                output.values_engine_sim_source_unit().size() ==
-                   diagnostic.route_bus_values_engine_sim_source_unit().size(),
+                   diagnostic.route_bus_values_engine_sim_source_unit().size() &&
+               output.absolute_exhaust_valve_mass_flow_kg_s().size() ==
+                   output.frame_count() * output.route_count(),
            "diagnostics did not expose the exact published route-value storage");
     expect(pressure_force.first_frame_index() == output.first_frame_index() &&
                pressure_force.sample_rate() == output.sample_rate() &&
@@ -357,6 +394,11 @@ struct PublishedBlockCopy {
                 output.values_engine_sim_source_unit()[frame * output.route_count() +
                                                        route],
                 "indexed excitation value does not match flat frame-major storage");
+            expect_same_bits(
+                output.absolute_exhaust_valve_mass_flow_kg_s(frame, route),
+                output.absolute_exhaust_valve_mass_flow_kg_s()
+                    [frame * output.route_count() + route],
+                "indexed exhaust-valve flow does not match flat frame-major storage");
         }
         const auto frame_pressure = intake.frame_pressure_pa_abs(frame);
         expect(frame_pressure.size() == intake.route_count(),
@@ -390,6 +432,10 @@ struct PublishedBlockCopy {
          diagnostic.post_delay_cylinder_values_engine_sim_source_unit().end()},
         {output.values_engine_sim_source_unit().begin(),
          output.values_engine_sim_source_unit().end()},
+        {output.absolute_exhaust_valve_mass_flow_kg_s().begin(),
+         output.absolute_exhaust_valve_mass_flow_kg_s().end()},
+        reinterpret_cast<std::uintptr_t>(
+            output.absolute_exhaust_valve_mass_flow_kg_s().data()),
         {intake.route_ids().begin(), intake.route_ids().end()},
         {intake.pressure_pa_abs().begin(), intake.pressure_pa_abs().end()},
         reinterpret_cast<std::uintptr_t>(intake.pressure_pa_abs().data()),
@@ -412,6 +458,11 @@ struct PublishedBlockCopy {
             return true;
         });
     const auto *published = std::get_if<CapturedSourceBlockPublished>(&result);
+    if (published == nullptr) {
+        const auto &failure = std::get<FailureContext>(result);
+        throw std::runtime_error{"valid synthetic capture failed: " +
+                                 failure.detail_code + ": " + failure.state_summary};
+    }
     expect(published != nullptr && copy.has_value(),
            "valid synthetic capture did not publish one excitation block");
     expect(*published ==
@@ -553,6 +604,8 @@ void expect_equal_block(const PublishedBlockCopy &actual,
                actual.pre_delay.size() == expected.pre_delay.size() &&
                actual.post_delay.size() == expected.post_delay.size() &&
                actual.route_bus_values.size() == expected.route_bus_values.size() &&
+               actual.absolute_exhaust_valve_mass_flow_kg_s.size() ==
+                   expected.absolute_exhaust_valve_mass_flow_kg_s.size() &&
                actual.intake_pressure_pa_abs.size() ==
                    expected.intake_pressure_pa_abs.size() &&
                actual.axial_pressure_force_n.size() ==
@@ -565,6 +618,9 @@ void expect_equal_block(const PublishedBlockCopy &actual,
     for (std::size_t index = 0; index < actual.route_bus_values.size(); ++index) {
         expect_same_bits(actual.route_bus_values[index],
                          expected.route_bus_values[index], message);
+        expect_same_bits(actual.absolute_exhaust_valve_mass_flow_kg_s[index],
+                         expected.absolute_exhaust_valve_mass_flow_kg_s[index],
+                         message);
     }
     for (std::size_t index = 0; index < actual.intake_pressure_pa_abs.size(); ++index) {
         expect_same_bits(actual.intake_pressure_pa_abs[index],
@@ -586,7 +642,9 @@ void expect_equal_exhaust(const PublishedBlockCopy &actual,
                actual.route_ids == expected.route_ids &&
                actual.pre_delay.size() == expected.pre_delay.size() &&
                actual.post_delay.size() == expected.post_delay.size() &&
-               actual.route_bus_values.size() == expected.route_bus_values.size(),
+               actual.route_bus_values.size() == expected.route_bus_values.size() &&
+               actual.absolute_exhaust_valve_mass_flow_kg_s.size() ==
+                   expected.absolute_exhaust_valve_mass_flow_kg_s.size(),
            std::string{message} + ": exhaust shape or metadata mismatch");
     for (std::size_t index = 0; index < actual.pre_delay.size(); ++index) {
         expect_same_bits(actual.pre_delay[index], expected.pre_delay[index], message);
@@ -595,6 +653,9 @@ void expect_equal_exhaust(const PublishedBlockCopy &actual,
     for (std::size_t index = 0; index < actual.route_bus_values.size(); ++index) {
         expect_same_bits(actual.route_bus_values[index],
                          expected.route_bus_values[index], message);
+        expect_same_bits(actual.absolute_exhaust_valve_mass_flow_kg_s[index],
+                         expected.absolute_exhaust_valve_mass_flow_kg_s[index],
+                         message);
     }
 }
 
@@ -606,6 +667,19 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
     block_1.fill_distinct_excitation();
 
     auto session = require_session(compile_fixture_session(engine, scenario));
+    const auto compiled_route_ids = session.exhaust_route_ids();
+    const auto compiled_reference_mass_flow =
+        session.exhaust_valve_reference_mass_flow_kg_s();
+    expect(std::ranges::equal(compiled_route_ids,
+                              std::array<RouteId, kRoutes>{RouteId{1}, RouteId{2}}) &&
+               compiled_reference_mass_flow.size() == kRoutes,
+           "compiled exhaust-valve reference route order changed");
+    constexpr std::uint64_t expected_reference_mass_flow_bits = 0x3fd252e75e28502cULL;
+    for (std::size_t route = 0; route < kRoutes; ++route) {
+        expect(bits(compiled_reference_mass_flow[route]) ==
+                   expected_reference_mass_flow_bits,
+               "authored exhaust-flow capacity reference changed");
+    }
     const auto actual_0 = publish(session, block_0.view(), 0U);
     const auto actual_1 = publish(session, block_1.view(), 1U);
 
@@ -623,7 +697,9 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
                actual_0.axial_pressure_force_n.size() == kFrames * kCylinders &&
                actual_1.axial_pressure_force_n.size() == kFrames * kCylinders &&
                actual_0.frame_count == kFrames &&
-               actual_0.route_bus_values.size() == kFrames * kRoutes,
+               actual_0.route_bus_values.size() == kFrames * kRoutes &&
+               actual_0.absolute_exhaust_valve_mass_flow_kg_s.size() ==
+                   kFrames * kRoutes,
            "excitation diagnostics do not cover the complete 400-frame block");
 
     const auto expected_pre_0 = independent_pre_delay(block_0);
@@ -642,6 +718,27 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
         for (std::size_t frame = 0; frame < kFrames; ++frame) {
             const auto global = block * kFrames + frame;
             std::array<double, kRoutes> expected_buses{};
+            std::array<double, kRoutes> expected_exhaust_valve_flow{};
+            if (global >= kTotalDelayFrames) {
+                const auto source_global = global - kTotalDelayFrames;
+                const auto source_block = source_global / kFrames;
+                const auto source_frame = source_global % kFrames;
+                for (const auto cylinder_id :
+                     test::low_order_core(engine)
+                         .excitation.cylinder_accumulation_order.value) {
+                    const auto cylinder = std::ranges::find(
+                        engine.cylinders, cylinder_id, &CylinderSpec::id);
+                    expect(cylinder != engine.cylinders.end(),
+                           "authored flow accumulation cylinder did not resolve");
+                    const auto cylinder_index =
+                        static_cast<std::size_t>(cylinder - engine.cylinders.begin());
+                    const bool even_cylinder_id = ((cylinder_id.value % 2U) == 0U);
+                    const std::size_t route = even_cylinder_id ? 0U : 1U;
+                    expected_exhaust_valve_flow[route] +=
+                        std::abs(capture_blocks[source_block]->exhaust_valve_mass_flow(
+                            source_frame, cylinder_index));
+                }
+            }
             for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
                 const auto local = frame * kCylinders + cylinder;
                 const auto global_cylinder = global * kCylinders + cylinder;
@@ -678,10 +775,19 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
                     actual.route_bus_values[frame * kRoutes + route],
                     expected_buses[route],
                     "stable cylinder accumulation, divisor, length, or route changed");
+                expect_same_bits(
+                    actual
+                        .absolute_exhaust_valve_mass_flow_kg_s[frame * kRoutes + route],
+                    expected_exhaust_valve_flow[route],
+                    "delayed per-route absolute exhaust-valve mass flow changed");
                 if (global < kTotalDelayFrames) {
                     expect(bits(actual.route_bus_values[frame * kRoutes + route]) ==
                                bits(+0.0),
                            "route-delay startup did not emit canonical positive zero");
+                    expect(bits(actual.absolute_exhaust_valve_mass_flow_kg_s
+                                    [frame * kRoutes + route]) == bits(+0.0),
+                           "exhaust-valve flow delay startup did not emit canonical "
+                           "positive zero");
                 }
             }
         }
@@ -691,6 +797,10 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
                actual_0.pressure_force_storage_address ==
                    actual_1.pressure_force_storage_address,
            "axial pressure-force scratch was not preallocated and reused");
+    expect(actual_0.exhaust_valve_flow_storage_address != 0U &&
+               actual_0.exhaust_valve_flow_storage_address ==
+                   actual_1.exhaust_valve_flow_storage_address,
+           "exhaust-valve flow scratch was not preallocated and reused");
 
     expect(session.next_frame_index() == 2U * kFrames &&
                session.published_block_count() == 2U && !session.faulted(),
@@ -1118,6 +1228,21 @@ void test_complete_prevalidation_is_terminal_and_does_not_advance(
                                .dynamic_pressure_reverse_pa = 1.0;
                        },
                        "invalid exhaust reference parity");
+    }
+    {
+        SyntheticCaptureBlock malformed{engine, 0U};
+        malformed.fill_distinct_excitation();
+        const double valid_final_flow =
+            malformed.exhaust_valve_mass_flow(kFrames - 1U, kCylinders - 1U);
+        malformed.set_exhaust_valve_mass_flow(kFrames - 1U, kCylinders - 1U,
+                                              std::numeric_limits<double>::quiet_NaN());
+        prove_terminal(
+            malformed,
+            [&] {
+                malformed.set_exhaust_valve_mass_flow(kFrames - 1U, kCylinders - 1U,
+                                                      valid_final_flow);
+            },
+            "invalid exhaust-valve mass flow");
     }
 }
 

@@ -88,6 +88,7 @@ exact_layout_matches(const detail::CapturedSourceExcitationState &state,
                      const contract::CaptureLayoutView &layout) {
     return layout.engine_id() == state.engine_id &&
            std::ranges::equal(layout.cylinders(), state.cylinder_ids) &&
+           std::ranges::equal(layout.ports(), state.port_layout) &&
            std::ranges::equal(layout.routes(), state.route_layout);
 }
 
@@ -312,8 +313,9 @@ CapturedSourceExcitationSession::process_block(const contract::CaptureBlockView 
         return fail(state,
                     make_failure(state, contract::FailureKind::contract_violation,
                                  "captured-source-block-layout-mismatch",
-                                 "capture engine, cylinder order, or route layout "
-                                 "differs from the compiled excitation layout"));
+                                 "capture engine, cylinder order, port layout, or "
+                                 "route layout differs from the compiled excitation "
+                                 "layout"));
     }
     if (block.frame_count() != state.block_capacity_frames ||
         block.declared_block_capacity_frames() != state.block_capacity_frames ||
@@ -404,6 +406,14 @@ CapturedSourceExcitationSession::process_block(const contract::CaptureBlockView 
     }
     for (std::size_t route = 0; route < route_count; ++route) {
         state.prospective_route_delays[route] = state.routes[route].downstream_delay;
+    }
+    for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
+        state.prospective_exhaust_flow_delays[cylinder] =
+            state.cylinders[cylinder].exhaust_flow_delay;
+    }
+    for (std::size_t route = 0; route < route_count; ++route) {
+        state.prospective_exhaust_flow_route_delays[route] =
+            state.routes[route].exhaust_flow_downstream_delay;
     }
 
     for (std::size_t frame = 0; frame < state.block_capacity_frames; ++frame) {
@@ -501,17 +511,90 @@ CapturedSourceExcitationSession::process_block(const contract::CaptureBlockView 
         }
     }
 
+    // The physical modulation control follows the same primary and shared-route
+    // propagation timing as the pressure-derived excitation, but owns independent
+    // transactional delay histories. Absolute value is taken on each cylinder's
+    // signed outer-step valve flow before the stable route fold, so exhaust reversion
+    // contributes activity without allowing opposite cylinder flows to cancel.
+    const auto gas_exchange =
+        contract::capture_validity_mask(contract::CaptureValidity::gas_exchange);
+    const std::size_t port_count = state.port_layout.size();
+    for (std::size_t frame = 0; frame < state.block_capacity_frames; ++frame) {
+        std::fill_n(state.collector_absolute_exhaust_valve_mass_flow_kg_s.begin() +
+                        frame * route_count,
+                    route_count, +0.0);
+        for (const auto cylinder_index : state.accumulation_order) {
+            const auto &cylinder = state.cylinders[cylinder_index];
+            const auto &sample =
+                block.ports()[frame * port_count + cylinder.capture_exhaust_port_index];
+            if ((sample.validity & gas_exchange) == 0U ||
+                !std::isfinite(sample.signed_mass_flow_kg_s)) {
+                return fail(
+                    state, make_failure(
+                               state, contract::FailureKind::contract_violation,
+                               "captured-source-exhaust-valve-flow-input-invalid",
+                               "exhaust-flow modulation requires a finite gas-exchange "
+                               "mass-flow sample for every bound cylinder exhaust port",
+                               state.routes[cylinder.route_index].route_id));
+            }
+            const double absolute_mass_flow_kg_s =
+                std::abs(sample.signed_mass_flow_kg_s);
+            const double delayed =
+                state.prospective_exhaust_flow_delays[cylinder_index].process(
+                    absolute_mass_flow_kg_s);
+            auto &collector = state.collector_absolute_exhaust_valve_mass_flow_kg_s
+                                  [frame * route_count + cylinder.route_index];
+            collector += delayed;
+            if (!std::isfinite(absolute_mass_flow_kg_s) || !std::isfinite(delayed) ||
+                delayed < 0.0 || !std::isfinite(collector) || collector < 0.0) {
+                return fail(
+                    state, make_failure(
+                               state, contract::FailureKind::numerical_failure,
+                               "captured-source-exhaust-valve-flow-value-invalid",
+                               "absolute exhaust-valve mass-flow delay or stable route "
+                               "accumulation produced an invalid value",
+                               state.routes[cylinder.route_index].route_id));
+            }
+        }
+    }
+
+    for (std::size_t frame = 0; frame < state.block_capacity_frames; ++frame) {
+        for (std::size_t route = 0; route < route_count; ++route) {
+            const double delayed =
+                state.prospective_exhaust_flow_route_delays[route].process(
+                    state.collector_absolute_exhaust_valve_mass_flow_kg_s
+                        [frame * route_count + route]);
+            if (!std::isfinite(delayed) || delayed < 0.0) {
+                return fail(
+                    state,
+                    make_failure(
+                        state, contract::FailureKind::numerical_failure,
+                        "captured-source-exhaust-valve-flow-value-invalid",
+                        "downstream exhaust-valve mass-flow propagation produced "
+                        "an invalid value",
+                        state.routes[route].route_id));
+            }
+            state.route_absolute_exhaust_valve_mass_flow_kg_s[frame * route_count +
+                                                              route] = delayed;
+        }
+    }
+
     for (std::size_t cylinder = 0; cylinder < cylinder_count; ++cylinder) {
         std::swap(state.cylinders[cylinder].delay, state.prospective_delays[cylinder]);
+        std::swap(state.cylinders[cylinder].exhaust_flow_delay,
+                  state.prospective_exhaust_flow_delays[cylinder]);
     }
     for (std::size_t route = 0; route < route_count; ++route) {
         std::swap(state.routes[route].downstream_delay,
                   state.prospective_route_delays[route]);
+        std::swap(state.routes[route].exhaust_flow_downstream_delay,
+                  state.prospective_exhaust_flow_route_delays[route]);
     }
 
     const auto output = presentation::ExhaustExcitationBlockView::borrow_for_callback(
         state.next_frame_index, state.sample_rate, state.route_ids,
-        state.block_capacity_frames, state.route_bus_values);
+        state.block_capacity_frames, state.route_bus_values,
+        state.route_absolute_exhaust_valve_mass_flow_kg_s);
     const auto intake = IntakePressureBlockView::borrow_for_callback(
         state.next_frame_index, state.sample_rate, state.intake_route_ids,
         state.block_capacity_frames, state.intake_pressure_pa_abs);
@@ -578,6 +661,20 @@ std::uint64_t CapturedSourceExcitationSession::next_frame_index() const noexcept
 
 std::uint64_t CapturedSourceExcitationSession::published_block_count() const noexcept {
     return state_ != nullptr ? state_->published_block_count : 0U;
+}
+
+std::span<const contract::RouteId>
+CapturedSourceExcitationSession::exhaust_route_ids() const noexcept {
+    return state_ != nullptr ? std::span<const contract::RouteId>{state_->route_ids}
+                             : std::span<const contract::RouteId>{};
+}
+
+std::span<const double>
+CapturedSourceExcitationSession::exhaust_valve_reference_mass_flow_kg_s()
+    const noexcept {
+    return state_ != nullptr
+               ? std::span<const double>{state_->exhaust_valve_reference_mass_flow_kg_s}
+               : std::span<const double>{};
 }
 
 bool CapturedSourceExcitationSession::faulted() const noexcept {
