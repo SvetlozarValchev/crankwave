@@ -13,6 +13,7 @@
 #include <iostream>
 #include <limits>
 #include <new>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -665,6 +666,8 @@ void run(const std::filesystem::path &repository_root) {
     std::uint64_t preparation_blocks = 0;
     std::uint64_t audible_blocks = 0;
     std::uint64_t audible_frames = 0;
+    std::uint64_t completed_cycle_count = 0;
+    std::optional<std::int64_t> preceding_cycle_end_ordinal;
     while (true) {
         auto result = session.process_block();
         if (const auto *error = std::get_if<EngineSessionError>(&result)) {
@@ -703,6 +706,23 @@ void run(const std::filesystem::path &repository_root) {
                         kEngineSessionPhysicsFramesPerBlock,
             "session block clocks or telemetry diverged");
 
+        for (const auto &cycle : block.cycle_evidence()) {
+            gate::expect(
+                cycle.end_boundary.cycle_ordinal ==
+                        cycle.start_boundary.cycle_ordinal + 1 &&
+                    cycle.end_boundary.right_physics_frame >=
+                        block.first_physics_frame() &&
+                    cycle.end_boundary.right_physics_frame <
+                        block.first_physics_frame() + block.physics_frame_count() &&
+                    (!preceding_cycle_end_ordinal.has_value() ||
+                     cycle.start_boundary.cycle_ordinal ==
+                         *preceding_cycle_end_ordinal),
+                "session cycle evidence was partial, duplicated, or published by "
+                "the wrong block");
+            preceding_cycle_end_ordinal = cycle.end_boundary.cycle_ordinal;
+            ++completed_cycle_count;
+        }
+
         if (block.phase() == EngineSessionBlockPhase::preparation) {
             ++preparation_blocks;
         } else {
@@ -712,7 +732,8 @@ void run(const std::filesystem::path &repository_root) {
         }
     }
     gate::expect(preparation_blocks == 322U && audible_blocks == 750U &&
-                     audible_frames == kAudibleFrames,
+                     audible_frames == kAudibleFrames &&
+                     completed_cycle_count > 0U,
                  "session preparation/audible partition changed");
 
     // Completion is stable and does not advance any clock.

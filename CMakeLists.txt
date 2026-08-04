@@ -450,6 +450,7 @@ add_library(
     STATIC
         src/session/control_timeline.cpp
         src/session/engine_session.cpp
+        src/session/exact_cycle_evidence.cpp
         src/session/session_build.cpp
 )
 add_library(

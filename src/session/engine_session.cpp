@@ -3,6 +3,7 @@
 #include "compile/compiled_scenario_view.hpp"
 #include "presentation/presentation_audio_session.hpp"
 #include "session/control_timeline.hpp"
+#include "session/exact_cycle_evidence.hpp"
 #include "session/session_build.hpp"
 
 #include <algorithm>
@@ -55,6 +56,24 @@ source_route_signal_disposition(contract::RouteDisposition disposition) {
         std::move(message),
         std::move(simulation_failure),
     };
+}
+
+[[nodiscard]] double
+output_crank_tdc_reference_rad(const compile::CompiledScenario &scenario) {
+    const auto inputs = compile::detail::CompiledScenarioViewAccess::inputs(scenario);
+    const auto reference = std::visit(
+        [](const auto &profile) -> std::optional<double> {
+            const auto *crank = contract::find_output_crank(profile.core.mechanism);
+            return crank == nullptr
+                       ? std::nullopt
+                       : std::optional<double>{crank->crank_tdc_reference_rad.value};
+        },
+        inputs.engine.engine.physics_profile);
+    if (!reference.has_value()) {
+        throw std::logic_error{
+            "compiled session has no unique resolved output crankshaft"};
+    }
+    return *reference;
 }
 
 [[nodiscard]] EngineControlRejectionCode
@@ -282,13 +301,14 @@ EngineSessionBlockView::EngineSessionBlockView(
     const std::uint64_t first_physics_frame, const std::uint32_t physics_frame_count,
     const std::uint64_t first_delivery_frame, const std::uint32_t delivery_frame_count,
     const std::span<const EngineAudioBusBlockView> audio_buses,
-    const std::span<const EngineTelemetryFrame> telemetry) noexcept
+    const std::span<const EngineTelemetryFrame> telemetry,
+    const std::span<const EngineCompletedCycleEvidence> cycle_evidence) noexcept
     : block_ordinal_(block_ordinal), phase_(phase),
       first_physics_frame_(first_physics_frame),
       physics_frame_count_(physics_frame_count),
       first_delivery_frame_(first_delivery_frame),
       delivery_frame_count_(delivery_frame_count), audio_buses_(audio_buses),
-      telemetry_(telemetry) {}
+      telemetry_(telemetry), cycle_evidence_(cycle_evidence) {}
 
 std::uint64_t EngineSessionBlockView::block_ordinal() const noexcept {
     return block_ordinal_;
@@ -324,6 +344,11 @@ EngineSessionBlockView::telemetry() const noexcept {
     return telemetry_;
 }
 
+std::span<const EngineCompletedCycleEvidence>
+EngineSessionBlockView::cycle_evidence() const noexcept {
+    return cycle_evidence_;
+}
+
 class EngineSession::Implementation final {
   public:
     explicit Implementation(session_detail::BuiltSessionComponents components)
@@ -342,6 +367,8 @@ class EngineSession::Implementation final {
                   .scenario.scenario.rates.delivery),
           physics_frames_per_block_(
               static_cast<std::uint32_t>(calibration_.capture_frames_per_block())),
+          cycle_evidence_accumulator_(
+              output_crank_tdc_reference_rad(compiled_scenario_), delivery_rate_),
           control_timeline_(capacities_.control_command_queue_capacity, physics_rate_,
                             delivery_rate_),
           control_scratch_(capacities_.control_command_queue_capacity),
@@ -366,6 +393,7 @@ class EngineSession::Implementation final {
                      gear.ratio.value});
             }
         }
+        completed_cycle_evidence_.reserve(physics_frames_per_block_);
         build_audio_bus_descriptors(inputs);
     }
 
@@ -557,7 +585,9 @@ class EngineSession::Implementation final {
             const auto expected_first_delivery =
                 expected_block * delivery_frames_per_block_;
             std::optional<contract::FailureContext> nested_failure;
+            std::optional<session::ExactCycleEvidenceError> cycle_evidence_failure;
             std::optional<presentation::PresentationAudioBlockView> audio;
+            completed_cycle_evidence_.clear();
             const simulation::detail::LowOrderLiveControlProvider live_controls{
                 &control_timeline_,
                 control_timeline_.physics_rate(),
@@ -577,6 +607,13 @@ class EngineSession::Implementation final {
                     if (capture.frame_count() != physics_frames_per_block_ ||
                         capture.clock().first_sample_index != expected_first_physics ||
                         capture.engine().empty()) {
+                        return false;
+                    }
+                    if (auto error = cycle_evidence_accumulator_.consume(
+                            capture.clock(), capture.engine(),
+                            completed_cycle_evidence_);
+                        error.has_value()) {
+                        cycle_evidence_failure = *error;
                         return false;
                     }
                     const auto &last = capture.engine().back();
@@ -615,6 +652,14 @@ class EngineSession::Implementation final {
                 },
                 live_controls);
 
+            if (cycle_evidence_failure.has_value()) {
+                return fail(processing_error(
+                    "session-cycle-evidence-failed",
+                    std::string{session::exact_cycle_evidence_error_message(
+                        cycle_evidence_failure->code)} +
+                        "; physics_frame=" +
+                        std::to_string(cycle_evidence_failure->physics_frame)));
+            }
             if (nested_failure.has_value()) {
                 return fail(processing_error(
                     "session-audio-pipeline-failed",
@@ -718,10 +763,15 @@ class EngineSession::Implementation final {
                                    ? EngineSessionBlockPhase::preparation
                                    : EngineSessionBlockPhase::audible;
             return EngineSessionBlockView{
-                expected_block,          phase,
-                expected_first_physics,  physics_frames_per_block_,
-                expected_first_delivery, delivery_frames_per_block_,
-                audio_bus_views_,        telemetry_,
+                expected_block,
+                phase,
+                expected_first_physics,
+                physics_frames_per_block_,
+                expected_first_delivery,
+                delivery_frames_per_block_,
+                audio_bus_views_,
+                telemetry_,
+                completed_cycle_evidence_,
             };
         } catch (const std::bad_alloc &) {
             return fail({
@@ -927,6 +977,7 @@ class EngineSession::Implementation final {
     contract::RationalRateHz delivery_rate_ = kEngineSessionDeliveryRateHz;
     std::uint32_t physics_frames_per_block_ = kEngineSessionPhysicsFramesPerBlock;
     std::uint32_t delivery_frames_per_block_ = kEngineSessionDeliveryFramesPerBlock;
+    session::ExactCycleEvidenceAccumulator cycle_evidence_accumulator_;
     session::ControlTimeline control_timeline_;
     std::vector<session::TimestampedControlCommand> control_scratch_;
     std::string engine_id_;
@@ -936,6 +987,7 @@ class EngineSession::Implementation final {
     std::vector<EngineAudioBusBlockView> audio_bus_views_;
     std::vector<EngineForwardGearDescriptor> forward_gear_descriptors_;
     std::array<EngineTelemetryFrame, 1> telemetry_{};
+    std::vector<EngineCompletedCycleEvidence> completed_cycle_evidence_;
     std::uint64_t total_block_count_ = 0;
     std::uint64_t preparation_block_count_ = 0;
     EngineLiveControlCapabilityMask live_control_capabilities_ = 0U;

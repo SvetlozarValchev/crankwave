@@ -106,6 +106,89 @@ struct EngineTelemetryFrame {
     std::optional<EngineFreeVehicleTelemetry> free_vehicle;
 };
 
+enum class EngineCycleStateFlag : std::uint32_t {
+    ignition_enabled = 1U << 0U,
+    fuel_enabled = 1U << 1U,
+    starter_enabled = 1U << 2U,
+    dyno_enabled = 1U << 3U,
+    limiter_enabled = 1U << 4U,
+    limiter_cut_active = 1U << 5U,
+};
+
+using EngineCycleStateFlagMask = std::uint32_t;
+
+[[nodiscard]] constexpr EngineCycleStateFlagMask
+engine_cycle_state_flag_mask(EngineCycleStateFlag flag) noexcept {
+    return static_cast<EngineCycleStateFlagMask>(flag);
+}
+
+struct EngineCycleBoundaryEvidence {
+    // Signed lattice ordinal n in crank_tdc_reference_rad + n * 4*pi.
+    std::int64_t cycle_ordinal = 0;
+    // Zero-based post-step physics-frame brackets. Their physical timestamp ticks
+    // are frame + 1.
+    std::uint64_t left_physics_frame = 0;
+    std::uint64_t right_physics_frame = 0;
+    double fraction_from_left_01 = 0.0;
+    double theta_unwrapped_rad = 0.0;
+    double time_s = 0.0;
+    // Fractional by design: an exact crank-angle crossing generally falls between
+    // delivery samples.
+    double delivery_frame = 0.0;
+
+    friend bool operator==(const EngineCycleBoundaryEvidence &,
+                           const EngineCycleBoundaryEvidence &) = default;
+};
+
+struct EngineCycleControlEvidence {
+    double time_weighted_mean_01 = 0.0;
+    double minimum_01 = 0.0;
+    double maximum_01 = 0.0;
+    std::uint32_t change_count = 0;
+
+    friend bool operator==(const EngineCycleControlEvidence &,
+                           const EngineCycleControlEvidence &) = default;
+};
+
+struct EngineCycleNetShaftEvidence {
+    // Integral of the available instantaneous net-shaft torque with respect to
+    // unwrapped crank angle over exactly one 720-degree cycle.
+    double angular_work_j = 0.0;
+    double cycle_mean_torque_nm = 0.0;
+    contract::Availability availability = contract::Availability::unavailable;
+    contract::Completeness completeness = contract::Completeness::incomplete;
+    contract::QuantityUnavailableReason unavailable_reason =
+        contract::QuantityUnavailableReason::cycle_integration_not_admitted;
+    contract::TorqueTermMask included_terms = 0;
+    contract::TorqueTermMask omitted_terms = 0;
+
+    friend bool operator==(const EngineCycleNetShaftEvidence &,
+                           const EngineCycleNetShaftEvidence &) = default;
+};
+
+// This evidence is non-acoustic: it observes the already committed physics capture
+// and cannot alter excitation, presentation, or delivered PCM. The first partial
+// 720-degree interval after session creation is intentionally omitted.
+struct EngineCompletedCycleEvidence {
+    std::uint64_t completed_cycle_ordinal = 0;
+    EngineCycleBoundaryEvidence start_boundary;
+    EngineCycleBoundaryEvidence end_boundary;
+    double duration_s = 0.0;
+    double mean_engine_speed_rpm = 0.0;
+    EngineCycleControlEvidence requested_throttle;
+    EngineCycleControlEvidence resolved_engine_throttle;
+    EngineCycleControlEvidence intake_plate_position;
+    EngineCycleNetShaftEvidence instantaneous_net_shaft;
+    // State is half-open over (start, end]. Transition bits report any committed
+    // state change in that interval; no discrete state is numerically averaged.
+    EngineCycleStateFlagMask start_state_flags = 0;
+    EngineCycleStateFlagMask end_state_flags = 0;
+    EngineCycleStateFlagMask state_transition_flags = 0;
+
+    friend bool operator==(const EngineCompletedCycleEvidence &,
+                           const EngineCompletedCycleEvidence &) = default;
+};
+
 enum class EngineSessionBlockPhase : std::uint8_t {
     preparation,
     audible,
@@ -131,15 +214,19 @@ class EngineSessionBlockView final {
     [[nodiscard]] std::uint32_t delivery_frame_count() const noexcept;
     [[nodiscard]] std::span<const EngineAudioBusBlockView> audio_buses() const noexcept;
     [[nodiscard]] std::span<const EngineTelemetryFrame> telemetry() const noexcept;
+    // Contains only complete cycles whose end boundary was crossed in this block.
+    // A cycle spanning blocks is emitted exactly once, with the block that ends it.
+    [[nodiscard]] std::span<const EngineCompletedCycleEvidence>
+    cycle_evidence() const noexcept;
 
   private:
-    EngineSessionBlockView(std::uint64_t block_ordinal, EngineSessionBlockPhase phase,
-                           std::uint64_t first_physics_frame,
-                           std::uint32_t physics_frame_count,
-                           std::uint64_t first_delivery_frame,
-                           std::uint32_t delivery_frame_count,
-                           std::span<const EngineAudioBusBlockView> audio_buses,
-                           std::span<const EngineTelemetryFrame> telemetry) noexcept;
+    EngineSessionBlockView(
+        std::uint64_t block_ordinal, EngineSessionBlockPhase phase,
+        std::uint64_t first_physics_frame, std::uint32_t physics_frame_count,
+        std::uint64_t first_delivery_frame, std::uint32_t delivery_frame_count,
+        std::span<const EngineAudioBusBlockView> audio_buses,
+        std::span<const EngineTelemetryFrame> telemetry,
+        std::span<const EngineCompletedCycleEvidence> cycle_evidence) noexcept;
 
     std::uint64_t block_ordinal_ = 0;
     EngineSessionBlockPhase phase_ = EngineSessionBlockPhase::preparation;
@@ -149,6 +236,7 @@ class EngineSessionBlockView final {
     std::uint32_t delivery_frame_count_ = 0;
     std::span<const EngineAudioBusBlockView> audio_buses_;
     std::span<const EngineTelemetryFrame> telemetry_;
+    std::span<const EngineCompletedCycleEvidence> cycle_evidence_;
 
     friend class EngineSession;
 };

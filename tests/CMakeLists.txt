@@ -1025,6 +1025,30 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_session_exact_cycle_evidence_tests
+    session_exact_cycle_evidence_test.cpp
+)
+
+target_include_directories(
+    engine_sim_offline_session_exact_cycle_evidence_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(
+    engine_sim_offline_session_exact_cycle_evidence_tests
+    PRIVATE engine_sim_offline::session
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_session_exact_cycle_evidence_tests
+)
+
+add_test(
+    NAME session.exact_cycle_evidence
+    COMMAND engine_sim_offline_session_exact_cycle_evidence_tests
+)
+
+add_executable(
     engine_sim_offline_p18_reference_audit_reader_tests
     p18_reference_audit_reader_test.cpp
 )
