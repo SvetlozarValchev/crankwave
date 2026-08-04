@@ -150,6 +150,13 @@ the declared transport delay; it never runs a second vehicle or engine model. Sw
 A/B changes gain routing only, so both paths continue advancing and the comparison
 does not restart either one.
 
+A and B enter one shared canonical-clock comparison mixer before one shared device
+resampler, AudioWorklet ring, and output graph. Neither side may have a private cabin,
+distance, EQ, dynamics, normalization, or `AudioContext` path. This deliberately fixes
+an engine-audio-lab harness limitation: its audible live and baked buttons controlled
+different downstream graphs, so its raw paired captures were stronger evidence than
+its default speaker A/B routing.
+
 The harness reports source/package identities, selected rows and load planes, source
 RPM, playback ratio, active event ownership, ring fill, underruns, uncovered frames,
 exact-silent frames, clipping, and A/B level delta. Split is diagnostic only; A and B
