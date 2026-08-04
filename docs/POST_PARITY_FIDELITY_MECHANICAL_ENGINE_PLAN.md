@@ -1,7 +1,7 @@
 # Post-parity mechanical-engine fidelity plan
 
-Status: planned; sound-bearing work is blocked on an engine-specific structural
-transfer asset.
+Status: checkpoint A complete and byte-identical; checkpoint B sound-bearing work
+is blocked on an engine-specific structural transfer asset.
 
 Date: 2026-08-04
 
@@ -23,6 +23,46 @@ method block              400 capture frames -> 3,840 source frames
 
 This plan does not authorize a generic mechanical oscillator, pulse train, noise bed,
 resonator bank, or reused exhaust impulse response.
+
+## Checkpoint A closure: diagnostic capture only
+
+The no-audio checkpoint is complete:
+
+- `59fd98c` added one identity-stable axial pressure-force diagnostic lane per
+  cylinder;
+- `299cfd1` renamed the coordinator from captured-gas-source to captured-source,
+  without aliases or a second execution path; and
+- `e0238ac` completed unequal-bore, terminal-prevalidation, isolation, and coordinator
+  coupling coverage and documented the current product boundary.
+
+The existing `CapturedSourceExcitationSession` remains one coordinator transaction.
+It publishes the force matrix on the canonical 20 kHz post-step capture clock, in
+frame-major canonical cylinder order, beside the unchanged exhaust and intake views.
+The raw values are forces in newtons: they are diagnostic physical excitation, not
+microphone pressure or audio.
+
+This checkpoint does **not** declare a `mechanical.engine` route, route-level wrench,
+presentation processor, stem, manifest record, or master contribution. The admitted
+product currently obtains gas, exhaust, intake, and cylinder thermodynamic capture
+from the same low-order block and coordinates them in one transaction. That coupling
+was reviewed and is non-blocking for the current product; a future mechanical-only
+capture product may split admission when such a product exists.
+
+Fresh Release verification at `e0238ac` established:
+
+- all 91 tests passed;
+- a fresh 15-second BMW held-dyno render completed in 35.71 seconds;
+- all 11 accepted WAV files matched
+  `artifacts/listening/fidelity-intake-pressure-bmw-20khz-9530402/audio` byte for
+  byte, including master-audition SHA-256
+  `24e48c3e1eba564ee34fbb57080faeccf6ce491399213215cb70355f076d4b95`; and
+- browser verification retained ABI 6, the 3,840,056-byte exported WAV at SHA-256
+  `f1c057e2eef807f0d68711dc1e196e04093faab3c306d37f7523c8a8d2ce6130`, zero BMW
+  and V8 startup underruns, and all 22 packages.
+
+No audition stop was needed because no sound path or output sample changed. The next
+sound-bearing transfer must still produce the A/B/C/D set below and **STOP** for
+audition before any later mechanical component begins.
 
 ## First physical excitation
 
@@ -106,24 +146,29 @@ claiming a later phase will repair it.
 
 ## Two checkpoints
 
-### A. Topology and capture, no audio change
+### A. Topology and capture, no audio change — complete
 
-- Add the typed `mechanical.engine` component inventory and stable per-cylinder
-  pressure/force diagnostic seam.
-- Preserve cylinder identity, units, capture clock, sample phase, and block continuity.
-- Do not collapse the component lanes into the route-level body wrench before the
+- Added the typed six-cylinder axial pressure-force diagnostic seam needed by a
+  future `mechanical.engine` implementation.
+- Preserved cylinder identity, units, capture clock, sample phase, and block
+  continuity.
+- Did not collapse the component lanes into a route-level body wrench before the
   structural transfer.
-- Keep the production master on the accepted exhaust-plus-intake route set until the
+- Kept the production master on the accepted exhaust-plus-intake route set until the
   required transfer asset is admitted. Do not retain a runtime silent/active switch.
-- Prove every existing exhaust, intake, raw-master, and audition-master WAV byte for
+- Proved every existing exhaust, intake, raw-master, and audition-master WAV byte for
   byte against the accepted control.
 
-This checkpoint may be implemented before the transfer asset exists. It is an SI
-capture foundation, not a listening candidate and not a claim that
-`mechanical.engine` is production-complete.
+This checkpoint is the implemented SI capture foundation. It is not a listening
+candidate and does not claim that `mechanical.engine` exists or is
+production-complete. The production component inventory and physical route admission
+belong to checkpoint B, when a real transfer can be admitted; checkpoint A adds no
+silent route or zero mechanical presentation block.
 
 ### B. One sound-bearing structural route
 
+- Admit the `mechanical.engine` component inventory and physical route only with the
+  real structural transfer below.
 - Add a typed pressure/force-to-acoustic transfer-matrix asset contract. Do not
   overload the untyped exhaust-IR meaning.
 - Reconstruct each cylinder lane to 192 kHz and apply its matching causal transfer.
@@ -150,9 +195,9 @@ Produce all four 15-second BMW held-dyno comparisons from one render:
 
 All clips have the same crop, clock, frame count, fades, and polarity convention. A
 and D use the same master gain. No clip uses independent normalization, automatic
-leveling, limiting, saturation, soft clipping, or a repair EQ. The current accepted
-bake takes about 39 seconds on the development PC; the complete one-render comparison
-targets no more than 45 seconds there.
+leveling, limiting, saturation, soft clipping, or a repair EQ. The latest unchanged
+15-second control bake took 35.71 seconds on the development PC; the complete
+one-render comparison targets no more than 45 seconds there.
 
 After technical rejection checks pass, stop immediately for listening. Do not begin
 starter, side-thrust, valvetrain, accessory, UI, or other fidelity work first. A tonal

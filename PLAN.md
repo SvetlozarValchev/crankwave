@@ -1,7 +1,7 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — audible intake and browser realtime closure verified; mechanical
-source capture seam next
+Status: active — byte-identical mechanical force-capture seam verified;
+sound-bearing mechanical transfer blocked on BMW structural evidence
 
 Branch: `clean-room/bmw-baseline`
 
@@ -13,8 +13,9 @@ accepted; cylinder/collector routing is explicit; the separately published intak
 pressure path preserved every accepted exhaust WAV byte for byte and passed its matched
 control/solo/full listening gate on 2026-08-04. The follow-up reconstruction and
 browser-pump performance work preserved all 11 accepted WAVs byte for byte and restored
-zero-underrun BMW/V8 browser startup through the same renderer. Fidelity queue item 4
-may now begin with its byte-identical mechanical-source capture seam.**
+zero-underrun BMW/V8 browser startup through the same renderer. Fidelity queue item 4's
+20 kHz per-cylinder pressure-force diagnostic seam is now complete and preserves the
+accepted audio exactly; no `mechanical.engine` route or sound path exists yet.**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -1035,11 +1036,19 @@ candidate with the accepted parity renderer as its control:
    and passes the full zero-startup-underrun browser gate**);
 4. add `mechanical.engine`, valvetrain, and `mechanical.starter` as independent gates,
    beginning with a byte-identical per-cylinder combustion/compression-force capture
-   seam. The sound-bearing engine-structure route is blocked until a calibrated,
-   rights-cleared BMW M52 pressure/force-to-radiated-sound transfer matrix or identified
-   structural model exists; no generic resonator/noise substitute is admitted. Its
-   eventual one-render A/B/C/D gate targets no more than 45 seconds and stops for
-   listening before any later mechanical component. See
+   seam (**capture checkpoint complete: `59fd98c` added the 20 kHz post-step,
+   frame-major per-cylinder force diagnostic; `299cfd1` generalized the single
+   coordinator's naming; and `e0238ac` closed coverage and documented the current
+   non-blocking product coupling. Fresh Release verification passed 91/91 tests,
+   reproduced all 11 accepted WAVs byte for byte in a 35.71-second BMW render, and
+   passed ABI-6 browser verification with zero BMW/V8 startup underruns and all 22
+   packages. Raw force remains non-acoustic diagnostic data; no mechanical route,
+   presentation, manifest, or master contribution was admitted, so no audition stop
+   was required**). The sound-bearing engine-structure route is blocked until a
+   calibrated, rights-cleared BMW M52 pressure/force-to-radiated-sound transfer matrix
+   or identified structural-and-radiation model exists; no generic resonator/noise
+   substitute is admitted. Its eventual one-render A/B/C/D gate targets no more than
+   45 seconds and stops for listening before any later mechanical component. See
    [`docs/POST_PARITY_FIDELITY_MECHANICAL_ENGINE_PLAN.md`](docs/POST_PARITY_FIDELITY_MECHANICAL_ENGINE_PLAN.md);
 5. couple combustion variation and flow noise to combustion work, valve flow, and
    pressure ratio rather than granting static generic jitter/noise sole authority;
