@@ -69,7 +69,9 @@ does not become an engine or drivetrain simulator.
 
 ## Representation
 
-The atlas retains continuous performances. Exact 720-degree boundaries remain useful
+The atlas retains continuous performances. Capture-rig motion state such as
+HeldDyno ownership is not an atlas engine-state bit; ignition, fuel, starter, limiter,
+and limiter-cut state are. Exact 720-degree boundaries remain useful
 metadata for phase measurement and safe handoffs, but normal running never copies and
 repeats one isolated cycle as its fundamental unit.
 

@@ -114,10 +114,10 @@ void validate_handoff(ValidationReport &report,
             "maximum RPM error must be finite and nonnegative");
     require(report,
             detail::finite_nonnegative(
-                handoff.maximum_rpm_slope_error_rpm_per_second),
+                handoff.maximum_normalized_rpm_slope_error_per_second),
             ContractIssueCode::invalid_value,
-            path + ".maximum_rpm_slope_error_rpm_per_second",
-            "maximum RPM-slope error must be finite and nonnegative");
+            path + ".maximum_normalized_rpm_slope_error_per_second",
+            "maximum normalized RPM-slope error must be finite and nonnegative");
     require(report, detail::finite_nonnegative(handoff.maximum_load_error) &&
                         handoff.maximum_load_error <= 2.0,
             ContractIssueCode::invalid_value, path + ".maximum_load_error",
@@ -369,16 +369,19 @@ ValidationReport validate(const AudioAtlasManifest &manifest) {
                 ContractIssueCode::unsupported_value, path + ".state_mask",
                 "moving-segment state mask contains unknown bits");
         require(report,
-                detail::finite(segment.rpm_slope.minimum_rpm_per_second) &&
-                    detail::finite(segment.rpm_slope.maximum_rpm_per_second) &&
-                    segment.rpm_slope.minimum_rpm_per_second <=
-                        segment.rpm_slope.maximum_rpm_per_second &&
+                detail::finite(
+                    segment.normalized_rpm_slope.minimum_per_second) &&
+                    detail::finite(
+                        segment.normalized_rpm_slope.maximum_per_second) &&
+                    segment.normalized_rpm_slope.minimum_per_second <=
+                        segment.normalized_rpm_slope.maximum_per_second &&
                     (!rising ||
-                     segment.rpm_slope.minimum_rpm_per_second > 0.0) &&
+                     segment.normalized_rpm_slope.minimum_per_second > 0.0) &&
                     (!falling ||
-                     segment.rpm_slope.maximum_rpm_per_second < 0.0),
-                ContractIssueCode::invalid_value, path + ".rpm_slope",
-                "RPM-slope envelope must be finite, ordered, and match direction");
+                     segment.normalized_rpm_slope.maximum_per_second < 0.0),
+                ContractIssueCode::invalid_value,
+                path + ".normalized_rpm_slope",
+                "normalized RPM-slope envelope must be finite, ordered, and match direction");
         require(report, valid_frame_range(segment.captured_frames),
                 ContractIssueCode::invalid_value, path + ".captured_frames",
                 "captured frame range must be nonempty");

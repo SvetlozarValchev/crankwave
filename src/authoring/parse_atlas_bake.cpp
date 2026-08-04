@@ -125,24 +125,24 @@ void parse_rpm_range(DocumentReader &reader, JsonValue value, std::string_view p
     }
 }
 
-void parse_slope_range(DocumentReader &reader, JsonValue value,
-                       std::string_view path, AtlasBakeRpmSlopeRange &output) {
+void parse_normalized_slope_range(
+    DocumentReader &reader, JsonValue value, std::string_view path,
+    AtlasBakeNormalizedRpmSlopeRange &output) {
     if (!reader.object(value, path)) {
         return;
     }
     reader.reject_unknown(value, path,
-                          {"minimum_rpm_per_second",
-                           "maximum_rpm_per_second"});
-    reader.number(reader.required(value, "minimum_rpm_per_second", path),
-                  pointer_member(path, "minimum_rpm_per_second"),
-                  output.minimum_rpm_per_second);
-    reader.number(reader.required(value, "maximum_rpm_per_second", path),
-                  pointer_member(path, "maximum_rpm_per_second"),
-                  output.maximum_rpm_per_second);
-    if (output.maximum_rpm_per_second < output.minimum_rpm_per_second) {
+                          {"minimum_per_second", "maximum_per_second"});
+    reader.number(reader.required(value, "minimum_per_second", path),
+                  pointer_member(path, "minimum_per_second"),
+                  output.minimum_per_second);
+    reader.number(reader.required(value, "maximum_per_second", path),
+                  pointer_member(path, "maximum_per_second"),
+                  output.maximum_per_second);
+    if (output.maximum_per_second < output.minimum_per_second) {
         reader.add(DiagnosticCode::inconsistent_value,
-                   pointer_member(path, "maximum_rpm_per_second"),
-                   "maximum RPM slope must not be below minimum RPM slope");
+                   pointer_member(path, "maximum_per_second"),
+                   "maximum normalized slope must not be below its minimum");
     }
 }
 
@@ -154,7 +154,7 @@ void parse_handoff(DocumentReader &reader, JsonValue value, std::string_view pat
     reader.reject_unknown(
         value, path,
         {"transition_frames", "maximum_rpm_error",
-         "maximum_rpm_slope_error_rpm_per_second", "maximum_load_error",
+         "maximum_normalized_rpm_slope_error_per_second", "maximum_load_error",
          "maximum_crank_phase_error_revolutions"});
     reader.uint32(reader.required(value, "transition_frames", path),
                   pointer_member(path, "transition_frames"),
@@ -163,9 +163,11 @@ void parse_handoff(DocumentReader &reader, JsonValue value, std::string_view pat
                               pointer_member(path, "maximum_rpm_error"),
                               output.maximum_rpm_error);
     reader.nonnegative_number(
-        reader.required(value, "maximum_rpm_slope_error_rpm_per_second", path),
-        pointer_member(path, "maximum_rpm_slope_error_rpm_per_second"),
-        output.maximum_rpm_slope_error_rpm_per_second);
+        reader.required(value,
+                        "maximum_normalized_rpm_slope_error_per_second", path),
+        pointer_member(path,
+                       "maximum_normalized_rpm_slope_error_per_second"),
+        output.maximum_normalized_rpm_slope_error_per_second);
     reader.nonnegative_number(reader.required(value, "maximum_load_error", path),
                               pointer_member(path, "maximum_load_error"),
                               output.maximum_load_error);
@@ -199,7 +201,7 @@ void parse_moving_segment(DocumentReader &reader, JsonValue value,
     }
     reader.reject_unknown(value, path,
                           {"id", "direction", "load_coordinate", "state_mask",
-                           "rpm_slope", "captured_rpm", "usable_rpm", "scenario",
+                           "normalized_rpm_slope", "captured_rpm", "usable_rpm", "scenario",
                            "handoff"});
     reader.id(reader.required(value, "id", path), pointer_member(path, "id"),
               output.id);
@@ -212,8 +214,10 @@ void parse_moving_segment(DocumentReader &reader, JsonValue value,
                   pointer_member(path, "load_coordinate"), output.load_coordinate);
     reader.uint32(reader.required(value, "state_mask", path),
                   pointer_member(path, "state_mask"), output.state_mask);
-    parse_slope_range(reader, reader.required(value, "rpm_slope", path),
-                      pointer_member(path, "rpm_slope"), output.rpm_slope);
+    parse_normalized_slope_range(
+        reader, reader.required(value, "normalized_rpm_slope", path),
+        pointer_member(path, "normalized_rpm_slope"),
+        output.normalized_rpm_slope);
     parse_rpm_range(reader, reader.required(value, "captured_rpm", path),
                     pointer_member(path, "captured_rpm"), output.captured_rpm);
     parse_rpm_range(reader, reader.required(value, "usable_rpm", path),
@@ -229,18 +233,18 @@ void parse_moving_segment(DocumentReader &reader, JsonValue value,
                    "moving-segment load coordinate must lie in [-1, 1]");
     }
     if (output.direction == AtlasBakeMovingDirection::rising &&
-        output.rpm_slope.minimum_rpm_per_second <= 0.0) {
+        output.normalized_rpm_slope.minimum_per_second <= 0.0) {
         reader.add(DiagnosticCode::inconsistent_value,
-                   pointer_member(pointer_member(path, "rpm_slope"),
-                                  "minimum_rpm_per_second"),
-                   "a rising segment requires strictly positive RPM slope");
+                   pointer_member(pointer_member(path, "normalized_rpm_slope"),
+                                  "minimum_per_second"),
+                   "a rising segment requires strictly positive normalized slope");
     }
     if (output.direction == AtlasBakeMovingDirection::falling &&
-        output.rpm_slope.maximum_rpm_per_second >= 0.0) {
+        output.normalized_rpm_slope.maximum_per_second >= 0.0) {
         reader.add(DiagnosticCode::inconsistent_value,
-                   pointer_member(pointer_member(path, "rpm_slope"),
-                                  "maximum_rpm_per_second"),
-                   "a falling segment requires strictly negative RPM slope");
+                   pointer_member(pointer_member(path, "normalized_rpm_slope"),
+                                  "maximum_per_second"),
+                   "a falling segment requires strictly negative normalized slope");
     }
     if (output.usable_rpm.minimum <= output.captured_rpm.minimum ||
         output.usable_rpm.maximum >= output.captured_rpm.maximum) {

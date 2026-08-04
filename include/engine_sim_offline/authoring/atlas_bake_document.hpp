@@ -53,12 +53,12 @@ struct AtlasBakeRpmRange {
                            const AtlasBakeRpmRange &) = default;
 };
 
-struct AtlasBakeRpmSlopeRange {
-    double minimum_rpm_per_second = 0.0;
-    double maximum_rpm_per_second = 0.0;
+struct AtlasBakeNormalizedRpmSlopeRange {
+    double minimum_per_second = 0.0;
+    double maximum_per_second = 0.0;
 
-    friend bool operator==(const AtlasBakeRpmSlopeRange &,
-                           const AtlasBakeRpmSlopeRange &) = default;
+    friend bool operator==(const AtlasBakeNormalizedRpmSlopeRange &,
+                           const AtlasBakeNormalizedRpmSlopeRange &) = default;
 };
 
 enum class AtlasBakeMovingDirection : std::uint8_t {
@@ -69,7 +69,7 @@ enum class AtlasBakeMovingDirection : std::uint8_t {
 struct AtlasBakeHandoffEnvelope {
     std::uint32_t transition_frames = 0;
     double maximum_rpm_error = 0.0;
-    double maximum_rpm_slope_error_rpm_per_second = 0.0;
+    double maximum_normalized_rpm_slope_error_per_second = 0.0;
     double maximum_load_error = 0.0;
     double maximum_crank_phase_error_revolutions = 0.0;
 
@@ -84,7 +84,7 @@ struct AtlasBakeMovingSegment {
     AtlasBakeMovingDirection direction = AtlasBakeMovingDirection::rising;
     double load_coordinate = 0.0;
     std::uint32_t state_mask = 0;
-    AtlasBakeRpmSlopeRange rpm_slope;
+    AtlasBakeNormalizedRpmSlopeRange normalized_rpm_slope;
     AtlasBakeRpmRange captured_rpm;
     AtlasBakeRpmRange usable_rpm;
     AtlasBakeScenarioSourceRef scenario;

@@ -153,13 +153,13 @@
         "maximum": { "type": "number", "exclusiveMinimum": 0 }
       }
     },
-    "rpmSlopeRange": {
+    "normalizedRpmSlopeRange": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["minimum_rpm_per_second", "maximum_rpm_per_second"],
+      "required": ["minimum_per_second", "maximum_per_second"],
       "properties": {
-        "minimum_rpm_per_second": { "type": "number" },
-        "maximum_rpm_per_second": { "type": "number" }
+        "minimum_per_second": { "type": "number" },
+        "maximum_per_second": { "type": "number" }
       }
     },
     "timelineKnot": {
@@ -184,8 +184,8 @@
         "signed_load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
         "manifold_pressure_pa_abs": { "type": "number", "exclusiveMinimum": 0 },
         "unwrapped_crank_revolutions": { "type": "number" },
-        "state_mask": { "type": "integer", "minimum": 0, "maximum": 63 },
-        "transition_mask": { "type": "integer", "minimum": 0, "maximum": 63 }
+        "state_mask": { "type": "integer", "minimum": 0, "maximum": 31 },
+        "transition_mask": { "type": "integer", "minimum": 0, "maximum": 31 }
       }
     },
     "fractionalFrame": {
@@ -213,14 +213,14 @@
       "required": [
         "transition_frames",
         "maximum_rpm_error",
-        "maximum_rpm_slope_error_rpm_per_second",
+        "maximum_normalized_rpm_slope_error_per_second",
         "maximum_load_error",
         "maximum_crank_phase_error_revolutions"
       ],
       "properties": {
         "transition_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
         "maximum_rpm_error": { "type": "number", "minimum": 0 },
-        "maximum_rpm_slope_error_rpm_per_second": { "type": "number", "minimum": 0 },
+        "maximum_normalized_rpm_slope_error_per_second": { "type": "number", "minimum": 0 },
         "maximum_load_error": { "type": "number", "minimum": 0, "maximum": 2 },
         "maximum_crank_phase_error_revolutions": { "type": "number", "minimum": 0, "maximum": 0.5 }
       }
@@ -233,7 +233,7 @@
         "direction",
         "load_coordinate",
         "state_mask",
-        "rpm_slope",
+        "normalized_rpm_slope",
         "captured_frames",
         "usable_frames",
         "captured_rpm",
@@ -249,8 +249,8 @@
         "id": { "$ref": "#/$defs/id" },
         "direction": { "enum": ["rising", "falling"] },
         "load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
-        "state_mask": { "type": "integer", "minimum": 0, "maximum": 63 },
-        "rpm_slope": { "$ref": "#/$defs/rpmSlopeRange" },
+        "state_mask": { "type": "integer", "minimum": 0, "maximum": 31 },
+        "normalized_rpm_slope": { "$ref": "#/$defs/normalizedRpmSlopeRange" },
         "captured_frames": { "$ref": "#/$defs/frameRange" },
         "usable_frames": { "$ref": "#/$defs/frameRange" },
         "captured_rpm": { "$ref": "#/$defs/rpmRange" },

@@ -53,7 +53,7 @@ void expect(bool condition, std::string_view message) {
     segment.direction = contract::AudioAtlasMovingDirection::rising;
     segment.load_coordinate = 1.0;
     segment.state_mask = 3U;
-    segment.rpm_slope = {1900.0, 2100.0};
+    segment.normalized_rpm_slope = {0.9, 1.1};
     segment.captured_frames = {0U, 48000U};
     segment.usable_frames = {4800U, 43200U};
     segment.captured_rpm = {1000.0, 3000.0};
@@ -72,7 +72,7 @@ void expect(bool condition, std::string_view message) {
         {12U, {12000U, 12001U, 0.25}},
         {13U, {14400U, 14401U, 0.75}},
     };
-    segment.handoff = {1024U, 25.0, 100.0, 0.1, 0.05};
+    segment.handoff = {1024U, 25.0, 0.1, 0.1, 0.05};
     manifest.moving_segments = {std::move(segment)};
     manifest.provenance = {
         identity("bmw-m52tub28-cleanroom", 3U),
@@ -116,9 +116,9 @@ void expect(bool condition, std::string_view message) {
       "direction": "rising",
       "load_coordinate": 1,
       "state_mask": 3,
-      "rpm_slope": {
-        "minimum_rpm_per_second": 1900,
-        "maximum_rpm_per_second": 2100
+      "normalized_rpm_slope": {
+        "minimum_per_second": 0.9,
+        "maximum_per_second": 1.1
       },
       "captured_rpm": {"minimum": 1000, "maximum": 3000},
       "usable_rpm": {"minimum": 1200, "maximum": 2800},
@@ -126,7 +126,7 @@ void expect(bool condition, std::string_view message) {
       "handoff": {
         "transition_frames": 1024,
         "maximum_rpm_error": 25,
-        "maximum_rpm_slope_error_rpm_per_second": 100,
+        "maximum_normalized_rpm_slope_error_per_second": 0.1,
         "maximum_load_error": 0.1,
         "maximum_crank_phase_error_revolutions": 0.05
       }
@@ -208,6 +208,13 @@ void test_manifest_timeline_ranges_and_references_fail_closed() {
                      contract::ContractIssueCode::dangling_reference,
                      "moving_segments[0].artifacts[0].bus_id"),
            "dangling atlas bus reference was accepted");
+
+    auto capture_rig_state = valid_manifest();
+    capture_rig_state.moving_segments[0].state_mask = 32U;
+    expect(has_issue(contract::validate(capture_rig_state),
+                     contract::ContractIssueCode::unsupported_value,
+                     "moving_segments[0].state_mask"),
+           "a capture-rig-only state bit entered the audio atlas");
 }
 
 void test_bake_grammar_and_future_arrays_are_strict() {

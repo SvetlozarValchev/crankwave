@@ -25,6 +25,7 @@ namespace engine_sim_offline {
 namespace {
 
 constexpr compile::SiRate kAtlasDeliveryRate{192000U, 1U};
+constexpr compile::SiRate kAtlasPhysicsRate{20000U, 1U};
 
 [[nodiscard]] authoring::Diagnostic
 make_diagnostic(const authoring::DiagnosticCode code, std::string path,
@@ -275,31 +276,33 @@ void validate_moving_segments(const authoring::AtlasBakeDocument &document,
                 base + "/usable_rpm",
                 "usable RPM range lies outside the atlas domain");
         }
-        const auto &slope = segment.rpm_slope;
-        if (!std::isfinite(slope.minimum_rpm_per_second) ||
-            !std::isfinite(slope.maximum_rpm_per_second) ||
-            slope.minimum_rpm_per_second > slope.maximum_rpm_per_second) {
+        const auto &slope = segment.normalized_rpm_slope;
+        if (!std::isfinite(slope.minimum_per_second) ||
+            !std::isfinite(slope.maximum_per_second) ||
+            slope.minimum_per_second > slope.maximum_per_second) {
             add(report, authoring::DiagnosticCode::invalid_value,
-                base + "/rpm_slope", "RPM slope range must be finite and ascending");
+                base + "/normalized_rpm_slope",
+                "normalized RPM-slope range must be finite and ascending");
         } else if (segment.direction ==
                        authoring::AtlasBakeMovingDirection::rising &&
-                   !(slope.minimum_rpm_per_second > 0.0)) {
+                   !(slope.minimum_per_second > 0.0)) {
             add(report, authoring::DiagnosticCode::inconsistent_value,
-                base + "/rpm_slope",
-                "a rising segment requires a strictly positive RPM slope range");
+                base + "/normalized_rpm_slope",
+                "a rising segment requires a strictly positive normalized slope range");
         } else if (segment.direction ==
                        authoring::AtlasBakeMovingDirection::falling &&
-                   !(slope.maximum_rpm_per_second < 0.0)) {
+                   !(slope.maximum_per_second < 0.0)) {
             add(report, authoring::DiagnosticCode::inconsistent_value,
-                base + "/rpm_slope",
-                "a falling segment requires a strictly negative RPM slope range");
+                base + "/normalized_rpm_slope",
+                "a falling segment requires a strictly negative normalized slope range");
         }
         const auto &handoff = segment.handoff;
         if (handoff.transition_frames == 0U ||
             !std::isfinite(handoff.maximum_rpm_error) ||
             handoff.maximum_rpm_error < 0.0 ||
-            !std::isfinite(handoff.maximum_rpm_slope_error_rpm_per_second) ||
-            handoff.maximum_rpm_slope_error_rpm_per_second < 0.0 ||
+            !std::isfinite(
+                handoff.maximum_normalized_rpm_slope_error_per_second) ||
+            handoff.maximum_normalized_rpm_slope_error_per_second < 0.0 ||
             !std::isfinite(handoff.maximum_load_error) ||
             handoff.maximum_load_error < 0.0 || handoff.maximum_load_error > 2.0 ||
             !std::isfinite(handoff.maximum_crank_phase_error_revolutions) ||
@@ -346,11 +349,22 @@ void validate_compiled_source(
             source_document_path(source_index, "/public_seed"),
             "source scenario public seed must equal the atlas public seed");
     }
-    if (scenario.rates.delivery.numerator != kAtlasDeliveryRate.numerator_hz ||
-        scenario.rates.delivery.denominator != kAtlasDeliveryRate.denominator) {
+    const auto has_rate = [](const auto &rate, const compile::SiRate expected) {
+        return rate.numerator == expected.numerator_hz &&
+               rate.denominator == expected.denominator;
+    };
+    if (!has_rate(scenario.rates.physics, kAtlasPhysicsRate) ||
+        !has_rate(scenario.rates.capture, kAtlasPhysicsRate)) {
         add(report, authoring::DiagnosticCode::unsupported_capability,
-            source_document_path(source_index, "/rates/delivery"),
-            "source scenario delivery rate must equal 192000/1 Hz");
+            source_document_path(source_index, "/rates"),
+            "atlas sources require canonical 20000/1 Hz physics and capture clocks");
+    }
+    if (!has_rate(scenario.rates.source_processing, kAtlasDeliveryRate) ||
+        !has_rate(scenario.rates.acoustic, kAtlasDeliveryRate) ||
+        !has_rate(scenario.rates.delivery, kAtlasDeliveryRate)) {
+        add(report, authoring::DiagnosticCode::unsupported_capability,
+            source_document_path(source_index, "/rates"),
+            "atlas sources require canonical 192000/1 Hz source, acoustics, and delivery clocks");
     }
     if (compiled.scenario.request_input.total_physics_frames == 0U ||
         compiled.scenario.request_input.audible_delivery_frames == 0U ||

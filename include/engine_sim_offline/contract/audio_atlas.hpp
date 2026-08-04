@@ -93,15 +93,31 @@ struct AudioAtlasRpmRange {
                            const AudioAtlasRpmRange &) = default;
 };
 
-struct AudioAtlasRpmSlopeRange {
-    double minimum_rpm_per_second = 0.0;
-    double maximum_rpm_per_second = 0.0;
+struct AudioAtlasNormalizedRpmSlopeRange {
+    double minimum_per_second = 0.0;
+    double maximum_per_second = 0.0;
 
-    friend bool operator==(const AudioAtlasRpmSlopeRange &,
-                           const AudioAtlasRpmSlopeRange &) = default;
+    friend bool operator==(const AudioAtlasNormalizedRpmSlopeRange &,
+                           const AudioAtlasNormalizedRpmSlopeRange &) = default;
 };
 
-inline constexpr std::uint32_t kAudioAtlasKnownStateMask = (1U << 6U) - 1U;
+// Atlas state describes audible engine state, never the rig that happened to
+// capture it. In particular, HeldDyno's motion-owner flag is deliberately absent
+// so the same material can follow a free engine or vehicle drivetrain.
+enum class AudioAtlasEngineStateFlag : std::uint8_t {
+    ignition_enabled = 0U,
+    fuel_enabled = 1U,
+    starter_enabled = 2U,
+    limiter_enabled = 3U,
+    limiter_cut_active = 4U,
+};
+
+[[nodiscard]] constexpr std::uint32_t audio_atlas_engine_state_flag_mask(
+    const AudioAtlasEngineStateFlag flag) noexcept {
+    return UINT32_C(1) << static_cast<std::uint8_t>(flag);
+}
+
+inline constexpr std::uint32_t kAudioAtlasKnownStateMask = (1U << 5U) - 1U;
 
 enum class AudioAtlasMovingDirection : std::uint8_t {
     rising,
@@ -159,7 +175,7 @@ struct AudioAtlasCrankBoundary {
 struct AudioAtlasHandoffEnvelope {
     std::uint32_t transition_frames = 0;
     double maximum_rpm_error = 0.0;
-    double maximum_rpm_slope_error_rpm_per_second = 0.0;
+    double maximum_normalized_rpm_slope_error_per_second = 0.0;
     double maximum_load_error = 0.0;
     double maximum_crank_phase_error_revolutions = 0.0;
 
@@ -175,7 +191,7 @@ struct AudioAtlasMovingSegment {
     AudioAtlasMovingDirection direction = AudioAtlasMovingDirection::rising;
     double load_coordinate = 0.0;
     std::uint32_t state_mask = 0;
-    AudioAtlasRpmSlopeRange rpm_slope;
+    AudioAtlasNormalizedRpmSlopeRange normalized_rpm_slope;
     AudioAtlasFrameRange captured_frames;
     AudioAtlasFrameRange usable_frames;
     AudioAtlasRpmRange captured_rpm;

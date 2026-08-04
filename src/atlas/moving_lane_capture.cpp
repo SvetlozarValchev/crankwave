@@ -41,20 +41,22 @@ fail(AtlasMovingLaneCaptureErrorCode code, std::string detail_code,
            left.sample_rate == right.sample_rate;
 }
 
-[[nodiscard]] EngineCycleStateFlagMask
+[[nodiscard]] std::uint32_t
 state_mask(const contract::EngineCaptureSample &sample) noexcept {
-    EngineCycleStateFlagMask result = 0U;
-    const auto set = [&result](bool enabled, EngineCycleStateFlag flag) {
+    using contract::AudioAtlasEngineStateFlag;
+    std::uint32_t result = 0U;
+    const auto set = [&result](const bool enabled,
+                               const AudioAtlasEngineStateFlag flag) {
         if (enabled) {
-            result |= engine_cycle_state_flag_mask(flag);
+            result |= contract::audio_atlas_engine_state_flag_mask(flag);
         }
     };
-    set(sample.ignition_enabled, EngineCycleStateFlag::ignition_enabled);
-    set(sample.fuel_enabled, EngineCycleStateFlag::fuel_enabled);
-    set(sample.starter_enabled, EngineCycleStateFlag::starter_enabled);
-    set(sample.dyno_enabled, EngineCycleStateFlag::dyno_enabled);
-    set(sample.limiter_enabled, EngineCycleStateFlag::limiter_enabled);
-    set(sample.limiter_cut_active, EngineCycleStateFlag::limiter_cut_active);
+    set(sample.ignition_enabled, AudioAtlasEngineStateFlag::ignition_enabled);
+    set(sample.fuel_enabled, AudioAtlasEngineStateFlag::fuel_enabled);
+    set(sample.starter_enabled, AudioAtlasEngineStateFlag::starter_enabled);
+    set(sample.limiter_enabled, AudioAtlasEngineStateFlag::limiter_enabled);
+    set(sample.limiter_cut_active,
+        AudioAtlasEngineStateFlag::limiter_cut_active);
     return result;
 }
 
@@ -72,22 +74,73 @@ state_mask(const contract::EngineCaptureSample &sample) noexcept {
 
 [[nodiscard]] contract::AudioAtlasTimelineKnot
 make_knot(std::uint64_t frame, const EngineTelemetryFrame &telemetry,
-          double signed_load_coordinate,
-          EngineCycleStateFlagMask transition_mask) noexcept {
+          double signed_load_coordinate) noexcept {
     const auto &sample = telemetry.engine;
-    constexpr double kRadiansPerSecondToRpm =
-        60.0 / (2.0 * std::numbers::pi_v<double>);
     return {
         frame,
         sample.engine_speed_rpm,
-        sample.angular_acceleration_rad_s2 * kRadiansPerSecondToRpm,
+        0.0,
         sample.requested_throttle_01,
         signed_load_coordinate,
         telemetry.mean_intake_manifold_pressure_pa_abs,
         sample.theta_rad / (2.0 * std::numbers::pi_v<double>),
         state_mask(sample),
-        transition_mask,
+        0U,
     };
+}
+
+// Instantaneous crank acceleration contains combustion-order ripple and is not
+// the macro trajectory coordinate supplied by a host drivetrain. Derive that
+// coordinate from a local half-second secant of the measured RPM timeline.
+[[nodiscard]] bool derive_macro_rpm_slopes(
+    contract::AudioAtlasStateTimeline &timeline,
+    const contract::RationalRateHz sample_rate) noexcept {
+    auto &knots = timeline.knots;
+    if (knots.size() < 2U || sample_rate.numerator == 0U ||
+        sample_rate.denominator == 0U) {
+        return false;
+    }
+    const long double quarter_second_frames =
+        static_cast<long double>(sample_rate.numerator) /
+        (4.0L * static_cast<long double>(sample_rate.denominator));
+    for (std::size_t index = 0U; index < knots.size(); ++index) {
+        const auto center = static_cast<long double>(knots[index].frame);
+        std::size_t left = index;
+        while (left > 0U &&
+               center - static_cast<long double>(knots[left - 1U].frame) <=
+                   quarter_second_frames) {
+            --left;
+        }
+        std::size_t right = index;
+        while (right + 1U < knots.size() &&
+               static_cast<long double>(knots[right + 1U].frame) - center <=
+                   quarter_second_frames) {
+            ++right;
+        }
+        if (left == right) {
+            if (right + 1U < knots.size()) {
+                ++right;
+            } else if (left > 0U) {
+                --left;
+            } else {
+                return false;
+            }
+        }
+        const auto frame_delta = knots[right].frame - knots[left].frame;
+        const auto rpm_delta = knots[right].rpm - knots[left].rpm;
+        const long double duration_s =
+            static_cast<long double>(frame_delta) * sample_rate.denominator /
+            static_cast<long double>(sample_rate.numerator);
+        if (!(duration_s > 0.0L)) {
+            return false;
+        }
+        const auto slope = static_cast<double>(rpm_delta / duration_s);
+        if (!std::isfinite(slope)) {
+            return false;
+        }
+        knots[index].rpm_slope_rpm_per_second = slope;
+    }
+    return true;
 }
 
 [[nodiscard]] std::optional<contract::AudioAtlasFractionalFrame>
@@ -199,6 +252,8 @@ AtlasMovingLaneCaptureResult capture_atlas_moving_lane(
     const auto descriptor = session.descriptor();
     std::uint64_t expected_twenty_ms_numerator = 0U;
     if (descriptor.execution_kind != EngineSessionExecutionKind::finite_scenario ||
+        descriptor.physics_rate != kEngineSessionPhysicsRateHz ||
+        descriptor.delivery_rate != kEngineSessionDeliveryRateHz ||
         descriptor.preparation_block_count == 0U ||
         descriptor.total_block_count <= descriptor.preparation_block_count ||
         descriptor.physics_frames_per_block == 0U ||
@@ -274,7 +329,7 @@ AtlasMovingLaneCaptureResult capture_atlas_moving_lane(
     }
 
     std::optional<EngineTelemetryFrame> audible_start_state;
-    EngineCycleStateFlagMask previous_state_mask = 0U;
+    std::optional<std::uint32_t> audible_state_mask;
     std::uint64_t processed_blocks = 0U;
     while (true) {
         auto next = session.process_block();
@@ -304,6 +359,12 @@ AtlasMovingLaneCaptureResult capture_atlas_moving_lane(
                                 "atlas-moving-incomplete-pcm",
                                 "a selected bus did not fill its chronological tape");
                 }
+            }
+            if (!derive_macro_rpm_slopes(capture.timeline,
+                                         capture.sample_rate)) {
+                return fail(AtlasMovingLaneCaptureErrorCode::invalid_payload,
+                            "atlas-moving-timeline-slope-invalid",
+                            "macro RPM slope could not be derived from the captured timeline");
             }
             return capture;
         }
@@ -346,18 +407,22 @@ AtlasMovingLaneCaptureResult capture_atlas_moving_lane(
                                 "atlas-moving-start-state-missing",
                                 "audible start has no exact preceding telemetry state");
                 }
-                previous_state_mask = state_mask(audible_start_state->engine);
+                audible_state_mask = state_mask(audible_start_state->engine);
                 capture.timeline.knots.push_back(make_knot(
-                    0U, *audible_start_state, signed_load_coordinate, 0U));
+                    0U, *audible_start_state, signed_load_coordinate));
             }
             const auto local_endpoint =
                 expected_first_delivery + block.delivery_frame_count() -
                 audible_first;
             const auto current_state_mask = state_mask(telemetry.engine);
+            if (!audible_state_mask.has_value() ||
+                current_state_mask != *audible_state_mask) {
+                return fail(AtlasMovingLaneCaptureErrorCode::invalid_payload,
+                            "atlas-moving-state-transition-unsupported",
+                            "moving-only capture requires one constant audible engine state");
+            }
             capture.timeline.knots.push_back(make_knot(
-                local_endpoint, telemetry, signed_load_coordinate,
-                previous_state_mask ^ current_state_mask));
-            previous_state_mask = current_state_mask;
+                local_endpoint, telemetry, signed_load_coordinate));
 
             for (std::size_t index = 0U; index < selected.size(); ++index) {
                 const auto &expected = selected[index];
