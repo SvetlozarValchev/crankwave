@@ -15,7 +15,7 @@ extern "C" {
  * This is the only engine-sim-offline C ABI. It is a greenfield, exact-version
  * contract rather than a compatibility family.
  */
-#define ESO_C_API_VERSION UINT32_C(7)
+#define ESO_C_API_VERSION UINT32_C(8)
 #define ESO_INVALID_HANDLE UINT64_C(0)
 
 typedef struct eso_context eso_context_t;
@@ -467,6 +467,7 @@ typedef struct eso_free_vehicle_telemetry {
  */
 typedef struct eso_session_telemetry {
     uint64_t physics_step_end;
+    double mean_intake_manifold_pressure_pa_abs;
     eso_engine_telemetry_t engine;
     uint32_t has_held_dyno;
     uint32_t has_free_vehicle;

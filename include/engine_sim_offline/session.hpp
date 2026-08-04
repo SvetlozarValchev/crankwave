@@ -101,6 +101,7 @@ struct EngineFreeVehicleTelemetry {
 
 struct EngineTelemetryFrame {
     std::uint64_t physics_step_end = 0;
+    double mean_intake_manifold_pressure_pa_abs = 0.0;
     contract::EngineCaptureSample engine;
     std::optional<EngineHeldDynoTelemetry> held_dyno;
     std::optional<EngineFreeVehicleTelemetry> free_vehicle;

@@ -289,6 +289,10 @@ function readSessionTelemetry(view, pointer) {
     physicsStepEnd: decimal(
       view.getBigUint64(pointer + layout.physicsStepEnd, true),
     ),
+    meanIntakeManifoldPressurePaAbs: view.getFloat64(
+      pointer + layout.meanIntakeManifoldPressurePaAbs,
+      true,
+    ),
     ...readEngineTelemetry(view, pointer + layout.engine),
     heldDyno: hasHeldDyno
       ? readHeldDynoTelemetry(view, pointer + layout.heldDyno)

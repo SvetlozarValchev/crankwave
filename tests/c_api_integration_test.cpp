@@ -293,14 +293,14 @@ void test_motion_contract_surface(eso_context_t *context,
     eso_engine_handle_t engine = ESO_INVALID_HANDLE;
     expect(eso_compile_engine_json(context, view(engine_json), assets, 2U, &engine) ==
                ESO_STATUS_OK,
-           "M52TU engine compilation through C ABI v7 failed");
+           "M52TU engine compilation through C ABI v8 failed");
     eso_scenario_handle_t held_dyno_scenario = ESO_INVALID_HANDLE;
     eso_scenario_handle_t free_vehicle_scenario = ESO_INVALID_HANDLE;
     expect(eso_compile_scenario_json(context, engine, view(held_dyno_json),
                                      &held_dyno_scenario) == ESO_STATUS_OK &&
                eso_compile_scenario_json(context, engine, view(free_vehicle_json),
                                          &free_vehicle_scenario) == ESO_STATUS_OK,
-           "C ABI v7 motion-scenario compilation failed");
+           "C ABI v8 motion-scenario compilation failed");
 
     eso_session_handle_t held_dyno_session = ESO_INVALID_HANDLE;
     eso_session_handle_t free_vehicle_session = ESO_INVALID_HANDLE;
@@ -310,7 +310,7 @@ void test_motion_contract_surface(eso_context_t *context,
                eso_create_session(context, free_vehicle_scenario,
                                   ESO_SESSION_EXECUTION_OPEN_ENDED,
                                   &free_vehicle_session) == ESO_STATUS_OK,
-           "C ABI v7 open operating-bench session creation failed");
+           "C ABI v8 open operating-bench session creation failed");
 
     constexpr auto kCoreLiveControls = ESO_LIVE_CONTROL_CAPABILITY_THROTTLE |
                                        ESO_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED |
@@ -538,7 +538,7 @@ void test_motion_contract_surface(eso_context_t *context,
 
     expect(eso_destroy_session(context, held_dyno_session) == ESO_STATUS_OK &&
                eso_destroy_session(context, free_vehicle_session) == ESO_STATUS_OK,
-           "C ABI v7 motion-session teardown failed");
+           "C ABI v8 motion-session teardown failed");
 }
 
 void run(const std::filesystem::path &repository_root) {
@@ -799,6 +799,10 @@ void run(const std::filesystem::path &repository_root) {
     expect(std::memcmp(pcm_a.data(), pcm_b.data(), pcm_a.size() * sizeof(float)) == 0,
            "independent C sessions were not byte-stable");
     expect(telemetry_a.physics_step_end == telemetry_b.physics_step_end &&
+               telemetry_a.mean_intake_manifold_pressure_pa_abs ==
+                   telemetry_b.mean_intake_manifold_pressure_pa_abs &&
+               std::isfinite(telemetry_a.mean_intake_manifold_pressure_pa_abs) &&
+               telemetry_a.mean_intake_manifold_pressure_pa_abs > 0.0 &&
                telemetry_a.engine.engine_step_end_index ==
                    telemetry_b.engine.engine_step_end_index &&
                telemetry_a.engine.engine_speed_rpm ==

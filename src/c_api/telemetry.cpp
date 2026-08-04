@@ -211,6 +211,8 @@ eso_session_telemetry_t session_telemetry(const EngineTelemetryFrame &frame) noe
     eso_session_telemetry_t result;
     std::memset(&result, 0, sizeof(result));
     result.physics_step_end = frame.physics_step_end;
+    result.mean_intake_manifold_pressure_pa_abs =
+        frame.mean_intake_manifold_pressure_pa_abs;
     result.engine = engine_telemetry(frame.engine);
     if (frame.held_dyno.has_value()) {
         result.has_held_dyno = 1U;

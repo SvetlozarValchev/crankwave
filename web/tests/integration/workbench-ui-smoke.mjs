@@ -797,7 +797,7 @@ async function main() {
       (state) =>
         state.readyState === "complete" &&
         state.isolated &&
-        state.worker === "WASM ABI 7" &&
+        state.worker === "WASM ABI 8" &&
         !state.buildDisabled,
       "isolated workbench and WASM Worker",
     );

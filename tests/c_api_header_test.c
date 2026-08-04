@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-_Static_assert(ESO_C_API_VERSION == 7, "unexpected C ABI version");
+_Static_assert(ESO_C_API_VERSION == 8, "unexpected C ABI version");
 _Static_assert(sizeof(eso_engine_handle_t) == sizeof(uint64_t),
                "engine handle width changed");
 _Static_assert(sizeof(eso_scenario_handle_t) == sizeof(uint64_t),
@@ -94,11 +94,14 @@ _Static_assert(offsetof(eso_audio_bus_descriptor_t, kind) == 0U &&
                    sizeof(eso_audio_bus_descriptor_t) == 48U,
                "audio-bus descriptor ABI layout changed");
 _Static_assert(offsetof(eso_session_telemetry_t, physics_step_end) == 0U &&
-                   offsetof(eso_session_telemetry_t, engine) == sizeof(uint64_t) &&
+                   offsetof(eso_session_telemetry_t,
+                            mean_intake_manifold_pressure_pa_abs) == 8U &&
+                   offsetof(eso_session_telemetry_t, engine) == 16U &&
                    offsetof(eso_session_telemetry_t, has_held_dyno) <
                        offsetof(eso_session_telemetry_t, held_dyno) &&
                    offsetof(eso_session_telemetry_t, has_free_vehicle) <
-                       offsetof(eso_session_telemetry_t, free_vehicle),
+                       offsetof(eso_session_telemetry_t, free_vehicle) &&
+                   sizeof(eso_session_telemetry_t) == 704U,
                "session-telemetry ABI layout changed");
 _Static_assert(ESO_ENGINE_CYCLE_STATE_IGNITION_ENABLED == (UINT32_C(1) << 0U) &&
                    ESO_ENGINE_CYCLE_STATE_FUEL_ENABLED == (UINT32_C(1) << 1U) &&

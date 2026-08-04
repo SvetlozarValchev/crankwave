@@ -3,7 +3,7 @@
 // This module deliberately describes one ABI version. A mismatched module is
 // rejected during startup; there is no compatibility decoder.
 
-export const ESO_C_API_VERSION = 7;
+export const ESO_C_API_VERSION = 8;
 export const ESO_INVALID_HANDLE = 0n;
 export const ESO_CANONICAL_SAMPLE_RATE = 192_000;
 
@@ -528,13 +528,14 @@ export const Layout = Object.freeze({
     appliedAverageRoadLoadForceN: 88,
   }),
   sessionTelemetry: Object.freeze({
-    size: 696,
+    size: 704,
     physicsStepEnd: 0,
-    engine: 8,
-    hasHeldDyno: 544,
-    hasFreeVehicle: 548,
-    heldDyno: 552,
-    freeVehicle: 600,
+    meanIntakeManifoldPressurePaAbs: 8,
+    engine: 16,
+    hasHeldDyno: 552,
+    hasFreeVehicle: 556,
+    heldDyno: 560,
+    freeVehicle: 608,
   }),
   cycleBoundaryEvidence: Object.freeze({
     size: 56,

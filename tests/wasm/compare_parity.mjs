@@ -245,8 +245,8 @@ async function main() {
     wasmBundle.metadata.semantic,
     "native and wasm topology, controls, clocks, and discrete state differ",
   );
-  assert.equal(nativeBundle.metadata.abi.api_version, 7);
-  assert.equal(wasmBundle.metadata.abi.api_version, 7);
+  assert.equal(nativeBundle.metadata.abi.api_version, 8);
+  assert.equal(wasmBundle.metadata.abi.api_version, 8);
   assert.equal(nativeBundle.metadata.abi.pointer_size, 8);
   assert.equal(nativeBundle.metadata.abi.size_type_size, 8);
   assert.equal(wasmBundle.metadata.abi.pointer_size, 4);

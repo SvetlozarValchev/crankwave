@@ -240,6 +240,11 @@ function makeFakeClient({
           BigInt(100 + index),
           true,
         );
+        view.setFloat64(
+          base + Layout.sessionTelemetry.meanIntakeManifoldPressurePaAbs,
+          95_000 + index,
+          true,
+        );
         writeEngineTelemetry(
           view,
           base + Layout.sessionTelemetry.engine,
@@ -435,17 +440,18 @@ function makeFakeClient({
   return { client, capturedControlBatches };
 }
 
-test("frozen wasm32 ABI is the exact v7 layout", () => {
-  assert.equal(ESO_C_API_VERSION, 7);
+test("frozen wasm32 ABI is the exact v8 layout", () => {
+  assert.equal(ESO_C_API_VERSION, 8);
   assert.deepEqual(
     WASM32_ABI_WORDS,
-    [7, 4, 4, 4, 8, 1, 40, 104, 24, 48, 696, 296],
+    [8, 4, 4, 4, 8, 1, 40, 104, 24, 48, 704, 296],
   );
   assert.equal(Layout.diagnosticInfo.size, 56);
   assert.equal(Layout.engineTelemetry.size, 536);
-  assert.equal(Layout.sessionTelemetry.engine, 8);
-  assert.equal(Layout.sessionTelemetry.heldDyno, 552);
-  assert.equal(Layout.sessionTelemetry.freeVehicle, 600);
+  assert.equal(Layout.sessionTelemetry.meanIntakeManifoldPressurePaAbs, 8);
+  assert.equal(Layout.sessionTelemetry.engine, 16);
+  assert.equal(Layout.sessionTelemetry.heldDyno, 560);
+  assert.equal(Layout.sessionTelemetry.freeVehicle, 608);
   assert.equal(Layout.processInfo.size, 96);
   assert.equal(Layout.completedCycleEvidence.startBoundary, 8);
   assert.equal(Layout.completedCycleEvidence.endBoundary, 64);
@@ -575,6 +581,8 @@ test("session decodes motion, gear inventory, and nullable telemetry sidecars", 
     assert.deepEqual(
       {
         physicsStepEnd: block.telemetry[0].physicsStepEnd,
+        meanIntakeManifoldPressurePaAbs:
+          block.telemetry[0].meanIntakeManifoldPressurePaAbs,
         engineStepEndIndex: block.telemetry[0].engineStepEndIndex,
         engineSpeedRpm: block.telemetry[0].engineSpeedRpm,
         heldDyno: block.telemetry[0].heldDyno,
@@ -582,6 +590,7 @@ test("session decodes motion, gear inventory, and nullable telemetry sidecars", 
       },
       {
         physicsStepEnd: "100",
+        meanIntakeManifoldPressurePaAbs: 95_000,
         engineStepEndIndex: "200",
         engineSpeedRpm: 3000,
         heldDyno: null,

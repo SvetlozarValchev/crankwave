@@ -71,20 +71,17 @@ using namespace engine_sim_offline;
            (static_cast<std::uint32_t>(bytes[offset + 3U]) << 24U);
 }
 
-[[nodiscard]] std::span<const std::byte>
-wave_data(std::span<const std::byte> wave) {
+[[nodiscard]] std::span<const std::byte> wave_data(std::span<const std::byte> wave) {
     gate::expect(wave.size() >= 12U &&
-                     std::string_view{
-                         reinterpret_cast<const char *>(wave.data()), 4U} ==
-                         "RIFF" &&
-                     std::string_view{
-                         reinterpret_cast<const char *>(wave.data() + 8U), 4U} ==
-                         "WAVE",
+                     std::string_view{reinterpret_cast<const char *>(wave.data()),
+                                      4U} == "RIFF" &&
+                     std::string_view{reinterpret_cast<const char *>(wave.data() + 8U),
+                                      4U} == "WAVE",
                  "oracle is not a RIFF/WAVE container");
     std::size_t offset = 12U;
     while (offset <= wave.size() && wave.size() - offset >= 8U) {
-        const std::string_view id{
-            reinterpret_cast<const char *>(wave.data() + offset), 4U};
+        const std::string_view id{reinterpret_cast<const char *>(wave.data() + offset),
+                                  4U};
         const auto size = static_cast<std::size_t>(read_u32le(wave, offset + 4U));
         const auto payload = offset + 8U;
         gate::expect(payload <= wave.size() && size <= wave.size() - payload,
@@ -129,15 +126,14 @@ audition_bus(const EngineSessionBlockView &block) {
     return *found;
 }
 
-void require_pcm_block(
-    const EngineSessionBlockView &block, std::span<const std::byte> oracle_pcm,
-    std::uint64_t audible_first_frame,
-    const presentation::MasteringSettings &mastering) {
+void require_pcm_block(const EngineSessionBlockView &block,
+                       std::span<const std::byte> oracle_pcm,
+                       std::uint64_t audible_first_frame,
+                       const presentation::MasteringSettings &mastering) {
     const auto samples = audition_bus(block).samples;
     gate::expect(samples.size() == kEngineSessionDeliveryFramesPerBlock,
                  "session audition bus has the wrong quantum");
-    const auto byte_offset =
-        static_cast<std::size_t>(audible_first_frame) * 3U;
+    const auto byte_offset = static_cast<std::size_t>(audible_first_frame) * 3U;
     gate::expect(byte_offset <= oracle_pcm.size() &&
                      samples.size() * 3U <= oracle_pcm.size() - byte_offset,
                  "session block exceeds the oracle PCM interval");
@@ -148,13 +144,12 @@ void require_pcm_block(
         const float faded =
             static_cast<float>(static_cast<double>(samples[frame]) * fade);
         const auto quantized = presentation::quantize_pcm24(faded);
-        const auto encoded =
-            presentation::serialize_pcm24le(quantized.pcm24);
+        const auto encoded = presentation::serialize_pcm24le(quantized.pcm24);
         const auto expected = oracle_pcm.subspan(byte_offset + frame * 3U, 3U);
         if (!std::equal(encoded.begin(), encoded.end(), expected.begin())) {
-            throw std::runtime_error{
-                "session PCM differs from the canonical 20 kHz oracle at audible frame " +
-                std::to_string(absolute)};
+            throw std::runtime_error{"session PCM differs from the canonical 20 kHz "
+                                     "oracle at audible frame " +
+                                     std::to_string(absolute)};
         }
     }
 }
@@ -163,8 +158,8 @@ void require_pcm_block(
 require_next_block(EngineSession &session, const std::string_view context) {
     auto result = session.process_block();
     if (const auto *error = std::get_if<EngineSessionError>(&result)) {
-        throw std::runtime_error{std::string{context} + " failed: " +
-                                 session_error_text(*error)};
+        throw std::runtime_error{std::string{context} +
+                                 " failed: " + session_error_text(*error)};
     }
     const auto *block = std::get_if<EngineSessionBlockView>(&result);
     if (block == nullptr) {
@@ -174,19 +169,19 @@ require_next_block(EngineSession &session, const std::string_view context) {
     return *block;
 }
 
-[[nodiscard]] EngineSessionBlockView require_first_audible_block(
-    EngineSession &session, const EngineSessionDescriptor &descriptor,
-    const std::string_view context) {
+[[nodiscard]] EngineSessionBlockView
+require_first_audible_block(EngineSession &session,
+                            const EngineSessionDescriptor &descriptor,
+                            const std::string_view context) {
     for (std::uint64_t block_ordinal = 0U;
          block_ordinal < descriptor.preparation_block_count; ++block_ordinal) {
         const auto block = require_next_block(session, context);
-        gate::expect(
-            block.block_ordinal() == block_ordinal &&
-                block.phase() == EngineSessionBlockPhase::preparation &&
-                block.telemetry().size() == 1U &&
-                !block.telemetry().front().held_dyno.has_value() &&
-                !block.telemetry().front().free_vehicle.has_value(),
-            "preparation exposed a released motion sidecar");
+        gate::expect(block.block_ordinal() == block_ordinal &&
+                         block.phase() == EngineSessionBlockPhase::preparation &&
+                         block.telemetry().size() == 1U &&
+                         !block.telemetry().front().held_dyno.has_value() &&
+                         !block.telemetry().front().free_vehicle.has_value(),
+                     "preparation exposed a released motion sidecar");
     }
     const auto block = require_next_block(session, context);
     gate::expect(
@@ -239,8 +234,7 @@ void run(const std::filesystem::path &repository_root) {
     const auto descriptor = session.descriptor();
     gate::expect(
         descriptor.engine_id == "bmw-m52b28" &&
-            descriptor.scenario_id ==
-                "bmw-m52b28-inertial-dyno-1500-6500rpm" &&
+            descriptor.scenario_id == "bmw-m52b28-inertial-dyno-1500-6500rpm" &&
             descriptor.physics_rate == kEngineSessionPhysicsRateHz &&
             descriptor.delivery_rate == kEngineSessionDeliveryRateHz &&
             descriptor.physics_frames_per_block ==
@@ -262,10 +256,10 @@ void run(const std::filesystem::path &repository_root) {
         descriptor.preparation_block_count * kEngineSessionDeliveryFramesPerBlock;
     auto capability_rejection_session = require_session(scenario);
     const auto empty_rejection = capability_rejection_session.enqueue_controls({});
-    gate::expect(
-        empty_rejection.has_value() &&
-            empty_rejection->code == EngineControlRejectionCode::invalid_payload,
-        "EngineSession admitted an empty live-control batch");
+    gate::expect(empty_rejection.has_value() &&
+                     empty_rejection->code ==
+                         EngineControlRejectionCode::invalid_payload,
+                 "EngineSession admitted an empty live-control batch");
     const std::array unsupported_batch{
         EngineControlCommand{first_live_delivery_frame, 1U, SetEngineThrottle{0.5}},
         EngineControlCommand{first_live_delivery_frame, 2U,
@@ -319,11 +313,10 @@ void run(const std::filesystem::path &repository_root) {
         gate::compile_authored_bmw_m52tub28_cold_start_scenario(repository_root);
     auto starter_session = require_session(starter_scenario);
     const auto starter_descriptor = starter_session.descriptor();
-    gate::expect(
-        starter_descriptor.preparation_block_count == 0U &&
-            (starter_descriptor.live_control_capabilities &
-             kEngineLiveControlCapabilityStarterEnabled) != 0U,
-        "crank/catch session did not expose immediate starter control");
+    gate::expect(starter_descriptor.preparation_block_count == 0U &&
+                     (starter_descriptor.live_control_capabilities &
+                      kEngineLiveControlCapabilityStarterEnabled) != 0U,
+                 "crank/catch session did not expose immediate starter control");
     auto live_starter_session = require_session(starter_scenario);
     const EngineControlCommand live_starter_release{
         0U,
@@ -331,17 +324,15 @@ void run(const std::filesystem::path &repository_root) {
         SetEngineStarterEnabled{false},
     };
     gate::expect(
-        !live_starter_session
-             .enqueue_controls(std::span{&live_starter_release, 1U})
+        !live_starter_session.enqueue_controls(std::span{&live_starter_release, 1U})
              .has_value(),
         "cranking-capable FreeEngine rejected its advertised starter control");
     const auto live_starter_result = live_starter_session.process_block();
     const auto *live_starter_block =
         std::get_if<EngineSessionBlockView>(&live_starter_result);
-    gate::expect(
-        live_starter_block != nullptr &&
-            !live_starter_block->telemetry().front().engine.starter_enabled,
-        "first-boundary starter release did not reach executed mechanics");
+    gate::expect(live_starter_block != nullptr &&
+                     !live_starter_block->telemetry().front().engine.starter_enabled,
+                 "first-boundary starter release did not reach executed mechanics");
 
     bool observed_cranking = false;
     bool observed_ignition = false;
@@ -356,20 +347,17 @@ void run(const std::filesystem::path &repository_root) {
         gate::expect(block != nullptr && !block->telemetry().empty(),
                      "starter session completed before its crank/catch interval");
         const auto &engine = block->telemetry().front().engine;
-        observed_cranking =
-            observed_cranking ||
-            (engine.starter_enabled && engine.engine_speed_rpm > 100.0);
+        observed_cranking = observed_cranking ||
+                            (engine.starter_enabled && engine.engine_speed_rpm > 100.0);
         observed_ignition =
-            observed_ignition ||
-            (engine.ignition_enabled && engine.starter_enabled &&
-             engine.engine_speed_rpm > 0.0);
+            observed_ignition || (engine.ignition_enabled && engine.starter_enabled &&
+                                  engine.engine_speed_rpm > 0.0);
         observed_starter_release =
             observed_starter_release ||
             (!engine.starter_enabled && engine.ignition_enabled &&
              engine.engine_speed_rpm > 0.0);
     }
-    gate::expect(observed_cranking && observed_ignition &&
-                     observed_starter_release,
+    gate::expect(observed_cranking && observed_ignition && observed_starter_release,
                  "crank/catch session did not crank, energize ignition, and release "
                  "the starter while the engine remained rotating");
 
@@ -391,18 +379,17 @@ void run(const std::filesystem::path &repository_root) {
 
     const auto held_dyno_scenario =
         gate::compile_authored_bmw_m52tub28_held_dyno_scenario(repository_root);
-    auto held_dyno_session = require_session(
-        held_dyno_scenario, EngineSessionExecutionKind::open_ended);
+    auto held_dyno_session =
+        require_session(held_dyno_scenario, EngineSessionExecutionKind::open_ended);
     const auto held_dyno_descriptor = held_dyno_session.descriptor();
-    gate::expect(
-        held_dyno_descriptor.motion_mode == EngineMotionMode::held_dyno &&
-            held_dyno_descriptor.live_control_capabilities ==
-                kHeldDynoLiveControls &&
-            held_dyno_descriptor.forward_gears.empty() &&
-            held_dyno_descriptor.execution_kind ==
-                EngineSessionExecutionKind::open_ended &&
-            held_dyno_descriptor.total_block_count == 0U,
-        "held-dyno descriptor did not expose its exact native contract");
+    gate::expect(held_dyno_descriptor.motion_mode == EngineMotionMode::held_dyno &&
+                     held_dyno_descriptor.live_control_capabilities ==
+                         kHeldDynoLiveControls &&
+                     held_dyno_descriptor.forward_gears.empty() &&
+                     held_dyno_descriptor.execution_kind ==
+                         EngineSessionExecutionKind::open_ended &&
+                     held_dyno_descriptor.total_block_count == 0U,
+                 "held-dyno descriptor did not expose its exact native contract");
     const auto held_dyno_first_live_frame =
         held_dyno_descriptor.preparation_block_count *
         kEngineSessionDeliveryFramesPerBlock;
@@ -411,14 +398,13 @@ void run(const std::filesystem::path &repository_root) {
     constexpr double kCommandedMaximumDrivingTorqueNm = 17.0;
     const std::array held_dyno_controls{
         EngineControlCommand{held_dyno_first_live_frame, 1U,
-                             SetHeldDynoTargetEngineSpeed{
-                                 kCommandedDynoTargetRpm}},
-        EngineControlCommand{held_dyno_first_live_frame, 2U,
-                             SetHeldDynoMaximumAbsorbingTorque{
-                                 kCommandedMaximumAbsorbingTorqueNm}},
-        EngineControlCommand{held_dyno_first_live_frame, 3U,
-                             SetHeldDynoMaximumDrivingTorque{
-                                 kCommandedMaximumDrivingTorqueNm}},
+                             SetHeldDynoTargetEngineSpeed{kCommandedDynoTargetRpm}},
+        EngineControlCommand{
+            held_dyno_first_live_frame, 2U,
+            SetHeldDynoMaximumAbsorbingTorque{kCommandedMaximumAbsorbingTorqueNm}},
+        EngineControlCommand{
+            held_dyno_first_live_frame, 3U,
+            SetHeldDynoMaximumDrivingTorque{kCommandedMaximumDrivingTorqueNm}},
     };
     gate::expect(!held_dyno_session.enqueue_controls(held_dyno_controls).has_value(),
                  "held dyno rejected its same-frame target and limit commands");
@@ -434,27 +420,23 @@ void run(const std::filesystem::path &repository_root) {
                 kCommandedMaximumAbsorbingTorqueNm &&
             held_dyno_telemetry.held_dyno->maximum_driving_torque_nm ==
                 kCommandedMaximumDrivingTorqueNm &&
-            std::isfinite(
-                held_dyno_telemetry.held_dyno->required_actuator_torque_nm) &&
-            std::isfinite(
-                held_dyno_telemetry.held_dyno->applied_actuator_torque_nm),
+            std::isfinite(held_dyno_telemetry.held_dyno->required_actuator_torque_nm) &&
+            std::isfinite(held_dyno_telemetry.held_dyno->applied_actuator_torque_nm),
         "held-dyno telemetry did not atomically reflect its same-frame commands");
 
     const auto free_vehicle_scenario =
         gate::compile_authored_bmw_m52tub28_free_vehicle_scenario(repository_root);
-    auto free_vehicle_session = require_session(
-        free_vehicle_scenario, EngineSessionExecutionKind::open_ended);
+    auto free_vehicle_session =
+        require_session(free_vehicle_scenario, EngineSessionExecutionKind::open_ended);
     const auto free_vehicle_descriptor = free_vehicle_session.descriptor();
     constexpr std::array<std::string_view, 5U> kExpectedGearIds{
         "gear-1", "gear-2", "gear-3", "gear-4", "gear-5"};
-    constexpr std::array<double, 5U> kExpectedGearRatios{4.21, 2.49, 1.66,
-                                                        1.24, 1.0};
+    constexpr std::array<double, 5U> kExpectedGearRatios{4.21, 2.49, 1.66, 1.24, 1.0};
     gate::expect(
         free_vehicle_descriptor.motion_mode == EngineMotionMode::free_vehicle &&
             free_vehicle_descriptor.live_control_capabilities ==
                 kFreeVehicleLiveControls &&
-            free_vehicle_descriptor.forward_gears.size() ==
-                kExpectedGearIds.size() &&
+            free_vehicle_descriptor.forward_gears.size() == kExpectedGearIds.size() &&
             free_vehicle_descriptor.execution_kind ==
                 EngineSessionExecutionKind::open_ended &&
             free_vehicle_descriptor.total_block_count == 0U,
@@ -476,28 +458,26 @@ void run(const std::filesystem::path &repository_root) {
         1U,
         SetVehicleSelectedForwardGear{6U},
     };
-    const auto invalid_gear_rejection = invalid_gear_session.enqueue_controls(
-        std::span{&invalid_gear_command, 1U});
-    gate::expect(
-        invalid_gear_rejection.has_value() &&
-            invalid_gear_rejection->code ==
-                EngineControlRejectionCode::invalid_payload &&
-            invalid_gear_rejection->command_index == 0U,
-        "FreeVehicle admitted a forward-gear ordinal outside its descriptor");
+    const auto invalid_gear_rejection =
+        invalid_gear_session.enqueue_controls(std::span{&invalid_gear_command, 1U});
+    gate::expect(invalid_gear_rejection.has_value() &&
+                     invalid_gear_rejection->code ==
+                         EngineControlRejectionCode::invalid_payload &&
+                     invalid_gear_rejection->command_index == 0U,
+                 "FreeVehicle admitted a forward-gear ordinal outside its descriptor");
 
     constexpr std::uint32_t kCommandedForwardGearOrdinal = 2U;
     constexpr double kCommandedClutchEngagement = 0.0;
     constexpr double kCommandedServiceBrakeApplication = 0.5;
     const std::array free_vehicle_controls{
-        EngineControlCommand{free_vehicle_first_live_frame, 1U,
-                             SetVehicleSelectedForwardGear{
-                                 kCommandedForwardGearOrdinal}},
+        EngineControlCommand{
+            free_vehicle_first_live_frame, 1U,
+            SetVehicleSelectedForwardGear{kCommandedForwardGearOrdinal}},
         EngineControlCommand{free_vehicle_first_live_frame, 2U,
-                             SetVehicleClutchEngagement{
-                                 kCommandedClutchEngagement}},
-        EngineControlCommand{free_vehicle_first_live_frame, 3U,
-                             SetVehicleServiceBrakeApplication{
-                                 kCommandedServiceBrakeApplication}},
+                             SetVehicleClutchEngagement{kCommandedClutchEngagement}},
+        EngineControlCommand{
+            free_vehicle_first_live_frame, 3U,
+            SetVehicleServiceBrakeApplication{kCommandedServiceBrakeApplication}},
     };
     gate::expect(
         !free_vehicle_session.enqueue_controls(free_vehicle_controls).has_value(),
@@ -516,37 +496,31 @@ void run(const std::filesystem::path &repository_root) {
                 kCommandedServiceBrakeApplication &&
             free_vehicle_telemetry.free_vehicle->clutch_disposition ==
                 EngineClutchDisposition::disengaged &&
-            std::isfinite(
-                free_vehicle_telemetry.free_vehicle->vehicle_speed_m_s) &&
-            std::isfinite(
-                free_vehicle_telemetry.free_vehicle->vehicle_distance_m),
+            std::isfinite(free_vehicle_telemetry.free_vehicle->vehicle_speed_m_s) &&
+            std::isfinite(free_vehicle_telemetry.free_vehicle->vehicle_distance_m),
         "FreeVehicle telemetry did not atomically reflect its drivetrain commands");
 
     auto finite_held_dyno = require_session(held_dyno_scenario);
     auto finite_free_vehicle = require_session(free_vehicle_scenario);
-    gate::expect(
-        finite_held_dyno.descriptor().execution_kind ==
-                EngineSessionExecutionKind::finite_scenario &&
-            finite_held_dyno.descriptor().total_block_count > 0U &&
-            finite_free_vehicle.descriptor().execution_kind ==
-                EngineSessionExecutionKind::finite_scenario &&
-            finite_free_vehicle.descriptor().total_block_count > 0U,
-        "finite authored dyno or drivetrain capture lost its exact horizon");
+    gate::expect(finite_held_dyno.descriptor().execution_kind ==
+                         EngineSessionExecutionKind::finite_scenario &&
+                     finite_held_dyno.descriptor().total_block_count > 0U &&
+                     finite_free_vehicle.descriptor().execution_kind ==
+                         EngineSessionExecutionKind::finite_scenario &&
+                     finite_free_vehicle.descriptor().total_block_count > 0U,
+                 "finite authored dyno or drivetrain capture lost its exact horizon");
 
-    auto authored_open_held = require_session(
-        held_dyno_scenario, EngineSessionExecutionKind::open_ended);
-    const auto authored_held_block = require_first_audible_block(
-        authored_open_held, authored_open_held.descriptor(),
-        "authored open held-dyno session");
+    auto authored_open_held =
+        require_session(held_dyno_scenario, EngineSessionExecutionKind::open_ended);
+    const auto authored_held_block =
+        require_first_audible_block(authored_open_held, authored_open_held.descriptor(),
+                                    "authored open held-dyno session");
     gate::expect(authored_held_block.telemetry().front().held_dyno.has_value(),
                  "open HeldDyno published no sidecar at its handoff");
-    const auto authored_handoff_target = authored_held_block.telemetry()
-                                             .front()
-                                             .held_dyno->target_engine_speed_rpm;
-    gate::expect(
-        authored_handoff_target >= 1500.0 &&
-            authored_handoff_target < 1500.1,
-        "open HeldDyno did not retain its authored handoff target");
+    const auto authored_handoff_target =
+        authored_held_block.telemetry().front().held_dyno->target_engine_speed_rpm;
+    gate::expect(authored_handoff_target >= 1500.0 && authored_handoff_target < 1500.1,
+                 "open HeldDyno did not retain its authored handoff target");
     const auto authored_held_next = authored_open_held.process_block();
     const auto *authored_held_next_block =
         std::get_if<EngineSessionBlockView>(&authored_held_next);
@@ -558,8 +532,8 @@ void run(const std::filesystem::path &repository_root) {
                     .held_dyno->target_engine_speed_rpm == authored_handoff_target,
         "open HeldDyno did not hold its target after the authored handoff");
 
-    auto authored_open_vehicle = require_session(
-        free_vehicle_scenario, EngineSessionExecutionKind::open_ended);
+    auto authored_open_vehicle =
+        require_session(free_vehicle_scenario, EngineSessionExecutionKind::open_ended);
     auto authored_vehicle_block = require_first_audible_block(
         authored_open_vehicle, authored_open_vehicle.descriptor(),
         "authored open FreeVehicle session");
@@ -570,16 +544,15 @@ void run(const std::filesystem::path &repository_root) {
                      "open FreeVehicle completed after its audible handoff");
         authored_vehicle_block = *block;
     }
-    const auto &authored_vehicle_telemetry =
-        authored_vehicle_block.telemetry().front();
+    const auto &authored_vehicle_telemetry = authored_vehicle_block.telemetry().front();
     gate::expect(
         authored_vehicle_telemetry.engine.requested_throttle_01 == 0.1 &&
             authored_vehicle_telemetry.free_vehicle.has_value() &&
-            !authored_vehicle_telemetry.free_vehicle
-                 ->selected_forward_gear_ordinal.has_value() &&
+            !authored_vehicle_telemetry.free_vehicle->selected_forward_gear_ordinal
+                 .has_value() &&
             authored_vehicle_telemetry.free_vehicle->clutch_engagement_01 == 0.0 &&
-            authored_vehicle_telemetry.free_vehicle
-                    ->service_brake_application_01 == 1.0,
+            authored_vehicle_telemetry.free_vehicle->service_brake_application_01 ==
+                1.0,
         "open FreeVehicle executed finite-procedure events after the authored "
         "handoff");
 
@@ -674,16 +647,14 @@ void run(const std::filesystem::path &repository_root) {
             throw std::runtime_error{"session processing failed: " +
                                      session_error_text(*error)};
         }
-        if (const auto *completed =
-                std::get_if<EngineSessionCompleted>(&result)) {
-            gate::expect(
-                completed->physics_frame_count == 428800U &&
-                    completed->delivery_frame_count == 4116480U &&
-                    completed->block_count == 1072U &&
-                    !completed->live_controls_accepted &&
-                    !completed->held_speed_operating_point.has_value() &&
-                    completed->inertial_dyno.has_value(),
-                "session completion evidence differs from the BMW horizon");
+        if (const auto *completed = std::get_if<EngineSessionCompleted>(&result)) {
+            gate::expect(completed->physics_frame_count == 428800U &&
+                             completed->delivery_frame_count == 4116480U &&
+                             completed->block_count == 1072U &&
+                             !completed->live_controls_accepted &&
+                             !completed->held_speed_operating_point.has_value() &&
+                             completed->inertial_dyno.has_value(),
+                         "session completion evidence differs from the BMW horizon");
             break;
         }
 
@@ -691,19 +662,17 @@ void run(const std::filesystem::path &repository_root) {
         gate::expect(
             block.block_ordinal() == preparation_blocks + audible_blocks &&
                 block.first_physics_frame() ==
-                    block.block_ordinal() *
-                        kEngineSessionPhysicsFramesPerBlock &&
+                    block.block_ordinal() * kEngineSessionPhysicsFramesPerBlock &&
                 block.first_delivery_frame() ==
-                    block.block_ordinal() *
-                        kEngineSessionDeliveryFramesPerBlock &&
-                block.physics_frame_count() ==
-                    kEngineSessionPhysicsFramesPerBlock &&
-                block.delivery_frame_count() ==
-                    kEngineSessionDeliveryFramesPerBlock &&
+                    block.block_ordinal() * kEngineSessionDeliveryFramesPerBlock &&
+                block.physics_frame_count() == kEngineSessionPhysicsFramesPerBlock &&
+                block.delivery_frame_count() == kEngineSessionDeliveryFramesPerBlock &&
                 block.telemetry().size() == 1U &&
                 block.telemetry().front().physics_step_end ==
-                    block.first_physics_frame() +
-                        kEngineSessionPhysicsFramesPerBlock,
+                    block.first_physics_frame() + kEngineSessionPhysicsFramesPerBlock &&
+                std::isfinite(
+                    block.telemetry().front().mean_intake_manifold_pressure_pa_abs) &&
+                block.telemetry().front().mean_intake_manifold_pressure_pa_abs > 0.0,
             "session block clocks or telemetry diverged");
 
         for (const auto &cycle : block.cycle_evidence()) {
@@ -732,8 +701,7 @@ void run(const std::filesystem::path &repository_root) {
         }
     }
     gate::expect(preparation_blocks == 322U && audible_blocks == 750U &&
-                     audible_frames == kAudibleFrames &&
-                     completed_cycle_count > 0U,
+                     audible_frames == kAudibleFrames && completed_cycle_count > 0U,
                  "session preparation/audible partition changed");
 
     // Completion is stable and does not advance any clock.
@@ -745,11 +713,9 @@ void run(const std::filesystem::path &repository_root) {
     // execute. The last few delivery frames can lie beyond that causal boundary.
     auto horizon_controlled = require_session(scenario);
     const auto terminal_physics_frame =
-        descriptor.total_block_count *
-        kEngineSessionPhysicsFramesPerBlock;
+        descriptor.total_block_count * kEngineSessionPhysicsFramesPerBlock;
     const auto last_executable_delivery_frame =
-        ((terminal_physics_frame - 1U) *
-         kEngineSessionDeliveryRateHz.numerator) /
+        ((terminal_physics_frame - 1U) * kEngineSessionDeliveryRateHz.numerator) /
         kEngineSessionPhysicsRateHz.numerator;
     const EngineControlCommand last_executable_command{
         last_executable_delivery_frame,
@@ -757,9 +723,7 @@ void run(const std::filesystem::path &repository_root) {
         SetEngineThrottle{0.5},
     };
     gate::expect(
-        !horizon_controlled
-             .enqueue_controls(
-                 std::span{&last_executable_command, 1U})
+        !horizon_controlled.enqueue_controls(std::span{&last_executable_command, 1U})
              .has_value(),
         "last causally executable live-control timestamp was rejected");
     const EngineControlCommand first_unexecutable_command{
@@ -768,13 +732,11 @@ void run(const std::filesystem::path &repository_root) {
         SetEngineThrottle{0.5},
     };
     const auto first_unexecutable_rejection =
-        horizon_controlled.enqueue_controls(
-            std::span{&first_unexecutable_command, 1U});
-    gate::expect(
-        first_unexecutable_rejection.has_value() &&
-            first_unexecutable_rejection->code ==
-                EngineControlRejectionCode::outside_session_horizon,
-        "first causally unexecutable live-control timestamp was not rejected");
+        horizon_controlled.enqueue_controls(std::span{&first_unexecutable_command, 1U});
+    gate::expect(first_unexecutable_rejection.has_value() &&
+                     first_unexecutable_rejection->code ==
+                         EngineControlRejectionCode::outside_session_horizon,
+                 "first causally unexecutable live-control timestamp was not rejected");
 
     // Preparation is evidence-producing authored state, so live controls begin
     // at the first audible frame rather than silently falsifying that evidence.
@@ -786,15 +748,13 @@ void run(const std::filesystem::path &repository_root) {
     };
     const auto preparation_rejection =
         controlled.enqueue_controls(std::span{&preparation_command, 1U});
-    gate::expect(
-        preparation_rejection.has_value() &&
-            preparation_rejection->code ==
-                EngineControlRejectionCode::unavailable_during_preparation,
-        "live control inside held preparation was not rejected");
+    gate::expect(preparation_rejection.has_value() &&
+                     preparation_rejection->code ==
+                         EngineControlRejectionCode::unavailable_during_preparation,
+                 "live control inside held preparation was not rejected");
 
     const EngineControlCommand command{
-        descriptor.preparation_block_count *
-            kEngineSessionDeliveryFramesPerBlock,
+        descriptor.preparation_block_count * kEngineSessionDeliveryFramesPerBlock,
         2U,
         SetEngineThrottle{0.5},
     };
@@ -816,18 +776,16 @@ void run(const std::filesystem::path &repository_root) {
         }
         throw std::runtime_error{"controlled session did not reach audible output"};
     }();
-    gate::expect(
-        controlled_block.phase() == EngineSessionBlockPhase::audible,
-        "first live control did not coincide with the first audible block");
-    gate::expect(
-        controlled_block.telemetry().front().engine.requested_throttle_01 == 0.5,
-        "first-audible throttle command did not reach executed mechanics");
+    gate::expect(controlled_block.phase() == EngineSessionBlockPhase::audible,
+                 "first live control did not coincide with the first audible block");
+    gate::expect(controlled_block.telemetry().front().engine.requested_throttle_01 ==
+                     0.5,
+                 "first-audible throttle command did not reach executed mechanics");
 
     EngineSessionCompleted controlled_completion;
     while (true) {
         auto controlled_result = controlled.process_block();
-        if (const auto *error =
-                std::get_if<EngineSessionError>(&controlled_result)) {
+        if (const auto *error = std::get_if<EngineSessionError>(&controlled_result)) {
             throw std::runtime_error{"controlled session failed: " +
                                      session_error_text(*error)};
         }
@@ -837,26 +795,23 @@ void run(const std::filesystem::path &repository_root) {
             break;
         }
     }
-    gate::expect(
-        controlled_completion.live_controls_accepted &&
-            !controlled_completion.held_speed_operating_point.has_value() &&
-            !controlled_completion.inertial_dyno.has_value(),
-        "live-controlled session exposed evidence bound only to the authored "
-        "trajectory");
+    gate::expect(controlled_completion.live_controls_accepted &&
+                     !controlled_completion.held_speed_operating_point.has_value() &&
+                     !controlled_completion.inertial_dyno.has_value(),
+                 "live-controlled session exposed evidence bound only to the authored "
+                 "trajectory");
 
     const EngineControlCommand completed_command{
-        descriptor.preparation_block_count *
-            kEngineSessionDeliveryFramesPerBlock,
+        descriptor.preparation_block_count * kEngineSessionDeliveryFramesPerBlock,
         1U,
         SetEngineThrottle{0.5},
     };
     const auto completed_rejection =
         session.enqueue_controls(std::span{&completed_command, 1U});
-    gate::expect(
-        completed_rejection.has_value() &&
-            completed_rejection->code ==
-                EngineControlRejectionCode::session_terminal,
-        "completed session accepted a live control it can never execute");
+    gate::expect(completed_rejection.has_value() &&
+                     completed_rejection->code ==
+                         EngineControlRejectionCode::session_terminal,
+                 "completed session accepted a live control it can never execute");
 }
 
 } // namespace

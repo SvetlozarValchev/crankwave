@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cmath>
 #include <exception>
 #include <limits>
 #include <memory>
@@ -74,6 +75,36 @@ output_crank_tdc_reference_rad(const compile::CompiledScenario &scenario) {
             "compiled session has no unique resolved output crankshaft"};
     }
     return *reference;
+}
+
+[[nodiscard]] std::optional<double> mean_intake_manifold_pressure_at_endpoint(
+    const contract::CaptureBlockView &capture) noexcept {
+    if (capture.frame_count() == 0U) {
+        return std::nullopt;
+    }
+
+    const auto gas_volumes = capture.layout().gas_volumes();
+    const auto endpoint_frame = static_cast<std::size_t>(capture.frame_count() - 1U);
+    double pressure_sum_pa_abs = 0.0;
+    std::size_t plenum_count = 0U;
+    for (std::size_t index = 0; index < gas_volumes.size(); ++index) {
+        if (gas_volumes[index].kind != contract::GasVolumeKind::intake_plenum) {
+            continue;
+        }
+        const auto *sample = capture.gas_volume_sample(endpoint_frame, index);
+        if (sample == nullptr || !std::isfinite(sample->pressure_pa_abs) ||
+            sample->pressure_pa_abs <= 0.0) {
+            return std::nullopt;
+        }
+        pressure_sum_pa_abs += sample->pressure_pa_abs;
+        ++plenum_count;
+    }
+    if (plenum_count == 0U || !std::isfinite(pressure_sum_pa_abs)) {
+        return std::nullopt;
+    }
+    const auto mean = pressure_sum_pa_abs / static_cast<double>(plenum_count);
+    return std::isfinite(mean) && mean > 0.0 ? std::optional<double>{mean}
+                                             : std::nullopt;
 }
 
 [[nodiscard]] EngineControlRejectionCode
@@ -585,6 +616,7 @@ class EngineSession::Implementation final {
             const auto expected_first_delivery =
                 expected_block * delivery_frames_per_block_;
             std::optional<contract::FailureContext> nested_failure;
+            std::optional<EngineSessionError> telemetry_failure;
             std::optional<session::ExactCycleEvidenceError> cycle_evidence_failure;
             std::optional<presentation::PresentationAudioBlockView> audio;
             completed_cycle_evidence_.clear();
@@ -617,8 +649,18 @@ class EngineSession::Implementation final {
                         return false;
                     }
                     const auto &last = capture.engine().back();
+                    const auto mean_intake_manifold_pressure =
+                        mean_intake_manifold_pressure_at_endpoint(capture);
+                    if (!mean_intake_manifold_pressure.has_value()) {
+                        telemetry_failure = processing_error(
+                            "session-intake-manifold-telemetry-invalid",
+                            "capture endpoint has no finite positive intake-plenum "
+                            "pressure mean");
+                        return false;
+                    }
                     telemetry_[0] = {
                         last.step_end_index,
+                        *mean_intake_manifold_pressure,
                         last,
                         std::nullopt,
                         std::nullopt,
@@ -652,6 +694,9 @@ class EngineSession::Implementation final {
                 },
                 live_controls);
 
+            if (telemetry_failure.has_value()) {
+                return fail(std::move(*telemetry_failure));
+            }
             if (cycle_evidence_failure.has_value()) {
                 return fail(processing_error(
                     "session-cycle-evidence-failed",

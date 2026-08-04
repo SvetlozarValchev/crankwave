@@ -597,7 +597,7 @@ superseded after the 2026-08-04 A/B/C listening gate documented in
 [`POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](../POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
 Mechanical route kinds remain reserved and unadmitted until a real signal
 implementation has its own acceptance evidence.
-The sole portable boundary is C ABI v7; there are no earlier-version aliases or
+The sole portable boundary is C ABI v8; there are no earlier-version aliases or
 compatibility decoders. Caller-selected bus subsets and caller-owned output buffers are
 also not part of the implemented C++ surface.
 
