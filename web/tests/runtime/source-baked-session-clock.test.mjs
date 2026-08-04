@@ -3,32 +3,6 @@ import test from "node:test";
 
 import { SourceBakedSessionClock } from "../../runtime/source-baked-session-clock.js";
 
-function units(coordinate, torqueOffset) {
-  return [1_000, 2_000].map((rpm) => ({
-    canonical_rpm: rpm,
-    average_net_torque_nm: torqueOffset + rpm / 100,
-    average_signed_load: coordinate,
-  }));
-}
-
-function manifest() {
-  return {
-    running: {
-      load_calibration: {
-        signal: "cycle-mean-integrated-instantaneous-net-shaft",
-        completeness: "incomplete",
-        included_terms: "135",
-        omitted_terms: "120",
-      },
-      planes: [
-        { load_coordinate: -1, units: units(-1, -100) },
-        { load_coordinate: 0, units: units(0, 0) },
-        { load_coordinate: 1, units: units(1, 100) },
-      ],
-    },
-  };
-}
-
 function telemetry(rpm, throttle01) {
   return {
     engineSpeedRpm: rpm,
@@ -66,8 +40,8 @@ function cycle({ torqueNm = 15, includedTerms = "135", omittedTerms = "120" } = 
   };
 }
 
-test("session clock publishes explicit contiguous physical delivery endpoints", () => {
-  const clock = new SourceBakedSessionClock(manifest());
+test("session clock publishes explicit contiguous throttle delivery endpoints", () => {
+  const clock = new SourceBakedSessionClock();
   const first = clock.acceptBlock(block(0, 1_200, 0.25));
   assert.deepEqual(
     [first.start.deliveryFrame, first.end.deliveryFrame],
@@ -82,41 +56,32 @@ test("session clock publishes explicit contiguous physical delivery endpoints", 
     [3_840, 7_680],
   );
   assert.equal(second.start.rpm, 1_200);
+  assert.equal(second.start.throttle01, 0.25);
   assert.equal(second.end.rpm, 1_400);
-  assert.equal(clock.diagnostics().throttleFallbackBlockCount, 2);
+  assert.equal(second.end.throttle01, 0.5);
+  assert.equal(second.start.signedLoad, null);
+  assert.equal(second.end.signedLoad, null);
+  assert.equal(clock.diagnostics().blockCount, 2);
 });
 
-test("matching cycle-mean torque accounting maps through package plane knots", () => {
-  const clock = new SourceBakedSessionClock(manifest());
-  const sourceClock = clock.acceptBlock(block(0, 1_500, 0.9, [cycle()]));
-  assert.equal(sourceClock.end.signedLoad, 0);
-  assert.equal(clock.diagnostics().latestLoadOrdinal, "7");
-  assert.equal(clock.diagnostics().torqueLoadBlockCount, 1);
-
-  clock.reset();
-  const halfway = clock.acceptBlock(
-    block(0, 1_500, 0.9, [cycle({ torqueNm: 65 })]),
-  );
-  assert.equal(halfway.end.signedLoad, 0.5);
-});
-
-test("mismatched or unavailable torque metadata falls back to requested throttle", () => {
-  const clock = new SourceBakedSessionClock(manifest());
-  const sourceClock = clock.acceptBlock(
-    block(0, 1_500, 0.45, [cycle({ includedTerms: "255", omittedTerms: "0" })]),
-  );
+test("completed-cycle net torque never overrides requested throttle", () => {
+  const clock = new SourceBakedSessionClock();
+  const sourceClock = clock.acceptBlock(block(0, 1_500, 0.45, [cycle()]));
   assert.equal(sourceClock.end.signedLoad, null);
   assert.equal(sourceClock.end.throttle01, 0.45);
-  assert.equal(clock.diagnostics().throttleFallbackBlockCount, 1);
+  assert.deepEqual(clock.diagnostics(), {
+    blockCount: 1,
+    nextDeliveryFrame: 3_840,
+  });
 });
 
 test("session discontinuities and ambiguous telemetry blocks are rejected", () => {
-  const clock = new SourceBakedSessionClock(manifest());
+  const clock = new SourceBakedSessionClock();
   clock.acceptBlock(block(0, 1_000, 0.2));
   assert.throws(() => clock.acceptBlock(block(4_000, 1_100, 0.2)), /discontinuity/);
   assert.throws(
     () =>
-      new SourceBakedSessionClock(manifest()).acceptBlock({
+      new SourceBakedSessionClock().acceptBlock({
         ...block(0, 1_000, 0.2),
         telemetry: [],
       }),

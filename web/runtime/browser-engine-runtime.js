@@ -323,7 +323,7 @@ export class BrowserEngineRuntime {
     this.#packageBusId = packageBusId;
     this.#comparisonMode = SourceBakedComparisonMode.source;
     this.#packageFollower = follower;
-    this.#packageClock = new SourceBakedSessionClock(loaded.manifest);
+    this.#packageClock = new SourceBakedSessionClock();
     this.#comparisonMixer = new SourceBakedComparisonMixer({
       mode: this.#comparisonMode,
     });
@@ -925,9 +925,7 @@ export class BrowserEngineRuntime {
     this.#packageFollower = new ResponsiveAudioPackageFollower(
       this.#audioPackage,
     );
-    this.#packageClock = new SourceBakedSessionClock(
-      this.#audioPackage.manifest,
-    );
+    this.#packageClock = new SourceBakedSessionClock();
     this.#comparisonMixer = new SourceBakedComparisonMixer({
       mode: this.#comparisonMode,
     });

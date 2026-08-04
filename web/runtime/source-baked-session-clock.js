@@ -18,90 +18,11 @@ function safeFrame(value, name) {
   return Number(parsed);
 }
 
-function interpolate(left, right, amount) {
-  return left + (right - left) * amount;
-}
-
-function interpolateUnitField(units, rpm, field) {
-  if (rpm <= units[0].canonical_rpm) {
-    return units[0][field];
-  }
-  const last = units.length - 1;
-  if (rpm >= units[last].canonical_rpm) {
-    return units[last][field];
-  }
-  let lower = 0;
-  let upper = last;
-  while (upper - lower > 1) {
-    const middle = (lower + upper) >>> 1;
-    if (units[middle].canonical_rpm <= rpm) {
-      lower = middle;
-    } else {
-      upper = middle;
-    }
-  }
-  const left = units[lower];
-  const right = units[upper];
-  const amount =
-    (rpm - left.canonical_rpm) /
-    Math.max(Number.EPSILON, right.canonical_rpm - left.canonical_rpm);
-  return interpolate(left[field], right[field], amount);
-}
-
 function publicState(state) {
   return Object.freeze({ ...state });
 }
 
-function evidenceMatchesCalibration(evidence, calibration) {
-  if (!evidence || typeof evidence !== "object") {
-    return false;
-  }
-  const expectedCompleteness = calibration.completeness === "complete" ? 1 : 0;
-  return (
-    evidence.availability === 1 &&
-    evidence.completeness === expectedCompleteness &&
-    evidence.includedTerms === calibration.included_terms &&
-    evidence.omittedTerms === calibration.omitted_terms &&
-    Number.isFinite(evidence.cycleMeanTorqueNm)
-  );
-}
-
-function torqueCoordinate(planes, rpm, torqueNm) {
-  const knots = planes.map((plane) => ({
-    coordinate: plane.load_coordinate,
-    torqueNm: interpolateUnitField(
-      plane.units,
-      rpm,
-      "average_net_torque_nm",
-    ),
-  }));
-  if (torqueNm <= knots[0].torqueNm) {
-    return knots[0].coordinate;
-  }
-  const last = knots.length - 1;
-  if (torqueNm >= knots[last].torqueNm) {
-    return knots[last].coordinate;
-  }
-  for (let index = 1; index < knots.length; ++index) {
-    const right = knots[index];
-    if (torqueNm > right.torqueNm) {
-      continue;
-    }
-    const left = knots[index - 1];
-    const span = right.torqueNm - left.torqueNm;
-    if (!(span > 0)) {
-      continue;
-    }
-    return interpolate(
-      left.coordinate,
-      right.coordinate,
-      (torqueNm - left.torqueNm) / span,
-    );
-  }
-  return null;
-}
-
-function endpoint(frame, telemetry, signedLoad) {
+function endpoint(frame, telemetry) {
   if (!telemetry || typeof telemetry !== "object") {
     throw new TypeError("session telemetry endpoint must be an object");
   }
@@ -117,7 +38,7 @@ function endpoint(frame, telemetry, signedLoad) {
     deliveryFrame: frame,
     rpm,
     throttle01,
-    signedLoad,
+    signedLoad: null,
     ignitionEnabled: telemetry.ignitionEnabled === true,
     fuelEnabled: telemetry.fuelEnabled === true,
     starterEnabled: telemetry.starterEnabled === true,
@@ -127,32 +48,12 @@ function endpoint(frame, telemetry, signedLoad) {
 }
 
 // Converts the authoritative EngineSession timeline into the state clock consumed
-// by the derived package follower. It never predicts drivetrain motion. Exact
-// cycle-mean torque is admitted only when its accounting tuple exactly matches the
-// package calibration; all other cases deliberately fall back to requested throttle.
+// by the derived package follower. It never predicts drivetrain motion. Load state
+// follows requested throttle continuously; completed-cycle net torque is a delayed
+// result of engine acceleration/load and must not drive responsive source selection.
 export class SourceBakedSessionClock {
-  #manifest;
   #previousEndpoint = null;
-  #latestSignedLoad = null;
-  #latestLoadOrdinal = null;
   #blockCount = 0;
-  #torqueLoadBlockCount = 0;
-  #throttleFallbackBlockCount = 0;
-
-  constructor(packageManifest) {
-    const running = packageManifest?.running;
-    if (
-      !running ||
-      !Array.isArray(running.planes) ||
-      running.planes.length < 3 ||
-      !running.load_calibration
-    ) {
-      throw new TypeError(
-        "packageManifest must be a validated responsive audio package manifest",
-      );
-    }
-    this.#manifest = packageManifest;
-  }
 
   acceptBlock(block) {
     if (!block || typeof block !== "object") {
@@ -162,9 +63,6 @@ export class SourceBakedSessionClock {
       throw new RangeError(
         "responsive package following requires exactly one session telemetry endpoint per block",
       );
-    }
-    if (!Array.isArray(block.completedCycles)) {
-      throw new TypeError("block.completedCycles must be an array");
     }
     const firstFrame = safeFrame(
       block.process?.firstDeliveryFrame,
@@ -190,38 +88,12 @@ export class SourceBakedSessionClock {
       );
     }
 
-    const calibration = this.#manifest.running.load_calibration;
-    for (const cycle of block.completedCycles) {
-      const evidence = cycle?.instantaneousNetShaft;
-      if (!evidenceMatchesCalibration(evidence, calibration)) {
-        this.#latestSignedLoad = null;
-        this.#latestLoadOrdinal = null;
-        continue;
-      }
-      const coordinate = torqueCoordinate(
-        this.#manifest.running.planes,
-        finite(cycle.meanEngineSpeedRpm, "completedCycle.meanEngineSpeedRpm"),
-        evidence.cycleMeanTorqueNm,
-      );
-      this.#latestSignedLoad = coordinate;
-      this.#latestLoadOrdinal = cycle.completedCycleOrdinal;
-    }
-
-    const current = endpoint(
-      endFrame,
-      block.telemetry[0],
-      this.#latestSignedLoad,
-    );
+    const current = endpoint(endFrame, block.telemetry[0]);
     const start =
       this.#previousEndpoint ??
-      endpoint(firstFrame, block.telemetry[0], this.#latestSignedLoad);
+      endpoint(firstFrame, block.telemetry[0]);
     this.#previousEndpoint = current;
     ++this.#blockCount;
-    if (current.signedLoad === null) {
-      ++this.#throttleFallbackBlockCount;
-    } else {
-      ++this.#torqueLoadBlockCount;
-    }
     return Object.freeze({
       start: publicState(start),
       end: publicState(current),
@@ -230,22 +102,13 @@ export class SourceBakedSessionClock {
 
   reset() {
     this.#previousEndpoint = null;
-    this.#latestSignedLoad = null;
-    this.#latestLoadOrdinal = null;
     this.#blockCount = 0;
-    this.#torqueLoadBlockCount = 0;
-    this.#throttleFallbackBlockCount = 0;
   }
 
   diagnostics() {
     return Object.freeze({
       blockCount: this.#blockCount,
-      torqueLoadBlockCount: this.#torqueLoadBlockCount,
-      throttleFallbackBlockCount: this.#throttleFallbackBlockCount,
-      latestLoadOrdinal: this.#latestLoadOrdinal,
-      latestSignedLoad: this.#latestSignedLoad,
       nextDeliveryFrame: this.#previousEndpoint?.deliveryFrame ?? null,
     });
   }
 }
-

@@ -173,7 +173,7 @@ async function main() {
       chunks: [],
     },
   ];
-  const packageClock = new SourceBakedSessionClock(loadedPackage.manifest);
+  const packageClock = new SourceBakedSessionClock();
   const packageBusId = loadedPackage.manifest.buses[0].id;
   let followerAdmitted = false;
   const sourceChunks = [];
