@@ -183,6 +183,7 @@ add_library(
     STATIC
         src/package/package_bake_compile.cpp
         src/package/package_source_capture.cpp
+        src/package/package_source_capture_set.cpp
         src/package/uniform_cycle_bank.cpp
 )
 add_library(
@@ -646,6 +647,11 @@ engine_sim_offline_enable_renderer_numeric_policy(
 )
 
 target_link_libraries(
+    engine_sim_offline_package_bake
+    PRIVATE engine_sim_offline_renderer_determinism
+)
+
+target_link_libraries(
     engine_sim_offline_bake
     PRIVATE
         engine_sim_offline::compile
@@ -810,6 +816,7 @@ set(
     engine_sim_offline_c_api
     engine_sim_offline_execution
     engine_sim_offline_renderer_determinism
+    engine_sim_offline_package_bake
 )
 if(TARGET engine_sim_offline_wasm)
     list(
