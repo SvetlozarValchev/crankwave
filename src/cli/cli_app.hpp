@@ -34,7 +34,18 @@ struct RenderCommand {
     friend bool operator==(const RenderCommand &, const RenderCommand &) = default;
 };
 
-using CliCommand = std::variant<HelpCommand, VersionCommand, RenderCommand>;
+struct BakePackageCommand {
+    std::string engine_path;
+    std::string package_bake_path;
+    std::string asset_root;
+    std::string output_directory;
+
+    friend bool operator==(const BakePackageCommand &,
+                           const BakePackageCommand &) = default;
+};
+
+using CliCommand =
+    std::variant<HelpCommand, VersionCommand, RenderCommand, BakePackageCommand>;
 
 struct CliUsageError {
     std::string message;
@@ -47,8 +58,8 @@ using CliParseResult = std::variant<CliCommand, CliUsageError>;
 [[nodiscard]] std::string_view version_label() noexcept;
 
 // Parses the sole current command grammar. The program name is not part of arguments.
-// Render option order is arbitrary, but all four options occur exactly once and use a
-// separate, non-empty value token.
+// Command option order is arbitrary, but every current option occurs exactly once
+// and uses a separate, non-empty value token.
 [[nodiscard]] CliParseResult
 parse_cli_arguments(std::span<const std::string_view> arguments);
 

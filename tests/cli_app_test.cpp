@@ -15,6 +15,7 @@ namespace {
 using engine_sim_offline::cli::CliCommand;
 using engine_sim_offline::cli::CliParseResult;
 using engine_sim_offline::cli::CliUsageError;
+using engine_sim_offline::cli::BakePackageCommand;
 using engine_sim_offline::cli::RenderCommand;
 
 static_assert(engine_sim_offline::cli::kExitSuccess == 0);
@@ -46,6 +47,16 @@ parse(const std::initializer_list<std::string_view> arguments) {
     return *render;
 }
 
+[[nodiscard]] const BakePackageCommand &
+require_package_bake(const CliParseResult &result) {
+    const auto *command = std::get_if<CliCommand>(&result);
+    expect(command != nullptr, "valid bake-package syntax was rejected");
+    const auto *bake = std::get_if<BakePackageCommand>(command);
+    expect(bake != nullptr,
+           "valid bake-package syntax selected the wrong command");
+    return *bake;
+}
+
 void test_exact_render_grammar() {
     const auto canonical =
         parse({"render", "--engine", "engine.json", "--scenario", "scenario.json",
@@ -64,6 +75,27 @@ void test_exact_render_grammar() {
     expect(other.engine_path == "motor.json" && other.scenario_path == "drive.json" &&
                other.asset_root == "root" && other.output_directory == "out",
            "render flags must be order-independent");
+}
+
+void test_exact_package_bake_grammar() {
+    const auto canonical = parse(
+        {"bake-package", "--engine", "engine.json", "--plan",
+         "package-bake.json", "--asset-root", "assets",
+         "--output-directory", "package"});
+    const auto &bake = require_package_bake(canonical);
+    expect(bake.engine_path == "engine.json" &&
+               bake.package_bake_path == "package-bake.json" &&
+               bake.asset_root == "assets" &&
+               bake.output_directory == "package",
+           "bake-package values were not retained");
+
+    const auto reordered = parse(
+        {"bake-package", "--output-directory", "out", "--plan", "plan",
+         "--asset-root", "root", "--engine", "motor"});
+    const auto &other = require_package_bake(reordered);
+    expect(other.engine_path == "motor" && other.package_bake_path == "plan" &&
+               other.asset_root == "root" && other.output_directory == "out",
+           "bake-package flags must be order-independent");
 }
 
 void test_strict_render_rejections() {
@@ -89,6 +121,11 @@ void test_strict_render_rejections() {
          "--output-directory", "o"},
         {"render", "--help", "--engine", "e", "--scenario", "s", "--asset-root", "a",
          "--output-directory", "o"},
+        {"bake-package", "--engine", "e", "--plan", "p", "--asset-root", "a"},
+        {"bake-package", "--engine", "e", "--plan", "p", "--plan", "q",
+         "--asset-root", "a", "--output-directory", "o"},
+        {"bake-package", "--engine", "e", "--scenario", "s", "--asset-root",
+         "a", "--output-directory", "o"},
         {"unknown"},
         {"--help", "extra"},
         {"--version", "extra"},
@@ -127,6 +164,10 @@ void test_standalone_help_and_version() {
                "render --engine <engine.json> --scenario <scenario.json>") !=
                std::string::npos,
            "--help must document the exact current render syntax");
+    expect(help.standard_out.find(
+               "bake-package --engine <engine.json> --plan <package-bake.json>") !=
+               std::string::npos,
+           "--help must document the exact current package syntax");
     expect(help.standard_error.empty(), "--help must not write stderr");
 
     const auto version = invoke({"--version"});
@@ -161,6 +202,7 @@ void test_usage_output_channels() {
 int main() {
     try {
         test_exact_render_grammar();
+        test_exact_package_bake_grammar();
         test_strict_render_rejections();
         test_standalone_help_and_version();
         test_usage_output_channels();

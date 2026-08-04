@@ -1,20 +1,30 @@
 #include "cli_app.hpp"
 
 #include "native_input_files.hpp"
+#include "package_source_identity.hpp"
 
+#include "determinism/renderer_determinism_envelope.hpp"
+#include "engine_sim_offline/artifacts/audio_package_directory_publisher.hpp"
 #include "engine_sim_offline/artifacts/directory_render_sink.hpp"
 #include "engine_sim_offline/artifacts/simulation_manifest_encoder.hpp"
 #include "engine_sim_offline/bake.hpp"
 #include "engine_sim_offline/compile.hpp"
+#include "engine_sim_offline/package_bake.hpp"
+#include "package/audio_package_assembly.hpp"
+#include "package/package_source_capture_set.hpp"
 
+#include <algorithm>
 #include <array>
 #include <exception>
 #include <filesystem>
 #include <new>
 #include <ostream>
+#include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #ifndef ENGINE_SIM_OFFLINE_VERSION_LABEL
 #define ENGINE_SIM_OFFLINE_VERSION_LABEL "development"
@@ -25,9 +35,9 @@ namespace {
 
 constexpr std::string_view kProgramName = "engine-sim-offline";
 
-struct RenderOption {
+template <class Command> struct CommandOption {
     std::string_view spelling;
-    std::string RenderCommand::*value;
+    std::string Command::*value;
     bool seen = false;
 };
 
@@ -43,12 +53,19 @@ void print_help(std::ostream &stream) {
               "--scenario <scenario.json> \\\n"
               "      --asset-root <directory> "
               "--output-directory <new-directory>\n"
+              "  engine-sim-offline bake-package --engine <engine.json> "
+              "--plan <package-bake.json> \\\n"
+              "      --asset-root <directory> "
+              "--output-directory <new-directory>\n"
               "\n"
               "Commands:\n"
               "  render  Compile declarative engine and scenario JSON, render the\n"
               "          admitted simulation, and atomically publish its artifacts.\n"
+              "  bake-package\n"
+              "          Capture authored operating lanes concurrently and publish\n"
+              "          one responsive Float32 audio package.\n"
               "\n"
-              "Render options may appear in any order and each is required exactly "
+              "Command options may appear in any order and each is required exactly "
               "once.\n";
 }
 
@@ -282,6 +299,204 @@ render_failure_exit_code(const contract::FailureContext &context) noexcept {
     return kExitSuccess;
 }
 
+[[nodiscard]] int execute_bake_package(const BakePackageCommand &command,
+                                       std::ostream &standard_out,
+                                       std::ostream &standard_error) {
+    const auto output_result = preflight_native_output_directory(
+        std::filesystem::path{command.output_directory});
+    if (const auto *error = std::get_if<NativeOutputError>(&output_result)) {
+        return report_error(standard_error, native_output_exit_code(error->kind),
+                            error->message);
+    }
+    const auto output = std::get<NativeOutputDirectory>(output_result);
+
+    auto engine_input_result =
+        load_native_engine_input(std::filesystem::path{command.engine_path},
+                                 std::filesystem::path{command.asset_root});
+    if (const auto *error = std::get_if<NativeInputError>(&engine_input_result)) {
+        return report_native_input_error(standard_error, "engine input", *error);
+    }
+    auto engine_input =
+        std::get<NativeEngineInput>(std::move(engine_input_result));
+    const auto asset_views = engine_input.asset_views();
+    auto engine_result =
+        compile::compile_engine(engine_input.document, asset_views);
+    if (const auto *report =
+            std::get_if<authoring::DiagnosticReport>(&engine_result)) {
+        return report_diagnostics(standard_error, "engine compilation", *report);
+    }
+    auto engine = std::get<compile::CompiledEngine>(std::move(engine_result));
+
+    auto package_input_result = load_native_package_bake_input(
+        std::filesystem::path{command.package_bake_path},
+        std::filesystem::path{command.asset_root});
+    if (const auto *error =
+            std::get_if<NativeInputError>(&package_input_result)) {
+        return report_native_input_error(standard_error, "package input", *error);
+    }
+    auto package_input =
+        std::get<NativePackageBakeInput>(std::move(package_input_result));
+    std::vector<PackageBakeScenarioInputView> scenario_inputs;
+    scenario_inputs.reserve(package_input.scenarios.size());
+    for (const auto &scenario : package_input.scenarios) {
+        scenario_inputs.push_back({scenario.source_id, &scenario.document});
+    }
+    auto plan_result = compile_package_bake(
+        package_input.document, engine, scenario_inputs);
+    if (const auto *report =
+            std::get_if<authoring::DiagnosticReport>(&plan_result)) {
+        return report_diagnostics(standard_error, "package compilation", *report);
+    }
+    auto plan = std::get<CompiledPackageBake>(std::move(plan_result));
+
+    auto determinism_result = determinism::renderer_determinism_envelope();
+    const auto *determinism_envelope =
+        std::get_if<determinism::RendererDeterminismEnvelope>(
+            &determinism_result);
+    if (determinism_envelope == nullptr ||
+        !determinism_envelope->production_observation()) {
+        return report_error(
+            standard_error, kExitUnavailable,
+            "current renderer build/runtime cannot publish a deterministic package identity");
+    }
+
+    auto captures_result = package_detail::capture_package_source_set(plan);
+    if (const auto *failure =
+            std::get_if<package_detail::PackageSourceCaptureSetError>(
+                &captures_result)) {
+        standard_error << "error: package source capture failed ["
+                       << failure->source_error.detail_code << "]";
+        if (!failure->source_id.empty()) {
+            standard_error << " for " << failure->source_id;
+        }
+        if (!failure->source_error.message.empty()) {
+            standard_error << ": " << failure->source_error.message;
+        }
+        standard_error << '\n';
+        return failure->code ==
+                       package_detail::PackageSourceCaptureSetErrorCode::
+                           worker_numeric_environment_rejected
+                   ? kExitUnavailable
+                   : kExitSoftware;
+    }
+    auto captures = std::get<package_detail::PackageSourceCaptureSet>(
+        std::move(captures_result));
+
+    package_detail::AudioPackageAssemblyIdentity identity;
+    identity.engine = {std::string{engine.id()}, engine_input.source.sha256};
+    identity.bake_plan = {std::string{plan.id()}, package_input.source.sha256};
+    identity.renderer_build = {
+        "engine-sim-offline-renderer-build",
+        determinism_envelope->source_stamp().source_closure_sha256,
+    };
+    identity.source_inputs =
+        package_source_inputs_identity(engine_input, package_input, plan.id());
+    identity.source_scenarios.reserve(package_input.scenarios.size());
+    const auto compiled_sources = plan.scenario_sources();
+    for (std::size_t index = 0U; index < package_input.scenarios.size();
+         ++index) {
+        identity.source_scenarios.push_back({
+            package_input.scenarios[index].source_id,
+            {std::string{compiled_sources[index].scenario.id()},
+             package_input.scenarios[index].source.sha256},
+        });
+    }
+
+    auto assembly_result = package_detail::assemble_audio_package(
+        plan, captures, identity);
+    if (const auto *failure =
+            std::get_if<package_detail::AudioPackageAssemblyError>(
+                &assembly_result)) {
+        standard_error << "error: package assembly failed ["
+                       << failure->detail_code << "]";
+        if (!failure->path.empty()) {
+            standard_error << " at " << failure->path;
+        }
+        if (!failure->message.empty()) {
+            standard_error << ": " << failure->message;
+        }
+        standard_error << '\n';
+        return failure->code ==
+                       package_detail::AudioPackageAssemblyErrorCode::
+                           resource_limit
+                   ? kExitUnavailable
+                   : kExitSoftware;
+    }
+    auto package = std::get<package_detail::AssembledAudioPackage>(
+        std::move(assembly_result));
+    std::vector<artifacts::AudioPackagePublicationFileView> files;
+    files.reserve(package.payload_files.size());
+    for (const auto &file : package.payload_files) {
+        files.push_back({file.relative_path, file.bytes});
+    }
+    auto publication = artifacts::publish_audio_package_directory(
+        output.publication_root, output.publication_name, files,
+        package.package_json);
+    if (const auto *failure = std::get_if<RenderSinkError>(&publication)) {
+        return report_error(standard_error, kExitCantCreate,
+                            "package publication failed [" +
+                                failure->detail_code + "]: " +
+                                failure->message);
+    }
+    const auto &published =
+        std::get<artifacts::AudioPackageDirectoryPublication>(publication);
+    standard_out << "output_directory=" << published.publication_path.string()
+                 << '\n'
+                 << "manifest="
+                 << (published.publication_path /
+                     artifacts::kAudioPackageManifestRelativePath)
+                        .string()
+                 << '\n';
+    return kExitSuccess;
+}
+
+template <class Command, std::size_t Size>
+[[nodiscard]] CliParseResult parse_command_options(
+    const std::span<const std::string_view> arguments, Command command,
+    std::array<CommandOption<Command>, Size> options) {
+    for (std::size_t index = 1U; index < arguments.size();) {
+        const auto token = arguments[index];
+        auto *option = static_cast<CommandOption<Command> *>(nullptr);
+        for (auto &candidate : options) {
+            if (candidate.spelling == token) {
+                option = &candidate;
+                break;
+            }
+        }
+        if (option == nullptr) {
+            const auto classification = token.starts_with('-')
+                                            ? "unknown option '"
+                                            : "unexpected argument '";
+            return usage_error(std::string{classification} +
+                               std::string{token} + "'");
+        }
+        if (option->seen) {
+            return usage_error("duplicate option '" + std::string{token} + "'");
+        }
+        if (index + 1U >= arguments.size() ||
+            arguments[index + 1U].starts_with("--")) {
+            return usage_error("option '" + std::string{token} +
+                               "' requires a separate value");
+        }
+        const auto value = arguments[index + 1U];
+        if (value.empty()) {
+            return usage_error("option '" + std::string{token} +
+                               "' requires a non-empty value");
+        }
+        command.*(option->value) = value;
+        option->seen = true;
+        index += 2U;
+    }
+
+    for (const auto &option : options) {
+        if (!option.seen) {
+            return usage_error("missing required option '" +
+                               std::string{option.spelling} + "'");
+        }
+    }
+    return CliCommand{std::move(command)};
+}
+
 } // namespace
 
 std::string_view version_label() noexcept {
@@ -305,56 +520,37 @@ CliParseResult parse_cli_arguments(const std::span<const std::string_view> argum
         }
         return CliCommand{VersionCommand{}};
     }
-    if (arguments.front() != "render") {
-        return usage_error("unknown command '" + std::string{arguments.front()} + "'");
+    if (arguments.front() == "render") {
+        return parse_command_options(
+            arguments, RenderCommand{},
+            std::array{
+                CommandOption<RenderCommand>{"--engine",
+                                             &RenderCommand::engine_path},
+                CommandOption<RenderCommand>{"--scenario",
+                                             &RenderCommand::scenario_path},
+                CommandOption<RenderCommand>{"--asset-root",
+                                             &RenderCommand::asset_root},
+                CommandOption<RenderCommand>{
+                    "--output-directory", &RenderCommand::output_directory},
+            });
     }
-
-    RenderCommand command;
-    std::array options{
-        RenderOption{"--engine", &RenderCommand::engine_path},
-        RenderOption{"--scenario", &RenderCommand::scenario_path},
-        RenderOption{"--asset-root", &RenderCommand::asset_root},
-        RenderOption{"--output-directory", &RenderCommand::output_directory},
-    };
-
-    for (std::size_t index = 1U; index < arguments.size();) {
-        const auto token = arguments[index];
-        auto *option = static_cast<RenderOption *>(nullptr);
-        for (auto &candidate : options) {
-            if (candidate.spelling == token) {
-                option = &candidate;
-                break;
-            }
-        }
-        if (option == nullptr) {
-            const auto classification =
-                token.starts_with('-') ? "unknown option '" : "unexpected argument '";
-            return usage_error(std::string{classification} + std::string{token} + "'");
-        }
-        if (option->seen) {
-            return usage_error("duplicate option '" + std::string{token} + "'");
-        }
-        if (index + 1U >= arguments.size() || arguments[index + 1U].starts_with("--")) {
-            return usage_error("option '" + std::string{token} +
-                               "' requires a separate value");
-        }
-        const auto value = arguments[index + 1U];
-        if (value.empty()) {
-            return usage_error("option '" + std::string{token} +
-                               "' requires a non-empty value");
-        }
-        command.*(option->value) = value;
-        option->seen = true;
-        index += 2U;
+    if (arguments.front() == "bake-package") {
+        return parse_command_options(
+            arguments, BakePackageCommand{},
+            std::array{
+                CommandOption<BakePackageCommand>{
+                    "--engine", &BakePackageCommand::engine_path},
+                CommandOption<BakePackageCommand>{
+                    "--plan", &BakePackageCommand::package_bake_path},
+                CommandOption<BakePackageCommand>{
+                    "--asset-root", &BakePackageCommand::asset_root},
+                CommandOption<BakePackageCommand>{
+                    "--output-directory",
+                    &BakePackageCommand::output_directory},
+            });
     }
-
-    for (const auto &option : options) {
-        if (!option.seen) {
-            return usage_error("missing required option '" +
-                               std::string{option.spelling} + "'");
-        }
-    }
-    return CliCommand{std::move(command)};
+    return usage_error("unknown command '" + std::string{arguments.front()} +
+                       "'");
 }
 
 int run_cli(const std::span<const std::string_view> arguments,
@@ -373,8 +569,11 @@ int run_cli(const std::span<const std::string_view> arguments,
             standard_out << kProgramName << ' ' << version_label() << '\n';
             return kExitSuccess;
         }
-        return execute_render(std::get<RenderCommand>(command), standard_out,
-                              standard_error);
+        if (const auto *render = std::get_if<RenderCommand>(&command)) {
+            return execute_render(*render, standard_out, standard_error);
+        }
+        return execute_bake_package(std::get<BakePackageCommand>(command),
+                                    standard_out, standard_error);
     } catch (const std::bad_alloc &) {
         return report_error(standard_error, kExitSoftware,
                             "insufficient memory while processing the request");

@@ -750,11 +750,13 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             src/cli/native_input_filesystem.cpp
             src/cli/native_output_directory.cpp
             src/cli/native_package_input.cpp
+            src/cli/package_source_identity.cpp
     )
 
     target_include_directories(
         engine_sim_offline_cli_support
         PRIVATE
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/cli>
     )
 
@@ -772,6 +774,8 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             engine_sim_offline::authoring
             engine_sim_offline::compile
             engine_sim_offline::bake
+            engine_sim_offline::package_bake
+            engine_sim_offline_renderer_determinism
     )
     engine_sim_offline_enable_renderer_numeric_policy(
         engine_sim_offline_cli_support
