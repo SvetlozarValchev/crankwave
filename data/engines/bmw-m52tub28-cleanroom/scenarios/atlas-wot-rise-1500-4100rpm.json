@@ -19,41 +19,26 @@
     "temperature": { "value": 298.15, "unit": "K" }
   },
   "initial_state": {
-    "engine_speed": { "value": 1500, "unit": "rpm" },
+    "engine_speed": { "value": 1300, "unit": "rpm" },
     "crank_angle": { "value": 1.570796326795, "unit": "rad" },
     "ignition_enabled": true,
     "fuel_enabled": true,
     "starter_enabled": false,
-    "dyno_enabled": true,
+    "dyno_enabled": false,
     "limiter_enabled": true
   },
   "preparation": {
     "type": "fixed_horizon",
-    "preparation_duration": { "value": 3, "unit": "s" },
-    "trailing_complete_cycle_count": 16
+    "preparation_duration": { "value": 0.9, "unit": "s" },
+    "trailing_complete_cycle_count": 4
   },
   "mode": {
-    "type": "held_dyno",
-    "target_engine_speed": {
-      "value_dimension": "angular_speed",
-      "interpolation": "linear",
-      "points": [
-        {
-          "time": { "value": 0, "unit": "s" },
-          "value": { "value": 1500, "unit": "rpm" }
-        },
-        {
-          "time": { "value": 3, "unit": "s" },
-          "value": { "value": 1500, "unit": "rpm" }
-        },
-        {
-          "time": { "value": 24.66, "unit": "s" },
-          "value": { "value": 4100, "unit": "rpm" }
-        }
-      ]
-    },
-    "maximum_absorbing_torque": { "value": 10000, "unit": "lb*ft" },
-    "maximum_driving_torque": { "value": 0, "unit": "N*m" },
+    "type": "free_vehicle",
+    "rig": "bmw-m52tub28-cleanroom-e46-evaluation",
+    "initial_gear": "gear-5",
+    "initial_vehicle_speed": { "value": 14.635747345267, "unit": "m/s" },
+    "initial_clutch_engagement_01": 1,
+    "initial_service_brake_application_01": 0,
     "throttle_01": {
       "interpolation": "right_continuous_hold",
       "points": [
@@ -75,12 +60,12 @@
     "event_queue_capacity": 3800,
     "telemetry_capacity_frames": 1
   },
-  "total_duration": { "value": 24.66, "unit": "s" },
-  "audible_start": { "value": 3, "unit": "s" },
-  "audible_duration": { "value": 21.66, "unit": "s" },
-  "public_seed": "12648430",
+  "total_duration": { "value": 28, "unit": "s" },
+  "audible_start": { "value": 0.9, "unit": "s" },
+  "audible_duration": { "value": 27.1, "unit": "s" },
+  "public_seed": "12648431",
   "output": {
-    "buses": ["master-engine-audition"],
+    "buses": ["master-engine-raw", "master-engine-audition"],
     "telemetry_channels": []
   }
 }
