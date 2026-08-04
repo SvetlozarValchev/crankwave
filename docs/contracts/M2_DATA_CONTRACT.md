@@ -481,16 +481,22 @@ filter/kernel preparation, state, crop, tail, mastering, and publication convent
 there is no second caller-authored algorithm record that can drift from execution.
 
 The ordered audition route vector is a declared selection order, not merely a set.
-Its active-route subsequence is the arithmetic reduction order; declared-silent
-routes do not insert placeholder zero additions.
+Its rendered active-route subsequence is the arithmetic reduction order;
+declared-silent routes do not insert placeholder zero additions.
 Engine, scenario, and presentation profile IDs must agree. Assets must link to
 content-addressed provenance evidence whose digest exactly matches the asset, route
 and asset references must resolve, filter cutoffs must be below the
 source-processing Nyquist rate, and fades must fit in the audible interval.
 The current presentation validator admits configured active exhaust routes and
-explicitly declared-silent intake routes. The latter receive no conditioning seed,
-convolution kernel, or master-reduction operation and do not falsely claim audible
-intake fidelity. Mechanical routes remain unadmitted.
+active intake-pressure routes. An active intake route consumes captured absolute
+plenum pressure, references it to scenario ambient pressure, reconstructs it from the
+canonical 20 kHz capture clock to the 192 kHz presentation clock, removes DC at
+10 Hz, and applies its authored source gain. Its dry, configured-transfer, and
+selected stems are identical: it receives no exhaust conditioning seed, impulse
+response, or convolution kernel. It participates once in the ordered master
+reduction. Mechanical routes remain unadmitted. The previously declared-silent
+intake topology is historical evidence, not a retained execution alternative; see
+[`POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](../POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
 
 The historical frozen BMW reference evidence separately pins its former P1.8 method
 IDs and versions and the immutable complete renderer record at SHA-256
@@ -547,10 +553,11 @@ pairs are independently recomputed from the explicit namespace, public seed, and
 configured topology. The legacy-low-order profile's retained combustion initializations
 are executable cache values only and must equal that canonical derivation.
 Current combustion requires one initialized lane per cylinder; current presentation
-jitter and air noise require one initialized lane of each kind per configured route
-even at zero scale because those executors still instantiate them. Presentation
-advances both route-owned generators; combustion draws only for accepted ignition
-events. The plan does not claim runtime draw counts. Historical P1.8 evidence
+jitter and air noise require one initialized lane of each kind per configured
+exhaust route even at zero scale because those executors still instantiate them.
+Presentation advances both exhaust-route-owned generators; deterministic intake
+pressure creates no presentation-randomness lane. Combustion draws only for accepted
+ignition events. The plan does not claim runtime draw counts. Historical P1.8 evidence
 separately pins its former generator, derivation, seed, and four route-owned
 presentation stream pairs in
 [`P18_PRESENTATION_RENDERER.md`](../../reference/fixtures/bmw-m52b28-p18/P18_PRESENTATION_RENDERER.md).

@@ -580,11 +580,20 @@ exactly 3,840 samples. The spans remain valid only until the next enqueue/proces
 operation, session move, or session destruction. File publishers must consume or copy
 them before advancing the session.
 
-Exhaust route buses and both masters are `active`. The admitted intake topology is
-published as `declared_silent` at this checkpoint: it is an explicit topology lane, not
-fabricated intake audio. Mechanical route kinds remain reserved and would likewise be
-`declared_silent` until a real signal implementation is admitted. Changing a route to
-`active` requires its separately accepted signal implementation and audition evidence.
+Exhaust routes, admitted intake routes, and both masters are `active`. Each active
+intake route is backed by captured plenum pressure on the canonical 20 kHz capture
+clock, ambient-pressure subtraction, causal reconstruction to 192 kHz, deterministic
+10 Hz DC removal, and its authored source gain. Its dry, configured-transfer, and
+selected buses are identical because intake uses no exhaust random conditioning,
+impulse response, or convolution. The selected intake bus participates once in the
+ordered raw and audition masters.
+
+This is the sole intake implementation. The prior `declared_silent` intake checkpoint
+is historical evidence rather than a runtime option or compatibility path. It was
+superseded after the 2026-08-04 A/B/C listening gate documented in
+[`POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](../POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
+Mechanical route kinds remain reserved and unadmitted until a real signal
+implementation has its own acceptance evidence.
 The sole portable boundary is C ABI v6; there are no earlier-version aliases or
 compatibility decoders. Caller-selected bus subsets and caller-owned output buffers are
 also not part of the implemented C++ surface.

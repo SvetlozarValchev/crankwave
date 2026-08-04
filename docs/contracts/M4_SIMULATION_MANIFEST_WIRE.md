@@ -1,7 +1,7 @@
 # M4 simulation-manifest wire contract
 
 Status: implemented as the sole current canonical v10 manifest and v7 request-identity
-encoding; execution and listening gates remain separate
+encoding; active intake listening was accepted separately on 2026-08-04
 
 Manifest wire schema ID:
 `engine-sim-offline.render-manifest.simulation.v10`
@@ -351,10 +351,11 @@ currently admitted identities are:
 
 Admission recompiles the provisioned plan from the namespace, scenario public seed,
 and stable topology. The current executors instantiate one combustion lane per
-cylinder and one air-noise plus one jitter lane per configured presentation route
-even when the corresponding scale is zero, so all are recorded. Its canonical order is
-combustion by ascending stable cylinder ID, then air noise by ascending stable route
-ID, then jitter by ascending stable route ID. Each coordinate is derived under its
+cylinder and one air-noise plus one jitter lane per configured exhaust presentation
+route even when the corresponding scale is zero, so all are recorded. Active intake
+pressure is deterministic and creates neither lane. The canonical order is combustion
+by ascending stable cylinder ID, then exhaust air noise by ascending stable route ID,
+then exhaust jitter by ascending stable route ID. Each coordinate is derived under its
 fixed `combustion`, `synth_air_noise`, or `synth_jitter` domain with component index
 equal to the nonzero stable owner ID minus one. Container reordering or inserting a
 new owner therefore cannot rekey an existing component. Both the complete ordered
@@ -590,12 +591,15 @@ does not accept a second caller-built path or INFO-metadata description.
 
 For each published gas-source route, the three
 `SourceRouteRequirement::artifact_roles` entries are the method-owned positional
-tuple `dry`, `configured_transfer`, and `selected`, in that order. Active exhaust uses
-the rendered disposition; declared-silent intake publishes canonical-zero diagnostic
-artifacts. The job copies those
-identities into the corresponding named plan fields; it does not infer signal meaning
-from role spelling or artifact-list order. A different count or ownership mapping is
-not executable by this presentation method and fails before transaction begin.
+tuple `dry`, `configured_transfer`, and `selected`, in that order. Every admitted
+exhaust and intake route uses the rendered disposition. Exhaust gives those roles its
+dry/transfer/selection products. Active intake gives all three roles the same
+ambient-referenced, reconstructed, DC-removed, source-gained pressure product and has
+no presentation-randomness lanes, impulse-response asset, or convolution. The job
+copies those identities into the corresponding named plan fields; it does not infer
+signal meaning from role spelling or artifact-list order. A different count or
+ownership mapping is not executable by this presentation method and fails before
+transaction begin.
 
 For each admitted audio requirement, its artifact path is `audio/`, followed by the
 artifact role with every `/` byte replaced by lowercase `%2f`, followed by `.wav`.

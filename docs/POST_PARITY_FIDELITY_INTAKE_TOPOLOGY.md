@@ -1,12 +1,16 @@
 # Post-parity intake-route topology gate
 
-Status: complete and exhaust-PCM-identical on 2026-08-03.
+Status: historical silent-topology checkpoint, complete and exhaust-PCM-identical on
+2026-08-03; superseded by the accepted active path on 2026-08-04.
+
+Current production behavior and listening evidence are recorded in
+[`POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
 
 ## Decision
 
-The engine, capture, presentation, session, C ABI, WASM, and native-publication
-contracts now carry a typed `intake_inlet` source route independently from exhaust
-routes. There is still one canonical cooker clock:
+At this checkpoint, the engine, capture, presentation, session, C ABI, WASM, and
+native-publication contracts first carried a typed `intake_inlet` source route
+independently from exhaust routes. There was, and remains, one canonical cooker clock:
 
 - physics and capture: `20000/1 Hz`;
 - reconstruction, presentation, and delivery: `192000/1 Hz`;
@@ -22,12 +26,13 @@ intake model rather than inventing a parallel engine model:
 - exterior inlet-mouth area remains explicit positive zero because the authored
   plenum cross-section is internal solver geometry, not a microphone/radiation area.
 
-The topology checkpoint deliberately publishes all three intake stems as canonical
-positive zero. Public bus descriptors mark them `declared_silent`; exhaust stems and
-both masters remain `active`. Silent intake routes do not enter reconstruction,
-conditioning, convolution, random-stream consumption, or master reduction. This
-prevents a topology declaration from masquerading as audible intake fidelity and
-prevents an inserted zero operation from changing the accepted Float32 exhaust sum.
+This historical topology checkpoint deliberately published all three intake stems as
+canonical positive zero. Public bus descriptors marked them `declared_silent`;
+exhaust stems and both masters remained `active`. Silent intake routes did not enter
+reconstruction, conditioning, convolution, random-stream consumption, or master
+reduction. That prevented a topology declaration from masquerading as audible intake
+fidelity and prevented an inserted zero operation from changing the accepted Float32
+exhaust sum.
 
 The sole portable boundary is now C ABI v6. There are no v5 aliases or compatibility
 decoders.
@@ -51,15 +56,21 @@ boundary flow, publish exact positive-zero intake stems, preserve both masters, 
 the explicit signal disposition through native/C/WASM/JavaScript, and project intake
 artifacts through the native render job.
 
-## Acceptance boundary
+## Historical acceptance boundary
 
 This commit is plumbing, not a sound improvement and not a listening candidate. It
 does not claim an exterior inlet impedance, mouth radiation model, intake transfer
 function, microphone position, or calibrated intake level. It does not run exhaust
 jitter, derivative, generic air noise, or exhaust IR processing over intake pressure.
 
-The next change is one isolated sound-bearing BMW intake-pressure diagnostic. It must
-retain the accepted exhaust output, render matched exhaust-control/intake-solo/full
-comparisons, and stop for listening before any further fidelity work. An accepted
-intake implementation becomes the one production path; rejected diagnostic work is
-removed rather than retained as an optional or compatibility mode.
+The required next change was one isolated sound-bearing BMW intake-pressure
+diagnostic. It had to retain the accepted exhaust output, render matched
+exhaust-control/intake-solo/full comparisons, and stop for listening before further
+fidelity work.
+
+That gate closed on 2026-08-04 at commit
+`953040294274362fd699436e3040cbcee8f70d30`. The user accepted the active intake
+comparison, every exhaust stem remained byte-identical to the accepted 20 kHz
+control, and the active implementation became the sole production path. The
+`declared_silent` behavior described above remains only this historical checkpoint;
+it is not an optional or compatibility mode in current execution.
