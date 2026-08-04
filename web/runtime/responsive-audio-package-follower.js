@@ -6,7 +6,13 @@ const LOAD_ATTACK_MILLISECONDS = 24;
 const LOAD_RELEASE_MILLISECONDS = 42;
 const SOURCE_TRANSITION_MILLISECONDS = 90;
 const IDLE_BLEND_RANGE_RPM = 140;
-const NEIGHBOR_RADIUS_ROWS = 3;
+const PACKAGE_NEIGHBOR_RADIUS_ROWS = 3;
+// First listening isolate: the current 25 RPM package grid makes the authored
+// +/-3-row selector jump as far as +/-75 RPM every 720-degree cycle.  The
+// engine-audio-lab method bounds that displacement to roughly +/-12 RPM.
+// Disable row variation until the package is rebuilt on the required dense
+// grid; this changes only source-row selection and requires no new capture.
+const PLAYBACK_NEIGHBOR_RADIUS_ROWS = 0;
 const MINIMUM_PLAYBACK_RPM = 1;
 const RANDOM_FALLBACK_STATE = 0x6d2b79f5;
 const MAXIMUM_SELECTION_HISTORY = 256;
@@ -19,7 +25,7 @@ export const RESPONSIVE_AUDIO_FOLLOWER_CONSTANTS = Object.freeze({
   loadReleaseMilliseconds: LOAD_RELEASE_MILLISECONDS,
   sourceTransitionMilliseconds: SOURCE_TRANSITION_MILLISECONDS,
   idleBlendRangeRpm: IDLE_BLEND_RANGE_RPM,
-  neighborRadiusRows: NEIGHBOR_RADIUS_ROWS,
+  neighborRadiusRows: PLAYBACK_NEIGHBOR_RADIUS_ROWS,
   overlapFrames:
     (REFERENCE_OVERLAP_FRAMES * ESO_CANONICAL_SAMPLE_RATE) /
     REFERENCE_OVERLAP_SAMPLE_RATE,
@@ -252,10 +258,10 @@ function compileLoadedPackage(loadedPackage) {
     );
   }
   const radius = manifest.running.rpm_grid.neighbor_radius_rows;
-  if (radius !== NEIGHBOR_RADIUS_ROWS) {
+  if (radius !== PACKAGE_NEIGHBOR_RADIUS_ROWS) {
     fail(
       "responsive-follower-selector-invalid",
-      `package selector radius must be exactly ${NEIGHBOR_RADIUS_ROWS} rows`,
+      `package selector radius must be exactly ${PACKAGE_NEIGHBOR_RADIUS_ROWS} rows`,
     );
   }
   if (
@@ -275,7 +281,7 @@ function compileLoadedPackage(loadedPackage) {
     planes: compiledPlanes,
     idle,
     idleMeanRpm,
-    radius,
+    radius: PLAYBACK_NEIGHBOR_RADIUS_ROWS,
     randomState: seed32 || RANDOM_FALLBACK_STATE,
     alignmentFrames: manifest.running.cycle_signal_alignment_frames,
     playbackMinimumRpm: manifest.running.rpm_grid.playback_minimum_rpm,

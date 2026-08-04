@@ -193,7 +193,7 @@ test("exact native cycle evidence reanchors the source marker without rounding",
   assert.equal(follower.diagnostics().selectionHistory.length, 2);
 });
 
-test("selector is deterministic and every shuffled bag is a complete zero-mean -3..3 set", () => {
+test("coarse-grid listening isolate selects only the nearest source row", () => {
   const loadedPackage = fixture();
   const cycles = Array.from({ length: 22 }, (_unused, index) =>
     completedCycle(index + 1, 6_000 + index * 1_536),
@@ -215,24 +215,8 @@ test("selector is deterministic and every shuffled bag is a complete zero-mean -
   const offsets = first
     .diagnostics()
     .selectionHistory.map((selection) => selection.variationOffset);
-  const completeBagCount = Math.floor(offsets.length / 7);
-  assert.ok(completeBagCount >= 3);
-  for (let bag = 0; bag < completeBagCount; ++bag) {
-    const values = offsets.slice(bag * 7, bag * 7 + 7);
-    assert.deepEqual([...values].sort((left, right) => left - right), [
-      -3,
-      -2,
-      -1,
-      0,
-      1,
-      2,
-      3,
-    ]);
-    assert.equal(values.reduce((sum, value) => sum + value, 0), 0);
-    if (bag > 0) {
-      assert.notEqual(values[0], offsets[bag * 7 - 1]);
-    }
-  }
+  assert.ok(offsets.length >= 20);
+  assert.ok(offsets.every((offset) => offset === 0));
 });
 
 test("directional planes mix linearly while idle uses the accepted equal-power handoff", () => {
