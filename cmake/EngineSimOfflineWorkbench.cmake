@@ -31,6 +31,54 @@ function(engine_sim_offline_add_web_workbench _wasm_target)
         CONFIGURE_DEPENDS
         "${PROJECT_SOURCE_DIR}/reference/fixtures/*/presentation/*.wav"
     )
+    set(
+        _audio_atlas_fixture_root
+        "${PROJECT_SOURCE_DIR}/reference/fixtures/audio-atlases"
+    )
+    file(
+        GLOB
+        _audio_atlas_fixture_directories
+        CONFIGURE_DEPENDS
+        LIST_DIRECTORIES true
+        "${_audio_atlas_fixture_root}/*"
+    )
+    set(_audio_atlas_fixture_commands)
+    set(_audio_atlas_fixture_files)
+    foreach(_audio_atlas_fixture_directory IN LISTS _audio_atlas_fixture_directories)
+        if(NOT IS_DIRECTORY "${_audio_atlas_fixture_directory}")
+            continue()
+        endif()
+        if(NOT EXISTS "${_audio_atlas_fixture_directory}/atlas.json")
+            message(FATAL_ERROR
+                    "audio-atlas fixture '${_audio_atlas_fixture_directory}' is incomplete: atlas.json is missing")
+        endif()
+
+        get_filename_component(
+            _audio_atlas_fixture_leaf
+            "${_audio_atlas_fixture_directory}"
+            NAME
+        )
+        file(
+            GLOB_RECURSE
+            _audio_atlas_fixture_directory_files
+            CONFIGURE_DEPENDS
+            LIST_DIRECTORIES false
+            "${_audio_atlas_fixture_directory}/*"
+        )
+        list(
+            APPEND
+            _audio_atlas_fixture_files
+            ${_audio_atlas_fixture_directory_files}
+        )
+        list(
+            APPEND
+            _audio_atlas_fixture_commands
+            COMMAND
+                "${CMAKE_COMMAND}" -E copy_directory
+                "${_audio_atlas_fixture_directory}"
+                "${_output_root}/packages/${_audio_atlas_fixture_leaf}"
+        )
+    endforeach()
     set(_reference_asset_commands)
     foreach(_reference_asset IN LISTS _presentation_assets)
         file(
@@ -73,6 +121,7 @@ function(engine_sim_offline_add_web_workbench _wasm_target)
             "${CMAKE_COMMAND}" -E copy_directory
             "${PROJECT_SOURCE_DIR}/data"
             "${_output_root}/data"
+        ${_audio_atlas_fixture_commands}
         ${_reference_asset_commands}
         COMMAND
             "${CMAKE_COMMAND}" -E copy_if_different
@@ -87,6 +136,7 @@ function(engine_sim_offline_add_web_workbench _wasm_target)
             "${_wasm_target}"
             ${_web_sources}
             ${_data_sources}
+            ${_audio_atlas_fixture_files}
             ${_presentation_assets}
         COMMENT "Assembling the isolated browser workbench"
         VERBATIM
