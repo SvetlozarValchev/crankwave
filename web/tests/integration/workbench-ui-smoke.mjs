@@ -323,6 +323,14 @@ async function pageState(cdp) {
       throttleMinimumLabel: text("#throttle-minimum-label"),
       throttleMaximumLabel: text("#throttle-maximum-label"),
       exportLabel: text("#export-button"),
+      audioPackageStatus: text("#audio-package-status"),
+      audioPackageDetail: text("#audio-package-detail"),
+      comparisonMode:
+        document.querySelector(".comparison-mode.is-selected")?.dataset
+          ?.comparisonMode ?? null,
+      bakedComparisonDisabled:
+        document.querySelector('[data-comparison-mode="baked-b"]')?.disabled ??
+        true,
       underruns: text("#underrun-value"),
       busCount: selected?.options?.length ?? 0,
       selectedBus: selected?.value ?? "",
@@ -461,6 +469,78 @@ async function selectExecutionKindAndRebuild(cdp, executionKind) {
       : "the rebuilt authored finite procedure",
     30_000,
   );
+}
+
+async function verifyResponsiveAudioPackage(cdp) {
+  const ready = await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.session === "Ready" &&
+      state.audioPackageStatus === "A/B ready" &&
+      state.comparisonMode === "source-a" &&
+      !state.bakedComparisonDisabled &&
+      !state.startDisabled,
+    "the exact BMW responsive package",
+    60_000,
+  );
+  assert.match(
+    ready.audioPackageDetail,
+    /bmw-m52tub28-cleanroom-normal-running.*exact engine and payload hashes admitted/u,
+  );
+
+  await cdp.evaluate(
+    `document.querySelector("#start-button").click(); true`,
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.session === "Running" &&
+      state.rpm !== "—" &&
+      state.audioPackageStatus === "A/B ready",
+    "the primed BMW source/baked session",
+    30_000,
+  );
+  await cdp.evaluate(
+    `document.querySelector('[data-comparison-mode="baked-b"]').click(); true`,
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) => state.comparisonMode === "baked-b",
+    "Baked B audition routing",
+  );
+  const baked = await waitUntil(
+    () => pageState(cdp),
+    (state) =>
+      state.session === "Running" &&
+      /B−A .* B peak .* clips 0 · gaps 0 · silence 0/u.test(
+        state.audioPackageDetail,
+      ),
+    "finite gap-free baked diagnostics",
+    20_000,
+  );
+  assert.doesNotMatch(baked.audioPackageDetail, /B−A n\/a/u);
+  assert.doesNotMatch(baked.audioPackageDetail, /B peak 0\.000/u);
+
+  await cdp.evaluate(
+    `document.querySelector('[data-comparison-mode="source-a"]').click(); true`,
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) => state.comparisonMode === "source-a",
+    "manual return to Source A audition routing",
+  );
+  await cdp.evaluate(
+    `document.querySelector("#stop-button").click(); true`,
+  );
+  await waitUntil(
+    () => pageState(cdp),
+    (state) => state.session === "Paused",
+    "paused responsive A/B session",
+  );
+  return {
+    diagnostic: baked.audioPackageDetail,
+    sharedOutputUnderruns: Number(baked.underruns),
+  };
 }
 
 async function verifyFiniteProcedure(cdp) {
@@ -984,6 +1064,7 @@ async function main() {
     );
 
     const verifiedPackages = [];
+    let responsiveAudio = null;
     for (const expectation of NEW_REPOSITORY_PACKAGES) {
       verifiedPackages.push(
         await verifyRepositoryPackage(cdp, expectation),
@@ -994,6 +1075,9 @@ async function main() {
           OPEN_ENDED_EXECUTION_KIND,
         );
         await verifyHeldDynoBench(cdp);
+      }
+      if (expectation.packageId === "bmw-m52tub28-free-rev") {
+        responsiveAudio = await verifyResponsiveAudioPackage(cdp);
       }
       if (expectation.packageId === "bmw-m52tub28-canonical-shutdown") {
         await verifyFiniteProcedure(cdp);
@@ -1025,6 +1109,7 @@ async function main() {
         selectedRoute,
         v8Engine: v8Running.sessionTitle,
         v8StartupUnderruns: Number(v8Running.underruns),
+        responsiveAudio,
         verifiedPackages,
       }) + "\n",
     );

@@ -353,7 +353,7 @@ export class BrowserEngineRuntime {
     this.#requireProgram("set-comparison-mode");
     if (this.#comparisonMixer === null) {
       throw runtimeError(
-        "load a matching responsive audio package before selecting B or Split",
+        "load a matching responsive audio package before selecting Baked B",
         "browser-runtime-package-not-loaded",
         "set-comparison-mode",
       );

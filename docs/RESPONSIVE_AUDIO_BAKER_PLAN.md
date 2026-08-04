@@ -1,7 +1,8 @@
 # Responsive audio baker and live A/B plan
 
-Status: active; source renderer frozen at the accepted `b098e8e` baseline while the
-first package vertical slice is built.
+Status: first normal-running package vertical slice implemented and browser-verified;
+paused at the required user-listening gate. The source renderer remains frozen at the
+accepted `b098e8e` baseline.
 
 Date: 2026-08-04
 
@@ -147,14 +148,13 @@ The existing workbench gains one audition selector:
 ```text
 A - direct EngineSession source
 B - baked package follower
-Split - A left / B right diagnostic
 ```
 
-One UI control state fans out to both renderers. A remains audible and authoritative
-for physical telemetry. B consumes that same returned RPM/load/state timeline after
-the declared transport delay; it never runs a second vehicle or engine model. Switching
-A/B changes gain routing only, so both paths continue advancing and the comparison
-does not restart either one.
+One EngineSession remains authoritative for physical telemetry and direct Source A
+audio. B consumes that same returned RPM/load/state timeline after the declared
+transport delay; it never runs a second vehicle or engine model. The user compares
+them by manually selecting exclusive Source A or exclusive Baked B. Switching changes
+gain routing only, so both paths continue advancing and neither one restarts.
 
 A and B enter one shared canonical-clock comparison mixer before one shared device
 resampler, AudioWorklet ring, and output graph. Neither side may have a private cabin,
@@ -165,8 +165,8 @@ its default speaker A/B routing.
 
 The harness reports source/package identities, selected rows and load planes, source
 RPM, playback ratio, active event ownership, ring fill, underruns, uncovered frames,
-exact-silent frames, clipping, and A/B level delta. Split is diagnostic only; A and B
-are not promised sample alignment across browser/hardware latency.
+exact-silent frames, clipping, and A/B level delta. A and B remain computationally
+phase-locked, but only the user-selected signal is audible in both output channels.
 
 The first named A/B procedures are:
 
@@ -192,9 +192,9 @@ The first named A/B procedures are:
    uniqueness/context/load ordering, and publish one BMW package transaction.
 6. **Reference follower.** Implement the shared-clock unit scheduler, deterministic
    neighbor bag, adjacent linear load interpolation, idle pool, and click-safe edges.
-7. **Workbench A/B.** Feed live source state to the follower, add A/B/Split routing and
-   diagnostics, and preserve the existing direct-session workbench unchanged when no
-   package is loaded.
+7. **Workbench A/B.** Feed live source state to the follower, add exclusive manual A/B
+   routing and diagnostics, and preserve the existing direct-session workbench
+   unchanged when no package is loaded.
 8. **First listening stop.** Compare raw tapes, isolated planes, steady holds, and
    rising/falling controls. Do not add lifecycle events or platform adapters until the
    user accepts the normal-running reconstruction.
@@ -233,9 +233,26 @@ normal-running domain in the workbench. Required evidence is:
 - the exact package and source identities;
 - raw power, part-load, coast, and idle tapes;
 - A/B steady holds and one shared rising/falling control trace;
-- zero package underruns, uncovered output, exact-silent running frames, clipping, and
-  invalid row or load-plane transitions; and
+- zero follower scheduling gaps, exact-silent running frames, clipping, and invalid row
+  or load-plane transitions; shared output-ring underruns are reported separately
+  because the authoring harness still runs the expensive Source A simulator; and
 - clickable paths or a documented local URL for immediate listening.
 
 Work stops at that point for user audition. A later lifecycle or fidelity phase may
 not be used to excuse a defective normal-running reconstruction.
+
+## First audition implementation evidence
+
+The first vertical slice uses package
+`bmw-m52tub28-cleanroom-normal-running` with exact engine and payload hash admission.
+The workbench always advances one EngineSession. Every source block supplies both the
+direct A samples and the RPM/load/cycle clock consumed by B; selecting Source A or
+Baked B changes only the exclusive output route. There is no split, sum, alternating,
+or independently simulated comparison mode.
+
+The 2026-08-04 headless browser run performed a real button-driven
+Source A -> Baked B -> Source A switch while the BMW session remained running. Its B
+diagnostic at 1,478 rpm reported a nonzero peak, zero clips, zero uncovered frames,
+and zero exact-silent normal-running frames. The full runtime unit suite and repository
+workbench smoke also passed. Listening remains the acceptance authority, so lifecycle
+assets and delivery adapters remain blocked on the user's audition.

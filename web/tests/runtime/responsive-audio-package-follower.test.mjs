@@ -388,6 +388,8 @@ test("normal running stays finite and unclipped without hidden limiting", () => 
   const diagnostics = follower.diagnostics();
   assert.equal(diagnostics.buses[0].finite, true);
   assert.equal(diagnostics.buses[0].clipSampleCount, 0);
+  assert.equal(diagnostics.uncoveredFrameCount, 0);
+  assert.equal(diagnostics.exactSilentFrameCount, 0);
   assert.ok(diagnostics.buses[0].peak <= 1);
   assert.equal(diagnostics.nextDeliveryFrame, 8_192);
 

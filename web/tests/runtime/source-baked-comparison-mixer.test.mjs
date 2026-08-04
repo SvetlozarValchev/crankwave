@@ -23,12 +23,13 @@ test("comparison modes are exact gain routes on the canonical clock", () => {
     mixer.process(source, baked),
     Float32Array.of(0.5, 0.5, -0.25, -0.25, 0.75, 0.75, -1, -1),
   );
+});
 
-  mixer.mode = SourceBakedComparisonMode.split;
-  assert.deepEqual(
-    mixer.process(source, baked),
-    Float32Array.of(-0, 0.5, -0.75, -0.25, 0.25, 0.75, 1, -1),
-  );
+test("mixed and split comparison modes are not part of the contract", () => {
+  const mixer = new SourceBakedComparisonMixer();
+  assert.throws(() => {
+    mixer.mode = "split";
+  }, /comparison mode must be source-a or baked-b/);
 });
 
 test("both paths are metered in every mode with per-block and cumulative levels", () => {
@@ -104,7 +105,7 @@ test("invalid blocks fail transactionally before diagnostics advance", () => {
 
 test("diagnostic reset is exact and retains the selected audible mode", () => {
   const mixer = new SourceBakedComparisonMixer({
-    mode: SourceBakedComparisonMode.split,
+    mode: SourceBakedComparisonMode.baked,
   });
   mixer.process(Float32Array.of(2, 0), Float32Array.of(-2, 0));
   mixer.resetDiagnostics();
@@ -112,7 +113,7 @@ test("diagnostic reset is exact and retains the selected audible mode", () => {
   assert.deepEqual(mixer.diagnostics(), {
     sampleRate: 192_000,
     channelCount: 2,
-    mode: SourceBakedComparisonMode.split,
+    mode: SourceBakedComparisonMode.baked,
     lastBlock: null,
     cumulative: {
       blockCount: 0,
@@ -136,7 +137,7 @@ test("diagnostic reset is exact and retains the selected audible mode", () => {
   });
   assert.deepEqual(
     mixer.process(Float32Array.of(0.25), Float32Array.of(-0.5)),
-    Float32Array.of(0.25, -0.5),
+    Float32Array.of(-0.5, -0.5),
   );
   assert.equal(mixer.diagnostics().lastBlock.ordinal, 1);
   assert.equal(mixer.diagnostics().lastBlock.firstFrame, 0);

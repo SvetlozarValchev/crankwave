@@ -3,13 +3,12 @@ import { ESO_CANONICAL_SAMPLE_RATE } from "./c-api-abi.js";
 export const SourceBakedComparisonMode = Object.freeze({
   source: "source-a",
   baked: "baked-b",
-  split: "split",
 });
 
 function comparisonMode(value) {
   if (!Object.values(SourceBakedComparisonMode).includes(value)) {
     throw new RangeError(
-      "comparison mode must be source-a, baked-b, or split",
+      "comparison mode must be source-a or baked-b",
     );
   }
   return value;
@@ -116,11 +115,8 @@ export class SourceBakedComparisonMixer {
       if (this.#mode === SourceBakedComparisonMode.source) {
         output[outputOffset] = sourceSample;
         output[outputOffset + 1] = sourceSample;
-      } else if (this.#mode === SourceBakedComparisonMode.baked) {
-        output[outputOffset] = bakedSample;
-        output[outputOffset + 1] = bakedSample;
       } else {
-        output[outputOffset] = sourceSample;
+        output[outputOffset] = bakedSample;
         output[outputOffset + 1] = bakedSample;
       }
     }

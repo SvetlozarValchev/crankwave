@@ -13,7 +13,6 @@ const BMW_M52TUB28_RESPONSIVE_PACKAGE_URL =
 const COMPARISON_MODE = Object.freeze({
   source: "source-a",
   baked: "baked-b",
-  split: "split",
 });
 const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
@@ -518,7 +517,31 @@ function renderAudioPackageControls() {
   elements.audioPackageStatus.textContent =
     statusLabels[audioPackage.status] ?? "Source only";
   elements.audioPackageStatus.dataset.state = audioPackage.status;
-  elements.audioPackageDetail.textContent = audioPackage.detail;
+  const packageStats = state.runtimeStats?.audioPackage;
+  const comparison = packageStats?.comparison?.cumulative;
+  const follower = packageStats?.follower;
+  let detail = audioPackage.detail;
+  if (
+    loaded &&
+    packageStats?.packageId === audioPackage.packageId &&
+    comparison?.frameCount > 0
+  ) {
+    const levelDelta = Number.isFinite(comparison.bakedMinusSourceRmsDb)
+      ? `${comparison.bakedMinusSourceRmsDb >= 0 ? "+" : ""}${comparison.bakedMinusSourceRmsDb.toFixed(1)} dB`
+      : "n/a";
+    const lastSelection = follower?.lastSelection;
+    const row = lastSelection
+      ? ` · ${Math.round(lastSelection.targetRpm)} rpm (${lastSelection.variationOffset >= 0 ? "+" : ""}${lastSelection.variationOffset})`
+      : "";
+    detail =
+      `${audioPackage.packageId}${row}` +
+      ` · B−A ${levelDelta}` +
+      ` · B peak ${(comparison.baked?.peak ?? 0).toFixed(3)}` +
+      ` · clips ${comparison.baked?.clipSampleCount ?? 0}` +
+      ` · gaps ${follower?.uncoveredFrameCount ?? 0}` +
+      ` · silence ${follower?.exactSilentFrameCount ?? 0}`;
+  }
+  elements.audioPackageDetail.textContent = detail;
   elements.comparisonModeControls.setAttribute(
     "aria-busy",
     String(audioPackage.status === "loading" || pendingMode),
@@ -1186,7 +1209,6 @@ function requestComparisonMode(mode) {
   }
   const requestId = nextRequestId();
   state.audioPackage.priorMode = state.audioPackage.mode;
-  state.audioPackage.mode = mode;
   state.audioPackage.modeRequestId = requestId;
   renderAudioPackageControls();
   postWorker({
@@ -2389,6 +2411,7 @@ function drawTrace() {
 function acceptRuntimeStats(message) {
   state.runtimeStats = message;
   renderRuntimeStats();
+  renderAudioPackageControls();
 }
 
 function readRingStats() {

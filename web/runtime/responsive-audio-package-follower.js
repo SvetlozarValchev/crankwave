@@ -329,6 +329,8 @@ export class ResponsiveAudioPackageFollower {
   #sourceCursorTransitionCount = 0;
   #maximumCursorMarkerErrorFrames = 0;
   #stateWarmupFrameCount = 0;
+  #uncoveredFrameCount = 0;
+  #exactSilentFrameCount = 0;
   #lastAlignedSourceFrame = null;
   #busStats;
 
@@ -372,6 +374,8 @@ export class ResponsiveAudioPackageFollower {
     this.#sourceCursorTransitionCount = 0;
     this.#maximumCursorMarkerErrorFrames = 0;
     this.#stateWarmupFrameCount = 0;
+    this.#uncoveredFrameCount = 0;
+    this.#exactSilentFrameCount = 0;
     this.#lastAlignedSourceFrame = null;
     this.#busStats = initialBusStats(this.#package.buses);
   }
@@ -458,6 +462,8 @@ export class ResponsiveAudioPackageFollower {
       sourceCursorTransitionCount: this.#sourceCursorTransitionCount,
       maximumCursorMarkerErrorFrames: this.#maximumCursorMarkerErrorFrames,
       stateWarmupFrameCount: this.#stateWarmupFrameCount,
+      uncoveredFrameCount: this.#uncoveredFrameCount,
+      exactSilentFrameCount: this.#exactSilentFrameCount,
       lastAlignedSourceFrame: this.#lastAlignedSourceFrame,
       lastTransitionMarkerFrame: this.#lastTransitionMarkerFrame,
       selectionHistory: Object.freeze(
@@ -1032,6 +1038,10 @@ export class ResponsiveAudioPackageFollower {
       }
     }
     const divisor = Math.max(1, normalization);
+    if (normalization <= 0) {
+      ++this.#uncoveredFrameCount;
+    }
+    let exactSilent = true;
     for (let busIndex = 0; busIndex < output.length; ++busIndex) {
       const sample = sums[busIndex] / divisor;
       if (!Number.isFinite(sample)) {
@@ -1041,6 +1051,7 @@ export class ResponsiveAudioPackageFollower {
         );
       }
       output[busIndex][offset] = sample;
+      exactSilent &&= sample === 0;
       const magnitude = Math.abs(sample);
       const stats = this.#busStats[busIndex];
       stats.peak = Math.max(stats.peak, magnitude);
@@ -1048,6 +1059,9 @@ export class ResponsiveAudioPackageFollower {
       if (magnitude > 1) {
         ++stats.clipSampleCount;
       }
+    }
+    if (exactSilent) {
+      ++this.#exactSilentFrameCount;
     }
 
     const targetRpm = Math.max(MINIMUM_PLAYBACK_RPM, rpm);
