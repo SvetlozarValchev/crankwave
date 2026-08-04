@@ -59,6 +59,17 @@ void expect(const bool condition, const std::string_view message) {
     }
 }
 
+[[nodiscard]] std::string digest_hex(const eso_sha256_digest_t &digest) {
+    static constexpr char kHex[] = "0123456789abcdef";
+    std::string result;
+    result.reserve(ESO_SHA256_DIGEST_SIZE * 2U);
+    for (const auto byte : digest.bytes) {
+        result.push_back(kHex[byte >> 4U]);
+        result.push_back(kHex[byte & 0x0fU]);
+    }
+    return result;
+}
+
 [[nodiscard]] std::string read_text(const std::filesystem::path &path) {
     std::ifstream stream(path, std::ios::binary);
     if (!stream) {
@@ -293,14 +304,48 @@ void test_motion_contract_surface(eso_context_t *context,
     eso_engine_handle_t engine = ESO_INVALID_HANDLE;
     expect(eso_compile_engine_json(context, view(engine_json), assets, 2U, &engine) ==
                ESO_STATUS_OK,
-           "M52TU engine compilation through C ABI v8 failed");
+           "M52TU engine compilation through C ABI v9 failed");
+
+    eso_sha256_digest_t engine_provenance{};
+    expect(eso_engine_copy_provenance_sha256(context, engine, nullptr) ==
+               ESO_STATUS_INVALID_ARGUMENT,
+           "engine provenance admitted a null output digest");
+    engine_provenance.bytes[0] = 0xa5U;
+    expect(eso_engine_copy_provenance_sha256(context, ESO_INVALID_HANDLE,
+                                             &engine_provenance) ==
+                   ESO_STATUS_INVALID_HANDLE &&
+               engine_provenance.bytes[0] == 0xa5U,
+           "engine provenance lost invalid-handle or transactional output behavior");
+    expect(eso_engine_copy_provenance_sha256(context, engine, &engine_provenance) ==
+                   ESO_STATUS_OK &&
+               digest_hex(engine_provenance) ==
+                   "1d81da0057a42fa37f138ef54881d431007409c1a2b90c58b62008f6bd3ae4cf",
+           "C ABI engine provenance differs from the compiled bundle SHA-256");
+
+    eso_sha256_digest_t renderer_source{};
+    const auto renderer_status =
+        eso_renderer_copy_source_closure_sha256(context, &renderer_source);
+    if (renderer_status == ESO_STATUS_OK) {
+        const auto renderer_hex = digest_hex(renderer_source);
+        expect(renderer_hex.size() == 64U &&
+                   renderer_hex.find_first_not_of("0123456789abcdef") ==
+                       std::string::npos &&
+                   renderer_hex.find_first_not_of('0') != std::string::npos,
+               "C ABI renderer source closure is not a canonical SHA-256");
+    } else {
+        eso_error_info_t error{};
+        expect(renderer_status == ESO_STATUS_NOT_AVAILABLE &&
+                   eso_context_get_last_error(context, &error) == ESO_STATUS_OK &&
+                   error.code == ESO_ERROR_RENDERER_SOURCE_STAMP_UNAVAILABLE,
+               "an inadmissible renderer stamp did not fail closed");
+    }
     eso_scenario_handle_t held_dyno_scenario = ESO_INVALID_HANDLE;
     eso_scenario_handle_t free_vehicle_scenario = ESO_INVALID_HANDLE;
     expect(eso_compile_scenario_json(context, engine, view(held_dyno_json),
                                      &held_dyno_scenario) == ESO_STATUS_OK &&
                eso_compile_scenario_json(context, engine, view(free_vehicle_json),
                                          &free_vehicle_scenario) == ESO_STATUS_OK,
-           "C ABI v8 motion-scenario compilation failed");
+           "C ABI v9 motion-scenario compilation failed");
 
     eso_session_handle_t held_dyno_session = ESO_INVALID_HANDLE;
     eso_session_handle_t free_vehicle_session = ESO_INVALID_HANDLE;
@@ -310,7 +355,7 @@ void test_motion_contract_surface(eso_context_t *context,
                eso_create_session(context, free_vehicle_scenario,
                                   ESO_SESSION_EXECUTION_OPEN_ENDED,
                                   &free_vehicle_session) == ESO_STATUS_OK,
-           "C ABI v8 open operating-bench session creation failed");
+           "C ABI v9 open operating-bench session creation failed");
 
     constexpr auto kCoreLiveControls = ESO_LIVE_CONTROL_CAPABILITY_THROTTLE |
                                        ESO_LIVE_CONTROL_CAPABILITY_IGNITION_ENABLED |
@@ -538,7 +583,7 @@ void test_motion_contract_surface(eso_context_t *context,
 
     expect(eso_destroy_session(context, held_dyno_session) == ESO_STATUS_OK &&
                eso_destroy_session(context, free_vehicle_session) == ESO_STATUS_OK,
-           "C ABI v8 motion-session teardown failed");
+           "C ABI v9 motion-session teardown failed");
 }
 
 void run(const std::filesystem::path &repository_root) {

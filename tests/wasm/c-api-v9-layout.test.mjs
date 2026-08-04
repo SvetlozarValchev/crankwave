@@ -440,11 +440,11 @@ function makeFakeClient({
   return { client, capturedControlBatches };
 }
 
-test("frozen wasm32 ABI is the exact v8 layout", () => {
-  assert.equal(ESO_C_API_VERSION, 8);
+test("frozen wasm32 ABI is the exact v9 layout", () => {
+  assert.equal(ESO_C_API_VERSION, 9);
   assert.deepEqual(
     WASM32_ABI_WORDS,
-    [8, 4, 4, 4, 8, 1, 40, 104, 24, 48, 704, 296],
+    [9, 4, 4, 4, 8, 1, 40, 104, 24, 48, 704, 296],
   );
   assert.equal(Layout.diagnosticInfo.size, 56);
   assert.equal(Layout.engineTelemetry.size, 536);

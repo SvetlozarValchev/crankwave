@@ -597,7 +597,7 @@ superseded after the 2026-08-04 A/B/C listening gate documented in
 [`POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md`](../POST_PARITY_FIDELITY_ACTIVE_INTAKE_LISTENING_GATE.md).
 Mechanical route kinds remain reserved and unadmitted until a real signal
 implementation has its own acceptance evidence.
-The sole portable boundary is C ABI v8; there are no earlier-version aliases or
+The sole portable boundary is C ABI v9; there are no earlier-version aliases or
 compatibility decoders. Caller-selected bus subsets and caller-owned output buffers are
 also not part of the implemented C++ surface.
 
@@ -701,6 +701,8 @@ layouts:
 
 ```text
 strict engine JSON + caller asset bytes -> compiled engine handle
+compiled engine handle -> exact engine provenance bundle SHA-256
+renderer build -> exact admitted source-closure SHA-256
 compiled engine + strict scenario JSON -> compiled scenario handle
 compiled scenario + required execution kind -> mutable session handle
 timestamped typed controls -> bounded session queue
@@ -717,11 +719,13 @@ There is no form that omits `execution_kind`.
 
 The implemented ABI:
 
-- the sole accepted exact version is `ESO_C_API_VERSION == 7`, with no older-layout
+- the sole accepted exact version is `ESO_C_API_VERSION == 9`, with no older-layout
   decoder or compatibility symbol family;
 - no C++ exception crosses the boundary;
 - every call returns an explicit status;
 - parse/compile diagnostics and related locations are copied into caller-owned buffers;
+- compiled engines expose their canonical provenance bundle as 32 digest bytes, and
+  clean renderer builds expose the generated source-closure digest in the same form;
 - JSON appears only at compile time;
 - audio, controls, telemetry, and completed-cycle evidence use fixed-layout structs
   and bounded views;

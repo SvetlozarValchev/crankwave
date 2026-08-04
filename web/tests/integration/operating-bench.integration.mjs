@@ -12,6 +12,8 @@ import { EngineSimCapiClient } from "../../runtime/c-api-client.js";
 const HELD_DYNO_CAPABILITIES = 455;
 const FREE_VEHICLE_CAPABILITIES = 3_631;
 const EXPECTED_GEAR_RATIOS = Object.freeze([4.21, 2.49, 1.66, 1.24, 1]);
+const EXPECTED_ENGINE_PROVENANCE_SHA256 =
+  "1d81da0057a42fa37f138ef54881d431007409c1a2b90c58b62008f6bd3ae4cf";
 
 function usage() {
   return [
@@ -54,12 +56,18 @@ function processToFirstAudibleBlock(session, label) {
 }
 
 function compileProgram(client, engineJson, scenarioJson, assets) {
-  return client.compile(
+  const program = client.compile(
     engineJson,
     scenarioJson,
     assets,
     SessionExecutionKind.openEnded,
   );
+  assert.equal(
+    program.engineProvenanceSha256,
+    EXPECTED_ENGINE_PROVENANCE_SHA256,
+  );
+  assert.match(program.rendererSourceSha256, /^[0-9a-f]{64}$/u);
+  return program;
 }
 
 function testHeldDyno(program) {

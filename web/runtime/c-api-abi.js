@@ -3,9 +3,10 @@
 // This module deliberately describes one ABI version. A mismatched module is
 // rejected during startup; there is no compatibility decoder.
 
-export const ESO_C_API_VERSION = 8;
+export const ESO_C_API_VERSION = 9;
 export const ESO_INVALID_HANDLE = 0n;
 export const ESO_CANONICAL_SAMPLE_RATE = 192_000;
+export const ESO_SHA256_DIGEST_SIZE = 32;
 
 export const Status = Object.freeze({
   ok: 0,

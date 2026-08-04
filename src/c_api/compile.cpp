@@ -3,6 +3,7 @@
 #include "engine_sim_offline/authoring/parse.hpp"
 
 #include <cstddef>
+#include <cstring>
 #include <span>
 #include <string_view>
 #include <utility>
@@ -159,6 +160,31 @@ eso_status_t eso_engine_copy_id(eso_context_t *const context,
                              "c-api-engine-id-buffer-invalid",
                              "engine ID output buffer is invalid or too small");
         }
+        clear_error(*context);
+        return ESO_STATUS_OK;
+    });
+}
+
+eso_status_t
+eso_engine_copy_provenance_sha256(eso_context_t *const context,
+                                  const eso_engine_handle_t engine,
+                                  eso_sha256_digest_t *const out_sha256) noexcept {
+    if (context == nullptr) {
+        return ESO_STATUS_INVALID_ARGUMENT;
+    }
+    return engine_sim_offline::c_api::boundary(*context, [&]() -> eso_status_t {
+        using namespace engine_sim_offline::c_api;
+        if (out_sha256 == nullptr) {
+            return invalid_pointer(*context, "out_sha256 must not be null");
+        }
+        const auto *compiled = context->engines.get(engine);
+        if (compiled == nullptr) {
+            return invalid_handle(
+                *context, "compiled-engine handle is stale, invalid, or wrong-kind");
+        }
+        const auto &bytes = compiled->provenance().bundle.sha256.bytes;
+        static_assert(sizeof(bytes) == ESO_SHA256_DIGEST_SIZE);
+        std::memcpy(out_sha256->bytes, bytes.data(), bytes.size());
         clear_error(*context);
         return ESO_STATUS_OK;
     });

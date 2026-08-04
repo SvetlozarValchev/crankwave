@@ -3,7 +3,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-_Static_assert(ESO_C_API_VERSION == 8, "unexpected C ABI version");
+_Static_assert(ESO_C_API_VERSION == 9, "unexpected C ABI version");
+_Static_assert(ESO_SHA256_DIGEST_SIZE == 32 &&
+                   sizeof(eso_sha256_digest_t) == ESO_SHA256_DIGEST_SIZE,
+               "SHA-256 digest ABI layout changed");
 _Static_assert(sizeof(eso_engine_handle_t) == sizeof(uint64_t),
                "engine handle width changed");
 _Static_assert(sizeof(eso_scenario_handle_t) == sizeof(uint64_t),

@@ -570,6 +570,7 @@ add_library(
     STATIC
         src/c_api/compile.cpp
         src/c_api/context.cpp
+        src/c_api/provenance.cpp
         src/c_api/session.cpp
         src/c_api/telemetry.cpp
 )
@@ -631,7 +632,7 @@ if(ENGINE_SIM_OFFLINE_BUILD_WASM)
             "SHELL:-sSTRICT=1"
             "SHELL:-sWASM_BIGINT=1"
             "SHELL:-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','HEAPU8','HEAPU32','HEAPF32']"
-            "SHELL:-sEXPORTED_FUNCTIONS=['_malloc','_free','_eso_api_version','_eso_get_abi_layout','_eso_context_create','_eso_context_destroy','_eso_context_get_last_error','_eso_context_copy_last_error_text','_eso_context_get_diagnostic','_eso_context_copy_diagnostic_text','_eso_context_get_related_diagnostic','_eso_context_copy_related_diagnostic_text','_eso_compile_engine_json','_eso_destroy_engine','_eso_engine_copy_id','_eso_compile_scenario_json','_eso_destroy_scenario','_eso_scenario_copy_id','_eso_create_session','_eso_destroy_session','_eso_session_get_descriptor','_eso_session_copy_identity','_eso_session_get_audio_bus_descriptor','_eso_session_copy_audio_bus_id','_eso_session_get_forward_gear_descriptor','_eso_session_copy_forward_gear_semantic_id','_eso_session_enqueue_controls','_eso_session_process']"
+            "SHELL:-sEXPORTED_FUNCTIONS=['_malloc','_free','_eso_api_version','_eso_get_abi_layout','_eso_context_create','_eso_context_destroy','_eso_context_get_last_error','_eso_context_copy_last_error_text','_eso_context_get_diagnostic','_eso_context_copy_diagnostic_text','_eso_context_get_related_diagnostic','_eso_context_copy_related_diagnostic_text','_eso_compile_engine_json','_eso_destroy_engine','_eso_engine_copy_id','_eso_engine_copy_provenance_sha256','_eso_renderer_copy_source_closure_sha256','_eso_compile_scenario_json','_eso_destroy_scenario','_eso_scenario_copy_id','_eso_create_session','_eso_destroy_session','_eso_session_get_descriptor','_eso_session_copy_identity','_eso_session_get_audio_bus_descriptor','_eso_session_copy_audio_bus_id','_eso_session_get_forward_gear_descriptor','_eso_session_copy_forward_gear_semantic_id','_eso_session_enqueue_controls','_eso_session_process']"
     )
     engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_wasm)
     engine_sim_offline_configure_wasm_numeric_target(engine_sim_offline_wasm)
@@ -695,6 +696,11 @@ target_link_libraries(
 )
 engine_sim_offline_enable_renderer_numeric_policy(
     engine_sim_offline_renderer_determinism
+)
+
+target_link_libraries(
+    engine_sim_offline_c_api
+    PRIVATE engine_sim_offline_renderer_determinism
 )
 
 target_link_libraries(

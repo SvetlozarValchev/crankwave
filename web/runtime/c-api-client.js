@@ -2,6 +2,7 @@ import {
   AssetKind,
   ESO_C_API_VERSION,
   ESO_INVALID_HANDLE,
+  ESO_SHA256_DIGEST_SIZE,
   Layout,
   SessionExecutionKind,
   Status,
@@ -28,6 +29,8 @@ const REQUIRED_EXPORTS = Object.freeze([
   "_eso_compile_engine_json",
   "_eso_destroy_engine",
   "_eso_engine_copy_id",
+  "_eso_engine_copy_provenance_sha256",
+  "_eso_renderer_copy_source_closure_sha256",
   "_eso_compile_scenario_json",
   "_eso_destroy_scenario",
   "_eso_scenario_copy_id",
@@ -132,6 +135,8 @@ export class CompiledEngineProgram {
     session,
     executionKind,
     engineId,
+    engineProvenanceSha256,
+    rendererSourceSha256,
     scenarioId,
   ) {
     this.#client = client;
@@ -140,6 +145,8 @@ export class CompiledEngineProgram {
     this.session = session;
     this.executionKind = executionKind;
     this.engineId = engineId;
+    this.engineProvenanceSha256 = engineProvenanceSha256;
+    this.rendererSourceSha256 = rendererSourceSha256;
     this.scenarioId = scenarioId;
   }
 
@@ -258,6 +265,13 @@ export class EngineSimCapiClient {
         engine,
         "copy-engine-id",
       );
+      const engineProvenanceSha256 =
+        this.#copyEngineProvenanceSha256(engine);
+      const rendererSourceSha256 = this.#copySha256(
+        "_eso_renderer_copy_source_closure_sha256",
+        [],
+        "copy-renderer-source-closure-sha256",
+      );
       scenario = this.#compileScenario(engine, normalizedScenarioJson);
       const scenarioId = this.#copyHandleId(
         "_eso_scenario_copy_id",
@@ -282,6 +296,8 @@ export class EngineSimCapiClient {
         session,
         normalizedExecutionKind,
         engineId,
+        engineProvenanceSha256,
+        rendererSourceSha256,
         scenarioId,
       );
     } catch (error) {
@@ -561,6 +577,42 @@ export class EngineSimCapiClient {
     } finally {
       heap.free(outputSize);
       heap.free(buffer);
+    }
+  }
+
+  #copyEngineProvenanceSha256(engine) {
+    return this.#copySha256(
+      "_eso_engine_copy_provenance_sha256",
+      [engine],
+      "copy-engine-provenance-sha256",
+    );
+  }
+
+  #copySha256(functionName, leadingArguments, operation) {
+    const heap = this.#heap;
+    const output = heap.allocate(
+      ESO_SHA256_DIGEST_SIZE,
+      `${operation} digest`,
+    );
+    try {
+      const status = this.#module[functionName](
+        this.#context,
+        ...leadingArguments,
+        output,
+      );
+      this.assertStatus(status, operation);
+      const bytes = new Uint8Array(
+        heap.buffer,
+        output,
+        ESO_SHA256_DIGEST_SIZE,
+      );
+      let lowercaseHex = "";
+      for (const byte of bytes) {
+        lowercaseHex += byte.toString(16).padStart(2, "0");
+      }
+      return lowercaseHex;
+    } finally {
+      heap.free(output);
     }
   }
 

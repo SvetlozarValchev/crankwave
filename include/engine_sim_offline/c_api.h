@@ -15,8 +15,9 @@ extern "C" {
  * This is the only engine-sim-offline C ABI. It is a greenfield, exact-version
  * contract rather than a compatibility family.
  */
-#define ESO_C_API_VERSION UINT32_C(8)
+#define ESO_C_API_VERSION UINT32_C(9)
 #define ESO_INVALID_HANDLE UINT64_C(0)
+#define ESO_SHA256_DIGEST_SIZE UINT32_C(32)
 
 typedef struct eso_context eso_context_t;
 typedef uint64_t eso_engine_handle_t;
@@ -70,6 +71,7 @@ enum {
     ESO_ERROR_INVALID_HANDLE = 4,
     ESO_ERROR_BUFFER_CAPACITY = 5,
     ESO_ERROR_AUTHORING_DIAGNOSTICS = 6,
+    ESO_ERROR_RENDERER_SOURCE_STAMP_UNAVAILABLE = 7,
     ESO_ERROR_SESSION_INVALID_COMPILED_SCENARIO = 100,
     ESO_ERROR_SESSION_UNSUPPORTED_CONFIGURATION = 101,
     ESO_ERROR_SESSION_RESOURCE_EXHAUSTED = 102,
@@ -103,6 +105,10 @@ typedef struct eso_mutable_utf8_buffer {
     char *data;
     size_t capacity;
 } eso_mutable_utf8_buffer_t;
+
+typedef struct eso_sha256_digest {
+    uint8_t bytes[ESO_SHA256_DIGEST_SIZE];
+} eso_sha256_digest_t;
 
 typedef uint32_t eso_asset_kind_t;
 enum { ESO_ASSET_AUDIO = 1, ESO_ASSET_ACCESSORY_CONFIGURATION = 2 };
@@ -601,6 +607,19 @@ eso_status_t eso_destroy_engine(eso_context_t *context,
 eso_status_t eso_engine_copy_id(eso_context_t *context, eso_engine_handle_t engine,
                                 eso_mutable_utf8_buffer_t buffer,
                                 size_t *out_utf8_bytes) ESO_C_API_NOEXCEPT;
+/*
+ * Copies the compiled engine's canonical provenance bundle SHA-256 in digest byte
+ * order. Hex encoders must encode bytes[0] first and use two digits per byte.
+ */
+eso_status_t
+eso_engine_copy_provenance_sha256(eso_context_t *context, eso_engine_handle_t engine,
+                                  eso_sha256_digest_t *out_sha256) ESO_C_API_NOEXCEPT;
+/*
+ * Copies the source-closure SHA-256 embedded in this renderer build. Builds whose
+ * source stamp is dirty, unavailable, or malformed return ESO_STATUS_NOT_AVAILABLE.
+ */
+eso_status_t eso_renderer_copy_source_closure_sha256(
+    eso_context_t *context, eso_sha256_digest_t *out_sha256) ESO_C_API_NOEXCEPT;
 
 eso_status_t
 eso_compile_scenario_json(eso_context_t *context, eso_engine_handle_t engine,
