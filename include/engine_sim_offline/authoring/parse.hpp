@@ -3,6 +3,7 @@
 #include "engine_sim_offline/authoring/diagnostic.hpp"
 #include "engine_sim_offline/authoring/engine_document.hpp"
 #include "engine_sim_offline/authoring/json.hpp"
+#include "engine_sim_offline/authoring/package_bake_document.hpp"
 #include "engine_sim_offline/authoring/scenario_document.hpp"
 
 #include <cstddef>
@@ -29,6 +30,7 @@ struct AuthoringParseLimits {
 };
 
 using EngineDocumentParseResult = DocumentParseResult<EnginePackageDocument>;
+using PackageBakeDocumentParseResult = DocumentParseResult<PackageBakeDocument>;
 using ScenarioDocumentParseResult = DocumentParseResult<ScenarioDocument>;
 
 // These functions parse exactly one strict product document. Unknown members are
@@ -36,6 +38,10 @@ using ScenarioDocumentParseResult = DocumentParseResult<ScenarioDocument>;
 // surface as semantic authoring failures.
 [[nodiscard]] EngineDocumentParseResult
 parse_engine_document(std::string_view json, AuthoringParseLimits limits = {}) noexcept;
+
+[[nodiscard]] PackageBakeDocumentParseResult
+parse_package_bake_document(std::string_view json,
+                            AuthoringParseLimits limits = {}) noexcept;
 
 [[nodiscard]] ScenarioDocumentParseResult
 parse_scenario_document(std::string_view json,

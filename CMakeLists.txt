@@ -62,6 +62,7 @@ add_library(
         src/authoring/parse_engine_references.cpp
         src/authoring/parse_engine_systems.cpp
         src/authoring/parse_engine_valvetrain.cpp
+        src/authoring/parse_package_bake.cpp
         src/authoring/parse_scenario.cpp
 )
 add_library(

@@ -203,6 +203,21 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_package_bake_authoring_tests
+    package_bake_authoring_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_package_bake_authoring_tests
+    PRIVATE engine_sim_offline::authoring
+)
+
+add_test(
+    NAME authoring.package_bake
+    COMMAND engine_sim_offline_package_bake_authoring_tests
+)
+
+add_executable(
     engine_sim_offline_compiler_foundation_tests
     compiler_foundation_test.cpp
 )
