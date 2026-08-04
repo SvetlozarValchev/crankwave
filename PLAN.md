@@ -1,7 +1,7 @@
 # Engine Sim Offline: greenfield product cutover
 
-Status: active — byte-identical mechanical force-capture seam verified;
-sound-bearing mechanical transfer blocked on BMW structural evidence
+Status: active — source fidelity frozen at the accepted flow-coupled baseline;
+responsive package baker and live source/baked A/B are the current milestone
 
 Branch: `clean-room/bmw-baseline`
 
@@ -15,7 +15,11 @@ control/solo/full listening gate on 2026-08-04. The follow-up reconstruction and
 browser-pump performance work preserved all 11 accepted WAVs byte for byte and restored
 zero-underrun BMW/V8 browser startup through the same renderer. Fidelity queue item 4's
 20 kHz per-cylinder pressure-force diagnostic seam is now complete and preserves the
-accepted audio exactly; no `mechanical.engine` route or sound path exists yet.**
+accepted audio exactly; no `mechanical.engine` route or sound path exists yet. Item 5's
+first valve-flow correction was retained after an audibly neutral A/B and is frozen at
+`b098e8e`. Further speculative fidelity work is parked while the responsive package
+baker and same-control source/baked web audition path are implemented. See
+[`docs/RESPONSIVE_AUDIO_BAKER_PLAN.md`](docs/RESPONSIVE_AUDIO_BAKER_PLAN.md).**
 
 This roadmap supersedes the previous BMW-first M4--M9 roadmap. Historical milestone
 documents remain useful evidence, but they do not authorize current implementation
@@ -1074,3 +1078,16 @@ removal of adaptive leveling/soft clipping, or an upgrade from 44.1 kHz PCM16 ou
 the current renderer already uses windowed-sinc reconstruction, has no such master
 filter or dynamics processor, and publishes 192 kHz Float32/PCM24 audio. Mono 44.1 kHz
 PCM16 is currently an input-IR restriction, not the engine output format.
+
+### 9.6 Responsive package baker and source/baked audition
+
+The current product milestone is the greenfield responsive package described in
+[`docs/RESPONSIVE_AUDIO_BAKER_PLAN.md`](docs/RESPONSIVE_AUDIO_BAKER_PLAN.md). It adopts
+the proven complete-cycle, controlled three-load, shared-clock, dense-idle, and
+native-event principles from the sibling `engine-audio-lab`, while using this
+simulator's exact 20 kHz crank phase instead of inferred audio pitch marks.
+
+The first vertical slice keeps the source renderer byte-identical, bakes one BMW
+normal-running package, and extends the existing workbench with continuously advancing
+direct-source and baked-follower paths under one control state. It stops for live A/B
+audition before lifecycle events, Unity/Roblox adapters, or another fidelity change.
