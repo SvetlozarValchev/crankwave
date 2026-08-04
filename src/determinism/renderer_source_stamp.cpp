@@ -67,6 +67,42 @@ sha256_digest(std::string_view value) noexcept {
 
 RendererSourceStampResult
 detail::decode_renderer_source_stamp(const EmbeddedRendererSourceStamp &embedded) {
+    auto closure_result = detail::decode_renderer_source_closure(embedded);
+    if (const auto *closure_error =
+            std::get_if<RendererSourceStampError>(&closure_result)) {
+        return *closure_error;
+    }
+    const auto &closure = std::get<RendererSourceClosure>(closure_result);
+
+    if (embedded.toolchain_state == "unavailable") {
+        return error(RendererSourceStampErrorCode::unavailable_toolchain,
+                     closure.source_state,
+                     "renderer toolchain identity was unavailable");
+    }
+    if (embedded.toolchain_state != "available") {
+        return error(RendererSourceStampErrorCode::malformed_embedded_stamp,
+                     closure.source_state,
+                     "embedded renderer toolchain state is invalid");
+    }
+    if (embedded.compiler_id.empty() || embedded.compiler_version.empty() ||
+        embedded.target_triple.empty()) {
+        return error(RendererSourceStampErrorCode::malformed_embedded_stamp,
+                     closure.source_state,
+                     "available renderer toolchain stamp is incomplete");
+    }
+
+    return RendererSourceStamp{
+        closure.source_state,
+        closure.full_git_head,
+        closure.source_closure_sha256,
+        std::string(embedded.compiler_id),
+        std::string(embedded.compiler_version),
+        std::string(embedded.target_triple),
+    };
+}
+
+RendererSourceClosureResult detail::decode_renderer_source_closure(
+    const EmbeddedRendererSourceStamp &embedded) {
     const auto state = source_state(embedded.source_state);
     if (!state.has_value()) {
         return error(RendererSourceStampErrorCode::malformed_embedded_stamp,
@@ -79,7 +115,7 @@ detail::decode_renderer_source_stamp(const EmbeddedRendererSourceStamp &embedded
     }
     if (*state == RendererSourceState::unavailable) {
         return error(RendererSourceStampErrorCode::unavailable_source, *state,
-                     "renderer source or toolchain identity was unavailable");
+                     "renderer source identity was unavailable");
     }
 
     const bool valid_revision =
@@ -87,21 +123,28 @@ detail::decode_renderer_source_stamp(const EmbeddedRendererSourceStamp &embedded
         is_lowercase_hex(embedded.full_git_head) &&
         embedded.full_git_head.find_first_not_of('0') != std::string_view::npos;
     const auto closure_digest = sha256_digest(embedded.source_closure_sha256);
-    if (!valid_revision || !closure_digest.has_value() || closure_digest->is_zero() ||
-        embedded.compiler_id.empty() || embedded.compiler_version.empty() ||
-        embedded.target_triple.empty()) {
+    if (!valid_revision || !closure_digest.has_value() || closure_digest->is_zero()) {
         return error(RendererSourceStampErrorCode::malformed_embedded_stamp, *state,
-                     "clean renderer source stamp is incomplete or malformed");
+                     "clean renderer source closure is incomplete or malformed");
     }
 
-    return RendererSourceStamp{
+    return RendererSourceClosure{
         *state,
         std::string(embedded.full_git_head),
         *closure_digest,
-        std::string(embedded.compiler_id),
-        std::string(embedded.compiler_version),
-        std::string(embedded.target_triple),
     };
+}
+
+RendererSourceClosureResult renderer_source_closure() {
+    return detail::decode_renderer_source_closure({
+        generated::kRendererSourceState,
+        generated::kRendererFullGitHead,
+        generated::kRendererSourceClosureSha256,
+        generated::kRendererToolchainState,
+        generated::kRendererCompilerId,
+        generated::kRendererCompilerVersion,
+        generated::kRendererTargetTriple,
+    });
 }
 
 RendererSourceStampResult renderer_source_stamp() {
@@ -109,6 +152,7 @@ RendererSourceStampResult renderer_source_stamp() {
         generated::kRendererSourceState,
         generated::kRendererFullGitHead,
         generated::kRendererSourceClosureSha256,
+        generated::kRendererToolchainState,
         generated::kRendererCompilerId,
         generated::kRendererCompilerVersion,
         generated::kRendererTargetTriple,

@@ -276,7 +276,9 @@ void test_live_composition_is_read_only_and_fails_closed() {
     if (const auto *source_error = std::get_if<RendererSourceStampError>(&result)) {
         expect(source_error->code == RendererSourceStampErrorCode::dirty_source ||
                    source_error->code ==
-                       RendererSourceStampErrorCode::unavailable_source,
+                       RendererSourceStampErrorCode::unavailable_source ||
+                   source_error->code ==
+                       RendererSourceStampErrorCode::unavailable_toolchain,
                "live source admission failed for malformed embedded evidence");
         return;
     }

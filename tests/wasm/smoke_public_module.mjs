@@ -63,8 +63,10 @@ async function main() {
 
   const layout = module._malloc(48);
   const contextOutput = module._malloc(4);
+  const sourceClosureOutput = module._malloc(32);
   assert.notEqual(layout, 0, "ABI layout allocation failed");
   assert.notEqual(contextOutput, 0, "context output allocation failed");
+  assert.notEqual(sourceClosureOutput, 0, "source closure allocation failed");
   try {
     assert.equal(module._eso_get_abi_layout(layout), 0);
     const words = Array.from(
@@ -80,8 +82,24 @@ async function main() {
     assert.equal(module._eso_context_create(9, contextOutput), 0);
     const context = module.HEAPU32[contextOutput >>> 2];
     assert.notEqual(context, 0, "context creation returned null");
+    module.HEAPU8.fill(0, sourceClosureOutput, sourceClosureOutput + 32);
+    assert.equal(
+      module._eso_renderer_copy_source_closure_sha256(
+        context,
+        sourceClosureOutput,
+      ),
+      0,
+      "clean WASM build did not expose its source closure",
+    );
+    assert.ok(
+      module.HEAPU8
+        .subarray(sourceClosureOutput, sourceClosureOutput + 32)
+        .some((byte) => byte !== 0),
+      "WASM source-closure digest was zero",
+    );
     assert.equal(module._eso_context_destroy(context), 0);
   } finally {
+    module._free(sourceClosureOutput);
     module._free(contextOutput);
     module._free(layout);
   }

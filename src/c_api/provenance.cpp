@@ -21,7 +21,7 @@ eso_status_t eso_renderer_copy_source_closure_sha256(
                              "c-api-invalid-pointer", "out_sha256 must not be null");
         }
 
-        auto result = determinism::renderer_source_stamp();
+        auto result = determinism::renderer_source_closure();
         if (const auto *error =
                 std::get_if<determinism::RendererSourceStampError>(&result)) {
             return set_error(*context, ESO_STATUS_NOT_AVAILABLE, ESO_ERROR_STAGE_ABI,
@@ -29,7 +29,7 @@ eso_status_t eso_renderer_copy_source_closure_sha256(
                              "renderer-source-stamp-unavailable", error->message);
         }
 
-        const auto &bytes = std::get<determinism::RendererSourceStamp>(result)
+        const auto &bytes = std::get<determinism::RendererSourceClosure>(result)
                                 .source_closure_sha256.bytes;
         static_assert(sizeof(bytes) == ESO_SHA256_DIGEST_SIZE);
         std::memcpy(out_sha256->bytes, bytes.data(), bytes.size());

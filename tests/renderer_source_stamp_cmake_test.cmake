@@ -27,6 +27,7 @@ set(_STAMP_TEST_CXX_FLAGS "")
 set(_STAMP_TEST_CXX_CONFIG_FLAGS "-O3 -DNDEBUG")
 set(_STAMP_TEST_IS_MULTI_CONFIG FALSE)
 set(_STAMP_TEST_TOOLCHAIN_QUERY_PERMITTED TRUE)
+set(_STAMP_TEST_SYSTEM_NAME Linux)
 
 function(_stamp_test_run)
     execute_process(
@@ -59,7 +60,7 @@ function(_stamp_test_generate _source_root _output_header _git_executable
             "-DCXX_CONFIG_FLAGS=${_STAMP_TEST_CXX_CONFIG_FLAGS}"
             "-DIS_MULTI_CONFIG=${_STAMP_TEST_IS_MULTI_CONFIG}"
             "-DTOOLCHAIN_QUERY_PERMITTED=${_STAMP_TEST_TOOLCHAIN_QUERY_PERMITTED}"
-            -DSYSTEM_NAME=Linux
+            "-DSYSTEM_NAME=${_STAMP_TEST_SYSTEM_NAME}"
             -P "${GENERATOR_SCRIPT}"
         RESULT_VARIABLE _result
         OUTPUT_VARIABLE _output
@@ -82,10 +83,15 @@ function(_stamp_test_generate _source_root _output_header _git_executable
     string(REGEX MATCH
            "kRendererTargetTriple = \"([^\"]*)\"" _target_match "${_header}")
     set(_target "${CMAKE_MATCH_1}")
+    string(REGEX MATCH
+           "kRendererToolchainState = \"([^\"]*)\"" _toolchain_match
+           "${_header}")
+    set(_toolchain_state "${CMAKE_MATCH_1}")
     set(${_state_output} "${_state}" PARENT_SCOPE)
     set(${_head_output} "${_head}" PARENT_SCOPE)
     set(${_digest_output} "${_digest}" PARENT_SCOPE)
     set(_stamp_test_last_target "${_target}" PARENT_SCOPE)
+    set(_stamp_test_last_toolchain_state "${_toolchain_state}" PARENT_SCOPE)
 endfunction()
 
 file(REMOVE_RECURSE "${TEST_ROOT}")
@@ -122,6 +128,9 @@ set(_clean_target "${_stamp_test_last_target}")
 if(NOT _clean_state STREQUAL "clean")
     message(FATAL_ERROR "clean repository generated state '${_clean_state}'")
 endif()
+if(NOT _stamp_test_last_toolchain_state STREQUAL "available")
+    message(FATAL_ERROR "canonical native build lacked toolchain identity")
+endif()
 string(LENGTH "${_clean_head}" _clean_head_length)
 if(NOT (_clean_head_length EQUAL 40 OR _clean_head_length EQUAL 64) OR
    NOT _clean_head MATCHES "^[0-9a-f]+$")
@@ -150,9 +159,11 @@ _stamp_test_generate(
     "${_repository}" "${_outputs}/response-target.hpp" "${GIT_EXECUTABLE}"
     _response_first_state _unused_head _unused_digest
 )
-if(NOT _response_first_state STREQUAL "unavailable" OR
+if(NOT _response_first_state STREQUAL "clean" OR
+   NOT _unused_digest STREQUAL _clean_digest OR
+   NOT _stamp_test_last_toolchain_state STREQUAL "unavailable" OR
    NOT _stamp_test_last_target STREQUAL "")
-    message(FATAL_ERROR "response-file flags produced admissible evidence")
+    message(FATAL_ERROR "response-file flags changed source or admitted toolchain evidence")
 endif()
 
 if(TEST_COMPILER_ID STREQUAL "Clang")
@@ -164,12 +175,31 @@ _stamp_test_generate(
     "${_repository}" "${_outputs}/response-target.hpp" "${GIT_EXECUTABLE}"
     _response_second_state _unused_head _unused_digest
 )
-if(NOT _response_second_state STREQUAL "unavailable" OR
+if(NOT _response_second_state STREQUAL "clean" OR
+   NOT _unused_digest STREQUAL _clean_digest OR
+   NOT _stamp_test_last_toolchain_state STREQUAL "unavailable" OR
    NOT _stamp_test_last_target STREQUAL "")
     message(FATAL_ERROR
             "edited response-file flags escaped fail-closed admission")
 endif()
 set(_STAMP_TEST_CXX_FLAGS "")
+
+# Emscripten has no canonical native publication toolchain identity, but it must
+# retain the independently computed clean source closure for runtime atlas matching.
+set(_STAMP_TEST_SYSTEM_NAME Emscripten)
+_stamp_test_generate(
+    "${_repository}" "${_outputs}/emscripten.hpp" "${GIT_EXECUTABLE}"
+    _emscripten_state _emscripten_head _emscripten_digest
+)
+if(NOT _emscripten_state STREQUAL "clean" OR
+   NOT _emscripten_head STREQUAL _clean_head OR
+   NOT _emscripten_digest STREQUAL _clean_digest OR
+   NOT _stamp_test_last_toolchain_state STREQUAL "unavailable" OR
+   NOT _stamp_test_last_target STREQUAL "")
+    message(FATAL_ERROR
+            "Emscripten did not preserve clean source identity independently")
+endif()
+set(_STAMP_TEST_SYSTEM_NAME Linux)
 
 # Multiple configurations have no single effective renderer command. Reject all
 # of them rather than selecting one configuration or fabricating a common target.
@@ -178,7 +208,9 @@ _stamp_test_generate(
     "${_repository}" "${_outputs}/multi-config.hpp" "${GIT_EXECUTABLE}"
     _multi_config_state _unused_head _unused_digest
 )
-if(NOT _multi_config_state STREQUAL "unavailable" OR
+if(NOT _multi_config_state STREQUAL "clean" OR
+   NOT _unused_digest STREQUAL _clean_digest OR
+   NOT _stamp_test_last_toolchain_state STREQUAL "unavailable" OR
    NOT _stamp_test_last_target STREQUAL "")
     message(FATAL_ERROR "multi-config build produced admissible evidence")
 endif()
@@ -189,7 +221,9 @@ _stamp_test_generate(
     "${_repository}" "${_outputs}/configured-target.hpp" "${GIT_EXECUTABLE}"
     _configured_target_state _unused_head _unused_digest
 )
-if(NOT _configured_target_state STREQUAL "unavailable" OR
+if(NOT _configured_target_state STREQUAL "clean" OR
+   NOT _unused_digest STREQUAL _clean_digest OR
+   NOT _stamp_test_last_toolchain_state STREQUAL "unavailable" OR
    NOT _stamp_test_last_target STREQUAL "")
     message(FATAL_ERROR "caller-configured target produced admissible evidence")
 endif()
@@ -200,7 +234,9 @@ _stamp_test_generate(
     "${_repository}" "${_outputs}/noncanonical-release.hpp"
     "${GIT_EXECUTABLE}" _noncanonical_release_state _unused_head _unused_digest
 )
-if(NOT _noncanonical_release_state STREQUAL "unavailable" OR
+if(NOT _noncanonical_release_state STREQUAL "clean" OR
+   NOT _unused_digest STREQUAL _clean_digest OR
+   NOT _stamp_test_last_toolchain_state STREQUAL "unavailable" OR
    NOT _stamp_test_last_target STREQUAL "")
     message(FATAL_ERROR "noncanonical Release flags produced admissible evidence")
 endif()

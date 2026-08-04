@@ -19,6 +19,7 @@ detail::EmbeddedRendererSourceStamp clean_stamp() {
         "clean",
         "0123456789abcdef0123456789abcdef01234567",
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "available",
         "GNU",
         "13.3.0",
         "x86_64-linux-gnu",
@@ -60,13 +61,33 @@ void test_dirty_stamp_is_rejected() {
 
 void test_unavailable_stamp_is_rejected() {
     detail::EmbeddedRendererSourceStamp embedded{
-        "unavailable", "", "", "GNU", "13.3.0", "x86_64-linux-gnu"};
+        "unavailable", "", "", "available", "GNU", "13.3.0",
+        "x86_64-linux-gnu"};
     const auto result = detail::decode_renderer_source_stamp(embedded);
     const auto *error = std::get_if<RendererSourceStampError>(&result);
     expect(error != nullptr, "unavailable source produced an admissible stamp");
     expect(error->code == RendererSourceStampErrorCode::unavailable_source &&
                error->source_state == RendererSourceState::unavailable,
            "unavailable source returned the wrong typed error");
+}
+
+void test_clean_closure_does_not_require_native_toolchain() {
+    auto embedded = clean_stamp();
+    embedded.toolchain_state = "unavailable";
+    embedded.compiler_id = "Clang";
+    embedded.compiler_version = "24.0.0";
+    embedded.target_triple = "";
+
+    const auto closure_result = detail::decode_renderer_source_closure(embedded);
+    const auto *closure = std::get_if<RendererSourceClosure>(&closure_result);
+    expect(closure != nullptr && !closure->source_closure_sha256.is_zero(),
+           "clean source closure depended on native toolchain identity");
+
+    const auto stamp_result = detail::decode_renderer_source_stamp(embedded);
+    const auto *error = std::get_if<RendererSourceStampError>(&stamp_result);
+    expect(error != nullptr &&
+               error->code == RendererSourceStampErrorCode::unavailable_toolchain,
+           "full renderer stamp admitted an unavailable toolchain");
 }
 
 void test_malformed_clean_stamp_is_rejected() {
@@ -101,6 +122,14 @@ void test_malformed_clean_stamp_is_rejected() {
 }
 
 void test_embedded_build_stamp_fails_closed_or_is_complete() {
+    const auto closure_result = renderer_source_closure();
+    if (const auto *closure = std::get_if<RendererSourceClosure>(&closure_result)) {
+        expect(closure->source_state == RendererSourceState::clean &&
+                   !closure->full_git_head.empty() &&
+                   !closure->source_closure_sha256.is_zero(),
+               "embedded source closure was incomplete");
+    }
+
     const auto result = renderer_source_stamp();
     if (const auto *stamp = std::get_if<RendererSourceStamp>(&result)) {
         expect(stamp->source_state == RendererSourceState::clean,
@@ -115,7 +144,8 @@ void test_embedded_build_stamp_fails_closed_or_is_complete() {
 
     const auto &error = std::get<RendererSourceStampError>(result);
     expect(error.code == RendererSourceStampErrorCode::dirty_source ||
-               error.code == RendererSourceStampErrorCode::unavailable_source,
+               error.code == RendererSourceStampErrorCode::unavailable_source ||
+               error.code == RendererSourceStampErrorCode::unavailable_toolchain,
            "embedded build stamp failed for a non-source-state reason");
 }
 
@@ -125,6 +155,7 @@ int main() {
     test_clean_stamp_is_admitted();
     test_dirty_stamp_is_rejected();
     test_unavailable_stamp_is_rejected();
+    test_clean_closure_does_not_require_native_toolchain();
     test_malformed_clean_stamp_is_rejected();
     test_embedded_build_stamp_fails_closed_or_is_complete();
 }

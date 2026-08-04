@@ -59,6 +59,7 @@ function(_renderer_stamp_write_header _state _head _closure_sha256)
     _renderer_stamp_escape_cpp(_state_cpp "${_state}")
     _renderer_stamp_escape_cpp(_head_cpp "${_head}")
     _renderer_stamp_escape_cpp(_closure_cpp "${_closure_sha256}")
+    _renderer_stamp_escape_cpp(_toolchain_state_cpp "${_toolchain_state}")
     _renderer_stamp_escape_cpp(_compiler_id_cpp "${COMPILER_ID}")
     _renderer_stamp_escape_cpp(_compiler_version_cpp "${COMPILER_VERSION}")
     _renderer_stamp_escape_cpp(_target_triple_cpp "${_target_triple}")
@@ -73,6 +74,7 @@ function(_renderer_stamp_write_header _state _head _closure_sha256)
         "inline constexpr std::string_view kRendererSourceState = \"${_state_cpp}\";\n"
         "inline constexpr std::string_view kRendererFullGitHead = \"${_head_cpp}\";\n"
         "inline constexpr std::string_view kRendererSourceClosureSha256 = \"${_closure_cpp}\";\n"
+        "inline constexpr std::string_view kRendererToolchainState = \"${_toolchain_state_cpp}\";\n"
         "inline constexpr std::string_view kRendererCompilerId = \"${_compiler_id_cpp}\";\n"
         "inline constexpr std::string_view kRendererCompilerVersion = \"${_compiler_version_cpp}\";\n"
         "inline constexpr std::string_view kRendererTargetTriple = \"${_target_triple_cpp}\";\n\n"
@@ -133,8 +135,13 @@ if(_toolchain_supported)
     endif()
 endif()
 
-if(NOT DEFINED GIT_EXECUTABLE OR GIT_EXECUTABLE STREQUAL "" OR
-   NOT _toolchain_supported)
+if(_toolchain_supported)
+    set(_toolchain_state "available")
+else()
+    set(_toolchain_state "unavailable")
+endif()
+
+if(NOT DEFINED GIT_EXECUTABLE OR GIT_EXECUTABLE STREQUAL "")
     _renderer_stamp_write_header("unavailable" "" "")
     return()
 endif()

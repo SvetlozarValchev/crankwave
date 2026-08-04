@@ -615,8 +615,11 @@ eso_status_t
 eso_engine_copy_provenance_sha256(eso_context_t *context, eso_engine_handle_t engine,
                                   eso_sha256_digest_t *out_sha256) ESO_C_API_NOEXCEPT;
 /*
- * Copies the source-closure SHA-256 embedded in this renderer build. Builds whose
- * source stamp is dirty, unavailable, or malformed return ESO_STATUS_NOT_AVAILABLE.
+ * Copies the source-closure SHA-256 embedded in this renderer build. This proves
+ * clean source identity independently of compiler/target identity, so WASM builds
+ * can expose it without claiming the canonical native publication toolchain. Builds
+ * whose source closure is dirty, unavailable, or malformed return
+ * ESO_STATUS_NOT_AVAILABLE.
  */
 eso_status_t eso_renderer_copy_source_closure_sha256(
     eso_context_t *context, eso_sha256_digest_t *out_sha256) ESO_C_API_NOEXCEPT;
