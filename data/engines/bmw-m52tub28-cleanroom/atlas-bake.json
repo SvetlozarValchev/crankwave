@@ -1,0 +1,57 @@
+{
+  "schema": "engine-sim-offline/atlas-bake",
+  "id": "bmw-m52tub28-cleanroom-first-moving-atlas",
+  "engine": "bmw-m52tub28-cleanroom",
+  "public_seed": "12648430",
+  "audio": {
+    "sample_rate": {
+      "numerator": "192000",
+      "denominator": "1",
+      "unit": "Hz"
+    },
+    "buses": ["master-engine-audition"]
+  },
+  "domain": {
+    "minimum_rpm": 1600,
+    "maximum_rpm": 4000,
+    "minimum_load_coordinate": 1,
+    "maximum_load_coordinate": 1
+  },
+  "scenario_sources": [
+    {
+      "id": "power-rise-source",
+      "uri": "scenarios/atlas-wot-rise-1500-4100rpm.json"
+    }
+  ],
+  "moving_segments": [
+    {
+      "id": "power-rise-1500-4100",
+      "direction": "rising",
+      "load_coordinate": 1,
+      "state_mask": 11,
+      "normalized_rpm_slope": {
+        "minimum_per_second": 0.025,
+        "maximum_per_second": 0.085
+      },
+      "captured_rpm": {
+        "minimum": 1500,
+        "maximum": 4100
+      },
+      "usable_rpm": {
+        "minimum": 1600,
+        "maximum": 4000
+      },
+      "scenario": "power-rise-source",
+      "handoff": {
+        "transition_frames": 3840,
+        "maximum_rpm_error": 75,
+        "maximum_normalized_rpm_slope_error_per_second": 0.015,
+        "maximum_load_error": 0.1,
+        "maximum_crank_phase_error_revolutions": 0.125
+      }
+    }
+  ],
+  "stationary_tiles": [],
+  "transient_performances": [],
+  "lifecycle_performances": []
+}
