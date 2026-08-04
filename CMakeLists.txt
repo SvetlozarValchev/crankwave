@@ -179,6 +179,32 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_compile)
 
 add_library(
+    engine_sim_offline_package_bake
+    STATIC
+        src/package/package_bake_compile.cpp
+)
+add_library(
+    engine_sim_offline::package_bake
+    ALIAS engine_sim_offline_package_bake
+)
+
+target_include_directories(
+    engine_sim_offline_package_bake
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_package_bake
+    PUBLIC
+        engine_sim_offline::compile
+        engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_package_bake)
+
+add_library(
     engine_sim_offline_request_identity
     STATIC
         src/identity/canonical_json_writer.cpp

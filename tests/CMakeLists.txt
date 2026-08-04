@@ -218,6 +218,25 @@ add_test(
 )
 
 add_executable(
+    engine_sim_offline_package_bake_compile_tests
+    package_bake_compile_test.cpp
+)
+
+target_link_libraries(
+    engine_sim_offline_package_bake_compile_tests
+    PRIVATE
+        engine_sim_offline::authoring
+        engine_sim_offline::package_bake
+)
+
+add_test(
+    NAME package_bake.compile
+    COMMAND
+        engine_sim_offline_package_bake_compile_tests
+        ${PROJECT_SOURCE_DIR}
+)
+
+add_executable(
     engine_sim_offline_audio_package_contract_tests
     audio_package_contract_test.cpp
 )
