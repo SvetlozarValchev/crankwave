@@ -1,8 +1,8 @@
 # Responsive audio baker and live A/B plan
 
-Status: first normal-running package vertical slice implemented and browser-verified;
-paused at the required user-listening gate. The source renderer remains frozen at the
-accepted `b098e8e` baseline.
+Status: corrected normal-running package candidate implemented and browser-verified;
+paused at the required user-listening gate with one explicit hard-tip-in limitation.
+The source renderer remains frozen at the accepted `b098e8e` baseline.
 
 Date: 2026-08-04
 
@@ -276,3 +276,33 @@ diagnostic at 1,478 rpm reported a nonzero peak, zero clips, zero uncovered fram
 and zero exact-silent normal-running frames. The full runtime unit suite and repository
 workbench smoke also passed. Listening remains the acceptance authority, so lifecycle
 assets and delivery adapters remain blocked on the user's audition.
+
+### Corrected hard-free-rev candidate
+
+The first listening pass exposed three independent source-selection errors rather than
+PCM clipping or an OLA seam failure. Commits `98b11d6`, `71e0234`, `fb745d6`, and
+`27ddbd7` respectively remove delayed completed-cycle torque from runtime selection,
+capture coast at true closed throttle, calibrate the BMW intermediate plane at 17.5%
+throttle, and replace the held-dyno idle tape with a settled natural FreeEngine pool.
+The four corrected source lanes bake concurrently in 45.33 seconds.
+
+The resulting package is staged from
+`artifacts/listening/bmw-m52tub28-responsive-package-corrected-normal-running-candidate`.
+Its idle pool retains 59 dyno-free cycles at 729.21--731.26 RPM; the running planes
+retain 0%, 17.5%, and 100% requested throttle. All four Float32 payloads are finite and
+unclipped. A clean workbench rebuild and package restage pass the real browser UI smoke
+with zero shared-output underruns, clips, uncovered frames, or exact-silent follower
+frames.
+
+The matched 5.76-second trace is stored under
+`artifacts/listening/bmw-responsive-ab-hard-free-rev-5500-corrected-normal-running-candidate`.
+After the first 130 ms of throttle application, A/B 10 ms envelopes correlate 0.92 and
+the remaining hard rise is level-matched within 0.15 dB. The middle falling sweep is
+also within roughly 0.25 dB. However, B misses A's captured 10--60 ms hard-tip-in bark:
+the first 100 ms remains 35.97 dB low. A disposable asymmetric 6 ms attack reduced the
+deficit to 21.37 dB without changing lift, proving that smoothing is only secondary;
+it was discarded rather than promoted. The selected 700 RPM steady power unit contains
+about 20 dB too little energy to synthesize that transient. If listening rejects the
+candidate, the next isolated normal-running task is a captured idle-to-hard-tip-in
+performance with a measured handoff over an advancing running bed, not another global
+gain, scheduler, or smoothing experiment.
