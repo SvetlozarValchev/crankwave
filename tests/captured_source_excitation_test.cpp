@@ -697,6 +697,44 @@ void test_exact_arithmetic_delay_routes_and_continuity(const EngineSpec &engine,
            "two-block excitation session progress changed");
 }
 
+void test_pressure_force_uses_each_cylinder_bore(
+    const EngineSpec &canonical_engine, const RenderScenario &scenario) {
+    constexpr std::size_t distinct_cylinder = 3U;
+    constexpr std::size_t observed_frame = 0U;
+    constexpr double common_pressure_pa_abs = kAtmospherePa + 1000.0;
+
+    auto engine = canonical_engine;
+    engine.cylinders[distinct_cylinder].bore_m.value *= 1.25;
+    SyntheticCaptureBlock block{engine, 0U};
+    block.fill_distinct_excitation();
+    for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
+        block.set_cylinder_pressure(observed_frame, cylinder,
+                                    common_pressure_pa_abs);
+    }
+
+    auto session = require_session(compile_fixture_session(engine, scenario));
+    const auto output = publish(session, block.view(), 0U);
+    const double pressure_delta_pa =
+        common_pressure_pa_abs - scenario.crankcase.pressure_pa_abs.value;
+    const double common_bore_m = engine.cylinders.front().bore_m.value;
+    const double common_force_n =
+        std::numbers::pi_v<double> * common_bore_m * common_bore_m * 0.25 *
+        pressure_delta_pa;
+    for (std::size_t cylinder = 0; cylinder < kCylinders; ++cylinder) {
+        const double bore_m = engine.cylinders[cylinder].bore_m.value;
+        const double expected_force_n =
+            std::numbers::pi_v<double> * bore_m * bore_m * 0.25 *
+            pressure_delta_pa;
+        const double actual_force_n =
+            output.axial_pressure_force_n[observed_frame * kCylinders + cylinder];
+        expect_same_bits(actual_force_n, expected_force_n,
+                         "pressure force used another cylinder's bore");
+        expect((cylinder == distinct_cylinder) ==
+                   (bits(actual_force_n) != bits(common_force_n)),
+               "distinct piston crown area did not remain on its cylinder lane");
+    }
+}
+
 void test_intake_pressure_is_exact_without_changing_exhaust(
     const EngineSpec &canonical_engine, const RenderScenario &scenario) {
     auto intake_fixture = make_interleaved_intake_route_engine(canonical_engine);
@@ -1013,47 +1051,74 @@ require_fault(const CapturedSourceProcessResult &result, std::string_view code,
 
 void test_complete_prevalidation_is_terminal_and_does_not_advance(
     const EngineSpec &engine, const RenderScenario &scenario) {
-    SyntheticCaptureBlock malformed{engine, 0U};
-    malformed.fill_distinct_excitation();
-    const double valid_final_pressure =
-        malformed.cylinder_pressure(kFrames - 1U, kCylinders - 1U);
-    malformed.set_cylinder_pressure(kFrames - 1U, kCylinders - 1U,
-                                    std::numeric_limits<double>::quiet_NaN());
+    const auto prove_terminal = [&](SyntheticCaptureBlock &malformed, auto repair,
+                                    std::string_view label) {
+        auto session = require_session(compile_fixture_session(engine, scenario));
+        std::size_t callbacks = 0U;
+        const auto first = session.process_block(
+            malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
+                                  const IntakePressureBlockView &,
+                                  const ExhaustExcitationDiagnosticBlockView &,
+                                  const CylinderAxialPressureForceDiagnosticBlockView &) {
+                ++callbacks;
+                return true;
+            });
+        const FailureContext first_fault = require_fault(
+            first, "captured-source-block-invalid",
+            std::string{label} + " was not rejected by full prevalidation");
+        expect(callbacks == 0U && session.faulted() &&
+                   session.next_frame_index() == 0U &&
+                   session.published_block_count() == 0U,
+               std::string{label} +
+                   " entered callback, advanced delay, or published");
 
-    auto session = require_session(compile_fixture_session(engine, scenario));
-    std::size_t callbacks = 0U;
-    const auto first = session.process_block(
-        malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
-                              const IntakePressureBlockView &,
-                              const ExhaustExcitationDiagnosticBlockView &,
-                              const CylinderAxialPressureForceDiagnosticBlockView &) {
-            ++callbacks;
-            return true;
-        });
-    const FailureContext first_fault = require_fault(
-        first, "captured-source-block-invalid",
-        "malformed final input lane was not rejected by full prevalidation");
-    expect(callbacks == 0U && session.faulted() && session.next_frame_index() == 0U &&
-               session.published_block_count() == 0U,
-           "prevalidation failure entered callback, advanced delay, or published");
+        repair();
+        const auto repeated = session.process_block(
+            malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
+                                  const IntakePressureBlockView &,
+                                  const ExhaustExcitationDiagnosticBlockView &,
+                                  const CylinderAxialPressureForceDiagnosticBlockView &) {
+                ++callbacks;
+                return true;
+            });
+        const auto &repeated_fault = require_fault(
+            repeated, first_fault.detail_code,
+            std::string{label} + " fault did not remain terminal after repair");
+        expect(repeated_fault == first_fault && callbacks == 0U &&
+                   session.next_frame_index() == 0U &&
+                   session.published_block_count() == 0U,
+               std::string{label} +
+                   " failure was not stable and state-preserving");
+    };
 
-    malformed.set_cylinder_pressure(kFrames - 1U, kCylinders - 1U,
-                                    valid_final_pressure);
-    const auto repeated = session.process_block(
-        malformed.view(), [&](const presentation::ExhaustExcitationBlockView &,
-                              const IntakePressureBlockView &,
-                              const ExhaustExcitationDiagnosticBlockView &,
-                              const CylinderAxialPressureForceDiagnosticBlockView &) {
-            ++callbacks;
-            return true;
-        });
-    const auto &repeated_fault =
-        require_fault(repeated, first_fault.detail_code,
-                      "prevalidation fault did not remain terminal on corrected input");
-    expect(repeated_fault == first_fault && callbacks == 0U &&
-               session.next_frame_index() == 0U &&
-               session.published_block_count() == 0U,
-           "prevalidation failure was not stable and state-preserving");
+    {
+        SyntheticCaptureBlock malformed{engine, 0U};
+        malformed.fill_distinct_excitation();
+        const double valid_final_pressure =
+            malformed.cylinder_pressure(kFrames - 1U, kCylinders - 1U);
+        malformed.set_cylinder_pressure(kFrames - 1U, kCylinders - 1U,
+                                        std::numeric_limits<double>::quiet_NaN());
+        prove_terminal(malformed,
+                       [&] {
+                           malformed.set_cylinder_pressure(
+                               kFrames - 1U, kCylinders - 1U,
+                               valid_final_pressure);
+                       },
+                       "invalid cylinder pressure");
+    }
+    {
+        SyntheticCaptureBlock malformed{engine, 0U};
+        malformed.fill_distinct_excitation();
+        malformed.parity_cylinders().back().dynamic_pressure_reverse_pa =
+            std::numeric_limits<double>::quiet_NaN();
+        prove_terminal(malformed,
+                       [&] {
+                           malformed.parity_cylinders()
+                               .back()
+                               .dynamic_pressure_reverse_pa = 1.0;
+                       },
+                       "invalid exhaust reference parity");
+    }
 }
 
 void test_consumer_rejection_and_exception_are_terminal(
@@ -1231,6 +1296,7 @@ void test_compile_rejects_method_profile_rate_and_layout_drift(
 void run_tests(const std::filesystem::path &repository_root) {
     const auto fixture = test::load_canonical_authored_engine_fixture(repository_root);
     test_exact_arithmetic_delay_routes_and_continuity(fixture.engine, fixture.scenario);
+    test_pressure_force_uses_each_cylinder_bore(fixture.engine, fixture.scenario);
     test_intake_pressure_is_exact_without_changing_exhaust(fixture.engine,
                                                            fixture.scenario);
     test_split_primary_and_route_delays_preserve_total_arrival(fixture.engine,

@@ -305,8 +305,11 @@ class CapturedSourceExcitationState;
 
 /**
  * Stateful, bounded adapter from validated M3 capture blocks to the accepted
- * presentation seam. It owns all IDs, delay history, and callback scratch and retains
- * no EngineSpec or CaptureBlock reference.
+ * presentation seam. The currently admitted product always couples low-order gas,
+ * exhaust, intake, and cylinder thermodynamic capture in this one transaction; a
+ * future product that admits mechanical-only capture may split that admission then.
+ * It owns all IDs, delay history, and callback scratch and retains no EngineSpec or
+ * CaptureBlock reference.
  */
 class CapturedSourceExcitationSession final {
   public:
