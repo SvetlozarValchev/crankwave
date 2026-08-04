@@ -1,0 +1,90 @@
+{
+  "schema": "engine-sim-offline/scenario",
+  "id": "bmw-m52tub28-cleanroom-package-power-rise",
+  "engine": "bmw-m52tub28-cleanroom",
+  "fuel": "premium-unleaded-gasoline",
+  "ambient": {
+    "pressure": {"value": 101325, "unit": "Pa"},
+    "temperature": {"value": 298.15, "unit": "K"},
+    "relative_humidity_01": 0
+  },
+  "initial_thermal_state": {
+    "gas_temperature": {"value": 298.15, "unit": "K"},
+    "wall_temperature": {"value": 363.15, "unit": "K"},
+    "coolant_temperature": {"value": 363.15, "unit": "K"},
+    "oil_temperature": {"value": 363.15, "unit": "K"}
+  },
+  "crankcase": {
+    "pressure": {"value": 101325, "unit": "Pa"},
+    "temperature": {"value": 298.15, "unit": "K"}
+  },
+  "initial_state": {
+    "engine_speed": {"value": 625, "unit": "rpm"},
+    "crank_angle": {"value": 1.570796326795, "unit": "rad"},
+    "ignition_enabled": true,
+    "fuel_enabled": true,
+    "starter_enabled": false,
+    "dyno_enabled": true,
+    "limiter_enabled": false
+  },
+  "preparation": {
+    "type": "fixed_horizon",
+    "preparation_duration": {"value": 6, "unit": "s"},
+    "trailing_complete_cycle_count": 16
+  },
+  "mode": {
+    "type": "held_dyno",
+    "target_engine_speed": {
+      "value_dimension": "angular_speed",
+      "interpolation": "linear",
+      "points": [
+        {"time": {"value": 0, "unit": "s"}, "value": {"value": 625, "unit": "rpm"}},
+        {"time": {"value": 6, "unit": "s"}, "value": {"value": 625, "unit": "rpm"}},
+        {"time": {"value": 7, "unit": "s"}, "value": {"value": 625, "unit": "rpm"}},
+        {"time": {"value": 8, "unit": "s"}, "value": {"value": 760.410308, "unit": "rpm"}},
+        {"time": {"value": 9, "unit": "s"}, "value": {"value": 925.158139, "unit": "rpm"}},
+        {"time": {"value": 10, "unit": "s"}, "value": {"value": 1125.599658, "unit": "rpm"}},
+        {"time": {"value": 11, "unit": "s"}, "value": {"value": 1369.468132, "unit": "rpm"}},
+        {"time": {"value": 12, "unit": "s"}, "value": {"value": 1666.172296, "unit": "rpm"}},
+        {"time": {"value": 13, "unit": "s"}, "value": {"value": 2027.159343, "unit": "rpm"}},
+        {"time": {"value": 14, "unit": "s"}, "value": {"value": 2466.356577, "unit": "rpm"}},
+        {"time": {"value": 15, "unit": "s"}, "value": {"value": 3000.708745, "unit": "rpm"}},
+        {"time": {"value": 16, "unit": "s"}, "value": {"value": 3650.831779, "unit": "rpm"}},
+        {"time": {"value": 17, "unit": "s"}, "value": {"value": 4441.808190, "unit": "rpm"}},
+        {"time": {"value": 18, "unit": "s"}, "value": {"value": 5404.154777, "unit": "rpm"}},
+        {"time": {"value": 19, "unit": "s"}, "value": {"value": 6575, "unit": "rpm"}},
+        {"time": {"value": 20, "unit": "s"}, "value": {"value": 6575, "unit": "rpm"}}
+      ]
+    },
+    "maximum_absorbing_torque": {"value": 10000, "unit": "N*m"},
+    "maximum_driving_torque": {"value": 10000, "unit": "N*m"},
+    "throttle_01": {
+      "interpolation": "right_continuous_hold",
+      "points": [
+        {"time": {"value": 0, "unit": "s"}, "value": 1}
+      ]
+    }
+  },
+  "events": [],
+  "rates": {
+    "physics": {"numerator": "20000", "denominator": "1", "unit": "Hz"},
+    "capture": {"numerator": "20000", "denominator": "1", "unit": "Hz"},
+    "source_processing": {"numerator": "192000", "denominator": "1", "unit": "Hz"},
+    "acoustics": {"numerator": "192000", "denominator": "1", "unit": "Hz"},
+    "delivery": {"numerator": "192000", "denominator": "1", "unit": "Hz"}
+  },
+  "quality": {
+    "id": "listening",
+    "process_block_capacity_frames": 3840,
+    "event_queue_capacity": 3800,
+    "telemetry_capacity_frames": 1
+  },
+  "total_duration": {"value": 20, "unit": "s"},
+  "audible_start": {"value": 6, "unit": "s"},
+  "audible_duration": {"value": 14, "unit": "s"},
+  "public_seed": "12648430",
+  "output": {
+    "buses": ["master-engine-raw", "master-engine-audition"],
+    "telemetry_channels": []
+  }
+}

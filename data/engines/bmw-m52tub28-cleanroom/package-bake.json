@@ -1,0 +1,60 @@
+{
+  "schema": "engine-sim-offline/package-bake",
+  "id": "bmw-m52tub28-cleanroom-normal-running",
+  "engine": "bmw-m52tub28-cleanroom",
+  "public_seed": "12648430",
+  "audio": {
+    "sample_rate": {
+      "numerator": "192000",
+      "denominator": "1",
+      "unit": "Hz"
+    },
+    "buses": ["master-engine-audition"]
+  },
+  "scenario_sources": [
+    {
+      "id": "coast-fall-source",
+      "uri": "scenarios/package-coast-fall.json"
+    },
+    {
+      "id": "part-rise-source",
+      "uri": "scenarios/package-part-rise.json"
+    },
+    {
+      "id": "power-rise-source",
+      "uri": "scenarios/package-power-rise.json"
+    },
+    {
+      "id": "idle-source",
+      "uri": "scenarios/package-idle.json"
+    }
+  ],
+  "running": {
+    "rpm_range": {
+      "minimum": {"value": 700, "unit": "rpm"},
+      "maximum": {"value": 6500, "unit": "rpm"}
+    },
+    "planes": [
+      {
+        "id": "coast",
+        "load_coordinate": -1,
+        "direction": "falling",
+        "scenario": "coast-fall-source"
+      },
+      {
+        "id": "part-load",
+        "load_coordinate": 0,
+        "direction": "rising",
+        "scenario": "part-rise-source"
+      },
+      {
+        "id": "power",
+        "load_coordinate": 1,
+        "direction": "rising",
+        "scenario": "power-rise-source"
+      }
+    ],
+    "idle": {"scenario": "idle-source"}
+  },
+  "events": []
+}
