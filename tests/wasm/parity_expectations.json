@@ -11,11 +11,11 @@
   "semantic_sha256": "cfa562577ff0d42da60f30b6b010626cb85ceccc48d0863342b600d241b17286",
   "native": {
     "telemetry_f64le_sha256": "3147ed9cdab7d5ddab6ee40ccd9f54aee9479505836fec68eb8e11455778067c",
-    "audition_f32le_sha256": "4f76795b31e8a9dcc710868cfed7938bd6996471f622ac48b03faa130aad552a"
+    "audition_f32le_sha256": "11c250655720015b848b65b57cb03840a1e15391b05679e7e182560a67dca171"
   },
   "wasm": {
     "telemetry_f64le_sha256": "98ff4c0645bf5cbc842431a3b0a50d587d6794e5a664801ef7d6df343ea0199d",
-    "audition_f32le_sha256": "7362df73a4f3bc0925fad36285f499d2c51f2b61d4dccf8a743f45a42f4728c9"
+    "audition_f32le_sha256": "5658b9947142a71c031a7444426bb4c2ea230144a0f3902855934730edfb40f3"
   },
   "bounds": {
     "telemetry_maximum_absolute_error": 0.005,

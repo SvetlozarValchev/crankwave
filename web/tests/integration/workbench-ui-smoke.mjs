@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const EXPECTED_WAV_BYTES = 3_840_056;
 const EXPECTED_WAV_SHA256 =
-  "f1c057e2eef807f0d68711dc1e196e04093faab3c306d37f7523c8a8d2ce6130";
+  "f9be8f7de20844e44cce16f664b5d2ac337b6b740a676c96aaf9c7a3c898b467";
 const FINITE_EXECUTION_KIND = "1";
 const OPEN_ENDED_EXECUTION_KIND = "2";
 

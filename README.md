@@ -25,9 +25,11 @@ use one canonical 20 kHz physics/capture path, identity-stable cylinder-primary 
 merge at an explicit collector before shared route propagation, and captured plenum
 pressure drives the separately published active intake route. The mechanical-engine
 force-capture seam is complete but remains diagnostic-only pending a defensible
-structural/radiation model. The first isolated queue-item-5 candidate now awaits
-listening: actual delayed exhaust-valve flow modulates only the existing filtered-air
-term. Source processing, acoustics, and delivery remain at 192 kHz.
+structural/radiation model. The first isolated queue-item-5 correction is retained as
+an audibly neutral foundation: actual delayed exhaust-valve flow modulates only the
+existing filtered-air term. It is not claimed as a noticeable quality increase;
+combustion-work and pressure-ratio coupling remain separate. Source processing,
+acoustics, and delivery remain at 192 kHz.
 This scoped claim does not include `.mr` or native-GUI parity, arbitrary unproven
 mechanisms, fuel-volume-display parity, or audible-fidelity claims beyond the accepted
 20 kHz exhaust path.

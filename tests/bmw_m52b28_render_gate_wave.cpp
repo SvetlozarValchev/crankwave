@@ -11,10 +11,10 @@
 namespace engine_sim_offline::test::bmw_m52b28_render_gate {
 namespace {
 
-constexpr std::string_view kCanonical20KhzWaveSha256 =
-    "61b815441fdca9e30a03b3f755a7b3a9200e8663d98a0d7924838813e41f6697";
-constexpr std::string_view kAcceptedPcm24Sha256 =
-    "758df536d5b4fc2fdf031d16d31ba0294300a0c10e9008bc126b0e94b5607ac6";
+constexpr std::string_view kCanonicalFlowCoupled20KhzWaveSha256 =
+    "220cd6760b4eb991cdac147a99dfcc0f345ddf9fdd86b7c1924e062d87cc2c5b";
+constexpr std::string_view kAcceptedFlowCoupledPcm24Sha256 =
+    "c9276854e52c17178a293881bf61735d219a2f2f4467bdaf225398bea617d700";
 constexpr std::uint64_t kAcceptedPcm24ByteCount = UINT64_C(8640000);
 constexpr std::uint64_t kAudibleFrameCount = UINT64_C(2880000);
 
@@ -269,20 +269,22 @@ verify_render_success(const contract::RenderSuccess &success,
 
     expect(canonical_oracle_wave.size() == UINT64_C(8640586) &&
                contract::sha256(canonical_oracle_wave) ==
-                   digest_from_hex(kCanonical20KhzWaveSha256),
-           "render gate did not receive the canonical 20 kHz WAV");
+                   digest_from_hex(kCanonicalFlowCoupled20KhzWaveSha256),
+           "render gate did not receive the canonical flow-coupled 20 kHz WAV");
     const auto oracle = parse_wave(canonical_oracle_wave);
     expect(oracle.data.size() == kAcceptedPcm24ByteCount &&
-               contract::sha256(oracle.data) == digest_from_hex(kAcceptedPcm24Sha256),
-           "canonical 20 kHz PCM24 span changed");
+               contract::sha256(oracle.data) ==
+                   digest_from_hex(kAcceptedFlowCoupledPcm24Sha256),
+           "canonical flow-coupled 20 kHz PCM24 span changed");
 
     const auto &audition_artifact = sink.at("master.engine.audition");
     const auto audition = parse_wave(audition_artifact.bytes);
     expect(audition.data.size() == kAcceptedPcm24ByteCount &&
                contract::sha256(audition.data) ==
-                   digest_from_hex(kAcceptedPcm24Sha256) &&
+                   digest_from_hex(kAcceptedFlowCoupledPcm24Sha256) &&
                std::ranges::equal(audition.data, oracle.data),
-           "generic PCM24 data span differs from the canonical 20 kHz bytes");
+           "generic PCM24 data span differs from the canonical flow-coupled 20 kHz "
+           "bytes");
     expect_exact_info(success.manifest.content, audition);
 
     return {

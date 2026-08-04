@@ -1052,12 +1052,16 @@ candidate with the accepted parity renderer as its control:
    [`docs/POST_PARITY_FIDELITY_MECHANICAL_ENGINE_PLAN.md`](docs/POST_PARITY_FIDELITY_MECHANICAL_ENGINE_PLAN.md);
 5. couple combustion variation and flow noise to combustion work, valve flow, and
    pressure ratio rather than granting static generic jitter/noise sole authority
-   (**in progress: `4eafff8` implements only the first isolated valve-flow subgate.
+   (**valve-flow subgate complete: `4eafff8` implements only the first isolated
+   valve-flow correction.
    Actual delayed per-route exhaust-valve mass flow now modulates only the existing
-   filtered-air term; all other audible systems are frozen. The matched BMW A/B and
-   exhaust-only diagnostic rendered in 35.13 seconds and await user listening. The
-   accepted PCM oracle remains unchanged, and combustion-work or pressure-ratio work
-   may not begin before this verdict. See
+   filtered-air term; all other audible systems were frozen. The matched BMW A/B and
+   exhaust-only diagnostic rendered in 35.13 seconds. The user reported all four
+   clips sounded identical and chose to retain the correction. This is explicitly an
+   audibly neutral physical-foundation result, not a claimed quality increase and not
+   completion of the combustion-work or pressure-ratio subgates. Its new generic
+   M52B28 oracle passes all four affected native gates; exact WASM parity and the full
+   zero-underrun browser-workbench gate also pass without loosened bounds. See
    [`docs/POST_PARITY_FIDELITY_FLOW_COUPLING_LISTENING_GATE.md`](docs/POST_PARITY_FIDELITY_FLOW_COUPLING_LISTENING_GATE.md)**);
 6. add measured or explicit catalyst, resonator, muffler, and outlet transfer with
    temperature/load state, retaining the accepted static IR as the control until a

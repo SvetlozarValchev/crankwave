@@ -650,7 +650,7 @@ void run(const std::filesystem::path &repository_root) {
     const auto oracle = gate::read_bytes(
         repository_root /
         "reference/oracles/bmw-m52b28/"
-        "bmw-m52b28-canonical-20khz-a3ae7cd-dyno-1500-6500rpm.wav");
+        "bmw-m52b28-canonical-flow-coupled-20khz-4eafff8-dyno-1500-6500rpm.wav");
     const auto pcm = wave_data(oracle);
     constexpr std::uint64_t kAudibleFrames = UINT64_C(2880000);
     gate::expect(pcm.size() == kAudibleFrames * 3U,

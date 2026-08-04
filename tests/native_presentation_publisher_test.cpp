@@ -497,14 +497,14 @@ void test_public_session_byte_golden(const compile::CompiledScenario &scenario) 
     // public EngineSession fixture. They replace the temporary runtime dependency
     // on the fused presentation-session oracle used during the exact split proof.
     constexpr std::array<std::string_view, 8> kExpectedSha256{
-        "7d88354324ff7007b6e96c5ac9454de38137630071cc74fec1390a10cf71b87f",
-        "61e6e6b0964ba46f72d4fb7c38743d576d30b3e5e5c4d45c02924022b6cb886d",
-        "61e6e6b0964ba46f72d4fb7c38743d576d30b3e5e5c4d45c02924022b6cb886d",
-        "4f14dbca7b40b711d242dfd912477a9a1c5faceb6c3899f5c9658d2ddabe7d04",
-        "fa64e5a6726cd25c6ebdb3efa3c4d51d88107d6797e3728e79f90d2a4c16d96e",
-        "fa64e5a6726cd25c6ebdb3efa3c4d51d88107d6797e3728e79f90d2a4c16d96e",
-        "2301774135dc3dbcac78b829fc559896a4980249b5a055565870cba5c2d305bb",
-        "284b82650225cd308703a1cc4d3ea677800fc7898b4bbeaa262d9e8e99909211",
+        "29d3bc39ddf523a415f8496dfc66390aa0fc7a8cc520a96bfd8123ead0e5ccb5",
+        "96fb05c49867f581c33f9387400b13e8e4cd3fff6121c76eb189eb1711e2a0f8",
+        "96fb05c49867f581c33f9387400b13e8e4cd3fff6121c76eb189eb1711e2a0f8",
+        "8662ef655c86e41ecfb26e38bcf6b90cf6238134c81094a378465ee60658148e",
+        "6e72dbdd2d12e13d748816cc97f24f984f904ba720e6c848b6163cd8f4caf2de",
+        "6e72dbdd2d12e13d748816cc97f24f984f904ba720e6c848b6163cd8f4caf2de",
+        "0f7d73ef90617b52aef89131dc564b8ea9ecf162a175b5bbfa927037891dc92b",
+        "be138c46f92d5e1d92a192623eee308a2556607a837a1d19275928271cb374bc",
     };
     std::vector<std::string> actual_sha256;
     actual_sha256.reserve(published.records.size());

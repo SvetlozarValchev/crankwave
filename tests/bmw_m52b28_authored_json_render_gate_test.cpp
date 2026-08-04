@@ -20,7 +20,7 @@ constexpr std::string_view kExpectedGenericRequestIdentitySha256 =
     "8c75e9bfa871e88d58031d52c5eb7278a27a9092e252c7a1fb09466755678ced";
 constexpr std::uint64_t kExpectedGenericAuditionWaveByteCount = UINT64_C(8640586);
 constexpr std::string_view kExpectedGenericAuditionWaveSha256 =
-    "6563eca69744bf0bfa375b81e694aa0640388e995cc90e8217233a029e9942a6";
+    "220cd6760b4eb991cdac147a99dfcc0f345ddf9fdd86b7c1924e062d87cc2c5b";
 
 [[nodiscard]] std::string validation_text(const contract::ValidationReport &report) {
     std::string result;
@@ -98,7 +98,8 @@ void run(const std::filesystem::path &repository_root, const bool compile_only) 
     const auto &success = require_success(result);
     const auto oracle = gate::read_bytes(
         repository_root / "reference/oracles/bmw-m52b28/"
-                          "bmw-m52b28-canonical-20khz-a3ae7cd-dyno-1500-6500rpm.wav");
+                          "bmw-m52b28-canonical-flow-coupled-20khz-4eafff8-dyno-"
+                          "1500-6500rpm.wav");
     const auto observation = gate::verify_render_success(success, sink, oracle);
     require_pinned_generic_identities(observation);
 }
