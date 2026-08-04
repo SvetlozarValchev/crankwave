@@ -509,6 +509,33 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_session)
 
 add_library(
+    engine_sim_offline_atlas_capture
+    STATIC
+        src/atlas/moving_lane_capture.cpp
+)
+add_library(
+    engine_sim_offline::atlas_capture
+    ALIAS engine_sim_offline_atlas_capture
+)
+
+target_include_directories(
+    engine_sim_offline_atlas_capture
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+)
+
+target_link_libraries(
+    engine_sim_offline_atlas_capture
+    PUBLIC
+        engine_sim_offline::contract
+        engine_sim_offline::session
+        engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_atlas_capture
+)
+
+add_library(
     engine_sim_offline_c_api
     STATIC
         src/c_api/compile.cpp
@@ -805,6 +832,7 @@ set(
     engine_sim_offline_excitation
     engine_sim_offline_session
     engine_sim_offline_atlas_bake
+    engine_sim_offline_atlas_capture
     engine_sim_offline_c_api
     engine_sim_offline_execution
     engine_sim_offline_renderer_determinism
