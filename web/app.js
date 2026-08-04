@@ -7,16 +7,18 @@ import { WORKER_PROTOCOL_ID } from "./runtime/protocol.js";
 
 const WORKER_URL = "/web/engine-worker.js";
 const WORKLET_URL = "/web/audio-worklet.js";
-const DEFAULT_PACKAGE_ID = "bmw-m52b28-free-rev";
+const DEFAULT_PACKAGE_ID = "bmw-m52tub28-free-rev";
 const BMW_M52TUB28_RESPONSIVE_PACKAGE_URL =
   "/packages/bmw-m52tub28-responsive/package.json";
+const RESPONSIVE_AUDIO_PACKAGE_PRESET =
+  "BMW M52TUB28 · Interactive free rev";
 const COMPARISON_MODE = Object.freeze({
   source: "source-a",
   baked: "baked-b",
 });
 const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
-    id: DEFAULT_PACKAGE_ID,
+    id: "bmw-m52b28-free-rev",
     label: "BMW M52B28 · Interactive free rev",
     executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/bmw-m52b28/engine.json",
@@ -129,7 +131,7 @@ const WORKBENCH_PACKAGES = Object.freeze([
   }),
   Object.freeze({
     id: "bmw-m52tub28-free-rev",
-    label: "BMW M52TUB28 · Interactive free rev",
+    label: "BMW M52TUB28 · Source/Baked A/B · Interactive free rev",
     executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
@@ -433,7 +435,7 @@ const state = {
   audioPackage: {
     status: "source-only",
     packageId: null,
-    detail: "This preset has no matching responsive audio package.",
+    detail: `Baked B is currently available only for ${RESPONSIVE_AUDIO_PACKAGE_PRESET}.`,
     requestId: null,
     mode: COMPARISON_MODE.source,
     modeRequestId: null,
@@ -1176,7 +1178,7 @@ function loadResponsiveAudioPackage() {
       "source-only",
       mappedPackage
         ? "Select the master.engine.audition bus to compare source and baked audio."
-        : "This preset has no matching responsive audio package.",
+        : `Baked B is currently available only for ${RESPONSIVE_AUDIO_PACKAGE_PRESET}.`,
     );
     return;
   }
