@@ -6,6 +6,7 @@ import { PCM_RING_HEADER_SCHEMA } from "./runtime/pcm-ring-buffer.js";
 
 let runtime = null;
 let initializing = false;
+let commandTail = Promise.resolve();
 
 function post(message, transfer = []) {
   self.postMessage(message, transfer);
@@ -76,7 +77,7 @@ async function dispatch(message) {
 
   switch (message.type) {
     case "build":
-      runtime.build(message);
+      await runtime.build(message);
       break;
     case "select-audio-bus":
       runtime.selectAudioBus(message);
@@ -89,6 +90,9 @@ async function dispatch(message) {
       break;
     case "restart":
       runtime.restart(message);
+      break;
+    case "set-comparison-mode":
+      runtime.setComparisonMode(message);
       break;
     case "enqueue-controls":
       runtime.enqueueControls(message);
@@ -111,12 +115,19 @@ async function dispatch(message) {
 }
 
 self.addEventListener("message", (event) => {
-  const requestId = event.data?.requestId ?? null;
-  void dispatch(event.data).catch((error) => {
-    post({
-      type: "error",
-      requestId,
-      error: publicError(error),
-    });
+  const message = event.data;
+  // Build and export both cross asynchronous boundaries. Preserve Worker input
+  // order so a later mutation cannot touch the prior program while one of those
+  // transactions is still deciding what becomes current.
+  commandTail = commandTail.then(async () => {
+    try {
+      await dispatch(message);
+    } catch (error) {
+      post({
+        type: "error",
+        requestId: message?.requestId ?? null,
+        error: publicError(error),
+      });
+    }
   });
 });
