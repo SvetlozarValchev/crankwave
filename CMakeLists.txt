@@ -179,6 +179,32 @@ target_link_libraries(
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_compile)
 
 add_library(
+    engine_sim_offline_atlas_bake
+    STATIC
+        src/atlas/atlas_bake_compile.cpp
+)
+add_library(
+    engine_sim_offline::atlas_bake
+    ALIAS engine_sim_offline_atlas_bake
+)
+
+target_include_directories(
+    engine_sim_offline_atlas_bake
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+)
+
+target_link_libraries(
+    engine_sim_offline_atlas_bake
+    PUBLIC
+        engine_sim_offline::compile
+        engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_atlas_bake)
+
+add_library(
     engine_sim_offline_request_identity
     STATIC
         src/identity/canonical_json_writer.cpp
@@ -778,6 +804,7 @@ set(
     engine_sim_offline_presentation
     engine_sim_offline_excitation
     engine_sim_offline_session
+    engine_sim_offline_atlas_bake
     engine_sim_offline_c_api
     engine_sim_offline_execution
     engine_sim_offline_renderer_determinism
