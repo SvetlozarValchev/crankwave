@@ -537,6 +537,34 @@ engine_sim_offline_enable_renderer_numeric_policy(
 )
 
 add_library(
+    engine_sim_offline_atlas_assembly
+    STATIC
+        src/atlas/moving_atlas_assembly.cpp
+)
+add_library(
+    engine_sim_offline::atlas_assembly
+    ALIAS engine_sim_offline_atlas_assembly
+)
+
+target_include_directories(
+    engine_sim_offline_atlas_assembly
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+)
+
+target_link_libraries(
+    engine_sim_offline_atlas_assembly
+    PUBLIC
+        engine_sim_offline::atlas_bake
+        engine_sim_offline::atlas_capture
+        engine_sim_offline::contract
+        engine_sim_offline::build_options
+)
+engine_sim_offline_enable_renderer_numeric_policy(
+    engine_sim_offline_atlas_assembly
+)
+
+add_library(
     engine_sim_offline_c_api
     STATIC
         src/c_api/compile.cpp
@@ -835,6 +863,7 @@ set(
     engine_sim_offline_session
     engine_sim_offline_atlas_bake
     engine_sim_offline_atlas_capture
+    engine_sim_offline_atlas_assembly
     engine_sim_offline_c_api
     engine_sim_offline_execution
     engine_sim_offline_renderer_determinism
