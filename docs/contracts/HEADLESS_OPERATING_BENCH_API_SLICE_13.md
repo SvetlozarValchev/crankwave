@@ -103,7 +103,7 @@ exactly the sidecar owned by HeldDyno or FreeVehicle is present.
 ## 5. Exact-version ABI cut
 
 The C ABI was replaced once by exact `ESO_C_API_VERSION == 4`, and the browser protocol
-by exact `engine-sim-offline/browser-worker-v4`. There is no older-layout decoder,
+by exact `engine-sim-offline/browser-worker-v5`. There is no older-layout decoder,
 deprecated symbol family, compatibility struct, singular-control protocol, or dual
 runtime path. Worker control messages contain one nonempty atomic batch and produce one
 `controls-result`.

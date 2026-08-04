@@ -8,8 +8,23 @@ import { WORKER_PROTOCOL_ID } from "./runtime/protocol.js";
 const WORKER_URL = "/web/engine-worker.js";
 const WORKLET_URL = "/web/audio-worklet.js";
 const DEFAULT_PACKAGE_ID = "bmw-m52tub28-free-rev";
-const BAKED_AUDITION_DETAIL =
-  "Baked B is unavailable pending clean-room atlas integration. Source A remains live.";
+const AUDIO_ATLAS_PACKAGE_ID = "bmw-m52tub28-fifth-gear-pull-lift";
+const SOURCE_COMPARISON_MODE = "source-a";
+const BAKED_COMPARISON_MODE = "baked-b";
+const UNCONFIGURED_AUDIO_ATLAS = Object.freeze({
+  status: "unavailable",
+  configured: false,
+  atlasUrl: null,
+  atlasId: null,
+  atlasEngineId: null,
+  selectedBusEligible: false,
+  bakedAvailable: false,
+  comparisonMode: SOURCE_COMPARISON_MODE,
+  activeSegmentId: null,
+  detailCode: "browser-runtime-atlas-not-configured",
+  message: "This build has no continuous audio atlas. Source A remains live.",
+  diagnostics: null,
+});
 const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52b28-free-rev",
@@ -202,6 +217,8 @@ const WORKBENCH_PACKAGES = Object.freeze([
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/free-vehicle-fifth-gear-pull-lift-1500rpm.json",
+    audioAtlasManifestUrl:
+      "/packages/bmw-m52tub28-first-moving-atlas/atlas.json",
   }),
   Object.freeze({
     id: "honda-b18c5-held-below-vtec",
@@ -422,11 +439,16 @@ const state = {
   buildMutationRequests: new Set(),
   buildThrottlePresentations: new Map(),
   buildPresetIds: new Map(),
+  buildDocumentSnapshots: new Map(),
   mutationPriorStates: new Map(),
   loadedPresetId: null,
   built: null,
   sessionState: "idle",
   securityAdmitted: false,
+  audioAtlas: { ...UNCONFIGURED_AUDIO_ATLAS },
+  comparisonMode: SOURCE_COMPARISON_MODE,
+  comparisonModeRequestId: null,
+  requestedComparisonMode: null,
   liveState: {
     throttle: 0.1,
     starter: false,
@@ -484,17 +506,137 @@ function showToast(message, isError = false) {
   window.setTimeout(() => toast.remove(), 4400);
 }
 
+function normalizeAudioAtlasSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return { ...UNCONFIGURED_AUDIO_ATLAS };
+  }
+  const statuses = new Set([
+    "loading",
+    "unavailable",
+    "arming",
+    "active",
+    "error",
+  ]);
+  const status = statuses.has(snapshot.status)
+    ? snapshot.status
+    : "error";
+  const comparisonMode =
+    snapshot.comparisonMode === BAKED_COMPARISON_MODE
+      ? BAKED_COMPARISON_MODE
+      : SOURCE_COMPARISON_MODE;
+  return {
+    status,
+    configured: snapshot.configured === true,
+    atlasUrl:
+      typeof snapshot.atlasUrl === "string" ? snapshot.atlasUrl : null,
+    atlasId: typeof snapshot.atlasId === "string" ? snapshot.atlasId : null,
+    atlasEngineId:
+      typeof snapshot.atlasEngineId === "string"
+        ? snapshot.atlasEngineId
+        : null,
+    selectedBusEligible: snapshot.selectedBusEligible === true,
+    bakedAvailable:
+      status === "active" && snapshot.bakedAvailable === true,
+    comparisonMode,
+    activeSegmentId:
+      typeof snapshot.activeSegmentId === "string"
+        ? snapshot.activeSegmentId
+        : null,
+    detailCode:
+      typeof snapshot.detailCode === "string" ? snapshot.detailCode : null,
+    message:
+      typeof snapshot.message === "string" && snapshot.message.length > 0
+        ? snapshot.message
+        : UNCONFIGURED_AUDIO_ATLAS.message,
+    diagnostics: snapshot.diagnostics ?? null,
+  };
+}
+
+function audioAtlasStatusLabel(status) {
+  switch (status) {
+    case "loading":
+      return "Baked loading";
+    case "arming":
+      return "Baked arming";
+    case "active":
+      return "Baked active";
+    case "error":
+      return "Baked error";
+    default:
+      return "Baked unavailable";
+  }
+}
+
 function renderBakedAuditionControls() {
-  elements.bakedAuditionStatus.textContent = "Baked unavailable";
-  elements.bakedAuditionStatus.dataset.state = "unavailable";
-  elements.bakedAuditionDetail.textContent = BAKED_AUDITION_DETAIL;
-  elements.comparisonModeControls.setAttribute("aria-busy", "false");
+  const atlas = state.audioAtlas;
+  const mutationBlocked =
+    !state.workerReady ||
+    !state.built ||
+    ["building", "compiling", "exporting", "failed", "completed"].includes(
+      state.sessionState,
+    );
+  const statusState =
+    atlas.status === "active"
+      ? "loaded"
+      : atlas.status === "loading" || atlas.status === "arming"
+        ? "loading"
+        : "unavailable";
+  elements.bakedAuditionStatus.textContent = audioAtlasStatusLabel(
+    atlas.status,
+  );
+  elements.bakedAuditionStatus.dataset.state = statusState;
+
+  const failureDetail =
+    atlas.status === "error" ||
+    (atlas.status === "unavailable" && atlas.configured)
+      ? atlas.detailCode
+      : null;
+  const diagnosticDetail = Array.isArray(atlas.diagnostics)
+    ? atlas.diagnostics
+        .map((diagnostic) => diagnostic?.message)
+        .find((message) => typeof message === "string" && message.length > 0)
+    : typeof atlas.diagnostics?.message === "string"
+      ? atlas.diagnostics.message
+      : null;
+  elements.bakedAuditionDetail.textContent = [
+    atlas.message,
+    failureDetail ? `[${failureDetail}]` : null,
+    diagnosticDetail,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  elements.comparisonModeControls.setAttribute(
+    "aria-busy",
+    String(
+      state.comparisonModeRequestId !== null ||
+        atlas.status === "loading" ||
+        atlas.status === "arming",
+    ),
+  );
 
   for (const button of elements.comparisonModeButtons) {
-    const selected = button.dataset.comparisonMode === "source-a";
+    const mode = button.dataset.comparisonMode;
+    const selected = mode === state.comparisonMode;
     button.classList.toggle("is-selected", selected);
     button.setAttribute("aria-pressed", String(selected));
-    button.disabled = true;
+    button.disabled =
+      mutationBlocked ||
+      (mode === BAKED_COMPARISON_MODE &&
+        (atlas.status !== "active" || !atlas.bakedAvailable));
+    const description = button.querySelector("span");
+    if (mode === SOURCE_COMPARISON_MODE) {
+      description.textContent = "Live simulator";
+    } else if (atlas.status === "active") {
+      description.textContent = atlas.activeSegmentId
+        ? `Atlas · ${atlas.activeSegmentId}`
+        : "Continuous atlas";
+    } else if (atlas.status === "arming") {
+      description.textContent = "Waiting for covered motion";
+    } else if (atlas.status === "loading") {
+      description.textContent = "Loading atlas package";
+    } else {
+      description.textContent = "Unavailable";
+    }
   }
 }
 
@@ -509,6 +651,46 @@ function postWorker(message, transfer = []) {
   }
   state.requestKinds.set(message.requestId, message.type);
   state.worker.postMessage(message, transfer);
+}
+
+function requestComparisonMode(mode) {
+  if (
+    mode !== SOURCE_COMPARISON_MODE &&
+    mode !== BAKED_COMPARISON_MODE
+  ) {
+    return;
+  }
+  if (
+    !state.workerReady ||
+    !state.built ||
+    ["building", "compiling", "exporting", "failed", "completed"].includes(
+      state.sessionState,
+    )
+  ) {
+    return;
+  }
+  if (
+    mode === BAKED_COMPARISON_MODE &&
+    (state.audioAtlas.status !== "active" ||
+      !state.audioAtlas.bakedAvailable)
+  ) {
+    return;
+  }
+  if (
+    state.comparisonModeRequestId === null &&
+    state.comparisonMode === mode
+  ) {
+    return;
+  }
+  const requestId = nextRequestId();
+  state.comparisonModeRequestId = requestId;
+  state.requestedComparisonMode = mode;
+  postWorker({
+    type: "set-comparison-mode",
+    requestId,
+    mode,
+  });
+  renderBakedAuditionControls();
 }
 
 function activeDocument() {
@@ -1085,6 +1267,23 @@ function packageById(id) {
   return WORKBENCH_PACKAGES.find((candidate) => candidate.id === id) ?? null;
 }
 
+function currentAudioAtlasManifestUrl() {
+  if (state.loadedPresetId !== AUDIO_ATLAS_PACKAGE_ID) {
+    return null;
+  }
+  const packageDefinition = packageById(state.loadedPresetId);
+  if (
+    !packageDefinition?.audioAtlasManifestUrl ||
+    state.documents.engine.dirty ||
+    state.documents.scenario.dirty ||
+    Number(elements.executionKindSelect.value) !==
+      packageDefinition.executionKind
+  ) {
+    return null;
+  }
+  return packageDefinition.audioAtlasManifestUrl;
+}
+
 function populatePackageSelect() {
   elements.packageSelect.textContent = "";
   const groups = new Map();
@@ -1480,16 +1679,22 @@ async function buildSession() {
       throttlePresentation(state.documents.engine.parsed),
     );
     state.buildPresetIds.set(requestId, state.loadedPresetId);
+    const submittedDocuments = Object.freeze({
+      engine: state.documents.engine.text,
+      scenario: state.documents.scenario.text,
+    });
+    state.buildDocumentSnapshots.set(requestId, submittedDocuments);
     state.mutationPriorStates.set(requestId, priorState);
     const transfer = assets.map((asset) => asset.bytes);
     postWorker(
       {
         type: "build",
         requestId,
-        engineJson: state.documents.engine.text,
-        scenarioJson: state.documents.scenario.text,
+        engineJson: submittedDocuments.engine,
+        scenarioJson: submittedDocuments.scenario,
         assets,
         executionKind: Number(elements.executionKindSelect.value),
+        audioAtlasManifestUrl: currentAudioAtlasManifestUrl(),
       },
       transfer,
     );
@@ -1598,9 +1803,13 @@ function acceptBuilt(message) {
     throttlePresentation(state.documents.engine.parsed);
   const compiledPresetId =
     state.buildPresetIds.get(message.requestId) ?? state.built?.presetId ?? null;
+  const submittedDocuments = state.buildDocumentSnapshots.get(
+    message.requestId,
+  );
   state.buildMutationRequests.delete(message.requestId);
   state.buildThrottlePresentations.delete(message.requestId);
   state.buildPresetIds.delete(message.requestId);
+  state.buildDocumentSnapshots.delete(message.requestId);
   state.mutationPriorStates.delete(message.requestId);
   state.requestKinds.delete(message.requestId);
   state.built = {
@@ -1611,12 +1820,20 @@ function acceptBuilt(message) {
     capabilities: normalizeCapabilities(message.descriptor),
     throttlePresentation: compiledThrottlePresentation,
   };
+  state.audioAtlas = normalizeAudioAtlasSnapshot(message.audioAtlas);
+  state.comparisonMode = state.audioAtlas.comparisonMode;
+  state.comparisonModeRequestId = null;
+  state.requestedComparisonMode = null;
   renderOperatingDescriptor();
   resetRunPresentation();
   resetLiveControls();
-  if (isInitialBuild) {
-    state.documents.engine.dirty = false;
-    state.documents.scenario.dirty = false;
+  if (isInitialBuild && submittedDocuments) {
+    if (elements.engineEditor.value === submittedDocuments.engine) {
+      state.documents.engine.dirty = false;
+    }
+    if (elements.scenarioEditor.value === submittedDocuments.scenario) {
+      state.documents.scenario.dirty = false;
+    }
   }
   state.workerDiagnostics = [];
   elements.buildButton.disabled = false;
@@ -2424,6 +2641,7 @@ function acceptWorkerDiagnostics(message) {
     state.buildMutationRequests.delete(message.requestId);
     state.buildThrottlePresentations.delete(message.requestId);
     state.buildPresetIds.delete(message.requestId);
+    state.buildDocumentSnapshots.delete(message.requestId);
     state.mutationPriorStates.delete(message.requestId);
     state.requestKinds.delete(message.requestId);
     setSessionState(
@@ -2539,10 +2757,57 @@ function acceptWavExport(message) {
   showToast(`Saved ${filename}.`);
 }
 
+function acceptAudioAtlasStatus(message) {
+  const snapshot = normalizeAudioAtlasSnapshot(message.audioAtlas ?? message);
+  state.audioAtlas = snapshot;
+  state.comparisonMode =
+    snapshot.status === "active" && snapshot.bakedAvailable
+      ? snapshot.comparisonMode
+      : SOURCE_COMPARISON_MODE;
+  renderBakedAuditionControls();
+}
+
+function acceptComparisonMode(message) {
+  if (
+    message.mode !== SOURCE_COMPARISON_MODE &&
+    message.mode !== BAKED_COMPARISON_MODE
+  ) {
+    throw new Error(`Invalid comparison mode: ${String(message.mode)}`);
+  }
+  if (message.requestId !== null && message.requestId !== undefined) {
+    state.requestKinds.delete(message.requestId);
+  }
+  if (
+    message.requestId === state.comparisonModeRequestId ||
+    message.forced === true
+  ) {
+    state.comparisonModeRequestId = null;
+    state.requestedComparisonMode = null;
+  }
+  state.comparisonMode = message.mode;
+  state.audioAtlas = {
+    ...state.audioAtlas,
+    comparisonMode: message.mode,
+    bakedAvailable:
+      state.audioAtlas.status === "active" &&
+      message.bakedAvailable === true,
+  };
+  renderBakedAuditionControls();
+}
+
 function acceptWorkerError(message) {
   const error = message.error ?? message;
   const requestKind = state.requestKinds.get(message.requestId);
   state.requestKinds.delete(message.requestId);
+  if (requestKind === "set-comparison-mode") {
+    if (message.requestId === state.comparisonModeRequestId) {
+      state.comparisonModeRequestId = null;
+      state.requestedComparisonMode = null;
+    }
+    renderBakedAuditionControls();
+    showToast(error.message, true);
+    return;
+  }
   for (const [kind, pending] of state.pendingControls) {
     if (pending.requestId === message.requestId) {
       state.pendingControls.delete(kind);
@@ -2554,6 +2819,7 @@ function acceptWorkerError(message) {
   state.buildMutationRequests.delete(message.requestId);
   state.buildThrottlePresentations.delete(message.requestId);
   state.buildPresetIds.delete(message.requestId);
+  state.buildDocumentSnapshots.delete(message.requestId);
   state.mutationPriorStates.delete(message.requestId);
   state.workerDiagnostics = [
     ...state.workerDiagnostics,
@@ -2634,6 +2900,12 @@ function handleWorkerMessage(event) {
         break;
       case "runtime-stats":
         acceptRuntimeStats(message);
+        break;
+      case "audio-atlas-status":
+        acceptAudioAtlasStatus(message);
+        break;
+      case "comparison-mode":
+        acceptComparisonMode(message);
         break;
       case "controls-result":
         acceptControlsResult(message);
@@ -2806,6 +3078,11 @@ function bindEvents() {
       busIndex: Number(elements.busSelect.value),
     });
   });
+  for (const button of elements.comparisonModeButtons) {
+    button.addEventListener("click", () => {
+      requestComparisonMode(button.dataset.comparisonMode);
+    });
+  }
   elements.throttleInput.addEventListener("input", () => {
     const value = Number(elements.throttleInput.value) / 100;
     state.editingControls.add("throttle");

@@ -482,7 +482,7 @@ async function verifySourceOnlyAudition(cdp) {
   assert.equal(ready.startDisabled, false);
   assert.equal(
     ready.bakedAuditionDetail,
-    "Baked B is unavailable pending clean-room atlas integration. Source A remains live.",
+    "This build has no continuous audio atlas. Source A remains live.",
   );
 
   await cdp.evaluate(
@@ -797,7 +797,7 @@ async function main() {
       (state) =>
         state.readyState === "complete" &&
         state.isolated &&
-        state.worker === "WASM ABI 8" &&
+        state.worker === "WASM ABI 9" &&
         !state.buildDisabled,
       "isolated workbench and WASM Worker",
     );

@@ -5,7 +5,7 @@ import {
 } from "./c-api-abi.js";
 import { PCM_RING_HEADER_SCHEMA } from "./pcm-ring-buffer.js";
 
-export const WORKER_PROTOCOL_ID = "engine-sim-offline/browser-worker-v4";
+export const WORKER_PROTOCOL_ID = "engine-sim-offline/browser-worker-v5";
 
 export const LIVE_CONTROL_CAPABILITIES = Object.freeze([
   Object.freeze({
