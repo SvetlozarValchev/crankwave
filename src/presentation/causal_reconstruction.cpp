@@ -25,6 +25,23 @@ CausalReconstruction::CausalReconstruction(std::size_t route_count,
                            dsp::CausalReconstructionTable::tap_count) {
         throw std::overflow_error{"causal reconstruction history size overflowed"};
     }
+    static_assert(kInputRateHz % kRationalPhaseStepHz == 0U);
+    static_assert(kSourceRateHz % kRationalPhaseStepHz == 0U);
+    static_assert(kRationalPhaseKernelCount == 48U);
+    rational_phase_kernels_.resize(kRationalPhaseKernelCount *
+                                   dsp::CausalReconstructionTable::tap_count);
+    for (std::size_t kernel = 0; kernel < kRationalPhaseKernelCount; ++kernel) {
+        const auto phase = resolve_phase(kernel * kRationalPhaseStepHz);
+        const auto row0 = table_.phase_row(phase.phase0);
+        const auto row1 =
+            table_.phase_row(static_cast<std::size_t>(phase.phase0) + 1U);
+        for (std::size_t tap = 0; tap < dsp::CausalReconstructionTable::tap_count;
+             ++tap) {
+            rational_phase_kernels_[
+                kernel * dsp::CausalReconstructionTable::tap_count + tap] =
+                row0[tap] + (row1[tap] - row0[tap]) * phase.mix;
+        }
+    }
     histories_.resize(route_count_ * dsp::CausalReconstructionTable::tap_count);
 }
 
@@ -105,35 +122,43 @@ void CausalReconstruction::process(std::span<const double> input_frame_major,
         auto offset = distance_to_next_output_;
 
         for (std::uint64_t frame = 0; frame < output_count; ++frame) {
-            const auto phase = resolve_phase(offset);
-            const auto row0 = table_.phase_row(phase.phase0);
-            const auto row1 =
-                table_.phase_row(static_cast<std::size_t>(phase.phase0) + 1U);
+            if (offset % kRationalPhaseStepHz != 0U) {
+                throw std::logic_error{
+                    "reconstruction clock left its exact rational phase lattice"};
+            }
+            const auto kernel_index =
+                static_cast<std::size_t>(offset / kRationalPhaseStepHz);
+            if (kernel_index >= kRationalPhaseKernelCount) {
+                throw std::logic_error{
+                    "reconstruction rational phase index exceeded its table"};
+            }
+            const std::span<const double, dsp::CausalReconstructionTable::tap_count>
+                coefficients{
+                    rational_phase_kernels_.data() +
+                        kernel_index * dsp::CausalReconstructionTable::tap_count,
+                    dsp::CausalReconstructionTable::tap_count};
 
             auto samples =
                 output_frame_major.subspan(output_index * route_count_, route_count_);
-            std::fill(samples.begin(), samples.end(), 0.0);
-            auto history_index = oldest_history_frame_;
-            for (std::size_t tap = 0; tap < dsp::CausalReconstructionTable::tap_count;
-                 ++tap) {
-                const double coefficient =
-                    row0[tap] + (row1[tap] - row0[tap]) * phase.mix;
-                for (std::size_t route = 0; route < route_count_; ++route) {
-                    samples[route] =
-                        samples[route] +
-                        histories_[route * dsp::CausalReconstructionTable::tap_count +
-                                   history_index] *
-                            coefficient;
+            for (std::size_t route = 0; route < route_count_; ++route) {
+                double sample = 0.0;
+                auto history_index = oldest_history_frame_;
+                const auto history_offset =
+                    route * dsp::CausalReconstructionTable::tap_count;
+                for (std::size_t tap = 0;
+                     tap < dsp::CausalReconstructionTable::tap_count; ++tap) {
+                    sample = sample +
+                             histories_[history_offset + history_index] *
+                                 coefficients[tap];
+                    ++history_index;
+                    if (history_index == dsp::CausalReconstructionTable::tap_count) {
+                        history_index = 0;
+                    }
                 }
-                ++history_index;
-                if (history_index == dsp::CausalReconstructionTable::tap_count) {
-                    history_index = 0;
-                }
-            }
-            for (const auto sample : samples) {
                 if (!std::isfinite(sample)) {
                     throw std::domain_error{"reconstruction output was non-finite"};
                 }
+                samples[route] = sample;
             }
             ++output_index;
             offset += input_rate_hz_;
