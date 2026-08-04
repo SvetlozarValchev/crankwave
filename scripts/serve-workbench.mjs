@@ -69,7 +69,7 @@ function routePath(pathname, rootDirectory) {
   if (pathname === "/") {
     return path.join(rootDirectory, "web", "index.html");
   }
-  const allowedPrefixes = ["/web/", "/data/", "/reference/"];
+  const allowedPrefixes = ["/web/", "/data/", "/reference/", "/packages/"];
   let decoded;
   try {
     decoded = decodeURIComponent(pathname);

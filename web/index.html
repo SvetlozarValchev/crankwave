@@ -280,6 +280,57 @@
               Export authored scenario WAV
             </button>
           </div>
+
+          <div class="audition-controls" aria-labelledby="audition-title">
+            <div class="audition-copy">
+              <div class="audition-heading">
+                <span id="audition-title">Source / baked audition</span>
+                <span id="audio-package-status" class="small-badge">
+                  Source only
+                </span>
+              </div>
+              <p id="audio-package-detail">
+                This preset has no matching responsive audio package.
+              </p>
+            </div>
+            <div
+              id="comparison-mode-controls"
+              class="comparison-mode-controls"
+              role="group"
+              aria-label="Audition signal"
+            >
+              <button
+                class="comparison-mode is-selected"
+                type="button"
+                data-comparison-mode="source-a"
+                aria-pressed="true"
+                disabled
+              >
+                <strong>Source A</strong>
+                <span>Live simulator</span>
+              </button>
+              <button
+                class="comparison-mode"
+                type="button"
+                data-comparison-mode="baked-b"
+                aria-pressed="false"
+                disabled
+              >
+                <strong>Baked B</strong>
+                <span>Responsive package</span>
+              </button>
+              <button
+                class="comparison-mode"
+                type="button"
+                data-comparison-mode="split"
+                aria-pressed="false"
+                disabled
+              >
+                <strong>Split</strong>
+                <span>A left · B right</span>
+              </button>
+            </div>
+          </div>
         </section>
 
         <div class="lower-grid">

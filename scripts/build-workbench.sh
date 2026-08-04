@@ -30,4 +30,13 @@ docker run --rm \
             --parallel 4
     '
 
+responsive_package_source="${repository_dir}/artifacts/listening/bmw-m52tub28-responsive-package-first-audition"
+responsive_package_output="${output_dir}/packages/bmw-m52tub28-responsive"
+if [[ -f "${responsive_package_source}/package.json" ]]; then
+    cmake -E make_directory "${responsive_package_output}"
+    cmake -E copy_directory \
+        "${responsive_package_source}" \
+        "${responsive_package_output}"
+fi
+
 printf '%s\n' "${output_dir}"
