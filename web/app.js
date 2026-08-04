@@ -8,14 +8,8 @@ import { WORKER_PROTOCOL_ID } from "./runtime/protocol.js";
 const WORKER_URL = "/web/engine-worker.js";
 const WORKLET_URL = "/web/audio-worklet.js";
 const DEFAULT_PACKAGE_ID = "bmw-m52tub28-free-rev";
-const BMW_M52TUB28_RESPONSIVE_PACKAGE_URL =
-  "/packages/bmw-m52tub28-responsive/package.json";
-const RESPONSIVE_AUDIO_PACKAGE_PRESET =
-  "BMW M52TUB28 · Source A 10 kHz / Baked B 20 kHz · Interactive free rev";
-const COMPARISON_MODE = Object.freeze({
-  source: "source-a",
-  baked: "baked-b",
-});
+const BAKED_AUDITION_DETAIL =
+  "Baked B is unavailable pending clean-room atlas integration. Source A remains live.";
 const WORKBENCH_PACKAGES = Object.freeze([
   Object.freeze({
     id: "bmw-m52b28-free-rev",
@@ -131,12 +125,11 @@ const WORKBENCH_PACKAGES = Object.freeze([
   }),
   Object.freeze({
     id: "bmw-m52tub28-free-rev",
-    label: "BMW M52TUB28 · Source A 10 kHz / Baked B 20 kHz · Interactive free rev",
+    label: "BMW M52TUB28 · 10 kHz preview · Interactive free rev",
     executionKind: SessionExecutionKind.openEnded,
     engineUrl: "/data/engines/bmw-m52tub28-cleanroom/engine.json",
     scenarioUrl:
       "/data/engines/bmw-m52tub28-cleanroom/scenarios/warm-running-free-rev-700rpm-10khz-preview.json",
-    responsiveAudioPackageUrl: BMW_M52TUB28_RESPONSIVE_PACKAGE_URL,
   }),
   Object.freeze({
     id: "bmw-m52tub28-canonical-crank",
@@ -338,8 +331,8 @@ const elements = {
   telemetryCanvas: $("#telemetry-canvas"),
   busSelect: $("#bus-select"),
   exportButton: $("#export-button"),
-  audioPackageStatus: $("#audio-package-status"),
-  audioPackageDetail: $("#audio-package-detail"),
+  bakedAuditionStatus: $("#baked-audition-status"),
+  bakedAuditionDetail: $("#baked-audition-detail"),
   comparisonModeControls: $("#comparison-mode-controls"),
   comparisonModeButtons: [
     ...document.querySelectorAll("[data-comparison-mode]"),
@@ -432,15 +425,6 @@ const state = {
   mutationPriorStates: new Map(),
   loadedPresetId: null,
   built: null,
-  audioPackage: {
-    status: "source-only",
-    packageId: null,
-    detail: `Baked B is currently available only for ${RESPONSIVE_AUDIO_PACKAGE_PRESET}.`,
-    requestId: null,
-    mode: COMPARISON_MODE.source,
-    modeRequestId: null,
-    priorMode: COMPARISON_MODE.source,
-  },
   sessionState: "idle",
   securityAdmitted: false,
   liveState: {
@@ -500,72 +484,18 @@ function showToast(message, isError = false) {
   window.setTimeout(() => toast.remove(), 4400);
 }
 
-function renderAudioPackageControls() {
-  const audioPackage = state.audioPackage;
-  const loaded = audioPackage.status === "loaded";
-  const pendingMode = audioPackage.modeRequestId !== null;
-  const structurallyBusy = [
-    "building",
-    "compiling",
-    "exporting",
-    "failed",
-  ].includes(state.sessionState);
-  const statusLabels = {
-    "source-only": "Source only",
-    loading: "Loading baked B",
-    loaded: "A/B ready",
-    unavailable: "Baked unavailable",
-  };
-  elements.audioPackageStatus.textContent =
-    statusLabels[audioPackage.status] ?? "Source only";
-  elements.audioPackageStatus.dataset.state = audioPackage.status;
-  const packageStats = state.runtimeStats?.audioPackage;
-  const comparison = packageStats?.comparison?.cumulative;
-  const follower = packageStats?.follower;
-  let detail = audioPackage.detail;
-  if (
-    loaded &&
-    packageStats?.packageId === audioPackage.packageId &&
-    comparison?.frameCount > 0
-  ) {
-    const levelDelta = Number.isFinite(comparison.bakedMinusSourceRmsDb)
-      ? `${comparison.bakedMinusSourceRmsDb >= 0 ? "+" : ""}${comparison.bakedMinusSourceRmsDb.toFixed(1)} dB`
-      : "n/a";
-    const lastSelection = follower?.lastSelection;
-    const row = lastSelection
-      ? ` · ${Math.round(lastSelection.targetRpm)} rpm (${lastSelection.variationOffset >= 0 ? "+" : ""}${lastSelection.variationOffset})`
-      : "";
-    detail =
-      `${audioPackage.packageId}${row}` +
-      ` · B−A ${levelDelta}` +
-      ` · B peak ${(comparison.baked?.peak ?? 0).toFixed(3)}` +
-      ` · clips ${comparison.baked?.clipSampleCount ?? 0}` +
-      ` · gaps ${follower?.uncoveredFrameCount ?? 0}` +
-      ` · silence ${follower?.exactSilentFrameCount ?? 0}`;
-  }
-  elements.audioPackageDetail.textContent = detail;
-  elements.comparisonModeControls.setAttribute(
-    "aria-busy",
-    String(audioPackage.status === "loading" || pendingMode),
-  );
+function renderBakedAuditionControls() {
+  elements.bakedAuditionStatus.textContent = "Baked unavailable";
+  elements.bakedAuditionStatus.dataset.state = "unavailable";
+  elements.bakedAuditionDetail.textContent = BAKED_AUDITION_DETAIL;
+  elements.comparisonModeControls.setAttribute("aria-busy", "false");
 
   for (const button of elements.comparisonModeButtons) {
-    const selected = button.dataset.comparisonMode === audioPackage.mode;
+    const selected = button.dataset.comparisonMode === "source-a";
     button.classList.toggle("is-selected", selected);
     button.setAttribute("aria-pressed", String(selected));
-    button.disabled = !loaded || pendingMode || structurallyBusy;
+    button.disabled = true;
   }
-}
-
-function resetAudioPackageState(status, detail) {
-  state.audioPackage.status = status;
-  state.audioPackage.packageId = null;
-  state.audioPackage.detail = detail;
-  state.audioPackage.requestId = null;
-  state.audioPackage.mode = COMPARISON_MODE.source;
-  state.audioPackage.modeRequestId = null;
-  state.audioPackage.priorMode = COMPARISON_MODE.source;
-  renderAudioPackageControls();
 }
 
 function nextRequestId() {
@@ -1155,71 +1085,6 @@ function packageById(id) {
   return WORKBENCH_PACKAGES.find((candidate) => candidate.id === id) ?? null;
 }
 
-function responsivePackageForBuiltSession() {
-  const packageDefinition = packageById(state.built?.presetId);
-  if (!packageDefinition?.responsiveAudioPackageUrl) {
-    return null;
-  }
-  const selectedBus = state.built?.descriptor.buses?.find(
-    (bus) => bus.index === state.built.descriptor.selectedBusIndex,
-  );
-  if (selectedBus?.kind !== "engine-audition-master") {
-    return null;
-  }
-  return packageDefinition;
-}
-
-function loadResponsiveAudioPackage() {
-  const packageDefinition = responsivePackageForBuiltSession();
-  if (!packageDefinition) {
-    const mappedPackage = packageById(state.built?.presetId)
-      ?.responsiveAudioPackageUrl;
-    resetAudioPackageState(
-      "source-only",
-      mappedPackage
-        ? "Select the master.engine.audition bus to compare source and baked audio."
-        : `Baked B is currently available only for ${RESPONSIVE_AUDIO_PACKAGE_PRESET}.`,
-    );
-    return;
-  }
-
-  const requestId = nextRequestId();
-  state.audioPackage.status = "loading";
-  state.audioPackage.packageId = null;
-  state.audioPackage.detail =
-    "Fetching and validating the exact BMW M52TU responsive package…";
-  state.audioPackage.requestId = requestId;
-  state.audioPackage.mode = COMPARISON_MODE.source;
-  state.audioPackage.modeRequestId = null;
-  state.audioPackage.priorMode = COMPARISON_MODE.source;
-  renderAudioPackageControls();
-  postWorker({
-    type: "load-audio-package",
-    requestId,
-    packageManifestUrl: packageDefinition.responsiveAudioPackageUrl,
-  });
-}
-
-function requestComparisonMode(mode) {
-  if (
-    state.audioPackage.status !== "loaded" ||
-    state.audioPackage.modeRequestId !== null ||
-    !Object.values(COMPARISON_MODE).includes(mode) ||
-    mode === state.audioPackage.mode
-  ) {
-    return;
-  }
-  const requestId = nextRequestId();
-  state.audioPackage.priorMode = state.audioPackage.mode;
-  state.audioPackage.modeRequestId = requestId;
-  renderAudioPackageControls();
-  postWorker({
-    type: "set-comparison-mode",
-    requestId,
-    mode,
-  });
-}
-
 function populatePackageSelect() {
   elements.packageSelect.textContent = "";
   const groups = new Map();
@@ -1768,7 +1633,6 @@ function acceptBuilt(message) {
   setChip(elements.buildStatus, "Build admitted", "good");
   renderDocumentChrome();
   renderBuses();
-  loadResponsiveAudioPackage();
   renderDiagnostics();
   updateBuiltControls();
   showToast(
@@ -1844,8 +1708,7 @@ function updateBuiltControls() {
   elements.startButton.disabled =
     !usable ||
     running ||
-    !state.securityAdmitted ||
-    state.audioPackage.status === "loading";
+    !state.securityAdmitted;
   elements.stopButton.disabled = !active;
   const structuralBusy = [
     "building",
@@ -1893,7 +1756,7 @@ function updateBuiltControls() {
     !running || !capabilities["vehicle-service-brake-application"];
   const admitted = Object.values(capabilities).some(Boolean);
   elements.controlsAdmission.textContent = admitted ? "Admitted" : "Not admitted";
-  renderAudioPackageControls();
+  renderBakedAuditionControls();
 
   const openEnded = built?.descriptor.openEnded === true;
   if (!built) {
@@ -2413,7 +2276,7 @@ function drawTrace() {
 function acceptRuntimeStats(message) {
   state.runtimeStats = message;
   renderRuntimeStats();
-  renderAudioPackageControls();
+  renderBakedAuditionControls();
 }
 
 function readRingStats() {
@@ -2659,58 +2522,6 @@ function acceptControlsResult(message) {
   }
 }
 
-function acceptAudioPackage(message) {
-  if (message.status === "unloaded") {
-    const reason = {
-      "engine-rebuilt": "The compiled engine changed; this session is using Source A.",
-      "source-bus-changed":
-        "The selected bus is not the audition master; this session is using Source A.",
-      "runtime-disposed": "The runtime was disposed; baked audition is detached.",
-    }[message.reason];
-    resetAudioPackageState(
-      "source-only",
-      reason ?? "The responsive package is detached; Source A remains live.",
-    );
-    return;
-  }
-  if (message.requestId !== state.audioPackage.requestId) {
-    return;
-  }
-  if (message.status !== "loaded" || typeof message.packageId !== "string") {
-    throw new Error("The Worker returned an invalid audio-package result.");
-  }
-  state.requestKinds.delete(message.requestId);
-  const packageSize = Number.isSafeInteger(message.byteCount)
-    ? ` · ${(message.byteCount / (1024 * 1024)).toFixed(1)} MiB`
-    : "";
-  state.audioPackage.status = "loaded";
-  state.audioPackage.packageId = message.packageId;
-  state.audioPackage.detail =
-    `${message.packageId}${packageSize}` +
-    " · exact engine and payload hashes admitted";
-  state.audioPackage.requestId = null;
-  state.audioPackage.mode = COMPARISON_MODE.source;
-  state.audioPackage.modeRequestId = null;
-  state.audioPackage.priorMode = COMPARISON_MODE.source;
-  renderAudioPackageControls();
-  updateBuiltControls();
-  showToast("Responsive package ready. Switch Source A / Baked B while running.");
-}
-
-function acceptComparisonMode(message) {
-  state.requestKinds.delete(message.requestId);
-  if (message.requestId !== state.audioPackage.modeRequestId) {
-    return;
-  }
-  if (!Object.values(COMPARISON_MODE).includes(message.mode)) {
-    throw new Error("The Worker returned an invalid comparison mode.");
-  }
-  state.audioPackage.mode = message.mode;
-  state.audioPackage.modeRequestId = null;
-  state.audioPackage.priorMode = message.mode;
-  renderAudioPackageControls();
-}
-
 function acceptWavExport(message) {
   state.requestKinds.delete(message.requestId);
   if (!(message.wav instanceof ArrayBuffer)) {
@@ -2732,26 +2543,6 @@ function acceptWorkerError(message) {
   const error = message.error ?? message;
   const requestKind = state.requestKinds.get(message.requestId);
   state.requestKinds.delete(message.requestId);
-  if (requestKind === "load-audio-package") {
-    if (message.requestId === state.audioPackage.requestId) {
-      resetAudioPackageState(
-        "unavailable",
-        `Baked B was not admitted (${error.message}). Source A remains live.`,
-      );
-      updateBuiltControls();
-      showToast("Baked package unavailable; Source A is still usable.", true);
-    }
-    return;
-  }
-  if (requestKind === "set-comparison-mode") {
-    if (message.requestId === state.audioPackage.modeRequestId) {
-      state.audioPackage.mode = state.audioPackage.priorMode;
-      state.audioPackage.modeRequestId = null;
-      renderAudioPackageControls();
-      showToast(`Audition switch rejected: ${error.message}`, true);
-    }
-    return;
-  }
   for (const [kind, pending] of state.pendingControls) {
     if (pending.requestId === message.requestId) {
       state.pendingControls.delete(kind);
@@ -2846,12 +2637,6 @@ function handleWorkerMessage(event) {
         break;
       case "controls-result":
         acceptControlsResult(message);
-        break;
-      case "audio-package":
-        acceptAudioPackage(message);
-        break;
-      case "comparison-mode":
-        acceptComparisonMode(message);
         break;
       case "wav-export":
         acceptWavExport(message);
@@ -3021,12 +2806,6 @@ function bindEvents() {
       busIndex: Number(elements.busSelect.value),
     });
   });
-  for (const button of elements.comparisonModeButtons) {
-    button.addEventListener("click", () => {
-      requestComparisonMode(button.dataset.comparisonMode);
-    });
-  }
-
   elements.throttleInput.addEventListener("input", () => {
     const value = Number(elements.throttleInput.value) / 100;
     state.editingControls.add("throttle");
@@ -3230,7 +3009,7 @@ async function initialize() {
   renderDiagnostics();
   renderTelemetry();
   renderRuntimeStats();
-  renderAudioPackageControls();
+  renderBakedAuditionControls();
   drawTrace();
   startWorker();
   window.setInterval(renderRuntimeStats, 250);

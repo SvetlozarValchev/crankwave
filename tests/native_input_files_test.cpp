@@ -179,36 +179,6 @@ void test_success_and_owned_views(const std::filesystem::path &source_root) {
            "accessory asset view does not borrow the owned exact bytes");
 }
 
-void test_package_bake_sources(const std::filesystem::path &source_root) {
-    const auto package_path =
-        source_root /
-        "data/engines/bmw-m52tub28-cleanroom/package-bake.json";
-    auto loaded =
-        load_native_package_bake_input(package_path, source_root);
-    const auto *package = std::get_if<NativePackageBakeInput>(&loaded);
-    expect(package != nullptr,
-           "valid package bake input was rejected");
-    expect(package->document.id.value ==
-                   "bmw-m52tub28-cleanroom-normal-running" &&
-               package->source.canonical_path ==
-                   std::filesystem::canonical(package_path) &&
-               package->source.sha256 ==
-                   contract::sha256(package->source.bytes),
-           "package loader did not retain the exact bake plan identity");
-    expect(package->scenarios.size() == 4U &&
-               package->scenarios[0].source_id == "coast-fall-source" &&
-               package->scenarios[1].source_id == "part-rise-source" &&
-               package->scenarios[2].source_id == "power-rise-source" &&
-               package->scenarios[3].source_id == "idle-source",
-           "package scenario sources lost authored order");
-    for (const auto &scenario : package->scenarios) {
-        expect(!scenario.source.bytes.empty() &&
-                   scenario.source.sha256 ==
-                       contract::sha256(scenario.source.bytes),
-               "package scenario source identity is not exact");
-    }
-}
-
 void test_missing_and_nonregular_assets(
     const std::filesystem::path &source_root) {
     {
@@ -411,7 +381,6 @@ int main(int argc, char **argv) {
 #endif
         test_resource_limits(source_root);
         test_scenario_diagnostics(source_root);
-        test_package_bake_sources(source_root);
         test_output_preflight();
     } catch (const std::exception &error) {
         std::cerr << "native input files test failure: " << error.what()

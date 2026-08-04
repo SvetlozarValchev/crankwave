@@ -58,7 +58,7 @@ sound model or a multi-minute mandatory bake.
 
 The first public capability is engine audio. Existing torque and physical telemetry
 remain available where the model already computes them. Authoritative game-facing
-power, compiled lightweight audio packages, and Unity/Roblox adapters are later
+power, compiled lightweight audio atlases, and Unity/Roblox adapters are later
 products built on this boundary.
 
 ## 2. Greenfield rules
@@ -464,7 +464,7 @@ After headless executable parity:
   exhaust sources only;
 - improve fidelity one established subsystem at a time, with immediate A/B listening
   only for that sound-affecting change;
-- compile accepted behavior into lightweight audio-follower packages for game runtimes;
+- compile accepted behavior into lightweight audio atlases for game runtimes;
 - expose authoritative torque/power only after its ownership and calibration contract
   is ready.
 
@@ -1090,6 +1090,6 @@ phase and PCM-aligned operating state remain capture and handoff evidence rather
 a second runtime scheduler.
 
 The first vertical slice keeps the source renderer byte-identical, bakes one BMW
-normal-running package, and extends the existing workbench with continuously advancing
+normal-running atlas, and extends the existing workbench with continuously advancing
 direct-source and baked-follower paths under one control state. It stops for live A/B
 audition before lifecycle events, Unity/Roblox adapters, or another fidelity change.

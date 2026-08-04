@@ -1,11 +1,9 @@
 import {
-  AudioBusKind,
   ESO_CANONICAL_SAMPLE_RATE,
   ProcessKind,
   RingState,
   SessionExecutionKind,
 } from "./c-api-abi.js";
-import { loadAudioPackage } from "./audio-package-loader.js";
 import { EngineSimCapiClient } from "./c-api-client.js";
 import { EngineSimRuntimeError } from "./c-api-errors.js";
 import { runCanonicalExport } from "./canonical-export.js";
@@ -18,12 +16,6 @@ import {
   choosePcmRingCapacity,
   createPcmRingBuffer,
 } from "./pcm-ring-buffer.js";
-import { ResponsiveAudioPackageFollower } from "./responsive-audio-package-follower.js";
-import { SourceBakedSessionClock } from "./source-baked-session-clock.js";
-import {
-  SourceBakedComparisonMixer,
-  SourceBakedComparisonMode,
-} from "./source-baked-comparison-mixer.js";
 import {
   liveControlCapability,
   publicDescriptor,
@@ -77,53 +69,10 @@ function outputConfiguration(outputSampleRate, leadFrames) {
   return { outputSampleRate, leadFrames };
 }
 
-async function sha256Utf8(text, cryptoImplementation) {
-  if (!cryptoImplementation?.subtle?.digest) {
-    throw runtimeError(
-      "Web Crypto SHA-256 is unavailable",
-      "browser-runtime-package-crypto-unavailable",
-      "load-audio-package",
-    );
-  }
-  let digest;
-  try {
-    digest = new Uint8Array(
-      await cryptoImplementation.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(text),
-      ),
-    );
-  } catch (error) {
-    throw new EngineSimRuntimeError("hashing the compiled engine JSON failed", {
-      operation: "load-audio-package",
-      detailCode: "browser-runtime-package-engine-hash-failed",
-      diagnostics: [],
-      cause: error,
-    });
-  }
-  return Array.from(digest, (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-}
-
-function summarizedFollowerDiagnostics(follower) {
-  if (follower === null) {
-    return null;
-  }
-  const diagnostics = follower.diagnostics();
-  const { selectionHistory = [], ...summary } = diagnostics;
-  return {
-    ...summary,
-    selectionCount: selectionHistory.length,
-    lastSelection: selectionHistory.at(-1) ?? null,
-  };
-}
-
 export class BrowserEngineRuntime {
   #emit;
   #client;
   #program = null;
-  #engineJson = null;
   #selectedBusIndex = -1;
   #state = "empty";
   #output = null;
@@ -138,37 +87,18 @@ export class BrowserEngineRuntime {
   #lastStatsAt = 0;
   #pumpReceivePort;
   #pumpSendPort;
-  #packageLoader;
-  #crypto;
-  #audioPackage = null;
-  #packageBusId = null;
-  #packageFollower = null;
-  #packageClock = null;
-  #comparisonMixer = null;
-  #comparisonMode = SourceBakedComparisonMode.source;
-  #packageFollowerAdmitted = false;
-  #packageUnavailableFrameCount = 0;
 
   static async create({ moduleUrl, emit }) {
     const client = await EngineSimCapiClient.create(moduleUrl);
     return new BrowserEngineRuntime(client, emit);
   }
 
-  constructor(
-    client,
-    emit,
-    {
-      packageLoader = loadAudioPackage,
-      crypto = globalThis.crypto,
-    } = {},
-  ) {
+  constructor(client, emit) {
     if (typeof emit !== "function") {
       throw new TypeError("BrowserEngineRuntime requires an event emitter");
     }
     this.#client = client;
     this.#emit = emit;
-    this.#packageLoader = packageLoader;
-    this.#crypto = crypto;
     const pumpChannel = new MessageChannel();
     this.#pumpReceivePort = pumpChannel.port1;
     this.#pumpSendPort = pumpChannel.port2;
@@ -214,9 +144,7 @@ export class BrowserEngineRuntime {
 
     const previous = this.#program;
     this.#program = replacement;
-    this.#engineJson = engineJson;
     this.#selectedBusIndex = replacement.session.auditionBusIndex;
-    this.#detachAudioPackage("engine-rebuilt", requestId);
     this.#discardOutput(RingState.ended);
     this.#state = "ready";
     previous?.dispose();
@@ -249,118 +177,10 @@ export class BrowserEngineRuntime {
       this.#replaceSession();
     }
     this.#selectedBusIndex = busIndex;
-    if (!this.#selectedBusAdmitsAudioPackage()) {
-      this.#detachAudioPackage("source-bus-changed", requestId);
-    }
     this.#discardOutput(RingState.ended);
     this.#state = "ready";
     this.#emitBuilt(requestId);
     this.#emitState(requestId);
-  }
-
-  async loadAudioPackage({ requestId, packageManifestUrl }) {
-    this.#requireProgram("load-audio-package");
-    this.#assertNotExporting("load-audio-package");
-    if (this.#state !== "ready") {
-      throw runtimeError(
-        "load the responsive audio package before starting its source session",
-        "browser-runtime-package-load-requires-ready-session",
-        "load-audio-package",
-      );
-    }
-    if (!this.#selectedBusAdmitsAudioPackage()) {
-      throw runtimeError(
-        "responsive A/B requires the mono engine audition master source bus",
-        "browser-runtime-package-source-bus-incompatible",
-        "load-audio-package",
-      );
-    }
-
-    const expectedProgram = this.#program;
-    const expectedEngineJson = this.#engineJson;
-    const loaded = await this.#packageLoader(packageManifestUrl);
-    const engineDigest = await sha256Utf8(expectedEngineJson, this.#crypto);
-    if (this.#program !== expectedProgram || this.#state !== "ready") {
-      throw runtimeError(
-        "the source session changed while its audio package was loading",
-        "browser-runtime-package-load-source-changed",
-        "load-audio-package",
-      );
-    }
-    const packageEngine = loaded.manifest.identity.engine;
-    if (
-      packageEngine.id !== this.#program.engineId ||
-      packageEngine.sha256 !== engineDigest
-    ) {
-      throw runtimeError(
-        "the audio package does not identify the exact compiled engine JSON",
-        "browser-runtime-package-engine-identity-mismatch",
-        "load-audio-package",
-      );
-    }
-    if (
-      loaded.manifest.buses.length !== 1 ||
-      loaded.manifest.buses[0].kind !== "master_engine_audition"
-    ) {
-      throw runtimeError(
-        "the first responsive A/B path requires exactly one package audition master",
-        "browser-runtime-package-bus-incompatible",
-        "load-audio-package",
-      );
-    }
-
-    const packageBusId = loaded.manifest.buses[0].id;
-    const follower = new ResponsiveAudioPackageFollower(loaded);
-    if (!follower.busIds.includes(packageBusId)) {
-      throw runtimeError(
-        "the package follower did not expose its declared audition master",
-        "browser-runtime-package-bus-missing",
-        "load-audio-package",
-      );
-    }
-
-    this.#audioPackage = loaded;
-    this.#packageBusId = packageBusId;
-    this.#comparisonMode = SourceBakedComparisonMode.source;
-    this.#packageFollower = follower;
-    this.#packageClock = new SourceBakedSessionClock();
-    this.#comparisonMixer = new SourceBakedComparisonMixer({
-      mode: this.#comparisonMode,
-    });
-    this.#packageFollowerAdmitted = false;
-    this.#packageUnavailableFrameCount = 0;
-    const byteCount = loaded.artifacts.reduce(
-      (sum, artifact) => sum + artifact.bytes.byteLength,
-      0,
-    );
-    this.#emit({
-      type: "audio-package",
-      requestId,
-      status: "loaded",
-      packageId: loaded.manifest.identity.package_id,
-      engine: { ...packageEngine },
-      manifestUrl: loaded.manifestUrl,
-      busIds: [...follower.busIds],
-      artifactCount: loaded.artifacts.length,
-      byteCount,
-      comparisonMode: this.#comparisonMode,
-    });
-    this.#emitComparisonMode(requestId);
-    this.#emitState(requestId);
-  }
-
-  setComparisonMode({ requestId, mode }) {
-    this.#requireProgram("set-comparison-mode");
-    if (this.#comparisonMixer === null) {
-      throw runtimeError(
-        "load a matching responsive audio package before selecting Baked B",
-        "browser-runtime-package-not-loaded",
-        "set-comparison-mode",
-      );
-    }
-    this.#comparisonMixer.mode = mode;
-    this.#comparisonMode = this.#comparisonMixer.mode;
-    this.#emitComparisonMode(requestId);
   }
 
   start({ requestId, outputSampleRate, leadFrames }) {
@@ -584,10 +404,8 @@ export class BrowserEngineRuntime {
     this.#pumpReceivePort.close();
     this.#pumpSendPort.close();
     this.#discardOutput(RingState.ended);
-    this.#detachAudioPackage("runtime-disposed", requestId);
     this.#program?.dispose();
     this.#program = null;
-    this.#engineJson = null;
     this.#client.dispose();
     this.#state = "disposed";
     this.#emitState(requestId);
@@ -595,7 +413,7 @@ export class BrowserEngineRuntime {
 
   #configureOutput(settings, requestId) {
     const bus = this.#program.session.buses[this.#selectedBusIndex];
-    const channelCount = this.#audioPackage === null ? bus.channelCount : 2;
+    const channelCount = bus.channelCount;
     const resampler = new DeviceRateResampler({
       inputSampleRate: ESO_CANONICAL_SAMPLE_RATE,
       outputSampleRate: settings.outputSampleRate,
@@ -719,60 +537,11 @@ export class BrowserEngineRuntime {
         }
 
         ++this.#coreBlocks;
-        const sourceClock =
-          this.#packageClock === null
-            ? null
-            : this.#packageClock.acceptBlock(block);
-        let bakedPcm = null;
-        if (this.#packageFollower !== null) {
-          if (block.bus.channelCount !== 1) {
-            throw runtimeError(
-              "responsive A/B source ceased to be mono",
-              "browser-runtime-package-source-bus-incompatible",
-              "process-session",
-            );
-          }
-          if (this.#isWarmNormalRunning(sourceClock)) {
-            if (!this.#packageFollowerAdmitted) {
-              this.#packageFollower.reset();
-              this.#packageFollowerAdmitted = true;
-            }
-            const rendered = this.#packageFollower.renderBlock({
-              firstDeliveryFrame: block.process.firstDeliveryFrame,
-              frameCount: block.process.deliveryFrameCount,
-              sourceClock,
-              completedCycles: block.completedCycles,
-            });
-            bakedPcm = rendered.bus(this.#packageBusId);
-            if (!(bakedPcm instanceof Float32Array)) {
-              throw runtimeError(
-                "responsive follower omitted the loaded package bus",
-                "browser-runtime-package-output-missing",
-                "process-session",
-              );
-            }
-          } else {
-            if (this.#packageFollowerAdmitted) {
-              this.#packageFollower.reset();
-              this.#packageFollowerAdmitted = false;
-            }
-            bakedPcm = new Float32Array(block.process.deliveryFrameCount);
-            this.#packageUnavailableFrameCount +=
-              block.process.deliveryFrameCount;
-          }
-        }
         if (block.audible) {
           this.#canonicalFrames += BigInt(
             block.samples.length / block.bus.channelCount,
           );
-          let canonicalPcm = block.samples;
-          if (bakedPcm !== null) {
-            canonicalPcm = this.#comparisonMixer.process(
-              block.samples,
-              bakedPcm,
-            );
-          }
-          const devicePcm = this.#output.resampler.push(canonicalPcm);
+          const devicePcm = this.#output.resampler.push(block.samples);
           if (devicePcm.length !== 0) {
             this.#output.pending = devicePcm;
             this.#output.pendingFrameOffset = 0;
@@ -880,7 +649,6 @@ export class BrowserEngineRuntime {
     const previous = this.#program.session;
     this.#program.session = replacement;
     previous.dispose();
-    this.#resetAudioPackagePlayback();
   }
 
   #discardOutput(finalRingState) {
@@ -904,88 +672,6 @@ export class BrowserEngineRuntime {
         this.#output.published ? RingState.paused : RingState.idle,
       );
     }
-  }
-
-  #selectedBusAdmitsAudioPackage() {
-    if (this.#program === null || this.#selectedBusIndex < 0) {
-      return false;
-    }
-    const bus = this.#program.session.buses[this.#selectedBusIndex];
-    return (
-      bus.kindCode === AudioBusKind.engineAuditionMaster &&
-      bus.channelCount === 1 &&
-      bus.sampleRateHz === ESO_CANONICAL_SAMPLE_RATE
-    );
-  }
-
-  #resetAudioPackagePlayback() {
-    if (this.#audioPackage === null) {
-      return;
-    }
-    this.#packageFollower = new ResponsiveAudioPackageFollower(
-      this.#audioPackage,
-    );
-    this.#packageClock = new SourceBakedSessionClock();
-    this.#comparisonMixer = new SourceBakedComparisonMixer({
-      mode: this.#comparisonMode,
-    });
-    this.#packageFollowerAdmitted = false;
-    this.#packageUnavailableFrameCount = 0;
-  }
-
-  #detachAudioPackage(reason, requestId) {
-    if (this.#audioPackage === null) {
-      return;
-    }
-    const packageId = this.#audioPackage.manifest.identity.package_id;
-    this.#audioPackage = null;
-    this.#packageBusId = null;
-    this.#packageFollower = null;
-    this.#packageClock = null;
-    this.#comparisonMixer = null;
-    this.#comparisonMode = SourceBakedComparisonMode.source;
-    this.#packageFollowerAdmitted = false;
-    this.#packageUnavailableFrameCount = 0;
-    this.#emit({
-      type: "audio-package",
-      requestId: requestId ?? null,
-      status: "unloaded",
-      packageId,
-      reason,
-    });
-  }
-
-  #emitComparisonMode(requestId) {
-    this.#emit({
-      type: "comparison-mode",
-      requestId: requestId ?? null,
-      mode: this.#comparisonMode,
-    });
-  }
-
-  #isWarmNormalRunning(sourceClock) {
-    return (
-      sourceClock.start.rpm > 0 &&
-      sourceClock.end.rpm > 0 &&
-      sourceClock.start.ignitionEnabled &&
-      sourceClock.end.ignitionEnabled &&
-      sourceClock.start.fuelEnabled &&
-      sourceClock.end.fuelEnabled
-    );
-  }
-
-  #packageRuntimeStats() {
-    if (this.#audioPackage === null) {
-      return null;
-    }
-    return {
-      packageId: this.#audioPackage.manifest.identity.package_id,
-      followerAdmitted: this.#packageFollowerAdmitted,
-      unavailableFrameCount: this.#packageUnavailableFrameCount,
-      comparison: this.#comparisonMixer?.diagnostics() ?? null,
-      follower: summarizedFollowerDiagnostics(this.#packageFollower),
-      sourceClock: this.#packageClock?.diagnostics() ?? null,
-    };
   }
 
   #emitBuilt(requestId) {
@@ -1012,10 +698,6 @@ export class BrowserEngineRuntime {
         this.#program && !["empty", "disposed"].includes(this.#state)
           ? this.#program.session.nextDeliveryFrame.toString(10)
           : null,
-      audioPackageId:
-        this.#audioPackage?.manifest.identity.package_id ?? null,
-      comparisonMode:
-        this.#audioPackage === null ? null : this.#comparisonMode,
     });
   }
 
@@ -1034,7 +716,6 @@ export class BrowserEngineRuntime {
           resamplerId: null,
           elapsedMilliseconds: 0,
           ring: null,
-          audioPackage: this.#packageRuntimeStats(),
         });
       }
       return;
@@ -1056,7 +737,6 @@ export class BrowserEngineRuntime {
       resamplerId: DEVICE_RESAMPLER_ID,
       elapsedMilliseconds: this.#startedAt === 0 ? 0 : now - this.#startedAt,
       ring: this.#output.producer.snapshot(),
-      audioPackage: this.#packageRuntimeStats(),
     });
   }
 

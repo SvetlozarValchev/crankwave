@@ -956,17 +956,17 @@ code,
   text-transform: uppercase;
 }
 
-#audio-package-status[data-state="loaded"] {
+#baked-audition-status[data-state="loaded"] {
   color: #a8e8cc;
   border-color: rgb(81 201 149 / 35%);
 }
 
-#audio-package-status[data-state="loading"] {
+#baked-audition-status[data-state="loading"] {
   color: #ffd5ae;
   border-color: rgb(238 139 59 / 40%);
 }
 
-#audio-package-status[data-state="unavailable"] {
+#baked-audition-status[data-state="unavailable"] {
   color: #ffb1ad;
   border-color: rgb(240 107 101 / 40%);
 }

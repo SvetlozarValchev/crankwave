@@ -1,6 +1,6 @@
 # Continuous engine-audio atlas plan
 
-Status: accepted architecture; implementation has not started.
+Status: accepted architecture; sole-contract cutover complete; moving capture next.
 
 Date: 2026-08-04
 
@@ -182,6 +182,18 @@ The production baker therefore:
 - adds a band, slope lane, stationary tile, or transient only where held-out residual
   evidence identifies missing coverage.
 
+The first moving-segment proof retains the simulator's native 192 kHz Float32 monitor
+PCM. There is no native 48 kHz converter yet, and sample-rate conversion may not be
+hidden inside the representation change. A compact 48 kHz atlas becomes a separate
+immediate A/B gate after the continuous cursor is accepted.
+
+For ordinary constant-state moving lanes, current EngineSession telemetry supplies an
+exact frame-addressed knot at every 20 ms block end plus fractional crank-cycle
+boundaries. Capture adds the mean intake-manifold pressure already present in the gas
+state; throttle may never be substituted for missing measured load. Higher-rate
+discrete transition evidence is deferred with the transient/lifecycle slices that need
+it.
+
 The target remains approximately 30 seconds of wall time for a typical engine build
 on the development PC. A package may explicitly declare a larger build class, but the
 baker may not silently turn every engine into a serial exhaustive capture.
@@ -206,12 +218,12 @@ live paths. Combined A/B audio is not an audition substitute.
 ## Replacement sequence
 
 1. Replace this plan and name the rejected architecture. No PCM change.
-2. Add the sole atlas authoring and package contract; remove the old package contract
-   in the same commit.
+2. Add the sole atlas authoring and package contract; remove the complete rejected
+   package baker, decoder, follower, and web integration in the same commit. Direct
+   Source A remains available throughout.
 3. Add chronological moving-band capture and exact state-timeline publication.
-4. Add the single-cursor moving-segment runtime; remove the old follower in the same
-   commit.
-5. Replace the web package integration while retaining the existing comparison mixer,
+4. Add the single-cursor moving-segment runtime.
+5. Add the atlas web integration while retaining the existing comparison mixer,
    shared resampler, ring, worklet, and direct Source A path.
 6. Bake an independently captured BMW atlas and audition a held-out fifth-gear pull.
    Stop for user acceptance.

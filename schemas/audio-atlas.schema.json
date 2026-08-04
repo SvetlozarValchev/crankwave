@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engine-sim-offline.dev/schemas/audio-atlas.schema.json",
+  "title": "Engine Sim Offline continuous audio-atlas manifest",
+  "$comment": "This is the sole current moving-segment package schema. PCM is chronological; cycle boundaries are metadata and never a second playback clock.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "engine",
+    "public_seed",
+    "audio",
+    "domain",
+    "moving_segments",
+    "stationary_tiles",
+    "transient_performances",
+    "lifecycle_performances",
+    "artifacts",
+    "provenance"
+  ],
+  "properties": {
+    "schema": { "const": "engine-sim-offline/audio-atlas" },
+    "id": { "$ref": "#/$defs/id" },
+    "engine": { "$ref": "#/$defs/id" },
+    "public_seed": { "$ref": "#/$defs/uint64Decimal" },
+    "audio": { "$ref": "#/$defs/audio" },
+    "domain": { "$ref": "#/$defs/domain" },
+    "moving_segments": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/movingSegment" }
+    },
+    "stationary_tiles": { "type": "array", "maxItems": 0 },
+    "transient_performances": { "type": "array", "maxItems": 0 },
+    "lifecycle_performances": { "type": "array", "maxItems": 0 },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "provenance": { "$ref": "#/$defs/provenance" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "uint64Decimal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "pattern": "^(0|[1-9][0-9]{0,19})$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "contentIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sha256"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_rate_hz", "encoding", "channel_layout", "buses"],
+      "properties": {
+        "sample_rate_hz": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "encoding": { "const": "float32le" },
+        "channel_layout": { "const": "mono" },
+        "buses": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id"],
+            "properties": { "id": { "$ref": "#/$defs/id" } }
+          }
+        }
+      }
+    },
+    "domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_rpm",
+        "maximum_rpm",
+        "minimum_load_coordinate",
+        "maximum_load_coordinate"
+      ],
+      "properties": {
+        "minimum_rpm": { "type": "number", "exclusiveMinimum": 0 },
+        "maximum_rpm": { "type": "number", "exclusiveMinimum": 0 },
+        "minimum_load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
+        "maximum_load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "relative_path",
+        "frame_count",
+        "byte_count",
+        "payload_sha256"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "relative_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[^\\u0000]+$"
+        },
+        "frame_count": { "$ref": "#/$defs/uint64Decimal" },
+        "byte_count": { "$ref": "#/$defs/uint64Decimal" },
+        "payload_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "busArtifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bus_id", "artifact_id"],
+      "properties": {
+        "bus_id": { "$ref": "#/$defs/id" },
+        "artifact_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "frameRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["begin", "end"],
+      "properties": {
+        "begin": { "$ref": "#/$defs/uint64Decimal" },
+        "end": { "$ref": "#/$defs/uint64Decimal" }
+      }
+    },
+    "rpmRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum"],
+      "properties": {
+        "minimum": { "type": "number", "exclusiveMinimum": 0 },
+        "maximum": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "rpmSlopeRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_rpm_per_second", "maximum_rpm_per_second"],
+      "properties": {
+        "minimum_rpm_per_second": { "type": "number" },
+        "maximum_rpm_per_second": { "type": "number" }
+      }
+    },
+    "timelineKnot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frame",
+        "rpm",
+        "rpm_slope_rpm_per_second",
+        "requested_throttle_01",
+        "signed_load_coordinate",
+        "manifold_pressure_pa_abs",
+        "unwrapped_crank_revolutions",
+        "state_mask",
+        "transition_mask"
+      ],
+      "properties": {
+        "frame": { "$ref": "#/$defs/uint64Decimal" },
+        "rpm": { "type": "number", "exclusiveMinimum": 0 },
+        "rpm_slope_rpm_per_second": { "type": "number" },
+        "requested_throttle_01": { "type": "number", "minimum": 0, "maximum": 1 },
+        "signed_load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
+        "manifold_pressure_pa_abs": { "type": "number", "exclusiveMinimum": 0 },
+        "unwrapped_crank_revolutions": { "type": "number" },
+        "state_mask": { "type": "integer", "minimum": 0, "maximum": 63 },
+        "transition_mask": { "type": "integer", "minimum": 0, "maximum": 63 }
+      }
+    },
+    "fractionalFrame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left_frame", "right_frame", "fraction_from_left_01"],
+      "properties": {
+        "left_frame": { "$ref": "#/$defs/uint64Decimal" },
+        "right_frame": { "$ref": "#/$defs/uint64Decimal" },
+        "fraction_from_left_01": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "crankBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["completed_cycle_ordinal", "position"],
+      "properties": {
+        "completed_cycle_ordinal": { "$ref": "#/$defs/uint64Decimal" },
+        "position": { "$ref": "#/$defs/fractionalFrame" }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transition_frames",
+        "maximum_rpm_error",
+        "maximum_rpm_slope_error_rpm_per_second",
+        "maximum_load_error",
+        "maximum_crank_phase_error_revolutions"
+      ],
+      "properties": {
+        "transition_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "maximum_rpm_error": { "type": "number", "minimum": 0 },
+        "maximum_rpm_slope_error_rpm_per_second": { "type": "number", "minimum": 0 },
+        "maximum_load_error": { "type": "number", "minimum": 0, "maximum": 2 },
+        "maximum_crank_phase_error_revolutions": { "type": "number", "minimum": 0, "maximum": 0.5 }
+      }
+    },
+    "movingSegment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "direction",
+        "load_coordinate",
+        "state_mask",
+        "rpm_slope",
+        "captured_frames",
+        "usable_frames",
+        "captured_rpm",
+        "usable_rpm",
+        "source_scenario",
+        "capture_configuration",
+        "artifacts",
+        "timeline",
+        "crank_boundaries",
+        "handoff"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "direction": { "enum": ["rising", "falling"] },
+        "load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
+        "state_mask": { "type": "integer", "minimum": 0, "maximum": 63 },
+        "rpm_slope": { "$ref": "#/$defs/rpmSlopeRange" },
+        "captured_frames": { "$ref": "#/$defs/frameRange" },
+        "usable_frames": { "$ref": "#/$defs/frameRange" },
+        "captured_rpm": { "$ref": "#/$defs/rpmRange" },
+        "usable_rpm": { "$ref": "#/$defs/rpmRange" },
+        "source_scenario": { "$ref": "#/$defs/contentIdentity" },
+        "capture_configuration": { "$ref": "#/$defs/contentIdentity" },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/busArtifactRef" }
+        },
+        "timeline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["knots"],
+          "properties": {
+            "knots": {
+              "type": "array",
+              "minItems": 2,
+              "items": { "$ref": "#/$defs/timelineKnot" }
+            }
+          }
+        },
+        "crank_boundaries": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/crankBoundary" }
+        },
+        "handoff": { "$ref": "#/$defs/handoff" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "bake_document", "renderer_build", "source_inputs"],
+      "properties": {
+        "engine": { "$ref": "#/$defs/contentIdentity" },
+        "bake_document": { "$ref": "#/$defs/contentIdentity" },
+        "renderer_build": { "$ref": "#/$defs/contentIdentity" },
+        "source_inputs": { "$ref": "#/$defs/contentIdentity" }
+      }
+    }
+  }
+}

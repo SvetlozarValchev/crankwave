@@ -203,150 +203,23 @@ add_test(
 )
 
 add_executable(
-    engine_sim_offline_package_bake_authoring_tests
-    package_bake_authoring_test.cpp
+    engine_sim_offline_audio_atlas_contract_tests
+    audio_atlas_contract_test.cpp
 )
 
 target_link_libraries(
-    engine_sim_offline_package_bake_authoring_tests
-    PRIVATE engine_sim_offline::authoring
-)
-
-add_test(
-    NAME authoring.package_bake
-    COMMAND engine_sim_offline_package_bake_authoring_tests
-)
-
-add_executable(
-    engine_sim_offline_package_bake_compile_tests
-    package_bake_compile_test.cpp
-)
-
-target_link_libraries(
-    engine_sim_offline_package_bake_compile_tests
+    engine_sim_offline_audio_atlas_contract_tests
     PRIVATE
         engine_sim_offline::authoring
-        engine_sim_offline::package_bake
-)
-
-add_test(
-    NAME package_bake.compile
-    COMMAND
-        engine_sim_offline_package_bake_compile_tests
-        ${PROJECT_SOURCE_DIR}
-)
-
-add_executable(
-    engine_sim_offline_package_source_capture_tests
-    package_source_capture_test.cpp
-    bmw_m52b28_render_gate_support.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_package_source_capture_tests
-    PRIVATE ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_package_source_capture_tests
-    PRIVATE
-        engine_sim_offline::package_bake
-        engine_sim_offline::session
+        engine_sim_offline::contract
 )
 engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_package_source_capture_tests
+    engine_sim_offline_audio_atlas_contract_tests
 )
 
 add_test(
-    NAME package_bake.source_capture
-    COMMAND
-        engine_sim_offline_package_source_capture_tests
-        ${PROJECT_SOURCE_DIR}
-)
-set_tests_properties(
-    package_bake.source_capture
-    PROPERTIES TIMEOUT 120
-)
-
-add_executable(
-    engine_sim_offline_uniform_cycle_bank_tests
-    uniform_cycle_bank_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_uniform_cycle_bank_tests
-    PRIVATE ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_uniform_cycle_bank_tests
-    PRIVATE engine_sim_offline::package_bake
-)
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_uniform_cycle_bank_tests
-)
-
-add_test(
-    NAME package_bake.uniform_cycle_bank
-    COMMAND engine_sim_offline_uniform_cycle_bank_tests
-)
-
-add_executable(
-    engine_sim_offline_audio_package_assembly_tests
-    audio_package_assembly_test.cpp
-)
-
-target_include_directories(
-    engine_sim_offline_audio_package_assembly_tests
-    PRIVATE ${PROJECT_SOURCE_DIR}/src
-)
-
-target_link_libraries(
-    engine_sim_offline_audio_package_assembly_tests
-    PRIVATE engine_sim_offline::package_bake
-)
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_audio_package_assembly_tests
-)
-
-add_test(
-    NAME package_bake.audio_package_assembly
-    COMMAND
-        engine_sim_offline_audio_package_assembly_tests
-        ${PROJECT_SOURCE_DIR}
-)
-
-add_executable(
-    engine_sim_offline_audio_package_contract_tests
-    audio_package_contract_test.cpp
-)
-
-target_link_libraries(
-    engine_sim_offline_audio_package_contract_tests
-    PRIVATE engine_sim_offline::artifacts
-)
-
-add_test(
-    NAME contract.audio_package
-    COMMAND engine_sim_offline_audio_package_contract_tests
-)
-
-add_executable(
-    engine_sim_offline_audio_package_directory_publisher_tests
-    audio_package_directory_publisher_test.cpp
-)
-
-target_link_libraries(
-    engine_sim_offline_audio_package_directory_publisher_tests
-    PRIVATE engine_sim_offline::artifacts
-)
-engine_sim_offline_enable_renderer_numeric_policy(
-    engine_sim_offline_audio_package_directory_publisher_tests
-)
-
-add_test(
-    NAME artifacts.audio_package_directory_publisher
-    COMMAND engine_sim_offline_audio_package_directory_publisher_tests
+    NAME contract.audio_atlas
+    COMMAND engine_sim_offline_audio_atlas_contract_tests
 )
 
 add_executable(

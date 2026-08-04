@@ -412,9 +412,9 @@ state. A host-provided “load” may be retained as explicitly non-authoritativ
 or presentation context, but it cannot overwrite the simulator's achieved physical
 load.
 
-A later compiled-package audio follower may authoritatively consume RPM and a
-versioned host load coordinate. That is a different capability from the full physics
-session and must identify its load normalization and coast semantics.
+A later compiled audio-atlas runtime may authoritatively consume RPM and a host load
+coordinate. That is a different capability from the full physics session and must
+identify its load normalization and coast semantics.
 
 ### 5.1 FreeEngine inertia and neutral calibration
 

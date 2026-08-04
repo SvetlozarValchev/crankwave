@@ -81,12 +81,6 @@ async function dispatch(message) {
     case "select-audio-bus":
       runtime.selectAudioBus(message);
       break;
-    case "load-audio-package":
-      await runtime.loadAudioPackage(message);
-      break;
-    case "set-comparison-mode":
-      runtime.setComparisonMode(message);
-      break;
     case "start":
       runtime.start(message);
       break;

@@ -136,7 +136,7 @@ test("the Web workbench catalogs all six canonical procedures", () => {
   }
 });
 
-test("the temporary A/B preview halves only the physics and capture clocks", () => {
+test("the temporary realtime preview halves only the physics and capture clocks", () => {
   const canonical = scenario("warm-running-free-rev-700rpm.json");
   const preview = scenario("warm-running-free-rev-700rpm-10khz-preview.json");
   assert.deepEqual(canonical.rates, {

@@ -2,7 +2,6 @@
 
 #include "engine_sim_offline/authoring/diagnostic.hpp"
 #include "engine_sim_offline/authoring/engine_document.hpp"
-#include "engine_sim_offline/authoring/package_bake_document.hpp"
 #include "engine_sim_offline/authoring/parse.hpp"
 #include "engine_sim_offline/authoring/scenario_document.hpp"
 #include "engine_sim_offline/compile.hpp"
@@ -40,8 +39,6 @@ enum class NativeInputErrorKind : std::uint8_t {
 enum class NativeInputSubject : std::uint8_t {
     engine_document,
     scenario_document,
-    package_bake_document,
-    package_scenario_document,
     asset_root,
     audio_asset,
     accessory_configuration_asset,
@@ -65,7 +62,6 @@ enum class NativeInputErrorCode : std::uint8_t {
     file_changed_during_read,
     invalid_engine_document,
     invalid_scenario_document,
-    invalid_package_bake_document,
     memory_allocation_failed,
     filesystem_failure,
     platform_unavailable,
@@ -115,28 +111,10 @@ struct NativeEngineInput {
     [[nodiscard]] std::vector<compile::AssetPayloadView> asset_views() const;
 };
 
-struct NativePackageScenarioInput {
-    std::string source_id;
-    authoring::ScenarioDocument document;
-    NativeSourceDocument source;
-
-    friend bool operator==(const NativePackageScenarioInput &,
-                           const NativePackageScenarioInput &) = default;
-};
-
-struct NativePackageBakeInput {
-    authoring::PackageBakeDocument document;
-    NativeSourceDocument source;
-    // Exact authored PackageBakeDocument::scenario_sources order.
-    std::vector<NativePackageScenarioInput> scenarios;
-};
-
 using NativeEngineInputResult =
     std::variant<NativeEngineInput, NativeInputError>;
 using NativeScenarioInputResult =
     std::variant<authoring::ScenarioDocument, NativeInputError>;
-using NativePackageBakeInputResult =
-    std::variant<NativePackageBakeInput, NativeInputError>;
 
 [[nodiscard]] NativeEngineInputResult load_native_engine_input(
     const std::filesystem::path &engine_path,
@@ -145,11 +123,6 @@ using NativePackageBakeInputResult =
 
 [[nodiscard]] NativeScenarioInputResult load_native_scenario_input(
     const std::filesystem::path &scenario_path,
-    NativeInputLimits limits = {});
-
-[[nodiscard]] NativePackageBakeInputResult load_native_package_bake_input(
-    const std::filesystem::path &package_bake_path,
-    const std::filesystem::path &asset_root,
     NativeInputLimits limits = {});
 
 enum class NativeOutputErrorKind : std::uint8_t {

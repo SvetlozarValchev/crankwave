@@ -188,9 +188,10 @@ engine.json + scenario.json + assets
 
 Its canonical method quantum is 400 physics/capture frames at 20 kHz to 3,840 delivery
 frames at 192 kHz: 20 ms per `process_block()` call. The browser's explicitly labelled
-source/baked audition preset temporarily admits 200 frames at 10 kHz into the same
-3,840-frame presentation path so Source A can meet its realtime deadline; native
-publication and every canonical scenario remain 20 kHz. The accepted control/candidate
+atlas-audition preset temporarily admits 200 frames at 10 kHz into the same 3,840-frame
+presentation path so Source A can meet its realtime deadline; Baked B remains disabled
+until the new atlas runtime lands. Native publication and every canonical scenario
+remain 20 kHz. The accepted control/candidate
 evidence is recorded in
 [the post-parity fidelity rate gate](docs/POST_PARITY_FIDELITY_RATE_GATE.md). Historical
 10 kHz parity recordings remain evidence only; the preview is not a second production

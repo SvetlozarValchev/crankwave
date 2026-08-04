@@ -62,7 +62,7 @@ add_library(
         src/authoring/parse_engine_references.cpp
         src/authoring/parse_engine_systems.cpp
         src/authoring/parse_engine_valvetrain.cpp
-        src/authoring/parse_package_bake.cpp
+        src/authoring/parse_atlas_bake.cpp
         src/authoring/parse_scenario.cpp
 )
 add_library(
@@ -86,7 +86,7 @@ target_link_libraries(
 add_library(
     engine_sim_offline_contract
     STATIC
-        src/contract/audio_package.cpp
+        src/contract/audio_atlas.cpp
         src/contract/capture.cpp
         src/contract/common.cpp
         src/contract/engine.cpp
@@ -177,39 +177,6 @@ target_link_libraries(
         engine_sim_offline::simulation
 )
 engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_compile)
-
-add_library(
-    engine_sim_offline_package_bake
-    STATIC
-        src/package/audio_package_assembly.cpp
-        src/package/package_bake_compile.cpp
-        src/package/package_source_capture.cpp
-        src/package/package_source_capture_set.cpp
-        src/package/uniform_cycle_bank.cpp
-)
-add_library(
-    engine_sim_offline::package_bake
-    ALIAS engine_sim_offline_package_bake
-)
-
-target_include_directories(
-    engine_sim_offline_package_bake
-    PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-    PRIVATE
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-)
-
-target_link_libraries(
-    engine_sim_offline_package_bake
-    PUBLIC
-        engine_sim_offline::compile
-        engine_sim_offline::build_options
-    PRIVATE
-        engine_sim_offline::artifacts
-        engine_sim_offline::session
-)
-engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_package_bake)
 
 add_library(
     engine_sim_offline_request_identity
@@ -353,8 +320,6 @@ engine_sim_offline_enable_renderer_numeric_policy(engine_sim_offline_bake)
 add_library(
     engine_sim_offline_artifacts
     STATIC
-        src/artifacts/audio_package_directory_publisher.cpp
-        src/artifacts/audio_package_manifest_encoder.cpp
         src/artifacts/directory_render_sink.cpp
         src/artifacts/directory_render_sink_commit.cpp
         src/artifacts/directory_render_sink_lifecycle.cpp
@@ -650,11 +615,6 @@ engine_sim_offline_enable_renderer_numeric_policy(
 )
 
 target_link_libraries(
-    engine_sim_offline_package_bake
-    PRIVATE engine_sim_offline_renderer_determinism
-)
-
-target_link_libraries(
     engine_sim_offline_bake
     PRIVATE
         engine_sim_offline::compile
@@ -749,8 +709,6 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             src/cli/native_input_files.cpp
             src/cli/native_input_filesystem.cpp
             src/cli/native_output_directory.cpp
-            src/cli/native_package_input.cpp
-            src/cli/package_source_identity.cpp
     )
 
     target_include_directories(
@@ -774,7 +732,6 @@ if(ENGINE_SIM_OFFLINE_BUILD_CLI)
             engine_sim_offline::authoring
             engine_sim_offline::compile
             engine_sim_offline::bake
-            engine_sim_offline::package_bake
             engine_sim_offline_renderer_determinism
     )
     engine_sim_offline_enable_renderer_numeric_policy(
@@ -824,7 +781,6 @@ set(
     engine_sim_offline_c_api
     engine_sim_offline_execution
     engine_sim_offline_renderer_determinism
-    engine_sim_offline_package_bake
 )
 if(TARGET engine_sim_offline_wasm)
     list(

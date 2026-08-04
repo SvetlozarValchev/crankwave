@@ -16,7 +16,7 @@ do not change the frozen outward routes. Changing required route identity, cardi
 or meaning—or deleting, merging away, or weakening a route—requires explicit user
 approval and a new matrix revision.
 
-Passing this matrix does not certify the later responsive product package. M7 separately
+Passing this matrix does not certify the later continuous audio atlas. M7 separately
 owns the bounded RPM/load/state capture space, reconstruction representation,
 interpolation/transitions, reference runtime, portability budgets, and platform
 conformance. Several good WAVs are necessary M6 evidence, not proof of interactive
@@ -26,8 +26,8 @@ runtime behavior.
 
 - The offline simulator/baker owns physical observables, canonical high-fidelity
   source-route stems, scenario telemetry, and render evidence.
-- A future package compiler owns compact reconstruction data, stable route mapping,
-  capabilities, provenance, and format versioning.
+- The atlas baker owns compact reconstruction data, stable route mapping,
+  capabilities, and provenance.
 - A thin runtime owns deterministic reconstruction from live state into declared audio
   buses.
 - The host game owns emitter placement, attenuation, occlusion, environment/reverb, and
@@ -197,8 +197,8 @@ host's dynamic occlusion, environment, and final mix.
 
 Freezing this proposal means approving:
 
-1. this as the canonical M6 offline source/render gate, with the responsive runtime
-   package remaining a separate M7 gate;
+1. this as the canonical M6 offline source/render gate, with the continuous atlas
+   runtime remaining a separate M7 gate;
 2. exhaust, intake, and engine mechanical as non-optional source routes, plus the
    raw/audition masters as non-optional M6 QA outputs for a running BMW;
 3. starter as a separately inspectable mechanical child route when that scenario is

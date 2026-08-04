@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engine-sim-offline.dev/schemas/atlas-bake.schema.json",
+  "title": "Engine Sim Offline continuous audio-atlas bake document",
+  "$comment": "This is the sole current moving-segment authoring schema. Later performance classes replace their empty placeholders in place.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "engine",
+    "public_seed",
+    "audio",
+    "domain",
+    "scenario_sources",
+    "moving_segments",
+    "stationary_tiles",
+    "transient_performances",
+    "lifecycle_performances"
+  ],
+  "properties": {
+    "schema": { "const": "engine-sim-offline/atlas-bake" },
+    "id": { "$ref": "#/$defs/id" },
+    "engine": { "$ref": "#/$defs/id" },
+    "public_seed": { "$ref": "#/$defs/uint64Decimal" },
+    "audio": { "$ref": "#/$defs/audio" },
+    "domain": { "$ref": "#/$defs/domain" },
+    "scenario_sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/scenarioSource" }
+    },
+    "moving_segments": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/movingSegment" }
+    },
+    "stationary_tiles": { "type": "array", "maxItems": 0 },
+    "transient_performances": { "type": "array", "maxItems": 0 },
+    "lifecycle_performances": { "type": "array", "maxItems": 0 }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "uint64Decimal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "pattern": "^(0|[1-9][0-9]{0,19})$"
+    },
+    "positiveUint64Decimal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "rationalRate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator", "unit"],
+      "properties": {
+        "numerator": { "$ref": "#/$defs/positiveUint64Decimal" },
+        "denominator": { "$ref": "#/$defs/positiveUint64Decimal" },
+        "unit": { "const": "Hz" }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_rate", "buses"],
+      "properties": {
+        "sample_rate": { "$ref": "#/$defs/rationalRate" },
+        "buses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        }
+      }
+    },
+    "domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_rpm",
+        "maximum_rpm",
+        "minimum_load_coordinate",
+        "maximum_load_coordinate"
+      ],
+      "properties": {
+        "minimum_rpm": { "type": "number", "exclusiveMinimum": 0 },
+        "maximum_rpm": { "type": "number", "exclusiveMinimum": 0 },
+        "minimum_load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
+        "maximum_load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 }
+      }
+    },
+    "scenarioSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "uri"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "uri": { "type": "string", "minLength": 1, "maxLength": 4096 }
+      }
+    },
+    "rpmRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum"],
+      "properties": {
+        "minimum": { "type": "number", "exclusiveMinimum": 0 },
+        "maximum": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "rpmSlopeRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_rpm_per_second", "maximum_rpm_per_second"],
+      "properties": {
+        "minimum_rpm_per_second": { "type": "number" },
+        "maximum_rpm_per_second": { "type": "number" }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transition_frames",
+        "maximum_rpm_error",
+        "maximum_rpm_slope_error_rpm_per_second",
+        "maximum_load_error",
+        "maximum_crank_phase_error_revolutions"
+      ],
+      "properties": {
+        "transition_frames": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "maximum_rpm_error": { "type": "number", "minimum": 0 },
+        "maximum_rpm_slope_error_rpm_per_second": { "type": "number", "minimum": 0 },
+        "maximum_load_error": { "type": "number", "minimum": 0, "maximum": 2 },
+        "maximum_crank_phase_error_revolutions": { "type": "number", "minimum": 0, "maximum": 0.5 }
+      }
+    },
+    "movingSegment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "direction",
+        "load_coordinate",
+        "state_mask",
+        "rpm_slope",
+        "captured_rpm",
+        "usable_rpm",
+        "scenario",
+        "handoff"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "direction": { "enum": ["rising", "falling"] },
+        "load_coordinate": { "type": "number", "minimum": -1, "maximum": 1 },
+        "state_mask": { "type": "integer", "minimum": 0, "maximum": 63 },
+        "rpm_slope": { "$ref": "#/$defs/rpmSlopeRange" },
+        "captured_rpm": { "$ref": "#/$defs/rpmRange" },
+        "usable_rpm": { "$ref": "#/$defs/rpmRange" },
+        "scenario": { "$ref": "#/$defs/id" },
+        "handoff": { "$ref": "#/$defs/handoff" }
+      }
+    }
+  }
+}
